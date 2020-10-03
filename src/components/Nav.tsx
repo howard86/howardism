@@ -21,10 +21,10 @@ const Nav: FC = () => {
   const isSelected = useCallback((href: string) => route.pathname === href, [route.pathname]);
 
   return (
-    <Box as="nav" sx={{ textAlign: "center" }}>
+    <Box as="nav" sx={{ textAlign: "center" }} py={[2, 3, 4]}>
       <Box as="ul" p={1}>
         {NAV_OPTIONS.map(({ title, href }) => (
-          <Box as="li" key={title} my={1}>
+          <Box as="li" key={title} my={[1, 2]}>
             <StyledLink href={href} selected={isSelected(href)}>
               {title}
             </StyledLink>

@@ -6,9 +6,7 @@ import SideBar from "./SideBar";
 const Layout: FC = ({ children }) => (
   <Box sx={{ maxWidth: 2048, mx: "auto" }} fontSize={[1, 2, 3]} pt={[3, 4, 5]}>
     <Flex flexDirection="row" flex-wrap="wrap">
-      <Box width={1 / 3} sx={{ borderRight: "1px solid ", borderColor: "lightgray" }}>
-        <SideBar />
-      </Box>
+      <SideBar />
       <Box as="main" width={2 / 3}>
         {children}
       </Box>
