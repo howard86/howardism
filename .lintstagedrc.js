@@ -1,9 +1,6 @@
 module.exports = {
-  "**/*.ts": [
+  "**/*.{ts,tsx}": [
     (filenames) => filenames.map((filename) => `prettier '${filename}' --write`),
-    (filenames) =>
-      filenames.length > 10
-        ? "eslint . --ext .ts,.tsx"
-        : `eslint ${filenames.join(" ")} --ext .ts,.tsx`,
+    (filenames) => (filenames.length > 1 ? "yarn lint" : `eslint ${filenames.join(" ")}`),
   ],
 };
