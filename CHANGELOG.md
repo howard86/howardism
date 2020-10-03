@@ -1,5 +1,29 @@
 # Changelog
 
+<a name="0.1.2"></a>
+## 0.1.2 (2020-10-03)
+
+### Added
+
+- 👷‍♂️ add circleci config [[0dad45a](https://github.com/Howard86/howardism/commit/0dad45a4700f25b008035d90bd0962e310f48404)]
+- ➕ add husky &amp; lint-staged [[0e1c835](https://github.com/Howard86/howardism/commit/0e1c8350f53c94a8be51c624300455d1579bda32)]
+- ➕ add eslint(parser, plugins, configs) [[caab2de](https://github.com/Howard86/howardism/commit/caab2ded56571cda632a2b2cc37ec00174512a38)]
+
+### Changed
+
+- 🎨 update based on linter [[8fa3bb6](https://github.com/Howard86/howardism/commit/8fa3bb6ccd3d3f947cd9cc4cb69e2885b0cad88a)]
+- 🔧 add lintstaged &amp; husky config [[18e360d](https://github.com/Howard86/howardism/commit/18e360d907cce021959ef3e09e5dc85ddda4d63b)]
+- 🔧 add lint script with eslint config [[adf8e44](https://github.com/Howard86/howardism/commit/adf8e44ae1bbf6ab95fcc08d565b1289815f8f46)]
+
+### Fixed
+
+- 🐛 fix inccorect linter extention config [[06306eb](https://github.com/Howard86/howardism/commit/06306eb3e19961ecf7ea5112c76e53e24632ed6d)]
+
+### Miscellaneous
+
+-  Merge pull request [#2](https://github.com/Howard86/howardism/issues/2) from Howard86/feature/layout [[c910876](https://github.com/Howard86/howardism/commit/c910876ca8393fc73add18f3cd635604c9777ceb)]
+
+
 <a name="0.1.1"></a>
 ## 0.1.1 (2020-09-29)
 
