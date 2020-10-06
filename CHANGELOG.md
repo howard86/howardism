@@ -1,5 +1,29 @@
 # Changelog
 
+<a name="0.2.0"></a>
+## 0.2.0 (2020-10-04)
+
+### Added
+
+- ✨ add SideBar [[fbedcc8](https://github.com/Howard86/howardism/commit/fbedcc8b61130183d8366e832c3310173bb16549)]
+- ✨ add Nav [[074a59d](https://github.com/Howard86/howardism/commit/074a59deb59f3b4a1766618dbacd3fd95d702a08)]
+- ✨ add RouteLink (rebass+next) [[3944644](https://github.com/Howard86/howardism/commit/394464431cc3173daadf8874d593c634167a45da)]
+- ✨ add Profile [[83fe49c](https://github.com/Howard86/howardism/commit/83fe49cbb268d13b921432eadab404b9f69e1fa9)]
+
+### Changed
+
+- 💄 update SideBar styling [[caa15f4](https://github.com/Howard86/howardism/commit/caa15f4dc143da59f90c8db2008734404ee085dd)]
+
+### Fixed
+
+- 🐛 fix inccorect lintstaged linter config [[45694bb](https://github.com/Howard86/howardism/commit/45694bb200b16c812833d228d6bef46d4e677d5f)]
+
+### Miscellaneous
+
+- 🚧 add empty /about &amp; /contact page [[b4e382e](https://github.com/Howard86/howardism/commit/b4e382e11317ff5c234fb373d1b61e31505b635a)]
+-  Merge pull request [#3](https://github.com/Howard86/howardism/issues/3) from Howard86/feature/config [[7c79550](https://github.com/Howard86/howardism/commit/7c7955034397a90baf94839636cca5dd4d885f24)]
+
+
 <a name="0.1.2"></a>
 ## 0.1.2 (2020-10-03)
 
