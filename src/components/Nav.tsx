@@ -7,7 +7,6 @@ import { NAV_OPTIONS } from "@/constants/nav";
 import RouteLink from "./common/RouteLink";
 
 const StyledLink = styled(RouteLink)`
-  text-decoration-line: none;
   font-weight: ${(props) => (props.selected ? "bold" : "inherit")};
   color: ${(props) => props.theme.colors.terraCottaDark};
 
