@@ -6,13 +6,13 @@ import Profile from "./Profile";
 
 const SideBar: FC = () => (
   <Flex
-    py={[3, 4]}
+    py={[3, 4, 5]}
     sx={{
       borderRightWidth: "1px",
       borderRightStyle: "solid",
       borderRightColor: "lightgray",
     }}
-    minHeight="80vh"
+    minHeight="90%"
     flexDirection="column"
   >
     <Box alignSelf="flex-end" mx={[2, 3, 4]}>

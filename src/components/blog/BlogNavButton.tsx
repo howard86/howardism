@@ -13,7 +13,7 @@ const BlogNavButton: FC<BlogNavButtonProps> = ({ title = "Back to Home", date })
       href={date ? `/blog/${date}` : "/"}
       sx={{
         "&:hover": {
-          fontWeight: "bold",
+          color: "terraCottaDark",
         },
       }}
     >

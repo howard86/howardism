@@ -27,8 +27,10 @@ const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
     >
       <Box m={[2, 3]}>
         <Flex justifyContent="space-between" mb={2}>
-          <Heading as="h2">{title}</Heading>
-          <Text sx={{ color: "deepChampagne" }}>{date}</Text>
+          <Heading as="h2" sx={{ color: "independence" }}>
+            {title}
+          </Heading>
+          <Text sx={{ color: "terraCottaDark" }}>{date}</Text>
         </Flex>
         {tags.map((tag) => (
           <Text key={`${date}-${tag}`}>{tag}</Text>

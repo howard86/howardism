@@ -1,6 +1,6 @@
 import React, { FC, memo } from "react";
 import NextLink from "next/link";
-import { Link as RebassLink, LinkProps } from "rebass";
+import { Link as RebassLink, LinkProps } from "rebass/styled-components";
 
 interface RouteLinkProps extends LinkProps {
   href: string;

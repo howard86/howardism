@@ -19,7 +19,7 @@ const Nav: FC = () => {
                 fontWeight={isSelected(href) ? "bold" : "inherit"}
                 sx={{
                   "&:hover": {
-                    color: "terraCotta",
+                    color: "terraCottaDark",
                   },
                 }}
               >

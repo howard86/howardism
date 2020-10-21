@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import hydrate, { Source } from "next-mdx-remote/hydrate";
-import { Box, Flex } from "rebass/styled-components";
+import { Box, Flex, Heading } from "rebass/styled-components";
 
 import BlogNavButton from "./BlogNavButton";
 
@@ -17,8 +17,11 @@ const BlogPostPage: FC<BlogPostPageProps> = ({ mdxSource, meta }) => {
         <BlogNavButton title={meta.lastPostTitle} date={meta.lastPostDate} />
         <BlogNavButton title={meta.nextPostTitle} date={meta.nextPostDate} />
       </Flex>
+      <Heading fontSize={[3, 4, 5]} mt={[3, 4, 5]}>
+        {meta.title}
+      </Heading>
       {content}
-      <Box sx={{ textAlign: "center" }}>
+      <Box my={[2, 3, 4]} sx={{ textAlign: "center" }}>
         <BlogNavButton />
       </Box>
     </Box>

@@ -24,8 +24,12 @@ const globalStyle = css`
   a:visited,
   a:hover,
   a:active {
-    color: inherit;
+    color: ${theme.colors.terraCotta};
     text-decoration-line: none;
+  }
+
+  a:hover {
+    font-weight: ${theme.fontWeights.bold};
   }
 
   li {

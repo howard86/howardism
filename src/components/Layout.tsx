@@ -12,7 +12,7 @@ const Layout: FC = ({ children }) => (
     flex-wrap="wrap"
   >
     <Box width={[0, 1 / 12, 1 / 6]} />
-    <Box width={1 / 6}>
+    <Box width={1 / 6} minHeight="90vh">
       <SideBar />
     </Box>
     <Box as="main" width={[5 / 6, 2 / 3, 1 / 2]}>

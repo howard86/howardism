@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { Box } from "rebass";
+import { Box } from "rebass/styled-components";
 import RouteLink from "./common/RouteLink";
 
 const BlogLayout: FC = ({ children }) => {
