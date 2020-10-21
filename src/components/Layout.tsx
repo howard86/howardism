@@ -4,14 +4,21 @@ import { Box, Flex } from "rebass/styled-components";
 import SideBar from "./SideBar";
 
 const Layout: FC = ({ children }) => (
-  <Box sx={{ maxWidth: 2048, mx: "auto" }} fontSize={[1, 2, 3]} pt={[3, 4, 5]}>
-    <Flex flexDirection="row" flex-wrap="wrap">
+  <Flex
+    sx={{ maxWidth: 2048, mx: "auto" }}
+    fontSize={[0, 1, 2]}
+    pt={[3, 4, 5]}
+    flexDirection="row"
+    flex-wrap="wrap"
+  >
+    <Box width={[0, 1 / 12, 1 / 6]} />
+    <Box width={1 / 6} minHeight="90vh">
       <SideBar />
-      <Box as="main" width={2 / 3}>
-        {children}
-      </Box>
-    </Flex>
-  </Box>
+    </Box>
+    <Box as="main" width={[5 / 6, 2 / 3, 1 / 2]}>
+      {children}
+    </Box>
+  </Flex>
 );
 
 export default Layout;

@@ -1,5 +1,39 @@
 # Changelog
 
+<a name="0.3.0"></a>
+## 0.3.0 (2020-10-21)
+
+### Added
+
+- ✨ add BlogPage &amp; update index page [[5388393](https://github.com/Howard86/howardism/commit/538839309209dcb7939199686df502f14fb55888)]
+- ✨ add PostCard with description [[6382af6](https://github.com/Howard86/howardism/commit/6382af6b85cb90b3fa1d82aaf1c09797d87fe3f6)]
+- ✨ create separate /blog/[slug] for mdx page [[1891a6f](https://github.com/Howard86/howardism/commit/1891a6f24aa18c05d68a79db9af2409cad0c158c)]
+- ✨ add BlogPostPage &amp; BlogNavButton [[0844cb1](https://github.com/Howard86/howardism/commit/0844cb1615801ef89aa807c8d235a1a6ab7e9b9b)]
+- ➕ add next-mdx-remote, gray-matter [[b58e368](https://github.com/Howard86/howardism/commit/b58e368a674451706178925f9a67b75c9086e805)]
+
+### Changed
+
+- 💄 update layout and global &lt;a&gt; [[b6e47b1](https://github.com/Howard86/howardism/commit/b6e47b1049f4b445bce1e868f42fddba12e5cc68)]
+- 🔧 remove mdx config and add redirect /blog -&gt; / [[5e59a0f](https://github.com/Howard86/howardism/commit/5e59a0fd99d7d2e3aec38f6da9001ce311e4e77c)]
+- 💄 update Layout and SideBar styling [[81d7e7a](https://github.com/Howard86/howardism/commit/81d7e7a0827a9d17f7324d4f31662c871e8668de)]
+- 💄 update global fonts [[6ed3813](https://github.com/Howard86/howardism/commit/6ed381388051ffb5d8014f062dce67d66912eb0b)]
+
+### Removed
+
+- ➖ remove @next/mdx [[2205b85](https://github.com/Howard86/howardism/commit/2205b85b1554d1bca0201c78f37ff8a6572dc4b7)]
+
+### Fixed
+
+- ✏️ add custom types [[f2195fd](https://github.com/Howard86/howardism/commit/f2195fd2f4fc367b79c173757f1b72cf8b2bf6ed)]
+
+### Miscellaneous
+
+- 📝 update typo and nextPost frontMatter [[c60505d](https://github.com/Howard86/howardism/commit/c60505d1a7b06f4aff2a862d1b9039a97612de8a)]
+- 📝 writing [#2](https://github.com/Howard86/howardism/issues/2) blog post [[07d3c50](https://github.com/Howard86/howardism/commit/07d3c504b104f0609539bf17507f9f71d18e0fe2)]
+- 📝 writing [#1](https://github.com/Howard86/howardism/issues/1) blog post [[9a953d8](https://github.com/Howard86/howardism/commit/9a953d84950441f387342c56084f5aad9f91f85d)]
+- 🔀 Merge pull request [#4](https://github.com/Howard86/howardism/issues/4) from Howard86/feature/sidebar [[27c3851](https://github.com/Howard86/howardism/commit/27c3851735796ddcfd5b1644551dfb301c417d7e)]
+
+
 <a name="0.2.0"></a>
 ## 0.2.0 (2020-10-04)
 

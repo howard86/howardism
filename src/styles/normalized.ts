@@ -3,7 +3,6 @@ import { css } from "styled-components";
 // reference: https://github.com/necolas/normalize.css/blob/master/normalize.css
 const normalizedStyle = css`
   html {
-    line-height: 1.15; /* 1 */
     -webkit-text-size-adjust: 100%; /* 2 */
   }
 
@@ -16,7 +15,6 @@ const normalizedStyle = css`
   }
 
   h1 {
-    font-size: 2em;
     margin: 0.67em 0;
   }
 

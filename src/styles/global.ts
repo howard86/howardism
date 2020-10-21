@@ -4,6 +4,7 @@ import theme from "./theme";
 
 const globalStyle = css`
   ${normalizedStyle}
+
   html,
   body {
     padding: 0;
@@ -12,15 +13,36 @@ const globalStyle = css`
     color: ${theme.colors.independence};
   }
 
-  * {
-    box-sizing: border-box;
+  p {
+    word-wrap: normal;
+    font-family: ${theme.fonts.body};
+    font-weight: ${theme.fontWeights.body};
+    line-height: ${theme.lineHeights.body};
+  }
+
+  a,
+  a:visited,
+  a:hover,
+  a:active {
+    color: ${theme.colors.terraCotta};
+    text-decoration-line: none;
+  }
+
+  a:hover {
+    font-weight: ${theme.fontWeights.bold};
   }
 
   li {
     list-style: none;
   }
+
+  ul {
+    padding-inline-start: 0;
+  }
 `;
 
-const GlobalStyle = createGlobalStyle`${globalStyle}`;
+const GlobalStyle = createGlobalStyle`
+  ${globalStyle}
+`;
 
 export default GlobalStyle;
