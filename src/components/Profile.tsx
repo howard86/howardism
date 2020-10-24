@@ -1,6 +1,9 @@
 import React, { FC, memo } from "react";
 import { Box, Text, Link } from "rebass/styled-components";
 import Image from "./common/Image";
+import Twitter from "./icons/Twitter";
+import Github from "./icons/Github";
+import Email from "./icons/Email";
 
 const Profile: FC = () => (
   <Box sx={{ textAlign: "center" }}>
@@ -23,6 +26,11 @@ const Profile: FC = () => (
       Howard Tai
     </Text>
     <Text my={2}>A Lifelong Learner</Text>
+    <Box mt={[2, 3]}>
+      <Twitter />
+      <Github />
+      <Email />
+    </Box>
   </Box>
 );
 
