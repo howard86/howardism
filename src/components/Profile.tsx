@@ -1,12 +1,22 @@
 import React, { FC, memo } from "react";
-import { Image, Box, Text, Link } from "rebass/styled-components";
+import { Box, Text, Link } from "rebass/styled-components";
+import Image from "./common/Image";
 
 const Profile: FC = () => (
   <Box sx={{ textAlign: "center" }}>
     <Link href="https://github.com/howard86" target="_blank">
       <Image
         src="/profile.jpeg"
-        sx={{ width: ["3rem", "6rem", "12rem"], height: "auto", borderRadius: 9999 }}
+        width={400}
+        height={400}
+        mx="auto"
+        sx={{
+          width: ["3rem", "6rem", "12rem"],
+          height: "auto",
+          borderRadius: "50%",
+          overflow: "hidden",
+        }}
+        priority
       />
     </Link>
     <Text as="h3" my={2}>
