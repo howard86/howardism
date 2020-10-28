@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { Box, Text } from "rebass/styled-components";
 
 import { NAV_OPTIONS } from "@/constants/nav";
-import RouteLink from "./common/RouteLink";
+import RouteLink from "../common/RouteLink";
 
 const Nav: FC = () => {
   const route = useRouter();

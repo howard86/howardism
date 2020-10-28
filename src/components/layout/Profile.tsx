@@ -1,9 +1,9 @@
 import React, { FC, memo } from "react";
 import { Box, Text, Link } from "rebass/styled-components";
-import Image from "./common/Image";
-import Twitter from "./icons/Twitter";
-import Github from "./icons/Github";
-import Email from "./icons/Email";
+import Image from "../common/Image";
+import Twitter from "../icons/Twitter";
+import Github from "../icons/Github";
+import Email from "../icons/Email";
 
 const Profile: FC = () => (
   <Box sx={{ textAlign: "center" }}>
