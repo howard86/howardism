@@ -5,15 +5,7 @@ interface NavOptions {
 
 export const NAV_OPTIONS: NavOptions[] = [
   {
-    href: "/about",
-    title: "About",
-  },
-  {
     href: "/",
     title: "Blog",
-  },
-  {
-    href: "/contact",
-    title: "Contact",
   },
 ];
