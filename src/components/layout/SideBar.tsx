@@ -4,7 +4,11 @@ import { Box, Flex } from "rebass/styled-components";
 import Nav from "./Nav";
 import Profile from "./Profile";
 
-const SideBar: FC = () => (
+interface SideBarProps {
+  path: string;
+}
+
+const SideBar: FC<SideBarProps> = ({ path }) => (
   <Flex
     py={[3, 4, 5]}
     sx={{
@@ -17,7 +21,7 @@ const SideBar: FC = () => (
   >
     <Box alignSelf="flex-end" mx={[2, 3, 4]}>
       <Profile />
-      <Nav />
+      <Nav path={path} />
     </Box>
   </Flex>
 );
