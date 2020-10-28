@@ -14,16 +14,7 @@ const Nav: FC<NavProps> = ({ path }) => (
       {NAV_OPTIONS.map(({ title, href }) => (
         <Box as="li" key={title} my={[1, 2]}>
           <RouteLink href={href}>
-            <Text
-              fontWeight={path === href ? "bold" : "inherit"}
-              sx={{
-                "&:hover": {
-                  color: "terraCottaDark",
-                },
-              }}
-            >
-              {title}
-            </Text>
+            <Text fontWeight={path === href ? "bold" : "inherit"}>{title}</Text>
           </RouteLink>
         </Box>
       ))}

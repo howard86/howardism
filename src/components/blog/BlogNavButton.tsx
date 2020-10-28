@@ -9,16 +9,7 @@ interface NavButtonProps {
 
 const NavButton: FC<NavButtonProps> = ({ title = "Back to Home", date }) => (
   <Box as="li">
-    <RouteLink
-      href={date ? `/blog/${date}` : "/"}
-      sx={{
-        "&:hover": {
-          color: "terraCottaDark",
-        },
-      }}
-    >
-      {title}
-    </RouteLink>
+    <RouteLink href={date ? `/blog/${date}` : "/"}>{title}</RouteLink>
   </Box>
 );
 

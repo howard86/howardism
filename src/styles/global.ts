@@ -9,7 +9,7 @@ const globalStyle = css`
   body {
     padding: 0;
     margin: 0;
-    background-color: ${theme.colors.eggshellLight};
+    background-color: ${theme.colors.eggshell[0]};
     color: ${theme.colors.independence};
   }
 
@@ -24,12 +24,13 @@ const globalStyle = css`
   a:visited,
   a:hover,
   a:active {
-    color: ${theme.colors.terraCotta};
+    color: ${theme.colors.terraCotta[1]};
     text-decoration-line: none;
   }
 
   a:hover {
     font-weight: ${theme.fontWeights.bold};
+    color: ${theme.colors.terraCotta[0]};
   }
 
   li {
