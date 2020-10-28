@@ -15,7 +15,7 @@ const Layout: FC = ({ children }) => (
     <Box width={1 / 6} minHeight="90vh">
       <SideBar />
     </Box>
-    <Box as="main" width={[5 / 6, 2 / 3, 1 / 2]}>
+    <Box as="main" width={[5 / 6, 2 / 3, 1 / 2]} mx={[2, 3, 4]}>
       {children}
     </Box>
   </Flex>

@@ -2,12 +2,12 @@ import React, { FC } from "react";
 import { Box } from "rebass/styled-components";
 import RouteLink from "@/components/common/RouteLink";
 
-interface BlogNavButtonProps {
+interface NavButtonProps {
   title?: string;
   date?: string;
 }
 
-const BlogNavButton: FC<BlogNavButtonProps> = ({ title = "Back to Home", date }) => (
+const NavButton: FC<NavButtonProps> = ({ title = "Back to Home", date }) => (
   <Box as="li">
     <RouteLink
       href={date ? `/blog/${date}` : "/"}
@@ -22,4 +22,4 @@ const BlogNavButton: FC<BlogNavButtonProps> = ({ title = "Back to Home", date })
   </Box>
 );
 
-export default BlogNavButton;
+export default NavButton;
