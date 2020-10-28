@@ -1,5 +1,21 @@
 # Changelog
 
+<a name="0.3.1"></a>
+## 0.3.1 (2020-10-27)
+
+### Added
+
+- ✨ add responsive custom next Image [[7c3e1df](https://github.com/Howard86/howardism/commit/7c3e1dfd4760694b199bd2e559fa67aaea086efb)]
+
+### Changed
+
+- ⬆️ update to next@10 react@17 react-dom@17 [[329d789](https://github.com/Howard86/howardism/commit/329d789000b202f6d2584d376c21787f2f47af77)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#5](https://github.com/Howard86/howardism/issues/5) from Howard86/feature/blog [[5208c48](https://github.com/Howard86/howardism/commit/5208c48253dc4a81d926738ce712e60fb99cc716)]
+
+
 <a name="0.3.0"></a>
 ## 0.3.0 (2020-10-21)
 
