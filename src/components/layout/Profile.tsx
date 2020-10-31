@@ -1,5 +1,6 @@
 import React, { FC, memo } from "react";
-import { Box, Text, Link } from "rebass/styled-components";
+import { Box, Text } from "rebass/styled-components";
+import RouteLink from "../common/RouteLink";
 import Image from "../common/Image";
 import Twitter from "../icons/Twitter";
 import Github from "../icons/Github";
@@ -7,7 +8,7 @@ import Email from "../icons/Email";
 
 const Profile: FC = () => (
   <Box sx={{ textAlign: "center" }}>
-    <Link href="https://github.com/howard86" target="_blank">
+    <RouteLink href="/">
       <Image
         src="/profile.jpeg"
         width={400}
@@ -21,7 +22,7 @@ const Profile: FC = () => (
         }}
         priority
       />
-    </Link>
+    </RouteLink>
     <Text as="h3" my={2}>
       Howard Tai
     </Text>

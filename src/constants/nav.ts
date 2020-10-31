@@ -3,9 +3,4 @@ interface NavOptions {
   title: string;
 }
 
-export const NAV_OPTIONS: NavOptions[] = [
-  {
-    href: "/",
-    title: "Blog",
-  },
-];
+export const NAV_OPTIONS: NavOptions[] = [];
