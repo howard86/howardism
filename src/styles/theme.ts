@@ -2,11 +2,10 @@ const theme = {
   breakpoints: ["40em", "52em", "64em"],
   fontSizes: [12, 14, 16, 20, 24, 32, 48, 64],
   colors: {
-    lightGrey: "#FEFDFB",
-    eggshell: "#F4F1DE",
-    eggshellLight: "#FEFDFB",
-    terraCotta: "#E07A5F",
-    terraCottaDark: "#43190D",
+    primary: "",
+    secondary: "",
+    eggshell: ["#FEFDFB", "#F4F1DE"],
+    terraCotta: ["#E07A5F", "#43190D"],
     independence: "#3D405B",
     greenSheen: "#81B29A",
     deepChampagne: "#F2CC8F",
@@ -34,11 +33,14 @@ const theme = {
   text: {},
   buttons: {
     primary: {
-      color: "main",
+      color: "secondary",
       bg: "primary",
     },
   },
 };
+
+theme.colors.primary = theme.colors.terraCotta[0];
+theme.colors.secondary = theme.colors.eggshell[1];
 
 export type Theme = typeof theme;
 

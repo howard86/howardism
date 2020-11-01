@@ -16,11 +16,11 @@ const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
     <Card
       sx={{
         borderStyle: "solid",
-        borderColor: "eggshellLight",
+        borderColor: "eggshell.0",
         borderRadius: "1rem",
         borderWidth: "1px",
         "&:hover": {
-          borderColor: "eggshell",
+          borderColor: "eggshell.1",
         },
         my: [2, 3],
       }}
@@ -30,7 +30,7 @@ const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
           <Heading as="h2" sx={{ color: "independence" }}>
             {title}
           </Heading>
-          <Text sx={{ color: "terraCottaDark" }}>{date}</Text>
+          <Text sx={{ color: "terraCotta.0" }}>{date}</Text>
         </Flex>
         {tags.map((tag) => (
           <Text key={`${date}-${tag}`}>{tag}</Text>
