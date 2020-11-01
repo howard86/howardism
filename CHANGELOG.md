@@ -1,5 +1,35 @@
 # Changelog
 
+<a name="0.4.0"></a>
+## 0.4.0 (2020-11-01)
+
+### Added
+
+- ✨ add Email, Github, Twitter IconLinks [[6ae5728](https://github.com/Howard86/howardism/commit/6ae57285d21d93d7d4ba4420615d8197af097dbe)]
+- ✨ add Svg from Rebass Box [[0e7c7d3](https://github.com/Howard86/howardism/commit/0e7c7d3e5d3fc8e6afe8dfd5a329bfa0fd30837b)]
+
+### Changed
+
+- 💄 update theme &amp; global color [[d188e92](https://github.com/Howard86/howardism/commit/d188e92b4bf10742e415db40288ad4e4bca2c9a2)]
+- 🚚 move Layout to container and pass state down [[212e347](https://github.com/Howard86/howardism/commit/212e347ada7fa9b458190ba3000b8781e40edb6e)]
+- ♻️ refactor Layout [[d9ba29e](https://github.com/Howard86/howardism/commit/d9ba29ea969d730370b0bab2bcb71091fed74c38)]
+- ♻️ refactor Home &amp; Blog into containers [[e4cae80](https://github.com/Howard86/howardism/commit/e4cae805536f14021c09e70f4005eddbb8852e11)]
+
+### Removed
+
+- 🔥 remove nav and update Profile link [[f2c1e9c](https://github.com/Howard86/howardism/commit/f2c1e9c0a3edd127fea27bfc576dbd48967b967b)]
+- 🔥 remove unused pages &amp; lambda function [[c2728c3](https://github.com/Howard86/howardism/commit/c2728c30d1a47358e241a3ff05a6c82764c0e307)]
+
+### Fixed
+
+- 🐛 fix google font flashing after first load [[bd36cab](https://github.com/Howard86/howardism/commit/bd36cabc9c9faab52308ec1807b28cc830aa12c7)]
+
+### Miscellaneous
+
+- 📝 write post and update typos [[c29c892](https://github.com/Howard86/howardism/commit/c29c89241917f2e1a446c8901c4697492f122e65)]
+- 🔀 Merge pull request [#6](https://github.com/Howard86/howardism/issues/6) from Howard86/chore/upgrade-nextjs [[e0ebb11](https://github.com/Howard86/howardism/commit/e0ebb118977fb59b5d41bdf36fda6bfb40e33c21)]
+
+
 <a name="0.3.1"></a>
 ## 0.3.1 (2020-10-27)
 
