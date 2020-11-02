@@ -4,7 +4,7 @@ import { GITHUB_URL } from "@/constants/link";
 import Svg from "./Svg";
 
 const Github: FC<BoxProps> = (props) => (
-  <Link href={GITHUB_URL} target="_blank">
+  <Link href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Github Link">
     <Svg {...props}>
       <path
         fill="currentColor"
