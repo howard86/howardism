@@ -6,12 +6,13 @@ interface ImageProps extends RebassImageProps {
   src: string;
   width: number;
   height: number;
+  alt: string;
   priority?: boolean;
 }
 
-const Image: FC<ImageProps> = ({ src, width, height, priority, ...props }) => (
+const Image: FC<ImageProps> = ({ src, width, height, priority, alt, ...props }) => (
   <Box {...props}>
-    <NextImage src={src} width={width} height={height} priority={priority} />
+    <NextImage src={src} width={width} height={height} priority={priority} alt={alt} />
   </Box>
 );
 

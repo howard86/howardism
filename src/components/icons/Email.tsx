@@ -4,7 +4,7 @@ import { EMAIL_URL } from "@/constants/link";
 import Svg from "./Svg";
 
 const Email: FC<BoxProps> = (props) => (
-  <Link href={EMAIL_URL} target="_blank">
+  <Link href={EMAIL_URL} target="_blank" aria-label="Mail to Howard">
     <Svg {...props}>
       <path
         fill="currentColor"

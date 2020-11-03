@@ -4,7 +4,7 @@ import { TWITTER_URL } from "@/constants/link";
 import Svg from "./Svg";
 
 const Twitter: FC<BoxProps> = (props) => (
-  <Link href={TWITTER_URL} target="_blank">
+  <Link href={TWITTER_URL} target="_blank" rel="noreferrer" aria-label="Twitter Link">
     <Svg {...props}>
       <path
         fill="currentColor"

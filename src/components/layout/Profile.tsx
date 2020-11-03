@@ -20,6 +20,7 @@ const Profile: FC = () => (
           borderRadius: "50%",
           overflow: "hidden",
         }}
+        alt="Profile Picture"
         priority
       />
     </RouteLink>

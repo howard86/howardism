@@ -1,5 +1,24 @@
 # Changelog
 
+<a name="0.5.0"></a>
+## 0.5.0 (2020-11-03)
+
+### Added
+
+- ✨ add SEO meta to all pages [[262ad04](https://github.com/Howard86/howardism/commit/262ad04107e7fb479a27b820f2b520775ad69a03)]
+- ➕ add next-seo [[d1b3cca](https://github.com/Howard86/howardism/commit/d1b3ccad12820794beaacbb789d18e178036ef70)]
+
+### Changed
+
+- 💬 fix blog typos [[daf0c23](https://github.com/Howard86/howardism/commit/daf0c23a770da7d44a3b039334c78ae08f25ac93)]
+- 🔧 add NEXT_PUBLIC_DOMAIN_NAME [[d2e938b](https://github.com/Howard86/howardism/commit/d2e938bbecdb4ba96a422d0a77de561759bc6c7d)]
+
+### Miscellaneous
+
+- 🔍 add &lt;img&gt; alt, &lt;a&gt; aria-label &amp; rel, &lt;html&gt; lang [[c8cb6bf](https://github.com/Howard86/howardism/commit/c8cb6bfd736f51a654cbe34483294d35e1463815)]
+- 🔀 Merge pull request [#7](https://github.com/Howard86/howardism/issues/7) from Howard86/feature/complete-info [[e678f70](https://github.com/Howard86/howardism/commit/e678f70c9f3a96d912a318366bf38f27d23bbff4)]
+
+
 <a name="0.4.0"></a>
 ## 0.4.0 (2020-11-01)
 

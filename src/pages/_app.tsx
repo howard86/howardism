@@ -1,19 +1,16 @@
 import React, { FC } from "react";
 import type { AppProps } from "next/app";
-import Head from "next/head";
 import { ThemeProvider } from "styled-components";
+import { DefaultSeo } from "next-seo";
 
 import GlobalStyle from "@/styles/global";
 import Layout from "@/containers/Layout";
 import theme from "@/styles/theme";
+import DEFAULT_SEO from "@/constants/seo";
 
 const App: FC<AppProps> = ({ Component, pageProps }) => (
   <>
-    <Head>
-      <title>Howardism</title>
-      <meta name="viewport" content="initial-scale=1.0, width=device-width" />
-      <link rel="icon" href="/favicon.ico" />
-    </Head>
+    <DefaultSeo {...DEFAULT_SEO} />
     <ThemeProvider theme={theme}>
       <Layout>
         <Component {...pageProps} />

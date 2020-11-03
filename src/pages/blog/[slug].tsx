@@ -1,3 +1,5 @@
+import React, { FC } from "react";
+import { NextSeo } from "next-seo";
 import { GetStaticProps, GetStaticPaths } from "next";
 import renderToString from "next-mdx-remote/render-to-string";
 import matter from "gray-matter";
@@ -35,4 +37,11 @@ export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) 
   };
 };
 
-export default BlogPost;
+const BlogPostPage: FC<BlogPostProps> = (props) => (
+  <>
+    <NextSeo title={props.meta.title} />
+    <BlogPost {...props} />
+  </>
+);
+
+export default BlogPostPage;
