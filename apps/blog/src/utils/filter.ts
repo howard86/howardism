@@ -1,11 +1,18 @@
 const MAX_CONTENT_LENGTH = 300;
 
-export const filterNullValue = <T extends { [key in string]: unknown }>(obj: T): T =>
-  Object.fromEntries(
-    Object.keys(obj)
-      .filter((key) => obj[key] !== null)
-      .map((key) => [key, obj[key]])
-  ) as T;
+type UnknownObject = { [key in string]: unknown };
+
+export const filterNullValue = <T extends UnknownObject>(obj: T): T => {
+  const newObj: UnknownObject = {};
+
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== null) {
+      newObj[key] = obj[key];
+    }
+  });
+
+  return newObj as T;
+};
 
 export const filterLongContent = (text: string): string => {
   if (text.length <= MAX_CONTENT_LENGTH) {
