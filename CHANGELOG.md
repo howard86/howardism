@@ -1,5 +1,34 @@
 # Changelog
 
+<a name="0.5.1"></a>
+## 0.5.1 (2021-02-25)
+
+### Added
+
+- ✨ add npm script type-check [[048364d](https://github.com/Howard86/howardism/commit/048364dd5164f9939d034915372f2eec7068e70b)]
+
+### Changed
+
+- 🔧 update CircleCI config [[aa41f28](https://github.com/Howard86/howardism/commit/aa41f2855596e9a0916621c4a2902d5bc478cb39)]
+- 🔧 update husky from v4 to v5 with new config format [[ddd118b](https://github.com/Howard86/howardism/commit/ddd118beea3e2314177e4b432c7d80c462ec7ea6)]
+- 🔧 update npm scripts format on src files only [[b46c058](https://github.com/Howard86/howardism/commit/b46c05850d55dfccb1143d8d6a3ce61c8217d8c0)]
+- 🔧 remove uncessary plugins as it&#x27;s included [[2bd2324](https://github.com/Howard86/howardism/commit/2bd232488b54bdf10aae1bf726b1d62abc655ca1)]
+- ⬆️ update all dependencies by yarn upgrade --latest [[ac07ff0](https://github.com/Howard86/howardism/commit/ac07ff0fdb2e8f9cd867ce8878d0ead7fc9564c2)]
+
+### Removed
+
+- ➖ remove @types/next-seo as it&#x27;s already shipped with [[bdcab62](https://github.com/Howard86/howardism/commit/bdcab62c8f5df11fa4110cbbabbeb43c3b2183bf)]
+- ➖ uninstall gitmoji-changelog in dev-dep [[14a0e3c](https://github.com/Howard86/howardism/commit/14a0e3cd17c1a5caf61da1f227b949e349860f57)]
+
+### Fixed
+
+- 🐛 fix git hooks error caused by husky-run [[2970dcf](https://github.com/Howard86/howardism/commit/2970dcf94cc190ea7afd53d773633fc82d5ceda6)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#8](https://github.com/Howard86/howardism/issues/8) from Howard86/feature/seo [[1e26189](https://github.com/Howard86/howardism/commit/1e261892e46e54b25249cb6d8117afb3cebed23e)]
+
+
 <a name="0.5.0"></a>
 ## 0.5.0 (2020-11-03)
 
