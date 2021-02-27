@@ -1,5 +1,31 @@
 # Changelog
 
+<a name="1.0.0"></a>
+## 1.0.0 (2021-02-27)
+
+### Added
+
+- ➕ update lerna to v3.22.1 [[52d6bef](https://github.com/Howard86/howardism/commit/52d6bef744a41865c046886f26a246e6c8d8291f)]
+- 🎉 initialize lerna and yarn workspaces [[b672189](https://github.com/Howard86/howardism/commit/b672189609a42d7d7d4216dbe5784b1b2ae6292a)]
+
+### Changed
+
+- 🔧 update package.json for workspace and app [[a2f33e4](https://github.com/Howard86/howardism/commit/a2f33e42ccf72c00c10ee3246ff184e4a4ee18e9)]
+- 🔧 add root package.json with dev dependencies [[d98c759](https://github.com/Howard86/howardism/commit/d98c759810436d0ffc63a73c2afe72788301e4ab)]
+- 🚚 move to apps [[3a270db](https://github.com/Howard86/howardism/commit/3a270db04fd18221723debf59e2425a437c5c1fe)]
+- 🚚 move existed codebase to new blog folder [[b8733bc](https://github.com/Howard86/howardism/commit/b8733bc69a80a69cb2012149a31ac9afeb128e06)]
+
+### Fixed
+
+- 🐛 fix lerna version config [[038d92e](https://github.com/Howard86/howardism/commit/038d92effab06b925dab7d81ca746b07cca21999)]
+- 🐛 fix missing Object.fromEntries in some node version [[899c418](https://github.com/Howard86/howardism/commit/899c4187e3615a7e4b0c738f90ba3cb1bffa108c)]
+
+### Miscellaneous
+
+- 🙈 update gitignore [[34eff42](https://github.com/Howard86/howardism/commit/34eff42cee6e85cc07b6217fa49208057ffd2461)]
+-  Merge pull request [#9](https://github.com/Howard86/howardism/issues/9) from Howard86/chore/update-dependencies [[0e9f894](https://github.com/Howard86/howardism/commit/0e9f89420f22b60a4b0be2fc73282c67b59ca41f)]
+
+
 <a name="0.5.1"></a>
 ## 0.5.1 (2021-02-25)
 
