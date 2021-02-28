@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import hydrate, { Source } from "next-mdx-remote/hydrate";
-import { Box, Flex, Heading } from "rebass/styled-components";
+import { Box, Flex, Heading } from "@chakra-ui/react";
 
 import BlogNavButton from "@/components/blog/BlogNavButton";
 

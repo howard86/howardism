@@ -1,5 +1,5 @@
 import React, { FC, memo } from "react";
-import { BoxProps, Link } from "rebass/styled-components";
+import { BoxProps, Link } from "@chakra-ui/react";
 import { EMAIL_URL } from "@/constants/link";
 import Svg from "./Svg";
 

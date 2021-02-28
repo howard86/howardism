@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { Box, Flex } from "rebass/styled-components";
+import { Box, Flex } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import SideBar from "@/components/layout/SideBar";
 

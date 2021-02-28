@@ -1,17 +1,17 @@
 import React, { FC, memo } from "react";
 import NextLink from "next/link";
-import { Link as RebassLink, LinkProps } from "rebass/styled-components";
+import { Link, LinkProps } from "@chakra-ui/react";
 
 interface RouteLinkProps extends LinkProps {
   href: string;
 }
 
 const RouteLink: FC<RouteLinkProps> = (props) => {
-  const { href, children, ...rebassProps } = props;
+  const { href, children, ...rest } = props;
 
   return (
     <NextLink href={href} passHref>
-      <RebassLink {...rebassProps}>{children}</RebassLink>
+      <Link {...rest}>{children}</Link>
     </NextLink>
   );
 };

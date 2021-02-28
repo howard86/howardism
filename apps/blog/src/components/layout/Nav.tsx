@@ -1,5 +1,5 @@
 import React, { FC, memo } from "react";
-import { Box, Text } from "rebass/styled-components";
+import { Box, Text } from "@chakra-ui/react";
 
 import { NAV_OPTIONS } from "@/constants/nav";
 import RouteLink from "../common/RouteLink";

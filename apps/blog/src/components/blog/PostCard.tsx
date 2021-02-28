@@ -1,5 +1,5 @@
 import React, { FC, memo } from "react";
-import { Card, Box, Flex, Heading, Text } from "rebass/styled-components";
+import { Box, Flex, Heading, Text } from "@chakra-ui/react";
 
 import { filterLongContent } from "@/utils/filter";
 import RouteLink from "../common/RouteLink";
@@ -13,7 +13,7 @@ interface PostCardProps {
 
 const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
   <RouteLink href={`/blog/${date}`}>
-    <Card
+    <Box
       sx={{
         borderStyle: "solid",
         borderColor: "eggshell.0",
@@ -46,7 +46,7 @@ const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
           {filterLongContent(description)}
         </Text>
       </Box>
-    </Card>
+    </Box>
   </RouteLink>
 );
 

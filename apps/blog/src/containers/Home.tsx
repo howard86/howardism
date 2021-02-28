@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { Box, Heading } from "rebass/styled-components";
+import { Box, Heading } from "@chakra-ui/react";
 import PostCard from "@/components/blog/PostCard";
 
 export interface HomeProps {

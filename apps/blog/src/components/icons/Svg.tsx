@@ -1,5 +1,5 @@
 import React, { FC, memo } from "react";
-import { Box, BoxProps } from "rebass/styled-components";
+import { Box, BoxProps } from "@chakra-ui/react";
 import styled from "styled-components";
 
 const SvgBox: FC<BoxProps> = ({ children, ...props }) => (

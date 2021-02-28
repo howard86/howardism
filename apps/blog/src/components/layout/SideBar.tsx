@@ -1,5 +1,5 @@
 import React, { FC, memo } from "react";
-import { Box, Flex } from "rebass/styled-components";
+import { Box, Flex } from "@chakra-ui/react";
 
 import Nav from "./Nav";
 import Profile from "./Profile";

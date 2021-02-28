@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { Box } from "rebass/styled-components";
+import { Box } from "@chakra-ui/react";
 import RouteLink from "@/components/common/RouteLink";
 
 interface NavButtonProps {
