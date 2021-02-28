@@ -1,19 +1,11 @@
-import React, { FC } from "react";
-import NextImage from "next/image";
-import { Box, ImageProps as RebassImageProps } from "rebass/styled-components";
+import type { FC } from "react";
+import NextImage, { ImageProps as NextImageProps } from "next/image";
+import { ImageProps as ChakraImageProps, chakra } from "@chakra-ui/react";
 
-interface ImageProps extends RebassImageProps {
-  src: string;
-  width: number;
-  height: number;
-  alt: string;
-  priority?: boolean;
-}
+type ImageProps = NextImageProps & ChakraImageProps;
 
-const Image: FC<ImageProps> = ({ src, width, height, priority, alt, ...props }) => (
-  <Box {...props}>
-    <NextImage src={src} width={width} height={height} priority={priority} alt={alt} />
-  </Box>
-);
+const Image: FC<ImageProps> = chakra(NextImage, {
+  shouldForwardProp: (prop) => ["width", "height", "src", "alt"].includes(prop),
+});
 
 export default Image;
