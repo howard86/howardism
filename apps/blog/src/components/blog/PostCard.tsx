@@ -1,8 +1,6 @@
 import React, { FC, memo } from "react";
-import { Box, Flex, Heading, Text } from "@chakra-ui/react";
-
-import { filterLongContent } from "@/utils/filter";
-import RouteLink from "../common/RouteLink";
+import NextLink from "next/link";
+import { Flex, Heading, LinkBox, LinkOverlay, Text } from "@chakra-ui/react";
 
 interface PostCardProps {
   title: string;
@@ -12,32 +10,31 @@ interface PostCardProps {
 }
 
 const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
-  <RouteLink href={`/blog/${date}`}>
-    <Box
-      borderColor="primary.50"
-      borderStyle="solid"
-      borderRadius="4"
-      borderWidth="4"
-      _hover={{
-        borderCollor: "primary.100",
-      }}
-    >
-      <Box m={[8, 12]}>
-        <Flex justify="space-between">
-          <Heading as="h2" color="primary.800">
-            {title}
-          </Heading>
-          <Text color="secondary.100">{date}</Text>
-        </Flex>
-        {tags.map((tag) => (
-          <Text key={`${date}-${tag}`}>{tag}</Text>
-        ))}
-        <Text as="p" color="gray" whiteSpace="break-spaces">
-          {filterLongContent(description)}
-        </Text>
-      </Box>
-    </Box>
-  </RouteLink>
+  <LinkBox
+    as="article"
+    p="5"
+    rounded="lg"
+    _hover={{
+      bg: "primary.50",
+    }}
+  >
+    <Flex flexDir={["column", "row"]} align="baseline">
+      <Heading w="full" fontSize={["lg", "xl", "2xl"]} letterSpacing="wide" noOfLines={1}>
+        <NextLink href={`/blog/${date}`} passHref>
+          <LinkOverlay>{title}</LinkOverlay>
+        </NextLink>
+      </Heading>
+      <Text as="h4" color="secondary.200" w={["full", 40]} textAlign="end">
+        {date}
+      </Text>
+    </Flex>
+    {tags.map((tag) => (
+      <Text as="h3" key={date + tag}>
+        {tag}
+      </Text>
+    ))}
+    <Text noOfLines={[3, 4, 5]}>{description}</Text>
+  </LinkBox>
 );
 
 export default memo(PostCard);
