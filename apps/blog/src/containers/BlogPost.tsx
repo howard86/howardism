@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import hydrate, { Source } from "next-mdx-remote/hydrate";
-import { Box, Flex, Heading } from "@chakra-ui/react";
+import { Center, Heading, List } from "@chakra-ui/react";
 
 import BlogNavButton from "@/components/blog/BlogNavButton";
 
@@ -13,15 +13,15 @@ const BlogPost: FC<BlogPostProps> = ({ mdxSource, meta }) => {
   const content = hydrate(mdxSource);
   return (
     <>
-      <Flex as="ul" justify="space-between">
+      <List display="flex" justifyContent="space-between">
         <BlogNavButton title={meta.lastPostTitle} date={meta.lastPostDate} />
         <BlogNavButton title={meta.nextPostTitle} date={meta.nextPostDate} />
-      </Flex>
-      <Heading>{meta.title}</Heading>
+      </List>
+      <Heading as="h1">{meta.title}</Heading>
       {content}
-      <Box textAlign="center">
+      <Center>
         <BlogNavButton />
-      </Box>
+      </Center>
     </>
   );
 };

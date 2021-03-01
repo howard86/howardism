@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { Box, Heading } from "@chakra-ui/react";
+import { Heading, List, ListItem } from "@chakra-ui/react";
 import PostCard from "@/components/blog/PostCard";
 
 export interface HomeProps {
@@ -8,14 +8,14 @@ export interface HomeProps {
 
 const Home: FC<HomeProps> = ({ postsMeta }) => (
   <>
-    <Heading>Howardism</Heading>
-    <Box as="ul">
+    <Heading as="h1">Howardism</Heading>
+    <List>
       {postsMeta.map((meta) => (
-        <Box key={meta.date} as="li">
+        <ListItem key={meta.date}>
           <PostCard title={meta.title} description={meta.description} date={meta.date} tags={[]} />
-        </Box>
+        </ListItem>
       ))}
-    </Box>
+    </List>
   </>
 );
 
