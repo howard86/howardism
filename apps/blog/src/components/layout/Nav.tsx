@@ -9,10 +9,10 @@ interface NavProps {
 }
 
 const Nav: FC<NavProps> = ({ path }) => (
-  <Box as="nav" sx={{ textAlign: "center" }} py={[1, 2, 3]}>
-    <Box as="ul" p={1}>
+  <Box as="nav" textAlign="center">
+    <Box as="ul">
       {NAV_OPTIONS.map(({ title, href }) => (
-        <Box as="li" key={title} my={[1, 2]}>
+        <Box as="li" key={title}>
           <RouteLink href={href}>
             <Text fontWeight={path === href ? "bold" : "inherit"}>{title}</Text>
           </RouteLink>

@@ -14,21 +14,16 @@ const Profile: FC = () => (
         width={400}
         height={400}
         mx="auto"
-        sx={{
-          width: ["3rem", "6rem", "12rem"],
-          height: "auto",
-          borderRadius: "50%",
-          overflow: "hidden",
-        }}
+        w={[12, 24, 48]}
+        h="auto"
+        borderRadius="lg"
         alt="Profile Picture"
         priority
       />
     </RouteLink>
-    <Text as="h3" my={2}>
-      Howard Tai
-    </Text>
-    <Text my={2}>A Lifelong Learner</Text>
-    <Box mt={[2, 3]}>
+    <Text as="h3">Howard Tai</Text>
+    <Text>A Lifelong Learner</Text>
+    <Box>
       <Twitter />
       <Github />
       <Email />

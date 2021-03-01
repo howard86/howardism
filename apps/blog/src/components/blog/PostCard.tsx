@@ -14,35 +14,25 @@ interface PostCardProps {
 const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
   <RouteLink href={`/blog/${date}`}>
     <Box
-      sx={{
-        borderStyle: "solid",
-        borderColor: "eggshell.0",
-        borderRadius: "1rem",
-        borderWidth: "1px",
-        "&:hover": {
-          borderColor: "eggshell.1",
-        },
-        my: [2, 3],
+      borderColor="primary.50"
+      borderStyle="solid"
+      borderRadius="4"
+      borderWidth="4"
+      _hover={{
+        borderCollor: "primary.100",
       }}
     >
-      <Box m={[2, 3]}>
-        <Flex justifyContent="space-between" mb={2}>
-          <Heading as="h2" sx={{ color: "independence" }}>
+      <Box m={[8, 12]}>
+        <Flex justify="space-between">
+          <Heading as="h2" color="primary.800">
             {title}
           </Heading>
-          <Text sx={{ color: "terraCotta.0" }}>{date}</Text>
+          <Text color="secondary.100">{date}</Text>
         </Flex>
         {tags.map((tag) => (
           <Text key={`${date}-${tag}`}>{tag}</Text>
         ))}
-        <Text
-          as="p"
-          sx={{
-            fontSize: [0, 1, 2],
-            color: "grey",
-            whiteSpace: "break-spaces",
-          }}
-        >
+        <Text as="p" color="gray" whiteSpace="break-spaces">
           {filterLongContent(description)}
         </Text>
       </Box>

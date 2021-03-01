@@ -10,16 +10,13 @@ interface SideBarProps {
 
 const SideBar: FC<SideBarProps> = ({ path }) => (
   <Flex
-    py={[3, 4, 5]}
-    sx={{
-      borderRightWidth: "1px",
-      borderRightStyle: "solid",
-      borderRightColor: "lightgray",
-    }}
-    minHeight="90%"
+    borderRightWidth="4"
+    borderRightStyle="solid"
+    borderRightColor="blackAlpha.200"
+    minH="90%"
     flexDirection="column"
   >
-    <Box alignSelf="flex-end" mx={[2, 3, 4]}>
+    <Box alignSelf="flex-end">
       <Profile />
       <Nav path={path} />
     </Box>

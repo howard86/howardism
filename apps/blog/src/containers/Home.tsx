@@ -8,7 +8,7 @@ export interface HomeProps {
 
 const Home: FC<HomeProps> = ({ postsMeta }) => (
   <>
-    <Heading mx={[2, 3]}>Howardism</Heading>
+    <Heading>Howardism</Heading>
     <Box as="ul">
       {postsMeta.map((meta) => (
         <Box key={meta.date} as="li">
