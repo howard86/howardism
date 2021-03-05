@@ -1,15 +1,22 @@
 import React, { FC } from "react";
-import { NextSeo } from "next-seo";
 import { GetStaticProps, GetStaticPaths } from "next";
-import renderToString from "next-mdx-remote/render-to-string";
+import { NextSeo } from "next-seo";
 import matter from "gray-matter";
 import { join } from "path";
 import { readdirSync, readFileSync } from "fs";
 import { ParsedUrlQuery } from "querystring";
+import { Heading, List, Center } from "@chakra-ui/react";
+import hydrate, { Source } from "next-mdx-remote/hydrate";
+import renderToString from "next-mdx-remote/render-to-string";
 
-import BlogPost, { BlogPostProps } from "@/containers/BlogPost";
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import { filterNullValue } from "@/utils/filter";
+import BlogNavButton from "@/components/blog/BlogNavButton";
+
+interface BlogPostProps {
+  mdxSource: Source;
+  meta: FrontMatter.Meta;
+}
 
 interface StaticPaths extends ParsedUrlQuery {
   slug: string;
@@ -37,11 +44,23 @@ export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) 
   };
 };
 
-const BlogPostPage: FC<BlogPostProps> = (props) => (
-  <>
-    <NextSeo title={props.meta.title} />
-    <BlogPost {...props} />
-  </>
-);
+const BlogPostPage: FC<BlogPostProps> = ({ mdxSource, meta }) => {
+  const content = hydrate(mdxSource);
+
+  return (
+    <>
+      <NextSeo title={meta.title} />
+      <List display="flex" justifyContent="space-between">
+        <BlogNavButton title={meta.lastPostTitle} date={meta.lastPostDate} />
+        <BlogNavButton title={meta.nextPostTitle} date={meta.nextPostDate} />
+      </List>
+      <Heading as="h1">{meta.title}</Heading>
+      {content}
+      <Center>
+        <BlogNavButton />
+      </Center>
+    </>
+  );
+};
 
 export default BlogPostPage;
