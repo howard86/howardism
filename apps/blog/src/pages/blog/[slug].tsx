@@ -6,15 +6,16 @@ import { join } from "path";
 import { readdirSync, readFileSync } from "fs";
 import { ParsedUrlQuery } from "querystring";
 import { Heading, List, Center } from "@chakra-ui/react";
-import hydrate, { Source } from "next-mdx-remote/hydrate";
+import hydrate from "next-mdx-remote/hydrate";
 import renderToString from "next-mdx-remote/render-to-string";
+import type { MdxRemote } from "next-mdx-remote/types";
 
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import { filterNullValue } from "@/utils/filter";
 import BlogNavButton from "@/components/blog/BlogNavButton";
 
 interface BlogPostProps {
-  mdxSource: Source;
+  mdxSource: MdxRemote.Source;
   meta: FrontMatter.Meta;
 }
 
