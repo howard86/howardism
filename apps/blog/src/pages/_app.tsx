@@ -3,7 +3,7 @@ import type { AppProps } from "next/app";
 import { ChakraProvider } from "@chakra-ui/react";
 import { DefaultSeo } from "next-seo";
 
-import Layout from "@/containers/Layout";
+import Layout from "@/components/layout/Layout";
 import theme from "@/styles/theme";
 import DEFAULT_SEO from "@/constants/seo";
 
