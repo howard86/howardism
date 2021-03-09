@@ -13,6 +13,7 @@ import type { MdxRemote } from "next-mdx-remote/types";
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import { filterNullValue } from "@/utils/filter";
 import BlogNavButton from "@/components/blog/BlogNavButton";
+import markdown from "@/components/markdown";
 
 interface BlogPostProps {
   mdxSource: MdxRemote.Source;
@@ -46,7 +47,9 @@ export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) 
 };
 
 const BlogPostPage: FC<BlogPostProps> = ({ mdxSource, meta }) => {
-  const content = hydrate(mdxSource);
+  const content = hydrate(mdxSource, {
+    components: markdown,
+  });
 
   return (
     <>
