@@ -5,15 +5,16 @@ import matter from "gray-matter";
 import { join } from "path";
 import { readdirSync, readFileSync } from "fs";
 import { ParsedUrlQuery } from "querystring";
-import { Heading, List, Center } from "@chakra-ui/react";
-import hydrate from "next-mdx-remote/hydrate";
+import { List, Center } from "@chakra-ui/react";
 import renderToString from "next-mdx-remote/render-to-string";
+import hydrate from "next-mdx-remote/hydrate";
 import type { MdxRemote } from "next-mdx-remote/types";
 
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import { filterNullValue } from "@/utils/filter";
 import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
+import ThemeProvider from "@/components/wrapper/ThemeProvider";
 
 interface BlogPostProps {
   mdxSource: MdxRemote.Source;
@@ -37,7 +38,10 @@ export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) 
 
   const source = readFileSync(sourcePath, "utf8");
   const { data, content } = matter(source);
-  const mdxSource = await renderToString(content);
+  const mdxSource = await renderToString(content, {
+    components: markdown,
+    provider: { component: ThemeProvider, props: {} },
+  });
   return {
     props: {
       mdxSource,
@@ -54,11 +58,11 @@ const BlogPostPage: FC<BlogPostProps> = ({ mdxSource, meta }) => {
   return (
     <>
       <NextSeo title={meta.title} />
-      <List display="flex" justifyContent="space-between">
+
+      <List display="flex" justifyContent="space-between" mb={[8, 4]}>
         <BlogNavButton title={meta.lastPostTitle} date={meta.lastPostDate} />
         <BlogNavButton title={meta.nextPostTitle} date={meta.nextPostDate} />
       </List>
-      <Heading as="h1">{meta.title}</Heading>
       {content}
       <Center>
         <BlogNavButton />
