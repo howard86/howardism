@@ -1,64 +1,117 @@
-jobs:
-  install:
-    docker:
-      - image: cimg/node:lts
-    steps:
-      - checkout
-      - restore_cache:
-          name: Restore NPM Package Cache
-          keys:
-            - v1-dependencies-{{ checksum "yarn.lock" }}
-            - v1-dependencies-
-      - node/install-packages:
-          cache-path: ~/project/node_modules
-          override-ci-command: npm install
-      - save_cache:
-          name: Save NPM Package Cache
-          key: v1-dependencies-{{ checksum "yarn.lock" }}
-          paths:
-            - node_modules
-  test:
-    docker:
-      - image: cimg/node:lts
-    steps:
-      - checkout
-      - restore_cache:
-          name: Restore NPM Package Cache
-          keys:
-            - v1-dependencies-{{ checksum "yarn.lock" }}
-            - v1-dependencies-
-      - run:
-          name: Run type-check
-          command: npm run type-check
-      - run:
-          name: Run linter
-          command: npm run lint
-      - run:
-          name: Run test
-          command: npm run test
-  build:
-    docker:
-      - image: cimg/node:lts
-    steps:
-      - checkout
-      - restore_cache:
-          name: Restore NPM Package Cache
-          keys:
-            - v1-dependencies-{{ checksum "yarn.lock" }}
-            - v1-dependencies-
-      - run:
-          name: Run next build
-          command: npm run build
-orbs:
-  node: circleci/node@4.1.0
 version: 2.1
+
+orbs:
+  node: circleci/node@4.2.0
+
+aliases:
+  - &docker-image
+    docker:
+      - image: cimg/node:lts
+
+  - &install-typescript-globally
+    run:
+      - name: Install TypeScript globally
+      - command: yarn global add typescript
+
+  - &restore-build-flag
+    restore_cache:
+      keys:
+        - build-flag-{{ checksum "package.json" }}
+
+  - &test-build-flag
+    run:
+      name: Exit if build flag exists
+      command: |
+        FILE=build.flag
+        if test -f "$FILE"; then
+          echo "$FILE exist"
+          circleci step halt
+        fi
+
+  - &generate-lock-file
+    run:
+      name: Generate lock file (yarn.lock)
+      command: yarn generate-lock-entry >> yarn.lock
+
+  - &restore-cache
+    restore_cache:
+      keys:
+        - v1-dependencies-{{ checksum "yarn.lock" }}
+
+  - &save-cache
+    save_cache:
+      paths:
+        - ~/.cache/yarn
+      key: v1-dependencies-{{ checksum "yarn.lock" }}
+
+  - &install-node
+    run:
+      name: Install dependencies
+      command: yarn install --frozen-lockfile --cache-folder ~/.cache/yarn
+
+  - &run-lint
+    run:
+      name: Run linter
+      command: yarn lint
+
+  - &run-type-check
+    run:
+      name: Run TypeScript type check
+      command: yarn type-check
+
+  - &run-unit-tests
+    run:
+      name: Run unit tests
+      command: yarn test
+
+  - &run-build
+    run:
+      name: Run Build
+      command: yarn build
+
+commands:
+  node-build-steps:
+    steps:
+      - node-install-steps
+      - node-test-steps
+      - *run-build
+      - save-build-flag
+
+  node-install-steps:
+    steps:
+      - checkout:
+          path: ~/howardism
+      - *restore-build-flag
+      - *test-build-flag
+      - *generate-lock-file
+      - *restore-cache
+      - *install-node
+
+  node-test-steps:
+    steps:
+      - *run-lint
+      - *run-type-check
+      - *run-unit-tests
+
+  save-build-flag:
+    steps:
+      - run:
+          name: Create build flag
+          command: touch build.flag
+      - save_cache:
+          paths:
+            - build.flag
+          key: build-flag-{{ checksum "package.json" }}
+
+jobs:
+  build-blog:
+    docker:
+      - image: cimg/node:lts
+    working_directory: ~/howardism/apps/blog
+    steps:
+      - node-build-steps
 workflows:
-  conventional-check:
+  version: 2
+  blog:
     jobs:
-      - install
-      - test:
-          requires:
-            - install
-      - build:
-          requires:
-            - test
+      - build-blog

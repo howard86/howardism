@@ -1,47 +1,37 @@
-const theme = {
-  breakpoints: ["40em", "52em", "64em"],
-  fontSizes: [12, 14, 16, 20, 24, 32, 48, 64],
+import { extendTheme } from "@chakra-ui/react";
+
+const theme = extendTheme({
   colors: {
-    primary: "",
-    secondary: "",
-    eggshell: ["#FEFDFB", "#F4F1DE"],
-    terraCotta: ["#E07A5F", "#43190D"],
-    independence: "#3D405B",
-    greenSheen: "#81B29A",
-    deepChampagne: "#F2CC8F",
+    primary: {
+      50: "#faf5eb",
+      100: "#eee0c7",
+      200: "#e3cca1",
+      300: "#d8b87a",
+      400: "#cea453",
+      500: "#b58b3b",
+      600: "#8d6c2e",
+      700: "#644d21",
+      800: "#3c2e14",
+      900: "#140f05",
+    },
+    secondary: {
+      50: "#ffeae4",
+      100: "#f7c9bc",
+      200: "#eba693",
+      300: "#e28369",
+      400: "#d96040",
+      500: "#bf4726",
+      600: "#96361d",
+      700: "#6c2614",
+      800: "#421509",
+      900: "#1c0500",
+    },
   },
-  space: [0, 4, 8, 16, 32, 64, 128, 256],
   fonts: {
     body: "Merriweather, serif",
     heading: "Roboto",
     monospace: "Menlo, monospace",
   },
-  fontWeights: {
-    body: 400,
-    heading: 700,
-    bold: 700,
-  },
-  lineHeights: {
-    body: 1.5,
-    heading: 1.25,
-  },
-  shadows: {
-    small: "0 0 4px rgba(0, 0, 0, .125)",
-    large: "0 0 24px rgba(0, 0, 0, .125)",
-  },
-  variants: {},
-  text: {},
-  buttons: {
-    primary: {
-      color: "secondary",
-      bg: "primary",
-    },
-  },
-};
-
-theme.colors.primary = theme.colors.terraCotta[0];
-theme.colors.secondary = theme.colors.eggshell[1];
-
-export type Theme = typeof theme;
+});
 
 export default theme;

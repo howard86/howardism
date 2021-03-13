@@ -1,25 +1,33 @@
 import React, { FC, memo } from "react";
-import { Box, Text } from "rebass/styled-components";
-
+import NextLink from "next/link";
+import { useRouter } from "next/router";
+import { Link, List, ListItem, VStack } from "@chakra-ui/react";
 import { NAV_OPTIONS } from "@/constants/nav";
-import RouteLink from "../common/RouteLink";
 
-interface NavProps {
-  path: string;
-}
+const Nav: FC = () => {
+  const router = useRouter();
 
-const Nav: FC<NavProps> = ({ path }) => (
-  <Box as="nav" sx={{ textAlign: "center" }} py={[1, 2, 3]}>
-    <Box as="ul" p={1}>
-      {NAV_OPTIONS.map(({ title, href }) => (
-        <Box as="li" key={title} my={[1, 2]}>
-          <RouteLink href={href}>
-            <Text fontWeight={path === href ? "bold" : "inherit"}>{title}</Text>
-          </RouteLink>
-        </Box>
-      ))}
-    </Box>
-  </Box>
-);
+  return (
+    <VStack as="nav" textAlign="center">
+      <List>
+        {NAV_OPTIONS.map(({ title, href }) => (
+          <ListItem key={title}>
+            <NextLink href={href} passHref>
+              <Link
+                textTransform="capitalize"
+                fontWeight={router.pathname === href ? "semibold" : "normal"}
+                _hover={{
+                  color: "secondary.600",
+                }}
+              >
+                {title}
+              </Link>
+            </NextLink>
+          </ListItem>
+        ))}
+      </List>
+    </VStack>
+  );
+};
 
 export default memo(Nav);

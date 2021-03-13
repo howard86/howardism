@@ -1,29 +1,16 @@
-import React, { FC, memo } from "react";
-import { Box, Flex } from "rebass/styled-components";
+import React, { FC } from "react";
+import { VStack, StackProps } from "@chakra-ui/react";
 
 import Nav from "./Nav";
 import Profile from "./Profile";
 
-interface SideBarProps {
-  path: string;
-}
+type SideBarProps = StackProps;
 
-const SideBar: FC<SideBarProps> = ({ path }) => (
-  <Flex
-    py={[3, 4, 5]}
-    sx={{
-      borderRightWidth: "1px",
-      borderRightStyle: "solid",
-      borderRightColor: "lightgray",
-    }}
-    minHeight="90%"
-    flexDirection="column"
-  >
-    <Box alignSelf="flex-end" mx={[2, 3, 4]}>
-      <Profile />
-      <Nav path={path} />
-    </Box>
-  </Flex>
+const SideBar: FC<SideBarProps> = (props) => (
+  <VStack {...props} spacing={[2, 4]}>
+    <Profile />
+    <Nav />
+  </VStack>
 );
 
-export default memo(SideBar);
+export default SideBar;

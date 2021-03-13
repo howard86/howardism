@@ -1,6 +1,6 @@
 import React, { FC } from "react";
-import { Box } from "rebass/styled-components";
-import RouteLink from "@/components/common/RouteLink";
+import NextLink from "next/link";
+import { Link, List } from "@chakra-ui/react";
 
 interface NavButtonProps {
   title?: string;
@@ -8,9 +8,11 @@ interface NavButtonProps {
 }
 
 const NavButton: FC<NavButtonProps> = ({ title = "Back to Home", date }) => (
-  <Box as="li">
-    <RouteLink href={date ? `/blog/${date}` : "/"}>{title}</RouteLink>
-  </Box>
+  <List>
+    <NextLink href={date ? `/blog/${date}` : "/"} passHref>
+      <Link>{title}</Link>
+    </NextLink>
+  </List>
 );
 
 export default NavButton;
