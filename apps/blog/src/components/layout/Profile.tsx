@@ -10,7 +10,7 @@ const imageSize = [24, 48, 60];
 const Profile: FC = () => (
   <VStack textAlign="center" spacing={[1, 2, 3]}>
     <NextLink href="/" passHref>
-      <Link display="inline-block" w={imageSize} h="auto">
+      <Link display="inline-block" maxW={imageSize} h="auto">
         {/* TODO: use Next.js next/image to improve */}
         <Img src="/profile.jpeg" borderRadius="full" alt="Profile Picture" w={imageSize} h="auto" />
       </Link>
@@ -21,7 +21,7 @@ const Profile: FC = () => (
     <Text as="h4" fontSize={["sm", "md"]}>
       A Lifelong Learner
     </Text>
-    <Stack flexDir={["column", "row", "row"]} spacing={[0, 1]} align="baseline">
+    <Stack flexDir={["column", "column", "row"]} spacing={[0, 1]} align="baseline">
       <Twitter />
       <Github />
       <Email />

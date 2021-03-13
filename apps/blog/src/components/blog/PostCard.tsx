@@ -19,12 +19,18 @@ const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
     }}
   >
     <Flex flexDir={["column", "row"]} align="baseline">
-      <Heading w="full" fontSize={["lg", "xl", "2xl"]} letterSpacing="wide" noOfLines={1}>
+      <Heading
+        w="full"
+        fontSize={["lg", "xl", "2xl"]}
+        letterSpacing="wide"
+        my={[0, 2, 4]}
+        noOfLines={1}
+      >
         <NextLink href={`/blog/${date}`} passHref>
           <LinkOverlay>{title}</LinkOverlay>
         </NextLink>
       </Heading>
-      <Text as="h4" color="secondary.200" w={["full", 40]} textAlign="end">
+      <Text as="h4" w={["full", 40]} my={[2, 0]} color="secondary.200" textAlign="end">
         {date}
       </Text>
     </Flex>
