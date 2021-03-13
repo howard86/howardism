@@ -1,6 +1,6 @@
 import React, { FC, memo } from "react";
 import NextLink from "next/link";
-import { Img, Link, Stack, Text, VStack } from "@chakra-ui/react";
+import { Img, Link, Flex, Text, VStack } from "@chakra-ui/react";
 import Twitter from "../icons/Twitter";
 import Github from "../icons/Github";
 import Email from "../icons/Email";
@@ -21,11 +21,11 @@ const Profile: FC = () => (
     <Text as="h4" fontSize={["sm", "md"]}>
       A Lifelong Learner
     </Text>
-    <Stack flexDir={["column", "column", "row"]} spacing={[0, 1]} align="baseline">
+    <Flex width={4 / 5} justify="space-evenly" align="center" flexDir={["column", "column", "row"]}>
       <Twitter />
       <Github />
       <Email />
-    </Stack>
+    </Flex>
   </VStack>
 );
 
