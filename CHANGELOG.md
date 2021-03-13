@@ -1,5 +1,44 @@
 # Changelog
 
+<a name="next"></a>
+## next
+
+### Added
+
+- ➕ add @emotion/babel-plugin [[b53d256](https://github.com/Howard86/howardism/commit/b53d25695a429c0d908e34b4b29619a292454c5f)]
+- ✨ add custom markdown components [[54bf752](https://github.com/Howard86/howardism/commit/54bf75216f311e86947394b187266c59f0163585)]
+- ✨ integrate chakra-ui with next/image [[d127a91](https://github.com/Howard86/howardism/commit/d127a918cfd2b0f3172decc7ad109d3c6efbf8ec)]
+- ➕ add chakra-ui, emotion &amp; framer-motion [[9943721](https://github.com/Howard86/howardism/commit/99437219487b4b73fbfc5da3b4e9bb62e0a1f757)]
+
+### Changed
+
+- 🔧 add npm script bootstrap [[9c12269](https://github.com/Howard86/howardism/commit/9c1226950a71158a1a00559c028efaa5f7163b74)]
+- 💄 update Homepage and Layout styles [[fd57992](https://github.com/Howard86/howardism/commit/fd579921ecab5164d4aef281c86bc5c22ced0a18)]
+- 🔧 update babel config for emotion [[f174713](https://github.com/Howard86/howardism/commit/f17471334ace0cf20c30d44f71436cb2b563f68d)]
+- 💄 update blog page non-content ui [[5398d16](https://github.com/Howard86/howardism/commit/5398d16f2f58d259f53e20fba7b13f88334937d7)]
+- 💄 update markdown styles [[33e609b](https://github.com/Howard86/howardism/commit/33e609b6a60be18bf21e32074b6113a64b167ec9)]
+- ♻️ refactor ThemeProvider from ChakraProvider with theme [[2f7bb0b](https://github.com/Howard86/howardism/commit/2f7bb0b04a30d25ad45ad2c4de55d6f20068c53c)]
+- 🚚 move containers/Layout back to components/layout/Layout [[f6babfd](https://github.com/Howard86/howardism/commit/f6babfdd7a95e61cfa2c39aea59e938456f8f946)]
+- 💄 update Layout styling [[d7d986c](https://github.com/Howard86/howardism/commit/d7d986c6de83cccdc1234c54e643e81ad52d848d)]
+- 🚚 move containers/BlogPost back to page/blog/[slug] [[74b9cf2](https://github.com/Howard86/howardism/commit/74b9cf2e63b78d5a08355874586eee8ec83f5c95)]
+- 🚚 move containers/Home back to page/index [[56f94a6](https://github.com/Howard86/howardism/commit/56f94a6dd70586d7920d1fc1437ada610b223bc8)]
+- 💄 update Profile and SideBar styling [[4067f63](https://github.com/Howard86/howardism/commit/4067f63724272839888ad1811e0883067fdcd380)]
+- 💄 update Nav styling [[da1bbd9](https://github.com/Howard86/howardism/commit/da1bbd9af5d8d3bf008fe58b77f9b018de621beb)]
+- 💄 update PostCard style [[66defc3](https://github.com/Howard86/howardism/commit/66defc304747701edc470b33d99f8bb9f0ad7822)]
+- 💄 update container style [[12b7bbc](https://github.com/Howard86/howardism/commit/12b7bbcc5fca1d71f1abfe25859503533b43920d)]
+
+### Removed
+
+- 🔥 remove legacy styles and update theme object [[88a2279](https://github.com/Howard86/howardism/commit/88a2279138f5eb98fa438c37650e768c01cab5a8)]
+- 🔥 replace Rebass import with Chakra-ui [[78c2092](https://github.com/Howard86/howardism/commit/78c2092c28c37e6956c6474f74a73c92f8ba75e5)]
+
+### Miscellaneous
+
+- 🙈 add editor option .vscode [[0d41472](https://github.com/Howard86/howardism/commit/0d4147279e65b23a73f9278581bdac1c6cafa09d)]
+- 🏷️ replace custom declartion with shipped types from next-mdx-remote [[ec4dba2](https://github.com/Howard86/howardism/commit/ec4dba24a811d145f464ef7ca04e7dd685257c6a)]
+- 🔀 Merge pull request [#10](https://github.com/Howard86/howardism/issues/10) from Howard86/chore/migrate-to-mono-repo [[0b72fe0](https://github.com/Howard86/howardism/commit/0b72fe0aba469c15896b3903882879681197f19f)]
+
+
 <a name="1.0.0"></a>
 ## 1.0.0 (2021-02-27)
 
