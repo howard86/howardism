@@ -1,7 +1,7 @@
 # Changelog
 
-<a name="next"></a>
-## next
+<a name="1.0.1"></a>
+## 1.0.0 (2021-03-13)
 
 ### Added
 
