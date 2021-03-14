@@ -1,6 +1,6 @@
 import React, { FC } from "react";
-import { AppProps } from "next/app";
-import { ThemeProvider } from "@howardism/theme";
+import type { AppProps } from "next/app";
+import ThemeProvider from "@/common/ThemeProvider";
 
 const App: FC<AppProps> = ({ Component, pageProps }) => (
   <ThemeProvider>

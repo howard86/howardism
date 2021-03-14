@@ -1,6 +1,6 @@
 import { ReactElement } from "react";
 import { render, RenderOptions, RenderResult } from "@testing-library/react";
-import { ThemeProvider } from "@howardism/theme";
+import ThemeProvider from "@/common/ThemeProvider";
 
 const customRender = (ui: ReactElement, options?: Omit<RenderOptions, "quries">): RenderResult =>
   render(ui, { wrapper: ThemeProvider, ...options });

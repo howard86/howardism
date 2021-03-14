@@ -1,7 +1,7 @@
 import React, { FC } from "react";
 import type { AppProps } from "next/app";
 import { DefaultSeo } from "next-seo";
-import { ThemeProvider } from "@howardism/theme";
+import ThemeProvider from "@/components/common/ThemeProvider";
 
 import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
