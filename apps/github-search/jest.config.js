@@ -10,5 +10,6 @@ module.exports = {
   watchPlugins: ["jest-watch-typeahead/filename", "jest-watch-typeahead/testname"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^@howardism/(.*)$": "<rootDir>/../../packages/$1",
   },
 };
