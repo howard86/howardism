@@ -1,7 +1,55 @@
 # Changelog
 
-<a name="next"></a>
-## next
+<a name="1.0.2"></a>
+
+## 1.0.2 (2021-03-17)
+
+### Added
+
+- ✨ add ThemeProvider in packages/theme [[9703837](https://github.com/Howard86/howardism/commit/9703837f3cce354fc2554757dbfa88413c048557)]
+- ➕ add @testing-library for react &amp; jest [[5f09d9b](https://github.com/Howard86/howardism/commit/5f09d9be238e6bf4349b585c7e7015daa69aff43)]
+- ➕ add jest, babel-jest &amp; jest utils [[e956548](https://github.com/Howard86/howardism/commit/e95654830d6cc1a48d3ddd3c09f928737c848ada)]
+- ➕ add chakra-ui, emotion &amp; framer-motion [[6fcfd98](https://github.com/Howard86/howardism/commit/6fcfd98137d78d09055d275b59336cf9e427649a)]
+- ➕ add @howardism/theme to blog [[5a2b453](https://github.com/Howard86/howardism/commit/5a2b4536f1da60ce2c750b5bcf60ba4550efd23d)]
+- ➕ add chakra-ui/react [[d627387](https://github.com/Howard86/howardism/commit/d62738744e57a339e3582c27549759e1a7ddc4be)]
+- 🎉 initialize @howardism/theme with yarn init [[8d2d1aa](https://github.com/Howard86/howardism/commit/8d2d1aa63cb85a2128d9015ba144c2197ac0f3ec)]
+- 🎉 initialize by create-next-app [[99b5c89](https://github.com/Howard86/howardism/commit/99b5c899c61440516403c8bac14163efdba340d7)]
+
+### Changed
+
+- 🔧 update npm scripts for both apps [[d25d201](https://github.com/Howard86/howardism/commit/d25d201dc5b860b2b94d813f11fb825e1554c8a1)]
+- 🔧 update CircleCI config for github-search [[e0c5a49](https://github.com/Howard86/howardism/commit/e0c5a49dacd4f050073a0234ba04788753a924e2)]
+- 🔧 add engines for node 14+ in package.json [[af195a4](https://github.com/Howard86/howardism/commit/af195a4c01374334f231fca51fa2ffbf7ed5e656)]
+- 🔧 set up jest for monorepo [[7c3f36b](https://github.com/Howard86/howardism/commit/7c3f36b22bcfd867292bed6d51cea0e773e7f24b)]
+- 🔧 add NPM scripts and update package.json [[0fa0165](https://github.com/Howard86/howardism/commit/0fa01653e34c3e638b11d0444ab155500b7cf3fa)]
+- 🔧 set up jest with one unit test [[2c7a461](https://github.com/Howard86/howardism/commit/2c7a4617b8e6e15aa678414aa32bb50731a58ee9)]
+- 🔧 update tsconfig module resolution [[7686928](https://github.com/Howard86/howardism/commit/7686928bc646ead4a9aecaffe33b94fc92b08c53)]
+- 🚚 move pages into src/pages [[85a5dee](https://github.com/Howard86/howardism/commit/85a5deec1a92a041931f43be4812280c72c8bfd6)]
+- 🚚 copied from @howardism/blog styles/theme [[deb0569](https://github.com/Howard86/howardism/commit/deb05698602c3b3cb2aac6a153130a554f738389)]
+- 🚚 migrate to ts projects [[820c200](https://github.com/Howard86/howardism/commit/820c200f3d9c2601c82ff9832b48b480c7cbfe35)]
+- 🔧 add npm script format in root [[e71a8b7](https://github.com/Howard86/howardism/commit/e71a8b793bd95ba7b8401cb71098490525515f67)]
+
+### Removed
+
+- 🔥 replace wrapper/ThemeProvider with packages/theme [[75681a3](https://github.com/Howard86/howardism/commit/75681a35d77c84980f8c1cc8cc3207968cd068cc)]
+- 🔥 remove css styles and unused files [[2e09a72](https://github.com/Howard86/howardism/commit/2e09a72b293599468d0dc3b5224de56a6eaaf271)]
+- 🔥 replace styles/theme with @howardism/theme [[8401045](https://github.com/Howard86/howardism/commit/84010450d7e951edfc1a5489ccc393e67afdcb29)]
+
+### Fixed
+
+- 🐛 fix typo in yaml [[16f9156](https://github.com/Howard86/howardism/commit/16f9156532119e54d9dbb35164fc37e29fca3ad6)]
+- 🐛 remove packages/provider and fix babel-jest errors [[3ebee24](https://github.com/Howard86/howardism/commit/3ebee247e893058bedaf9e367928143f9b2492b5)]
+- 🐛 fix changelog generation CLI [[8dfe066](https://github.com/Howard86/howardism/commit/8dfe066c8762c205816139fb67495bbb78643ced)]
+- 🐛 fix babel-jest by MAGIC [[54ee2d2](https://github.com/Howard86/howardism/commit/54ee2d21bdd095a428706c5f4b02c04fc37d659a)]
+
+### Miscellaneous
+
+- 📝 manually fix and update CHANGELOG [[9892708](https://github.com/Howard86/howardism/commit/9892708a8e20796b0ecc5e6c723eea9254df9aec)]
+- 🔀 Merge pull request [#11](https://github.com/Howard86/howardism/issues/11) from Howard86/feature/migrate-to-chakra-ui [[bf05eb5](https://github.com/Howard86/howardism/commit/bf05eb55f497e2d38df05b9839c265e4d7454e39)]
+
+<a name="1.0.1"></a>
+
+## 1.0.1 (2021-03-13)
 
 ### Added
 
@@ -48,8 +96,8 @@
 - 🏷️ replace custom declartion with shipped types from next-mdx-remote [[ec4dba2](https://github.com/Howard86/howardism/commit/ec4dba24a811d145f464ef7ca04e7dd685257c6a)]
 - 🔀 Merge pull request [#10](https://github.com/Howard86/howardism/issues/10) from Howard86/chore/migrate-to-mono-repo [[0b72fe0](https://github.com/Howard86/howardism/commit/0b72fe0aba469c15896b3903882879681197f19f)]
 
-
 <a name="1.0.0"></a>
+
 ## 1.0.0 (2021-02-27)
 
 ### Added
@@ -72,10 +120,10 @@
 ### Miscellaneous
 
 - 🙈 update gitignore [[34eff42](https://github.com/Howard86/howardism/commit/34eff42cee6e85cc07b6217fa49208057ffd2461)]
--  Merge pull request [#9](https://github.com/Howard86/howardism/issues/9) from Howard86/chore/update-dependencies [[0e9f894](https://github.com/Howard86/howardism/commit/0e9f89420f22b60a4b0be2fc73282c67b59ca41f)]
-
+- Merge pull request [#9](https://github.com/Howard86/howardism/issues/9) from Howard86/chore/update-dependencies [[0e9f894](https://github.com/Howard86/howardism/commit/0e9f89420f22b60a4b0be2fc73282c67b59ca41f)]
 
 <a name="0.5.1"></a>
+
 ## 0.5.1 (2021-02-25)
 
 ### Added
@@ -103,8 +151,8 @@
 
 - 🔀 Merge pull request [#8](https://github.com/Howard86/howardism/issues/8) from Howard86/feature/seo [[1e26189](https://github.com/Howard86/howardism/commit/1e261892e46e54b25249cb6d8117afb3cebed23e)]
 
-
 <a name="0.5.0"></a>
+
 ## 0.5.0 (2020-11-03)
 
 ### Added
@@ -122,8 +170,8 @@
 - 🔍 add &lt;img&gt; alt, &lt;a&gt; aria-label &amp; rel, &lt;html&gt; lang [[c8cb6bf](https://github.com/Howard86/howardism/commit/c8cb6bfd736f51a654cbe34483294d35e1463815)]
 - 🔀 Merge pull request [#7](https://github.com/Howard86/howardism/issues/7) from Howard86/feature/complete-info [[e678f70](https://github.com/Howard86/howardism/commit/e678f70c9f3a96d912a318366bf38f27d23bbff4)]
 
-
 <a name="0.4.0"></a>
+
 ## 0.4.0 (2020-11-01)
 
 ### Added
@@ -152,8 +200,8 @@
 - 📝 write post and update typos [[c29c892](https://github.com/Howard86/howardism/commit/c29c89241917f2e1a446c8901c4697492f122e65)]
 - 🔀 Merge pull request [#6](https://github.com/Howard86/howardism/issues/6) from Howard86/chore/upgrade-nextjs [[e0ebb11](https://github.com/Howard86/howardism/commit/e0ebb118977fb59b5d41bdf36fda6bfb40e33c21)]
 
-
 <a name="0.3.1"></a>
+
 ## 0.3.1 (2020-10-27)
 
 ### Added
@@ -168,8 +216,8 @@
 
 - 🔀 Merge pull request [#5](https://github.com/Howard86/howardism/issues/5) from Howard86/feature/blog [[5208c48](https://github.com/Howard86/howardism/commit/5208c48253dc4a81d926738ce712e60fb99cc716)]
 
-
 <a name="0.3.0"></a>
+
 ## 0.3.0 (2020-10-21)
 
 ### Added
@@ -202,8 +250,8 @@
 - 📝 writing [#1](https://github.com/Howard86/howardism/issues/1) blog post [[9a953d8](https://github.com/Howard86/howardism/commit/9a953d84950441f387342c56084f5aad9f91f85d)]
 - 🔀 Merge pull request [#4](https://github.com/Howard86/howardism/issues/4) from Howard86/feature/sidebar [[27c3851](https://github.com/Howard86/howardism/commit/27c3851735796ddcfd5b1644551dfb301c417d7e)]
 
-
 <a name="0.2.0"></a>
+
 ## 0.2.0 (2020-10-04)
 
 ### Added
@@ -224,10 +272,10 @@
 ### Miscellaneous
 
 - 🚧 add empty /about &amp; /contact page [[b4e382e](https://github.com/Howard86/howardism/commit/b4e382e11317ff5c234fb373d1b61e31505b635a)]
--  Merge pull request [#3](https://github.com/Howard86/howardism/issues/3) from Howard86/feature/config [[7c79550](https://github.com/Howard86/howardism/commit/7c7955034397a90baf94839636cca5dd4d885f24)]
-
+- Merge pull request [#3](https://github.com/Howard86/howardism/issues/3) from Howard86/feature/config [[7c79550](https://github.com/Howard86/howardism/commit/7c7955034397a90baf94839636cca5dd4d885f24)]
 
 <a name="0.1.2"></a>
+
 ## 0.1.2 (2020-10-03)
 
 ### Added
@@ -248,16 +296,16 @@
 
 ### Miscellaneous
 
--  Merge pull request [#2](https://github.com/Howard86/howardism/issues/2) from Howard86/feature/layout [[c910876](https://github.com/Howard86/howardism/commit/c910876ca8393fc73add18f3cd635604c9777ceb)]
-
+- Merge pull request [#2](https://github.com/Howard86/howardism/issues/2) from Howard86/feature/layout [[c910876](https://github.com/Howard86/howardism/commit/c910876ca8393fc73add18f3cd635604c9777ceb)]
 
 <a name="0.1.1"></a>
+
 ## 0.1.1 (2020-09-29)
 
 ### Added
 
 - ➕ add gitmoji-changelog [[e37b57b](https://github.com/Howard86/howardism/commit/e37b57b4a411539b217fd9d9ec3232c9a651b552)]
-- ✨ add custom _app.tsx to wrap Layout, GlobalStyle &amp; Theme [[545ebfb](https://github.com/Howard86/howardism/commit/545ebfbfb00f94ee86f4f7b12eae121da10e108f)]
+- ✨ add custom \_app.tsx to wrap Layout, GlobalStyle &amp; Theme [[545ebfb](https://github.com/Howard86/howardism/commit/545ebfbfb00f94ee86f4f7b12eae121da10e108f)]
 - ✨ add Layout [[dd5131e](https://github.com/Howard86/howardism/commit/dd5131ef3923c1c5f7301923cf7be3e10b34880e)]
 - ➕ add rebass [[78672c1](https://github.com/Howard86/howardism/commit/78672c15a3bae41cee4afa885cb4461c602bc46b)]
 - ➕ add styled-components styled-system babel-plugin [[82a9d1a](https://github.com/Howard86/howardism/commit/82a9d1a7af65fd31c45395f13d14285b97d7afba)]
@@ -281,7 +329,5 @@
 ### Miscellaneous
 
 - 🙈 update .gitignore [[5cd0fac](https://github.com/Howard86/howardism/commit/5cd0facf0c6df2b02f7d98103215cc6262b34435)]
--  Merge pull request [#1](https://github.com/Howard86/howardism/issues/1) from Howard86/config [[8a3f7fc](https://github.com/Howard86/howardism/commit/8a3f7fcf90b42701ad62128c59066cd2eac02193)]
--  Initial commit from Create Next App [[11189f1](https://github.com/Howard86/howardism/commit/11189f177386df9bd1951164abacb0ff6696b48a)]
-
-
+- Merge pull request [#1](https://github.com/Howard86/howardism/issues/1) from Howard86/config [[8a3f7fc](https://github.com/Howard86/howardism/commit/8a3f7fcf90b42701ad62128c59066cd2eac02193)]
+- Initial commit from Create Next App [[11189f1](https://github.com/Howard86/howardism/commit/11189f177386df9bd1951164abacb0ff6696b48a)]

@@ -12,9 +12,9 @@ import type { MdxRemote } from "next-mdx-remote/types";
 
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import { filterNullValue } from "@/utils/filter";
+import ThemeProvider from "@/components/common/ThemeProvider";
 import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
-import ThemeProvider from "@/components/wrapper/ThemeProvider";
 
 interface BlogPostProps {
   mdxSource: MdxRemote.Source;
