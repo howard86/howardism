@@ -5,7 +5,7 @@ const client = new ApolloClient({
   uri: GITHUB_ENDPOINT,
   cache: new InMemoryCache(),
   headers: {
-    authorisation: `Bearer ${process.env.NEXT_PUBLIC_GITHUB_ACCESS_TOKEN}`,
+    authorization: `Bearer ${process.env.NEXT_PUBLIC_GITHUB_ACCESS_TOKEN}`,
   },
 });
 
