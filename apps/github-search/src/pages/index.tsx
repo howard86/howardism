@@ -1,12 +1,14 @@
 import React, { FC } from "react";
-import { Button, Input, Stack, VStack } from "@chakra-ui/react";
+import { Button, Input, Stack, useBreakpointValue, VStack, Wrap } from "@chakra-ui/react";
 import useSearch from "@/hooks/use-search";
+import UserCard from "@/components/UserCard";
 
 const HomePage: FC = () => {
-  const { state, result, onType, onSearch } = useSearch();
+  const count = useBreakpointValue({ base: 9, sm: 12, md: 18, lg: 15, xl: 25 });
+  const { state, result, onType, onSearch } = useSearch(count);
 
   return (
-    <VStack my="auto" spacing={[2, 4]} w="full">
+    <VStack my="auto" spacing={[4, 8]} w="full">
       <Stack direction={["column", "row"]} align="center">
         <Input
           type="text"
@@ -19,8 +21,17 @@ const HomePage: FC = () => {
         <Button onClick={onSearch} isLoading={result.loading}>
           Search
         </Button>
-        {/* TODO: add render result */}
       </Stack>
+      {result.data && (
+        <Wrap spacing={[4, 6, 8]} justify="center" maxW="90ch">
+          {result.data.search.nodes.map(
+            (user) =>
+              user.__typename === "User" && (
+                <UserCard key={user.login} avatarUrl={user.avatarUrl} username={user.login} />
+              )
+          )}
+        </Wrap>
+      )}
     </VStack>
   );
 };

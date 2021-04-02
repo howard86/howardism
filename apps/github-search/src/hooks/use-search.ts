@@ -31,7 +31,7 @@ const reducer = (state: SearchState, action: SearchAction): SearchState => {
   }
 };
 
-const useSearch = (): UseSearch => {
+const useSearch = (count = DEFAULT_COUNT): UseSearch => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [search, result] = useSearchUsersLazyQuery();
 
@@ -40,7 +40,7 @@ const useSearch = (): UseSearch => {
   };
 
   const onSearch = (): void => {
-    search({ variables: { query: `${state.username} in:login`, count: DEFAULT_COUNT } });
+    search({ variables: { query: `${state.username} in:login`, count } });
   };
 
   return {
