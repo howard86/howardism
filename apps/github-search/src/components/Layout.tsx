@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { motion, Variants } from "framer-motion";
-import { Link, Flex, Container } from "@chakra-ui/react";
+import { Link, Flex, Container, Box } from "@chakra-ui/react";
 
 const variants: Variants = {
   pageInital: {
@@ -18,23 +18,33 @@ const Layout: FC = ({ children }) => {
   const animateKey = router.asPath.includes("?") ? router.pathname : router.asPath;
 
   return (
-    <Container
-      as={motion.main}
-      p={[2, 6, 8]}
-      maxW="full"
-      variants={variants}
-      initial="pageInitial"
-      animate="pageAnimate"
-      key={animateKey}
-      centerContent
-    >
-      <Flex mb={[2, 4]} w="full" justify="space-between">
+    <Box h="80vh">
+      <Flex
+        as="nav"
+        bg="teal.600"
+        color="white"
+        fontWeight="bold"
+        py={[2, 4]}
+        justify="space-between"
+      >
         <NextLink href="/" passHref>
-          <Link>Home</Link>
+          <Link ml={[2, 4]}>Home</Link>
         </NextLink>
       </Flex>
-      {children}
-    </Container>
+      <Container
+        as={motion.main}
+        p={[2, 4, 8]}
+        h="full"
+        maxW="full"
+        variants={variants}
+        initial="pageInitial"
+        animate="pageAnimate"
+        key={animateKey}
+        centerContent
+      >
+        {children}
+      </Container>
+    </Box>
   );
 };
 

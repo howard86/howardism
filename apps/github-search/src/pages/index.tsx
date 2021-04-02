@@ -8,7 +8,7 @@ const HomePage: FC = () => {
   const { state, result, onType, onSearch } = useSearch(count);
 
   return (
-    <VStack my="auto" spacing={[4, 8]} w="full">
+    <VStack my="auto" spacing={[4, 8]}>
       <Stack direction={["column", "row"]} align="center">
         <Input
           type="text"
