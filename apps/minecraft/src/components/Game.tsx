@@ -9,7 +9,7 @@ import Player from "./Player";
 
 const Game: FC = () => {
   return (
-    <Canvas>
+    <Canvas shadows gl={{ alpha: false }}>
       <CustomCamera fov={50} />
       <Sky sunPosition={new Vector3(100, 10, 100)} />
       <ambientLight intensity={0.3} />
