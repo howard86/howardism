@@ -1,5 +1,49 @@
 # Changelog
 
+<a name="1.0.3"></a>
+## 1.0.3 (2021-04-04)
+
+### Added
+
+- ✅ mock window.media [[abce48a](https://github.com/Howard86/howardism/commit/abce48a11e77eeffbe6df2faecaeef55c3630fed)]
+- ✨ udpate User page with Profile and Tabs [[494d73b](https://github.com/Howard86/howardism/commit/494d73bf47a1ba5ca5ea754e1502d8658124e97a)]
+- ✨ add InfoList [[1fd438c](https://github.com/Howard86/howardism/commit/1fd438c887c8690b7f567b0439d05c8a79931dcf)]
+- ✨ add ProfileField [[7857a1f](https://github.com/Howard86/howardism/commit/7857a1fbd1227184a93f448ccd65112297381e10)]
+- ✨ add ProfileBadge [[4350cb5](https://github.com/Howard86/howardism/commit/4350cb5efb0e121051da2848bd9c70e7cb061315)]
+- ✨ add match-icon utls [[d16c640](https://github.com/Howard86/howardism/commit/d16c640e714d0a1087e1f7fb87b159f6d31b2375)]
+- ➕ add react-icons [[c60c111](https://github.com/Howard86/howardism/commit/c60c111a1c3d8503e45999ddde9401f7d83525d4)]
+- ✨ fetch different number of users based on breakpoints [[e450dec](https://github.com/Howard86/howardism/commit/e450decb245d39b1ddbcccdb6d7af32bc6e99518)]
+- ✨ add UserCard [[1b38fd2](https://github.com/Howard86/howardism/commit/1b38fd2b8d377f120891260d521ab725b294058e)]
+- ✨ update HomePage with user input and hook [[735e765](https://github.com/Howard86/howardism/commit/735e7658443d81db54ff8def5019879ed7317270)]
+- ✨ add useSearch hooks [[df2b136](https://github.com/Howard86/howardism/commit/df2b136add5b9a50bb9401ee8354e0064b7c04e4)]
+- ✨ add Layout component [[f71a164](https://github.com/Howard86/howardism/commit/f71a164e4c853542e87489072affb84a5da1d40c)]
+- ✨ add /user/[username] page with get-user gql [[cfa6504](https://github.com/Howard86/howardism/commit/cfa6504b6e1b3a22aa305569527ccf3b99963c21)]
+- ➕ add required plugins for graphql-codegen [[9fde0e6](https://github.com/Howard86/howardism/commit/9fde0e64d49a96021de2dab0e543b0d59ccff0e7)]
+- ➕ add @graphql-codegen/cli [[8e6e287](https://github.com/Howard86/howardism/commit/8e6e2871868552aea365f9f4c0298eccb305f0c2)]
+- ➕ add @apollo/client &amp; graphql [[f69ff3b](https://github.com/Howard86/howardism/commit/f69ff3bbf7914c879c43481bd097a5a81b6de8f5)]
+
+### Changed
+
+- 🔧 remove build step for github-search [[badb41f](https://github.com/Howard86/howardism/commit/badb41f0875a202875ea511cb18c2664c689eb0d)]
+- 🔧 add sample env [[c515f58](https://github.com/Howard86/howardism/commit/c515f58e06c6cd3405d2eb01199ed54bad3e5848)]
+- 💄 update Layout and NavBar [[b83844b](https://github.com/Howard86/howardism/commit/b83844bc1ef1cc06125ddc42e7c451bc73607e67)]
+- 🚚 move common/ThemeProvider into components/ThemeProvider [[3360902](https://github.com/Howard86/howardism/commit/3360902d17ea459fc19817aba67e291f4203cf6d)]
+- 🔧 set up graphql-codegen [[391c989](https://github.com/Howard86/howardism/commit/391c9899cda0c5df0699d1a127dd44b7f72bd821)]
+- 🔧 set up apollo-client [[f67bea4](https://github.com/Howard86/howardism/commit/f67bea47d10234be14dc8c0d13662d49693bcc10)]
+
+### Fixed
+
+- 💚 track auth generated contents for CI [[d8598c8](https://github.com/Howard86/howardism/commit/d8598c8822d69d2cab770664f0f9f1e40bbb0f53)]
+- 🐛 fix ApolloClient typo [[2822b91](https://github.com/Howard86/howardism/commit/2822b9129a3bd3300515ebcb9929c1720717dc36)]
+
+### Miscellaneous
+
+- 🙈 remove ignored generated contents [[f34e1dc](https://github.com/Howard86/howardism/commit/f34e1dcb0027d79cf7bc900d76ac2174d71d2d0e)]
+- 🙈 ignore generated files and env [[f870462](https://github.com/Howard86/howardism/commit/f870462a3213933d0a01bdc4af71e987d0719417)]
+-  Merge pull request [#12](https://github.com/Howard86/howardism/issues/12) from Howard86/feature/migrate-github-search-projects [[1ac3fd7](https://github.com/Howard86/howardism/commit/1ac3fd7f8d668d008e0b986a899f209181acc422)]
+- 📝 update CHANGELOG [[2f96af8](https://github.com/Howard86/howardism/commit/2f96af89b8e3db3467b45f7f238f8756a70cc271)]
+
+
 <a name="1.0.2"></a>
 
 ## 1.0.2 (2021-03-17)
