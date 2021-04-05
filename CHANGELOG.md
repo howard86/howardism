@@ -1,5 +1,25 @@
 # Changelog
 
+<a name="1.0.4"></a>
+## 1.0.4 (2021-04-05)
+
+### Added
+
+- ➕ yarn upgrade-interactive --latest [[8c716aa](https://github.com/Howard86/howardism/commit/8c716aa721d0f0e81c265ee37012b9421e41a93d)]
+- ➕ upgrade eslint husky jest lerna typescript [[3c6a5fb](https://github.com/Howard86/howardism/commit/3c6a5fbcefae5c965203994f61b0352e6a8ee14d)]
+- 🎉 init @howardism/template [[a508385](https://github.com/Howard86/howardism/commit/a508385de4b614f2aabd3a6c7ee4e1339e1b75a2)]
+
+### Changed
+
+- 🔧 turn react strict mode &amp; webpack5 [[d13e7ba](https://github.com/Howard86/howardism/commit/d13e7baa4df6048e33a777b0e3b9e0994e51b10f)]
+- 🔧 update devtools confi based on packages upgrade [[61ea820](https://github.com/Howard86/howardism/commit/61ea820ec86da45a4c46d39f7fd3976d5177da57)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#13](https://github.com/Howard86/howardism/issues/13) from Howard86/feature/complete-migration-with-apollo [[e37fb40](https://github.com/Howard86/howardism/commit/e37fb4043040cc0a375d2712d71869948ec708e0)]
+- 📝 update CHANGELOG [[afa8115](https://github.com/Howard86/howardism/commit/afa8115e6cc41d54331eb7a922e47ff546479ded)]
+
+
 <a name="1.0.3"></a>
 ## 1.0.3 (2021-04-04)
 
