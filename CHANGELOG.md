@@ -1,5 +1,39 @@
 # Changelog
 
+<a name="1.0.5"></a>
+## 1.0.5 (2021-04-05)
+
+### Added
+
+- ✨ add Cube and useCubeStore [[f8134e9](https://github.com/Howard86/howardism/commit/f8134e92a687f6d3b8b7c02b38c3aa0a64a1d262)]
+- ✨ add movement to Player [[2d139e9](https://github.com/Howard86/howardism/commit/2d139e9f2d96b7b90a128c09599602877d433f08)]
+- ➕ add dev dep next-transpile-modules [[10b399e](https://github.com/Howard86/howardism/commit/10b399e32f8d5922d144ee2c149ecc25fb9bff9f)]
+- ✨ add Player [[d881597](https://github.com/Howard86/howardism/commit/d881597bb0b974a301c0935d09755ad800da4334)]
+- ✨ add Ground [[1288307](https://github.com/Howard86/howardism/commit/1288307f6bcad8f74b7d22c7c484acdbaf671707)]
+- ✨ add CustomCamera [[2e9bd35](https://github.com/Howard86/howardism/commit/2e9bd35d7bcbd3f44ae2fb27b75f7c2512d74924)]
+- ✨ add Game component [[a34fbd2](https://github.com/Howard86/howardism/commit/a34fbd28941ce41753b2a98a04e0bd4d5614fae8)]
+- ➕ add nanoid [[ac6f22e](https://github.com/Howard86/howardism/commit/ac6f22ec13aa10522a0e2de8c4269cbfc3f247e1)]
+- ➕ add zustand [[910efc3](https://github.com/Howard86/howardism/commit/910efc378b8220014dfba73535890e42b34805cb)]
+- ➕ add three.js react-three and helpers [[0d7749b](https://github.com/Howard86/howardism/commit/0d7749ba81b7c5df5967dc7113075116b8eb237d)]
+- 🎉 initialize next app from @howardism/template [[c9a9d4f](https://github.com/Howard86/howardism/commit/c9a9d4f8422c29148d325a726d48f912af066079)]
+
+### Changed
+
+- 🍱 update website head and favicon [[8e1db33](https://github.com/Howard86/howardism/commit/8e1db336d2371ec4b4d6ab4f7308047d989af3dd)]
+- 💄 update light and shadows [[2188df3](https://github.com/Howard86/howardism/commit/2188df3f3ebcc3a89a4f2b6eebe37e594b834890)]
+- 🔧 add withTM in next.config.js [[2c68607](https://github.com/Howard86/howardism/commit/2c68607d4cba78e2130b6c157e9e13fc4a09c7cd)]
+- 🍱 add texture/grass [[6c83fc2](https://github.com/Howard86/howardism/commit/6c83fc2e806ca0193c9638a91c718d2933def166)]
+
+### Fixed
+
+- 🐛 fix lerna version issues [[f01b291](https://github.com/Howard86/howardism/commit/f01b2910bbcc22f66b498889cf08d75cbf00fd96)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#14](https://github.com/Howard86/howardism/issues/14) from Howard86/feature/add-app-template [[b2dc2e3](https://github.com/Howard86/howardism/commit/b2dc2e30137fb6a6a4fb8b5cf2d01fa4d19d0141)]
+- 📝 update CHANGELOG [[e7432d9](https://github.com/Howard86/howardism/commit/e7432d962d4a89129cf289ed811c19350ed75701)]
+
+
 <a name="1.0.4"></a>
 ## 1.0.4 (2021-04-05)
 
