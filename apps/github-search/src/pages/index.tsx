@@ -1,9 +1,10 @@
-import React, { FC } from "react";
+import React from "react";
+import { NextPage } from "next";
 import { Button, Input, Stack, useBreakpointValue, VStack, Wrap } from "@chakra-ui/react";
 import useSearch from "@/hooks/use-search";
 import UserCard from "@/components/UserCard";
 
-const HomePage: FC = () => {
+const HomePage: NextPage = () => {
   const count = useBreakpointValue({ base: 9, sm: 12, md: 18, lg: 15, xl: 25 });
   const { state, result, onType, onSearch } = useSearch(count);
 

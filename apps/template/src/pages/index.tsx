@@ -1,5 +1,6 @@
-import React, { FC } from "react";
+import React from "react";
+import type { NextPage } from "next";
 
-const Home: FC = () => <div>Home</div>;
+const Home: NextPage = () => <div>Home</div>;
 
 export default Home;

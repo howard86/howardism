@@ -1,5 +1,4 @@
-import React, { FC } from "react";
-import { GetStaticProps, GetStaticPaths } from "next";
+import React from "react";
 import { NextSeo } from "next-seo";
 import matter from "gray-matter";
 import { join } from "path";
@@ -8,6 +7,7 @@ import { ParsedUrlQuery } from "querystring";
 import { List, Center } from "@chakra-ui/react";
 import renderToString from "next-mdx-remote/render-to-string";
 import hydrate from "next-mdx-remote/hydrate";
+import type { GetStaticProps, GetStaticPaths, NextPage } from "next";
 import type { MdxRemote } from "next-mdx-remote/types";
 
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
@@ -50,7 +50,7 @@ export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) 
   };
 };
 
-const BlogPostPage: FC<BlogPostProps> = ({ mdxSource, meta }) => {
+const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta }) => {
   const content = hydrate(mdxSource, {
     components: markdown,
   });

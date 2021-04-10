@@ -1,8 +1,9 @@
-import React, { FC } from "react";
+import React from "react";
 import Head from "next/head";
 import type { AppProps } from "next/app";
+import type { NextPage } from "next";
 
-const App: FC<AppProps> = ({ Component, pageProps }) => (
+const App: NextPage<AppProps> = ({ Component, pageProps }) => (
   <>
     <Head>
       <title>Next.js Template</title>
