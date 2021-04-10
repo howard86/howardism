@@ -1,5 +1,19 @@
 # Changelog
 
+<a name="1.0.6"></a>
+## 1.0.6 (2021-04-10)
+
+### Fixed
+
+- 💚 add CircleCI config [[466ccec](https://github.com/Howard86/howardism/commit/466ccec1770e09f82b456d7fe812f3deb31174c3)]
+
+### Miscellaneous
+
+-  :camera_flash: update HomePage snapshot [[c8f8490](https://github.com/Howard86/howardism/commit/c8f8490e5327aed72cabb15cd8cdcb8db8bbd6c0)]
+-  Merge pull request [#15](https://github.com/Howard86/howardism/issues/15) from Howard86/feature/start-react-minecraft [[5cbd6c1](https://github.com/Howard86/howardism/commit/5cbd6c14e9a93d0b88b1056a0f023513bf400840)]
+- 📝 update CHANGELOG [[34e23bc](https://github.com/Howard86/howardism/commit/34e23bc25b792db2cb32785c51cf0a06dbb45dce)]
+
+
 <a name="1.0.5"></a>
 ## 1.0.5 (2021-04-05)
 
