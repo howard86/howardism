@@ -1,8 +1,9 @@
 import React, { FC, ReactElement } from "react";
 import { render, RenderOptions, RenderResult } from "@testing-library/react";
+import GlobalWrapper from "@/components/GlobalWrapper";
 
 const Providers: FC = ({ children }) => {
-  return <>{children}</>;
+  return <GlobalWrapper>{children}</GlobalWrapper>;
 };
 
 const customRender = (ui: ReactElement, options: RenderOptions = {}): RenderResult =>
