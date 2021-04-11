@@ -1,12 +1,12 @@
 import React, { FC } from "react";
 import { ChakraProvider, Container } from "@chakra-ui/react";
+import theme from "@/styles/theme";
 import NavBar from "./NavBar";
 
 const GlobalWrapper: FC = ({ children }) => (
-  <ChakraProvider>
+  <ChakraProvider theme={theme}>
     <NavBar />
-    {/* TODO: update pt with responsive styles */}
-    <Container maxW="full" px="0" pt="20" bg="blackAlpha.800">
+    <Container maxW="full" px="0" bg="blackAlpha.800">
       {children}
     </Container>
   </ChakraProvider>
