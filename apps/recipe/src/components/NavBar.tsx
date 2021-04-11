@@ -21,6 +21,7 @@ const NavBar: FC = () => {
       color="white"
       justifyContent="space-between"
       alignItems="center"
+      zIndex="docked"
     >
       {/* TODO: add logo with fonts */}
       <RouteLink href="/" ml="8">
