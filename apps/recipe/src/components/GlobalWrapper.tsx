@@ -6,7 +6,7 @@ import NavBar from "./NavBar";
 const GlobalWrapper: FC = ({ children }) => (
   <ChakraProvider theme={theme}>
     <NavBar />
-    <Container maxW="full" px="0" bg="blackAlpha.800">
+    <Container maxW="full" px="0" bg="secondary.50">
       {children}
     </Container>
   </ChakraProvider>
