@@ -4,6 +4,8 @@ import { IoMdMenu } from "react-icons/io";
 
 import RouteLink from "./RouteLink";
 
+export const NAV_BAR_HEIGHT = 20;
+
 const NavBar: FC = () => {
   const onOpen = () => {
     // TODO: add Drawer here
@@ -17,7 +19,7 @@ const NavBar: FC = () => {
       position="fixed"
       top="0"
       w="full"
-      h="20"
+      h={NAV_BAR_HEIGHT}
       color="white"
       justifyContent="space-between"
       alignItems="center"
