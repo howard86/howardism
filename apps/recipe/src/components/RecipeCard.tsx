@@ -49,7 +49,7 @@ const RecipeCard: FC<RecipeCardProps> = ({ id, title, description, timestamp, im
         {daysPassed > 0 ? `${daysPassed} days ago` : "New!"}
       </Tag>
       <AspectRatio ratio={16 / 9}>
-        <Skeleton startColor="primary.500" endColor="secondary.500" rounded="md" isLoaded={loaded}>
+        <Skeleton isLoaded={loaded}>
           <Img
             src={imageUrl}
             alt={`recipe photo of ${title}`}
