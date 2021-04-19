@@ -94,7 +94,7 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps }) => {
                   borderLeftColor={isViewed || isChecked ? THEME_COLOR : LIGHT_THEME_COLOR}
                 >
                   {step.description}
-                  {!expanded && (
+                  {!expanded && isViewed && (
                     <HStack mt="4">
                       <Button isDisabled={isFirst} onClick={handleBack}>
                         Back
