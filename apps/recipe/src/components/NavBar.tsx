@@ -1,29 +1,45 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import { Flex, IconButton } from "@chakra-ui/react";
 import { IoMdMenu } from "react-icons/io";
 
 import RouteLink from "./RouteLink";
+import useDocumentScrollThrottled from "@/hooks/useThrottledScroll";
 
 export const NAV_BAR_HEIGHT = 20;
+const TIMEOUT_DELAY = 200;
 
 const NavBar: FC = () => {
+  const [shouldHideHeader, setShouldHideHeader] = useState(true);
+
+  useDocumentScrollThrottled((previousScrollTop, currentScrollTop) => {
+    const isScrolledDown = previousScrollTop < currentScrollTop;
+    const isMinimumScrolled = currentScrollTop > NAV_BAR_HEIGHT;
+
+    setTimeout(() => {
+      setShouldHideHeader(window.pageYOffset === 0 || (isScrolledDown && isMinimumScrolled));
+    }, TIMEOUT_DELAY);
+  }, TIMEOUT_DELAY * 2);
+
   const onOpen = () => {
     // TODO: add Drawer here
     alert("clicked");
   };
 
-  // TODO: change bg when scrolling
   return (
     <Flex
       as="nav"
       position="fixed"
-      top="0"
       w="full"
       h={NAV_BAR_HEIGHT}
       color="white"
+      bgGradient="linear(to-b, primary.900, primary.800, primary.800,  primary.800, primary.800, primary.800, primary.700, primary.600)"
+      top={shouldHideHeader ? 4 - NAV_BAR_HEIGHT : 0}
+      opacity="0.9"
+      transition="0.3s ease-out"
       justifyContent="space-between"
       alignItems="center"
       zIndex="docked"
+      _hover={{ top: 0 }}
     >
       {/* TODO: add logo with fonts */}
       <RouteLink href="/" ml="8">
