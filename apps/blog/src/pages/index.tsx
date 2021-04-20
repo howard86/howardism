@@ -1,9 +1,9 @@
-import React, { FC } from "react";
-import { GetStaticProps } from "next";
+import React from "react";
 import matter from "gray-matter";
 import path from "path";
 import fs from "fs";
 import { Heading, List, ListItem } from "@chakra-ui/react";
+import type { GetStaticProps, NextPage } from "next";
 
 import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import PostCard from "@/components/blog/PostCard";
@@ -14,7 +14,7 @@ interface HomeProps {
   postsMeta: FrontMatter.Meta[];
 }
 
-const Home: FC<HomeProps> = ({ postsMeta }) => (
+const Home: NextPage<HomeProps> = ({ postsMeta }) => (
   <>
     <Heading as="h1" mx="5">
       Howardism

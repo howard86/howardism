@@ -1,6 +1,6 @@
-import React, { FC } from "react";
+import React from "react";
 import { useRouter } from "next/router";
-import type { GetStaticPaths, GetStaticProps } from "next";
+import type { GetStaticPaths, GetStaticProps, NextPage } from "next";
 import type { ApolloQueryResult } from "@apollo/client";
 import {
   useBreakpointValue,
@@ -32,7 +32,7 @@ import { GITHUB_BASE_URL } from "@/constants/github";
 
 const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has");
 
-const UserPage: FC<GetUserQuery["user"]> = ({
+const UserPage: NextPage<GetUserQuery["user"]> = ({
   name,
   login,
   avatarUrl,

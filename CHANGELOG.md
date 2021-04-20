@@ -1,5 +1,47 @@
 # Changelog
 
+<a name="1.0.7"></a>
+## 1.0.7 (2021-04-19)
+
+### Added
+
+- ✨ add useThrottleScroll hook [[d4ef514](https://github.com/Howard86/howardism/commit/d4ef5141dbb3cf8225f50f85759b5c40a9976b2f)]
+- ➕ add lodash.throttle [[62e207e](https://github.com/Howard86/howardism/commit/62e207e1e93585ddea9b972792324efbe6a5883f)]
+- ✨ add RecipePage [[50b3188](https://github.com/Howard86/howardism/commit/50b31881322c254a81f7a61ccde849c762e74dd6)]
+- ✨ add ProcedureStep: [[353acee](https://github.com/Howard86/howardism/commit/353acee46386855069b484a4c6e871abe8247fd3)]
+- ✨ add recipe service [[62255fc](https://github.com/Howard86/howardism/commit/62255fcee45ee5c22f8e91c1829c771a51a8b775)]
+- ✨ update HomePage with Landing &amp; Intro [[f391a81](https://github.com/Howard86/howardism/commit/f391a81f4383d3fcbbaa004a55d3314bc9f8f5ed)]
+- ✨ add RecipeCard [[071dc45](https://github.com/Howard86/howardism/commit/071dc459394d63c7b485a203eced4ea8c24daa2b)]
+- ✨ add Landing sections [[ea5c260](https://github.com/Howard86/howardism/commit/ea5c260eb7f5000f20f3f4797a7476fbaf6df3d9)]
+- ✨ add Triangle [[cd5cea9](https://github.com/Howard86/howardism/commit/cd5cea964141748e3ac8f8400d2a5977a0aeeea1)]
+- ✨ add Image from chakra factory and next/image [[5ab6ded](https://github.com/Howard86/howardism/commit/5ab6ded4f4e6a21138f452f5e291e674d870c2a3)]
+- ✨ add NavBar in Global Wrapper [[b81a17c](https://github.com/Howard86/howardism/commit/b81a17c0f8b9ac6f401304b07c8185b268ebf69a)]
+- ✨ add RouteLink [[7777458](https://github.com/Howard86/howardism/commit/7777458c0ec76427ad13e71d48b34331cb117989)]
+- ➕ install react-icons [[a6564f8](https://github.com/Howard86/howardism/commit/a6564f8e5a3b5b4c6cc869b1aef0f61e91d8bbe9)]
+- ✨ add GlobalWrapper with ChakraProvider [[99758b9](https://github.com/Howard86/howardism/commit/99758b9044f4cadb14a3915e2ceac6e8c0ae6c57)]
+- ➕ install chakra-ui emotion &amp; framer-motion [[7fbf778](https://github.com/Howard86/howardism/commit/7fbf778ad16d4e7e75bef86b64907c400e2d6d9d)]
+- 🎉 initialize recipe from template [[36141f0](https://github.com/Howard86/howardism/commit/36141f07967a6c0dee081aa419b972a9159cea2e)]
+
+### Changed
+
+- 💄 update NavBar background with scroll animation [[14bc3ff](https://github.com/Howard86/howardism/commit/14bc3fff4d5144988a44ce4d0d47478237d76d97)]
+- ♻️ update test [[6a855f6](https://github.com/Howard86/howardism/commit/6a855f6f99f4d356574da4689ba9bfe7a3f939be)]
+- 💄 add components theme [[5c33505](https://github.com/Howard86/howardism/commit/5c33505e2f7d22a797b67b13a3c699d38f2d3cb0)]
+- 💄 add theme and brand colors [[181ae90](https://github.com/Howard86/howardism/commit/181ae90b1615aa783bb6e6fc107fc529e87ffd46)]
+
+### Fixed
+
+- 🐛 fix component flashing when closed [[e46ad14](https://github.com/Howard86/howardism/commit/e46ad14e3fd5ff1d0a366b58d4bdfd1a223dd705)]
+- 🐛 fix html head message [[dcf0526](https://github.com/Howard86/howardism/commit/dcf05261c74a72581d9a2a918afaef4583ddf815)]
+
+### Miscellaneous
+
+-  feat: add LayerCheckboxes [[f265b56](https://github.com/Howard86/howardism/commit/f265b5651a5a1998955b615d48680f2dee96353c)]
+- 🏷️ update pages type and import order [[4e7d1a1](https://github.com/Howard86/howardism/commit/4e7d1a13f9819ecde49335c0edfb6def4f6d3bde)]
+-  Merge pull request [#16](https://github.com/Howard86/howardism/issues/16) from Howard86/feature/set-up-minecraft-ci-cd [[814d384](https://github.com/Howard86/howardism/commit/814d384cd1b1f94fa661449739cd7d31ec997b9d)]
+- 📝 update CHANGELOG [[a4d284c](https://github.com/Howard86/howardism/commit/a4d284cada2d1a2249d5f043437207e4f7a7b3f7)]
+
+
 <a name="1.0.6"></a>
 ## 1.0.6 (2021-04-10)
 
