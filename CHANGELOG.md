@@ -1,5 +1,22 @@
 # Changelog
 
+<a name="1.0.8"></a>
+## 1.0.8 (2021-04-20)
+
+### Added
+
+- 👷‍♂️ add recipe build [[108c4a9](https://github.com/Howard86/howardism/commit/108c4a91af5e3382990d1225611a5eadedd99141)]
+
+### Changed
+
+- 🔧 update pre-push hooks [[9eebf23](https://github.com/Howard86/howardism/commit/9eebf236ddf4766084351effde62ebbe2933b5b4)]
+
+### Miscellaneous
+
+-  Merge pull request [#17](https://github.com/Howard86/howardism/issues/17) from Howard86/feature/add-recipe-site [[972758b](https://github.com/Howard86/howardism/commit/972758b3ddf83a1f3fe0a9a1a67e5ca3fe7b062f)]
+- 📝 update CHANGELOG [[5e05fd9](https://github.com/Howard86/howardism/commit/5e05fd996b0449f66d99c97cba6ffaed5847ed4b)]
+
+
 <a name="1.0.7"></a>
 ## 1.0.7 (2021-04-19)
 
