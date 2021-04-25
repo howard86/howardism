@@ -15,7 +15,9 @@ const Home: NextPage<HomeProps> = ({ recipes }) => {
   // TODO: refactor Landing
   return (
     <>
-      <Landing imageUrl={memoizedResults[0].image[0].formats.small.url} />
+      {memoizedResults.length > 0 && (
+        <Landing imageUrl={memoizedResults[0].image[0].formats.small.url} />
+      )}
       <Intro recipes={memoizedResults} />
     </>
   );
