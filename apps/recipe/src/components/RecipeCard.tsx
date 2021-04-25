@@ -1,18 +1,10 @@
-import React, { FC, useState } from "react";
+import React, { FC } from "react";
 import NextLink from "next/link";
-import {
-  AspectRatio,
-  Heading,
-  Img,
-  LinkBox,
-  LinkOverlay,
-  Skeleton,
-  Tag,
-  Text,
-} from "@chakra-ui/react";
+import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
+import Image from "@/components/Image";
 
 interface RecipeCardProps {
-  id: string;
+  id: number;
   title: string;
   description: string;
   timestamp: string;
@@ -25,12 +17,7 @@ const getDayDiff = (timestamp: string): number => {
 };
 
 const RecipeCard: FC<RecipeCardProps> = ({ id, title, description, timestamp, imageUrl }) => {
-  const [loaded, setLoaded] = useState(false);
   const daysPassed = getDayDiff(timestamp);
-
-  const handleOnLoad = () => {
-    setLoaded(true);
-  };
 
   return (
     <LinkBox as="article" p="4" bg="secondary.100" rounded="lg">
@@ -48,16 +35,13 @@ const RecipeCard: FC<RecipeCardProps> = ({ id, title, description, timestamp, im
       >
         {daysPassed > 0 ? `${daysPassed} days ago` : "New!"}
       </Tag>
-      <AspectRatio ratio={16 / 9}>
-        <Skeleton isLoaded={loaded}>
-          <Img
-            src={imageUrl}
-            alt={`recipe photo of ${title}`}
-            objectFit="cover"
-            onLoad={handleOnLoad}
-          />
-        </Skeleton>
-      </AspectRatio>
+      <Image
+        src={imageUrl}
+        width={400}
+        height={300}
+        alt={`recipe photo of ${title}`}
+        objectFit="cover"
+      />
       <Heading as="h3" fontSize="lg" color="primary.900" my="2">
         <NextLink href={`/recipe/${id}`} passHref>
           <LinkOverlay>{title}</LinkOverlay>

@@ -4,26 +4,29 @@ import { Box, Heading, VStack, LinkBox, Icon, LinkOverlay } from "@chakra-ui/rea
 import { FiShare } from "react-icons/fi";
 
 import RecipeCard from "./RecipeCard";
+import type { Recipe } from "@/types/recipe";
 
-const Intro: FC = () => {
+interface IntroProps {
+  recipes: Recipe[];
+}
+
+const Intro: FC<IntroProps> = ({ recipes }) => {
   return (
     <Box p="8">
       <Heading fontSize="xl">Top Recipes</Heading>
       <VStack my="4" spacing={6}>
-        <RecipeCard
-          id="1"
-          title="Braised Pork Rice"
-          description="This is an amazing braised pork rice to follow!"
-          timestamp={new Date().toString()}
-          imageUrl="https://bit.ly/dan-abramov"
-        />
-        <RecipeCard
-          id="1"
-          title="Braised Pork Rice"
-          description="This is an amazing braised pork rice to follow!"
-          timestamp={new Date().toString()}
-          imageUrl="https://bit.ly/dan-abramov"
-        />
+        {recipes
+          .filter((recipe) => Boolean(recipe.image[0]))
+          .map((recipe) => (
+            <RecipeCard
+              key={recipe.id}
+              id={recipe.id}
+              title={recipe.title}
+              description={recipe.description}
+              timestamp={recipe.published_at}
+              imageUrl={recipe.image[0].formats.thumbnail.url}
+            />
+          ))}
         <LinkBox
           p="4"
           maxW="sm"
