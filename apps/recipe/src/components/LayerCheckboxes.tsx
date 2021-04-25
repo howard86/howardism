@@ -1,9 +1,10 @@
 import React, { ChangeEvent, FC, memo, useState } from "react";
 import { Checkbox, VStack } from "@chakra-ui/react";
+import type { Ingredient } from "@/types/recipe";
 
 interface LayerCheckboxesProps {
   title: string;
-  options: string[];
+  options: Ingredient[];
 }
 
 const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
@@ -22,13 +23,14 @@ const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
         isChecked={isAllChecked}
         isIndeterminate={isIndeterminate}
         onChange={handleOnParentChange}
+        textTransform="capitalize"
       >
         {title}
       </Checkbox>
       <VStack pl="6" mt="1" spacing="1" alignItems="start">
         {options.map((option, index) => (
           <Checkbox
-            key={option}
+            key={option.id}
             isChecked={checkedItems[index]}
             onChange={(e) => {
               setCheckedItems((items) => {
@@ -38,7 +40,9 @@ const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
               });
             }}
           >
-            {option}
+            {option.amount > 0
+              ? `${option.name} ${option.amount} ${option.unit}`
+              : `${option.name} ${option.unit}`}
           </Checkbox>
         ))}
       </VStack>
