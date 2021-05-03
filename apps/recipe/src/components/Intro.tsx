@@ -24,7 +24,7 @@ const Intro: FC<IntroProps> = ({ recipes }) => {
               title={recipe.title}
               description={recipe.description}
               timestamp={recipe.published_at}
-              imageUrl={recipe.image[0].formats.thumbnail.url}
+              imageUrl={recipe.image[0].formats.small.url}
             />
           ))}
         <LinkBox
