@@ -1,5 +1,31 @@
 # Changelog
 
+<a name="1.0.9"></a>
+## 1.0.9 (2021-05-03)
+
+### Added
+
+- ✅ update home page unit test [[ca1af4c](https://github.com/Howard86/howardism/commit/ca1af4cfc2141042d54f05c867a726f5a022ff88)]
+- ✨ update landing page with get static props [[a4a07b9](https://github.com/Howard86/howardism/commit/a4a07b92b255b5b53f6268a1170af73696641c6c)]
+- ✨ update recipe page with get static paths &amp; props [[0cad192](https://github.com/Howard86/howardism/commit/0cad1921dd96c7564ab648f4ca640f88bd38b726)]
+- ✨ update recipe services with cms endpoint [[58357d6](https://github.com/Howard86/howardism/commit/58357d6bd191f1af27ffd76dc3be97be0e19f086)]
+- ➕ install axios [[317f944](https://github.com/Howard86/howardism/commit/317f9446b52c13e365ebf36222f3fb03cc1c719b)]
+
+### Changed
+
+- 🔧 add cloudinary to accepted next/images domains [[622a6a6](https://github.com/Howard86/howardism/commit/622a6a69c402732357c5b7c71b5b12488e477754)]
+
+### Fixed
+
+- 🐛 fix blurred image [[9974fd9](https://github.com/Howard86/howardism/commit/9974fd9c02b0b442d9722e6992527bd046752d20)]
+
+### Miscellaneous
+
+- 🏷️ add recipe types [[56366c0](https://github.com/Howard86/howardism/commit/56366c0e8a231cf0934786df3be6ee2a5c84ab37)]
+-  Merge pull request [#18](https://github.com/Howard86/howardism/issues/18) from Howard86/feature/add-recipe-ci-cd [[2e6522f](https://github.com/Howard86/howardism/commit/2e6522f9a6e1758e88f730f25a0e3a3ba51fe945)]
+- 📝 update CHANGELOG [[5799ad5](https://github.com/Howard86/howardism/commit/5799ad503d1a8ebc40c6aaa09035b8909ffdeb4f)]
+
+
 <a name="1.0.8"></a>
 ## 1.0.8 (2021-04-20)
 

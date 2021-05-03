@@ -1,19 +1,21 @@
 import React from "react";
 import { useRouter } from "next/router";
 import { Box, Heading, VStack, Text, CheckboxGroup, Spinner } from "@chakra-ui/react";
-import type { GetStaticPaths, GetStaticProps, NextPage } from "next";
+import type {
+  GetStaticPathsResult,
+  GetStaticPropsContext,
+  GetStaticPropsResult,
+  NextPage,
+} from "next";
 
-import { getRecipeById, Recipe } from "@/services/recipe";
+import { getRecipeById, getRecipes } from "@/services/recipe";
 import Image from "@/components/Image";
 import { NAV_BAR_HEIGHT } from "@/components/NavBar";
 import LayerCheckboxes from "@/components/LayerCheckboxes";
 import ProcedureStep from "@/components/ProcedureStep";
+import type { Recipe } from "@/types/recipe";
 
-interface RecipePageProps {
-  recipe: Recipe;
-}
-
-const RecipePage: NextPage<RecipePageProps> = ({ recipe }) => {
+const RecipePage: NextPage<Recipe> = (recipe) => {
   const router = useRouter();
 
   if (router.isFallback) {
@@ -23,23 +25,22 @@ const RecipePage: NextPage<RecipePageProps> = ({ recipe }) => {
   return (
     <VStack alignItems="start" p="4" spacing="4">
       <Box h={NAV_BAR_HEIGHT} />
-      <Image
-        src="/assets/demo.jpg"
-        width={320}
-        height={218}
-        borderRadius="lg"
-        shadow="lg"
-        priority
-      />
+      {recipe.image?.[0] && (
+        <Image
+          src={recipe.image[0].formats.small.url}
+          width={320}
+          height={218}
+          borderRadius="lg"
+          shadow="lg"
+          priority
+        />
+      )}
 
-      <Heading as="h1">Braised Beef Soup</Heading>
-      <Text>Amazing soup with care, best for winter!</Text>
+      <Heading as="h1">{recipe.title}</Heading>
+      <Text>{recipe.description}</Text>
 
-      <Heading as="h2" fontSize="lg">
-        Ingredients
-      </Heading>
       <CheckboxGroup colorScheme="secondary">
-        <LayerCheckboxes title="food" options={recipe.food} />
+        <LayerCheckboxes title="ingredients" options={recipe.ingredients} />
         <LayerCheckboxes title="seasonings" options={recipe.seasonings} />
       </CheckboxGroup>
       <ProcedureStep steps={recipe.steps} />
@@ -47,15 +48,27 @@ const RecipePage: NextPage<RecipePageProps> = ({ recipe }) => {
   );
 };
 
-export const getStaticPaths: GetStaticPaths = async () => ({
-  paths: [],
-  fallback: true,
-});
+type QueryPath = {
+  id: string;
+};
 
-export const getStaticProps: GetStaticProps<RecipePageProps> = async (context) => {
-  const id = context.params.id as string;
+export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>> => {
+  const results = await getRecipes();
 
-  const recipe = getRecipeById(id);
+  return {
+    paths: results.map((result) => ({
+      params: {
+        id: result.id.toString(),
+      },
+    })),
+    fallback: false,
+  };
+};
+
+export const getStaticProps = async (
+  context: GetStaticPropsContext<QueryPath>
+): Promise<GetStaticPropsResult<Recipe>> => {
+  const recipe = await getRecipeById(context.params.id);
 
   if (recipe === null) {
     return {
@@ -64,9 +77,7 @@ export const getStaticProps: GetStaticProps<RecipePageProps> = async (context) =
   }
 
   return {
-    props: {
-      recipe,
-    },
+    props: recipe,
   };
 };
 

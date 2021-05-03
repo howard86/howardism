@@ -3,7 +3,11 @@ import { Box, Heading, Text, Button, Flex } from "@chakra-ui/react";
 import Image from "./Image";
 import Triangle from "./Triangle";
 
-const Landing: FC = () => {
+interface LandingProps {
+  imageUrl: string;
+}
+
+const Landing: FC<LandingProps> = ({ imageUrl }) => {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
     alert("clicked!");
@@ -43,14 +47,7 @@ const Landing: FC = () => {
           </Heading>
         </Box>
         <Box>
-          <Image
-            src="/assets/demo.jpg"
-            width={320}
-            height={218}
-            priority
-            borderRadius="lg"
-            shadow="lg"
-          />
+          <Image src={imageUrl} width={320} height={218} priority borderRadius="lg" shadow="lg" />
         </Box>
         <Box
           p="4"

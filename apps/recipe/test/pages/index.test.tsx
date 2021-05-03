@@ -4,6 +4,6 @@ import { render } from "../testUtils";
 
 describe("HomePage", () => {
   it("should render", () => {
-    render(<HomePage />, {});
+    render(<HomePage recipes={[]} />, {});
   });
 });
