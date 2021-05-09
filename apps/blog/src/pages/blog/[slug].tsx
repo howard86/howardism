@@ -1,51 +1,74 @@
 import React from "react";
 import { NextSeo } from "next-seo";
-import matter from "gray-matter";
-import { join } from "path";
-import { readdirSync, readFileSync } from "fs";
-import { ParsedUrlQuery } from "querystring";
 import { List, Center } from "@chakra-ui/react";
 import renderToString from "next-mdx-remote/render-to-string";
 import hydrate from "next-mdx-remote/hydrate";
-import type { GetStaticProps, GetStaticPaths, NextPage } from "next";
+import type {
+  NextPage,
+  GetStaticPathsResult,
+  GetStaticPropsResult,
+  GetStaticPropsContext,
+} from "next";
+import type { ParsedUrlQuery } from "querystring";
 import type { MdxRemote } from "next-mdx-remote/types";
 
-import { MDX_SOURCE_PATH } from "@/constants/mdx";
-import { filterNullValue } from "@/utils/filter";
 import ThemeProvider from "@/components/common/ThemeProvider";
 import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
+import { fetchBlogPostById, fetchBlogPosts } from "@/services/cms";
+import type { BlogPost } from "@/types/blog-post";
 
 interface BlogPostProps {
   mdxSource: MdxRemote.Source;
-  meta: FrontMatter.Meta;
+  meta: Omit<BlogPost, "article">;
 }
 
 interface StaticPaths extends ParsedUrlQuery {
   slug: string;
 }
 
-export const getStaticPaths: GetStaticPaths<StaticPaths> = async () => ({
-  fallback: false,
-  paths: readdirSync(MDX_SOURCE_PATH).map((fileName) => ({
-    params: { slug: fileName.replace(/\.mdx/, "") },
-  })),
-});
+export const getStaticPaths = async (): Promise<GetStaticPathsResult<StaticPaths>> => {
+  const posts = await fetchBlogPosts();
 
-export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) => {
-  const slug = params?.slug as string;
-  const sourcePath = join(MDX_SOURCE_PATH, `${slug}.mdx`);
+  return {
+    fallback: false,
+    paths: posts.map((post) => ({
+      params: {
+        slug: post.id.toString(),
+      },
+    })),
+  };
+};
 
-  const source = readFileSync(sourcePath, "utf8");
-  const { data, content } = matter(source);
-  const mdxSource = await renderToString(content, {
+export const getStaticProps = async ({
+  params,
+}: GetStaticPropsContext<StaticPaths>): Promise<GetStaticPropsResult<BlogPostProps>> => {
+  const slug = params?.slug;
+
+  if (!slug) {
+    return {
+      notFound: true,
+    };
+  }
+
+  const post = await fetchBlogPostById(slug);
+
+  if (!post) {
+    return {
+      notFound: true,
+    };
+  }
+
+  const { article, ...meta } = post;
+
+  const mdxSource = await renderToString(article, {
     components: markdown,
     provider: { component: ThemeProvider, props: {} },
   });
   return {
     props: {
       mdxSource,
-      meta: filterNullValue(data) as FrontMatter.Meta,
+      meta,
     },
   };
 };
@@ -58,14 +81,13 @@ const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta }) => {
   return (
     <>
       <NextSeo title={meta.title} />
-
       <List display="flex" justifyContent="space-between" mb={[8, 4]}>
-        <BlogNavButton title={meta.lastPostTitle} date={meta.lastPostDate} />
-        <BlogNavButton title={meta.nextPostTitle} date={meta.nextPostDate} />
+        <BlogNavButton title="Previous" id={meta.id - 1} />
+        <BlogNavButton title="Next" id={meta.id + 1} />
       </List>
       {content}
       <Center>
-        <BlogNavButton />
+        <BlogNavButton title="Back to Home" id={-1} />
       </Center>
     </>
   );
