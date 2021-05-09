@@ -2,14 +2,15 @@ import React, { FC, memo } from "react";
 import NextLink from "next/link";
 import { Flex, Heading, LinkBox, LinkOverlay, Text } from "@chakra-ui/react";
 
-interface PostCardProps {
+export interface PostCardProps {
+  id: number;
   title: string;
   date: string;
   description: string;
   tags: string[];
 }
 
-const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
+const PostCard: FC<PostCardProps> = ({ id, title, date, description, tags }) => (
   <LinkBox
     as="article"
     p="5"
@@ -26,7 +27,7 @@ const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
         my={[0, 2, 4]}
         noOfLines={1}
       >
-        <NextLink href={`/blog/${date}`} passHref>
+        <NextLink href={`/blog/${id}`} passHref>
           <LinkOverlay>{title}</LinkOverlay>
         </NextLink>
       </Heading>
