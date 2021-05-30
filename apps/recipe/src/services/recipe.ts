@@ -1,4 +1,4 @@
-import type { Recipe } from "@/types/recipe";
+import type { Recipe, RawRecipe } from "@/types/recipe";
 import cms from "./cms";
 
 export const getRecipes = async (): Promise<Recipe[]> => {
@@ -20,4 +20,11 @@ export const getRecipeById = async (id: string): Promise<Recipe | null> => {
     console.error(error);
     return null;
   }
+};
+
+export const createRecipe = async (recipe: RawRecipe, authHeader: string): Promise<boolean> => {
+  await cms.post("recipes", recipe, {
+    headers: { Authorization: authHeader },
+  });
+  return true;
 };
