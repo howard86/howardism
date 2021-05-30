@@ -6,8 +6,8 @@ import useAppDispatch from "./useAppDispatch";
 
 type UseAuth = {
   isLoggedIn: boolean;
-  login: (account: Account) => void;
-  logout: () => void;
+  login: (account: Account) => Promise<void>;
+  logout: VoidFunction;
 };
 
 // TODO: consider manage auth by redux
