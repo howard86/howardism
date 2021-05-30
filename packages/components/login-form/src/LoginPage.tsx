@@ -1,15 +1,19 @@
 import React from "react";
 import { Box, Heading } from "@chakra-ui/react";
 import Card from "./Card";
-import LoginForm from "./LoginForm";
+import LoginForm, { OnLogin } from "./LoginForm";
 
-const LoginPage = (): JSX.Element => (
+interface LoginPageProps {
+  onLogin: OnLogin;
+}
+
+const LoginPage = ({ onLogin }: LoginPageProps): JSX.Element => (
   <Box maxW="md" mx="auto">
     <Heading textAlign="center" size="xl" fontWeight="extrabold" my="6">
       Sign in to your account
     </Heading>
     <Card>
-      <LoginForm />
+      <LoginForm onLogin={onLogin} />
     </Card>
   </Box>
 );
