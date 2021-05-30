@@ -1,8 +1,8 @@
-import { useToast } from "@chakra-ui/react";
 import type { Account } from "@/types/auth";
 import { authLogin, authLogout } from "@/redux/slices/auth";
 import useAppSelector from "./useAppSelector";
 import useAppDispatch from "./useAppDispatch";
+import useAppToast from "./useAppToast";
 
 type UseAuth = {
   isLoggedIn: boolean;
@@ -14,7 +14,7 @@ type UseAuth = {
 const useAuth = (): UseAuth => {
   const dispatch = useAppDispatch();
   const { isLoggedIn } = useAppSelector((state) => state.auth);
-  const toast = useToast({ duration: 5000, isClosable: true, position: "bottom" });
+  const toast = useAppToast();
 
   const login = async (account: Account): Promise<void> => {
     const response = await dispatch(authLogin(account));
