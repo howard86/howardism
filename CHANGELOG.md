@@ -1,5 +1,26 @@
 # Changelog
 
+<a name="1.0.11"></a>
+## 1.0.11 (2021-05-31)
+
+### Added
+
+- ✨ add CreateRecipePage [[0b5a7aa](https://github.com/Howard86/howardism/commit/0b5a7aa28c1142aec66f0b0078400a755ef61d36)]
+- ✨ add RecipeForm to handle raw recipe [[21bf9a2](https://github.com/Howard86/howardism/commit/21bf9a210becdeed82d1178c8a60a11b78ef64e0)]
+- ✨ add RecipeFormFieldArray with Accordion [[9e672f5](https://github.com/Howard86/howardism/commit/9e672f587741389fa9185cead361f6eda5550c78)]
+- ✨ add RecipeFormAccordionItem for array form fields [[224f7d6](https://github.com/Howard86/howardism/commit/224f7d6e0e2686ca5f6ad2c4e59680a266fd7ef0)]
+- ✨ add /api/recipe/create [[ae55db5](https://github.com/Howard86/howardism/commit/ae55db55249082e9ff19afd8e6f178f1f5430b6a)]
+
+### Changed
+
+- ♻️ refactor useAppToast with pre-defined config [[266850c](https://github.com/Howard86/howardism/commit/266850c672309e14dc1c5df2d5816034d19c87bb)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#20](https://github.com/Howard86/howardism/issues/20) from Howard86/feature/add-signin-page [[7e62499](https://github.com/Howard86/howardism/commit/7e624996d6b76307484e5c2649d0f9d17a315606)]
+- 📝 update CHANGELOG [[b5d3c82](https://github.com/Howard86/howardism/commit/b5d3c826082960d626c49d952fc85801be5f79b4)]
+
+
 <a name="1.0.10"></a>
 ## 1.0.10 (2021-05-30)
 
