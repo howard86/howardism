@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export type LocalAPIResponse<T> = T & { success: boolean };
+export type LocalAPIResponse<T = unknown> = T & { success: boolean };
 
 const api = axios.create({ baseURL: "/api" });
 

@@ -9,6 +9,16 @@ export interface Recipe {
   published_at: string;
 }
 
+export interface RawRecipe {
+  title: string;
+  description: string;
+  ingredients: RawIngredient[];
+  seasonings: RawSeasoning[];
+  steps: RawStep[];
+}
+export type RawIngredient = Omit<Ingredient, "id">;
+export type RawSeasoning = RawIngredient;
+export type RawStep = Omit<Step, "id">;
 export interface Ingredient {
   id: number;
   name: string;
