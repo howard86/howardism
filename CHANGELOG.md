@@ -1,5 +1,39 @@
 # Changelog
 
+<a name="1.0.10"></a>
+## 1.0.10 (2021-05-30)
+
+### Added
+
+- ✨ create /signin page [[475e944](https://github.com/Howard86/howardism/commit/475e944868dfd04203bc60af821443af6a845d1a)]
+- ➕ install formik [[c3e6127](https://github.com/Howard86/howardism/commit/c3e6127fb537fc0fb702256c6794a810fee1c883)]
+- ✨ add auth slice and reducer [[72a4f49](https://github.com/Howard86/howardism/commit/72a4f49ec5d235f8f702e4bae967987bc91ae4ec)]
+- ✨ createa axios instance for local api [[3dbc6fb](https://github.com/Howard86/howardism/commit/3dbc6fb9cb0672509aa8433fcf11faa74a06b4bf)]
+- ✨ set up redux provider, store &amp; hooks [[1dc4e4f](https://github.com/Howard86/howardism/commit/1dc4e4ff4b88768bdf76a0bbc9eb5f42c1903ba2)]
+- ➕ add react-redux [[099f340](https://github.com/Howard86/howardism/commit/099f340593d041d6e3ef4add77fdb587f10386de)]
+- ➕ install redux toolkit [[146cea1](https://github.com/Howard86/howardism/commit/146cea1a1e3b29789cb36b67b458ab1bf811659e)]
+- ✨ add useAuth hook [[2fbba3b](https://github.com/Howard86/howardism/commit/2fbba3b6124b9c31253bfe33a4957b724151d7a4)]
+- ✨ add AuthProvider with AuthContext [[ab4919a](https://github.com/Howard86/howardism/commit/ab4919a155e512fd8ddcf34b03fd4c1438cdecb0)]
+- ✨ add /api/auth endpoints [[d022088](https://github.com/Howard86/howardism/commit/d02208867b739a128d843080e19213e5d35c82f4)]
+- ✨ add auth service [[8cc8854](https://github.com/Howard86/howardism/commit/8cc885483747efe11377dbd2279bb0bd37ce984a)]
+- ✨ add LoginPage [[4ebc594](https://github.com/Howard86/howardism/commit/4ebc594af62415915760afc1b4d9e1370d78aa94)]
+- ➕ add next-transpile-modules [[29eec66](https://github.com/Howard86/howardism/commit/29eec66b1c8e9cdff49ce5413ab17cda7f49dd34)]
+- 🎉 initialize @howardism/login-form [[9bd50b6](https://github.com/Howard86/howardism/commit/9bd50b6a6154e12d73579fcf078788195b0d8d79)]
+
+### Changed
+
+- ♻️ refactor login-form with formik [[50555fc](https://github.com/Howard86/howardism/commit/50555fc6daa925e70c9145bf9415017c871bc304)]
+- ♻️ refactor useAuth with redux and remove AuthContext [[0b2765e](https://github.com/Howard86/howardism/commit/0b2765e1ddd500e457395b8bdb3f3a0bb356792e)]
+- ♻️ refactor recipe service with cms [[f2f3a6b](https://github.com/Howard86/howardism/commit/f2f3a6b0a80733181c15c15b63f638053cd84f26)]
+- 🔧 set up monorepo package [[3e6894b](https://github.com/Howard86/howardism/commit/3e6894b5f8d3dcfb5b38f2bb8979aa97e511559e)]
+- 🔧 set up shared components import [[5c43d2d](https://github.com/Howard86/howardism/commit/5c43d2db185121403e99357afb273fa28f4eda8a)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#19](https://github.com/Howard86/howardism/issues/19) from Howard86/feature/replace-recipe-content-with-cms [[89cc266](https://github.com/Howard86/howardism/commit/89cc266283f5487f374195776061fa2e5e34006c)]
+- 📝 update CHANGELOG [[e459f33](https://github.com/Howard86/howardism/commit/e459f33fea4fb5ef218e14f4a1b96ed19b83e433)]
+
+
 <a name="1.0.9"></a>
 ## 1.0.9 (2021-05-03)
 
