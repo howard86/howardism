@@ -1,4 +1,6 @@
-module.exports = {
+const withTM = require("next-transpile-modules")(["@howardism/login-form"]);
+
+module.exports = withTM({
   reactStrictMode: true,
   future: {
     webpack5: true,
@@ -6,4 +8,4 @@ module.exports = {
   images: {
     domains: ["res.cloudinary.com"],
   },
-};
+});
