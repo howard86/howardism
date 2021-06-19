@@ -6,7 +6,7 @@ import RouteLink from "./RouteLink";
 import useDocumentScrollThrottled from "@/hooks/useThrottledScroll";
 
 export const NAV_BAR_HEIGHT = 20;
-const TIMEOUT_DELAY = 200;
+const TIMEOUT_DELAY = 1000;
 
 const NavBar: FC = () => {
   const [shouldHideHeader, setShouldHideHeader] = useState(true);
