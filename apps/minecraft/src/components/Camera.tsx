@@ -10,7 +10,7 @@ const CustomCamera: FC<PerspectiveCameraProps> = (props) => {
     if (typeof ref.current !== "undefined") {
       set({ camera: ref.current });
     }
-  }, []);
+  }, [set]);
 
   return <perspectiveCamera ref={ref} {...props} />;
 };
