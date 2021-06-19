@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Field, Form, Formik, FormikHelpers } from "formik";
+import { Field, Form, Formik, FormikHelpers, FieldProps } from "formik";
 import {
   FormLabel,
   Input,
@@ -70,8 +70,8 @@ const RecipeForm = (): JSX.Element => {
         <Form>
           <VStack spacing="6">
             <Field name="title" validate={validateString}>
-              {({ field, form }) => (
-                <FormControl isInvalid={form.errors.title && form.touched.title}>
+              {({ field, form }: FieldProps<string[], RawRecipe>) => (
+                <FormControl isInvalid={form.errors.title === "" && form.touched.title}>
                   <FormLabel htmlFor="title">Title</FormLabel>
                   <Input {...field} id="title" placeholder="recipe title" />
                   <FormErrorMessage>{form.errors.title}</FormErrorMessage>
@@ -79,8 +79,8 @@ const RecipeForm = (): JSX.Element => {
               )}
             </Field>
             <Field name="description" validate={validateString}>
-              {({ field, form }) => (
-                <FormControl isInvalid={form.errors.description && form.touched.description}>
+              {({ field, form }: FieldProps<string[], RawRecipe>) => (
+                <FormControl isInvalid={form.errors.description === "" && form.touched.description}>
                   <FormLabel htmlFor="description">Description</FormLabel>
                   <Input {...field} id="description" placeholder="recipe description" />
                   <FormErrorMessage>{form.errors.description}</FormErrorMessage>

@@ -25,9 +25,9 @@ const HomePage: NextPage = () => {
       </Stack>
       {result.data && (
         <Wrap spacing={[4, 6, 8]} justify="center" maxW="90ch">
-          {result.data.search.nodes.map(
+          {result?.data?.search?.nodes?.map(
             (user) =>
-              user.__typename === "User" && (
+              user?.__typename === "User" && (
                 <UserCard key={user.login} avatarUrl={user.avatarUrl} username={user.login} />
               )
           )}

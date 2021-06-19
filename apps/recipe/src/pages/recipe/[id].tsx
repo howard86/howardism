@@ -69,6 +69,10 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>>
 export const getStaticProps = async (
   context: GetStaticPropsContext<QueryPath>
 ): Promise<GetStaticPropsResult<Recipe>> => {
+  if (!context.params) {
+    return { notFound: true };
+  }
+
   const recipe = await getRecipeById(context.params.id);
 
   if (recipe === null) {

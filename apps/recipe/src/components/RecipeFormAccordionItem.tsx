@@ -12,7 +12,7 @@ import {
   Input,
   VStack,
 } from "@chakra-ui/react";
-import { Field } from "formik";
+import { Field, FieldProps } from "formik";
 
 interface RecipeFormAccordionItemProps<T> {
   newField: T;
@@ -42,7 +42,7 @@ const RecipeFormAccordionItem = <T extends Record<string, unknown>>({
           const id = `${formName}.${fieldIndex}.${key}`;
           return (
             <Field name={id} key={id}>
-              {({ field, form }) => (
+              {({ field, form }: FieldProps<string[], Record<string, unknown>>) => (
                 <FormControl>
                   <Flex textAlign="center" alignItems="center">
                     <FormLabel htmlFor={id} textTransform="capitalize">

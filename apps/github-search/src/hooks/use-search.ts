@@ -27,7 +27,7 @@ const reducer = (state: SearchState, action: SearchAction): SearchState => {
       return { ...state, username: action.payload };
 
     default:
-      break;
+      throw new Error("missing action type");
   }
 };
 

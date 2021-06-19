@@ -1,5 +1,5 @@
 import React from "react";
-import { Formik, Form, Field, FormikHelpers } from "formik";
+import { Formik, Form, Field, FormikHelpers, FieldProps } from "formik";
 import {
   Button,
   FormControl,
@@ -64,8 +64,8 @@ const LoginForm = ({ onLogin }: LoginFormProps): JSX.Element => {
         <Form>
           <Stack spacing="6">
             <Field name="email" validate={validateEmail}>
-              {({ field, form }) => (
-                <FormControl isInvalid={form.errors.email && form.touched.email}>
+              {({ field, form }: FieldProps<string[], FormValue>) => (
+                <FormControl isInvalid={form.errors.email === "" && form.touched.email}>
                   <FormLabel htmlFor="email">Email address</FormLabel>
                   <Input {...field} id="email" type="email" autoComplete="email" />
                   <FormErrorMessage>{form.errors.email}</FormErrorMessage>
@@ -73,8 +73,8 @@ const LoginForm = ({ onLogin }: LoginFormProps): JSX.Element => {
               )}
             </Field>
             <Field name="password" validate={validatePassword}>
-              {({ field, form }) => (
-                <FormControl isInvalid={form.errors.password && form.touched.password}>
+              {({ field, form }: FieldProps<string[], FormValue>) => (
+                <FormControl isInvalid={form.errors.password === "" && form.touched.password}>
                   <FormLabel htmlFor="password">Password</FormLabel>
                   <InputGroup>
                     <InputRightElement>
