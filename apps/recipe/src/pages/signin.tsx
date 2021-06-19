@@ -19,7 +19,7 @@ const Page = (): JSX.Element => {
     if (isLoggedIn) {
       router.push("/create");
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, router]);
 
   return (
     <Box minH="100vh" px="4" pt="8">

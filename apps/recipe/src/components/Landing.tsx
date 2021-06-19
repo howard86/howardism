@@ -47,7 +47,15 @@ const Landing: FC<LandingProps> = ({ imageUrl }) => {
           </Heading>
         </Box>
         <Box>
-          <Image src={imageUrl} width={320} height={218} priority borderRadius="lg" shadow="lg" />
+          <Image
+            alt="demo-recipe"
+            src={imageUrl}
+            width={320}
+            height={218}
+            priority
+            borderRadius="lg"
+            shadow="lg"
+          />
         </Box>
         <Box
           p="4"

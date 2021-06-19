@@ -10,7 +10,7 @@ interface HomeProps {
 }
 
 const Home: NextPage<HomeProps> = ({ recipes }) => {
-  const memoizedResults = useMemo<Recipe[]>(() => recipes, []);
+  const memoizedResults = useMemo<Recipe[]>(() => recipes, [recipes]);
 
   // TODO: refactor Landing
   return (

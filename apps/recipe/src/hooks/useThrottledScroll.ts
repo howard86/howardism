@@ -23,9 +23,8 @@ const useDocumentScrollThrottled = (
 
   useEffect(() => {
     window.addEventListener("scroll", handleDocumentScrollThrottled);
-
     return () => window.removeEventListener("scroll", handleDocumentScrollThrottled);
-  }, []);
+  }, [handleDocumentScrollThrottled]);
 };
 
 export default useDocumentScrollThrottled;

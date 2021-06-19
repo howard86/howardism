@@ -12,7 +12,7 @@ const CreateRecipePage = (): JSX.Element => {
     if (!isLoggedIn) {
       router.push("/signin");
     }
-  }, [isLoggedIn]);
+  }, [router, isLoggedIn]);
 
   return (
     <Container my="8" py="8" px={{ base: 4, md: 10 }} bg="white" borderRadius="lg">
