@@ -27,6 +27,7 @@ const RecipePage: NextPage<Recipe> = (recipe) => {
       <Box h={NAV_BAR_HEIGHT} />
       {recipe.image?.[0] && (
         <Image
+          alt={recipe.title}
           src={recipe.image[0].formats.small.url}
           width={320}
           height={218}

@@ -1,11 +1,10 @@
 import { UnorderedList, OrderedList, ListItem, Divider, Code } from "@chakra-ui/layout";
-import type { MdxRemote } from "next-mdx-remote/types";
 import { H1, H2, H3 } from "./Heading";
 import { BlockQuote, Body } from "./Text";
 import Link from "./Link";
 
 // Reference: https://www.markdownguide.org/basic-syntax/
-const markdown: MdxRemote.Components = {
+const markdown = {
   h1: H1,
   h2: H2,
   h3: H3,

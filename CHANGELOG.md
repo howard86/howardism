@@ -1,5 +1,36 @@
 # Changelog
 
+<a name="1.0.12"></a>
+## 1.0.12 (2021-06-19)
+
+### Added
+
+- ➕ install eslint-config-next [[fdf70bb](https://github.com/Howard86/howardism/commit/fdf70bba9a6c1e46a45e6a5aa5db10306967a083)]
+
+### Changed
+
+- ⚡ adjust scroll detection for better performance [[b9451e6](https://github.com/Howard86/howardism/commit/b9451e6fadc988475932bf8f9f0e6d52569cdce2)]
+- 🚨 fix eslint warnings [[ffe2878](https://github.com/Howard86/howardism/commit/ffe2878cd11c9623500176d401847c75f54d80f5)]
+- 🔧 disable returning type eslint config [[976a725](https://github.com/Howard86/howardism/commit/976a72575814475f34ade8bbb6bca70625e24e7f)]
+- 🎨 update codegen scripts with updated github response [[d4dcf41](https://github.com/Howard86/howardism/commit/d4dcf4114879ca99966bfc3b53ab460167bd4b94)]
+- 🔧 update eslint confit with new plugin [[068ba7c](https://github.com/Howard86/howardism/commit/068ba7c68bee7222a0d4a3bff435e0806d4fd06d)]
+- ⬆️ run yarn upgrade --latest for workspaces [[0ef777e](https://github.com/Howard86/howardism/commit/0ef777e404a1ba4e53d9d66ef7db16bf4a74c5d4)]
+
+### Fixed
+
+- 🐛 add missing test environments [[14c69a2](https://github.com/Howard86/howardism/commit/14c69a23418e2b2c652527a986c89270c884154b)]
+- 🐛 fix template breaking changes [[cc82703](https://github.com/Howard86/howardism/commit/cc8270348e7006a06a33ba44fafc077cfae30c9a)]
+- 🐛 fix recipes breaking changes [[7a0342d](https://github.com/Howard86/howardism/commit/7a0342d352455092f8af0c9f9ecbfdeea4c056b4)]
+- 🐛 fix minecraft breaking changes when upgrading dependencies [[c54689d](https://github.com/Howard86/howardism/commit/c54689d4ad195933ab1710bb4fd1b1072ed627b9)]
+- 🐛 fix github-search breaking changes [[ee1efca](https://github.com/Howard86/howardism/commit/ee1efca46d0d7fbd72332655e6b1320ce128e428)]
+- 🐛 fix blog breaking changes for upgrading dependencies [[8700ad5](https://github.com/Howard86/howardism/commit/8700ad5ec036651af044a48c8c881e12cc055f26)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#21](https://github.com/Howard86/howardism/issues/21) from Howard86/feature/add-create-recipe-page [[b3755c6](https://github.com/Howard86/howardism/commit/b3755c69a7a5bf3056d34c8702b04bc38023c0fb)]
+- 📝 update CHANGELOG [[3d5df3a](https://github.com/Howard86/howardism/commit/3d5df3a8d849776ea2923fdefc97e11832c30d16)]
+
+
 <a name="1.0.11"></a>
 ## 1.0.11 (2021-05-31)
 
