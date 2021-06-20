@@ -1,17 +1,19 @@
-import React, { useState } from "react";
-import { Field, Form, Formik, FormikHelpers } from "formik";
 import {
+  Button,
+  FormControl,
+  FormErrorMessage,
   FormLabel,
   Input,
-  FormErrorMessage,
-  Button,
-  VStack,
-  FormControl,
   Switch,
+  VStack,
 } from "@chakra-ui/react";
-import api, { LocalAPIResponse } from "@/redux/api";
+import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
+import React, { useState } from "react";
+
 import useAppToast from "@/hooks/useAppToast";
+import api, { LocalAPIResponse } from "@/redux/api";
 import type { RawIngredient, RawRecipe, RawStep } from "@/types/recipe";
+
 import RecipeFormFieldArray from "./RecipeFormFieldArray";
 
 // Same as newSeasoning for now
@@ -70,8 +72,8 @@ const RecipeForm = (): JSX.Element => {
         <Form>
           <VStack spacing="6">
             <Field name="title" validate={validateString}>
-              {({ field, form }) => (
-                <FormControl isInvalid={form.errors.title && form.touched.title}>
+              {({ field, form }: FieldProps<string[], RawRecipe>) => (
+                <FormControl isInvalid={form.errors.title === "" && form.touched.title}>
                   <FormLabel htmlFor="title">Title</FormLabel>
                   <Input {...field} id="title" placeholder="recipe title" />
                   <FormErrorMessage>{form.errors.title}</FormErrorMessage>
@@ -79,8 +81,8 @@ const RecipeForm = (): JSX.Element => {
               )}
             </Field>
             <Field name="description" validate={validateString}>
-              {({ field, form }) => (
-                <FormControl isInvalid={form.errors.description && form.touched.description}>
+              {({ field, form }: FieldProps<string[], RawRecipe>) => (
+                <FormControl isInvalid={form.errors.description === "" && form.touched.description}>
                   <FormLabel htmlFor="description">Description</FormLabel>
                   <Input {...field} id="description" placeholder="recipe description" />
                   <FormErrorMessage>{form.errors.description}</FormErrorMessage>

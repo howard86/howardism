@@ -1,10 +1,12 @@
-import { UnorderedList, OrderedList, ListItem, Divider, Code } from "@chakra-ui/layout";
+import { Code, Divider, ListItem, OrderedList, UnorderedList } from "@chakra-ui/layout";
+import type { ReactNode } from "react";
+
 import { H1, H2, H3 } from "./Heading";
-import { BlockQuote, Body } from "./Text";
 import Link from "./Link";
+import { BlockQuote, Body } from "./Text";
 
 // Reference: https://www.markdownguide.org/basic-syntax/
-const markdown = {
+const markdown: Record<string, ReactNode> = {
   h1: H1,
   h2: H2,
   h3: H3,

@@ -1,5 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+
 import type { Account, LoginResponse } from "@/types/auth";
+
 import api, {
   deleteAuthorizationHeader,
   LocalAPIResponse,

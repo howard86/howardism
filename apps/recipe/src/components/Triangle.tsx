@@ -1,4 +1,4 @@
-import { chakra, Box } from "@chakra-ui/react";
+import { Box, chakra } from "@chakra-ui/react";
 
 const Triangle = chakra(Box, {
   baseStyle: {

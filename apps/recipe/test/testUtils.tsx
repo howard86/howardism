@@ -1,5 +1,6 @@
-import React, { FC, ReactElement } from "react";
 import { render, RenderOptions, RenderResult } from "@testing-library/react";
+import React, { FC, ReactElement } from "react";
+
 import GlobalWrapper from "@/components/GlobalWrapper";
 
 const Providers: FC = ({ children }) => {

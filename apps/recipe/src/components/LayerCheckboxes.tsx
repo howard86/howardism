@@ -1,5 +1,6 @@
-import React, { ChangeEvent, FC, memo, useState } from "react";
 import { Checkbox, VStack } from "@chakra-ui/react";
+import React, { ChangeEvent, FC, memo, useState } from "react";
+
 import type { Ingredient } from "@/types/recipe";
 
 interface LayerCheckboxesProps {

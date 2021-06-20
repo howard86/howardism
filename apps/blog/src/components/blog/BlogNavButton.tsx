@@ -1,6 +1,6 @@
-import React, { FC } from "react";
-import NextLink from "next/link";
 import { Link, List } from "@chakra-ui/react";
+import NextLink from "next/link";
+import React, { FC } from "react";
 
 interface NavButtonProps {
   title?: string;

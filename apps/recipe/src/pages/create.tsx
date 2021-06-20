@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
+import { Container, Heading } from "@chakra-ui/react";
 import { useRouter } from "next/router";
+import React, { useEffect } from "react";
+
 import RecipeForm from "@/components/RecipeForm";
 import useAuth from "@/hooks/useAuth";
-import { Container, Heading } from "@chakra-ui/react";
 
 const CreateRecipePage = (): JSX.Element => {
   const router = useRouter();

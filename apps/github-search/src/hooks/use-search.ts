@@ -1,4 +1,5 @@
 import { ChangeEvent, useReducer } from "react";
+
 import { SearchUsersLazyQueryHookResult, useSearchUsersLazyQuery } from "@/generated/graphql";
 
 interface SearchState {
@@ -27,7 +28,7 @@ const reducer = (state: SearchState, action: SearchAction): SearchState => {
       return { ...state, username: action.payload };
 
     default:
-      break;
+      throw new Error("missing action type");
   }
 };
 

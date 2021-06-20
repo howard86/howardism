@@ -1,7 +1,8 @@
-import React, { memo } from "react";
-import { VStack, Flex, Heading, IconButton, Accordion } from "@chakra-ui/react";
+import { Accordion, Flex, Heading, IconButton, VStack } from "@chakra-ui/react";
 import { FieldArray } from "formik";
-import { HiPlusCircle, HiMinusCircle } from "react-icons/hi";
+import React, { memo } from "react";
+import { HiMinusCircle, HiPlusCircle } from "react-icons/hi";
+
 import RecipeFormAccordionItem from "./RecipeFormAccordionItem";
 
 interface RecipeFormFieldArrayProps<T> {

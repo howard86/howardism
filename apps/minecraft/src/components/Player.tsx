@@ -1,9 +1,10 @@
-import React, { FC, useEffect, useRef } from "react";
+import { useSphere } from "@react-three/cannon";
 import { PointerLockControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useSphere } from "@react-three/cannon";
-import usePlayerControls from "@/hooks/usePlayerControls";
+import React, { FC, useEffect, useRef } from "react";
 import { Vector3 } from "three";
+
+import usePlayerControls from "@/hooks/usePlayerControls";
 
 const SPEED = 5;
 const direction = new Vector3();

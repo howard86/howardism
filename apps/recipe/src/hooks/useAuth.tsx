@@ -1,7 +1,8 @@
-import type { Account } from "@/types/auth";
 import { authLogin, authLogout } from "@/redux/slices/auth";
-import useAppSelector from "./useAppSelector";
+import type { Account } from "@/types/auth";
+
 import useAppDispatch from "./useAppDispatch";
+import useAppSelector from "./useAppSelector";
 import useAppToast from "./useAppToast";
 
 type UseAuth = {

@@ -1,9 +1,10 @@
-import React, { FC, useState } from "react";
 import { Flex, IconButton } from "@chakra-ui/react";
+import React, { FC, useState } from "react";
 import { IoMdMenu } from "react-icons/io";
 
-import RouteLink from "./RouteLink";
 import useDocumentScrollThrottled from "@/hooks/useThrottledScroll";
+
+import RouteLink from "./RouteLink";
 
 export const NAV_BAR_HEIGHT = 20;
 const TIMEOUT_DELAY = 1000;

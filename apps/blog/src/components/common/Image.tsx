@@ -1,6 +1,6 @@
-import type { FC } from "react";
+import { chakra, ImageProps as ChakraImageProps } from "@chakra-ui/react";
 import NextImage, { ImageProps as NextImageProps } from "next/image";
-import { ImageProps as ChakraImageProps, chakra } from "@chakra-ui/react";
+import type { FC } from "react";
 
 type ImageProps = NextImageProps & ChakraImageProps;
 

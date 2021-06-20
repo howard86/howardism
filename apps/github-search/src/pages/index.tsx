@@ -1,8 +1,9 @@
-import React from "react";
-import { NextPage } from "next";
 import { Button, Input, Stack, useBreakpointValue, VStack, Wrap } from "@chakra-ui/react";
-import useSearch from "@/hooks/use-search";
+import { NextPage } from "next";
+import React from "react";
+
 import UserCard from "@/components/UserCard";
+import useSearch from "@/hooks/use-search";
 
 const HomePage: NextPage = () => {
   const count = useBreakpointValue({ base: 9, sm: 12, md: 18, lg: 15, xl: 25 });
@@ -25,9 +26,9 @@ const HomePage: NextPage = () => {
       </Stack>
       {result.data && (
         <Wrap spacing={[4, 6, 8]} justify="center" maxW="90ch">
-          {result.data.search.nodes.map(
+          {result?.data?.search?.nodes?.map(
             (user) =>
-              user.__typename === "User" && (
+              user?.__typename === "User" && (
                 <UserCard key={user.login} avatarUrl={user.avatarUrl} username={user.login} />
               )
           )}

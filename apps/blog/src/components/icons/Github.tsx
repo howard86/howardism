@@ -1,6 +1,7 @@
-import React, { FC } from "react";
 import { Icon, Link, LinkProps } from "@chakra-ui/react";
+import React, { FC } from "react";
 import { FaGithub } from "react-icons/fa";
+
 import { GITHUB_URL } from "@/constants/link";
 
 const Github: FC<LinkProps> = (props) => (

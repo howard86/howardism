@@ -1,12 +1,12 @@
-import React from "react";
-import matter from "gray-matter";
-import path from "path";
-import fs from "fs";
 import { Heading, List, ListItem } from "@chakra-ui/react";
+import fs from "fs";
+import matter from "gray-matter";
 import type { GetStaticProps, NextPage } from "next";
+import path from "path";
+import React from "react";
 
-import { MDX_SOURCE_PATH } from "@/constants/mdx";
 import PostCard from "@/components/blog/PostCard";
+import { MDX_SOURCE_PATH } from "@/constants/mdx";
 
 const MAX_POSTS_PER_PAGE = 5;
 

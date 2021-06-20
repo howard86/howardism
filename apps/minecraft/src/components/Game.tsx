@@ -1,12 +1,13 @@
-import React, { FC } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Sky } from "@react-three/drei";
 import { Physics } from "@react-three/cannon";
+import { Sky } from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
+import React, { FC } from "react";
 import { Vector3 } from "three";
+
 import CustomCamera from "./Camera";
+import Cube, { useCubeStore } from "./Cube";
 import Ground from "./Ground";
 import Player from "./Player";
-import Cube, { useCubeStore } from "./Cube";
 
 const Game: FC = () => {
   const cubes = useCubeStore((state) => state.cubes);

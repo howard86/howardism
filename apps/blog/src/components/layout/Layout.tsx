@@ -1,5 +1,6 @@
+import { Box, Container, Divider, HStack } from "@chakra-ui/react";
 import React, { FC } from "react";
-import { Container, Divider, Box, HStack } from "@chakra-ui/react";
+
 import SideBar from "@/components/layout/SideBar";
 
 const Layout: FC = ({ children }) => (

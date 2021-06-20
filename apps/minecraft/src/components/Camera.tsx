@@ -1,6 +1,6 @@
-import React, { FC, useEffect, useRef } from "react";
-import { useThree, Camera } from "@react-three/fiber";
+import { Camera, useThree } from "@react-three/fiber";
 import type { PerspectiveCameraProps } from "@react-three/fiber/dist/declarations/src/three-types";
+import React, { FC, useEffect, useRef } from "react";
 
 const CustomCamera: FC<PerspectiveCameraProps> = (props) => {
   const ref = useRef<Camera>();
