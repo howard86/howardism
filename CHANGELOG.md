@@ -1,5 +1,34 @@
 # Changelog
 
+<a name="1.0.13"></a>
+## 1.0.13 (2021-06-20)
+
+### Added
+
+- ➕ chore: install eslint import sort plugin [[248dff3](https://github.com/Howard86/howardism/commit/248dff3f5a33b7e057511c2a49b8d4b4514fff82)]
+- ➕ install commitlint with gitmoji config [[89b6734](https://github.com/Howard86/howardism/commit/89b6734e9edd9432a460561922bc1a442449f929)]
+
+### Changed
+
+- 🔧 fix: update auto-generated commit messgaes [[58c3d4e](https://github.com/Howard86/howardism/commit/58c3d4e72fc9c594a990747d9ef90ffe19aa0e38)]
+- 🔧 feat: upate eslint config [[23a4e3e](https://github.com/Howard86/howardism/commit/23a4e3ecda7ea5316302d306326a4efce7213b22)]
+- ♻️ refactor: create root tsconfig [[20e255e](https://github.com/Howard86/howardism/commit/20e255e1b88174bbde65f445768016cf9c144b57)]
+- 🔧 chore: update root prettier script [[fbe6d2a](https://github.com/Howard86/howardism/commit/fbe6d2a25f4a2538599b7985dd891771c884ecaf)]
+- 🔧 feat: set up commitlint [[e9a609b](https://github.com/Howard86/howardism/commit/e9a609bc8b843e1858effa78dea4e2f9b35f173f)]
+
+### Fixed
+
+- 🐛 fix: run eslint --fix on all [[61e5798](https://github.com/Howard86/howardism/commit/61e5798ede150ba7eb6f9271ce9667ea15264c6c)]
+- 🐛 fix: remove newly typescript error [[d9212e5](https://github.com/Howard86/howardism/commit/d9212e51910ccf1638c503acd70cdbceccdee6ef)]
+- ✏️ chore: update codes based on prettier [[b441418](https://github.com/Howard86/howardism/commit/b441418627864ca5e9d9b32a047fdc67fc01cd64)]
+
+### Miscellaneous
+
+- 🙈 chore: ignore tsbuild info [[ce99840](https://github.com/Howard86/howardism/commit/ce998403250a57fc8567daff67f7e48ebb464512)]
+- 🔀 Merge pull request [#22](https://github.com/Howard86/howardism/issues/22) from Howard86/feature/upgrade-template [[665a93c](https://github.com/Howard86/howardism/commit/665a93c68fd359e6137e02bdcea3c7e959468dc5)]
+- 📝 update CHANGELOG [[e44ed04](https://github.com/Howard86/howardism/commit/e44ed0477d7ffa498fe04734bbf31d2ed83cd71d)]
+
+
 <a name="1.0.12"></a>
 ## 1.0.12 (2021-06-19)
 
