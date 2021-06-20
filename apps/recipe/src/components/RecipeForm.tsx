@@ -1,17 +1,19 @@
-import React, { useState } from "react";
-import { Field, Form, Formik, FormikHelpers, FieldProps } from "formik";
 import {
+  Button,
+  FormControl,
+  FormErrorMessage,
   FormLabel,
   Input,
-  FormErrorMessage,
-  Button,
-  VStack,
-  FormControl,
   Switch,
+  VStack,
 } from "@chakra-ui/react";
-import api, { LocalAPIResponse } from "@/redux/api";
+import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
+import React, { useState } from "react";
+
 import useAppToast from "@/hooks/useAppToast";
+import api, { LocalAPIResponse } from "@/redux/api";
 import type { RawIngredient, RawRecipe, RawStep } from "@/types/recipe";
+
 import RecipeFormFieldArray from "./RecipeFormFieldArray";
 
 // Same as newSeasoning for now

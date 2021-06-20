@@ -1,18 +1,18 @@
-import React from "react";
-import { useRouter } from "next/router";
-import { Box, Heading, VStack, Text, CheckboxGroup, Spinner } from "@chakra-ui/react";
+import { Box, CheckboxGroup, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
 import type {
   GetStaticPathsResult,
   GetStaticPropsContext,
   GetStaticPropsResult,
   NextPage,
 } from "next";
+import { useRouter } from "next/router";
+import React from "react";
 
-import { getRecipeById, getRecipes } from "@/services/recipe";
 import Image from "@/components/Image";
-import { NAV_BAR_HEIGHT } from "@/components/NavBar";
 import LayerCheckboxes from "@/components/LayerCheckboxes";
+import { NAV_BAR_HEIGHT } from "@/components/NavBar";
 import ProcedureStep from "@/components/ProcedureStep";
+import { getRecipeById, getRecipes } from "@/services/recipe";
 import type { Recipe } from "@/types/recipe";
 
 const RecipePage: NextPage<Recipe> = (recipe) => {

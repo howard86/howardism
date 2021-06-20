@@ -1,4 +1,5 @@
 import { ApolloClient, InMemoryCache } from "@apollo/client";
+
 import { GITHUB_ENDPOINT } from "@/constants/github";
 
 const client = new ApolloClient({

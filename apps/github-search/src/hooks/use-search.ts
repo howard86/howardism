@@ -1,4 +1,5 @@
 import { ChangeEvent, useReducer } from "react";
+
 import { SearchUsersLazyQueryHookResult, useSearchUsersLazyQuery } from "@/generated/graphql";
 
 interface SearchState {

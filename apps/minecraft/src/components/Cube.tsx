@@ -1,9 +1,9 @@
-import React, { FC, useState } from "react";
 import { BoxProps, useBox } from "@react-three/cannon";
-import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/events";
-import create, { State } from "zustand";
-import { nanoid } from "nanoid";
 import { useTexture } from "@react-three/drei";
+import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/events";
+import { nanoid } from "nanoid";
+import React, { FC, useState } from "react";
+import create, { State } from "zustand";
 
 interface CubeStore extends State {
   cubes: (Element | JSX.Element)[];

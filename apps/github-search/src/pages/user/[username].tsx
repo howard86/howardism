@@ -1,14 +1,5 @@
-import React from "react";
-import { useRouter } from "next/router";
-import type {
-  GetStaticPathsResult,
-  GetStaticPropsContext,
-  GetStaticPropsResult,
-  NextPage,
-} from "next";
 import type { ApolloQueryResult } from "@apollo/client";
 import {
-  useBreakpointValue,
   Box,
   Flex,
   Heading,
@@ -22,18 +13,27 @@ import {
   TabPanels,
   Tabs,
   Tag,
+  useBreakpointValue,
   VStack,
   Wrap,
 } from "@chakra-ui/react";
+import type {
+  GetStaticPathsResult,
+  GetStaticPropsContext,
+  GetStaticPropsResult,
+  NextPage,
+} from "next";
+import { useRouter } from "next/router";
+import React from "react";
 import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 
 import InfoList from "@/components/InfoList";
-import ProfileField from "@/components/ProfileField";
 import ProfileBadge from "@/components/ProfileBadge";
-import client from "@/utils/apollo-client";
-import { GetUserDocument, GetUserQuery } from "@/generated/graphql";
+import ProfileField from "@/components/ProfileField";
 import { GITHUB_BASE_URL } from "@/constants/github";
+import { GetUserDocument, GetUserQuery } from "@/generated/graphql";
+import client from "@/utils/apollo-client";
 
 const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has");
 

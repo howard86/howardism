@@ -1,6 +1,6 @@
-import React, { FC } from "react";
+import { Avatar, LinkBox, LinkOverlay, useBreakpointValue, WrapItem } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { Avatar, WrapItem, LinkBox, LinkOverlay, useBreakpointValue } from "@chakra-ui/react";
+import React, { FC } from "react";
 
 interface UserCardProps {
   avatarUrl: string;

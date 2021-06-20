@@ -1,17 +1,17 @@
-import React from "react";
-import { Formik, Form, Field, FormikHelpers, FieldProps } from "formik";
 import {
   Button,
   FormControl,
   FormErrorMessage,
   FormLabel,
+  IconButton,
   Input,
   InputGroup,
-  IconButton,
   InputRightElement,
   Stack,
   useDisclosure,
 } from "@chakra-ui/react";
+import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
+import React from "react";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 
 interface LoginFormProps {

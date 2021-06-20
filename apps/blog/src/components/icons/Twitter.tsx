@@ -1,6 +1,7 @@
-import React, { FC } from "react";
 import { Icon, Link, LinkProps } from "@chakra-ui/react";
+import React, { FC } from "react";
 import { FaTwitter } from "react-icons/fa";
+
 import { TWITTER_URL } from "@/constants/link";
 
 const Twitter: FC<LinkProps> = (props) => (

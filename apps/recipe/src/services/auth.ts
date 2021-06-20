@@ -1,4 +1,5 @@
 import type { Account, LoginResponse, VerifyResponse } from "@/types/auth";
+
 import cms from "./cms";
 
 export const login = async (account: Account): Promise<string> => {

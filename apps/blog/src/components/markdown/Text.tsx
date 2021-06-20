@@ -1,5 +1,5 @@
-import React, { FC } from "react";
 import { As, Text, TextProps } from "@chakra-ui/react";
+import React, { FC } from "react";
 
 const createText =
   (as: As, defaultProps: TextProps): FC<TextProps> =>

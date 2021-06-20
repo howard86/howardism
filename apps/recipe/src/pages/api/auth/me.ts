@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+
 import { verify } from "@/services/auth";
 
 const handler = async (req: NextApiRequest, res: NextApiResponse): Promise<void> => {

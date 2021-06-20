@@ -1,4 +1,5 @@
-import type { Recipe, RawRecipe } from "@/types/recipe";
+import type { RawRecipe, Recipe } from "@/types/recipe";
+
 import cms from "./cms";
 
 export const getRecipes = async (): Promise<Recipe[]> => {

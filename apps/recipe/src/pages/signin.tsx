@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
 import { Box } from "@chakra-ui/react";
-import { useRouter } from "next/router";
 import LoginPage, { FormValue } from "@howardism/login-form";
+import { useRouter } from "next/router";
+import React, { useEffect } from "react";
+
 import useAuth from "@/hooks/useAuth";
 
 const Page = (): JSX.Element => {

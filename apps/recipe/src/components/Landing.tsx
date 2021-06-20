@@ -1,5 +1,6 @@
+import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
 import React, { FC } from "react";
-import { Box, Heading, Text, Button, Flex } from "@chakra-ui/react";
+
 import Image from "./Image";
 import Triangle from "./Triangle";
 

@@ -1,5 +1,5 @@
-import React, { FC } from "react";
 import { As, Heading, HeadingProps } from "@chakra-ui/react";
+import React, { FC } from "react";
 
 const createHeading =
   (as: As, defaultProps?: HeadingProps): FC<HeadingProps> =>

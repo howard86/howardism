@@ -1,10 +1,9 @@
-import React, { memo } from "react";
 import {
-  AccordionItem,
   AccordionButton,
-  Box,
   AccordionIcon,
+  AccordionItem,
   AccordionPanel,
+  Box,
   Flex,
   FormControl,
   FormErrorMessage,
@@ -13,6 +12,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Field, FieldProps } from "formik";
+import React, { memo } from "react";
 
 interface RecipeFormAccordionItemProps<T> {
   newField: T;

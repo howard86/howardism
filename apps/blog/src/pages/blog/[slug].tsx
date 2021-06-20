@@ -1,18 +1,18 @@
-import React from "react";
-import { NextSeo } from "next-seo";
-import matter from "gray-matter";
-import { join } from "path";
+import { Center, List } from "@chakra-ui/react";
 import { readdirSync, readFileSync } from "fs";
-import { ParsedUrlQuery } from "querystring";
-import { List, Center } from "@chakra-ui/react";
-import { serialize } from "next-mdx-remote/serialize";
+import matter from "gray-matter";
+import type { GetStaticPaths, GetStaticProps, NextPage } from "next";
 import { MDXRemote, MDXRemoteSerializeResult } from "next-mdx-remote";
-import type { GetStaticProps, GetStaticPaths, NextPage } from "next";
+import { serialize } from "next-mdx-remote/serialize";
+import { NextSeo } from "next-seo";
+import { join } from "path";
+import { ParsedUrlQuery } from "querystring";
+import React from "react";
 
-import { MDX_SOURCE_PATH } from "@/constants/mdx";
-import { filterNullValue } from "@/utils/filter";
 import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
+import { MDX_SOURCE_PATH } from "@/constants/mdx";
+import { filterNullValue } from "@/utils/filter";
 
 interface BlogPostProps {
   mdxSource: MDXRemoteSerializeResult;
