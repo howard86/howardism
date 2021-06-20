@@ -1,11 +1,16 @@
-import React, { FC, useEffect, useRef } from "react";
+import { useSphere } from "@react-three/cannon";
 import { PointerLockControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useSphere } from "@react-three/cannon";
-import usePlayerControls from "@/hooks/usePlayerControls";
+import React, { FC, useEffect, useRef } from "react";
 import { Vector3 } from "three";
 
+import usePlayerControls from "@/hooks/usePlayerControls";
+
 const SPEED = 5;
+const direction = new Vector3();
+const frontVector = new Vector3();
+const sideVector = new Vector3();
+const speed = new Vector3();
 
 const Player: FC = (props) => {
   const { camera } = useThree();
@@ -16,21 +21,19 @@ const Player: FC = (props) => {
     position: [0, 10, 0],
     ...props,
   }));
+  const velocity = useRef([0, 0, 0]);
 
   useFrame(() => {
-    if (ref.current) {
-      camera.position.copy(ref.current.position);
-    }
-    const direction = new Vector3();
+    ref.current?.getWorldPosition(camera.position);
 
-    const frontVector = new Vector3(0, 0, Number(moveBackward) - Number(moveForward));
-    const sideVector = new Vector3(Number(moveLeft) - Number(moveRight), 0, 0);
-
+    frontVector.set(0, 0, Number(moveBackward) - Number(moveForward));
+    sideVector.set(Number(moveLeft) - Number(moveRight), 0, 0);
     direction
       .subVectors(frontVector, sideVector)
       .normalize()
       .multiplyScalar(SPEED)
       .applyEuler(camera.rotation);
+    speed.fromArray(velocity.current);
 
     api.velocity.set(direction.x, velocity.current[1], direction.z);
 
@@ -39,13 +42,11 @@ const Player: FC = (props) => {
     }
   });
 
-  const velocity = useRef([0, 0, 0]);
-
   useEffect(() => {
     api.velocity.subscribe((v) => {
       velocity.current = v;
     });
-  }, []);
+  }, [api.velocity]);
 
   return (
     <>

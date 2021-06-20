@@ -1,14 +1,14 @@
-import { BiIdCard, BiConversation } from "react-icons/bi";
+import type { IconType } from "react-icons";
+import { BiConversation, BiIdCard } from "react-icons/bi";
+import { BsFillPersonPlusFill, BsPersonCheckFill } from "react-icons/bs";
+import { FaBlog, FaBook, FaDonate, FaInfoCircle, FaTwitter, FaUserCircle } from "react-icons/fa";
 import { GiReceiveMoney, GiTakeMyMoney, GiWantedReward } from "react-icons/gi";
 import { GrUserManager } from "react-icons/gr";
-import { SiCodesandbox } from "react-icons/si";
-import { RiAdminLine, RiGitRepositoryLine, RiTimer2Fill, RiTimerFill } from "react-icons/ri";
-import { FaBlog, FaBook, FaDonate, FaInfoCircle, FaTwitter, FaUserCircle } from "react-icons/fa";
 import { HiOutlineMail } from "react-icons/hi";
 import { ImMan } from "react-icons/im";
-import { BsFillPersonPlusFill, BsPersonCheckFill } from "react-icons/bs";
 import { MdKeyboard, MdLocationOn, MdSchool, MdWork } from "react-icons/md";
-import type { IconType } from "react-icons";
+import { RiAdminLine, RiGitRepositoryLine, RiTimer2Fill, RiTimerFill } from "react-icons/ri";
+import { SiCodesandbox } from "react-icons/si";
 
 // TODO: add dynamic import for better performance
 const matchIcon = (key: string): IconType => {

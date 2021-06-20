@@ -33,15 +33,15 @@ const usePlayerControls = (): Movement => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      setMovement((movement) => ({
-        ...movement,
+      setMovement((move) => ({
+        ...move,
         [keyMapToMovement[event.code as keyof KeyMap]]: true,
       }));
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      setMovement((movement) => ({
-        ...movement,
+      setMovement((move) => ({
+        ...move,
         [keyMapToMovement[event.code as keyof KeyMap]]: false,
       }));
     };

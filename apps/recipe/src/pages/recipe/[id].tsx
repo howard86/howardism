@@ -1,18 +1,18 @@
-import React from "react";
-import { useRouter } from "next/router";
-import { Box, Heading, VStack, Text, CheckboxGroup, Spinner } from "@chakra-ui/react";
+import { Box, CheckboxGroup, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
 import type {
   GetStaticPathsResult,
   GetStaticPropsContext,
   GetStaticPropsResult,
   NextPage,
 } from "next";
+import { useRouter } from "next/router";
+import React from "react";
 
-import { getRecipeById, getRecipes } from "@/services/recipe";
 import Image from "@/components/Image";
-import { NAV_BAR_HEIGHT } from "@/components/NavBar";
 import LayerCheckboxes from "@/components/LayerCheckboxes";
+import { NAV_BAR_HEIGHT } from "@/components/NavBar";
 import ProcedureStep from "@/components/ProcedureStep";
+import { getRecipeById, getRecipes } from "@/services/recipe";
 import type { Recipe } from "@/types/recipe";
 
 const RecipePage: NextPage<Recipe> = (recipe) => {
@@ -27,6 +27,7 @@ const RecipePage: NextPage<Recipe> = (recipe) => {
       <Box h={NAV_BAR_HEIGHT} />
       {recipe.image?.[0] && (
         <Image
+          alt={recipe.title}
           src={recipe.image[0].formats.small.url}
           width={320}
           height={218}
@@ -68,6 +69,10 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>>
 export const getStaticProps = async (
   context: GetStaticPropsContext<QueryPath>
 ): Promise<GetStaticPropsResult<Recipe>> => {
+  if (!context.params) {
+    return { notFound: true };
+  }
+
   const recipe = await getRecipeById(context.params.id);
 
   if (recipe === null) {

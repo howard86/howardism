@@ -1,6 +1,6 @@
-import React, { FC, memo } from "react";
-import NextLink from "next/link";
 import { Flex, Heading, LinkBox, LinkOverlay, Text } from "@chakra-ui/react";
+import NextLink from "next/link";
+import React, { FC, memo } from "react";
 
 export interface PostCardProps {
   id: number;

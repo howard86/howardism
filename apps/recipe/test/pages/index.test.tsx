@@ -1,5 +1,7 @@
 import React from "react";
+
 import HomePage from "@/pages/index";
+
 import { render } from "../testUtils";
 
 describe("HomePage", () => {

@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
 import type { GetStaticPropsResult, NextPage } from "next";
+import React, { useMemo } from "react";
+
 import Intro from "@/components/Intro";
 import Landing from "@/components/Landing";
 import { getRecipes } from "@/services/recipe";
@@ -10,7 +11,7 @@ interface HomeProps {
 }
 
 const Home: NextPage<HomeProps> = ({ recipes }) => {
-  const memoizedResults = useMemo<Recipe[]>(() => recipes, []);
+  const memoizedResults = useMemo<Recipe[]>(() => recipes, [recipes]);
 
   // TODO: refactor Landing
   return (

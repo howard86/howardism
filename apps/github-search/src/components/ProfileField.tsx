@@ -1,5 +1,6 @@
+import { Flex, Icon, Text, Tooltip } from "@chakra-ui/react";
 import React, { FC, ReactText } from "react";
-import { Icon, Text, Tooltip, Flex } from "@chakra-ui/react";
+
 import matchIcon from "@/utils/match-icons";
 
 interface ProfileFieldProps {

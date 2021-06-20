@@ -1,6 +1,6 @@
-import React from "react";
 import { Heading, List, ListItem } from "@chakra-ui/react";
 import type { GetStaticProps, NextPage } from "next";
+import React from "react";
 
 import PostCard, { PostCardProps } from "@/components/blog/PostCard";
 import { fetchBlogPosts } from "@/services/cms";

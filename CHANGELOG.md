@@ -1,5 +1,120 @@
 # Changelog
 
+<a name="1.0.13"></a>
+## 1.0.13 (2021-06-20)
+
+### Added
+
+- ➕ chore: install eslint import sort plugin [[248dff3](https://github.com/Howard86/howardism/commit/248dff3f5a33b7e057511c2a49b8d4b4514fff82)]
+- ➕ install commitlint with gitmoji config [[89b6734](https://github.com/Howard86/howardism/commit/89b6734e9edd9432a460561922bc1a442449f929)]
+
+### Changed
+
+- 🔧 fix: update auto-generated commit messgaes [[58c3d4e](https://github.com/Howard86/howardism/commit/58c3d4e72fc9c594a990747d9ef90ffe19aa0e38)]
+- 🔧 feat: upate eslint config [[23a4e3e](https://github.com/Howard86/howardism/commit/23a4e3ecda7ea5316302d306326a4efce7213b22)]
+- ♻️ refactor: create root tsconfig [[20e255e](https://github.com/Howard86/howardism/commit/20e255e1b88174bbde65f445768016cf9c144b57)]
+- 🔧 chore: update root prettier script [[fbe6d2a](https://github.com/Howard86/howardism/commit/fbe6d2a25f4a2538599b7985dd891771c884ecaf)]
+- 🔧 feat: set up commitlint [[e9a609b](https://github.com/Howard86/howardism/commit/e9a609bc8b843e1858effa78dea4e2f9b35f173f)]
+
+### Fixed
+
+- 🐛 fix: run eslint --fix on all [[61e5798](https://github.com/Howard86/howardism/commit/61e5798ede150ba7eb6f9271ce9667ea15264c6c)]
+- 🐛 fix: remove newly typescript error [[d9212e5](https://github.com/Howard86/howardism/commit/d9212e51910ccf1638c503acd70cdbceccdee6ef)]
+- ✏️ chore: update codes based on prettier [[b441418](https://github.com/Howard86/howardism/commit/b441418627864ca5e9d9b32a047fdc67fc01cd64)]
+
+### Miscellaneous
+
+- 🙈 chore: ignore tsbuild info [[ce99840](https://github.com/Howard86/howardism/commit/ce998403250a57fc8567daff67f7e48ebb464512)]
+- 🔀 Merge pull request [#22](https://github.com/Howard86/howardism/issues/22) from Howard86/feature/upgrade-template [[665a93c](https://github.com/Howard86/howardism/commit/665a93c68fd359e6137e02bdcea3c7e959468dc5)]
+- 📝 update CHANGELOG [[e44ed04](https://github.com/Howard86/howardism/commit/e44ed0477d7ffa498fe04734bbf31d2ed83cd71d)]
+
+
+<a name="1.0.12"></a>
+## 1.0.12 (2021-06-19)
+
+### Added
+
+- ➕ install eslint-config-next [[fdf70bb](https://github.com/Howard86/howardism/commit/fdf70bba9a6c1e46a45e6a5aa5db10306967a083)]
+
+### Changed
+
+- ⚡ adjust scroll detection for better performance [[b9451e6](https://github.com/Howard86/howardism/commit/b9451e6fadc988475932bf8f9f0e6d52569cdce2)]
+- 🚨 fix eslint warnings [[ffe2878](https://github.com/Howard86/howardism/commit/ffe2878cd11c9623500176d401847c75f54d80f5)]
+- 🔧 disable returning type eslint config [[976a725](https://github.com/Howard86/howardism/commit/976a72575814475f34ade8bbb6bca70625e24e7f)]
+- 🎨 update codegen scripts with updated github response [[d4dcf41](https://github.com/Howard86/howardism/commit/d4dcf4114879ca99966bfc3b53ab460167bd4b94)]
+- 🔧 update eslint confit with new plugin [[068ba7c](https://github.com/Howard86/howardism/commit/068ba7c68bee7222a0d4a3bff435e0806d4fd06d)]
+- ⬆️ run yarn upgrade --latest for workspaces [[0ef777e](https://github.com/Howard86/howardism/commit/0ef777e404a1ba4e53d9d66ef7db16bf4a74c5d4)]
+
+### Fixed
+
+- 🐛 add missing test environments [[14c69a2](https://github.com/Howard86/howardism/commit/14c69a23418e2b2c652527a986c89270c884154b)]
+- 🐛 fix template breaking changes [[cc82703](https://github.com/Howard86/howardism/commit/cc8270348e7006a06a33ba44fafc077cfae30c9a)]
+- 🐛 fix recipes breaking changes [[7a0342d](https://github.com/Howard86/howardism/commit/7a0342d352455092f8af0c9f9ecbfdeea4c056b4)]
+- 🐛 fix minecraft breaking changes when upgrading dependencies [[c54689d](https://github.com/Howard86/howardism/commit/c54689d4ad195933ab1710bb4fd1b1072ed627b9)]
+- 🐛 fix github-search breaking changes [[ee1efca](https://github.com/Howard86/howardism/commit/ee1efca46d0d7fbd72332655e6b1320ce128e428)]
+- 🐛 fix blog breaking changes for upgrading dependencies [[8700ad5](https://github.com/Howard86/howardism/commit/8700ad5ec036651af044a48c8c881e12cc055f26)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#21](https://github.com/Howard86/howardism/issues/21) from Howard86/feature/add-create-recipe-page [[b3755c6](https://github.com/Howard86/howardism/commit/b3755c69a7a5bf3056d34c8702b04bc38023c0fb)]
+- 📝 update CHANGELOG [[3d5df3a](https://github.com/Howard86/howardism/commit/3d5df3a8d849776ea2923fdefc97e11832c30d16)]
+
+
+<a name="1.0.11"></a>
+## 1.0.11 (2021-05-31)
+
+### Added
+
+- ✨ add CreateRecipePage [[0b5a7aa](https://github.com/Howard86/howardism/commit/0b5a7aa28c1142aec66f0b0078400a755ef61d36)]
+- ✨ add RecipeForm to handle raw recipe [[21bf9a2](https://github.com/Howard86/howardism/commit/21bf9a210becdeed82d1178c8a60a11b78ef64e0)]
+- ✨ add RecipeFormFieldArray with Accordion [[9e672f5](https://github.com/Howard86/howardism/commit/9e672f587741389fa9185cead361f6eda5550c78)]
+- ✨ add RecipeFormAccordionItem for array form fields [[224f7d6](https://github.com/Howard86/howardism/commit/224f7d6e0e2686ca5f6ad2c4e59680a266fd7ef0)]
+- ✨ add /api/recipe/create [[ae55db5](https://github.com/Howard86/howardism/commit/ae55db55249082e9ff19afd8e6f178f1f5430b6a)]
+
+### Changed
+
+- ♻️ refactor useAppToast with pre-defined config [[266850c](https://github.com/Howard86/howardism/commit/266850c672309e14dc1c5df2d5816034d19c87bb)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#20](https://github.com/Howard86/howardism/issues/20) from Howard86/feature/add-signin-page [[7e62499](https://github.com/Howard86/howardism/commit/7e624996d6b76307484e5c2649d0f9d17a315606)]
+- 📝 update CHANGELOG [[b5d3c82](https://github.com/Howard86/howardism/commit/b5d3c826082960d626c49d952fc85801be5f79b4)]
+
+
+<a name="1.0.10"></a>
+## 1.0.10 (2021-05-30)
+
+### Added
+
+- ✨ create /signin page [[475e944](https://github.com/Howard86/howardism/commit/475e944868dfd04203bc60af821443af6a845d1a)]
+- ➕ install formik [[c3e6127](https://github.com/Howard86/howardism/commit/c3e6127fb537fc0fb702256c6794a810fee1c883)]
+- ✨ add auth slice and reducer [[72a4f49](https://github.com/Howard86/howardism/commit/72a4f49ec5d235f8f702e4bae967987bc91ae4ec)]
+- ✨ createa axios instance for local api [[3dbc6fb](https://github.com/Howard86/howardism/commit/3dbc6fb9cb0672509aa8433fcf11faa74a06b4bf)]
+- ✨ set up redux provider, store &amp; hooks [[1dc4e4f](https://github.com/Howard86/howardism/commit/1dc4e4ff4b88768bdf76a0bbc9eb5f42c1903ba2)]
+- ➕ add react-redux [[099f340](https://github.com/Howard86/howardism/commit/099f340593d041d6e3ef4add77fdb587f10386de)]
+- ➕ install redux toolkit [[146cea1](https://github.com/Howard86/howardism/commit/146cea1a1e3b29789cb36b67b458ab1bf811659e)]
+- ✨ add useAuth hook [[2fbba3b](https://github.com/Howard86/howardism/commit/2fbba3b6124b9c31253bfe33a4957b724151d7a4)]
+- ✨ add AuthProvider with AuthContext [[ab4919a](https://github.com/Howard86/howardism/commit/ab4919a155e512fd8ddcf34b03fd4c1438cdecb0)]
+- ✨ add /api/auth endpoints [[d022088](https://github.com/Howard86/howardism/commit/d02208867b739a128d843080e19213e5d35c82f4)]
+- ✨ add auth service [[8cc8854](https://github.com/Howard86/howardism/commit/8cc885483747efe11377dbd2279bb0bd37ce984a)]
+- ✨ add LoginPage [[4ebc594](https://github.com/Howard86/howardism/commit/4ebc594af62415915760afc1b4d9e1370d78aa94)]
+- ➕ add next-transpile-modules [[29eec66](https://github.com/Howard86/howardism/commit/29eec66b1c8e9cdff49ce5413ab17cda7f49dd34)]
+- 🎉 initialize @howardism/login-form [[9bd50b6](https://github.com/Howard86/howardism/commit/9bd50b6a6154e12d73579fcf078788195b0d8d79)]
+
+### Changed
+
+- ♻️ refactor login-form with formik [[50555fc](https://github.com/Howard86/howardism/commit/50555fc6daa925e70c9145bf9415017c871bc304)]
+- ♻️ refactor useAuth with redux and remove AuthContext [[0b2765e](https://github.com/Howard86/howardism/commit/0b2765e1ddd500e457395b8bdb3f3a0bb356792e)]
+- ♻️ refactor recipe service with cms [[f2f3a6b](https://github.com/Howard86/howardism/commit/f2f3a6b0a80733181c15c15b63f638053cd84f26)]
+- 🔧 set up monorepo package [[3e6894b](https://github.com/Howard86/howardism/commit/3e6894b5f8d3dcfb5b38f2bb8979aa97e511559e)]
+- 🔧 set up shared components import [[5c43d2d](https://github.com/Howard86/howardism/commit/5c43d2db185121403e99357afb273fa28f4eda8a)]
+
+### Miscellaneous
+
+- 🔀 Merge pull request [#19](https://github.com/Howard86/howardism/issues/19) from Howard86/feature/replace-recipe-content-with-cms [[89cc266](https://github.com/Howard86/howardism/commit/89cc266283f5487f374195776061fa2e5e34006c)]
+- 📝 update CHANGELOG [[e459f33](https://github.com/Howard86/howardism/commit/e459f33fea4fb5ef218e14f4a1b96ed19b83e433)]
+
+
 <a name="1.0.9"></a>
 ## 1.0.9 (2021-05-03)
 

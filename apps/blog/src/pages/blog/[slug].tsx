@@ -1,25 +1,23 @@
-import React from "react";
-import { NextSeo } from "next-seo";
-import { List, Center } from "@chakra-ui/react";
-import renderToString from "next-mdx-remote/render-to-string";
-import hydrate from "next-mdx-remote/hydrate";
+import { Center, List } from "@chakra-ui/react";
 import type {
-  NextPage,
   GetStaticPathsResult,
-  GetStaticPropsResult,
   GetStaticPropsContext,
+  GetStaticPropsResult,
+  NextPage,
 } from "next";
+import { MDXRemote, MDXRemoteSerializeResult } from "next-mdx-remote";
+import { serialize } from "next-mdx-remote/serialize";
+import { NextSeo } from "next-seo";
 import type { ParsedUrlQuery } from "querystring";
-import type { MdxRemote } from "next-mdx-remote/types";
+import React from "react";
 
-import ThemeProvider from "@/components/common/ThemeProvider";
 import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
 import { fetchBlogPostById, fetchBlogPosts } from "@/services/cms";
 import type { BlogPost } from "@/types/blog-post";
 
 interface BlogPostProps {
-  mdxSource: MdxRemote.Source;
+  mdxSource: MDXRemoteSerializeResult;
   meta: Omit<BlogPost, "article">;
 }
 
@@ -61,10 +59,8 @@ export const getStaticProps = async ({
 
   const { article, ...meta } = post;
 
-  const mdxSource = await renderToString(article, {
-    components: markdown,
-    provider: { component: ThemeProvider, props: {} },
-  });
+  const mdxSource = await serialize(article);
+
   return {
     props: {
       mdxSource,
@@ -74,10 +70,6 @@ export const getStaticProps = async ({
 };
 
 const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta }) => {
-  const content = hydrate(mdxSource, {
-    components: markdown,
-  });
-
   return (
     <>
       <NextSeo title={meta.title} />
@@ -85,7 +77,7 @@ const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta }) => {
         <BlogNavButton title="Previous" id={meta.id - 1} />
         <BlogNavButton title="Next" id={meta.id + 1} />
       </List>
-      {content}
+      <MDXRemote {...mdxSource} components={markdown} />
       <Center>
         <BlogNavButton title="Back to Home" id={-1} />
       </Center>

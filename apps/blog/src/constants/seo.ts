@@ -1,4 +1,5 @@
 import { DefaultSeoProps } from "next-seo";
+
 import config from "@/config";
 
 const SITE_NAME = "Howardism";

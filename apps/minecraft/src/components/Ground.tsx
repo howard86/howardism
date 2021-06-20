@@ -1,7 +1,7 @@
-import React, { FC } from "react";
-import { RepeatWrapping } from "three";
 import { PlaneProps, usePlane } from "@react-three/cannon";
 import { useTexture } from "@react-three/drei";
+import React, { FC } from "react";
+import { RepeatWrapping } from "three";
 
 const Ground: FC<PlaneProps> = (props) => {
   const [ref] = usePlane(() => ({

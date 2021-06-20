@@ -1,10 +1,10 @@
-import React from "react";
-import type { AppProps } from "next/app";
-import type { NextPage } from "next";
 import { ApolloProvider } from "@apollo/client";
+import type { NextPage } from "next";
+import type { AppProps } from "next/app";
+import React from "react";
 
-import ThemeProvider from "@/components/ThemeProvider";
 import Layout from "@/components/Layout";
+import ThemeProvider from "@/components/ThemeProvider";
 import client from "@/utils/apollo-client";
 
 const App: NextPage<AppProps> = ({ Component, pageProps }) => (

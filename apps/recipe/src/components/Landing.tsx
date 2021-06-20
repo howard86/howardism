@@ -1,5 +1,6 @@
+import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
 import React, { FC } from "react";
-import { Box, Heading, Text, Button, Flex } from "@chakra-ui/react";
+
 import Image from "./Image";
 import Triangle from "./Triangle";
 
@@ -47,7 +48,15 @@ const Landing: FC<LandingProps> = ({ imageUrl }) => {
           </Heading>
         </Box>
         <Box>
-          <Image src={imageUrl} width={320} height={218} priority borderRadius="lg" shadow="lg" />
+          <Image
+            alt="demo-recipe"
+            src={imageUrl}
+            width={320}
+            height={218}
+            priority
+            borderRadius="lg"
+            shadow="lg"
+          />
         </Box>
         <Box
           p="4"

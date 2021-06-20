@@ -1,18 +1,18 @@
-import React, { FC, memo, useState } from "react";
 import {
-  Collapse,
   Box,
-  Text,
   Button,
-  HStack,
   Circle,
-  Icon,
+  Collapse,
   ColorProps,
-  useBoolean,
   Flex,
+  HStack,
+  Icon,
+  Text,
+  useBoolean,
 } from "@chakra-ui/react";
-import { FaCheck } from "react-icons/fa";
 import { Heading } from "@chakra-ui/react";
+import React, { FC, memo, useState } from "react";
+import { FaCheck } from "react-icons/fa";
 
 export interface Step {
   summary: string;

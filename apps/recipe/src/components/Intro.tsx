@@ -1,10 +1,11 @@
-import React, { FC } from "react";
+import { Box, Heading, Icon, LinkBox, LinkOverlay, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { Box, Heading, VStack, LinkBox, Icon, LinkOverlay } from "@chakra-ui/react";
+import React, { FC } from "react";
 import { FiShare } from "react-icons/fi";
 
-import RecipeCard from "./RecipeCard";
 import type { Recipe } from "@/types/recipe";
+
+import RecipeCard from "./RecipeCard";
 
 interface IntroProps {
   recipes: Recipe[];

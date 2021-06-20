@@ -1,8 +1,8 @@
-import React, { FC } from "react";
+import { Box, Container, Flex, Link } from "@chakra-ui/react";
+import { motion, Variants } from "framer-motion";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { motion, Variants } from "framer-motion";
-import { Link, Flex, Container, Box } from "@chakra-ui/react";
+import React, { FC } from "react";
 
 const variants: Variants = {
   pageInital: {

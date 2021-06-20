@@ -1,9 +1,5 @@
-import React from "react";
-import { useRouter } from "next/router";
-import type { GetStaticPaths, GetStaticProps, NextPage } from "next";
 import type { ApolloQueryResult } from "@apollo/client";
 import {
-  useBreakpointValue,
   Box,
   Flex,
   Heading,
@@ -17,18 +13,27 @@ import {
   TabPanels,
   Tabs,
   Tag,
+  useBreakpointValue,
   VStack,
   Wrap,
 } from "@chakra-ui/react";
+import type {
+  GetStaticPathsResult,
+  GetStaticPropsContext,
+  GetStaticPropsResult,
+  NextPage,
+} from "next";
+import { useRouter } from "next/router";
+import React from "react";
 import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 
 import InfoList from "@/components/InfoList";
-import ProfileField from "@/components/ProfileField";
 import ProfileBadge from "@/components/ProfileBadge";
-import client from "@/utils/apollo-client";
-import { GetUserDocument, GetUserQuery } from "@/generated/graphql";
+import ProfileField from "@/components/ProfileField";
 import { GITHUB_BASE_URL } from "@/constants/github";
+import { GetUserDocument, GetUserQuery } from "@/generated/graphql";
+import client from "@/utils/apollo-client";
 
 const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has");
 
@@ -49,12 +54,14 @@ const UserPage: NextPage<GetUserQuery["user"]> = ({
     (key) =>
       !isBadgeKey(key) &&
       !["__typename", "children"].includes(key) &&
-      ["string", "number"].includes(typeof rest[key])
+      ["string", "number"].includes(typeof rest[key as keyof typeof rest])
   );
 
   if (router.isFallback) {
     return <Spinner />;
   }
+
+  const username = name || "";
 
   return (
     <Flex mx={[4, 8, 12]} w="full" direction={["column", "row"]} align={["center", "start"]}>
@@ -65,15 +72,19 @@ const UserPage: NextPage<GetUserQuery["user"]> = ({
           htmlHeight="200"
           htmlWidth="200"
           src={avatarUrl}
-          alt={name}
+          alt={username}
         />
         <Heading as="h1" fontWeight="medium">
-          {name}
+          {username}
         </Heading>
-        <Wrap>{badgeKeys.map((key) => rest[key] && <ProfileBadge key={key} name={key} />)}</Wrap>
+        <Wrap>
+          {badgeKeys.map(
+            (key) => rest[key as keyof typeof rest] && <ProfileBadge key={key} name={key} />
+          )}
+        </Wrap>
         <Box>
           {profileKeys.map((key) => (
-            <ProfileField key={key} fieldKey={key} fieldValue={rest[key]} />
+            <ProfileField key={key} fieldKey={key} fieldValue={rest[key as keyof typeof rest]} />
           ))}
         </Box>
       </VStack>
@@ -83,47 +94,56 @@ const UserPage: NextPage<GetUserQuery["user"]> = ({
           <Tab>
             Repository
             <Tag colorScheme="teal" ml="1" display={display}>
-              {repositories.nodes.length}
+              {repositories?.nodes?.length}
             </Tag>
           </Tab>
           <Tab>
             Follower
             <Tag colorScheme="blue" ml="1" display={display}>
-              {followers.nodes.length}
+              {followers?.nodes?.length}
             </Tag>
           </Tab>
           <Tab>
             Following
             <Tag colorScheme="purple" ml="1" display={display}>
-              {following.nodes.length}
+              {following?.nodes?.length}
             </Tag>
           </Tab>
         </TabList>
         <TabPanels overflowY="auto">
           <TabPanel>
             <List spacing={2}>
-              {repositories.nodes.map(({ name }) => (
-                <InfoList
-                  key={name}
-                  name={name}
-                  url={`${GITHUB_BASE_URL}/${login}/${name}`}
-                  icon={RiGitRepositoryLine}
-                />
-              ))}
+              {repositories?.nodes?.map((repo, index) => {
+                const repoName = repo ? repo.name : `${index}-repoName`;
+                return (
+                  <InfoList
+                    key={repoName}
+                    name={repoName}
+                    url={`${GITHUB_BASE_URL}/${login}/${repoName}`}
+                    icon={RiGitRepositoryLine}
+                  />
+                );
+              })}
             </List>
           </TabPanel>
           <TabPanel>
             <List spacing={2}>
-              {followers.nodes.map(({ login }) => (
-                <InfoList key={login} name={login} icon={BsFillPersonPlusFill} />
-              ))}
+              {followers?.nodes?.map((follower, index) => {
+                const followeeName = follower ? follower.login : `${index}-repoName`;
+                return (
+                  <InfoList key={followeeName} name={followeeName} icon={BsFillPersonPlusFill} />
+                );
+              })}
             </List>
           </TabPanel>
           <TabPanel>
             <List spacing={2}>
-              {following.nodes.map(({ login }) => (
-                <InfoList key={login} name={login} icon={BsFillPersonCheckFill} />
-              ))}
+              {following?.nodes?.map((followee, index) => {
+                const followerName = followee ? followee.login : `${index}-repoName`;
+                return (
+                  <InfoList key={followerName} name={followerName} icon={BsFillPersonCheckFill} />
+                );
+              })}
             </List>
           </TabPanel>
         </TabPanels>
@@ -132,19 +152,29 @@ const UserPage: NextPage<GetUserQuery["user"]> = ({
   );
 };
 
-export const getStaticPaths: GetStaticPaths = async () => ({
-  paths: [],
-  fallback: true,
-});
+type QueryPath = {
+  username: string;
+};
 
-export const getStaticProps: GetStaticProps = async (context) => {
-  const username = context.params.username as string;
+export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>> => {
+  return {
+    paths: [],
+    fallback: true,
+  };
+};
+
+export const getStaticProps = async (
+  context: GetStaticPropsContext<QueryPath>
+): Promise<GetStaticPropsResult<GetUserQuery["user"]>> => {
+  if (!context.params) {
+    return { notFound: true };
+  }
 
   let result: ApolloQueryResult<GetUserQuery>;
   try {
     result = await client.query<GetUserQuery>({
       query: GetUserDocument,
-      variables: { username },
+      variables: { username: context.params.username },
     });
   } catch (error) {
     console.error(error);

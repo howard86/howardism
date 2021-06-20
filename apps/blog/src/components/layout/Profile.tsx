@@ -1,9 +1,10 @@
-import React, { FC, memo } from "react";
+import { Flex, Img, Link, Text, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { Img, Link, Flex, Text, VStack } from "@chakra-ui/react";
-import Twitter from "../icons/Twitter";
-import Github from "../icons/Github";
+import React, { FC, memo } from "react";
+
 import Email from "../icons/Email";
+import Github from "../icons/Github";
+import Twitter from "../icons/Twitter";
 
 const imageSize = [24, 48, 60];
 

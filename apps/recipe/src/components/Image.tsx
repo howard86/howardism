@@ -1,5 +1,5 @@
-import NextImage, { ImageProps } from "next/image";
 import { chakra } from "@chakra-ui/react";
+import NextImage, { ImageProps } from "next/image";
 
 type ImagePropKey = keyof ImageProps | "layout";
 
