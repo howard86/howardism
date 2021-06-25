@@ -3,6 +3,7 @@ import NextLink from "next/link";
 import React, { FC } from "react";
 import { FiShare } from "react-icons/fi";
 
+import { DEFAULT_IMAGE } from "@/constants/image";
 import type { Recipe } from "@/types/recipe";
 
 import RecipeCard from "./RecipeCard";
@@ -16,18 +17,16 @@ const Intro: FC<IntroProps> = ({ recipes }) => {
     <Box p="8">
       <Heading fontSize="xl">Top Recipes</Heading>
       <VStack my="4" spacing={6}>
-        {recipes
-          .filter((recipe) => Boolean(recipe.image[0]))
-          .map((recipe) => (
-            <RecipeCard
-              key={recipe.id}
-              id={recipe.id}
-              title={recipe.title}
-              description={recipe.description}
-              timestamp={recipe.published_at}
-              imageUrl={recipe.image[0].formats.small.url}
-            />
-          ))}
+        {recipes.map((recipe) => (
+          <RecipeCard
+            key={recipe.id}
+            id={recipe.id}
+            title={recipe.title}
+            description={recipe.description}
+            timestamp={recipe.published_at}
+            imageUrl={recipe.image[0]?.formats.small.url || DEFAULT_IMAGE}
+          />
+        ))}
         <LinkBox
           p="4"
           maxW="sm"
