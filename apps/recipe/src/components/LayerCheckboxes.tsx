@@ -21,6 +21,7 @@ const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
   return (
     <>
       <Checkbox
+        borderColor="primary.200"
         isChecked={isAllChecked}
         isIndeterminate={isIndeterminate}
         onChange={handleOnParentChange}
@@ -32,6 +33,7 @@ const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
         {options.map((option, index) => (
           <Checkbox
             key={option.id}
+            borderColor="primary.200"
             isChecked={checkedItems[index]}
             onChange={(e) => {
               setCheckedItems((items) => {

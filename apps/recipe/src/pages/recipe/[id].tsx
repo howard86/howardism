@@ -62,7 +62,7 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>>
         id: result.id.toString(),
       },
     })),
-    fallback: false,
+    fallback: "blocking",
   };
 };
 
@@ -83,6 +83,8 @@ export const getStaticProps = async (
 
   return {
     props: recipe,
+    // Update cache every one hour
+    revalidate: 3600,
   };
 };
 

@@ -1,11 +1,13 @@
 import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
 import React, { FC } from "react";
 
+import backgroundImage from "@/../public/assets/background.jpg";
+
 import Image from "./Image";
 import Triangle from "./Triangle";
 
 interface LandingProps {
-  imageUrl: string;
+  imageUrl: string | StaticImageData;
 }
 
 const Landing: FC<LandingProps> = ({ imageUrl }) => {
@@ -18,14 +20,14 @@ const Landing: FC<LandingProps> = ({ imageUrl }) => {
     <Flex flexDirection="column" position="relative" minH="100vh" color="white">
       <Triangle zIndex="1" />
       <Image
-        src="/assets/background.jpg"
+        src={backgroundImage}
+        placeholder="blur"
         alt="Landing page background"
         layout="fill"
         objectFit="cover"
         objectPosition="center"
-        filter="blur(4px)"
         quality="50"
-        overflow="hidden"
+        priority
       />
       {/* TODO: add Text Animation */}
       <Flex
