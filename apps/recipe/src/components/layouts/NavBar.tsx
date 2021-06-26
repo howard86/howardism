@@ -11,13 +11,10 @@ import MobileDrawer from "./MobileDrawer";
 const NavBar = (): JSX.Element => {
   const router = useRouter();
   return (
-    <Box as="header" position="relative" transition="0.25 ease-in-out" zIndex="banner">
+    <Box as="header" position="relative" transition="0.25 ease-in-out" zIndex="docked" shadow="md">
       <Flex
         align="center"
         justify="space-between"
-        borderBottomWidth="thin"
-        borderBottomStyle="solid"
-        borderBottomColor="gray"
         transition="0.25 ease-in-out"
         py={[4, 6, 11, 18]}
         px={[1, 4, 6, 8]}
