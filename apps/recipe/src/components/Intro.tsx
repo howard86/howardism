@@ -3,7 +3,7 @@ import NextLink from "next/link";
 import React, { FC } from "react";
 import { FiShare } from "react-icons/fi";
 
-import { DEFAULT_IMAGE } from "@/constants/image";
+import demo from "@/../public/assets/demo.jpg";
 import type { Recipe } from "@/types/recipe";
 
 import RecipeCard from "./RecipeCard";
@@ -24,7 +24,7 @@ const Intro: FC<IntroProps> = ({ recipes }) => {
             title={recipe.title}
             description={recipe.description}
             timestamp={recipe.published_at}
-            imageUrl={recipe.image[0]?.formats.small.url || DEFAULT_IMAGE}
+            imageUrl={recipe.image[0]?.formats.small.url || demo}
           />
         ))}
         <LinkBox

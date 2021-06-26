@@ -1,6 +1,7 @@
 import React from "react";
 
-import { LOGO, LOGO_TRANSPARENT } from "@/constants/image";
+import LOGO from "@/../public/favicon/logo.png";
+import LOGO_TRANSPARENT from "@/../public/favicon/logo_transparent.png";
 
 import Image from "../Image";
 
@@ -12,7 +13,7 @@ interface LogoProps {
 const Logo = ({ size = 100, isTransparent = false }: LogoProps): JSX.Element => (
   <Image
     src={isTransparent ? LOGO_TRANSPARENT : LOGO}
-    layout="fixed"
+    placeholder="blur"
     alt="logo"
     height={size}
     width={size}

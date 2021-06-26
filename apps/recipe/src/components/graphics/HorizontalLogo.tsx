@@ -1,6 +1,7 @@
 import React from "react";
 
-import { LOGO_HORIZONTAL, LOGO_HORIZONTAL_TRANSPARENT } from "@/constants/image";
+import LOGO_HORIZONTAL from "@/../public/favicon/logo_horizontal.png";
+import LOGO_HORIZONTAL_TRANSPARENT from "@/../public/favicon/logo_horizontal_transparent.png";
 
 import Image from "../Image";
 
@@ -12,7 +13,7 @@ interface HorizontalLogoProps {
 const HorizontalLogo = ({ size = 60, isTransparent = false }: HorizontalLogoProps): JSX.Element => (
   <Image
     src={isTransparent ? LOGO_HORIZONTAL_TRANSPARENT : LOGO_HORIZONTAL}
-    layout="fixed"
+    placeholder="blur"
     alt="logo"
     height={size}
     width={3 * size}
