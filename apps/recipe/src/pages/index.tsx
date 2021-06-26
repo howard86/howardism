@@ -15,6 +15,8 @@ export const getStaticProps = async (): Promise<GetStaticPropsResult<HomeProps>>
     props: {
       recipes: results,
     },
+    // Update every one hour
+    revalidate: 3600,
   };
 };
 
