@@ -51,13 +51,9 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
         finalFocusRef={btnRef}
       >
         <DrawerOverlay />
-        <DrawerContent bg="primary.200">
+        <DrawerContent bg="secondary.50">
           <DrawerCloseButton />
-          <DrawerHeader
-            borderBottomWidth="1px"
-            borderBottomStyle="solid"
-            borderBottomColor="gray.200"
-          >
+          <DrawerHeader bg="secondary.100" shadow="sm">
             <RouteLink href="/">
               <HorizontalLogo isTransparent />
             </RouteLink>
@@ -72,13 +68,13 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
                     <RouteLink
                       py="1"
                       px="2.5"
-                      color={isCurrentPage ? "primary.500" : "primary.400"}
+                      color={isCurrentPage ? "secondary.500" : "secondary.400"}
                       fontSize="xl"
                       whiteSpace="nowrap"
-                      fontWeight={isCurrentPage ? "medium" : "normal"}
+                      fontWeight={isCurrentPage ? "bold" : "medium"}
                       transition="0.15s ease-in-out"
                       _hover={{
-                        color: "primary.500",
+                        color: "secondary.500",
                       }}
                       _before={{
                         mt: 4,
@@ -89,7 +85,7 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
                         height: 8,
                         left: 0,
                         opacity: isCurrentPage ? 1 : 0,
-                        background: "primary.100",
+                        background: "secondary.100",
                         transform: "translateY(-50%)",
                       }}
                       href={item.url}

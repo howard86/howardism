@@ -147,9 +147,9 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
                     alignItems="center"
                     justifyContent="center"
                     w="120px"
-                    h="75"
-                    top="30"
-                    left="30"
+                    h="40px"
+                    top={{ base: "15px", lg: "30px" }}
+                    left={{ base: "15px", lg: "30px" }}
                     flexDir="column"
                     color="white"
                     borderRadius="md"

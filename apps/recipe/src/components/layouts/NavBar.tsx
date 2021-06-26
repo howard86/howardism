@@ -11,19 +11,26 @@ import MobileDrawer from "./MobileDrawer";
 const NavBar = (): JSX.Element => {
   const router = useRouter();
   return (
-    <Box as="header" position="relative" transition="0.25 ease-in-out" zIndex="docked" shadow="md">
+    <Box
+      as="header"
+      position="relative"
+      transition="0.25 ease-in-out"
+      zIndex="docked"
+      shadow="md"
+      bgColor="secondary.100"
+    >
       <Flex
         align="center"
         justify="space-between"
         transition="0.25 ease-in-out"
-        py={[4, 6, 12, 16]}
+        py={{ base: 4, lg: 6 }}
         px={[1, 4, 6, 8]}
       >
         <MobileDrawer />
         <RouteLink href="/">
           <HorizontalLogo size={40} isTransparent />
         </RouteLink>
-        <Flex flexGrow={1} display={{ base: "none", md: "flex" }}>
+        <Box mr={{ md: 5 }} flexGrow={1} display={{ base: "none", md: "flex" }}>
           <List display="flex" alignItems="center" ml="auto">
             {MENU_LINK_ITEMS.map((item) => {
               const isCurrentPage = item.url === router.pathname;
@@ -45,11 +52,12 @@ const NavBar = (): JSX.Element => {
               );
             })}
           </List>
-        </Flex>
+        </Box>
         {/* TODO: implement search function */}
         <IconButton
           aria-label="search"
           variant="ghost"
+          color="primary.600"
           size="lg"
           fontSize="3xl"
           icon={<HiSearch />}

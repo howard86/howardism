@@ -14,7 +14,7 @@ const Layout = ({ children }: LayoutProps): JSX.Element => (
     <Sticky top={0} innerZ={1000} activeClass="nav-sticky">
       <NavBar />
     </Sticky>
-    <Box minH="100vh">{children}</Box>
+    <Box minH={`calc(100vh - 80px)`}>{children}</Box>
     <Footer />
   </>
 );
