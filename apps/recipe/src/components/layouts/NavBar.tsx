@@ -16,7 +16,7 @@ const NavBar = (): JSX.Element => {
         align="center"
         justify="space-between"
         transition="0.25 ease-in-out"
-        py={[4, 6, 11, 18]}
+        py={[4, 6, 12, 16]}
         px={[1, 4, 6, 8]}
       >
         <MobileDrawer />
