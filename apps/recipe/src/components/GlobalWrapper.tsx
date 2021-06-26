@@ -5,7 +5,7 @@ import { Provider as ReduxProvider } from "react-redux";
 import store from "@/redux/store";
 import theme from "@/styles/theme";
 
-import NavBar from "./NavBar";
+import NavBar from "./layouts/NavBar";
 
 const GlobalWrapper: FC = ({ children }) => (
   <ChakraProvider theme={theme}>
