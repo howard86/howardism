@@ -1,5 +1,24 @@
 # Changelog
 
+<a name="1.0.15"></a>
+## 1.0.15 (2021-06-27)
+
+### Changed
+
+- ⏪ revert: &quot;📝 chore: update CHANGELOG&quot; [[277a61b](https://github.com/Howard86/howardism/commit/277a61b3df1d9e74850b9d5c415c9f1d4e6e4dbc)]
+
+### Removed
+
+- 🔥 chore: remove gitmoji-changelog genric presets [[201f228](https://github.com/Howard86/howardism/commit/201f228a320cd4a0a1972433d0b63422394960a1)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.15 [[4bd6b02](https://github.com/Howard86/howardism/commit/4bd6b02a7d0d1f2cbda6f644e2cecb9e7e6a56b4)]
+- 📝 chore: update version &amp; doc commit message [[d61c443](https://github.com/Howard86/howardism/commit/d61c4433c93b34691220fdefd158717b3f444435)]
+- 🔀 Merge pull request [#24](https://github.com/Howard86/howardism/issues/24) from Howard86/feature/update-recipe-site [[07d00b4](https://github.com/Howard86/howardism/commit/07d00b454850c6765a51de521e1550eebe7ac7eb)]
+- 📝 chore: update CHANGELOG [[b852696](https://github.com/Howard86/howardism/commit/b8526968b308bc7f85add765730a6a300b299a8d)]
+
+
 <a name="1.0.14"></a>
 ## 1.0.14 (2021-06-26)
 
@@ -15,8 +34,6 @@
 - ✨ feat(ui): add new NavBar [[ffd9f2f](https://github.com/Howard86/howardism/commit/ffd9f2f620152faf056bd724d31ab4290a3bdacb)]
 - ✨ feat(ui): add MobileDrawer [[52dd532](https://github.com/Howard86/howardism/commit/52dd5326c3ae200ba53ddf06af5e02c4509635ba)]
 - ✨ feat(ui): add Logo &amp; Horizontal Logo components [[d8d09ea](https://github.com/Howard86/howardism/commit/d8d09eade02186cc39eb602690714649d1ee5ce5)]
-- ➕ chore: install eslint import sort plugin [[248dff3](https://github.com/Howard86/howardism/commit/248dff3f5a33b7e057511c2a49b8d4b4514fff82)]
-- ➕ install commitlint with gitmoji config [[89b6734](https://github.com/Howard86/howardism/commit/89b6734e9edd9432a460561922bc1a442449f929)]
 
 ### Changed
 
@@ -25,6 +42,29 @@
 - ♻️ refactor: update image usage with next static import [[dc92f0b](https://github.com/Howard86/howardism/commit/dc92f0bd03a40f2cf86a50e74af56ec67d933f33)]
 - ⬆️ chore(deps): upgrade chakra-ui [[66d58f9](https://github.com/Howard86/howardism/commit/66d58f918f40724b8b1249553856b9de3b6f019f)]
 - 🍱 chore(assets): update logo &amp; favicon [[2939f79](https://github.com/Howard86/howardism/commit/2939f7948b3198493efaa64247877aa93800f386)]
+
+### Fixed
+
+- 🐛 fix: update getRecipes array order [[5740ddd](https://github.com/Howard86/howardism/commit/5740ddd282f611a937ad19d3bb93c72cd35661d2)]
+- 🐛 chore: add borderColor to checkbox [[af503d2](https://github.com/Howard86/howardism/commit/af503d21e0e58ec6d3534471a9efe3f4898be3cf)]
+- 🐛 fix: showing recipes filtered by image [[fdfb525](https://github.com/Howard86/howardism/commit/fdfb525c5353e21a9d7ba13580a87ec009d85585)]
+
+### Miscellaneous
+
+-  Merge pull request [#23](https://github.com/Howard86/howardism/issues/23) from Howard86/feature/update-monorepo-config [[66b970f](https://github.com/Howard86/howardism/commit/66b970ffc74708008b8f4d43290e080acf630d82)]
+- 📝 chore: update CHANGELOG [[d877491](https://github.com/Howard86/howardism/commit/d877491e8cea388e327a01dd6153df91a7a0378c)]
+
+
+<a name="1.0.13"></a>
+## 1.0.13 (2021-06-20)
+
+### Added
+
+- ➕ chore: install eslint import sort plugin [[248dff3](https://github.com/Howard86/howardism/commit/248dff3f5a33b7e057511c2a49b8d4b4514fff82)]
+- ➕ install commitlint with gitmoji config [[89b6734](https://github.com/Howard86/howardism/commit/89b6734e9edd9432a460561922bc1a442449f929)]
+
+### Changed
+
 - 🔧 fix: update auto-generated commit messgaes [[58c3d4e](https://github.com/Howard86/howardism/commit/58c3d4e72fc9c594a990747d9ef90ffe19aa0e38)]
 - 🔧 feat: upate eslint config [[23a4e3e](https://github.com/Howard86/howardism/commit/23a4e3ecda7ea5316302d306326a4efce7213b22)]
 - ♻️ refactor: create root tsconfig [[20e255e](https://github.com/Howard86/howardism/commit/20e255e1b88174bbde65f445768016cf9c144b57)]
@@ -33,17 +73,12 @@
 
 ### Fixed
 
-- 🐛 fix: update getRecipes array order [[5740ddd](https://github.com/Howard86/howardism/commit/5740ddd282f611a937ad19d3bb93c72cd35661d2)]
-- 🐛 chore: add borderColor to checkbox [[af503d2](https://github.com/Howard86/howardism/commit/af503d21e0e58ec6d3534471a9efe3f4898be3cf)]
-- 🐛 fix: showing recipes filtered by image [[fdfb525](https://github.com/Howard86/howardism/commit/fdfb525c5353e21a9d7ba13580a87ec009d85585)]
 - 🐛 fix: run eslint --fix on all [[61e5798](https://github.com/Howard86/howardism/commit/61e5798ede150ba7eb6f9271ce9667ea15264c6c)]
 - 🐛 fix: remove newly typescript error [[d9212e5](https://github.com/Howard86/howardism/commit/d9212e51910ccf1638c503acd70cdbceccdee6ef)]
 - ✏️ chore: update codes based on prettier [[b441418](https://github.com/Howard86/howardism/commit/b441418627864ca5e9d9b32a047fdc67fc01cd64)]
 
 ### Miscellaneous
 
--  Merge pull request [#23](https://github.com/Howard86/howardism/issues/23) from Howard86/feature/update-monorepo-config [[66b970f](https://github.com/Howard86/howardism/commit/66b970ffc74708008b8f4d43290e080acf630d82)]
-- 📝 chore: update CHANGELOG [[d877491](https://github.com/Howard86/howardism/commit/d877491e8cea388e327a01dd6153df91a7a0378c)]
 - 🙈 chore: ignore tsbuild info [[ce99840](https://github.com/Howard86/howardism/commit/ce998403250a57fc8567daff67f7e48ebb464512)]
 - 🔀 Merge pull request [#22](https://github.com/Howard86/howardism/issues/22) from Howard86/feature/upgrade-template [[665a93c](https://github.com/Howard86/howardism/commit/665a93c68fd359e6137e02bdcea3c7e959468dc5)]
 - 📝 update CHANGELOG [[e44ed04](https://github.com/Howard86/howardism/commit/e44ed0477d7ffa498fe04734bbf31d2ed83cd71d)]
