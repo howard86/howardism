@@ -5,7 +5,7 @@ import cms from "./cms";
 export const getRecipes = async (): Promise<Recipe[]> => {
   try {
     const response = await cms.get<Recipe[]>("/recipes");
-    return response.data;
+    return response.data.reverse();
   } catch (error) {
     console.error(error);
     return [];

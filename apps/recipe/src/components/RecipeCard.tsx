@@ -9,7 +9,7 @@ interface RecipeCardProps {
   title: string;
   description: string;
   timestamp: string;
-  imageUrl: string;
+  imageUrl: string | StaticImageData;
 }
 
 const getDayDiff = (timestamp: string): number => {

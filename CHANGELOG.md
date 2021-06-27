@@ -1,5 +1,60 @@
 # Changelog
 
+<a name="1.0.15"></a>
+## 1.0.15 (2021-06-27)
+
+### Changed
+
+- ⏪ revert: &quot;📝 chore: update CHANGELOG&quot; [[277a61b](https://github.com/Howard86/howardism/commit/277a61b3df1d9e74850b9d5c415c9f1d4e6e4dbc)]
+
+### Removed
+
+- 🔥 chore: remove gitmoji-changelog genric presets [[201f228](https://github.com/Howard86/howardism/commit/201f228a320cd4a0a1972433d0b63422394960a1)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.15 [[4bd6b02](https://github.com/Howard86/howardism/commit/4bd6b02a7d0d1f2cbda6f644e2cecb9e7e6a56b4)]
+- 📝 chore: update version &amp; doc commit message [[d61c443](https://github.com/Howard86/howardism/commit/d61c4433c93b34691220fdefd158717b3f444435)]
+- 🔀 Merge pull request [#24](https://github.com/Howard86/howardism/issues/24) from Howard86/feature/update-recipe-site [[07d00b4](https://github.com/Howard86/howardism/commit/07d00b454850c6765a51de521e1550eebe7ac7eb)]
+- 📝 chore: update CHANGELOG [[b852696](https://github.com/Howard86/howardism/commit/b8526968b308bc7f85add765730a6a300b299a8d)]
+
+
+<a name="1.0.14"></a>
+## 1.0.14 (2021-06-26)
+
+### Added
+
+- ✅ chore: update jest config &amp; mock image &amp; router [[c3c037f](https://github.com/Howard86/howardism/commit/c3c037fd6c5711369cd29da7c94586a6545e418a)]
+- ➕ chore(deps): install next-router-mock [[3e1221d](https://github.com/Howard86/howardism/commit/3e1221d8886626d5a2ef7b8245267c30ba901081)]
+- ✨ feat(server): update getStaticProps revalidate logic [[e45ca1f](https://github.com/Howard86/howardism/commit/e45ca1f124278092b8341050ee0cc282c42e5e3f)]
+- ✨ feat(ui): update Home page [[06d8674](https://github.com/Howard86/howardism/commit/06d86741a8906a356647700e656b0d95e38158f0)]
+- ✨ feat(ui): add Layout [[f0a9d40](https://github.com/Howard86/howardism/commit/f0a9d40e75d8c8995c4830893fe242f222226661)]
+- ✨ feat(ui): add Footer [[318023f](https://github.com/Howard86/howardism/commit/318023f5ce3eb960a7ea652ec4cab3b4b87d2c31)]
+- ➕ chore(deps): install react-stickynode [[f3cf972](https://github.com/Howard86/howardism/commit/f3cf9726ff5446dcbb44df1c61cdc0c514e6fe0b)]
+- ✨ feat(ui): add new NavBar [[ffd9f2f](https://github.com/Howard86/howardism/commit/ffd9f2f620152faf056bd724d31ab4290a3bdacb)]
+- ✨ feat(ui): add MobileDrawer [[52dd532](https://github.com/Howard86/howardism/commit/52dd5326c3ae200ba53ddf06af5e02c4509635ba)]
+- ✨ feat(ui): add Logo &amp; Horizontal Logo components [[d8d09ea](https://github.com/Howard86/howardism/commit/d8d09eade02186cc39eb602690714649d1ee5ce5)]
+
+### Changed
+
+- 💄 style: adjust UI styling [[715f237](https://github.com/Howard86/howardism/commit/715f237e8da7d5741e87c5181e22249a07b2aaa5)]
+- 💄 chore: adjust UI [[ea38441](https://github.com/Howard86/howardism/commit/ea384411faf4f0707a34956a1117b8380f0a3777)]
+- ♻️ refactor: update image usage with next static import [[dc92f0b](https://github.com/Howard86/howardism/commit/dc92f0bd03a40f2cf86a50e74af56ec67d933f33)]
+- ⬆️ chore(deps): upgrade chakra-ui [[66d58f9](https://github.com/Howard86/howardism/commit/66d58f918f40724b8b1249553856b9de3b6f019f)]
+- 🍱 chore(assets): update logo &amp; favicon [[2939f79](https://github.com/Howard86/howardism/commit/2939f7948b3198493efaa64247877aa93800f386)]
+
+### Fixed
+
+- 🐛 fix: update getRecipes array order [[5740ddd](https://github.com/Howard86/howardism/commit/5740ddd282f611a937ad19d3bb93c72cd35661d2)]
+- 🐛 chore: add borderColor to checkbox [[af503d2](https://github.com/Howard86/howardism/commit/af503d21e0e58ec6d3534471a9efe3f4898be3cf)]
+- 🐛 fix: showing recipes filtered by image [[fdfb525](https://github.com/Howard86/howardism/commit/fdfb525c5353e21a9d7ba13580a87ec009d85585)]
+
+### Miscellaneous
+
+-  Merge pull request [#23](https://github.com/Howard86/howardism/issues/23) from Howard86/feature/update-monorepo-config [[66b970f](https://github.com/Howard86/howardism/commit/66b970ffc74708008b8f4d43290e080acf630d82)]
+- 📝 chore: update CHANGELOG [[d877491](https://github.com/Howard86/howardism/commit/d877491e8cea388e327a01dd6153df91a7a0378c)]
+
+
 <a name="1.0.13"></a>
 ## 1.0.13 (2021-06-20)
 
