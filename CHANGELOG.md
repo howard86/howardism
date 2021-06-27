@@ -1,5 +1,32 @@
 # Changelog
 
+<a name="1.0.16"></a>
+## 1.0.16 (2021-06-27)
+
+### Added
+
+- ✨ add cms service [[d6f9eba](https://github.com/Howard86/howardism/commit/d6f9ebaf3d93e0e39553f940b489eb1c22454cb8)]
+
+### Changed
+
+- ♻️ update BlogPage with cms datasource [[fc3b2ed](https://github.com/Howard86/howardism/commit/fc3b2edd7391d14c19b8afce21ffe173623f9437)]
+- ♻️ update HomePage with cms datasource [[085a9ae](https://github.com/Howard86/howardism/commit/085a9aee9397c4a91f516488ae53f203d0c757f1)]
+- 🔧 add CMS_API_ENDPOINT env [[5e0776b](https://github.com/Howard86/howardism/commit/5e0776b9741eaac3246b3abab707aa7ff27d4da4)]
+- ⬆️ upgrade next version [[8bbe8fa](https://github.com/Howard86/howardism/commit/8bbe8fa2cd5c1d54fae7f3f2687ab6832478224c)]
+
+### Fixed
+
+- 🐛 fix: update commit rules to bypass gitmoji commit [[c9f06b4](https://github.com/Howard86/howardism/commit/c9f06b49b43104cb81a025071d9a25912fc78b90)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.16 [[8e04944](https://github.com/Howard86/howardism/commit/8e049440c07e46e4706362ba84deb7f09777a170)]
+- 🔀 chore: Merge branch &#x27;master&#x27; into feature/replace-with-cms [[5801e63](https://github.com/Howard86/howardism/commit/5801e6337b8d98ca5d705505fe8036788b1ebe17)]
+- 🔀 Merge pull request [#25](https://github.com/Howard86/howardism/issues/25) from Howard86/bugfix/fix-changelog [[2d80eae](https://github.com/Howard86/howardism/commit/2d80eae894ac8bd3e6760e55a46434c9854179c1)]
+- 📝 docs: update CHANGELOG [[bd2c76b](https://github.com/Howard86/howardism/commit/bd2c76bdf33963720187cbe93d9321772ca17a35)]
+- 🔀 Merge branch &#x27;master&#x27; into feature/replace-with-cms [[d74a898](https://github.com/Howard86/howardism/commit/d74a8988740d6b6e384274c77c145c954c62aa27)]
+
+
 <a name="1.0.15"></a>
 ## 1.0.15 (2021-06-27)
 
