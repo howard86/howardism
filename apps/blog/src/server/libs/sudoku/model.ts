@@ -72,6 +72,28 @@ export default class Sudoku {
     );
   }
 
+  /**
+   * Returns number at (row, column)
+   *
+   * @param rowIndex - row index as an integer between 1 and 9
+   * @param columnIndex - column index as an integer between 1 and 9
+   * @returns an integer between 0 and 9
+   */
+  getNumber(rowIndex: number, columnIndex: number): number {
+    return this.numberArray[9 * rowIndex + columnIndex - 10];
+  }
+
+  /**
+   * Update (mutate) number at (row, column)
+   *
+   * @param rowIndex - row index as an integer between 1 and 9
+   * @param columnIndex - column index as an integer between 1 and 9
+   * @param num - an integer between 1 and 9
+   */
+  setNumber(rowIndex: number, columnIndex: number, num: number): void {
+    this.numberArray[9 * rowIndex + columnIndex - 10] = num;
+  }
+
   private validateInput(input: number[]) {
     if (input.length !== this.VALID_INPUT_LENGTH) {
       throw new Error(
