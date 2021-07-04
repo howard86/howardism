@@ -1,6 +1,6 @@
 export default class Sudoku {
   readonly VALID_INPUT_LENGTH = 81;
-  readonly NILL_ARRAY_WITH_NINE_ZEROS = new Array(9).fill(0);
+  readonly ARRAY_FROM_ONE_TO_NINE = new Array(9).fill(0).map((_, i) => i + 1);
 
   /**
    * Construct a game of Sudoku by an array of valid integers
@@ -25,14 +25,12 @@ export default class Sudoku {
   }
 
   get isSolved(): boolean {
-    const arrayFromOneToNine = this.NILL_ARRAY_WITH_NINE_ZEROS.map((_, i) => i + 1);
-
     // as Row, Column & Block will always have 9 integers
-    return arrayFromOneToNine.every(
+    return this.ARRAY_FROM_ONE_TO_NINE.every(
       (i) =>
-        arrayFromOneToNine.every((num) => this.getRow(i).includes(num)) &&
-        arrayFromOneToNine.every((num) => this.getColumn(i).includes(num)) &&
-        arrayFromOneToNine.every((num) => this.getBlock(i).includes(num))
+        this.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getRow(i).includes(num)) &&
+        this.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getColumn(i).includes(num)) &&
+        this.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getBlock(i).includes(num))
     );
   }
 
@@ -53,7 +51,7 @@ export default class Sudoku {
    * @returns an array of 9 integers between 0 and 9
    */
   getColumn(n: number): number[] {
-    return this.NILL_ARRAY_WITH_NINE_ZEROS.map((_, i) => this.numberArray[n - 1 + 9 * i]);
+    return this.ARRAY_FROM_ONE_TO_NINE.map((i) => this.numberArray[n + 9 * i - 10]);
   }
 
   /**
@@ -63,10 +61,13 @@ export default class Sudoku {
    * @returns an array of 9 integers between 0 and 9
    */
   getBlock(n: number): number[] {
-    return this.NILL_ARRAY_WITH_NINE_ZEROS.map(
-      (_, i) =>
+    return this.ARRAY_FROM_ONE_TO_NINE.map(
+      (i) =>
         this.numberArray[
-          Math.floor((n - 1) / 3) * 27 + 3 * ((n - 1) % 3) + Math.floor(i / 3) * 9 + (i % 3)
+          Math.floor((n - 1) / 3) * 27 +
+            3 * ((n - 1) % 3) +
+            Math.floor((i - 1) / 3) * 9 +
+            ((i - 1) % 3)
         ]
     );
   }
