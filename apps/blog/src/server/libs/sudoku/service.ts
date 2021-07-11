@@ -75,3 +75,9 @@ export const solve = (sudoku: Sudoku): Sudoku => {
   console.log(`Finished in ${Date.now() - start}ms`);
   return sudokuCopy;
 };
+
+// TODO: add service implementation
+export const generate = () => {
+  const input = Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH }).fill(0);
+  return new Sudoku(input);
+};
