@@ -1,5 +1,5 @@
 export default class Sudoku {
-  readonly VALID_INPUT_LENGTH = 81;
+  static readonly VALID_INPUT_LENGTH = 81;
   readonly ARRAY_FROM_ONE_TO_NINE = new Array(9).fill(0).map((_, i) => i + 1);
 
   /**
@@ -95,9 +95,9 @@ export default class Sudoku {
   }
 
   private validateInput(input: number[]) {
-    if (input.length !== this.VALID_INPUT_LENGTH) {
+    if (input.length !== Sudoku.VALID_INPUT_LENGTH) {
       throw new Error(
-        `Incorrect input length=${input.length}, input should only contain ${this.VALID_INPUT_LENGTH} numbers`
+        `Incorrect input length=${input.length}, input should only contain ${Sudoku.VALID_INPUT_LENGTH} numbers`
       );
     }
 
