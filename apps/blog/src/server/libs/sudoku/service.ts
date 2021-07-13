@@ -1,3 +1,5 @@
+import { sampleSize } from "@/utils/array";
+
 import Sudoku from "./model";
 
 const DIMENSION = 9;
@@ -23,11 +25,12 @@ const iterate = (sudoku: Sudoku, rowNumber = 1, columnNumber = 1): boolean => {
     }
 
     const lastRow = sudoku.getRow(DIMENSION);
-    for (let i = 0; i <= DIMENSION; i++) {
-      if (!lastRow.includes(i)) {
-        sudoku.setNumber(DIMENSION, DIMENSION, i);
-        break;
+    for (const numberInput of Sudoku.ARRAY_FROM_ONE_TO_NINE) {
+      if (lastRow.includes(numberInput)) {
+        continue;
       }
+      sudoku.setNumber(DIMENSION, DIMENSION, numberInput);
+      break;
     }
     return true;
   }
@@ -41,18 +44,20 @@ const iterate = (sudoku: Sudoku, rowNumber = 1, columnNumber = 1): boolean => {
     return iterate(sudoku, rowNumber, columnNumber + 1);
   }
 
-  for (let i = 1; i <= DIMENSION; i++) {
-    if (!isRepeated(sudoku, rowNumber, columnNumber, i)) {
-      sudoku.setNumber(rowNumber, columnNumber, i);
-
-      // check if it's solved
-      if (iterate(sudoku, rowNumber, columnNumber + 1)) {
-        return true;
-      }
-
-      // else not solved, skip this i
-      sudoku.setNumber(rowNumber, columnNumber, 0);
+  for (const randomNumberInput of sampleSize(Sudoku.ARRAY_FROM_ONE_TO_NINE)) {
+    if (isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
+      continue;
     }
+
+    sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
+
+    // check if it's solved
+    if (iterate(sudoku, rowNumber, columnNumber + 1)) {
+      return true;
+    }
+
+    // else not solved, skip this i
+    sudoku.setNumber(rowNumber, columnNumber, 0);
   }
 
   return false;
@@ -74,6 +79,11 @@ export const solve = (sudoku: Sudoku): Sudoku => {
   // eslint-disable-next-line no-console
   console.log(`Finished in ${Date.now() - start}ms`);
   return sudokuCopy;
+};
+
+export const generateFullBoard = (): Sudoku => {
+  const emptyBoard = new Sudoku(Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH }).fill(0));
+  return solve(emptyBoard);
 };
 
 // TODO: add service implementation

@@ -1,5 +1,5 @@
 import Sudoku from "@/server/libs/sudoku/model";
-import { solve } from "@/server/libs/sudoku/service";
+import { generateFullBoard, solve } from "@/server/libs/sudoku/service";
 
 describe("Sudoku service", () => {
   describe(solve.name, () => {
@@ -30,6 +30,13 @@ describe("Sudoku service", () => {
         expect(result.getColumn(num).sort()).toEqual(Sudoku.ARRAY_FROM_ONE_TO_NINE);
         expect(result.getBlock(num).sort()).toEqual(Sudoku.ARRAY_FROM_ONE_TO_NINE);
       });
+    });
+  });
+
+  describe(generateFullBoard.name, () => {
+    it("should be solved", () => {
+      const result = generateFullBoard();
+      expect(result.isSolved).toBe(true);
     });
   });
 });
