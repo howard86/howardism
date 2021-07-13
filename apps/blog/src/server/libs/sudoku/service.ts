@@ -2,6 +2,12 @@ import { sampleSize } from "@/utils/array";
 
 import Sudoku from "./model";
 
+export enum SudokuStatus {
+  Unsolvable,
+  UniqueSolution,
+  MultipleSolutions,
+}
+
 const DIMENSION = 9;
 
 const isRepeated = (
@@ -79,6 +85,66 @@ export const solve = (sudoku: Sudoku): Sudoku => {
   // eslint-disable-next-line no-console
   console.log(`Finished in ${Date.now() - start}ms`);
   return sudokuCopy;
+};
+
+/**
+ * Calculate number of solutions of Sudoku, stops if exceed 2
+ * @remarks this is similar to iterate method but
+ *          returns number and wont generate a solved sudoku
+ */
+const getNumberOfSolutions = (
+  sudoku: Sudoku,
+  rowNumber = 1,
+  columnNumber = 1,
+  count = 0
+): number => {
+  if (rowNumber === DIMENSION && columnNumber === DIMENSION) {
+    return count + 1;
+  }
+
+  if (columnNumber > DIMENSION) {
+    rowNumber += 1;
+    columnNumber = 0;
+  }
+
+  if (sudoku.getNumber(rowNumber, columnNumber) !== 0) {
+    return getNumberOfSolutions(sudoku, rowNumber, columnNumber + 1, count);
+  }
+
+  for (const randomNumberInput of sampleSize(Sudoku.ARRAY_FROM_ONE_TO_NINE)) {
+    if (count > 1) {
+      break;
+    }
+
+    if (isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
+      continue;
+    }
+
+    sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
+    count = getNumberOfSolutions(sudoku, rowNumber, columnNumber + 1, count);
+    // reset backtracking
+    sudoku.setNumber(rowNumber, columnNumber, 0);
+  }
+
+  return count;
+};
+
+export const getSudokuStatus = (sudoku: Sudoku): SudokuStatus => {
+  const count = getNumberOfSolutions(sudoku);
+
+  switch (count) {
+    case 0:
+      return SudokuStatus.Unsolvable;
+
+    case 1:
+      return SudokuStatus.UniqueSolution;
+
+    case 2:
+      return SudokuStatus.MultipleSolutions;
+
+    default:
+      throw new Error(`Invalid ${getNumberOfSolutions.name} with count=${count}`);
+  }
 };
 
 export const generateFullBoard = (): Sudoku => {
