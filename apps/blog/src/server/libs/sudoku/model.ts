@@ -14,9 +14,7 @@ export default class Sudoku {
   }
 
   /**
-   * Construct a game of Sudoku by an array of valid integers
-   *
-   * @remarks all values between x and y are inclusive
+   * Shallow copy the Sudoku numbers
    *
    * @returns a copy of numberInput
    */
@@ -24,6 +22,11 @@ export default class Sudoku {
     return [...this.numberArray];
   }
 
+  /**
+   * Check if this Sudoku is solved
+   *
+   * @returns true if it is solved, otherwise false
+   */
   get isSolved(): boolean {
     // as Row, Column & Block will always have 9 integers
     return Sudoku.ARRAY_FROM_ONE_TO_NINE.every(
