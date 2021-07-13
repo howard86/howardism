@@ -1,5 +1,6 @@
 import Sudoku from "@/server/libs/sudoku/model";
 import {
+  generate,
   generateFullBoard,
   getSudokuStatus,
   solve,
@@ -95,6 +96,13 @@ describe("Sudoku service", () => {
       ]);
       const status = getSudokuStatus(sudoku);
       expect(status).toBe(SudokuStatus.MultipleSolutions);
+    });
+  });
+
+  describe(generate.name, () => {
+    it("should generate a sudoku with unique solution", () => {
+      const result = generate();
+      expect(getSudokuStatus(result)).toBe(SudokuStatus.UniqueSolution);
     });
   });
 });

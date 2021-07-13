@@ -152,8 +152,25 @@ export const generateFullBoard = (): Sudoku => {
   return solve(emptyBoard);
 };
 
-// TODO: add service implementation
-export const generate = () => {
-  const input = Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH }).fill(0);
-  return new Sudoku(input);
+export const generate = (): Sudoku => {
+  const solution = generateFullBoard();
+  const removedIndexes = sampleSize(
+    Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH })
+      .fill(0)
+      .map((_, index) => index)
+  );
+
+  const resultInput = solution.input;
+  for (const removedIndex of removedIndexes) {
+    const originalNumber = resultInput[removedIndex];
+    resultInput[removedIndex] = 0;
+
+    // we stop when we have more than 1 solution
+    if (getNumberOfSolutions(new Sudoku(resultInput)) > 1) {
+      resultInput[removedIndex] = originalNumber;
+      break;
+    }
+  }
+
+  return new Sudoku(resultInput);
 };
