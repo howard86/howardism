@@ -25,10 +25,10 @@ describe("Sudoku service", () => {
 
       expect(result.isSolved).toBe(true);
 
-      result.ARRAY_FROM_ONE_TO_NINE.forEach((num) => {
-        expect(result.getRow(num).sort()).toEqual(result.ARRAY_FROM_ONE_TO_NINE);
-        expect(result.getColumn(num).sort()).toEqual(result.ARRAY_FROM_ONE_TO_NINE);
-        expect(result.getBlock(num).sort()).toEqual(result.ARRAY_FROM_ONE_TO_NINE);
+      Sudoku.ARRAY_FROM_ONE_TO_NINE.forEach((num) => {
+        expect(result.getRow(num).sort()).toEqual(Sudoku.ARRAY_FROM_ONE_TO_NINE);
+        expect(result.getColumn(num).sort()).toEqual(Sudoku.ARRAY_FROM_ONE_TO_NINE);
+        expect(result.getBlock(num).sort()).toEqual(Sudoku.ARRAY_FROM_ONE_TO_NINE);
       });
     });
   });
