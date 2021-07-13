@@ -35,6 +35,15 @@ export default class Sudoku {
   }
 
   /**
+   * Get number of zeros in the numberArray
+   *
+   * @returns number of zeros
+   */
+  get zeroCount(): number {
+    return this.numberArray.filter((num) => num === 0).length;
+  }
+
+  /**
    * Returns the indexes of row n within the input
    *
    * @param n - an integer between 1 and 9

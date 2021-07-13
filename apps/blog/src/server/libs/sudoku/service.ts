@@ -8,7 +8,16 @@ export enum SudokuStatus {
   MultipleSolutions,
 }
 
+export enum SudokuDifficulty {
+  Beginner,
+  Medium,
+  Hard,
+  Expert,
+}
+
 const DIMENSION = 9;
+const DIFFICULTY_BASE = 20;
+const DIFFICULTY_GAP = 10;
 
 const isRepeated = (
   sudoku: Sudoku,
@@ -173,4 +182,25 @@ export const generate = (): Sudoku => {
   }
 
   return new Sudoku(resultInput);
+};
+
+export const generateBaseOnDifficulty = (level: SudokuDifficulty): Sudoku => {
+  let count = 0;
+  const minNumberOfZeroes = DIFFICULTY_BASE + level * DIFFICULTY_GAP;
+
+  while (count < Number.MAX_SAFE_INTEGER) {
+    count++;
+    const sudoku = generate();
+
+    if (
+      sudoku.zeroCount >= minNumberOfZeroes &&
+      sudoku.zeroCount < minNumberOfZeroes + DIFFICULTY_GAP
+    ) {
+      // eslint-disable-next-line no-console
+      console.log(`Took ${count} times to generate sudoku with difficulty=${level}`);
+      return sudoku;
+    }
+  }
+
+  throw new Error(`Failed to generate after iteration over ${Number.MAX_SAFE_INTEGER} times`);
 };

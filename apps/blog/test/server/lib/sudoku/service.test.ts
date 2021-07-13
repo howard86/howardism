@@ -1,9 +1,11 @@
 import Sudoku from "@/server/libs/sudoku/model";
 import {
   generate,
+  generateBaseOnDifficulty,
   generateFullBoard,
   getSudokuStatus,
   solve,
+  SudokuDifficulty,
   SudokuStatus,
 } from "@/server/libs/sudoku/service";
 
@@ -102,6 +104,28 @@ describe("Sudoku service", () => {
   describe(generate.name, () => {
     it("should generate a sudoku with unique solution", () => {
       const result = generate();
+      expect(getSudokuStatus(result)).toBe(SudokuStatus.UniqueSolution);
+    });
+  });
+
+  describe(generateBaseOnDifficulty.name, () => {
+    it("should generate a sudoku with beginner level", () => {
+      const result = generateBaseOnDifficulty(SudokuDifficulty.Beginner);
+      expect(getSudokuStatus(result)).toBe(SudokuStatus.UniqueSolution);
+    });
+
+    it("should generate a sudoku with medium level", () => {
+      const result = generateBaseOnDifficulty(SudokuDifficulty.Medium);
+      expect(getSudokuStatus(result)).toBe(SudokuStatus.UniqueSolution);
+    });
+
+    it("should generate a sudoku with hard level", () => {
+      const result = generateBaseOnDifficulty(SudokuDifficulty.Hard);
+      expect(getSudokuStatus(result)).toBe(SudokuStatus.UniqueSolution);
+    });
+
+    it("should generate a sudoku with expert level", () => {
+      const result = generateBaseOnDifficulty(SudokuDifficulty.Expert);
       expect(getSudokuStatus(result)).toBe(SudokuStatus.UniqueSolution);
     });
   });
