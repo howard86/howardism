@@ -14,7 +14,7 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
     case "POST": {
       if (!(req.body?.sudoku?.length() !== Sudoku.VALID_INPUT_LENGTH)) {
         return res.status(400).json({
-          succcess: false,
+          success: false,
           message: `Invalid body with ${req.body.sudoku}`,
         });
       }
@@ -28,8 +28,8 @@ const handler = (req: NextApiRequest, res: NextApiResponse) => {
         });
       } catch (error) {
         return res.json({
-          succuess: false,
-          messag: error.message,
+          success: false,
+          message: error.message,
         });
       }
     }
