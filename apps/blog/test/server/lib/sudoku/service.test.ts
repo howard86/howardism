@@ -1,3 +1,4 @@
+import { SudokuDifficulty } from "@/server/libs/sudoku/enum";
 import Sudoku from "@/server/libs/sudoku/model";
 import {
   generate,
@@ -5,7 +6,6 @@ import {
   generateFullBoard,
   getSudokuStatus,
   solve,
-  SudokuDifficulty,
   SudokuStatus,
 } from "@/server/libs/sudoku/service";
 

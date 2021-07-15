@@ -1,6 +1,11 @@
+import { SudokuDifficulty } from "./enum";
+
 export default class Sudoku {
   static readonly VALID_INPUT_LENGTH = 81;
   static readonly ARRAY_FROM_ONE_TO_NINE = new Array(9).fill(0).map((_, i) => i + 1);
+
+  private readonly DIFFICULTY_BASE = 20;
+  private readonly DIFFICULTY_GAP = 10;
 
   static from(code: string): Sudoku {
     return new this(
@@ -47,12 +52,21 @@ export default class Sudoku {
   }
 
   /**
-   * Get number of zeros in the numberArray
+   * Get difficulty of Sudoku based on number of zeros contained
    *
-   * @returns number of zeros
+   * @returns {SudokuDifficulty} difficulty enum
    */
-  get zeroCount(): number {
-    return this.numberArray.filter((num) => num === 0).length;
+  get difficulty(): SudokuDifficulty {
+    const zeroCount = this.numberArray.filter((num) => num === 0).length;
+    if (zeroCount < this.DIFFICULTY_BASE + this.DIFFICULTY_GAP) {
+      return SudokuDifficulty.Beginner;
+    } else if (zeroCount < this.DIFFICULTY_BASE + 2 * this.DIFFICULTY_GAP) {
+      return SudokuDifficulty.Medium;
+    } else if (zeroCount < this.DIFFICULTY_BASE + 3 * this.DIFFICULTY_GAP) {
+      return SudokuDifficulty.Hard;
+    } else {
+      return SudokuDifficulty.Expert;
+    }
   }
 
   /**
