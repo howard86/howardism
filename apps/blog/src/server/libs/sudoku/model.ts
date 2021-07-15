@@ -2,6 +2,15 @@ export default class Sudoku {
   static readonly VALID_INPUT_LENGTH = 81;
   static readonly ARRAY_FROM_ONE_TO_NINE = new Array(9).fill(0).map((_, i) => i + 1);
 
+  static from(code: string): Sudoku {
+    return new this(
+      Buffer.from(code, "base64")
+        .toString()
+        .split("")
+        .map((char) => parseInt(char, 10))
+    );
+  }
+
   /**
    * Construct a game of Sudoku by an array of valid integers
    *
@@ -44,6 +53,15 @@ export default class Sudoku {
    */
   get zeroCount(): number {
     return this.numberArray.filter((num) => num === 0).length;
+  }
+
+  /**
+   * Get encoded string of numberArray in base 64
+   *
+   * @returns base4 string
+   */
+  get encodedInput(): string {
+    return Buffer.from(this.numberArray.join("")).toString("base64");
   }
 
   /**

@@ -265,4 +265,25 @@ describe("Sudoku model", () => {
       expect(sudokuWithRepeatedNumber.isSolved).toBe(false);
     });
   });
+
+  describe(Sudoku.from.name, () => {
+    it("should return the same number array with encoded input", () => {
+      const sudoku = new Sudoku(
+        // prettier-ignore
+        [
+          4, 6, 2, 8, 1, 7, 9, 5, 3,
+          1, 8, 9, 2, 5, 3, 7, 6, 4,
+          7, 3, 5, 6, 9, 4, 1, 2, 8,
+          8, 4, 7, 5, 3, 1, 6, 9, 2,
+          5, 9, 3, 7, 6, 2, 4, 8, 1,
+          6, 2, 1, 9, 4, 8, 5, 3, 7,
+          9, 1, 4, 3, 8, 6, 2, 7, 5,
+          3, 7, 6, 1, 2, 5, 8, 4, 9,
+          2, 5, 8, 4, 7, 9, 3, 1, 6
+        ]
+      );
+
+      expect(Sudoku.from(sudoku.encodedInput)).toEqual(sudoku);
+    });
+  });
 });
