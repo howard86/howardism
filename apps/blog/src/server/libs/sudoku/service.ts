@@ -78,13 +78,10 @@ export const solve = (sudoku: Sudoku): Sudoku => {
   // input getter creates a copy of numberArray
   const sudokuCopy = new Sudoku(sudoku.input);
 
-  const start = Date.now();
   if (!iterate(sudokuCopy)) {
     throw new Error("Sudoku is not solvable");
   }
 
-  // eslint-disable-next-line no-console
-  console.log(`Finished in ${Date.now() - start}ms`);
   return sudokuCopy;
 };
 
