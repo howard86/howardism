@@ -1,6 +1,6 @@
 export enum SudokuDifficulty {
-  Beginner,
-  Medium,
-  Hard,
-  Expert,
+  Beginner = "beginner",
+  Medium = "medium",
+  Hard = "hard",
+  Expert = "expert",
 }
