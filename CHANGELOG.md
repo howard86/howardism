@@ -1,5 +1,35 @@
 # Changelog
 
+<a name="1.0.17"></a>
+## 1.0.17 (2021-07-17)
+
+### Added
+
+- ✨ feat: add Footer in Layout [[2c53e60](https://github.com/Howard86/howardism/commit/2c53e607fc2e28aeefd56538ee08104a9a4e1c03)]
+- ✨ feat(server): update /blug/[slug] generation via slug instead of id [[3aae237](https://github.com/Howard86/howardism/commit/3aae2379f16908ee4ffbe8a1abaa5508d6234c38)]
+- ➕ chore(deps): install dayjs [[3605c91](https://github.com/Howard86/howardism/commit/3605c91273961a9c60f90f3bd793f9745cbd21e8)]
+- ✨ feat: create Home template [[c5ea61a](https://github.com/Howard86/howardism/commit/c5ea61a08a7c747617286c0674d37dff16b85f9d)]
+- ✨ feat: create SocialIconLink [[4cfd811](https://github.com/Howard86/howardism/commit/4cfd811382c42e967a6da2b1d9336ac65a8ac71a)]
+- 🎉 feat: add package components-common [[3e46176](https://github.com/Howard86/howardism/commit/3e461761e03dc2b788d590d0651f96baac8cef5d)]
+- ➕ chore(deps): install next-tranpile-moudles in root [[b7af4d5](https://github.com/Howard86/howardism/commit/b7af4d50d37335e08f0d7a63e6e9010aa3ded53f)]
+
+### Changed
+
+- 💄 style: update HomePage style [[b7c5d03](https://github.com/Howard86/howardism/commit/b7c5d03ec6ca27115be57c3dcef3c55d6c9250c6)]
+- 💄 style: remove SideBar in Layout [[e9539e0](https://github.com/Howard86/howardism/commit/e9539e0f89e1a5c28429d3b83e783ca6e6c76ed7)]
+- 💄 style: update PostCard styles [[44f85c6](https://github.com/Howard86/howardism/commit/44f85c68b8382482ecafbd7c97db6abe83a539ff)]
+- 🍱 chore(asset): add default post image from unsplash [[95538a5](https://github.com/Howard86/howardism/commit/95538a50e5d85a0e9c83c0802d96d7f5fa0485dd)]
+- 🔧 chore: set up next-transpile-modules in blog [[0f723e3](https://github.com/Howard86/howardism/commit/0f723e3aeb6fa0960bb7385bf2858fce1ff2d988)]
+- ♻️ refactor: copy existed common components [[707b115](https://github.com/Howard86/howardism/commit/707b115a49b8ea38137fc9305c743db8c6a013da)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.17 [[7a3226f](https://github.com/Howard86/howardism/commit/7a3226f1925d62314bbad6ca45e322809bb50e44)]
+- 🏷️ chore: update cms schema [[fdbc5c5](https://github.com/Howard86/howardism/commit/fdbc5c5c5868b84d1a3315f1fe55171f69921b2d)]
+- 🔀 Merge pull request [#26](https://github.com/Howard86/howardism/issues/26) from Howard86/feature/replace-with-cms [[5c86b02](https://github.com/Howard86/howardism/commit/5c86b02c16be2e4a28589a249349fa2851c6d247)]
+- 📝 docs: update CHANGELOG [[0e243bb](https://github.com/Howard86/howardism/commit/0e243bb8b847129db8d101c55fc3d872ac2ab700)]
+
+
 <a name="1.0.16"></a>
 ## 1.0.16 (2021-06-27)
 
