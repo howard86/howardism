@@ -1,61 +1,114 @@
 import { Center, List } from "@chakra-ui/react";
-import { readdirSync, readFileSync } from "fs";
-import matter from "gray-matter";
-import type { GetStaticPaths, GetStaticProps, NextPage } from "next";
+import { RouteLink } from "@howardism/components-common";
+import type {
+  GetStaticPathsResult,
+  GetStaticPropsContext,
+  GetStaticPropsResult,
+  NextPage,
+} from "next";
 import { MDXRemote, MDXRemoteSerializeResult } from "next-mdx-remote";
 import { serialize } from "next-mdx-remote/serialize";
 import { NextSeo } from "next-seo";
-import { join } from "path";
-import { ParsedUrlQuery } from "querystring";
+import type { ParsedUrlQuery } from "querystring";
 import React from "react";
 
-import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
-import { MDX_SOURCE_PATH } from "@/constants/mdx";
-import { filterNullValue } from "@/utils/filter";
+import { fetchBlogPosts } from "@/services/cms";
+import type { BlogPost } from "@/types/blog-post";
 
 interface BlogPostProps {
   mdxSource: MDXRemoteSerializeResult;
-  meta: FrontMatter.Meta;
+  meta: Omit<BlogPost, "article">;
+  previousPage: PageRouteInfo;
+  nextPage: PageRouteInfo;
+}
+
+interface PageRouteInfo {
+  title: string;
+  href: string;
 }
 
 interface StaticPaths extends ParsedUrlQuery {
   slug: string;
 }
 
-export const getStaticPaths: GetStaticPaths<StaticPaths> = async () => ({
-  fallback: false,
-  paths: readdirSync(MDX_SOURCE_PATH).map((fileName) => ({
-    params: { slug: fileName.replace(/\.mdx/, "") },
-  })),
-});
+const HOME_ROUTE: PageRouteInfo = {
+  title: "Home",
+  href: "/",
+};
 
-export const getStaticProps: GetStaticProps<BlogPostProps> = async ({ params }) => {
-  const slug = params?.slug as string;
-  const sourcePath = join(MDX_SOURCE_PATH, `${slug}.mdx`);
+export const getStaticPaths = async (): Promise<GetStaticPathsResult<StaticPaths>> => {
+  const posts = await fetchBlogPosts();
 
-  const source = readFileSync(sourcePath, "utf8");
-  const { data, content } = matter(source);
-  const mdxSource = await serialize(content);
+  return {
+    fallback: false,
+    paths: posts.map((post) => ({
+      params: {
+        slug: post.slug,
+      },
+    })),
+  };
+};
+
+export const getStaticProps = async ({
+  params,
+}: GetStaticPropsContext<StaticPaths>): Promise<GetStaticPropsResult<BlogPostProps>> => {
+  const slug = params?.slug;
+
+  if (!slug) {
+    return {
+      notFound: true,
+    };
+  }
+
+  // TODO: consider making 3 requests
+  const posts = await fetchBlogPosts();
+
+  const foundIndex = posts.findIndex((post) => post.slug === slug);
+
+  if (foundIndex < 0) {
+    return {
+      notFound: true,
+    };
+  }
+
+  const { article, ...meta } = posts[foundIndex];
+
+  const mdxSource = await serialize(article);
+
   return {
     props: {
       mdxSource,
-      meta: filterNullValue(data) as FrontMatter.Meta,
+      meta,
+      previousPage:
+        foundIndex > 0
+          ? {
+              title: posts[foundIndex - 1].title,
+              href: `/blog/${posts[foundIndex - 1].slug}`,
+            }
+          : HOME_ROUTE,
+      nextPage:
+        foundIndex < posts.length - 1
+          ? {
+              title: posts[foundIndex + 1].title,
+              href: `/blog/${posts[foundIndex + 1].slug}`,
+            }
+          : HOME_ROUTE,
     },
   };
 };
 
-const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta }) => {
+const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta, previousPage, nextPage }) => {
   return (
     <>
       <NextSeo title={meta.title} />
       <List display="flex" justifyContent="space-between" mb={[8, 4]}>
-        <BlogNavButton title={meta.lastPostTitle} date={meta.lastPostDate} />
-        <BlogNavButton title={meta.nextPostTitle} date={meta.nextPostDate} />
+        <RouteLink href={previousPage.href}>{previousPage.title}</RouteLink>
+        <RouteLink href={nextPage.href}>{nextPage.title}</RouteLink>
       </List>
       <MDXRemote {...mdxSource} components={markdown} />
       <Center>
-        <BlogNavButton />
+        <RouteLink href={HOME_ROUTE.href}>{HOME_ROUTE.title}</RouteLink>
       </Center>
     </>
   );

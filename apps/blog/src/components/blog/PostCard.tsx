@@ -1,46 +1,86 @@
-import { Flex, Heading, LinkBox, LinkOverlay, Text } from "@chakra-ui/react";
+import { Box, Flex, Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
+import { Image, RouteLink } from "@howardism/components-common";
+import dayjs from "dayjs";
 import NextLink from "next/link";
 import React, { FC, memo } from "react";
 
-interface PostCardProps {
+import chip from "@/../public/assets/alexandre-debieve-chip.jpg";
+import monitor from "@/../public/assets/carl-heyerdahl-desk.jpg";
+import desk from "@/../public/assets/thisisengineering-raeng-desk.jpg";
+
+export interface PostCardProps {
+  id: number;
   title: string;
+  slug: string;
   date: string;
   description: string;
   tags: string[];
 }
 
-const PostCard: FC<PostCardProps> = ({ title, date, description, tags }) => (
-  <LinkBox
-    as="article"
-    p="5"
-    rounded="lg"
-    _hover={{
-      bg: "primary.50",
-    }}
-  >
-    <Flex flexDir={["column", "row"]} align="baseline">
-      <Heading
-        w="full"
-        fontSize={["lg", "xl", "2xl"]}
-        letterSpacing="wide"
-        my={[0, 2, 4]}
-        noOfLines={1}
+const DEFAULT_IMAGES: StaticImageData[] = [chip, monitor, desk];
+
+const PostCard: FC<PostCardProps> = ({ id, title, slug, date, description, tags }) => {
+  const day = dayjs(date);
+
+  return (
+    <LinkBox as="article" position="relative">
+      <Box
+        mb="12"
+        position="relative"
+        _before={{
+          content: '""',
+          position: "absolute",
+          width: "80%",
+          height: "80%",
+          bgColor: "primary.800",
+          bottom: 0,
+          left: "10%",
+          filter: "blur(15px)",
+        }}
       >
-        <NextLink href={`/blog/${date}`} passHref>
-          <LinkOverlay>{title}</LinkOverlay>
-        </NextLink>
-      </Heading>
-      <Text as="h4" w={["full", 40]} my={[2, 0]} color="secondary.200" textAlign="end">
-        {date}
-      </Text>
-    </Flex>
-    {tags.map((tag) => (
-      <Text as="h3" key={date + tag}>
-        {tag}
-      </Text>
-    ))}
-    <Text noOfLines={[3, 4, 5]}>{description}</Text>
-  </LinkBox>
-);
+        <Image
+          alt="chip"
+          layout="responsive"
+          src={DEFAULT_IMAGES[id % 3]}
+          width={400}
+          height={300}
+          rounded="md"
+          objectFit="cover"
+        />
+      </Box>
+      <Flex>
+        <Box
+          display={["none", "flex"]}
+          flexDirection="column"
+          textAlign="center"
+          pb="4"
+          px={[0, 5, 6, 8]}
+          pt={[0, 5, 6, 8]}
+          mr={[0, 6]}
+        >
+          <Text fontWeight="bold" fontSize={["xl", "2xl", "3xl", "4xl"]}>
+            {day.format("DD")}
+          </Text>
+          <Text as="span" fontSize="sm">
+            {day.format("MMM")}
+          </Text>
+        </Box>
+        <Box alignSelf="center">
+          <Heading fontSize={["lg", "lg", "xl", "2xl"]} mb={[2.5, 3, 2.5]}>
+            <NextLink href={`/blog/${slug}`} passHref>
+              <LinkOverlay>{title}</LinkOverlay>
+            </NextLink>
+          </Heading>
+          <Text noOfLines={4}>{description}</Text>
+          {tags.map((tag) => (
+            <Tag key={`${id}${tag}`}>
+              <RouteLink href={`/tags/${tag}`}>`#${tag}`</RouteLink>
+            </Tag>
+          ))}
+        </Box>
+      </Flex>
+    </LinkBox>
+  );
+};
 
 export default memo(PostCard);

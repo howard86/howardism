@@ -3,13 +3,13 @@ import NextLink from "next/link";
 import React, { FC } from "react";
 
 interface NavButtonProps {
-  title?: string;
-  date?: string;
+  title: string;
+  id: number;
 }
 
-const NavButton: FC<NavButtonProps> = ({ title = "Back to Home", date }) => (
+const NavButton: FC<NavButtonProps> = ({ title, id }) => (
   <List>
-    <NextLink href={date ? `/blog/${date}` : "/"} passHref>
+    <NextLink href={id > 0 ? `/blog/${id}` : "/"} passHref>
       <Link>{title}</Link>
     </NextLink>
   </List>
