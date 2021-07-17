@@ -1,4 +1,5 @@
 import { Center, List } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
 import type {
   GetStaticPathsResult,
   GetStaticPropsContext,
@@ -11,19 +12,30 @@ import { NextSeo } from "next-seo";
 import type { ParsedUrlQuery } from "querystring";
 import React from "react";
 
-import BlogNavButton from "@/components/blog/BlogNavButton";
 import markdown from "@/components/markdown";
-import { fetchBlogPostById, fetchBlogPosts } from "@/services/cms";
+import { fetchBlogPosts } from "@/services/cms";
 import type { BlogPost } from "@/types/blog-post";
 
 interface BlogPostProps {
   mdxSource: MDXRemoteSerializeResult;
   meta: Omit<BlogPost, "article">;
+  previousPage: PageRouteInfo;
+  nextPage: PageRouteInfo;
+}
+
+interface PageRouteInfo {
+  title: string;
+  href: string;
 }
 
 interface StaticPaths extends ParsedUrlQuery {
   slug: string;
 }
+
+const HOME_ROUTE: PageRouteInfo = {
+  title: "Home",
+  href: "/",
+};
 
 export const getStaticPaths = async (): Promise<GetStaticPathsResult<StaticPaths>> => {
   const posts = await fetchBlogPosts();
@@ -32,7 +44,7 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<StaticPaths
     fallback: false,
     paths: posts.map((post) => ({
       params: {
-        slug: post.id.toString(),
+        slug: post.slug,
       },
     })),
   };
@@ -49,15 +61,18 @@ export const getStaticProps = async ({
     };
   }
 
-  const post = await fetchBlogPostById(slug);
+  // TODO: consider making 3 requests
+  const posts = await fetchBlogPosts();
 
-  if (!post) {
+  const foundIndex = posts.findIndex((post) => post.slug === slug);
+
+  if (foundIndex < 0) {
     return {
       notFound: true,
     };
   }
 
-  const { article, ...meta } = post;
+  const { article, ...meta } = posts[foundIndex];
 
   const mdxSource = await serialize(article);
 
@@ -65,21 +80,35 @@ export const getStaticProps = async ({
     props: {
       mdxSource,
       meta,
+      previousPage:
+        foundIndex > 0
+          ? {
+              title: posts[foundIndex - 1].title,
+              href: `/blog/${posts[foundIndex - 1].slug}`,
+            }
+          : HOME_ROUTE,
+      nextPage:
+        foundIndex < posts.length - 1
+          ? {
+              title: posts[foundIndex + 1].title,
+              href: `/blog/${posts[foundIndex + 1].slug}`,
+            }
+          : HOME_ROUTE,
     },
   };
 };
 
-const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta }) => {
+const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta, previousPage, nextPage }) => {
   return (
     <>
       <NextSeo title={meta.title} />
       <List display="flex" justifyContent="space-between" mb={[8, 4]}>
-        <BlogNavButton title="Previous" id={meta.id - 1} />
-        <BlogNavButton title="Next" id={meta.id + 1} />
+        <RouteLink href={previousPage.href}>{previousPage.title}</RouteLink>
+        <RouteLink href={nextPage.href}>{nextPage.title}</RouteLink>
       </List>
       <MDXRemote {...mdxSource} components={markdown} />
       <Center>
-        <BlogNavButton title="Back to Home" id={-1} />
+        <RouteLink href={HOME_ROUTE.href}>{HOME_ROUTE.title}</RouteLink>
       </Center>
     </>
   );
