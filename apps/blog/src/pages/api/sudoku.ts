@@ -8,7 +8,32 @@ import {
   SudokuDifficulty,
 } from "@/server/libs/sudoku";
 
-const handler = (req: NextApiRequest, res: NextApiResponse) => {
+interface SudokuApiRequest extends NextApiRequest {
+  query: {
+    difficulty?: SudokuDifficulty;
+    code?: string;
+  };
+  body: {
+    sudoku?: number[];
+    code?: string;
+  };
+}
+
+type SudokuApiResponse = SudokuSuccessApiResponse | SudokuFailureApiResponse;
+
+type SudokuSuccessApiResponse = {
+  success: true;
+  difficulty: SudokuDifficulty;
+  code: string;
+  sudoku: number[];
+};
+
+type SudokuFailureApiResponse = {
+  success: false;
+  message: string;
+};
+
+const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>) => {
   switch (req.method) {
     case "GET": {
       const difficulty = req.query.difficulty as SudokuDifficulty;
