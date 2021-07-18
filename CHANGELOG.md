@@ -1,5 +1,51 @@
 # Changelog
 
+<a name="1.0.18"></a>
+## 1.0.18 (2021-07-18)
+
+### Added
+
+- ✨ feat: update GET &amp; POST /api/sudoku [[5152547](https://github.com/Howard86/howardism/commit/51525470e1c4131dee0d7bf413d8c27d0d444096)]
+- ✨ feat: add Sudoku.from to generate from code [[1b1152a](https://github.com/Howard86/howardism/commit/1b1152a0fe3d05ec8071e9ca90db927c21e37b51)]
+- ✨ feat: add generateBaseOnDifficulty [[89ed02b](https://github.com/Howard86/howardism/commit/89ed02b077f4922217cb8c238598eca83305a6de)]
+- ✨ feat: add implementation of generate [[7cbc9a5](https://github.com/Howard86/howardism/commit/7cbc9a58137293f68be8a689277c335011e4edbe)]
+- ✨ feat: add getSudokuStatus to verify solution count [[68cd883](https://github.com/Howard86/howardism/commit/68cd883d676ccc08fcebc9300fdbd1cd1d711cd9)]
+- ✨ feat: add generateFullBoard refactoring iterate algorithm [[e582fb1](https://github.com/Howard86/howardism/commit/e582fb1a128bbb3f392cb11fa9dd3f532f649a13)]
+- ✨ feat: add array util sampleSize with unit test [[9e8ead3](https://github.com/Howard86/howardism/commit/9e8ead3cf8009f7ff528ca9cdd391d0d3bc13e5c)]
+- ✨ feat: add /api/sudoku api endpoints [[c20c697](https://github.com/Howard86/howardism/commit/c20c69736f5076ce4471786233327c37bf3bf317)]
+- ✨ feat: add service to solve sudoku [[712932f](https://github.com/Howard86/howardism/commit/712932f18e87f151101ae2b9d2b6d09292c8f249)]
+- ✨ feat(lib): add Sudoku model [[cb3c6bd](https://github.com/Howard86/howardism/commit/cb3c6bd415e730bc7779facd32a29ee0c5bc60b6)]
+- ✅ chore(test): add unit test for Sudoku model [[4c960e0](https://github.com/Howard86/howardism/commit/4c960e06ae7374768cf398d94b0b386b04ba8c98)]
+- ➕ chore(deps): install jest, babel jest &amp; test utils [[f735194](https://github.com/Howard86/howardism/commit/f735194bc9faa1e13f102880bed91d9b28c4ca4f)]
+
+### Changed
+
+- ♻️ refactor: replace Sudoku.zeroCount with Sudoku.difficulty [[bdf638b](https://github.com/Howard86/howardism/commit/bdf638bccb037f6f568a7f592c524407987e31c0)]
+- ♻️ refactor: update ARRAY_FROM_ONE_TO_NINE to be static [[a674339](https://github.com/Howard86/howardism/commit/a674339eb72bc9cffaa525070640dee6d985398f)]
+- ♻️ refactor: update Sudoku modal [[f398fdd](https://github.com/Howard86/howardism/commit/f398fdd971fe65349c16eae0885e4c1a55731cb2)]
+- ♻️ feat: add getNumber &amp; serNumber helper [[2212341](https://github.com/Howard86/howardism/commit/22123411c55a0bc075944052d1e8568383f727ab)]
+- ♻️ refactor: updtate sudoku internal helper variables [[42b8359](https://github.com/Howard86/howardism/commit/42b83594b7d2b8fc8cf1f23342c3500ff4d90dcd)]
+- 🔧 feat(config): set up jest for blog [[81a302b](https://github.com/Howard86/howardism/commit/81a302be6e01b565703faf180a9973e30173d7ee)]
+
+### Removed
+
+- 🔇 chore: remove sudoku iterate log [[3c31242](https://github.com/Howard86/howardism/commit/3c31242975569b1232e884f80646ef5cfc5cf9d9)]
+
+### Fixed
+
+- 🐛 fix: invalid conditional check on /api/sudoku [[8a107e9](https://github.com/Howard86/howardism/commit/8a107e9a1d26dfb178f1ab7803d6c0ec3f7621e8)]
+- ✏️ chore: fix api response typo [[d3439c0](https://github.com/Howard86/howardism/commit/d3439c09f3eb23e3099be81ef9dd49b87356d4ad)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.18 [[4abd948](https://github.com/Howard86/howardism/commit/4abd9487449b6f61e41cf4e699c2332fceb7550b)]
+- 🏷️ chore(type): add GET &amp; POST /api/sudoku types [[3cee3ff](https://github.com/Howard86/howardism/commit/3cee3ff28929b11f85d19f61c5593a7de7333835)]
+- 🔀 chore: Merge branch &#x27;master&#x27; into feature/add-sudoku-libs [[6ae9e41](https://github.com/Howard86/howardism/commit/6ae9e41116547a2a9d81fb7a1c53bc33ec0a3a11)]
+- 🔀 Merge pull request [#28](https://github.com/Howard86/howardism/issues/28) from Howard86/feature/update-blog-style [[83e8331](https://github.com/Howard86/howardism/commit/83e8331150e318aa3fce8aba1c3712e87de417c6)]
+- 📝 docs: update CHANGELOG [[d08474a](https://github.com/Howard86/howardism/commit/d08474a1017b79a93bec87441cef1332961736dd)]
+- 📝 chore: update typos on jsdoc [[a36ad0f](https://github.com/Howard86/howardism/commit/a36ad0f42f5673e590eb5cba26726e97456a00a3)]
+
+
 <a name="1.0.17"></a>
 ## 1.0.17 (2021-07-17)
 
