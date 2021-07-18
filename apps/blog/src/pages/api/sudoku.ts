@@ -36,8 +36,7 @@ type SudokuFailureApiResponse = {
 const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>) => {
   switch (req.method) {
     case "GET": {
-      const difficulty = req.query.difficulty as SudokuDifficulty;
-      const code = req.query.code as string;
+      const { code, difficulty } = req.query;
 
       let sudoku: Sudoku;
 
@@ -51,7 +50,10 @@ const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>)
             message: `Invalid code with ${code}`,
           });
         }
-      } else if (Object.keys(SudokuDifficulty).some((key) => key.toLowerCase() === difficulty)) {
+      } else if (
+        difficulty &&
+        Object.keys(SudokuDifficulty).some((key) => key.toLowerCase() === difficulty)
+      ) {
         sudoku = generateBaseOnDifficulty(difficulty);
       } else {
         sudoku = generate();
@@ -66,21 +68,24 @@ const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>)
     }
 
     case "POST": {
-      if (!(req.body?.sudoku?.length() !== Sudoku.VALID_INPUT_LENGTH)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid body with ${req.body.sudoku}`,
-        });
-      }
+      const { sudoku, code } = req.body;
+
+      let newSudoku: Sudoku;
 
       try {
-        const sudoku = new Sudoku(req.body.sudoku);
+        if (sudoku) {
+          newSudoku = new Sudoku(sudoku);
+        } else if (code) {
+          newSudoku = Sudoku.from(code);
+        } else {
+          throw new Error(`Invalid input with ${JSON.stringify(req.body)}`);
+        }
 
         return res.json({
           success: true,
-          difficulty: sudoku.difficulty,
-          code: sudoku.encodedInput,
-          sudoku: solve(sudoku),
+          difficulty: newSudoku.difficulty,
+          code: newSudoku.encodedInput,
+          sudoku: solve(newSudoku).input,
         });
       } catch (error) {
         console.error(error);
