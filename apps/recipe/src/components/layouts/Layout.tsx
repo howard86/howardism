@@ -1,4 +1,4 @@
-import { Box } from "@chakra-ui/react";
+import { Container } from "@chakra-ui/react";
 import React, { ReactNode } from "react";
 import Sticky from "react-stickynode";
 
@@ -14,7 +14,9 @@ const Layout = ({ children }: LayoutProps): JSX.Element => (
     <Sticky top={0} innerZ={1000} activeClass="nav-sticky">
       <NavBar />
     </Sticky>
-    <Box minH={`calc(100vh - 80px)`}>{children}</Box>
+    <Container as="main" maxW="container.lg" minH={`calc(100vh - 80px)`}>
+      {children}
+    </Container>
     <Footer />
   </>
 );
