@@ -12,9 +12,11 @@ export interface HomeProps {
   recipes: Recipe[];
 }
 
-const getDayDiff = (timestamp: string): number => {
+const getDayTag = (timestamp: string): string => {
   const diff = Date.now() - new Date(timestamp).getTime();
-  return Math.floor(diff / 1000 / 60 / 60 / 24);
+  const days = Math.floor(diff / 1000 / 60 / 60 / 24);
+
+  return days > 0 ? `${days} days ago` : "Today";
 };
 
 const Home = ({ recipes }: HomeProps): JSX.Element => {
@@ -159,7 +161,7 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
                     bgColor="primary.900"
                     opacity={0.6}
                   >
-                    <Text as="span">{`${getDayDiff(recipe.published_at)} days ago`}</Text>
+                    {getDayTag(recipe.published_at)}
                   </Flex>
                 </Box>
                 <Box>
