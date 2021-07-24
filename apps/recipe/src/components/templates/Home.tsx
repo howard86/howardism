@@ -1,4 +1,4 @@
-import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
+import { Box, Flex, Heading, HStack, SimpleGrid, Tag, Text, VStack } from "@chakra-ui/react";
 import React from "react";
 
 import backgroundImage from "@/../public/assets/background.jpg";
@@ -12,9 +12,11 @@ export interface HomeProps {
   recipes: Recipe[];
 }
 
-const getDayDiff = (timestamp: string): number => {
+const getDayTag = (timestamp: string): string => {
   const diff = Date.now() - new Date(timestamp).getTime();
-  return Math.floor(diff / 1000 / 60 / 60 / 24);
+  const days = Math.floor(diff / 1000 / 60 / 60 / 24);
+
+  return days > 0 ? `${days} days ago` : "Today";
 };
 
 const Home = ({ recipes }: HomeProps): JSX.Element => {
@@ -23,10 +25,10 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
       <Flex
         alignItems="center"
         justify="center"
-        minH={["100vh", 300, 600, 700, 870]}
-        py={[10, 15, 20, 22]}
+        minH={["100vh", "100vh", 600, 700, 870]}
+        pb={[10, 15, 20, 22]}
       >
-        <Box position="absolute" h="100vh" w="100vw" overflow="hidden" zIndex={-1}>
+        <Box position="absolute" h="100vh" w="full" overflow="hidden" zIndex={-1}>
           <Image
             src={backgroundImage}
             placeholder="blur"
@@ -34,7 +36,6 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
             layout="fill"
             objectFit="cover"
             objectPosition="center"
-            quality="50"
             priority
           />
         </Box>
@@ -61,43 +62,46 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
             >
               Featured Posts
             </Heading>
-            {recipes.slice(0, 2).map((recipe) => (
-              <Flex key={recipe.id} alignItems="center" position="relative">
-                <Box flex={{ base: "0 0 90px", md: "0 0 60px" }} flexShrink={0} overflow="hidden">
-                  <RouteLink href="/">
-                    <Image
-                      alt="image"
-                      width={200}
-                      height={200}
-                      src={recipe?.image[0]?.formats.small.url || logo}
-                    />
-                  </RouteLink>
-                </Box>
-
-                <Box flexGrow={1}>
-                  <Heading fontSize={{ md: "lg", lg: "xl" }}>
-                    <RouteLink transition="0.15s ease-in-out" href={`recipe/${recipe.id}`}>
-                      {recipe.title}
+            <VStack spacing={2}>
+              {recipes.slice(0, 2).map((recipe) => (
+                <Flex key={recipe.id} alignItems="center" position="relative">
+                  <Box flex={{ base: "0 0 90px", md: "0 0 60px" }} flexShrink={0} overflow="hidden">
+                    <RouteLink href="/">
+                      <Image
+                        alt="image"
+                        width={200}
+                        height={200}
+                        src={recipe?.image[0]?.formats.small.url || logo}
+                        objectFit="cover"
+                      />
                     </RouteLink>
-                  </Heading>
-                  <Flex alignItems="center" justify="space-between">
-                    <HStack
-                      alignItems="center"
-                      spacing={[3, 5, 8]}
-                      mt={{ base: 2, md: 2.5, lg: 3 }}
-                    >
-                      {recipe.ingredients.slice(0, 3).map((ingredient) => (
-                        <RouteLink
-                          key={ingredient.name}
-                          color="pink.500"
-                          href={`/tags/${ingredient.name}`}
-                        >{`#${ingredient.name}`}</RouteLink>
-                      ))}
-                    </HStack>
-                  </Flex>
-                </Box>
-              </Flex>
-            ))}
+                  </Box>
+
+                  <Box flexGrow={1}>
+                    <Heading fontSize={{ md: "lg", lg: "xl" }}>
+                      <RouteLink transition="0.15s ease-in-out" href={`recipe/${recipe.id}`}>
+                        {recipe.title}
+                      </RouteLink>
+                    </Heading>
+                    <Flex alignItems="center" justify="space-between">
+                      <HStack
+                        alignItems="center"
+                        spacing={[3, 5, 8]}
+                        mt={{ base: 2, md: 2.5, lg: 3 }}
+                      >
+                        {recipe.ingredients.slice(0, 3).map((ingredient) => (
+                          <RouteLink
+                            key={ingredient.name}
+                            color="pink.500"
+                            href={`/tags/${ingredient.name}`}
+                          >{`#${ingredient.name}`}</RouteLink>
+                        ))}
+                      </HStack>
+                    </Flex>
+                  </Box>
+                </Flex>
+              ))}
+            </VStack>
           </Box>
         </Box>
       </Flex>
@@ -108,7 +112,12 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
         px={{ base: 6, md: 12, lg: 0 }}
         py={{ base: 15, md: 20, lg: 30 }}
       >
-        <Flex flexWrap="wrap" mx="-20px" mb={{ base: 2.5, md: 5, lg: 8 }}>
+        <SimpleGrid
+          mx="-20px"
+          columns={[1, 1, 2, 3]}
+          mb={{ base: 2.5, md: 5, lg: 8 }}
+          spacing={[4, 6]}
+        >
           {recipes.map((recipe) => (
             <Box
               key={recipe.id}
@@ -125,42 +134,37 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
                   _before={{
                     content: '""',
                     position: "absolute",
-                    width: "80%",
+                    w: "80%",
                     height: "80%",
-                    bgColor: "primary.100",
+                    bgColor: "primary.700",
                     bottom: 0,
                     left: "10%",
-                    filter: "blur(15px",
+                    filter: "blur(15px)",
                   }}
                 >
-                  <RouteLink href={`/recipe/${recipe.id}`} zIndex="hide">
+                  <RouteLink href={`/recipe/${recipe.id}`}>
                     <Image
                       alt={recipe.title}
-                      width={60}
-                      height={60}
-                      layout="responsive"
+                      width={360}
+                      height={360}
                       src={recipe?.image[0]?.formats.small.url || logo}
+                      objectFit="cover"
+                      borderRadius="md"
                     />
                   </RouteLink>
-                  <Flex
+                  <Tag
                     position="absolute"
-                    alignItems="center"
-                    justifyContent="center"
-                    w="120px"
-                    h="40px"
-                    top={{ base: "15px", lg: "30px" }}
-                    left={{ base: "15px", lg: "30px" }}
-                    flexDir="column"
+                    size="lg"
+                    top="4"
+                    left="4"
                     color="white"
-                    borderRadius="md"
                     fontWeight="bold"
-                    pointerEvents="none"
                     zIndex="docked"
                     bgColor="primary.900"
                     opacity={0.6}
                   >
-                    <Text as="span">{`${getDayDiff(recipe.published_at)} days ago`}</Text>
-                  </Flex>
+                    {getDayTag(recipe.published_at)}
+                  </Tag>
                 </Box>
                 <Box>
                   <HStack alignItems="center" spacing={[3, 5, 8]} mb={{ base: 2, md: 2.5, lg: 3 }}>
@@ -183,7 +187,7 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
               </Box>
             </Box>
           ))}
-        </Flex>
+        </SimpleGrid>
         {/* TODO: add show more */}
       </Box>
     </>

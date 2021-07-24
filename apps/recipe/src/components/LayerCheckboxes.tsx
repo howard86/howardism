@@ -1,4 +1,4 @@
-import { Checkbox, VStack } from "@chakra-ui/react";
+import { Box, Checkbox, Text, VStack } from "@chakra-ui/react";
 import React, { ChangeEvent, FC, memo, useState } from "react";
 
 import type { Ingredient } from "@/types/recipe";
@@ -19,17 +19,18 @@ const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
   };
 
   return (
-    <>
+    <Box p="4">
       <Checkbox
         borderColor="primary.200"
         isChecked={isAllChecked}
         isIndeterminate={isIndeterminate}
         onChange={handleOnParentChange}
-        textTransform="capitalize"
       >
-        {title}
+        <Text fontSize={["lg", "xl"]} fontWeight="medium">
+          {title}
+        </Text>
       </Checkbox>
-      <VStack pl="6" mt="1" spacing="1" alignItems="start">
+      <VStack pl="3" mt="2" spacing="1" alignItems="start">
         {options.map((option, index) => (
           <Checkbox
             key={option.id}
@@ -49,7 +50,7 @@ const LayerCheckboxes: FC<LayerCheckboxesProps> = ({ title, options }) => {
           </Checkbox>
         ))}
       </VStack>
-    </>
+    </Box>
   );
 };
 

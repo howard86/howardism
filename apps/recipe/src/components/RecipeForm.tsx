@@ -32,9 +32,9 @@ const newStep: RawStep = {
 const initialValues: RawRecipe = {
   title: "",
   description: "",
-  ingredients: [newIngredient],
-  seasonings: [newIngredient],
-  steps: [newStep],
+  ingredients: [],
+  seasonings: [],
+  steps: [],
 };
 
 const RecipeForm = (): JSX.Element => {
@@ -74,7 +74,7 @@ const RecipeForm = (): JSX.Element => {
             <Field name="title" validate={validateString}>
               {({ field, form }: FieldProps<string[], RawRecipe>) => (
                 <FormControl isInvalid={form.errors.title === "" && form.touched.title}>
-                  <FormLabel htmlFor="title">Title</FormLabel>
+                  <FormLabel htmlFor="title">食譜名稱</FormLabel>
                   <Input {...field} id="title" placeholder="recipe title" />
                   <FormErrorMessage>{form.errors.title}</FormErrorMessage>
                 </FormControl>
@@ -83,25 +83,28 @@ const RecipeForm = (): JSX.Element => {
             <Field name="description" validate={validateString}>
               {({ field, form }: FieldProps<string[], RawRecipe>) => (
                 <FormControl isInvalid={form.errors.description === "" && form.touched.description}>
-                  <FormLabel htmlFor="description">Description</FormLabel>
+                  <FormLabel htmlFor="description">食譜介紹</FormLabel>
                   <Input {...field} id="description" placeholder="recipe description" />
                   <FormErrorMessage>{form.errors.description}</FormErrorMessage>
                 </FormControl>
               )}
             </Field>
             <RecipeFormFieldArray
+              title="材料"
               arrayFieldName="ingredients"
               arrayFieldDisplayKey="name"
               newArrayField={newIngredient}
               arrayFields={values.ingredients}
             />
             <RecipeFormFieldArray
+              title="調味料"
               arrayFieldName="seasonings"
               arrayFieldDisplayKey="name"
               newArrayField={newIngredient}
               arrayFields={values.seasonings}
             />
             <RecipeFormFieldArray
+              title="料理步驟"
               arrayFieldName="steps"
               arrayFieldDisplayKey="summary"
               newArrayField={newStep}
@@ -109,7 +112,7 @@ const RecipeForm = (): JSX.Element => {
             />
             <FormControl display="flex" alignItems="center">
               <FormLabel htmlFor="content-checked" mb="0">
-                Finalize the contents?
+                請確認送出後將無法變更食譜內容！
               </FormLabel>
               <Switch
                 id="content-checked"
@@ -126,7 +129,7 @@ const RecipeForm = (): JSX.Element => {
               isDisabled={!isChecked}
               isActive={isValid}
             >
-              Create Recipe!
+              上傳食譜
             </Button>
           </VStack>
         </Form>

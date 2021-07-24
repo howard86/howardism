@@ -3,19 +3,23 @@ import { useRouter } from "next/router";
 import React from "react";
 import { HiSearch } from "react-icons/hi";
 
-import { MENU_LINK_ITEMS } from "../../constants/menu";
+import { MENU_LINK_ITEMS } from "@/constants/menu";
+
 import HorizontalLogo from "../graphics/HorizontalLogo";
 import RouteLink from "../RouteLink";
 import MobileDrawer from "./MobileDrawer";
 
 const NavBar = (): JSX.Element => {
   const router = useRouter();
+
   return (
     <Box
       as="header"
-      position="relative"
-      transition="0.25 ease-in-out"
-      zIndex="docked"
+      position="fixed"
+      top="0"
+      left="0"
+      right="0"
+      zIndex="modal"
       shadow="md"
       bgColor="secondary.100"
     >

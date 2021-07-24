@@ -1,4 +1,4 @@
-import { Box, CheckboxGroup, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
+import { Box, CheckboxGroup, Flex, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
 import type {
   GetStaticPathsResult,
   GetStaticPropsContext,
@@ -8,6 +8,7 @@ import type {
 import { useRouter } from "next/router";
 import React from "react";
 
+import logo from "@/../public/favicon/logo.png";
 import Image from "@/components/Image";
 import LayerCheckboxes from "@/components/LayerCheckboxes";
 import { NAV_BAR_HEIGHT } from "@/components/NavBar";
@@ -23,28 +24,29 @@ const RecipePage: NextPage<Recipe> = (recipe) => {
   }
 
   return (
-    <VStack alignItems="start" p="4" spacing="4">
+    <VStack px="4" spacing={[4, 6, 8]}>
       <Box h={NAV_BAR_HEIGHT} />
-      {recipe.image?.[0] && (
-        <Image
-          alt={recipe.title}
-          src={recipe.image[0].formats.small.url}
-          width={320}
-          height={218}
-          borderRadius="lg"
-          shadow="lg"
-          priority
-        />
-      )}
-
+      <Image
+        alt={recipe.title}
+        src={recipe.image[0] ? recipe.image[0].formats.small.url : logo}
+        width={320}
+        height={218}
+        borderRadius="lg"
+        shadow="lg"
+        objectFit="contain"
+        priority
+      />
       <Heading as="h1">{recipe.title}</Heading>
       <Text>{recipe.description}</Text>
-
-      <CheckboxGroup colorScheme="secondary">
-        <LayerCheckboxes title="ingredients" options={recipe.ingredients} />
-        <LayerCheckboxes title="seasonings" options={recipe.seasonings} />
-      </CheckboxGroup>
-      <ProcedureStep steps={recipe.steps} />
+      <Flex maxW="container.md" w="full" direction={{ base: "column", md: "row" }}>
+        <Box p="4" minW="60" flexShrink={0}>
+          <CheckboxGroup colorScheme="secondary">
+            <LayerCheckboxes title="材料 🍖" options={recipe.ingredients} />
+            <LayerCheckboxes title="調味料 🧂" options={recipe.seasonings} />
+          </CheckboxGroup>
+        </Box>
+        <ProcedureStep flex="1" p="4" steps={recipe.steps} />
+      </Flex>
     </VStack>
   );
 };

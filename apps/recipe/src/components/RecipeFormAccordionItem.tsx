@@ -21,6 +21,31 @@ interface RecipeFormAccordionItemProps<T> {
   fieldIndex: number;
 }
 
+const mapKey = (key: string) => {
+  switch (key) {
+    case "name":
+      return "名稱";
+
+    case "amount":
+      return "數量";
+
+    case "unit":
+      return "單位";
+
+    case "processing":
+      return "配料工序（選填）";
+
+    case "summary":
+      return "步驟簡稱";
+
+    case "description":
+      return "詳細說明";
+
+    default:
+      return key;
+  }
+};
+
 const RecipeFormAccordionItem = <T extends Record<string, unknown>>({
   newField,
   formName,
@@ -37,7 +62,7 @@ const RecipeFormAccordionItem = <T extends Record<string, unknown>>({
       </AccordionButton>
     </h2>
     <AccordionPanel pb={4}>
-      <VStack spacing="2">
+      <VStack spacing="6">
         {Object.keys(newField).map((key) => {
           const id = `${formName}.${fieldIndex}.${key}`;
           return (
@@ -45,9 +70,7 @@ const RecipeFormAccordionItem = <T extends Record<string, unknown>>({
               {({ field, form }: FieldProps<string[], Record<string, unknown>>) => (
                 <FormControl>
                   <Flex textAlign="center" alignItems="center">
-                    <FormLabel htmlFor={id} textTransform="capitalize">
-                      {key}
-                    </FormLabel>
+                    <FormLabel htmlFor={id}>{mapKey(key)}</FormLabel>
                   </Flex>
                   <Input
                     {...field}
