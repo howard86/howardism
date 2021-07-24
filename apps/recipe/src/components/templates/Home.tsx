@@ -25,10 +25,10 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
       <Flex
         alignItems="center"
         justify="center"
-        minH={["100vh", 300, 600, 700, 870]}
-        py={[10, 15, 20, 22]}
+        minH={["100vh", "100vh", 600, 700, 870]}
+        pb={[10, 15, 20, 22]}
       >
-        <Box position="absolute" h="100vh" w="100vw" overflow="hidden" zIndex={-1}>
+        <Box position="absolute" h="100vh" w="full" overflow="hidden" zIndex={-1}>
           <Image
             src={backgroundImage}
             placeholder="blur"
