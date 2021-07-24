@@ -1,5 +1,6 @@
 import {
   Box,
+  BoxProps,
   Button,
   Circle,
   Collapse,
@@ -19,7 +20,7 @@ export interface Step {
   description: string;
 }
 
-interface ProcedureStepProps {
+interface ProcedureStepProps extends BoxProps {
   steps: Step[];
 }
 
@@ -29,7 +30,7 @@ const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200";
 const getLast = <T extends unknown>(array: T[]): T => array[array.length - 1];
 
 // TODO: refactor with useReducer
-const ProcedureStep: FC<ProcedureStepProps> = ({ steps }) => {
+const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {
   const [openIndex, setOpenIndex] = useState(0);
   const [expanded, { toggle }] = useBoolean(false);
 
@@ -53,11 +54,11 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps }) => {
   };
 
   return (
-    <>
-      <Flex alignItems="center" justify={["space-between", "start"]} w="full">
-        <Heading fontSize="lg">Steps</Heading>
+    <Box {...props}>
+      <Flex alignItems="center" justify="space-between" w="full" p="2" mb="4">
+        <Heading fontSize={["lg", "xl"]}>料理步驟</Heading>
         <Button onClick={toggle} mx="2">
-          {expanded ? "Show less" : "Expand all"}
+          {expanded ? "收回" : "展開"}
         </Button>
       </Flex>
       {/* Note: this calculates the total height when expanded or not */}
@@ -95,12 +96,12 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps }) => {
                 >
                   {step.description}
                   {!expanded && isViewed && (
-                    <HStack mt="4">
+                    <Flex mt="4" justify="space-between">
                       <Button isDisabled={isFirst} onClick={handleBack}>
-                        Back
+                        上一步
                       </Button>
-                      <Button onClick={handleNext}>{isLast ? "Finish" : "Next"}</Button>
-                    </HStack>
+                      <Button onClick={handleNext}>{isLast ? "完成！" : "下一步"}</Button>
+                    </Flex>
                   )}
                 </Box>
               </Collapse>
@@ -118,13 +119,13 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps }) => {
           );
         })}
         {(afterLast || expanded) && (
-          <HStack mt="4" ml="4">
-            <Box>Congrats, well done!</Box>
-            <Button onClick={handleReset}>Reset</Button>
-          </HStack>
+          <Box p="4" textAlign="center">
+            <Text my="4">料理完成！</Text>
+            <Button onClick={handleReset}>重頭開始</Button>
+          </Box>
         )}
       </Box>
-    </>
+    </Box>
   );
 };
 

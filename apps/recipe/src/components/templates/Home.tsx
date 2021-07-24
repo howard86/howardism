@@ -36,7 +36,6 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
             layout="fill"
             objectFit="cover"
             objectPosition="center"
-            quality="50"
             priority
           />
         </Box>
@@ -156,8 +155,8 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
                   <Tag
                     position="absolute"
                     size="lg"
-                    top={{ base: "15px", lg: "30px" }}
-                    left={{ base: "15px", lg: "30px" }}
+                    top="4"
+                    left="4"
                     color="white"
                     fontWeight="bold"
                     zIndex="docked"
