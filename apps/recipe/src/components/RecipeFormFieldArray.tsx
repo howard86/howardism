@@ -6,6 +6,7 @@ import { HiMinusCircle, HiPlusCircle } from "react-icons/hi";
 import RecipeFormAccordionItem from "./RecipeFormAccordionItem";
 
 interface RecipeFormFieldArrayProps<T> {
+  title: string;
   arrayFieldName: string;
   arrayFieldDisplayKey: keyof T;
   newArrayField: T;
@@ -13,6 +14,7 @@ interface RecipeFormFieldArrayProps<T> {
 }
 
 const RecipeFormFieldArray = <T extends Record<string, unknown>>({
+  title,
   newArrayField,
   arrayFields,
   arrayFieldName,
@@ -22,8 +24,8 @@ const RecipeFormFieldArray = <T extends Record<string, unknown>>({
     {({ remove, push }) => (
       <VStack align="stretch" w="full" spacing={1}>
         <Flex alignItems="center" justify="space-between">
-          <Heading as="h3" fontSize="lg" textTransform="capitalize">
-            {arrayFieldName}
+          <Heading as="h3" fontSize="lg">
+            {title}
           </Heading>
           <IconButton
             aria-label={`add ${arrayFieldName}`}

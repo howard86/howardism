@@ -16,9 +16,9 @@ const CreateRecipePage = (): JSX.Element => {
   }, [router, isLoggedIn]);
 
   return (
-    <Container my="8" py="8" px={{ base: 4, md: 10 }} bg="white" borderRadius="lg">
-      <Heading textAlign="center" size="xl" fontWeight="extrabold" my="6">
-        Create your own Recipe!
+    <Container mt="32" py="8" px={{ base: 4, md: 10 }} bg="white" borderRadius="lg">
+      <Heading as="h1" textAlign="center" size="xl" fontWeight="extrabold" my="6">
+        編寫你專屬的食譜吧！
       </Heading>
       <RecipeForm />
     </Container>
