@@ -1,5 +1,30 @@
 # Changelog
 
+<a name="1.0.19"></a>
+## 1.0.19 (2021-07-24)
+
+### Changed
+
+- 💄 style: update Recipe page styling [[31a99c7](https://github.com/Howard86/howardism/commit/31a99c7bd573baa20b5543cb4a294a635fb3fc68)]
+- 💄 style: update Home page style [[693ac81](https://github.com/Howard86/howardism/commit/693ac8106badc1f217d967058830f495c01271c0)]
+- ♻️ refactor: update util to generate day tag [[ef89244](https://github.com/Howard86/howardism/commit/ef89244d90871a4268ff943db218414efad27be1)]
+
+### Removed
+
+- ➖ chore(deps): uninstall react-stickynode [[d2cac5a](https://github.com/Howard86/howardism/commit/d2cac5ab526d332a6816663741610616e623063d)]
+
+### Fixed
+
+- 🐛 fix: remove dynamic sticky header [[307ced2](https://github.com/Howard86/howardism/commit/307ced290a7698b5ccab06c4df69d2458b9f3ad2)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.19 [[d5c6c61](https://github.com/Howard86/howardism/commit/d5c6c612e19173c143cdad6ca31e5dcf2cafca78)]
+- 🌐 feat: update texture for zh_CN [[2f0bf64](https://github.com/Howard86/howardism/commit/2f0bf645f26b9c7b04374f5738dc0e0a91b71e78)]
+-  Merge pull request [#27](https://github.com/Howard86/howardism/issues/27) from Howard86/feature/add-sudoku-libs [[c1aa27f](https://github.com/Howard86/howardism/commit/c1aa27f782f788fd207b6d59ea7599e1f9432e4b)]
+- 📝 docs: update CHANGELOG [[31ef8ce](https://github.com/Howard86/howardism/commit/31ef8ce7786493db50d5c11976952672f0f6ac99)]
+
+
 <a name="1.0.18"></a>
 ## 1.0.18 (2021-07-18)
 
