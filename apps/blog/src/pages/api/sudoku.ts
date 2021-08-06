@@ -19,7 +19,7 @@ interface SudokuApiRequest extends NextApiRequest {
   };
 }
 
-type SudokuApiResponse = SudokuSuccessApiResponse | SudokuFailureApiResponse;
+export type SudokuApiResponse = SudokuSuccessApiResponse | SudokuFailureApiResponse;
 
 type SudokuSuccessApiResponse = {
   success: true;
