@@ -3,6 +3,10 @@ import {
   CircularProgress,
   CircularProgressLabel,
   Container,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
   SimpleGrid,
   Text,
 } from "@chakra-ui/react";
@@ -10,6 +14,7 @@ import { Image } from "@howardism/components-common";
 import { useMemo } from "react";
 
 import sudoku from "@/assets/john-morgan-sudoku.jpg";
+import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku";
 import useSudoku from "@/hooks/useSudoku";
 
 const LIGHT_COLOR = "blackAlpha.100";
@@ -22,9 +27,18 @@ const SudokuPage = (): JSX.Element => {
   return (
     <Container minH="full" centerContent p="4">
       <Image src={sudoku} alt="sudoku" width={200} height={300} placeholder="blur" />
-      <Button onClick={onStart} isLoading={loading} my="8">
-        Start new game
-      </Button>
+      <Menu>
+        <MenuButton as={Button} isLoading={loading} my="4">
+          Start new game
+        </MenuButton>
+        <MenuList>
+          {SUDOKU_DIFFICULTIES.map((key) => (
+            <MenuItem key={key} onClick={() => onStart(key)} textTransform="capitalize">
+              {key}
+            </MenuItem>
+          ))}
+        </MenuList>
+      </Menu>
       {loading ? (
         <CircularProgress size="200px" thickness="4px" isIndeterminate color="green.400">
           <CircularProgressLabel fontSize="md">Loading</CircularProgressLabel>

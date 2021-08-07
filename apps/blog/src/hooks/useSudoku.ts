@@ -1,7 +1,9 @@
 import { useCallback, useReducer } from "react";
 
+import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku";
 import type { SudokuApiResponse } from "@/pages/api/sudoku";
-import { SudokuDifficulty } from "@/server/libs/sudoku";
+
+type SudokuDifficulty = typeof SUDOKU_DIFFICULTIES[number];
 
 interface SudokuState {
   difficulty: SudokuDifficulty;
@@ -19,7 +21,7 @@ type SudokuAction =
   | { type: "update"; payload: number };
 
 const initialState: SudokuState = {
-  difficulty: SudokuDifficulty.Expert,
+  difficulty: "beginner",
   game: [],
   answer: [],
   selected: -1,
@@ -72,7 +74,7 @@ const reducer = (state: SudokuState, action: SudokuAction): SudokuState => {
 };
 
 interface UseSudoku extends SudokuState {
-  onStart: VoidFunction;
+  onStart: (difficulty: SudokuDifficulty) => void;
   onSelect: (index: number) => void;
   onUpdate: (number: number) => void;
 }
@@ -80,10 +82,10 @@ interface UseSudoku extends SudokuState {
 const useSudoku = (): UseSudoku => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const onStart = useCallback(async () => {
+  const onStart = useCallback(async (difficulty: SudokuDifficulty) => {
     dispatch({ type: "initialize" });
 
-    const result = await fetch("/api/sudoku?difficulty=expert");
+    const result = await fetch(`/api/sudoku?difficulty=${difficulty}`);
 
     if (!result.ok) {
       return dispatch({
