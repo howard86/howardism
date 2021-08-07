@@ -1,5 +1,4 @@
 import {
-  Box,
   Button,
   CircularProgress,
   CircularProgressLabel,
@@ -8,20 +7,25 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import sudoku from "@/assets/john-morgan-sudoku.jpg";
 
 import type { SudokuApiResponse } from "./api/sudoku";
+
+const LIGHT_COLOR = "blackAlpha.100";
+const DARK_COLOR = "blackAlpha.700";
 
 const SudokuPage = (): JSX.Element => {
   const [game, setGame] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
+  const numberArray = useMemo(() => new Array(9).fill(0).map((_, index) => index + 1), []);
+
   const handleOnStart = async () => {
     setLoading(true);
-    const result = await fetch("/api/sudoku");
+    const result = await fetch("/api/sudoku?difficulty=expert");
     const response = (await result.json()) as SudokuApiResponse;
 
     if (!response.success) {
@@ -44,24 +48,44 @@ const SudokuPage = (): JSX.Element => {
           <CircularProgressLabel fontSize="md">Loading</CircularProgressLabel>
         </CircularProgress>
       ) : (
-        <SimpleGrid columns={9} w="full">
-          {game.map((cell, index) => (
-            <Box
-              border="1px"
-              borderColor="blackAlpha.300"
-              textAlign="center"
-              fontSize="2xl"
-              fontFamily="mono"
-              color={cell > 0 ? "black" : "white"}
-              p="4"
-              key={`${cell}-${index}`}
-            >
-              {cell}
-            </Box>
-          ))}
-        </SimpleGrid>
+        <>
+          <SimpleGrid columns={9}>
+            {game.map((cell, index) => (
+              <Button
+                key={`${cell}-${index}`}
+                variant="outline"
+                boxSize="12"
+                fontSize="2xl"
+                fontFamily="mono"
+                borderTopLeftRadius={index === 0 ? "md" : "none"}
+                borderTopRightRadius={index === 8 ? "md" : "none"}
+                borderBottomLeftRadius={index === 72 ? "md" : "none"}
+                borderBottomRightRadius={index === 80 ? "md" : "none"}
+                borderTopWidth={index < 9 ? "thin" : "0"}
+                borderLeftWidth={index % 9 === 0 ? "thin" : "0"}
+                borderBottomWidth="thin"
+                borderRightWidth="thin"
+                borderTopColor={index % 27 < 9 ? DARK_COLOR : LIGHT_COLOR}
+                borderBottomColor={index % 27 > 17 ? DARK_COLOR : LIGHT_COLOR}
+                borderLeftColor={index % 3 === 0 ? DARK_COLOR : LIGHT_COLOR}
+                borderRightColor={index % 3 === 2 ? DARK_COLOR : LIGHT_COLOR}
+                bg={cell > 0 ? LIGHT_COLOR : "white"}
+              >
+                {cell > 0 ? cell : ""}
+              </Button>
+            ))}
+          </SimpleGrid>
+          <SimpleGrid mt="4" columns={9} spacing={2}>
+            {game.length > 0 &&
+              numberArray.map((number) => (
+                <Button key={`input-${number}`} boxSize="10" fontFamily="mono">
+                  {number}
+                </Button>
+              ))}
+          </SimpleGrid>
+        </>
       )}
-      {!loading && error !== "" && <Text>Ooops, encounter an error {error}</Text>}
+      {error !== "" && <Text>Ooops, encounter an error {error}</Text>}
     </Container>
   );
 };
