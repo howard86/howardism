@@ -10,7 +10,7 @@ import {
 import { Image } from "@howardism/components-common";
 import { useState } from "react";
 
-import sudoku from "@/../public/assets/john-morgan-sudoku.jpg";
+import sudoku from "@/assets/john-morgan-sudoku.jpg";
 
 import type { SudokuApiResponse } from "./api/sudoku";
 
