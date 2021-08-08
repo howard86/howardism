@@ -1,12 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-import {
-  generate,
-  generateBaseOnDifficulty,
-  solve,
-  Sudoku,
-  SudokuDifficulty,
-} from "@/server/libs/sudoku";
+import { generateSudoku, solve, Sudoku, SudokuDifficulty } from "@/server/libs/sudoku";
 
 interface SudokuApiRequest extends NextApiRequest {
   query: {
@@ -38,33 +32,26 @@ const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>)
     case "GET": {
       const { code, difficulty } = req.query;
 
-      let sudoku: Sudoku;
-
-      if (code) {
-        try {
-          sudoku = Sudoku.from(code);
-        } catch (error) {
-          console.error(error);
-          return res.json({
-            success: false,
-            message: `Invalid code with ${code}`,
-          });
+      try {
+        if (difficulty && !Object.values(SudokuDifficulty).includes(difficulty)) {
+          throw new Error(`Invalid difficulty with ${difficulty}`);
         }
-      } else if (
-        difficulty &&
-        Object.keys(SudokuDifficulty).some((key) => key.toLowerCase() === difficulty)
-      ) {
-        sudoku = generateBaseOnDifficulty(difficulty);
-      } else {
-        sudoku = generate();
-      }
 
-      return res.json({
-        success: true,
-        difficulty: sudoku.difficulty,
-        code: sudoku.encodedInput,
-        sudoku: sudoku.input,
-      });
+        const sudoku = generateSudoku(code, difficulty);
+
+        return res.json({
+          success: true,
+          difficulty: sudoku.difficulty,
+          code: sudoku.encodedInput,
+          sudoku: sudoku.input,
+        });
+      } catch (error) {
+        console.error(error);
+        return res.json({
+          success: false,
+          message: error.message,
+        });
+      }
     }
 
     case "POST": {
