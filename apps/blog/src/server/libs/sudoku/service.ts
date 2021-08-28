@@ -9,7 +9,7 @@ export enum SudokuStatus {
   MultipleSolutions,
 }
 
-const ITERATION_MAX_COUNT = 100;
+const ITERATION_MAX_COUNT = 1000;
 const DIMENSION = 9;
 const INITIAL_INDEXES = Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH })
   .fill(0)
