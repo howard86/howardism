@@ -4,9 +4,9 @@ import dayjs from "dayjs";
 import NextLink from "next/link";
 import React, { FC, memo } from "react";
 
-import chip from "@/../public/assets/alexandre-debieve-chip.jpg";
-import monitor from "@/../public/assets/carl-heyerdahl-desk.jpg";
-import desk from "@/../public/assets/thisisengineering-raeng-desk.jpg";
+import chip from "@/assets/alexandre-debieve-chip.jpg";
+import monitor from "@/assets/carl-heyerdahl-desk.jpg";
+import desk from "@/assets/thisisengineering-raeng-desk.jpg";
 
 export interface PostCardProps {
   id: number;

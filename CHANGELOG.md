@@ -1,5 +1,45 @@
 # Changelog
 
+<a name="1.0.21"></a>
+## 1.0.21 (2021-08-28)
+
+### Fixed
+
+- 🐛 fix(service): update ITERATION_MAX_COUNT for generating Sudoku [[621dc83](https://github.com/Howard86/howardism/commit/621dc83ee188751faeb0948f6720be9e99e36521)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.21 [[507936b](https://github.com/Howard86/howardism/commit/507936bd0b5fd3812d31fb427365f3b0dfb582f4)]
+- 📝 docs: update CHANGELOG [[0107382](https://github.com/Howard86/howardism/commit/0107382ed5eaf18becc466d994bdf677f38489ca)]
+
+
+<a name="1.0.20"></a>
+## 1.0.20 (2021-08-28)
+
+### Added
+
+- ✨ feat(ui): add difficulty menu to generate sudoku [[5a72156](https://github.com/Howard86/howardism/commit/5a7215696003a39cb48aa2ce6f199029b141ca62)]
+- ✨ feat(hook): add useSudoku with useReducer [[4d2dee8](https://github.com/Howard86/howardism/commit/4d2dee8f352aedab63eb9249e71883ee5a1ab3c5)]
+- ✨ feat(ui): add skeloton SudokuPage [[01d9f83](https://github.com/Howard86/howardism/commit/01d9f83c0a9db2b295657f3523c0bac825aba1d8)]
+
+### Changed
+
+- ♻️ refactor(api): update sudoku generate api [[6c059c7](https://github.com/Howard86/howardism/commit/6c059c7c62bf647299545599c87d6ea23fbcdad1)]
+- 💄 style(ui): update sudoku styles [[c60f69e](https://github.com/Howard86/howardism/commit/c60f69e725fcb04d180cec09267cd405f3372338)]
+- 🔧 chore: update tsconfig for module resolution [[f3af857](https://github.com/Howard86/howardism/commit/f3af85707c7c1f023b62eaa114fbc2cde51b3fb4)]
+- ⬆️ chore(deps): upgrade all dependencies by ncu [[4972710](https://github.com/Howard86/howardism/commit/49727102fa552825ed3865b22ac119f0719f8a70)]
+- 🍱 chore(assets): add sudoku related image [[51da256](https://github.com/Howard86/howardism/commit/51da256c7dfbe26891474f4c9d368c161c6cb374)]
+- ♻️ refactor: replace usage of theme [[cd0c01c](https://github.com/Howard86/howardism/commit/cd0c01c944377a0da57f8a647ec69c8b97dc58bf)]
+- 🚚 chore(style): copy theme from share package [[2b9b9e7](https://github.com/Howard86/howardism/commit/2b9b9e795ee71d8ebb72ffc43f23b63dcc395cad)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.20 [[5291b7a](https://github.com/Howard86/howardism/commit/5291b7a48a885a57a9d4d08bb1db126b839ef0e7)]
+- 🏷️ chore(type): add next/image global type [[834bc0f](https://github.com/Howard86/howardism/commit/834bc0fdaa8cbd012ee0b5a63532bedd80658dbf)]
+- 🔀 Merge pull request [#29](https://github.com/Howard86/howardism/issues/29) from Howard86/feature/update-recipe-style [[4cebfda](https://github.com/Howard86/howardism/commit/4cebfdaa25ac0ca92b9cda1d5f15116143fb8700)]
+- 📝 docs: update CHANGELOG [[02b6872](https://github.com/Howard86/howardism/commit/02b68729cf34e7f027b34601d0de3cff0f0d7cc9)]
+
+
 <a name="1.0.19"></a>
 ## 1.0.19 (2021-07-24)
 

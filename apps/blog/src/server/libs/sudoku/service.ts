@@ -9,7 +9,11 @@ export enum SudokuStatus {
   MultipleSolutions,
 }
 
+const ITERATION_MAX_COUNT = 1000;
 const DIMENSION = 9;
+const INITIAL_INDEXES = Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH })
+  .fill(0)
+  .map((_, index) => index);
 
 const isRepeated = (
   sudoku: Sudoku,
@@ -152,11 +156,7 @@ export const generateFullBoard = (): Sudoku => {
 
 export const generate = (): Sudoku => {
   const solution = generateFullBoard();
-  const removedIndexes = sampleSize(
-    Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH })
-      .fill(0)
-      .map((_, index) => index)
-  );
+  const removedIndexes = sampleSize(INITIAL_INDEXES);
 
   const resultInput = solution.input;
   for (const removedIndex of removedIndexes) {
@@ -176,7 +176,7 @@ export const generate = (): Sudoku => {
 export const generateBaseOnDifficulty = (level: SudokuDifficulty): Sudoku => {
   let count = 0;
 
-  while (count < Number.MAX_SAFE_INTEGER) {
+  while (count < ITERATION_MAX_COUNT) {
     count++;
     const sudoku = generate();
 
@@ -187,5 +187,17 @@ export const generateBaseOnDifficulty = (level: SudokuDifficulty): Sudoku => {
     }
   }
 
-  throw new Error(`Failed to generate after iteration over ${Number.MAX_SAFE_INTEGER} times`);
+  throw new Error(`Failed to generate after iteration over ${count} times`);
+};
+
+export const generateSudoku = (code?: string, difficulty?: SudokuDifficulty): Sudoku => {
+  if (code) {
+    return Sudoku.from(code);
+  }
+
+  if (difficulty) {
+    return generateBaseOnDifficulty(difficulty);
+  }
+
+  return generate();
 };
