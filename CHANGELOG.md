@@ -1,5 +1,18 @@
 # Changelog
 
+<a name="1.0.21"></a>
+## 1.0.21 (2021-08-28)
+
+### Fixed
+
+- 🐛 fix(service): update ITERATION_MAX_COUNT for generating Sudoku [[621dc83](https://github.com/Howard86/howardism/commit/621dc83ee188751faeb0948f6720be9e99e36521)]
+
+### Miscellaneous
+
+- 📝 docs: bump version to 1.0.21 [[507936b](https://github.com/Howard86/howardism/commit/507936bd0b5fd3812d31fb427365f3b0dfb582f4)]
+- 📝 docs: update CHANGELOG [[0107382](https://github.com/Howard86/howardism/commit/0107382ed5eaf18becc466d994bdf677f38489ca)]
+
+
 <a name="1.0.20"></a>
 ## 1.0.20 (2021-08-28)
 
