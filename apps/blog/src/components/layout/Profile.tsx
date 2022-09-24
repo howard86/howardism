@@ -1,6 +1,5 @@
 import { Flex, Img, Link, Text, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { FC, memo } from "react";
 
 import Email from "../icons/Email";
 import Github from "../icons/Github";
@@ -8,7 +7,7 @@ import Twitter from "../icons/Twitter";
 
 const imageSize = [24, 48, 60];
 
-const Profile: FC = () => (
+const Profile = () => (
   <VStack textAlign="center" spacing={[1, 2, 3]}>
     <NextLink href="/" passHref>
       <Link display="inline-block" maxW={imageSize} h="auto">
@@ -30,4 +29,4 @@ const Profile: FC = () => (
   </VStack>
 );
 
-export default memo(Profile);
+export default Profile;

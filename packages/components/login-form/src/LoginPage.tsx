@@ -1,5 +1,4 @@
 import { Box, Heading } from "@chakra-ui/react";
-import React from "react";
 
 import Card from "./Card";
 import LoginForm, { OnLogin } from "./LoginForm";

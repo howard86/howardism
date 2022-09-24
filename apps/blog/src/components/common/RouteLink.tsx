@@ -1,12 +1,11 @@
 import { Link, LinkProps } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { FC, memo } from "react";
 
 interface RouteLinkProps extends LinkProps {
   href: string;
 }
 
-const RouteLink: FC<RouteLinkProps> = (props) => {
+const RouteLink = (props: RouteLinkProps) => {
   const { href, children, ...rest } = props;
 
   return (
@@ -16,4 +15,4 @@ const RouteLink: FC<RouteLinkProps> = (props) => {
   );
 };
 
-export default memo(RouteLink);
+export default RouteLink;

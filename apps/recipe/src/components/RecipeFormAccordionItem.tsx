@@ -12,7 +12,6 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Field, FieldProps } from "formik";
-import { memo } from "react";
 
 interface RecipeFormAccordionItemProps<T> {
   newField: T;
@@ -90,4 +89,4 @@ const RecipeFormAccordionItem = <T extends Record<string, unknown>>({
   </AccordionItem>
 );
 
-export default memo(RecipeFormAccordionItem);
+export default RecipeFormAccordionItem;

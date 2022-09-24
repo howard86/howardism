@@ -3,7 +3,6 @@ import { Image, RouteLink } from "@howardism/components-common";
 import dayjs from "dayjs";
 import { StaticImageData } from "next/image";
 import NextLink from "next/link";
-import { FC, memo } from "react";
 
 import chip from "@/assets/alexandre-debieve-chip.jpg";
 import monitor from "@/assets/carl-heyerdahl-desk.jpg";
@@ -20,7 +19,7 @@ export interface PostCardProps {
 
 const DEFAULT_IMAGES: StaticImageData[] = [chip, monitor, desk];
 
-const PostCard: FC<PostCardProps> = ({ id, title, slug, date, description, tags }) => {
+const PostCard = ({ id, title, slug, date, description, tags }: PostCardProps) => {
   const day = dayjs(date);
 
   return (
@@ -84,4 +83,4 @@ const PostCard: FC<PostCardProps> = ({ id, title, slug, date, description, tags 
   );
 };
 
-export default memo(PostCard);
+export default PostCard;

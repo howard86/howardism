@@ -1,6 +1,5 @@
 import { Accordion, Flex, Heading, IconButton, VStack } from "@chakra-ui/react";
 import { FieldArray } from "formik";
-import { memo } from "react";
 import { HiMinusCircle, HiPlusCircle } from "react-icons/hi";
 
 import RecipeFormAccordionItem from "./RecipeFormAccordionItem";
@@ -59,4 +58,4 @@ const RecipeFormFieldArray = <T extends Record<string, unknown>>({
   </FieldArray>
 );
 
-export default memo(RecipeFormFieldArray);
+export default RecipeFormFieldArray;

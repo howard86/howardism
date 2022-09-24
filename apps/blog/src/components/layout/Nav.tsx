@@ -1,11 +1,10 @@
 import { Link, List, ListItem, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { FC, memo } from "react";
 
 import { NAV_OPTIONS } from "@/constants/nav";
 
-const Nav: FC = () => {
+const Nav = () => {
   const router = useRouter();
 
   return (
@@ -31,4 +30,4 @@ const Nav: FC = () => {
   );
 };
 
-export default memo(Nav);
+export default Nav;

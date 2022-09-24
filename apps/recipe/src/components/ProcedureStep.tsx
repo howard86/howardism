@@ -12,7 +12,7 @@ import {
   useBoolean,
 } from "@chakra-ui/react";
 import { Heading } from "@chakra-ui/react";
-import { FC, memo, useState } from "react";
+import { useState } from "react";
 import { FaCheck } from "react-icons/fa";
 
 export interface Step {
@@ -27,10 +27,8 @@ interface ProcedureStepProps extends BoxProps {
 const THEME_COLOR: ColorProps["color"] = "primary.600";
 const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200";
 
-const getLast = <T,>(array: T[]): T => array[array.length - 1];
-
 // TODO: refactor with useReducer
-const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {
+const ProcedureStep = ({ steps, ...props }: ProcedureStepProps) => {
   const [openIndex, setOpenIndex] = useState(0);
   const [expanded, { toggle }] = useBoolean(false);
 
@@ -128,12 +126,4 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {
     </Box>
   );
 };
-
-const compareProps = (prev: ProcedureStepProps, next: ProcedureStepProps) =>
-  prev.steps.length === next.steps.length &&
-  prev.steps[0].summary === next.steps[0].summary &&
-  prev.steps[0].description === next.steps[0].description &&
-  getLast(prev.steps).summary === getLast(next.steps).summary &&
-  getLast(prev.steps).description === getLast(prev.steps).description;
-
-export default memo(ProcedureStep, compareProps);
+export default ProcedureStep;
