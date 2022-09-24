@@ -1,7 +1,7 @@
 import { Link, List, ListItem, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import React, { FC, memo } from "react";
+import { FC, memo } from "react";
 
 import { NAV_OPTIONS } from "@/constants/nav";
 

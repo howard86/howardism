@@ -1,5 +1,4 @@
 import { Icon, Link, LinkProps, Tooltip } from "@chakra-ui/react";
-import React from "react";
 import type { IconType } from "react-icons";
 
 interface SocialIconLinkProps extends LinkProps {

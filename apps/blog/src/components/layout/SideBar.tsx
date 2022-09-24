@@ -1,5 +1,5 @@
 import { StackProps, VStack } from "@chakra-ui/react";
-import React, { FC } from "react";
+import { FC } from "react";
 
 import Nav from "./Nav";
 import Profile from "./Profile";

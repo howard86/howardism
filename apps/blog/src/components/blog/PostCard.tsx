@@ -1,8 +1,9 @@
 import { Box, Flex, Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
 import { Image, RouteLink } from "@howardism/components-common";
 import dayjs from "dayjs";
+import { StaticImageData } from "next/image";
 import NextLink from "next/link";
-import React, { FC, memo } from "react";
+import { FC, memo } from "react";
 
 import chip from "@/assets/alexandre-debieve-chip.jpg";
 import monitor from "@/assets/carl-heyerdahl-desk.jpg";

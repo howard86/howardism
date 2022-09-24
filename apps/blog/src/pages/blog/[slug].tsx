@@ -10,7 +10,6 @@ import { MDXRemote, MDXRemoteSerializeResult } from "next-mdx-remote";
 import { serialize } from "next-mdx-remote/serialize";
 import { NextSeo } from "next-seo";
 import type { ParsedUrlQuery } from "querystring";
-import React from "react";
 
 import markdown from "@/components/markdown";
 import { fetchBlogPosts } from "@/services/cms";

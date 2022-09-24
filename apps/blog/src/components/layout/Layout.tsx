@@ -1,9 +1,9 @@
 import { Container } from "@chakra-ui/react";
-import React, { FC } from "react";
+import { ChildrenProps } from "react";
 
 import Footer from "./Footer";
 
-const Layout: FC = ({ children }) => (
+const Layout = ({ children }: ChildrenProps) => (
   <>
     <Container as="main" maxW="container.xl">
       {children}

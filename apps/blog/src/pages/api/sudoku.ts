@@ -49,7 +49,7 @@ const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>)
         console.error(error);
         return res.json({
           success: false,
-          message: error.message,
+          message: (error as Error).message,
         });
       }
     }
@@ -78,7 +78,7 @@ const handler = (req: SudokuApiRequest, res: NextApiResponse<SudokuApiResponse>)
         console.error(error);
         return res.json({
           success: false,
-          message: error.message,
+          message: (error as Error).message,
         });
       }
     }

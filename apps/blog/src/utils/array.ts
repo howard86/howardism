@@ -17,7 +17,7 @@
  * sampleSize([1, 2, 3], 4)
  * // => [2, 3, 1]
  */
-export const sampleSize = <T extends unknown>(array: T[], n: number = array.length): T[] => {
+export const sampleSize = <T>(array: T[], n: number = array.length): T[] => {
   const length = array.length;
 
   if (length <= 1) {

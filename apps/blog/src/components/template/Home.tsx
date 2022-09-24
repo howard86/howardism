@@ -1,6 +1,5 @@
 import { Box, Container, Heading, SimpleGrid, Text, Wrap, WrapItem } from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
-import React from "react";
 import { FaGithub, FaRegEnvelope, FaTwitter } from "react-icons/fa";
 
 import profile from "@/../public/profile.jpeg";

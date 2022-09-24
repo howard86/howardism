@@ -1,6 +1,6 @@
 import { Flex, Img, Link, Text, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
-import React, { FC, memo } from "react";
+import { FC, memo } from "react";
 
 import Email from "../icons/Email";
 import Github from "../icons/Github";

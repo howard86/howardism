@@ -1,15 +1,15 @@
 const withTM = require("next-transpile-modules")(["@howardism/components-common"]);
 
-module.exports = withTM({
+/** @type{import('next').NextConfig} */
+const config = {
   reactStrictMode: true,
-  webpack5: true,
-  async redirects() {
-    return [
-      {
-        source: "/blog",
-        destination: "/",
-        permanent: true,
-      },
-    ];
-  },
-});
+  redirects: () => [
+    {
+      source: "/blog",
+      destination: "/",
+      permanent: true,
+    },
+  ],
+};
+
+module.exports = withTM(config);
