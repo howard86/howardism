@@ -1,6 +1,9 @@
 const withTM = require("next-transpile-modules")(["three"]);
 
-module.exports = withTM({
+/** @type{import('next').NextConfig} */
+const config = {
   reactStrictMode: true,
-  webpack5: true,
-});
+  swcMinify: true,
+};
+
+module.exports = withTM(config);

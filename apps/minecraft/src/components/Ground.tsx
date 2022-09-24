@@ -1,10 +1,10 @@
 import { PlaneProps, usePlane } from "@react-three/cannon";
 import { useTexture } from "@react-three/drei";
-import React, { FC } from "react";
-import { RepeatWrapping } from "three";
+import { FC } from "react";
+import { BufferGeometry, Mesh, RepeatWrapping } from "three";
 
 const Ground: FC<PlaneProps> = (props) => {
-  const [ref] = usePlane(() => ({
+  const [ref] = usePlane<Mesh<BufferGeometry>>(() => ({
     rotation: [-Math.PI / 2, 0, 0],
     ...props,
   }));

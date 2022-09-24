@@ -1,8 +1,8 @@
 import { useSphere } from "@react-three/cannon";
 import { PointerLockControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import React, { FC, useEffect, useRef } from "react";
-import { Vector3 } from "three";
+import { FC, useEffect, useRef } from "react";
+import { BufferGeometry, Mesh, Vector3 } from "three";
 
 import usePlayerControls from "@/hooks/usePlayerControls";
 
@@ -15,7 +15,7 @@ const speed = new Vector3();
 const Player: FC = (props) => {
   const { camera } = useThree();
   const { moveForward, moveBackward, moveLeft, moveRight, jump } = usePlayerControls();
-  const [ref, api] = useSphere(() => ({
+  const [ref, api] = useSphere<Mesh<BufferGeometry>>(() => ({
     mass: 1,
     type: "Dynamic",
     position: [0, 10, 0],

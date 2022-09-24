@@ -2,10 +2,11 @@ import { BoxProps, useBox } from "@react-three/cannon";
 import { useTexture } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/events";
 import { nanoid } from "nanoid";
-import React, { FC, useState } from "react";
-import create, { State } from "zustand";
+import { FC, useState } from "react";
+import { BufferGeometry, Mesh } from "three";
+import create from "zustand";
 
-interface CubeStore extends State {
+interface CubeStore {
   cubes: (Element | JSX.Element)[];
   addCube: (x: number, y: number, z: number) => void;
 }
@@ -21,7 +22,7 @@ export const useCubeStore = create<CubeStore>((set) => ({
 const Cube: FC<BoxProps> = (props) => {
   const [hover, setHover] = useState<number | null>(null);
   const addCube = useCubeStore((state) => state.addCube);
-  const [ref] = useBox(() => ({
+  const [ref] = useBox<Mesh<BufferGeometry>>(() => ({
     type: "Static",
     ...props,
   }));
@@ -86,8 +87,8 @@ const Cube: FC<BoxProps> = (props) => {
     >
       {[...Array(6)].map((_, index) => (
         <meshStandardMaterial
-          key={index}
-          attachArray="material"
+          key={nanoid()}
+          attach={`material-${index}`}
           map={texture}
           color={hover === index ? "gray" : "white"}
         />
