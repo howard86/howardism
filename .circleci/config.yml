@@ -1,73 +1,51 @@
 version: 2.1
 
 orbs:
-  node: circleci/node@4.2.0
+  node: circleci/node@5.0.2
 
 aliases:
-  - &docker-image
-    docker:
-      - image: cimg/node:lts
-
-  - &install-typescript-globally
-    run:
-      - name: Install TypeScript globally
-      - command: yarn global add typescript
-
-  - &restore-build-flag
-    restore_cache:
-      keys:
-        - build-flag-{{ checksum "package.json" }}
-
-  - &test-build-flag
-    run:
-      name: Exit if build flag exists
-      command: |
-        FILE=build.flag
-        if test -f "$FILE"; then
-          echo "$FILE exist"
-          circleci step halt
-        fi
-
-  - &generate-lock-file
-    run:
-      name: Generate lock file (yarn.lock)
-      command: yarn generate-lock-entry >> yarn.lock
-
   - &restore-cache
     restore_cache:
+      name: Restore pnpm Package Cache
       keys:
-        - v1-dependencies-{{ checksum "yarn.lock" }}
+        - pnpm-packages-{{ checksum "pnpm-lock.yaml" }}
 
   - &save-cache
     save_cache:
+      name: Save pnpm Package Cache
       paths:
-        - ~/.cache/yarn
-      key: v1-dependencies-{{ checksum "yarn.lock" }}
+        - node_modules
+      key: pnpm-packages-{{ checksum "pnpm-lock.yaml" }}
+
+  - &install-pnpm
+    run:
+      name: Install pnpm package manager
+      command: sudo npx pnpm add -g pnpm
 
   - &install-node
     run:
       name: Install dependencies
-      command: yarn install --frozen-lockfile --cache-folder ~/.cache/yarn
+      command: pnpm install
 
   - &run-lint
     run:
       name: Run linter
-      command: yarn lint
+      command: pnpm lint
 
   - &run-type-check
     run:
       name: Run TypeScript type check
-      command: yarn type-check
+      command: pnpm type-check
 
   - &run-unit-tests
     run:
       name: Run unit tests
-      command: yarn test
+      command: pnpm test
 
   - &run-build
     run:
       name: Run Build
-      command: yarn build
+      command: pnpm build
 
 commands:
   node-build-steps:
@@ -75,16 +53,13 @@ commands:
       - node-install-steps
       - node-test-steps
       - *run-build
-      - save-build-flag
 
   node-install-steps:
     steps:
       - checkout:
           path: ~/howardism
-      - *restore-build-flag
-      - *test-build-flag
-      - *generate-lock-file
       - *restore-cache
+      - *install-pnpm
       - *install-node
 
   node-test-steps:
@@ -93,52 +68,33 @@ commands:
       - *run-type-check
       - *run-unit-tests
 
-  save-build-flag:
-    steps:
-      - run:
-          name: Create build flag
-          command: touch build.flag
-      - save_cache:
-          paths:
-            - build.flag
-          key: build-flag-{{ checksum "package.json" }}
-
 jobs:
-  build-blog:
+  build:
+    parameters:
+      app_name:
+        type: string
+
     docker:
       - image: cimg/node:lts
-    working_directory: ~/howardism/apps/blog
+    working_directory: ~/howardism/apps/<< parameters.app_name >>
     steps:
       - node-build-steps
-  build-github:
-    docker:
-      - image: cimg/node:lts
-    working_directory: ~/howardism/apps/github-search
-    steps:
-      - node-build-steps
-  build-minecraft:
-    docker:
-      - image: cimg/node:lts
-    working_directory: ~/howardism/apps/minecraft
-    steps:
-      - node-build-steps
-  build-recipe:
-    docker:
-      - image: cimg/node:lts
-    working_directory: ~/howardism/apps/recipe
-    steps:
-      - node-build-steps
+
 workflows:
   version: 2
   blog:
     jobs:
-      - build-blog
+      - build:
+          app_name: blog
   github:
     jobs:
-      - build-github
+      - build:
+          app_name: github-search
   minecraft:
     jobs:
-      - build-minecraft
+      - build:
+          app_name: minecraft
   recipe:
     jobs:
-      - build-recipe
+      - build:
+          app_name: recipe
