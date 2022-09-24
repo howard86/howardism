@@ -1,5 +1,5 @@
 import { Flex, IconButton } from "@chakra-ui/react";
-import React, { FC, useState } from "react";
+import { FC, useState } from "react";
 import { IoMdMenu } from "react-icons/io";
 
 import useDocumentScrollThrottled from "@/hooks/useThrottledScroll";

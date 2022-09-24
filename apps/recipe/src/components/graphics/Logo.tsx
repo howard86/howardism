@@ -1,5 +1,3 @@
-import React from "react";
-
 import LOGO from "@/../public/favicon/logo.png";
 import LOGO_TRANSPARENT from "@/../public/favicon/logo_transparent.png";
 

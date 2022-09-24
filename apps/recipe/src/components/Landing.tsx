@@ -1,5 +1,6 @@
 import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
-import React, { FC } from "react";
+import { StaticImageData } from "next/image";
+import { FC } from "react";
 
 import backgroundImage from "@/../public/assets/background.jpg";
 
@@ -36,7 +37,7 @@ const Landing: FC<LandingProps> = ({ imageUrl }) => {
         position="relative"
         mx="8"
         my="12"
-        spacing={10}
+        gap={10}
         sx={{
           "& > div": {
             my: "4",

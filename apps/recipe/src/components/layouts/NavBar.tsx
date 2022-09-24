@@ -1,6 +1,5 @@
 import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import React from "react";
 import { HiSearch } from "react-icons/hi";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";

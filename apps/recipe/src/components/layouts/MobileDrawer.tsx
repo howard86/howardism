@@ -12,7 +12,7 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { HiMenuAlt2 } from "react-icons/hi";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
@@ -64,7 +64,7 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
                 // TODO: implement active-link
                 const isCurrentPage = router.pathname === item.url;
                 return (
-                  <ListItem key={item.url} listStyle="none">
+                  <ListItem key={item.url}>
                     <RouteLink
                       py="1"
                       px="2.5"

@@ -1,9 +1,12 @@
 const withTM = require("next-transpile-modules")(["@howardism/login-form"]);
 
-module.exports = withTM({
+/** @type{import('next').NextConfig} */
+const config = {
   reactStrictMode: true,
-  webpack5: true,
+  swcMinify: true,
   images: {
     domains: ["res.cloudinary.com"],
   },
-});
+};
+
+module.exports = withTM(config);

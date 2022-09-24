@@ -1,6 +1,6 @@
 import { Box, Heading, Icon, LinkBox, LinkOverlay, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
-import React, { FC } from "react";
+import { FC } from "react";
 import { FiShare } from "react-icons/fi";
 
 import demo from "@/../public/assets/demo.jpg";

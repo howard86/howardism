@@ -1,6 +1,7 @@
 import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
+import { StaticImageData } from "next/image";
 import NextLink from "next/link";
-import React, { FC } from "react";
+import { FC } from "react";
 
 import Image from "@/components/Image";
 

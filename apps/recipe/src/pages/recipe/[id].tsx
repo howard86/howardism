@@ -6,7 +6,6 @@ import type {
   NextPage,
 } from "next";
 import { useRouter } from "next/router";
-import React from "react";
 
 import logo from "@/../public/favicon/logo.png";
 import Image from "@/components/Image";

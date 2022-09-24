@@ -1,7 +1,7 @@
 import { Box } from "@chakra-ui/react";
 import LoginPage, { FormValue } from "@howardism/login-form";
 import { useRouter } from "next/router";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 import useAuth from "@/hooks/useAuth";
 

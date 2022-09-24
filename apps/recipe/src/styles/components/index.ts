@@ -1,4 +1,4 @@
-import type { ThemeComponents } from "@chakra-ui/theme";
+import type { ThemeComponents } from "@chakra-ui/react";
 
 import Button from "./button";
 import Skeleton from "./skeleton";

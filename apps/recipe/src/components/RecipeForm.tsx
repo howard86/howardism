@@ -8,7 +8,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import useAppToast from "@/hooks/useAppToast";
 import api, { LocalAPIResponse } from "@/redux/api";

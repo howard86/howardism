@@ -1,4 +1,4 @@
-import React, { ClassAttributes, ImgHTMLAttributes } from "react";
+import { ClassAttributes, ImgHTMLAttributes } from "react";
 
 import HomePage from "@/pages/index";
 

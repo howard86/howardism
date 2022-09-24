@@ -12,7 +12,7 @@ import {
   useBoolean,
 } from "@chakra-ui/react";
 import { Heading } from "@chakra-ui/react";
-import React, { FC, memo, useState } from "react";
+import { FC, memo, useState } from "react";
 import { FaCheck } from "react-icons/fa";
 
 export interface Step {
@@ -27,7 +27,7 @@ interface ProcedureStepProps extends BoxProps {
 const THEME_COLOR: ColorProps["color"] = "primary.600";
 const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200";
 
-const getLast = <T extends unknown>(array: T[]): T => array[array.length - 1];
+const getLast = <T,>(array: T[]): T => array[array.length - 1];
 
 // TODO: refactor with useReducer
 const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {

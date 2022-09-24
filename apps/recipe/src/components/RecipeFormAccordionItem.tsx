@@ -12,7 +12,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Field, FieldProps } from "formik";
-import React, { memo } from "react";
+import { memo } from "react";
 
 interface RecipeFormAccordionItemProps<T> {
   newField: T;
