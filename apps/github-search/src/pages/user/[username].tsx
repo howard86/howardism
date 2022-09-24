@@ -24,7 +24,6 @@ import type {
   NextPage,
 } from "next";
 import { useRouter } from "next/router";
-import React from "react";
 import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 
@@ -37,7 +36,7 @@ import client from "@/utils/apollo-client";
 
 const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has");
 
-const UserPage: NextPage<GetUserQuery["user"]> = ({
+const UserPage: NextPage<NonNullable<GetUserQuery["user"]>> = ({
   name,
   login,
   avatarUrl,

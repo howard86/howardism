@@ -2,7 +2,7 @@ import { Box, Container, Flex, Link } from "@chakra-ui/react";
 import { motion, Variants } from "framer-motion";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import React, { FC } from "react";
+import { ChildrenProps } from "react";
 
 const variants: Variants = {
   pageInital: {
@@ -13,7 +13,7 @@ const variants: Variants = {
   },
 };
 
-const Layout: FC = ({ children }) => {
+const Layout = ({ children }: ChildrenProps) => {
   const router = useRouter();
   const animateKey = router.asPath.includes("?") ? router.pathname : router.asPath;
 

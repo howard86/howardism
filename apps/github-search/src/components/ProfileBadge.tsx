@@ -1,5 +1,5 @@
 import { Icon, Tooltip, WrapItem } from "@chakra-ui/react";
-import React, { FC } from "react";
+import { FC } from "react";
 
 import matchIcon from "@/utils/match-icons";
 

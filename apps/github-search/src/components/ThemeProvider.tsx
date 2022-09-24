@@ -1,8 +1,8 @@
 import { ChakraProvider } from "@chakra-ui/react";
 import theme from "@howardism/theme";
-import React, { FC } from "react";
+import { ChildrenProps } from "react";
 
-const ThemeProvider: FC = ({ children }) => (
+const ThemeProvider = ({ children }: ChildrenProps) => (
   <ChakraProvider theme={theme}>{children}</ChakraProvider>
 );
 

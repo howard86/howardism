@@ -1,6 +1,6 @@
 import { Link, ListIcon, ListItem } from "@chakra-ui/react";
 import NextLink from "next/link";
-import React, { FC } from "react";
+import { FC } from "react";
 import type { IconType } from "react-icons";
 
 interface InfoListProps {

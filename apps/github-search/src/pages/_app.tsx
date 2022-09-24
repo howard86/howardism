@@ -1,7 +1,6 @@
 import { ApolloProvider } from "@apollo/client";
 import type { NextPage } from "next";
 import type { AppProps } from "next/app";
-import React from "react";
 
 import Layout from "@/components/Layout";
 import ThemeProvider from "@/components/ThemeProvider";

@@ -1,5 +1,3 @@
-import React from "react";
-
 import HomePage from "@/pages/index";
 
 import { render } from "../test-utils";

@@ -1,5 +1,5 @@
 import { Flex, Icon, Text, Tooltip } from "@chakra-ui/react";
-import React, { FC, ReactText } from "react";
+import { FC, ReactText } from "react";
 
 import matchIcon from "@/utils/match-icons";
 
@@ -21,7 +21,7 @@ const ProfileField: FC<ProfileFieldProps> = ({ fieldKey, fieldValue }) => {
         {fieldKey.replace("Username", "")}
       </Text>
       <Tooltip label={fieldValue} aria-label={fieldKey + "'s tooltip"} placement="bottom-start">
-        <Text isTruncated w="36">
+        <Text w="36" noOfLines={1}>
           {fieldValue}
         </Text>
       </Tooltip>

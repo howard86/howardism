@@ -1,6 +1,5 @@
 import { Button, Input, Stack, useBreakpointValue, VStack, Wrap } from "@chakra-ui/react";
 import { NextPage } from "next";
-import React from "react";
 
 import UserCard from "@/components/UserCard";
 import useSearch from "@/hooks/use-search";
