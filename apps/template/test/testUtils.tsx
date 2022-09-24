@@ -1,7 +1,7 @@
 import { render, RenderOptions, RenderResult } from "@testing-library/react";
-import React, { FC, ReactElement } from "react";
+import { ChildrenProps, ReactElement } from "react";
 
-const Providers: FC = ({ children }) => {
+const Providers = ({ children }: ChildrenProps) => {
   return <>{children}</>;
 };
 
