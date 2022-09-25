@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { FaCheck } from "react-icons/fa";
 import {
   Box,
   BoxProps,
@@ -6,14 +8,12 @@ import {
   Collapse,
   ColorProps,
   Flex,
+  Heading,
   HStack,
   Icon,
   Text,
   useBoolean,
 } from "@chakra-ui/react";
-import { Heading } from "@chakra-ui/react";
-import React, { FC, memo, useState } from "react";
-import { FaCheck } from "react-icons/fa";
 
 export interface Step {
   summary: string;
@@ -26,11 +26,14 @@ interface ProcedureStepProps extends BoxProps {
 
 const THEME_COLOR: ColorProps["color"] = "primary.600";
 const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200";
+const getCircleColor = (isViewed: boolean, isChecked: boolean): BoxProps["color"] => {
+  if (isViewed) return "white";
 
-const getLast = <T extends unknown>(array: T[]): T => array[array.length - 1];
+  return isChecked ? THEME_COLOR : "primary.800";
+};
 
 // TODO: refactor with useReducer
-const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {
+export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
   const [openIndex, setOpenIndex] = useState(0);
   const [expanded, { toggle }] = useBoolean(false);
 
@@ -73,7 +76,7 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {
               <HStack fontWeight="bold" spacing="4">
                 <Circle
                   size="8"
-                  color={isViewed ? "white" : isChecked ? THEME_COLOR : "primary.800"}
+                  color={getCircleColor(isViewed, isChecked)}
                   bg={isViewed ? THEME_COLOR : "white"}
                   borderColor={isChecked || isViewed ? THEME_COLOR : LIGHT_THEME_COLOR}
                   borderWidth="1pt"
@@ -127,13 +130,4 @@ const ProcedureStep: FC<ProcedureStepProps> = ({ steps, ...props }) => {
       </Box>
     </Box>
   );
-};
-
-const compareProps = (prev: ProcedureStepProps, next: ProcedureStepProps) =>
-  prev.steps.length === next.steps.length &&
-  prev.steps[0].summary === next.steps[0].summary &&
-  prev.steps[0].description === next.steps[0].description &&
-  getLast(prev.steps).summary === getLast(next.steps).summary &&
-  getLast(prev.steps).description === getLast(prev.steps).description;
-
-export default memo(ProcedureStep, compareProps);
+}

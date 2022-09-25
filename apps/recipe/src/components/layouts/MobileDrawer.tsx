@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import { HiMenuAlt2 } from "react-icons/hi";
 import {
   Box,
   Drawer,
@@ -11,20 +13,14 @@ import {
   ListItem,
   useDisclosure,
 } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
 import { useRouter } from "next/router";
-import React, { useRef } from "react";
-import { HiMenuAlt2 } from "react-icons/hi";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
 
 import HorizontalLogo from "../graphics/HorizontalLogo";
-import RouteLink from "../RouteLink";
 
-interface MobileDrawerProps {
-  items?: any;
-}
-
-const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
+export default function MobileDrawer(): JSX.Element {
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -42,14 +38,7 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
       >
         Open
       </IconButton>
-      <Drawer
-        size="xs"
-        placement="left"
-        {...props}
-        isOpen={isOpen}
-        onClose={onClose}
-        finalFocusRef={btnRef}
-      >
+      <Drawer size="xs" placement="left" isOpen={isOpen} onClose={onClose} finalFocusRef={btnRef}>
         <DrawerOverlay />
         <DrawerContent bg="secondary.50">
           <DrawerCloseButton />
@@ -64,7 +53,7 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
                 // TODO: implement active-link
                 const isCurrentPage = router.pathname === item.url;
                 return (
-                  <ListItem key={item.url} listStyle="none">
+                  <ListItem key={item.url}>
                     <RouteLink
                       py="1"
                       px="2.5"
@@ -102,6 +91,4 @@ const MobileDrawer = (props: MobileDrawerProps): JSX.Element => {
       </Drawer>
     </Box>
   );
-};
-
-export default MobileDrawer;
+}

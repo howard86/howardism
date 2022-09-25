@@ -1,11 +1,10 @@
-import { Link, List, ListItem, VStack } from "@chakra-ui/react";
-import NextLink from "next/link";
+import { List, ListItem, VStack } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
 import { useRouter } from "next/router";
-import React, { FC, memo } from "react";
 
 import { NAV_OPTIONS } from "@/constants/nav";
 
-const Nav: FC = () => {
+export default function Nav() {
   const router = useRouter();
 
   return (
@@ -13,22 +12,19 @@ const Nav: FC = () => {
       <List>
         {NAV_OPTIONS.map(({ title, href }) => (
           <ListItem key={title}>
-            <NextLink href={href} passHref>
-              <Link
-                textTransform="capitalize"
-                fontWeight={router.pathname === href ? "semibold" : "normal"}
-                _hover={{
-                  color: "secondary.600",
-                }}
-              >
-                {title}
-              </Link>
-            </NextLink>
+            <RouteLink
+              href={href}
+              textTransform="capitalize"
+              fontWeight={router.pathname === href ? "semibold" : "normal"}
+              _hover={{
+                color: "secondary.600",
+              }}
+            >
+              {title}
+            </RouteLink>
           </ListItem>
         ))}
       </List>
     </VStack>
   );
-};
-
-export default memo(Nav);
+}

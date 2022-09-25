@@ -1,11 +1,13 @@
-import { BoxProps, useBox } from "@react-three/cannon";
+/* eslint-disable react/no-unknown-property */
+import { useState } from "react";
+import { BoxProps, Triplet, useBox } from "@react-three/cannon";
 import { useTexture } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/events";
 import { nanoid } from "nanoid";
-import React, { FC, useState } from "react";
-import create, { State } from "zustand";
+import { BufferGeometry, Mesh } from "three";
+import create from "zustand";
 
-interface CubeStore extends State {
+interface CubeStore {
   cubes: (Element | JSX.Element)[];
   addCube: (x: number, y: number, z: number) => void;
 }
@@ -14,16 +16,21 @@ export const useCubeStore = create<CubeStore>((set) => ({
   cubes: [],
   addCube: (x, y, z) =>
     set((state) => ({
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
       cubes: [...state.cubes, <Cube key={nanoid()} position={[x, y, z]} />],
     })),
 }));
 
-const Cube: FC<BoxProps> = (props) => {
+interface CubeProps {
+  position: Triplet;
+}
+
+export default function Cube({ position }: CubeProps) {
   const [hover, setHover] = useState<number | null>(null);
   const addCube = useCubeStore((state) => state.addCube);
-  const [ref] = useBox(() => ({
+  const [ref] = useBox<Mesh<BufferGeometry>>(() => ({
     type: "Static",
-    ...props,
+    position,
   }));
 
   const texture = useTexture("/texture/dirt.jpg");
@@ -72,7 +79,6 @@ const Cube: FC<BoxProps> = (props) => {
 
       default:
         addCube(x + 1, y, z);
-        return;
     }
   };
 
@@ -84,17 +90,20 @@ const Cube: FC<BoxProps> = (props) => {
       onClick={handleOnClick}
       castShadow
     >
-      {[...Array(6)].map((_, index) => (
-        <meshStandardMaterial
-          key={index}
-          attachArray="material"
-          map={texture}
-          color={hover === index ? "gray" : "white"}
-        />
-      ))}
-      <boxBufferGeometry attach="geometry" />
+      {/* eslint-disable-next-line react/jsx-no-useless-fragment */}
+      <>
+        {[...Array(6)].map(
+          (_, index): BoxProps => (
+            <meshStandardMaterial
+              key={nanoid()}
+              attach={`material-${index}`}
+              map={texture}
+              color={hover === index ? "gray" : "white"}
+            />
+          )
+        )}
+        <boxBufferGeometry attach="geometry" />
+      </>
     </mesh>
   );
-};
-
-export default Cube;
+}

@@ -1,21 +1,20 @@
-import type { NextPage } from "next";
+import { ChakraProvider } from "@chakra-ui/react";
 import type { AppProps } from "next/app";
 import { DefaultSeo } from "next-seo";
-import React from "react";
 
-import ThemeProvider from "@/components/common/ThemeProvider";
 import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
+import theme from "@/theme";
 
-const App: NextPage<AppProps> = ({ Component, pageProps }) => (
-  <>
-    <DefaultSeo {...DEFAULT_SEO} />
-    <ThemeProvider>
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
-    </ThemeProvider>
-  </>
-);
-
-export default App;
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <>
+      <DefaultSeo {...DEFAULT_SEO} />
+      <ChakraProvider theme={theme}>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      </ChakraProvider>
+    </>
+  );
+}

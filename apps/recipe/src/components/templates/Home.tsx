@@ -1,12 +1,9 @@
 import { Box, Flex, Heading, HStack, SimpleGrid, Tag, Text, VStack } from "@chakra-ui/react";
-import React from "react";
+import { Image, RouteLink } from "@howardism/components-common";
 
 import backgroundImage from "@/../public/assets/background.jpg";
 import logo from "@/../public/favicon/logo.png";
 import type { Recipe } from "@/types/recipe";
-
-import Image from "../Image";
-import RouteLink from "../RouteLink";
 
 export interface HomeProps {
   recipes: Recipe[];
@@ -19,7 +16,7 @@ const getDayTag = (timestamp: string): string => {
   return days > 0 ? `${days} days ago` : "Today";
 };
 
-const Home = ({ recipes }: HomeProps): JSX.Element => {
+export default function Home({ recipes }: HomeProps): JSX.Element {
   return (
     <>
       <Flex
@@ -180,9 +177,7 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
                   <Heading mb="2.5" fontSize={["md", "lg", "xl"]}>
                     <RouteLink href={`/recipe/${recipe.id}`}>{recipe.title}</RouteLink>
                   </Heading>
-                  <Text noOfLines={{ base: 2, lg: 4 }} isTruncated>
-                    {recipe.description}
-                  </Text>
+                  <Text noOfLines={{ base: 2, lg: 4 }}>{recipe.description}</Text>
                 </Box>
               </Box>
             </Box>
@@ -192,6 +187,4 @@ const Home = ({ recipes }: HomeProps): JSX.Element => {
       </Box>
     </>
   );
-};
-
-export default Home;
+}

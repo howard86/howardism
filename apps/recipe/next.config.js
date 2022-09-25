@@ -1,9 +1,18 @@
-const withTM = require("next-transpile-modules")(["@howardism/login-form"]);
+const withTM = require("next-transpile-modules")([
+  "@howardism/components-common",
+  "@howardism/login-form",
+]);
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
 
-module.exports = withTM({
+/** @type{import('next').NextConfig} */
+const config = {
   reactStrictMode: true,
-  webpack5: true,
+  swcMinify: true,
   images: {
     domains: ["res.cloudinary.com"],
   },
-});
+};
+
+module.exports = withTM(withBundleAnalyzer(config));

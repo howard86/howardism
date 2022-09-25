@@ -1,20 +1,18 @@
 import { ApolloProvider } from "@apollo/client";
-import type { NextPage } from "next";
 import type { AppProps } from "next/app";
-import React from "react";
 
 import Layout from "@/components/Layout";
 import ThemeProvider from "@/components/ThemeProvider";
 import client from "@/utils/apollo-client";
 
-const App: NextPage<AppProps> = ({ Component, pageProps }) => (
-  <ApolloProvider client={client}>
-    <ThemeProvider>
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
-    </ThemeProvider>
-  </ApolloProvider>
-);
-
-export default App;
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <ApolloProvider client={client}>
+      <ThemeProvider>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      </ThemeProvider>
+    </ApolloProvider>
+  );
+}

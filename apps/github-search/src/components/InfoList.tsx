@@ -1,7 +1,6 @@
-import { Link, ListIcon, ListItem } from "@chakra-ui/react";
-import NextLink from "next/link";
-import React, { FC } from "react";
 import type { IconType } from "react-icons";
+import { Link, ListIcon, ListItem } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
 
 interface InfoListProps {
   name: string;
@@ -9,19 +8,17 @@ interface InfoListProps {
   icon?: IconType;
 }
 
-const InfoList: FC<InfoListProps> = ({ name, icon, url }) => (
-  <ListItem fontSize={["md", "lg"]}>
-    <ListIcon fontSize="xl" as={icon} />
-    {url ? (
-      <Link href={url} isExternal>
-        {name}
-      </Link>
-    ) : (
-      <NextLink href={`/user/${name}`} passHref>
-        <Link>{name}</Link>
-      </NextLink>
-    )}
-  </ListItem>
-);
-
-export default InfoList;
+export default function InfoList({ name, icon, url }: InfoListProps) {
+  return (
+    <ListItem fontSize={["md", "lg"]}>
+      <ListIcon fontSize="xl" as={icon} />
+      {url ? (
+        <Link href={url} isExternal>
+          {name}
+        </Link>
+      ) : (
+        <RouteLink href={`/user/${name}`}>{name}</RouteLink>
+      )}
+    </ListItem>
+  );
+}

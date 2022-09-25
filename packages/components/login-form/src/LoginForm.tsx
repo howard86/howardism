@@ -1,3 +1,4 @@
+import { HiEye, HiEyeOff } from "react-icons/hi";
 import {
   Button,
   FormControl,
@@ -11,8 +12,6 @@ import {
   useDisclosure,
 } from "@chakra-ui/react";
 import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
-import React from "react";
-import { HiEye, HiEyeOff } from "react-icons/hi";
 
 interface LoginFormProps {
   onLogin: OnLogin;
@@ -30,9 +29,10 @@ const initialValues: FormValue = {
   password: "",
 };
 
-const LoginForm = ({ onLogin }: LoginFormProps): JSX.Element => {
+export default function LoginForm({ onLogin }: LoginFormProps): JSX.Element {
   const { isOpen, onToggle } = useDisclosure();
 
+  // eslint-disable-next-line consistent-return
   const validateEmail = (email?: string) => {
     if (!email) {
       return "Email is required";
@@ -43,6 +43,7 @@ const LoginForm = ({ onLogin }: LoginFormProps): JSX.Element => {
     }
   };
 
+  // eslint-disable-next-line consistent-return
   const validatePassword = (password?: string) => {
     if (!password) {
       return "Password is required";
@@ -111,6 +112,4 @@ const LoginForm = ({ onLogin }: LoginFormProps): JSX.Element => {
       )}
     </Formik>
   );
-};
-
-export default LoginForm;
+}

@@ -1,4 +1,4 @@
-import type { Colors } from "@chakra-ui/theme";
+import type { Colors } from "@chakra-ui/react";
 
 const colors: Colors = {
   primary: {

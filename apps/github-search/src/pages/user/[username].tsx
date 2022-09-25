@@ -1,3 +1,5 @@
+import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
+import { RiGitRepositoryLine } from "react-icons/ri";
 import type { ApolloQueryResult } from "@apollo/client";
 import {
   Box,
@@ -17,16 +19,8 @@ import {
   VStack,
   Wrap,
 } from "@chakra-ui/react";
-import type {
-  GetStaticPathsResult,
-  GetStaticPropsContext,
-  GetStaticPropsResult,
-  NextPage,
-} from "next";
+import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next";
 import { useRouter } from "next/router";
-import React from "react";
-import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
-import { RiGitRepositoryLine } from "react-icons/ri";
 
 import InfoList from "@/components/InfoList";
 import ProfileBadge from "@/components/ProfileBadge";
@@ -37,7 +31,7 @@ import client from "@/utils/apollo-client";
 
 const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has");
 
-const UserPage: NextPage<GetUserQuery["user"]> = ({
+export default function UserPage({
   name,
   login,
   avatarUrl,
@@ -45,7 +39,7 @@ const UserPage: NextPage<GetUserQuery["user"]> = ({
   followers,
   following,
   ...rest
-}) => {
+}: NonNullable<GetUserQuery["user"]>) {
   const router = useRouter();
   const display = useBreakpointValue({ base: "none", md: "inline-flex" });
 
@@ -150,7 +144,7 @@ const UserPage: NextPage<GetUserQuery["user"]> = ({
       </Tabs>
     </Flex>
   );
-};
+}
 
 type QueryPath = {
   username: string;
@@ -186,5 +180,3 @@ export const getStaticProps = async (
     revalidate: 60,
   };
 };
-
-export default UserPage;

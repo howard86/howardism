@@ -1,8 +1,7 @@
 import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
+import { Image } from "@howardism/components-common";
+import { StaticImageData } from "next/image";
 import NextLink from "next/link";
-import React, { FC } from "react";
-
-import Image from "@/components/Image";
 
 interface RecipeCardProps {
   id: number;
@@ -17,7 +16,13 @@ const getDayDiff = (timestamp: string): number => {
   return Math.floor(diff / 1000 / 60 / 60 / 24);
 };
 
-const RecipeCard: FC<RecipeCardProps> = ({ id, title, description, timestamp, imageUrl }) => {
+export default function RecipeCard({
+  id,
+  title,
+  description,
+  timestamp,
+  imageUrl,
+}: RecipeCardProps) {
   const daysPassed = getDayDiff(timestamp);
 
   return (
@@ -51,6 +56,4 @@ const RecipeCard: FC<RecipeCardProps> = ({ id, title, description, timestamp, im
       <Text>{description}</Text>
     </LinkBox>
   );
-};
-
-export default RecipeCard;
+}

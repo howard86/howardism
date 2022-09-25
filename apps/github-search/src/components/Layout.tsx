@@ -1,8 +1,8 @@
-import { Box, Container, Flex, Link } from "@chakra-ui/react";
+import { ChildrenProps } from "react";
+import { Box, Container, Flex } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
 import { motion, Variants } from "framer-motion";
-import NextLink from "next/link";
 import { useRouter } from "next/router";
-import React, { FC } from "react";
 
 const variants: Variants = {
   pageInital: {
@@ -13,7 +13,7 @@ const variants: Variants = {
   },
 };
 
-const Layout: FC = ({ children }) => {
+export default function Layout({ children }: ChildrenProps) {
   const router = useRouter();
   const animateKey = router.asPath.includes("?") ? router.pathname : router.asPath;
 
@@ -27,9 +27,9 @@ const Layout: FC = ({ children }) => {
         py={[2, 4]}
         justify="space-between"
       >
-        <NextLink href="/" passHref>
-          <Link ml={[2, 4]}>Home</Link>
-        </NextLink>
+        <RouteLink href="/" ml={[2, 4]}>
+          Home
+        </RouteLink>
       </Flex>
       <Container
         as={motion.main}
@@ -46,6 +46,4 @@ const Layout: FC = ({ children }) => {
       </Container>
     </Box>
   );
-};
-
-export default Layout;
+}

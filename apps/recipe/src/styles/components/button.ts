@@ -1,4 +1,4 @@
-import type { ComponentStyleConfig } from "@chakra-ui/theme";
+import type { ComponentStyleConfig } from "@chakra-ui/react";
 
 const Button: ComponentStyleConfig = {
   defaultProps: {

@@ -22,8 +22,8 @@ export const filterLongContent = (text: string): string => {
   const subText = text.substring(0, text.indexOf(" ", MAX_CONTENT_LENGTH));
 
   if (subText.endsWith(".")) {
-    return subText + "..";
+    return `${subText}..`;
   }
 
-  return subText + "...";
+  return `${subText}...`;
 };

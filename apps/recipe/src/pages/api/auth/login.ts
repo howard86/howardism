@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 import { login } from "@/services/auth";
 
-const handler = async (req: NextApiRequest, res: NextApiResponse): Promise<void> => {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);

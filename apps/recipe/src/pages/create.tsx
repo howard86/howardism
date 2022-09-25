@@ -1,11 +1,11 @@
+import { useEffect } from "react";
 import { Container, Heading } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import React, { useEffect } from "react";
 
 import RecipeForm from "@/components/RecipeForm";
 import useAuth from "@/hooks/useAuth";
 
-const CreateRecipePage = (): JSX.Element => {
+export default function CreateRecipePage(): JSX.Element {
   const router = useRouter();
   const { isLoggedIn } = useAuth();
 
@@ -23,6 +23,4 @@ const CreateRecipePage = (): JSX.Element => {
       <RecipeForm />
     </Container>
   );
-};
-
-export default CreateRecipePage;
+}

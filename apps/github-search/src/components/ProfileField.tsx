@@ -1,14 +1,13 @@
 import { Flex, Icon, Text, Tooltip } from "@chakra-ui/react";
-import React, { FC, ReactText } from "react";
 
 import matchIcon from "@/utils/match-icons";
 
 interface ProfileFieldProps {
   fieldKey: string;
-  fieldValue: ReactText;
+  fieldValue: string | number;
 }
 
-const ProfileField: FC<ProfileFieldProps> = ({ fieldKey, fieldValue }) => {
+export default function ProfileField({ fieldKey, fieldValue }: ProfileFieldProps) {
   if (fieldValue === null || fieldValue === "") {
     return null;
   }
@@ -20,13 +19,11 @@ const ProfileField: FC<ProfileFieldProps> = ({ fieldKey, fieldValue }) => {
         {/* TODO: fix this quick workaround */}
         {fieldKey.replace("Username", "")}
       </Text>
-      <Tooltip label={fieldValue} aria-label={fieldKey + "'s tooltip"} placement="bottom-start">
-        <Text isTruncated w="36">
+      <Tooltip label={fieldValue} aria-label={`${fieldKey}'s tooltip`} placement="bottom-start">
+        <Text w="36" noOfLines={1}>
           {fieldValue}
         </Text>
       </Tooltip>
     </Flex>
   );
-};
-
-export default ProfileField;
+}

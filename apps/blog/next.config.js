@@ -1,15 +1,18 @@
 const withTM = require("next-transpile-modules")(["@howardism/components-common"]);
-
-module.exports = withTM({
-  reactStrictMode: true,
-  webpack5: true,
-  async redirects() {
-    return [
-      {
-        source: "/blog",
-        destination: "/",
-        permanent: true,
-      },
-    ];
-  },
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
 });
+
+/** @type{import('next').NextConfig} */
+const config = {
+  reactStrictMode: true,
+  redirects: () => [
+    {
+      source: "/blog",
+      destination: "/",
+      permanent: true,
+    },
+  ],
+};
+
+module.exports = withTM(withBundleAnalyzer(config));

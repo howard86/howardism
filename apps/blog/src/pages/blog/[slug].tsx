@@ -1,16 +1,10 @@
 import { Center, List } from "@chakra-ui/react";
 import { RouteLink } from "@howardism/components-common";
-import type {
-  GetStaticPathsResult,
-  GetStaticPropsContext,
-  GetStaticPropsResult,
-  NextPage,
-} from "next";
+import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next";
 import { MDXRemote, MDXRemoteSerializeResult } from "next-mdx-remote";
 import { serialize } from "next-mdx-remote/serialize";
 import { NextSeo } from "next-seo";
 import type { ParsedUrlQuery } from "querystring";
-import React from "react";
 
 import markdown from "@/components/markdown";
 import { fetchBlogPosts } from "@/services/cms";
@@ -98,7 +92,7 @@ export const getStaticProps = async ({
   };
 };
 
-const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta, previousPage, nextPage }) => {
+export default function BlogPostPage({ mdxSource, meta, previousPage, nextPage }: BlogPostProps) {
   return (
     <>
       <NextSeo title={meta.title} />
@@ -112,6 +106,4 @@ const BlogPostPage: NextPage<BlogPostProps> = ({ mdxSource, meta, previousPage, 
       </Center>
     </>
   );
-};
-
-export default BlogPostPage;
+}

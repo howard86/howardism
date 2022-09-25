@@ -1,15 +1,15 @@
-import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react";
-import { useRouter } from "next/router";
-import React from "react";
 import { HiSearch } from "react-icons/hi";
+import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
+import { useRouter } from "next/router";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
 
 import HorizontalLogo from "../graphics/HorizontalLogo";
-import RouteLink from "../RouteLink";
+
 import MobileDrawer from "./MobileDrawer";
 
-const NavBar = (): JSX.Element => {
+export default function NavBar(): JSX.Element {
   const router = useRouter();
 
   return (
@@ -69,6 +69,4 @@ const NavBar = (): JSX.Element => {
       </Flex>
     </Box>
   );
-};
-
-export default NavBar;
+}
