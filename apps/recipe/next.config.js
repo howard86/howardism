@@ -2,6 +2,9 @@ const withTM = require("next-transpile-modules")([
   "@howardism/components-common",
   "@howardism/login-form",
 ]);
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
 
 /** @type{import('next').NextConfig} */
 const config = {
@@ -12,4 +15,4 @@ const config = {
   },
 };
 
-module.exports = withTM(config);
+module.exports = withTM(withBundleAnalyzer(config));
