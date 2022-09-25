@@ -16,6 +16,7 @@ export default function Home({ posts }: HomeProps): JSX.Element {
   return (
     <>
       <Container
+        id="home"
         maxW="container.sm"
         textAlign="center"
         pt={[50, 70, 100, 120, 150]}
@@ -53,7 +54,7 @@ export default function Home({ posts }: HomeProps): JSX.Element {
           </WrapItem>
         </Wrap>
       </Container>
-      <SimpleGrid pt={[30, 30, 50]} columns={[1, 1, 2]} spacing={[10, 12, 16]}>
+      <SimpleGrid id="contact" pt={[30, 30, 50]} columns={[1, 1, 2]} spacing={[10, 12, 16]}>
         {posts.map((post) => (
           <PostCard key={post.slug} {...post} />
         ))}

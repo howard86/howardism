@@ -1,6 +1,17 @@
 import { extendTheme, ThemeOverride } from "@chakra-ui/react";
 
 const overrides: ThemeOverride = {
+  styles: {
+    global: {
+      "body, #__next": {
+        width: "full",
+        height: "full",
+      },
+      html: {
+        scrollBehavior: "smooth",
+      },
+    },
+  },
   colors: {
     primary: {
       50: "#faf5eb",

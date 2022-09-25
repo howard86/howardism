@@ -1,4 +1,4 @@
-import { Box, Link } from "@chakra-ui/react";
+import { Box, chakra, Link } from "@chakra-ui/react";
 
 export default function Footer(): JSX.Element {
   return (
@@ -7,13 +7,21 @@ export default function Footer(): JSX.Element {
       px="4"
       py={[6, 8]}
       mt={[60, 90, 90, 120]}
+      color="white"
+      bgColor="blackAlpha.900"
       textAlign="center"
-      borderTopWidth="1px"
-      borderTopStyle="solid"
-      borderTopColor="blackAlpha.200"
+      boxShadow="lg"
     >
-      Copyright &copy; {new Date().getFullYear()}{" "}
-      <Link href="https://github.com/howard86" isExternal>
+      <chakra.span verticalAlign="sub">&copy;</chakra.span> {new Date().getFullYear()}
+      {" by "}
+      <Link
+        href="https://github.com/howard86"
+        _hover={{
+          color: "secondary.500",
+          textDecor: "underline",
+        }}
+        isExternal
+      >
         Howard86
       </Link>
     </Box>
