@@ -1,6 +1,48 @@
 # Changelog
 
+<a name="1.0.22"></a>
+
+## 1.0.22 (2022-09-25)
+
+### Added
+
+- 👷‍♂️ feat: migrate circleci to github actions for pnpm support [[b0c5f92](https://github.com/Howard86/howardism/commit/b0c5f92b1f87ab302957a97c8a5386c519876d38)]
+
+### Changed
+
+- 🔧 chore: update root script [[94ad98c](https://github.com/Howard86/howardism/commit/94ad98ca98ab136dda07039cb4e256fc0db16782)]
+- 🔧 chore: support analyze script for apps [[4e7c673](https://github.com/Howard86/howardism/commit/4e7c673f5c4b95940505c2bc9eb8e0a00535ef93)]
+- ♻️ refactor: update based on new eslint config [[94f090a](https://github.com/Howard86/howardism/commit/94f090ae466d2b04605838198d857780c3a9c65e)]
+- 🔧 feat: improve build time with nx [[9ceb543](https://github.com/Howard86/howardism/commit/9ceb543b66753d20de38ab87a370f0969a9ca610)]
+- 🔧 test: fix jest config &amp; mocks with next/jest [[f20b3ac](https://github.com/Howard86/howardism/commit/f20b3acf99117152599287651a61419900dff8ae)]
+- ♻️ refactor(minecraft)!: update based on deps changes [[5ad1a27](https://github.com/Howard86/howardism/commit/5ad1a275d8f87039fce144acd170ecaa8e02efcf)]
+- ♻️ refactor(template)!: update based on deps changes [[592603e](https://github.com/Howard86/howardism/commit/592603e9f267cda55138fa8ba861ba221b8bb4d0)]
+- ♻️ refactor(recipe)!: update based on deps changes [[c9b11f6](https://github.com/Howard86/howardism/commit/c9b11f62c142c52fb1fddd76757bf6aaeddf286b)]
+- ♻️ refactor(github)!: update based on deps changes [[14c64c1](https://github.com/Howard86/howardism/commit/14c64c1cb1b337d903d97aa106582a94d1867b93)]
+- ♻️ refactor(blog)!: update based on deps changes [[5155dfd](https://github.com/Howard86/howardism/commit/5155dfdd1a34ba6dee60b8a498eff835d0fae8b5)]
+
+### Removed
+
+- 🔥 fix: remove over use of memo [[7ec2ad0](https://github.com/Howard86/howardism/commit/7ec2ad05a90e58a031a2221eca2c93aa068ce6c6)]
+
+### Fixed
+
+- 💚 ci: update circleci with pnpm config [[908e130](https://github.com/Howard86/howardism/commit/908e130176c38b5eb89d210f838c8d3fa9521430)]
+
+### Miscellaneous
+
+- 1.0.22 [[b5b9037](https://github.com/Howard86/howardism/commit/b5b90379848942c4edff0b6e9eef0fa247a32d8d)]
+- 📦 chore: install gitmoji changelog [[d892d2e](https://github.com/Howard86/howardism/commit/d892d2e7472868bd9a32db2f1dd4ba7499b2e5fe)]
+- 📦 chore: install nextjs bundle analyzer [[c36f2dc](https://github.com/Howard86/howardism/commit/c36f2dcd0e26e2925c3dfb542b3243457203cf88)]
+- 📦 chore: install more eslint rules [[537e4fb](https://github.com/Howard86/howardism/commit/537e4fb3cd345995306ae791c4f32d2abfe1c21e)]
+- 📦 chore: install nx [[b3a65cb](https://github.com/Howard86/howardism/commit/b3a65cb8c64a8c1ae213df178c5f2b34db4b7b4b)]
+- 📦 feat!: add peer &amp; update all dependencies [[602f8b5](https://github.com/Howard86/howardism/commit/602f8b55976b917665440181143b355e52e4acdc)]
+- 📦 feat!: migrate to pnpm [[3d75f57](https://github.com/Howard86/howardism/commit/3d75f57c35d0e25004f98ac96419195160496031)]
+- 🔀 Merge pull request [#30](https://github.com/Howard86/howardism/issues/30) from Howard86/feature/add-sudoku-ui [[148fe5e](https://github.com/Howard86/howardism/commit/148fe5e8b99d98d14d9d44e665844cc8145ab22a)]
+- 📝 docs: update CHANGELOG [[40b5ecb](https://github.com/Howard86/howardism/commit/40b5ecb0d03dc6703a948a01f71b0703c190d0db)]
+
 <a name="1.0.21"></a>
+
 ## 1.0.21 (2021-08-28)
 
 ### Fixed
@@ -12,8 +54,8 @@
 - 📝 docs: bump version to 1.0.21 [[507936b](https://github.com/Howard86/howardism/commit/507936bd0b5fd3812d31fb427365f3b0dfb582f4)]
 - 📝 docs: update CHANGELOG [[0107382](https://github.com/Howard86/howardism/commit/0107382ed5eaf18becc466d994bdf677f38489ca)]
 
-
 <a name="1.0.20"></a>
+
 ## 1.0.20 (2021-08-28)
 
 ### Added
@@ -39,8 +81,8 @@
 - 🔀 Merge pull request [#29](https://github.com/Howard86/howardism/issues/29) from Howard86/feature/update-recipe-style [[4cebfda](https://github.com/Howard86/howardism/commit/4cebfdaa25ac0ca92b9cda1d5f15116143fb8700)]
 - 📝 docs: update CHANGELOG [[02b6872](https://github.com/Howard86/howardism/commit/02b68729cf34e7f027b34601d0de3cff0f0d7cc9)]
 
-
 <a name="1.0.19"></a>
+
 ## 1.0.19 (2021-07-24)
 
 ### Changed
@@ -61,11 +103,11 @@
 
 - 📝 docs: bump version to 1.0.19 [[d5c6c61](https://github.com/Howard86/howardism/commit/d5c6c612e19173c143cdad6ca31e5dcf2cafca78)]
 - 🌐 feat: update texture for zh_CN [[2f0bf64](https://github.com/Howard86/howardism/commit/2f0bf645f26b9c7b04374f5738dc0e0a91b71e78)]
--  Merge pull request [#27](https://github.com/Howard86/howardism/issues/27) from Howard86/feature/add-sudoku-libs [[c1aa27f](https://github.com/Howard86/howardism/commit/c1aa27f782f788fd207b6d59ea7599e1f9432e4b)]
+- Merge pull request [#27](https://github.com/Howard86/howardism/issues/27) from Howard86/feature/add-sudoku-libs [[c1aa27f](https://github.com/Howard86/howardism/commit/c1aa27f782f788fd207b6d59ea7599e1f9432e4b)]
 - 📝 docs: update CHANGELOG [[31ef8ce](https://github.com/Howard86/howardism/commit/31ef8ce7786493db50d5c11976952672f0f6ac99)]
 
-
 <a name="1.0.18"></a>
+
 ## 1.0.18 (2021-07-18)
 
 ### Added
@@ -110,8 +152,8 @@
 - 📝 docs: update CHANGELOG [[d08474a](https://github.com/Howard86/howardism/commit/d08474a1017b79a93bec87441cef1332961736dd)]
 - 📝 chore: update typos on jsdoc [[a36ad0f](https://github.com/Howard86/howardism/commit/a36ad0f42f5673e590eb5cba26726e97456a00a3)]
 
-
 <a name="1.0.17"></a>
+
 ## 1.0.17 (2021-07-17)
 
 ### Added
@@ -140,8 +182,8 @@
 - 🔀 Merge pull request [#26](https://github.com/Howard86/howardism/issues/26) from Howard86/feature/replace-with-cms [[5c86b02](https://github.com/Howard86/howardism/commit/5c86b02c16be2e4a28589a249349fa2851c6d247)]
 - 📝 docs: update CHANGELOG [[0e243bb](https://github.com/Howard86/howardism/commit/0e243bb8b847129db8d101c55fc3d872ac2ab700)]
 
-
 <a name="1.0.16"></a>
+
 ## 1.0.16 (2021-06-27)
 
 ### Added
@@ -167,8 +209,8 @@
 - 📝 docs: update CHANGELOG [[bd2c76b](https://github.com/Howard86/howardism/commit/bd2c76bdf33963720187cbe93d9321772ca17a35)]
 - 🔀 Merge branch &#x27;master&#x27; into feature/replace-with-cms [[d74a898](https://github.com/Howard86/howardism/commit/d74a8988740d6b6e384274c77c145c954c62aa27)]
 
-
 <a name="1.0.15"></a>
+
 ## 1.0.15 (2021-06-27)
 
 ### Changed
@@ -186,8 +228,8 @@
 - 🔀 Merge pull request [#24](https://github.com/Howard86/howardism/issues/24) from Howard86/feature/update-recipe-site [[07d00b4](https://github.com/Howard86/howardism/commit/07d00b454850c6765a51de521e1550eebe7ac7eb)]
 - 📝 chore: update CHANGELOG [[b852696](https://github.com/Howard86/howardism/commit/b8526968b308bc7f85add765730a6a300b299a8d)]
 
-
 <a name="1.0.14"></a>
+
 ## 1.0.14 (2021-06-26)
 
 ### Added
@@ -219,11 +261,11 @@
 
 ### Miscellaneous
 
--  Merge pull request [#23](https://github.com/Howard86/howardism/issues/23) from Howard86/feature/update-monorepo-config [[66b970f](https://github.com/Howard86/howardism/commit/66b970ffc74708008b8f4d43290e080acf630d82)]
+- Merge pull request [#23](https://github.com/Howard86/howardism/issues/23) from Howard86/feature/update-monorepo-config [[66b970f](https://github.com/Howard86/howardism/commit/66b970ffc74708008b8f4d43290e080acf630d82)]
 - 📝 chore: update CHANGELOG [[d877491](https://github.com/Howard86/howardism/commit/d877491e8cea388e327a01dd6153df91a7a0378c)]
 
-
 <a name="1.0.13"></a>
+
 ## 1.0.13 (2021-06-20)
 
 ### Added
@@ -251,8 +293,8 @@
 - 🔀 Merge pull request [#22](https://github.com/Howard86/howardism/issues/22) from Howard86/feature/upgrade-template [[665a93c](https://github.com/Howard86/howardism/commit/665a93c68fd359e6137e02bdcea3c7e959468dc5)]
 - 📝 update CHANGELOG [[e44ed04](https://github.com/Howard86/howardism/commit/e44ed0477d7ffa498fe04734bbf31d2ed83cd71d)]
 
-
 <a name="1.0.12"></a>
+
 ## 1.0.12 (2021-06-19)
 
 ### Added
@@ -282,8 +324,8 @@
 - 🔀 Merge pull request [#21](https://github.com/Howard86/howardism/issues/21) from Howard86/feature/add-create-recipe-page [[b3755c6](https://github.com/Howard86/howardism/commit/b3755c69a7a5bf3056d34c8702b04bc38023c0fb)]
 - 📝 update CHANGELOG [[3d5df3a](https://github.com/Howard86/howardism/commit/3d5df3a8d849776ea2923fdefc97e11832c30d16)]
 
-
 <a name="1.0.11"></a>
+
 ## 1.0.11 (2021-05-31)
 
 ### Added
@@ -303,8 +345,8 @@
 - 🔀 Merge pull request [#20](https://github.com/Howard86/howardism/issues/20) from Howard86/feature/add-signin-page [[7e62499](https://github.com/Howard86/howardism/commit/7e624996d6b76307484e5c2649d0f9d17a315606)]
 - 📝 update CHANGELOG [[b5d3c82](https://github.com/Howard86/howardism/commit/b5d3c826082960d626c49d952fc85801be5f79b4)]
 
-
 <a name="1.0.10"></a>
+
 ## 1.0.10 (2021-05-30)
 
 ### Added
@@ -337,8 +379,8 @@
 - 🔀 Merge pull request [#19](https://github.com/Howard86/howardism/issues/19) from Howard86/feature/replace-recipe-content-with-cms [[89cc266](https://github.com/Howard86/howardism/commit/89cc266283f5487f374195776061fa2e5e34006c)]
 - 📝 update CHANGELOG [[e459f33](https://github.com/Howard86/howardism/commit/e459f33fea4fb5ef218e14f4a1b96ed19b83e433)]
 
-
 <a name="1.0.9"></a>
+
 ## 1.0.9 (2021-05-03)
 
 ### Added
@@ -360,11 +402,11 @@
 ### Miscellaneous
 
 - 🏷️ add recipe types [[56366c0](https://github.com/Howard86/howardism/commit/56366c0e8a231cf0934786df3be6ee2a5c84ab37)]
--  Merge pull request [#18](https://github.com/Howard86/howardism/issues/18) from Howard86/feature/add-recipe-ci-cd [[2e6522f](https://github.com/Howard86/howardism/commit/2e6522f9a6e1758e88f730f25a0e3a3ba51fe945)]
+- Merge pull request [#18](https://github.com/Howard86/howardism/issues/18) from Howard86/feature/add-recipe-ci-cd [[2e6522f](https://github.com/Howard86/howardism/commit/2e6522f9a6e1758e88f730f25a0e3a3ba51fe945)]
 - 📝 update CHANGELOG [[5799ad5](https://github.com/Howard86/howardism/commit/5799ad503d1a8ebc40c6aaa09035b8909ffdeb4f)]
 
-
 <a name="1.0.8"></a>
+
 ## 1.0.8 (2021-04-20)
 
 ### Added
@@ -377,11 +419,11 @@
 
 ### Miscellaneous
 
--  Merge pull request [#17](https://github.com/Howard86/howardism/issues/17) from Howard86/feature/add-recipe-site [[972758b](https://github.com/Howard86/howardism/commit/972758b3ddf83a1f3fe0a9a1a67e5ca3fe7b062f)]
+- Merge pull request [#17](https://github.com/Howard86/howardism/issues/17) from Howard86/feature/add-recipe-site [[972758b](https://github.com/Howard86/howardism/commit/972758b3ddf83a1f3fe0a9a1a67e5ca3fe7b062f)]
 - 📝 update CHANGELOG [[5e05fd9](https://github.com/Howard86/howardism/commit/5e05fd996b0449f66d99c97cba6ffaed5847ed4b)]
 
-
 <a name="1.0.7"></a>
+
 ## 1.0.7 (2021-04-19)
 
 ### Added
@@ -417,13 +459,13 @@
 
 ### Miscellaneous
 
--  feat: add LayerCheckboxes [[f265b56](https://github.com/Howard86/howardism/commit/f265b5651a5a1998955b615d48680f2dee96353c)]
+- feat: add LayerCheckboxes [[f265b56](https://github.com/Howard86/howardism/commit/f265b5651a5a1998955b615d48680f2dee96353c)]
 - 🏷️ update pages type and import order [[4e7d1a1](https://github.com/Howard86/howardism/commit/4e7d1a13f9819ecde49335c0edfb6def4f6d3bde)]
--  Merge pull request [#16](https://github.com/Howard86/howardism/issues/16) from Howard86/feature/set-up-minecraft-ci-cd [[814d384](https://github.com/Howard86/howardism/commit/814d384cd1b1f94fa661449739cd7d31ec997b9d)]
+- Merge pull request [#16](https://github.com/Howard86/howardism/issues/16) from Howard86/feature/set-up-minecraft-ci-cd [[814d384](https://github.com/Howard86/howardism/commit/814d384cd1b1f94fa661449739cd7d31ec997b9d)]
 - 📝 update CHANGELOG [[a4d284c](https://github.com/Howard86/howardism/commit/a4d284cada2d1a2249d5f043437207e4f7a7b3f7)]
 
-
 <a name="1.0.6"></a>
+
 ## 1.0.6 (2021-04-10)
 
 ### Fixed
@@ -432,12 +474,12 @@
 
 ### Miscellaneous
 
--  :camera_flash: update HomePage snapshot [[c8f8490](https://github.com/Howard86/howardism/commit/c8f8490e5327aed72cabb15cd8cdcb8db8bbd6c0)]
--  Merge pull request [#15](https://github.com/Howard86/howardism/issues/15) from Howard86/feature/start-react-minecraft [[5cbd6c1](https://github.com/Howard86/howardism/commit/5cbd6c14e9a93d0b88b1056a0f023513bf400840)]
+- :camera_flash: update HomePage snapshot [[c8f8490](https://github.com/Howard86/howardism/commit/c8f8490e5327aed72cabb15cd8cdcb8db8bbd6c0)]
+- Merge pull request [#15](https://github.com/Howard86/howardism/issues/15) from Howard86/feature/start-react-minecraft [[5cbd6c1](https://github.com/Howard86/howardism/commit/5cbd6c14e9a93d0b88b1056a0f023513bf400840)]
 - 📝 update CHANGELOG [[34e23bc](https://github.com/Howard86/howardism/commit/34e23bc25b792db2cb32785c51cf0a06dbb45dce)]
 
-
 <a name="1.0.5"></a>
+
 ## 1.0.5 (2021-04-05)
 
 ### Added
@@ -470,8 +512,8 @@
 - 🔀 Merge pull request [#14](https://github.com/Howard86/howardism/issues/14) from Howard86/feature/add-app-template [[b2dc2e3](https://github.com/Howard86/howardism/commit/b2dc2e30137fb6a6a4fb8b5cf2d01fa4d19d0141)]
 - 📝 update CHANGELOG [[e7432d9](https://github.com/Howard86/howardism/commit/e7432d962d4a89129cf289ed811c19350ed75701)]
 
-
 <a name="1.0.4"></a>
+
 ## 1.0.4 (2021-04-05)
 
 ### Added
@@ -490,8 +532,8 @@
 - 🔀 Merge pull request [#13](https://github.com/Howard86/howardism/issues/13) from Howard86/feature/complete-migration-with-apollo [[e37fb40](https://github.com/Howard86/howardism/commit/e37fb4043040cc0a375d2712d71869948ec708e0)]
 - 📝 update CHANGELOG [[afa8115](https://github.com/Howard86/howardism/commit/afa8115e6cc41d54331eb7a922e47ff546479ded)]
 
-
 <a name="1.0.3"></a>
+
 ## 1.0.3 (2021-04-04)
 
 ### Added
@@ -531,9 +573,8 @@
 
 - 🙈 remove ignored generated contents [[f34e1dc](https://github.com/Howard86/howardism/commit/f34e1dcb0027d79cf7bc900d76ac2174d71d2d0e)]
 - 🙈 ignore generated files and env [[f870462](https://github.com/Howard86/howardism/commit/f870462a3213933d0a01bdc4af71e987d0719417)]
--  Merge pull request [#12](https://github.com/Howard86/howardism/issues/12) from Howard86/feature/migrate-github-search-projects [[1ac3fd7](https://github.com/Howard86/howardism/commit/1ac3fd7f8d668d008e0b986a899f209181acc422)]
+- Merge pull request [#12](https://github.com/Howard86/howardism/issues/12) from Howard86/feature/migrate-github-search-projects [[1ac3fd7](https://github.com/Howard86/howardism/commit/1ac3fd7f8d668d008e0b986a899f209181acc422)]
 - 📝 update CHANGELOG [[2f96af8](https://github.com/Howard86/howardism/commit/2f96af89b8e3db3467b45f7f238f8756a70cc271)]
-
 
 <a name="1.0.2"></a>
 
