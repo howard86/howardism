@@ -1,9 +1,13 @@
+/* eslint-disable react/no-unknown-property */
+import { useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
-import type { PerspectiveCameraProps } from "@react-three/fiber/dist/declarations/src/three-types";
-import { FC, useEffect, useRef } from "react";
 import type { PerspectiveCamera } from "three";
 
-const CustomCamera: FC<PerspectiveCameraProps> = (props) => {
+interface CustomCameraProps {
+  fov: number;
+}
+
+export default function CustomCamera({ fov }: CustomCameraProps) {
   const ref = useRef<PerspectiveCamera>(null);
   const set = useThree((state) => state.set);
 
@@ -13,7 +17,5 @@ const CustomCamera: FC<PerspectiveCameraProps> = (props) => {
     }
   }, [set]);
 
-  return <perspectiveCamera ref={ref} {...props} />;
-};
-
-export default CustomCamera;
+  return <perspectiveCamera ref={ref} fov={fov} />;
+}

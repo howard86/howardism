@@ -19,7 +19,7 @@ export interface PostCardProps {
 
 const DEFAULT_IMAGES: StaticImageData[] = [chip, monitor, desk];
 
-const PostCard = ({ id, title, slug, date, description, tags }: PostCardProps) => {
+export default function PostCard({ id, title, slug, date, description, tags }: PostCardProps) {
   const day = dayjs(date);
 
   return (
@@ -81,6 +81,4 @@ const PostCard = ({ id, title, slug, date, description, tags }: PostCardProps) =
       </Flex>
     </LinkBox>
   );
-};
-
-export default PostCard;
+}

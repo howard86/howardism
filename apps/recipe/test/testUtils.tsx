@@ -1,5 +1,5 @@
-import { render, RenderOptions, RenderResult } from "@testing-library/react";
 import { ReactElement } from "react";
+import { render, RenderOptions, RenderResult } from "@testing-library/react";
 
 import GlobalWrapper from "@/components/GlobalWrapper";
 

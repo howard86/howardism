@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 import { sampleSize } from "@/utils/array";
 
 import { SudokuDifficulty } from "./enum";
@@ -37,11 +38,10 @@ const iterate = (sudoku: Sudoku, rowNumber = 1, columnNumber = 1): boolean => {
 
     const lastRow = sudoku.getRow(DIMENSION);
     for (const numberInput of Sudoku.ARRAY_FROM_ONE_TO_NINE) {
-      if (lastRow.includes(numberInput)) {
-        continue;
+      if (!lastRow.includes(numberInput)) {
+        sudoku.setNumber(DIMENSION, DIMENSION, numberInput);
+        break;
       }
-      sudoku.setNumber(DIMENSION, DIMENSION, numberInput);
-      break;
     }
     return true;
   }
@@ -56,19 +56,17 @@ const iterate = (sudoku: Sudoku, rowNumber = 1, columnNumber = 1): boolean => {
   }
 
   for (const randomNumberInput of sampleSize(Sudoku.ARRAY_FROM_ONE_TO_NINE)) {
-    if (isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
-      continue;
+    if (!isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
+      sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
+
+      // check if it's solved
+      if (iterate(sudoku, rowNumber, columnNumber + 1)) {
+        return true;
+      }
+
+      // else not solved, skip this i
+      sudoku.setNumber(rowNumber, columnNumber, 0);
     }
-
-    sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
-
-    // check if it's solved
-    if (iterate(sudoku, rowNumber, columnNumber + 1)) {
-      return true;
-    }
-
-    // else not solved, skip this i
-    sudoku.setNumber(rowNumber, columnNumber, 0);
   }
 
   return false;
@@ -118,14 +116,12 @@ const getNumberOfSolutions = (
       break;
     }
 
-    if (isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
-      continue;
+    if (!isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
+      sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
+      count = getNumberOfSolutions(sudoku, rowNumber, columnNumber + 1, count);
+      // reset backtracking
+      sudoku.setNumber(rowNumber, columnNumber, 0);
     }
-
-    sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
-    count = getNumberOfSolutions(sudoku, rowNumber, columnNumber + 1, count);
-    // reset backtracking
-    sudoku.setNumber(rowNumber, columnNumber, 0);
   }
 
   return count;
@@ -177,7 +173,7 @@ export const generateBaseOnDifficulty = (level: SudokuDifficulty): Sudoku => {
   let count = 0;
 
   while (count < ITERATION_MAX_COUNT) {
-    count++;
+    count += 1;
     const sudoku = generate();
 
     if (sudoku.difficulty === level) {

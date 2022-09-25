@@ -7,6 +7,7 @@ const config: Config = {
   watchPlugins: ["jest-watch-typeahead/filename", "jest-watch-typeahead/testname"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^@howardism/components-common$": "<rootDir>/../../packages/components/common",
     "^@howardism/(.*)$": "<rootDir>/../../packages/$1",
   },
 };

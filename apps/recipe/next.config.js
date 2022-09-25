@@ -1,4 +1,7 @@
-const withTM = require("next-transpile-modules")(["@howardism/login-form"]);
+const withTM = require("next-transpile-modules")([
+  "@howardism/components-common",
+  "@howardism/login-form",
+]);
 
 /** @type{import('next').NextConfig} */
 const config = {

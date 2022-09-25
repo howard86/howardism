@@ -1,18 +1,17 @@
-import { Flex, IconButton } from "@chakra-ui/react";
-import { FC, useState } from "react";
+import { useState } from "react";
 import { IoMdMenu } from "react-icons/io";
+import { Flex, IconButton } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
 
-import useDocumentScrollThrottled from "@/hooks/useThrottledScroll";
-
-import RouteLink from "./RouteLink";
+import useThrottledScroll from "@/hooks/useThrottledScroll";
 
 export const NAV_BAR_HEIGHT = 20;
 const TIMEOUT_DELAY = 1000;
 
-const NavBar: FC = () => {
+export default function NavBar() {
   const [shouldHideHeader, setShouldHideHeader] = useState(true);
 
-  useDocumentScrollThrottled((previousScrollTop, currentScrollTop) => {
+  useThrottledScroll((previousScrollTop, currentScrollTop) => {
     const isScrolledDown = previousScrollTop < currentScrollTop;
     const isMinimumScrolled = currentScrollTop > NAV_BAR_HEIGHT;
 
@@ -60,6 +59,4 @@ const NavBar: FC = () => {
       </IconButton>
     </Flex>
   );
-};
-
-export default NavBar;
+}

@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 
 type HeadMockProps = { children: ReactNode };
 
-const HeadMock = ({ children }: HeadMockProps) => <>{children}</>;
-
-export default HeadMock;
+export default function HeadMock({ children }: HeadMockProps) {
+  // eslint-disable-next-line react/jsx-no-useless-fragment
+  return <>{children}</>;
+}

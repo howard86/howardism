@@ -2,9 +2,11 @@ import { SudokuDifficulty } from "./enum";
 
 export default class Sudoku {
   static readonly VALID_INPUT_LENGTH = 81;
+
   static readonly ARRAY_FROM_ONE_TO_NINE = new Array(9).fill(0).map((_, i) => i + 1);
 
   private readonly DIFFICULTY_BASE = 20;
+
   private readonly DIFFICULTY_GAP = 10;
 
   static from(code: string): Sudoku {
@@ -24,7 +26,7 @@ export default class Sudoku {
    * @param numberArray - an array of 81 integers between 1 and 9
    */
   constructor(private readonly numberArray: number[]) {
-    this.validateInput(numberArray);
+    this.validateInput();
   }
 
   /**
@@ -60,13 +62,14 @@ export default class Sudoku {
     const zeroCount = this.numberArray.filter((num) => num === 0).length;
     if (zeroCount < this.DIFFICULTY_BASE + this.DIFFICULTY_GAP) {
       return SudokuDifficulty.Beginner;
-    } else if (zeroCount < this.DIFFICULTY_BASE + 2 * this.DIFFICULTY_GAP) {
-      return SudokuDifficulty.Medium;
-    } else if (zeroCount < this.DIFFICULTY_BASE + 3 * this.DIFFICULTY_GAP) {
-      return SudokuDifficulty.Hard;
-    } else {
-      return SudokuDifficulty.Expert;
     }
+    if (zeroCount < this.DIFFICULTY_BASE + 2 * this.DIFFICULTY_GAP) {
+      return SudokuDifficulty.Medium;
+    }
+    if (zeroCount < this.DIFFICULTY_BASE + 3 * this.DIFFICULTY_GAP) {
+      return SudokuDifficulty.Hard;
+    }
+    return SudokuDifficulty.Expert;
   }
 
   /**
@@ -138,14 +141,14 @@ export default class Sudoku {
     this.numberArray[9 * rowIndex + columnIndex - 10] = num;
   }
 
-  private validateInput(input: number[]) {
-    if (input.length !== Sudoku.VALID_INPUT_LENGTH) {
+  private validateInput() {
+    if (this.numberArray.length !== Sudoku.VALID_INPUT_LENGTH) {
       throw new Error(
-        `Incorrect input length=${input.length}, input should only contain ${Sudoku.VALID_INPUT_LENGTH} numbers`
+        `Incorrect input length=${this.numberArray.length}, input should only contain ${Sudoku.VALID_INPUT_LENGTH} numbers`
       );
     }
 
-    const invalidInput = input.filter(
+    const invalidInput = this.numberArray.filter(
       (number) => number < 0 || number > 9 || !Number.isSafeInteger(number)
     );
 

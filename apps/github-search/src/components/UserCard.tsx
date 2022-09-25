@@ -1,13 +1,12 @@
 import { Avatar, LinkBox, LinkOverlay, useBreakpointValue, WrapItem } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { FC } from "react";
 
 interface UserCardProps {
   avatarUrl: string;
   username: string;
 }
 
-const UserCard: FC<UserCardProps> = ({ avatarUrl, username }) => {
+export default function UserCard({ avatarUrl, username }: UserCardProps) {
   const size = useBreakpointValue({ base: "2xl", md: "xl", lg: "2xl" });
 
   return (
@@ -20,6 +19,4 @@ const UserCard: FC<UserCardProps> = ({ avatarUrl, username }) => {
       </NextLink>
     </LinkBox>
   );
-};
-
-export default UserCard;
+}

@@ -11,7 +11,7 @@ import { RiAdminLine, RiGitRepositoryLine, RiTimer2Fill, RiTimerFill } from "rea
 import { SiCodesandbox } from "react-icons/si";
 
 // TODO: add dynamic import for better performance
-const matchIcon = (key: string): IconType => {
+export default function matchIcon(key: string): IconType {
   switch (key) {
     case "login":
       return FaUserCircle;
@@ -91,6 +91,4 @@ const matchIcon = (key: string): IconType => {
     default:
       return FaInfoCircle;
   }
-};
-
-export default matchIcon;
+}

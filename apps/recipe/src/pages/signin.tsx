@@ -1,11 +1,11 @@
+import { useEffect } from "react";
 import { Box } from "@chakra-ui/react";
 import LoginPage, { FormValue } from "@howardism/login-form";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
 
 import useAuth from "@/hooks/useAuth";
 
-const Page = (): JSX.Element => {
+export default function Page(): JSX.Element {
   const { isLoggedIn, login } = useAuth();
   const router = useRouter();
 
@@ -27,6 +27,4 @@ const Page = (): JSX.Element => {
       <LoginPage onLogin={onLogin} />
     </Box>
   );
-};
-
-export default Page;
+}

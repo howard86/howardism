@@ -1,4 +1,4 @@
-interface NavOptions {
+export interface NavOptions {
   href: string;
   title: string;
 }

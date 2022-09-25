@@ -1,7 +1,6 @@
+import { FiShare } from "react-icons/fi";
 import { Box, Heading, Icon, LinkBox, LinkOverlay, VStack } from "@chakra-ui/react";
 import NextLink from "next/link";
-import { FC } from "react";
-import { FiShare } from "react-icons/fi";
 
 import demo from "@/../public/assets/demo.jpg";
 import type { Recipe } from "@/types/recipe";
@@ -12,7 +11,7 @@ interface IntroProps {
   recipes: Recipe[];
 }
 
-const Intro: FC<IntroProps> = ({ recipes }) => {
+export default function Intro({ recipes }: IntroProps) {
   return (
     <Box p="8">
       <Heading fontSize="xl">Top Recipes</Heading>
@@ -46,6 +45,4 @@ const Intro: FC<IntroProps> = ({ recipes }) => {
       </VStack>
     </Box>
   );
-};
-
-export default Intro;
+}

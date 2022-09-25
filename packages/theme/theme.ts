@@ -1,6 +1,6 @@
-import { extendTheme } from "@chakra-ui/react";
+import { type ThemeOverride, extendTheme } from "@chakra-ui/react";
 
-const theme = extendTheme({
+const overrides: ThemeOverride = {
   colors: {
     primary: {
       50: "#faf5eb",
@@ -32,6 +32,8 @@ const theme = extendTheme({
     heading: "Roboto",
     monospace: "Menlo, monospace",
   },
-});
+};
+
+const theme = extendTheme(overrides);
 
 export default theme;

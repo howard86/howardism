@@ -1,6 +1,6 @@
-import Home from "@/pages/index";
+import { render } from "@testing-library/react";
 
-import { render } from "../testUtils";
+import Home from "@/pages/index";
 
 describe("Home page", () => {
   it("matches snapshot", () => {

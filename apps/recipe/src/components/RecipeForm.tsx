@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Button,
   FormControl,
@@ -8,7 +9,6 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
-import { useState } from "react";
 
 import useAppToast from "@/hooks/useAppToast";
 import api, { LocalAPIResponse } from "@/redux/api";
@@ -37,10 +37,11 @@ const initialValues: RawRecipe = {
   steps: [],
 };
 
-const RecipeForm = (): JSX.Element => {
+export default function RecipeForm(): JSX.Element {
   const [isChecked, setChecked] = useState(false);
   const toast = useAppToast();
 
+  // eslint-disable-next-line consistent-return
   const validateString = (field?: string) => {
     if (!field) {
       return "This field must not be empty";
@@ -136,6 +137,4 @@ const RecipeForm = (): JSX.Element => {
       )}
     </Formik>
   );
-};
-
-export default RecipeForm;
+}

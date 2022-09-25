@@ -1,5 +1,5 @@
-import { Box, Checkbox, Text, VStack } from "@chakra-ui/react";
 import { ChangeEvent, useState } from "react";
+import { Box, Checkbox, Text, VStack } from "@chakra-ui/react";
 
 import type { Ingredient } from "@/types/recipe";
 
@@ -8,7 +8,7 @@ interface LayerCheckboxesProps {
   options: Ingredient[];
 }
 
-const LayerCheckboxes = ({ title, options }: LayerCheckboxesProps) => {
+export default function LayerCheckboxes({ title, options }: LayerCheckboxesProps) {
   const [checkedItems, setCheckedItems] = useState<boolean[]>(Array(options.length).fill(false));
 
   const isAllChecked = checkedItems.every(Boolean);
@@ -52,6 +52,4 @@ const LayerCheckboxes = ({ title, options }: LayerCheckboxesProps) => {
       </VStack>
     </Box>
   );
-};
-
-export default LayerCheckboxes;
+}

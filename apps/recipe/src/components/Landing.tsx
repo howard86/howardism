@@ -1,17 +1,16 @@
 import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
+import { Image } from "@howardism/components-common";
 import { StaticImageData } from "next/image";
-import { FC } from "react";
 
 import backgroundImage from "@/../public/assets/background.jpg";
 
-import Image from "./Image";
 import Triangle from "./Triangle";
 
 interface LandingProps {
   imageUrl: string | StaticImageData;
 }
 
-const Landing: FC<LandingProps> = ({ imageUrl }) => {
+export default function Landing({ imageUrl }: LandingProps) {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
     alert("clicked!");
@@ -78,6 +77,4 @@ const Landing: FC<LandingProps> = ({ imageUrl }) => {
       </Flex>
     </Flex>
   );
-};
-
-export default Landing;
+}

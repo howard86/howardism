@@ -1,15 +1,15 @@
-import { Container } from "@chakra-ui/react";
 import { ChildrenProps } from "react";
+import { Container } from "@chakra-ui/react";
 
 import Footer from "./Footer";
 
-const Layout = ({ children }: ChildrenProps) => (
-  <>
-    <Container as="main" maxW="container.xl">
-      {children}
-    </Container>
-    <Footer />
-  </>
-);
-
-export default Layout;
+export default function Layout({ children }: ChildrenProps) {
+  return (
+    <>
+      <Container as="main" maxW="container.xl">
+        {children}
+      </Container>
+      <Footer />
+    </>
+  );
+}

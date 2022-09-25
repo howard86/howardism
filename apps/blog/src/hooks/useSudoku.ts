@@ -88,13 +88,14 @@ const useSudoku = (): UseSudoku => {
     const result = await fetch(`/api/sudoku?difficulty=${difficulty}`);
 
     if (!result.ok) {
-      return dispatch({
+      dispatch({
         type: "request",
         payload: {
           success: false,
           message: result.statusText,
         },
       });
+      return;
     }
 
     const response = await result.json();

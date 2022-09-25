@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import {
   Button,
+  ButtonProps,
   CircularProgress,
   CircularProgressLabel,
   Container,
@@ -11,7 +13,6 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
-import { useMemo } from "react";
 
 import sudoku from "@/assets/john-morgan-sudoku.jpg";
 import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku";
@@ -20,7 +21,13 @@ import useSudoku from "@/hooks/useSudoku";
 const LIGHT_COLOR = "blackAlpha.100";
 const DARK_COLOR = "blackAlpha.700";
 
-const SudokuPage = (): JSX.Element => {
+const getBgColor = (selected: number, index: number, gameIndex: number): ButtonProps["color"] => {
+  if (selected === index) return "blue.100";
+
+  return gameIndex > 0 ? LIGHT_COLOR : "white";
+};
+
+export default function SudokuPage(): JSX.Element {
   const { loading, selected, onStart, answer, game, message, onSelect, onUpdate } = useSudoku();
   const numberArray = useMemo(() => new Array(9).fill(0).map((_, index) => index + 1), []);
 
@@ -48,6 +55,7 @@ const SudokuPage = (): JSX.Element => {
           <SimpleGrid columns={9}>
             {answer.map((cell, index) => (
               <Button
+                // eslint-disable-next-line react/no-array-index-key
                 key={`${cell}-${index}`}
                 variant="outline"
                 boxSize="12"
@@ -65,7 +73,7 @@ const SudokuPage = (): JSX.Element => {
                 borderBottomColor={index % 27 > 17 ? DARK_COLOR : LIGHT_COLOR}
                 borderLeftColor={index % 3 === 0 ? DARK_COLOR : LIGHT_COLOR}
                 borderRightColor={index % 3 === 2 ? DARK_COLOR : LIGHT_COLOR}
-                bg={selected === index ? "blue.100" : game[index] > 0 ? LIGHT_COLOR : "white"}
+                bg={getBgColor(selected, index, game[index])}
                 onClick={() => onSelect(index)}
               >
                 {cell > 0 ? cell : ""}
@@ -90,6 +98,4 @@ const SudokuPage = (): JSX.Element => {
       {message && <Text>Ooops, encounter an error {message}</Text>}
     </Container>
   );
-};
-
-export default SudokuPage;
+}

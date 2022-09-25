@@ -17,22 +17,24 @@
  * sampleSize([1, 2, 3], 4)
  * // => [2, 3, 1]
  */
+// eslint-disable-next-line import/prefer-default-export
 export const sampleSize = <T>(array: T[], n: number = array.length): T[] => {
-  const length = array.length;
+  const { length } = array;
 
   if (length <= 1) {
     return array;
   }
 
   const count = n > length ? length : n;
-  let index = -1;
+  let index = 0;
   const lastIndex = length - 1;
   const result = [...array];
-  while (++index < count) {
+  while (index < count) {
     const rand = index + Math.floor(Math.random() * (lastIndex - index + 1));
     const value = result[rand];
     result[rand] = result[index];
     result[index] = value;
+    index += 1;
   }
   return result.slice(0, count);
 };
