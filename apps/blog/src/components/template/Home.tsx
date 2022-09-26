@@ -7,6 +7,7 @@ import profile from "@/../public/profile.jpeg";
 import type { PostCardProps } from "../blog/PostCard";
 import PostCard from "../blog/PostCard";
 import SocialIconLink from "../blog/SocialIconLink";
+import HomeSection from "../sections/HomeSection";
 
 export interface HomeProps {
   posts: PostCardProps[];
@@ -15,8 +16,9 @@ export interface HomeProps {
 export default function Home({ posts }: HomeProps): JSX.Element {
   return (
     <>
+      <HomeSection />
       <Container
-        id="home"
+        id="portfolio"
         maxW="container.sm"
         textAlign="center"
         pt={[50, 70, 100, 120, 150]}

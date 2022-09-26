@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FaGithub } from "react-icons/fa";
 import Scrollspy from "react-scrollspy";
-import { Box, chakra, Flex, Icon } from "@chakra-ui/react";
+import { Box, chakra, ChakraProps, Flex, Icon } from "@chakra-ui/react";
 import { RouteLink } from "@howardism/components-common";
 import throttle from "lodash.throttle";
 
@@ -12,23 +12,28 @@ const THROTTLE_SEC = 200;
 
 export const SCROLL_SPY_ITEMS = ["home", "portfolio", "contact"];
 
+const activeState: ChakraProps["sx"] = {
+  color: "secondary.500",
+  span: {
+    _first: {
+      transform: "translateY(-150%)",
+    },
+    _notFirst: {
+      top: "50%",
+      transform: "translateY(-50%)",
+    },
+  },
+};
+
 const ChakraScrollspy = chakra(Scrollspy, {
   baseStyle: {
     display: "flex",
     alignItems: "center",
     m: 0,
     listStyleType: "none",
-    "li.current a": {
-      color: "secondary.500",
-      span: {
-        _first: {
-          transform: "translateY(-150%)",
-        },
-        _notFirst: {
-          top: "50%",
-          transform: "translateY(-50%)",
-        },
-      },
+    "li.current a": activeState,
+    "li a": {
+      _hover: activeState,
     },
   },
 });
@@ -45,7 +50,7 @@ export default function Header() {
     window.addEventListener("scroll", changeBackground);
 
     return () => window.removeEventListener("scroll", changeBackground);
-  });
+  }, []);
 
   return (
     <Box
@@ -54,7 +59,7 @@ export default function Header() {
       top={0}
       left={0}
       right={0}
-      zIndex="docked"
+      zIndex="banner"
       transition="all 0.8s ease"
     >
       <Flex

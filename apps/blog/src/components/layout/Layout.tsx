@@ -1,5 +1,5 @@
 import { ChildrenProps } from "react";
-import { Box, Container } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import dynamic from "next/dynamic";
 
 import Footer from "./Footer";
@@ -21,9 +21,7 @@ export default function Layout({ children }: ChildrenProps) {
       />
       <ScrollToTop />
       <Header />
-      <Container as="main" maxW="container.xl">
-        {children}
-      </Container>
+      <main>{children}</main>
       <Footer />
     </Box>
   );
