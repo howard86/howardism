@@ -12,6 +12,8 @@ const SKIPPED_PROPS: ImagePropKey[] = [
   "quality",
   "placeholder",
   "priority",
+  "objectFit",
+  "objectPosition",
 ];
 
 const Image = chakra(NextImage, {
