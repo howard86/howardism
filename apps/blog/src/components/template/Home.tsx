@@ -8,6 +8,7 @@ import type { PostCardProps } from "../blog/PostCard";
 import PostCard from "../blog/PostCard";
 import SocialIconLink from "../blog/SocialIconLink";
 import AboutSection from "../sections/AboutSection";
+import ExperienceSection from "../sections/ExprienceSection";
 import HomeSection from "../sections/HomeSection";
 
 export interface HomeProps {
@@ -19,6 +20,7 @@ export default function Home({ posts }: HomeProps): JSX.Element {
     <>
       <HomeSection />
       <AboutSection />
+      <ExperienceSection />
       <Container
         id="portfolio"
         maxW="container.sm"

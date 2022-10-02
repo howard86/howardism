@@ -2,7 +2,6 @@ import {
   Box,
   Center,
   chakra,
-  Container,
   Divider,
   Heading,
   List,
@@ -13,6 +12,8 @@ import {
 import { Image } from "@howardism/components-common";
 
 import profilePicture from "@/../public/profile.jpeg";
+
+import SectionWrapper from "./SectionWrapper";
 
 interface AboutListItemProps {
   title: string;
@@ -41,31 +42,8 @@ function AboutListItem({ title, description }: AboutListItemProps) {
 
 export default function AboutSection() {
   return (
-    <Container as="section" id="about" my="60px" maxW="container.xl">
-      <chakra.span
-        pos="relative"
-        fontWeight="medium"
-        color="secondary.500"
-        mb={3}
-        _before={{
-          position: "absolute",
-          content: "''",
-          w: 10,
-          height: "1px",
-          backgroundColor: "secondary.500",
-          top: "50%",
-          transform: "translateY(-50%)",
-          left: "100%",
-          mx: 2.5,
-        }}
-      >
-        About
-      </chakra.span>
-      <Heading fontSize="5xl" mb={4}>
-        About Me
-      </Heading>
-      <Text>Howardism&apos;s whereabouts</Text>
-      <SimpleGrid columns={[1, null, 2]} gap={10} mt={12}>
+    <SectionWrapper tag="about" title="About Me" description={"Howardism's whereabouts"}>
+      <SimpleGrid columns={[1, null, 2]} gap={10}>
         <Center data-aos="fade-right" data-aos-duration="1200">
           <Image src={profilePicture} rounded="sm" overflow="hidden" />
         </Center>
@@ -87,6 +65,6 @@ export default function AboutSection() {
           </List>
         </Box>
       </SimpleGrid>
-    </Container>
+    </SectionWrapper>
   );
 }
