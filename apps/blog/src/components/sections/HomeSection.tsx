@@ -2,6 +2,8 @@ import { Parallax } from "react-parallax";
 import ReactTyped from "react-typed";
 import { Box, Button, chakra, Container, Heading, keyframes, Text } from "@chakra-ui/react";
 
+import { SectionId } from "@/constants/nav";
+
 const ANIMATION_TYPE = "fade-up";
 const ANIMATION_DURATION = "1200";
 
@@ -23,7 +25,7 @@ export default function HomeSection() {
       bgImageStyle={{ objectFit: "cover", objectPosition: "center" }}
       blur={{ min: 0, max: 2 }}
     >
-      <Box as="section" id="home" pos="relative" w="full" minH="100vh" overflow="hidden">
+      <Box as="section" id={SectionId.Home} pos="relative" w="full" minH="100vh" overflow="hidden">
         <Box
           position="absolute"
           bottom={30}
@@ -120,7 +122,7 @@ export default function HomeSection() {
               web architecture, facing and tackling challenges in fast-paced start-ups since the
               first day of my job!
             </Text>
-            <Button as="a" variant="outline" alignSelf="start" href="#portfolio">
+            <Button as="a" variant="outline" alignSelf="start" href={`#${SectionId.About}`}>
               See Projects
             </Button>
           </Box>

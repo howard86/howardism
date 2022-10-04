@@ -1,5 +1,7 @@
 import { chakra, Flex, SimpleGrid } from "@chakra-ui/react";
 
+import { SectionId } from "@/constants/nav";
+
 import SectionWrapper from "./SectionWrapper";
 
 interface ResourceCardProps {
@@ -21,6 +23,7 @@ function ResourceCard({ title, description }: ResourceCardProps) {
 export default function ResourceSection() {
   return (
     <SectionWrapper
+      id={SectionId.Resource}
       tag="resource"
       title="Resources"
       description="Fun, thoughts, links, books and more"

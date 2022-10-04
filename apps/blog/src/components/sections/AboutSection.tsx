@@ -12,6 +12,7 @@ import {
 import { Image } from "@howardism/components-common";
 
 import profilePicture from "@/../public/profile.jpeg";
+import { SectionId } from "@/constants/nav";
 
 import SectionWrapper from "./SectionWrapper";
 
@@ -42,7 +43,12 @@ function AboutListItem({ title, description }: AboutListItemProps) {
 
 export default function AboutSection() {
   return (
-    <SectionWrapper tag="about" title="About Me" description={"Howardism's whereabouts"}>
+    <SectionWrapper
+      id={SectionId.About}
+      tag="about"
+      title="About Me"
+      description={"Howardism's whereabouts"}
+    >
       <SimpleGrid columns={[1, null, 2]} gap={10}>
         <Center data-aos="fade-right" data-aos-duration="1200">
           <Image src={profilePicture} rounded="sm" overflow="hidden" />

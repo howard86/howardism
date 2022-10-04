@@ -18,6 +18,8 @@ import {
   Text,
 } from "@chakra-ui/react";
 
+import { SectionId } from "@/constants/nav";
+
 import SectionWrapper from "./SectionWrapper";
 
 interface ExperienceCardProps extends BoxProps {
@@ -105,6 +107,7 @@ function SkillCard({ title, description, icon = FiPackage, ...props }: SkillCard
 export default function ExperienceSection() {
   return (
     <SectionWrapper
+      id={SectionId.Exprience}
       tag="experience"
       title="Experience"
       description="A list of past records"
