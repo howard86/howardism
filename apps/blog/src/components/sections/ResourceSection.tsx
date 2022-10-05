@@ -28,7 +28,7 @@ export default function ResourceSection() {
       title="Resources"
       description="Fun, thoughts, links, books and more"
     >
-      <SimpleGrid columns={[2, 3, 4]} spacing={1}>
+      <SimpleGrid columns={[2, 3, 4]} spacing={3}>
         <ResourceCard
           title="Clean Code by Robert C. Martin"
           description="A Handbook of Agile Software Craftsmanship"

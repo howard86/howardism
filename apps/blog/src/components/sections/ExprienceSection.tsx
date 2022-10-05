@@ -112,7 +112,6 @@ export default function ExperienceSection() {
       title="Experience"
       description="A list of past records"
       bg="gray.50"
-      pb={12}
     >
       <Tabs variant="solid-rounded" colorScheme="secondary">
         <TabList gap={4}>
@@ -121,7 +120,7 @@ export default function ExperienceSection() {
           <Tab rounded="md">Skills</Tab>
         </TabList>
         <TabPanels>
-          <TabPanel>
+          <TabPanel px="0">
             <SimpleGrid columns={[1, 2, 3]} spacing={3}>
               <ProjectCard
                 title="next-api-handler"
@@ -191,7 +190,7 @@ export default function ExperienceSection() {
               />
             </SimpleGrid>
           </TabPanel>
-          <TabPanel>
+          <TabPanel px="0">
             <SimpleGrid columns={[1, 2, 2]} spacing={2}>
               <SkillCard
                 title="TypeScript"

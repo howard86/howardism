@@ -9,7 +9,7 @@ const ANIMATION_DURATION = "1200";
 
 const descriptions = ["Web Developer", "Lifelong Learner", "Mathemachicken Lover!"];
 
-const imagePath = "assets/carl-heyerdahl-desk.jpg";
+const imagePath = "/cover.jpg";
 
 const down = keyframes`
   0% { top: 5px; opacity: 0 }
@@ -19,13 +19,13 @@ const down = keyframes`
 
 export default function HomeSection() {
   return (
-    <Parallax
-      bgImage={imagePath}
-      strength={500}
-      bgImageStyle={{ objectFit: "cover", objectPosition: "center" }}
-      blur={{ min: 0, max: 2 }}
-    >
-      <Box as="section" id={SectionId.Home} pos="relative" w="full" minH="100vh" overflow="hidden">
+    <Box as="section" id={SectionId.Home} pos="relative" w="full" overflow="hidden">
+      <Parallax
+        bgImage={imagePath}
+        strength={500}
+        bgImageStyle={{ objectFit: "cover", objectPosition: "top" }}
+        blur={{ min: 0, max: 2 }}
+      >
         <Box
           position="absolute"
           bottom={30}
@@ -68,6 +68,8 @@ export default function HomeSection() {
             minH="100vh"
             display="flex"
             flexDir="column"
+            color="white"
+            textShadow="2px 4px 3px rgba(0,0,0,0.3)"
             justifyContent="center"
           >
             <Text
@@ -91,7 +93,7 @@ export default function HomeSection() {
             </Heading>
             <chakra.h2
               fontSize="3xl"
-              color="secondary.500"
+              color="secondary.400"
               mb="5"
               fontWeight="semibold"
               data-aos={ANIMATION_TYPE}
@@ -127,7 +129,7 @@ export default function HomeSection() {
             </Button>
           </Box>
         </Container>
-      </Box>
-    </Parallax>
+      </Parallax>
+    </Box>
   );
 }
