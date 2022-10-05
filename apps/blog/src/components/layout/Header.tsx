@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { FaGithub } from "react-icons/fa";
 import Scrollspy from "react-scrollspy";
-import { Box, chakra, ChakraProps, Flex, Icon } from "@chakra-ui/react";
+import { Box, chakra, ChakraProps, Flex } from "@chakra-ui/react";
 import { RouteLink } from "@howardism/components-common";
 import throttle from "lodash.throttle";
 
 import { SECTION_IDS, SECTION_KEYS, SectionId } from "@/constants/nav";
+
+import Logo from "../icons/Logo";
 
 import NavListItem from "./NavListItem";
 
@@ -73,7 +74,10 @@ export default function Header() {
         px={{ base: 4, md: "60px" }}
       >
         <RouteLink href="/">
-          <Icon as={FaGithub} fontSize="2xl" />
+          <Logo
+            color="blackAlpha.800"
+            filter="drop-shadow(0.3px 0.3px 0.4px rgb(0 0 0 / 0.4)) drop-shadow(0.6px 0.6px 1px rgb(0 0 0 / 0.2))"
+          />
         </RouteLink>
         <ChakraScrollspy items={SECTION_IDS} currentClassName={CURRENT_CLASSNAME} offset={-88}>
           {SECTION_KEYS.map((key, i) => (
