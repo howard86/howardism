@@ -1,24 +1,15 @@
-import type { GetStaticProps } from "next";
+import AboutSection from "@/components/sections/AboutSection";
+import ExperienceSection from "@/components/sections/ExprienceSection";
+import HomeSection from "@/components/sections/HomeSection";
+import ResourceSection from "@/components/sections/ResourceSection";
 
-import Home, { HomeProps } from "@/components/template/Home";
-import { fetchBlogPosts } from "@/services/cms";
-
-export const getStaticProps: GetStaticProps<HomeProps> = async () => {
-  const posts = await fetchBlogPosts();
-
-  return {
-    props: {
-      posts: posts.map((post) => ({
-        id: post.id,
-        title: post.title,
-        slug: post.slug,
-        description: post.description,
-        date: post.displayDate || post.created_at,
-        // TODO: add tags from cms
-        tags: [],
-      })),
-    },
-  };
-};
-
-export default Home;
+export default function Home(): JSX.Element {
+  return (
+    <>
+      <HomeSection />
+      <AboutSection />
+      <ExperienceSection />
+      <ResourceSection />
+    </>
+  );
+}

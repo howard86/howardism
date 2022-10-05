@@ -4,3 +4,14 @@ export interface NavOptions {
 }
 
 export const NAV_OPTIONS: NavOptions[] = [{ href: "/", title: "home" }];
+
+export enum SectionId {
+  Home = "home",
+  About = "about",
+  Exprience = "exprience",
+  Resource = "resource",
+}
+
+export const SECTION_IDS = Object.values(SectionId);
+
+export const SECTION_KEYS = Object.keys(SectionId) as (keyof typeof SectionId)[];
