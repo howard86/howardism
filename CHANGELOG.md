@@ -1,5 +1,39 @@
 # Changelog
 
+<a name="next"></a>
+
+## next
+
+### Added
+
+- ✨ feat(resource): add ResourceSection [[5286871](https://github.com/Howard86/howardism/commit/528687131fac4053dd777e2dce35a13799a5e3e1)]
+- ✨ feat: add Experience section [[ccc93db](https://github.com/Howard86/howardism/commit/ccc93db20cc50a292083059dd581c41288fcfa7d)]
+- ✨ feat: add AboutSection [[410545d](https://github.com/Howard86/howardism/commit/410545d0da4f23afe12598dbdbcb79087b9fbca8)]
+- ✨ feat: add HomeSection [[df9fdb6](https://github.com/Howard86/howardism/commit/df9fdb6efad164ea9311c5134c3a82a00d5c3e36)]
+- ✨ feat(layout): update layout with header [[bd23c74](https://github.com/Howard86/howardism/commit/bd23c7416f00346b1ebc0ef0819748e717af83fb)]
+
+### Changed
+
+- 🔧 perf: update next config with faster build [[520ffde](https://github.com/Howard86/howardism/commit/520ffde0acc2e79d5803cc52571d93687318d0e7)]
+- 🍱 chore: update logo, favicons &amp; sitemap [[8ec72fc](https://github.com/Howard86/howardism/commit/8ec72fca2f3f66d81c753c22c49ba023f8c569de)]
+- 💄 chore: update layout margins &amp; paddings [[043f6db](https://github.com/Howard86/howardism/commit/043f6dbc74ce90be00f58e474916f3c3cb85f16e)]
+- ♻️ refactor: clean up theme files [[df5a8ec](https://github.com/Howard86/howardism/commit/df5a8ec99c0eba6af6467dfdad3bf453c745b939)]
+
+### Removed
+
+- 🔥 chore: remove unused components [[29a040b](https://github.com/Howard86/howardism/commit/29a040b61b4008a046dc2c886719f57f14a69e3a)]
+
+### Fixed
+
+- 🐛 fix: update incorrect seciont ids &amp; header [[bae2618](https://github.com/Howard86/howardism/commit/bae261833eefd9f050f35d89474594111f26fa48)]
+
+### Miscellaneous
+
+- 📦 chore: install react-parallax react-typed [[de3eebc](https://github.com/Howard86/howardism/commit/de3eebce787629734186d282700c79f84ca920e7)]
+- 📦 chore: install aos, lodash.throttle, react-animated-cursor, react-scrollspy [[36f00ca](https://github.com/Howard86/howardism/commit/36f00cac8e9c36961cb942a1490c57aa352f2b97)]
+- Merge pull request [#31](https://github.com/Howard86/howardism/issues/31) from Howard86/feature/migrate-to-pnpm [[af232cc](https://github.com/Howard86/howardism/commit/af232cc31d53ff91456c0612674276acd4a8f8f3)]
+- 📝 docs: update CHANGELOG [[effb417](https://github.com/Howard86/howardism/commit/effb41704f7b59d0e895e639d4b4dacb72f0fdc1)]
+
 <a name="1.0.22"></a>
 
 ## 1.0.22 (2022-09-25)
