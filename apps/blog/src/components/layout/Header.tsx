@@ -12,7 +12,7 @@ import NavListItem from "./NavListItem";
 
 const COLOR_CHANGED_Y = 80;
 const THROTTLE_SEC = 200;
-const CURRENT_CLASSNAME = "current";
+const CURRENT_CLASS_NAME = "current";
 
 const activeState: ChakraProps["sx"] = {
   color: "secondary.500",
@@ -79,11 +79,11 @@ export default function Header() {
             filter="drop-shadow(0.3px 0.3px 0.4px rgb(0 0 0 / 0.4)) drop-shadow(0.6px 0.6px 1px rgb(0 0 0 / 0.2))"
           />
         </RouteLink>
-        <ChakraScrollspy items={SECTION_IDS} currentClassName={CURRENT_CLASSNAME} offset={-88}>
+        <ChakraScrollspy items={SECTION_IDS} currentClassName={CURRENT_CLASS_NAME} offset={-88}>
           {SECTION_KEYS.map((key, i) => (
             <NavListItem
               key={key}
-              className={i === 0 ? CURRENT_CLASSNAME : undefined}
+              className={i === 0 ? CURRENT_CLASS_NAME : undefined}
               href={`#${SectionId[key]}`}
               name={key}
             />
