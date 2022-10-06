@@ -4,6 +4,7 @@ import Aos from "aos";
 import type { AppProps } from "next/app";
 import { DefaultSeo } from "next-seo";
 
+import Cursor from "@/components/animations/Cursor";
 import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
 import theme from "@/theme";
@@ -22,6 +23,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <Layout>
           <Component {...pageProps} />
         </Layout>
+        <Cursor />
       </ChakraProvider>
     </>
   );
