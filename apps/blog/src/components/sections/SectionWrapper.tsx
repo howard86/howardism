@@ -16,8 +16,8 @@ export default function SectionWrapper({
   ...props
 }: SectionWrapperProps) {
   return (
-    <Box id={tag} as="section" minH="100vh" pt="70" {...props}>
-      <Container my="12" maxW="container.xl">
+    <Box id={tag} pos="relative" as="section" minH="100vh" bgColor="white" {...props}>
+      <Container py="12" maxW="container.xl">
         <chakra.span
           pos="relative"
           fontWeight="medium"
