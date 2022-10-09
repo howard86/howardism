@@ -8,7 +8,7 @@ export const NAV_OPTIONS: NavOptions[] = [{ href: "/", title: "home" }];
 export enum SectionId {
   Home = "home",
   About = "about",
-  Exprience = "exprience",
+  Experience = "experience",
   Resource = "resource",
 }
 

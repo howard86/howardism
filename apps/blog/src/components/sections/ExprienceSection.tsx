@@ -107,7 +107,7 @@ function SkillCard({ title, description, icon = FiPackage, ...props }: SkillCard
 export default function ExperienceSection() {
   return (
     <SectionWrapper
-      id={SectionId.Exprience}
+      id={SectionId.Experience}
       tag="experience"
       title="Experience"
       description="A list of past records"

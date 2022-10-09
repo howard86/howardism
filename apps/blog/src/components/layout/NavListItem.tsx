@@ -1,14 +1,39 @@
-import { chakra } from "@chakra-ui/react";
+import { chakra, ChakraProps } from "@chakra-ui/react";
 
 interface NavListItemProps {
-  className?: string;
+  isCurrentPage: boolean;
   href: string;
   name: string;
 }
 
-export default function NavListItem({ href, name, className }: NavListItemProps) {
+const activeState: ChakraProps["sx"] = {
+  color: "secondary.500",
+  span: {
+    _first: {
+      transform: "translateY(-150%)",
+    },
+    _notFirst: {
+      top: "50%",
+      transform: "translateY(-50%)",
+    },
+  },
+};
+
+const StyledList = chakra("li", {
+  baseStyle: {
+    listStyleType: "none",
+    _activeLink: {
+      a: activeState,
+    },
+    a: {
+      _hover: activeState,
+    },
+  },
+});
+
+export default function NavListItem({ href, name, isCurrentPage }: NavListItemProps) {
   return (
-    <chakra.li className={className} mr={30}>
+    <StyledList aria-current={isCurrentPage ? "page" : undefined}>
       <chakra.a
         href={href}
         display="block"
@@ -24,6 +49,6 @@ export default function NavListItem({ href, name, className }: NavListItemProps)
           {name}
         </chakra.span>
       </chakra.a>
-    </chakra.li>
+    </StyledList>
   );
 }
