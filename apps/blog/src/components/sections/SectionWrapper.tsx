@@ -27,7 +27,7 @@ export default function SectionWrapper({
       pt={HEADER_OFFSET}
       {...props}
     >
-      <Container maxW="container.xl" pt={6}>
+      <Container maxW="container.lg" py={6}>
         <chakra.span
           pos="relative"
           fontWeight="medium"

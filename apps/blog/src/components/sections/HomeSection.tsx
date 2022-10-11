@@ -8,7 +8,7 @@ import { useInView, useScroll, useTransform, Variants } from "framer-motion";
 import coverPhoto from "@/../public/cover.jpg";
 import { SectionId } from "@/constants/nav";
 
-import SlideText from "../animations/SlideText";
+import SlideBox from "../animations/SlideBox";
 import WavyText from "../animations/WavyText";
 import MotionBox from "../common/MotionBox";
 
@@ -130,11 +130,11 @@ export default function HomeSection() {
             />
           )}
         </chakra.h2>
-        <SlideText
-          as="p"
-          text="I specialise in developing data intensive applications with React (SSR) and improve web architecture, facing and tackling challenges in fast-paced start-ups since the first day of my job!"
-          delay={1.6}
-        />
+        <SlideBox as="p" y={10} delay={1.6}>
+          I specialise in developing data intensive applications with React (SSR) and improve web
+          architecture, facing and tackling challenges in fast-paced start-ups since the first day
+          of my job!
+        </SlideBox>
         <Button
           as="a"
           colorScheme="secondary"
