@@ -6,7 +6,6 @@ export default function Footer(): JSX.Element {
       as="footer"
       px="4"
       py={[6, 8]}
-      mt={[60, 90, 90, 120]}
       color="white"
       bgColor="blackAlpha.900"
       textAlign="center"

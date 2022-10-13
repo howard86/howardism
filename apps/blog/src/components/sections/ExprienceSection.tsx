@@ -107,7 +107,7 @@ function SkillCard({ title, description, icon = FiPackage, ...props }: SkillCard
 export default function ExperienceSection() {
   return (
     <SectionWrapper
-      id={SectionId.Exprience}
+      id={SectionId.Experience}
       tag="experience"
       title="Experience"
       description="A list of past records"
@@ -153,8 +153,6 @@ export default function ExperienceSection() {
                 startDate="2021 Feb"
                 endDate="Present"
                 introduction="Leading developments on customer dashboards, connecting all services with one-stop managements"
-                data-aos="fade-right"
-                data-aos-duration="1200"
               />
               <ExperienceCard
                 title="Team Lead"
@@ -163,9 +161,6 @@ export default function ExperienceSection() {
                 startDate="2019 Jul"
                 endDate="2020 Nov"
                 introduction="Led development on NFT marketplace in an early start-up (less than 10 members), responsible to delivery products smoothly while managing api servers & real-time database update"
-                data-aos="fade-right"
-                data-aos-duration="1200"
-                data-aos-delay="200"
               />
               <ExperienceCard
                 title="Product Manager"
@@ -174,8 +169,6 @@ export default function ExperienceSection() {
                 startDate="2018 Jan"
                 endDate="2019 May"
                 introduction="Managed product iteration & development on a proof-of-concept SaaS platform"
-                data-aos="fade-right"
-                data-aos-duration="1200"
               />
               <ExperienceCard
                 title="Undergraduate & Postgraduate"
@@ -184,9 +177,6 @@ export default function ExperienceSection() {
                 startDate="2012 Sep"
                 endDate="2016 Jul"
                 introduction="Specialised in Algebraic Geometry & Topology, while undertaking computer science and developing mathematical & statistical modelling in Java and MATLAB. "
-                data-aos="fade-right"
-                data-aos-duration="1200"
-                data-aos-delay="200"
               />
             </SimpleGrid>
           </TabPanel>
@@ -195,15 +185,10 @@ export default function ExperienceSection() {
               <SkillCard
                 title="TypeScript"
                 description="A strongly typed programming language builds on JavaScript"
-                data-aos="fade-right"
-                data-aos-duration="1200"
               />
               <SkillCard
                 title="React"
                 description="A declarative, component-based JavaScript library for building user interfaces"
-                data-aos="fade-right"
-                data-aos-duration="1200"
-                data-aos-delay="200"
               />
             </SimpleGrid>
           </TabPanel>

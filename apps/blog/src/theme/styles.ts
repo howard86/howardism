@@ -8,6 +8,7 @@ const styles: ThemeOverride["styles"] = {
     },
     html: {
       scrollBehavior: "smooth",
+      cursor: "none",
     },
   },
 };

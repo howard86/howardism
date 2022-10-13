@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { Box, BoxProps, chakra, Container, Heading, Text } from "@chakra-ui/react";
 
+import { HEADER_OFFSET } from "../layout/Header";
+
 interface SectionWrapperProps extends BoxProps {
   tag: string;
   title: string;
@@ -16,8 +18,16 @@ export default function SectionWrapper({
   ...props
 }: SectionWrapperProps) {
   return (
-    <Box id={tag} as="section" minH="100vh" pt="70" {...props}>
-      <Container my="12" maxW="container.xl">
+    <Box
+      id={tag}
+      pos="relative"
+      as="section"
+      minH="100vh"
+      bgColor="white"
+      pt={HEADER_OFFSET}
+      {...props}
+    >
+      <Container maxW="container.lg" py={6}>
         <chakra.span
           pos="relative"
           fontWeight="medium"

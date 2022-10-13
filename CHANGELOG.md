@@ -1,8 +1,8 @@
 # Changelog
 
-<a name="next"></a>
+<a name="1.0.23"></a>
 
-## next
+## 1.0.23 (2022-10-13)
 
 ### Added
 
@@ -14,6 +14,7 @@
 
 ### Changed
 
+- ♻️ refactor: update Header scrollspy with custom hooks [[a0c737c](https://github.com/Howard86/howardism/commit/a0c737c47278a560806c3756e2065075afbcb542)]
 - 🔧 perf: update next config with faster build [[520ffde](https://github.com/Howard86/howardism/commit/520ffde0acc2e79d5803cc52571d93687318d0e7)]
 - 🍱 chore: update logo, favicons &amp; sitemap [[8ec72fc](https://github.com/Howard86/howardism/commit/8ec72fca2f3f66d81c753c22c49ba023f8c569de)]
 - 💄 chore: update layout margins &amp; paddings [[043f6db](https://github.com/Howard86/howardism/commit/043f6dbc74ce90be00f58e474916f3c3cb85f16e)]
@@ -21,6 +22,9 @@
 
 ### Removed
 
+- 🔥 chore: remove unused pages [[55eb9cf](https://github.com/Howard86/howardism/commit/55eb9cf7cd2b52040543e5a99189d5128b45ee05)]
+- ➖ chore(packages): remove aos, react-parallax &amp; react-scrollspy&quot; [[7132d2a](https://github.com/Howard86/howardism/commit/7132d2a6609820aad602f411c2decb0966108533)]
+- ➖ chore(packages): remove react-animated-cursor [[b070c2b](https://github.com/Howard86/howardism/commit/b070c2b9aa86574e48c1ab1f37ebd1457fd8502a)]
 - 🔥 chore: remove unused components [[29a040b](https://github.com/Howard86/howardism/commit/29a040b61b4008a046dc2c886719f57f14a69e3a)]
 
 ### Fixed
@@ -29,6 +33,14 @@
 
 ### Miscellaneous
 
+- 1.0.23 [[5f55d9b](https://github.com/Howard86/howardism/commit/5f55d9ba3ad5c219a64926d8be9d0fdfc247f01a)]
+- 💫 refactor(about): update animation with SlideBox [[d66806b](https://github.com/Howard86/howardism/commit/d66806bcf7fd3455c16de05e4e8b2a3c67f019be)]
+- 💫 refactor(home): update animations for texts &amp; buttons [[0346db7](https://github.com/Howard86/howardism/commit/0346db7a638f92c2d9730fc7afa215c6e457fe60)]
+- 💫 refactor: update parallax background with next/image [[42fc8e9](https://github.com/Howard86/howardism/commit/42fc8e98051061576449b3a787290c5c736eebfa)]
+- 💫 refactor: replace ScrollToTop wiht ScrollProgress &amp; click [[959404c](https://github.com/Howard86/howardism/commit/959404cec745fb2d28a26200e6464fddd9fc5bff)]
+- 💫 refactor: replace react-animated-cursor with framer motion spring [[9f1afa1](https://github.com/Howard86/howardism/commit/9f1afa1a8d88dae0b896c3bbbbcfc2b3764cbbdf)]
+- Merge pull request [#32](https://github.com/Howard86/howardism/issues/32) from Howard86/feature/update-blog-theme [[4d6413d](https://github.com/Howard86/howardism/commit/4d6413d5f563d92cbdb84b6e73258c3f482e331f)]
+- 📝 docs: update CHANGELOG [[cf1b438](https://github.com/Howard86/howardism/commit/cf1b438eb724a874a421918b1cd4b0b44d357e80)]
 - 📦 chore: install react-parallax react-typed [[de3eebc](https://github.com/Howard86/howardism/commit/de3eebce787629734186d282700c79f84ca920e7)]
 - 📦 chore: install aos, lodash.throttle, react-animated-cursor, react-scrollspy [[36f00ca](https://github.com/Howard86/howardism/commit/36f00cac8e9c36961cb942a1490c57aa352f2b97)]
 - Merge pull request [#31](https://github.com/Howard86/howardism/issues/31) from Howard86/feature/migrate-to-pnpm [[af232cc](https://github.com/Howard86/howardism/commit/af232cc31d53ff91456c0612674276acd4a8f8f3)]
