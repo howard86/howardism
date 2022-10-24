@@ -1,8 +1,10 @@
+import ReactMarkdown, { Options } from "react-markdown";
 import { Box, chakra, Divider, Flex, Heading, List } from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
 
 import profilePicture from "@/../public/profile.jpeg";
 import { SectionId } from "@/constants/nav";
+import { GetHomePageQuery } from "@/services/query.generated";
 
 import SlideBox from "../animations/SlideBox";
 
@@ -10,8 +12,8 @@ import SectionWrapper from "./SectionWrapper";
 
 interface AboutListItemProps {
   index: number;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
 }
 
 function AboutListItem({ title, description, index }: AboutListItemProps) {
@@ -34,21 +36,22 @@ function AboutListItem({ title, description, index }: AboutListItemProps) {
   );
 }
 
-const ITEMS: Pick<AboutListItemProps, "title" | "description">[] = [
-  { title: "programming experiences", description: "2 + 3 years" },
-  { title: "best tech stack", description: "React" },
-  { title: "favourite language", description: "TypeScript" },
-  { title: "games", description: "HearthStone" },
-  { title: "interests", description: "coding, reading, thinking" },
-];
+interface AboutSectionProps {
+  data: GetHomePageQuery["aboutSection"];
+}
 
-export default function AboutSection() {
+const MARKDOWN_COMPONENTS: Options["components"] = {
+  h3: ({ node, ...props }) => <SlideBox fontWeight="bold" as="h3" y={-20} {...props} />,
+  p: ({ node, ...props }) => <SlideBox as="p" y={-20} delay={0.3} mt={2} {...props} />,
+};
+
+export default function AboutSection({ data }: AboutSectionProps) {
   return (
     <SectionWrapper
       id={SectionId.About}
       tag="about"
-      title="About Me"
-      description={"Howardism's whereabouts"}
+      title={data?.data?.attributes?.section?.title}
+      description={data?.data?.attributes?.section?.title}
     >
       <Flex flexDirection={["column", "column", "row"]} justifyContent="start" gap={10}>
         <SlideBox
@@ -62,22 +65,17 @@ export default function AboutSection() {
           <Image alt="github profile photo" src={profilePicture} rounded="sm" overflow="hidden" />
         </SlideBox>
         <Box pos="relative">
-          <SlideBox fontWeight="bold" as="h3" y={-20}>
-            A Dedicated Web developer from Taiwan
-          </SlideBox>
-          <SlideBox as="p" y={-20} delay={0.3} mt={2}>
-            I spend most of time thinking of solving problems and finding more problems as a
-            product-oriented software engineer.
-          </SlideBox>
+          <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+            {data?.data?.attributes?.introduction || ""}
+          </ReactMarkdown>
           <Divider my={4} />
-          <Heading>Other Info</Heading>
-          <List pos="relative" spacing={2}>
-            {/* TODO: use cms to inject */}
-            {ITEMS.map((item, index) => (
+          <Heading>{data?.data?.attributes?.interest_title}</Heading>
+          <List pos="relative" spacing={2} mt={4}>
+            {data?.data?.attributes?.interest_items?.data.map((item, index) => (
               <AboutListItem
-                key={item.title}
-                title={item.title}
-                description={item.description}
+                key={item.id}
+                title={item.attributes?.title}
+                description={item.attributes?.description}
                 index={index}
               />
             ))}

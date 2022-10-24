@@ -23,6 +23,9 @@ const commonConfig = {
       ],
       config: {
         maybeValue: "T",
+        scalars: {
+          Date: "string",
+        },
       },
     },
     "src/": {
@@ -42,6 +45,10 @@ const commonConfig = {
       config: {
         dedupeFragments: true,
         exportFragmentSpreadSubTypes: true,
+        maybeValue: "T",
+        scalars: {
+          Date: "string",
+        },
       },
     },
   },
