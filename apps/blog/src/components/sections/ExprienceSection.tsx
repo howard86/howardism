@@ -57,7 +57,7 @@ function ExperienceCard({
       <Tag colorScheme="secondary" mr={1}>
         {companyName}
       </Tag>
-      <Text mt="2" color="gray.500">
+      <Text display="none" mt="2" color="gray.500">
         {introduction}
       </Text>
     </Box>
