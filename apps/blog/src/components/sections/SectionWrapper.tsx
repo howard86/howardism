@@ -3,7 +3,7 @@ import { Box, BoxProps, chakra, Container, Heading, Text } from "@chakra-ui/reac
 
 import { HEADER_OFFSET } from "../layout/Header";
 
-interface SectionWrapperProps extends BoxProps {
+interface SectionWrapperProps extends Omit<BoxProps, "title"> {
   tag: string;
   title: string;
   description: string;
@@ -16,7 +16,7 @@ export default function SectionWrapper({
   description,
   children,
   ...props
-}: SectionWrapperProps) {
+}: Partial<SectionWrapperProps>) {
   return (
     <Box
       id={tag}

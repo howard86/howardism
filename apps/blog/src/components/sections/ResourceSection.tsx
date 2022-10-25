@@ -1,6 +1,7 @@
 import { chakra, Flex, SimpleGrid } from "@chakra-ui/react";
 
 import { SectionId } from "@/constants/nav";
+import { GetHomePageQuery } from "@/services/query.generated";
 
 import SectionWrapper from "./SectionWrapper";
 
@@ -9,7 +10,7 @@ interface ResourceCardProps {
   description: string;
 }
 
-function ResourceCard({ title, description }: ResourceCardProps) {
+function ResourceCard({ title, description }: Partial<ResourceCardProps>) {
   return (
     <Flex as="article" flexDir="column" rounded="md" shadow="sm" p={2} bg="orange.50">
       <chakra.h3 fontSize="lg" fontWeight="bold">
@@ -20,40 +21,33 @@ function ResourceCard({ title, description }: ResourceCardProps) {
   );
 }
 
-export default function ResourceSection() {
+interface ResourceSectionProps {
+  data: GetHomePageQuery["resourceSection"];
+}
+
+export default function ResourceSection({ data }: ResourceSectionProps) {
   return (
     <SectionWrapper
       id={SectionId.Resource}
       tag="resource"
-      title="Resources"
-      description="Fun, thoughts, links, books and more"
+      title={data?.data?.attributes?.section?.title}
+      description={data?.data?.attributes?.section?.description}
     >
       <SimpleGrid columns={[2, 3, 4]} spacing={3}>
-        <ResourceCard
-          title="Clean Code by Robert C. Martin"
-          description="A Handbook of Agile Software Craftsmanship"
-        />
-        <ResourceCard
-          title="Coding Blocks"
-          description="Nice podcast to follow up interesting thoughts of software programming"
-        />
-        <ResourceCard
-          title="Online Soduku game"
-          description="A home-made sudoku solver & generator. Help needed to determine the level!"
-        />
-        <ResourceCard
-          title="The Snowball by Alice Schroeder"
-          description="Warren Buffet and the business life"
-        />
-        <ResourceCard
-          title="The Algorithms"
-          description="Online website for a collection of real-life algorithms"
-        />
-        <ResourceCard
-          title="craftzdog"
-          description="Takuya, a full-stack developer & YouTuber sharing set up of devtools"
-        />
-        <ResourceCard title="NIPPON COLORS" description="Japanese theme palette selections" />
+        {data?.data?.attributes?.books?.data.map((item) => (
+          <ResourceCard
+            key={item.id}
+            title={item.attributes?.name}
+            description={item.attributes?.summary}
+          />
+        ))}
+        {data?.data?.attributes?.websites?.data.map((item) => (
+          <ResourceCard
+            key={item.id}
+            title={item.attributes?.name}
+            description={item.attributes?.summary}
+          />
+        ))}
       </SimpleGrid>
     </SectionWrapper>
   );

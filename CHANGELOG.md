@@ -1,5 +1,27 @@
 # Changelog
 
+<a name="1.0.24"></a>
+
+## 1.0.24 (2022-10-25)
+
+### Added
+
+- ✨ feat: integrate with local cms [[ce34f82](https://github.com/Howard86/howardism/commit/ce34f82236df3611ff5aeb69e3f558baf517f5ef)]
+- ➕ chore(packages): install ts-essentials for utility types [[45df897](https://github.com/Howard86/howardism/commit/45df8977f0f5c92f2bf28fe16725a94815f7ee93)]
+- ➕ chore(packages): install react-markdown with peer deps [[da16c0f](https://github.com/Howard86/howardism/commit/da16c0f4fc9ba52d28f16dfadb4ce855a65942dd)]
+- ➕ chore(packages): install graphql, graphql-request &amp; related codegen pacakges [[5888177](https://github.com/Howard86/howardism/commit/58881774ef793d18608b285af6906662bf6931f2)]
+
+### Changed
+
+- 🔧 feat: set up graphql codegen with updated env [[46af8b7](https://github.com/Howard86/howardism/commit/46af8b7713d9afdf55b04cfed8363b15a3a231cf)]
+
+### Miscellaneous
+
+- 1.0.24 [[fe1a544](https://github.com/Howard86/howardism/commit/fe1a5447738e1313e1f2fe4e679fbe2ccb7f70f0)]
+- 💩 chore: temporary hide markdown introduction [[6345971](https://github.com/Howard86/howardism/commit/6345971a0ae7e5591fd181c52dc317d89cfa7f36)]
+- Merge pull request [#38](https://github.com/Howard86/howardism/issues/38) from Howard86/34-replace-animation-with-framer-motion [[7afdc4b](https://github.com/Howard86/howardism/commit/7afdc4b09dfa71ff808c8103c51a6898f2121ced)]
+- 📝 docs: update CHANGELOG [[7697f1a](https://github.com/Howard86/howardism/commit/7697f1a2c71033a6c64daa69a2cae8ec47ca3c00)]
+
 <a name="1.0.23"></a>
 
 ## 1.0.23 (2022-10-13)
