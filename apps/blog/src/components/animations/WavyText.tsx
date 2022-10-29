@@ -1,9 +1,7 @@
-import { BoxProps, VisuallyHidden } from "@chakra-ui/react";
+import { DivProps } from "react-html-props";
 import { motion, Transition, Variants } from "framer-motion";
 
-import MotionBox from "../common/MotionBox";
-
-interface WavyTextProps extends BoxProps {
+interface WavyTextProps extends DivProps {
   text: string;
   delay?: number;
 }
@@ -39,24 +37,21 @@ const LETTER_VARIANTS: Variants = {
 
 const NO_BREAK_SPACE = "\u00A0";
 
-export default function WavyText({ text, delay = 0, ...props }: WavyTextProps) {
+export default function WavyText({ text, delay = 0 }: WavyTextProps) {
   return (
-    <MotionBox
-      display="flex"
-      flexWrap="wrap"
+    <motion.span
+      className="flex flex-wrap"
       variants={CONTAINER_VARIANTS}
       custom={delay}
       initial="hidden"
       whileInView="visible"
-      {...props}
     >
-      <VisuallyHidden>{text}</VisuallyHidden>
       {text.split("").map((char, i) => (
         // eslint-disable-next-line react/no-array-index-key
         <motion.span variants={LETTER_VARIANTS} key={char + i}>
           {char === " " ? NO_BREAK_SPACE : char}
         </motion.span>
       ))}
-    </MotionBox>
+    </motion.span>
   );
 }
