@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
-import { Box, BoxProps, chakra, Container, Heading, Text } from "@chakra-ui/react";
+import { DivProps } from "react-html-props";
 
-import { HEADER_OFFSET } from "../layout/Header";
+import { Container } from "../layout/Container";
 
-interface SectionWrapperProps extends Omit<BoxProps, "title"> {
+interface SectionWrapperProps extends DivProps {
   tag: string;
   title: string;
   description: string;
@@ -18,42 +18,15 @@ export default function SectionWrapper({
   ...props
 }: Partial<SectionWrapperProps>) {
   return (
-    <Box
-      id={tag}
-      pos="relative"
-      as="section"
-      minH="100vh"
-      bgColor="white"
-      pt={HEADER_OFFSET}
-      {...props}
-    >
-      <Container maxW="container.lg" py={6}>
-        <chakra.span
-          pos="relative"
-          fontWeight="medium"
-          color="secondary.500"
-          mb={3}
-          textTransform="capitalize"
-          _before={{
-            position: "absolute",
-            content: "''",
-            w: 10,
-            height: "1px",
-            backgroundColor: "secondary.500",
-            top: "50%",
-            transform: "translateY(-50%)",
-            left: "100%",
-            mx: 2.5,
-          }}
-        >
+    <Container>
+      <section className="min-h-screen pt-24" {...props}>
+        <span className="relative mb-3 capitalize text-teal-600 before:absolute before:top-1/2 before:left-full before:mx-2.5 before:h-px before:w-10 before:-translate-y-1/2 before:bg-teal-600">
           {tag}
-        </chakra.span>
-        <Heading fontSize="5xl" mb={4}>
-          {title}
-        </Heading>
-        <Text mb={6}>{description}</Text>
+        </span>
+        <h2 className="mt-1 mb-4 text-4xl font-bold dark:text-white/90">{title}</h2>
+        <p className="mb-6 dark:text-white/90">{description}</p>
         {children}
-      </Container>
-    </Box>
+      </section>
+    </Container>
   );
 }

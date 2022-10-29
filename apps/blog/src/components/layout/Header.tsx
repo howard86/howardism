@@ -12,7 +12,7 @@ import DesktopNavigation from "./DesktopNavigation";
 import MobileNavigation from "./MobileNavigation";
 import ModeToggle from "./ModeToggle";
 
-export const HEADER_OFFSET = 88;
+export const HEADER_OFFSET = 80;
 
 export default function Header1() {
   const isScrolled = useHasScrolled({ offsetPx: HEADER_OFFSET, throttleMs: 300 });
