@@ -1,5 +1,3 @@
-import { chakra, Flex, SimpleGrid } from "@chakra-ui/react";
-
 import { SectionId } from "@/constants/nav";
 import { GetHomePageQuery } from "@/services/query.generated";
 
@@ -12,12 +10,10 @@ interface ResourceCardProps {
 
 function ResourceCard({ title, description }: Partial<ResourceCardProps>) {
   return (
-    <Flex as="article" flexDir="column" rounded="md" shadow="sm" p={2} bg="orange.50">
-      <chakra.h3 fontSize="lg" fontWeight="bold">
-        {title}
-      </chakra.h3>
-      <chakra.p>{description}</chakra.p>
-    </Flex>
+    <article className="rounded-md border border-slate-50 bg-teal-100/5 p-2 shadow-sm  dark:text-white/90">
+      <h3 className="text-lg font-bold">{title}</h3>
+      <p className="text-zinc-600 dark:text-zinc-400">{description}</p>
+    </article>
   );
 }
 
@@ -33,7 +29,7 @@ export default function ResourceSection({ data }: ResourceSectionProps) {
       title={data?.data?.attributes?.section?.title}
       description={data?.data?.attributes?.section?.description}
     >
-      <SimpleGrid columns={[2, 3, 4]} spacing={3}>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         {data?.data?.attributes?.books?.data.map((item) => (
           <ResourceCard
             key={item.id}
@@ -48,7 +44,7 @@ export default function ResourceSection({ data }: ResourceSectionProps) {
             description={item.attributes?.summary}
           />
         ))}
-      </SimpleGrid>
+      </div>
     </SectionWrapper>
   );
 }
