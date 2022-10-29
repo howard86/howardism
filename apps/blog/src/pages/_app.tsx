@@ -7,16 +7,25 @@ import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
 import theme from "@/theme";
 
+import "@/styles/globals.css";
+
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
       <DefaultSeo {...DEFAULT_SEO} />
-      <ChakraProvider theme={theme}>
-        <Layout>
-          <Component {...pageProps} />
-        </Layout>
-        <Cursor />
-      </ChakraProvider>
+      <div className="fixed inset-0 flex justify-center sm:px-8">
+        <div className="flex w-full max-w-7xl lg:px-8">
+          <div className="w-full bg-white ring-1 ring-zinc-100 dark:bg-zinc-900 dark:ring-zinc-300/20" />
+        </div>
+      </div>
+      <div className="relative">
+        <ChakraProvider theme={theme}>
+          <Layout>
+            <Component {...pageProps} />
+          </Layout>
+          <Cursor />
+        </ChakraProvider>
+      </div>
     </>
   );
 }

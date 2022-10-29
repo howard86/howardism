@@ -14,6 +14,10 @@ const config = {
       permanent: true,
     },
   ],
+  experimental: {
+    newNextLinkBehavior: true,
+    scrollRestoration: true,
+  },
 };
 
 module.exports = withTM(withBundleAnalyzer(config));

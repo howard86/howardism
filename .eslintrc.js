@@ -41,7 +41,8 @@ module.exports = {
         exceptions: ["**/*/jest.config.ts"],
       },
     ],
-    // "import/prefer-default-export": 0,
+    "import/prefer-default-export": 0,
+    "global-require": 0,
     "no-param-reassign": [
       2,
       {
