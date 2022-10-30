@@ -6,6 +6,8 @@ import Cursor from "@/components/animations/Cursor";
 import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
 
+import "focus-visible";
+
 import "@/styles/globals.css";
 
 const loadFeatures = () => import("@/utils/motion-features").then((res) => res.default);
