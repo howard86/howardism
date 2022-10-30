@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import ReactTyped from "react-typed";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import { m as motion, useInView, useScroll, useTransform } from "framer-motion";
+import dynamic from "next/dynamic";
 import Image from "next/future/image";
 
 import coverPhoto from "@/../public/cover.jpg";
@@ -10,6 +10,8 @@ import SlideBox from "../animations/SlideBox";
 import WavyText from "../animations/WavyText";
 
 const descriptions = ["Web Developer", "Lifelong Learner", "Mathemachicken Lover!"];
+
+const DynamicReactTyped = dynamic(() => import("react-typed"));
 
 export default function HomeSection() {
   const ref = useRef<HTMLHeadingElement>(null);
@@ -46,7 +48,7 @@ export default function HomeSection() {
         <h2 ref={ref} className="text-2xl font-semibold text-teal-500 md:text-3xl">
           <span className="sr-only">{descriptions.join(", ")}</span>
           {inView && (
-            <ReactTyped
+            <DynamicReactTyped
               typeSpeed={100}
               backSpeed={60}
               strings={descriptions}

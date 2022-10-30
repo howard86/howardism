@@ -1,4 +1,4 @@
-import { HTMLMotionProps, motion, Variants } from "framer-motion";
+import { HTMLMotionProps, m as motion, Variants } from "framer-motion";
 
 interface SlideBoxProps extends HTMLMotionProps<"div"> {
   x?: number;

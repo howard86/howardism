@@ -1,3 +1,4 @@
+import { LazyMotion } from "framer-motion";
 import type { AppProps } from "next/app";
 import { DefaultSeo } from "next-seo";
 
@@ -6,6 +7,8 @@ import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
 
 import "@/styles/globals.css";
+
+const loadFeatures = () => import("@/utils/motion-features").then((res) => res.default);
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -16,10 +19,12 @@ export default function App({ Component, pageProps }: AppProps) {
           <div className="w-full bg-white ring-1 ring-zinc-100 dark:bg-zinc-900 dark:ring-zinc-300/20" />
         </div>
       </div>
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
-      <Cursor />
+      <LazyMotion features={loadFeatures} strict>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+        <Cursor />
+      </LazyMotion>
     </>
   );
 }
