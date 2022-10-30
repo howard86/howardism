@@ -21,12 +21,12 @@ export default function Header1() {
   return (
     <header
       className={clsx(
-        "fixed top-0 left-0 right-0 z-50 transition-all",
-        isScrolled ? "py-4 backdrop-blur-sm" : "py-7"
+        "fixed inset-x-0 top-0 z-50 w-full transition-all",
+        isScrolled ? "py-3 backdrop-blur-sm" : "py-6 md:py-8"
       )}
     >
       <Container>
-        <div className="relative flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <Link className="flex-1" href="/">
             <Logo
               className="h-12 w-12 rounded-full p-1 text-black dark:bg-white"

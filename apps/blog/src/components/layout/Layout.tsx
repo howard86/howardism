@@ -5,9 +5,9 @@ import Header from "./Header";
 
 export default function Layout({ children }: ChildrenProps) {
   return (
-    <div>
+    <div className="relative">
       <Header />
-      <main className="min-h-screen">{children}</main>
+      <main>{children}</main>
       <Footer />
     </div>
   );

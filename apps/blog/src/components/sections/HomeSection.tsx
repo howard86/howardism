@@ -25,7 +25,7 @@ export default function HomeSection() {
   return (
     <section id={SectionId.Home} className="relative">
       <motion.div
-        className="absolute left-0 right-0 mx-auto h-screen w-full max-w-[76rem]"
+        className="absolute inset-0 mx-auto h-screen w-full max-w-[76rem]"
         style={{ filter }}
       >
         <Image

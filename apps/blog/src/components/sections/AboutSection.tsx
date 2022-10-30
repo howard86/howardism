@@ -40,7 +40,7 @@ export default function AboutSection({ data }: AboutSectionProps) {
       title={data?.data?.attributes?.section?.title}
       description={data?.data?.attributes?.section?.title}
     >
-      <div className="relative flex flex-col justify-start gap-10 md:flex-row">
+      <div className="relative flex flex-col justify-start gap-10 overflow-hidden md:flex-row">
         <SlideBox className="flex shrink-0 items-center justify-center" x={-40} duration={1.2}>
           <Image
             alt="github profile photo"
