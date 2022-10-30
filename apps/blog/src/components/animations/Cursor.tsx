@@ -1,8 +1,6 @@
 import { useEffect } from "react";
-import { useMotionValue, useSpring } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import throttle from "lodash.throttle";
-
-import MotionBox from "../common/MotionBox";
 
 const DEFAULT_POSITION = -100;
 const CURSOR_SIZE = 32;
@@ -32,33 +30,15 @@ export default function Cursor() {
 
   return (
     <>
-      <MotionBox
-        position="fixed"
-        mixBlendMode="difference"
-        left="0"
-        top="0"
-        w={`${CURSOR_SIZE}px`}
-        h={`${CURSOR_SIZE}px`}
-        rounded="full"
-        bgColor="primary.800"
-        zIndex="toast"
-        pointerEvents="none"
+      <motion.div
+        className="pointer-events-none fixed left-0 top-0 z-50 h-8 w-8 rounded-full bg-teal-900 mix-blend-difference"
         style={{
           translateX: useSpring(cursorX, SPRING_OPTIONS),
           translateY: useSpring(cursorY, SPRING_OPTIONS),
         }}
       />
-      <MotionBox
-        pos="fixed"
-        mixBlendMode="luminosity"
-        left="3"
-        top="3"
-        h="2"
-        w="2"
-        rounded="full"
-        bgColor="blackAlpha.600"
-        pointerEvents="none"
-        zIndex="toast"
+      <motion.div
+        className="pointer-events-none fixed left-3 top-3 z-50 h-2 w-2 rounded-full bg-teal-900/80 mix-blend-luminosity"
         style={{
           translateX: cursorX,
           translateY: cursorY,

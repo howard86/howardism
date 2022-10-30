@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import ReactTyped from "react-typed";
-import { VisuallyHidden } from "@chakra-ui/react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import Image from "next/future/image";
 
@@ -45,7 +44,7 @@ export default function HomeSection() {
           <WavyText text="Howard Tai" delay={0.6} />
         </h1>
         <h2 ref={ref} className="text-2xl font-semibold text-teal-500 md:text-3xl">
-          <VisuallyHidden>{descriptions.join(", ")}</VisuallyHidden>
+          <span className="sr-only">{descriptions.join(", ")}</span>
           {inView && (
             <ReactTyped
               typeSpeed={100}

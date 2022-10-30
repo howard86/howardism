@@ -49,7 +49,7 @@ export default function AboutSection({ data }: AboutSectionProps) {
           />
         </SlideBox>
         <div>
-          <ReactMarkdown className="prose prose-strong dark:prose-invert">
+          <ReactMarkdown className="prose dark:prose-invert">
             {data?.data?.attributes?.introduction || ""}
           </ReactMarkdown>
           <hr className="mb-4" />

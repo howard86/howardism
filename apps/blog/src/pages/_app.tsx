@@ -1,11 +1,9 @@
-import { ChakraProvider } from "@chakra-ui/react";
 import type { AppProps } from "next/app";
 import { DefaultSeo } from "next-seo";
 
 import Cursor from "@/components/animations/Cursor";
 import Layout from "@/components/layout/Layout";
 import DEFAULT_SEO from "@/constants/seo";
-import theme from "@/theme";
 
 import "@/styles/globals.css";
 
@@ -18,14 +16,10 @@ export default function App({ Component, pageProps }: AppProps) {
           <div className="w-full bg-white ring-1 ring-zinc-100 dark:bg-zinc-900 dark:ring-zinc-300/20" />
         </div>
       </div>
-      <div className="relative">
-        <ChakraProvider theme={theme}>
-          <Layout>
-            <Component {...pageProps} />
-          </Layout>
-          <Cursor />
-        </ChakraProvider>
-      </div>
+      <Layout>
+        <Component {...pageProps} />
+      </Layout>
+      <Cursor />
     </>
   );
 }

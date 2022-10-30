@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { DivProps } from "react-html-props";
+import clsx from "clsx";
 
 import { Container } from "../layout/Container";
 
@@ -15,11 +16,12 @@ export default function SectionWrapper({
   title,
   description,
   children,
+  className,
   ...props
 }: Partial<SectionWrapperProps>) {
   return (
     <Container>
-      <section className="min-h-screen pt-24" {...props}>
+      <section className={clsx("min-h-screen pt-24", className)} {...props}>
         <span className="relative mb-3 capitalize text-teal-600 before:absolute before:top-1/2 before:left-full before:mx-2.5 before:h-px before:w-10 before:-translate-y-1/2 before:bg-teal-600">
           {tag}
         </span>
