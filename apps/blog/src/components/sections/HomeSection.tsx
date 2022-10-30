@@ -33,6 +33,7 @@ export default function HomeSection() {
           src={coverPhoto}
           className="object-cover object-[38%_bottom] brightness-75 dark:brightness-50"
           fill
+          priority
         />
       </motion.div>
       <motion.div
