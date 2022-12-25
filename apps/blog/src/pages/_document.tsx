@@ -39,7 +39,7 @@ const modeScript = `
 export default class MyDocument extends Document {
   render(): JSX.Element {
     return (
-      <Html className="h-full cursor-none scroll-smooth antialiased" lang="en">
+      <Html className="h-full scroll-smooth antialiased" lang="en">
         <Head>
           <Script
             id="dark-mode-script"

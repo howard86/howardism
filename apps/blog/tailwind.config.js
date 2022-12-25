@@ -1,8 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
-  plugins: [require("@tailwindcss/typography"), require("@tailwindcss/forms")],
+  darkMode: "class",
+  plugins: [require("@tailwindcss/typography")],
   theme: {
     fontSize: {
       xs: ["0.8125rem", { lineHeight: "1.5rem" }],
