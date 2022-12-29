@@ -1,15 +1,8 @@
-import { ChildrenProps } from "react";
-import Link, { LinkProps } from "next/link";
+import Link from "next/link";
+
+import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav";
 
 import { InnerContainer, OuterContainer } from "./Container";
-
-function NavLink({ href, children }: LinkProps & ChildrenProps) {
-  return (
-    <Link href={href} className="transition hover:text-teal-500 dark:hover:text-teal-400">
-      {children}
-    </Link>
-  );
-}
 
 export function Footer() {
   return (
@@ -19,13 +12,14 @@ export function Footer() {
           <InnerContainer>
             <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
               <div className="flex gap-6 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                <NavLink href="/about">About</NavLink>
-                <NavLink href="/projects">Projects</NavLink>
-                <NavLink href="/speaking">Speaking</NavLink>
-                <NavLink href="/uses">Uses</NavLink>
+                {NAV_SECTION_KEYS.map((key) => (
+                  <Link key={key} href={NavSection[key]} className="link">
+                    {key}
+                  </Link>
+                ))}
               </div>
               <p className="text-sm text-zinc-400 dark:text-zinc-500">
-                &copy; {new Date().getFullYear()} Spencer Sharp. All rights reserved.
+                &copy; {new Date().getFullYear()} Howard Tai. All rights reserved.
               </p>
             </div>
           </InnerContainer>

@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link, { LinkProps } from "next/link";
 import { useRouter } from "next/router";
 
+import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav";
 import profile from "@/profile.jpeg";
 
 import { Container } from "./Container";
@@ -73,16 +74,6 @@ function MoonIcon(props: SVGProps) {
   );
 }
 
-function MobileNavItem({ href, children }: LinkProps & ChildrenProps) {
-  return (
-    <li>
-      <Popover.Button as={Link} href={href} className="block py-2">
-        {children}
-      </Popover.Button>
-    </li>
-  );
-}
-
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
   return (
     <Popover {...props}>
@@ -123,11 +114,13 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
             </div>
             <nav className="mt-6">
               <ul className="-my-2 divide-y divide-zinc-100 text-base text-zinc-800 dark:divide-zinc-100/5 dark:text-zinc-300">
-                <MobileNavItem href="/about">About</MobileNavItem>
-                <MobileNavItem href="/articles">Articles</MobileNavItem>
-                <MobileNavItem href="/projects">Projects</MobileNavItem>
-                <MobileNavItem href="/speaking">Speaking</MobileNavItem>
-                <MobileNavItem href="/uses">Uses</MobileNavItem>
+                {NAV_SECTION_KEYS.map((key) => (
+                  <li key={key}>
+                    <Popover.Button as={Link} href={NavSection[key]} className="block py-2">
+                      {key}
+                    </Popover.Button>
+                  </li>
+                ))}
               </ul>
             </nav>
           </Popover.Panel>
@@ -164,11 +157,11 @@ function DesktopNavigation(props: DivProps) {
   return (
     <nav {...props}>
       <ul className="flex rounded-full bg-white/90 px-3 text-sm font-medium text-zinc-800 shadow-lg shadow-zinc-800/5 ring-1 ring-zinc-900/5 backdrop-blur dark:bg-zinc-800/90 dark:text-zinc-200 dark:ring-white/10">
-        <NavItem href="/about">About</NavItem>
-        <NavItem href="/articles">Articles</NavItem>
-        <NavItem href="/projects">Projects</NavItem>
-        <NavItem href="/speaking">Speaking</NavItem>
-        <NavItem href="/uses">Uses</NavItem>
+        {NAV_SECTION_KEYS.map((key) => (
+          <NavItem key={key} href={NavSection[key]}>
+            {key}
+          </NavItem>
+        ))}
       </ul>
     </nav>
   );
