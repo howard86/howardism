@@ -1,5 +1,5 @@
 import ReactMarkdown from "react-markdown";
-import Image from "next/future/image";
+import Image from "next/image";
 
 import profilePicture from "@/../public/profile.jpeg";
 import { SectionId } from "@/constants/nav";

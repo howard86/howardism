@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { m as motion, useInView, useScroll, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
-import Image from "next/future/image";
+import Image from "next/image";
 
 import coverPhoto from "@/../public/cover.jpg";
 import { SectionId } from "@/constants/nav";

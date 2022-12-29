@@ -7,7 +7,7 @@ export interface RouteLinkProps extends LinkProps {
 
 export default function RouteLink({ href, ...props }: RouteLinkProps): JSX.Element {
   return (
-    <NextLink href={href} passHref>
+    <NextLink href={href} passHref legacyBehavior>
       <Link {...props} />
     </NextLink>
   );
