@@ -1,6 +1,6 @@
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
-});
+})
 
 /** @type{import('next').NextConfig} */
 const config = {
@@ -10,6 +10,6 @@ const config = {
     domains: ["res.cloudinary.com"],
   },
   transpilePackages: ["@howardism/components-common", "@howardism/login-form"],
-};
+}
 
-module.exports = withBundleAnalyzer(config);
+module.exports = withBundleAnalyzer(config)

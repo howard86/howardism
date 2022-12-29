@@ -1,10 +1,10 @@
-import { ChildrenProps } from "react";
+import { ChildrenProps } from "react"
 
-import { Container } from "./Container";
+import { Container } from "./Container"
 
 interface SimpleLayoutProps extends ChildrenProps {
-  title: string;
-  intro: string;
+  title: string
+  intro: string
 }
 
 export function SimpleLayout({ title, intro, children }: SimpleLayoutProps) {
@@ -18,5 +18,5 @@ export function SimpleLayout({ title, intro, children }: SimpleLayoutProps) {
       </header>
       <div className="mt-16 sm:mt-20">{children}</div>
     </Container>
-  );
+  )
 }

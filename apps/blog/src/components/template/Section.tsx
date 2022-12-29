@@ -1,12 +1,12 @@
-import { useId } from "react";
-import { DivProps } from "react-html-props";
+import { useId } from "react"
+import { DivProps } from "react-html-props"
 
 interface SectionProps extends DivProps {
-  title: string;
+  title: string
 }
 
 export function Section({ title, children }: SectionProps) {
-  const id = useId();
+  const id = useId()
 
   return (
     <section
@@ -20,5 +20,5 @@ export function Section({ title, children }: SectionProps) {
         <div className="md:col-span-3">{children}</div>
       </div>
     </section>
-  );
+  )
 }

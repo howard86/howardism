@@ -1,6 +1,6 @@
-import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
-import { RiGitRepositoryLine } from "react-icons/ri";
-import type { ApolloQueryResult } from "@apollo/client";
+import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs"
+import { RiGitRepositoryLine } from "react-icons/ri"
+import type { ApolloQueryResult } from "@apollo/client"
 import {
   Box,
   Flex,
@@ -18,18 +18,18 @@ import {
   useBreakpointValue,
   VStack,
   Wrap,
-} from "@chakra-ui/react";
-import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next";
-import { useRouter } from "next/router";
+} from "@chakra-ui/react"
+import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next"
+import { useRouter } from "next/router"
 
-import InfoList from "@/components/InfoList";
-import ProfileBadge from "@/components/ProfileBadge";
-import ProfileField from "@/components/ProfileField";
-import { GITHUB_BASE_URL } from "@/constants/github";
-import { GetUserDocument, GetUserQuery } from "@/generated/graphql";
-import client from "@/utils/apollo-client";
+import InfoList from "@/components/InfoList"
+import ProfileBadge from "@/components/ProfileBadge"
+import ProfileField from "@/components/ProfileField"
+import { GITHUB_BASE_URL } from "@/constants/github"
+import { GetUserDocument, GetUserQuery } from "@/generated/graphql"
+import client from "@/utils/apollo-client"
 
-const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has");
+const isBadgeKey = (key: string) => key.startsWith("is") || key.startsWith("has")
 
 export default function UserPage({
   name,
@@ -40,22 +40,22 @@ export default function UserPage({
   following,
   ...rest
 }: NonNullable<GetUserQuery["user"]>) {
-  const router = useRouter();
-  const display = useBreakpointValue({ base: "none", md: "inline-flex" });
+  const router = useRouter()
+  const display = useBreakpointValue({ base: "none", md: "inline-flex" })
 
-  const badgeKeys = Object.keys(rest).filter(isBadgeKey);
+  const badgeKeys = Object.keys(rest).filter(isBadgeKey)
   const profileKeys = Object.keys(rest).filter(
     (key) =>
       !isBadgeKey(key) &&
       !["__typename", "children"].includes(key) &&
       ["string", "number"].includes(typeof rest[key as keyof typeof rest])
-  );
+  )
 
   if (router.isFallback) {
-    return <Spinner />;
+    return <Spinner />
   }
 
-  const username = name || "";
+  const username = name || ""
 
   return (
     <Flex mx={[4, 8, 12]} w="full" direction={["column", "row"]} align={["center", "start"]}>
@@ -108,7 +108,7 @@ export default function UserPage({
           <TabPanel>
             <List spacing={2}>
               {repositories?.nodes?.map((repo, index) => {
-                const repoName = repo ? repo.name : `${index}-repoName`;
+                const repoName = repo ? repo.name : `${index}-repoName`
                 return (
                   <InfoList
                     key={repoName}
@@ -116,67 +116,65 @@ export default function UserPage({
                     url={`${GITHUB_BASE_URL}/${login}/${repoName}`}
                     icon={RiGitRepositoryLine}
                   />
-                );
+                )
               })}
             </List>
           </TabPanel>
           <TabPanel>
             <List spacing={2}>
               {followers?.nodes?.map((follower, index) => {
-                const followeeName = follower ? follower.login : `${index}-repoName`;
+                const followeeName = follower ? follower.login : `${index}-repoName`
                 return (
                   <InfoList key={followeeName} name={followeeName} icon={BsFillPersonPlusFill} />
-                );
+                )
               })}
             </List>
           </TabPanel>
           <TabPanel>
             <List spacing={2}>
               {following?.nodes?.map((followee, index) => {
-                const followerName = followee ? followee.login : `${index}-repoName`;
+                const followerName = followee ? followee.login : `${index}-repoName`
                 return (
                   <InfoList key={followerName} name={followerName} icon={BsFillPersonCheckFill} />
-                );
+                )
               })}
             </List>
           </TabPanel>
         </TabPanels>
       </Tabs>
     </Flex>
-  );
+  )
 }
 
 type QueryPath = {
-  username: string;
-};
+  username: string
+}
 
-export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>> => {
-  return {
-    paths: [],
-    fallback: true,
-  };
-};
+export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>> => ({
+  paths: [],
+  fallback: true,
+})
 
 export const getStaticProps = async (
   context: GetStaticPropsContext<QueryPath>
 ): Promise<GetStaticPropsResult<GetUserQuery["user"]>> => {
   if (!context.params) {
-    return { notFound: true };
+    return { notFound: true }
   }
 
-  let result: ApolloQueryResult<GetUserQuery>;
+  let result: ApolloQueryResult<GetUserQuery>
   try {
     result = await client.query<GetUserQuery>({
       query: GetUserDocument,
       variables: { username: context.params.username },
-    });
+    })
   } catch (error) {
-    console.error(error);
-    return { notFound: true };
+    console.error(error)
+    return { notFound: true }
   }
 
   return {
     props: result.data.user,
     revalidate: 60,
-  };
-};
+  }
+}

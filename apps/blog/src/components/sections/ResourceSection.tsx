@@ -1,11 +1,11 @@
-import { SectionId } from "@/constants/nav";
-import { GetHomePageQuery } from "@/services/query.generated";
+import { SectionId } from "@/constants/nav"
+import { GetHomePageQuery } from "@/services/query.generated"
 
-import SectionWrapper from "./SectionWrapper";
+import SectionWrapper from "./SectionWrapper"
 
 interface ResourceCardProps {
-  title: string;
-  description: string;
+  title: string
+  description: string
 }
 
 function ResourceCard({ title, description }: Partial<ResourceCardProps>) {
@@ -14,11 +14,11 @@ function ResourceCard({ title, description }: Partial<ResourceCardProps>) {
       <h3 className="text-lg font-bold">{title}</h3>
       <p className="text-zinc-600 dark:text-zinc-400">{description}</p>
     </article>
-  );
+  )
 }
 
 interface ResourceSectionProps {
-  data: GetHomePageQuery["resourceSection"];
+  data: GetHomePageQuery["resourceSection"]
 }
 
 export default function ResourceSection({ data }: ResourceSectionProps) {
@@ -46,5 +46,5 @@ export default function ResourceSection({ data }: ResourceSectionProps) {
         ))}
       </div>
     </SectionWrapper>
-  );
+  )
 }

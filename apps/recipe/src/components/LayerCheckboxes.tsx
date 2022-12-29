@@ -1,22 +1,22 @@
-import { ChangeEvent, useState } from "react";
-import { Box, Checkbox, Text, VStack } from "@chakra-ui/react";
+import { ChangeEvent, useState } from "react"
+import { Box, Checkbox, Text, VStack } from "@chakra-ui/react"
 
-import type { Ingredient } from "@/types/recipe";
+import type { Ingredient } from "@/types/recipe"
 
 interface LayerCheckboxesProps {
-  title: string;
-  options: Ingredient[];
+  title: string
+  options: Ingredient[]
 }
 
 export default function LayerCheckboxes({ title, options }: LayerCheckboxesProps) {
-  const [checkedItems, setCheckedItems] = useState<boolean[]>(Array(options.length).fill(false));
+  const [checkedItems, setCheckedItems] = useState<boolean[]>(Array(options.length).fill(false))
 
-  const isAllChecked = checkedItems.every(Boolean);
-  const isIndeterminate = checkedItems.some(Boolean) && !isAllChecked;
+  const isAllChecked = checkedItems.every(Boolean)
+  const isIndeterminate = checkedItems.some(Boolean) && !isAllChecked
 
   const handleOnParentChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setCheckedItems(Array(options.length).fill(e.target.checked));
-  };
+    setCheckedItems(Array(options.length).fill(e.target.checked))
+  }
 
   return (
     <Box p="4">
@@ -38,10 +38,10 @@ export default function LayerCheckboxes({ title, options }: LayerCheckboxesProps
             isChecked={checkedItems[index]}
             onChange={(e) => {
               setCheckedItems((items) => {
-                const newItems = [...items];
-                newItems[index] = e.target.checked;
-                return newItems;
-              });
+                const newItems = [...items]
+                newItems[index] = e.target.checked
+                return newItems
+              })
             }}
           >
             {option.amount > 0
@@ -51,5 +51,5 @@ export default function LayerCheckboxes({ title, options }: LayerCheckboxesProps
         ))}
       </VStack>
     </Box>
-  );
+  )
 }

@@ -1,10 +1,10 @@
-import { Box, Heading } from "@chakra-ui/react";
+import { Box, Heading } from "@chakra-ui/react"
 
-import Card from "./Card";
-import LoginForm, { OnLogin } from "./LoginForm";
+import Card from "./Card"
+import LoginForm, { OnLogin } from "./LoginForm"
 
 interface LoginPageProps {
-  onLogin: OnLogin;
+  onLogin: OnLogin
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps): JSX.Element {
@@ -17,5 +17,5 @@ export default function LoginPage({ onLogin }: LoginPageProps): JSX.Element {
         <LoginForm onLogin={onLogin} />
       </Card>
     </Box>
-  );
+  )
 }

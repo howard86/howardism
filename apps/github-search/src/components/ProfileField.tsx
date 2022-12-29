@@ -1,15 +1,15 @@
-import { Flex, Icon, Text, Tooltip } from "@chakra-ui/react";
+import { Flex, Icon, Text, Tooltip } from "@chakra-ui/react"
 
-import matchIcon from "@/utils/match-icons";
+import matchIcon from "@/utils/match-icons"
 
 interface ProfileFieldProps {
-  fieldKey: string;
-  fieldValue: string | number;
+  fieldKey: string
+  fieldValue: string | number
 }
 
 export default function ProfileField({ fieldKey, fieldValue }: ProfileFieldProps) {
   if (fieldValue === null || fieldValue === "") {
-    return null;
+    return null
   }
 
   return (
@@ -25,5 +25,5 @@ export default function ProfileField({ fieldKey, fieldValue }: ProfileFieldProps
         </Text>
       </Tooltip>
     </Flex>
-  );
+  )
 }

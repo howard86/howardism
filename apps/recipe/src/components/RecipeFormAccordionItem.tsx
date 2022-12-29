@@ -10,40 +10,40 @@ import {
   FormLabel,
   Input,
   VStack,
-} from "@chakra-ui/react";
-import { Field, FieldProps } from "formik";
+} from "@chakra-ui/react"
+import { Field, FieldProps } from "formik"
 
 interface RecipeFormAccordionItemProps<T> {
-  newField: T;
-  formName: string;
-  fieldName: string;
-  fieldIndex: number;
+  newField: T
+  formName: string
+  fieldName: string
+  fieldIndex: number
 }
 
 const mapKey = (key: string) => {
   switch (key) {
     case "name":
-      return "名稱";
+      return "名稱"
 
     case "amount":
-      return "數量";
+      return "數量"
 
     case "unit":
-      return "單位";
+      return "單位"
 
     case "processing":
-      return "配料工序（選填）";
+      return "配料工序（選填）"
 
     case "summary":
-      return "步驟簡稱";
+      return "步驟簡稱"
 
     case "description":
-      return "詳細說明";
+      return "詳細說明"
 
     default:
-      return key;
+      return key
   }
-};
+}
 
 export default function RecipeFormAccordionItem<T extends Record<string, unknown>>({
   newField,
@@ -64,7 +64,7 @@ export default function RecipeFormAccordionItem<T extends Record<string, unknown
       <AccordionPanel pb={4}>
         <VStack spacing="6">
           {Object.keys(newField).map((key) => {
-            const id = `${formName}.${fieldIndex}.${key}`;
+            const id = `${formName}.${fieldIndex}.${key}`
             return (
               <Field name={id} key={id}>
                 {({ field, form }: FieldProps<string[], Record<string, unknown>>) => (
@@ -83,10 +83,10 @@ export default function RecipeFormAccordionItem<T extends Record<string, unknown
                   </FormControl>
                 )}
               </Field>
-            );
+            )
           })}
         </VStack>
       </AccordionPanel>
     </AccordionItem>
-  );
+  )
 }

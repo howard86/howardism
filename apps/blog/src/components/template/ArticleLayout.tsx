@@ -1,12 +1,12 @@
-import { ChildrenProps } from "react";
-import { SVGProps } from "react-html-props";
-import Head from "next/head";
-import { useRouter } from "next/router";
+import { ChildrenProps } from "react"
+import { SVGProps } from "react-html-props"
+import Head from "next/head"
+import { useRouter } from "next/router"
 
-import { formatDate } from "@/utils/time";
+import { formatDate } from "@/utils/time"
 
-import { Container } from "./Container";
-import { Prose } from "./Prose";
+import { Container } from "./Container"
+import { Prose } from "./Prose"
 
 function ArrowLeftIcon(props: SVGProps) {
   return (
@@ -18,13 +18,13 @@ function ArrowLeftIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 interface ArticleLayoutProps extends ChildrenProps {
-  meta: { title: string; description: string; date: string };
-  isRssFeed?: boolean;
-  previousPathname?: string;
+  meta: { title: string; description: string; date: string }
+  isRssFeed?: boolean
+  previousPathname?: string
 }
 
 export function ArticleLayout({
@@ -33,9 +33,9 @@ export function ArticleLayout({
   isRssFeed = false,
   previousPathname,
 }: ArticleLayoutProps) {
-  const router = useRouter();
+  const router = useRouter()
 
-  if (isRssFeed) return children;
+  if (isRssFeed) return children
 
   return (
     <>
@@ -75,5 +75,5 @@ export function ArticleLayout({
         </div>
       </Container>
     </>
-  );
+  )
 }

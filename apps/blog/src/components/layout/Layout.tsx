@@ -1,7 +1,7 @@
-import { ChildrenProps } from "react";
+import { ChildrenProps } from "react"
 
-import Footer from "./Footer";
-import Header from "./Header";
+import Footer from "./Footer"
+import Header from "./Header"
 
 export default function Layout({ children }: ChildrenProps) {
   return (
@@ -10,5 +10,5 @@ export default function Layout({ children }: ChildrenProps) {
       <main>{children}</main>
       <Footer />
     </div>
-  );
+  )
 }

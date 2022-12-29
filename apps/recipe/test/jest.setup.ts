@@ -1,3 +1,3 @@
-import * as mockRouter from "next-router-mock";
+import * as mockRouter from "next-router-mock"
 
-jest.mock("next/router", () => mockRouter);
+jest.mock("next/router", () => mockRouter)

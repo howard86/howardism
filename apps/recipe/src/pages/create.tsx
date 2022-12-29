@@ -1,19 +1,19 @@
-import { useEffect } from "react";
-import { Container, Heading } from "@chakra-ui/react";
-import { useRouter } from "next/router";
+import { useEffect } from "react"
+import { Container, Heading } from "@chakra-ui/react"
+import { useRouter } from "next/router"
 
-import RecipeForm from "@/components/RecipeForm";
-import useAuth from "@/hooks/useAuth";
+import RecipeForm from "@/components/RecipeForm"
+import useAuth from "@/hooks/useAuth"
 
 export default function CreateRecipePage(): JSX.Element {
-  const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const router = useRouter()
+  const { isLoggedIn } = useAuth()
 
   useEffect(() => {
     if (!isLoggedIn) {
-      router.push("/signin");
+      router.push("/signin")
     }
-  }, [router, isLoggedIn]);
+  }, [router, isLoggedIn])
 
   return (
     <Container mt="32" py="8" px={{ base: 4, md: 10 }} bg="white" borderRadius="lg">
@@ -22,5 +22,5 @@ export default function CreateRecipePage(): JSX.Element {
       </Heading>
       <RecipeForm />
     </Container>
-  );
+  )
 }

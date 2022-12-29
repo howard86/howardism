@@ -1,94 +1,94 @@
-import type { IconType } from "react-icons";
-import { BiConversation, BiIdCard } from "react-icons/bi";
-import { BsFillPersonPlusFill, BsPersonCheckFill } from "react-icons/bs";
-import { FaBlog, FaBook, FaDonate, FaInfoCircle, FaTwitter, FaUserCircle } from "react-icons/fa";
-import { GiReceiveMoney, GiTakeMyMoney, GiWantedReward } from "react-icons/gi";
-import { GrUserManager } from "react-icons/gr";
-import { HiOutlineMail } from "react-icons/hi";
-import { ImMan } from "react-icons/im";
-import { MdKeyboard, MdLocationOn, MdSchool, MdWork } from "react-icons/md";
-import { RiAdminLine, RiGitRepositoryLine, RiTimer2Fill, RiTimerFill } from "react-icons/ri";
-import { SiCodesandbox } from "react-icons/si";
+import type { IconType } from "react-icons"
+import { BiConversation, BiIdCard } from "react-icons/bi"
+import { BsFillPersonPlusFill, BsPersonCheckFill } from "react-icons/bs"
+import { FaBlog, FaBook, FaDonate, FaInfoCircle, FaTwitter, FaUserCircle } from "react-icons/fa"
+import { GiReceiveMoney, GiTakeMyMoney, GiWantedReward } from "react-icons/gi"
+import { GrUserManager } from "react-icons/gr"
+import { HiOutlineMail } from "react-icons/hi"
+import { ImMan } from "react-icons/im"
+import { MdKeyboard, MdLocationOn, MdSchool, MdWork } from "react-icons/md"
+import { RiAdminLine, RiGitRepositoryLine, RiTimer2Fill, RiTimerFill } from "react-icons/ri"
+import { SiCodesandbox } from "react-icons/si"
 
 // TODO: add dynamic import for better performance
 export default function matchIcon(key: string): IconType {
   switch (key) {
     case "login":
-      return FaUserCircle;
+      return FaUserCircle
 
     case "databaseId":
-      return SiCodesandbox;
+      return SiCodesandbox
 
     case "id":
-      return BiIdCard;
+      return BiIdCard
 
     case "name":
-      return FaUserCircle;
+      return FaUserCircle
 
     case "company":
-      return MdWork;
+      return MdWork
 
     case "websiteUrl":
-      return FaBlog;
+      return FaBlog
 
     case "location":
-      return MdLocationOn;
+      return MdLocationOn
 
     case "email":
-      return HiOutlineMail;
+      return HiOutlineMail
 
     case "bio":
-      return BiConversation;
+      return BiConversation
 
     case "twitterUsername":
-      return FaTwitter;
+      return FaTwitter
 
     case "repositories":
-      return RiGitRepositoryLine;
+      return RiGitRepositoryLine
 
     case "gists":
-      return FaBook;
+      return FaBook
 
     case "followers":
-      return BsFillPersonPlusFill;
+      return BsFillPersonPlusFill
 
     case "following":
-      return BsPersonCheckFill;
+      return BsPersonCheckFill
 
     case "createdAt":
-      return RiTimerFill;
+      return RiTimerFill
 
     case "updatedAt":
-      return RiTimer2Fill;
+      return RiTimer2Fill
 
     case "hasSponsorsListing":
-      return FaDonate;
+      return FaDonate
 
     case "isBountyHunter":
-      return GiReceiveMoney;
+      return GiReceiveMoney
 
     case "isCampusExpert":
-      return MdSchool;
+      return MdSchool
 
     case "isDeveloperProgramMember":
-      return MdKeyboard;
+      return MdKeyboard
 
     case "isEmployee":
-      return GrUserManager;
+      return GrUserManager
 
     case "isHireable":
-      return GiWantedReward;
+      return GiWantedReward
 
     case "isSiteAdmin":
-      return RiAdminLine;
+      return RiAdminLine
 
     case "isSponsoringViewer":
-      return GiTakeMyMoney;
+      return GiTakeMyMoney
 
     case "isViewer":
-      return ImMan;
+      return ImMan
 
     default:
-      return FaInfoCircle;
+      return FaInfoCircle
   }
 }

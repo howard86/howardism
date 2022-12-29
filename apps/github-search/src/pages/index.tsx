@@ -1,11 +1,11 @@
-import { Button, Input, Stack, useBreakpointValue, VStack, Wrap } from "@chakra-ui/react";
+import { Button, Input, Stack, useBreakpointValue, VStack, Wrap } from "@chakra-ui/react"
 
-import UserCard from "@/components/UserCard";
-import useSearch from "@/hooks/use-search";
+import UserCard from "@/components/UserCard"
+import useSearch from "@/hooks/use-search"
 
 export default function HomePage() {
-  const count = useBreakpointValue({ base: 9, sm: 12, md: 18, lg: 15, xl: 25 });
-  const { state, result, onType, onSearch } = useSearch(count);
+  const count = useBreakpointValue({ base: 9, sm: 12, md: 18, lg: 15, xl: 25 })
+  const { state, result, onType, onSearch } = useSearch(count)
 
   return (
     <VStack my="auto" spacing={[4, 8]}>
@@ -33,5 +33,5 @@ export default function HomePage() {
         </Wrap>
       )}
     </VStack>
-  );
+  )
 }

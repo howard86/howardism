@@ -1,11 +1,11 @@
-import { DivProps } from "react-html-props";
+import { DivProps } from "react-html-props"
 
-import { SECTION_KEYS, SectionId } from "@/constants/nav";
+import { SECTION_KEYS, SectionId } from "@/constants/nav"
 
-import NavItem from "./NavItem";
+import NavItem from "./NavItem"
 
 interface DesktopNavigationProps extends DivProps {
-  activeSectionId: string;
+  activeSectionId: string
 }
 
 export default function DesktopNavigation({ activeSectionId, ...props }: DesktopNavigationProps) {
@@ -23,5 +23,5 @@ export default function DesktopNavigation({ activeSectionId, ...props }: Desktop
         ))}
       </ul>
     </nav>
-  );
+  )
 }

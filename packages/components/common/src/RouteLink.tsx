@@ -1,8 +1,8 @@
-import { Link, LinkProps } from "@chakra-ui/react";
-import NextLink from "next/link";
+import { Link, LinkProps } from "@chakra-ui/react"
+import NextLink from "next/link"
 
 export interface RouteLinkProps extends LinkProps {
-  href: string;
+  href: string
 }
 
 export default function RouteLink({ href, ...props }: RouteLinkProps): JSX.Element {
@@ -10,5 +10,5 @@ export default function RouteLink({ href, ...props }: RouteLinkProps): JSX.Eleme
     <NextLink href={href} passHref legacyBehavior>
       <Link {...props} />
     </NextLink>
-  );
+  )
 }

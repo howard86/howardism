@@ -1,10 +1,10 @@
-import Home from "@/pages/index";
+import Home from "@/pages/index"
 
-import { render } from "../testUtils";
+import { render } from "../testUtils"
 
 describe("Home page", () => {
   it("matches snapshot", () => {
-    const { asFragment } = render(<Home />, {});
-    expect(asFragment()).toMatchSnapshot();
-  });
-});
+    const { asFragment } = render(<Home />, {})
+    expect(asFragment()).toMatchSnapshot()
+  })
+})

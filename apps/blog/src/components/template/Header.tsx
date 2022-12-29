@@ -1,17 +1,17 @@
-import { ChildrenProps, ComponentType, CSSProperties, Fragment, useEffect, useRef } from "react";
-import { DivProps, SVGProps } from "react-html-props";
-import { Popover, Transition } from "@headlessui/react";
-import clsx from "clsx";
-import Image from "next/image";
-import Link, { LinkProps } from "next/link";
-import { useRouter } from "next/router";
+import { ChildrenProps, ComponentType, CSSProperties, Fragment, useEffect, useRef } from "react"
+import { DivProps, SVGProps } from "react-html-props"
+import { Popover, Transition } from "@headlessui/react"
+import clsx from "clsx"
+import Image from "next/image"
+import Link, { LinkProps } from "next/link"
+import { useRouter } from "next/router"
 
-import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav";
-import profile from "@/profile.jpeg";
+import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav"
+import profile from "@/profile.jpeg"
 
-import { Container } from "./Container";
+import { Container } from "./Container"
 
-type ExtractProps<T> = T extends ComponentType<infer P> ? P : T;
+type ExtractProps<T> = T extends ComponentType<infer P> ? P : T
 
 function CloseIcon(props: SVGProps) {
   return (
@@ -25,7 +25,7 @@ function CloseIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 function ChevronDownIcon(props: SVGProps) {
@@ -39,7 +39,7 @@ function ChevronDownIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 function SunIcon(props: SVGProps) {
@@ -58,7 +58,7 @@ function SunIcon(props: SVGProps) {
         fill="none"
       />
     </svg>
-  );
+  )
 }
 
 function MoonIcon(props: SVGProps) {
@@ -71,7 +71,7 @@ function MoonIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
@@ -127,11 +127,11 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
         </Transition.Child>
       </Transition.Root>
     </Popover>
-  );
+  )
 }
 
 function NavItem({ href, children }: LinkProps & ChildrenProps) {
-  const isActive = useRouter().pathname === href;
+  const isActive = useRouter().pathname === href
 
   return (
     <li>
@@ -150,7 +150,7 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
         )}
       </Link>
     </li>
-  );
+  )
 }
 
 function DesktopNavigation(props: DivProps) {
@@ -164,28 +164,28 @@ function DesktopNavigation(props: DivProps) {
         ))}
       </ul>
     </nav>
-  );
+  )
 }
 
 function ModeToggle() {
   function disableTransitionsTemporarily() {
-    document.documentElement.classList.add("[&_*]:!transition-none");
+    document.documentElement.classList.add("[&_*]:!transition-none")
     window.setTimeout(() => {
-      document.documentElement.classList.remove("[&_*]:!transition-none");
-    }, 0);
+      document.documentElement.classList.remove("[&_*]:!transition-none")
+    }, 0)
   }
 
   function toggleMode() {
-    disableTransitionsTemporarily();
+    disableTransitionsTemporarily()
 
-    const darkModeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const isSystemDarkMode = darkModeMediaQuery.matches;
-    const isDarkMode = document.documentElement.classList.toggle("dark");
+    const darkModeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    const isSystemDarkMode = darkModeMediaQuery.matches
+    const isDarkMode = document.documentElement.classList.toggle("dark")
 
     if (isDarkMode === isSystemDarkMode) {
-      delete window.localStorage.isDarkMode;
+      delete window.localStorage.isDarkMode
     } else {
-      window.localStorage.isDarkMode = isDarkMode;
+      window.localStorage.isDarkMode = isDarkMode
     }
   }
 
@@ -199,13 +199,13 @@ function ModeToggle() {
       <SunIcon className="h-6 w-6 fill-zinc-100 stroke-zinc-500 transition group-hover:fill-zinc-200 group-hover:stroke-zinc-700 dark:hidden [@media(prefers-color-scheme:dark)]:fill-teal-50 [@media(prefers-color-scheme:dark)]:stroke-teal-500 [@media(prefers-color-scheme:dark)]:group-hover:fill-teal-50 [@media(prefers-color-scheme:dark)]:group-hover:stroke-teal-600" />
       <MoonIcon className="hidden h-6 w-6 fill-zinc-700 stroke-zinc-500 transition dark:block [@media(prefers-color-scheme:dark)]:group-hover:stroke-zinc-400 [@media_not_(prefers-color-scheme:dark)]:fill-teal-400/10 [@media_not_(prefers-color-scheme:dark)]:stroke-teal-500" />
     </button>
-  );
+  )
 }
 
 function clamp(number: number, a: number, b: number) {
-  const min = Math.min(a, b);
-  const max = Math.max(a, b);
-  return Math.min(Math.max(number, min), max);
+  const min = Math.min(a, b)
+  const max = Math.max(a, b)
+  return Math.min(Math.max(number, min), max)
 }
 
 function AvatarContainer({ className, ...props }: DivProps) {
@@ -217,13 +217,13 @@ function AvatarContainer({ className, ...props }: DivProps) {
       )}
       {...props}
     />
-  );
+  )
 }
 
 interface AvatarProps extends Partial<LinkProps> {
-  large?: boolean;
-  className?: string;
-  style?: Partial<CSSProperties>;
+  large?: boolean
+  className?: string
+  style?: Partial<CSSProperties>
 }
 
 function Avatar({ large = false, className, href = "/", ...props }: AvatarProps) {
@@ -245,104 +245,104 @@ function Avatar({ large = false, className, href = "/", ...props }: AvatarProps)
         priority
       />
     </Link>
-  );
+  )
 }
 
 export function Header() {
-  const isHomePage = useRouter().pathname === "/";
+  const isHomePage = useRouter().pathname === "/"
 
-  const headerRef = useRef<HTMLDivElement>(null);
-  const avatarRef = useRef<HTMLDivElement>(null);
-  const isInitial = useRef(true);
+  const headerRef = useRef<HTMLDivElement>(null)
+  const avatarRef = useRef<HTMLDivElement>(null)
+  const isInitial = useRef(true)
 
   useEffect(() => {
-    const downDelay = avatarRef.current?.offsetTop ?? 0;
-    const upDelay = 64;
+    const downDelay = avatarRef.current?.offsetTop ?? 0
+    const upDelay = 64
 
     function setProperty(property: string, value: string) {
-      document.documentElement.style.setProperty(property, value);
+      document.documentElement.style.setProperty(property, value)
     }
 
     function removeProperty(property: string) {
-      document.documentElement.style.removeProperty(property);
+      document.documentElement.style.removeProperty(property)
     }
 
     function updateHeaderStyles() {
-      if (!headerRef.current) return;
+      if (!headerRef.current) return
 
-      const { top, height } = headerRef.current.getBoundingClientRect();
-      const scrollY = clamp(window.scrollY, 0, document.body.scrollHeight - window.innerHeight);
+      const { top, height } = headerRef.current.getBoundingClientRect()
+      const scrollY = clamp(window.scrollY, 0, document.body.scrollHeight - window.innerHeight)
 
       if (isInitial.current) {
-        setProperty("--header-position", "sticky");
+        setProperty("--header-position", "sticky")
       }
 
-      setProperty("--content-offset", `${downDelay}px`);
+      setProperty("--content-offset", `${downDelay}px`)
 
       if (isInitial.current || scrollY < downDelay) {
-        setProperty("--header-height", `${downDelay + height}px`);
-        setProperty("--header-mb", `${-downDelay}px`);
+        setProperty("--header-height", `${downDelay + height}px`)
+        setProperty("--header-mb", `${-downDelay}px`)
       } else if (top + height < -upDelay) {
-        const offset = Math.max(height, scrollY - upDelay);
-        setProperty("--header-height", `${offset}px`);
-        setProperty("--header-mb", `${height - offset}px`);
+        const offset = Math.max(height, scrollY - upDelay)
+        setProperty("--header-height", `${offset}px`)
+        setProperty("--header-mb", `${height - offset}px`)
       } else if (top === 0) {
-        setProperty("--header-height", `${scrollY + height}px`);
-        setProperty("--header-mb", `${-scrollY}px`);
+        setProperty("--header-height", `${scrollY + height}px`)
+        setProperty("--header-mb", `${-scrollY}px`)
       }
 
       if (top === 0 && scrollY > 0 && scrollY >= downDelay) {
-        setProperty("--header-inner-position", "fixed");
-        removeProperty("--header-top");
-        removeProperty("--avatar-top");
+        setProperty("--header-inner-position", "fixed")
+        removeProperty("--header-top")
+        removeProperty("--avatar-top")
       } else {
-        removeProperty("--header-inner-position");
-        setProperty("--header-top", "0px");
-        setProperty("--avatar-top", "0px");
+        removeProperty("--header-inner-position")
+        setProperty("--header-top", "0px")
+        setProperty("--avatar-top", "0px")
       }
     }
 
     function updateAvatarStyles() {
-      if (!isHomePage) return;
+      if (!isHomePage) return
 
-      const fromScale = 1;
-      const toScale = 36 / 64;
-      const fromX = 0;
-      const toX = 2 / 16;
+      const fromScale = 1
+      const toScale = 36 / 64
+      const fromX = 0
+      const toX = 2 / 16
 
-      const scrollY = downDelay - window.scrollY;
+      const scrollY = downDelay - window.scrollY
 
-      let scale = (scrollY * (fromScale - toScale)) / downDelay + toScale;
-      scale = clamp(scale, fromScale, toScale);
+      let scale = (scrollY * (fromScale - toScale)) / downDelay + toScale
+      scale = clamp(scale, fromScale, toScale)
 
-      let x = (scrollY * (fromX - toX)) / downDelay + toX;
-      x = clamp(x, fromX, toX);
+      let x = (scrollY * (fromX - toX)) / downDelay + toX
+      x = clamp(x, fromX, toX)
 
-      setProperty("--avatar-image-transform", `translate3d(${x}rem, 0, 0) scale(${scale})`);
+      setProperty("--avatar-image-transform", `translate3d(${x}rem, 0, 0) scale(${scale})`)
 
-      const borderScale = 1 / (toScale / scale);
-      const borderX = (-toX + x) * borderScale;
-      const borderTransform = `translate3d(${borderX}rem, 0, 0) scale(${borderScale})`;
+      const borderScale = 1 / (toScale / scale)
+      const borderX = (-toX + x) * borderScale
+      const borderTransform = `translate3d(${borderX}rem, 0, 0) scale(${borderScale})`
 
-      setProperty("--avatar-border-transform", borderTransform);
-      setProperty("--avatar-border-opacity", scale === toScale ? "1" : "0");
+      setProperty("--avatar-border-transform", borderTransform)
+      setProperty("--avatar-border-opacity", scale === toScale ? "1" : "0")
     }
 
     function updateStyles() {
-      updateHeaderStyles();
-      updateAvatarStyles();
-      isInitial.current = false;
+      updateHeaderStyles()
+      updateAvatarStyles()
+      isInitial.current = false
     }
 
-    updateStyles();
-    window.addEventListener("scroll", updateStyles, { passive: true });
-    window.addEventListener("resize", updateStyles);
+    updateStyles()
+    window.addEventListener("scroll", updateStyles, { passive: true })
+    window.addEventListener("resize", updateStyles)
 
     return () => {
-      window.removeEventListener("scroll", updateStyles);
-      window.removeEventListener("resize", updateStyles);
-    };
-  }, [isHomePage]);
+      window.removeEventListener("scroll", updateStyles)
+      window.removeEventListener("resize", updateStyles)
+    }
+  }, [isHomePage])
 
   return (
     <>
@@ -419,5 +419,5 @@ export function Header() {
       </header>
       {isHomePage && <div style={{ height: "var(--content-offset)" }} />}
     </>
-  );
+  )
 }

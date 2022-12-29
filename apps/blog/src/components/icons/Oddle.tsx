@@ -1,4 +1,4 @@
-import { SVGProps } from "react-html-props";
+import { SVGProps } from "react-html-props"
 
 export default function OddleIcon(props: SVGProps) {
   return (
@@ -12,5 +12,5 @@ export default function OddleIcon(props: SVGProps) {
         fill="#3D0099"
       />
     </svg>
-  );
+  )
 }

@@ -1,9 +1,9 @@
-import { Icon, Tooltip, WrapItem } from "@chakra-ui/react";
+import { Icon, Tooltip, WrapItem } from "@chakra-ui/react"
 
-import matchIcon from "@/utils/match-icons";
+import matchIcon from "@/utils/match-icons"
 
 interface ProfileBadgeProps {
-  name: string;
+  name: string
 }
 
 export default function ProfileBadge({ name }: ProfileBadgeProps) {
@@ -13,5 +13,5 @@ export default function ProfileBadge({ name }: ProfileBadgeProps) {
         <Icon fontSize="4xl" as={matchIcon(name)} />
       </WrapItem>
     </Tooltip>
-  );
+  )
 }

@@ -1,15 +1,15 @@
-import { Fragment } from "react";
-import { DivProps } from "react-html-props";
-import { Popover, Transition } from "@headlessui/react";
+import { Fragment } from "react"
+import { DivProps } from "react-html-props"
+import { Popover, Transition } from "@headlessui/react"
 
-import { SECTION_KEYS, SectionId } from "@/constants/nav";
+import { SECTION_KEYS, SectionId } from "@/constants/nav"
 
-import { ChevronDownIcon, CloseIcon } from "../icons";
+import { ChevronDownIcon, CloseIcon } from "../icons"
 
-import MobileNavItem from "./MobileNavItem";
+import MobileNavItem from "./MobileNavItem"
 
 interface MobileNavigationProps extends DivProps {
-  activeSectionId: string;
+  activeSectionId: string
 }
 
 export default function MobileNavigation({ activeSectionId, ...props }: MobileNavigationProps) {
@@ -68,5 +68,5 @@ export default function MobileNavigation({ activeSectionId, ...props }: MobileNa
         </Transition.Child>
       </Transition.Root>
     </Popover>
-  );
+  )
 }

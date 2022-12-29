@@ -1,26 +1,26 @@
-import { useRef } from "react";
-import { m as motion, useInView, useScroll, useTransform } from "framer-motion";
-import dynamic from "next/dynamic";
-import Image from "next/image";
+import { useRef } from "react"
+import { m as motion, useInView, useScroll, useTransform } from "framer-motion"
+import dynamic from "next/dynamic"
+import Image from "next/image"
 
-import coverPhoto from "@/../public/cover.jpg";
-import { SectionId } from "@/constants/nav";
+import coverPhoto from "@/../public/cover.jpg"
+import { SectionId } from "@/constants/nav"
 
-import SlideBox from "../animations/SlideBox";
-import WavyText from "../animations/WavyText";
+import SlideBox from "../animations/SlideBox"
+import WavyText from "../animations/WavyText"
 
-const descriptions = ["Web Developer", "Lifelong Learner", "Mathemachicken Lover!"];
+const descriptions = ["Web Developer", "Lifelong Learner", "Mathemachicken Lover!"]
 
-const DynamicReactTyped = dynamic(() => import("react-typed"));
+const DynamicReactTyped = dynamic(() => import("react-typed"))
 
 export default function HomeSection() {
-  const ref = useRef<HTMLHeadingElement>(null);
-  const inView = useInView(ref, { once: false });
-  const { scrollYProgress } = useScroll({ offset: ["start", "100vh"] });
+  const ref = useRef<HTMLHeadingElement>(null)
+  const inView = useInView(ref, { once: false })
+  const { scrollYProgress } = useScroll({ offset: ["start", "100vh"] })
   const filter = useTransform(scrollYProgress, (value) =>
     value ? `blur(${4 * value}px) brightness(${100 - 95 * value}%)` : "none"
-  );
-  const y = useTransform(scrollYProgress, (value) => Math.min(640 * value + 145, 340));
+  )
+  const y = useTransform(scrollYProgress, (value) => Math.min(640 * value + 145, 340))
 
   return (
     <section id={SectionId.Home} className="relative">
@@ -73,5 +73,5 @@ export default function HomeSection() {
         </SlideBox>
       </motion.div>
     </section>
-  );
+  )
 }

@@ -1,14 +1,14 @@
-import { ReactNode } from "react";
-import { DivProps } from "react-html-props";
-import clsx from "clsx";
+import { ReactNode } from "react"
+import { DivProps } from "react-html-props"
+import clsx from "clsx"
 
-import { Container } from "../layout/Container";
+import { Container } from "../layout/Container"
 
 interface SectionWrapperProps extends DivProps {
-  tag: string;
-  title: string;
-  description: string;
-  children: ReactNode;
+  tag: string
+  title: string
+  description: string
+  children: ReactNode
 }
 
 export default function SectionWrapper({
@@ -30,5 +30,5 @@ export default function SectionWrapper({
         {children}
       </section>
     </Container>
-  );
+  )
 }

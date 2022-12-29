@@ -1,6 +1,6 @@
-import { SVGProps } from "react-html-props";
+import { SVGProps } from "react-html-props"
 
-import { Button } from "./Button";
+import { Button } from "./Button"
 
 function MailIcon(props: SVGProps) {
   return (
@@ -22,7 +22,7 @@ function MailIcon(props: SVGProps) {
         className="stroke-zinc-400 dark:stroke-zinc-500"
       />
     </svg>
-  );
+  )
 }
 
 export default function Newsletter() {
@@ -51,5 +51,5 @@ export default function Newsletter() {
         </Button>
       </div>
     </form>
-  );
+  )
 }

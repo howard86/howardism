@@ -1,20 +1,20 @@
-import { IconType } from "react-icons";
-import { FaGithub, FaTwitter } from "react-icons/fa";
-import { GoMail } from "react-icons/go";
+import { IconType } from "react-icons"
+import { FaGithub, FaTwitter } from "react-icons/fa"
+import { GoMail } from "react-icons/go"
 
-import { Container } from "./Container";
+import { Container } from "./Container"
 
 type SocialItem = {
-  name: string;
-  href: string;
-  Icon: IconType;
-};
+  name: string
+  href: string
+  Icon: IconType
+}
 
 const SOCIAL_ITEMS: SocialItem[] = [
   { name: "GitHub", href: "https://github.com/Howard86", Icon: FaGithub },
   { name: "Twitter", href: "https://twitter.com/howard86_", Icon: FaTwitter },
   { name: "Email", href: "mailto:howard@howardism.dev", Icon: GoMail },
-];
+]
 
 export default function Footer(): JSX.Element {
   return (
@@ -39,5 +39,5 @@ export default function Footer(): JSX.Element {
         </p>
       </footer>
     </Container>
-  );
+  )
 }

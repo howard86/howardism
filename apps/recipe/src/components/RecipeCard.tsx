@@ -1,20 +1,21 @@
-import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
-import { Image } from "@howardism/components-common";
-import { StaticImageData } from "next/image";
-import NextLink from "next/link";
+import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react"
+import { StaticImageData } from "next/image"
+import NextLink from "next/link"
+
+import { Image } from "@howardism/components-common"
 
 interface RecipeCardProps {
-  id: number;
-  title: string;
-  description: string;
-  timestamp: string;
-  imageUrl: string | StaticImageData;
+  id: number
+  title: string
+  description: string
+  timestamp: string
+  imageUrl: string | StaticImageData
 }
 
 const getDayDiff = (timestamp: string): number => {
-  const diff = Date.now() - new Date(timestamp).getTime();
-  return Math.floor(diff / 1000 / 60 / 60 / 24);
-};
+  const diff = Date.now() - new Date(timestamp).getTime()
+  return Math.floor(diff / 1000 / 60 / 60 / 24)
+}
 
 export default function RecipeCard({
   id,
@@ -23,7 +24,7 @@ export default function RecipeCard({
   timestamp,
   imageUrl,
 }: RecipeCardProps) {
-  const daysPassed = getDayDiff(timestamp);
+  const daysPassed = getDayDiff(timestamp)
 
   return (
     <LinkBox as="article" p="4" bg="secondary.100" rounded="lg">
@@ -55,5 +56,5 @@ export default function RecipeCard({
       </Heading>
       <Text>{description}</Text>
     </LinkBox>
-  );
+  )
 }

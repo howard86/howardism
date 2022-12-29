@@ -1,9 +1,9 @@
-import { DivProps } from "react-html-props";
-import { m as motion, Transition, Variants } from "framer-motion";
+import { DivProps } from "react-html-props"
+import { m as motion, Transition, Variants } from "framer-motion"
 
 interface WavyTextProps extends DivProps {
-  text: string;
-  delay?: number;
+  text: string
+  delay?: number
 }
 
 const CONTAINER_VARIANTS: Variants = {
@@ -14,13 +14,13 @@ const CONTAINER_VARIANTS: Variants = {
     opacity: 1,
     transition: { when: "beforeChildren", staggerChildren: 0.05, delay },
   }),
-};
+}
 
 export const LETTER_TRANSITION: Transition = {
   type: "spring",
   damping: 12,
   stiffness: 200,
-};
+}
 
 const LETTER_VARIANTS: Variants = {
   visible: {
@@ -33,9 +33,9 @@ const LETTER_VARIANTS: Variants = {
     y: 12,
     transition: LETTER_TRANSITION,
   },
-};
+}
 
-const NO_BREAK_SPACE = "\u00A0";
+const NO_BREAK_SPACE = "\u00A0"
 
 export default function WavyText({ text, delay = 0 }: WavyTextProps) {
   return (
@@ -53,5 +53,5 @@ export default function WavyText({ text, delay = 0 }: WavyTextProps) {
         </motion.span>
       ))}
     </motion.span>
-  );
+  )
 }

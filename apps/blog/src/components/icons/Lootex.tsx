@@ -1,4 +1,4 @@
-import { SVGProps } from "react-html-props";
+import { SVGProps } from "react-html-props"
 
 export default function LootexIcon({ className, ...props }: SVGProps) {
   return (
@@ -37,5 +37,5 @@ export default function LootexIcon({ className, ...props }: SVGProps) {
         fill="#DF0078"
       />
     </svg>
-  );
+  )
 }

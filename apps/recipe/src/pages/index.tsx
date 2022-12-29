@@ -1,15 +1,15 @@
-import type { GetStaticPropsResult } from "next";
+import type { GetStaticPropsResult } from "next"
 
-import Home from "@/components/templates/Home";
-import { getRecipes } from "@/services/recipe";
-import type { Recipe } from "@/types/recipe";
+import Home from "@/components/templates/Home"
+import { getRecipes } from "@/services/recipe"
+import type { Recipe } from "@/types/recipe"
 
 interface HomeProps {
-  recipes: Recipe[];
+  recipes: Recipe[]
 }
 
 export const getStaticProps = async (): Promise<GetStaticPropsResult<HomeProps>> => {
-  const results = await getRecipes();
+  const results = await getRecipes()
 
   return {
     props: {
@@ -17,7 +17,7 @@ export const getStaticProps = async (): Promise<GetStaticPropsResult<HomeProps>>
     },
     // Update every one hour
     revalidate: 3600,
-  };
-};
+  }
+}
 
-export default Home;
+export default Home

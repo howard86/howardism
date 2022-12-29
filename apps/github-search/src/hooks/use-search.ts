@@ -1,55 +1,55 @@
-import { ChangeEvent, useReducer } from "react";
+import { ChangeEvent, useReducer } from "react"
 
-import { SearchUsersLazyQueryHookResult, useSearchUsersLazyQuery } from "@/generated/graphql";
+import { SearchUsersLazyQueryHookResult, useSearchUsersLazyQuery } from "@/generated/graphql"
 
 interface SearchState {
-  username: string;
+  username: string
 }
 
 interface UseSearch {
-  state: SearchState;
-  result: SearchUsersLazyQueryHookResult[1];
-  onType: (event: ChangeEvent<HTMLInputElement>) => void;
-  onSearch: () => void;
+  state: SearchState
+  result: SearchUsersLazyQueryHookResult[1]
+  onType: (event: ChangeEvent<HTMLInputElement>) => void
+  onSearch: () => void
 }
 
-type SearchAction = { type: "updateUsername"; payload: string };
+type SearchAction = { type: "updateUsername"; payload: string }
 
-const INITIAL_USERNAME = "";
-const DEFAULT_COUNT = 10;
+const INITIAL_USERNAME = ""
+const DEFAULT_COUNT = 10
 
 const initialState: SearchState = {
   username: INITIAL_USERNAME,
-};
+}
 
 const reducer = (state: SearchState, action: SearchAction): SearchState => {
   switch (action.type) {
     case "updateUsername":
-      return { ...state, username: action.payload };
+      return { ...state, username: action.payload }
 
     default:
-      throw new Error("missing action type");
+      throw new Error("missing action type")
   }
-};
+}
 
 const useSearch = (count = DEFAULT_COUNT): UseSearch => {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  const [search, result] = useSearchUsersLazyQuery();
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const [search, result] = useSearchUsersLazyQuery()
 
   const onType = (event: ChangeEvent<HTMLInputElement>): void => {
-    dispatch({ type: "updateUsername", payload: event.target.value });
-  };
+    dispatch({ type: "updateUsername", payload: event.target.value })
+  }
 
   const onSearch = (): void => {
-    search({ variables: { query: `${state.username} in:login`, count } });
-  };
+    search({ variables: { query: `${state.username} in:login`, count } })
+  }
 
   return {
     state,
     result,
     onType,
     onSearch,
-  };
-};
+  }
+}
 
-export default useSearch;
+export default useSearch

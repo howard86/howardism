@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { HiMenuAlt2 } from "react-icons/hi";
+import { useRef } from "react"
+import { HiMenuAlt2 } from "react-icons/hi"
 import {
   Box,
   Drawer,
@@ -12,18 +12,18 @@ import {
   List,
   ListItem,
   useDisclosure,
-} from "@chakra-ui/react";
-import { RouteLink } from "@howardism/components-common";
-import { useRouter } from "next/router";
+} from "@chakra-ui/react"
+import { useRouter } from "next/router"
 
-import { MENU_LINK_ITEMS } from "@/constants/menu";
+import { MENU_LINK_ITEMS } from "@/constants/menu"
+import { RouteLink } from "@howardism/components-common"
 
-import HorizontalLogo from "../graphics/HorizontalLogo";
+import HorizontalLogo from "../graphics/HorizontalLogo"
 
 export default function MobileDrawer(): JSX.Element {
-  const router = useRouter();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const btnRef = useRef<HTMLButtonElement>(null);
+  const router = useRouter()
+  const { isOpen, onOpen, onClose } = useDisclosure()
+  const btnRef = useRef<HTMLButtonElement>(null)
 
   return (
     <Box display={{ md: "none" }}>
@@ -51,7 +51,7 @@ export default function MobileDrawer(): JSX.Element {
             <List spacing="8">
               {MENU_LINK_ITEMS.map((item) => {
                 // TODO: implement active-link
-                const isCurrentPage = router.pathname === item.url;
+                const isCurrentPage = router.pathname === item.url
                 return (
                   <ListItem key={item.url}>
                     <RouteLink
@@ -83,12 +83,12 @@ export default function MobileDrawer(): JSX.Element {
                       {item.label}
                     </RouteLink>
                   </ListItem>
-                );
+                )
               })}
             </List>
           </DrawerBody>
         </DrawerContent>
       </Drawer>
     </Box>
-  );
+  )
 }

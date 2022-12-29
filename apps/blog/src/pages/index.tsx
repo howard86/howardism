@@ -1,20 +1,20 @@
-import { FC } from "react";
-import { AProps, SVGProps } from "react-html-props";
-import clsx from "clsx";
-import Image from "next/image";
+import { FC } from "react"
+import { AProps, SVGProps } from "react-html-props"
+import clsx from "clsx"
+import Image from "next/image"
 
-import image1 from "@/assets/alexandre-debieve-chip.jpg";
-import image2 from "@/assets/carl-heyerdahl-desk.jpg";
-import image3 from "@/assets/john-morgan-sudoku.jpg";
-import image4 from "@/assets/thisisengineering-raeng-desk.jpg";
-import FstIcon from "@/components/icons/Fst";
-import LootexIcon from "@/components/icons/Lootex";
-import OddleIcon from "@/components/icons/Oddle";
-import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card";
-import { Container } from "@/components/template/Container";
-import ExternalLink from "@/components/template/ExternalLink";
-import { GitHubIcon, LinkedInIcon, TwitterIcon } from "@/components/template/SocialIcons";
-import { formatDate } from "@/utils/time";
+import image1 from "@/assets/alexandre-debieve-chip.jpg"
+import image2 from "@/assets/carl-heyerdahl-desk.jpg"
+import image3 from "@/assets/john-morgan-sudoku.jpg"
+import image4 from "@/assets/thisisengineering-raeng-desk.jpg"
+import FstIcon from "@/components/icons/Fst"
+import LootexIcon from "@/components/icons/Lootex"
+import OddleIcon from "@/components/icons/Oddle"
+import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card"
+import { Container } from "@/components/template/Container"
+import ExternalLink from "@/components/template/ExternalLink"
+import { GitHubIcon, LinkedInIcon, TwitterIcon } from "@/components/template/SocialIcons"
+import { formatDate } from "@/utils/time"
 
 function BriefcaseIcon(props: SVGProps) {
   return (
@@ -36,15 +36,15 @@ function BriefcaseIcon(props: SVGProps) {
         className="stroke-zinc-400 dark:stroke-zinc-500"
       />
     </svg>
-  );
+  )
 }
 
 type ArticleEntity = {
-  slug: string;
-  title: string;
-  date: string;
-  description: string;
-};
+  slug: string
+  title: string
+  date: string
+  description: string
+}
 
 function Article({ article }: { article: ArticleEntity }) {
   return (
@@ -56,12 +56,12 @@ function Article({ article }: { article: ArticleEntity }) {
       <CardDescription>{article.description}</CardDescription>
       <CardCta>Read article</CardCta>
     </Card>
-  );
+  )
 }
 
 interface SocialLinkProps extends AProps {
-  href: string;
-  icon: FC<SVGProps>;
+  href: string
+  icon: FC<SVGProps>
 }
 
 function SocialLink({ icon: Icon, ...props }: SocialLinkProps) {
@@ -69,22 +69,22 @@ function SocialLink({ icon: Icon, ...props }: SocialLinkProps) {
     <ExternalLink className="group -m-1 p-1" {...props}>
       <Icon className="h-6 w-6 fill-zinc-500 transition group-hover:fill-zinc-600 dark:fill-zinc-400 dark:group-hover:fill-zinc-300" />
     </ExternalLink>
-  );
+  )
 }
 
-type ResumeTime = { label: string; dateTime: string };
+type ResumeTime = { label: string; dateTime: string }
 
 type ResumeEntity = {
-  company: string;
-  href: string;
-  title: string;
-  logo: FC<SVGProps>;
-  start: string | ResumeTime;
-  end: string | ResumeTime;
-};
+  company: string
+  href: string
+  title: string
+  logo: FC<SVGProps>
+  start: string | ResumeTime
+  end: string | ResumeTime
+}
 
 const getStringOrValue = (time: string | ResumeTime, key: keyof ResumeTime) =>
-  typeof time === "string" ? time : time[key];
+  typeof time === "string" ? time : time[key]
 
 const resume: ResumeEntity[] = [
   {
@@ -114,7 +114,7 @@ const resume: ResumeEntity[] = [
     start: "2018",
     end: "2019",
   },
-];
+]
 
 function Resume() {
   return (
@@ -159,13 +159,13 @@ function Resume() {
         ))}
       </ol>
     </div>
-  );
+  )
 }
 
-const PHOTOS = [image1, image2, image3, image4];
+const PHOTOS = [image1, image2, image3, image4]
 
 function Photos() {
-  const rotations = ["rotate-2", "-rotate-2", "rotate-2", "rotate-2", "-rotate-2"];
+  const rotations = ["rotate-2", "-rotate-2", "rotate-2", "rotate-2", "-rotate-2"]
 
   return (
     <div className="mt-16 sm:mt-20">
@@ -189,11 +189,11 @@ function Photos() {
         ))}
       </div>
     </div>
-  );
+  )
 }
 
 interface HomeProps {
-  articles: ArticleEntity[];
+  articles: ArticleEntity[]
 }
 
 export default function Home({ articles = [] }: HomeProps) {
@@ -245,5 +245,5 @@ export default function Home({ articles = [] }: HomeProps) {
         </div>
       </Container>
     </>
-  );
+  )
 }

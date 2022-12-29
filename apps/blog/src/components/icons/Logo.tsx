@@ -1,4 +1,4 @@
-import { SVGProps } from "react-html-props";
+import { SVGProps } from "react-html-props"
 
 export default function Logo(props: SVGProps) {
   return (
@@ -12,5 +12,5 @@ export default function Logo(props: SVGProps) {
         fill="currentColor"
       />
     </svg>
-  );
+  )
 }

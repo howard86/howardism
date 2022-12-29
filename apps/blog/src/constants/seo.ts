@@ -1,10 +1,10 @@
-import { DefaultSeoProps } from "next-seo";
+import { DefaultSeoProps } from "next-seo"
 
-import config from "@/config";
+import config from "@/config"
 
-const SITE_NAME = "Howardism";
-const TWITTER_USERNAME = "@howard86_";
-const PROFILE_IMAGE_NAME = "profile.jpeg";
+const SITE_NAME = "Howardism"
+const TWITTER_USERNAME = "@howard86_"
+const PROFILE_IMAGE_NAME = "profile.jpeg"
 
 const DEFAULT_OPEN_GRAPH = {
   type: "website",
@@ -20,7 +20,7 @@ const DEFAULT_OPEN_GRAPH = {
       alt: "Profile Picture",
     },
   ],
-};
+}
 
 const DEFAULT_SEO: DefaultSeoProps = {
   title: "Blog",
@@ -33,6 +33,6 @@ const DEFAULT_SEO: DefaultSeoProps = {
     site: TWITTER_USERNAME,
     cardType: "summary_large_image",
   },
-};
+}
 
-export default DEFAULT_SEO;
+export default DEFAULT_SEO

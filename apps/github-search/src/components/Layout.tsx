@@ -1,8 +1,9 @@
-import { ChildrenProps } from "react";
-import { Box, Container, Flex } from "@chakra-ui/react";
-import { RouteLink } from "@howardism/components-common";
-import { motion, Variants } from "framer-motion";
-import { useRouter } from "next/router";
+import { ChildrenProps } from "react"
+import { Box, Container, Flex } from "@chakra-ui/react"
+import { motion, Variants } from "framer-motion"
+import { useRouter } from "next/router"
+
+import { RouteLink } from "@howardism/components-common"
 
 const variants: Variants = {
   pageInital: {
@@ -11,11 +12,11 @@ const variants: Variants = {
   pageAnimate: {
     opacity: 1,
   },
-};
+}
 
 export default function Layout({ children }: ChildrenProps) {
-  const router = useRouter();
-  const animateKey = router.asPath.includes("?") ? router.pathname : router.asPath;
+  const router = useRouter()
+  const animateKey = router.asPath.includes("?") ? router.pathname : router.asPath
 
   return (
     <Box h="80vh">
@@ -45,5 +46,5 @@ export default function Layout({ children }: ChildrenProps) {
         {children}
       </Container>
     </Box>
-  );
+  )
 }

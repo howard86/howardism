@@ -1,14 +1,14 @@
-import { FiShare } from "react-icons/fi";
-import { Box, Heading, Icon, LinkBox, LinkOverlay, VStack } from "@chakra-ui/react";
-import NextLink from "next/link";
+import { FiShare } from "react-icons/fi"
+import { Box, Heading, Icon, LinkBox, LinkOverlay, VStack } from "@chakra-ui/react"
+import NextLink from "next/link"
 
-import demo from "@/../public/assets/demo.jpg";
-import type { Recipe } from "@/types/recipe";
+import demo from "@/../public/assets/demo.jpg"
+import type { Recipe } from "@/types/recipe"
 
-import RecipeCard from "./RecipeCard";
+import RecipeCard from "./RecipeCard"
 
 interface IntroProps {
-  recipes: Recipe[];
+  recipes: Recipe[]
 }
 
 export default function Intro({ recipes }: IntroProps) {
@@ -44,5 +44,5 @@ export default function Intro({ recipes }: IntroProps) {
         </LinkBox>
       </VStack>
     </Box>
-  );
+  )
 }
