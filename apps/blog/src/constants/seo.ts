@@ -1,4 +1,4 @@
-import { DefaultSeoProps } from "next-seo"
+import type { NextSeoProps } from "next-seo"
 
 import config from "@/config"
 
@@ -6,12 +6,12 @@ const SITE_NAME = "Howardism"
 const TWITTER_USERNAME = "@howard86_"
 const PROFILE_IMAGE_NAME = "profile.jpeg"
 
-const DEFAULT_OPEN_GRAPH = {
+const DEFAULT_OPEN_GRAPH: NextSeoProps["openGraph"] = {
   type: "website",
   locale: "en_US",
   url: config.domain,
   site_name: SITE_NAME,
-  description: `Howard Tai | A Lifelong learner`,
+  description: "Howard Tai | A Lifelong learner",
   images: [
     {
       url: `${config.domain}${PROFILE_IMAGE_NAME}`,
@@ -22,10 +22,10 @@ const DEFAULT_OPEN_GRAPH = {
   ],
 }
 
-const DEFAULT_SEO: DefaultSeoProps = {
+const DEFAULT_SEO: NextSeoProps = {
   title: "Blog",
   titleTemplate: `${SITE_NAME} | %s`,
-  description: `Howard Tai | A Lifelong learner`,
+  description: "A Software Engineer, Mathematician, and Amateur Diver's Journey",
   canonical: config.domain,
   openGraph: DEFAULT_OPEN_GRAPH,
   twitter: {

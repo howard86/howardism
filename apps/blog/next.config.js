@@ -6,15 +6,8 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 const config = {
   reactStrictMode: true,
   swcMinify: true,
-  redirects: () => [
-    {
-      source: "/blog",
-      destination: "/",
-      permanent: true,
-    },
-  ],
   experimental: {
-    newNextLinkBehavior: true,
+    appDir: true,
     scrollRestoration: true,
   },
 }
