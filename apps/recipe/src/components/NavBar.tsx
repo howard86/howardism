@@ -1,29 +1,29 @@
-import { useState } from "react";
-import { IoMdMenu } from "react-icons/io";
-import { Flex, IconButton } from "@chakra-ui/react";
-import { RouteLink } from "@howardism/components-common";
+import { useState } from "react"
+import { IoMdMenu } from "react-icons/io"
+import { Flex, IconButton } from "@chakra-ui/react"
 
-import useThrottledScroll from "@/hooks/useThrottledScroll";
+import useThrottledScroll from "@/hooks/useThrottledScroll"
+import { RouteLink } from "@howardism/components-common"
 
-export const NAV_BAR_HEIGHT = 20;
-const TIMEOUT_DELAY = 1000;
+export const NAV_BAR_HEIGHT = 20
+const TIMEOUT_DELAY = 1000
 
 export default function NavBar() {
-  const [shouldHideHeader, setShouldHideHeader] = useState(true);
+  const [shouldHideHeader, setShouldHideHeader] = useState(true)
 
   useThrottledScroll((previousScrollTop, currentScrollTop) => {
-    const isScrolledDown = previousScrollTop < currentScrollTop;
-    const isMinimumScrolled = currentScrollTop > NAV_BAR_HEIGHT;
+    const isScrolledDown = previousScrollTop < currentScrollTop
+    const isMinimumScrolled = currentScrollTop > NAV_BAR_HEIGHT
 
     setTimeout(() => {
-      setShouldHideHeader(window.pageYOffset === 0 || (isScrolledDown && isMinimumScrolled));
-    }, TIMEOUT_DELAY);
-  }, TIMEOUT_DELAY * 2);
+      setShouldHideHeader(window.pageYOffset === 0 || (isScrolledDown && isMinimumScrolled))
+    }, TIMEOUT_DELAY)
+  }, TIMEOUT_DELAY * 2)
 
   const onOpen = () => {
     // TODO: add Drawer here
-    alert("clicked");
-  };
+    alert("clicked")
+  }
 
   return (
     <Flex
@@ -58,5 +58,5 @@ export default function NavBar() {
         Show Menu
       </IconButton>
     </Flex>
-  );
+  )
 }

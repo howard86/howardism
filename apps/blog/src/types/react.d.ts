@@ -1,16 +1,16 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from "react"
 
 declare module "react" {
   interface ChildrenProps {
-    children: ReactNode;
+    children: ReactNode
   }
 
-  type AsKey = keyof JSX.IntrinsicElements;
-  type AsHtmlProps<T extends AsKey> = JSX.IntrinsicElements[T];
+  type AsKey = keyof JSX.IntrinsicElements
+  type AsHtmlProps<T extends AsKey> = JSX.IntrinsicElements[T]
 
   interface AsProps<T extends AsKey> extends HTMLProps<T> {
-    as?: T;
-    className?: string;
-    children: ReactNode;
+    as?: T
+    className?: string
+    children: ReactNode
   }
 }

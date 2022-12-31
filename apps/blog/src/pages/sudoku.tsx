@@ -1,20 +1,20 @@
-import { Fragment, useMemo } from "react";
-import { Menu, Transition } from "@headlessui/react";
-import clsx from "clsx";
+import { Fragment, useMemo } from "react"
+import { Menu, Transition } from "@headlessui/react"
+import clsx from "clsx"
 
-import { Container } from "@/components/layout/Container";
-import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku";
-import useSudoku from "@/hooks/useSudoku";
+import { Container } from "@/components/layout/Container"
+import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku"
+import useSudoku from "@/hooks/useSudoku"
 
 function getBackgroundColor(selected: number, index: number, gameIndex: number) {
-  if (selected === index) return "bg-teal-100";
+  if (selected === index) return "bg-teal-100"
 
-  return gameIndex > 0 ? "bg-zinc-100/80" : "bg-white";
+  return gameIndex > 0 ? "bg-zinc-100/80" : "bg-white"
 }
 
 export default function SudokuPage() {
-  const { loading, selected, onStart, answer, game, message, onSelect, onUpdate } = useSudoku();
-  const numberArray = useMemo(() => new Array(9).fill(0).map((_, index) => index + 1), []);
+  const { loading, selected, onStart, answer, game, message, onSelect, onUpdate } = useSudoku()
+  const numberArray = useMemo(() => new Array(9).fill(0).map((_, index) => index + 1), [])
 
   return (
     <Container>
@@ -94,5 +94,5 @@ export default function SudokuPage() {
         {message && <p>Ooops, encounter an error {message}</p>}
       </div>
     </Container>
-  );
+  )
 }

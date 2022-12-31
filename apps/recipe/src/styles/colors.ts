@@ -1,4 +1,4 @@
-import type { Colors } from "@chakra-ui/react";
+import type { Colors } from "@chakra-ui/react"
 
 const colors: Colors = {
   primary: {
@@ -25,6 +25,6 @@ const colors: Colors = {
     800: "#442d03",
     900: "#1b0e00",
   },
-};
+}
 
-export default colors;
+export default colors

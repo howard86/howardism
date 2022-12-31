@@ -1,2 +1,2 @@
-import "next";
-import "@testing-library/jest-dom";
+import "next"
+import "@testing-library/jest-dom"

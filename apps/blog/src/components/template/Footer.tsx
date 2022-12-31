@@ -1,8 +1,8 @@
-import Link from "next/link";
+import Link from "next/link"
 
-import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav";
+import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav"
 
-import { InnerContainer, OuterContainer } from "./Container";
+import { InnerContainer, OuterContainer } from "./Container"
 
 export function Footer() {
   return (
@@ -26,5 +26,5 @@ export function Footer() {
         </div>
       </OuterContainer>
     </footer>
-  );
+  )
 }

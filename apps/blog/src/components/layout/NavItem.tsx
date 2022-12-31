@@ -1,9 +1,9 @@
-import { LinkProps } from "react-html-props";
-import clsx from "clsx";
-import { m as motion } from "framer-motion";
+import { LinkProps } from "react-html-props"
+import clsx from "clsx"
+import { m as motion } from "framer-motion"
 
 interface NavItemProps extends LinkProps {
-  isActive: boolean;
+  isActive: boolean
 }
 
 export default function NavItem({ isActive, href, children }: NavItemProps) {
@@ -27,5 +27,5 @@ export default function NavItem({ isActive, href, children }: NavItemProps) {
         )}
       </a>
     </li>
-  );
+  )
 }

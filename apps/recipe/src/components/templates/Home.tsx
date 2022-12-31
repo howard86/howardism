@@ -1,20 +1,20 @@
-import { Box, Flex, Heading, HStack, SimpleGrid, Tag, Text, VStack } from "@chakra-ui/react";
-import { Image, RouteLink } from "@howardism/components-common";
+import { Box, Flex, Heading, HStack, SimpleGrid, Tag, Text, VStack } from "@chakra-ui/react"
 
-import backgroundImage from "@/../public/assets/background.jpg";
-import logo from "@/../public/favicon/logo.png";
-import type { Recipe } from "@/types/recipe";
+import backgroundImage from "@/../public/assets/background.jpg"
+import logo from "@/../public/favicon/logo.png"
+import type { Recipe } from "@/types/recipe"
+import { Image, RouteLink } from "@howardism/components-common"
 
 export interface HomeProps {
-  recipes: Recipe[];
+  recipes: Recipe[]
 }
 
 const getDayTag = (timestamp: string): string => {
-  const diff = Date.now() - new Date(timestamp).getTime();
-  const days = Math.floor(diff / 1000 / 60 / 60 / 24);
+  const diff = Date.now() - new Date(timestamp).getTime()
+  const days = Math.floor(diff / 1000 / 60 / 60 / 24)
 
-  return days > 0 ? `${days} days ago` : "Today";
-};
+  return days > 0 ? `${days} days ago` : "Today"
+}
 
 export default function Home({ recipes }: HomeProps): JSX.Element {
   return (
@@ -186,5 +186,5 @@ export default function Home({ recipes }: HomeProps): JSX.Element {
         {/* TODO: add show more */}
       </Box>
     </>
-  );
+  )
 }

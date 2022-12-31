@@ -1,6 +1,6 @@
 export interface MenuLinkItem {
-  url: string;
-  label: string;
+  url: string
+  label: string
 }
 
 export const MENU_LINK_ITEMS: MenuLinkItem[] = [
@@ -9,4 +9,4 @@ export const MENU_LINK_ITEMS: MenuLinkItem[] = [
     label: "Home",
   },
   { url: "/signin", label: "Log in" },
-];
+]

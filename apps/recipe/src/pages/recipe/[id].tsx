@@ -1,14 +1,14 @@
-import { Box, CheckboxGroup, Flex, Heading, Spinner, Text, VStack } from "@chakra-ui/react";
-import { Image } from "@howardism/components-common";
-import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next";
-import { useRouter } from "next/router";
+import { Box, CheckboxGroup, Flex, Heading, Spinner, Text, VStack } from "@chakra-ui/react"
+import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next"
+import { useRouter } from "next/router"
 
-import logo from "@/../public/favicon/logo.png";
-import LayerCheckboxes from "@/components/LayerCheckboxes";
-import { NAV_BAR_HEIGHT } from "@/components/NavBar";
-import ProcedureStep from "@/components/ProcedureStep";
-import { getRecipeById, getRecipes } from "@/services/recipe";
-import type { Recipe } from "@/types/recipe";
+import logo from "@/../public/favicon/logo.png"
+import LayerCheckboxes from "@/components/LayerCheckboxes"
+import { NAV_BAR_HEIGHT } from "@/components/NavBar"
+import ProcedureStep from "@/components/ProcedureStep"
+import { getRecipeById, getRecipes } from "@/services/recipe"
+import type { Recipe } from "@/types/recipe"
+import { Image } from "@howardism/components-common"
 
 export default function RecipePage({
   title,
@@ -18,10 +18,10 @@ export default function RecipePage({
   seasonings,
   steps,
 }: Recipe) {
-  const router = useRouter();
+  const router = useRouter()
 
   if (router.isFallback) {
-    return <Spinner />;
+    return <Spinner />
   }
 
   return (
@@ -49,15 +49,15 @@ export default function RecipePage({
         <ProcedureStep flex="1" p="4" steps={steps} />
       </Flex>
     </VStack>
-  );
+  )
 }
 
 type QueryPath = {
-  id: string;
-};
+  id: string
+}
 
 export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>> => {
-  const results = await getRecipes();
+  const results = await getRecipes()
 
   return {
     paths: results.map((result) => ({
@@ -66,27 +66,27 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>>
       },
     })),
     fallback: "blocking",
-  };
-};
+  }
+}
 
 export const getStaticProps = async (
   context: GetStaticPropsContext<QueryPath>
 ): Promise<GetStaticPropsResult<Recipe>> => {
   if (!context.params) {
-    return { notFound: true };
+    return { notFound: true }
   }
 
-  const recipe = await getRecipeById(context.params.id);
+  const recipe = await getRecipeById(context.params.id)
 
   if (recipe === null) {
     return {
       notFound: true,
-    };
+    }
   }
 
   return {
     props: recipe,
     // Update cache every one hour
     revalidate: 3600,
-  };
-};
+  }
+}

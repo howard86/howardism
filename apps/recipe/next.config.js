@@ -1,10 +1,6 @@
-const withTM = require("next-transpile-modules")([
-  "@howardism/components-common",
-  "@howardism/login-form",
-]);
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
-});
+})
 
 /** @type{import('next').NextConfig} */
 const config = {
@@ -13,6 +9,7 @@ const config = {
   images: {
     domains: ["res.cloudinary.com"],
   },
-};
+  transpilePackages: ["@howardism/components-common", "@howardism/login-form"],
+}
 
-module.exports = withTM(withBundleAnalyzer(config));
+module.exports = withBundleAnalyzer(config)

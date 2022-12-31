@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from "react"
 import {
   Button,
   FormControl,
@@ -7,14 +7,14 @@ import {
   Input,
   Switch,
   VStack,
-} from "@chakra-ui/react";
-import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik";
+} from "@chakra-ui/react"
+import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik"
 
-import useAppToast from "@/hooks/useAppToast";
-import api, { LocalAPIResponse } from "@/redux/api";
-import type { RawIngredient, RawRecipe, RawStep } from "@/types/recipe";
+import useAppToast from "@/hooks/useAppToast"
+import api, { LocalAPIResponse } from "@/redux/api"
+import type { RawIngredient, RawRecipe, RawStep } from "@/types/recipe"
 
-import RecipeFormFieldArray from "./RecipeFormFieldArray";
+import RecipeFormFieldArray from "./RecipeFormFieldArray"
 
 // Same as newSeasoning for now
 const newIngredient: RawIngredient = {
@@ -22,12 +22,12 @@ const newIngredient: RawIngredient = {
   amount: 0,
   unit: "",
   processing: "",
-};
+}
 
 const newStep: RawStep = {
   summary: "",
   description: "",
-};
+}
 
 const initialValues: RawRecipe = {
   title: "",
@@ -35,37 +35,37 @@ const initialValues: RawRecipe = {
   ingredients: [],
   seasonings: [],
   steps: [],
-};
+}
 
 export default function RecipeForm(): JSX.Element {
-  const [isChecked, setChecked] = useState(false);
-  const toast = useAppToast();
+  const [isChecked, setChecked] = useState(false)
+  const toast = useAppToast()
 
   // eslint-disable-next-line consistent-return
   const validateString = (field?: string) => {
     if (!field) {
-      return "This field must not be empty";
+      return "This field must not be empty"
     }
-  };
+  }
 
   const handleOnSubmit = async (value: RawRecipe, actions: FormikHelpers<RawRecipe>) => {
     try {
-      const response = await api.post<LocalAPIResponse>("/recipe/create", value);
+      const response = await api.post<LocalAPIResponse>("/recipe/create", value)
 
       if (!response.data.success) {
-        throw new Error("Local API with 200 but failed to create");
+        throw new Error("Local API with 200 but failed to create")
       }
 
-      toast({ status: "success", description: `Created recipe ${value.title}` });
+      toast({ status: "success", description: `Created recipe ${value.title}` })
       actions.resetForm({
         values: initialValues,
-      });
+      })
     } catch (error) {
-      console.error(error);
-      toast({ status: "error", description: `Failed to create recipe ${value.title}` });
-      actions.setSubmitting(false);
+      console.error(error)
+      toast({ status: "error", description: `Failed to create recipe ${value.title}` })
+      actions.setSubmitting(false)
     }
-  };
+  }
 
   return (
     <Formik initialValues={initialValues} onSubmit={handleOnSubmit}>
@@ -136,5 +136,5 @@ export default function RecipeForm(): JSX.Element {
         </Form>
       )}
     </Formik>
-  );
+  )
 }

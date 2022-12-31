@@ -1,9 +1,9 @@
-import { LinkProps } from "react-html-props";
-import { Popover } from "@headlessui/react";
-import clsx from "clsx";
+import { LinkProps } from "react-html-props"
+import { Popover } from "@headlessui/react"
+import clsx from "clsx"
 
 interface MobileNavItemProps extends LinkProps {
-  isActive: boolean;
+  isActive: boolean
 }
 
 export default function MobileNavItem({ isActive, href, children }: MobileNavItemProps) {
@@ -17,5 +17,5 @@ export default function MobileNavItem({ isActive, href, children }: MobileNavIte
         {children}
       </Popover.Button>
     </li>
-  );
+  )
 }

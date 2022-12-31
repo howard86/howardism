@@ -1,11 +1,12 @@
-import type { IconType } from "react-icons";
-import { Link, ListIcon, ListItem } from "@chakra-ui/react";
-import { RouteLink } from "@howardism/components-common";
+import type { IconType } from "react-icons"
+import { Link, ListIcon, ListItem } from "@chakra-ui/react"
+
+import { RouteLink } from "@howardism/components-common"
 
 interface InfoListProps {
-  name: string;
-  url?: string;
-  icon?: IconType;
+  name: string
+  url?: string
+  icon?: IconType
 }
 
 export default function InfoList({ name, icon, url }: InfoListProps) {
@@ -20,5 +21,5 @@ export default function InfoList({ name, icon, url }: InfoListProps) {
         <RouteLink href={`/user/${name}`}>{name}</RouteLink>
       )}
     </ListItem>
-  );
+  )
 }

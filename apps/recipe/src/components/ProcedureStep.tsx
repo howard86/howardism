@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FaCheck } from "react-icons/fa";
+import { useState } from "react"
+import { FaCheck } from "react-icons/fa"
 import {
   Box,
   BoxProps,
@@ -13,48 +13,48 @@ import {
   Icon,
   Text,
   useBoolean,
-} from "@chakra-ui/react";
+} from "@chakra-ui/react"
 
 export interface Step {
-  summary: string;
-  description: string;
+  summary: string
+  description: string
 }
 
 interface ProcedureStepProps extends BoxProps {
-  steps: Step[];
+  steps: Step[]
 }
 
-const THEME_COLOR: ColorProps["color"] = "primary.600";
-const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200";
+const THEME_COLOR: ColorProps["color"] = "primary.600"
+const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200"
 const getCircleColor = (isViewed: boolean, isChecked: boolean): BoxProps["color"] => {
-  if (isViewed) return "white";
+  if (isViewed) return "white"
 
-  return isChecked ? THEME_COLOR : "primary.800";
-};
+  return isChecked ? THEME_COLOR : "primary.800"
+}
 
 // TODO: refactor with useReducer
 export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
-  const [openIndex, setOpenIndex] = useState(0);
-  const [expanded, { toggle }] = useBoolean(false);
+  const [openIndex, setOpenIndex] = useState(0)
+  const [expanded, { toggle }] = useBoolean(false)
 
-  const isFirst = openIndex === 0;
-  const isLast = openIndex === steps.length - 1;
-  const afterLast = openIndex === steps.length;
+  const isFirst = openIndex === 0
+  const isLast = openIndex === steps.length - 1
+  const afterLast = openIndex === steps.length
 
   const handleNext = () => {
-    setOpenIndex((index) => index + 1);
-  };
+    setOpenIndex((index) => index + 1)
+  }
 
   const handleBack = () => {
-    setOpenIndex((index) => index - 1);
-  };
+    setOpenIndex((index) => index - 1)
+  }
 
   const handleReset = () => {
-    setOpenIndex(0);
+    setOpenIndex(0)
     if (expanded) {
-      toggle();
+      toggle()
     }
-  };
+  }
 
   return (
     <Box {...props}>
@@ -67,9 +67,9 @@ export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
       {/* Note: this calculates the total height when expanded or not */}
       <Box minH={expanded ? `${92 * steps.length + 200}px` : `${60 * steps.length + 116}px`}>
         {steps.map((step, index) => {
-          const isViewed = index === openIndex;
-          const isChecked = index < openIndex;
-          const showLastBox = index < steps.length - 1;
+          const isViewed = index === openIndex
+          const isChecked = index < openIndex
+          const showLastBox = index < steps.length - 1
 
           return (
             <Box key={step.summary}>
@@ -119,7 +119,7 @@ export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
                 />
               )}
             </Box>
-          );
+          )
         })}
         {(afterLast || expanded) && (
           <Box p="4" textAlign="center">
@@ -129,5 +129,5 @@ export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
         )}
       </Box>
     </Box>
-  );
+  )
 }

@@ -1,4 +1,4 @@
-import LoginPage from "./src/LoginPage";
+import LoginPage from "./src/LoginPage"
 
-export * from "./src/LoginForm";
-export default LoginPage;
+export * from "./src/LoginForm"
+export default LoginPage

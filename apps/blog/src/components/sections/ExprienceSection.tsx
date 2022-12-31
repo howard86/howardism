@@ -1,25 +1,25 @@
-import { ChangeEvent } from "react";
-import type { IconType } from "react-icons";
-import { FiPackage } from "react-icons/fi";
-import clsx from "clsx";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import type { DeepPartial, DeepRequired } from "ts-essentials";
+import { ChangeEvent } from "react"
+import type { IconType } from "react-icons"
+import { FiPackage } from "react-icons/fi"
+import clsx from "clsx"
+import Link from "next/link"
+import { useRouter } from "next/router"
+import type { DeepPartial, DeepRequired } from "ts-essentials"
 
-import { SectionId } from "@/constants/nav";
-import { GetHomePageQuery } from "@/services/query.generated";
-import { formatMonth } from "@/utils/time";
+import { SectionId } from "@/constants/nav"
+import { GetHomePageQuery } from "@/services/query.generated"
+import { formatMonth } from "@/utils/time"
 
-import SectionWrapper from "./SectionWrapper";
+import SectionWrapper from "./SectionWrapper"
 
 interface ExperienceCardProps {
-  title: string;
-  description: string;
-  companyName: string;
+  title: string
+  description: string
+  companyName: string
   // TODO: replace with Date/number
-  startDate: string;
-  endDate: string;
-  introduction: string;
+  startDate: string
+  endDate: string
+  introduction: string
 }
 
 function ExperienceCard({
@@ -41,18 +41,18 @@ function ExperienceCard({
         {companyName}
       </span>
     </div>
-  );
+  )
 }
 
 interface ProjectCardProps {
-  title: string;
-  description: string;
-  tags: ProjectTagType[];
+  title: string
+  description: string
+  tags: ProjectTagType[]
 }
 
 type ProjectTagType = DeepPartial<
   DeepRequired<GetHomePageQuery>["experienceSection"]["data"]["attributes"]["side_projects"]["data"][number]["attributes"]["tech_tools"]["data"][number]
->;
+>
 
 function ProjectCard({ title, description, tags }: Partial<ProjectCardProps>) {
   return (
@@ -67,13 +67,13 @@ function ProjectCard({ title, description, tags }: Partial<ProjectCardProps>) {
         ))}
       </div>
     </div>
-  );
+  )
 }
 
 interface ToolCardProps {
-  title: string;
-  description: string;
-  Icon?: IconType;
+  title: string
+  description: string
+  Icon?: IconType
 }
 
 function ToolCard({ title, description, Icon = FiPackage }: Partial<ToolCardProps>) {
@@ -85,42 +85,42 @@ function ToolCard({ title, description, Icon = FiPackage }: Partial<ToolCardProp
         <p className="text-zinc-600 dark:text-zinc-400">{description}</p>
       </div>
     </div>
-  );
+  )
 }
 
 interface ExperienceSectionProps {
-  data: GetHomePageQuery["experienceSection"];
+  data: GetHomePageQuery["experienceSection"]
 }
 
 type ExperienceTab = {
-  name: string;
-  query: string;
-  key: ExperienceKey;
-};
+  name: string
+  query: string
+  key: ExperienceKey
+}
 
 type ExperienceKey = Extract<
   keyof DeepRequired<GetHomePageQuery>["experienceSection"]["data"]["attributes"],
   "side_projects" | "work_experiences" | "tech_tools"
->;
+>
 
 const TABS: ExperienceTab[] = [
   { name: "Projects", query: "projects", key: "side_projects" },
   { name: "Work", query: "work", key: "work_experiences" },
   { name: "Tools", query: "tools", key: "tech_tools" },
-];
+]
 
-const DEFAULT_TAB_VALUE = TABS[0].query;
+const DEFAULT_TAB_VALUE = TABS[0].query
 
 export default function ExperienceSection({ data }: ExperienceSectionProps) {
-  const router = useRouter();
-  const tabValue = typeof router.query.exp === "string" ? router.query.exp : DEFAULT_TAB_VALUE;
+  const router = useRouter()
+  const tabValue = typeof router.query.exp === "string" ? router.query.exp : DEFAULT_TAB_VALUE
 
   const handleRedirect = (event: ChangeEvent<HTMLSelectElement>) => {
     router.push({ pathname: "/", query: { exp: event.target.value } }, undefined, {
       scroll: false,
       shallow: true,
-    });
-  };
+    })
+  }
 
   return (
     <SectionWrapper
@@ -152,7 +152,7 @@ export default function ExperienceSection({ data }: ExperienceSectionProps) {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             {TABS.map((tab) => {
-              const isCurrent = tabValue === tab.query;
+              const isCurrent = tabValue === tab.query
 
               return (
                 <Link
@@ -178,7 +178,7 @@ export default function ExperienceSection({ data }: ExperienceSectionProps) {
                     {data?.data?.attributes?.[tab.key]?.data.length}
                   </span>
                 </Link>
-              );
+              )
             })}
           </nav>
         </div>
@@ -221,5 +221,5 @@ export default function ExperienceSection({ data }: ExperienceSectionProps) {
         </div>
       </div>
     </SectionWrapper>
-  );
+  )
 }

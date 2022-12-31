@@ -1,20 +1,21 @@
-import { FC } from "react";
-import { AProps, SVGProps } from "react-html-props";
-import clsx from "clsx";
-import Image from "next/image";
+import { FC } from "react"
+import { AProps, SVGProps } from "react-html-props"
+import clsx from "clsx"
+import Image from "next/image"
 
-import image1 from "@/assets/alexandre-debieve-chip.jpg";
-import image2 from "@/assets/carl-heyerdahl-desk.jpg";
-import image3 from "@/assets/john-morgan-sudoku.jpg";
-import image4 from "@/assets/thisisengineering-raeng-desk.jpg";
-import FstIcon from "@/components/icons/Fst";
-import LootexIcon from "@/components/icons/Lootex";
-import OddleIcon from "@/components/icons/Oddle";
-import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card";
-import { Container } from "@/components/template/Container";
-import ExternalLink from "@/components/template/ExternalLink";
-import { GitHubIcon, LinkedInIcon, TwitterIcon } from "@/components/template/SocialIcons";
-import { formatDate } from "@/utils/time";
+import image1 from "@/assets/alexandre-debieve-chip.jpg"
+import image2 from "@/assets/carl-heyerdahl-desk.jpg"
+import image3 from "@/assets/john-morgan-sudoku.jpg"
+import image4 from "@/assets/thisisengineering-raeng-desk.jpg"
+import FstIcon from "@/components/icons/Fst"
+import LootexIcon from "@/components/icons/Lootex"
+import OddleIcon from "@/components/icons/Oddle"
+import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card"
+import { Container } from "@/components/template/Container"
+import ExternalLink from "@/components/template/ExternalLink"
+import { GitHubIcon, LinkedInIcon, TwitterIcon } from "@/components/template/SocialIcons"
+import { ArticleEntity, getAllArticles } from "@/services/article"
+import { formatDate } from "@/utils/time"
 
 function BriefcaseIcon(props: SVGProps) {
   return (
@@ -36,32 +37,25 @@ function BriefcaseIcon(props: SVGProps) {
         className="stroke-zinc-400 dark:stroke-zinc-500"
       />
     </svg>
-  );
+  )
 }
 
-type ArticleEntity = {
-  slug: string;
-  title: string;
-  date: string;
-  description: string;
-};
-
-function Article({ article }: { article: ArticleEntity }) {
+function Article({ slug, meta }: ArticleEntity) {
   return (
     <Card as="article">
-      <CardTitle href={`/articles/${article.slug}`}>{article.title}</CardTitle>
-      <CardEyebrow as="time" dateTime={article.date} decorate>
-        {formatDate(article.date)}
+      <CardTitle href={`/articles/${slug}`}>{meta.title}</CardTitle>
+      <CardEyebrow as="time" dateTime={meta.date} decorate>
+        {formatDate(meta.date)}
       </CardEyebrow>
-      <CardDescription>{article.description}</CardDescription>
+      <CardDescription>{meta.description}</CardDescription>
       <CardCta>Read article</CardCta>
     </Card>
-  );
+  )
 }
 
 interface SocialLinkProps extends AProps {
-  href: string;
-  icon: FC<SVGProps>;
+  href: string
+  icon: FC<SVGProps>
 }
 
 function SocialLink({ icon: Icon, ...props }: SocialLinkProps) {
@@ -69,22 +63,22 @@ function SocialLink({ icon: Icon, ...props }: SocialLinkProps) {
     <ExternalLink className="group -m-1 p-1" {...props}>
       <Icon className="h-6 w-6 fill-zinc-500 transition group-hover:fill-zinc-600 dark:fill-zinc-400 dark:group-hover:fill-zinc-300" />
     </ExternalLink>
-  );
+  )
 }
 
-type ResumeTime = { label: string; dateTime: string };
+type ResumeTime = { label: string; dateTime: string }
 
 type ResumeEntity = {
-  company: string;
-  href: string;
-  title: string;
-  logo: FC<SVGProps>;
-  start: string | ResumeTime;
-  end: string | ResumeTime;
-};
+  company: string
+  href: string
+  title: string
+  logo: FC<SVGProps>
+  start: string | ResumeTime
+  end: string | ResumeTime
+}
 
 const getStringOrValue = (time: string | ResumeTime, key: keyof ResumeTime) =>
-  typeof time === "string" ? time : time[key];
+  typeof time === "string" ? time : time[key]
 
 const resume: ResumeEntity[] = [
   {
@@ -114,7 +108,7 @@ const resume: ResumeEntity[] = [
     start: "2018",
     end: "2019",
   },
-];
+]
 
 function Resume() {
   return (
@@ -126,7 +120,7 @@ function Resume() {
       <ol className="mt-6 space-y-4">
         {resume.map((role) => (
           <li key={role.title} className="flex gap-4">
-            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-gray-200 dark:ring-0">
+            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-zinc-100 dark:ring-0">
               <role.logo aria-label={`${role.company} logo`} className="h-7 w-7" />
             </div>
             <dl className="flex flex-auto flex-wrap gap-x-2">
@@ -159,13 +153,13 @@ function Resume() {
         ))}
       </ol>
     </div>
-  );
+  )
 }
 
-const PHOTOS = [image1, image2, image3, image4];
+const PHOTOS = [image1, image2, image3, image4]
 
 function Photos() {
-  const rotations = ["rotate-2", "-rotate-2", "rotate-2", "rotate-2", "-rotate-2"];
+  const rotations = ["rotate-2", "-rotate-2", "rotate-2", "rotate-2", "-rotate-2"]
 
   return (
     <div className="mt-16 sm:mt-20">
@@ -181,7 +175,6 @@ function Photos() {
             <Image
               src={image}
               alt=""
-              layout="responsive"
               sizes="(min-width: 640px) 18rem, 11rem"
               className="absolute inset-0 h-full w-full object-cover"
             />
@@ -189,14 +182,12 @@ function Photos() {
         ))}
       </div>
     </div>
-  );
+  )
 }
 
-interface HomeProps {
-  articles: ArticleEntity[];
-}
+export default async function Home() {
+  const articles = await getAllArticles()
 
-export default function Home({ articles = [] }: HomeProps) {
   return (
     <>
       <Container className="mt-9">
@@ -235,8 +226,8 @@ export default function Home({ articles = [] }: HomeProps) {
       <Container className="mt-24 md:mt-28">
         <div className="mx-auto grid max-w-xl grid-cols-1 gap-y-20 lg:max-w-none lg:grid-cols-2">
           <div className="flex flex-col gap-16">
-            {articles.map((article) => (
-              <Article key={article.slug} article={article} />
+            {articles.slice(0, 4).map((article) => (
+              <Article key={article.slug} slug={article.slug} meta={article.meta} />
             ))}
           </div>
           <div className="space-y-10 lg:pl-16 xl:pl-24">
@@ -245,5 +236,5 @@ export default function Home({ articles = [] }: HomeProps) {
         </div>
       </Container>
     </>
-  );
+  )
 }

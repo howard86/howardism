@@ -1,23 +1,23 @@
-import { MoonIcon, SunIcon } from "../icons";
+import { MoonIcon, SunIcon } from "../icons"
 
 function disableTransitionsTemporarily() {
-  document.documentElement.classList.add("[&_*]:!transition-none");
+  document.documentElement.classList.add("[&_*]:!transition-none")
   window.setTimeout(() => {
-    document.documentElement.classList.remove("[&_*]:!transition-none");
-  }, 0);
+    document.documentElement.classList.remove("[&_*]:!transition-none")
+  }, 0)
 }
 
 function toggleMode() {
-  disableTransitionsTemporarily();
+  disableTransitionsTemporarily()
 
-  const darkModeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  const isSystemDarkMode = darkModeMediaQuery.matches;
-  const isDarkMode = document.documentElement.classList.toggle("dark");
+  const darkModeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+  const isSystemDarkMode = darkModeMediaQuery.matches
+  const isDarkMode = document.documentElement.classList.toggle("dark")
 
   if (isDarkMode === isSystemDarkMode) {
-    delete window.localStorage.isDarkMode;
+    delete window.localStorage.isDarkMode
   } else {
-    window.localStorage.isDarkMode = isDarkMode;
+    window.localStorage.isDarkMode = isDarkMode
   }
 }
 
@@ -32,5 +32,5 @@ export default function ModeToggle() {
       <SunIcon className="h-6 w-6 fill-zinc-100 stroke-zinc-500 transition group-hover:fill-zinc-200 group-hover:stroke-zinc-700 dark:hidden [@media(prefers-color-scheme:dark)]:fill-teal-50 [@media(prefers-color-scheme:dark)]:stroke-teal-500 [@media(prefers-color-scheme:dark)]:group-hover:fill-teal-50 [@media(prefers-color-scheme:dark)]:group-hover:stroke-teal-600" />
       <MoonIcon className="hidden h-6 w-6 fill-zinc-700 stroke-zinc-500 transition dark:block [@media(prefers-color-scheme:dark)]:group-hover:stroke-zinc-400 [@media_not_(prefers-color-scheme:dark)]:fill-teal-400/10 [@media_not_(prefers-color-scheme:dark)]:stroke-teal-500" />
     </button>
-  );
+  )
 }

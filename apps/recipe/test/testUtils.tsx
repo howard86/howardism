@@ -1,13 +1,13 @@
-import { ReactElement } from "react";
-import { render, RenderOptions, RenderResult } from "@testing-library/react";
+import { ReactElement } from "react"
+import { render, RenderOptions, RenderResult } from "@testing-library/react"
 
-import GlobalWrapper from "@/components/GlobalWrapper";
+import GlobalWrapper from "@/components/GlobalWrapper"
 
 const customRender = (ui: ReactElement, options: RenderOptions = {}): RenderResult =>
-  render(ui, { wrapper: GlobalWrapper, ...options });
+  render(ui, { wrapper: GlobalWrapper, ...options })
 
 // re-export everything
-export * from "@testing-library/react";
+export * from "@testing-library/react"
 
 // override render method
-export { customRender as render };
+export { customRender as render }

@@ -1,5 +1,5 @@
-import Document, { Head, Html, Main, NextScript } from "next/document";
-import Script from "next/script";
+import Document, { Head, Html, Main, NextScript } from "next/document"
+import Script from "next/script"
 
 const modeScript = `
   let darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -34,7 +34,7 @@ const modeScript = `
     disableTransitionsTemporarily()
     updateMode()
   }
-`;
+`
 
 export default class MyDocument extends Document {
   render(): JSX.Element {
@@ -60,6 +60,6 @@ export default class MyDocument extends Document {
           <NextScript />
         </body>
       </Html>
-    );
+    )
   }
 }

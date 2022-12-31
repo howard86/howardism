@@ -1,9 +1,9 @@
-import { ApolloProvider } from "@apollo/client";
-import type { AppProps } from "next/app";
+import { ApolloProvider } from "@apollo/client"
+import type { AppProps } from "next/app"
 
-import Layout from "@/components/Layout";
-import ThemeProvider from "@/components/ThemeProvider";
-import client from "@/utils/apollo-client";
+import Layout from "@/components/Layout"
+import ThemeProvider from "@/components/ThemeProvider"
+import client from "@/utils/apollo-client"
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -14,5 +14,5 @@ export default function App({ Component, pageProps }: AppProps) {
         </Layout>
       </ThemeProvider>
     </ApolloProvider>
-  );
+  )
 }

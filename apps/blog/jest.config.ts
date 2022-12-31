@@ -1,7 +1,7 @@
-import nextJest from "next/jest";
+import nextJest from "next/jest"
 
-import rootConfig from "../../jest.config";
+import rootConfig from "../../jest.config"
 
-const createJestConfig = nextJest({ dir: "./" });
+const createJestConfig = nextJest({ dir: "./" })
 
-module.exports = createJestConfig(rootConfig);
+module.exports = createJestConfig(rootConfig)

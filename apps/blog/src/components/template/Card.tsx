@@ -1,7 +1,7 @@
-import { AsKey, AsProps, ChildrenProps, FC } from "react";
-import { SVGProps } from "react-html-props";
-import clsx from "clsx";
-import Link, { LinkProps } from "next/link";
+import { AsKey, AsProps, ChildrenProps, FC } from "react"
+import { SVGProps } from "react-html-props"
+import clsx from "clsx"
+import Link, { LinkProps } from "next/link"
 
 function ChevronRightIcon(props: SVGProps) {
   return (
@@ -13,17 +13,17 @@ function ChevronRightIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 export function Card<T extends AsKey>({ as, className, children, ...props }: AsProps<T>) {
-  const Component = (as || "div") as unknown as FC<AsProps<T>>;
+  const Component = (as || "div") as unknown as FC<AsProps<T>>
 
   return (
     <Component className={clsx(className, "group relative flex flex-col items-start")} {...props}>
       {children}
     </Component>
-  );
+  )
 }
 
 export function CardLink({ children, ...props }: LinkProps & ChildrenProps) {
@@ -35,25 +35,25 @@ export function CardLink({ children, ...props }: LinkProps & ChildrenProps) {
         <span className="relative z-10">{children}</span>
       </Link>
     </>
-  );
+  )
 }
 
 interface CardTitleProps<T extends AsKey> extends AsProps<T> {
-  href?: string;
+  href?: string
 }
 
 export function CardTitle<T extends AsKey>({ as, href, children }: CardTitleProps<T>) {
-  const Component = (as || "h2") as unknown as FC<AsProps<T>>;
+  const Component = (as || "h2") as unknown as FC<AsProps<T>>
 
   return (
     <Component className="text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
       {href ? <CardLink href={href}>{children}</CardLink> : children}
     </Component>
-  );
+  )
 }
 
 export function CardDescription({ children }: ChildrenProps) {
-  return <p className="relative z-10 mt-2 text-sm text-zinc-600 dark:text-zinc-400">{children}</p>;
+  return <p className="relative z-10 mt-2 text-sm text-zinc-600 dark:text-zinc-400">{children}</p>
 }
 
 export function CardCta({ children }: ChildrenProps) {
@@ -65,11 +65,11 @@ export function CardCta({ children }: ChildrenProps) {
       {children}
       <ChevronRightIcon className="ml-1 h-4 w-4 stroke-current" />
     </div>
-  );
+  )
 }
 
 interface CardEyebrowProps<T extends AsKey> extends AsProps<T> {
-  decorate?: boolean;
+  decorate?: boolean
 }
 
 export function CardEyebrow<T extends AsKey = "div">({
@@ -79,7 +79,7 @@ export function CardEyebrow<T extends AsKey = "div">({
   children,
   ...props
 }: CardEyebrowProps<T>) {
-  const Component = (as || "div") as unknown as FC<AsProps<T>>;
+  const Component = (as || "div") as unknown as FC<AsProps<T>>
 
   return (
     <Component
@@ -97,5 +97,5 @@ export function CardEyebrow<T extends AsKey = "div">({
       )}
       {children}
     </Component>
-  );
+  )
 }

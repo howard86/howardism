@@ -1,16 +1,16 @@
-import { HiSearch } from "react-icons/hi";
-import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react";
-import { RouteLink } from "@howardism/components-common";
-import { useRouter } from "next/router";
+import { HiSearch } from "react-icons/hi"
+import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react"
+import { useRouter } from "next/router"
 
-import { MENU_LINK_ITEMS } from "@/constants/menu";
+import { MENU_LINK_ITEMS } from "@/constants/menu"
+import { RouteLink } from "@howardism/components-common"
 
-import HorizontalLogo from "../graphics/HorizontalLogo";
+import HorizontalLogo from "../graphics/HorizontalLogo"
 
-import MobileDrawer from "./MobileDrawer";
+import MobileDrawer from "./MobileDrawer"
 
 export default function NavBar(): JSX.Element {
-  const router = useRouter();
+  const router = useRouter()
 
   return (
     <Box
@@ -37,7 +37,7 @@ export default function NavBar(): JSX.Element {
         <Box mr={{ md: 5 }} flexGrow={1} display={{ base: "none", md: "flex" }}>
           <List display="flex" alignItems="center" ml="auto">
             {MENU_LINK_ITEMS.map((item) => {
-              const isCurrentPage = item.url === router.pathname;
+              const isCurrentPage = item.url === router.pathname
               return (
                 <ListItem mx="2" key={item.label}>
                   <RouteLink
@@ -53,7 +53,7 @@ export default function NavBar(): JSX.Element {
                     {item.label}
                   </RouteLink>
                 </ListItem>
-              );
+              )
             })}
           </List>
         </Box>
@@ -68,5 +68,5 @@ export default function NavBar(): JSX.Element {
         />
       </Flex>
     </Box>
-  );
+  )
 }

@@ -1,11 +1,11 @@
-const { loadEnvConfig } = require("@next/env");
-const fs = require("fs");
-const path = require("path");
+const { loadEnvConfig } = require("@next/env")
+const fs = require("fs")
+const path = require("path")
 
-const dir = process.cwd();
-loadEnvConfig(dir);
+const dir = process.cwd()
+loadEnvConfig(dir)
 
-const SCHEMA_PATH = "./graphql.schema.json";
+const SCHEMA_PATH = "./graphql.schema.json"
 
 /** @type{import('@graphql-codegen/cli').CodegenConfig} */
 const commonConfig = {
@@ -55,19 +55,19 @@ const commonConfig = {
   hooks: {
     afterOneFileWrite: ["prettier --write"],
   },
-};
-
-if (process.env.CMS_SCHEMA_FETCHED === "true" && fs.existsSync(path.join(dir, SCHEMA_PATH))) {
-  commonConfig.schema = SCHEMA_PATH;
-} else {
-  const url = process.env.CMS_API_ENDPOINT;
-
-  if (!url) throw new Error("Missing CMS_API_ENDPOINT env");
-
-  commonConfig.schema = `${url}/graphql`;
-  commonConfig.generates[SCHEMA_PATH] = {
-    plugins: ["introspection"],
-  };
 }
 
-module.exports = commonConfig;
+if (process.env.CMS_SCHEMA_FETCHED === "true" && fs.existsSync(path.join(dir, SCHEMA_PATH))) {
+  commonConfig.schema = SCHEMA_PATH
+} else {
+  const url = process.env.CMS_API_ENDPOINT
+
+  if (!url) throw new Error("Missing CMS_API_ENDPOINT env")
+
+  commonConfig.schema = `${url}/graphql`
+  commonConfig.generates[SCHEMA_PATH] = {
+    plugins: ["introspection"],
+  }
+}
+
+module.exports = commonConfig

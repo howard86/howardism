@@ -1,10 +1,10 @@
-import { HTMLMotionProps, m as motion, Variants } from "framer-motion";
+import { HTMLMotionProps, m as motion, Variants } from "framer-motion"
 
 interface SlideBoxProps extends HTMLMotionProps<"div"> {
-  x?: number;
-  y?: number;
-  delay?: number;
-  duration?: number;
+  x?: number
+  y?: number
+  delay?: number
+  duration?: number
 }
 
 export default function SlideBox({
@@ -30,7 +30,7 @@ export default function SlideBox({
         duration,
       },
     },
-  };
+  }
 
-  return <motion.div variants={VARIANTS} initial="hidden" whileInView="visible" {...props} />;
+  return <motion.div variants={VARIANTS} initial="hidden" whileInView="visible" {...props} />
 }

@@ -1,22 +1,22 @@
-import clsx from "clsx";
-import Link from "next/link";
+import clsx from "clsx"
+import Link from "next/link"
 
-import { SECTION_IDS } from "@/constants/nav";
-import useHasScrolled from "@/hooks/useHasScrolled";
-import useScrollSpy from "@/hooks/useScrollSpy";
+import { SECTION_IDS } from "@/constants/nav"
+import useHasScrolled from "@/hooks/useHasScrolled"
+import useScrollSpy from "@/hooks/useScrollSpy"
 
-import Logo from "../icons/Logo";
+import Logo from "../icons/Logo"
 
-import { Container } from "./Container";
-import DesktopNavigation from "./DesktopNavigation";
-import MobileNavigation from "./MobileNavigation";
-import ModeToggle from "./ModeToggle";
+import { Container } from "./Container"
+import DesktopNavigation from "./DesktopNavigation"
+import MobileNavigation from "./MobileNavigation"
+import ModeToggle from "./ModeToggle"
 
-export const HEADER_OFFSET = 80;
+export const HEADER_OFFSET = 80
 
 export default function Header1() {
-  const isScrolled = useHasScrolled({ offsetPx: HEADER_OFFSET, throttleMs: 300 });
-  const activeSectionId = useScrollSpy({ sectionIds: SECTION_IDS, offsetPx: HEADER_OFFSET });
+  const isScrolled = useHasScrolled({ offsetPx: HEADER_OFFSET, throttleMs: 300 })
+  const activeSectionId = useScrollSpy({ sectionIds: SECTION_IDS, offsetPx: HEADER_OFFSET })
 
   return (
     <header
@@ -41,5 +41,5 @@ export default function Header1() {
         </div>
       </Container>
     </header>
-  );
+  )
 }

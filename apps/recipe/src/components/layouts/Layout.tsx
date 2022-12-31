@@ -1,11 +1,11 @@
-import { ReactNode } from "react";
-import { Container } from "@chakra-ui/react";
+import { ReactNode } from "react"
+import { Container } from "@chakra-ui/react"
 
-import Footer from "./Footer";
-import NavBar from "./NavBar";
+import Footer from "./Footer"
+import NavBar from "./NavBar"
 
 interface LayoutProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 export default function Layout({ children }: LayoutProps): JSX.Element {
@@ -17,5 +17,5 @@ export default function Layout({ children }: LayoutProps): JSX.Element {
       </Container>
       <Footer />
     </>
-  );
+  )
 }

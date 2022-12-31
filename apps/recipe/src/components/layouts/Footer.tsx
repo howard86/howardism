@@ -1,4 +1,4 @@
-import { Box, Link } from "@chakra-ui/react";
+import { Box, Link } from "@chakra-ui/react"
 
 export default function Footer(): JSX.Element {
   return (
@@ -15,5 +15,5 @@ export default function Footer(): JSX.Element {
         Howard86
       </Link>
     </Box>
-  );
+  )
 }

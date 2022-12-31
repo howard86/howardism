@@ -1,11 +1,11 @@
-import { ChildrenProps } from "react";
-import { Provider as ReduxProvider } from "react-redux";
-import { ChakraProvider } from "@chakra-ui/react";
+import { ChildrenProps } from "react"
+import { Provider as ReduxProvider } from "react-redux"
+import { ChakraProvider } from "@chakra-ui/react"
 
-import store from "@/redux/store";
-import theme from "@/styles/theme";
+import store from "@/redux/store"
+import theme from "@/styles/theme"
 
-import Layout from "./layouts/Layout";
+import Layout from "./layouts/Layout"
 
 export default function GlobalWrapper({ children }: ChildrenProps) {
   return (
@@ -14,5 +14,5 @@ export default function GlobalWrapper({ children }: ChildrenProps) {
         <Layout>{children}</Layout>
       </ReduxProvider>
     </ChakraProvider>
-  );
+  )
 }

@@ -1,16 +1,16 @@
-import { HiMinusCircle, HiPlusCircle } from "react-icons/hi";
-import { Accordion, Flex, Heading, IconButton, VStack } from "@chakra-ui/react";
-import { nanoid } from "@reduxjs/toolkit";
-import { FieldArray } from "formik";
+import { HiMinusCircle, HiPlusCircle } from "react-icons/hi"
+import { Accordion, Flex, Heading, IconButton, VStack } from "@chakra-ui/react"
+import { nanoid } from "@reduxjs/toolkit"
+import { FieldArray } from "formik"
 
-import RecipeFormAccordionItem from "./RecipeFormAccordionItem";
+import RecipeFormAccordionItem from "./RecipeFormAccordionItem"
 
 interface RecipeFormFieldArrayProps<T> {
-  title: string;
-  arrayFieldName: string;
-  arrayFieldDisplayKey: keyof T;
-  newArrayField: T;
-  arrayFields: T[];
+  title: string
+  arrayFieldName: string
+  arrayFieldDisplayKey: keyof T
+  newArrayField: T
+  arrayFields: T[]
 }
 
 export default function RecipeFormFieldArray<T extends Record<string, unknown>>({
@@ -38,7 +38,7 @@ export default function RecipeFormFieldArray<T extends Record<string, unknown>>(
           </Flex>
           <Accordion reduceMotion allowToggle>
             {arrayFields.map((arrayField, index) => {
-              const fieldKey = nanoid();
+              const fieldKey = nanoid()
 
               return (
                 <Flex key={`${arrayFieldName}-${fieldKey}`}>
@@ -56,11 +56,11 @@ export default function RecipeFormFieldArray<T extends Record<string, unknown>>(
                     onClick={() => remove(index)}
                   />
                 </Flex>
-              );
+              )
             })}
           </Accordion>
         </VStack>
       )}
     </FieldArray>
-  );
+  )
 }

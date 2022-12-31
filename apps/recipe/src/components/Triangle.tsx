@@ -1,4 +1,4 @@
-import { Box, chakra } from "@chakra-ui/react";
+import { Box, chakra } from "@chakra-ui/react"
 
 const Triangle = chakra(Box, {
   baseStyle: {
@@ -11,6 +11,6 @@ const Triangle = chakra(Box, {
     borderBottomWidth: "10vh",
     borderBottomColor: "transparent",
   },
-});
+})
 
-export default Triangle;
+export default Triangle

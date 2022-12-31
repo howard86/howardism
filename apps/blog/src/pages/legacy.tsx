@@ -1,14 +1,14 @@
-import { domMax, LazyMotion } from "framer-motion";
-import type { GetStaticPropsResult } from "next";
+import { domMax, LazyMotion } from "framer-motion"
+import type { GetStaticPropsResult } from "next"
 
-import Cursor from "@/components/animations/Cursor";
-import Layout from "@/components/layout/Layout";
-import AboutSection from "@/components/sections/AboutSection";
-import ExperienceSection from "@/components/sections/ExprienceSection";
-import HomeSection from "@/components/sections/HomeSection";
-import ResourceSection from "@/components/sections/ResourceSection";
-import cms from "@/services/cms";
-import { GetHomePageQuery } from "@/services/query.generated";
+import Cursor from "@/components/animations/Cursor"
+import Layout from "@/components/layout/Layout"
+import AboutSection from "@/components/sections/AboutSection"
+import ExperienceSection from "@/components/sections/ExprienceSection"
+import HomeSection from "@/components/sections/HomeSection"
+import ResourceSection from "@/components/sections/ResourceSection"
+import cms from "@/services/cms"
+import { GetHomePageQuery } from "@/services/query.generated"
 
 export default function Home({
   aboutSection,
@@ -32,11 +32,11 @@ export default function Home({
         <Cursor />
       </LazyMotion>
     </>
-  );
+  )
 }
 
 export const getStaticProps = async (): Promise<GetStaticPropsResult<GetHomePageQuery>> => {
-  const props = await cms.GetHomePage();
+  const props = await cms.GetHomePage()
 
-  return { props };
-};
+  return { props }
+}

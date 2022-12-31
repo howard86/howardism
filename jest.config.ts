@@ -1,4 +1,4 @@
-import { Config } from "jest";
+import { Config } from "jest"
 
 const config: Config = {
   roots: ["<rootDir>"],
@@ -10,6 +10,6 @@ const config: Config = {
     "^@howardism/components-common$": "<rootDir>/../../packages/components/common",
     "^@howardism/(.*)$": "<rootDir>/../../packages/$1",
   },
-};
+}
 
-export default config;
+export default config

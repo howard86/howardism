@@ -1,20 +1,20 @@
-import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
-import { Image } from "@howardism/components-common";
-import { StaticImageData } from "next/image";
+import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react"
+import { StaticImageData } from "next/image"
 
-import backgroundImage from "@/../public/assets/background.jpg";
+import backgroundImage from "@/../public/assets/background.jpg"
+import { Image } from "@howardism/components-common"
 
-import Triangle from "./Triangle";
+import Triangle from "./Triangle"
 
 interface LandingProps {
-  imageUrl: string | StaticImageData;
+  imageUrl: string | StaticImageData
 }
 
 export default function Landing({ imageUrl }: LandingProps) {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
-    alert("clicked!");
-  };
+    alert("clicked!")
+  }
 
   return (
     <Flex flexDirection="column" position="relative" minH="100vh" color="white">
@@ -76,5 +76,5 @@ export default function Landing({ imageUrl }: LandingProps) {
         </Box>
       </Flex>
     </Flex>
-  );
+  )
 }

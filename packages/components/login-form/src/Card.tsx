@@ -1,4 +1,4 @@
-import { Box, BoxProps } from "@chakra-ui/react";
+import { Box, BoxProps } from "@chakra-ui/react"
 
 export default function Card(props: BoxProps): JSX.Element {
   return (
@@ -10,5 +10,5 @@ export default function Card(props: BoxProps): JSX.Element {
       rounded={{ sm: "lg" }}
       {...props}
     />
-  );
+  )
 }

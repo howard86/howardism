@@ -1,6 +1,6 @@
-import { forwardRef } from "react";
-import { DivPropsWithoutRef } from "react-html-props";
-import clsx from "clsx";
+import { forwardRef } from "react"
+import { DivPropsWithoutRef } from "react-html-props"
+import clsx from "clsx"
 
 export const OuterContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
   ({ className, children, ...props }, ref) => (
@@ -8,7 +8,7 @@ export const OuterContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
       <div className="mx-auto max-w-7xl lg:px-8">{children}</div>
     </div>
   )
-);
+)
 
 export const InnerContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
   ({ className, children, ...props }, ref) => (
@@ -16,7 +16,7 @@ export const InnerContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
       <div className="mx-auto max-w-2xl lg:max-w-5xl">{children}</div>
     </div>
   )
-);
+)
 
 export const Container = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
   ({ children, ...props }, ref) => (
@@ -24,4 +24,4 @@ export const Container = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
       <InnerContainer>{children}</InnerContainer>
     </OuterContainer>
   )
-);
+)

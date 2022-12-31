@@ -1,18 +1,18 @@
-import ReactMarkdown from "react-markdown";
-import Image from "next/future/image";
+import ReactMarkdown from "react-markdown"
+import Image from "next/image"
 
-import profilePicture from "@/../public/profile.jpeg";
-import { SectionId } from "@/constants/nav";
-import { GetHomePageQuery } from "@/services/query.generated";
+import profilePicture from "@/../public/profile.jpeg"
+import { SectionId } from "@/constants/nav"
+import { GetHomePageQuery } from "@/services/query.generated"
 
-import SlideBox from "../animations/SlideBox";
+import SlideBox from "../animations/SlideBox"
 
-import SectionWrapper from "./SectionWrapper";
+import SectionWrapper from "./SectionWrapper"
 
 interface AboutListItemProps {
-  index: number;
-  title?: string;
-  description?: string;
+  index: number
+  title?: string
+  description?: string
 }
 
 function AboutListItem({ title, description, index }: AboutListItemProps) {
@@ -25,11 +25,11 @@ function AboutListItem({ title, description, index }: AboutListItemProps) {
         {description}
       </SlideBox>
     </li>
-  );
+  )
 }
 
 interface AboutSectionProps {
-  data: GetHomePageQuery["aboutSection"];
+  data: GetHomePageQuery["aboutSection"]
 }
 
 export default function AboutSection({ data }: AboutSectionProps) {
@@ -69,5 +69,5 @@ export default function AboutSection({ data }: AboutSectionProps) {
         </div>
       </div>
     </SectionWrapper>
-  );
+  )
 }

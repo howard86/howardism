@@ -1,4 +1,4 @@
-import { SVGProps } from "react-html-props";
+import { SVGProps } from "react-html-props"
 
 export function CloseIcon(props: SVGProps) {
   return (
@@ -12,7 +12,7 @@ export function CloseIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 export function ChevronDownIcon(props: SVGProps) {
@@ -26,7 +26,7 @@ export function ChevronDownIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }
 
 export function SunIcon(props: SVGProps) {
@@ -45,7 +45,7 @@ export function SunIcon(props: SVGProps) {
         fill="none"
       />
     </svg>
-  );
+  )
 }
 
 export function MoonIcon(props: SVGProps) {
@@ -58,5 +58,5 @@ export function MoonIcon(props: SVGProps) {
         strokeLinejoin="round"
       />
     </svg>
-  );
+  )
 }

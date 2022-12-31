@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import throttle from "lodash.throttle";
+import { useEffect, useState } from "react"
+import throttle from "lodash.throttle"
 
 export interface UseScrollSpyParams {
-  defaultSectionId?: string;
-  sectionIds: string[];
-  offsetPx?: number;
-  throttleMs?: number;
+  defaultSectionId?: string
+  sectionIds: string[]
+  offsetPx?: number
+  throttleMs?: number
 }
 
 // Inspired by https://github.com/Purii/react-use-scrollspy
@@ -15,28 +15,28 @@ export default function useScrollSpy({
   offsetPx = 0,
   throttleMs = 100,
 }: UseScrollSpyParams) {
-  const [activeSectionId, setActiveSectionId] = useState(defaultSectionId);
+  const [activeSectionId, setActiveSectionId] = useState(defaultSectionId)
 
   useEffect(() => {
     const handle = throttle(() => {
       for (const sectionId of sectionIds) {
-        const section = document.getElementById(sectionId);
+        const section = document.getElementById(sectionId)
 
-        const boundary = section?.getBoundingClientRect();
+        const boundary = section?.getBoundingClientRect()
 
         if (boundary && boundary.top + boundary.height > offsetPx) {
-          setActiveSectionId(sectionId);
-          break;
+          setActiveSectionId(sectionId)
+          break
         }
       }
-    }, throttleMs);
+    }, throttleMs)
 
-    window.addEventListener("scroll", handle);
+    window.addEventListener("scroll", handle)
 
     return () => {
-      window.removeEventListener("scroll", handle);
-    };
-  }, [offsetPx, sectionIds, throttleMs]);
+      window.removeEventListener("scroll", handle)
+    }
+  }, [offsetPx, sectionIds, throttleMs])
 
-  return activeSectionId;
+  return activeSectionId
 }

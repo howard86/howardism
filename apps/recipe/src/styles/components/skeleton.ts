@@ -1,4 +1,4 @@
-import type { ComponentStyleConfig } from "@chakra-ui/react";
+import type { ComponentStyleConfig } from "@chakra-ui/react"
 
 const Skeleton: ComponentStyleConfig = {
   baseStyle: {
@@ -8,6 +8,6 @@ const Skeleton: ComponentStyleConfig = {
     startColor: "primary.500",
     endColor: "secondary.500",
   },
-};
+}
 
-export default Skeleton;
+export default Skeleton
