@@ -2,7 +2,7 @@ import { SVGProps } from "react-html-props"
 
 export default function OddleIcon(props: SVGProps) {
   return (
-    <svg viewBox="0 0 18 18" width="18" height="18" fill="none" {...props}>
+    <svg viewBox="0 0 18 18" width="18" height="18" {...props}>
       <path
         d="M9.88504 5.07383C9.04466 5.91421 9.04466 7.25883 9.88504 8.09921C10.7254 8.9396 12.07 8.9396 12.9104 8.09921C13.7508 7.25883 13.7508 5.91421 12.9104 5.07383C12.07 4.23344 10.7254 4.23344 9.88504 5.07383Z"
         fill="#3D0099"

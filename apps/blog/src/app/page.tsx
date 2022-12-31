@@ -14,6 +14,7 @@ import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/compon
 import { Container } from "@/components/template/Container"
 import ExternalLink from "@/components/template/ExternalLink"
 import { GitHubIcon, LinkedInIcon, TwitterIcon } from "@/components/template/SocialIcons"
+import { ArticleEntity, getAllArticles } from "@/services/article"
 import { formatDate } from "@/utils/time"
 
 function BriefcaseIcon(props: SVGProps) {
@@ -39,21 +40,14 @@ function BriefcaseIcon(props: SVGProps) {
   )
 }
 
-type ArticleEntity = {
-  slug: string
-  title: string
-  date: string
-  description: string
-}
-
-function Article({ article }: { article: ArticleEntity }) {
+function Article({ slug, meta }: ArticleEntity) {
   return (
     <Card as="article">
-      <CardTitle href={`/articles/${article.slug}`}>{article.title}</CardTitle>
-      <CardEyebrow as="time" dateTime={article.date} decorate>
-        {formatDate(article.date)}
+      <CardTitle href={`/articles/${slug}`}>{meta.title}</CardTitle>
+      <CardEyebrow as="time" dateTime={meta.date} decorate>
+        {formatDate(meta.date)}
       </CardEyebrow>
-      <CardDescription>{article.description}</CardDescription>
+      <CardDescription>{meta.description}</CardDescription>
       <CardCta>Read article</CardCta>
     </Card>
   )
@@ -126,7 +120,7 @@ function Resume() {
       <ol className="mt-6 space-y-4">
         {resume.map((role) => (
           <li key={role.title} className="flex gap-4">
-            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-gray-200 dark:ring-0">
+            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:border dark:border-zinc-700/50 dark:bg-zinc-100 dark:ring-0">
               <role.logo aria-label={`${role.company} logo`} className="h-7 w-7" />
             </div>
             <dl className="flex flex-auto flex-wrap gap-x-2">
@@ -191,11 +185,9 @@ function Photos() {
   )
 }
 
-interface HomeProps {
-  articles: ArticleEntity[]
-}
+export default async function Home() {
+  const articles = await getAllArticles()
 
-export default function Home({ articles = [] }: HomeProps) {
   return (
     <>
       <Container className="mt-9">
@@ -234,8 +226,8 @@ export default function Home({ articles = [] }: HomeProps) {
       <Container className="mt-24 md:mt-28">
         <div className="mx-auto grid max-w-xl grid-cols-1 gap-y-20 lg:max-w-none lg:grid-cols-2">
           <div className="flex flex-col gap-16">
-            {articles.map((article) => (
-              <Article key={article.slug} article={article} />
+            {articles.slice(0, 4).map((article) => (
+              <Article key={article.slug} slug={article.slug} meta={article.meta} />
             ))}
           </div>
           <div className="space-y-10 lg:pl-16 xl:pl-24">
