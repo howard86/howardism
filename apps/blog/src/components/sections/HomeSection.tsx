@@ -1,121 +1,55 @@
 import { useRef } from "react";
-import { HiArrowNarrowDown } from "react-icons/hi";
-import ReactTyped from "react-typed";
-import { Box, Button, chakra, Icon, IconButton, VisuallyHidden } from "@chakra-ui/react";
-import { Image } from "@howardism/components-common";
-import { useInView, useScroll, useTransform, Variants } from "framer-motion";
+import { m as motion, useInView, useScroll, useTransform } from "framer-motion";
+import dynamic from "next/dynamic";
+import Image from "next/future/image";
 
 import coverPhoto from "@/../public/cover.jpg";
 import { SectionId } from "@/constants/nav";
 
 import SlideBox from "../animations/SlideBox";
 import WavyText from "../animations/WavyText";
-import MotionBox from "../common/MotionBox";
 
 const descriptions = ["Web Developer", "Lifelong Learner", "Mathemachicken Lover!"];
 
-const VARIANTS: Variants = {
-  hover: {
-    y: -25,
-    scale: 1.1,
-    opacity: 1,
-  },
-  bounce: {
-    opacity: 0.6,
-    y: [-20, -35, -20],
-    transition: {
-      bounce: 1,
-      repeat: Infinity,
-      repeatDelay: 0.5,
-      type: "spring",
-    },
-  },
-};
+const DynamicReactTyped = dynamic(() => import("react-typed"));
 
 export default function HomeSection() {
   const ref = useRef<HTMLHeadingElement>(null);
   const inView = useInView(ref, { once: false });
   const { scrollYProgress } = useScroll({ offset: ["start", "100vh"] });
   const filter = useTransform(scrollYProgress, (value) =>
-    value ? `blur(${4 * value}px) brightness(${100 - 80 * value}%)` : "none"
+    value ? `blur(${4 * value}px) brightness(${100 - 95 * value}%)` : "none"
   );
-  const y = useTransform(scrollYProgress, (value) => Math.min(640 * value + 105, 340));
+  const y = useTransform(scrollYProgress, (value) => Math.min(640 * value + 145, 340));
 
   return (
-    <Box as="section" id={SectionId.Home} pos="relative">
-      <MotionBox
-        pos="fixed"
-        w="full"
-        h="100vh"
-        overflow="hidden"
-        zIndex={-1}
-        style={{
-          filter,
-        }}
+    <section id={SectionId.Home} className="relative">
+      <motion.div
+        className="absolute inset-0 mx-auto h-screen w-full max-w-[76rem]"
+        style={{ filter }}
       >
         <Image
           alt="lakeside views"
           src={coverPhoto}
-          layout="fill"
-          placeholder="blur"
-          objectFit="cover"
-          objectPosition="38% bottom"
-          quality={100}
+          className="object-cover object-[38%_bottom] brightness-75 dark:brightness-50"
+          fill
           priority
         />
-      </MotionBox>
-      <MotionBox
-        variants={VARIANTS}
-        whileInView="bounce"
-        whileHover="hover"
-        position="absolute"
-        left={0}
-        right={0}
-        bottom={0}
-        w={12}
-        mx="auto"
-        textAlign="center"
-        zIndex="docked"
-      >
-        <IconButton
-          as="a"
-          href={`#${SectionId.About}`}
-          size="sm"
-          aria-label="scroll down"
-          colorScheme="secondary"
-          rounded="full"
-          icon={<Icon fontSize="md" as={HiArrowNarrowDown} />}
-        />
-      </MotionBox>
-      <MotionBox
-        paddingInline={4}
-        w="full"
-        minH="100vh"
-        py="12"
-        mx="auto"
-        maxW="container.md"
-        display="flex"
-        flexDir="column"
-        color="white"
-        textShadow="2px 4px 3px rgba(0,0,0,0.3)"
-        gap={6}
+      </motion.div>
+      <motion.div
+        className="text-shadow relative z-20 mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 overflow-hidden py-12 px-4 text-white/90"
         style={{ y }}
-        overflow="hidden"
       >
-        <WavyText as="h3" fontSize="lg" text="Hello I'm" />
-        <WavyText
-          as="h1"
-          mt={-6}
-          fontSize="6xl"
-          fontWeight="bold"
-          lineHeight={1.33}
-          text="Howard Tai"
-          delay={0.6}
-        />
-        <chakra.h2 ref={ref} fontSize="3xl" color="secondary.400" fontWeight="semibold">
-          <VisuallyHidden>{descriptions.join(", ")}</VisuallyHidden>
+        <h3 className="text-lg">
+          <WavyText text="Hello I'm" />
+        </h3>
+        <h1 className="text-4xl font-bold leading-5 md:text-5xl">
+          <WavyText text="Howard Tai" delay={0.6} />
+        </h1>
+        <h2 ref={ref} className="text-2xl font-semibold text-teal-500 md:text-3xl">
+          <span className="sr-only">{descriptions.join(", ")}</span>
           {inView && (
-            <ReactTyped
+            <DynamicReactTyped
               typeSpeed={100}
               backSpeed={60}
               strings={descriptions}
@@ -129,24 +63,15 @@ export default function HomeSection() {
               cursorChar="|"
             />
           )}
-        </chakra.h2>
-        <SlideBox as="p" y={10} delay={1.6}>
-          I specialise in developing data intensive applications with React (SSR) and improve web
-          architecture, facing and tackling challenges in fast-paced start-ups since the first day
-          of my job!
+        </h2>
+        <SlideBox y={10} delay={1.6}>
+          <p className="md:text-lg">
+            I specialise in developing data intensive applications with React (SSR) and improve web
+            architecture, facing and tackling challenges in fast-paced start-ups since the first day
+            of my job!
+          </p>
         </SlideBox>
-        <Button
-          as="a"
-          colorScheme="secondary"
-          variant="outline"
-          bgColor="whiteAlpha.400"
-          alignSelf="end"
-          href={`#${SectionId.About}`}
-          mr="20"
-        >
-          See Projects
-        </Button>
-      </MotionBox>
-    </Box>
+      </motion.div>
+    </section>
   );
 }

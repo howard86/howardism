@@ -1,9 +1,6 @@
-import { BoxProps } from "@chakra-ui/react";
-import { Variants } from "framer-motion";
+import { HTMLMotionProps, m as motion, Variants } from "framer-motion";
 
-import MotionBox from "../common/MotionBox";
-
-interface SlideBoxProps extends BoxProps {
+interface SlideBoxProps extends HTMLMotionProps<"div"> {
   x?: number;
   y?: number;
   delay?: number;
@@ -35,5 +32,5 @@ export default function SlideBox({
     },
   };
 
-  return <MotionBox variants={VARIANTS} initial="hidden" whileInView="visible" {...props} />;
+  return <motion.div variants={VARIANTS} initial="hidden" whileInView="visible" {...props} />;
 }

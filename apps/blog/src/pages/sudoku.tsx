@@ -1,101 +1,98 @@
-import { useMemo } from "react";
-import {
-  Button,
-  ButtonProps,
-  CircularProgress,
-  CircularProgressLabel,
-  Container,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
-  SimpleGrid,
-  Text,
-} from "@chakra-ui/react";
-import { Image } from "@howardism/components-common";
+import { Fragment, useMemo } from "react";
+import { Menu, Transition } from "@headlessui/react";
+import clsx from "clsx";
 
-import sudoku from "@/assets/john-morgan-sudoku.jpg";
+import { Container } from "@/components/layout/Container";
 import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku";
 import useSudoku from "@/hooks/useSudoku";
 
-const LIGHT_COLOR = "blackAlpha.100";
-const DARK_COLOR = "blackAlpha.700";
+function getBackgroundColor(selected: number, index: number, gameIndex: number) {
+  if (selected === index) return "bg-teal-100";
 
-const getBgColor = (selected: number, index: number, gameIndex: number): ButtonProps["color"] => {
-  if (selected === index) return "blue.100";
+  return gameIndex > 0 ? "bg-zinc-100/80" : "bg-white";
+}
 
-  return gameIndex > 0 ? LIGHT_COLOR : "white";
-};
-
-export default function SudokuPage(): JSX.Element {
+export default function SudokuPage() {
   const { loading, selected, onStart, answer, game, message, onSelect, onUpdate } = useSudoku();
   const numberArray = useMemo(() => new Array(9).fill(0).map((_, index) => index + 1), []);
 
   return (
-    <Container minH="full" centerContent p="4">
-      <Image src={sudoku} alt="sudoku" width={200} height={300} placeholder="blur" />
-      <Menu>
-        <MenuButton as={Button} isLoading={loading} my="4">
-          Start new game
-        </MenuButton>
-        <MenuList>
-          {SUDOKU_DIFFICULTIES.map((key) => (
-            <MenuItem key={key} onClick={() => onStart(key)} textTransform="capitalize">
-              {key}
-            </MenuItem>
-          ))}
-        </MenuList>
-      </Menu>
-      {loading ? (
-        <CircularProgress size="200px" thickness="4px" isIndeterminate color="green.400">
-          <CircularProgressLabel fontSize="md">Loading</CircularProgressLabel>
-        </CircularProgress>
-      ) : (
-        <>
-          <SimpleGrid columns={9}>
-            {answer.map((cell, index) => (
-              <Button
-                // eslint-disable-next-line react/no-array-index-key
-                key={`${cell}-${index}`}
-                variant="outline"
-                boxSize="12"
-                fontSize="2xl"
-                fontFamily="mono"
-                borderTopLeftRadius={index === 0 ? "md" : "none"}
-                borderTopRightRadius={index === 8 ? "md" : "none"}
-                borderBottomLeftRadius={index === 72 ? "md" : "none"}
-                borderBottomRightRadius={index === 80 ? "md" : "none"}
-                borderTopWidth={index < 9 ? "thin" : "0"}
-                borderLeftWidth={index % 9 === 0 ? "thin" : "0"}
-                borderBottomWidth="thin"
-                borderRightWidth="thin"
-                borderTopColor={index % 27 < 9 ? DARK_COLOR : LIGHT_COLOR}
-                borderBottomColor={index % 27 > 17 ? DARK_COLOR : LIGHT_COLOR}
-                borderLeftColor={index % 3 === 0 ? DARK_COLOR : LIGHT_COLOR}
-                borderRightColor={index % 3 === 2 ? DARK_COLOR : LIGHT_COLOR}
-                bg={getBgColor(selected, index, game[index])}
-                onClick={() => onSelect(index)}
-              >
-                {cell > 0 ? cell : ""}
-              </Button>
-            ))}
-          </SimpleGrid>
-          <SimpleGrid mt="4" columns={9} spacing={2}>
-            {answer.length > 0 &&
-              numberArray.map((number) => (
-                <Button
-                  key={`input-${number}`}
-                  boxSize="10"
-                  fontFamily="mono"
-                  onClick={() => onUpdate(number)}
+    <Container>
+      <div className="flex flex-col items-center justify-center gap-6 pt-20">
+        <Menu as="div" className="relative mt-20 inline-block text-left">
+          <Menu.Button className="inline-flex w-full justify-center rounded-md bg-black bg-opacity-20 px-4 py-2 text-sm font-medium text-white hover:bg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
+            Start new game
+          </Menu.Button>
+          <Transition
+            as={Fragment}
+            enter="transition ease-out duration-100"
+            enterFrom="transform opacity-0 scale-95"
+            enterTo="transform opacity-100 scale-100"
+            leave="transition ease-in duration-75"
+            leaveFrom="transform opacity-100 scale-100"
+            leaveTo="transform opacity-0 scale-95"
+          >
+            <Menu.Items className="absolute right-0 z-10 mt-2 w-full origin-top-right divide-y divide-gray-100 rounded-md bg-white p-1 shadow-lg ring-1  ring-black ring-opacity-5 focus:outline-none">
+              {SUDOKU_DIFFICULTIES.map((key) => (
+                <Menu.Item
+                  key={key}
+                  className="group flex w-full items-center rounded-md p-2 text-sm capitalize hover:bg-teal-400"
+                  as="button"
+                  onClick={() => onStart(key)}
                 >
-                  {number}
-                </Button>
+                  {key}
+                </Menu.Item>
               ))}
-          </SimpleGrid>
-        </>
-      )}
-      {message && <Text>Ooops, encounter an error {message}</Text>}
+            </Menu.Items>
+          </Transition>
+        </Menu>
+        {loading ? (
+          <span>Loading ...</span>
+        ) : (
+          <>
+            <div className="grid-rows-9 grid grid-cols-9">
+              {answer.map((cell, index) => (
+                <button
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`${cell}-${index}`}
+                  type="button"
+                  className={clsx(
+                    "h-12 w-12 border-b border-r font-mono text-xl",
+                    index === 0 ? "rounded-tl-md" : "rounded-tl-none",
+                    index === 8 ? "rounded-tr-md" : "rounded-tr-none",
+                    index === 72 ? "rounded-bl-md" : "rounded-bl-none",
+                    index === 80 ? "rounded-br-md" : "rounded-br-none",
+                    index < 9 ? "border-t" : "border-t-none",
+                    index % 9 === 0 ? "border-l" : "border-l-none",
+                    index % 27 < 9 ? "border-t-zinc-600" : "border-t-zinc-100",
+                    index % 27 > 17 ? "border-b-zinc-600" : "border-b-zinc-100",
+                    index % 3 === 0 ? "border-l-zinc-600" : "border-l-zinc-100",
+                    index % 3 === 2 ? "border-r-zinc-600" : "border-r-zinc-100",
+                    getBackgroundColor(selected, index, game[index])
+                  )}
+                  onClick={() => onSelect(index)}
+                >
+                  {cell > 0 ? cell : ""}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {answer.length > 0 &&
+                numberArray.map((number) => (
+                  <button
+                    type="button"
+                    key={`input-${number}`}
+                    className="h-10 w-10 rounded-md border font-mono hover:bg-zinc-100 focus:bg-zinc-50"
+                    onClick={() => onUpdate(number)}
+                  >
+                    {number}
+                  </button>
+                ))}
+            </div>
+          </>
+        )}
+        {message && <p>Ooops, encounter an error {message}</p>}
+      </div>
     </Container>
   );
 }
