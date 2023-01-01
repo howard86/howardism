@@ -43,7 +43,7 @@ export default class MyDocument extends Document {
         <Head>
           <Script
             id="dark-mode-script"
-            strategy="worker"
+            strategy="beforeInteractive"
             dangerouslySetInnerHTML={{ __html: modeScript }}
           />
           <link
