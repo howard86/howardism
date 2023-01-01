@@ -8,6 +8,7 @@ import ExperienceSection from "@/components/sections/ExprienceSection"
 import HomeSection from "@/components/sections/HomeSection"
 import ResourceSection from "@/components/sections/ResourceSection"
 import cms from "@/services/cms"
+import { generateRssFeed } from "@/services/feed"
 import { GetHomePageQuery } from "@/services/query.generated"
 
 export default function Home({
@@ -36,6 +37,8 @@ export default function Home({
 }
 
 export const getStaticProps = async (): Promise<GetStaticPropsResult<GetHomePageQuery>> => {
+  if (process.env.NODE_ENV === "production") await generateRssFeed()
+
   const props = await cms.GetHomePage()
 
   return { props }
