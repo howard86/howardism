@@ -1,3 +1,6 @@
+import { dirname, join } from "path"
+import { fileURLToPath } from "url"
+
 import rehypePrism from "@mapbox/rehype-prism"
 import nextBundleAnalyzer from "@next/bundle-analyzer"
 import nextMDX from "@next/mdx"
@@ -23,6 +26,7 @@ const config = {
   experimental: {
     appDir: true,
     scrollRestoration: true,
+    outputFileTracingRoot: join(dirname(fileURLToPath(import.meta.url)), "../../"),
   },
 }
 
