@@ -1,3 +1,20 @@
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+## [1.0.7](https://github.com/Howard86/howardism/compare/@howardism/minecraft@1.0.6...@howardism/minecraft@1.0.7) (2023-01-01)
+
+### 🎫 Chores
+
+- add npm scripts clean ([3c5c751](https://github.com/Howard86/howardism/commit/3c5c751))
+- **packages**: bump all dependencies to the latest ([1a5379d](https://github.com/Howard86/howardism/commit/1a5379d))
+- update eslint & prettier config ([b718310](https://github.com/Howard86/howardism/commit/b718310))
+
+### 📝 Documentation
+
+- initialise changelog in each package instead ([c732d3b](https://github.com/Howard86/howardism/commit/c732d3b))
+
 ## [1.0.6](https://github.com/Howard86/howardism/compare/v1.0.24...v1.0.6) (2023-01-01)
 
 ### ♻ Code Refactoring
