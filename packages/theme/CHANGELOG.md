@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.2.5](https://github.com/Howard86/howardism/compare/@howardism/theme@0.2.3...@howardism/theme@0.2.5) (2023-01-02)
+
+### 🎫 Chores
+
+- add npm scripts clean ([3c5c751](https://github.com/Howard86/howardism/commit/3c5c751))
+- add private packages for theme & ignore package.json changes ([061bf3c](https://github.com/Howard86/howardism/commit/061bf3c))
+- **packages**: bump all dependencies to the latest ([1a5379d](https://github.com/Howard86/howardism/commit/1a5379d))
+- update eslint & prettier config ([b718310](https://github.com/Howard86/howardism/commit/b718310))
+
+### 📝 Documentation
+
+- add tags & changelog ([6fd2f33](https://github.com/Howard86/howardism/commit/6fd2f33))
+- initialise changelog in each package instead ([c732d3b](https://github.com/Howard86/howardism/commit/c732d3b))
+
 ## [0.2.4](https://github.com/Howard86/howardism/compare/@howardism/theme@0.2.3...@howardism/theme@0.2.4) (2023-01-01)
 
 ### 🎫 Chores

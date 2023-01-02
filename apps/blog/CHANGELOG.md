@@ -3,6 +3,92 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.4.0](https://github.com/Howard86/howardism/compare/@howardism/blog@1.4.2...@howardism/blog@2.4.0) (2023-01-02)
+
+### ♻ Code Refactoring
+
+- **about**: update animation with SlideBox ([d66806b](https://github.com/Howard86/howardism/commit/d66806b))
+- clean up theme files ([df5a8ec](https://github.com/Howard86/howardism/commit/df5a8ec))
+- **home**: update animations for texts & buttons ([0346db7](https://github.com/Howard86/howardism/commit/0346db7))
+- move home page to next appDir ([8145c66](https://github.com/Howard86/howardism/commit/8145c66))
+- replace react-animated-cursor with framer motion spring ([9f1afa1](https://github.com/Howard86/howardism/commit/9f1afa1))
+- replace ScrollToTop wiht ScrollProgress & click ([959404c](https://github.com/Howard86/howardism/commit/959404c))
+- **ui**: update AboutSection ([c5f3817](https://github.com/Howard86/howardism/commit/c5f3817))
+- **ui**: update ExperienceSection ([d5f96b0](https://github.com/Howard86/howardism/commit/d5f96b0))
+- **ui**: update header with rwd & dark mode ([4631434](https://github.com/Howard86/howardism/commit/4631434))
+- **ui**: update HomeSection ([df91a78](https://github.com/Howard86/howardism/commit/df91a78))
+- **ui**: update other styles with tw ([0614caa](https://github.com/Howard86/howardism/commit/0614caa))
+- **ui**: update ResourceSection ([396cda7](https://github.com/Howard86/howardism/commit/396cda7))
+- update Header scrollspy with custom hooks ([a0c737c](https://github.com/Howard86/howardism/commit/a0c737c))
+- update parallax background with next/image ([42fc8e9](https://github.com/Howard86/howardism/commit/42fc8e9))
+- update social links on home page ([df6879a](https://github.com/Howard86/howardism/commit/df6879a))
+
+### ⚡ Performance Improvements
+
+- improve bundle size with LazyMotion & next/dynamic ([f99a0af](https://github.com/Howard86/howardism/commit/f99a0af))
+- update next config with faster build ([520ffde](https://github.com/Howard86/howardism/commit/520ffde))
+
+### ✨ Features
+
+- add AboutSection ([410545d](https://github.com/Howard86/howardism/commit/410545d))
+- add Experience section ([ccc93db](https://github.com/Howard86/howardism/commit/ccc93db))
+- add HomeSection ([df9fdb6](https://github.com/Howard86/howardism/commit/df9fdb6))
+- integrate with local cms ([ce34f82](https://github.com/Howard86/howardism/commit/ce34f82))
+- integrate with local mdx & add article page ([9b0bd9e](https://github.com/Howard86/howardism/commit/9b0bd9e))
+- **layout**: update layout with header ([bd23c74](https://github.com/Howard86/howardism/commit/bd23c74))
+- replace with tailwindui template ([abec147](https://github.com/Howard86/howardism/commit/abec147))
+- **resource**: add ResourceSection ([5286871](https://github.com/Howard86/howardism/commit/5286871))
+- set up graphql codegen with updated env ([46af8b7](https://github.com/Howard86/howardism/commit/46af8b7))
+- set up mdx support with first blog article ([c2ad598](https://github.com/Howard86/howardism/commit/c2ad598))
+- set up rss feed generation ([725f0d5](https://github.com/Howard86/howardism/commit/725f0d5))
+- set up tailwincss theme & dev tools ([717aab5](https://github.com/Howard86/howardism/commit/717aab5))
+- update home page contents ([9e57334](https://github.com/Howard86/howardism/commit/9e57334))
+
+### 🎫 Chores
+
+- add npm scripts clean ([3c5c751](https://github.com/Howard86/howardism/commit/3c5c751))
+- add priority for home page next/image for FCP ([1088440](https://github.com/Howard86/howardism/commit/1088440))
+- install aos, lodash.throttle, react-animated-cursor, react-scrollspy ([36f00ca](https://github.com/Howard86/howardism/commit/36f00ca))
+- install react-parallax react-typed ([de3eebc](https://github.com/Howard86/howardism/commit/de3eebc))
+- **packages**: bump all dependencies to the latest ([1a5379d](https://github.com/Howard86/howardism/commit/1a5379d))
+- **packages**: install feed & react-dom types ([af0964e](https://github.com/Howard86/howardism/commit/af0964e))
+- **packages**: install graphql, graphql-request & related codegen pacakges ([5888177](https://github.com/Howard86/howardism/commit/5888177))
+- **packages**: install markdown related packages for mdx ([5e34d96](https://github.com/Howard86/howardism/commit/5e34d96))
+- **packages**: install react-markdown with peer deps ([da16c0f](https://github.com/Howard86/howardism/commit/da16c0f))
+- **packages**: install tailwindcss relateds packages ([c0a7f0c](https://github.com/Howard86/howardism/commit/c0a7f0c))
+- **packages**: install ts-essentials for utility types ([45df897](https://github.com/Howard86/howardism/commit/45df897))
+- **packages**: remove aos, react-parallax & react-scrollspy" ([7132d2a](https://github.com/Howard86/howardism/commit/7132d2a))
+- **packages**: remove react-animated-cursor ([b070c2b](https://github.com/Howard86/howardism/commit/b070c2b))
+- **packages**: remove unused packages with config ([6ba0e97](https://github.com/Howard86/howardism/commit/6ba0e97))
+- polyfill focus-visible ([0245868](https://github.com/Howard86/howardism/commit/0245868))
+- remove framer motion lazyLoad features ([60b04cf](https://github.com/Howard86/howardism/commit/60b04cf))
+- remove unused components ([29a040b](https://github.com/Howard86/howardism/commit/29a040b))
+- remove unused files ([a159a54](https://github.com/Howard86/howardism/commit/a159a54))
+- remove unused pages ([55eb9cf](https://github.com/Howard86/howardism/commit/55eb9cf))
+- temporary hide markdown introduction ([6345971](https://github.com/Howard86/howardism/commit/6345971))
+- update eslint & prettier config ([b718310](https://github.com/Howard86/howardism/commit/b718310))
+- update head scipts ([16c07c6](https://github.com/Howard86/howardism/commit/16c07c6))
+- update layout margins & paddings ([043f6db](https://github.com/Howard86/howardism/commit/043f6db))
+- update logo, favicons & sitemap ([8ec72fc](https://github.com/Howard86/howardism/commit/8ec72fc))
+
+### 🐛 Bug Fixes
+
+- fix incorrect strategy for legacy theme changes ([e8c90ea](https://github.com/Howard86/howardism/commit/e8c90ea))
+- **ui**: fix missing overflow causing inconsistent ui ([150120c](https://github.com/Howard86/howardism/commit/150120c))
+- update incorrect seciont ids & header ([bae2618](https://github.com/Howard86/howardism/commit/bae2618))
+
+### 📝 Documentation
+
+- add tags ([4697fdb](https://github.com/Howard86/howardism/commit/4697fdb))
+- add tags ([87e70e5](https://github.com/Howard86/howardism/commit/87e70e5))
+- add tags ([51a1450](https://github.com/Howard86/howardism/commit/51a1450))
+- add tags & changelog ([6fd2f33](https://github.com/Howard86/howardism/commit/6fd2f33))
+- initialise changelog in each package instead ([c732d3b](https://github.com/Howard86/howardism/commit/c732d3b))
+
+### 🔧 Continuous Integration
+
+- fix failing to deploy on vercel ([1b4d582](https://github.com/Howard86/howardism/commit/1b4d582))
+
 # [2.3.0](https://github.com/Howard86/howardism/compare/@howardism/blog@1.4.2...@howardism/blog@2.3.0) (2023-01-01)
 
 ### ♻ Code Refactoring
