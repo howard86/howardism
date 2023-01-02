@@ -1,5 +1,6 @@
 import { NextSeo } from "next-seo"
 
+import config from "@/config"
 import DEFAULT_SEO from "@/constants/seo"
 
 export default function RootHead() {
@@ -13,6 +14,11 @@ export default function RootHead() {
       <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
       <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
       <link rel="manifest" href="/site.webmanifest" />
+      <meta name="msapplication-TileColor" content="#ffffff" />
+      <meta name="theme-color" content="#ffffff" />
+
+      <link rel="alternate" type="application/rss+xml" href={`${config.domain}/rss/feed.xml`} />
+      <link rel="alternate" type="application/feed+json" href={`${config.domain}/rss/feed.json`} />
     </>
   )
 }
