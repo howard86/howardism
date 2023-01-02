@@ -10,10 +10,13 @@ import image4 from "@/assets/thisisengineering-raeng-desk.jpg"
 import FstIcon from "@/components/icons/Fst"
 import LootexIcon from "@/components/icons/Lootex"
 import OddleIcon from "@/components/icons/Oddle"
+import { Button } from "@/components/template/Button"
 import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card"
 import { Container } from "@/components/template/Container"
 import ExternalLink from "@/components/template/ExternalLink"
 import {
+  BriefcaseIcon,
+  EmailIcon,
   GitHubIcon,
   LinkedInIcon,
   MailIcon,
@@ -22,29 +25,6 @@ import {
 } from "@/components/template/SocialIcons"
 import { ArticleEntity, getAllArticles } from "@/services/article"
 import { formatDate } from "@/utils/time"
-
-function BriefcaseIcon(props: SVGProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path
-        d="M2.75 9.75a3 3 0 0 1 3-3h12.5a3 3 0 0 1 3 3v8.5a3 3 0 0 1-3 3H5.75a3 3 0 0 1-3-3v-8.5Z"
-        className="fill-zinc-100 stroke-zinc-400 dark:fill-zinc-100/10 dark:stroke-zinc-500"
-      />
-      <path
-        d="M3 14.25h6.249c.484 0 .952-.002 1.316.319l.777.682a.996.996 0 0 0 1.316 0l.777-.682c.364-.32.832-.319 1.316-.319H21M8.75 6.5V4.75a2 2 0 0 1 2-2h2.5a2 2 0 0 1 2 2V6.5"
-        className="stroke-zinc-400 dark:stroke-zinc-500"
-      />
-    </svg>
-  )
-}
 
 function Article({ slug, meta }: ArticleEntity) {
   return (
@@ -69,6 +49,43 @@ function SocialLink({ icon: Icon, ...props }: SocialLinkProps) {
     <ExternalLink className="group -m-1 p-1" {...props}>
       <Icon className="h-6 w-6 fill-zinc-500 transition group-hover:fill-zinc-600 dark:fill-zinc-400 dark:group-hover:fill-zinc-300" />
     </ExternalLink>
+  )
+}
+
+function Newsletter() {
+  return (
+    <form
+      action="/api/subscription"
+      method="POST"
+      className="rounded-2xl border border-zinc-100 p-6 dark:border-zinc-700/40"
+    >
+      <h2 className="flex text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <MailIcon className="h-6 w-6 flex-none" />
+        <span className="ml-3">Stay up to date</span>
+      </h2>
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        Get notified when I publish something new, and unsubscribe at any time.
+      </p>
+      <div className="mt-6 flex">
+        {/*  eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+        <label htmlFor="email" className="sr-only">
+          Email address field
+        </label>
+        <input
+          id="email"
+          type="email"
+          name="email"
+          placeholder="Email address"
+          aria-label="Email address"
+          autoComplete="on"
+          required
+          className="min-w-0 flex-auto appearance-none rounded-md border border-zinc-900/10 bg-white px-3 py-[calc(theme(spacing.2)-1px)] shadow-md shadow-zinc-800/5 placeholder:text-zinc-400 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:border-zinc-700 dark:bg-zinc-700/[0.15] dark:text-zinc-200 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/10 sm:text-sm"
+        />
+        <Button type="submit" className="ml-4 flex-none">
+          Join
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -228,7 +245,7 @@ export default async function Home() {
             <SocialLink
               href="mailto:howard@howardism.dev"
               aria-label="Contact Howard via email"
-              icon={MailIcon}
+              icon={EmailIcon}
             />
             <SocialLink href="/rss/feed.xml" aria-label="Follow on RSS feed" icon={RssIcon} />
           </div>
@@ -243,6 +260,7 @@ export default async function Home() {
             ))}
           </div>
           <div className="space-y-10 lg:pl-16 xl:pl-24">
+            <Newsletter />
             <Resume />
           </div>
         </div>
