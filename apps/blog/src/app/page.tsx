@@ -13,7 +13,13 @@ import OddleIcon from "@/components/icons/Oddle"
 import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card"
 import { Container } from "@/components/template/Container"
 import ExternalLink from "@/components/template/ExternalLink"
-import { GitHubIcon, LinkedInIcon, TwitterIcon } from "@/components/template/SocialIcons"
+import {
+  GitHubIcon,
+  LinkedInIcon,
+  MailIcon,
+  RssIcon,
+  TwitterIcon,
+} from "@/components/template/SocialIcons"
 import { ArticleEntity, getAllArticles } from "@/services/article"
 import { formatDate } from "@/utils/time"
 
@@ -210,15 +216,21 @@ export default async function Home() {
               icon={TwitterIcon}
             />
             <SocialLink
-              href="https://github.com/howard86/"
+              href="https://github.com/Howard86/"
               aria-label="Follow on GitHub"
               icon={GitHubIcon}
             />
             <SocialLink
-              href="https://linkedin.com"
+              href="https://www.linkedin.com/in/howard-tai-4b52b086/"
               aria-label="Follow on LinkedIn"
               icon={LinkedInIcon}
             />
+            <SocialLink
+              href="mailto:howard@howardism.dev"
+              aria-label="Contact Howard via email"
+              icon={MailIcon}
+            />
+            <SocialLink href="/rss/feed.xml" aria-label="Follow on RSS feed" icon={RssIcon} />
           </div>
         </div>
       </Container>
