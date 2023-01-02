@@ -19,7 +19,7 @@ router.post(async (req, res) => {
 
   await subscribeToNewsletter(email)
 
-  res.redirect("/thank-you")
+  res.redirect(307, "/thank-you")
 })
 
 export default router.build()
