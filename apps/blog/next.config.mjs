@@ -20,7 +20,7 @@ const withMDX = nextMDX({
 
 /** @type{import('next').NextConfig} */
 const config = {
-  pageExtensions: ["tsx", "mdx"],
+  pageExtensions: ["ts", "tsx", "mdx"],
   reactStrictMode: true,
   swcMinify: true,
   experimental: {
