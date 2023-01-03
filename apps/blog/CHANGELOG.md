@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.5.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.4.0...@howardism/blog@2.5.0) (2023-01-03)
+
+### ♻ Code Refactoring
+
+- split home page into components ([2812cd4](https://github.com/Howard86/howardism/commit/2812cd4))
+
+### ✨ Features
+
+- add thank-you page with subscription api ([4d07755](https://github.com/Howard86/howardism/commit/4d07755))
+
+### 🎫 Chores
+
+- **packages**: install sendgrid client & next api handler ([4f01696](https://github.com/Howard86/howardism/commit/4f01696))
+
+### 🐛 Bug Fixes
+
+- fix failing to redirect after subscription ([077e54d](https://github.com/Howard86/howardism/commit/077e54d))
+
 # [2.4.0](https://github.com/Howard86/howardism/compare/@howardism/blog@1.4.2...@howardism/blog@2.4.0) (2023-01-02)
 
 ### ♻ Code Refactoring
