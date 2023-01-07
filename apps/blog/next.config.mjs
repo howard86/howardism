@@ -23,6 +23,9 @@ const config = {
   pageExtensions: ["ts", "tsx", "mdx"],
   reactStrictMode: true,
   swcMinify: true,
+  images: {
+    domains: ["images.unsplash.com", "avatars.githubusercontent.com", "lh3.googleusercontent.com"],
+  },
   experimental: {
     appDir: true,
     scrollRestoration: true,
