@@ -1,0 +1,55 @@
+import { withArticleLayout } from "@/components/template/ArticleLayout"
+import Image from "next/image"
+import multitaskingCat from "./multi-tasking-cat.png"
+
+export const meta = {
+  date: "2023-01-08",
+  title: "Monorepo for large-scale React applications",
+  description:
+    "When working on real-world enterprise solutions, it's common for software products to adapt to changes regularly using agile software development methodologies like Scrum. As a result, it becomes increasingly important for software developers to figure out how to create reusable components, share common building blocks, and develop with flexibility. With good practices, it can make development easier for the whole team and allow for better iteration of products.",
+}
+
+export default withArticleLayout(meta)
+
+When working on real-world enterprise solutions, it's common for software products to adapt to changes regularly using agile software development methodologies like Scrum. As a result, it becomes increasingly important for software developers to figure out how to create reusable components, share common building blocks, and develop with flexibility. With good practices, it can make development easier for the whole team and allow for better iteration of products.
+
+<Image src={multitaskingCat} alt="cat is multi-tasking" placeholder="blur" />
+
+For example, we will likely need to share our company logo and themes throughout all of our apps. To do this, we need a sharable design system and components so we can focus on business logic, but we also don't want to have to manually copy and paste changes when making updates. This is where the concept of a monorepo comes in.
+
+A monorepo is a repository where developers put different services or tools that share similar configurations or common logic. In our case, we are building various SaaS products mainly using `Next.js` and `Express.js`.
+
+## Monorepo framework candidates
+
+We started with `lerna` v4 with `yarn` v1 workspace. Switching to `npm` v7 workspace, yarn v2 workspace (tried PnP) with custom scripts, then finally settled with `pnpm` and `lerna` v6 (powered by `nx` workspace).
+
+### Package managers with workspace protocol
+
+| package manger                                                         | pros                                                                                              | cons                                                                                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [yarn v1](https://classic.yarnpkg.com/) workspace                      | Easy to use, interactive upgrade is helpful                                                       | Inappropriate hoisting leads to large `node_modules`                                                                       |
+| [npm v7 workspace](https://docs.npmjs.com/cli/v7/using-npm/workspaces) | Out-of-box module resolution, dependencies pruning scripts                                        | Lacks flexible workspace scripts                                                                                           |
+| [yarn v2](https://yarnpkg.com/) workspace PnP                          | Small package size (no `node_modules` are needed), straight-forward deployment, fast installation | complex set-up (esp. for installing libraries that don't support PnP), limited IDE supports, no flexible workspace scripts |
+| [pnpm](https://pnpm.io/) workspace                                     | Hard-linked `node_modules` (saves time on reinstallation), user-friendly scripts                  | Limited CI support                                                                                                         |
+
+I really like the concept of `Yarn` PnP, especially the way it eliminates the node_modules directory. However, it can be quite difficult to set up, requiring a lot of package patching and debugging of installed libraries, as well as workarounds to configure IDEs with developer tools like `TypeScript` and `ESLint`.
+
+This is where pnpm comes in. The more we've used it, the more we've grown to love it. It's easy to apply the `--filter` flag to build custom npm scripts.
+
+Another game changer is the `Next.js` standalone mode, which copies the required node_modules dependencies to a standalone folder for lean Docker deployment. This helps to solve the problem of large Docker image sizes caused by unnecessary dependencies, particularly `devDependencies`.
+
+### Version management tools
+
+With lerna v4, we used the `lerna version` scripts and adopted conventional commits and conventional changelog. However, it broke when we switched to `yarn` v2 due to the new workspace protocol and lerna was not maintained for a long time. We had to find an alternative. In the end, we compromised by using `standard-version` with workspace scripts to generate the changelog recursively.
+
+The future looks brighter now that the `nx` team has taken over maintenance of `lerna` and replaced the underlying logic with `nx`'s existing engines.
+
+### Workspace management and build
+
+As the monorepo grows with more components and internal package dependencies, we've looked into other management tools to improve the CI process and Docker build scripts with cache. When `lerna` v4 was deprecated, we tried using `yarn` PnP to compile and bundle all dependencies like a binary file. This increased our storage usage and required us to commit the compiled files to the `git` repository so the CI server could pick them up and continue the process. This isn't ideal when we add more and more packages.
+
+We've also experimented with new build tools like `turbo`, comparing it to `nx`. `nx` provides detailed documentation with years of development and use cases, and the `nx cloud` service makes it easy to set up free remote caching with our current team size and CI tools. `Turbo` offers similar features with easier integration with `Vercel`.
+
+## Closing notes
+
+There are many monorepo tools out there, and our experiences may not be entirely accurate or correct. We encourage you to try out these tools and share your thoughts as well!

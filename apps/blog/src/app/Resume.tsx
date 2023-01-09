@@ -4,6 +4,7 @@ import type { SVGProps } from "react-html-props"
 import FstIcon from "@/components/icons/Fst"
 import LootexIcon from "@/components/icons/Lootex"
 import OddleIcon from "@/components/icons/Oddle"
+import RocafIcon from "@/components/icons/RocafIcon"
 import ExternalLink from "@/components/template/ExternalLink"
 import { BriefcaseIcon } from "@/components/template/SocialIcons"
 
@@ -48,6 +49,14 @@ const resume: ResumeEntity[] = [
     logo: FstIcon,
     start: "2018",
     end: "2019",
+  },
+  {
+    company: "ROCAF",
+    href: "https://air.mnd.gov.tw/EN/Home/index.aspx",
+    title: "Military Service",
+    logo: RocafIcon,
+    start: "2016",
+    end: "2017",
   },
 ]
 
