@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.5.1](https://github.com/Howard86/howardism/compare/@howardism/blog@2.5.0...@howardism/blog@2.5.1) (2023-01-09)
+
+### 🎫 Chores
+
+- update article page texts ([9a6692b](https://github.com/Howard86/howardism/commit/9a6692b))
+- update home page work experience ([25f4b1e](https://github.com/Howard86/howardism/commit/25f4b1e))
+
+### 📝 Documentation
+
+- add react monorepo blog post ([19094d3](https://github.com/Howard86/howardism/commit/19094d3))
+
 # [2.5.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.4.0...@howardism/blog@2.5.0) (2023-01-03)
 
 ### ♻ Code Refactoring
