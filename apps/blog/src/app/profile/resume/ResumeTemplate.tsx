@@ -13,6 +13,7 @@ import { SkillListItem, SkillListItemProps } from "./SkillListItem"
 const articleFont = Merriweather({
   weight: ["400", "700"],
   style: ["italic", "normal"],
+  subsets: ["latin"],
 })
 
 interface ResumeTemplateProps {
@@ -26,6 +27,7 @@ interface ResumeTemplateProps {
   languages: LanguageListItemProps[]
 }
 
+// TODO: remove this template
 export default function ResumeTemplate({
   name,
   summary,
