@@ -1,8 +1,15 @@
+import {
+  DevicePhoneMobileIcon,
+  EnvelopeIcon,
+  GlobeAltIcon,
+  MapPinIcon,
+} from "@heroicons/react/24/outline"
 import { Merriweather } from "@next/font/google"
 
 import { Container } from "@/components/template/Container"
+import { GitHubIcon } from "@/components/template/SocialIcons"
 
-import { ContactListItem, ContactListItemProps } from "./ContactListItem"
+import { ContactListItem } from "./ContactListItem"
 import { EducationListItem, EducationListItemProps } from "./EducationListItem"
 import { ExperienceListItem, ExperienceListItemProps } from "./ExperienceListItem"
 import { LanguageListItem, LanguageListItemProps } from "./LanguageListItem"
@@ -16,10 +23,14 @@ const articleFont = Merriweather({
   subsets: ["latin"],
 })
 
-interface ResumeTemplateProps {
+export interface ResumeTemplateProps {
   name: string
   summary: string
-  contacts: ContactListItemProps[]
+  address: string
+  phone: string
+  email: string
+  github: string
+  website: string
   experiences: ExperienceListItemProps[]
   projects: ProjectListItemProps[]
   educations: EducationListItemProps[]
@@ -31,7 +42,11 @@ interface ResumeTemplateProps {
 export default function ResumeTemplate({
   name,
   summary,
-  contacts,
+  address,
+  phone,
+  email,
+  github,
+  website,
   experiences,
   projects,
   educations,
@@ -50,9 +65,11 @@ export default function ResumeTemplate({
           </section>
           <section className="w-40 flex-shrink-0">
             <ul className="text-2xs">
-              {contacts.map((contact) => (
-                <ContactListItem key={contact.text} {...contact} />
-              ))}
+              <ContactListItem Icon={MapPinIcon} text={address} />
+              <ContactListItem Icon={DevicePhoneMobileIcon} text={phone} />
+              <ContactListItem Icon={EnvelopeIcon} text={email} />
+              <ContactListItem Icon={GitHubIcon} text={github} />
+              <ContactListItem Icon={GlobeAltIcon} text={website} />
             </ul>
           </section>
         </div>

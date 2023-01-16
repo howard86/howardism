@@ -2,7 +2,7 @@
 module.exports = {
   content: ["./src/**/*.{ts,tsx}"],
   darkMode: "class",
-  plugins: [require("@tailwindcss/typography")],
+  plugins: [require("@tailwindcss/typography"), require("@tailwindcss/forms")],
   theme: {
     fontSize: {
       "3xs": ["0.625rem", { lineHeight: "1rem" }],

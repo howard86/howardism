@@ -1,12 +1,4 @@
-import {
-  DevicePhoneMobileIcon,
-  EnvelopeIcon,
-  GlobeAltIcon,
-  MapPinIcon,
-} from "@heroicons/react/24/outline"
-
 import { Container } from "@/components/template/Container"
-import { GitHubIcon } from "@/components/template/SocialIcons"
 import { generateLoremIpsum } from "@/services/resume"
 
 import ResumeTemplate from "./ResumeTemplate"
@@ -17,13 +9,11 @@ export default function ResumeSamplePage() {
       <ResumeTemplate
         name="Howard Tai"
         summary={generateLoremIpsum(400)}
-        contacts={[
-          { Icon: MapPinIcon, text: "[Address]" },
-          { Icon: DevicePhoneMobileIcon, text: "(+886) 987654321" },
-          { Icon: EnvelopeIcon, text: "howard@howardism.dev" },
-          { Icon: GitHubIcon, text: "Howard86" },
-          { Icon: GlobeAltIcon, text: "howardism.dev" },
-        ]}
+        address="[Address]"
+        phone="+44 7554123456"
+        email="example@gmail.com"
+        github="[GitHub username]"
+        website="example.com"
         experiences={[
           {
             company: "Company A",
