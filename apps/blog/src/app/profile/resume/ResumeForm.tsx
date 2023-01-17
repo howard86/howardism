@@ -191,7 +191,6 @@ export default function ResumeForm() {
                   register={register}
                   name="summary"
                   label="Personal Statement"
-                  rows={2}
                 />
               </FormSectionContainer>
 
