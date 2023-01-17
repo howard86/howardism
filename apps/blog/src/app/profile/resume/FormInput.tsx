@@ -1,3 +1,5 @@
+"use client"
+
 import type { FieldValues, Path, RegisterOptions, UseFormRegister } from "react-hook-form"
 import { type InputProps } from "react-html-props"
 

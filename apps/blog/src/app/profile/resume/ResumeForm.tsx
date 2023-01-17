@@ -13,10 +13,15 @@ import clsx from "clsx"
 
 import { Container } from "@/components/template/Container"
 
+import type { EducationListItemProps } from "./EducationListItem"
+import type { ExperienceListItemProps } from "./ExperienceListItem"
 import FormInput from "./FormInput"
 import FormSectionContainer from "./FormSectionContainer"
 import FormTextArea from "./FormTextArea"
-import { ResumeTemplateProps } from "./ResumeTemplate"
+import type { ProjectListItemProps } from "./ProjectListItem"
+import type { ResumeTemplateProps } from "./ResumeTemplate"
+import type { SkillListItemProps } from "./SkillListItem"
+import WorkExperienceSection, { DEFAULT_EXPERIENCE } from "./WorkExperienceSection"
 
 const navigation = [
   { name: "Personal", href: "#", icon: UserCircleIcon, current: true },
@@ -28,9 +33,16 @@ const navigation = [
   { name: "Languages", href: "#", icon: SquaresPlusIcon, current: false },
 ]
 
-export interface ResumeFormFieldValues extends ResumeTemplateProps {
+type ReplaceValueToString<T extends { items: string[] }> = Omit<T, "items"> & { items: string }
+
+export interface ResumeFormFieldValues
+  extends Omit<ResumeTemplateProps, "experiences" | "projects" | "educations" | "skills"> {
   company: string
   position: string
+  experiences: ReplaceValueToString<ExperienceListItemProps>[]
+  projects: ReplaceValueToString<ProjectListItemProps>[]
+  educations: ReplaceValueToString<EducationListItemProps>[]
+  skills: ReplaceValueToString<SkillListItemProps>[]
 }
 
 export default function ResumeForm() {
@@ -47,17 +59,7 @@ export default function ResumeForm() {
       position: "",
       summary: "",
 
-      experiences: [
-        {
-          company: "",
-          location: "",
-          title: "",
-          size: "",
-          startMonth: "",
-          endMonth: "",
-          items: [""],
-        },
-      ],
+      experiences: [DEFAULT_EXPERIENCE],
 
       educations: [
         {
@@ -65,7 +67,7 @@ export default function ResumeForm() {
           degree: "",
           startMonth: "",
           endMonth: "",
-          items: [""],
+          items: "",
         },
       ],
 
@@ -73,16 +75,15 @@ export default function ResumeForm() {
         {
           name: "",
           description: "",
-          items: [""],
+          items: "",
         },
       ],
 
-      skills: [{ category: "", items: [""] }],
+      skills: [{ category: "", items: "" }],
 
       languages: [{ name: "", level: "" }],
     },
   })
-  const experiences = useFieldArray({ control, name: "experiences" })
   const educations = useFieldArray({ control, name: "educations" })
   const projects = useFieldArray({ control, name: "projects" })
   const skills = useFieldArray({ control, name: "skills" })
@@ -194,54 +195,7 @@ export default function ResumeForm() {
                 />
               </FormSectionContainer>
 
-              <FormSectionContainer
-                heading="Work Experiences"
-                subheading="Related work experience for this position"
-              >
-                {experiences.fields.map((experience, index) => (
-                  <Fragment key={experience.id}>
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      register={register}
-                      name={`experiences.${index}.company`}
-                      label="Company Name"
-                    />
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      register={register}
-                      name={`experiences.${index}.title`}
-                      label="Title"
-                    />
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      register={register}
-                      name={`experiences.${index}.location`}
-                      label="Location"
-                    />
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      register={register}
-                      name={`experiences.${index}.size`}
-                      label="Team Size"
-                      type="number"
-                    />
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      register={register}
-                      name={`experiences.${index}.startMonth`}
-                      label="Start Date"
-                      type="date"
-                    />
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      register={register}
-                      name={`experiences.${index}.endMonth`}
-                      label="End Date"
-                      type="date"
-                    />
-                  </Fragment>
-                ))}
-              </FormSectionContainer>
+              <WorkExperienceSection control={control} register={register} />
 
               <FormSectionContainer heading="Education" subheading="Acedemic background">
                 {educations.fields.map((education, index) => (
