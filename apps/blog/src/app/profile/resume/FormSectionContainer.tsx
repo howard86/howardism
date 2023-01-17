@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
-import type { DivProps } from "react-html-props"
 
-interface FormSectionContainerProps extends DivProps {
+export interface FormSectionContainerProps {
   heading: string
   subheading: string
   children: ReactNode

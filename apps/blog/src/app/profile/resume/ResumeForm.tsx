@@ -1,7 +1,6 @@
 "use client"
 
-import { Fragment } from "react"
-import { useFieldArray, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import {
   CreditCardIcon,
   KeyIcon,
@@ -15,13 +14,13 @@ import { Container } from "@/components/template/Container"
 
 import type { EducationListItemProps } from "./EducationListItem"
 import type { ExperienceListItemProps } from "./ExperienceListItem"
+import FormArraySection from "./FormArraySection"
 import FormInput from "./FormInput"
 import FormSectionContainer from "./FormSectionContainer"
 import FormTextArea from "./FormTextArea"
 import type { ProjectListItemProps } from "./ProjectListItem"
 import type { ResumeTemplateProps } from "./ResumeTemplate"
 import type { SkillListItemProps } from "./SkillListItem"
-import WorkExperienceSection, { DEFAULT_EXPERIENCE } from "./WorkExperienceSection"
 
 const navigation = [
   { name: "Personal", href: "#", icon: UserCircleIcon, current: true },
@@ -35,6 +34,53 @@ const navigation = [
 
 type ReplaceValueToString<T extends { items: string[] }> = Omit<T, "items"> & { items: string }
 
+const DEFAULT_RESUME_FORM: ResumeFormFieldValues = {
+  name: "",
+  address: "",
+  phone: "",
+  email: "",
+  github: "",
+  website: "",
+
+  company: "",
+  position: "",
+  summary: "",
+
+  experiences: [
+    {
+      title: "",
+      company: "",
+      location: "",
+      size: "",
+      startMonth: "",
+      endMonth: "",
+      items: "",
+    },
+  ],
+
+  educations: [
+    {
+      name: "",
+      degree: "",
+      startMonth: "",
+      endMonth: "",
+      items: "",
+    },
+  ],
+
+  projects: [
+    {
+      name: "",
+      description: "",
+      items: "",
+    },
+  ],
+
+  skills: [{ category: "", items: "" }],
+
+  languages: [{ name: "", level: "" }],
+}
+
 export interface ResumeFormFieldValues
   extends Omit<ResumeTemplateProps, "experiences" | "projects" | "educations" | "skills"> {
   company: string
@@ -47,47 +93,8 @@ export interface ResumeFormFieldValues
 
 export default function ResumeForm() {
   const { register, control } = useForm<ResumeFormFieldValues>({
-    defaultValues: {
-      name: "",
-      address: "",
-      phone: "",
-      email: "",
-      github: "",
-      website: "",
-
-      company: "",
-      position: "",
-      summary: "",
-
-      experiences: [DEFAULT_EXPERIENCE],
-
-      educations: [
-        {
-          name: "",
-          degree: "",
-          startMonth: "",
-          endMonth: "",
-          items: "",
-        },
-      ],
-
-      projects: [
-        {
-          name: "",
-          description: "",
-          items: "",
-        },
-      ],
-
-      skills: [{ category: "", items: "" }],
-
-      languages: [{ name: "", level: "" }],
-    },
+    defaultValues: DEFAULT_RESUME_FORM,
   })
-  const educations = useFieldArray({ control, name: "educations" })
-  const projects = useFieldArray({ control, name: "projects" })
-  const skills = useFieldArray({ control, name: "skills" })
-  const languages = useFieldArray({ control, name: "languages" })
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
@@ -195,11 +202,70 @@ export default function ResumeForm() {
                 />
               </FormSectionContainer>
 
-              <WorkExperienceSection control={control} register={register} />
+              <FormArraySection
+                control={control}
+                arrayName="experiences"
+                arrayValue={DEFAULT_RESUME_FORM.experiences[0]}
+                heading="Work Experience"
+                subheading="Related work experience for this position"
+                renderFormItems={(index: number) => (
+                  <>
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      name={`experiences.${index}.company`}
+                      label="Company Name"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      name={`experiences.${index}.title`}
+                      label="Title"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      name={`experiences.${index}.location`}
+                      label="Location"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      name={`experiences.${index}.size`}
+                      label="Team Size"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      name={`experiences.${index}.startMonth`}
+                      label="Start Date"
+                      type="date"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      name={`experiences.${index}.endMonth`}
+                      label="End Date"
+                      type="date"
+                    />
+                    <FormTextArea
+                      className="col-span-6"
+                      register={register}
+                      name={`experiences.${index}.items`}
+                      label="Description"
+                    />
+                  </>
+                )}
+              />
 
-              <FormSectionContainer heading="Education" subheading="Acedemic background">
-                {educations.fields.map((education, index) => (
-                  <Fragment key={education.id}>
+              <FormArraySection
+                control={control}
+                arrayName="educations"
+                arrayValue={DEFAULT_RESUME_FORM.educations[0]}
+                heading="Education"
+                subheading="Academic background"
+                renderFormItems={(index: number) => (
+                  <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
@@ -226,16 +292,24 @@ export default function ResumeForm() {
                       label="End Date"
                       type="date"
                     />
-                  </Fragment>
-                ))}
-              </FormSectionContainer>
+                    <FormTextArea
+                      className="col-span-6"
+                      register={register}
+                      name={`educations.${index}.items`}
+                      label="Description"
+                    />
+                  </>
+                )}
+              />
 
-              <FormSectionContainer
+              <FormArraySection
+                control={control}
+                arrayName="projects"
+                arrayValue={DEFAULT_RESUME_FORM.projects[0]}
                 heading="Projects"
                 subheading="Other side projects that you are willing to reference"
-              >
-                {projects.fields.map((project, index) => (
-                  <Fragment key={project.id}>
+                renderFormItems={(index: number) => (
+                  <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
@@ -246,31 +320,50 @@ export default function ResumeForm() {
                       className="col-span-6"
                       register={register}
                       name={`projects.${index}.description`}
-                      label="description"
+                      label="Description"
                     />
-                  </Fragment>
-                ))}
-              </FormSectionContainer>
+                    <FormTextArea
+                      className="col-span-6"
+                      register={register}
+                      name={`projects.${index}.items`}
+                      label="Description"
+                    />
+                  </>
+                )}
+              />
 
-              <FormSectionContainer
+              <FormArraySection
+                control={control}
+                arrayName="skills"
+                arrayValue={DEFAULT_RESUME_FORM.skills[0]}
                 heading="Skills"
                 subheading="Related skills for applying positions"
-              >
-                {skills.fields.map((skill, index) => (
-                  <Fragment key={skill.id}>
+                renderFormItems={(index: number) => (
+                  <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
                       name={`skills.${index}.category`}
                       label="Category"
                     />
-                  </Fragment>
-                ))}
-              </FormSectionContainer>
+                    <FormTextArea
+                      className="col-span-6"
+                      register={register}
+                      name={`skills.${index}.items`}
+                      label="Description"
+                    />
+                  </>
+                )}
+              />
 
-              <FormSectionContainer heading="Languages" subheading="Communication Tools">
-                {languages.fields.map((language, index) => (
-                  <Fragment key={language.id}>
+              <FormArraySection
+                control={control}
+                arrayName="languages"
+                arrayValue={DEFAULT_RESUME_FORM.languages[0]}
+                heading="Languages"
+                subheading="Communication Tools"
+                renderFormItems={(index: number) => (
+                  <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
@@ -283,9 +376,9 @@ export default function ResumeForm() {
                       name={`languages.${index}.level`}
                       label="Proficiency"
                     />
-                  </Fragment>
-                ))}
-              </FormSectionContainer>
+                  </>
+                )}
+              />
 
               <div className="bg-gray-50 px-4 py-3 text-right sm:px-6">
                 <button
