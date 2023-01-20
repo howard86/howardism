@@ -1,4 +1,4 @@
-import { EnvelopeIcon } from "@heroicons/react/20/solid"
+import { UserPlusIcon } from "@heroicons/react/24/outline"
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -66,10 +66,11 @@ export default async function ProfilePage() {
                   </h1>
                 </div>
                 <div className="justify-stretch mt-6 flex flex-col space-y-3 sm:translate-y-2 sm:flex-row sm:space-y-0 sm:space-x-4">
-                  <button type="button" className="button">
-                    <EnvelopeIcon className="-ml-1 mr-2 h-5 w-5 text-zinc-400" aria-hidden="true" />
-                    <span>Message</span>
-                  </button>
+                  <Link className="button" href="/profile/resume/add">
+                    <UserPlusIcon className="-ml-1 mr-2 h-5 w-5 text-zinc-400" aria-hidden="true" />
+                    <span>Add Resume</span>
+                  </Link>
+
                   <LogoutButton />
                 </div>
               </div>

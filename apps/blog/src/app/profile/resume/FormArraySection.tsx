@@ -27,7 +27,11 @@ export default function FormArraySection<T extends FieldValues, K extends FieldA
   renderFormItems,
   ...props
 }: FormArraySectionProps<T, K>) {
-  const { append, remove, fields } = useFieldArray({ control, name: arrayName })
+  const { append, remove, fields } = useFieldArray({
+    control,
+    name: arrayName,
+    rules: { required: true, minLength: 1 },
+  })
 
   const handleAdd = () => append(arrayValue)
 
