@@ -87,7 +87,7 @@ export default function ResumeTemplate({
               <SectionTitle text="Projects" />
               <ul className="space-y-2">
                 {projects.map((project) => (
-                  <ProjectListItem key={project.name} {...project} />
+                  <ProjectListItem key={project.title} {...project} />
                 ))}
               </ul>
             </section>
@@ -97,7 +97,7 @@ export default function ResumeTemplate({
               <SectionTitle text="Education" />
               <ul className="space-y-2">
                 {educations.map((education) => (
-                  <EducationListItem key={education.name + education.degree} {...education} />
+                  <EducationListItem key={education.facility + education.degree} {...education} />
                 ))}
               </ul>
             </section>
@@ -105,7 +105,7 @@ export default function ResumeTemplate({
               <SectionTitle text="Skills" />
               <ul className="space-y-1.5">
                 {skills.map((skill) => (
-                  <SkillListItem key={skill.category} {...skill} />
+                  <SkillListItem key={skill.title} {...skill} />
                 ))}
               </ul>
             </section>

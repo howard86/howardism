@@ -1,25 +1,29 @@
 export interface EducationListItemProps {
-  name: string
+  facility: string
   degree: string
-  startMonth: string
-  endMonth: string
+  location: string
+  startDate: string
+  endDate: string
   items: string[]
 }
 
 export function EducationListItem({
-  name,
+  facility,
   degree,
-  startMonth,
-  endMonth,
+  location,
+  startDate,
+  endDate,
   items,
 }: EducationListItemProps) {
   return (
     <li>
       <div>
-        <h3 className="text-2xs font-bold">{name}</h3>
+        <h3 className="text-2xs font-bold">
+          {facility}, {location}
+        </h3>
         <em className="text-xs">{degree}</em>
         <p className="text-2xs uppercase ">
-          {startMonth} - {endMonth}
+          {startDate} - {endDate}
         </p>
         <ul className="list-outside list-disc text-2xs">
           {items.map((item) => (

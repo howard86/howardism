@@ -3,8 +3,8 @@ export interface ExperienceListItemProps {
   location: string
   title: string
   size: string
-  startMonth: string
-  endMonth?: string
+  startDate: string
+  endDate?: string
   items: string[]
 }
 
@@ -13,8 +13,8 @@ export function ExperienceListItem({
   location,
   title,
   size,
-  startMonth,
-  endMonth = "present",
+  startDate,
+  endDate = "present",
   items,
 }: ExperienceListItemProps) {
   return (
@@ -26,7 +26,7 @@ export function ExperienceListItem({
           <span className="ml-1 text-3xs">(size: {size})</span>
         </span>
         <p className="text-2xs uppercase">
-          {startMonth} - {endMonth}
+          {startDate} - {endDate}
         </p>
         <ul className="list-outside list-disc text-2xs">
           {items.map((item) => (

@@ -1,5 +1,6 @@
 "use client"
 
+import type { FormEvent } from "react"
 import type { Control, FieldValues, UseFormRegister } from "react-hook-form"
 import { Tab } from "@headlessui/react"
 import {
@@ -13,15 +14,11 @@ import {
 } from "@heroicons/react/24/outline"
 import clsx from "clsx"
 
-import type { EducationListItemProps } from "./EducationListItem"
-import type { ExperienceListItemProps } from "./ExperienceListItem"
 import FormArraySection from "./FormArraySection"
 import FormInput from "./FormInput"
 import FormSectionContainer from "./FormSectionContainer"
 import FormTextArea from "./FormTextArea"
-import type { ProjectListItemProps } from "./ProjectListItem"
-import type { ResumeTemplateProps } from "./ResumeTemplate"
-import type { SkillListItemProps } from "./SkillListItem"
+import type { ResumeSchema } from "./schema"
 
 const navigation = [
   { name: "Personal", icon: IdentificationIcon },
@@ -37,7 +34,7 @@ export type ReplaceValueToString<T extends { items: string[] }> = Omit<T, "items
   items: string
 }
 
-export const DEFAULT_RESUME_FORM: ResumeFormFieldValues = {
+export const DEFAULT_RESUME_FORM: ResumeSchema = {
   name: "",
   address: "",
   phone: "",
@@ -55,51 +52,43 @@ export const DEFAULT_RESUME_FORM: ResumeFormFieldValues = {
       company: "",
       location: "",
       size: "",
-      startMonth: "",
-      endMonth: "",
+      startDate: "",
+      endDate: "",
       items: "",
     },
   ],
 
   educations: [
     {
-      name: "",
+      facility: "",
       degree: "",
-      startMonth: "",
-      endMonth: "",
+      location: "",
+      startDate: "",
+      endDate: "",
       items: "",
     },
   ],
 
   projects: [
     {
-      name: "",
-      description: "",
+      title: "",
+      subtitle: "",
       items: "",
     },
   ],
 
-  skills: [{ category: "", items: "" }],
+  skills: [{ title: "", items: "" }],
 
-  languages: [{ name: "", level: "" }],
-}
-
-export interface ResumeFormFieldValues
-  extends Omit<ResumeTemplateProps, "experiences" | "projects" | "educations" | "skills"> {
-  company: string
-  position: string
-  experiences: ReplaceValueToString<ExperienceListItemProps>[]
-  projects: ReplaceValueToString<ProjectListItemProps>[]
-  educations: ReplaceValueToString<EducationListItemProps>[]
-  skills: ReplaceValueToString<SkillListItemProps>[]
+  languages: [{ name: "", proficiency: "" }],
 }
 
 interface ResumeFormProps<T extends FieldValues> {
   control: Control<T>
   register: UseFormRegister<T>
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
-export default function ResumeForm({ control, register }: ResumeFormProps<ResumeFormFieldValues>) {
+export default function ResumeForm({ control, register, onSubmit }: ResumeFormProps<ResumeSchema>) {
   return (
     <Tab.Group as="div" vertical className="lg:grid lg:grid-cols-12 lg:gap-x-5">
       <Tab.List as="aside" className="space-y-1 py-6 px-2 sm:px-6 lg:col-span-3 lg:py-0 lg:px-0">
@@ -136,7 +125,7 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
       </Tab.List>
 
       <div className="space-y-6 sm:px-6 lg:col-span-9 lg:px-0">
-        <form action="#" method="POST">
+        <form onSubmit={onSubmit}>
           <Tab.Panels as="div" className="shadow sm:overflow-hidden sm:rounded-md">
             <Tab.Panel>
               <FormSectionContainer
@@ -249,14 +238,14 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`experiences.${index}.startMonth`}
+                      name={`experiences.${index}.startDate`}
                       label="Start Date"
                       type="date"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`experiences.${index}.endMonth`}
+                      name={`experiences.${index}.endDate`}
                       label="End Date"
                       type="date"
                     />
@@ -283,7 +272,7 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`educations.${index}.name`}
+                      name={`educations.${index}.facility`}
                       label="Name"
                     />
                     <FormInput
@@ -295,14 +284,14 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`educations.${index}.startMonth`}
+                      name={`educations.${index}.startDate`}
                       label="Start Date"
                       type="date"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`educations.${index}.endMonth`}
+                      name={`educations.${index}.endDate`}
                       label="End Date"
                       type="date"
                     />
@@ -329,13 +318,13 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`projects.${index}.name`}
+                      name={`projects.${index}.title`}
                       label="Name"
                     />
                     <FormInput
                       className="col-span-6"
                       register={register}
-                      name={`projects.${index}.description`}
+                      name={`projects.${index}.subtitle`}
                       label="Description"
                     />
                     <FormTextArea
@@ -361,7 +350,7 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`skills.${index}.category`}
+                      name={`skills.${index}.title`}
                       label="Category"
                     />
                     <FormTextArea
@@ -393,7 +382,7 @@ export default function ResumeForm({ control, register }: ResumeFormProps<Resume
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
-                      name={`languages.${index}.level`}
+                      name={`languages.${index}.proficiency`}
                       label="Proficiency"
                     />
                   </>

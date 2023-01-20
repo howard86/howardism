@@ -21,7 +21,7 @@ export default function ResumeSamplePage() {
             title: "Senior Software Engineer",
             size: "30",
             items: [generateLoremIpsum(200), generateLoremIpsum(140), generateLoremIpsum(76)],
-            startMonth: "Jan 2020",
+            startDate: "Jan 2020",
           },
           {
             company: "Company B",
@@ -29,44 +29,45 @@ export default function ResumeSamplePage() {
             title: "Software Engineer",
             size: "100-110",
             items: [generateLoremIpsum(200), generateLoremIpsum(140)],
-            startMonth: "Jan 2018",
-            endMonth: "Dec 2019",
+            startDate: "Jan 2018",
+            endDate: "Dec 2019",
           },
         ]}
         projects={[
           {
-            name: "Awesome Project",
-            description: generateLoremIpsum(12),
+            title: "Awesome Project",
+            subtitle: generateLoremIpsum(12),
             items: [generateLoremIpsum(20), generateLoremIpsum(18), generateLoremIpsum(22)],
           },
           {
-            name: "Blog",
-            description: generateLoremIpsum(12),
+            title: "Blog",
+            subtitle: generateLoremIpsum(12),
             items: [generateLoremIpsum(20), generateLoremIpsum(18), generateLoremIpsum(22)],
           },
         ]}
         educations={[
           {
-            name: "Awesome University",
+            facility: "Awesome University",
+            location: "World",
             degree: "Computer Science",
-            startMonth: "Oct 2014",
-            endMonth: "Jul 2018",
+            startDate: "Oct 2014",
+            endDate: "Jul 2018",
             items: [generateLoremIpsum(20), generateLoremIpsum(16), generateLoremIpsum(8)],
           },
         ]}
         skills={[
           {
-            category: "Libraries",
+            title: "Libraries",
             items: [generateLoremIpsum(12), generateLoremIpsum(6), generateLoremIpsum(10)],
           },
-          { category: "Frameworks", items: [generateLoremIpsum(30)] },
-          { category: "Skill 3", items: [generateLoremIpsum(60)] },
-          { category: "Skill 4", items: [generateLoremIpsum(100)] },
+          { title: "Frameworks", items: [generateLoremIpsum(30)] },
+          { title: "Skill 3", items: [generateLoremIpsum(60)] },
+          { title: "Skill 4", items: [generateLoremIpsum(100)] },
         ]}
         languages={[
-          { name: "English", level: "fluent" },
-          { name: "JavaScript", level: "fluent" },
-          { name: "Java", level: "proficient" },
+          { name: "English", proficiency: "fluent" },
+          { name: "JavaScript", proficiency: "fluent" },
+          { name: "Java", proficiency: "proficient" },
         ]}
       />
     </Container>

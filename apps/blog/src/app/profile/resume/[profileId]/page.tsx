@@ -86,8 +86,8 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                     location={experience.location}
                     title={experience.title}
                     size={experience.size}
-                    startMonth={experience.startDate.toLocaleDateString()}
-                    endMonth={experience.endDate?.toLocaleDateString()}
+                    startDate={experience.startDate.toLocaleDateString()}
+                    endDate={experience.endDate?.toLocaleDateString()}
                     items={mapPrismaJsonArray(experience.responsibilities)}
                   />
                 ))}
@@ -99,8 +99,8 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                 {resume.projects.map((project) => (
                   <ProjectListItem
                     key={project.id}
-                    name={project.title}
-                    description={project.subtitle}
+                    title={project.title}
+                    subtitle={project.subtitle}
                     items={mapPrismaJsonArray(project.descriptions)}
                   />
                 ))}
@@ -114,10 +114,10 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                 {resume.educations.map((education) => (
                   <EducationListItem
                     key={education.id}
-                    name={education.facility}
+                    facility={education.facility}
                     degree={education.degree}
-                    startMonth={education.startDate.toLocaleDateString()}
-                    endMonth={education.endDate.toLocaleDateString()}
+                    startDate={education.startDate.toLocaleDateString()}
+                    endDate={education.endDate.toLocaleDateString()}
                     items={mapPrismaJsonArray(education.subjects)}
                   />
                 ))}
@@ -129,7 +129,7 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                 {resume.skills.map((skill) => (
                   <SkillListItem
                     key={skill.id}
-                    category={skill.title}
+                    title={skill.title}
                     items={mapPrismaJsonArray(skill.items)}
                   />
                 ))}
@@ -142,7 +142,7 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                   <LanguageListItem
                     key={language.id}
                     name={language.name}
-                    level={language.proficency}
+                    proficiency={language.proficency}
                   />
                 ))}
               </ul>
