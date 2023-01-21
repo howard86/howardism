@@ -37,7 +37,12 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
 }
 
 export default function ResumeEditor() {
-  const { register, control, handleSubmit } = useForm<ResumeSchema>({
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ResumeSchema>({
     mode: "onBlur",
     resolver: zodResolver(resumeSchema),
     defaultValues: DEFAULT_RESUME_FORM,
@@ -55,7 +60,7 @@ export default function ResumeEditor() {
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
-      <ResumeForm register={register} control={control} onSubmit={handleCreate} />
+      <ResumeForm register={register} control={control} onSubmit={handleCreate} errors={errors} />
       <ResumeLiveView control={control} />
     </Container>
   )

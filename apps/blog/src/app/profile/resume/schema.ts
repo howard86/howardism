@@ -1,51 +1,56 @@
 import { z } from "zod"
 
+const requiredString = z.string().min(1, { message: "This field is required" })
+const requiredDate = z
+  .string()
+  .regex(/[0-9]{4}-[0-9]{2}-[0-9]{2}/g, { message: "Invalid date format" })
+
 export const experienceSchema = z.object({
-  company: z.string(),
-  location: z.string(),
-  title: z.string(),
-  size: z.string(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime().optional(),
-  items: z.string(),
+  company: requiredString,
+  location: requiredString,
+  title: requiredString,
+  size: requiredString,
+  startDate: requiredDate,
+  endDate: requiredDate.or(z.string().regex(/^$/)),
+  items: requiredString,
 })
 
 export const projectSchema = z.object({
-  title: z.string(),
-  subtitle: z.string(),
-  items: z.string(),
+  title: requiredString,
+  subtitle: requiredString,
+  items: requiredString,
 })
 
 export const educationSchema = z.object({
-  facility: z.string(),
-  degree: z.string(),
-  location: z.string(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
-  items: z.string(),
+  facility: requiredString,
+  degree: requiredString,
+  location: requiredString,
+  startDate: requiredDate,
+  endDate: requiredDate,
+  items: requiredString,
 })
 
 export const skillSchema = z.object({
-  title: z.string(),
-  items: z.string(),
+  title: requiredString,
+  items: requiredString,
 })
 
 export const languageSchema = z.object({
-  name: z.string(),
-  proficiency: z.string(),
+  name: requiredString,
+  proficiency: requiredString,
 })
 
 export const resumeSchema = z.object({
-  name: z.string(),
-  address: z.string(),
-  phone: z.string(),
-  email: z.string(),
-  github: z.string(),
-  website: z.string(),
+  name: requiredString,
+  address: requiredString,
+  phone: requiredString,
+  email: requiredString.email(),
+  github: requiredString,
+  website: requiredString.url(),
 
-  company: z.string(),
-  position: z.string(),
-  summary: z.string(),
+  company: requiredString,
+  position: requiredString,
+  summary: requiredString,
 
   experiences: z.array(experienceSchema).nonempty(),
   projects: z.array(projectSchema).nonempty(),

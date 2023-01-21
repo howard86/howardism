@@ -1,7 +1,7 @@
 "use client"
 
 import type { FormEvent } from "react"
-import type { Control, FieldValues, UseFormRegister } from "react-hook-form"
+import type { Control, FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
 import { Tab } from "@headlessui/react"
 import {
   AcademicCapIcon,
@@ -52,7 +52,7 @@ export const DEFAULT_RESUME_FORM: ResumeSchema = {
       company: "",
       location: "",
       size: "",
-      startDate: "",
+      startDate: "2023-01-01",
       endDate: "",
       items: "",
     },
@@ -85,10 +85,16 @@ export const DEFAULT_RESUME_FORM: ResumeSchema = {
 interface ResumeFormProps<T extends FieldValues> {
   control: Control<T>
   register: UseFormRegister<T>
+  errors: FieldErrors<T>
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
-export default function ResumeForm({ control, register, onSubmit }: ResumeFormProps<ResumeSchema>) {
+export default function ResumeForm({
+  control,
+  register,
+  errors,
+  onSubmit,
+}: ResumeFormProps<ResumeSchema>) {
   return (
     <Tab.Group as="div" vertical className="lg:grid lg:grid-cols-12 lg:gap-x-5">
       <Tab.List as="aside" className="space-y-1 py-6 px-2 sm:px-6 lg:col-span-3 lg:py-0 lg:px-0">
@@ -135,18 +141,21 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="name"
                   label="Name"
                 />
                 <FormInput
                   className="col-span-6"
                   register={register}
+                  errors={errors}
                   name="address"
                   label="Address"
                 />
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="phone"
                   label="Phone"
                   type="tel"
@@ -155,6 +164,7 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="email"
                   label="Email"
                   type="email"
@@ -163,12 +173,14 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="github"
                   label="GitHub"
                 />
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="website"
                   label="Website"
                   type="url"
@@ -184,18 +196,21 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="company"
                   label="Company Name"
                 />
                 <FormInput
                   className="col-span-6 sm:col-span-3"
                   register={register}
+                  errors={errors}
                   name="position"
                   label="Applying Position"
                 />
                 <FormTextArea
                   className="col-span-6"
                   register={register}
+                  errors={errors}
                   name="summary"
                   label="Personal Statement"
                 />
@@ -214,30 +229,35 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.company`}
                       label="Company Name"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.title`}
                       label="Title"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.location`}
                       label="Location"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.size`}
                       label="Team Size"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.startDate`}
                       label="Start Date"
                       type="date"
@@ -245,6 +265,7 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.endDate`}
                       label="End Date"
                       type="date"
@@ -252,6 +273,7 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormTextArea
                       className="col-span-6"
                       register={register}
+                      errors={errors}
                       name={`experiences.${index}.items`}
                       label="Description"
                     />
@@ -272,18 +294,28 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`educations.${index}.facility`}
                       label="Name"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
+                      name={`educations.${index}.location`}
+                      label="Location"
+                    />
+                    <FormInput
+                      className="col-span-6"
+                      register={register}
+                      errors={errors}
                       name={`educations.${index}.degree`}
                       label="Degree"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`educations.${index}.startDate`}
                       label="Start Date"
                       type="date"
@@ -291,6 +323,7 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`educations.${index}.endDate`}
                       label="End Date"
                       type="date"
@@ -298,6 +331,7 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormTextArea
                       className="col-span-6"
                       register={register}
+                      errors={errors}
                       name={`educations.${index}.items`}
                       label="Description"
                     />
@@ -318,18 +352,21 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`projects.${index}.title`}
                       label="Name"
                     />
                     <FormInput
                       className="col-span-6"
                       register={register}
+                      errors={errors}
                       name={`projects.${index}.subtitle`}
                       label="Description"
                     />
                     <FormTextArea
                       className="col-span-6"
                       register={register}
+                      errors={errors}
                       name={`projects.${index}.items`}
                       label="Description"
                     />
@@ -350,12 +387,14 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`skills.${index}.title`}
                       label="Category"
                     />
                     <FormTextArea
                       className="col-span-6"
                       register={register}
+                      errors={errors}
                       name={`skills.${index}.items`}
                       label="Description"
                     />
@@ -376,12 +415,14 @@ export default function ResumeForm({ control, register, onSubmit }: ResumeFormPr
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`languages.${index}.name`}
                       label="Name"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
                       register={register}
+                      errors={errors}
                       name={`languages.${index}.proficiency`}
                       label="Proficiency"
                     />
