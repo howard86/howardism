@@ -116,6 +116,7 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                     key={education.id}
                     facility={education.facility}
                     degree={education.degree}
+                    location={education.location}
                     startDate={education.startDate.toLocaleDateString()}
                     endDate={education.endDate.toLocaleDateString()}
                     items={mapPrismaJsonArray(education.subjects)}
@@ -142,7 +143,7 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
                   <LanguageListItem
                     key={language.id}
                     name={language.name}
-                    proficiency={language.proficency}
+                    proficiency={language.proficiency}
                   />
                 ))}
               </ul>

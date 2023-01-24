@@ -33,8 +33,6 @@ export default function FormTextArea<T extends FieldValues>({
   helperText,
   ...props
 }: FormTextAreaProps<T>) {
-  console.log("errors :>> ", errors)
-
   const errorMessage = get(errors, name)?.message
   const isInvalid = Boolean(errorMessage)
 

@@ -2,6 +2,8 @@
 
 import { Control, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useRouter } from "next/navigation"
+import { SuccessApiResponse } from "next-api-handler"
 
 import { Container } from "@/components/template/Container"
 
@@ -37,6 +39,8 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
 }
 
 export default function ResumeEditor() {
+  const router = useRouter()
+
   const {
     register,
     control,
@@ -48,10 +52,22 @@ export default function ResumeEditor() {
     defaultValues: DEFAULT_RESUME_FORM,
   })
 
-  // TODO: remove these consoles
+  // TODO: add error handling
   const handleCreate = handleSubmit(
     async (values) => {
-      console.log("values :>> ", values)
+      const response = await fetch("/api/resume", {
+        method: "POST",
+        body: JSON.stringify(values),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const result = (await response.json()) as SuccessApiResponse<string>
+
+      if (result.success) {
+        router.push(`/profile/resume/${result.data}`)
+      }
     },
     (error) => {
       console.log("error :>> ", error)
