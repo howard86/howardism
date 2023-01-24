@@ -138,12 +138,26 @@ export default async function ProfilePage() {
                         {profile.updatedAt.toLocaleDateString()}
                       </td>
                       <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <Link
-                          href={`/profile/resume/${profile.id}`}
-                          className="text-teal-600 hover:text-teal-900"
-                        >
-                          View<span className="sr-only">, {profile.company}</span>
-                        </Link>
+                        <dl className="inline-flex items-center justify-center gap-2">
+                          <dt className="sr-only">View Resume</dt>
+                          <dd>
+                            <Link
+                              href={`/profile/resume/${profile.id}`}
+                              className="text-teal-600 hover:text-teal-900"
+                            >
+                              View
+                            </Link>
+                          </dd>
+                          <dt className="sr-only">Edit Resume</dt>
+                          <dd>
+                            <Link
+                              href={`/profile/resume/${profile.id}/edit`}
+                              className="text-teal-600 hover:text-teal-900"
+                            >
+                              Edit
+                            </Link>
+                          </dd>
+                        </dl>
                       </td>
                     </tr>
                   ))}

@@ -28,7 +28,7 @@ const articleFont = Merriweather({
   subsets: ["latin"],
 })
 
-interface ResumeProfilePageProps {
+export interface ResumeProfilePageProps {
   params: {
     profileId: string
   }
@@ -37,7 +37,7 @@ interface ResumeProfilePageProps {
 const mapPrismaJsonArray = (json: Prisma.JsonValue): string[] =>
   Array.isArray(json) ? (json as string[]) : []
 
-export default async function ResumeProfilePage({ params: { profileId } }: ResumeProfilePageProps) {
+export async function getResumeById(profileId: string) {
   const session = await unstable_getServerSession(authOptions)
 
   if (!session?.user?.email) redirect("/")
@@ -55,6 +55,14 @@ export default async function ResumeProfilePage({ params: { profileId } }: Resum
   })
 
   if (!resume || resume.applicant.email !== session.user.email) redirect("/profile")
+
+  return resume
+}
+
+export type RawResume = Awaited<ReturnType<typeof getResumeById>>
+
+export default async function ResumeProfilePage({ params: { profileId } }: ResumeProfilePageProps) {
+  const resume = await getResumeById(profileId)
 
   return (
     <Container className={`mt-6 flex-1 sm:mt-12 ${articleFont.className}`}>

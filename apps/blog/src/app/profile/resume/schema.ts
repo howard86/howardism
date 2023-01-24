@@ -52,11 +52,12 @@ export const resumeSchema = z.object({
   position: requiredString,
   summary: requiredString,
 
-  experiences: z.array(experienceSchema).nonempty(),
-  projects: z.array(projectSchema).nonempty(),
-  educations: z.array(educationSchema).nonempty(),
-  skills: z.array(skillSchema).nonempty(),
-  languages: z.array(languageSchema).nonempty(),
+  // TODO: add non empty validation
+  experiences: z.array(experienceSchema),
+  projects: z.array(projectSchema),
+  educations: z.array(educationSchema),
+  skills: z.array(skillSchema),
+  languages: z.array(languageSchema),
 })
 
 export type ResumeSchema = z.infer<typeof resumeSchema>

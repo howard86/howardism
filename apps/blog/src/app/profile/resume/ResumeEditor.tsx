@@ -38,7 +38,15 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
   )
 }
 
-export default function ResumeEditor() {
+interface ResumeEditorProps {
+  profileId?: string
+  resume?: ResumeSchema
+}
+
+export default function ResumeEditor({
+  profileId,
+  resume = DEFAULT_RESUME_FORM,
+}: ResumeEditorProps) {
   const router = useRouter()
 
   const {
@@ -49,19 +57,22 @@ export default function ResumeEditor() {
   } = useForm<ResumeSchema>({
     mode: "onBlur",
     resolver: zodResolver(resumeSchema),
-    defaultValues: DEFAULT_RESUME_FORM,
+    defaultValues: resume,
   })
 
   // TODO: add error handling
   const handleCreate = handleSubmit(
     async (values) => {
-      const response = await fetch("/api/resume", {
-        method: "POST",
-        body: JSON.stringify(values),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      const response = await fetch(
+        profileId ? `/api/resume?profileId=${profileId}` : "/api/resume",
+        {
+          method: profileId ? "PUT" : "POST",
+          body: JSON.stringify(values),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
 
       const result = (await response.json()) as SuccessApiResponse<string>
 
