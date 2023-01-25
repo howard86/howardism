@@ -1,41 +1,12 @@
-import type { Prisma } from "@prisma/client"
-import { redirect } from "next/navigation"
-import { unstable_getServerSession } from "next-auth"
+import { Prisma } from "@prisma/client"
 
-import { authOptions } from "@/pages/api/auth/[...nextauth]"
-import prisma from "@/services/prisma"
-
-import type { ResumeSchema } from "../schema"
-
-export async function getResumeById(profileId: string) {
-  const session = await unstable_getServerSession(authOptions)
-
-  if (!session?.user?.email) redirect("/")
-
-  const resume = await prisma.resumeProfile.findUnique({
-    where: { id: profileId },
-    include: {
-      applicant: true,
-      experiences: { orderBy: { startDate: "desc" } },
-      projects: { orderBy: { ordering: "asc" } },
-      educations: { orderBy: { startDate: "desc" } },
-      skills: { orderBy: { ordering: "asc" } },
-      languages: { orderBy: { ordering: "asc" } },
-    },
-  })
-
-  if (!resume || resume.applicant.email !== session.user.email) redirect("/profile")
-
-  return resume
-}
-
-export type RawResume = Awaited<ReturnType<typeof getResumeById>>
+import { ResumeSchema } from "../../schema"
+import { type RawResume } from "../utils"
 
 const generateDateISOString = (date: Date | null) =>
   date ? date.toISOString().substring(0, 10) : ""
 const generateArrayStrings = (items: Prisma.JsonValue) =>
   Array.isArray(items) ? items.join("\n") : ""
-
 export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   id: resume.id,
   name: resume.applicant.name,

@@ -18,7 +18,6 @@ interface InfoFieldProps {
 const BACKGROUND_IMAGE_URL =
   "https://images.unsplash.com/photo-1444628838545-ac4016a5418a?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80"
 
-// flex rounded-full bg-white/90 px-3 text-sm font-medium text-zinc-800 shadow-lg shadow-zinc-800/5 ring-1 ring-zinc-900/5 backdrop-blur dark:bg-zinc-800/90 dark:text-zinc-200 dark:ring-white/10
 function InfoField({ title, description }: InfoFieldProps) {
   return (
     <div className="sm:col-span-1">
@@ -155,6 +154,15 @@ export default async function ProfilePage() {
                               className="text-teal-600 hover:text-teal-900"
                             >
                               Edit
+                            </Link>
+                          </dd>
+                          <dt className="sr-only">Clone Resume</dt>
+                          <dd>
+                            <Link
+                              href={`/profile/resume/${profile.id}/clone`}
+                              className="text-teal-600 hover:text-teal-900"
+                            >
+                              Clone
                             </Link>
                           </dd>
                         </dl>
