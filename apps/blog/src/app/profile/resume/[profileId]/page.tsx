@@ -5,14 +5,10 @@ import {
   MapPinIcon,
 } from "@heroicons/react/24/outline"
 import { Merriweather } from "@next/font/google"
-import { Prisma } from "@prisma/client"
-import { redirect } from "next/navigation"
-import { unstable_getServerSession } from "next-auth"
+import type { Prisma } from "@prisma/client"
 
 import { Container } from "@/components/template/Container"
 import { GitHubIcon } from "@/components/template/SocialIcons"
-import { authOptions } from "@/pages/api/auth/[...nextauth]"
-import prisma from "@/services/prisma"
 
 import { ContactListItem } from "../ContactListItem"
 import { EducationListItem } from "../EducationListItem"
@@ -21,6 +17,8 @@ import { LanguageListItem } from "../LanguageListItem"
 import { ProjectListItem } from "../ProjectListItem"
 import { SectionTitle } from "../SectionTitle"
 import { SkillListItem } from "../SkillListItem"
+
+import { getResumeById } from "./utils"
 
 const articleFont = Merriweather({
   weight: ["400", "700"],
@@ -36,30 +34,6 @@ export interface ResumeProfilePageProps {
 
 const mapPrismaJsonArray = (json: Prisma.JsonValue): string[] =>
   Array.isArray(json) ? (json as string[]) : []
-
-export async function getResumeById(profileId: string) {
-  const session = await unstable_getServerSession(authOptions)
-
-  if (!session?.user?.email) redirect("/")
-
-  const resume = await prisma.resumeProfile.findUnique({
-    where: { id: profileId },
-    include: {
-      applicant: true,
-      experiences: { orderBy: { startDate: "desc" } },
-      projects: { orderBy: { ordering: "asc" } },
-      educations: { orderBy: { startDate: "desc" } },
-      skills: { orderBy: { ordering: "asc" } },
-      languages: { orderBy: { ordering: "asc" } },
-    },
-  })
-
-  if (!resume || resume.applicant.email !== session.user.email) redirect("/profile")
-
-  return resume
-}
-
-export type RawResume = Awaited<ReturnType<typeof getResumeById>>
 
 export default async function ResumeProfilePage({ params: { profileId } }: ResumeProfilePageProps) {
   const resume = await getResumeById(profileId)

@@ -2,7 +2,8 @@ import type { Prisma } from "@prisma/client"
 
 import ResumeEditor from "../../ResumeEditor"
 import type { ResumeSchema } from "../../schema"
-import { type RawResume, type ResumeProfilePageProps, getResumeById } from "../page"
+import { type ResumeProfilePageProps } from "../page"
+import { type RawResume, getResumeById } from "../utils"
 
 const generateDateISOString = (date: Date | null) =>
   date ? date.toISOString().substring(0, 10) : ""
@@ -10,6 +11,7 @@ const generateArrayStrings = (items: Prisma.JsonValue) =>
   Array.isArray(items) ? items.join("\n") : ""
 
 const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
+  id: resume.id,
   name: resume.applicant.name,
   address: resume.applicant.address,
   phone: resume.applicant.phone,
@@ -22,6 +24,7 @@ const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   summary: resume.summary,
 
   experiences: resume.experiences.map((experience) => ({
+    id: resume.id,
     company: experience.company,
     location: experience.location,
     title: experience.title,
@@ -32,12 +35,14 @@ const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   })),
 
   projects: resume.projects.map((project) => ({
+    id: resume.id,
     title: project.title,
     subtitle: project.subtitle,
     items: generateArrayStrings(project.descriptions),
   })),
 
   educations: resume.educations.map((education) => ({
+    id: resume.id,
     facility: education.facility,
     degree: education.degree,
     location: education.location,
@@ -47,11 +52,13 @@ const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   })),
 
   skills: resume.skills.map((skill) => ({
+    id: resume.id,
     title: skill.title,
     items: generateArrayStrings(skill.items),
   })),
 
   languages: resume.languages.map((language) => ({
+    id: resume.id,
     name: language.name,
     proficiency: language.proficiency,
   })),
