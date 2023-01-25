@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.5.2](https://github.com/Howard86/howardism/compare/@howardism/blog@2.5.1...@howardism/blog@2.5.2) (2023-01-25)
+
+### 📝 Documentation
+
+- add common js datastructure ([837aa2a](https://github.com/Howard86/howardism/commit/837aa2a))
+
 ## [2.5.1](https://github.com/Howard86/howardism/compare/@howardism/blog@2.5.0...@howardism/blog@2.5.1) (2023-01-09)
 
 ### 🎫 Chores
