@@ -1,9 +1,9 @@
-import type { Prisma } from "@prisma/client"
 import { redirect } from "next/navigation"
 import { unstable_getServerSession } from "next-auth"
 
 import { authOptions } from "@/pages/api/auth/[...nextauth]"
 import prisma from "@/services/prisma"
+import { generateArrayStrings, generateDateISOString } from "@/services/resume"
 
 import type { ResumeSchema } from "../schema"
 
@@ -30,11 +30,6 @@ export async function getResumeById(profileId: string) {
 }
 
 export type RawResume = Awaited<ReturnType<typeof getResumeById>>
-
-const generateDateISOString = (date: Date | null) =>
-  date ? date.toISOString().substring(0, 10) : ""
-const generateArrayStrings = (items: Prisma.JsonValue) =>
-  Array.isArray(items) ? items.join("\n") : ""
 
 export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   id: resume.id,

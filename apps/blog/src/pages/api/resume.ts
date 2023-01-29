@@ -16,13 +16,12 @@ import {
   type SkillSchema,
   resumeSchema,
 } from "@/app/profile/resume/schema"
+import { generateStringArray } from "@/app/profile/resume/utils"
 import prisma from "@/services/prisma"
 
 import { authOptions } from "./auth/[...nextauth]"
 
 const router = new RouterBuilder()
-
-const generateStringArray = (items: string) => items.split("\n")
 
 const mapExperienceInput = (experience: ExperienceSchema) => ({
   company: experience.company,

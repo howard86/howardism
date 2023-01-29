@@ -9,3 +9,5 @@ export const getAriaDescribedBy = (
 
   return isInvalid ? `${name}-error` : `${name}-description`
 }
+
+export const generateStringArray = (items: string) => items.split("\n")

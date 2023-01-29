@@ -1,12 +1,14 @@
 import { Container } from "@/components/template/Container"
-import { generateLoremIpsum } from "@/services/resume"
+import { generateLoremIpsum, generateLoremIpsumArray } from "@/services/resume"
 
-import ResumeTemplate from "./ResumeTemplate"
+import ResumeDocument from "./ResumeDocument"
 
 export default function ResumeSamplePage() {
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
-      <ResumeTemplate
+      <ResumeDocument
+        company="Template"
+        position="Template"
         name="Howard Tai"
         summary={generateLoremIpsum(400)}
         address="[Address]"
@@ -20,15 +22,16 @@ export default function ResumeSamplePage() {
             location: "Remote",
             title: "Senior Software Engineer",
             size: "30",
-            items: [generateLoremIpsum(200), generateLoremIpsum(140), generateLoremIpsum(76)],
+            items: generateLoremIpsumArray(200, 140, 76),
             startDate: "Jan 2020",
+            endDate: "",
           },
           {
             company: "Company B",
             location: "Anywhere",
             title: "Software Engineer",
             size: "100-110",
-            items: [generateLoremIpsum(200), generateLoremIpsum(140)],
+            items: generateLoremIpsumArray(200, 137),
             startDate: "Jan 2018",
             endDate: "Dec 2019",
           },
@@ -37,12 +40,12 @@ export default function ResumeSamplePage() {
           {
             title: "Awesome Project",
             subtitle: generateLoremIpsum(12),
-            items: [generateLoremIpsum(20), generateLoremIpsum(18), generateLoremIpsum(22)],
+            items: generateLoremIpsumArray(20, 18, 22),
           },
           {
             title: "Blog",
             subtitle: generateLoremIpsum(12),
-            items: [generateLoremIpsum(20), generateLoremIpsum(18), generateLoremIpsum(22)],
+            items: generateLoremIpsumArray(20, 18, 22),
           },
         ]}
         educations={[
@@ -52,17 +55,17 @@ export default function ResumeSamplePage() {
             degree: "Computer Science",
             startDate: "Oct 2014",
             endDate: "Jul 2018",
-            items: [generateLoremIpsum(20), generateLoremIpsum(16), generateLoremIpsum(8)],
+            items: generateLoremIpsumArray(20, 16, 8),
           },
         ]}
         skills={[
           {
             title: "Libraries",
-            items: [generateLoremIpsum(12), generateLoremIpsum(6), generateLoremIpsum(10)],
+            items: generateLoremIpsumArray(12, 6, 10),
           },
-          { title: "Frameworks", items: [generateLoremIpsum(30)] },
-          { title: "Skill 3", items: [generateLoremIpsum(60)] },
-          { title: "Skill 4", items: [generateLoremIpsum(100)] },
+          { title: "Frameworks", items: generateLoremIpsumArray(30, 2, 12) },
+          { title: "Skill 3", items: generateLoremIpsumArray(60) },
+          { title: "Skill 4", items: generateLoremIpsumArray(100) },
         ]}
         languages={[
           { name: "English", proficiency: "fluent" },
