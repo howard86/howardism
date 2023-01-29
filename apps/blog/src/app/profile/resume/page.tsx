@@ -11,11 +11,11 @@ export default function ResumeSamplePage() {
         position="Template"
         name="Howard Tai"
         summary={generateLoremIpsum(400)}
-        address="[Address]"
-        phone="+44 7554123456"
+        address="London"
+        phone="+447554123456"
         email="example@gmail.com"
-        github="[GitHub username]"
-        website="example.com"
+        github="github"
+        website="https://example.com"
         experiences={[
           {
             company: "Company A",

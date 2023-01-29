@@ -7,15 +7,9 @@ import { SuccessApiResponse } from "next-api-handler"
 
 import { Container } from "@/components/template/Container"
 
-import ResumeForm, { DEFAULT_RESUME_FORM, ReplaceValueToString } from "./ResumeForm"
-import ResumeTemplate from "./ResumeTemplate"
+import ResumeDocument from "./ResumeDocument"
+import ResumeForm, { DEFAULT_RESUME_FORM } from "./ResumeForm"
 import { type ResumeSchema, resumeSchema } from "./schema"
-
-const getRequiredArray = <T extends { items: string[] }>(sections: ReplaceValueToString<T>[]) =>
-  sections.map((section) => ({
-    ...section,
-    items: section.items.split("\n"),
-  })) as T[]
 
 interface ResumeLiveViewProps {
   control: Control<ResumeSchema>
@@ -27,14 +21,10 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
   }) as ResumeSchema
 
   return (
-    // TODO: consider a better way without rerendering
-    <ResumeTemplate
-      {...values}
-      experiences={getRequiredArray(values.experiences)}
-      projects={getRequiredArray(values.projects)}
-      educations={getRequiredArray(values.educations)}
-      skills={getRequiredArray(values.skills)}
-    />
+    // TODO: replace with other preview layout
+    <section className="mt-20">
+      <ResumeDocument {...values} />
+    </section>
   )
 }
 

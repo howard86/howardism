@@ -121,7 +121,7 @@ export default function ResumeDocument({
               <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold" }}>{name}</Text>
               <Text style={{ marginTop: 4 }}>{summary}</Text>
             </View>
-            <View style={{ width: 120, marginLeft: 10 }}>
+            <View style={{ width: 140, marginLeft: 10 }}>
               <ResumeContact type={ResumeIconType.address} content={address} />
               <ResumeContact type={ResumeIconType.phone} content={phone} />
               <ResumeContact type={ResumeIconType.email} content={email} />
@@ -156,9 +156,7 @@ export default function ResumeDocument({
                       </Text>
                     </View>
                     <View style={styles.flexBetween}>
-                      <View
-                        style={{ display: "flex", flexDirection: "row", alignItems: "flex-end" }}
-                      >
+                      <View style={styles.flexCenter}>
                         <Text>{experience.title}</Text>
                         <Text style={{ fontFamily: "Times-Italic", marginLeft: 2, fontSize: 10 }}>
                           — team size: {experience.size}

@@ -41,7 +41,7 @@ function ResumeContentItem({ type, content }: ResumeContactProps) {
       return <Link src={`https://github.com/${content}`}>{content}</Link>
 
     case ResumeIconType.website:
-      return <Link src={`https://${content}`}>{content}</Link>
+      return <Link src={content}>{content.replace("https://", "")}</Link>
 
     default:
       return <Text>{content}</Text>
