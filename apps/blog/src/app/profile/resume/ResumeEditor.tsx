@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Control, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
@@ -20,10 +21,21 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
     control,
   }) as ResumeSchema
 
+  const [cachedState, setCachedState] = useState(values)
+
+  const handleRefresh = () => {
+    setCachedState(values)
+  }
+
   return (
     // TODO: replace with other preview layout
     <section className="mt-20">
-      <ResumeDocument {...values} />
+      <div className="my-4 flex items-center justify-center">
+        <button className="button" type="button" onClick={handleRefresh}>
+          Refresh
+        </button>
+      </div>
+      <ResumeDocument {...cachedState} />
     </section>
   )
 }
@@ -51,29 +63,21 @@ export default function ResumeEditor({
   })
 
   // TODO: add error handling
-  const handleCreate = handleSubmit(
-    async (values) => {
-      const response = await fetch(
-        profileId ? `/api/resume?profileId=${profileId}` : "/api/resume",
-        {
-          method: profileId ? "PUT" : "POST",
-          body: JSON.stringify(values),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
+  const handleCreate = handleSubmit(async (values) => {
+    const response = await fetch(profileId ? `/api/resume?profileId=${profileId}` : "/api/resume", {
+      method: profileId ? "PUT" : "POST",
+      body: JSON.stringify(values),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
 
-      const result = (await response.json()) as SuccessApiResponse<string>
+    const result = (await response.json()) as SuccessApiResponse<string>
 
-      if (result.success) {
-        router.push(`/profile/resume/${result.data}`)
-      }
-    },
-    (error) => {
-      console.log("error :>> ", error)
+    if (result.success) {
+      router.push(`/profile/resume/${result.data}`)
     }
-  )
+  }, console.error)
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">

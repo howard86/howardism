@@ -6,7 +6,7 @@ import dynamic from "next/dynamic"
 
 import ResumeContact, { ResumeIconType } from "./ResumeContactList"
 import { ResumeSchema } from "./schema"
-import { generateStringArray } from "./utils"
+import { convertDateString, generateStringArray } from "./utils"
 
 const DynamicPDFViewer = dynamic(
   () => import("@react-pdf/renderer").then((module) => module.PDFViewer),
@@ -34,32 +34,51 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   page: {
-    padding: "10%",
+    position: "relative",
+    paddingHorizontal: "10%",
+    paddingVertical: "10%",
     fontFamily: "Times-Roman",
-    fontSize: 10,
+    fontSize: 11,
+  },
+  pageNote: {
+    fontFamily: "Helvetica",
+    position: "absolute",
+    fontSize: 9,
+    bottom: 30,
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    color: "grey",
   },
 
-  sectionContainer: { marginTop: 16 },
-  sectionItemContainer: { marginTop: 2, marginBottom: 4 },
+  sectionContainer: { marginTop: "12pt", marginBottom: "6pt" },
+  sectionItemContainer: { marginTop: "6pt" },
 
   sectionItemDescription: {
     display: "flex",
     flexDirection: "row",
     alignItems: "flex-start",
-    marginTop: 2,
+    marginTop: 3.5,
   },
   sectionItemDescriptionSymbol: {
     width: 10,
   },
 
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: "Helvetica-Bold",
-    marginBottom: 2,
-    color: "#334155",
+    marginTop: 2,
+    color: "grey",
   },
 
-  skillTitle: { width: 64, fontSize: 11, fontFamily: "Times-Bold" },
+  skillSection: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+    marginTop: 1.5,
+  },
+  skillTitle: { width: 80, fontSize: 12, fontFamily: "Times-Bold" },
 })
 
 interface SectionContainerProps {
@@ -115,13 +134,13 @@ export default function ResumeDocument({
         subject="The resume of Luke Skywalker"
         title="Resume"
       >
-        <Page size="A4" style={styles.page}>
+        <Page size="A4" style={styles.page} wrap>
           <View style={styles.flexBetween}>
             <View style={{ width: "100%" }}>
               <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold" }}>{name}</Text>
               <Text style={{ marginTop: 4 }}>{summary}</Text>
             </View>
-            <View style={{ width: 140, marginLeft: 10 }}>
+            <View style={{ width: 160, marginLeft: 20 }}>
               <ResumeContact type={ResumeIconType.address} content={address} />
               <ResumeContact type={ResumeIconType.phone} content={phone} />
               <ResumeContact type={ResumeIconType.email} content={email} />
@@ -129,13 +148,17 @@ export default function ResumeDocument({
               <ResumeContact type={ResumeIconType.website} content={website} />
             </View>
           </View>
-          <View>
+          <View wrap={false}>
             {skills.length > 0 && (
               <SectionContainer title="Skill">
                 {skills.map((skill) => (
-                  <View style={styles.flexStart} key={skill.id || skill.title}>
+                  <View style={styles.skillSection} key={skill.id || skill.title}>
                     <Text style={styles.skillTitle}>{skill.title}</Text>
-                    <Text>{skill.items.replaceAll("\n", ", ")}</Text>
+                    <View>
+                      {skill.items.split("\n").map((item) => (
+                        <Text key={item}>{item}</Text>
+                      ))}
+                    </View>
                   </View>
                 ))}
               </SectionContainer>
@@ -148,11 +171,12 @@ export default function ResumeDocument({
                     style={styles.sectionItemContainer}
                   >
                     <View style={styles.flexBetween}>
-                      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1 }}>
+                      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}>
                         {experience.company}
                       </Text>
                       <Text>
-                        {experience.startDate} - {experience.endDate || "Present"}
+                        {convertDateString(experience.startDate)} -{" "}
+                        {experience.endDate ? convertDateString(experience.endDate) : "Present"}
                       </Text>
                     </View>
                     <View style={styles.flexBetween}>
@@ -169,6 +193,8 @@ export default function ResumeDocument({
                 ))}
               </SectionContainer>
             )}
+          </View>
+          <View wrap={false}>
             {educations.length > 0 && (
               <SectionContainer title="Education">
                 {educations.map((education) => (
@@ -184,7 +210,8 @@ export default function ResumeDocument({
                         <Text>, {education.degree}</Text>
                       </View>
                       <Text>
-                        {education.startDate} - {education.endDate}
+                        {convertDateString(education.startDate)} -{" "}
+                        {convertDateString(education.endDate)}
                       </Text>
                     </View>
                     <SectionItemDescription descriptions={education.items} />
@@ -201,7 +228,7 @@ export default function ResumeDocument({
                   >
                     <View style={styles.flexStart}>
                       <Text style={{ fontFamily: "Times-Bold", fontSize: 12 }}>
-                        {project.title}
+                        {project.title}{" "}
                       </Text>
                       <Text>— {project.subtitle}</Text>
                     </View>
@@ -211,6 +238,13 @@ export default function ResumeDocument({
               </SectionContainer>
             )}
           </View>
+          <Text
+            render={({ pageNumber, totalPages }) =>
+              `Howard Tai - Full Stack Engineer (${pageNumber}/${totalPages})`
+            }
+            style={styles.pageNote}
+            fixed
+          />
         </Page>
       </Document>
     </DynamicPDFViewer>
