@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+const optionalNumber = z.number().optional()
 const optionalString = z.string().optional()
 const requiredString = z.string().min(1, { message: "This field is required" })
 const requiredDate = z
@@ -24,6 +25,7 @@ export const projectSchema = z.object({
   title: requiredString,
   subtitle: requiredString,
   items: requiredString,
+  ordering: optionalNumber,
 })
 
 export type ProjectSchema = z.infer<typeof projectSchema>
@@ -44,6 +46,7 @@ export const skillSchema = z.object({
   id: optionalString,
   title: requiredString,
   items: requiredString,
+  ordering: optionalNumber,
 })
 
 export type SkillSchema = z.infer<typeof skillSchema>
@@ -52,6 +55,7 @@ export const languageSchema = z.object({
   id: optionalString,
   name: requiredString,
   proficiency: requiredString,
+  ordering: optionalNumber,
 })
 
 export type LanguageSchema = z.infer<typeof languageSchema>

@@ -42,20 +42,23 @@ const mapEducationInput = (education: EducationSchema) => ({
   subjects: generateStringArray(education.items),
 })
 
-const mapProjectInput = (project: ProjectSchema) => ({
+const mapProjectInput = (project: ProjectSchema, index: number) => ({
   title: project.title,
   subtitle: project.subtitle,
   descriptions: generateStringArray(project.items),
+  ordering: project.ordering ?? index,
 })
 
-const mapSkillInput = (skill: SkillSchema) => ({
+const mapSkillInput = (skill: SkillSchema, index: number) => ({
   title: skill.title,
   items: generateStringArray(skill.items),
+  ordering: skill.ordering ?? index,
 })
 
-const mapLanguageInput = (language: LanguageSchema) => ({
+const mapLanguageInput = (language: LanguageSchema, index: number) => ({
   name: language.name,
   proficiency: language.proficiency,
+  ordering: language.ordering ?? index,
 })
 
 const addItemIds = <T extends { id: string }>(set: Set<string>, items: T[]) => {
@@ -202,9 +205,10 @@ router
 
     addItemIds(existedIdSet, existedResume.projects)
 
-    for (const project of resume.projects) {
+    for (let i = 0; i < resume.projects.length; i++) {
+      const project = resume.projects[i]
       const { id } = project
-      const data = mapProjectInput(project)
+      const data = mapProjectInput(project, i)
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
@@ -229,9 +233,10 @@ router
 
     addItemIds(existedIdSet, existedResume.skills)
 
-    for (const skill of resume.skills) {
+    for (let i = 0; i < resume.skills.length; i++) {
+      const skill = resume.skills[i]
       const { id } = skill
-      const data = mapSkillInput(skill)
+      const data = mapSkillInput(skill, i)
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
@@ -256,9 +261,10 @@ router
 
     addItemIds(existedIdSet, existedResume.languages)
 
-    for (const language of resume.languages) {
+    for (let i = 0; i < resume.languages.length; i++) {
+      const language = resume.languages[i]
       const { id } = language
-      const data = mapLanguageInput(language)
+      const data = mapLanguageInput(language, i)
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)

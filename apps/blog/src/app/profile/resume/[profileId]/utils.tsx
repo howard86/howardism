@@ -60,6 +60,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     title: project.title,
     subtitle: project.subtitle,
     items: generateArrayStrings(project.descriptions),
+    ordering: project.ordering,
   })),
 
   educations: resume.educations.map((education) => ({
@@ -76,6 +77,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     id: resume.id,
     title: skill.title,
     items: generateArrayStrings(skill.items),
+    ordering: skill.ordering,
   })),
 
   languages: resume.languages.map((language) => ({
