@@ -212,7 +212,7 @@ router
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
-          ? prisma.resumeProject.update({ where: { id }, data })
+          ? prisma.resumeProject.update({ where: { id }, data: { ...data, ordering: i } })
           : prisma.resumeProject.create({ data: { profileId, ...data } })
       )
     }
@@ -240,7 +240,7 @@ router
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
-          ? prisma.resumeSkill.update({ where: { id }, data })
+          ? prisma.resumeSkill.update({ where: { id }, data: { ...data, ordering: i } })
           : prisma.resumeSkill.create({ data: { profileId, ...data } })
       )
     }
@@ -268,7 +268,7 @@ router
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
-          ? prisma.resumeLanguage.update({ where: { id }, data })
+          ? prisma.resumeLanguage.update({ where: { id }, data: { ...data, ordering: i } })
           : prisma.resumeLanguage.create({ data: { profileId, ...data } })
       )
     }

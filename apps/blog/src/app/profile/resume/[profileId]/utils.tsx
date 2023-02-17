@@ -45,7 +45,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   summary: resume.summary,
 
   experiences: resume.experiences.map((experience) => ({
-    id: resume.id,
+    id: experience.id,
     company: experience.company,
     location: experience.location,
     title: experience.title,
@@ -56,7 +56,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   })),
 
   projects: resume.projects.map((project) => ({
-    id: resume.id,
+    id: project.id,
     title: project.title,
     subtitle: project.subtitle,
     items: generateArrayStrings(project.descriptions),
@@ -64,7 +64,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   })),
 
   educations: resume.educations.map((education) => ({
-    id: resume.id,
+    id: education.id,
     facility: education.facility,
     degree: education.degree,
     location: education.location,
@@ -74,14 +74,14 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   })),
 
   skills: resume.skills.map((skill) => ({
-    id: resume.id,
+    id: skill.id,
     title: skill.title,
     items: generateArrayStrings(skill.items),
     ordering: skill.ordering,
   })),
 
   languages: resume.languages.map((language) => ({
-    id: resume.id,
+    id: language.id,
     name: language.name,
     proficiency: language.proficiency,
   })),
