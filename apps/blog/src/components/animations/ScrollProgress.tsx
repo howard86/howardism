@@ -1,5 +1,5 @@
-import { HiChevronUp } from "react-icons/hi"
 import { m as motion, useScroll, Variants } from "framer-motion"
+import { HiChevronUp } from "react-icons/hi"
 
 const CIRCLE_VARIANTS: Variants = {
   normal: { opacity: 0.3, fill: "none" },

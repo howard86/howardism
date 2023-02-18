@@ -1,6 +1,7 @@
-import { FC } from "react"
-import glob from "fast-glob"
 import { join } from "node:path"
+
+import glob from "fast-glob"
+import { FC } from "react"
 
 import type { ArticleMeta } from "@/components/template/ArticleLayout"
 

@@ -1,6 +1,6 @@
-import { useEffect } from "react"
 import { m as motion, useMotionValue, useSpring } from "framer-motion"
 import throttle from "lodash.throttle"
+import { useEffect } from "react"
 
 const DEFAULT_POSITION = -100
 const CURSOR_SIZE = 32

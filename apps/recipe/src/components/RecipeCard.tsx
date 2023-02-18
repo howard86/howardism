@@ -1,8 +1,7 @@
 import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react"
+import { Image } from "@howardism/components-common"
 import { StaticImageData } from "next/image"
 import NextLink from "next/link"
-
-import { Image } from "@howardism/components-common"
 
 interface RecipeCardProps {
   id: number

@@ -1,6 +1,6 @@
-import { LinkProps } from "react-html-props"
 import { Popover } from "@headlessui/react"
 import clsx from "clsx"
+import { LinkProps } from "react-html-props"
 
 interface MobileNavItemProps extends LinkProps {
   isActive: boolean

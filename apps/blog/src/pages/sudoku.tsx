@@ -1,6 +1,6 @@
-import { Fragment, useMemo } from "react"
 import { Menu, Transition } from "@headlessui/react"
 import clsx from "clsx"
+import { Fragment, useMemo } from "react"
 
 import { Container } from "@/components/layout/Container"
 import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku"

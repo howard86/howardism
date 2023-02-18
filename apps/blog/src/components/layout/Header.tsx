@@ -6,7 +6,6 @@ import useHasScrolled from "@/hooks/useHasScrolled"
 import useScrollSpy from "@/hooks/useScrollSpy"
 
 import Logo from "../icons/Logo"
-
 import { Container } from "./Container"
 import DesktopNavigation from "./DesktopNavigation"
 import MobileNavigation from "./MobileNavigation"

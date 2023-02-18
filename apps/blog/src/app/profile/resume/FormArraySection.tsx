@@ -1,5 +1,7 @@
 "use client"
 
+import { XCircleIcon } from "@heroicons/react/20/solid"
+import { ArrowDownCircleIcon } from "@heroicons/react/24/outline"
 import {
   type Control,
   type FieldArray,
@@ -7,8 +9,6 @@ import {
   type FieldValues,
   useFieldArray,
 } from "react-hook-form"
-import { XCircleIcon } from "@heroicons/react/20/solid"
-import { ArrowDownCircleIcon } from "@heroicons/react/24/outline"
 
 import FormSectionContainer, { type FormSectionContainerProps } from "./FormSectionContainer"
 

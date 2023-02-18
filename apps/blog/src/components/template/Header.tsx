@@ -1,10 +1,10 @@
-import { ChildrenProps, ComponentType, CSSProperties, Fragment, useEffect, useRef } from "react"
-import { DivProps, SVGProps } from "react-html-props"
 import { Popover, Transition } from "@headlessui/react"
 import clsx from "clsx"
 import Image from "next/image"
 import Link, { LinkProps } from "next/link"
 import { useRouter } from "next/router"
+import { ChildrenProps, ComponentType, CSSProperties, Fragment, useEffect, useRef } from "react"
+import { DivProps, SVGProps } from "react-html-props"
 
 import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav"
 import profile from "@/profile.jpeg"

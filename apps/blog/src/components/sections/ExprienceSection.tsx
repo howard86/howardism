@@ -1,9 +1,9 @@
-import { ChangeEvent } from "react"
-import type { IconType } from "react-icons"
-import { FiPackage } from "react-icons/fi"
 import clsx from "clsx"
 import Link from "next/link"
 import { useRouter } from "next/router"
+import { ChangeEvent } from "react"
+import type { IconType } from "react-icons"
+import { FiPackage } from "react-icons/fi"
 import type { DeepPartial, DeepRequired } from "ts-essentials"
 
 import { SectionId } from "@/constants/nav"

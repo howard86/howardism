@@ -1,5 +1,3 @@
-import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs"
-import { RiGitRepositoryLine } from "react-icons/ri"
 import type { ApolloQueryResult } from "@apollo/client"
 import {
   Box,
@@ -21,6 +19,8 @@ import {
 } from "@chakra-ui/react"
 import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next"
 import { useRouter } from "next/router"
+import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs"
+import { RiGitRepositoryLine } from "react-icons/ri"
 
 import InfoList from "@/components/InfoList"
 import ProfileBadge from "@/components/ProfileBadge"

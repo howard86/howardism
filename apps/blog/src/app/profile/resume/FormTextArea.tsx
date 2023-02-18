@@ -1,5 +1,7 @@
 "use client"
 
+import clsx from "clsx"
+import get from "lodash.get"
 import type {
   FieldErrors,
   FieldValues,
@@ -8,8 +10,6 @@ import type {
   UseFormRegister,
 } from "react-hook-form"
 import TextareaAutosize, { TextareaAutosizeProps } from "react-textarea-autosize"
-import clsx from "clsx"
-import get from "lodash.get"
 
 import { getAriaDescribedBy } from "./utils"
 

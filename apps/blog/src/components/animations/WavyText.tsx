@@ -1,5 +1,5 @@
-import { DivProps } from "react-html-props"
 import { m as motion, Transition, Variants } from "framer-motion"
+import { DivProps } from "react-html-props"
 
 interface WavyTextProps extends DivProps {
   text: string

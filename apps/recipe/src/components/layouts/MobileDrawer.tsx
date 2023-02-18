@@ -1,5 +1,3 @@
-import { useRef } from "react"
-import { HiMenuAlt2 } from "react-icons/hi"
 import {
   Box,
   Drawer,
@@ -13,10 +11,12 @@ import {
   ListItem,
   useDisclosure,
 } from "@chakra-ui/react"
+import { RouteLink } from "@howardism/components-common"
 import { useRouter } from "next/router"
+import { useRef } from "react"
+import { HiMenuAlt2 } from "react-icons/hi"
 
 import { MENU_LINK_ITEMS } from "@/constants/menu"
-import { RouteLink } from "@howardism/components-common"
 
 import HorizontalLogo from "../graphics/HorizontalLogo"
 

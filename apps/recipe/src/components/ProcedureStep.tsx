@@ -1,5 +1,3 @@
-import { useState } from "react"
-import { FaCheck } from "react-icons/fa"
 import {
   Box,
   BoxProps,
@@ -14,6 +12,8 @@ import {
   Text,
   useBoolean,
 } from "@chakra-ui/react"
+import { useState } from "react"
+import { FaCheck } from "react-icons/fa"
 
 export interface Step {
   summary: string

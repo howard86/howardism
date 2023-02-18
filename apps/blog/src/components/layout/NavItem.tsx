@@ -1,6 +1,6 @@
-import { LinkProps } from "react-html-props"
 import clsx from "clsx"
 import { m as motion } from "framer-motion"
+import { LinkProps } from "react-html-props"
 
 interface NavItemProps extends LinkProps {
   isActive: boolean

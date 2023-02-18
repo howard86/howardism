@@ -1,9 +1,9 @@
 /* eslint-disable react/no-unknown-property */
-import { useState } from "react"
 import { BoxProps, Triplet, useBox } from "@react-three/cannon"
 import { useTexture } from "@react-three/drei"
 import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/events"
 import { nanoid } from "nanoid"
+import { useState } from "react"
 import { BufferGeometry, Mesh } from "three"
 import create from "zustand"
 

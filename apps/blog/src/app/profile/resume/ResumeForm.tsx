@@ -1,7 +1,5 @@
 "use client"
 
-import type { FormEvent } from "react"
-import type { Control, FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
 import { Tab } from "@headlessui/react"
 import {
   AcademicCapIcon,
@@ -13,6 +11,8 @@ import {
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline"
 import clsx from "clsx"
+import type { FormEvent } from "react"
+import type { Control, FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
 
 import FormArraySection from "./FormArraySection"
 import FormInput from "./FormInput"

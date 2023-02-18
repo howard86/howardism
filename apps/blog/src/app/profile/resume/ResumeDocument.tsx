@@ -1,8 +1,8 @@
 "use client"
 
-import { ReactNode } from "react"
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 import dynamic from "next/dynamic"
+import { ReactNode } from "react"
 
 import ResumeContact, { ResumeIconType } from "./ResumeContactList"
 import { ResumeSchema } from "./schema"

@@ -1,6 +1,6 @@
-import { FiShare } from "react-icons/fi"
 import { Box, Heading, Icon, LinkBox, LinkOverlay, VStack } from "@chakra-ui/react"
 import NextLink from "next/link"
+import { FiShare } from "react-icons/fi"
 
 import demo from "@/../public/assets/demo.jpg"
 import type { Recipe } from "@/types/recipe"

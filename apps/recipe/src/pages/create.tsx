@@ -1,6 +1,6 @@
-import { useEffect } from "react"
 import { Container, Heading } from "@chakra-ui/react"
 import { useRouter } from "next/router"
+import { useEffect } from "react"
 
 import RecipeForm from "@/components/RecipeForm"
 import useAuth from "@/hooks/useAuth"

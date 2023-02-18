@@ -1,6 +1,7 @@
+import { Image } from "@howardism/components-common"
+
 import LOGO_HORIZONTAL from "@/../public/favicon/logo_horizontal.png"
 import LOGO_HORIZONTAL_TRANSPARENT from "@/../public/favicon/logo_horizontal_transparent.png"
-import { Image } from "@howardism/components-common"
 
 interface HorizontalLogoProps {
   size?: number

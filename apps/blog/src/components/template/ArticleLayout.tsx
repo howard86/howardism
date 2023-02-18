@@ -1,7 +1,7 @@
-import type { ReactNode } from "react"
-import type { SVGProps } from "react-html-props"
 import Link from "next/link"
 import { NextSeo } from "next-seo"
+import type { ReactNode } from "react"
+import type { SVGProps } from "react-html-props"
 
 import { formatDate } from "@/utils/time"
 

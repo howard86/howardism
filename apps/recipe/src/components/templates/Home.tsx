@@ -1,9 +1,9 @@
 import { Box, Flex, Heading, HStack, SimpleGrid, Tag, Text, VStack } from "@chakra-ui/react"
+import { Image, RouteLink } from "@howardism/components-common"
 
 import backgroundImage from "@/../public/assets/background.jpg"
 import logo from "@/../public/favicon/logo.png"
 import type { Recipe } from "@/types/recipe"
-import { Image, RouteLink } from "@howardism/components-common"
 
 export interface HomeProps {
   recipes: Recipe[]
