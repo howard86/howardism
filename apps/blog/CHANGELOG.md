@@ -3,6 +3,48 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.6.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.5.2...@howardism/blog@2.6.0) (2023-02-18)
+
+### ♻ Code Refactoring
+
+- add form validation with zod & rhk resolver ([1a4e6ca](https://github.com/Howard86/howardism/commit/1a4e6ca))
+- add resume schema with updated fields ([3f8eda1](https://github.com/Howard86/howardism/commit/3f8eda1))
+- add Tabs to switch form sections ([ab6fb67](https://github.com/Howard86/howardism/commit/ab6fb67))
+- extract WorkExperienceSection with fieldarray logic ([b011db1](https://github.com/Howard86/howardism/commit/b011db1))
+- integrate forms with live preview ([5c4f6e3](https://github.com/Howard86/howardism/commit/5c4f6e3))
+- replace css ResumeTemplate with pdf ([ab43a37](https://github.com/Howard86/howardism/commit/ab43a37))
+- replace with TextareaAutoresize ([e626b66](https://github.com/Howard86/howardism/commit/e626b66))
+- update ResumeDocument style and array section swap utility ([a72578d](https://github.com/Howard86/howardism/commit/a72578d))
+- update ResumeDocument style and replace editor ([0e98e70](https://github.com/Howard86/howardism/commit/0e98e70))
+- update ResumeForm with FormArraySection ([bd3907b](https://github.com/Howard86/howardism/commit/bd3907b))
+
+### ✨ Features
+
+- add clone resueme page to start from existed resume ([c38a6ea](https://github.com/Howard86/howardism/commit/c38a6ea))
+- add POST /api/resume & add resume logic ([e684351](https://github.com/Howard86/howardism/commit/e684351))
+- add PUT /api/resume with new edit page ([b801e81](https://github.com/Howard86/howardism/commit/b801e81))
+- add resume form with react-hook-form ([fd2b6d4](https://github.com/Howard86/howardism/commit/fd2b6d4))
+- add resume profile database schema ([d467f03](https://github.com/Howard86/howardism/commit/d467f03))
+- add resume template page & resume profile page ([66f693e](https://github.com/Howard86/howardism/commit/66f693e))
+- add resume template with sections & @next/font ([72645a0](https://github.com/Howard86/howardism/commit/72645a0))
+- set up next-auth with profile page ([ee1560d](https://github.com/Howard86/howardism/commit/ee1560d))
+- set up prisma with scripts ([a9ba72d](https://github.com/Howard86/howardism/commit/a9ba72d))
+
+### 🎫 Chores
+
+- fix typo on asset url ([27a0f45](https://github.com/Howard86/howardism/commit/27a0f45))
+- **packages**: install @react-pdf/renderer ([7bd3514](https://github.com/Howard86/howardism/commit/7bd3514))
+- **packages**: install next-auth & prisma adapter ([91e999e](https://github.com/Howard86/howardism/commit/91e999e))
+- **packages**: install prisma & prisma client ([5cd62e0](https://github.com/Howard86/howardism/commit/5cd62e0))
+- update prisma logger ([b0c76dd](https://github.com/Howard86/howardism/commit/b0c76dd))
+
+### 🐛 Bug Fixes
+
+- add missin postinstall scripts for prisma type ([6dc7329](https://github.com/Howard86/howardism/commit/6dc7329))
+- add missing ordering of blocks ([d8e877f](https://github.com/Howard86/howardism/commit/d8e877f))
+- fix incorrect id from mapper ([7f22356](https://github.com/Howard86/howardism/commit/7f22356))
+- fix incorrect update resume nested logic ([c480922](https://github.com/Howard86/howardism/commit/c480922))
+
 ## [2.5.2](https://github.com/Howard86/howardism/compare/@howardism/blog@2.5.1...@howardism/blog@2.5.2) (2023-01-25)
 
 ### 📝 Documentation
