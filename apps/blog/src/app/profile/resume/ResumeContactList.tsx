@@ -6,7 +6,7 @@ export enum ResumeIconType {
   address,
   phone,
   email,
-  gitHub,
+  github,
   website,
 }
 
@@ -37,7 +37,7 @@ function ResumeContentItem({ type, content }: ResumeContactProps) {
     case ResumeIconType.email:
       return <Link src={`mailto:${content}`}>{content}</Link>
 
-    case ResumeIconType.gitHub:
+    case ResumeIconType.github:
       return <Link src={`https://github.com/${content}`}>{content}</Link>
 
     case ResumeIconType.website:

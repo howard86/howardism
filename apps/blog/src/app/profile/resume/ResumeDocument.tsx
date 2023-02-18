@@ -144,7 +144,7 @@ export default function ResumeDocument({
               <ResumeContact type={ResumeIconType.address} content={address} />
               <ResumeContact type={ResumeIconType.phone} content={phone} />
               <ResumeContact type={ResumeIconType.email} content={email} />
-              <ResumeContact type={ResumeIconType.gitHub} content={github} />
+              <ResumeContact type={ResumeIconType.github} content={github} />
               <ResumeContact type={ResumeIconType.website} content={website} />
             </View>
           </View>
