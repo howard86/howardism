@@ -44,6 +44,7 @@ module.exports = {
     "import/prefer-default-export": 0,
     // TODO: move to app level config
     "no-underscore-dangle": 0,
+    "no-plusplus": [2, { allowForLoopAfterthoughts: true }],
     "no-param-reassign": [2, { props: true, ignorePropertyModificationsFor: ["state", "req"] }],
     "no-restricted-syntax": [2, "ForInStatement", "LabeledStatement", "WithStatement"],
     "react/jsx-props-no-spreading": 0,
