@@ -1,4 +1,4 @@
-const PRETTIER_COMMAND = (module.exports = {
-  "*": "prettier --write --list-different",
+module.exports = {
+  "*": "prettier --write --ignore-unknown",
   "*.{js,jsx,ts,tsx}": "eslint --fix",
-})
+}
