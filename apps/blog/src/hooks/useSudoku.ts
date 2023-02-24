@@ -3,7 +3,7 @@ import { useCallback, useReducer } from "react"
 import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku"
 import type { SudokuApiResponse } from "@/pages/api/sudoku"
 
-type SudokuDifficulty = typeof SUDOKU_DIFFICULTIES[number]
+type SudokuDifficulty = (typeof SUDOKU_DIFFICULTIES)[number]
 
 interface SudokuState {
   difficulty: SudokuDifficulty

@@ -1,7 +1,6 @@
-import type { IconType } from "react-icons"
 import { Link, ListIcon, ListItem } from "@chakra-ui/react"
-
 import { RouteLink } from "@howardism/components-common"
+import type { IconType } from "react-icons"
 
 interface InfoListProps {
   name: string

@@ -1,6 +1,6 @@
+import clsx from "clsx"
 import { ReactNode } from "react"
 import { DivProps } from "react-html-props"
-import clsx from "clsx"
 
 import { Container } from "../layout/Container"
 

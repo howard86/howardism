@@ -1,12 +1,11 @@
-import { HiSearch } from "react-icons/hi"
 import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react"
+import { RouteLink } from "@howardism/components-common"
 import { useRouter } from "next/router"
+import { HiSearch } from "react-icons/hi"
 
 import { MENU_LINK_ITEMS } from "@/constants/menu"
-import { RouteLink } from "@howardism/components-common"
 
 import HorizontalLogo from "../graphics/HorizontalLogo"
-
 import MobileDrawer from "./MobileDrawer"
 
 export default function NavBar(): JSX.Element {

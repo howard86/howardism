@@ -1,7 +1,7 @@
-import { ChildrenProps } from "react"
-import { ButtonPropsWithoutRef } from "react-html-props"
 import clsx from "clsx"
 import Link from "next/link"
+import { ChildrenProps } from "react"
+import { ButtonPropsWithoutRef } from "react-html-props"
 
 const variantStyles = {
   primary:

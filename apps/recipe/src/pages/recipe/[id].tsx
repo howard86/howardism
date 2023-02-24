@@ -1,4 +1,5 @@
 import { Box, CheckboxGroup, Flex, Heading, Spinner, Text, VStack } from "@chakra-ui/react"
+import { Image } from "@howardism/components-common"
 import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next"
 import { useRouter } from "next/router"
 
@@ -8,7 +9,6 @@ import { NAV_BAR_HEIGHT } from "@/components/NavBar"
 import ProcedureStep from "@/components/ProcedureStep"
 import { getRecipeById, getRecipes } from "@/services/recipe"
 import type { Recipe } from "@/types/recipe"
-import { Image } from "@howardism/components-common"
 
 export default function RecipePage({
   title,

@@ -1,7 +1,7 @@
-import { HiMinusCircle, HiPlusCircle } from "react-icons/hi"
 import { Accordion, Flex, Heading, IconButton, VStack } from "@chakra-ui/react"
 import { nanoid } from "@reduxjs/toolkit"
 import { FieldArray } from "formik"
+import { HiMinusCircle, HiPlusCircle } from "react-icons/hi"
 
 import RecipeFormAccordionItem from "./RecipeFormAccordionItem"
 

@@ -1,12 +1,11 @@
-import type { ChildrenProps } from "react"
-import Script from "next/script"
-
 import "focus-visible"
+import "../styles/globals.css"
+
+import Script from "next/script"
+import type { ChildrenProps } from "react"
 
 import { Footer } from "./Footer"
 import { Header } from "./Header"
-
-import "../styles/globals.css"
 
 export default function RootLayout({ children }: ChildrenProps) {
   return (

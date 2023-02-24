@@ -1,6 +1,6 @@
+import { ChakraProvider } from "@chakra-ui/react"
 import { ChildrenProps } from "react"
 import { Provider as ReduxProvider } from "react-redux"
-import { ChakraProvider } from "@chakra-ui/react"
 
 import store from "@/redux/store"
 import theme from "@/styles/theme"

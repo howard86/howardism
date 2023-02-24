@@ -1,9 +1,8 @@
-import { ChildrenProps } from "react"
 import { Box, Container, Flex } from "@chakra-ui/react"
+import { RouteLink } from "@howardism/components-common"
 import { motion, Variants } from "framer-motion"
 import { useRouter } from "next/router"
-
-import { RouteLink } from "@howardism/components-common"
+import { ChildrenProps } from "react"
 
 const variants: Variants = {
   pageInital: {

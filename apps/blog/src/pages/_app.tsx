@@ -1,3 +1,6 @@
+import "focus-visible"
+import "@/styles/globals.css"
+
 import type { AppProps } from "next/app"
 import { useRouter } from "next/router"
 import { DefaultSeo } from "next-seo"
@@ -6,10 +9,6 @@ import { Footer } from "@/components/template/Footer"
 import { Header } from "@/components/template/Header"
 import DEFAULT_SEO from "@/constants/seo"
 import usePrevious from "@/hooks/usePrevious"
-
-import "focus-visible"
-
-import "@/styles/globals.css"
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter()

@@ -1,4 +1,4 @@
-import { type ThemeOverride, extendTheme } from "@chakra-ui/react"
+import { extendTheme, type ThemeOverride } from "@chakra-ui/react"
 
 const overrides: ThemeOverride = {
   colors: {

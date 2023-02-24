@@ -1,10 +1,8 @@
-import { mkdir, writeFile } from "fs/promises"
-
-import React from "react"
 import { Feed } from "feed"
+import { mkdir, writeFile } from "fs/promises"
+import React from "react"
 
 import DEFAULT_SEO from "../constants/seo"
-
 import { getAllArticles } from "./article"
 
 const siteUrl = process.env.NEXT_PUBLIC_DOMAIN_NAME

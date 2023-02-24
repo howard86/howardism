@@ -13,8 +13,8 @@ import {
   type LanguageSchema,
   type ProjectSchema,
   type ResumeSchema,
-  type SkillSchema,
   resumeSchema,
+  type SkillSchema,
 } from "@/app/profile/resume/schema"
 import { generateStringArray } from "@/app/profile/resume/utils"
 import prisma from "@/services/prisma"

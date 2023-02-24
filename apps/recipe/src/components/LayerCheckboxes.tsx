@@ -1,5 +1,5 @@
-import { ChangeEvent, useState } from "react"
 import { Box, Checkbox, Text, VStack } from "@chakra-ui/react"
+import { ChangeEvent, useState } from "react"
 
 import type { Ingredient } from "@/types/recipe"
 

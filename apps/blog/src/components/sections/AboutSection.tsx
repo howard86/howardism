@@ -1,12 +1,11 @@
-import ReactMarkdown from "react-markdown"
 import Image from "next/image"
+import ReactMarkdown from "react-markdown"
 
 import profilePicture from "@/../public/profile.jpeg"
 import { SectionId } from "@/constants/nav"
 import { GetHomePageQuery } from "@/services/query.generated"
 
 import SlideBox from "../animations/SlideBox"
-
 import SectionWrapper from "./SectionWrapper"
 
 interface AboutListItemProps {

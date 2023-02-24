@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unknown-property */
-import { useEffect, useRef } from "react"
 import { useThree } from "@react-three/fiber"
+import { useEffect, useRef } from "react"
 import type { PerspectiveCamera } from "three"
 
 interface CustomCameraProps {

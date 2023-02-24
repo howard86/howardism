@@ -1,4 +1,3 @@
-import { HiEye, HiEyeOff } from "react-icons/hi"
 import {
   Button,
   FormControl,
@@ -12,6 +11,7 @@ import {
   useDisclosure,
 } from "@chakra-ui/react"
 import { Field, FieldProps, Form, Formik, FormikHelpers } from "formik"
+import { HiEye, HiEyeOff } from "react-icons/hi"
 
 interface LoginFormProps {
   onLogin: OnLogin

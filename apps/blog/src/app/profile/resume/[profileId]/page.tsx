@@ -1,7 +1,6 @@
 import { Container } from "@/components/template/Container"
 
 import ResumeDocument from "../ResumeDocument"
-
 import { getResumeById, mapResumeToResumeSchema } from "./utils"
 
 export interface ResumeProfilePageProps {

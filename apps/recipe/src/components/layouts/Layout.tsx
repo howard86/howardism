@@ -1,5 +1,5 @@
-import { ReactNode } from "react"
 import { Container } from "@chakra-ui/react"
+import { ReactNode } from "react"
 
 import Footer from "./Footer"
 import NavBar from "./NavBar"

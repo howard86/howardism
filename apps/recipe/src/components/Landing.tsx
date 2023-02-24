@@ -1,8 +1,8 @@
 import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react"
+import { Image } from "@howardism/components-common"
 import { StaticImageData } from "next/image"
 
 import backgroundImage from "@/../public/assets/background.jpg"
-import { Image } from "@howardism/components-common"
 
 import Triangle from "./Triangle"
 
