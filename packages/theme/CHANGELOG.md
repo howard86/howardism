@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.2.6](https://github.com/Howard86/howardism/compare/@howardism/theme@0.2.5...@howardism/theme@0.2.6) (2023-02-24)
+
+### 🎫 Chores
+
+- **packages**: bump all dependencies to the latest ([5b6fd06](https://github.com/Howard86/howardism/commit/5b6fd06))
+- update eslint config and fix eslint issues ([8243c20](https://github.com/Howard86/howardism/commit/8243c20))
+
 ## [0.2.5](https://github.com/Howard86/howardism/compare/@howardism/theme@0.2.3...@howardism/theme@0.2.5) (2023-01-02)
 
 ### 🎫 Chores

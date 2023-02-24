@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.6.1](https://github.com/Howard86/howardism/compare/@howardism/blog@2.6.0...@howardism/blog@2.6.1) (2023-02-24)
+
+### 🎫 Chores
+
+- **packages**: bump all dependencies to the latest ([5b6fd06](https://github.com/Howard86/howardism/commit/5b6fd06))
+- update eslint config and fix eslint issues ([8243c20](https://github.com/Howard86/howardism/commit/8243c20))
+
 # [2.6.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.5.2...@howardism/blog@2.6.0) (2023-02-18)
 
 ### ♻ Code Refactoring

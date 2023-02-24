@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.9](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.8...@howardism/github-search@1.0.9) (2023-02-24)
+
+### 🎫 Chores
+
+- **packages**: bump all dependencies to the latest ([5b6fd06](https://github.com/Howard86/howardism/commit/5b6fd06))
+- update eslint config and fix eslint issues ([8243c20](https://github.com/Howard86/howardism/commit/8243c20))
+
 ## [1.0.8](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.5...@howardism/github-search@1.0.8) (2023-01-02)
 
 ### 🎫 Chores
