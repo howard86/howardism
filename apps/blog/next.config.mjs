@@ -1,10 +1,9 @@
-import { dirname, join } from "path"
-import { fileURLToPath } from "url"
-
 import rehypePrism from "@mapbox/rehype-prism"
 import nextBundleAnalyzer from "@next/bundle-analyzer"
 import nextMDX from "@next/mdx"
+import { dirname, join } from "path"
 import remarkGfm from "remark-gfm"
+import { fileURLToPath } from "url"
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
