@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.7.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.6.1...@howardism/blog@2.7.0) (2023-02-26)
+
+### ♻ Code Refactoring
+
+- **resume**: add markdown support for descriptions ([280b95f](https://github.com/Howard86/howardism/commit/280b95f))
+
+### ✨ Features
+
+- **resume**: add companyUrl, companyDescription in db & form ([1a7fc98](https://github.com/Howard86/howardism/commit/1a7fc98))
+
+### 🎫 Chores
+
+- fix prettier format ([09fcbb0](https://github.com/Howard86/howardism/commit/09fcbb0))
+
 ## [2.6.1](https://github.com/Howard86/howardism/compare/@howardism/blog@2.6.0...@howardism/blog@2.6.1) (2023-02-24)
 
 ### 🎫 Chores
