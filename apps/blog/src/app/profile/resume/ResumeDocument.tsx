@@ -1,8 +1,8 @@
 "use client"
 
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
+import { Document, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 import dynamic from "next/dynamic"
-import { ReactNode } from "react"
+import type { ReactNode } from "react"
 
 import ResumeContact, { ResumeIconType } from "./ResumeContactList"
 import { ResumeSchema } from "./schema"
@@ -113,6 +113,24 @@ function SectionItemDescription({ descriptions }: SectionItemDescriptionProps) {
   )
 }
 
+interface CompanyTitleProps {
+  href?: string
+  name: string
+  subtitle?: string
+}
+
+function CompanyTitle({ href, name, subtitle }: CompanyTitleProps) {
+  return (
+    <View style={styles.flexCenter}>
+      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}>
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+        {href ? <Link src={href}>{name}</Link> : name}
+      </Text>
+      {subtitle && <Text style={{ fontFamily: "Times-Italic", marginLeft: 4 }}> — {subtitle}</Text>}
+    </View>
+  )
+}
+
 export default function ResumeDocument({
   name,
   summary,
@@ -171,9 +189,11 @@ export default function ResumeDocument({
                     style={styles.sectionItemContainer}
                   >
                     <View style={styles.flexBetween}>
-                      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}>
-                        {experience.company}
-                      </Text>
+                      <CompanyTitle
+                        href={experience.companyUrl}
+                        name={experience.company}
+                        subtitle={experience.companyDescription}
+                      />
                       <Text>
                         {convertDateString(experience.startDate)} -{" "}
                         {experience.endDate ? convertDateString(experience.endDate) : "Present"}

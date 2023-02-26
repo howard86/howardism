@@ -55,6 +55,9 @@ export const DEFAULT_RESUME_FORM: ResumeSchema = {
       startDate: "2023-01-01",
       endDate: "",
       items: "",
+      companyUrl: "",
+      companyDescription: "",
+      description: "",
     },
   ],
 
@@ -66,6 +69,7 @@ export const DEFAULT_RESUME_FORM: ResumeSchema = {
       startDate: "",
       endDate: "",
       items: "",
+      description: "",
     },
   ],
 
@@ -74,6 +78,7 @@ export const DEFAULT_RESUME_FORM: ResumeSchema = {
       title: "",
       subtitle: "",
       items: "",
+      description: "",
     },
   ],
 
@@ -232,6 +237,21 @@ export default function ResumeForm({
                       errors={errors}
                       name={`experiences.${index}.company`}
                       label="Company Name"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      errors={errors}
+                      name={`experiences.${index}.companyDescription`}
+                      label="Company Description"
+                    />
+                    <FormInput
+                      className="col-span-6 sm:col-span-3"
+                      register={register}
+                      errors={errors}
+                      name={`experiences.${index}.companyUrl`}
+                      label="Company Url"
+                      type="url"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"

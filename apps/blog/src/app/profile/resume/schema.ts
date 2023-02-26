@@ -1,7 +1,8 @@
 import { z } from "zod"
 
+const emptyString = z.literal("")
 const optionalNumber = z.number().optional()
-const optionalString = z.string().optional()
+const optionalString = z.string().optional().or(emptyString)
 const requiredString = z.string().min(1, { message: "This field is required" })
 const requiredDate = z
   .string()
@@ -10,12 +11,15 @@ const requiredDate = z
 export const experienceSchema = z.object({
   id: optionalString,
   company: requiredString,
+  companyUrl: z.string().url().or(emptyString),
+  companyDescription: optionalString,
   location: requiredString,
   title: requiredString,
   size: requiredString,
   startDate: requiredDate,
-  endDate: requiredDate.or(z.string().regex(/^$/)),
+  endDate: requiredDate.or(emptyString),
   items: requiredString,
+  description: optionalString,
 })
 
 export type ExperienceSchema = z.infer<typeof experienceSchema>
@@ -26,6 +30,7 @@ export const projectSchema = z.object({
   subtitle: requiredString,
   items: requiredString,
   ordering: optionalNumber,
+  description: optionalString,
 })
 
 export type ProjectSchema = z.infer<typeof projectSchema>
@@ -38,6 +43,7 @@ export const educationSchema = z.object({
   startDate: requiredDate,
   endDate: requiredDate,
   items: requiredString,
+  description: optionalString,
 })
 
 export type EducationSchema = z.infer<typeof educationSchema>

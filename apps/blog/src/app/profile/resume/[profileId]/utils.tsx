@@ -44,33 +44,38 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   position: resume.position,
   summary: resume.summary,
 
-  experiences: resume.experiences.map((experience) => ({
-    id: experience.id,
-    company: experience.company,
-    location: experience.location,
-    title: experience.title,
-    size: experience.size,
-    startDate: generateDateISOString(experience.startDate),
-    endDate: generateDateISOString(experience.endDate),
-    items: generateArrayStrings(experience.responsibilities),
+  experiences: resume.experiences.map((item) => ({
+    id: item.id,
+    company: item.company,
+    companyUrl: item.companyUrl || "",
+    companyDescription: item.companyDescription || "",
+    location: item.location,
+    title: item.title,
+    size: item.size,
+    startDate: generateDateISOString(item.startDate),
+    endDate: generateDateISOString(item.endDate),
+    items: generateArrayStrings(item.responsibilities),
+    description: item.description || "",
   })),
 
-  projects: resume.projects.map((project) => ({
-    id: project.id,
-    title: project.title,
-    subtitle: project.subtitle,
-    items: generateArrayStrings(project.descriptions),
-    ordering: project.ordering,
+  projects: resume.projects.map((item) => ({
+    id: item.id,
+    title: item.title,
+    subtitle: item.subtitle,
+    items: generateArrayStrings(item.descriptions),
+    ordering: item.ordering,
+    description: item.description || "",
   })),
 
-  educations: resume.educations.map((education) => ({
-    id: education.id,
-    facility: education.facility,
-    degree: education.degree,
-    location: education.location,
-    startDate: generateDateISOString(education.startDate),
-    endDate: generateDateISOString(education.endDate),
-    items: generateArrayStrings(education.subjects),
+  educations: resume.educations.map((item) => ({
+    id: item.id,
+    facility: item.facility,
+    degree: item.degree,
+    location: item.location,
+    startDate: generateDateISOString(item.startDate),
+    endDate: generateDateISOString(item.endDate),
+    items: generateArrayStrings(item.subjects),
+    description: item.description || "",
   })),
 
   skills: resume.skills.map((skill) => ({
