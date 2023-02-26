@@ -23,30 +23,35 @@ import { authOptions } from "./auth/[...nextauth]"
 
 const router = new RouterBuilder()
 
-const mapExperienceInput = (experience: ExperienceSchema) => ({
-  company: experience.company,
-  location: experience.location,
-  title: experience.title,
-  size: experience.size,
-  startDate: new Date(experience.startDate),
-  endDate: experience.endDate ? new Date(experience.endDate) : undefined,
-  responsibilities: generateStringArray(experience.items),
+const mapExperienceInput = (item: ExperienceSchema) => ({
+  company: item.company,
+  companyUrl: item.companyUrl,
+  companyDescription: item.companyDescription,
+  location: item.location,
+  title: item.title,
+  size: item.size,
+  startDate: new Date(item.startDate),
+  endDate: item.endDate ? new Date(item.endDate) : undefined,
+  responsibilities: generateStringArray(item.items),
+  description: item.description,
 })
 
-const mapEducationInput = (education: EducationSchema) => ({
-  facility: education.facility,
-  degree: education.degree,
-  location: education.location,
-  startDate: new Date(education.startDate),
-  endDate: new Date(education.endDate),
-  subjects: generateStringArray(education.items),
+const mapEducationInput = (item: EducationSchema) => ({
+  facility: item.facility,
+  degree: item.degree,
+  location: item.location,
+  startDate: new Date(item.startDate),
+  endDate: new Date(item.endDate),
+  subjects: generateStringArray(item.items),
+  description: item.description,
 })
 
-const mapProjectInput = (project: ProjectSchema, index: number) => ({
-  title: project.title,
-  subtitle: project.subtitle,
-  descriptions: generateStringArray(project.items),
-  ordering: project.ordering ?? index,
+const mapProjectInput = (item: ProjectSchema, index: number) => ({
+  title: item.title,
+  subtitle: item.subtitle,
+  descriptions: generateStringArray(item.items),
+  ordering: item.ordering ?? index,
+  description: item.description,
 })
 
 const mapSkillInput = (skill: SkillSchema, index: number) => ({

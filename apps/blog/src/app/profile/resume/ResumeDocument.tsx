@@ -1,12 +1,13 @@
 "use client"
 
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
+import { Document, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 import dynamic from "next/dynamic"
-import { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
+import ReactMarkdown from "react-markdown"
 
 import ResumeContact, { ResumeIconType } from "./ResumeContactList"
 import { ResumeSchema } from "./schema"
-import { convertDateString, generateStringArray } from "./utils"
+import { convertDateString } from "./utils"
 
 const DynamicPDFViewer = dynamic(
   () => import("@react-pdf/renderer").then((module) => module.PDFViewer),
@@ -95,20 +96,41 @@ function SectionContainer({ title, children }: SectionContainerProps) {
   )
 }
 
-interface SectionItemDescriptionProps {
-  descriptions: string
+interface ResumeMarkdownDescriptionProps {
+  content: string
 }
 
-function SectionItemDescription({ descriptions }: SectionItemDescriptionProps) {
+const markdownComponents: ComponentProps<typeof ReactMarkdown>["components"] = {
+  p: ({ children }) => <Text>{children}</Text>,
+  ul: ({ children }) => <View>{children}</View>,
+  li: ({ children }) => (
+    <View style={styles.sectionItemDescription}>
+      <Text style={styles.sectionItemDescriptionSymbol}>•</Text>
+      <Text>{children}</Text>
+    </View>
+  ),
+  // eslint-disable-next-line jsx-a11y/anchor-is-valid
+  a: ({ children, href }) => (href ? <Link src={href}>{children}</Link> : <Text>{children}</Text>),
+}
+
+function ResumeMarkdownDescription({ content }: ResumeMarkdownDescriptionProps) {
+  return <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+}
+
+interface CompanyTitleProps {
+  href?: string
+  name: string
+  subtitle?: string
+}
+
+function CompanyTitle({ href, name, subtitle }: CompanyTitleProps) {
   return (
-    <View>
-      {generateStringArray(descriptions).map((item, index) => (
-        // eslint-disable-next-line react/no-array-index-key
-        <View style={styles.sectionItemDescription} key={item + index}>
-          <Text style={styles.sectionItemDescriptionSymbol}>•</Text>
-          <Text>{item}</Text>
-        </View>
-      ))}
+    <View style={styles.flexCenter}>
+      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}>
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+        {href ? <Link src={href}>{name}</Link> : name}
+      </Text>
+      {subtitle && <Text style={{ fontFamily: "Times-Italic", marginLeft: 4 }}> — {subtitle}</Text>}
     </View>
   )
 }
@@ -171,9 +193,11 @@ export default function ResumeDocument({
                     style={styles.sectionItemContainer}
                   >
                     <View style={styles.flexBetween}>
-                      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}>
-                        {experience.company}
-                      </Text>
+                      <CompanyTitle
+                        href={experience.companyUrl}
+                        name={experience.company}
+                        subtitle={experience.companyDescription}
+                      />
                       <Text>
                         {convertDateString(experience.startDate)} -{" "}
                         {experience.endDate ? convertDateString(experience.endDate) : "Present"}
@@ -188,7 +212,9 @@ export default function ResumeDocument({
                       </View>
                       <Text style={{ fontFamily: "Times-Italic" }}>{experience.location}</Text>
                     </View>
-                    <SectionItemDescription descriptions={experience.items} />
+                    {experience.description && (
+                      <ResumeMarkdownDescription content={experience.description} />
+                    )}
                   </View>
                 ))}
               </SectionContainer>
@@ -214,7 +240,9 @@ export default function ResumeDocument({
                         {convertDateString(education.endDate)}
                       </Text>
                     </View>
-                    <SectionItemDescription descriptions={education.items} />
+                    {education.description && (
+                      <ResumeMarkdownDescription content={education.description} />
+                    )}
                   </View>
                 ))}
               </SectionContainer>
@@ -232,7 +260,9 @@ export default function ResumeDocument({
                       </Text>
                       <Text>— {project.subtitle}</Text>
                     </View>
-                    <SectionItemDescription descriptions={project.items} />
+                    {project.description && (
+                      <ResumeMarkdownDescription content={project.description} />
+                    )}
                   </View>
                 ))}
               </SectionContainer>

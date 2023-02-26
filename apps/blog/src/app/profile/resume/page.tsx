@@ -19,6 +19,7 @@ export default function ResumeSamplePage() {
         experiences={[
           {
             company: "Company A",
+            companyUrl: "",
             location: "Remote",
             title: "Senior Software Engineer",
             size: "30",
@@ -28,6 +29,7 @@ export default function ResumeSamplePage() {
           },
           {
             company: "Company B",
+            companyUrl: "",
             location: "Anywhere",
             title: "Software Engineer",
             size: "100-110",
