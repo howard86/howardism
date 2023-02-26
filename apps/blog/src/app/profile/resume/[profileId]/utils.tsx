@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client"
 import { redirect } from "next/navigation"
 import { unstable_getServerSession } from "next-auth"
 
@@ -29,6 +30,9 @@ export async function getResumeById(profileId: string) {
   return resume
 }
 
+const convertStringArrayToMarkdownList = (items: Prisma.JsonValue): string =>
+  Array.isArray(items) ? items.map((item) => `- ${item}`).join("\n") : ""
+
 export type RawResume = Awaited<ReturnType<typeof getResumeById>>
 
 export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
@@ -55,7 +59,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     startDate: generateDateISOString(item.startDate),
     endDate: generateDateISOString(item.endDate),
     items: generateArrayStrings(item.responsibilities),
-    description: item.description || "",
+    description: item.description || convertStringArrayToMarkdownList(item.responsibilities),
   })),
 
   projects: resume.projects.map((item) => ({
@@ -64,7 +68,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     subtitle: item.subtitle,
     items: generateArrayStrings(item.descriptions),
     ordering: item.ordering,
-    description: item.description || "",
+    description: item.description || convertStringArrayToMarkdownList(item.descriptions),
   })),
 
   educations: resume.educations.map((item) => ({
@@ -75,7 +79,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     startDate: generateDateISOString(item.startDate),
     endDate: generateDateISOString(item.endDate),
     items: generateArrayStrings(item.subjects),
-    description: item.description || "",
+    description: item.description || convertStringArrayToMarkdownList(item.subjects),
   })),
 
   skills: resume.skills.map((skill) => ({

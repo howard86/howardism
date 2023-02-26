@@ -18,7 +18,7 @@ export const experienceSchema = z.object({
   size: requiredString,
   startDate: requiredDate,
   endDate: requiredDate.or(emptyString),
-  items: requiredString,
+  items: optionalString,
   description: optionalString,
 })
 
@@ -28,7 +28,7 @@ export const projectSchema = z.object({
   id: optionalString,
   title: requiredString,
   subtitle: requiredString,
-  items: requiredString,
+  items: optionalString,
   ordering: optionalNumber,
   description: optionalString,
 })
@@ -42,7 +42,7 @@ export const educationSchema = z.object({
   location: requiredString,
   startDate: requiredDate,
   endDate: requiredDate,
-  items: requiredString,
+  items: optionalString,
   description: optionalString,
 })
 

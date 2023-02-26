@@ -294,8 +294,9 @@ export default function ResumeForm({
                       className="col-span-6"
                       register={register}
                       errors={errors}
-                      name={`experiences.${index}.items`}
-                      label="Description"
+                      name={`experiences.${index}.description`}
+                      label="Description in Markdown format"
+                      helperText="To create a list, start writing with -"
                     />
                   </>
                 )}
@@ -352,8 +353,9 @@ export default function ResumeForm({
                       className="col-span-6"
                       register={register}
                       errors={errors}
-                      name={`educations.${index}.items`}
-                      label="Description"
+                      name={`educations.${index}.description`}
+                      label="Description in Markdown format"
+                      helperText="To create a list, start writing with -"
                     />
                   </>
                 )}
@@ -387,8 +389,9 @@ export default function ResumeForm({
                       className="col-span-6"
                       register={register}
                       errors={errors}
-                      name={`projects.${index}.items`}
-                      label="Description"
+                      name={`projects.${index}.description`}
+                      label="Description in Markdown format"
+                      helperText="To create a list, start writing with -"
                     />
                   </>
                 )}
