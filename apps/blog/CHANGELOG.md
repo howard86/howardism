@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.1](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.0...@howardism/blog@2.7.1) (2023-02-27)
+
+### 📝 Documentation
+
+- add linked list post ([da5b5ff](https://github.com/Howard86/howardism/commit/da5b5ff))
+
 # [2.7.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.6.1...@howardism/blog@2.7.0) (2023-02-26)
 
 ### ♻ Code Refactoring
