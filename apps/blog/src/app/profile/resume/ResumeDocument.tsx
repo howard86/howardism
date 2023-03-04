@@ -206,9 +206,11 @@ export default function ResumeDocument({
                     <View style={styles.flexBetween}>
                       <View style={styles.flexCenter}>
                         <Text>{experience.title}</Text>
-                        <Text style={{ fontFamily: "Times-Italic", marginLeft: 2, fontSize: 10 }}>
-                          — team size: {experience.size}
-                        </Text>
+                        {experience.size && (
+                          <Text style={{ fontFamily: "Times-Italic", marginLeft: 2, fontSize: 10 }}>
+                            — team size: {experience.size}
+                          </Text>
+                        )}
                       </View>
                       <Text style={{ fontFamily: "Times-Italic" }}>{experience.location}</Text>
                     </View>

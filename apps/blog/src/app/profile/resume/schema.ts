@@ -15,7 +15,7 @@ export const experienceSchema = z.object({
   companyDescription: optionalString,
   location: requiredString,
   title: requiredString,
-  size: requiredString,
+  size: optionalString,
   startDate: requiredDate,
   endDate: requiredDate.or(emptyString),
   items: optionalString,

@@ -55,7 +55,7 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     companyDescription: item.companyDescription || "",
     location: item.location,
     title: item.title,
-    size: item.size,
+    size: item.size || "",
     startDate: generateDateISOString(item.startDate),
     endDate: generateDateISOString(item.endDate),
     items: generateArrayStrings(item.responsibilities),
