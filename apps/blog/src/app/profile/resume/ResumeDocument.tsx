@@ -157,20 +157,20 @@ export default function ResumeDocument({
         title="Resume"
       >
         <Page size="A4" style={styles.page} wrap>
-          <View style={styles.flexBetween}>
-            <View style={{ width: "100%" }}>
-              <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold" }}>{name}</Text>
-              <Text style={{ marginTop: 4 }}>{summary}</Text>
-            </View>
-            <View style={{ width: 160, marginLeft: 20 }}>
-              <ResumeContact type={ResumeIconType.address} content={address} />
-              <ResumeContact type={ResumeIconType.phone} content={phone} />
-              <ResumeContact type={ResumeIconType.email} content={email} />
-              <ResumeContact type={ResumeIconType.github} content={github} />
-              <ResumeContact type={ResumeIconType.website} content={website} />
-            </View>
-          </View>
           <View wrap={false}>
+            <View style={styles.flexBetween}>
+              <View style={{ width: "100%" }}>
+                <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold" }}>{name}</Text>
+                <Text style={{ marginTop: 4 }}>{summary}</Text>
+              </View>
+              <View style={{ width: 160, marginLeft: 20 }}>
+                <ResumeContact type={ResumeIconType.address} content={address} />
+                <ResumeContact type={ResumeIconType.phone} content={phone} />
+                <ResumeContact type={ResumeIconType.email} content={email} />
+                <ResumeContact type={ResumeIconType.github} content={github} />
+                <ResumeContact type={ResumeIconType.website} content={website} />
+              </View>
+            </View>
             {skills.length > 0 && (
               <SectionContainer title="Skill">
                 {skills.map((skill) => (
