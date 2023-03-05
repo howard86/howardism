@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.2](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.1...@howardism/blog@2.7.2) (2023-03-05)
+
+### ♻ Code Refactoring
+
+- make resume experience size field optional ([418bdac](https://github.com/Howard86/howardism/commit/418bdac))
+
 ## [2.7.1](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.0...@howardism/blog@2.7.1) (2023-02-27)
 
 ### 📝 Documentation
