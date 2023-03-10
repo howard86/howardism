@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.3](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.2...@howardism/blog@2.7.3) (2023-03-10)
+
+### 🎫 Chores
+
+- fix bugs caused by version changed ([643b28c](https://github.com/Howard86/howardism/commit/643b28c))
+- **packages**: bump all dependencies to the latest ([a69c6ba](https://github.com/Howard86/howardism/commit/a69c6ba))
+
 ## [2.7.2](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.1...@howardism/blog@2.7.2) (2023-03-05)
 
 ### ♻ Code Refactoring
