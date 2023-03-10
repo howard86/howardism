@@ -2,7 +2,6 @@
 import * as Types from "../generated/types"
 
 import { GraphQLClient } from "graphql-request"
-import * as Dom from "graphql-request/dist/types.dom"
 import gql from "graphql-tag"
 export type GetHomePageQueryVariables = Types.Exact<{ [key: string]: never }>
 
@@ -16,11 +15,7 @@ export type GetHomePageQuery = {
         __typename?: "AboutSection"
         interest_title?: string
         introduction?: string
-        section?: {
-          __typename?: "ComponentComponentSection"
-          title?: string
-          description?: string
-        }
+        section?: { __typename?: "ComponentComponentSection"; title?: string; description?: string }
         profile?: {
           __typename?: "UploadFileEntityResponse"
           data?: {
@@ -45,11 +40,7 @@ export type GetHomePageQuery = {
       __typename?: "ExperienceSectionEntity"
       attributes?: {
         __typename?: "ExperienceSection"
-        section?: {
-          __typename?: "ComponentComponentSection"
-          title?: string
-          description?: string
-        }
+        section?: { __typename?: "ComponentComponentSection"; title?: string; description?: string }
         side_projects?: {
           __typename?: "SideProjectRelationResponseCollection"
           data: Array<{
@@ -117,11 +108,7 @@ export type GetHomePageQuery = {
       __typename?: "ResourceSectionEntity"
       attributes?: {
         __typename?: "ResourceSection"
-        section?: {
-          __typename?: "ComponentComponentSection"
-          title?: string
-          description?: string
-        }
+        section?: { __typename?: "ComponentComponentSection"; title?: string; description?: string }
         books?: {
           __typename?: "BookRelationResponseCollection"
           data: Array<{
@@ -315,7 +302,7 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
   return {
     GetHomePage(
       variables?: GetHomePageQueryVariables,
-      requestHeaders?: Dom.RequestInit["headers"]
+      requestHeaders?: RequestInit["headers"]
     ): Promise<GetHomePageQuery> {
       return withWrapper(
         (wrappedRequestHeaders) =>
