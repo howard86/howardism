@@ -31,7 +31,7 @@ export default function HomeSection() {
         <Image
           alt="lakeside views"
           src={coverPhoto}
-          className="object-cover object-[38%_bottom] brightness-75 dark:brightness-50"
+          className="h-auto max-w-full object-cover object-[38%_bottom] brightness-75 dark:brightness-50"
           fill
           priority
         />
