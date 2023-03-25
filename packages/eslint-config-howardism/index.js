@@ -40,6 +40,7 @@ module.exports = {
         ignorePropertyModificationsFor: ["state", "req"],
       },
     ],
+    "no-plusplus": [2, { allowForLoopAfterthoughts: true }],
     "no-restricted-syntax": [2, "ForInStatement", "LabeledStatement", "WithStatement"],
     "no-underscore-dangle": 0,
     "global-require": 0,

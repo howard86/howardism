@@ -13,8 +13,7 @@ export default function Provider({ children }: ChildrenProps) {
   )
 }
 
-const customRender = (ui: ReactElement, options?: Omit<RenderOptions, "quries">): RenderResult =>
-  render(ui, { wrapper: Provider, ...options })
-
-export * from "@testing-library/react"
-export { customRender as render }
+export const customRender = (
+  ui: ReactElement,
+  options?: Omit<RenderOptions, "queries">
+): RenderResult => render(ui, { wrapper: Provider, ...options })
