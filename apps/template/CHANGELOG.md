@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.8](https://github.com/Howard86/howardism/compare/@howardism/template@0.1.7...@howardism/template@0.1.8) (2023-03-26)
+
+### 🎫 Chores
+
+- **packages**: bump all dependencies to the latest ([a69c6ba](https://github.com/Howard86/howardism/commit/a69c6ba))
+- **packages**: bump all dependencies to the latest ([5b6fd06](https://github.com/Howard86/howardism/commit/5b6fd06))
+
+### 🐛 Bug Fixes
+
+- fix eslint errors & jest with react-testing-library ([b0918c2](https://github.com/Howard86/howardism/commit/b0918c2))
+
 ## [0.1.7](https://github.com/Howard86/howardism/compare/@howardism/template@0.1.5...@howardism/template@0.1.7) (2023-01-02)
 
 ### 🎫 Chores

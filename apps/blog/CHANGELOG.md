@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.4](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.3...@howardism/blog@2.7.4) (2023-03-26)
+
+### 🐛 Bug Fixes
+
+- fix eslint errors & jest with react-testing-library ([b0918c2](https://github.com/Howard86/howardism/commit/b0918c2))
+- update next/image props with codmod ([ee4c411](https://github.com/Howard86/howardism/commit/ee4c411))
+
 ## [2.7.3](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.2...@howardism/blog@2.7.3) (2023-03-10)
 
 ### 🎫 Chores

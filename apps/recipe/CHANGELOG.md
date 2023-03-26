@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.6.6](https://github.com/Howard86/howardism/compare/@howardism/recipe@0.6.5...@howardism/recipe@0.6.6) (2023-03-26)
+
+### 🎫 Chores
+
+- **packages**: bump all dependencies to the latest ([a69c6ba](https://github.com/Howard86/howardism/commit/a69c6ba))
+
+### 🐛 Bug Fixes
+
+- fix eslint errors & jest with react-testing-library ([b0918c2](https://github.com/Howard86/howardism/commit/b0918c2))
+
 ## [0.6.5](https://github.com/Howard86/howardism/compare/@howardism/recipe@0.6.4...@howardism/recipe@0.6.5) (2023-02-24)
 
 ### 🎫 Chores
