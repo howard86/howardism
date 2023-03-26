@@ -9,9 +9,12 @@ module.exports = {
     "airbnb-typescript",
     "airbnb/hooks",
     "plugin:@next/next/recommended",
-    "turbo",
     "prettier",
   ],
+  parserOptions: {
+    tsconfigRootDir: process.cwd(),
+    project: "./tsconfig.eslint.json",
+  },
   env: {
     es6: true,
     browser: true,
