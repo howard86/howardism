@@ -1,10 +1,16 @@
-import Home from "@/pages/index"
+import { render, screen } from "@testing-library/react"
+import Home from "@/pages"
 
-import { render } from "../testUtils"
+describe("home", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
 
-describe("Home page", () => {
-  it("matches snapshot", () => {
-    const { asFragment } = render(<Home />, {})
-    expect(asFragment()).toMatchSnapshot()
+  it("renders the dynamic component", async () => {
+    expect.hasAssertions()
+
+    render(<Home />)
+    const dynamicComponent = await screen.findByTestId("dynamic-component")
+    expect(dynamicComponent).toBeInTheDocument()
   })
 })

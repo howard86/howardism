@@ -44,7 +44,7 @@ export default function AboutSection({ data }: AboutSectionProps) {
           <Image
             alt="github profile photo"
             src={profilePicture}
-            className="overflow-hidden rounded-sm"
+            className="h-auto max-w-full overflow-hidden rounded-sm"
           />
         </SlideBox>
         <div>
