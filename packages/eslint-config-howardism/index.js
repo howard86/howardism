@@ -1,3 +1,5 @@
+const path = require("node:path")
+
 /** @type{import('eslint').ESLint.ConfigData} */
 module.exports = {
   root: true,
@@ -12,7 +14,7 @@ module.exports = {
     "prettier",
   ],
   parserOptions: {
-    tsconfigRootDir: process.cwd(),
+    tsconfigRootDir: path.join(__dirname, "../.."),
     project: "./tsconfig.eslint.json",
   },
   env: {
