@@ -1,6 +1,6 @@
-const { loadEnvConfig } = require("@next/env")
 const fs = require("fs")
 const path = require("path")
+const { loadEnvConfig } = require("@next/env")
 
 const dir = process.cwd()
 loadEnvConfig(dir)

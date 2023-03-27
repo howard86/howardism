@@ -14,8 +14,14 @@ import ModeToggle from "./ModeToggle"
 export const HEADER_OFFSET = 80
 
 export default function Header1() {
-  const isScrolled = useHasScrolled({ offsetPx: HEADER_OFFSET, throttleMs: 300 })
-  const activeSectionId = useScrollSpy({ sectionIds: SECTION_IDS, offsetPx: HEADER_OFFSET })
+  const isScrolled = useHasScrolled({
+    offsetPx: HEADER_OFFSET,
+    throttleMs: 300,
+  })
+  const activeSectionId = useScrollSpy({
+    sectionIds: SECTION_IDS,
+    offsetPx: HEADER_OFFSET,
+  })
 
   return (
     <header

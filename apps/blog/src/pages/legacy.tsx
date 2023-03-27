@@ -7,7 +7,6 @@ import AboutSection from "@/components/sections/AboutSection"
 import ExperienceSection from "@/components/sections/ExprienceSection"
 import HomeSection from "@/components/sections/HomeSection"
 import ResourceSection from "@/components/sections/ResourceSection"
-import cms from "@/services/cms"
 import { generateRssFeed } from "@/services/feed"
 import { GetHomePageQuery } from "@/services/query.generated"
 
@@ -16,6 +15,13 @@ export default function Home({
   experienceSection,
   resourceSection,
 }: GetHomePageQuery): JSX.Element {
+  if (process.env.NODE_ENV !== "development")
+    return (
+      <div>
+        <h1>Legacy</h1>
+      </div>
+    )
+
   return (
     <>
       <div className="fixed inset-0 flex justify-center sm:px-8">
@@ -36,10 +42,16 @@ export default function Home({
   )
 }
 
-export const getStaticProps = async (): Promise<GetStaticPropsResult<GetHomePageQuery>> => {
+export const getStaticProps = async (): Promise<
+  GetStaticPropsResult<Partial<GetHomePageQuery>>
+> => {
   if (process.env.NODE_ENV === "production") await generateRssFeed()
 
-  const props = await cms.GetHomePage()
+  if (process.env.NODE_ENV === "development") {
+    const cms = await import("@/services/cms").then((m) => m.default)
 
-  return { props }
+    return { props: await cms.GetHomePage() }
+  }
+
+  return { props: {} }
 }

@@ -53,7 +53,10 @@ const reducer = (state: SudokuState, action: SudokuAction): SudokuState => {
         return state
       }
 
-      return { ...state, selected: state.selected === action.payload ? -1 : action.payload }
+      return {
+        ...state,
+        selected: state.selected === action.payload ? -1 : action.payload,
+      }
     }
 
     case "update": {
