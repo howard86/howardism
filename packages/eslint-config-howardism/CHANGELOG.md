@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.1.0](https://github.com/Howard86/howardism/compare/eslint-config-howardism@0.0.1...eslint-config-howardism@0.1.0) (2023-03-27)
+
+### ✨ Features
+
+- **eslint**: add sort plugins and update eslint rules ([41ecac8](https://github.com/Howard86/howardism/commit/41ecac8))
+
 ## 0.0.1 (2023-03-26)
 
 ### ♻ Code Refactoring

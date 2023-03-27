@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.7](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.6...@howardism/blog@2.7.7) (2023-03-27)
+
+### 🎫 Chores
+
+- **blog**: remove calling cms api when building /legacy page fon prod ([87ed3da](https://github.com/Howard86/howardism/commit/87ed3da))
+- remove unused configs & mocks ([c8d3b68](https://github.com/Howard86/howardism/commit/c8d3b68))
+- run formater & eslint ([26bd122](https://github.com/Howard86/howardism/commit/26bd122))
+
 ## [2.7.6](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.5...@howardism/blog@2.7.6) (2023-03-27)
 
 ### ♻ Code Refactoring
