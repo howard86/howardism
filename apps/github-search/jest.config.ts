@@ -1,7 +1,3 @@
-import nextJest from "next/jest"
+import { nextjs } from "@howardism/jest-config"
 
-import rootConfig from "../../jest.config"
-
-const createJestConfig = nextJest({ dir: "./" })
-
-export default createJestConfig(rootConfig)
+export default nextjs
