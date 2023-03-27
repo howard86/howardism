@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.5](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.4...@howardism/blog@2.7.5) (2023-03-27)
+
+### 🎫 Chores
+
+- update all projects tsconfig ([49bfcab](https://github.com/Howard86/howardism/commit/49bfcab))
+
 ## [2.7.4](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.3...@howardism/blog@2.7.4) (2023-03-26)
 
 ### 🐛 Bug Fixes

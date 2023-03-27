@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.6.7](https://github.com/Howard86/howardism/compare/@howardism/recipe@0.6.6...@howardism/recipe@0.6.7) (2023-03-27)
+
+### 🎫 Chores
+
+- update all projects tsconfig ([49bfcab](https://github.com/Howard86/howardism/commit/49bfcab))
+
 ## [0.6.6](https://github.com/Howard86/howardism/compare/@howardism/recipe@0.6.5...@howardism/recipe@0.6.6) (2023-03-26)
 
 ### 🎫 Chores

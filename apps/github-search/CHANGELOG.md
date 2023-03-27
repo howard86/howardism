@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.11](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.10...@howardism/github-search@1.0.11) (2023-03-27)
+
+### 🎫 Chores
+
+- update all projects tsconfig ([49bfcab](https://github.com/Howard86/howardism/commit/49bfcab))
+
 ## [1.0.10](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.9...@howardism/github-search@1.0.10) (2023-03-26)
 
 ### 🎫 Chores
