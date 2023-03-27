@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.6.8](https://github.com/Howard86/howardism/compare/@howardism/recipe@0.6.7...@howardism/recipe@0.6.8) (2023-03-27)
+
+### ♻ Code Refactoring
+
+- clean up existed jest configs ([c7660dc](https://github.com/Howard86/howardism/commit/c7660dc))
+
 ## [0.6.7](https://github.com/Howard86/howardism/compare/@howardism/recipe@0.6.6...@howardism/recipe@0.6.7) (2023-03-27)
 
 ### 🎫 Chores

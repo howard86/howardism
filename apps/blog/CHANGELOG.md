@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.6](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.5...@howardism/blog@2.7.6) (2023-03-27)
+
+### ♻ Code Refactoring
+
+- clean up existed jest configs ([c7660dc](https://github.com/Howard86/howardism/commit/c7660dc))
+
 ## [2.7.5](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.4...@howardism/blog@2.7.5) (2023-03-27)
 
 ### 🎫 Chores

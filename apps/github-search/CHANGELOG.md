@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.12](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.11...@howardism/github-search@1.0.12) (2023-03-27)
+
+### ♻ Code Refactoring
+
+- clean up existed jest configs ([c7660dc](https://github.com/Howard86/howardism/commit/c7660dc))
+
 ## [1.0.11](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.10...@howardism/github-search@1.0.11) (2023-03-27)
 
 ### 🎫 Chores
