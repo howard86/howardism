@@ -207,7 +207,13 @@ export default function ResumeDocument({
                       <View style={styles.flexCenter}>
                         <Text>{experience.title}</Text>
                         {experience.size && (
-                          <Text style={{ fontFamily: "Times-Italic", marginLeft: 2, fontSize: 10 }}>
+                          <Text
+                            style={{
+                              fontFamily: "Times-Italic",
+                              marginLeft: 2,
+                              fontSize: 10,
+                            }}
+                          >
                             — team size: {experience.size}
                           </Text>
                         )}

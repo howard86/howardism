@@ -217,7 +217,10 @@ router
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
-          ? prisma.resumeProject.update({ where: { id }, data: { ...data, ordering: i } })
+          ? prisma.resumeProject.update({
+              where: { id },
+              data: { ...data, ordering: i },
+            })
           : prisma.resumeProject.create({ data: { profileId, ...data } })
       )
     }
@@ -245,7 +248,10 @@ router
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
-          ? prisma.resumeSkill.update({ where: { id }, data: { ...data, ordering: i } })
+          ? prisma.resumeSkill.update({
+              where: { id },
+              data: { ...data, ordering: i },
+            })
           : prisma.resumeSkill.create({ data: { profileId, ...data } })
       )
     }
@@ -273,7 +279,10 @@ router
 
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
-          ? prisma.resumeLanguage.update({ where: { id }, data: { ...data, ordering: i } })
+          ? prisma.resumeLanguage.update({
+              where: { id },
+              data: { ...data, ordering: i },
+            })
           : prisma.resumeLanguage.create({ data: { profileId, ...data } })
       )
     }
@@ -315,11 +324,19 @@ router
         company: resume.company,
         position: resume.position,
         summary: resume.summary,
-        experiences: { createMany: { data: resume.experiences.map(mapExperienceInput) } },
-        educations: { createMany: { data: resume.educations.map(mapEducationInput) } },
-        projects: { createMany: { data: resume.projects.map(mapProjectInput) } },
+        experiences: {
+          createMany: { data: resume.experiences.map(mapExperienceInput) },
+        },
+        educations: {
+          createMany: { data: resume.educations.map(mapEducationInput) },
+        },
+        projects: {
+          createMany: { data: resume.projects.map(mapProjectInput) },
+        },
         skills: { createMany: { data: resume.skills.map(mapSkillInput) } },
-        languages: { createMany: { data: resume.languages.map(mapLanguageInput) } },
+        languages: {
+          createMany: { data: resume.languages.map(mapLanguageInput) },
+        },
       },
     })
 

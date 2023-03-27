@@ -1,7 +1,8 @@
+import { screen } from "@testing-library/react"
 import MatchMediaMock from "jest-matchmedia-mock"
 
-import { screen } from "@testing-library/react"
 import HomePage from "@/pages/index"
+
 import { customRender } from "../test-utils"
 
 let matchMedia: MatchMediaMock

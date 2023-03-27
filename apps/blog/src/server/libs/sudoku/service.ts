@@ -1,4 +1,5 @@
 /* eslint-disable no-param-reassign */
+
 import { sampleSize } from "@/utils/array"
 
 import { SudokuDifficulty } from "./enum"
@@ -12,7 +13,9 @@ export enum SudokuStatus {
 
 const ITERATION_MAX_COUNT = 1000
 const DIMENSION = 9
-const INITIAL_INDEXES = Array.from<number>({ length: Sudoku.VALID_INPUT_LENGTH })
+const INITIAL_INDEXES = Array.from<number>({
+  length: Sudoku.VALID_INPUT_LENGTH,
+})
   .fill(0)
   .map((_, index) => index)
 
