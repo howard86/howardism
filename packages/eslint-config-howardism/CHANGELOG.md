@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.1](https://github.com/Howard86/howardism/compare/eslint-config-howardism@0.1.0...eslint-config-howardism@0.1.1) (2023-03-28)
+
+### 🎫 Chores
+
+- bump all depedencies to the latest except typescript ([c7b59db](https://github.com/Howard86/howardism/commit/c7b59db))
+- update package.json & published files ([e8afb5a](https://github.com/Howard86/howardism/commit/e8afb5a))
+
+### 📝 Documentation
+
+- add LICENSE to public packages ([2286f8d](https://github.com/Howard86/howardism/commit/2286f8d))
+- add README ([73fc478](https://github.com/Howard86/howardism/commit/73fc478))
+
 # [0.1.0](https://github.com/Howard86/howardism/compare/eslint-config-howardism@0.0.1...eslint-config-howardism@0.1.0) (2023-03-27)
 
 ### ✨ Features
