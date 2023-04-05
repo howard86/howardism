@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.8](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.7...@howardism/blog@2.7.8) (2023-04-05)
+
+### 🎫 Chores
+
+- bump all depedencies to the latest except typescript ([c7b59db](https://github.com/Howard86/howardism/commit/c7b59db))
+- fix incorrect page wrap ([1fbecb2](https://github.com/Howard86/howardism/commit/1fbecb2))
+
 ## [2.7.7](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.6...@howardism/blog@2.7.7) (2023-03-27)
 
 ### 🎫 Chores
