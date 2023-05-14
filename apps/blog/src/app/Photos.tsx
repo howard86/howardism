@@ -25,7 +25,7 @@ export default function Photos() {
             <Image
               src={image}
               alt={image.src}
-              className="absolute inset-0 h-auto w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
               sizes="(min-width: 640px) 18rem, 11rem"
             />
           </div>

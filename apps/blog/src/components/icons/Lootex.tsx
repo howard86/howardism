@@ -2,14 +2,7 @@ import { SVGProps } from "react-html-props"
 
 export default function LootexIcon(props: SVGProps) {
   return (
-    <svg
-      width="64"
-      height="65"
-      viewBox="0 0 64 65"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <svg width="64" height="65" viewBox="0 0 64 65" fill="none" {...props}>
       <mask
         id="mask0_1011_69"
         maskUnits="userSpaceOnUse"
