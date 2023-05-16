@@ -12,6 +12,7 @@ export const SECTION_KEYS = Object.keys(SectionId) as (keyof typeof SectionId)[]
 export enum NavSection {
   Home = "/",
   Articles = "/articles",
+  App = "/profile",
 }
 
 export const NAV_SECTION_KEYS = Object.keys(NavSection) as (keyof typeof NavSection)[]
