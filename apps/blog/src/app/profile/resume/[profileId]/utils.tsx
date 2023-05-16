@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client"
 import { redirect } from "next/navigation"
-import { unstable_getServerSession } from "next-auth"
+import { getServerSession } from "next-auth"
 
 import { authOptions } from "@/pages/api/auth/[...nextauth]"
 import prisma from "@/services/prisma"
@@ -9,7 +9,7 @@ import { generateArrayStrings, generateDateISOString } from "@/services/resume"
 import type { ResumeSchema } from "../schema"
 
 export async function getResumeById(profileId: string) {
-  const session = await unstable_getServerSession(authOptions)
+  const session = await getServerSession(authOptions)
 
   if (!session?.user?.email) redirect("/")
 

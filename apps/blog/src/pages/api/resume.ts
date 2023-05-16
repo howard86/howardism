@@ -5,7 +5,7 @@ import {
   RouterBuilder,
   UnauthorizedException,
 } from "next-api-handler"
-import { unstable_getServerSession } from "next-auth"
+import { getServerSession } from "next-auth"
 
 import {
   type EducationSchema,
@@ -82,7 +82,7 @@ type ResumeParserMiddleware = {
 
 router
   .use<AuthMiddleware>(async (req, res) => {
-    const session = await unstable_getServerSession(req, res, authOptions)
+    const session = await getServerSession(req, res, authOptions)
 
     if (session === null) throw new ForbiddenException("missing session")
 
