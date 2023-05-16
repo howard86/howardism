@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.9](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.8...@howardism/blog@2.7.9) (2023-05-16)
+
+### ♻ Code Refactoring
+
+- replace next.js head with meta api ([18dc19f](https://github.com/Howard86/howardism/commit/18dc19f))
+- use t3-oss/env-next to refactor env ([4848e59](https://github.com/Howard86/howardism/commit/4848e59))
+
+### 🎫 Chores
+
+- bump all depedencies to the latest ([a0f38f3](https://github.com/Howard86/howardism/commit/a0f38f3))
+- bump all depedencies to the latest again ([f1a04c6](https://github.com/Howard86/howardism/commit/f1a04c6))
+
+### 🐛 Bug Fixes
+
+- add missing required env vars in test environment ([dc14531](https://github.com/Howard86/howardism/commit/dc14531))
+- update image css ([f34f272](https://github.com/Howard86/howardism/commit/f34f272))
+
 ## [2.7.8](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.7...@howardism/blog@2.7.8) (2023-04-05)
 
 ### 🎫 Chores
