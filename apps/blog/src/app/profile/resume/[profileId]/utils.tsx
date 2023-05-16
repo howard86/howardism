@@ -1,6 +1,9 @@
+import "server-only"
+
 import type { Prisma } from "@prisma/client"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
+import { cache } from "react"
 
 import { authOptions } from "@/pages/api/auth/[...nextauth]"
 import prisma from "@/services/prisma"
@@ -8,7 +11,7 @@ import { generateArrayStrings, generateDateISOString } from "@/services/resume"
 
 import type { ResumeSchema } from "../schema"
 
-export async function getResumeById(profileId: string) {
+export const getResumeById = cache(async (profileId: string) => {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.email) redirect("/")
@@ -28,7 +31,7 @@ export async function getResumeById(profileId: string) {
   if (!resume || resume.applicant.email !== session.user.email) redirect("/profile")
 
   return resume
-}
+})
 
 const convertStringArrayToMarkdownList = (items: Prisma.JsonValue): string =>
   Array.isArray(items) ? items.map((item) => `- ${item}`).join("\n") : ""

@@ -3,6 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
+import { cache } from "react"
 
 import { Container } from "@/components/template/Container"
 import { authOptions } from "@/pages/api/auth/[...nextauth]"
@@ -27,14 +28,18 @@ function InfoField({ title, description }: InfoFieldProps) {
   )
 }
 
+const getResumeProfiles = cache(async (email: string) =>
+  prisma.resumeProfile.findMany({
+    where: { applicant: { email } },
+  })
+)
+
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.email) redirect("/")
 
-  const profiles = await prisma.resumeProfile.findMany({
-    where: { applicant: { email: session.user.email } },
-  })
+  const profiles = await getResumeProfiles(session.user.email)
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
