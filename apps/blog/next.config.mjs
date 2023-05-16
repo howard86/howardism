@@ -1,3 +1,5 @@
+import "./src/config/env.mjs"
+
 import rehypePrism from "@mapbox/rehype-prism"
 import nextBundleAnalyzer from "@next/bundle-analyzer"
 import nextMDX from "@next/mdx"
