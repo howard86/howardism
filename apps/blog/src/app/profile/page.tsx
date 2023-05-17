@@ -2,7 +2,8 @@ import { UserPlusIcon } from "@heroicons/react/24/outline"
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { unstable_getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth/next"
+import { cache } from "react"
 
 import { Container } from "@/components/template/Container"
 import { authOptions } from "@/pages/api/auth/[...nextauth]"
@@ -27,14 +28,18 @@ function InfoField({ title, description }: InfoFieldProps) {
   )
 }
 
+const getResumeProfiles = cache(async (email: string) =>
+  prisma.resumeProfile.findMany({
+    where: { applicant: { email } },
+  })
+)
+
 export default async function ProfilePage() {
-  const session = await unstable_getServerSession(authOptions)
+  const session = await getServerSession(authOptions)
 
   if (!session?.user?.email) redirect("/")
 
-  const profiles = await prisma.resumeProfile.findMany({
-    where: { applicant: { email: session.user.email } },
-  })
+  const profiles = await getResumeProfiles(session.user.email)
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
@@ -64,7 +69,7 @@ export default async function ProfilePage() {
                     {session.user.name}
                   </h1>
                 </div>
-                <div className="justify-stretch mt-6 flex flex-col space-y-3 sm:translate-y-2 sm:flex-row sm:space-y-0 sm:space-x-4">
+                <div className="mt-6 flex flex-col justify-stretch space-y-3 sm:translate-y-2 sm:flex-row sm:space-x-4 sm:space-y-0">
                   <Link className="button" href="/profile/resume/add">
                     <UserPlusIcon className="-ml-1 mr-2 h-5 w-5 text-zinc-400" aria-hidden="true" />
                     <span>Add Resume</span>
@@ -89,7 +94,7 @@ export default async function ProfilePage() {
           </dl>
 
           {profiles.length > 0 && (
-            <div className="mt-8 mb-2 overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <div className="mb-2 mt-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
               <table className="min-w-full divide-y divide-zinc-300">
                 <thead className="bg-zinc-50">
                   <tr>
