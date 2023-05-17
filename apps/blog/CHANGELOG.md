@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.7.10](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.9...@howardism/blog@2.7.10) (2023-05-17)
+
+### ♻ Code Refactoring
+
+- add react cache api for db call ([404dbd7](https://github.com/Howard86/howardism/commit/404dbd7))
+
+### 🎫 Chores
+
+- show /profile page for logged-in user ([7cbf418](https://github.com/Howard86/howardism/commit/7cbf418))
+
+### 🐛 Bug Fixes
+
+- replace next-auth deprecated api ([bd28060](https://github.com/Howard86/howardism/commit/bd28060))
+
 ## [2.7.9](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.8...@howardism/blog@2.7.9) (2023-05-16)
 
 ### ♻ Code Refactoring
