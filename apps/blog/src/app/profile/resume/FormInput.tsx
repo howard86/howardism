@@ -9,7 +9,9 @@ import type {
   RegisterOptions,
   UseFormRegister,
 } from "react-hook-form"
-import { type InputProps } from "react-html-props"
+
+import Input, { InputProps } from "@/components/form/Input"
+import Label from "@/components/form/Label"
 
 import { getAriaDescribedBy } from "./utils"
 
@@ -40,19 +42,10 @@ export default function FormInput<T extends FieldValues>({
 
   return (
     <div className={className}>
-      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-      <label htmlFor={name} className="block text-sm font-medium text-zinc-700">
-        {label}
-      </label>
-      <input
+      <Label htmlFor={name}>{label}</Label>
+      <Input
         id={name}
-        className={clsx(
-          isInvalid
-            ? "border-red-300 placeholder-red-300 focus:border-red-500"
-            : "border-zinc-300 focus:border-teal-500",
-          "mt-1 block w-full rounded-md border py-2 px-3 shadow-sm focus:outline-none focus:ring-0 sm:text-sm"
-        )}
-        aria-invalid={isInvalid ? "true" : undefined}
+        invalid={isInvalid}
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         {...register(name, options)}
         {...props}
