@@ -1,8 +1,13 @@
 "use client"
 
+import { zodResolver } from "@hookform/resolvers/zod"
 import { DiffEditor, DiffEditorProps, DiffOnMount, MonacoDiffEditor } from "@monaco-editor/react"
 import copy from "copy-to-clipboard"
 import { useRef, useState } from "react"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+
+import FormInput from "@/app/profile/resume/FormInput"
 
 interface HtmlEditorProps {
   html: string
@@ -38,7 +43,14 @@ type HtmlState = {
   keys: string[]
 }
 
+const editorSchema = z.object({
+  remoteUrl: z.string().url().optional(),
+})
+
 export default function HtmlEditor({ html }: HtmlEditorProps) {
+  const { register, setError, formState, handleSubmit } = useForm<z.infer<typeof editorSchema>>({
+    resolver: zodResolver(editorSchema),
+  })
   const [nodeState, setNodeState] = useState<HtmlState>({ html, map: {}, keys: [] })
 
   const htmlHistoryRef = useRef<string[]>([html])
@@ -165,7 +177,49 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
   }
 
   return (
-    <div className="text-slate-500">
+    <div className="space-y-4 text-slate-500">
+      <form
+        className="flex flex-col items-center justify-center gap-4"
+        onSubmit={handleSubmit(async (values) => {
+          if (!values.remoteUrl) return
+
+          const response = await fetch(`/api/proxy?url=${values.remoteUrl}`)
+
+          if (!response.ok && response.status >= 500) {
+            console.error(response)
+            setError("remoteUrl", {
+              type: "value",
+              message: "Something went wrong",
+            })
+            return
+          }
+
+          const { data, message } = await response.json()
+
+          if (!response.ok) {
+            setError("remoteUrl", {
+              type: "value",
+              message,
+            })
+
+            return
+          }
+
+          setNodeState((state) => ({ ...state, html: data }))
+        })}
+      >
+        <FormInput
+          className="w-full"
+          type="url"
+          register={register}
+          name="remoteUrl"
+          label="Remote URL"
+          errors={formState.errors}
+        />
+        <button className="button" type="submit" disabled={formState.isSubmitting}>
+          Fetch URL
+        </button>
+      </form>
       <div className="flex">
         <button type="button" className="button" onClick={handleFormat}>
           Format
