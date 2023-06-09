@@ -16,8 +16,6 @@ export async function GET(request: NextRequest) {
 
   const response = await fetch(url)
 
-  console.log("response :>> ", response)
-
   if (!response.ok)
     return NextResponse.json({ message: response.statusText }, { status: response.status })
 

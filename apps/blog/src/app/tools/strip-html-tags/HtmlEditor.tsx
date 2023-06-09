@@ -1,9 +1,12 @@
 "use client"
 
+/* eslint-disable jsx-a11y/label-has-associated-control */
+
 import { zodResolver } from "@hookform/resolvers/zod"
 import { DiffEditor, DiffEditorProps, DiffOnMount, MonacoDiffEditor } from "@monaco-editor/react"
+import * as Popover from "@radix-ui/react-popover"
 import copy from "copy-to-clipboard"
-import { useRef, useState } from "react"
+import { useRef } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
@@ -37,21 +40,30 @@ const EDITOR_OPTIONS = {
   formatOnType: true,
 } satisfies DiffEditorProps["options"]
 
-type HtmlState = {
-  html?: string
-  map: Record<string, number>
-  keys: string[]
-}
-
 const editorSchema = z.object({
+  html: z.string().optional(),
   remoteUrl: z.string().url().optional(),
+  selectedKeys: z.array(z.string()),
+  selectedKeyMap: z.record(z.string(), z.boolean().optional()),
+  attributeKeys: z.array(z.string()),
+  attributeMap: z.record(z.string(), z.number().optional()),
 })
 
 export default function HtmlEditor({ html }: HtmlEditorProps) {
-  const { register, setError, formState, handleSubmit } = useForm<z.infer<typeof editorSchema>>({
+  const { register, setError, getValues, setValue, formState, handleSubmit, watch } = useForm<
+    z.infer<typeof editorSchema>
+  >({
     resolver: zodResolver(editorSchema),
+    defaultValues: {
+      html,
+      remoteUrl: "",
+      selectedKeys: [],
+      selectedKeyMap: {},
+      attributeKeys: [],
+      attributeMap: {},
+    },
   })
-  const [nodeState, setNodeState] = useState<HtmlState>({ html, map: {}, keys: [] })
+  const controlledHtml = watch("html")
 
   const htmlHistoryRef = useRef<string[]>([html])
 
@@ -93,7 +105,31 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
       result[tag] = result[tag] ? result[tag] + 1 : 1
     })
 
-    setNodeState((state) => ({ ...state, keys: Object.keys(result).sort(), map: result }))
+    const keys = Object.keys(result).sort()
+
+    const selectedKeys = getValues("selectedKeys")
+    const selectedKeyMap = getValues("selectedKeyMap")
+
+    setValue(
+      "selectedKeys",
+      selectedKeys.length > 0 ? selectedKeys.filter((key) => result[key]) : keys
+    )
+
+    setValue(
+      "selectedKeyMap",
+      Object.keys(selectedKeyMap).length > 0
+        ? selectedKeyMap
+        : keys.reduce((acc, key) => {
+            // eslint-disable-next-line no-param-reassign
+            acc[key] = true
+
+            return acc
+          }, {} as Record<string, boolean>)
+    )
+
+    setValue("attributeKeys", keys)
+
+    setValue("attributeMap", result)
   }
 
   const handleReplaceImg = () => {
@@ -151,11 +187,15 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
     const parser = new DOMParser()
     const doc = parser.parseFromString(newHtml, "text/html")
 
-    const node = doc.getElementById("__NEXT_DATA__")
+    const selectedKeyMap = getValues("selectedKeyMap")
 
-    if (node) {
-      node.remove()
-    }
+    doc.querySelectorAll("*").forEach((node) => {
+      const tag = node.tagName.toLowerCase()
+
+      if (!selectedKeyMap[tag]) {
+        node.remove()
+      }
+    })
 
     editorRef.current.getModifiedEditor().setValue(doc.documentElement.outerHTML)
     handleFormat()
@@ -205,7 +245,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
             return
           }
 
-          setNodeState((state) => ({ ...state, html: data }))
+          setValue("html", data)
         })}
       >
         <FormInput
@@ -239,22 +279,39 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
         <button type="button" className="button" onClick={handleStripElement}>
           Strip element
         </button>
+        <Popover.Root>
+          <Popover.Trigger>
+            <button type="button" className="button">
+              {Object.keys(watch("selectedKeyMap")).length} attributes selected
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content className="space-y-4 rounded bg-slate-800 p-4 shadow">
+              {watch("attributeKeys").map((key) => (
+                <div key={key}>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      {...register(`selectedKeyMap.${key}`)}
+                      value={key}
+                    />
+                    <span>{key}</span>
+                  </label>
+                </div>
+              ))}
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
         <button type="button" className="button" onClick={handleCopy}>
           Copy
         </button>
       </div>
-      <div>
-        {nodeState.keys.map((key) => (
-          <div key={key}>
-            {key} : {nodeState.map[key]}
-          </div>
-        ))}
-      </div>
       <DiffEditor
         language="html"
         theme="vs-dark"
-        original={nodeState.html}
-        modified={nodeState.html}
+        original={controlledHtml}
+        modified={controlledHtml}
         height={800}
         onMount={handleOnMount}
         options={EDITOR_OPTIONS}
