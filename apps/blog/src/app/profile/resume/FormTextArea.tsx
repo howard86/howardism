@@ -39,19 +39,13 @@ export default function FormTextArea<T extends FieldValues>({
   const text = typeof errorMessage === "string" ? errorMessage : helperText
 
   return (
-    <div className={className}>
-      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-      <label htmlFor={name} className="block text-sm font-medium text-zinc-700">
-        {label}
+    <div className={clsx(className, "form-control")}>
+      <label htmlFor={name} className="label">
+        <span className="label-text">{label}</span>
       </label>
       <TextareaAutosize
         id={name}
-        className={clsx(
-          isInvalid
-            ? "border-red-300 placeholder-red-300 focus:border-red-500"
-            : "border-zinc-300 focus:border-teal-500",
-          "mt-1 block w-full rounded-md border py-2 px-3 shadow-sm focus:outline-none focus:ring-0 sm:text-sm"
-        )}
+        className={clsx(isInvalid && "textarea-error", "textarea-bordered textarea")}
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         minRows={2}
         {...register(name, options)}
@@ -59,7 +53,7 @@ export default function FormTextArea<T extends FieldValues>({
       />
       {text && (
         <p
-          className={clsx(isInvalid ? "text-red-500" : " text-zinc-500", "mt-2 text-sm")}
+          className={clsx(isInvalid ? "text-error" : "text-neutral", "mt-2 text-sm")}
           id={getAriaDescribedBy(name, text, isInvalid)}
         >
           {text}

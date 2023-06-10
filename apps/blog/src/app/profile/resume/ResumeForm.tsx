@@ -102,7 +102,7 @@ export default function ResumeForm({
 }: ResumeFormProps<ResumeSchema>) {
   return (
     <Tab.Group as="div" vertical className="lg:grid lg:grid-cols-12 lg:gap-x-5">
-      <Tab.List as="aside" className="space-y-1 py-6 px-2 sm:px-6 lg:col-span-3 lg:py-0 lg:px-0">
+      <Tab.List as="aside" className="space-y-1 px-2 py-6 sm:px-6 lg:col-span-3 lg:px-0 lg:py-0">
         {({ selectedIndex }) => (
           <>
             {navigation.map((item, index) => {
@@ -113,16 +113,14 @@ export default function ResumeForm({
                   key={item.name}
                   className={clsx(
                     selected
-                      ? "bg-zinc-100 text-teal-600 hover:bg-zinc-50 hover:text-teal-600"
-                      : "text-zinc-900 hover:bg-zinc-100 hover:text-zinc-800",
-                    "group flex w-full items-center rounded-md px-3 py-2 text-sm font-medium outline-none"
+                      ? "bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
+                      : "text-neutral/80 hover:bg-neutral/10 hover:text-neutral",
+                    "group flex w-full items-center rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors"
                   )}
                 >
                   <item.icon
                     className={clsx(
-                      selected
-                        ? "text-teal-500 group-hover:text-teal-500"
-                        : "text-zinc-400 group-hover:text-zinc-500",
+                      selected ? "group-hover:text-primary" : "group-hover:text-neutral",
                       "-ml-1 mr-3 h-6 w-6 flex-shrink-0"
                     )}
                     aria-hidden="true"
@@ -455,10 +453,7 @@ export default function ResumeForm({
             </Tab.Panel>
 
             <div className="bg-zinc-50 px-4 py-3 text-right sm:px-6">
-              <button
-                type="submit"
-                className="inline-flex justify-center rounded-md border border-transparent bg-teal-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-              >
+              <button type="submit" className="btn-primary btn">
                 Save
               </button>
             </div>

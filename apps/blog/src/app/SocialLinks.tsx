@@ -42,15 +42,15 @@ export const SOCIAL_LINKS: SocialLink[] = [
 
 export default function SocialLinks() {
   return (
-    <div className="mt-6 flex gap-6">
+    <div className="mt-6 flex gap-2">
       {SOCIAL_LINKS.map((link) => (
         <ExternalLink
           key={link.href}
-          className="group -m-1 p-1"
+          className="group btn-ghost btn-sm btn-circle btn"
           aria-label={link["aria-label"]}
           href={link.href}
         >
-          <link.icon className="h-6 w-6 fill-zinc-500 transition group-hover:fill-zinc-600 dark:fill-zinc-400 dark:group-hover:fill-zinc-300" />
+          <link.icon className="h-6 w-6 fill-current" />
         </ExternalLink>
       ))}
     </div>

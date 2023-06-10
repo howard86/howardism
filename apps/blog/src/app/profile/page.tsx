@@ -70,8 +70,8 @@ export default async function ProfilePage() {
                   </h1>
                 </div>
                 <div className="mt-6 flex flex-col justify-stretch space-y-3 sm:translate-y-2 sm:flex-row sm:space-x-4 sm:space-y-0">
-                  <Link className="button" href="/profile/resume/add">
-                    <UserPlusIcon className="-ml-1 mr-2 h-5 w-5 text-zinc-400" aria-hidden="true" />
+                  <Link className="btn-primary btn-outline btn" href="/profile/resume/add">
+                    <UserPlusIcon className="h-5 w-5" aria-hidden="true" />
                     <span>Add Resume</span>
                   </Link>
 
@@ -147,7 +147,7 @@ export default async function ProfilePage() {
                           <dd>
                             <Link
                               href={`/profile/resume/${profile.id}`}
-                              className="text-teal-600 hover:text-teal-900"
+                              className="link-hover link-secondary link"
                             >
                               View
                             </Link>
@@ -156,7 +156,7 @@ export default async function ProfilePage() {
                           <dd>
                             <Link
                               href={`/profile/resume/${profile.id}/edit`}
-                              className="text-teal-600 hover:text-teal-900"
+                              className="link-hover link-secondary link"
                             >
                               Edit
                             </Link>
@@ -165,7 +165,7 @@ export default async function ProfilePage() {
                           <dd>
                             <Link
                               href={`/profile/resume/${profile.id}/clone`}
-                              className="text-teal-600 hover:text-teal-900"
+                              className="link-hover link-secondary link"
                             >
                               Clone
                             </Link>

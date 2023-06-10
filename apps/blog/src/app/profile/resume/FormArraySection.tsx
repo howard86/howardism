@@ -45,7 +45,7 @@ export default function FormArraySection<T extends FieldValues, K extends FieldA
         >
           {fields.length > 1 && (
             <button
-              className="absolute top-0 right-0 hidden translate-x-1/2 -translate-y-1/2 group-hover:block group-active:block"
+              className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
               type="button"
               onClick={() => remove(index)}
             >
@@ -54,27 +54,27 @@ export default function FormArraySection<T extends FieldValues, K extends FieldA
           )}
           {index > 0 && (
             <button
-              className="absolute top-0 right-1/2 hidden translate-x-1/2 -translate-y-1/2 group-hover:block group-active:block"
+              className="absolute right-1/2 top-0 -translate-y-1/2 translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
               type="button"
               onClick={() => swap(index, index - 1)}
             >
-              <ArrowDownCircleIcon className="h-6 w-6 rotate-180 fill-white transition-colors hover:fill-zinc-400 dark:fill-zinc-400 dark:hover:fill-zinc-300" />
+              <ArrowDownCircleIcon className="h-6 w-6 rotate-180 fill-white transition-colors hover:fill-base-200 dark:fill-base-200 dark:hover:fill-zinc-300" />
             </button>
           )}
           {index !== fields.length - 1 && (
             <button
-              className="absolute bottom-0 right-1/2 hidden translate-x-1/2 translate-y-1/2 group-hover:block group-active:block"
+              className="absolute bottom-0 right-1/2 translate-x-1/2 translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
               type="button"
               onClick={() => swap(index, index + 1)}
             >
-              <ArrowDownCircleIcon className="h-6 w-6 fill-white transition-colors hover:fill-zinc-400 dark:fill-zinc-400 dark:hover:fill-zinc-300" />
+              <ArrowDownCircleIcon className="h-6 w-6 fill-white transition-colors hover:fill-base-200 dark:fill-base-200 dark:hover:fill-zinc-300" />
             </button>
           )}
           {renderFormItems(index)}
         </div>
       ))}
       <div className="col-span-6 flex items-center justify-center">
-        <button type="button" className="button" onClick={handleAdd}>
+        <button type="button" className="btn-primary btn" onClick={handleAdd}>
           Add More
         </button>
       </div>

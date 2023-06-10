@@ -31,7 +31,7 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
     // TODO: replace with other preview layout
     <section className="mt-20">
       <div className="my-4 flex items-center justify-center">
-        <button className="button" type="button" onClick={handleRefresh}>
+        <button className="btn-primary btn" type="button" onClick={handleRefresh}>
           Refresh
         </button>
       </div>

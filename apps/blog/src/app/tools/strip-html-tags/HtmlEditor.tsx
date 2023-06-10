@@ -4,7 +4,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { DiffEditor, DiffEditorProps, DiffOnMount, MonacoDiffEditor } from "@monaco-editor/react"
-import * as Popover from "@radix-ui/react-popover"
 import copy from "copy-to-clipboard"
 import { useRef } from "react"
 import { useForm } from "react-hook-form"
@@ -216,6 +215,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
     copy(newHtml)
   }
 
+  const selectedKeyCount = Object.keys(watch("selectedKeyMap")).length
   return (
     <div className="space-y-4 text-slate-500">
       <form
@@ -256,54 +256,52 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
           label="Remote URL"
           errors={formState.errors}
         />
-        <button className="button" type="submit" disabled={formState.isSubmitting}>
+        <button className="btn-primary btn" type="submit" disabled={formState.isSubmitting}>
           Fetch URL
         </button>
       </form>
-      <div className="flex">
-        <button type="button" className="button" onClick={handleFormat}>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn-primary btn" onClick={handleFormat}>
           Format
         </button>
-        <button type="button" className="button" onClick={handleSave}>
+        <button type="button" className="btn-primary btn" onClick={handleSave}>
           Save
         </button>
-        <button type="button" className="button" onClick={handleCalculate}>
+        <button type="button" className="btn-primary btn" onClick={handleCalculate}>
           Calculate
         </button>
-        <button type="button" className="button" onClick={handleReplaceImg}>
+        <button type="button" className="btn-primary btn" onClick={handleReplaceImg}>
           Replace img
         </button>
-        <button type="button" className="button" onClick={handleStripClass}>
+        <button type="button" className="btn-primary btn" onClick={handleStripClass}>
           Strip class
         </button>
-        <button type="button" className="button" onClick={handleStripElement}>
+        <button type="button" className="btn-primary btn" onClick={handleStripElement}>
           Strip element
         </button>
-        <Popover.Root>
-          <Popover.Trigger>
-            <button type="button" className="button">
-              {Object.keys(watch("selectedKeyMap")).length} attributes selected
-            </button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content className="space-y-4 rounded bg-slate-800 p-4 shadow">
-              {watch("attributeKeys").map((key) => (
-                <div key={key}>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      {...register(`selectedKeyMap.${key}`)}
-                      value={key}
-                    />
-                    <span>{key}</span>
-                  </label>
-                </div>
-              ))}
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
-        <button type="button" className="button" onClick={handleCopy}>
+
+        <details className="dropdown-hover dropdown">
+          <summary className="btn-primary btn">{selectedKeyCount} attributes selected</summary>
+          <ul className="dropdown-content menu rounded-box z-50 w-full bg-base-100 shadow-sm outline-1">
+            <li className="menu-title">
+              {selectedKeyCount > 0 ? "Parsed html tags" : "Please calculate"}
+            </li>
+            {watch("attributeKeys").map((key) => (
+              <li key={key} className="form-control relative">
+                <label className="label cursor-pointer">
+                  <span className="label-text-alt">{key}</span>
+                  <input
+                    type="checkbox"
+                    className="checkbox-secondary h-4 w-4"
+                    {...register(`selectedKeyMap.${key}`)}
+                    value={key}
+                  />
+                </label>
+              </li>
+            ))}
+          </ul>
+        </details>
+        <button type="button" className="btn-primary btn" onClick={handleCopy}>
           Copy
         </button>
       </div>

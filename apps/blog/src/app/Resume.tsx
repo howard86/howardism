@@ -76,7 +76,7 @@ export default function Resume() {
             <dl className="flex flex-auto flex-wrap gap-x-2">
               <dt className="sr-only">Company</dt>
               <dd className="w-full flex-none text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                <ExternalLink href={role.href} className="link">
+                <ExternalLink href={role.href} className="link-hover link">
                   {role.company}
                 </ExternalLink>
               </dd>

@@ -79,9 +79,9 @@ function MoonIcon(props: SVGProps) {
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
   return (
     <Popover {...props}>
-      <Popover.Button className="group flex items-center rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-zinc-800 shadow-lg shadow-zinc-800/5 ring-1 ring-zinc-900/5 backdrop-blur dark:bg-zinc-800/90 dark:text-zinc-200 dark:ring-white/10 dark:hover:ring-white/20">
+      <Popover.Button className="group btn-primary btn-outline btn-sm btn">
         Menu
-        <ChevronDownIcon className="ml-3 h-auto w-2 stroke-zinc-500 group-hover:stroke-zinc-700 dark:group-hover:stroke-zinc-400" />
+        <ChevronDownIcon className="h-auto w-2 stroke-primary transition-colors group-hover:stroke-white" />
       </Popover.Button>
       <Transition.Root>
         <Transition.Child
@@ -109,8 +109,8 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
             className="fixed inset-x-4 top-8 z-50 origin-top rounded-3xl bg-white p-8 ring-1 ring-zinc-900/5 dark:bg-zinc-900 dark:ring-zinc-800"
           >
             <div className="flex flex-row-reverse items-center justify-between">
-              <Popover.Button aria-label="Close menu" className="-m-1 p-1">
-                <CloseIcon className="h-6 w-6 text-zinc-500 dark:text-zinc-400" />
+              <Popover.Button aria-label="Close menu" className="btn-ghost btn-sm btn-circle btn">
+                <CloseIcon />
               </Popover.Button>
               <h2 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Navigation</h2>
             </div>
@@ -137,18 +137,10 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
 
   return (
     <li>
-      <Link
-        href={href}
-        className={clsx(
-          "relative block px-3 py-2 transition",
-          isActive
-            ? "text-teal-500 dark:text-teal-400"
-            : "hover:text-teal-500 dark:hover:text-teal-400"
-        )}
-      >
+      <Link href={href} className={clsx("tab transition", isActive && "tab-active text-primary")}>
         {children}
         {isActive && (
-          <span className="absolute inset-x-1 -bottom-px h-px bg-gradient-to-r from-teal-500/0 via-teal-500/40 to-teal-500/0 dark:from-teal-400/0 dark:via-teal-400/40 dark:to-teal-400/0" />
+          <span className="absolute inset-x-1 -bottom-1 h-px bg-gradient-to-r from-primary/0 via-primary/60 to-primary/0" />
         )}
       </Link>
     </li>
@@ -158,7 +150,7 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
 function DesktopNavigation(props: DivProps) {
   return (
     <nav {...props}>
-      <ul className="flex rounded-full bg-white/90 px-3 text-sm font-medium text-zinc-800 shadow-lg shadow-zinc-800/5 ring-1 ring-zinc-900/5 backdrop-blur dark:bg-zinc-800/90 dark:text-zinc-200 dark:ring-white/10">
+      <ul className="tab-lg flex rounded-full text-sm font-medium backdrop:blur">
         {NAV_SECTION_KEYS.map((key) => (
           <NavItem key={key} href={NavSection[key]}>
             {key}

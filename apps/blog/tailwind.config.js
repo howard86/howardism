@@ -2,7 +2,7 @@
 module.exports = {
   content: ["./src/**/*.{ts,tsx}"],
   darkMode: "class",
-  plugins: [require("@tailwindcss/typography"), require("@tailwindcss/forms")],
+  plugins: [require("@tailwindcss/typography"), require("daisyui")],
   theme: {
     fontSize: {
       "3xs": ["0.625rem", { lineHeight: "1rem" }],
@@ -300,5 +300,64 @@ module.exports = {
         },
       },
     }),
+    extend: {
+      colors: {
+        // RURI
+        primary: "#005CAF",
+        // MIZU
+        secondary: "#81C7D4",
+        // SHIRONERI
+        accent: "#FCFAF2",
+        // KESHIZUMI
+        neutral: "#434343",
+        base: {
+          100: "#FFFFFF",
+          // SHIRONERI
+          200: "#FCFAF2",
+        },
+        // SORA
+        info: "#58B2DC",
+        // WAKATAKE
+        success: "#5DAC81",
+        // TOHOH
+        warning: "#FFC408",
+        // BENIHI
+        error: "#F75C2F",
+      },
+      backgroundImage: {
+        texture: "url('/assets/texture.png')",
+      },
+    },
+  },
+  daisyui: {
+    themes: [
+      {
+        // https://nipponcolors.com/
+        jp: {
+          // RURI
+          primary: "#005CAF",
+          // MIZU
+          secondary: "#81C7D4",
+          // SHIRONERI
+          accent: "#FCFAF2",
+          // KESHIZUMI
+          neutral: "#434343",
+          "base-100": "#FFFFFF",
+          // SHIRONERI
+          "base-200": "#FCFAF2",
+          // SORA
+          info: "#58B2DC",
+          // WAKATAKE
+          success: "#5DAC81",
+          // TOHOH
+          warning: "#FFC408",
+          // BENIHI
+          error: "#F75C2F",
+
+          "--btn-text-case": "capitalize",
+        },
+      },
+      "dark",
+    ],
   },
 }
