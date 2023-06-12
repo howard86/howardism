@@ -45,7 +45,12 @@ export default function FormTextArea<T extends FieldValues>({
       </label>
       <TextareaAutosize
         id={name}
-        className={clsx(isInvalid && "textarea-error", "textarea-bordered textarea")}
+        className={clsx(
+          "textarea-bordered textarea",
+          isInvalid
+            ? "textarea-error"
+            : "focus-within:input-primary hover:input-primary active:input-primary"
+        )}
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         minRows={2}
         {...register(name, options)}

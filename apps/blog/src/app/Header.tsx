@@ -31,7 +31,7 @@ type ExtractProps<T> = T extends ComponentType<infer P> ? P : T
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
   return (
     <Popover {...props}>
-      <Popover.Button className="btn-brand btn-sm btn">
+      <Popover.Button className="btn-brand btn-sm btn rounded-full">
         Menu
         <ChevronDownIcon className="w-2 stroke-current transition-colors" />
       </Popover.Button>
@@ -109,7 +109,7 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
 function DesktopNavigation(props: DivProps) {
   return (
     <nav {...props}>
-      <ul className="tab-md flex items-center rounded-full text-sm font-medium shadow-sm shadow-base-200 ring-1 ring-base-200/40 backdrop:blur">
+      <ul className="tab-md flex items-center rounded-full bg-base-100/80 text-sm font-medium shadow-md shadow-base-200 ring-1 ring-base-200/40 backdrop:blur">
         {NAV_SECTION_KEYS.map((key) => (
           <NavItem key={key} href={NavSection[key]}>
             {key}

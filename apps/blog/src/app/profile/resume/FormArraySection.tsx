@@ -41,24 +41,24 @@ export default function FormArraySection<T extends FieldValues, K extends FieldA
       {fields.map((field, index) => (
         <div
           key={field.id}
-          className="group relative col-span-6 grid grid-cols-6 gap-x-6 gap-y-4 rounded-md border border-zinc-100 p-6 shadow-sm transition focus-within:border-zinc-200 hover:border-zinc-200"
+          className="group relative col-span-6 grid grid-cols-6 gap-x-6 gap-y-4 rounded-md border border-base-200 p-6 shadow-sm transition"
         >
           {fields.length > 1 && (
             <button
-              className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
+              className="btn-ghost btn-circle btn absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 opacity-0 transition-all group-hover:opacity-100 group-active:opacity-100"
               type="button"
               onClick={() => remove(index)}
             >
-              <XCircleIcon className="h-6 w-6 fill-zinc-500 transition-colors hover:fill-zinc-600 dark:fill-zinc-400 dark:hover:fill-zinc-300" />
+              <XCircleIcon className="w-6 fill-current transition-colors" />
             </button>
           )}
           {index > 0 && (
             <button
-              className="absolute right-1/2 top-0 -translate-y-1/2 translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
+              className="btn-ghost btn-circle btn absolute right-1/2 top-0 -translate-y-1/2 translate-x-1/2 opacity-0 transition-all group-hover:opacity-100 group-active:opacity-100"
               type="button"
               onClick={() => swap(index, index - 1)}
             >
-              <ArrowDownCircleIcon className="h-6 w-6 rotate-180 fill-white transition-colors hover:fill-base-200 dark:fill-base-200 dark:hover:fill-zinc-300" />
+              <ArrowDownCircleIcon className="w-6 rotate-180 fill-base-100 transition-colors" />
             </button>
           )}
           {index !== fields.length - 1 && (
@@ -67,7 +67,7 @@ export default function FormArraySection<T extends FieldValues, K extends FieldA
               type="button"
               onClick={() => swap(index, index + 1)}
             >
-              <ArrowDownCircleIcon className="h-6 w-6 fill-white transition-colors hover:fill-base-200 dark:fill-base-200 dark:hover:fill-zinc-300" />
+              <ArrowDownCircleIcon className="w-6 fill-base-100 transition-colors" />
             </button>
           )}
           {renderFormItems(index)}

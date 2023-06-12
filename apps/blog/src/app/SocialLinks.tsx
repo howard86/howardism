@@ -42,17 +42,18 @@ export const SOCIAL_LINKS: SocialLink[] = [
 
 export default function SocialLinks() {
   return (
-    <div className="mt-6 flex gap-2">
+    <ul className="mt-6 flex gap-2">
       {SOCIAL_LINKS.map((link) => (
-        <ExternalLink
-          key={link.href}
-          className="group btn-ghost btn-sm btn-circle btn"
-          aria-label={link["aria-label"]}
-          href={link.href}
-        >
-          <link.icon className="h-6 w-6 fill-current" />
-        </ExternalLink>
+        <li key={link.href} className="group">
+          <ExternalLink
+            className="btn-sm btn-circle btn"
+            aria-label={link["aria-label"]}
+            href={link.href}
+          >
+            <link.icon className="w-6 fill-current transition-colors group-hover:fill-secondary" />
+          </ExternalLink>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }

@@ -22,8 +22,8 @@ const BACKGROUND_IMAGE_URL =
 function InfoField({ title, description }: InfoFieldProps) {
   return (
     <div className="sm:col-span-1">
-      <dt className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{title}</dt>
-      <dd className="mt-1 text-sm text-zinc-800 dark:text-zinc-100">{description || "-"}</dd>
+      <dt className="text-sm font-medium text-primary">{title}</dt>
+      <dd className="mt-1 text-sm">{description || "-"}</dd>
     </div>
   )
 }
@@ -65,12 +65,10 @@ export default async function ProfilePage() {
               )}
               <div className="mt-6 sm:flex sm:min-w-0 sm:flex-1 sm:items-center sm:justify-end sm:space-x-6 sm:pb-1">
                 <div className="mt-6 min-w-0 flex-1 sm:hidden 2xl:block">
-                  <h1 className="truncate text-2xl font-bold text-zinc-800 dark:text-zinc-100">
-                    {session.user.name}
-                  </h1>
+                  <h1 className="truncate text-2xl font-bold">{session.user.name}</h1>
                 </div>
                 <div className="mt-6 flex flex-col justify-stretch space-y-3 sm:translate-y-2 sm:flex-row sm:space-x-4 sm:space-y-0">
-                  <Link className="btn-primary btn-outline btn" href="/profile/resume/add">
+                  <Link className="btn-brand btn" href="/profile/resume/add">
                     <UserPlusIcon className="h-5 w-5" aria-hidden="true" />
                     <span>Add Resume</span>
                   </Link>
@@ -80,9 +78,7 @@ export default async function ProfilePage() {
               </div>
             </div>
             <div className="mt-6 hidden min-w-0 flex-1 sm:block 2xl:hidden">
-              <h1 className="truncate text-2xl font-bold text-zinc-800 dark:text-zinc-100">
-                {session.user.name}
-              </h1>
+              <h1 className="truncate text-2xl font-bold">{session.user.name}</h1>
             </div>
           </div>
         </div>
@@ -94,25 +90,25 @@ export default async function ProfilePage() {
           </dl>
 
           {profiles.length > 0 && (
-            <div className="mb-2 mt-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-              <table className="min-w-full divide-y divide-zinc-300">
-                <thead className="bg-zinc-50">
+            <div className="mb-2 mt-8 overflow-hidden bg-base-200/40 shadow ring-1 ring-base-content ring-opacity-5 md:rounded-lg">
+              <table className="min-w-full divide-y">
+                <thead>
                   <tr>
                     <th
                       scope="col"
-                      className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-zinc-900 sm:pl-6"
+                      className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold sm:pl-6"
                     >
                       Company
                     </th>
                     <th
                       scope="col"
-                      className="hidden px-3 py-3.5 text-left text-sm font-semibold text-zinc-900 lg:table-cell"
+                      className="hidden px-3 py-3.5 text-left text-sm font-semibold lg:table-cell"
                     >
                       Position
                     </th>
                     <th
                       scope="col"
-                      className="hidden px-3 py-3.5 text-left text-sm font-semibold text-zinc-900 lg:table-cell"
+                      className="hidden px-3 py-3.5 text-left text-sm font-semibold lg:table-cell"
                     >
                       Updated At
                     </th>
@@ -124,21 +120,21 @@ export default async function ProfilePage() {
                 <tbody className="divide-y divide-zinc-200 bg-white">
                   {profiles.map((profile) => (
                     <tr key={profile.id}>
-                      <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-zinc-900 sm:w-auto sm:max-w-none sm:pl-6">
+                      <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium sm:w-auto sm:max-w-none sm:pl-6">
                         {profile.company}
                         <dl className="font-normal lg:hidden">
                           <dt className="sr-only">Position</dt>
-                          <dd className="mt-1 truncate text-zinc-700">{profile.position}</dd>
+                          <dd className="mt-1 truncate">{profile.position}</dd>
                           <dt className="sr-only">Updated At</dt>
-                          <dd className="mt-1 truncate text-zinc-500">
+                          <dd className="mt-1 truncate">
                             {profile.updatedAt.toLocaleDateString()}
                           </dd>
                         </dl>
                       </td>
-                      <td className="hidden px-3 py-4 text-sm text-zinc-500 lg:table-cell">
+                      <td className="hidden px-3 py-4 text-sm lg:table-cell ">
                         {profile.position}
                       </td>
-                      <td className="hidden px-3 py-4 text-sm text-zinc-500 lg:table-cell">
+                      <td className="hidden px-3 py-4 text-sm lg:table-cell">
                         {profile.updatedAt.toLocaleDateString()}
                       </td>
                       <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">

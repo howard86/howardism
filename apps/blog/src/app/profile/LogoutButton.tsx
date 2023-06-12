@@ -7,7 +7,7 @@ export default function LogoutButton() {
   const handleSignOut = () => signOut()
 
   return (
-    <button type="button" className="btn-primary btn-outline btn" onClick={handleSignOut}>
+    <button type="button" className="btn-brand btn" onClick={handleSignOut}>
       <ArrowRightOnRectangleIcon className="h-5 w-5" aria-hidden="true" />
       <span>Logout</span>
     </button>

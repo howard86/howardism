@@ -314,6 +314,7 @@ module.exports = {
           // KONJYO
           primary: "#113285",
           "primary-focus": "#1744B5",
+          "primary-content": "#FFFFFF",
           // UMEMURASAKI
           secondary: "#A8497A",
           "secondary-focus": "#BB6390",

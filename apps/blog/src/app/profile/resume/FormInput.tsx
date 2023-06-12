@@ -22,7 +22,6 @@ interface FormInputProps<T extends FieldValues> extends InputProps {
   helperText?: string
 }
 
-// TODO: handle error state
 export default function FormInput<T extends FieldValues>({
   label,
   name,
@@ -47,7 +46,12 @@ export default function FormInput<T extends FieldValues>({
         id={name}
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         aria-invalid={isInvalid ? "true" : undefined}
-        className={clsx("input-bordered input", isInvalid && "input-error")}
+        className={clsx(
+          "input-bordered input",
+          isInvalid
+            ? "input-error"
+            : "focus-within:input-primary hover:input-primary active:input-primary"
+        )}
         {...register(name, options)}
         {...props}
       />
