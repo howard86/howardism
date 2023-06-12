@@ -301,29 +301,6 @@ module.exports = {
       },
     }),
     extend: {
-      colors: {
-        // RURI
-        primary: "#005CAF",
-        // MIZU
-        secondary: "#81C7D4",
-        // SHIRONERI
-        accent: "#FCFAF2",
-        // KESHIZUMI
-        neutral: "#434343",
-        base: {
-          100: "#FFFFFF",
-          // SHIRONERI
-          200: "#FCFAF2",
-        },
-        // SORA
-        info: "#58B2DC",
-        // WAKATAKE
-        success: "#5DAC81",
-        // TOHOH
-        warning: "#FFC408",
-        // BENIHI
-        error: "#F75C2F",
-      },
       backgroundImage: {
         texture: "url('/assets/texture.png')",
       },
@@ -334,30 +311,42 @@ module.exports = {
       {
         // https://nipponcolors.com/
         jp: {
-          // RURI
-          primary: "#005CAF",
-          // MIZU
-          secondary: "#81C7D4",
-          // SHIRONERI
-          accent: "#FCFAF2",
-          // KESHIZUMI
-          neutral: "#434343",
+          // KONJYO
+          primary: "#113285",
+          "primary-focus": "#1744B5",
+          // UMEMURASAKI
+          secondary: "#A8497A",
+          "secondary-focus": "#BB6390",
+          // KAMENOZOKI
+          accent: "#A5DEE4",
+          "accent-focus": "#91D6DE",
+          // SUMI
+          neutral: "#1C1C1C",
+          "neutral-focus": "#080808",
+          "neutral-content": "#828282",
           "base-100": "#FFFFFF",
           // SHIRONERI
-          "base-200": "#FCFAF2",
-          // SORA
-          info: "#58B2DC",
-          // WAKATAKE
-          success: "#5DAC81",
+          "base-200": "#EDF1FD",
+          "base-300": "#DAE2FB",
+          // SUMI
+          "base-content": "#1C1C1C",
+          // RURI
+          info: "#005CAF",
+          // AOMIDORI
+          success: "#00AA90",
           // TOHOH
           warning: "#FFC408",
           // BENIHI
           error: "#F75C2F",
-
           "--btn-text-case": "capitalize",
         },
       },
-      "dark",
+      {
+        dark: {
+          ...require("daisyui/src/theming/themes")["[data-theme=dark]"],
+          "--btn-text-case": "capitalize",
+        },
+      },
     ],
   },
 }
