@@ -13,4 +13,8 @@ declare module "react" {
     className?: string
     children: ReactNode
   }
+
+  interface CSSProperties {
+    [key: `--${string}`]: string | number
+  }
 }
