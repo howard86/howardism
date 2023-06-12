@@ -5,83 +5,35 @@ import clsx from "clsx"
 import Image from "next/image"
 import Link, { LinkProps } from "next/link"
 import { usePathname } from "next/navigation"
-import { ChildrenProps, ComponentType, CSSProperties, Fragment, useEffect, useRef } from "react"
-import { DivProps, SVGProps } from "react-html-props"
+import {
+  ChangeEvent,
+  ChildrenProps,
+  ComponentType,
+  CSSProperties,
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
+import { DivProps } from "react-html-props"
 
 import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav"
 import profile from "@/profile.jpeg"
 
 import { Container } from "../components/template/Container"
+import { ChevronDownIcon } from "./ChevronDownIcon"
+import { CloseIcon } from "./CloseIcon"
+import { MoonIcon } from "./MoonIcon"
+import { SunIcon } from "./SunIcon"
 
 type ExtractProps<T> = T extends ComponentType<infer P> ? P : T
-
-function CloseIcon(props: SVGProps) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <path
-        d="m17.25 6.75-10.5 10.5M6.75 6.75l10.5 10.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function ChevronDownIcon(props: SVGProps) {
-  return (
-    <svg viewBox="0 0 8 6" aria-hidden="true" {...props}>
-      <path
-        d="M1.75 1.75 4 4.25l2.25-2.5"
-        fill="none"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function SunIcon(props: SVGProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M8 12.25A4.25 4.25 0 0 1 12.25 8v0a4.25 4.25 0 0 1 4.25 4.25v0a4.25 4.25 0 0 1-4.25 4.25v0A4.25 4.25 0 0 1 8 12.25v0Z" />
-      <path
-        d="M12.25 3v1.5M21.5 12.25H20M18.791 18.791l-1.06-1.06M18.791 5.709l-1.06 1.06M12.25 20v1.5M4.5 12.25H3M6.77 6.77 5.709 5.709M6.77 17.73l-1.061 1.061"
-        fill="none"
-      />
-    </svg>
-  )
-}
-
-function MoonIcon(props: SVGProps) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <path
-        d="M17.25 16.22a6.937 6.937 0 0 1-9.47-9.47 7.451 7.451 0 1 0 9.47 9.47ZM12.75 7C17 7 17 2.75 17 2.75S17 7 21.25 7C17 7 17 11.25 17 11.25S17 7 12.75 7Z"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
   return (
     <Popover {...props}>
-      <Popover.Button className="group btn-primary btn-outline btn-sm btn">
+      <Popover.Button className="btn-brand btn-sm btn">
         Menu
-        <ChevronDownIcon className="h-auto w-2 stroke-primary transition-colors group-hover:stroke-white" />
+        <ChevronDownIcon className="w-2 stroke-current transition-colors" />
       </Popover.Button>
       <Transition.Root>
         <Transition.Child
@@ -93,7 +45,7 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <Popover.Overlay className="fixed inset-0 z-50 bg-zinc-800/40 backdrop-blur-sm dark:bg-black/80" />
+          <Popover.Overlay className="fixed inset-0 z-50 bg-base-200/40 backdrop-blur-sm" />
         </Transition.Child>
         <Transition.Child
           as={Fragment}
@@ -106,19 +58,23 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
         >
           <Popover.Panel
             focus
-            className="fixed inset-x-4 top-8 z-50 origin-top rounded-3xl bg-white p-8 ring-1 ring-zinc-900/5 dark:bg-zinc-900 dark:ring-zinc-800"
+            className="fixed inset-x-4 top-8 z-50 origin-top rounded-3xl bg-base-100 p-8 ring-1 ring-base-200"
           >
             <div className="flex flex-row-reverse items-center justify-between">
-              <Popover.Button aria-label="Close menu" className="btn-ghost btn-sm btn-circle btn">
+              <Popover.Button aria-label="Close menu" className="btn-brand btn-sm btn-circle btn">
                 <CloseIcon />
               </Popover.Button>
-              <h2 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Navigation</h2>
+              <h2 className="text-sm font-medium text-base-content">Navigation</h2>
             </div>
             <nav className="mt-6">
-              <ul className="-my-2 divide-y divide-zinc-100 text-base text-zinc-800 dark:divide-zinc-100/5 dark:text-zinc-300">
+              <ul className="-my-2 divide-y divide-base-300 text-base text-base-content">
                 {NAV_SECTION_KEYS.map((key) => (
                   <li key={key}>
-                    <Popover.Button as={Link} href={NavSection[key]} className="block py-2">
+                    <Popover.Button
+                      as={Link}
+                      href={NavSection[key]}
+                      className="link-hover link block py-2"
+                    >
                       {key}
                     </Popover.Button>
                   </li>
@@ -137,10 +93,13 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
 
   return (
     <li>
-      <Link href={href} className={clsx("tab transition", isActive && "tab-active text-primary")}>
+      <Link
+        href={href}
+        className={clsx("tab transition-all", isActive && "tab-active text-primary")}
+      >
         {children}
         {isActive && (
-          <span className="absolute inset-x-1 -bottom-1 h-px bg-gradient-to-r from-primary/0 via-primary/60 to-primary/0" />
+          <span className="absolute inset-x-4 -bottom-px h-px bg-gradient-to-r from-primary/0 via-primary/60 to-primary/0" />
         )}
       </Link>
     </li>
@@ -150,7 +109,7 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
 function DesktopNavigation(props: DivProps) {
   return (
     <nav {...props}>
-      <ul className="tab-lg flex rounded-full text-sm font-medium backdrop:blur">
+      <ul className="tab-md flex items-center rounded-full text-sm font-medium shadow-sm shadow-base-200 ring-1 ring-base-200/40 backdrop:blur">
         {NAV_SECTION_KEYS.map((key) => (
           <NavItem key={key} href={NavSection[key]}>
             {key}
@@ -170,10 +129,10 @@ function ModeToggle() {
   }
 
   return (
-    <label className="group swap btn-ghost swap-rotate btn-sm btn-circle btn shadow-sm shadow-primary-content ring-1 ring-primary/10">
+    <label className="btn-brand group swap swap-rotate btn-sm btn-circle btn shadow-sm">
       <input checked={!isDarkMode} onChange={handleChange} type="checkbox" />
-      <SunIcon className="swap-on h-6 w-6 fill-transparent stroke-primary" />
-      <MoonIcon className="swap-off h-6 w-6 fill-transparent stroke-primary " />
+      <SunIcon className="swap-on w-5 fill-transparent stroke-primary group-hover:stroke-primary-focus" />
+      <MoonIcon className="swap-off w-5 fill-transparent stroke-base-content " />
     </label>
   )
 }
@@ -189,7 +148,7 @@ function AvatarContainer({ className, ...props }: DivProps) {
     <div
       className={clsx(
         className,
-        "h-10 w-10 rounded-full bg-white/90 p-0.5 shadow-lg shadow-zinc-800/5 ring-1 ring-zinc-900/5 backdrop-blur dark:bg-zinc-800/90 dark:ring-white/10"
+        "rounded-full bg-base-100 p-0.5 shadow-sm shadow-base-200 ring-1 ring-base-300 backdrop-blur"
       )}
       {...props}
     />
@@ -213,10 +172,7 @@ function Avatar({ large = false, className, href = "/", ...props }: AvatarProps)
       <Image
         src={profile}
         alt=""
-        className={clsx(
-          "h-auto max-w-full rounded-full bg-zinc-100 object-cover dark:bg-zinc-800",
-          large ? "h-16 w-16" : "h-9 w-9"
-        )}
+        className={clsx("h-auto rounded-full bg-base-200 object-cover", large ? "w-16" : "w-9")}
         priority
         sizes={large ? "4rem" : "2.25rem"}
       />
@@ -357,7 +313,7 @@ export function Header() {
                   />
                   <Avatar
                     large
-                    className="block h-16 w-16 origin-left"
+                    className="block origin-left"
                     style={{
                       transform: "var(--avatar-image-transform)" as CSSProperties["transform"],
                     }}

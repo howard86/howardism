@@ -2,7 +2,6 @@ import "focus-visible"
 import "../styles/globals.css"
 
 import { Metadata } from "next"
-import Script from "next/script"
 import type { ChildrenProps } from "react"
 
 import { env } from "@/config/env.mjs"
@@ -101,11 +100,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: ChildrenProps) {
   return (
-    <html data-theme="jp" lang="en" className="h-full scroll-smooth bg-texture antialiased">
-      <body className="flex h-full flex-col dark:bg-black">
-        <div className="fixed inset-0 flex justify-center sm:px-8">
+    <html
+      data-theme="jp"
+      lang="en"
+      className="h-full scroll-smooth bg-base-200 bg-texture antialiased"
+    >
+      <body className="flex h-full flex-col">
+        <div className="fixed inset-0 flex justify-center sm:px-8" aria-label="content background">
           <div className="flex w-full max-w-7xl lg:px-8">
-            <div className="w-full bg-white ring-1 ring-zinc-100 dark:bg-zinc-900 dark:ring-zinc-300/20" />
+            <div className="w-full bg-base-100 ring-1 ring-base-300" />
           </div>
         </div>
         <div className="relative flex flex-1 flex-col">
@@ -113,42 +116,6 @@ export default function RootLayout({ children }: ChildrenProps) {
           <main className="flex flex-1 flex-col">{children}</main>
           <Footer />
         </div>
-        <Script id="dark-mode-script" strategy="beforeInteractive">
-          {`
-            let darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-            updateMode()
-            darkModeMediaQuery.addEventListener('change', updateModeWithoutTransitions)
-            window.addEventListener('storage', updateModeWithoutTransitions)
-
-            function updateMode() {
-                let isSystemDarkMode = darkModeMediaQuery.matches
-                let isDarkMode = window.localStorage.isDarkMode === 'true' || (!('isDarkMode' in window.localStorage) && isSystemDarkMode)
-
-                if (isDarkMode) {
-                document.documentElement.classList.add('dark')
-                } else {
-                document.documentElement.classList.remove('dark')
-                }
-
-                if (isDarkMode === isSystemDarkMode) {
-                delete window.localStorage.isDarkMode
-                }
-            }
-
-            function disableTransitionsTemporarily() {
-                document.documentElement.classList.add('[&_*]:!transition-none')
-                window.setTimeout(() => {
-                document.documentElement.classList.remove('[&_*]:!transition-none')
-                }, 0)
-            }
-
-            function updateModeWithoutTransitions() {
-                disableTransitionsTemporarily()
-                updateMode()
-            }
-            `}
-        </Script>
       </body>
     </html>
   )

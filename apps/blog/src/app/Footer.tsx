@@ -8,17 +8,19 @@ export function Footer() {
   return (
     <footer className="mt-32">
       <OuterContainer>
-        <div className="border-t border-zinc-100 pb-16 pt-10 dark:border-zinc-700/40">
+        <div className="border-t border-base-300 pb-16 pt-10">
           <InnerContainer>
             <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-              <div className="flex gap-6 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              <ul className="flex gap-6 text-sm font-medium text-base-content">
                 {NAV_SECTION_KEYS.map((key) => (
-                  <Link key={key} href={NavSection[key]} className="link-hover link">
-                    {key}
-                  </Link>
+                  <li key={key}>
+                    <Link href={NavSection[key]} className="link-hover link-neutral link">
+                      {key}
+                    </Link>
+                  </li>
                 ))}
-              </div>
-              <p className="text-sm text-zinc-400 dark:text-zinc-500">
+              </ul>
+              <p className="text-sm text-base-content/60">
                 &copy; {new Date().getFullYear()} Howard Tai. All rights reserved.
               </p>
             </div>
