@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { forwardRef } from "react"
-import { DivPropsWithoutRef } from "react-html-props"
+import type { DivPropsWithoutRef } from "react-html-props"
 
 export const OuterContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
   ({ className, children, ...props }, ref) => (

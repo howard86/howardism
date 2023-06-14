@@ -31,6 +31,7 @@ const config = {
     appDir: true,
     scrollRestoration: true,
     outputFileTracingRoot: join(dirname(fileURLToPath(import.meta.url)), "../../"),
+    mdxRs: false,
   },
 }
 

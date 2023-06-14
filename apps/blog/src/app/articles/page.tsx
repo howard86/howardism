@@ -1,11 +1,10 @@
 import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card"
 import { SimpleLayout } from "@/components/template/SimpleLayout"
-import { ArticleEntity, getAllArticles } from "@/services/article"
 import { formatDate } from "@/utils/time"
 
-type ArticleProps = Omit<ArticleEntity, "component">
+import { ArticleEntity, getArticles } from "./service"
 
-function Article({ slug, meta }: ArticleProps) {
+function Article({ slug, meta }: Omit<ArticleEntity, "component">) {
   return (
     <article className="md:grid md:grid-cols-4 md:items-baseline">
       <Card className="md:col-span-3">
@@ -24,7 +23,7 @@ function Article({ slug, meta }: ArticleProps) {
 }
 
 export default async function ArticlesIndex() {
-  const articles = await getAllArticles()
+  const articles = await getArticles()
 
   return (
     <SimpleLayout
