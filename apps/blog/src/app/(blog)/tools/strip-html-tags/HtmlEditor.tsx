@@ -9,7 +9,7 @@ import { useRef } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import FormInput from "@/app/profile/resume/FormInput"
+import FormInput from "@/app/(blog)/profile/resume/FormInput"
 
 interface HtmlEditorProps {
   html: string

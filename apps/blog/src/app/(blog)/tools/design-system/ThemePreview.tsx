@@ -1,4 +1,4 @@
-import { CloseIcon } from "@/app/CloseIcon"
+import { CloseIcon } from "@/app/(blog)/CloseIcon"
 
 const LINK_TEXT = "I'm a simple link"
 

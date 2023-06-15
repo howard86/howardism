@@ -17,10 +17,10 @@ import {
 } from "react"
 import { DivProps } from "react-html-props"
 
+import { Container } from "@/components/template/Container"
 import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav"
 import profile from "@/profile.jpeg"
 
-import { Container } from "../components/template/Container"
 import { ChevronDownIcon } from "./ChevronDownIcon"
 import { CloseIcon } from "./CloseIcon"
 import { MoonIcon } from "./MoonIcon"

@@ -17,7 +17,7 @@ export interface ArticleMeta {
 
 const getRawArticles = async () => {
   const filenames = await glob("*.mdx", {
-    cwd: join(process.cwd(), "src", "app", "articles", "[slug]", "(docs)"),
+    cwd: join(process.cwd(), "src", "app", "(blog)", "articles", "[slug]", "(docs)"),
   })
 
   const results = await Promise.all(

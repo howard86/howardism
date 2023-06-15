@@ -13,13 +13,13 @@ export type ArticleEntity = {
 
 export async function getAllArticles(includeComponent = false) {
   const filenames = await glob("*.mdx", {
-    cwd: join(process.cwd(), "src", "app", "articles", "[slug]", "(docs)"),
+    cwd: join(process.cwd(), "src", "app", "(blog)", "articles", "[slug]", "(docs)"),
   })
 
   const articles = await Promise.all(
     filenames.map(async (articleFilename) => {
       const { meta, default: component } = await import(
-        `../app/articles/[slug]/(docs)/${articleFilename}`
+        `../app/(blog)/articles/[slug]/(docs)/${articleFilename}`
       )
 
       return {

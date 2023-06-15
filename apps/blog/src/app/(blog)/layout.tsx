@@ -1,5 +1,5 @@
 import "focus-visible"
-import "../styles/globals.css"
+import "@/styles/globals.css"
 
 import { Metadata } from "next"
 import type { ChildrenProps } from "react"

@@ -12,7 +12,7 @@ export default function FormSectionContainer({
   children,
 }: FormSectionContainerProps) {
   return (
-    <div className="space-y-6 bg-white py-6 px-4 sm:p-6">
+    <div className="space-y-6 bg-white px-4 py-6 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-medium leading-6 text-zinc-900">{heading}</h2>
