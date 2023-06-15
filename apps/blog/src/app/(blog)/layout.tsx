@@ -6,14 +6,16 @@ import type { ChildrenProps } from "react"
 
 import { env } from "@/config/env.mjs"
 
+import {
+  AUTHOR_EMAIL,
+  AUTHOR_NAME,
+  PROFILE_IMAGE_NAME,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  TWITTER_USERNAME,
+} from "../constants"
 import { Footer } from "./Footer"
 import { Header } from "./Header"
-
-const SITE_NAME = "Howardism"
-const TWITTER_USERNAME = "@howard86_"
-const PROFILE_IMAGE_NAME = "profile.jpeg"
-const SITE_DESCRIPTION = "A Software Engineer, Mathematician, and Amateur Diver's Journey"
-const AUTHOR_NAME = "Howard Tai"
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),
@@ -56,6 +58,7 @@ export const metadata: Metadata = {
     url: env.NEXT_PUBLIC_DOMAIN_NAME,
     siteName: SITE_NAME,
     description: SITE_DESCRIPTION,
+    emails: AUTHOR_EMAIL,
     images: [
       {
         url: `/${PROFILE_IMAGE_NAME}`,
