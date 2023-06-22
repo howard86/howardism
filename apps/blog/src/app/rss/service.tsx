@@ -31,8 +31,10 @@ async function generateRawFeed(): Promise<Feed> {
     },
   })
 
-  for (const article of articles) {
-    const url = `${siteUrl}/articles/${article.slug}`
+  for (const articleSlug of articles.ids) {
+    const article = articles.entities[articleSlug]
+
+    const url = `${siteUrl}/articles/${articleSlug}`
 
     feed.addItem({
       title: article.meta.title,

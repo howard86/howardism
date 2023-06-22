@@ -4,7 +4,7 @@ import { formatDate } from "@/utils/time"
 
 import { ArticleEntity, getArticles } from "./service"
 
-function Article({ slug, meta }: Omit<ArticleEntity, "component">) {
+function Article({ slug, meta }: Omit<ArticleEntity, "component" | "position">) {
   return (
     <article className="md:grid md:grid-cols-4 md:items-baseline">
       <Card className="md:col-span-3">
@@ -32,8 +32,8 @@ export default async function ArticlesIndex() {
     >
       <div className="md:border-l md:border-base-200 md:pl-6">
         <div className="flex max-w-3xl flex-col space-y-16">
-          {articles.map((article) => (
-            <Article key={article.slug} slug={article.slug} meta={article.meta} />
+          {articles.ids.map((slug) => (
+            <Article key={slug} slug={slug} meta={articles.entities[slug].meta} />
           ))}
         </div>
       </div>

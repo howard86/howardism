@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
-import { FC } from "react"
 
-import { ArticleMeta, getArticles } from "../service"
+import { getArticles } from "../service"
 import { ArticleLayout } from "./ArticleLayout"
 
 interface ArticlePageProps {
@@ -11,7 +10,8 @@ interface ArticlePageProps {
 }
 
 export async function generateMetadata({ params: { slug } }: ArticlePageProps): Promise<Metadata> {
-  const meta = await import(`./(docs)/${slug}.mdx`).then((file) => file.meta)
+  const articles = await getArticles()
+  const { meta } = articles.entities[slug]
 
   return {
     title: meta.title,
@@ -20,14 +20,16 @@ export async function generateMetadata({ params: { slug } }: ArticlePageProps): 
 }
 
 export default async function ArticlePage({ params: { slug } }: ArticlePageProps) {
-  const mod = (await import(`./(docs)/${slug}.mdx`)) as {
-    meta: ArticleMeta
-    default: FC
-  }
+  const articles = await getArticles()
+  const article = articles.entities[slug]
 
   return (
-    <ArticleLayout meta={mod.meta}>
-      <mod.default />
+    <ArticleLayout
+      meta={article.meta}
+      previousSlug={articles.ids[article.position + 1]}
+      nextSlug={articles.ids[article.position - 1]}
+    >
+      <article.component />
     </ArticleLayout>
   )
 }
@@ -35,9 +37,7 @@ export default async function ArticlePage({ params: { slug } }: ArticlePageProps
 export async function generateStaticParams() {
   const articles = await getArticles()
 
-  return articles.map((article) => ({
-    params: {
-      slug: article.slug,
-    },
+  return articles.ids.map((slug) => ({
+    params: { slug },
   }))
 }

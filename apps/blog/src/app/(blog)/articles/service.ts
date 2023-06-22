@@ -1,11 +1,18 @@
 import { join } from "node:path"
 
 import glob from "fast-glob"
-import { cache } from "react"
+import { cache, type FC } from "react"
+
+type Normalise<T> = {
+  ids: string[]
+  entities: Record<string, T>
+}
 
 export type ArticleEntity = {
+  position: number
   slug: string
   meta: ArticleMeta
+  component: FC
 }
 
 export interface ArticleMeta {
@@ -14,25 +21,42 @@ export interface ArticleMeta {
   date: string
 }
 
-const getRawArticles = async () => {
+const getRawArticles = async (): Promise<Normalise<ArticleEntity>> => {
   const filenames = await glob("*.mdx", {
     cwd: join(process.cwd(), "src", "app", "(blog)", "articles", "[slug]", "(docs)"),
   })
 
-  const results = await Promise.all(
+  const files = await Promise.all(
     filenames.map(async (filename) => {
-      const { meta } = (await import(`./[slug]/(docs)/${filename}`)) as {
+      const mod = (await import(`./[slug]/(docs)/${filename}`)) as {
         meta: ArticleMeta
+        default: FC
       }
 
       return {
         slug: filename.replace(/.mdx$/, ""),
-        meta,
+        meta: mod.meta,
+        component: mod.default,
       }
     })
   )
 
-  return results.sort((a, b) => new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf())
+  files.sort((a, b) => new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf())
+
+  const results: Normalise<ArticleEntity> = {
+    ids: [],
+    entities: {},
+  }
+
+  files.forEach((file, index) => {
+    results.ids.push(file.slug)
+    results.entities[file.slug] = {
+      position: index,
+      ...file,
+    }
+  })
+
+  return results
 }
 
 export const getArticles = cache(getRawArticles)
