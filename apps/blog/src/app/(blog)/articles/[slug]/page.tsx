@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
+import type { FC } from "react"
 
-import { getArticles } from "../service"
+import { ArticleEntity, ArticleMeta, getArticles, Normalise } from "../service"
 import { ArticleLayout } from "./ArticleLayout"
 
 interface ArticlePageProps {
@@ -9,9 +10,10 @@ interface ArticlePageProps {
   }
 }
 
+export const dynamic = "error"
+
 export async function generateMetadata({ params: { slug } }: ArticlePageProps): Promise<Metadata> {
-  const articles = await getArticles()
-  const { meta } = articles.entities[slug]
+  const meta = await import(`./(docs)/${slug}.mdx`).then((file) => file.meta)
 
   return {
     title: meta.title,
@@ -19,17 +21,33 @@ export async function generateMetadata({ params: { slug } }: ArticlePageProps): 
   }
 }
 
+const getSiblingSlug = (
+  articles: Normalise<ArticleEntity>,
+  slug: string,
+  difference: number
+): string | undefined => {
+  const selectedArticle = articles.entities[slug]
+
+  if (!selectedArticle) return undefined
+
+  return articles.ids[selectedArticle.position + difference]
+}
+
 export default async function ArticlePage({ params: { slug } }: ArticlePageProps) {
+  const mod = (await import(`./(docs)/${slug}.mdx`)) as {
+    meta: ArticleMeta
+    default: FC
+  }
+
   const articles = await getArticles()
-  const article = articles.entities[slug]
 
   return (
     <ArticleLayout
-      meta={article.meta}
-      previousSlug={articles.ids[article.position + 1]}
-      nextSlug={articles.ids[article.position - 1]}
+      meta={mod.meta}
+      previousSlug={getSiblingSlug(articles, slug, 1)}
+      nextSlug={getSiblingSlug(articles, slug, -1)}
     >
-      <article.component />
+      <mod.default />
     </ArticleLayout>
   )
 }

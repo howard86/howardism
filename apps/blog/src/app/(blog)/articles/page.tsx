@@ -32,9 +32,11 @@ export default async function ArticlesIndex() {
     >
       <div className="md:border-l md:border-base-200 md:pl-6">
         <div className="flex max-w-3xl flex-col space-y-16">
-          {articles.ids.map((slug) => (
-            <Article key={slug} slug={slug} meta={articles.entities[slug].meta} />
-          ))}
+          {articles.ids.map((slug) => {
+            const article = articles.entities[slug]
+
+            return article && <Article key={slug} slug={slug} meta={article.meta} />
+          })}
         </div>
       </div>
     </SimpleLayout>

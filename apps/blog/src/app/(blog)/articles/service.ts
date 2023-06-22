@@ -1,18 +1,19 @@
+import "server-only"
+
 import { join } from "node:path"
 
 import glob from "fast-glob"
-import { cache, type FC } from "react"
+import { cache } from "react"
 
-type Normalise<T> = {
+export type Normalise<T> = {
   ids: string[]
-  entities: Record<string, T>
+  entities: Record<string, T | undefined>
 }
 
 export type ArticleEntity = {
   position: number
   slug: string
   meta: ArticleMeta
-  component: FC
 }
 
 export interface ArticleMeta {
@@ -21,22 +22,18 @@ export interface ArticleMeta {
   date: string
 }
 
-const getRawArticles = async (): Promise<Normalise<ArticleEntity>> => {
+export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => {
   const filenames = await glob("*.mdx", {
     cwd: join(process.cwd(), "src", "app", "(blog)", "articles", "[slug]", "(docs)"),
   })
 
   const files = await Promise.all(
     filenames.map(async (filename) => {
-      const mod = (await import(`./[slug]/(docs)/${filename}`)) as {
-        meta: ArticleMeta
-        default: FC
-      }
+      const meta = await import(`./[slug]/(docs)/${filename}`).then((m) => m.meta as ArticleMeta)
 
       return {
         slug: filename.replace(/.mdx$/, ""),
-        meta: mod.meta,
-        component: mod.default,
+        meta,
       }
     })
   )
@@ -57,6 +54,4 @@ const getRawArticles = async (): Promise<Normalise<ArticleEntity>> => {
   })
 
   return results
-}
-
-export const getArticles = cache(getRawArticles)
+})

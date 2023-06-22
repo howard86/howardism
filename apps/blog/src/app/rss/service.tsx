@@ -1,3 +1,5 @@
+import "server-only"
+
 import { Feed } from "feed"
 import { cache } from "react"
 
@@ -6,7 +8,7 @@ import { AUTHOR_EMAIL, AUTHOR_NAME, SITE_DESCRIPTION, SITE_NAME } from "../const
 
 const siteUrl = process.env.NEXT_PUBLIC_DOMAIN_NAME
 
-async function generateRawFeed(): Promise<Feed> {
+export const generateFeed = cache(async (): Promise<Feed> => {
   if (!siteUrl) throw new Error("Failed to get env=NEXT_PUBLIC_DOMAIN_NAME")
 
   const articles = await getArticles()
@@ -31,23 +33,23 @@ async function generateRawFeed(): Promise<Feed> {
     },
   })
 
-  for (const articleSlug of articles.ids) {
-    const article = articles.entities[articleSlug]
+  for (const slug of articles.ids) {
+    const article = articles.entities[slug]
 
-    const url = `${siteUrl}/articles/${articleSlug}`
+    const url = `${siteUrl}/articles/${slug}`
 
-    feed.addItem({
-      title: article.meta.title,
-      id: url,
-      link: url,
-      description: article.meta.description,
-      author: [author],
-      contributor: [author],
-      date: new Date(article.meta.date),
-    })
+    if (article) {
+      feed.addItem({
+        title: article.meta.title,
+        id: url,
+        link: url,
+        description: article.meta.description,
+        author: [author],
+        contributor: [author],
+        date: new Date(article.meta.date),
+      })
+    }
   }
 
   return feed
-}
-
-export const generateFeed = cache(generateRawFeed)
+})
