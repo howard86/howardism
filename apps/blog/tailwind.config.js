@@ -304,6 +304,9 @@ module.exports = {
       backgroundImage: {
         texture: "url('/assets/texture.png')",
       },
+      spacing: {
+        4.5: "1.125rem",
+      },
     },
   },
   daisyui: {
