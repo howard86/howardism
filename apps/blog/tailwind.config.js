@@ -304,6 +304,12 @@ module.exports = {
       backgroundImage: {
         texture: "url('/assets/texture.png')",
       },
+      colors: {
+        "vscode-dark": "#1E1E1E",
+      },
+      spacing: {
+        4.5: "1.125rem",
+      },
     },
   },
   daisyui: {

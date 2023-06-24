@@ -38,19 +38,26 @@ export default function FormInput<T extends FieldValues>({
   const text = typeof errorMessage === "string" ? errorMessage : helperText
 
   return (
-    <div className={clsx("form-control", className)}>
-      <label htmlFor={name} className="label">
-        <span className="label-text">{label}</span>
+    <div className={clsx("group form-control relative", className)}>
+      <label htmlFor={name} className="label absolute -top-4.5 left-3 bg-base-100">
+        <span
+          className={clsx(
+            "label-text font-medium transition-colors",
+            isInvalid ? "text-error" : "group-focus-within:text-primary group-hover:text-primary"
+          )}
+        >
+          {label}
+        </span>
       </label>
       <input
         id={name}
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         aria-invalid={isInvalid ? "true" : undefined}
         className={clsx(
-          "input-bordered input",
+          "input-bordered input transition-all",
           isInvalid
             ? "input-error"
-            : "focus-within:input-primary hover:input-primary active:input-primary"
+            : "active:input-primary group-focus-within:input-primary group-hover:input-primary"
         )}
         {...register(name, options)}
         {...props}
@@ -58,7 +65,7 @@ export default function FormInput<T extends FieldValues>({
       {text && (
         <p
           id={getAriaDescribedBy(name, text, isInvalid)}
-          className={clsx(isInvalid ? "text-error" : "text-neutral", "mt-2 text-sm")}
+          className={clsx(isInvalid ? "text-error" : "text-base-content", "label-text mt-1")}
         >
           {text}
         </p>

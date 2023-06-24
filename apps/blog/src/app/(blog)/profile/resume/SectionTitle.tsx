@@ -1,4 +1,4 @@
-import { Merriweather_Sans } from "@next/font/google"
+import { Merriweather_Sans } from "next/font/google"
 
 export const titleFont = Merriweather_Sans({
   weight: ["700"],

@@ -4,7 +4,7 @@ import {
   GlobeAltIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline"
-import { Merriweather } from "@next/font/google"
+import { Merriweather } from "next/font/google"
 
 import { Container } from "@/components/template/Container"
 import { GitHubIcon } from "@/components/template/SocialIcons"

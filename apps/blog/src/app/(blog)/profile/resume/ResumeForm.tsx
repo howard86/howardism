@@ -135,7 +135,10 @@ export default function ResumeForm({
 
       <div className="space-y-6 sm:px-6 lg:col-span-9 lg:px-0">
         <form onSubmit={onSubmit}>
-          <Tab.Panels as="div" className="shadow sm:overflow-hidden sm:rounded-md">
+          <Tab.Panels
+            as="div"
+            className="border border-base-content/10 shadow-sm sm:overflow-hidden sm:rounded-md"
+          >
             <Tab.Panel>
               <FormSectionContainer
                 heading="Personal Information"
