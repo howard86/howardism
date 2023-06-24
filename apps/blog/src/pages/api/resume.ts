@@ -15,8 +15,8 @@ import {
   type ResumeSchema,
   resumeSchema,
   type SkillSchema,
-} from "@/app/profile/resume/schema"
-import { generateStringArray } from "@/app/profile/resume/utils"
+} from "@/app/(blog)/profile/resume/schema"
+import { generateStringArray } from "@/app/(blog)/profile/resume/utils"
 import prisma from "@/services/prisma"
 
 import { authOptions } from "./auth/[...nextauth]"

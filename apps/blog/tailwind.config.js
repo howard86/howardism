@@ -2,7 +2,7 @@
 module.exports = {
   content: ["./src/**/*.{ts,tsx}"],
   darkMode: "class",
-  plugins: [require("@tailwindcss/typography"), require("@tailwindcss/forms")],
+  plugins: [require("@tailwindcss/typography"), require("daisyui")],
   theme: {
     fontSize: {
       "3xs": ["0.625rem", { lineHeight: "1rem" }],
@@ -300,5 +300,54 @@ module.exports = {
         },
       },
     }),
+    extend: {
+      backgroundImage: {
+        texture: "url('/assets/texture.png')",
+      },
+    },
+  },
+  daisyui: {
+    themes: [
+      {
+        // https://nipponcolors.com/
+        jp: {
+          // KONJYO
+          primary: "#113285",
+          "primary-focus": "#1744B5",
+          "primary-content": "#FFFFFF",
+          // UMEMURASAKI
+          secondary: "#A8497A",
+          "secondary-focus": "#BB6390",
+          // KAMENOZOKI
+          accent: "#A5DEE4",
+          "accent-focus": "#91D6DE",
+          // SUMI
+          neutral: "#1C1C1C",
+          "neutral-focus": "#080808",
+          "neutral-content": "#828282",
+          "base-100": "#FFFFFF",
+          // SHIRONERI
+          "base-200": "#EDF1FD",
+          "base-300": "#DAE2FB",
+          // SUMI
+          "base-content": "#1C1C1C",
+          // RURI
+          info: "#005CAF",
+          // AOMIDORI
+          success: "#00AA90",
+          // TOHOH
+          warning: "#FFC408",
+          // BENIHI
+          error: "#F75C2F",
+          "--btn-text-case": "capitalize",
+        },
+      },
+      {
+        dark: {
+          ...require("daisyui/src/theming/themes")["[data-theme=dark]"],
+          "--btn-text-case": "capitalize",
+        },
+      },
+    ],
   },
 }

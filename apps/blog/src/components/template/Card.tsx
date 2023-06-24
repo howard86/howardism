@@ -29,9 +29,9 @@ export function Card<T extends AsKey>({ as, className, children, ...props }: AsP
 export function CardLink({ children, ...props }: LinkProps & ChildrenProps) {
   return (
     <>
-      <div className="absolute -inset-y-6 -inset-x-4 z-0 scale-95 bg-zinc-50 opacity-0 transition group-hover:scale-100 group-hover:opacity-100 dark:bg-zinc-800/50 sm:-inset-x-6 sm:rounded-2xl" />
+      <div className="absolute -inset-x-4 -inset-y-6 z-0 scale-95 bg-base-200 opacity-0 transition group-hover:scale-100 group-hover:opacity-100 sm:-inset-x-6 sm:rounded-2xl" />
       <Link {...props}>
-        <span className="absolute -inset-y-6 -inset-x-4 z-20 sm:-inset-x-6 sm:rounded-2xl" />
+        <span className="absolute -inset-x-4 -inset-y-6 z-20 sm:-inset-x-6 sm:rounded-2xl" />
         <span className="relative z-10">{children}</span>
       </Link>
     </>
@@ -46,21 +46,21 @@ export function CardTitle<T extends AsKey>({ as, href, children }: CardTitleProp
   const Component = (as || "h2") as unknown as FC<AsProps<T>>
 
   return (
-    <Component className="text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
+    <Component className="text-base font-semibold tracking-tight text-base-content">
       {href ? <CardLink href={href}>{children}</CardLink> : children}
     </Component>
   )
 }
 
 export function CardDescription({ children }: ChildrenProps) {
-  return <p className="relative z-10 mt-2 text-sm text-zinc-600 dark:text-zinc-400">{children}</p>
+  return <p className="relative z-10 mt-2 text-sm text-base-content/90">{children}</p>
 }
 
 export function CardCta({ children }: ChildrenProps) {
   return (
     <div
       aria-hidden="true"
-      className="relative z-10 mt-4 flex items-center text-sm font-medium text-teal-500"
+      className="relative z-10 mt-4 flex items-center text-sm font-medium text-primary"
     >
       {children}
       <ChevronRightIcon className="ml-1 h-4 w-4 stroke-current" />

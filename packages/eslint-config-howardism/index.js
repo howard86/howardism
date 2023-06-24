@@ -51,6 +51,7 @@ module.exports = {
     "no-restricted-syntax": [2, "ForInStatement", "LabeledStatement", "WithStatement"],
     "no-underscore-dangle": 0,
     "global-require": 0,
+    "jsx-a11y/label-has-associated-control": 1,
     "react/jsx-props-no-spreading": 0,
     "react/react-in-jsx-scope": 0,
     "react/require-default-props": 0,
