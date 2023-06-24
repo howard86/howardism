@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.2](https://github.com/Howard86/howardism/compare/eslint-config-howardism@0.1.1...eslint-config-howardism@0.1.2) (2023-06-24)
+
+### ♻ Code Refactoring
+
+- replace custom css with daisy components ([babc6cc](https://github.com/Howard86/howardism/commit/babc6cc))
+
+### 🎫 Chores
+
+- bump all depedencies to the latest ([a0f38f3](https://github.com/Howard86/howardism/commit/a0f38f3))
+- bump all depedencies to the latest again ([f1a04c6](https://github.com/Howard86/howardism/commit/f1a04c6))
+
 ## [0.1.1](https://github.com/Howard86/howardism/compare/eslint-config-howardism@0.1.0...eslint-config-howardism@0.1.1) (2023-03-28)
 
 ### 🎫 Chores

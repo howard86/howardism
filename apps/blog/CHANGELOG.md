@@ -3,6 +3,41 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.8.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.10...@howardism/blog@2.8.0) (2023-06-24)
+
+### ♻ Code Refactoring
+
+- add striping element features ([8236b03](https://github.com/Howard86/howardism/commit/8236b03))
+- implement theme toggles ([32c3fbf](https://github.com/Howard86/howardism/commit/32c3fbf))
+- migrate mdx to app router with latest next ([8249214](https://github.com/Howard86/howardism/commit/8249214))
+- move generating rss from /legacy to app router static routes ([2cfc7d8](https://github.com/Howard86/howardism/commit/2cfc7d8))
+- remove tw colour with daisy colors ([8751900](https://github.com/Howard86/howardism/commit/8751900))
+- replace custom css with daisy components ([babc6cc](https://github.com/Howard86/howardism/commit/babc6cc))
+- update ArticleLayout to navigate between pages ([e863d1d](https://github.com/Howard86/howardism/commit/e863d1d))
+- update form container & input style ([ce8857e](https://github.com/Howard86/howardism/commit/ce8857e))
+- update FormInput component with atomic components ([e8d955a](https://github.com/Howard86/howardism/commit/e8d955a))
+- update shared layout styles ([4b94f44](https://github.com/Howard86/howardism/commit/4b94f44))
+
+### ✨ Features
+
+- set up new theme & css ([e71e046](https://github.com/Howard86/howardism/commit/e71e046))
+- **tools**: add design system page with color table & preview ([5b500fe](https://github.com/Howard86/howardism/commit/5b500fe))
+- **tools**: add strip html tags page ([26a1a74](https://github.com/Howard86/howardism/commit/26a1a74))
+- **tools**: add tool list page for public resources ([2d66d7e](https://github.com/Howard86/howardism/commit/2d66d7e))
+- **tools**: enable fetching remote url ([a66974f](https://github.com/Howard86/howardism/commit/a66974f))
+- **tools**: update html editor UI & add more features ([36039a7](https://github.com/Howard86/howardism/commit/36039a7))
+
+### 🎫 Chores
+
+- install daisyui ([5818e93](https://github.com/Howard86/howardism/commit/5818e93))
+- install monaco packages ([d335006](https://github.com/Howard86/howardism/commit/d335006))
+- move all blog under (blog) dir to skip global layout ([37125ae](https://github.com/Howard86/howardism/commit/37125ae))
+- replace @next/font with natvie next/font ([1351363](https://github.com/Howard86/howardism/commit/1351363))
+
+### 🐛 Bug Fixes
+
+- use local react component to fix 500 page on mdx pages ([353b895](https://github.com/Howard86/howardism/commit/353b895))
+
 ## [2.7.10](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.9...@howardism/blog@2.7.10) (2023-05-17)
 
 ### ♻ Code Refactoring
