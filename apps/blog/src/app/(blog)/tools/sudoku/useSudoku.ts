@@ -1,3 +1,5 @@
+"use client"
+
 import { useCallback, useReducer } from "react"
 
 import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku"
