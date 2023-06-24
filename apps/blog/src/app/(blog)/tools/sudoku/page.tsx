@@ -1,4 +1,4 @@
-import { SimpleLayout } from "@/components/template/SimpleLayout"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout"
 
 import SudokuGame from "./SudokuGame"
 

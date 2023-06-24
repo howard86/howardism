@@ -14,8 +14,8 @@ import {
   SITE_NAME,
   TWITTER_USERNAME,
 } from "../constants"
-import { Footer } from "./Footer"
-import { Header } from "./Header"
+import { Footer } from "./(layout)/Footer"
+import { Header } from "./(layout)/Header"
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),

@@ -6,8 +6,8 @@ import {
 } from "@heroicons/react/24/outline"
 import { Merriweather } from "next/font/google"
 
-import { Container } from "@/components/template/Container"
-import { GitHubIcon } from "@/components/template/SocialIcons"
+import { Container } from "@/app/(common)/Container"
+import { GitHubIcon } from "@/app/(common)/icons"
 
 import { ContactListItem } from "./ContactListItem"
 import { EducationListItem, EducationListItemProps } from "./EducationListItem"

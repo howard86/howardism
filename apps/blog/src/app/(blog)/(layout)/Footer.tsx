@@ -1,7 +1,8 @@
 import Link from "next/link"
 
-import { InnerContainer, OuterContainer } from "@/components/template/Container"
-import { NAV_SECTION_KEYS, NavSection } from "@/constants/nav"
+import { InnerContainer, OuterContainer } from "@/app/(common)/Container"
+
+import { NAV_SECTION_KEYS, NavSection } from "./constants"
 
 export function Footer() {
   return (

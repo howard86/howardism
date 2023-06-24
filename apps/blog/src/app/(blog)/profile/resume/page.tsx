@@ -1,4 +1,4 @@
-import { Container } from "@/components/template/Container"
+import { Container } from "@/app/(common)/Container"
 import { generateLoremIpsum, generateLoremIpsumArray } from "@/services/resume"
 
 import ResumeDocument from "./ResumeDocument"

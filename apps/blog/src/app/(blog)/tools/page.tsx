@@ -1,8 +1,8 @@
 import { PencilSquareIcon } from "@heroicons/react/24/outline"
 import clsx from "clsx"
 
-import { Card, CardDescription, CardTitle } from "@/components/template/Card"
-import { SimpleLayout } from "@/components/template/SimpleLayout"
+import { Card, CardDescription, CardTitle } from "@/app/(common)/Card"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout"
 
 const items = [
   {

@@ -1,12 +1,8 @@
 import type { FC } from "react"
 import type { SVGProps } from "react-html-props"
 
-import FstIcon from "@/components/icons/Fst"
-import LootexIcon from "@/components/icons/Lootex"
-import OddleIcon from "@/components/icons/Oddle"
-import RocafIcon from "@/components/icons/RocafIcon"
-import ExternalLink from "@/components/template/ExternalLink"
-import { BriefcaseIcon } from "@/components/template/SocialIcons"
+import ExternalLink from "../(common)/ExternalLink"
+import { BriefcaseIcon, FstIcon, LootexIcon, OddleIcon, RocafIcon } from "../(common)/icons"
 
 type ResumeTime = { label: string; dateTime: string }
 

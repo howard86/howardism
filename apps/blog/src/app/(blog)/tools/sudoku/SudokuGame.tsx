@@ -2,8 +2,7 @@
 
 import clsx from "clsx"
 
-import { SUDOKU_DIFFICULTIES } from "@/constants/sudoku"
-
+import { SUDOKU_DIFFICULTIES } from "./constants"
 import useSudoku from "./useSudoku"
 
 const numberArray = new Array(9).fill(0).map((_, index) => index + 1)
@@ -66,7 +65,7 @@ export default function SudokuGame() {
                 <button
                   type="button"
                   key={`input-${number}`}
-                  className="btn-brand btn-square btn-sm btn"
+                  className="btn-brand btn-sm btn-square btn"
                   onClick={() => onUpdate(number)}
                 >
                   {number}

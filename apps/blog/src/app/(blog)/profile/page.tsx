@@ -5,7 +5,7 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { cache } from "react"
 
-import { Container } from "@/components/template/Container"
+import { Container } from "@/app/(common)/Container"
 import { authOptions } from "@/pages/api/auth/[...nextauth]"
 import prisma from "@/services/prisma"
 
