@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2.8.1 (2023-07-02)
+
+### ♻ Code Refactoring
+
+- Migrate sudoku page to app router ([bde6e59](https://github.com/Howard86/howardism/commit/bde6e59))
+
+### 🎫 Chores
+
+- Bump all dependencies to the latest ([e6c4999](https://github.com/Howard86/howardism/commit/e6c4999))
+- Remove and move files under app router structure ([03c9b05](https://github.com/Howard86/howardism/commit/03c9b05))
+- Remove unused packages ([45f7159](https://github.com/Howard86/howardism/commit/45f7159))
+
 # [2.8.0](https://github.com/Howard86/howardism/compare/@howardism/blog@2.7.10...@howardism/blog@2.8.0) (2023-06-24)
 
 ### ♻ Code Refactoring
