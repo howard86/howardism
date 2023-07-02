@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 
-import { SimpleLayout } from "@/components/template/SimpleLayout"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout"
 
 export const metadata: Metadata = {
   title: "You're subscribed",

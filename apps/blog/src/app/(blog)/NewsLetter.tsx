@@ -1,4 +1,4 @@
-import { MailIcon } from "@/components/template/SocialIcons"
+import { MailIcon } from "../(common)/icons"
 
 export default function Newsletter() {
   return (

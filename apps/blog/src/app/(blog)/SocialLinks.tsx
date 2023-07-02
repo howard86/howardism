@@ -1,14 +1,8 @@
 import type { FC } from "react"
 import type { SVGProps } from "react-html-props"
 
-import ExternalLink from "@/components/template/ExternalLink"
-import {
-  EmailIcon,
-  GitHubIcon,
-  LinkedInIcon,
-  RssIcon,
-  TwitterIcon,
-} from "@/components/template/SocialIcons"
+import ExternalLink from "@/app/(common)/ExternalLink"
+import { EmailIcon, GitHubIcon, LinkedInIcon, RssIcon, TwitterIcon } from "@/app/(common)/icons"
 
 type SocialLink = {
   href: string

@@ -1,4 +1,4 @@
-import { Container } from "@/components/template/Container"
+import { Container } from "@/app/(common)/Container"
 
 import ResumeDocument from "../ResumeDocument"
 import { getResumeById, mapResumeToResumeSchema } from "./utils"

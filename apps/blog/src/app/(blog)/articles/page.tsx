@@ -1,5 +1,5 @@
-import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/components/template/Card"
-import { SimpleLayout } from "@/components/template/SimpleLayout"
+import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/app/(common)/Card"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout"
 import { formatDate } from "@/utils/time"
 
 import { ArticleEntity, getArticles } from "./service"

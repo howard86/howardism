@@ -2,7 +2,7 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import type { SVGProps } from "react-html-props"
 
-import { Container } from "@/components/template/Container"
+import { Container } from "@/app/(common)/Container"
 import { formatDate } from "@/utils/time"
 
 import type { ArticleMeta } from "../service"

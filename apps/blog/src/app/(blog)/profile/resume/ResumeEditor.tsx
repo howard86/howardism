@@ -6,7 +6,7 @@ import { SuccessApiResponse } from "next-api-handler"
 import { useState } from "react"
 import { Control, useForm, useWatch } from "react-hook-form"
 
-import { Container } from "@/components/template/Container"
+import { Container } from "@/app/(common)/Container"
 
 import ResumeDocument from "./ResumeDocument"
 import ResumeForm, { DEFAULT_RESUME_FORM } from "./ResumeForm"

@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import Link, { LinkProps } from "next/link"
-import { AsKey, AsProps, ChildrenProps, FC } from "react"
-import { SVGProps } from "react-html-props"
+import type { AsKey, AsProps, ChildrenProps, FC } from "react"
+import type { SVGProps } from "react-html-props"
 
 function ChevronRightIcon(props: SVGProps) {
   return (
