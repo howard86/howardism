@@ -3,6 +3,7 @@ import "server-only"
 import { join } from "node:path"
 
 import glob from "fast-glob"
+import { StaticImageData } from "next/image"
 import { cache } from "react"
 
 export type Normalise<T> = {
@@ -20,6 +21,10 @@ export interface ArticleMeta {
   title: string
   description: string
   date: string
+  image: {
+    src: StaticImageData
+    alt: string
+  }
 }
 
 export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => {
