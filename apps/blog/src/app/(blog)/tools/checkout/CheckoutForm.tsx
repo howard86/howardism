@@ -11,8 +11,8 @@ import FormSelect from "@/app/(common)/FormSelect"
 import ProductOption from "./ProductOption"
 import { CheckoutSchema, checkoutSchema } from "./schema"
 
-const DEFAULT_SHIPPING_COST = 5
-const DEFAULT_TAX_RATE = 0.08
+export const DEFAULT_SHIPPING_COST = 5
+export const DEFAULT_TAX_RATE = 0.08
 
 interface ECommerceProduct {
   id: string
@@ -24,22 +24,22 @@ interface ECommerceProduct {
   imageAlt: string
 }
 
-// TODO: move to db level
+// TODO: pass from props
 const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
-  ids: ["1", "2", "3"],
+  ids: ["clk496ee1000008jia9426s1z", "clk49c27f000108ji35fm5crr", "clk49c86t000208ji9prlh4b1"],
   entities: {
-    "1": {
-      id: "1",
+    clk496ee1000008jia9426s1z: {
+      id: "clk496ee1000008jia9426s1z",
       title: "Sunglasses",
-      price: 32,
+      price: 32.99,
       color: "Brown",
       size: "Medium",
       imageSrc:
         "https://images.unsplash.com/photo-1658690299170-bf1c6f8e312f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxjb2xsZWN0aW9uLXBhZ2V8MnxPbTZONXJyV2Jia3x8ZW58MHx8fHx8&auto=format&fit=crop&w=160&h=160&q=60",
       imageAlt: "Brown Sunglasses",
     },
-    "2": {
-      id: "2",
+    clk49c27f000108ji35fm5crr: {
+      id: "clk49c27f000108ji35fm5crr",
       title: "Fashion Jumper",
       price: 58,
       color: "Black",
@@ -48,10 +48,10 @@ const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
         "https://images.unsplash.com/photo-1639926784590-ff2ef4757bf3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxjb2xsZWN0aW9uLXBhZ2V8MTN8T202TjVycldiYmt8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=160&h=160&q=60",
       imageAlt: "Black Fashion Jumper",
     },
-    "3": {
-      id: "3",
+    clk49c86t000208ji9prlh4b1: {
+      id: "clk49c86t000208ji9prlh4b1",
       title: "Classical Vase",
-      price: 24,
+      price: 24.5,
       color: "White",
       size: "Small",
       imageSrc:
@@ -61,6 +61,12 @@ const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
   },
 }
 
+enum ItemQuantityMap {
+  clk496ee1000008jia9426s1z = 2,
+  clk49c27f000108ji35fm5crr = 1,
+  clk49c86t000208ji9prlh4b1 = 4,
+}
+
 const numberFormat = new Intl.NumberFormat("en-US", { currency: "USD", style: "currency" })
 
 export default function CheckoutForm() {
@@ -68,20 +74,10 @@ export default function CheckoutForm() {
     mode: "onBlur",
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
-      items: [
-        {
-          id: "1",
-          quantity: 2,
-        },
-        {
-          id: "2",
-          quantity: 1,
-        },
-        {
-          id: "3",
-          quantity: 4,
-        },
-      ],
+      items: itemEntity.ids.map((id) => ({
+        id,
+        quantity: ItemQuantityMap[id],
+      })),
     },
   })
 
@@ -94,10 +90,20 @@ export default function CheckoutForm() {
     return prev + product.price * cur.quantity
   }, 0)
 
-  // TODO: connect with api & redirect to correct page
-  const handleCheckout = handleSubmit((data) => {
-    console.error(data)
-  })
+  // TODO: redirect to correct page base on checkout result
+  const handleCheckout = handleSubmit(async (data) => {
+    const response = await fetch("/api/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+
+    const result = await response.json()
+
+    console.log(result)
+  }, console.error)
 
   return (
     <div className="rounded-xl border bg-base-100 shadow-sm">
@@ -108,13 +114,15 @@ export default function CheckoutForm() {
           <div>
             <h2 className="text-lg font-medium">Contact information</h2>
 
-            <FormInput
-              register={register}
-              name="email"
-              label="Email address"
-              errors={formState.errors}
-              className="mt-8"
-            />
+            <div className="mt-8 space-y-8">
+              <FormInput register={register} name="name" label="Name" errors={formState.errors} />
+              <FormInput
+                register={register}
+                name="email"
+                label="Email address"
+                errors={formState.errors}
+              />
+            </div>
           </div>
 
           <div className="mt-10 lg:mt-0">
