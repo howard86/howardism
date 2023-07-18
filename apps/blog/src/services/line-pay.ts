@@ -205,16 +205,12 @@ const getLinePayAuthorizationHeaders = (uri: string, body: string) => {
     .update(`${env.LINE_PAY_CHANNEL_SECRET_KEY}${uri}${body}${nonce}`)
     .digest("base64")
 
-  const headers = {
+  return {
     "Content-Type": "application/json",
     "X-LINE-ChannelId": env.LINE_PAY_CHANNEL_ID,
     "X-LINE-Authorization-Nonce": nonce,
     "X-LINE-Authorization": signature,
   } as const
-
-  console.debug("headers :>> ", headers)
-
-  return headers
 }
 
 export const requestApi = async (param: RequestApiParam): Promise<RequestApiResponse> => {
@@ -230,12 +226,12 @@ export const requestApi = async (param: RequestApiParam): Promise<RequestApiResp
 }
 
 export const confirmApi = async (
-  transactionId: number,
+  transactionId: string,
   param: ConfirmApiParam
 ): Promise<ConfirmApiResponse> => {
   if (!env.LINE_PAY_API_URL) throw new Error("Missing LINE pay api url")
 
-  const uri = LinePayApiEndpoints.Confirm.replace("{transactionId}", transactionId.toString())
+  const uri = LinePayApiEndpoints.Confirm.replace("{transactionId}", transactionId)
   const body = JSON.stringify(param)
 
   return fetch(env.LINE_PAY_API_URL + uri, {

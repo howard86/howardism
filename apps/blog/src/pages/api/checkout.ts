@@ -30,13 +30,14 @@ const normalize = <T extends { id: string }>(items: T[]) => {
 }
 
 enum CallbackApiType {
-  Confirm,
-  Cancel,
+  Confirm = "confirm",
+  Cancel = "cancel",
 }
 
 const callbackSchema = z.object({
   orderId: z.string(),
-  transactionId: z.number(),
+  transactionId: z.string(),
+  internalId: z.string(),
   type: z.nativeEnum(CallbackApiType),
 })
 
@@ -48,6 +49,7 @@ router
 
     switch (input.data.type) {
       case CallbackApiType.Confirm: {
+        // FIXME: line transactionId is different from the Id sent from confirmApi
         const order = await prisma.commerceOrder.update({
           where: {
             id: input.data.orderId,
@@ -57,7 +59,7 @@ router
             transactions: {
               update: {
                 where: {
-                  channelId: input.data.transactionId,
+                  id: input.data.internalId,
                 },
                 data: {
                   status: "confirmed",
@@ -67,9 +69,10 @@ router
           },
         })
 
+        // FIXME: line transactionId somehow is different from the Id sent from confirmApi
         const linePayResponse = await confirmApi(input.data.transactionId, {
           amount: order.totalPrice,
-          currency: "USD",
+          currency: "TWD",
         })
 
         console.debug(`linePayConfirmResponse`, linePayResponse)
@@ -79,7 +82,7 @@ router
 
         await prisma.commerceTransaction.update({
           where: {
-            channelId: input.data.transactionId,
+            id: input.data.internalId,
           },
           data: {
             status: isSuccess ? "success" : "failed-to-confirm",
@@ -92,7 +95,7 @@ router
             : `/tools/checkout/cancelled?orderId=${order.id}`
         )
 
-        break
+        return
       }
 
       case CallbackApiType.Cancel: {
@@ -105,7 +108,7 @@ router
             transactions: {
               update: {
                 where: {
-                  channelId: input.data.transactionId,
+                  id: input.data.internalId,
                 },
                 data: {
                   status: "cancelled",
@@ -116,14 +119,14 @@ router
         })
 
         res.redirect(`/tools/checkout/cancelled?orderId=${order.id}`)
-        break
+        return
       }
 
       default:
         throw new Error(`Invalid callback type: ${input.data.type}`)
     }
   })
-  .post(async (req, res) => {
+  .post(async (req) => {
     const input = checkoutSchema.safeParse(req.body)
 
     if (!input.success) throw new BadRequestException(input.error.message)
@@ -147,10 +150,8 @@ router
       return product ? sum + product.price * item.quantity : sum
     }, 0)
 
-    const total =
-      Math.round(
-        (productPriceSum + productPriceSum * DEFAULT_TAX_RATE + DEFAULT_SHIPPING_COST) * 100
-      ) / 100
+    const tax = Math.round(productPriceSum * DEFAULT_TAX_RATE)
+    const total = productPriceSum + tax + DEFAULT_SHIPPING_COST
 
     const order = await prisma.commerceOrder.create({
       data: {
@@ -168,17 +169,34 @@ router
             quantity: product.quantity,
           })),
         },
+        transactions: {
+          create: {
+            amount: total,
+            currency: "TWD",
+            status: "initiated",
+          },
+        },
+      },
+      select: {
+        id: true,
+        transactions: {
+          select: {
+            id: true,
+          },
+        },
       },
     })
 
+    const internalId = order.transactions[0].id
+
     const linePayResponse = await requestApi({
       amount: total,
-      currency: "USD",
+      currency: "TWD",
       orderId: order.id,
       packages: [
         {
           id: order.id,
-          amount: total,
+          amount: productPriceSum,
           products: input.data.items.map((item) => {
             const product = entities[item.id]
 
@@ -193,10 +211,34 @@ router
             }
           }),
         },
+        {
+          id: "tax",
+          amount: tax,
+          products: [
+            {
+              id: "tax",
+              name: `${DEFAULT_TAX_RATE * 100}% Tax`,
+              price: tax,
+              quantity: 1,
+            },
+          ],
+        },
+        {
+          id: "shipping",
+          amount: DEFAULT_SHIPPING_COST,
+          products: [
+            {
+              id: "shipping",
+              name: "Shipping",
+              price: DEFAULT_SHIPPING_COST,
+              quantity: 1,
+            },
+          ],
+        },
       ],
       redirectUrls: {
-        confirmUrl: `${env.NEXTAUTH_URL}/api/checkout?type=confirm`,
-        cancelUrl: `${env.NEXTAUTH_URL}/api/checkout?type=cancel`,
+        confirmUrl: `${env.NEXTAUTH_URL}/api/checkout?type=${CallbackApiType.Confirm}&internalId=${internalId}`,
+        cancelUrl: `${env.NEXTAUTH_URL}/api/checkout?type=${CallbackApiType.Cancel}&internalId=${internalId}`,
       },
       options: {
         display: {
@@ -210,24 +252,20 @@ router
     // TODO: handle more return codes
     const isSuccess = linePayResponse.returnCode === RequestApiReturnCode.Success
 
-    await prisma.commerceTransaction.create({
+    await prisma.commerceTransaction.update({
+      where: {
+        id: internalId,
+      },
       data: {
-        amount: total,
-        currency: "USD",
         status: isSuccess ? "pending" : "failed-to-request",
-        channelId: linePayResponse.info.transactionId,
-        order: {
-          connect: {
-            id: order.id,
-          },
-        },
+        channelId: BigInt(linePayResponse.info.transactionId).toString(),
       },
     })
 
     if (!isSuccess) throw new Error(`Line Pay request failed: ${linePayResponse.returnMessage}`)
 
     // TODO: add user agent parser to determine redirect url
-    res.redirect(linePayResponse.info.paymentUrl.web)
+    return linePayResponse.info.paymentUrl.web
   })
 
 export default router.build()

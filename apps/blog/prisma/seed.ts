@@ -41,7 +41,7 @@ const main = async () => {
           {
             id: "clk496ee1000008jia9426s1z",
             title: "Sunglasses",
-            price: 32.99,
+            price: 3299,
             color: "Brown",
             size: "Medium",
             imageUrl:
@@ -51,7 +51,7 @@ const main = async () => {
           {
             id: "clk49c27f000108ji35fm5crr",
             title: "Fashion Jumper",
-            price: 58,
+            price: 5800,
             color: "Black",
             size: "Large",
             imageUrl:
@@ -61,7 +61,7 @@ const main = async () => {
           {
             id: "clk49c86t000208ji9prlh4b1",
             title: "Classical Vase",
-            price: 24.5,
+            price: 2450,
             color: "White",
             size: "Small",
             imageUrl:

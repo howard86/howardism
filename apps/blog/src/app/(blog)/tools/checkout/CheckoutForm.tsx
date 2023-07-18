@@ -3,6 +3,7 @@
 import { TrashIcon } from "@heroicons/react/24/outline"
 import { zodResolver } from "@hookform/resolvers/zod"
 import Image from "next/image"
+import { ApiResponse } from "next-api-handler"
 import { useForm } from "react-hook-form"
 
 import FormInput from "@/app/(common)/FormInput"
@@ -11,7 +12,7 @@ import FormSelect from "@/app/(common)/FormSelect"
 import ProductOption from "./ProductOption"
 import { CheckoutSchema, checkoutSchema } from "./schema"
 
-export const DEFAULT_SHIPPING_COST = 5
+export const DEFAULT_SHIPPING_COST = 120
 export const DEFAULT_TAX_RATE = 0.08
 
 interface ECommerceProduct {
@@ -31,7 +32,7 @@ const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
     clk496ee1000008jia9426s1z: {
       id: "clk496ee1000008jia9426s1z",
       title: "Sunglasses",
-      price: 32.99,
+      price: 3299,
       color: "Brown",
       size: "Medium",
       imageSrc:
@@ -41,7 +42,7 @@ const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
     clk49c27f000108ji35fm5crr: {
       id: "clk49c27f000108ji35fm5crr",
       title: "Fashion Jumper",
-      price: 58,
+      price: 5800,
       color: "Black",
       size: "Large",
       imageSrc:
@@ -51,7 +52,7 @@ const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
     clk49c86t000208ji9prlh4b1: {
       id: "clk49c86t000208ji9prlh4b1",
       title: "Classical Vase",
-      price: 24.5,
+      price: 2450,
       color: "White",
       size: "Small",
       imageSrc:
@@ -67,7 +68,11 @@ enum ItemQuantityMap {
   clk49c86t000208ji9prlh4b1 = 4,
 }
 
-const numberFormat = new Intl.NumberFormat("en-US", { currency: "USD", style: "currency" })
+const numberFormat = new Intl.NumberFormat("zh-TW", {
+  currency: "TWD",
+  style: "currency",
+  maximumFractionDigits: 0,
+})
 
 export default function CheckoutForm() {
   const { watch, register, formState, setValue, handleSubmit } = useForm<CheckoutSchema>({
@@ -100,9 +105,13 @@ export default function CheckoutForm() {
       body: JSON.stringify(data),
     })
 
-    const result = await response.json()
+    const result = (await response.json()) as ApiResponse<string>
 
-    console.log(result)
+    if (!result.success) {
+      throw new Error(result.message)
+    } else if (result.data) {
+      window.location.href = result.data
+    }
   }, console.error)
 
   return (
