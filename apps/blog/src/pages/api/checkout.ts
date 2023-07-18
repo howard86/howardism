@@ -1,4 +1,5 @@
 import { BadRequestException, RouterBuilder } from "next-api-handler"
+import parser from "ua-parser-js"
 import { z } from "zod"
 
 import { DEFAULT_SHIPPING_COST, DEFAULT_TAX_RATE } from "@/app/(blog)/tools/checkout/CheckoutForm"
@@ -264,8 +265,11 @@ router
 
     if (!isSuccess) throw new Error(`Line Pay request failed: ${linePayResponse.returnMessage}`)
 
-    // TODO: add user agent parser to determine redirect url
-    return linePayResponse.info.paymentUrl.web
+    const ua = parser(req.headers["user-agent"])
+
+    return ua.device.type === "mobile"
+      ? linePayResponse.info.paymentUrl.app
+      : linePayResponse.info.paymentUrl.web
   })
 
 export default router.build()
