@@ -77,9 +77,13 @@ router
           },
         })
 
+        if (isSuccess) {
+          await res.revalidate(`/tools/checkout/${order.id}`).catch(console.error)
+        }
+
         res.redirect(
           isSuccess
-            ? `/tools/checkout/success?orderId=${order.id}`
+            ? `/tools/checkout/${order.id}`
             : `/tools/checkout/cancelled?orderId=${order.id}`
         )
 
