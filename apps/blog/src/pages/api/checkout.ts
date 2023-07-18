@@ -2,7 +2,8 @@ import { BadRequestException, RouterBuilder } from "next-api-handler"
 import parser from "ua-parser-js"
 import { z } from "zod"
 
-import { DEFAULT_SHIPPING_COST, DEFAULT_TAX_RATE } from "@/app/(blog)/tools/checkout/CheckoutForm"
+import { DEFAULT_TAX_RATE } from "@/app/(blog)/tools/checkout/CheckoutForm"
+import { DEFAULT_SHIPPING_COST } from "@/app/(blog)/tools/checkout/constants"
 import { checkoutSchema } from "@/app/(blog)/tools/checkout/schema"
 import { env } from "@/config/env.mjs"
 import {
@@ -12,23 +13,9 @@ import {
   RequestApiReturnCode,
 } from "@/services/line-pay"
 import prisma from "@/services/prisma"
+import { normalize } from "@/utils/array"
 
 const router = new RouterBuilder()
-
-const normalize = <T extends { id: string }>(items: T[]) => {
-  const ids: string[] = []
-  const entities: NodeJS.Dict<T> = {}
-
-  for (const item of items) {
-    ids.push(item.id)
-    entities[item.id] = item
-  }
-
-  return {
-    ids,
-    entities,
-  }
-}
 
 enum CallbackApiType {
   Confirm = "confirm",

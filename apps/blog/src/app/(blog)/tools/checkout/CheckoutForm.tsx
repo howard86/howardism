@@ -8,11 +8,12 @@ import { useForm } from "react-hook-form"
 
 import FormInput from "@/app/(common)/FormInput"
 import FormSelect from "@/app/(common)/FormSelect"
+import type { Normalized } from "@/utils/array"
 
 import ProductOption from "./ProductOption"
 import { CheckoutSchema, checkoutSchema } from "./schema"
+import { numberFormat } from "./utils"
 
-export const DEFAULT_SHIPPING_COST = 120
 export const DEFAULT_TAX_RATE = 0.08
 
 interface ECommerceProduct {
@@ -21,45 +22,8 @@ interface ECommerceProduct {
   price: number
   color: string
   size: string
-  imageSrc: string
+  imageUrl: string
   imageAlt: string
-}
-
-// TODO: pass from props
-const itemEntity: { ids: string[]; entities: NodeJS.Dict<ECommerceProduct> } = {
-  ids: ["clk496ee1000008jia9426s1z", "clk49c27f000108ji35fm5crr", "clk49c86t000208ji9prlh4b1"],
-  entities: {
-    clk496ee1000008jia9426s1z: {
-      id: "clk496ee1000008jia9426s1z",
-      title: "Sunglasses",
-      price: 3299,
-      color: "Brown",
-      size: "Medium",
-      imageSrc:
-        "https://images.unsplash.com/photo-1658690299170-bf1c6f8e312f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxjb2xsZWN0aW9uLXBhZ2V8MnxPbTZONXJyV2Jia3x8ZW58MHx8fHx8&auto=format&fit=crop&w=160&h=160&q=60",
-      imageAlt: "Brown Sunglasses",
-    },
-    clk49c27f000108ji35fm5crr: {
-      id: "clk49c27f000108ji35fm5crr",
-      title: "Fashion Jumper",
-      price: 5800,
-      color: "Black",
-      size: "Large",
-      imageSrc:
-        "https://images.unsplash.com/photo-1639926784590-ff2ef4757bf3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxjb2xsZWN0aW9uLXBhZ2V8MTN8T202TjVycldiYmt8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=160&h=160&q=60",
-      imageAlt: "Black Fashion Jumper",
-    },
-    clk49c86t000208ji9prlh4b1: {
-      id: "clk49c86t000208ji9prlh4b1",
-      title: "Classical Vase",
-      price: 2450,
-      color: "White",
-      size: "Small",
-      imageSrc:
-        "https://images.unsplash.com/photo-1648994517762-15aae4c01ce7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxjb2xsZWN0aW9uLXBhZ2V8Nzl8T202TjVycldiYmt8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=160&h=160&q=60",
-      imageAlt: "White Classical Vase",
-    },
-  },
 }
 
 enum ItemQuantityMap {
@@ -68,18 +32,17 @@ enum ItemQuantityMap {
   clk49c86t000208ji9prlh4b1 = 4,
 }
 
-const numberFormat = new Intl.NumberFormat("zh-TW", {
-  currency: "TWD",
-  style: "currency",
-  maximumFractionDigits: 0,
-})
+interface CheckoutFormProps {
+  shippingCost: number
+  products: Normalized<ECommerceProduct>
+}
 
-export default function CheckoutForm() {
+export default function CheckoutForm({ products, shippingCost }: CheckoutFormProps) {
   const { watch, register, formState, setValue, handleSubmit } = useForm<CheckoutSchema>({
     mode: "onBlur",
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
-      items: itemEntity.ids.map((id) => ({
+      items: products.ids.map((id) => ({
         id,
         quantity: ItemQuantityMap[id],
       })),
@@ -88,7 +51,7 @@ export default function CheckoutForm() {
 
   const items = watch("items") || []
   const partialSum = items.reduce((prev, cur) => {
-    const product = itemEntity.entities[cur.id]
+    const product = products.entities[cur.id]
 
     if (!product) return prev
 
@@ -141,7 +104,7 @@ export default function CheckoutForm() {
               <h3 className="sr-only">Items in your cart</h3>
               <ul className="divide-y divide-gray-200">
                 {items.map((item, index) => {
-                  const product = itemEntity.entities[item.id]
+                  const product = products.entities[item.id]
 
                   if (!product) return null
 
@@ -157,10 +120,10 @@ export default function CheckoutForm() {
                     <li key={item.id} className="flex px-4 py-6 sm:px-6">
                       <div className="flex-shrink-0">
                         <Image
-                          src={product.imageSrc}
+                          src={product.imageUrl}
                           alt={product.imageAlt}
                           width={80}
-                          height={60}
+                          height={80}
                           className="h-auto w-20 rounded-md"
                         />
                       </div>
@@ -213,9 +176,7 @@ export default function CheckoutForm() {
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-sm">Shipping</dt>
-                  <dd className="text-sm font-medium">
-                    {numberFormat.format(DEFAULT_SHIPPING_COST)}
-                  </dd>
+                  <dd className="text-sm font-medium">{numberFormat.format(shippingCost)}</dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-sm">Taxes</dt>
@@ -226,9 +187,7 @@ export default function CheckoutForm() {
                 <div className="flex items-center justify-between border-t pt-6">
                   <dt className="text-base font-medium">Total</dt>
                   <dd className="text-base font-medium">
-                    {numberFormat.format(
-                      partialSum + DEFAULT_SHIPPING_COST + partialSum * DEFAULT_TAX_RATE
-                    )}
+                    {numberFormat.format(partialSum + shippingCost + partialSum * DEFAULT_TAX_RATE)}
                   </dd>
                 </div>
               </dl>
