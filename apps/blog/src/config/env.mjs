@@ -11,10 +11,13 @@ export const env = createEnv({
     LINE_PAY_API_URL: z.string().url().optional(),
   },
   client: {
+    isLive: z.boolean(),
     NEXT_PUBLIC_VERCEL_URL: z.string().url(),
     NEXT_PUBLIC_DOMAIN_NAME: z.string(),
   },
   runtimeEnv: {
+    isLive:
+      process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_VERCEL_ENV === "production",
     CMS_API_ENDPOINT: process.env.CMS_API_ENDPOINT,
     CMS_API_KEY: process.env.CMS_API_KEY,
     NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL?.startsWith("localhost:")

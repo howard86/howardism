@@ -256,9 +256,7 @@ router
 
     if (!isSuccess) throw new Error(`Line Pay request failed: ${linePayResponse.returnMessage}`)
 
-    const ua = parser(req.headers["user-agent"])
-
-    return ua.device.type === "mobile"
+    return env.isLive && parser(req.headers["user-agent"]).device.type === "mobile"
       ? linePayResponse.info.paymentUrl.app
       : linePayResponse.info.paymentUrl.web
   })
