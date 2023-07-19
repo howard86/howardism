@@ -26944,13 +26944,13 @@ export const GetUserDocument = gql`
  * });
  */
 export function useGetUserQuery(
-  baseOptions: Apollo.QueryHookOptions<GetUserQuery, GetUserQueryVariables>
+  baseOptions: Apollo.QueryHookOptions<GetUserQuery, GetUserQueryVariables>,
 ) {
   const options = { ...defaultOptions, ...baseOptions }
   return Apollo.useQuery<GetUserQuery, GetUserQueryVariables>(GetUserDocument, options)
 }
 export function useGetUserLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<GetUserQuery, GetUserQueryVariables>
+  baseOptions?: Apollo.LazyQueryHookOptions<GetUserQuery, GetUserQueryVariables>,
 ) {
   const options = { ...defaultOptions, ...baseOptions }
   return Apollo.useLazyQuery<GetUserQuery, GetUserQueryVariables>(GetUserDocument, options)
@@ -26994,18 +26994,18 @@ export const SearchUsersDocument = gql`
  * });
  */
 export function useSearchUsersQuery(
-  baseOptions: Apollo.QueryHookOptions<SearchUsersQuery, SearchUsersQueryVariables>
+  baseOptions: Apollo.QueryHookOptions<SearchUsersQuery, SearchUsersQueryVariables>,
 ) {
   const options = { ...defaultOptions, ...baseOptions }
   return Apollo.useQuery<SearchUsersQuery, SearchUsersQueryVariables>(SearchUsersDocument, options)
 }
 export function useSearchUsersLazyQuery(
-  baseOptions?: Apollo.LazyQueryHookOptions<SearchUsersQuery, SearchUsersQueryVariables>
+  baseOptions?: Apollo.LazyQueryHookOptions<SearchUsersQuery, SearchUsersQueryVariables>,
 ) {
   const options = { ...defaultOptions, ...baseOptions }
   return Apollo.useLazyQuery<SearchUsersQuery, SearchUsersQueryVariables>(
     SearchUsersDocument,
-    options
+    options,
   )
 }
 export type SearchUsersQueryHookResult = ReturnType<typeof useSearchUsersQuery>

@@ -83,7 +83,7 @@ export default function Resume() {
                 className="ml-auto text-xs text-base-content/60"
                 aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(
                   role.end,
-                  "label"
+                  "label",
                 )}`}
               >
                 <time dateTime={getStringOrValue(role.start, "dateTime")}>

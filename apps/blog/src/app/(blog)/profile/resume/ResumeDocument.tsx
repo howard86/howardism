@@ -11,7 +11,7 @@ import { convertDateString } from "./utils"
 
 const DynamicPDFViewer = dynamic(
   () => import("@react-pdf/renderer").then((module) => module.PDFViewer),
-  { ssr: false }
+  { ssr: false },
 )
 
 // TODO: make style dynamic

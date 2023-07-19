@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 
 const useThrottledScroll = (
   callback: (previousScrollTop: number, currentScrollTop: number) => void,
-  wait: number
+  wait: number,
 ): void => {
   const [, setScrollPosition] = useState(0)
   let previousScrollTop = 0

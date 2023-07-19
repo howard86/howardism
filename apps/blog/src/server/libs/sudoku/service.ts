@@ -23,7 +23,7 @@ const isRepeated = (
   sudoku: Sudoku,
   rowNumber: number,
   columnNumber: number,
-  insertNumber: number
+  insertNumber: number,
 ) =>
   sudoku.getRow(rowNumber).includes(insertNumber) ||
   sudoku.getColumn(columnNumber).includes(insertNumber) ||
@@ -99,7 +99,7 @@ const getNumberOfSolutions = (
   sudoku: Sudoku,
   rowNumber = 1,
   columnNumber = 1,
-  count = 0
+  count = 0,
 ): number => {
   if (rowNumber === DIMENSION && columnNumber === DIMENSION) {
     return count + 1

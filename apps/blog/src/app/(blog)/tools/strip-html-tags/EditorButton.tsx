@@ -32,7 +32,7 @@ export default function EditorButton({ tooltip, onClick, Icon, ...props }: Edito
     () => () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     },
-    []
+    [],
   )
 
   return (
@@ -42,7 +42,7 @@ export default function EditorButton({ tooltip, onClick, Icon, ...props }: Edito
     >
       <button
         type="button"
-        className={clsx("swap btn-primary btn-sm join-item btn", success && "swap-active")}
+        className={clsx("btn btn-primary join-item swap btn-sm", success && "swap-active")}
         onClick={handleClick}
         {...props}
       >

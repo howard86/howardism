@@ -15,5 +15,5 @@ export default function Provider({ children }: ChildrenProps) {
 
 export const customRender = (
   ui: ReactElement,
-  options?: Omit<RenderOptions, "queries">
+  options?: Omit<RenderOptions, "queries">,
 ): RenderResult => render(ui, { wrapper: Provider, ...options })

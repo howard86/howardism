@@ -19,7 +19,7 @@ export default async function Photos() {
               key={article.slug}
               className={clsx(
                 "relative aspect-[9/10] w-44 flex-none overflow-hidden rounded-xl bg-base-100 sm:w-72 sm:rounded-2xl",
-                index % 2 ? "rotate-2" : "-rotate-2"
+                index % 2 ? "rotate-2" : "-rotate-2",
               )}
             >
               <Image

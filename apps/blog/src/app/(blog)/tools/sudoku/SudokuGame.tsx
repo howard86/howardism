@@ -16,7 +16,7 @@ export default function SudokuGame() {
         <summary className={clsx("btn-brand btn", loading && "btn-disabled")}>
           Start new game
         </summary>
-        <ul className="dropdown-content menu rounded-box w-52 bg-base-100 p-2 shadow">
+        <ul className="menu dropdown-content rounded-box w-52 bg-base-100 p-2 shadow">
           {SUDOKU_DIFFICULTIES.map((key) => (
             <li key={key}>
               <button type="button" onClick={() => onStart(key)} className="capitalize">
@@ -51,7 +51,7 @@ export default function SudokuGame() {
                     ? "bg-base-300"
                     : game[index] > 0
                     ? "bg-base-200"
-                    : "bg-base-100"
+                    : "bg-base-100",
                 )}
                 onClick={() => onSelect(index)}
               >
@@ -65,7 +65,7 @@ export default function SudokuGame() {
                 <button
                   type="button"
                   key={`input-${number}`}
-                  className="btn-brand btn-sm btn-square btn"
+                  className="btn-brand btn btn-square btn-sm"
                   onClick={() => onUpdate(number)}
                 >
                   {number}

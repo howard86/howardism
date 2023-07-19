@@ -28,7 +28,7 @@ export default function ToolsPage() {
                 <div
                   className={clsx(
                     item.background,
-                    "z-10 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg"
+                    "z-10 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg",
                   )}
                 >
                   <item.icon className="h-6 w-6 text-white" aria-hidden="true" />

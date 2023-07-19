@@ -227,7 +227,7 @@ export const requestApi = async (param: RequestApiParam): Promise<RequestApiResp
 
 export const confirmApi = async (
   transactionId: string,
-  param: ConfirmApiParam
+  param: ConfirmApiParam,
 ): Promise<ConfirmApiResponse> => {
   if (!env.LINE_PAY_API_URL) throw new Error("Missing LINE pay api url")
 

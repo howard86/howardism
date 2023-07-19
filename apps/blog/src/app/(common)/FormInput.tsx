@@ -43,7 +43,7 @@ export default function FormInput<T extends FieldValues>({
         <span
           className={clsx(
             "label-text bg-base-100 px-0.5 font-medium transition-colors",
-            isInvalid ? "text-error" : "group-focus-within:text-primary group-hover:text-primary"
+            isInvalid ? "text-error" : "group-focus-within:text-primary group-hover:text-primary",
           )}
         >
           {label}
@@ -54,10 +54,10 @@ export default function FormInput<T extends FieldValues>({
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         aria-invalid={isInvalid ? "true" : undefined}
         className={clsx(
-          "input-bordered input transition-all",
+          "input input-bordered transition-all",
           isInvalid
             ? "input-error"
-            : "active:input-primary group-focus-within:input-primary group-hover:input-primary"
+            : "active:input-primary group-focus-within:input-primary group-hover:input-primary",
         )}
         {...register(name, options)}
         {...props}

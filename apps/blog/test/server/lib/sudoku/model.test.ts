@@ -29,7 +29,7 @@ describe("sudoku model", () => {
       expect.hasAssertions()
       const invalidInput = validInput.slice(0, 80)
       expect(() => new Sudoku(invalidInput)).toThrow(
-        "Incorrect input length=80, input should only contain 81 numbers"
+        "Incorrect input length=80, input should only contain 81 numbers",
       )
     })
 
@@ -37,7 +37,7 @@ describe("sudoku model", () => {
       expect.hasAssertions()
       const invalidInput = [...validInput, 2]
       expect(() => new Sudoku(invalidInput)).toThrow(
-        "Incorrect input length=82, input should only contain 81 numbers"
+        "Incorrect input length=82, input should only contain 81 numbers",
       )
     })
 
@@ -261,7 +261,7 @@ describe("sudoku model", () => {
           9, 1, 4, 3, 8, 6, 2, 7, 5,
           3, 7, 6, 1, 2, 5, 8, 4, 9,
           2, 5, 8, 4, 7, 9, 3, 1, 6
-        ]
+        ],
       )
 
       expect(sudoku.isSolved).toBe(true)
@@ -281,7 +281,7 @@ describe("sudoku model", () => {
           8, 0, 0, 1, 0, 0, 2, 0, 0,
           2, 0, 0, 7, 0, 0, 0, 0, 0,
           0, 6, 5, 4, 0, 0, 0, 0, 1
-        ]
+        ],
       )
 
       expect(sudokuWithZero.isSolved).toBe(false)
@@ -298,7 +298,7 @@ describe("sudoku model", () => {
           9, 1, 4, 3, 8, 6, 4, 7, 5, // 4 repeated here
           3, 7, 6, 1, 2, 5, 8, 2, 9, // 2 repeated here
           2, 5, 8, 4, 7, 9, 3, 1, 6
-        ]
+        ],
       )
 
       expect(sudokuWithRepeatedNumber.isSolved).toBe(false)
@@ -320,7 +320,7 @@ describe("sudoku model", () => {
           9, 1, 4, 3, 8, 6, 2, 7, 5,
           3, 7, 6, 1, 2, 5, 8, 4, 9,
           2, 5, 8, 4, 7, 9, 3, 1, 6
-        ]
+        ],
       )
 
       expect.hasAssertions()

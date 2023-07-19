@@ -40,7 +40,7 @@ export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => 
         slug: filename.replace(/.mdx$/, ""),
         meta,
       }
-    })
+    }),
   )
 
   files.sort((a, b) => new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf())

@@ -112,7 +112,7 @@ export default function CheckoutForm({ products, shippingCost }: CheckoutFormPro
                     setValue(
                       "items",
                       items.filter((raw) => raw.id !== item.id),
-                      { shouldDirty: true }
+                      { shouldDirty: true },
                     )
                   }
 
@@ -139,7 +139,7 @@ export default function CheckoutForm({ products, shippingCost }: CheckoutFormPro
                           <div className="ml-4 flow-root flex-shrink-0">
                             <button
                               type="button"
-                              className="btn-sm btn-circle btn -m-2.5"
+                              className="btn btn-circle btn-sm -m-2.5"
                               disabled={items.length === 1}
                               onClick={handleRemove}
                             >
@@ -193,7 +193,7 @@ export default function CheckoutForm({ products, shippingCost }: CheckoutFormPro
               </dl>
 
               <div className="border-t px-4 py-6 sm:px-6">
-                <button type="submit" className="btn-primary btn w-full">
+                <button type="submit" className="btn btn-primary w-full">
                   {formState.isSubmitting && <span className="loading loading-spinner" />}
                   Confirm order
                 </button>

@@ -40,7 +40,7 @@ export default function SocialLinks() {
       {SOCIAL_LINKS.map((link) => (
         <li key={link.href} className="group">
           <ExternalLink
-            className="btn-sm btn-circle btn"
+            className="btn btn-circle btn-sm"
             aria-label={link["aria-label"]}
             href={link.href}
           >
