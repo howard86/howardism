@@ -27,7 +27,7 @@ import { Fragment, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
-import FormInput from "@/app/(blog)/profile/resume/FormInput"
+import FormInput from "@/app/(common)/FormInput"
 
 import EditorButton from "./EditorButton"
 import { formatEditorValue, loopThroughHtmlNodes, updateEditorValue } from "./service"

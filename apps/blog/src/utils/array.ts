@@ -38,3 +38,23 @@ export const sampleSize = <T>(array: T[], n: number = array.length): T[] => {
   }
   return result.slice(0, count)
 }
+
+export type Normalized<T extends { id: string }> = {
+  ids: string[]
+  entities: NodeJS.Dict<T>
+}
+
+export const normalize = <T extends { id: string }>(items: T[]) => {
+  const ids: string[] = []
+  const entities: NodeJS.Dict<T> = {}
+
+  for (const item of items) {
+    ids.push(item.id)
+    entities[item.id] = item
+  }
+
+  return {
+    ids,
+    entities,
+  }
+}

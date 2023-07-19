@@ -2,6 +2,7 @@
 
 import clsx from "clsx"
 import get from "lodash.get"
+import { ReactNode } from "react"
 import type {
   FieldErrors,
   FieldValues,
@@ -9,20 +10,21 @@ import type {
   RegisterOptions,
   UseFormRegister,
 } from "react-hook-form"
-import { InputProps } from "react-html-props"
+import { SelectProps } from "react-html-props"
 
-import { getAriaDescribedBy } from "./utils"
+import { getAriaDescribedBy } from "../(blog)/profile/resume/utils"
 
-interface FormInputProps<T extends FieldValues> extends InputProps {
-  label: string
+interface FormSelectProps<T extends FieldValues> extends SelectProps {
+  label?: string
   name: Path<T>
   register: UseFormRegister<T>
   options?: RegisterOptions<T, Path<T>>
   errors: FieldErrors<T>
   helperText?: string
+  children: ReactNode
 }
 
-export default function FormInput<T extends FieldValues>({
+export default function FormSelect<T extends FieldValues>({
   label,
   name,
   register,
@@ -31,7 +33,7 @@ export default function FormInput<T extends FieldValues>({
   className,
   helperText,
   ...props
-}: FormInputProps<T>) {
+}: FormSelectProps<T>) {
   const errorMessage = get(errors, name)?.message
   const isInvalid = Boolean(errorMessage)
 
@@ -39,25 +41,18 @@ export default function FormInput<T extends FieldValues>({
 
   return (
     <div className={clsx("group form-control relative", className)}>
-      <label htmlFor={name} className="label absolute -top-4.5 left-3 bg-base-100">
-        <span
-          className={clsx(
-            "label-text font-medium transition-colors",
-            isInvalid ? "text-error" : "group-focus-within:text-primary group-hover:text-primary"
-          )}
-        >
-          {label}
-        </span>
+      <label htmlFor={name} className="sr-only">
+        {label}
       </label>
-      <input
+      <select
         id={name}
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         aria-invalid={isInvalid ? "true" : undefined}
         className={clsx(
-          "input-bordered input transition-all",
+          "select-bordered select select-sm transition-all",
           isInvalid
-            ? "input-error"
-            : "active:input-primary group-focus-within:input-primary group-hover:input-primary"
+            ? "select-error"
+            : "active:select-primary group-focus-within:select-primary group-hover:select-primary"
         )}
         {...register(name, options)}
         {...props}

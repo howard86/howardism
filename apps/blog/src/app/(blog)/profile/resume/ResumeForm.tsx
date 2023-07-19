@@ -14,8 +14,9 @@ import clsx from "clsx"
 import type { FormEvent } from "react"
 import type { Control, FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
 
+import FormInput from "@/app/(common)/FormInput"
+
 import FormArraySection from "./FormArraySection"
-import FormInput from "./FormInput"
 import FormSectionContainer from "./FormSectionContainer"
 import FormTextArea from "./FormTextArea"
 import type { ResumeSchema } from "./schema"
