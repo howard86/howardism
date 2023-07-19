@@ -229,8 +229,8 @@ router
         },
       ],
       redirectUrls: {
-        confirmUrl: `${env.NEXT_PUBLIC_VERCEL_URL}/api/checkout?type=${CallbackApiType.Confirm}&internalId=${internalId}`,
-        cancelUrl: `${env.NEXT_PUBLIC_VERCEL_URL}/api/checkout?type=${CallbackApiType.Cancel}&internalId=${internalId}`,
+        confirmUrl: `${env.NEXT_PUBLIC_DOMAIN_NAME}/api/checkout?type=${CallbackApiType.Confirm}&internalId=${internalId}`,
+        cancelUrl: `${env.NEXT_PUBLIC_DOMAIN_NAME}/api/checkout?type=${CallbackApiType.Cancel}&internalId=${internalId}`,
       },
       options: {
         display: {
