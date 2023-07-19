@@ -7,7 +7,7 @@ export default function Ground() {
   const [ref] = usePlane<Mesh<BufferGeometry>>(
     (): PlaneProps => ({
       rotation: [-Math.PI / 2, 0, 0],
-    })
+    }),
   )
   const texture = useTexture("/texture/grass.jpg")
   texture.wrapS = RepeatWrapping

@@ -28,7 +28,7 @@ type ExtractProps<T> = T extends ComponentType<infer P> ? P : T
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
   return (
     <Popover {...props}>
-      <Popover.Button className="btn-brand btn-sm btn rounded-full">
+      <Popover.Button className="btn-brand btn btn-sm rounded-full">
         Menu
         <ChevronDownIcon className="w-2 stroke-current transition-colors" />
       </Popover.Button>
@@ -58,7 +58,7 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
             className="fixed inset-x-4 top-8 z-50 origin-top rounded-3xl bg-base-100 p-8 ring-1 ring-base-200"
           >
             <div className="flex flex-row-reverse items-center justify-between">
-              <Popover.Button aria-label="Close menu" className="btn-brand btn-sm btn-circle btn">
+              <Popover.Button aria-label="Close menu" className="btn-brand btn btn-circle btn-sm">
                 <CloseIcon />
               </Popover.Button>
               <h2 className="text-sm font-medium text-base-content">Navigation</h2>
@@ -126,7 +126,7 @@ function ModeToggle() {
   }
 
   return (
-    <label className="btn-brand group swap swap-rotate btn-sm btn-circle btn shadow-sm">
+    <label className="btn-brand group btn btn-circle swap swap-rotate btn-sm shadow-sm">
       <input checked={!isDarkMode} onChange={handleChange} type="checkbox" />
       <SunIcon className="swap-on w-5 fill-transparent stroke-primary group-hover:stroke-primary-focus" />
       <MoonIcon className="swap-off w-5 fill-transparent stroke-base-content " />
@@ -145,7 +145,7 @@ function AvatarContainer({ className, ...props }: DivProps) {
     <div
       className={clsx(
         className,
-        "rounded-full bg-base-100 p-0.5 shadow-sm shadow-base-200 ring-1 ring-base-300 backdrop-blur"
+        "rounded-full bg-base-100 p-0.5 shadow-sm shadow-base-200 ring-1 ring-base-300 backdrop-blur",
       )}
       {...props}
     />

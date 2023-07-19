@@ -100,7 +100,7 @@ export default function Cube({ position }: CubeProps) {
               map={texture}
               color={hover === index ? "gray" : "white"}
             />
-          )
+          ),
         )}
         <boxBufferGeometry attach="geometry" />
       </>

@@ -116,13 +116,13 @@ export default function ResumeForm({
                     selected
                       ? "bg-base-200 text-primary hover:bg-base-300 hover:text-primary-focus"
                       : "text-base-content hover:bg-base-200 hover:text-primary",
-                    "group flex w-full items-center rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors"
+                    "group flex w-full items-center rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors",
                   )}
                 >
                   <item.icon
                     className={clsx(
                       selected ? "group-hover:text-primary-focus" : "group-hover:text-primary",
-                      "-ml-1 mr-3 w-6"
+                      "-ml-1 mr-3 w-6",
                     )}
                     aria-hidden="true"
                   />
@@ -457,7 +457,7 @@ export default function ResumeForm({
             </Tab.Panel>
 
             <div className="bg-base-200/40 px-4 py-3 text-right sm:px-6">
-              <button type="submit" className="btn-primary btn">
+              <button type="submit" className="btn btn-primary">
                 Save
               </button>
             </div>

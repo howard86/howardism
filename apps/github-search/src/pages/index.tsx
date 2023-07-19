@@ -28,7 +28,7 @@ export default function HomePage() {
             (user) =>
               user?.__typename === "User" && (
                 <UserCard key={user.login} avatarUrl={user.avatarUrl} username={user.login} />
-              )
+              ),
           )}
         </Wrap>
       )}

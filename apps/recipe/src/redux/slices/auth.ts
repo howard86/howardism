@@ -20,7 +20,7 @@ export const authLogin = createAsyncThunk(
     const response = await api.post<LocalAPIResponse<LoginResponse>>("/auth/login", account)
 
     return response.data
-  }
+  },
 )
 
 const { actions, reducer } = createSlice({

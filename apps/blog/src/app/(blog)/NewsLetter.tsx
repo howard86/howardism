@@ -26,9 +26,9 @@ export default function Newsletter() {
           aria-label="Email address"
           autoComplete="on"
           required
-          className="input-bordered input input-sm w-full"
+          className="input input-bordered input-sm w-full"
         />
-        <button type="submit" className="btn-primary btn-sm btn">
+        <button type="submit" className="btn btn-primary btn-sm">
           Join
         </button>
       </div>

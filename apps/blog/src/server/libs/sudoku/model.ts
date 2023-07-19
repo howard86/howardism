@@ -14,7 +14,7 @@ export default class Sudoku {
       Buffer.from(code, "base64")
         .toString()
         .split("")
-        .map((char) => parseInt(char, 10))
+        .map((char) => parseInt(char, 10)),
     )
   }
 
@@ -49,7 +49,7 @@ export default class Sudoku {
       (i) =>
         Sudoku.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getRow(i).includes(num)) &&
         Sudoku.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getColumn(i).includes(num)) &&
-        Sudoku.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getBlock(i).includes(num))
+        Sudoku.ARRAY_FROM_ONE_TO_NINE.every((num) => this.getBlock(i).includes(num)),
     )
   }
 
@@ -115,7 +115,7 @@ export default class Sudoku {
             3 * ((n - 1) % 3) +
             Math.floor((i - 1) / 3) * 9 +
             ((i - 1) % 3)
-        ]
+        ],
     )
   }
 
@@ -144,12 +144,12 @@ export default class Sudoku {
   private validateInput() {
     if (this.numberArray.length !== Sudoku.VALID_INPUT_LENGTH) {
       throw new Error(
-        `Incorrect input length=${this.numberArray.length}, input should only contain ${Sudoku.VALID_INPUT_LENGTH} numbers`
+        `Incorrect input length=${this.numberArray.length}, input should only contain ${Sudoku.VALID_INPUT_LENGTH} numbers`,
       )
     }
 
     const invalidInput = this.numberArray.filter(
-      (number) => number < 0 || number > 9 || !Number.isSafeInteger(number)
+      (number) => number < 0 || number > 9 || !Number.isSafeInteger(number),
     )
 
     if (invalidInput.length > 0) {

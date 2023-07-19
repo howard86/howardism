@@ -31,7 +31,7 @@ function InfoField({ title, description }: InfoFieldProps) {
 const getResumeProfiles = cache(async (email: string) =>
   prisma.resumeProfile.findMany({
     where: { applicant: { email } },
-  })
+  }),
 )
 
 export default async function ProfilePage() {

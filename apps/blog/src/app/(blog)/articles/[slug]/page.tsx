@@ -24,7 +24,7 @@ export async function generateMetadata({ params: { slug } }: ArticlePageProps): 
 const getSiblingSlug = (
   articles: Normalise<ArticleEntity>,
   slug: string,
-  difference: number
+  difference: number,
 ): string | undefined => {
   const selectedArticle = articles.entities[slug]
 

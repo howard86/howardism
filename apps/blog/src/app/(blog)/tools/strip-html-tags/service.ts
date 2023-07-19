@@ -2,7 +2,7 @@ import type { editor } from "monaco-editor"
 
 export const updateEditorValue = (
   editor: editor.IStandaloneCodeEditor | undefined | null,
-  value: string
+  value: string,
 ) => {
   if (!editor) return
 

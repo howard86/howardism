@@ -86,9 +86,9 @@ const editorSchema = z.object({
         z.object({
           count: z.number().optional(),
           selected: z.boolean().optional(),
-        })
+        }),
       ),
-    })
+    }),
   ),
 })
 
@@ -355,7 +355,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
             errors={formState.errors}
           />
           <button
-            className="btn-primary join-item btn"
+            className="btn btn-primary join-item"
             type="submit"
             disabled={formState.isSubmitting}
           >
@@ -374,17 +374,17 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
             />
 
             {isAnalysed && (
-              <details className="dropdown-hover dropdown">
-                <summary className="btn-primary btn-sm btn rounded-r-md">Attributes</summary>
-                <div className="dropdown-content menu z-50 rounded-md border border-base-200 bg-base-100 p-0 shadow-sm">
+              <details className="dropdown dropdown-hover">
+                <summary className="btn btn-primary btn-sm rounded-r-md">Attributes</summary>
+                <div className="menu dropdown-content z-50 rounded-md border border-base-200 bg-base-100 p-0 shadow-sm">
                   <div>
                     <div className="menu-title inline-flex w-full items-center justify-between gap-2 whitespace-nowrap">
                       <h3>Tags & Attributes</h3>
-                      <div className="tooltip-accent tooltip" data-tip="Unselect all">
+                      <div className="tooltip tooltip-accent" data-tip="Unselect all">
                         <button
                           type="button"
                           onClick={handleUnselectAll}
-                          className="btn-brand btn-xs btn-circle btn"
+                          className="btn-brand btn btn-circle btn-xs"
                         >
                           <BookmarkSlashIcon className="w-4" />
                         </button>
@@ -457,14 +457,14 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                     <div className="flex flex-col gap-1.5 whitespace-nowrap bg-base-200 p-2">
                       <button
                         type="button"
-                        className="btn-brand btn-sm btn w-full"
+                        className="btn-brand btn btn-sm w-full"
                         onClick={handleRemoveElements}
                       >
                         Remove selected
                       </button>
                       <button
                         type="button"
-                        className="btn-brand btn-sm btn w-full"
+                        className="btn-brand btn btn-sm w-full"
                         onClick={handleReplaceElements}
                       >
                         Replace selected

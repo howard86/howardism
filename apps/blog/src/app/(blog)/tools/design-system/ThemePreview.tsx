@@ -13,7 +13,7 @@ export default function ThemePreview() {
             <button type="button" className="btn-brand btn">
               Default
             </button>
-            <button type="button" className="btn-brand btn-circle btn">
+            <button type="button" className="btn-brand btn btn-circle">
               <CloseIcon className="w-8" />
             </button>
           </div>
@@ -28,52 +28,52 @@ export default function ThemePreview() {
               <button type="button" className="btn">
                 Default
               </button>
-              <button type="button" className="btn-primary btn">
+              <button type="button" className="btn btn-primary">
                 Primary
               </button>
-              <button type="button" className="btn-secondary btn">
+              <button type="button" className="btn btn-secondary">
                 Secondary
               </button>
-              <button type="button" className="btn-accent btn">
+              <button type="button" className="btn btn-accent">
                 Accent
               </button>
-              <button type="button" className="btn-info btn">
+              <button type="button" className="btn btn-info">
                 Info
               </button>
-              <button type="button" className="btn-success btn">
+              <button type="button" className="btn btn-success">
                 Success
               </button>
-              <button type="button" className="btn-warning btn">
+              <button type="button" className="btn btn-warning">
                 Warning
               </button>
-              <button type="button" className="btn-error btn">
+              <button type="button" className="btn btn-error">
                 Error
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <button type="button" className="btn-outline btn">
+              <button type="button" className="btn btn-outline">
                 Default
               </button>
-              <button type="button" className="btn-primary btn-outline btn">
+              <button type="button" className="btn btn-primary btn-outline">
                 Primary
               </button>
-              <button type="button" className="btn-secondary btn-outline btn">
+              <button type="button" className="btn btn-secondary btn-outline">
                 Secondary
               </button>
-              <button type="button" className="btn-accent btn-outline btn">
+              <button type="button" className="btn btn-accent btn-outline">
                 Accent
               </button>
-              <button type="button" className="btn-info btn-outline btn">
+              <button type="button" className="btn btn-info btn-outline">
                 Info
               </button>
-              <button type="button" className="btn-success btn-outline btn">
+              <button type="button" className="btn btn-success btn-outline">
                 Success
               </button>
-              <button type="button" className="btn-warning btn-outline btn">
+              <button type="button" className="btn btn-warning btn-outline">
                 Warning
               </button>
-              <button type="button" className="btn-error btn-outline btn">
+              <button type="button" className="btn btn-error btn-outline">
                 Error
               </button>
             </div>
@@ -94,13 +94,13 @@ export default function ThemePreview() {
                 <div className="md:w-1/2">
                   {/* <!-- tabs --> */}
                   <div className="tabs">
-                    <button type="button" className="tab-lifted tab">
+                    <button type="button" className="tab tab-lifted">
                       Tab
                     </button>
-                    <button type="button" className="tab-lifted tab tab-active">
+                    <button type="button" className="tab tab-active tab-lifted">
                       Tab
                     </button>
-                    <button type="button" className="tab-lifted tab">
+                    <button type="button" className="tab tab-lifted">
                       Tab
                     </button>
                   </div>
@@ -116,25 +116,25 @@ export default function ThemePreview() {
                   <progress value="20" max="100" className="progress">
                     Default
                   </progress>
-                  <progress value="25" max="100" className="progress-primary progress">
+                  <progress value="25" max="100" className="progress progress-primary">
                     Primary
                   </progress>
-                  <progress value="30" max="100" className="progress-secondary progress">
+                  <progress value="30" max="100" className="progress progress-secondary">
                     Secondary
                   </progress>
-                  <progress value="40" max="100" className="progress-accent progress">
+                  <progress value="40" max="100" className="progress progress-accent">
                     Accent
                   </progress>
-                  <progress value="45" max="100" className="progress-info progress">
+                  <progress value="45" max="100" className="progress progress-info">
                     Info
                   </progress>
-                  <progress value="55" max="100" className="progress-success progress">
+                  <progress value="55" max="100" className="progress progress-success">
                     Success
                   </progress>
-                  <progress value="70" max="100" className="progress-warning progress">
+                  <progress value="70" max="100" className="progress progress-warning">
                     Warning
                   </progress>
-                  <progress value="90" max="100" className="progress-error progress">
+                  <progress value="90" max="100" className="progress progress-error">
                     Error
                   </progress>
                 </div>
@@ -189,9 +189,9 @@ export default function ThemePreview() {
                   {/* <!-- toggle --> */}
                   <div>
                     <input type="checkbox" className="toggle" checked />
-                    <input type="checkbox" className="toggle-primary toggle" checked />
-                    <input type="checkbox" className="toggle-secondary toggle" checked />
-                    <input type="checkbox" className="toggle-accent toggle" checked />
+                    <input type="checkbox" className="toggle toggle-primary" checked />
+                    <input type="checkbox" className="toggle toggle-secondary" checked />
+                    <input type="checkbox" className="toggle toggle-accent" checked />
                   </div>
                   {/* <!-- checkbox --> */}
                   <div>
@@ -240,51 +240,51 @@ export default function ThemePreview() {
                   <input
                     type="text"
                     placeholder="Default"
-                    className="input-bordered input w-full"
+                    className="input input-bordered w-full"
                   />
                   <input
                     type="text"
                     placeholder="Primary"
-                    className="input-bordered input-primary input w-full"
+                    className="input input-bordered input-primary w-full"
                   />
                   <input
                     type="text"
                     placeholder="Secondary"
-                    className="input-bordered input-secondary input w-full"
+                    className="input input-bordered input-secondary w-full"
                   />
                   <input
                     type="text"
                     placeholder="Accent"
-                    className="input-bordered input-accent input w-full"
+                    className="input input-bordered input-accent w-full"
                   />
                 </div>
                 <div className="flex flex-col gap-3 md:w-1/2">
                   <input
                     type="text"
                     placeholder="Info"
-                    className="input-bordered input-info input w-full"
+                    className="input input-bordered input-info w-full"
                   />
                   <input
                     type="text"
                     placeholder="Success"
-                    className="input-bordered input-success input w-full"
+                    className="input input-bordered input-success w-full"
                   />
                   <input
                     type="text"
                     placeholder="Warning"
-                    className="input-bordered input-warning input w-full"
+                    className="input input-bordered input-warning w-full"
                   />
                   <input
                     type="text"
                     placeholder="Error"
-                    className="input-bordered input-error input w-full"
+                    className="input input-bordered input-error w-full"
                   />
                 </div>
               </div>
               {/* <!-- navbar --> */}
               <div className="navbar rounded-box bg-neutral text-neutral-content">
                 <div className="flex-none">
-                  <button type="button" className="btn-ghost btn-square btn">
+                  <button type="button" className="btn btn-square btn-ghost">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
@@ -301,7 +301,7 @@ export default function ThemePreview() {
                   </button>
                 </div>
                 <div className="flex-1">
-                  <button type="button" className="btn-ghost btn text-xl normal-case">
+                  <button type="button" className="btn btn-ghost text-xl normal-case">
                     daisyUI
                   </button>
                 </div>
@@ -330,8 +330,8 @@ export default function ThemePreview() {
                 </div>
                 {/* <!-- step --> */}
                 <ul className="steps steps-vertical">
-                  <li className="step-primary step">Step 1</li>
-                  <li className="step-primary step">Step 2</li>
+                  <li className="step step-primary">Step 1</li>
+                  <li className="step step-primary">Step 2</li>
                   <li className="step">Step 3</li>
                   <li className="step">Step 4</li>
                 </ul>

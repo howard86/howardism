@@ -84,7 +84,7 @@ router
         res.redirect(
           isSuccess
             ? `/tools/checkout/${order.id}`
-            : `/tools/checkout/cancelled?orderId=${order.id}`
+            : `/tools/checkout/cancelled?orderId=${order.id}`,
         )
 
         return

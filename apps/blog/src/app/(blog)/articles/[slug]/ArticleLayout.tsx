@@ -35,7 +35,7 @@ export function ArticleLayout({ children, meta, previousSlug, nextSlug }: Articl
           <nav className="mb-8 flex items-center lg:absolute lg:-inset-x-5 lg:mb-0 lg:mt-2 xl:-top-1.5 xl:left-0 xl:mt-0">
             {previousSlug && (
               <Link
-                className="btn-brand btn-sm btn-circle btn"
+                className="btn-brand btn btn-circle btn-sm"
                 aria-label="Visit previous article"
                 href={`/articles/${previousSlug}`}
               >
@@ -45,7 +45,7 @@ export function ArticleLayout({ children, meta, previousSlug, nextSlug }: Articl
             <span aria-hidden="true" className="flex-1" />
             {nextSlug && (
               <Link
-                className="btn-brand btn-sm btn-circle btn"
+                className="btn-brand btn btn-circle btn-sm"
                 aria-label="Visit next article"
                 href={`/articles/${nextSlug}`}
               >

@@ -6,7 +6,7 @@ export const orderItemSchema = z.object({
   id: z.string(),
   quantity: z.preprocess(
     (val) => (typeof val === "string" ? parseInt(val, 10) : val),
-    z.number().int().min(1)
+    z.number().int().min(1),
   ),
 })
 

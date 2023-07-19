@@ -105,7 +105,7 @@ router
 
     if (typeof profileId !== "string")
       throw new BadRequestException(
-        `incorrect request query, req.query=${JSON.stringify(req.query)}`
+        `incorrect request query, req.query=${JSON.stringify(req.query)}`,
       )
 
     // TODO: extract with unit testing
@@ -123,7 +123,7 @@ router
 
     if (!existedResume)
       throw new NotFoundException(
-        `cannot find resume with provided profiledId, req.query.profileId=${profileId}`
+        `cannot find resume with provided profiledId, req.query.profileId=${profileId}`,
       )
 
     const { resume } = req.middleware
@@ -148,7 +148,7 @@ router
             },
           },
         },
-      })
+      }),
     )
 
     // TODO: refactor repeated logic
@@ -163,7 +163,7 @@ router
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
           ? prisma.resumeExperience.update({ where: { id }, data })
-          : prisma.resumeExperience.create({ data: { profileId, ...data } })
+          : prisma.resumeExperience.create({ data: { profileId, ...data } }),
       )
     }
 
@@ -175,7 +175,7 @@ router
               in: [...existedIdSet],
             },
           },
-        })
+        }),
       )
     }
 
@@ -190,7 +190,7 @@ router
       concurrentUpdatePromise.push(
         id && existedIdSet.delete(id)
           ? prisma.resumeEducation.update({ where: { id }, data })
-          : prisma.resumeEducation.create({ data: { profileId, ...data } })
+          : prisma.resumeEducation.create({ data: { profileId, ...data } }),
       )
     }
 
@@ -202,7 +202,7 @@ router
               in: [...existedIdSet],
             },
           },
-        })
+        }),
       )
     }
 
@@ -221,7 +221,7 @@ router
               where: { id },
               data: { ...data, ordering: i },
             })
-          : prisma.resumeProject.create({ data: { profileId, ...data } })
+          : prisma.resumeProject.create({ data: { profileId, ...data } }),
       )
     }
 
@@ -233,7 +233,7 @@ router
               in: [...existedIdSet],
             },
           },
-        })
+        }),
       )
     }
 
@@ -252,7 +252,7 @@ router
               where: { id },
               data: { ...data, ordering: i },
             })
-          : prisma.resumeSkill.create({ data: { profileId, ...data } })
+          : prisma.resumeSkill.create({ data: { profileId, ...data } }),
       )
     }
 
@@ -264,7 +264,7 @@ router
               in: [...existedIdSet],
             },
           },
-        })
+        }),
       )
     }
 
@@ -283,7 +283,7 @@ router
               where: { id },
               data: { ...data, ordering: i },
             })
-          : prisma.resumeLanguage.create({ data: { profileId, ...data } })
+          : prisma.resumeLanguage.create({ data: { profileId, ...data } }),
       )
     }
 
@@ -295,7 +295,7 @@ router
               in: [...existedIdSet],
             },
           },
-        })
+        }),
       )
     }
 

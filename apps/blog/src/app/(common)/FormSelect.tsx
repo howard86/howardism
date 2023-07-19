@@ -49,10 +49,10 @@ export default function FormSelect<T extends FieldValues>({
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         aria-invalid={isInvalid ? "true" : undefined}
         className={clsx(
-          "select-bordered select select-sm transition-all",
+          "select select-bordered select-sm transition-all",
           isInvalid
             ? "select-error"
-            : "active:select-primary group-focus-within:select-primary group-hover:select-primary"
+            : "active:select-primary group-focus-within:select-primary group-hover:select-primary",
         )}
         {...register(name, options)}
         {...props}

@@ -48,7 +48,7 @@ export default function UserPage({
     (key) =>
       !isBadgeKey(key) &&
       !["__typename", "children"].includes(key) &&
-      ["string", "number"].includes(typeof rest[key as keyof typeof rest])
+      ["string", "number"].includes(typeof rest[key as keyof typeof rest]),
   )
 
   if (router.isFallback) {
@@ -73,7 +73,7 @@ export default function UserPage({
         </Heading>
         <Wrap>
           {badgeKeys.map(
-            (key) => rest[key as keyof typeof rest] && <ProfileBadge key={key} name={key} />
+            (key) => rest[key as keyof typeof rest] && <ProfileBadge key={key} name={key} />,
           )}
         </Wrap>
         <Box>
@@ -156,7 +156,7 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>>
 })
 
 export const getStaticProps = async (
-  context: GetStaticPropsContext<QueryPath>
+  context: GetStaticPropsContext<QueryPath>,
 ): Promise<GetStaticPropsResult<GetUserQuery["user"]>> => {
   if (!context.params) {
     return { notFound: true }
