@@ -3,6 +3,38 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# 2.9.0 (2023-07-21)
+
+### ♻ Code Refactoring
+
+- Add order detail page with revalidate logic ([8689520](https://github.com/Howard86/howardism/commit/8689520))
+- Add server components to load products on checkout ([e9d8138](https://github.com/Howard86/howardism/commit/e9d8138))
+- Detect user again for line pay redirect ([4eadd03](https://github.com/Howard86/howardism/commit/4eadd03))
+- Update home page photos ([9398708](https://github.com/Howard86/howardism/commit/9398708))
+
+### ✨ Features
+
+- **checkout**: Add new checkout page ui with form ([f8fab19](https://github.com/Howard86/howardism/commit/f8fab19))
+- **checkout**: Integrate checkout api and create order with seed ([238c70d](https://github.com/Howard86/howardism/commit/238c70d))
+- **checkout**: Integrate line pay api with skeleton success & cancelled page ([814e52e](https://github.com/Howard86/howardism/commit/814e52e))
+- Add commerce product, order & transaction schema ([ce64a54](https://github.com/Howard86/howardism/commit/ce64a54))
+
+### 🎫 Chores
+
+- Bump all depedencies to the latest ([f4aec40](https://github.com/Howard86/howardism/commit/f4aec40))
+- Run formater & eslint ([7f44d4f](https://github.com/Howard86/howardism/commit/7f44d4f))
+
+### 🐛 Bug Fixes
+
+- **checkout**: Fix line pay integration with updated api flow ([9cb2081](https://github.com/Howard86/howardism/commit/9cb2081))
+- **env**: Add vercel ui for preview env ([3860132](https://github.com/Howard86/howardism/commit/3860132))
+- Add isLive to skip line pay app mode for sandbox ([dd28a38](https://github.com/Howard86/howardism/commit/dd28a38))
+- Replace vercel env with custom site url ([32b30c9](https://github.com/Howard86/howardism/commit/32b30c9))
+
+### 🔧 Continuous Integration
+
+- Add required string check for vercel build env ([ed2659c](https://github.com/Howard86/howardism/commit/ed2659c))
+
 ## 2.8.1 (2023-07-02)
 
 ### ♻ Code Refactoring

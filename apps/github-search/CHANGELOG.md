@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 1.0.14 (2023-07-21)
+
+### 🎫 Chores
+
+- Bump all depedencies to the latest ([f4aec40](https://github.com/Howard86/howardism/commit/f4aec40))
+- Bump all depedencies to the latest ([a0f38f3](https://github.com/Howard86/howardism/commit/a0f38f3))
+- Bump all depedencies to the latest again ([f1a04c6](https://github.com/Howard86/howardism/commit/f1a04c6))
+- Bump all depedencies to the latest except typescript ([c7b59db](https://github.com/Howard86/howardism/commit/c7b59db))
+- Bump all dependencies to the latest ([e6c4999](https://github.com/Howard86/howardism/commit/e6c4999))
+- Run formater & eslint ([7f44d4f](https://github.com/Howard86/howardism/commit/7f44d4f))
+
 ## [1.0.13](https://github.com/Howard86/howardism/compare/@howardism/github-search@1.0.12...@howardism/github-search@1.0.13) (2023-03-27)
 
 ### 🎫 Chores
