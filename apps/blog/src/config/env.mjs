@@ -13,6 +13,7 @@ export const env = createEnv({
   client: {
     isLive: z.boolean(),
     NEXT_PUBLIC_DOMAIN_NAME: z.string(),
+    NEXT_PUBLIC_GA_MEASUREMENT_ID: z.string().optional(),
   },
   runtimeEnv: {
     isLive:
@@ -20,6 +21,7 @@ export const env = createEnv({
     CMS_API_ENDPOINT: process.env.CMS_API_ENDPOINT,
     CMS_API_KEY: process.env.CMS_API_KEY,
     NEXT_PUBLIC_DOMAIN_NAME: process.env.NEXT_PUBLIC_DOMAIN_NAME,
+    NEXT_PUBLIC_GA_MEASUREMENT_ID: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     LINE_PAY_CHANNEL_ID: process.env.LINE_PAY_CHANNEL_ID,
     LINE_PAY_CHANNEL_SECRET_KEY: process.env.LINE_PAY_CHANNEL_SECRET_KEY,

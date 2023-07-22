@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react"
 import { Metadata } from "next"
 import type { ChildrenProps } from "react"
 
+import GoogleAnalytics from "@/components/GoogleAnalytics"
 import { env } from "@/config/env.mjs"
 
 import {
@@ -121,6 +122,9 @@ export default function RootLayout({ children }: ChildrenProps) {
           <Footer />
         </div>
         <Analytics />
+        {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <GoogleAnalytics measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+        )}
       </body>
     </html>
   )
