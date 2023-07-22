@@ -1,6 +1,7 @@
 import "focus-visible"
 import "@/styles/globals.css"
 
+import { Analytics } from "@vercel/analytics/react"
 import { Metadata } from "next"
 import type { ChildrenProps } from "react"
 
@@ -119,6 +120,7 @@ export default function RootLayout({ children }: ChildrenProps) {
           <main className="flex flex-1 flex-col">{children}</main>
           <Footer />
         </div>
+        <Analytics />
       </body>
     </html>
   )
