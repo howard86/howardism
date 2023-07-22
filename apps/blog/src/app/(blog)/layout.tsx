@@ -1,9 +1,11 @@
 import "focus-visible"
 import "@/styles/globals.css"
 
+import { Analytics } from "@vercel/analytics/react"
 import { Metadata } from "next"
 import type { ChildrenProps } from "react"
 
+import GoogleAnalytics from "@/components/GoogleAnalytics"
 import { env } from "@/config/env.mjs"
 
 import {
@@ -119,6 +121,10 @@ export default function RootLayout({ children }: ChildrenProps) {
           <main className="flex flex-1 flex-col">{children}</main>
           <Footer />
         </div>
+        <Analytics />
+        {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <GoogleAnalytics measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+        )}
       </body>
     </html>
   )
