@@ -1,14 +1,15 @@
 import clsx from "clsx"
 import Image from "next/image"
+import Link from "next/link"
 
-import { getArticles } from "./articles/service"
+import { getSlicedArticles } from "./articles/service"
 
 export default async function Photos() {
-  const articles = await getArticles()
+  const articles = await getSlicedArticles(5)
 
   return (
     <div className="mt-16 sm:mt-20">
-      <div className="-my-4 flex justify-center gap-5 overflow-hidden py-4 sm:gap-8">
+      <div className="-my-4 flex -ml-8 md:-ml-4 md:justify-center gap-5 overflow-hidden py-4 sm:gap-8">
         {articles.ids.map((id, index) => {
           const article = articles.entities[id]
 
@@ -22,13 +23,15 @@ export default async function Photos() {
                 index % 2 ? "rotate-2" : "-rotate-2",
               )}
             >
-              <Image
-                src={article.meta.image.src}
-                alt={article.meta.image.alt}
-                className="absolute inset-0 h-full w-full object-cover"
-                sizes="(min-width: 640px) 18rem, 11rem"
-                placeholder="blur"
-              />
+              <Link href={`/articles/${article.slug}`}>
+                <Image
+                  src={article.meta.image.src}
+                  alt={article.meta.image.alt}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  sizes="(min-width: 640px) 18rem, 11rem"
+                  placeholder="blur"
+                />
+              </Link>
             </div>
           )
         })}

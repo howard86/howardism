@@ -1,14 +1,14 @@
 import { Container } from "@/app/(common)/Container"
 
 import ArticleCard from "./articles/ArticleCard"
-import { getArticles } from "./articles/service"
+import { getSlicedArticles } from "./articles/service"
 import Newsletter from "./NewsLetter"
 import Photos from "./Photos"
 import Resume from "./Resume"
 import SocialLinks from "./SocialLinks"
 
 export default async function Home() {
-  const articles = await getArticles()
+  const articles = await getSlicedArticles(4)
 
   return (
     <>
@@ -32,7 +32,7 @@ export default async function Home() {
       <Container className="mt-24 md:mt-28">
         <div className="mx-auto grid max-w-xl grid-cols-1 gap-y-20 lg:max-w-none lg:grid-cols-2">
           <div className="flex flex-col gap-16">
-            {articles.ids.slice(0, 4).map((slug) => {
+            {articles.ids.map((slug) => {
               const article = articles.entities[slug]
 
               return article && <ArticleCard key={slug} slug={slug} meta={article.meta} />

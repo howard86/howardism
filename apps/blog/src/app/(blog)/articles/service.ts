@@ -60,3 +60,14 @@ export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => 
 
   return results
 })
+
+export const getSlicedArticles = cache(
+  async (count?: number): Promise<Normalise<ArticleEntity>> => {
+    const articles = await getArticles()
+
+    return {
+      ids: articles.ids.slice(0, count),
+      entities: articles.entities,
+    }
+  },
+)

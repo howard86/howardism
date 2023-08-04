@@ -3,7 +3,7 @@ import "@/styles/globals.css"
 
 import { Analytics } from "@vercel/analytics/react"
 import { Metadata } from "next"
-import type { ChildrenProps } from "react"
+import { type ChildrenProps } from "react"
 
 import GoogleAnalytics from "@/components/GoogleAnalytics"
 import { env } from "@/config/env.mjs"
