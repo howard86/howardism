@@ -1,0 +1,328 @@
+import Image from "next/image"
+import smilingCat from "./(assets)/smiling-cat.png"
+
+export const meta = {
+  date: "2023-07-22",
+  title: "Next.js App Router Migration",
+  description:
+    "As Next.js App Router structure becomes stable and claimed production-ready, I have been wondering how drastic changes it will bring to company projects. Hence starting the journey by migrating this blog to the new structure.",
+  image: {
+    src: smilingCat,
+    alt: "cat is smiling",
+  },
+}
+
+As Next.js App Router structure becomes stable and claimed production-ready, I have been wondering how potential changes it will bring to company projects. Hence starting the journey by migrating this blog to the new structure.
+
+<Image placeholder="blur" {...meta.image} />
+
+## Why App Router?
+
+As an e-commerce site built on Next.js with support of internationalization and localization (i18n), we are utilizing [i18next](https://www.i18next.com), particularly [next-i18next](https://github.com/i18next/next-i18next) with `getStaticProps` (SSG). As the site grows, we have more contents and namespaces for translation, which brings an increase of the initial payload loaded by `html` script `__NEXT_DATA__`. This is not ideal for SEO and performance in the long run, especially some pages have already shown a **Large Page Data** warning which exceeds default `largePageDataBytes` of `128kB`.
+
+This load of static props occurs on every page, even if previous pages have loaded common namespaces. With `next/link` it will trigger a preload request on any Next.js page and cause unnecessary data fetching.
+
+This is where `layout` components come in handy in Next.js app router structure. React Server Components (RSC) support loading data once and pass props down to children components. This translation context could be shared across client-side components without the need to fetch data again.
+
+## Migration of this blog
+
+With the bright (promised) future of App Router, I started moving exploring available options and gradually replacing the following
+
+1. Migrate `/pages/_app.tsx` and `/pages/_document.tsx`
+2. Move `/pages/*` page to `/app/*/page.tsx`
+3. Replace `getStaticProps` or `getServerSideProps` with direct server call
+4. Configure and restructure Markdown pages `/*.mdx`
+5. Move `/pages/api/*` page to `/app/api/*/route.ts` (TODO)
+
+Thankfully, Next.js team has provided a well written instructions and examples on [how to migrate](https://nextjs.org/docs/app/building-your-application/upgrading/app-router-migration) from App Pages to App Router. However, there are still some caveats and gotchas that I would like to record and share. Let's start it step by step.
+
+First of all, please check all requirements of `node.js`, `Next.js` and related plugins. Then start it with updating `next.config.js` to enable App Router (which could be experimental depending on the version of Next.js).
+
+```js
+// next.config.js
+const config = {
+  ...
+  experimental: {
+    ...
+    appDir: true,
+  },
+}
+```
+
+### 1. Migrate `/pages/_app.tsx` and `/pages/_document.tsx`
+
+As Next.js introduces new layout similar to [astro island](https://docs.astro.build/en/concepts/islands/) design, we can create a `RootLayout` under `app` folder
+
+#### Before
+
+```tsx
+// pages/_document.tsx
+<Html lang="en">
+  <Head>
+    {/* head scripts */}
+    <script />
+
+    {/* assets */}
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="alternate" type="application/rss+xml" href={`${config.domain}/rss/feed.xml`} />
+    <link rel="alternate" type="application/feed+json" href={`${config.domain}/rss/feed.json`} />
+
+    {/* meta */}
+    <meta name="msapplication-TileColor" content="#ffffff" />
+    <meta name="theme-color" content="#ffffff" />
+  </Head>
+  <body>
+    <Main />
+    <NextScript />
+  </body>
+</Html>
+```
+
+```tsx
+// pages/_app.tsx
+<>
+  {/* SEO settings from next-seo https://www.npmjs.com/package/next-seo */}
+  <DefaultSeo {...DEFAULT_SEO} />
+
+  {/* some layout with css */}
+  <Header />
+  <main>
+    <Component previousPathname={previousPathname} {...pageProps} />
+  </main>
+  <Footer />
+</>
+```
+
+#### After
+
+```tsx
+// app/layout.tsx
+import "@/styles/globals.css"
+
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  // ... replacing Head under _documents.tsx
+}
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        {/* some layout with css */}
+        <Header />
+        <main>{children}</main>
+        <Footer />
+      </body>
+    </html>
+  )
+}
+```
+
+### 2. Move `/pages/*` page to `/app/*/page.tsx`
+
+As Next.js implements RSC on all components under `/app`, if we want to use any client side logic or APIs, we will need to specify `'use client'` on top of each file to skip usage of RSC, or we can split the client-side parts into a new file with `'use client'` and import it in the RSC file.
+
+For example,
+
+#### Before
+
+```tsx
+// pages/some-page.tsx
+import { useState } from "react"
+
+export default function SomePage() {
+  // client side react hooks
+  const [someState, setSomeState] = useState()
+
+  return (
+    <div>
+      <h1>Some Page</h1>
+      {/* client side  */}
+      <button
+        onClick={() => {
+          setSomeState()
+        }}
+      >
+        Click
+      </button>
+    </div>
+  )
+}
+```
+
+#### After
+
+```tsx
+// app/some-page/page.tsx
+import ClientComponent from "./ClientComponent"
+
+export default function SomePage() {
+  return (
+    <div>
+      <h1>Some Page</h1>
+      {/* client side  */}
+      <ClientComponent />
+    </div>
+  )
+}
+```
+
+```tsx
+// app/some-page/ClientComponent.tsx
+"use client"
+
+export default function ClientComponent() {
+  // client side react hooks
+  const [someState, setSomeState] = useState()
+
+  return (
+    <button
+      onClick={() => {
+        setSomeState()
+      }}
+    >
+      Click
+    </button>
+  )
+}
+```
+
+### 3. Replace `getStaticProps` or `getServerSideProps` with direct server call
+
+With the help of RSC we can directly modify server components with server-side logic using `async` & built-in `React.Suspense`, instead of receiving `props` from components. To correctly set up similar behaviours of `getStaticProps` or `getServerSideProps`, please verify your needs and reference [Route Segment Config](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config#revalidate) for customisation.
+
+#### Before
+
+```tsx
+// pages/some-page.tsx
+import ClientComponent from "./ClientComponent"
+
+export default function SomePage({ someProps }) {
+  return (
+    <div>
+      <h1>Some Page</h1>
+      {/* client side  */}
+      <ClientComponent someProps={someProps} />
+    </div>
+  )
+}
+
+export async function getStaticProps() {
+  const someProps = await fetchSomeProps()
+
+  return {
+    props: {
+      someProps,
+    },
+  }
+}
+```
+
+#### After
+
+```tsx
+// app/some-page/page.tsx
+import ClientComponent from "./ClientComponent"
+
+export default async function SomePage() {
+  const someProps = await fetchSomeProps()
+
+  return (
+    <div>
+      <h1>Some Page</h1>
+      {/* client side  */}
+      <ClientComponent someProps={someProps} />
+    </div>
+  )
+}
+```
+
+For instance, notice that we cannot directly import RSC under client-side components, instead we can pass the whole `React.node` as props to client-side components.
+
+#### Advanced
+
+```tsx
+// app/some-page/page.tsx
+import ClientComponent from "./ClientComponent"
+import ServerComponent from "./ServerComponent"
+
+export default async function SomePage() {
+  const someProps = await fetchSomeProps()
+
+  return (
+    <div>
+      <h1>Some Page</h1>
+      {/* Here assuming ClientComponent accepting children as props  */}
+      <ClientComponent someProps={someProps}>
+        <ServerComponent />
+      </ClientComponent>
+    </div>
+  )
+}
+```
+
+```tsx
+// app/some-page/ServerComponent.tsx
+export default async function ServerComponent() {
+  // could be any other server-side call
+  const someProps = await fetchSomeProps()
+
+  return (
+    <pre>
+      <code>
+        {/* rendered based on someProps */}
+        {JSON.stringify(someProps, null, 2)}
+      </code>
+    </pre>
+  )
+}
+```
+
+### 4. Configure and restructure Markdown pages `/*.mdx`
+
+This is probably the part that I got stuck on for the longest. Currently I'm importing images directly to `*.mdx` files together with `next/image` for image optimisation. This native support from Next.js on Vercel displays a consistent user perception on different devices with lazy loading, but here comes the problem.
+
+As recommended by Next.js doc, we are enabling `mdxRs: true` in config and add `mdx-components.tsx` to root folder.
+
+```js
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    mdxRs: true,
+  },
+}
+
+const withMDX = require("@next/mdx")()
+module.exports = withMDX(nextConfig)
+```
+
+```tsx
+import type { MDXComponents } from "mdx/types"
+
+export function useMDXComponents(components: MDXComponents): MDXComponents {
+  return components
+}
+```
+
+However, this breaks the image import in `*.mdx` files. The error message is not very helpful, but it seems like the `mdxRs` is not compatible with `next/image` yet. Hence I have to disable `mdxRs` so it compiles successfully.
+
+```bash
+Unhandled Runtime Error
+
+Error: Could not find the module "/Users/howard86/Projects/howardism/node_modules/.pnpm/next@13.4.10_@babel+core@7.22.9_react-dom@18.2.0_react@18.2.0/node_modules/next/dist/client/image-component.js#Image" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+```
+
+By the time of writing, this unexpected behaviour appears at version 13.4.10 of Next.js. By disabling `mdxRs`, it seems to fix the issues for now. It could be caused by my custom export of `meta` in `mdx` files, which does similar results as to [gray-matter](https://github.com/jonschlinkert/gray-matter) but exporting a custom `StaticImage` from custom Next.js image import.
+
+### 5. Move `/pages/api/*` page to `/app/api/*/route.ts` (TODO)
+
+This is the part that I haven't started yet. The main bottlenecks or concerns are I'm using [next-api-handler](https://next-api-handler.vercel.app) to handle API routes, and I'm also the maintainers of the package. By the time of writing, after evaluation of the current implementation of `next-api-handler`, there will be some breaking changes to introduce support of App Router (which is similar to Edge Handlers in Vercel). I will update this part once I have started the migration.
+
+## Conclusion
+
+As Next.js App Router is getting more and more popular with significant improvement on server-side data-fetching, it is definitely worth to migrate to the new structure. However, there are still some caveats and gotchas that we need to be aware of. I hope this article could help you to get started with the migration and share your experience with me.
