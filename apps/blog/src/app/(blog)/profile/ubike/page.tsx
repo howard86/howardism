@@ -1,6 +1,8 @@
+import dynamic from "next/dynamic"
+
 import { Container } from "@/app/(common)/Container"
 
-import UbikeMap from "./UbikeMap"
+const DynamicUbikeMap = dynamic(() => import("./UbikeMap"), { ssr: false })
 
 export default function UbikePage() {
   return (
@@ -12,7 +14,7 @@ export default function UbikePage() {
         <div className="camera" />
         <div className="display">
           <div className="artboard artboard-demo phone-1 relative">
-            <UbikeMap />
+            <DynamicUbikeMap />
           </div>
         </div>
       </div>
