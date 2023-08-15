@@ -27,14 +27,18 @@ export type MergedBikeStation = {
   // TODO: add distance by calculating from lat & lng
 }
 
-const mapBikeStation = (station: BikeStation, bike: BikeAvailability): MergedBikeStation => ({
-  id: station.StationUID,
-  name: station.StationName.Zh_tw,
-  lat: station.StationPosition.PositionLat,
-  lng: station.StationPosition.PositionLon,
-  availableRentBikes: bike.AvailableRentBikes,
-  availableReturnBikes: bike.AvailableReturnBikes,
-})
+const mapBikeStation = (station: BikeStation, bike: BikeAvailability): MergedBikeStation => {
+  const [prefix, name] = station.StationName.Zh_tw.split("_")
+
+  return {
+    id: station.StationUID,
+    name: name || prefix,
+    lat: station.StationPosition.PositionLat,
+    lng: station.StationPosition.PositionLon,
+    availableRentBikes: bike.AvailableRentBikes,
+    availableReturnBikes: bike.AvailableReturnBikes,
+  }
+}
 
 export type NormalizedMergedBikeStation = Normalized<MergedBikeStation>
 

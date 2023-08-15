@@ -30,7 +30,7 @@ export default function UbikeMap() {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const positionRef = useRef<LngLat>(DEFAULT_CENTER)
-  const markersRef = useRef<NodeJS.Dict<{ marker: mapboxgl.Marker; onClick: VoidFunction }>>({})
+  const markersRef = useRef<NodeJS.Dict<mapboxgl.Marker>>({})
   const layerRef = useRef<mapboxgl.FillLayer | null>(null)
 
   const handleSearch = async () => {
@@ -75,6 +75,18 @@ export default function UbikeMap() {
       const station = json.entities[id]
 
       if (station && !markersRef.current[id]) {
+        const popup = new mapboxgl.Popup({
+          closeOnMove: true,
+        }).setHTML(
+          `
+          <div>
+            <h2 class="font-semibold">${station.name}</h2>
+            <p>可租借: ${station.availableRentBikes}台</p>
+            <p>可歸還: ${station.availableRentBikes}台</p>
+          </div>
+        `,
+        )
+
         const marker = new mapboxgl.Marker({
           color: "#FF0000",
         })
@@ -82,16 +94,10 @@ export default function UbikeMap() {
             lng: station.lng,
             lat: station.lat,
           })
+          .setPopup(popup)
           .addTo(mapRef.current)
 
-        // TODO: add popup
-        const onClick = () => {
-          alert(JSON.stringify(station))
-        }
-
-        marker.getElement().addEventListener("click", onClick)
-
-        markersRef.current[id] = { marker, onClick }
+        markersRef.current[id] = marker
       }
     }
   }
@@ -140,10 +146,7 @@ export default function UbikeMap() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         const entity = markersRef.current[key]
 
-        if (entity) {
-          entity.marker.getElement().removeEventListener("click", entity.onClick)
-          entity.marker.remove()
-        }
+        if (entity) entity.remove()
       }
 
       mapRef.current.remove()
