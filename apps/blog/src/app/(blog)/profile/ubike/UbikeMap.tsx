@@ -109,8 +109,16 @@ export default function UbikeMap() {
       container: containerRef.current,
       style: "mapbox://styles/mapbox/streets-v12",
       center: positionRef.current,
+      attributionControl: false,
       zoom: DEFAULT_WIDE_ZOOM,
+      logoPosition: "top-left",
     })
+      .addControl(
+        new mapboxgl.AttributionControl({
+          compact: true,
+        }),
+        "bottom-left",
+      )
       .addControl(new mapboxgl.NavigationControl(), "bottom-right")
       .addControl(
         new mapboxgl.GeolocateControl({
@@ -121,7 +129,7 @@ export default function UbikeMap() {
           trackUserLocation: true,
           showAccuracyCircle: true,
         }),
-        "bottom-left",
+        "bottom-right",
       )
       .addControl(new mapboxgl.FullscreenControl(), "top-right")
 
