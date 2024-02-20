@@ -382,6 +382,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                       <h3>Tags & Attributes</h3>
                       <div className="tooltip tooltip-accent" data-tip="Unselect all">
                         <button
+                          aria-label="Unselect all tags and attributes"
                           type="button"
                           onClick={handleUnselectAll}
                           className="btn-brand btn btn-circle btn-xs"

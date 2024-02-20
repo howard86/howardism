@@ -13,7 +13,7 @@ export default function ThemePreview() {
             <button type="button" className="btn-brand btn">
               Default
             </button>
-            <button type="button" className="btn-brand btn btn-circle">
+            <button aria-label="Close" type="button" className="btn-brand btn btn-circle">
               <CloseIcon className="w-8" />
             </button>
           </div>
@@ -284,7 +284,11 @@ export default function ThemePreview() {
               {/* <!-- navbar --> */}
               <div className="navbar rounded-box bg-neutral text-neutral-content">
                 <div className="flex-none">
-                  <button type="button" className="btn btn-square btn-ghost">
+                  <button
+                    aria-label="Navbar toggle"
+                    type="button"
+                    className="btn btn-square btn-ghost"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"

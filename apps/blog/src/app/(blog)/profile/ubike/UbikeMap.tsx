@@ -166,7 +166,7 @@ export default function UbikeMap() {
     <div ref={containerRef} className="w-full h-full">
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
         <div className="mapboxgl-ctrl mapboxgl-ctrl-group">
-          <button type="button" onClick={handleSearch} title="Locate">
+          <button aria-label="Locate" type="button" onClick={handleSearch} title="Locate">
             <FaSearchLocation className="w-4 h-auto mx-auto" />
           </button>
         </div>
