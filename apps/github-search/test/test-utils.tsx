@@ -1,3 +1,5 @@
+import "@howardism/jest-config/setup"
+
 import { ApolloProvider } from "@apollo/client"
 import { render, RenderOptions, RenderResult } from "@testing-library/react"
 import { ChildrenProps, ReactElement } from "react"

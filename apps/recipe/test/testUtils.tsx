@@ -1,3 +1,5 @@
+import "@howardism/jest-config/setup"
+
 import { render, RenderOptions, RenderResult } from "@testing-library/react"
 import { ReactElement } from "react"
 
