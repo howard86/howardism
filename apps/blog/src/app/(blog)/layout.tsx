@@ -2,7 +2,7 @@ import "focus-visible"
 import "@/styles/globals.css"
 
 import { Analytics } from "@vercel/analytics/react"
-import { Metadata } from "next"
+import { Metadata, Viewport } from "next"
 import { type ChildrenProps } from "react"
 
 import GoogleAnalytics from "@/components/GoogleAnalytics"
@@ -50,7 +50,6 @@ export const metadata: Metadata = {
     "Node.js",
   ],
   authors: [{ name: AUTHOR_NAME }],
-  colorScheme: "light dark",
   creator: AUTHOR_NAME,
   publisher: AUTHOR_NAME,
   openGraph: {
@@ -83,14 +82,12 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
-  themeColor: "#ffffff",
   manifest: "/site.webmanifest",
   twitter: {
     card: "summary_large_image",
     site: TWITTER_USERNAME,
     creator: TWITTER_USERNAME,
   },
-  viewport: "width=device-width, initial-scale=1",
   alternates: {
     canonical: env.NEXT_PUBLIC_DOMAIN_NAME,
     types: {
@@ -101,6 +98,11 @@ export const metadata: Metadata = {
   other: {
     "msapplication-TileColor": "#ffffff",
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  colorScheme: "light dark",
 }
 
 export default function RootLayout({ children }: ChildrenProps) {

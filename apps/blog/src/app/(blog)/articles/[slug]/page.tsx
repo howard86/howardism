@@ -13,7 +13,7 @@ interface ArticlePageProps {
 export const dynamic = "error"
 
 export async function generateMetadata({ params: { slug } }: ArticlePageProps): Promise<Metadata> {
-  const meta = await import(`./(docs)/${slug}.mdx`).then((file) => file.meta)
+  const meta = await import(`./(docs)/${slug}/page.mdx`).then((file) => file.meta)
 
   return {
     title: meta.title,
@@ -34,7 +34,7 @@ const getSiblingSlug = (
 }
 
 export default async function ArticlePage({ params: { slug } }: ArticlePageProps) {
-  const mod = (await import(`./(docs)/${slug}.mdx`)) as {
+  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as {
     meta: ArticleMeta
     default: FC
   }

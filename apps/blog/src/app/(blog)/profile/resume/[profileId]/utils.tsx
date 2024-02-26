@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { Prisma } from "@prisma/client"
+import type { JsonValue } from "@prisma/client/runtime/library"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { cache } from "react"
@@ -33,7 +33,7 @@ export const getResumeById = cache(async (profileId: string) => {
   return resume
 })
 
-const convertStringArrayToMarkdownList = (items: Prisma.JsonValue): string =>
+const convertStringArrayToMarkdownList = (items: JsonValue): string =>
   Array.isArray(items) ? items.map((item) => `- ${item}`).join("\n") : ""
 
 export type RawResume = Awaited<ReturnType<typeof getResumeById>>

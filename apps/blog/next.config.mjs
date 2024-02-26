@@ -25,10 +25,13 @@ const config = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ["images.unsplash.com", "avatars.githubusercontent.com", "lh3.googleusercontent.com"],
+    remotePatterns: [
+      { hostname: "images.unsplash.com" },
+      { hostname: "avatars.githubusercontent.com" },
+      { hostname: "lh3.googleusercontent.com" },
+    ],
   },
   experimental: {
-    appDir: true,
     scrollRestoration: true,
     outputFileTracingRoot: join(dirname(fileURLToPath(import.meta.url)), "../../"),
     mdxRs: false,

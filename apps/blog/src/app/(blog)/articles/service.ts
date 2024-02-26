@@ -28,7 +28,7 @@ export interface ArticleMeta {
 }
 
 export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => {
-  const filenames = await glob("*.mdx", {
+  const filenames = await glob("**/page.mdx", {
     cwd: join(process.cwd(), "src", "app", "(blog)", "articles", "[slug]", "(docs)"),
   })
 
@@ -37,7 +37,7 @@ export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => 
       const meta = await import(`./[slug]/(docs)/${filename}`).then((m) => m.meta as ArticleMeta)
 
       return {
-        slug: filename.replace(/.mdx$/, ""),
+        slug: filename.replace(/\/page.mdx$/, ""),
         meta,
       }
     }),
