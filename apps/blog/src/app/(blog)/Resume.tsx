@@ -10,16 +10,19 @@ import {
   RocafIcon,
 } from "../(common)/icons";
 
-type ResumeTime = { label: string; dateTime: string };
+interface ResumeTime {
+  dateTime: string;
+  label: string;
+}
 
-type ResumeEntity = {
+interface ResumeEntity {
   company: string;
+  end: string | ResumeTime;
   href: string;
-  title: string;
   logo: FC<SVGProps>;
   start: string | ResumeTime;
-  end: string | ResumeTime;
-};
+  title: string;
+}
 
 const getStringOrValue = (time: string | ResumeTime, key: keyof ResumeTime) =>
   typeof time === "string" ? time : time[key];
@@ -88,6 +91,7 @@ export default function Resume() {
               <dt className="sr-only">Role</dt>
               <dd className="text-xs">{role.title}</dd>
               <dt className="sr-only">Date</dt>
+              {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides accessible date range for screen readers */}
               <dd
                 aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(
                   role.end,

@@ -179,9 +179,9 @@ export default function UserPage({
   );
 }
 
-type QueryPath = {
+interface QueryPath {
   username: string;
-};
+}
 
 export const getStaticPaths = async (): Promise<
   GetStaticPathsResult<QueryPath>

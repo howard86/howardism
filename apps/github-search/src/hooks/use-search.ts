@@ -16,7 +16,10 @@ interface UseSearch {
   state: SearchState;
 }
 
-type SearchAction = { type: "updateUsername"; payload: string };
+interface SearchAction {
+  payload: string;
+  type: "updateUsername";
+}
 
 const INITIAL_USERNAME = "";
 const DEFAULT_COUNT = 10;

@@ -17,15 +17,15 @@ const fetchStationSchema = z.object({
   r: z.coerce.number().gte(0).lte(1000),
 });
 
-export type MergedBikeStation = {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
+export interface MergedBikeStation {
   availableRentBikes: number;
   availableReturnBikes: number;
+  id: string;
+  lat: number;
+  lng: number;
+  name: string;
   // TODO: add distance by calculating from lat & lng
-};
+}
 
 const mapBikeStation = (
   station: BikeStation,

@@ -68,9 +68,9 @@ export default function RecipePage({
   );
 }
 
-type QueryPath = {
+interface QueryPath {
   id: string;
-};
+}
 
 export const getStaticPaths = async (): Promise<
   GetStaticPathsResult<QueryPath>

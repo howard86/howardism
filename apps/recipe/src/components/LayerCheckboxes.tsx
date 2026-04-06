@@ -13,14 +13,14 @@ export default function LayerCheckboxes({
   options,
 }: LayerCheckboxesProps) {
   const [checkedItems, setCheckedItems] = useState<boolean[]>(
-    Array(options.length).fill(false)
+    new Array(options.length).fill(false)
   );
 
   const isAllChecked = checkedItems.every(Boolean);
   const isIndeterminate = checkedItems.some(Boolean) && !isAllChecked;
 
   const handleOnParentChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setCheckedItems(Array(options.length).fill(e.target.checked));
+    setCheckedItems(new Array(options.length).fill(e.target.checked));
   };
 
   return (
