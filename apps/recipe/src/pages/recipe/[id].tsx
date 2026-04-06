@@ -1,14 +1,26 @@
-import { Box, CheckboxGroup, Flex, Heading, Spinner, Text, VStack } from "@chakra-ui/react"
-import { Image } from "@howardism/components-common"
-import type { GetStaticPathsResult, GetStaticPropsContext, GetStaticPropsResult } from "next"
-import { useRouter } from "next/router"
+import {
+  Box,
+  CheckboxGroup,
+  Flex,
+  Heading,
+  Spinner,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
+import { Image } from "@howardism/components-common";
+import type {
+  GetStaticPathsResult,
+  GetStaticPropsContext,
+  GetStaticPropsResult,
+} from "next";
+import { useRouter } from "next/router";
 
-import logo from "@/../public/favicon/logo.png"
-import LayerCheckboxes from "@/components/LayerCheckboxes"
-import { NAV_BAR_HEIGHT } from "@/components/NavBar"
-import ProcedureStep from "@/components/ProcedureStep"
-import { getRecipeById, getRecipes } from "@/services/recipe"
-import type { Recipe } from "@/types/recipe"
+import logo from "@/../public/favicon/logo.png";
+import LayerCheckboxes from "@/components/LayerCheckboxes";
+import { NAV_BAR_HEIGHT } from "@/components/NavBar";
+import ProcedureStep from "@/components/ProcedureStep";
+import { getRecipeById, getRecipes } from "@/services/recipe";
+import type { Recipe } from "@/types/recipe";
 
 export default function RecipePage({
   title,
@@ -18,10 +30,10 @@ export default function RecipePage({
   seasonings,
   steps,
 }: Recipe) {
-  const router = useRouter()
+  const router = useRouter();
 
   if (router.isFallback) {
-    return <Spinner />
+    return <Spinner />;
   }
 
   return (
@@ -29,35 +41,41 @@ export default function RecipePage({
       <Box h={NAV_BAR_HEIGHT} />
       <Image
         alt={title}
-        src={image[0] ? image[0].formats.small.url : logo}
-        width={320}
-        height={218}
         borderRadius="lg"
-        shadow="lg"
+        height={218}
         objectFit="contain"
         priority
+        shadow="lg"
+        src={image[0] ? image[0].formats.small.url : logo}
+        width={320}
       />
       <Heading as="h1">{title}</Heading>
       <Text>{description}</Text>
-      <Flex maxW="container.md" w="full" direction={{ base: "column", md: "row" }}>
-        <Box p="4" minW="60" flexShrink={0}>
+      <Flex
+        direction={{ base: "column", md: "row" }}
+        maxW="container.md"
+        w="full"
+      >
+        <Box flexShrink={0} minW="60" p="4">
           <CheckboxGroup colorScheme="secondary">
-            <LayerCheckboxes title="材料 🍖" options={ingredients} />
-            <LayerCheckboxes title="調味料 🧂" options={seasonings} />
+            <LayerCheckboxes options={ingredients} title="材料 🍖" />
+            <LayerCheckboxes options={seasonings} title="調味料 🧂" />
           </CheckboxGroup>
         </Box>
         <ProcedureStep flex="1" p="4" steps={steps} />
       </Flex>
     </VStack>
-  )
+  );
 }
 
 type QueryPath = {
-  id: string
-}
+  id: string;
+};
 
-export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>> => {
-  const results = await getRecipes()
+export const getStaticPaths = async (): Promise<
+  GetStaticPathsResult<QueryPath>
+> => {
+  const results = await getRecipes();
 
   return {
     paths: results.map((result) => ({
@@ -66,27 +84,27 @@ export const getStaticPaths = async (): Promise<GetStaticPathsResult<QueryPath>>
       },
     })),
     fallback: "blocking",
-  }
-}
+  };
+};
 
 export const getStaticProps = async (
-  context: GetStaticPropsContext<QueryPath>,
+  context: GetStaticPropsContext<QueryPath>
 ): Promise<GetStaticPropsResult<Recipe>> => {
   if (!context.params) {
-    return { notFound: true }
+    return { notFound: true };
   }
 
-  const recipe = await getRecipeById(context.params.id)
+  const recipe = await getRecipeById(context.params.id);
 
   if (recipe === null) {
     return {
       notFound: true,
-    }
+    };
   }
 
   return {
     props: recipe,
     // Update cache every one hour
     revalidate: 3600,
-  }
-}
+  };
+};

@@ -1,8 +1,8 @@
-import type { Config } from "jest"
-import nextJest from "next/jest"
+import type { Config } from "jest";
+import nextJest from "next/jest";
 
-import { base } from "./base"
+import { base } from "./base";
 
-const createJestConfig = nextJest({ dir: "./" })
+const createJestConfig = nextJest({ dir: "./" });
 
-export const nextjs = createJestConfig(base) as () => Promise<Config>
+export const nextjs = createJestConfig(base) as () => Promise<Config>;

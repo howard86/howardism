@@ -1,6 +1,11 @@
-import { useToast, UseToastOptions } from "@chakra-ui/react"
+import { type UseToastOptions, useToast } from "@chakra-ui/react";
 
 const useAppToast = (options?: UseToastOptions) =>
-  useToast({ duration: 5000, isClosable: true, position: "bottom", ...options })
+  useToast({
+    duration: 5000,
+    isClosable: true,
+    position: "bottom",
+    ...options,
+  });
 
-export default useAppToast
+export default useAppToast;

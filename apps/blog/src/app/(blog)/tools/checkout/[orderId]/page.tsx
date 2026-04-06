@@ -1,19 +1,21 @@
-import Image from "next/image"
-import { notFound } from "next/navigation"
+import Image from "next/image";
+import { notFound } from "next/navigation";
 
-import { SimpleLayout } from "@/app/(common)/SimpleLayout"
-import prisma from "@/services/prisma"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout";
+import prisma from "@/services/prisma";
 
-import { DEFAULT_SHIPPING_COST } from "../constants"
-import { numberFormat } from "../utils"
+import { DEFAULT_SHIPPING_COST } from "../constants";
+import { numberFormat } from "../utils";
 
 export interface OrderPageProps {
   params: {
-    orderId: string
-  }
+    orderId: string;
+  };
 }
 
-export default async function OrderPage({ params: { orderId } }: OrderPageProps) {
+export default async function OrderPage({
+  params: { orderId },
+}: OrderPageProps) {
   const order = await prisma.commerceOrder.findUnique({
     where: {
       id: orderId,
@@ -48,39 +50,50 @@ export default async function OrderPage({ params: { orderId } }: OrderPageProps)
         },
       },
     },
-  })
+  });
 
-  if (!order) return notFound()
+  if (!order) {
+    return notFound();
+  }
 
-  const shortenedOrderId = orderId.slice(0, 6)
+  const shortenedOrderId = orderId.slice(0, 6);
 
-  const subTotal = order.products.reduce((sum, cur) => sum + cur.product.price * cur.quantity, 0)
+  const subTotal = order.products.reduce(
+    (sum, cur) => sum + cur.product.price * cur.quantity,
+    0
+  );
 
   return (
     <SimpleLayout
-      title="Thank you!"
       intro={`Your order #${shortenedOrderId} has shipped and will be with you soon.`}
+      title="Thank you!"
     >
-      <section aria-labelledby="order-heading" className="mt-10 border-t border-base-200">
-        <h2 id="order-heading" className="sr-only">
+      <section
+        aria-labelledby="order-heading"
+        className="mt-10 border-base-200 border-t"
+      >
+        <h2 className="sr-only" id="order-heading">
           Your order
         </h2>
 
         <h3 className="sr-only">Items</h3>
         <div className="mb-8">
           {order.products.map(({ product, quantity }) => (
-            <div key={product.id} className="flex space-x-6 border-b border-base-200 py-10">
+            <div
+              className="flex space-x-6 border-base-200 border-b py-10"
+              key={product.id}
+            >
               <Image
-                src={product.imageUrl}
                 alt={product.imageAlt}
-                width={160}
-                height={160}
                 className="h-20 w-20 flex-none rounded-lg bg-base-100 object-cover object-center sm:h-40 sm:w-40"
+                height={160}
+                src={product.imageUrl}
+                width={160}
               />
               <div className="flex flex-auto flex-col">
                 <div>
                   <h4 className="font-medium">{product.title}</h4>
-                  <p className="mt-2 text-sm text-neutral-content">
+                  <p className="mt-2 text-neutral-content text-sm">
                     {product.color} · {product.size}
                   </p>
                 </div>
@@ -91,8 +104,10 @@ export default async function OrderPage({ params: { orderId } }: OrderPageProps)
                       <dd className="ml-2 text-neutral-content">{quantity}</dd>
                     </div>
                     <div className="flex pl-4 sm:pl-6">
-                      <dt className="font-medium ">Price</dt>
-                      <dd className="ml-2">{numberFormat.format(product.price)}</dd>
+                      <dt className="font-medium">Price</dt>
+                      <dd className="ml-2">
+                        {numberFormat.format(product.price)}
+                      </dd>
                     </div>
                   </dl>
                 </div>
@@ -123,19 +138,25 @@ export default async function OrderPage({ params: { orderId } }: OrderPageProps)
 
           <h3 className="sr-only">Summary</h3>
 
-          <dl className="space-y-6 border-t border-base-200 pt-10 text-sm">
+          <dl className="space-y-6 border-base-200 border-t pt-10 text-sm">
             <div className="flex justify-between">
               <dt className="font-medium">Subtotal</dt>
-              <dd className="text-neutral-content">{numberFormat.format(subTotal)}</dd>
+              <dd className="text-neutral-content">
+                {numberFormat.format(subTotal)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="font-medium">Shipping</dt>
-              <dd className="text-neutral-content">{numberFormat.format(DEFAULT_SHIPPING_COST)}</dd>
+              <dd className="text-neutral-content">
+                {numberFormat.format(DEFAULT_SHIPPING_COST)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="font-medium">Tax</dt>
               <dd className="text-neutral-content">
-                {numberFormat.format(order.totalPrice - DEFAULT_SHIPPING_COST - subTotal)}
+                {numberFormat.format(
+                  order.totalPrice - DEFAULT_SHIPPING_COST - subTotal
+                )}
               </dd>
             </div>
             <div className="flex justify-between">
@@ -146,5 +167,5 @@ export default async function OrderPage({ params: { orderId } }: OrderPageProps)
         </div>
       </section>
     </SimpleLayout>
-  )
+  );
 }

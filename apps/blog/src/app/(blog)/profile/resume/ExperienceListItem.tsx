@@ -1,11 +1,11 @@
 export interface ExperienceListItemProps {
-  company: string
-  location: string
-  title: string
-  size: string
-  startDate: string
-  endDate?: string
-  items: string[]
+  company: string;
+  endDate?: string;
+  items: string[];
+  location: string;
+  size: string;
+  startDate: string;
+  title: string;
 }
 
 export function ExperienceListItem({
@@ -20,7 +20,7 @@ export function ExperienceListItem({
   return (
     <li>
       <div>
-        <h3 className="inline text-xs font-bold">{company}</h3>
+        <h3 className="inline font-bold text-xs">{company}</h3>
         <span className="text-xs">
           , {location} — <em>{title}</em>
           <span className="ml-1 text-3xs">(size: {size})</span>
@@ -37,5 +37,5 @@ export function ExperienceListItem({
         </ul>
       </div>
     </li>
-  )
+  );
 }

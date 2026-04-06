@@ -1,2 +1,2 @@
-export * from "./base"
-export * from "./nextjs"
+export * from "./base";
+export * from "./nextjs";

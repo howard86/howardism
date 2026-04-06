@@ -1,7 +1,7 @@
-import type { AppProps } from "next/app"
-import Head from "next/head"
+import type { AppProps } from "next/app";
+import Head from "next/head";
 
-import GlobalWrapper from "@/components/GlobalWrapper"
+import GlobalWrapper from "@/components/GlobalWrapper";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -9,11 +9,11 @@ export default function App({ Component, pageProps }: AppProps) {
       <Head>
         <title>Next.js Template</title>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+        <meta content="initial-scale=1.0, width=device-width" name="viewport" />
       </Head>
       <GlobalWrapper>
         <Component {...pageProps} />
       </GlobalWrapper>
     </>
-  )
+  );
 }

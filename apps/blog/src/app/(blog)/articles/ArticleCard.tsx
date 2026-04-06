@@ -1,9 +1,18 @@
-import { Card, CardCta, CardDescription, CardEyebrow, CardTitle } from "@/app/(common)/Card"
-import { formatDate } from "@/utils/time"
+import {
+  Card,
+  CardCta,
+  CardDescription,
+  CardEyebrow,
+  CardTitle,
+} from "@/app/(common)/Card";
+import { formatDate } from "@/utils/time";
 
-import type { ArticleEntity } from "./service"
+import type { ArticleEntity } from "./service";
 
-export default function ArticleCard({ slug, meta }: Omit<ArticleEntity, "position">) {
+export default function ArticleCard({
+  slug,
+  meta,
+}: Omit<ArticleEntity, "position">) {
   return (
     <Card as="article">
       <CardTitle href={`/articles/${slug}`}>{meta.title}</CardTitle>
@@ -13,5 +22,5 @@ export default function ArticleCard({ slug, meta }: Omit<ArticleEntity, "positio
       <CardDescription>{meta.description}</CardDescription>
       <CardCta>Read article</CardCta>
     </Card>
-  )
+  );
 }

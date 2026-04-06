@@ -1,17 +1,21 @@
-import { Merriweather_Sans } from "next/font/google"
+import { Merriweather_Sans } from "next/font/google";
 
 export const titleFont = Merriweather_Sans({
   weight: ["700"],
   style: "normal",
   subsets: ["latin"],
-})
+});
 
 export interface SectionTitleProps {
-  text: string
+  text: string;
 }
 
 export function SectionTitle({ text }: SectionTitleProps) {
   return (
-    <h2 className={`text-md font-bold uppercase text-zinc-800 ${titleFont.className}`}>{text}</h2>
-  )
+    <h2
+      className={`font-bold text-md text-zinc-800 uppercase ${titleFont.className}`}
+    >
+      {text}
+    </h2>
+  );
 }

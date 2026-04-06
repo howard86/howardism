@@ -1,6 +1,6 @@
-import { SimpleLayout } from "@/app/(common)/SimpleLayout"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout";
 
-import HtmlEditor from "./HtmlEditor"
+import HtmlEditor from "./HtmlEditor";
 
 // Reference: https://example.com
 const SAMPLE_HTML = `
@@ -51,12 +51,15 @@ const SAMPLE_HTML = `
 </body>
 </html>
 
-`
+`;
 
 export default function StripHtmlTagsPage() {
   return (
-    <SimpleLayout title="Strip HTML Tags" intro="Online Editor to modify existed html files">
+    <SimpleLayout
+      intro="Online Editor to modify existed html files"
+      title="Strip HTML Tags"
+    >
       <HtmlEditor html={SAMPLE_HTML} />
     </SimpleLayout>
-  )
+  );
 }
