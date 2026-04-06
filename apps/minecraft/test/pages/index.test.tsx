@@ -3,10 +3,6 @@ import { render, screen } from "@testing-library/react";
 import Home from "@/pages";
 
 describe("home", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   it("renders the dynamic component", async () => {
     expect.hasAssertions();
 

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A pnpm monorepo managed by **Lerna + Nx + Turborepo** containing Next.js apps and shared packages by Howard Tai.
 
 - `apps/`: blog, github-search, minecraft, recipe, template
-- `packages/`: components, eslint-config-howardism, jest-config, theme, tsconfig
+- `packages/`: components, eslint-config-howardism, test-config, theme, tsconfig
 
 ## Commands
 
@@ -27,13 +27,13 @@ pnpm format         # prettier format
 pnpm dev            # start dev server
 pnpm build          # build
 pnpm lint           # lint
-pnpm test           # run jest tests
+pnpm test           # run bun tests
 pnpm type-check     # tsc --noEmit
 ```
 
 Run a single test file:
 ```bash
-pnpm test -- --testPathPattern=<filename>
+bun test --filter <filename>
 ```
 
 ### Blog app extras (`apps/blog`)
@@ -66,7 +66,7 @@ pnpm codegen        # regenerate GraphQL types from schema (graphql-codegen)
 | Package | Purpose |
 |---|---|
 | `eslint-config-howardism` | Shared ESLint flat config (base, next, react-internal presets) |
-| `@howardism/jest-config` | Shared Jest config presets (base, nextjs) |
+| `@howardism/test-config` | Shared Bun test preload (happy-dom, jest-dom matchers, Next.js mocks) |
 | `@howardism/tsconfig` | Shared TypeScript configs |
 | `@howardism/components-common` | Shared React UI components |
 | `@howardism/theme` | Chakra UI theme |
