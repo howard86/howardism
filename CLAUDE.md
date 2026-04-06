@@ -18,7 +18,7 @@ bun run build       # build all packages (respects dependency order via turborep
 bun run lint        # lint all packages
 bun run test        # run all tests
 bun run type-check  # TypeScript check across all packages
-bun run format      # biome format
+bun run format      # ultracite fix
 ```
 
 ### Per-package (cd into app or package first)
@@ -94,5 +94,5 @@ Uses **Chakra UI** + **Apollo Client** + **GitHub GraphQL API**. GraphQL types a
 
 ## Code Style
 
-- **Biome** (via Ultracite) for linting and formatting
+- **Ultracite** for linting and formatting
 - Commit messages follow **gitmoji** conventional commit format (enforced by commitlint)
