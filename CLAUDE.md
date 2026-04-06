@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A pnpm monorepo managed by **Lerna + Nx + Turborepo** containing Next.js apps and shared packages by Howard Tai.
+A Bun monorepo managed by **Turborepo + Changesets** containing Next.js apps and shared packages by Howard Tai.
 
 - `apps/`: blog, github-search, minecraft, recipe, template
 - `packages/`: components, eslint-config-howardism, test-config, theme, tsconfig
@@ -14,21 +14,21 @@ A pnpm monorepo managed by **Lerna + Nx + Turborepo** containing Next.js apps an
 ### Root (run all packages)
 
 ```bash
-pnpm build          # build all packages (respects dependency order via lerna/nx)
-pnpm lint           # lint all packages
-pnpm test           # run all tests
-pnpm type-check     # TypeScript check across all packages
-pnpm format         # prettier format
+bun run build       # build all packages (respects dependency order via turborepo)
+bun run lint        # lint all packages
+bun run test        # run all tests
+bun run type-check  # TypeScript check across all packages
+bun run format      # biome format
 ```
 
 ### Per-package (cd into app or package first)
 
 ```bash
-pnpm dev            # start dev server
-pnpm build          # build
-pnpm lint           # lint
-pnpm test           # run bun tests
-pnpm type-check     # tsc --noEmit
+bun run dev         # start dev server
+bun run build       # build
+bun run lint        # lint
+bun run test        # run bun tests
+bun run type-check  # tsc --noEmit
 ```
 
 Run a single test file:
@@ -39,27 +39,26 @@ bun test --filter <filename>
 ### Blog app extras (`apps/blog`)
 
 ```bash
-pnpm prisma:generate   # regenerate Prisma client after schema changes
-pnpm prisma:migrate    # push schema to DB (db push)
-pnpm prisma:seed       # seed the database
-pnpm prisma:studio     # open Prisma Studio GUI
-pnpm prisma:reset      # reset DB without seeding
+bun run prisma:generate   # regenerate Prisma client after schema changes
+bun run prisma:migrate    # push schema to DB (db push)
+bun run prisma:seed       # seed the database
+bun run prisma:studio     # open Prisma Studio GUI
+bun run prisma:reset      # reset DB without seeding
 ```
 
 ### github-search app extras (`apps/github-search`)
 
 ```bash
-pnpm codegen        # regenerate GraphQL types from schema (graphql-codegen)
+bun run codegen     # regenerate GraphQL types from schema (graphql-codegen)
 ```
 
 ## Architecture
 
 ### Monorepo tooling
 
-- **pnpm workspaces** for dependency management
-- **Lerna** (independent versioning, gitmoji conventional commits) for publishing and changelogs
-- **Nx** for task caching (`lint`, `type-check`, `test`, `build`, `format` are cacheable)
-- **Turborepo** (`turbo.json`) as the task runner — build order is dependency-aware
+- **Bun workspaces** for dependency management
+- **Turborepo** (`turbo.json`) as the task runner — build order is dependency-aware, caches `lint`, `type-check`, `test`, `build`
+- **Changesets** for versioning and npm publishing
 
 ### Shared packages
 
@@ -95,6 +94,5 @@ Uses **Chakra UI** + **Apollo Client** + **GitHub GraphQL API**. GraphQL types a
 
 ## Code Style
 
-- Prettier: `printWidth: 100`, `singleQuote: false`, `semi: false`
+- **Biome** (via Ultracite) for linting and formatting
 - Commit messages follow **gitmoji** conventional commit format (enforced by commitlint)
-- ESLint uses flat config format (`eslint.config.js`)
