@@ -31,3 +31,11 @@ mock.module("next/link", () => ({
     return React.createElement("a", { href, ...rest }, children);
   },
 }));
+
+mock.module("next/dynamic", () => ({
+  default: () => {
+    return function DynamicComponent() {
+      return React.createElement("div", { "data-testid": "dynamic-component" });
+    };
+  },
+}));

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from "bun:test";
 import { SudokuDifficulty } from "@/server/libs/sudoku/enum";
 import Sudoku from "@/server/libs/sudoku/model";
 import {
@@ -29,7 +30,7 @@ describe("sudoku service", () => {
 
       expect(result.isSolved).toBe(true);
 
-      Sudoku.ARRAY_FROM_ONE_TO_NINE.forEach((num) => {
+      for (const num of Sudoku.ARRAY_FROM_ONE_TO_NINE) {
         expect(result.getRow(num).sort()).toStrictEqual(
           Sudoku.ARRAY_FROM_ONE_TO_NINE
         );
@@ -39,7 +40,7 @@ describe("sudoku service", () => {
         expect(result.getBlock(num).sort()).toStrictEqual(
           Sudoku.ARRAY_FROM_ONE_TO_NINE
         );
-      });
+      }
     });
   });
 

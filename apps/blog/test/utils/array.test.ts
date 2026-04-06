@@ -1,3 +1,4 @@
+import { describe, expect, it } from "bun:test";
 import { sampleSize } from "@/utils/array";
 
 describe("array", () => {
@@ -10,7 +11,7 @@ describe("array", () => {
       // sort will mutate the original copy
       expect([...result].sort()).toStrictEqual([...input].sort());
       for (const number of result) {
-        expect(input.includes(number)).toBeTruthy();
+        expect(input.includes(number)).toBe(true);
       }
     });
   });

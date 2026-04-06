@@ -1,3 +1,4 @@
+import { describe, expect, it } from "bun:test";
 import { render, screen } from "@testing-library/react";
 
 import Home, { type HomeProps } from "@/pages";
@@ -30,6 +31,6 @@ describe("home", () => {
     expect.hasAssertions();
     render(<Home recipes={mockRecipes} />);
     const recipeTitles = await screen.findAllByRole("heading", { level: 2 });
-    expect(recipeTitles[0]).toHaveTextContent("Featured Posts");
+    expect(recipeTitles[0].textContent).toContain("Featured Posts");
   });
 });
