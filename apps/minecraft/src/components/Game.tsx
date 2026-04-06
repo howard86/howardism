@@ -19,12 +19,10 @@ export default function Game() {
       <ambientLight intensity={0.3} />
       <pointLight castShadow intensity={0.8} position={[100, 100, 100]} />
       <Physics gravity={[0, -30, 0]}>
-        <>
-          <Ground />
-          <Player />
-          <Cube position={[0, 0.5, -10]} />
-          {cubes.map((cube) => cube)}
-        </>
+        <Ground />
+        <Player />
+        <Cube position={[0, 0.5, -10]} />
+        {cubes.map((cube) => cube)}
       </Physics>
     </Canvas>
   );

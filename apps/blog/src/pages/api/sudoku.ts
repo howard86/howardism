@@ -22,17 +22,17 @@ export type SudokuApiResponse =
   | SudokuSuccessApiResponse
   | SudokuFailureApiResponse;
 
-type SudokuSuccessApiResponse = {
-  success: true;
-  difficulty: SudokuDifficulty;
+interface SudokuSuccessApiResponse {
   code: string;
+  difficulty: SudokuDifficulty;
+  success: true;
   sudoku: number[];
-};
+}
 
-type SudokuFailureApiResponse = {
-  success: false;
+interface SudokuFailureApiResponse {
   message: string;
-};
+  success: false;
+}
 
 const handler = (
   req: SudokuApiRequest,

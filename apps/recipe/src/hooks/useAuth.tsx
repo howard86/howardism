@@ -5,11 +5,11 @@ import useAppDispatch from "./useAppDispatch";
 import useAppSelector from "./useAppSelector";
 import useAppToast from "./useAppToast";
 
-type UseAuth = {
+interface UseAuth {
   isLoggedIn: boolean;
   login: (account: Account) => Promise<void>;
   logout: VoidFunction;
-};
+}
 
 // TODO: consider manage auth by redux
 const useAuth = (): UseAuth => {

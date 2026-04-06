@@ -11,7 +11,10 @@ import { env } from "@/config/env.mjs";
 
 import type { NormalizedMergedBikeStation } from "./api/route";
 
-type LngLat = { lng: number; lat: number };
+interface LngLat {
+  lat: number;
+  lng: number;
+}
 
 const DEFAULT_WIDE_ZOOM = 8.5;
 const DEFAULT_SEARCH_ZOOM = 15;

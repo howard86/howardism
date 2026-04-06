@@ -72,13 +72,13 @@ const addItemIds = <T extends { id: string }>(set: Set<string>, items: T[]) => {
   }
 };
 
-type AuthMiddleware = {
+interface AuthMiddleware {
   email: string;
-};
+}
 
-type ResumeParserMiddleware = {
+interface ResumeParserMiddleware {
   resume: ResumeSchema;
-};
+}
 
 router
   .use<AuthMiddleware>(async (req, res) => {
@@ -109,6 +109,7 @@ router
 
     return { resume: body.data };
   })
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: resume parsing handler with many field mappings
   .put<string, ResumeParserMiddleware>(async (req) => {
     const { profileId } = req.query;
 

@@ -2,30 +2,9 @@ import { createHmac, randomUUID } from "node:crypto";
 
 import { env } from "@/config/env.mjs";
 
-type RequestApiParam = {
+interface RequestApiParam {
   amount: number; // Payment amount
   currency: string; // Payment currency (ISO 4217)
-  orderId: string; // An order ID of payment request from the merchant
-  packages: {
-    id: string; // An unique ID of package list
-    amount: number; // Total amount of products per package
-    userFee?: number; // User fee: Respond if a commission is found within the payment amount.
-    name?: string; // Name of the package or name of internal shops
-    products: {
-      id?: string; // ID of sales products of the merchant
-      name: string; // Name of the sales products
-      imageUrl?: string; // Image URL of the sales products
-      quantity: number; // Number of products
-      price: number; // Price of each product
-      originalPrice?: number; // Original price of each product
-    }[];
-  }[];
-  redirectUrls: {
-    appPackageName?: string; // An information to prevent phishing while transferring between apps in Android.
-    confirmUrl: string; // A merchant URL user moves to after requesting the payment.
-    confirmUrlType?: string; // A navigation type of the ConfirmURL after user approves the payment request.
-    cancelUrl: string; // A URL that moves to the next when LINE Pay member cancels the payment from the payment page.
-  };
   options?: {
     payment?: {
       capture?: boolean; // Regarding automatic payment
@@ -68,19 +47,42 @@ type RequestApiParam = {
       branchId?: string; // Branch Id where the payment is requested.
     };
   };
-};
+  orderId: string; // An order ID of payment request from the merchant
+  packages: {
+    id: string; // An unique ID of package list
+    amount: number; // Total amount of products per package
+    userFee?: number; // User fee: Respond if a commission is found within the payment amount.
+    name?: string; // Name of the package or name of internal shops
+    products: {
+      id?: string; // ID of sales products of the merchant
+      name: string; // Name of the sales products
+      imageUrl?: string; // Image URL of the sales products
+      quantity: number; // Number of products
+      price: number; // Price of each product
+      originalPrice?: number; // Original price of each product
+    }[];
+  }[];
+  redirectUrls: {
+    appPackageName?: string; // An information to prevent phishing while transferring between apps in Android.
+    confirmUrl: string; // A merchant URL user moves to after requesting the payment.
+    confirmUrlType?: string; // A navigation type of the ConfirmURL after user approves the payment request.
+    cancelUrl: string; // A URL that moves to the next when LINE Pay member cancels the payment from the payment page.
+  };
+}
 
-type ConfirmApiParam = {
+interface ConfirmApiParam {
   amount: number; // Payment amount
   currency: string; // Payment currency (ISO 4217)
-};
+}
 
+// biome-ignore lint/style/noEnum: LINE Pay API uses these as string constants
 enum LinePayApiEndpoints {
   Request = "/v3/payments/request",
   Confirm = "/v3/payments/{transactionId}/confirm",
   Capture = "/v3/payments/authorizations/{transactionId}/capture",
 }
 
+// biome-ignore lint/style/noEnum: LINE Pay API return codes
 export enum RequestApiReturnCode {
   Success = "0000",
   NonExistingMerchant = "1104",
@@ -97,9 +99,7 @@ export enum RequestApiReturnCode {
   InternalError = "9000",
 }
 
-type RequestApiResponse = {
-  returnCode: RequestApiReturnCode; // Return code
-  returnMessage: string; // Return message
+interface RequestApiResponse {
   info: {
     transactionId: number; // Transaction ID
     paymentAccessToken: string; // The code value entered when code is used instead of scanner in the LINE Pay.
@@ -108,8 +108,11 @@ type RequestApiResponse = {
       web: string; // Web URL to move to the payment page
     };
   };
-};
+  returnCode: RequestApiReturnCode; // Return code
+  returnMessage: string; // Return message
+}
 
+// biome-ignore lint/style/noEnum: LINE Pay API return codes
 export enum ConfirmApiReturnCode {
   Success = "0000",
   NotLinePayMember = "1101",
@@ -152,9 +155,7 @@ export enum ConfirmApiReturnCode {
   InternalError = "9000",
 }
 
-type ConfirmApiResponse = {
-  returnCode: ConfirmApiReturnCode; // Return code
-  returnMessage: string; // Return message
+interface ConfirmApiResponse {
   info: {
     orderId: string; // An unique order ID of the merchant sent upon requesting the payment.
     transactionId: number; // A transaction ID returned as the payment request result
@@ -194,7 +195,9 @@ type ConfirmApiResponse = {
       };
     };
   };
-};
+  returnCode: ConfirmApiReturnCode; // Return code
+  returnMessage: string; // Return message
+}
 
 const getLinePayAuthorizationHeaders = (uri: string, body: string) => {
   if (!(env.LINE_PAY_CHANNEL_SECRET_KEY && env.LINE_PAY_CHANNEL_ID)) {
@@ -214,7 +217,7 @@ const getLinePayAuthorizationHeaders = (uri: string, body: string) => {
   } as const;
 };
 
-export const requestApi = async (
+export const requestApi = (
   param: RequestApiParam
 ): Promise<RequestApiResponse> => {
   if (!env.LINE_PAY_API_URL) {
@@ -230,7 +233,7 @@ export const requestApi = async (
   }).then((res) => res.json());
 };
 
-export const confirmApi = async (
+export const confirmApi = (
   transactionId: string,
   param: ConfirmApiParam
 ): Promise<ConfirmApiResponse> => {

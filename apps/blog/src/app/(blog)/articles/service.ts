@@ -6,16 +6,16 @@ import glob from "fast-glob";
 import type { StaticImageData } from "next/image";
 import { cache } from "react";
 
-export type Normalise<T> = {
-  ids: string[];
+export interface Normalise<T> {
   entities: Record<string, T | undefined>;
-};
+  ids: string[];
+}
 
-export type ArticleEntity = {
+export interface ArticleEntity {
+  meta: ArticleMeta;
   position: number;
   slug: string;
-  meta: ArticleMeta;
-};
+}
 
 export interface ArticleMeta {
   date: string;
@@ -26,6 +26,8 @@ export interface ArticleMeta {
   };
   title: string;
 }
+
+const PAGE_MDX_SUFFIX = /\/page.mdx$/;
 
 export const getArticles = cache(
   async (): Promise<Normalise<ArticleEntity>> => {
@@ -48,7 +50,7 @@ export const getArticles = cache(
         );
 
         return {
-          slug: filename.replace(/\/page.mdx$/, ""),
+          slug: filename.replace(PAGE_MDX_SUFFIX, ""),
           meta,
         };
       })

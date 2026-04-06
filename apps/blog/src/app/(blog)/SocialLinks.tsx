@@ -10,11 +10,11 @@ import {
   TwitterIcon,
 } from "@/app/(common)/icons";
 
-type SocialLink = {
+interface SocialLink {
+  "aria-label": string;
   href: string;
   icon: FC<SVGProps>;
-  "aria-label": string;
-};
+}
 
 export const SOCIAL_LINKS: SocialLink[] = [
   {

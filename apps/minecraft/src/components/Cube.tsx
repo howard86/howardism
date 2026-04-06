@@ -91,19 +91,17 @@ export default function Cube({ position }: CubeProps) {
       ref={ref}
     >
       {/* eslint-disable-next-line react/jsx-no-useless-fragment */}
-      <>
-        {[...Array(6)].map(
-          (_, index): BoxProps => (
-            <meshStandardMaterial
-              attach={`material-${index}`}
-              color={hover === index ? "gray" : "white"}
-              key={nanoid()}
-              map={texture}
-            />
-          )
-        )}
-        <boxBufferGeometry attach="geometry" />
-      </>
+      {[...new Array(6)].map(
+        (_, index): BoxProps => (
+          <meshStandardMaterial
+            attach={`material-${index}`}
+            color={hover === index ? "gray" : "white"}
+            key={nanoid()}
+            map={texture}
+          />
+        )
+      )}
+      <boxBufferGeometry attach="geometry" />
     </mesh>
   );
 }
