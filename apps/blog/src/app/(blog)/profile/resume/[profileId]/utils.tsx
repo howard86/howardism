@@ -1,20 +1,22 @@
-import "server-only"
+import "server-only";
 
-import type { JsonValue } from "@prisma/client/runtime/library"
-import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { cache } from "react"
+import type { JsonValue } from "@prisma/client/runtime/library";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { cache } from "react";
 
-import { authOptions } from "@/pages/api/auth/[...nextauth]"
-import prisma from "@/services/prisma"
-import { generateArrayStrings, generateDateISOString } from "@/services/resume"
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import prisma from "@/services/prisma";
+import { generateArrayStrings, generateDateISOString } from "@/services/resume";
 
-import type { ResumeSchema } from "../schema"
+import type { ResumeSchema } from "../schema";
 
 export const getResumeById = cache(async (profileId: string) => {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
 
-  if (!session?.user?.email) redirect("/")
+  if (!session?.user?.email) {
+    redirect("/");
+  }
 
   const resume = await prisma.resumeProfile.findUnique({
     where: { id: profileId },
@@ -26,17 +28,19 @@ export const getResumeById = cache(async (profileId: string) => {
       skills: { orderBy: { ordering: "asc" } },
       languages: { orderBy: { ordering: "asc" } },
     },
-  })
+  });
 
-  if (!resume || resume.applicant.email !== session.user.email) redirect("/profile")
+  if (!resume || resume.applicant.email !== session.user.email) {
+    redirect("/profile");
+  }
 
-  return resume
-})
+  return resume;
+});
 
 const convertStringArrayToMarkdownList = (items: JsonValue): string =>
-  Array.isArray(items) ? items.map((item) => `- ${item}`).join("\n") : ""
+  Array.isArray(items) ? items.map((item) => `- ${item}`).join("\n") : "";
 
-export type RawResume = Awaited<ReturnType<typeof getResumeById>>
+export type RawResume = Awaited<ReturnType<typeof getResumeById>>;
 
 export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
   id: resume.id,
@@ -62,7 +66,9 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     startDate: generateDateISOString(item.startDate),
     endDate: generateDateISOString(item.endDate),
     items: generateArrayStrings(item.responsibilities),
-    description: item.description || convertStringArrayToMarkdownList(item.responsibilities),
+    description:
+      item.description ||
+      convertStringArrayToMarkdownList(item.responsibilities),
   })),
 
   projects: resume.projects.map((item) => ({
@@ -71,7 +77,8 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     subtitle: item.subtitle,
     items: generateArrayStrings(item.descriptions),
     ordering: item.ordering,
-    description: item.description || convertStringArrayToMarkdownList(item.descriptions),
+    description:
+      item.description || convertStringArrayToMarkdownList(item.descriptions),
   })),
 
   educations: resume.educations.map((item) => ({
@@ -82,7 +89,8 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     startDate: generateDateISOString(item.startDate),
     endDate: generateDateISOString(item.endDate),
     items: generateArrayStrings(item.subjects),
-    description: item.description || convertStringArrayToMarkdownList(item.subjects),
+    description:
+      item.description || convertStringArrayToMarkdownList(item.subjects),
   })),
 
   skills: resume.skills.map((skill) => ({
@@ -97,4 +105,4 @@ export const mapResumeToResumeSchema = (resume: RawResume): ResumeSchema => ({
     name: language.name,
     proficiency: language.proficiency,
   })),
-})
+});

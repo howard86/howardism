@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen } from "@testing-library/react";
 
-import Home, { HomeProps } from "@/pages"
+import Home, { type HomeProps } from "@/pages";
 
 describe("home", () => {
   const mockRecipes: HomeProps["recipes"] = [
@@ -24,12 +24,12 @@ describe("home", () => {
       published_at: "2023-03-24T09:13:15.076Z",
       description: "Description 2",
     },
-  ]
+  ];
 
   it("renders featured recipes and all recipes", async () => {
-    expect.hasAssertions()
-    render(<Home recipes={mockRecipes} />)
-    const recipeTitles = await screen.findAllByRole("heading", { level: 2 })
-    expect(recipeTitles[0]).toHaveTextContent("Featured Posts")
-  })
-})
+    expect.hasAssertions();
+    render(<Home recipes={mockRecipes} />);
+    const recipeTitles = await screen.findAllByRole("heading", { level: 2 });
+    expect(recipeTitles[0]).toHaveTextContent("Featured Posts");
+  });
+});

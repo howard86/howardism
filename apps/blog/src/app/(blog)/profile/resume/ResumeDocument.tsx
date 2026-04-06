@@ -1,18 +1,25 @@
-"use client"
+"use client";
 
-import { Document, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
-import dynamic from "next/dynamic"
-import type { ComponentProps, ReactNode } from "react"
-import ReactMarkdown from "react-markdown"
+import {
+  Document,
+  Link,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
+import dynamic from "next/dynamic";
+import type { ComponentProps, ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
 
-import ResumeContact, { ResumeIconType } from "./ResumeContactList"
-import { ResumeSchema } from "./schema"
-import { convertDateString } from "./utils"
+import ResumeContact, { ResumeIconType } from "./ResumeContactList";
+import type { ResumeSchema } from "./schema";
+import { convertDateString } from "./utils";
 
 const DynamicPDFViewer = dynamic(
   () => import("@react-pdf/renderer").then((module) => module.PDFViewer),
-  { ssr: false },
-)
+  { ssr: false }
+);
 
 // TODO: make style dynamic
 const styles = StyleSheet.create({
@@ -80,11 +87,11 @@ const styles = StyleSheet.create({
     marginTop: 1.5,
   },
   skillTitle: { width: 80, fontSize: 12, fontFamily: "Times-Bold" },
-})
+});
 
 interface SectionContainerProps {
-  title: string
-  children: ReactNode
+  children: ReactNode;
+  title: string;
 }
 
 function SectionContainer({ title, children }: SectionContainerProps) {
@@ -93,11 +100,11 @@ function SectionContainer({ title, children }: SectionContainerProps) {
       <Text style={styles.sectionTitle}>{title}</Text>
       <View>{children}</View>
     </View>
-  )
+  );
 }
 
 interface ResumeMarkdownDescriptionProps {
-  content: string
+  content: string;
 }
 
 const markdownComponents: ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -110,29 +117,41 @@ const markdownComponents: ComponentProps<typeof ReactMarkdown>["components"] = {
     </View>
   ),
   // eslint-disable-next-line jsx-a11y/anchor-is-valid
-  a: ({ children, href }) => (href ? <Link src={href}>{children}</Link> : <Text>{children}</Text>),
-}
+  a: ({ children, href }) =>
+    href ? <Link src={href}>{children}</Link> : <Text>{children}</Text>,
+};
 
-function ResumeMarkdownDescription({ content }: ResumeMarkdownDescriptionProps) {
-  return <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+function ResumeMarkdownDescription({
+  content,
+}: ResumeMarkdownDescriptionProps) {
+  return (
+    <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+  );
 }
 
 interface CompanyTitleProps {
-  href?: string
-  name: string
-  subtitle?: string
+  href?: string;
+  name: string;
+  subtitle?: string;
 }
 
 function CompanyTitle({ href, name, subtitle }: CompanyTitleProps) {
   return (
     <View style={styles.flexCenter}>
-      <Text style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}>
+      <Text
+        style={{ fontFamily: "Times-Bold", fontSize: 12, marginBottom: 1.5 }}
+      >
         {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
         {href ? <Link src={href}>{name}</Link> : name}
       </Text>
-      {subtitle && <Text style={{ fontFamily: "Times-Italic", marginLeft: 4 }}> — {subtitle}</Text>}
+      {subtitle && (
+        <Text style={{ fontFamily: "Times-Italic", marginLeft: 4 }}>
+          {" "}
+          — {subtitle}
+        </Text>
+      )}
     </View>
-  )
+  );
 }
 
 export default function ResumeDocument({
@@ -149,7 +168,11 @@ export default function ResumeDocument({
   skills,
 }: ResumeSchema) {
   return (
-    <DynamicPDFViewer width="100%" height="100%" style={{ minHeight: "11.69in" }}>
+    <DynamicPDFViewer
+      height="100%"
+      style={{ minHeight: "11.69in" }}
+      width="100%"
+    >
       <Document
         author={name}
         keywords="awesome, resume, start wars"
@@ -160,21 +183,32 @@ export default function ResumeDocument({
           <View wrap={false}>
             <View style={styles.flexBetween}>
               <View style={{ width: "100%" }}>
-                <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold" }}>{name}</Text>
+                <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold" }}>
+                  {name}
+                </Text>
                 <Text style={{ marginTop: 4 }}>{summary}</Text>
               </View>
               <View style={{ width: 160, marginLeft: 20 }}>
-                <ResumeContact type={ResumeIconType.address} content={address} />
-                <ResumeContact type={ResumeIconType.phone} content={phone} />
-                <ResumeContact type={ResumeIconType.email} content={email} />
-                <ResumeContact type={ResumeIconType.github} content={github} />
-                <ResumeContact type={ResumeIconType.website} content={website} />
+                <ResumeContact
+                  content={address}
+                  type={ResumeIconType.address}
+                />
+                <ResumeContact content={phone} type={ResumeIconType.phone} />
+                <ResumeContact content={email} type={ResumeIconType.email} />
+                <ResumeContact content={github} type={ResumeIconType.github} />
+                <ResumeContact
+                  content={website}
+                  type={ResumeIconType.website}
+                />
               </View>
             </View>
             {skills.length > 0 && (
               <SectionContainer title="Skill">
                 {skills.map((skill) => (
-                  <View style={styles.skillSection} key={skill.id || skill.title}>
+                  <View
+                    key={skill.id || skill.title}
+                    style={styles.skillSection}
+                  >
                     <Text style={styles.skillTitle}>{skill.title}</Text>
                     <View>
                       {skill.items.split("\n").map((item) => (
@@ -200,7 +234,9 @@ export default function ResumeDocument({
                       />
                       <Text>
                         {convertDateString(experience.startDate)} -{" "}
-                        {experience.endDate ? convertDateString(experience.endDate) : "Present"}
+                        {experience.endDate
+                          ? convertDateString(experience.endDate)
+                          : "Present"}
                       </Text>
                     </View>
                     <View style={styles.flexBetween}>
@@ -218,10 +254,14 @@ export default function ResumeDocument({
                           </Text>
                         )}
                       </View>
-                      <Text style={{ fontFamily: "Times-Italic" }}>{experience.location}</Text>
+                      <Text style={{ fontFamily: "Times-Italic" }}>
+                        {experience.location}
+                      </Text>
                     </View>
                     {experience.description && (
-                      <ResumeMarkdownDescription content={experience.description} />
+                      <ResumeMarkdownDescription
+                        content={experience.description}
+                      />
                     )}
                   </View>
                 ))}
@@ -238,7 +278,9 @@ export default function ResumeDocument({
                   >
                     <View style={styles.flexBetween}>
                       <View style={styles.flexStart}>
-                        <Text style={{ fontFamily: "Times-Bold", fontSize: 12 }}>
+                        <Text
+                          style={{ fontFamily: "Times-Bold", fontSize: 12 }}
+                        >
                           {education.facility}
                         </Text>
                         <Text>, {education.degree}</Text>
@@ -249,7 +291,9 @@ export default function ResumeDocument({
                       </Text>
                     </View>
                     {education.description && (
-                      <ResumeMarkdownDescription content={education.description} />
+                      <ResumeMarkdownDescription
+                        content={education.description}
+                      />
                     )}
                   </View>
                 ))}
@@ -269,7 +313,9 @@ export default function ResumeDocument({
                       <Text>— {project.subtitle}</Text>
                     </View>
                     {project.description && (
-                      <ResumeMarkdownDescription content={project.description} />
+                      <ResumeMarkdownDescription
+                        content={project.description}
+                      />
                     )}
                   </View>
                 ))}
@@ -277,14 +323,14 @@ export default function ResumeDocument({
             )}
           </View>
           <Text
+            fixed
             render={({ pageNumber, totalPages }) =>
               `Howard Tai - Full Stack Engineer (${pageNumber}/${totalPages})`
             }
             style={styles.pageNote}
-            fixed
           />
         </Page>
       </Document>
     </DynamicPDFViewer>
-  )
+  );
 }

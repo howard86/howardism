@@ -1,71 +1,71 @@
-import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react"
-import { RouteLink } from "@howardism/components-common"
-import { useRouter } from "next/router"
-import { HiSearch } from "react-icons/hi"
+import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
+import { useRouter } from "next/router";
+import { HiSearch } from "react-icons/hi";
 
-import { MENU_LINK_ITEMS } from "@/constants/menu"
+import { MENU_LINK_ITEMS } from "@/constants/menu";
 
-import HorizontalLogo from "../graphics/HorizontalLogo"
-import MobileDrawer from "./MobileDrawer"
+import HorizontalLogo from "../graphics/HorizontalLogo";
+import MobileDrawer from "./MobileDrawer";
 
 export default function NavBar(): JSX.Element {
-  const router = useRouter()
+  const router = useRouter();
 
   return (
     <Box
       as="header"
-      position="fixed"
-      top="0"
-      left="0"
-      right="0"
-      zIndex="modal"
-      shadow="md"
       bgColor="secondary.100"
+      left="0"
+      position="fixed"
+      right="0"
+      shadow="md"
+      top="0"
+      zIndex="modal"
     >
       <Flex
         align="center"
         justify="space-between"
-        transition="0.25 ease-in-out"
-        py={{ base: 4, lg: 6 }}
         px={[1, 4, 6, 8]}
+        py={{ base: 4, lg: 6 }}
+        transition="0.25 ease-in-out"
       >
         <MobileDrawer />
         <RouteLink href="/">
-          <HorizontalLogo size={40} isTransparent />
+          <HorizontalLogo isTransparent size={40} />
         </RouteLink>
-        <Box mr={{ md: 5 }} flexGrow={1} display={{ base: "none", md: "flex" }}>
-          <List display="flex" alignItems="center" ml="auto">
+        <Box display={{ base: "none", md: "flex" }} flexGrow={1} mr={{ md: 5 }}>
+          <List alignItems="center" display="flex" ml="auto">
             {MENU_LINK_ITEMS.map((item) => {
-              const isCurrentPage = item.url === router.pathname
+              const isCurrentPage = item.url === router.pathname;
               return (
-                <ListItem mx="2" key={item.label}>
+                <ListItem key={item.label} mx="2">
                   <RouteLink
-                    py="1"
-                    px="2.5"
+                    _hover={{ color: "primary.500" }}
                     color={isCurrentPage ? "primary.500" : "primary.400"}
                     fontWeight={isCurrentPage ? "bold" : "medium"}
-                    whiteSpace="nowrap"
-                    transition="0.15s ease-in-out"
                     href={item.url}
-                    _hover={{ color: "primary.500" }}
+                    px="2.5"
+                    py="1"
+                    transition="0.15s ease-in-out"
+                    whiteSpace="nowrap"
                   >
                     {item.label}
                   </RouteLink>
                 </ListItem>
-              )
+              );
             })}
           </List>
         </Box>
         {/* TODO: implement search function */}
         <IconButton
           aria-label="search"
-          variant="ghost"
           color="primary.600"
-          size="lg"
           fontSize="3xl"
           icon={<HiSearch />}
+          size="lg"
+          variant="ghost"
         />
       </Flex>
     </Box>
-  )
+  );
 }

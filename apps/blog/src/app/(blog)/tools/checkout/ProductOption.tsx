@@ -1,8 +1,8 @@
-import { memo } from "react"
+import { memo } from "react";
 
 interface ProductOptionProps {
-  min: number
-  max: number
+  max: number;
+  min: number;
 }
 
 function ProductOption({ max, min }: ProductOptionProps) {
@@ -13,7 +13,7 @@ function ProductOption({ max, min }: ProductOptionProps) {
         <option key={index}>{min + index}</option>
       ))}
     </>
-  )
+  );
 }
 
-export default memo(ProductOption)
+export default memo(ProductOption);

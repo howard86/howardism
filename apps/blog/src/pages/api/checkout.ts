@@ -1,21 +1,21 @@
-import { BadRequestException, RouterBuilder } from "next-api-handler"
-import parser from "ua-parser-js"
-import { z } from "zod"
+import { BadRequestException, RouterBuilder } from "next-api-handler";
+import parser from "ua-parser-js";
+import { z } from "zod";
 
-import { DEFAULT_TAX_RATE } from "@/app/(blog)/tools/checkout/CheckoutForm"
-import { DEFAULT_SHIPPING_COST } from "@/app/(blog)/tools/checkout/constants"
-import { checkoutSchema } from "@/app/(blog)/tools/checkout/schema"
-import { env } from "@/config/env.mjs"
+import { DEFAULT_TAX_RATE } from "@/app/(blog)/tools/checkout/CheckoutForm";
+import { DEFAULT_SHIPPING_COST } from "@/app/(blog)/tools/checkout/constants";
+import { checkoutSchema } from "@/app/(blog)/tools/checkout/schema";
+import { env } from "@/config/env.mjs";
 import {
-  confirmApi,
   ConfirmApiReturnCode,
-  requestApi,
+  confirmApi,
   RequestApiReturnCode,
-} from "@/services/line-pay"
-import prisma from "@/services/prisma"
-import { normalize } from "@/utils/array"
+  requestApi,
+} from "@/services/line-pay";
+import prisma from "@/services/prisma";
+import { normalize } from "@/utils/array";
 
-const router = new RouterBuilder()
+const router = new RouterBuilder();
 
 enum CallbackApiType {
   Confirm = "confirm",
@@ -27,13 +27,15 @@ const callbackSchema = z.object({
   transactionId: z.string(),
   internalId: z.string(),
   type: z.nativeEnum(CallbackApiType),
-})
+});
 
 router
   .get(async (req, res) => {
-    const input = callbackSchema.safeParse(req.query)
+    const input = callbackSchema.safeParse(req.query);
 
-    if (!input.success) throw new BadRequestException(input.error.message)
+    if (!input.success) {
+      throw new BadRequestException(input.error.message);
+    }
 
     switch (input.data.type) {
       case CallbackApiType.Confirm: {
@@ -55,18 +57,19 @@ router
               },
             },
           },
-        })
+        });
 
         // FIXME: line transactionId somehow is different from the Id sent from confirmApi
         const linePayResponse = await confirmApi(input.data.transactionId, {
           amount: order.totalPrice,
           currency: "TWD",
-        })
+        });
 
-        console.debug(`linePayConfirmResponse`, linePayResponse)
+        console.debug("linePayConfirmResponse", linePayResponse);
 
         // TODO: handle more return codes
-        const isSuccess = linePayResponse.returnCode === ConfirmApiReturnCode.Success
+        const isSuccess =
+          linePayResponse.returnCode === ConfirmApiReturnCode.Success;
 
         await prisma.commerceTransaction.update({
           where: {
@@ -75,19 +78,21 @@ router
           data: {
             status: isSuccess ? "success" : "failed-to-confirm",
           },
-        })
+        });
 
         if (isSuccess) {
-          await res.revalidate(`/tools/checkout/${order.id}`).catch(console.error)
+          await res
+            .revalidate(`/tools/checkout/${order.id}`)
+            .catch(console.error);
         }
 
         res.redirect(
           isSuccess
             ? `/tools/checkout/${order.id}`
-            : `/tools/checkout/cancelled?orderId=${order.id}`,
-        )
+            : `/tools/checkout/cancelled?orderId=${order.id}`
+        );
 
-        return
+        return;
       }
 
       case CallbackApiType.Cancel: {
@@ -108,20 +113,22 @@ router
               },
             },
           },
-        })
+        });
 
-        res.redirect(`/tools/checkout/cancelled?orderId=${order.id}`)
-        return
+        res.redirect(`/tools/checkout/cancelled?orderId=${order.id}`);
+        return;
       }
 
       default:
-        throw new Error(`Invalid callback type: ${input.data.type}`)
+        throw new Error(`Invalid callback type: ${input.data.type}`);
     }
   })
   .post(async (req) => {
-    const input = checkoutSchema.safeParse(req.body)
+    const input = checkoutSchema.safeParse(req.body);
 
-    if (!input.success) throw new BadRequestException(input.error.message)
+    if (!input.success) {
+      throw new BadRequestException(input.error.message);
+    }
 
     const products = await prisma.commerceProduct.findMany({
       where: {
@@ -129,21 +136,22 @@ router
           in: input.data.items.map((product) => product.id),
         },
       },
-    })
+    });
 
-    if (products.length !== input.data.items.length)
-      throw new BadRequestException("Invalid product ids")
+    if (products.length !== input.data.items.length) {
+      throw new BadRequestException("Invalid product ids");
+    }
 
-    const { entities } = normalize(products)
+    const { entities } = normalize(products);
 
     const productPriceSum = input.data.items.reduce((sum, item) => {
-      const product = entities[item.id]
+      const product = entities[item.id];
 
-      return product ? sum + product.price * item.quantity : sum
-    }, 0)
+      return product ? sum + product.price * item.quantity : sum;
+    }, 0);
 
-    const tax = Math.round(productPriceSum * DEFAULT_TAX_RATE)
-    const total = productPriceSum + tax + DEFAULT_SHIPPING_COST
+    const tax = Math.round(productPriceSum * DEFAULT_TAX_RATE);
+    const total = productPriceSum + tax + DEFAULT_SHIPPING_COST;
 
     const order = await prisma.commerceOrder.create({
       data: {
@@ -177,9 +185,9 @@ router
           },
         },
       },
-    })
+    });
 
-    const internalId = order.transactions[0].id
+    const internalId = order.transactions[0].id;
 
     const linePayResponse = await requestApi({
       amount: total,
@@ -190,9 +198,11 @@ router
           id: order.id,
           amount: productPriceSum,
           products: input.data.items.map((item) => {
-            const product = entities[item.id]
+            const product = entities[item.id];
 
-            if (!product) throw new Error(`Product not found by id=${item.id}`)
+            if (!product) {
+              throw new Error(`Product not found by id=${item.id}`);
+            }
 
             return {
               id: item.id,
@@ -200,7 +210,7 @@ router
               imageUrl: product.imageUrl,
               price: product.price,
               quantity: item.quantity,
-            }
+            };
           }),
         },
         {
@@ -237,12 +247,13 @@ router
           locale: "zh_TW",
         },
       },
-    })
+    });
 
-    console.debug(`linePayRequestResponse`, linePayResponse)
+    console.debug("linePayRequestResponse", linePayResponse);
 
     // TODO: handle more return codes
-    const isSuccess = linePayResponse.returnCode === RequestApiReturnCode.Success
+    const isSuccess =
+      linePayResponse.returnCode === RequestApiReturnCode.Success;
 
     await prisma.commerceTransaction.update({
       where: {
@@ -252,13 +263,18 @@ router
         status: isSuccess ? "pending" : "failed-to-request",
         channelId: BigInt(linePayResponse.info.transactionId).toString(),
       },
-    })
+    });
 
-    if (!isSuccess) throw new Error(`Line Pay request failed: ${linePayResponse.returnMessage}`)
+    if (!isSuccess) {
+      throw new Error(
+        `Line Pay request failed: ${linePayResponse.returnMessage}`
+      );
+    }
 
-    return env.isLive && parser(req.headers["user-agent"]).device.type === "mobile"
+    return env.isLive &&
+      parser(req.headers["user-agent"]).device.type === "mobile"
       ? linePayResponse.info.paymentUrl.app
-      : linePayResponse.info.paymentUrl.web
-  })
+      : linePayResponse.info.paymentUrl.web;
+  });
 
-export default router.build()
+export default router.build();

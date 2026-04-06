@@ -1,8 +1,8 @@
-import { Box, Container, Flex } from "@chakra-ui/react"
-import { RouteLink } from "@howardism/components-common"
-import { motion, Variants } from "framer-motion"
-import { useRouter } from "next/router"
-import { ChildrenProps } from "react"
+import { Box, Container, Flex } from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
+import { motion, type Variants } from "framer-motion";
+import { useRouter } from "next/router";
+import type { ChildrenProps } from "react";
 
 const variants: Variants = {
   pageInital: {
@@ -11,11 +11,13 @@ const variants: Variants = {
   pageAnimate: {
     opacity: 1,
   },
-}
+};
 
 export default function Layout({ children }: ChildrenProps) {
-  const router = useRouter()
-  const animateKey = router.asPath.includes("?") ? router.pathname : router.asPath
+  const router = useRouter();
+  const animateKey = router.asPath.includes("?")
+    ? router.pathname
+    : router.asPath;
 
   return (
     <Box h="80vh">
@@ -24,26 +26,26 @@ export default function Layout({ children }: ChildrenProps) {
         bg="teal.600"
         color="white"
         fontWeight="bold"
-        py={[2, 4]}
         justify="space-between"
+        py={[2, 4]}
       >
         <RouteLink href="/" ml={[2, 4]}>
           Home
         </RouteLink>
       </Flex>
       <Container
-        as={motion.main}
-        p={[2, 4, 8]}
-        h="full"
-        maxW="full"
-        variants={variants}
-        initial="pageInitial"
         animate="pageAnimate"
-        key={animateKey}
+        as={motion.main}
         centerContent
+        h="full"
+        initial="pageInitial"
+        key={animateKey}
+        maxW="full"
+        p={[2, 4, 8]}
+        variants={variants}
       >
         {children}
       </Container>
     </Box>
-  )
+  );
 }

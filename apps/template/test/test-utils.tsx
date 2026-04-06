@@ -1,3 +1,1 @@
-import "@howardism/jest-config/setup"
-
-export {}
+import "@howardism/jest-config/setup";

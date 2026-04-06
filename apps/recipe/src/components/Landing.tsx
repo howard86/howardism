@@ -1,42 +1,42 @@
-import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react"
-import { Image } from "@howardism/components-common"
-import { StaticImageData } from "next/image"
+import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
+import { Image } from "@howardism/components-common";
+import type { StaticImageData } from "next/image";
 
-import backgroundImage from "@/../public/assets/background.jpg"
+import backgroundImage from "@/../public/assets/background.jpg";
 
-import Triangle from "./Triangle"
+import Triangle from "./Triangle";
 
 interface LandingProps {
-  imageUrl: string | StaticImageData
+  imageUrl: string | StaticImageData;
 }
 
 export default function Landing({ imageUrl }: LandingProps) {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
-    alert("clicked!")
-  }
+    alert("clicked!");
+  };
 
   return (
-    <Flex flexDirection="column" position="relative" minH="100vh" color="white">
+    <Flex color="white" flexDirection="column" minH="100vh" position="relative">
       <Triangle zIndex="1" />
       <Image
-        src={backgroundImage}
-        placeholder="blur"
         alt="Landing page background"
         layout="fill"
         objectFit="cover"
         objectPosition="center"
-        quality="50"
+        placeholder="blur"
         priority
+        quality="50"
+        src={backgroundImage}
       />
       {/* TODO: add Text Animation */}
       <Flex
-        flexDir="column"
         alignItems="center"
-        position="relative"
+        flexDir="column"
+        gap={10}
         mx="8"
         my="12"
-        gap={10}
+        position="relative"
         sx={{
           "& > div": {
             my: "4",
@@ -52,22 +52,22 @@ export default function Landing({ imageUrl }: LandingProps) {
         <Box>
           <Image
             alt="demo-recipe"
-            src={imageUrl}
-            width={320}
+            borderRadius="lg"
             height={218}
             priority
-            borderRadius="lg"
             shadow="lg"
+            src={imageUrl}
+            width={320}
           />
         </Box>
         <Box
-          p="4"
-          borderRadius="lg"
           bgGradient="linear(to-r, primary.500, primary.900)"
+          borderRadius="lg"
+          p="4"
           shadow="lg"
         >
           <Heading fontSize="xl">SHARE YOURS, TOO!</Heading>
-          <Text mt="4" mb="8">
+          <Text mb="8" mt="4">
             This is a recipe collection for home-made goodies
           </Text>
           <Button colorScheme="secondary" ml="2" onClick={onClick}>
@@ -76,5 +76,5 @@ export default function Landing({ imageUrl }: LandingProps) {
         </Box>
       </Flex>
     </Flex>
-  )
+  );
 }

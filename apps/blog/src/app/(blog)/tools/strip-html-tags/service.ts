@@ -1,36 +1,47 @@
-import type { editor } from "monaco-editor"
+import type { editor } from "monaco-editor";
 
 export const updateEditorValue = (
   editor: editor.IStandaloneCodeEditor | undefined | null,
-  value: string,
+  value: string
 ) => {
-  if (!editor) return
+  if (!editor) {
+    return;
+  }
 
-  const model = editor.getModel()
+  const model = editor.getModel();
 
-  if (!model) return
+  if (!model) {
+    return;
+  }
 
   editor.executeEdits(null, [
     {
       range: model.getFullModelRange(),
       text: value,
     },
-  ])
-}
+  ]);
+};
 
-export const formatEditorValue = (editor: editor.IStandaloneCodeEditor | undefined | null) => {
-  const action = editor?.getAction("editor.action.formatDocument")
+export const formatEditorValue = (
+  editor: editor.IStandaloneCodeEditor | undefined | null
+) => {
+  const action = editor?.getAction("editor.action.formatDocument");
 
-  if (!action) return
+  if (!action) {
+    return;
+  }
 
-  action.run()
-}
+  action.run();
+};
 
-export const loopThroughHtmlNodes = (html: string, func: (node: Element) => void): Document => {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, "text/html")
+export const loopThroughHtmlNodes = (
+  html: string,
+  func: (node: Element) => void
+): Document => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
 
-  doc.querySelectorAll("*").forEach(func)
+  doc.querySelectorAll("*").forEach(func);
 
-  return doc
-}
+  return doc;
+};

@@ -1,3 +1,3 @@
-import { nextjs } from "@howardism/jest-config"
+import { nextjs } from "@howardism/jest-config";
 
-export default nextjs
+export default nextjs;
