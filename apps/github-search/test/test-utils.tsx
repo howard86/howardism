@@ -1,5 +1,3 @@
-import "@howardism/jest-config/setup";
-
 import { ApolloProvider } from "@apollo/client";
 import {
   type RenderOptions,

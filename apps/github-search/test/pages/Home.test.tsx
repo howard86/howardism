@@ -1,21 +1,10 @@
 import { screen } from "@testing-library/react";
-import MatchMediaMock from "jest-matchmedia-mock";
 
 import HomePage from "@/pages/index";
 
 import { customRender } from "../test-utils";
 
-let matchMedia: MatchMediaMock;
-
 describe("homePage", () => {
-  beforeAll(() => {
-    matchMedia = new MatchMediaMock();
-  });
-
-  afterEach(() => {
-    matchMedia.clear();
-  });
-
   it("renders input and button", () => {
     expect.hasAssertions();
     customRender(<HomePage />);
