@@ -1,3 +1,4 @@
+import { describe, expect, it } from "bun:test";
 import { render, screen } from "@testing-library/react";
 
 import Home from "@/pages";
@@ -8,6 +9,6 @@ describe("home", () => {
 
     render(<Home />);
     const dynamicComponent = await screen.findByTestId("dynamic-component");
-    expect(dynamicComponent).toBeInTheDocument();
+    expect(dynamicComponent).toBeDefined();
   });
 });

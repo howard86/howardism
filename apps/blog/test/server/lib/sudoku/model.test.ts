@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from "bun:test";
 import Sudoku from "@/server/libs/sudoku/model";
 
 describe("sudoku model", () => {
