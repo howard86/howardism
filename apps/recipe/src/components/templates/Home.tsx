@@ -55,7 +55,7 @@ export default function Home({ recipes }: HomeProps): JSX.Element {
                   <div className="flex-grow">
                     <h3 className="font-semibold text-base md:text-lg lg:text-xl">
                       <RouteLink
-                        className="transition-colors duration-150 ease-in-out hover:text-[#a73f3f]"
+                        className="transition-colors duration-150 ease-in-out hover:text-primary"
                         href={`recipe/${recipe.id}`}
                       >
                         {recipe.title}
@@ -103,13 +103,13 @@ export default function Home({ recipes }: HomeProps): JSX.Element {
                     </RouteLink>
                     {/* Blur glow underneath image */}
                     <div
-                      className="absolute bottom-0 left-[10%] h-4/5 w-4/5 blur-[15px]"
-                      style={{ background: "#5f2222", zIndex: -1 }}
+                      className="absolute bottom-0 left-[10%] h-4/5 w-4/5 bg-muted-foreground blur-[15px]"
+                      style={{ zIndex: -1 }}
                     />
                   </div>
                   <span
-                    className="absolute top-4 left-4 rounded-md px-2 py-0.5 font-bold text-sm text-white"
-                    style={{ background: "#1c0303", opacity: 0.6, zIndex: 10 }}
+                    className="absolute top-4 left-4 rounded-md bg-foreground/60 px-2 py-0.5 font-bold text-primary-foreground text-sm"
+                    style={{ zIndex: 10 }}
                   >
                     {getDayTag(recipe.published_at)}
                   </span>

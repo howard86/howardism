@@ -11,7 +11,7 @@ export default function NavBar(): JSX.Element {
   const router = useRouter();
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-50 bg-[#f7dfb7] shadow-md">
+    <header className="fixed top-0 right-0 left-0 z-50 bg-card shadow-md">
       <div className="flex items-center justify-between px-2 py-4 transition-all duration-300 ease-in-out sm:px-4 md:px-6 lg:px-8 lg:py-6">
         <MobileDrawer />
         <RouteLink href="/">
@@ -27,8 +27,8 @@ export default function NavBar(): JSX.Element {
                     className={[
                       "whitespace-nowrap px-2.5 py-1 transition-colors duration-150 ease-in-out",
                       isCurrentPage
-                        ? "font-bold text-[#a73f3f]"
-                        : "font-medium text-[#c05959] hover:text-[#a73f3f]",
+                        ? "font-bold text-primary"
+                        : "font-medium text-destructive hover:text-primary",
                     ].join(" ")}
                     href={item.url}
                   >
@@ -42,7 +42,7 @@ export default function NavBar(): JSX.Element {
         {/* TODO: implement search function */}
         <button
           aria-label="search"
-          className="rounded-lg p-2 text-[#833031] transition-colors hover:bg-black/5"
+          className="rounded-lg p-2 text-border transition-colors hover:bg-black/5"
           type="button"
         >
           <Search className="size-6" />

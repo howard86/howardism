@@ -27,7 +27,7 @@ export default function LayerCheckboxes({
       <label className="flex cursor-pointer items-center gap-2">
         <input
           checked={isAllChecked}
-          className="h-4 w-4 rounded border-[#dea2a2] accent-[#a73f3f]"
+          className="h-4 w-4 rounded border-muted accent-primary"
           onChange={handleOnParentChange}
           ref={(el) => {
             if (el) {
@@ -46,7 +46,7 @@ export default function LayerCheckboxes({
           >
             <input
               checked={checkedItems[index]}
-              className="h-4 w-4 rounded border-[#dea2a2] accent-[#a73f3f]"
+              className="h-4 w-4 rounded border-muted accent-primary"
               onChange={(e) => {
                 setCheckedItems((items) => {
                   const newItems = [...items];

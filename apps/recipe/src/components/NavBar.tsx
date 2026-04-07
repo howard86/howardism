@@ -23,7 +23,6 @@ export default function NavBar() {
 
   const onOpen = () => {
     // TODO: add Drawer here
-    console.info("clicked");
   };
 
   return (
@@ -33,7 +32,7 @@ export default function NavBar() {
         height: NAV_BAR_HEIGHT,
         top: shouldHideHeader ? 4 - NAV_BAR_HEIGHT : 0,
         background:
-          "linear-gradient(to bottom, #1c0303, #3a1313, #3a1313, #3a1313, #3a1313, #3a1313, #5f2222, #833031)",
+          "linear-gradient(to bottom, hsl(var(--foreground)), hsl(var(--foreground)), hsl(var(--foreground)), hsl(var(--foreground)), hsl(var(--foreground)), hsl(var(--foreground)), hsl(var(--muted-foreground)), hsl(var(--border)))",
       }}
     >
       {/* TODO: add logo with fonts */}

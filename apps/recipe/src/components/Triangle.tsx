@@ -16,7 +16,7 @@ export default function Triangle({ className, style, zIndex }: TriangleProps) {
         height: 0,
         borderStyle: "solid",
         borderLeftWidth: "50vw",
-        borderLeftColor: "#833031",
+        borderLeftColor: "hsl(var(--border))",
         borderBottomWidth: "10vh",
         borderBottomColor: "transparent",
         borderTop: "none",
