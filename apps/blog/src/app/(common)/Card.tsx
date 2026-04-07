@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import { cn } from "@howardism/ui/lib/utils";
 import Link, { type LinkProps } from "next/link";
 import type { AsKey, AsProps, ChildrenProps, FC } from "react";
 import type { SVGProps } from "react-html-props";
@@ -26,7 +26,7 @@ export function Card<T extends AsKey>({
 
   return (
     <Component
-      className={clsx(className, "group relative flex flex-col items-start")}
+      className={cn("group relative flex flex-col items-start", className)}
       {...props}
     >
       {children}
@@ -37,7 +37,7 @@ export function Card<T extends AsKey>({
 export function CardLink({ children, ...props }: LinkProps & ChildrenProps) {
   return (
     <>
-      <div className="absolute -inset-x-4 -inset-y-6 z-0 scale-95 bg-base-200 opacity-0 transition group-hover:scale-100 group-hover:opacity-100 sm:-inset-x-6 sm:rounded-2xl" />
+      <div className="absolute -inset-x-4 -inset-y-6 z-0 scale-95 bg-muted opacity-0 transition group-hover:scale-100 group-hover:opacity-100 sm:-inset-x-6 sm:rounded-2xl" />
       <Link {...props}>
         <span className="absolute -inset-x-4 -inset-y-6 z-20 sm:-inset-x-6 sm:rounded-2xl" />
         <span className="relative z-10">{children}</span>
@@ -58,7 +58,7 @@ export function CardTitle<T extends AsKey>({
   const Component = (as || "h2") as unknown as FC<AsProps<T>>;
 
   return (
-    <Component className="font-semibold text-base text-base-content tracking-tight">
+    <Component className="font-semibold text-base text-foreground tracking-tight">
       {href ? <CardLink href={href}>{children}</CardLink> : children}
     </Component>
   );
@@ -66,9 +66,7 @@ export function CardTitle<T extends AsKey>({
 
 export function CardDescription({ children }: ChildrenProps) {
   return (
-    <p className="relative z-10 mt-2 text-base-content/90 text-sm">
-      {children}
-    </p>
+    <p className="relative z-10 mt-2 text-foreground/80 text-sm">{children}</p>
   );
 }
 
@@ -99,10 +97,10 @@ export function CardEyebrow<T extends AsKey = "div">({
 
   return (
     <Component
-      className={clsx(
-        className,
+      className={cn(
         "relative z-10 order-first mb-3 flex items-center text-sm text-zinc-400 dark:text-zinc-500",
-        decorate && "pl-3.5"
+        decorate && "pl-3.5",
+        className
       )}
       {...props}
     >
