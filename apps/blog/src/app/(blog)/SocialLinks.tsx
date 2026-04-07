@@ -47,7 +47,7 @@ export default function SocialLinks() {
         <li className="group" key={link.href}>
           <ExternalLink
             aria-label={link["aria-label"]}
-            className="btn btn-circle btn-sm"
+            className="inline-flex size-8 items-center justify-center rounded-full transition-colors hover:bg-muted"
             href={link.href}
           >
             <link.icon className="w-6 fill-current transition-colors group-hover:fill-secondary" />

@@ -14,13 +14,13 @@ export default async function Home() {
     <>
       <Container className="mt-9">
         <div className="max-w-2xl">
-          <h2 className="mb-2 font-bold text-base-content/60 text-xl tracking-tight sm:text-2xl">
+          <h2 className="mb-2 font-bold text-muted-foreground text-xl tracking-tight sm:text-2xl">
             Exploring the Depths
           </h2>
           <h1 className="font-bold text-3xl tracking-tight sm:text-4xl">
             A Software Engineer, Mathematician, and Amateur Diver&apos;s Journey
           </h1>
-          <p className="mt-6 text-base text-base-content">
+          <p className="mt-6 text-base text-foreground">
             I&apos;m Howard, a senior fullstack developer at Oddle, a top F&B
             industry service provider based in Singapore, where I am leading
             software development with problem-solving and product-centric

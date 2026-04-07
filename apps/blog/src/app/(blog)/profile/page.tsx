@@ -1,4 +1,5 @@
 import { UserPlusIcon } from "@heroicons/react/24/outline";
+import { Button } from "@howardism/ui/components/button";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -72,10 +73,12 @@ export default async function ProfilePage() {
                   </h1>
                 </div>
                 <div className="mt-6 flex flex-col justify-stretch space-y-3 sm:translate-y-2 sm:flex-row sm:space-x-4 sm:space-y-0">
-                  <Link className="btn-brand btn" href="/profile/resume/add">
-                    <UserPlusIcon aria-hidden="true" className="h-5 w-5" />
-                    <span>Add Resume</span>
-                  </Link>
+                  <Button asChild>
+                    <Link href="/profile/resume/add">
+                      <UserPlusIcon aria-hidden="true" className="h-5 w-5" />
+                      <span>Add Resume</span>
+                    </Link>
+                  </Button>
 
                   <LogoutButton />
                 </div>
@@ -96,7 +99,7 @@ export default async function ProfilePage() {
           </dl>
 
           {profiles.length > 0 && (
-            <div className="mt-8 mb-2 overflow-hidden bg-base-200/40 shadow ring-1 ring-base-content ring-opacity-5 md:rounded-lg">
+            <div className="mt-8 mb-2 overflow-hidden bg-muted/40 shadow ring-1 ring-foreground/10 md:rounded-lg">
               <table className="min-w-full divide-y">
                 <thead>
                   <tr>

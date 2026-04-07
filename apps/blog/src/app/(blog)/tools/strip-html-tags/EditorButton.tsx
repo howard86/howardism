@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckIcon } from "@heroicons/react/24/outline";
-import clsx from "clsx";
+import { Button } from "@howardism/ui/components/button";
 import {
   type FC,
   type PropsWithoutRef,
@@ -51,25 +51,20 @@ export default function EditorButton({
   );
 
   return (
-    <div
-      className={clsx(
-        "tooltip",
-        success ? "tooltip-success" : "tooltip-accent"
-      )}
-      data-tip={success ? "Succeed" : tooltip}
+    <Button
+      className="join-item"
+      onClick={handleClick}
+      size="sm"
+      title={success ? "Succeed" : tooltip}
+      type="button"
+      variant="default"
+      {...props}
     >
-      <button
-        className={clsx(
-          "btn btn-primary join-item swap btn-sm",
-          success && "swap-active"
-        )}
-        onClick={handleClick}
-        type="button"
-        {...props}
-      >
-        <CheckIcon className="swap-on h-auto w-4" />
-        <Icon className="swap-off h-auto w-4" />
-      </button>
-    </div>
+      {success ? (
+        <CheckIcon className="h-auto w-4" />
+      ) : (
+        <Icon className="h-auto w-4" />
+      )}
+    </Button>
   );
 }
