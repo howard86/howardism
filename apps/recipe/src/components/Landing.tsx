@@ -12,7 +12,6 @@ interface LandingProps {
 export default function Landing({ imageUrl }: LandingProps) {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
-    console.info("clicked!");
   };
 
   return (
@@ -49,18 +48,13 @@ export default function Landing({ imageUrl }: LandingProps) {
             width={320}
           />
         </div>
-        <div
-          className="my-4 w-[90%] rounded-lg p-4 shadow-lg sm:w-80"
-          style={{
-            background: "linear-gradient(to right, #a73f3f, #1c0303)",
-          }}
-        >
+        <div className="my-4 w-[90%] rounded-lg bg-gradient-to-r from-primary to-foreground p-4 shadow-lg sm:w-80">
           <h2 className="font-bold text-xl">SHARE YOURS, TOO!</h2>
           <p className="mt-4 mb-8">
             This is a recipe collection for home-made goodies
           </p>
           <button
-            className="ml-2 rounded-lg bg-[#c8871e] px-4 py-2 font-medium text-white transition-colors hover:bg-[#e1a037]"
+            className="ml-2 rounded-lg bg-secondary px-4 py-2 font-medium text-secondary-foreground transition-colors hover:bg-accent"
             onClick={onClick}
             type="button"
           >

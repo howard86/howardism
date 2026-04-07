@@ -25,14 +25,14 @@ export default function MobileDrawer(): JSX.Element {
         <SheetTrigger asChild>
           <button
             aria-label="open-drawer"
-            className="rounded-lg p-2 text-[#833031] transition-colors hover:bg-black/5"
+            className="rounded-lg p-2 text-border transition-colors hover:bg-black/5"
             type="button"
           >
             <Menu className="size-8" />
           </button>
         </SheetTrigger>
-        <SheetContent className="w-xs bg-[#fff3de]" side="left">
-          <SheetHeader className="bg-[#f7dfb7] shadow-sm">
+        <SheetContent className="w-xs bg-background" side="left">
+          <SheetHeader className="bg-card shadow-sm">
             <RouteLink href="/" onClick={() => setOpen(false)}>
               <HorizontalLogo isTransparent />
             </RouteLink>
@@ -44,14 +44,14 @@ export default function MobileDrawer(): JSX.Element {
                 return (
                   <li className="relative" key={item.url}>
                     {isCurrentPage && (
-                      <span className="absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r bg-[#f7dfb7]" />
+                      <span className="absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r bg-card" />
                     )}
                     <RouteLink
                       className={[
                         "block whitespace-nowrap px-2.5 py-1 text-xl transition-colors duration-150 ease-in-out",
                         isCurrentPage
-                          ? "font-bold text-[#c8871e]"
-                          : "font-medium text-[#e1a037] hover:text-[#c8871e]",
+                          ? "font-bold text-secondary"
+                          : "font-medium text-accent hover:text-secondary",
                       ].join(" ")}
                       href={item.url}
                       onClick={() => setOpen(false)}

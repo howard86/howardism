@@ -77,8 +77,7 @@ export default function RecipeForm(): JSX.Element {
         description: `Created recipe ${value.title}`,
       });
       form.reset(defaultValues);
-    } catch (error) {
-      console.error(error);
+    } catch (_error) {
       toast({
         status: "error",
         description: `Failed to create recipe ${value.title}`,
@@ -146,7 +145,7 @@ export default function RecipeForm(): JSX.Element {
           <input
             aria-checked={isChecked}
             checked={isChecked}
-            className="h-4 w-8 cursor-pointer rounded-full accent-[#a73f3f]"
+            className="h-4 w-8 cursor-pointer rounded-full accent-primary"
             id="content-checked"
             onChange={() => setChecked(!isChecked)}
             role="switch"

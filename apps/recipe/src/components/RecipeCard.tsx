@@ -25,9 +25,9 @@ export default function RecipeCard({
   const daysPassed = getDayDiff(timestamp);
 
   return (
-    <article className="relative rounded-lg bg-[#f7dfb7] p-4">
+    <article className="relative rounded-lg bg-card p-4">
       <time
-        className="absolute top-2 left-2 z-[2] rounded-md bg-[#a73f3f] px-2 py-0.5 font-semibold text-sm text-white shadow-lg"
+        className="absolute top-2 left-2 z-[2] rounded-md bg-primary px-2 py-0.5 font-semibold text-primary-foreground text-sm shadow-lg"
         dateTime={timestamp}
       >
         {daysPassed > 0 ? `${daysPassed} days ago` : "New!"}
@@ -39,7 +39,7 @@ export default function RecipeCard({
         style={{ objectFit: "cover" }}
         width={400}
       />
-      <h3 className="my-2 font-semibold text-[#1c0303] text-lg">
+      <h3 className="my-2 font-semibold text-foreground text-lg">
         <NextLink href={`/recipe/${id}`}>{title}</NextLink>
       </h3>
       <p>{description}</p>

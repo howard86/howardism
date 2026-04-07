@@ -8,27 +8,23 @@ export interface Step {
 
 interface ProcedureStepProps {
   className?: string;
-  flex?: string;
-  p?: string;
   steps: Step[];
 }
 
-const THEME_COLOR = "#833031";
-const LIGHT_THEME_COLOR = "#dea2a2";
+const THEME_COLOR = "hsl(var(--primary))";
+const LIGHT_THEME_COLOR = "hsl(var(--muted))";
 
 const getCircleColor = (isViewed: boolean, isChecked: boolean): string => {
   if (isViewed) {
-    return "white";
+    return "hsl(var(--primary-foreground))";
   }
-  return isChecked ? THEME_COLOR : "#3a1313";
+  return isChecked ? THEME_COLOR : "hsl(var(--foreground))";
 };
 
 // TODO: refactor with useReducer
 export default function ProcedureStep({
   steps,
   className,
-  flex,
-  p,
 }: ProcedureStepProps) {
   const [openIndex, setOpenIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -47,7 +43,7 @@ export default function ProcedureStep({
   };
 
   return (
-    <div className={className} style={{ flex, padding: p }}>
+    <div className={className}>
       <div className="mb-4 flex w-full items-center justify-between p-2">
         <h2 className="font-semibold text-lg sm:text-xl">料理步驟</h2>
         <button
