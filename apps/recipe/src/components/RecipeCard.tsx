@@ -1,4 +1,3 @@
-import { Heading, LinkBox, LinkOverlay, Tag, Text } from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
 import type { StaticImageData } from "next/image";
 import NextLink from "next/link";
@@ -26,34 +25,24 @@ export default function RecipeCard({
   const daysPassed = getDayDiff(timestamp);
 
   return (
-    <LinkBox as="article" bg="secondary.100" p="4" rounded="lg">
-      <Tag
-        as="time"
-        colorScheme="primary"
+    <article className="relative rounded-lg bg-[#f7dfb7] p-4">
+      <time
+        className="absolute top-2 left-2 z-[2] rounded-md bg-[#a73f3f] px-2 py-0.5 font-semibold text-sm text-white shadow-lg"
         dateTime={timestamp}
-        left="2"
-        position="absolute"
-        shadow="dark-lg"
-        size="lg"
-        top="2"
-        variant="solid"
-        zIndex="2"
       >
         {daysPassed > 0 ? `${daysPassed} days ago` : "New!"}
-      </Tag>
+      </time>
       <Image
         alt={`recipe photo of ${title}`}
         height={300}
-        objectFit="cover"
         src={imageUrl}
+        style={{ objectFit: "cover" }}
         width={400}
       />
-      <Heading as="h3" color="primary.900" fontSize="lg" my="2">
-        <NextLink href={`/recipe/${id}`} passHref>
-          <LinkOverlay>{title}</LinkOverlay>
-        </NextLink>
-      </Heading>
-      <Text>{description}</Text>
-    </LinkBox>
+      <h3 className="my-2 font-semibold text-[#1c0303] text-lg">
+        <NextLink href={`/recipe/${id}`}>{title}</NextLink>
+      </h3>
+      <p>{description}</p>
+    </article>
   );
 }

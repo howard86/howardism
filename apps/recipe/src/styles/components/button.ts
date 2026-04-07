@@ -1,9 +1,3 @@
-import type { ComponentStyleConfig } from "@chakra-ui/react";
-
-const Button: ComponentStyleConfig = {
-  defaultProps: {
-    colorScheme: "secondary",
-  },
-};
+const Button = {};
 
 export default Button;

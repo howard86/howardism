@@ -1,7 +1,6 @@
-import { Box, Flex, IconButton, List, ListItem } from "@chakra-ui/react";
 import { RouteLink } from "@howardism/components-common";
+import { Search } from "lucide-react";
 import { useRouter } from "next/router";
-import { HiSearch } from "react-icons/hi";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
 
@@ -12,60 +11,43 @@ export default function NavBar(): JSX.Element {
   const router = useRouter();
 
   return (
-    <Box
-      as="header"
-      bgColor="secondary.100"
-      left="0"
-      position="fixed"
-      right="0"
-      shadow="md"
-      top="0"
-      zIndex="modal"
-    >
-      <Flex
-        align="center"
-        justify="space-between"
-        px={[1, 4, 6, 8]}
-        py={{ base: 4, lg: 6 }}
-        transition="0.25 ease-in-out"
-      >
+    <header className="fixed top-0 right-0 left-0 z-50 bg-[#f7dfb7] shadow-md">
+      <div className="flex items-center justify-between px-2 py-4 transition-all duration-300 ease-in-out sm:px-4 md:px-6 lg:px-8 lg:py-6">
         <MobileDrawer />
         <RouteLink href="/">
           <HorizontalLogo isTransparent size={40} />
         </RouteLink>
-        <Box display={{ base: "none", md: "flex" }} flexGrow={1} mr={{ md: 5 }}>
-          <List alignItems="center" display="flex" ml="auto">
+        <nav className="mr-5 hidden flex-grow md:flex">
+          <ul className="ml-auto flex list-none items-center">
             {MENU_LINK_ITEMS.map((item) => {
               const isCurrentPage = item.url === router.pathname;
               return (
-                <ListItem key={item.label} mx="2">
+                <li className="mx-2" key={item.label}>
                   <RouteLink
-                    _hover={{ color: "primary.500" }}
-                    color={isCurrentPage ? "primary.500" : "primary.400"}
-                    fontWeight={isCurrentPage ? "bold" : "medium"}
+                    className={[
+                      "whitespace-nowrap px-2.5 py-1 transition-colors duration-150 ease-in-out",
+                      isCurrentPage
+                        ? "font-bold text-[#a73f3f]"
+                        : "font-medium text-[#c05959] hover:text-[#a73f3f]",
+                    ].join(" ")}
                     href={item.url}
-                    px="2.5"
-                    py="1"
-                    transition="0.15s ease-in-out"
-                    whiteSpace="nowrap"
                   >
                     {item.label}
                   </RouteLink>
-                </ListItem>
+                </li>
               );
             })}
-          </List>
-        </Box>
+          </ul>
+        </nav>
         {/* TODO: implement search function */}
-        <IconButton
+        <button
           aria-label="search"
-          color="primary.600"
-          fontSize="3xl"
-          icon={<HiSearch />}
-          size="lg"
-          variant="ghost"
-        />
-      </Flex>
-    </Box>
+          className="rounded-lg p-2 text-[#833031] transition-colors hover:bg-black/5"
+          type="button"
+        >
+          <Search className="size-6" />
+        </button>
+      </div>
+    </header>
   );
 }

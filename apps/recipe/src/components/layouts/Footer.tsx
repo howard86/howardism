@@ -1,23 +1,15 @@
-import { Box, Link } from "@chakra-ui/react";
-
 export default function Footer(): JSX.Element {
   return (
-    <Box
-      as="footer"
-      overflow="hidden"
-      position="relative"
-      px="4"
-      py={{ base: 5, md: 8 }}
-      textAlign="center"
-    >
+    <footer className="relative overflow-hidden px-4 py-5 text-center md:py-8">
       Copyright &copy; {new Date().getFullYear()}
-      <Link
+      <a
+        className="transition-colors duration-150 ease-in-out hover:text-[#a73f3f]"
         href="https://github.com/howard86"
-        isExternal
-        transition="0.15s ease-in-out"
+        rel="noopener noreferrer"
+        target="_blank"
       >
         Howard86
-      </Link>
-    </Box>
+      </a>
+    </footer>
   );
 }
