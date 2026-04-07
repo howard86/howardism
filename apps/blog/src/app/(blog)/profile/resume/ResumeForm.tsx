@@ -1,6 +1,5 @@
 "use client";
 
-import { Tab } from "@headlessui/react";
 import {
   AcademicCapIcon,
   BriefcaseIcon,
@@ -10,7 +9,13 @@ import {
   LanguageIcon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
-import clsx from "clsx";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@howardism/ui/components/tabs";
+import { cn } from "@howardism/ui/lib/utils";
 import type { FormEvent } from "react";
 import type {
   Control,
@@ -110,50 +115,35 @@ export default function ResumeForm({
   onSubmit,
 }: ResumeFormProps<ResumeSchema>) {
   return (
-    <Tab.Group as="div" className="lg:grid lg:grid-cols-12 lg:gap-x-5" vertical>
-      <Tab.List
-        as="aside"
-        className="space-y-1 px-2 py-6 sm:px-6 lg:col-span-3 lg:px-0 lg:py-0"
+    <Tabs
+      className="lg:grid lg:grid-cols-12 lg:gap-x-5"
+      defaultValue={navigation[0].name}
+      orientation="vertical"
+    >
+      <TabsList
+        className="h-auto flex-col items-stretch justify-start gap-1 rounded-none bg-transparent px-2 py-6 sm:px-6 lg:col-span-3 lg:px-0 lg:py-0"
+        variant="line"
       >
-        {({ selectedIndex }) => (
-          <>
-            {navigation.map((item, index) => {
-              const selected = selectedIndex === index;
-
-              return (
-                <Tab
-                  className={clsx(
-                    selected
-                      ? "bg-base-200 text-primary hover:bg-base-300 hover:text-primary-focus"
-                      : "text-base-content hover:bg-base-200 hover:text-primary",
-                    "group flex w-full items-center rounded-md px-3 py-2 font-medium text-sm outline-none transition-colors"
-                  )}
-                  key={item.name}
-                >
-                  <item.icon
-                    aria-hidden="true"
-                    className={clsx(
-                      selected
-                        ? "group-hover:text-primary-focus"
-                        : "group-hover:text-primary",
-                      "mr-3 -ml-1 w-6"
-                    )}
-                  />
-                  <span className="truncate">{item.name}</span>
-                </Tab>
-              );
-            })}
-          </>
-        )}
-      </Tab.List>
+        {navigation.map((item) => (
+          <TabsTrigger
+            className={cn(
+              "group justify-start rounded-md px-3 py-2 font-medium text-sm outline-none transition-colors",
+              "data-active:bg-muted data-active:text-primary",
+              "hover:bg-muted hover:text-primary"
+            )}
+            key={item.name}
+            value={item.name}
+          >
+            <item.icon aria-hidden="true" className="mr-3 -ml-1 w-6 shrink-0" />
+            <span className="truncate">{item.name}</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
       <div className="space-y-6 sm:px-6 lg:col-span-9 lg:px-0">
         <form onSubmit={onSubmit}>
-          <Tab.Panels
-            as="div"
-            className="border border-base-content/10 shadow-sm sm:overflow-hidden sm:rounded-md"
-          >
-            <Tab.Panel>
+          <div className="border border-border/10 shadow-sm sm:overflow-hidden sm:rounded-md">
+            <TabsContent value="Personal">
               <FormSectionContainer
                 heading="Personal Information"
                 subheading="Applicant profile with contact info"
@@ -206,9 +196,9 @@ export default function ResumeForm({
                   type="url"
                 />
               </FormSectionContainer>
-            </Tab.Panel>
+            </TabsContent>
 
-            <Tab.Panel>
+            <TabsContent value="Application">
               <FormSectionContainer
                 heading="Company Information"
                 subheading="Applying company with personal statement"
@@ -235,9 +225,9 @@ export default function ResumeForm({
                   register={register}
                 />
               </FormSectionContainer>
-            </Tab.Panel>
+            </TabsContent>
 
-            <Tab.Panel>
+            <TabsContent value="Experiences">
               <FormArraySection
                 arrayName="experiences"
                 arrayValue={DEFAULT_RESUME_FORM.experiences[0]}
@@ -316,9 +306,9 @@ export default function ResumeForm({
                 )}
                 subheading="Related work experience for this position"
               />
-            </Tab.Panel>
+            </TabsContent>
 
-            <Tab.Panel>
+            <TabsContent value="Education">
               <FormArraySection
                 arrayName="educations"
                 arrayValue={DEFAULT_RESUME_FORM.educations[0]}
@@ -375,9 +365,9 @@ export default function ResumeForm({
                 )}
                 subheading="Academic background"
               />
-            </Tab.Panel>
+            </TabsContent>
 
-            <Tab.Panel>
+            <TabsContent value="Projects">
               <FormArraySection
                 arrayName="projects"
                 arrayValue={DEFAULT_RESUME_FORM.projects[0]}
@@ -411,9 +401,9 @@ export default function ResumeForm({
                 )}
                 subheading="Project portfolio"
               />
-            </Tab.Panel>
+            </TabsContent>
 
-            <Tab.Panel>
+            <TabsContent value="Skills">
               <FormArraySection
                 arrayName="skills"
                 arrayValue={DEFAULT_RESUME_FORM.skills[0]}
@@ -439,9 +429,9 @@ export default function ResumeForm({
                 )}
                 subheading="Related skills for applying positions"
               />
-            </Tab.Panel>
+            </TabsContent>
 
-            <Tab.Panel>
+            <TabsContent value="Languages">
               <FormArraySection
                 arrayName="languages"
                 arrayValue={DEFAULT_RESUME_FORM.languages[0]}
@@ -467,16 +457,19 @@ export default function ResumeForm({
                 )}
                 subheading="Communication Tools"
               />
-            </Tab.Panel>
+            </TabsContent>
+          </div>
 
-            <div className="bg-base-200/40 px-4 py-3 text-right sm:px-6">
-              <button className="btn btn-primary" type="submit">
-                Save
-              </button>
-            </div>
-          </Tab.Panels>
+          <div className="bg-muted/40 px-4 py-3 text-right sm:px-6">
+            <button
+              className="inline-flex items-center rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm shadow-sm transition-colors hover:bg-primary/90"
+              type="submit"
+            >
+              Save
+            </button>
+          </div>
         </form>
       </div>
-    </Tab.Group>
+    </Tabs>
   );
 }
