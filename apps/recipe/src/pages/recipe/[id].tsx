@@ -1,13 +1,4 @@
 import type { ParsedUrlQuery } from "node:querystring";
-import {
-  Box,
-  CheckboxGroup,
-  Flex,
-  Heading,
-  Spinner,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
 import type {
   GetStaticPathsResult,
@@ -34,38 +25,38 @@ export default function RecipePage({
   const router = useRouter();
 
   if (router.isFallback) {
-    return <Spinner />;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#a73f3f] border-t-transparent" />
+      </div>
+    );
   }
 
   return (
-    <VStack px="4" spacing={[4, 6, 8]}>
-      <Box h={NAV_BAR_HEIGHT} />
+    <div className="flex flex-col items-center gap-4 px-4 sm:gap-6 md:gap-8">
+      <div style={{ height: NAV_BAR_HEIGHT }} />
       <Image
         alt={title}
-        borderRadius="lg"
         height={218}
-        objectFit="contain"
         priority
-        shadow="lg"
         src={image[0] ? image[0].formats.small.url : logo}
+        style={{
+          objectFit: "contain",
+          borderRadius: "0.5rem",
+          boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+        }}
         width={320}
       />
-      <Heading as="h1">{title}</Heading>
-      <Text>{description}</Text>
-      <Flex
-        direction={{ base: "column", md: "row" }}
-        maxW="container.md"
-        w="full"
-      >
-        <Box flexShrink={0} minW="60" p="4">
-          <CheckboxGroup colorScheme="secondary">
-            <LayerCheckboxes options={ingredients} title="材料 🍖" />
-            <LayerCheckboxes options={seasonings} title="調味料 🧂" />
-          </CheckboxGroup>
-        </Box>
-        <ProcedureStep flex="1" p="4" steps={steps} />
-      </Flex>
-    </VStack>
+      <h1 className="font-bold text-2xl">{title}</h1>
+      <p>{description}</p>
+      <div className="flex w-full max-w-2xl flex-col gap-4 md:flex-row">
+        <div className="min-w-60 flex-shrink-0 p-4">
+          <LayerCheckboxes options={ingredients} title="材料 🍖" />
+          <LayerCheckboxes options={seasonings} title="調味料 🧂" />
+        </div>
+        <ProcedureStep className="flex-1 p-4" steps={steps} />
+      </div>
+    </div>
   );
 }
 

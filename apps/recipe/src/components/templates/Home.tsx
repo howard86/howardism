@@ -1,13 +1,3 @@
-import {
-  Box,
-  Flex,
-  Heading,
-  HStack,
-  SimpleGrid,
-  Tag,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
 import { Image, RouteLink } from "@howardism/components-common";
 
 import backgroundImage from "@/../public/assets/background.jpg";
@@ -21,206 +11,135 @@ export interface HomeProps {
 const getDayTag = (timestamp: string): string => {
   const diff = Date.now() - new Date(timestamp).getTime();
   const days = Math.floor(diff / 1000 / 60 / 60 / 24);
-
   return days > 0 ? `${days} days ago` : "Today";
 };
 
 export default function Home({ recipes }: HomeProps): JSX.Element {
   return (
     <>
-      <Flex
-        alignItems="center"
-        justify="center"
-        minH={["100vh", "100vh", 600, 700, 870]}
-        pb={[10, 15, 20, 22]}
-      >
-        <Box
-          h="100vh"
-          overflow="hidden"
-          position="absolute"
-          w="full"
-          zIndex={-1}
-        >
+      {/* Hero section */}
+      <div className="relative flex min-h-screen items-center justify-center pb-10 sm:pb-15 md:pb-20 lg:pb-22">
+        <div className="absolute inset-0 -z-10 h-screen overflow-hidden">
           <Image
             alt="Landing page background"
-            layout="fill"
+            fill
             objectFit="cover"
             objectPosition="center"
             placeholder="blur"
             priority
             src={backgroundImage}
+            style={{ objectFit: "cover", objectPosition: "center" }}
           />
-        </Box>
-        <Box
-          mx="auto"
-          pl={{ base: 6, lg: 12 }}
-          pr={{ base: 6, md: 0 }}
-          w={{ base: "full", md: 900, lg: 1170 }}
-        >
-          <Box
-            bg="white"
-            borderRadius="lg"
-            maxW="full"
-            p={{ base: 6, md: 12 }}
-            w={{ md: 400 }}
-          >
-            <Heading
-              _after={{
-                content: '""',
-                display: "block",
-                width: "80px",
-                height: 1,
-                bg: "blackAlpha.800",
-                mt: 4,
-              }}
-              fontSize={["md", "xl"]}
-              fontWeight="medium"
-              mb="8"
-              position="relative"
-            >
+        </div>
+        <div className="mx-auto w-full max-w-5xl pr-6 pl-6 md:pr-0 lg:pl-12">
+          <div className="w-full rounded-lg bg-white p-6 md:w-[400px] md:p-12">
+            {/* Featured Posts heading with after-line decoration */}
+            <h2 className="relative mb-8 font-medium text-sm after:mt-4 after:block after:h-px after:w-20 after:bg-black/80 after:content-[''] sm:text-xl">
               Featured Posts
-            </Heading>
-            <VStack spacing={2}>
+            </h2>
+            <div className="space-y-2">
               {recipes.slice(0, 2).map((recipe) => (
-                <Flex alignItems="center" key={recipe.id} position="relative">
-                  <Box
-                    flex={{ base: "0 0 90px", md: "0 0 60px" }}
-                    flexShrink={0}
-                    overflow="hidden"
-                  >
+                <div className="relative flex items-center" key={recipe.id}>
+                  <div className="w-[90px] flex-shrink-0 overflow-hidden md:w-[60px]">
                     <RouteLink href="/">
                       <Image
                         alt="image"
                         height={200}
                         objectFit="cover"
                         src={recipe?.image[0]?.formats.small.url || logo}
+                        style={{ objectFit: "cover" }}
                         width={200}
                       />
                     </RouteLink>
-                  </Box>
-
-                  <Box flexGrow={1}>
-                    <Heading fontSize={{ md: "lg", lg: "xl" }}>
+                  </div>
+                  <div className="flex-grow">
+                    <h3 className="font-semibold text-base md:text-lg lg:text-xl">
                       <RouteLink
+                        className="transition-colors duration-150 ease-in-out hover:text-[#a73f3f]"
                         href={`recipe/${recipe.id}`}
-                        transition="0.15s ease-in-out"
                       >
                         {recipe.title}
                       </RouteLink>
-                    </Heading>
-                    <Flex alignItems="center" justify="space-between">
-                      <HStack
-                        alignItems="center"
-                        mt={{ base: 2, md: 2.5, lg: 3 }}
-                        spacing={[3, 5, 8]}
-                      >
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <div className="mt-2 flex items-center gap-3 sm:gap-5 md:mt-2.5 md:gap-8 lg:mt-3">
                         {recipe.ingredients.slice(0, 3).map((ingredient) => (
                           <RouteLink
-                            color="pink.500"
+                            className="text-pink-500"
                             href={`/tags/${ingredient.name}`}
                             key={ingredient.name}
                           >{`#${ingredient.name}`}</RouteLink>
                         ))}
-                      </HStack>
-                    </Flex>
-                  </Box>
-                </Flex>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </VStack>
-          </Box>
-        </Box>
-      </Flex>
-      <Box
-        mx="auto"
-        position="relative"
-        px={{ base: 6, md: 12, lg: 0 }}
-        py={{ base: 15, md: 20, lg: 30 }}
-        w={{ lg: 900, xl: 1170 }}
-      >
-        <SimpleGrid
-          columns={[1, 1, 2, 3]}
-          mb={{ base: 2.5, md: 5, lg: 8 }}
-          mx="-20px"
-          spacing={[4, 6]}
-        >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recipe grid */}
+      <div className="relative mx-auto w-full px-6 py-15 md:px-12 md:py-20 lg:w-[900px] lg:px-0 lg:py-30 xl:w-[1170px]">
+        <div className="-mx-5 mb-2.5 grid grid-cols-1 gap-4 sm:gap-6 md:mb-5 md:grid-cols-2 lg:mb-8 lg:grid-cols-3">
           {recipes.map((recipe) => (
-            <Box
-              flex="0 0 50%"
+            <div
+              className="mt-[50px] min-w-full flex-[0_0_50%] px-5 md:mt-[70px] md:min-w-[50%] lg:mt-[90px]"
               key={recipe.id}
-              minW={{ base: "full", md: "50%" }}
-              mt={{ base: 50, md: 70, lg: 90 }}
-              px={5}
             >
-              <Box position="relative">
-                <Box
-                  _before={{
-                    content: '""',
-                    position: "absolute",
-                    w: "80%",
-                    height: "80%",
-                    bgColor: "primary.700",
-                    bottom: 0,
-                    left: "10%",
-                    filter: "blur(15px)",
-                  }}
-                  mb="8"
-                  minH="150"
-                  position="relative"
-                >
-                  <RouteLink href={`/recipe/${recipe.id}`}>
-                    <Image
-                      alt={recipe.title}
-                      borderRadius="md"
-                      height={360}
-                      objectFit="cover"
-                      src={recipe?.image[0]?.formats.small.url || logo}
-                      width={360}
+              <div className="relative">
+                {/* Image container with blur shadow */}
+                <div className="relative mb-8 min-h-[150px]">
+                  <div className="relative">
+                    <RouteLink href={`/recipe/${recipe.id}`}>
+                      <Image
+                        alt={recipe.title}
+                        height={360}
+                        src={recipe?.image[0]?.formats.small.url || logo}
+                        style={{ objectFit: "cover", borderRadius: "0.375rem" }}
+                        width={360}
+                      />
+                    </RouteLink>
+                    {/* Blur glow underneath image */}
+                    <div
+                      className="absolute bottom-0 left-[10%] h-4/5 w-4/5 blur-[15px]"
+                      style={{ background: "#5f2222", zIndex: -1 }}
                     />
-                  </RouteLink>
-                  <Tag
-                    bgColor="primary.900"
-                    color="white"
-                    fontWeight="bold"
-                    left="4"
-                    opacity={0.6}
-                    position="absolute"
-                    size="lg"
-                    top="4"
-                    zIndex="docked"
+                  </div>
+                  <span
+                    className="absolute top-4 left-4 rounded-md px-2 py-0.5 font-bold text-sm text-white"
+                    style={{ background: "#1c0303", opacity: 0.6, zIndex: 10 }}
                   >
                     {getDayTag(recipe.published_at)}
-                  </Tag>
-                </Box>
-                <Box>
-                  <HStack
-                    alignItems="center"
-                    mb={{ base: 2, md: 2.5, lg: 3 }}
-                    spacing={[3, 5, 8]}
-                  >
+                  </span>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center gap-3 sm:gap-5 md:mb-2.5 md:gap-8 lg:mb-3">
                     {recipe.ingredients.slice(0, 3).map((ingredient) => (
                       <RouteLink
-                        color="pink.500"
+                        className="text-pink-500"
                         href={`/tags/${ingredient.name}`}
                         key={ingredient.name}
                       >{`#${ingredient.name}`}</RouteLink>
                     ))}
-                  </HStack>
-
-                  <Heading fontSize={["md", "lg", "xl"]} mb="2.5">
+                  </div>
+                  <h3 className="mb-2.5 font-semibold text-sm sm:text-base md:text-lg lg:text-xl">
                     <RouteLink href={`/recipe/${recipe.id}`}>
                       {recipe.title}
                     </RouteLink>
-                  </Heading>
-                  <Text noOfLines={{ base: 2, lg: 4 }}>
+                  </h3>
+                  <p className="line-clamp-2 lg:line-clamp-4">
                     {recipe.description}
-                  </Text>
-                </Box>
-              </Box>
-            </Box>
+                  </p>
+                </div>
+              </div>
+            </div>
           ))}
-        </SimpleGrid>
+        </div>
         {/* TODO: add show more */}
-      </Box>
+      </div>
     </>
   );
 }

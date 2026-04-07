@@ -1,4 +1,3 @@
-import { Box } from "@chakra-ui/react";
 import LoginPage, { type FormValue } from "@howardism/login-form";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
@@ -23,8 +22,8 @@ export default function Page(): JSX.Element {
   }, [isLoggedIn, router]);
 
   return (
-    <Box minH="100vh" pt="8" px="4">
+    <div className="min-h-screen px-4 pt-8">
       <LoginPage onLogin={onLogin} />
-    </Box>
+    </div>
   );
 }

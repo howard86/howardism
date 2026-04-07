@@ -1,7 +1,6 @@
-import { Flex, IconButton } from "@chakra-ui/react";
 import { RouteLink } from "@howardism/components-common";
+import { Menu } from "lucide-react";
 import { useState } from "react";
-import { IoMdMenu } from "react-icons/io";
 
 import useThrottledScroll from "@/hooks/useThrottledScroll";
 
@@ -28,37 +27,28 @@ export default function NavBar() {
   };
 
   return (
-    <Flex
-      _hover={{ top: 0 }}
-      alignItems="center"
-      as="nav"
-      bgGradient="linear(to-b, primary.900, primary.800, primary.800,  primary.800, primary.800, primary.800, primary.700, primary.600)"
-      color="white"
-      h={NAV_BAR_HEIGHT}
-      justifyContent="space-between"
-      opacity="0.9"
-      position="fixed"
-      top={shouldHideHeader ? 4 - NAV_BAR_HEIGHT : 0}
-      transition="0.3s ease-out"
-      w="full"
-      zIndex="docked"
+    <nav
+      className="fixed z-40 flex w-full items-center justify-between text-white opacity-90 transition-all duration-300 ease-out"
+      style={{
+        height: NAV_BAR_HEIGHT,
+        top: shouldHideHeader ? 4 - NAV_BAR_HEIGHT : 0,
+        background:
+          "linear-gradient(to bottom, #1c0303, #3a1313, #3a1313, #3a1313, #3a1313, #3a1313, #5f2222, #833031)",
+      }}
     >
       {/* TODO: add logo with fonts */}
-      <RouteLink href="/" ml="8">
+      <RouteLink className="ml-8" href="/">
         Recipe
       </RouteLink>
-      {/* TODO: update onHover & on onFocus */}
-      <IconButton
+      {/* TODO: update onHover & onFocus */}
+      <button
         aria-label="open navigation"
-        colorScheme="white"
-        fontSize="35px"
-        icon={<IoMdMenu />}
-        mr="8"
+        className="mr-8 rounded p-2 transition-colors hover:bg-white/10"
         onClick={onOpen}
-        variant="ghost"
+        type="button"
       >
-        Show Menu
-      </IconButton>
-    </Flex>
+        <Menu className="size-9" />
+      </button>
+    </nav>
   );
 }
