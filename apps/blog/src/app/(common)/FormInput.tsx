@@ -1,6 +1,7 @@
 "use client";
 
-import clsx from "clsx";
+import { Input } from "@howardism/ui/components/input";
+import { cn } from "@howardism/ui/lib/utils";
 import get from "lodash.get";
 import type {
   FieldErrors,
@@ -38,27 +39,24 @@ export default function FormInput<T extends FieldValues>({
   const text = typeof errorMessage === "string" ? errorMessage : helperText;
 
   return (
-    <div className={clsx("group form-control relative", className)}>
-      <label className="label absolute -top-4.5 left-2.5" htmlFor={name}>
+    <div className={cn("group relative", className)}>
+      <label className="absolute -top-4.5 left-2.5" htmlFor={name}>
         <span
-          className={clsx(
-            "label-text bg-base-100 px-0.5 font-medium transition-colors",
+          className={cn(
+            "bg-background px-0.5 font-medium text-sm transition-colors",
             isInvalid
-              ? "text-error"
+              ? "text-destructive"
               : "group-focus-within:text-primary group-hover:text-primary"
           )}
         >
           {label}
         </span>
       </label>
-      <input
+      <Input
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
         aria-invalid={isInvalid ? "true" : undefined}
-        className={clsx(
-          "input input-bordered transition-all",
-          isInvalid
-            ? "input-error"
-            : "active:input-primary group-focus-within:input-primary group-hover:input-primary"
+        className={cn(
+          isInvalid && "border-destructive focus-visible:ring-destructive"
         )}
         id={name}
         {...register(name, options)}
@@ -66,9 +64,9 @@ export default function FormInput<T extends FieldValues>({
       />
       {text && (
         <p
-          className={clsx(
-            isInvalid ? "text-error" : "text-base-content",
-            "label-text mt-1"
+          className={cn(
+            "mt-1 text-sm",
+            isInvalid ? "text-destructive" : "text-muted-foreground"
           )}
           id={getAriaDescribedBy(name, text, isInvalid)}
         >
