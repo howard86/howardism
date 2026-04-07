@@ -1,85 +1,99 @@
 import {
   Box,
-  BoxProps,
+  type BoxProps,
   Button,
   Circle,
   Collapse,
-  ColorProps,
+  type ColorProps,
   Flex,
   Heading,
   HStack,
   Icon,
   Text,
   useBoolean,
-} from "@chakra-ui/react"
-import { useState } from "react"
-import { FaCheck } from "react-icons/fa"
+} from "@chakra-ui/react";
+import { useState } from "react";
+import { FaCheck } from "react-icons/fa";
 
 export interface Step {
-  summary: string
-  description: string
+  description: string;
+  summary: string;
 }
 
 interface ProcedureStepProps extends BoxProps {
-  steps: Step[]
+  steps: Step[];
 }
 
-const THEME_COLOR: ColorProps["color"] = "primary.600"
-const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200"
-const getCircleColor = (isViewed: boolean, isChecked: boolean): BoxProps["color"] => {
-  if (isViewed) return "white"
+const THEME_COLOR: ColorProps["color"] = "primary.600";
+const LIGHT_THEME_COLOR: ColorProps["color"] = "primary.200";
+const getCircleColor = (
+  isViewed: boolean,
+  isChecked: boolean
+): BoxProps["color"] => {
+  if (isViewed) {
+    return "white";
+  }
 
-  return isChecked ? THEME_COLOR : "primary.800"
-}
+  return isChecked ? THEME_COLOR : "primary.800";
+};
 
 // TODO: refactor with useReducer
 export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
-  const [openIndex, setOpenIndex] = useState(0)
-  const [expanded, { toggle }] = useBoolean(false)
+  const [openIndex, setOpenIndex] = useState(0);
+  const [expanded, { toggle }] = useBoolean(false);
 
-  const isFirst = openIndex === 0
-  const isLast = openIndex === steps.length - 1
-  const afterLast = openIndex === steps.length
+  const isFirst = openIndex === 0;
+  const isLast = openIndex === steps.length - 1;
+  const afterLast = openIndex === steps.length;
 
   const handleNext = () => {
-    setOpenIndex((index) => index + 1)
-  }
+    setOpenIndex((index) => index + 1);
+  };
 
   const handleBack = () => {
-    setOpenIndex((index) => index - 1)
-  }
+    setOpenIndex((index) => index - 1);
+  };
 
   const handleReset = () => {
-    setOpenIndex(0)
+    setOpenIndex(0);
     if (expanded) {
-      toggle()
+      toggle();
     }
-  }
+  };
 
   return (
     <Box {...props}>
-      <Flex alignItems="center" justify="space-between" w="full" p="2" mb="4">
+      <Flex alignItems="center" justify="space-between" mb="4" p="2" w="full">
         <Heading fontSize={["lg", "xl"]}>料理步驟</Heading>
-        <Button onClick={toggle} mx="2">
+        <Button mx="2" onClick={toggle}>
           {expanded ? "收回" : "展開"}
         </Button>
       </Flex>
       {/* Note: this calculates the total height when expanded or not */}
-      <Box minH={expanded ? `${92 * steps.length + 200}px` : `${60 * steps.length + 116}px`}>
+      <Box
+        minH={
+          expanded
+            ? `${92 * steps.length + 200}px`
+            : `${60 * steps.length + 116}px`
+        }
+      >
+        {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: step rendering with expanded/collapsed states */}
         {steps.map((step, index) => {
-          const isViewed = index === openIndex
-          const isChecked = index < openIndex
-          const showLastBox = index < steps.length - 1
+          const isViewed = index === openIndex;
+          const isChecked = index < openIndex;
+          const showLastBox = index < steps.length - 1;
 
           return (
             <Box key={step.summary}>
               <HStack fontWeight="bold" spacing="4">
                 <Circle
-                  size="8"
-                  color={getCircleColor(isViewed, isChecked)}
                   bg={isViewed ? THEME_COLOR : "white"}
-                  borderColor={isChecked || isViewed ? THEME_COLOR : LIGHT_THEME_COLOR}
+                  borderColor={
+                    isChecked || isViewed ? THEME_COLOR : LIGHT_THEME_COLOR
+                  }
                   borderWidth="1pt"
+                  color={getCircleColor(isViewed, isChecked)}
+                  size="8"
                 >
                   {!isChecked || expanded ? index + 1 : <Icon as={FaCheck} />}
                 </Circle>
@@ -89,37 +103,43 @@ export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
               </HStack>
               <Collapse in={expanded || index === openIndex}>
                 <Box
-                  color="black"
-                  mt="2"
-                  ml="4"
-                  pl="8"
-                  pb="3"
+                  borderLeftColor={
+                    isViewed || isChecked ? THEME_COLOR : LIGHT_THEME_COLOR
+                  }
                   borderLeftWidth="1pt"
-                  borderLeftColor={isViewed || isChecked ? THEME_COLOR : LIGHT_THEME_COLOR}
+                  color="black"
+                  ml="4"
+                  mt="2"
+                  pb="3"
+                  pl="8"
                 >
                   {step.description}
                   {!expanded && isViewed && (
-                    <Flex mt="4" justify="space-between">
+                    <Flex justify="space-between" mt="4">
                       <Button isDisabled={isFirst} onClick={handleBack}>
                         上一步
                       </Button>
-                      <Button onClick={handleNext}>{isLast ? "完成！" : "下一步"}</Button>
+                      <Button onClick={handleNext}>
+                        {isLast ? "完成！" : "下一步"}
+                      </Button>
                     </Flex>
                   )}
                 </Box>
               </Collapse>
               {showLastBox && (
                 <Box
-                  mt={isViewed || expanded ? 0 : 2}
+                  borderLeftColor={
+                    isChecked || isViewed ? THEME_COLOR : LIGHT_THEME_COLOR
+                  }
+                  borderLeftWidth="1pt"
                   mb="2"
                   ml="4"
+                  mt={isViewed || expanded ? 0 : 2}
                   p="2"
-                  borderLeftWidth="1pt"
-                  borderLeftColor={isChecked || isViewed ? THEME_COLOR : LIGHT_THEME_COLOR}
                 />
               )}
             </Box>
-          )
+          );
         })}
         {(afterLast || expanded) && (
           <Box p="4" textAlign="center">
@@ -129,5 +149,5 @@ export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
         )}
       </Box>
     </Box>
-  )
+  );
 }

@@ -1,10 +1,10 @@
-import { SimpleLayout } from "@/app/(common)/SimpleLayout"
+import { SimpleLayout } from "@/app/(common)/SimpleLayout";
 
 // TODO: handle more errors
 export default function CheckoutCancelledPage() {
   return (
-    <SimpleLayout title="Order cancelled" intro="You have cancelled this order">
+    <SimpleLayout intro="You have cancelled this order" title="Order cancelled">
       <p>Thank you for your interest!</p>
     </SimpleLayout>
-  )
+  );
 }

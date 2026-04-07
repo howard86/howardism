@@ -1,13 +1,19 @@
-import type { FC } from "react"
-import type { SVGProps } from "react-html-props"
+import type { FC } from "react";
+import type { SVGProps } from "react-html-props";
 
-import ExternalLink from "@/app/(common)/ExternalLink"
-import { EmailIcon, GitHubIcon, LinkedInIcon, RssIcon, TwitterIcon } from "@/app/(common)/icons"
+import ExternalLink from "@/app/(common)/ExternalLink";
+import {
+  EmailIcon,
+  GitHubIcon,
+  LinkedInIcon,
+  RssIcon,
+  TwitterIcon,
+} from "@/app/(common)/icons";
 
-type SocialLink = {
-  href: string
-  icon: FC<SVGProps>
-  "aria-label": string
+interface SocialLink {
+  "aria-label": string;
+  href: string;
+  icon: FC<SVGProps>;
 }
 
 export const SOCIAL_LINKS: SocialLink[] = [
@@ -32,16 +38,16 @@ export const SOCIAL_LINKS: SocialLink[] = [
     icon: EmailIcon,
   },
   { href: "/rss/feed.xml", "aria-label": "Follow on RSS feed", icon: RssIcon },
-]
+];
 
 export default function SocialLinks() {
   return (
     <ul className="mt-6 flex gap-2">
       {SOCIAL_LINKS.map((link) => (
-        <li key={link.href} className="group">
+        <li className="group" key={link.href}>
           <ExternalLink
-            className="btn btn-circle btn-sm"
             aria-label={link["aria-label"]}
+            className="btn btn-circle btn-sm"
             href={link.href}
           >
             <link.icon className="w-6 fill-current transition-colors group-hover:fill-secondary" />
@@ -49,5 +55,5 @@ export default function SocialLinks() {
         </li>
       ))}
     </ul>
-  )
+  );
 }

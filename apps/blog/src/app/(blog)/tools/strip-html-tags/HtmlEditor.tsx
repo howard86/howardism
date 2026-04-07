@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   ArchiveBoxArrowDownIcon,
@@ -11,34 +11,38 @@ import {
   CommandLineIcon,
   SparklesIcon,
   ViewColumnsIcon,
-} from "@heroicons/react/24/outline"
-import { zodResolver } from "@hookform/resolvers/zod"
+} from "@heroicons/react/24/outline";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   DiffEditor,
-  DiffEditorProps,
-  DiffOnMount,
+  type DiffEditorProps,
+  type DiffOnMount,
   Editor,
-  EditorProps,
-  OnMount,
-} from "@monaco-editor/react"
-import copy from "copy-to-clipboard"
-import type { editor } from "monaco-editor"
-import { Fragment, useRef } from "react"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+  type EditorProps,
+  type OnMount,
+} from "@monaco-editor/react";
+import copy from "copy-to-clipboard";
+import type { editor } from "monaco-editor";
+import { Fragment, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
-import FormInput from "@/app/(common)/FormInput"
+import FormInput from "@/app/(common)/FormInput";
 
-import EditorButton from "./EditorButton"
-import { formatEditorValue, loopThroughHtmlNodes, updateEditorValue } from "./service"
+import EditorButton from "./EditorButton";
+import {
+  formatEditorValue,
+  loopThroughHtmlNodes,
+  updateEditorValue,
+} from "./service";
 
-enum EditorMode {
-  Code,
-  Diff,
-}
+const EditorMode = {
+  Code: 0,
+  Diff: 1,
+} as const;
 
 interface HtmlEditorProps {
-  html: string
+  html: string;
 }
 
 const DEFAULT_EDITOR_PROPS = {
@@ -68,7 +72,7 @@ const DEFAULT_EDITOR_PROPS = {
     formatOnPaste: true,
     formatOnType: true,
   },
-} satisfies DiffEditorProps & EditorProps
+} satisfies DiffEditorProps & EditorProps;
 
 const editorSchema = z.object({
   isAnalysed: z.boolean(),
@@ -86,132 +90,146 @@ const editorSchema = z.object({
         z.object({
           count: z.number().optional(),
           selected: z.boolean().optional(),
-        }),
+        })
       ),
-    }),
+    })
   ),
-})
+});
 
-type EditorSchema = z.infer<typeof editorSchema>
+type EditorSchema = z.infer<typeof editorSchema>;
 
 export default function HtmlEditor({ html }: HtmlEditorProps) {
-  const { register, setError, getValues, setValue, formState, handleSubmit, watch } =
-    useForm<EditorSchema>({
-      resolver: zodResolver(editorSchema),
-      defaultValues: {
-        isAnalysed: false,
-        mode: EditorMode.Code,
-        remoteUrl: "",
-        tags: [],
-        tagMap: {},
-        attributes: [],
-      },
-    })
+  const {
+    register,
+    setError,
+    getValues,
+    setValue,
+    formState,
+    handleSubmit,
+    watch,
+  } = useForm<EditorSchema>({
+    resolver: zodResolver(editorSchema),
+    defaultValues: {
+      isAnalysed: false,
+      mode: EditorMode.Code,
+      remoteUrl: "",
+      tags: [],
+      tagMap: {},
+      attributes: [],
+    },
+  });
 
-  const isDiff = watch("mode") === EditorMode.Diff
+  const isDiff = watch("mode") === EditorMode.Diff;
 
-  const htmlCopyRef = useRef<string | undefined>()
-  const savedHtmlRef = useRef<string | undefined>()
+  const htmlCopyRef = useRef<string | undefined>();
+  const savedHtmlRef = useRef<string | undefined>();
 
-  const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null)
-  const codeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
+  const codeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   const handleOnDiffMount: DiffOnMount = (editor) => {
-    diffEditorRef.current = editor
+    diffEditorRef.current = editor;
 
     if (savedHtmlRef.current) {
-      diffEditorRef.current.getOriginalEditor().setValue(savedHtmlRef.current)
-      savedHtmlRef.current = undefined
+      diffEditorRef.current.getOriginalEditor().setValue(savedHtmlRef.current);
+      savedHtmlRef.current = undefined;
     }
 
     if (htmlCopyRef.current) {
-      diffEditorRef.current.getModifiedEditor().setValue(htmlCopyRef.current)
-      htmlCopyRef.current = undefined
+      diffEditorRef.current.getModifiedEditor().setValue(htmlCopyRef.current);
+      htmlCopyRef.current = undefined;
     }
-  }
+  };
 
   const handleOnCodeMount: OnMount = (editor) => {
-    codeEditorRef.current = editor
+    codeEditorRef.current = editor;
 
     if (htmlCopyRef.current) {
-      codeEditorRef.current.setValue(htmlCopyRef.current)
-      htmlCopyRef.current = undefined
+      codeEditorRef.current.setValue(htmlCopyRef.current);
+      htmlCopyRef.current = undefined;
     }
-  }
+  };
 
   const getEditor = () =>
-    isDiff ? diffEditorRef.current?.getModifiedEditor() : codeEditorRef.current
+    isDiff ? diffEditorRef.current?.getModifiedEditor() : codeEditorRef.current;
 
   const handleSaveForComparison = () => {
     if (!diffEditorRef.current) {
-      savedHtmlRef.current = codeEditorRef.current?.getValue()
-      return
+      savedHtmlRef.current = codeEditorRef.current?.getValue();
+      return;
     }
 
-    const newHtml = diffEditorRef.current.getModifiedEditor().getValue()
+    const newHtml = diffEditorRef.current.getModifiedEditor().getValue();
 
-    diffEditorRef.current.getOriginalEditor().setValue(newHtml)
-  }
+    diffEditorRef.current.getOriginalEditor().setValue(newHtml);
+  };
 
-  const handleFormat = () => formatEditorValue(getEditor())
+  const handleFormat = () => formatEditorValue(getEditor());
 
   const handleAnalyse = () => {
-    const newHtml = getEditor()?.getValue()
+    const newHtml = getEditor()?.getValue();
 
-    if (!newHtml) return
+    if (!newHtml) {
+      return;
+    }
 
-    const tagMap: EditorSchema["tagMap"] = {}
-    const orderedTagSet = new Set<string>()
-    const orderedAttributeSet = new Set<string>()
+    const tagMap: EditorSchema["tagMap"] = {};
+    const orderedTagSet = new Set<string>();
+    const orderedAttributeSet = new Set<string>();
 
     loopThroughHtmlNodes(newHtml, (node) => {
-      const tag = node.tagName.toLowerCase()
+      const tag = node.tagName.toLowerCase();
 
-      orderedTagSet.add(tag)
+      orderedTagSet.add(tag);
 
       if (!tagMap[tag]) {
         tagMap[tag] = {
           selected: false,
           attributes: {},
-        }
+        };
       }
 
-      tagMap[tag].count = (tagMap[tag].count || 0) + 1
+      tagMap[tag].count = (tagMap[tag].count || 0) + 1;
 
-      node.getAttributeNames().forEach((attribute) => {
-        orderedAttributeSet.add(attribute)
+      for (const attribute of node.getAttributeNames()) {
+        orderedAttributeSet.add(attribute);
 
         if (!tagMap[tag].attributes[attribute]) {
           tagMap[tag].attributes[attribute] = {
             selected: false,
-          }
+          };
         }
 
-        tagMap[tag].attributes[attribute].count = (tagMap[tag].attributes[attribute].count || 0) + 1
-      })
-    })
+        tagMap[tag].attributes[attribute].count =
+          (tagMap[tag].attributes[attribute].count || 0) + 1;
+      }
+    });
 
-    setValue("tagMap", tagMap)
-    setValue("tags", [...orderedTagSet])
-    setValue("attributes", [...orderedAttributeSet])
-    setValue("isAnalysed", true)
-  }
+    setValue("tagMap", tagMap);
+    setValue("tags", [...orderedTagSet]);
+    setValue("attributes", [...orderedAttributeSet]);
+    setValue("isAnalysed", true);
+  };
 
   const handleRedo = () => {
-    const editor = getEditor()
+    const editor = getEditor();
 
-    if (!editor) return
+    if (!editor) {
+      return;
+    }
 
-    editor.trigger("redo", "redo", null)
-  }
+    editor.trigger("redo", "redo", null);
+  };
 
   const handleUndo = () => {
-    const editor = getEditor()
+    const editor = getEditor();
 
-    if (!editor) return
+    if (!editor) {
+      return;
+    }
 
-    editor.trigger("undo", "undo", null)
-  }
+    editor.trigger("undo", "undo", null);
+  };
 
   const handleCopy = () => {
     const newHtml = getEditor()
@@ -220,124 +238,136 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
         lineEnding: "",
       })
       .replaceAll(/(&nbsp;|\n)/g, "")
-      .replaceAll(/>\s+</g, "><")
+      .replaceAll(/>\s+</g, "><");
 
-    if (!newHtml) return
+    if (!newHtml) {
+      return;
+    }
 
-    copy(newHtml)
-  }
+    copy(newHtml);
+  };
 
   const handleFetchRemoteUrl = handleSubmit(async (values) => {
-    if (!values.remoteUrl) return
+    if (!values.remoteUrl) {
+      return;
+    }
 
-    const response = await fetch(`/api/proxy?url=${values.remoteUrl}`)
+    const response = await fetch(`/api/proxy?url=${values.remoteUrl}`);
 
     if (!response.ok && response.status >= 500) {
-      console.error(response)
+      console.error(response);
       setError("remoteUrl", {
         type: "value",
         message: "Something went wrong",
-      })
-      return
+      });
+      return;
     }
 
-    const { data, message } = await response.json()
+    const { data, message } = await response.json();
 
     if (!response.ok) {
       setError("remoteUrl", {
         type: "value",
         message,
-      })
+      });
 
-      return
+      return;
     }
 
-    const editor = getEditor()
+    const editor = getEditor();
 
-    if (!editor) return
+    if (!editor) {
+      return;
+    }
 
-    updateEditorValue(editor, data)
-    setValue("isAnalysed", false)
-  }, console.error)
+    updateEditorValue(editor, data);
+    setValue("isAnalysed", false);
+  }, console.error);
 
   const handleToggleMode = () => {
-    const editor = getEditor()
+    const editor = getEditor();
 
-    if (!editor) return
+    if (!editor) {
+      return;
+    }
 
-    htmlCopyRef.current = editor.getValue()
+    htmlCopyRef.current = editor.getValue();
 
-    setValue("mode", isDiff ? EditorMode.Code : EditorMode.Diff)
-  }
+    setValue("mode", isDiff ? EditorMode.Code : EditorMode.Diff);
+  };
 
   const handleRemoveElements = () => {
-    const editor = getEditor()
+    const editor = getEditor();
 
-    if (!editor) return
+    if (!editor) {
+      return;
+    }
 
-    const tagMap = getValues("tagMap")
+    const tagMap = getValues("tagMap");
 
     const doc = loopThroughHtmlNodes(editor.getValue(), (node) => {
-      const tag = node.tagName.toLowerCase()
+      const tag = node.tagName.toLowerCase();
 
       if (tagMap[tag].selected) {
-        node.remove()
+        node.remove();
       } else {
-        node.getAttributeNames().forEach((attribute) => {
+        for (const attribute of node.getAttributeNames()) {
           if (tagMap[tag].attributes[attribute].selected) {
-            node.removeAttribute(attribute)
+            node.removeAttribute(attribute);
           }
-        })
+        }
       }
-    })
+    });
 
-    updateEditorValue(editor, doc.documentElement.outerHTML)
+    updateEditorValue(editor, doc.documentElement.outerHTML);
 
-    formatEditorValue(editor)
-  }
+    formatEditorValue(editor);
+  };
 
   const handleReplaceElements = () => {
-    const editor = getEditor()
+    const editor = getEditor();
 
-    if (!editor) return
+    if (!editor) {
+      return;
+    }
 
-    const tagMap = getValues("tagMap")
+    const tagMap = getValues("tagMap");
 
     const doc = loopThroughHtmlNodes(editor.getValue(), (node) => {
-      const tag = node.tagName.toLowerCase()
+      const tag = node.tagName.toLowerCase();
 
       if (tagMap[tag].selected) {
-        node.replaceWith(document.createElement(tag))
+        node.replaceWith(document.createElement(tag));
       } else {
-        node.getAttributeNames().forEach((attribute) => {
+        for (const attribute of node.getAttributeNames()) {
           if (tagMap[tag].attributes[attribute].selected) {
-            node.setAttribute(attribute, "")
+            node.setAttribute(attribute, "");
           }
-        })
+        }
       }
-    })
+    });
 
-    updateEditorValue(editor, doc.documentElement.outerHTML)
+    updateEditorValue(editor, doc.documentElement.outerHTML);
 
-    formatEditorValue(editor)
-  }
+    formatEditorValue(editor);
+  };
 
   const handleUnselectAll = () => {
-    const newTagMap = { ...getValues("tagMap") }
+    const newTagMap = { ...getValues("tagMap") };
 
-    Object.keys(newTagMap).forEach((tag) => {
-      newTagMap[tag].selected = false
+    for (const tag of Object.keys(newTagMap)) {
+      newTagMap[tag].selected = false;
 
-      Object.keys(newTagMap[tag].attributes).forEach((attribute) => {
-        newTagMap[tag].attributes[attribute].selected = false
-      })
-    })
+      for (const attribute of Object.keys(newTagMap[tag].attributes)) {
+        newTagMap[tag].attributes[attribute].selected = false;
+      }
+    }
 
-    setValue("tagMap", newTagMap)
-  }
+    setValue("tagMap", newTagMap);
+  };
 
-  const tagMap = watch("tagMap")
-  const isAnalysed = watch("isAnalysed")
+  const tagMap = watch("tagMap");
+  const isAnalysed = watch("isAnalysed");
 
   return (
     <div className="space-y-4">
@@ -348,18 +378,20 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
         <div className="join">
           <FormInput
             className="join-item w-full"
-            type="url"
-            register={register}
-            name="remoteUrl"
-            label="Remote URL"
             errors={formState.errors}
+            label="Remote URL"
+            name="remoteUrl"
+            register={register}
+            type="url"
           />
           <button
             className="btn btn-primary join-item"
-            type="submit"
             disabled={formState.isSubmitting}
+            type="submit"
           >
-            {formState.isSubmitting && <span className="loading loading-spinner" />}
+            {formState.isSubmitting && (
+              <span className="loading loading-spinner" />
+            )}
             Fetch URL
           </button>
         </div>
@@ -368,24 +400,29 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
         <aside className="mx-2 flex items-end justify-between gap-2 py-2">
           <div className="join">
             <EditorButton
-              tooltip="Analyse HTML contents"
               Icon={isAnalysed ? BoltIcon : BoltSlashIcon}
               onClick={handleAnalyse}
+              tooltip="Analyse HTML contents"
             />
 
             {isAnalysed && (
               <details className="dropdown dropdown-hover">
-                <summary className="btn btn-primary btn-sm rounded-r-md">Attributes</summary>
+                <summary className="btn btn-primary btn-sm rounded-r-md">
+                  Attributes
+                </summary>
                 <div className="menu dropdown-content z-50 rounded-md border border-base-200 bg-base-100 p-0 shadow-sm">
                   <div>
                     <div className="menu-title inline-flex w-full items-center justify-between gap-2 whitespace-nowrap">
                       <h3>Tags & Attributes</h3>
-                      <div className="tooltip tooltip-accent" data-tip="Unselect all">
+                      <div
+                        className="tooltip tooltip-accent"
+                        data-tip="Unselect all"
+                      >
                         <button
                           aria-label="Unselect all tags and attributes"
-                          type="button"
-                          onClick={handleUnselectAll}
                           className="btn-brand btn btn-circle btn-xs"
+                          onClick={handleUnselectAll}
+                          type="button"
                         >
                           <BookmarkSlashIcon className="w-4" />
                         </button>
@@ -398,75 +435,91 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                             <label className="label">
                               <span className="label-text-alt relative font-semibold">
                                 {tagMap[tag].count}
-                                <span className="badge badge-md ml-2">{tag}</span>
+                                <span className="badge badge-md ml-2">
+                                  {tag}
+                                </span>
                               </span>
                               <input
-                                type="checkbox"
                                 className="checkbox-primary checkbox checkbox-xs"
+                                type="checkbox"
                                 {...register(`tagMap.${tag}.selected`)}
                               />
                             </label>
                           </li>
-                          {Object.keys(tagMap[tag].attributes).map((attribute) => (
-                            <li key={tag + attribute} className="form-control relative pl-2">
-                              <label className="label">
-                                <span className="label-text-alt relative">
-                                  {tagMap[tag].attributes[attribute].count}
-                                  <span className="badge badge-sm ml-2">{attribute}</span>
-                                </span>
-                                <input
-                                  type="checkbox"
-                                  className="checkbox-accent checkbox checkbox-xs"
-                                  defaultChecked={false}
-                                  {...register(`tagMap.${tag}.attributes.${attribute}.selected`)}
-                                />
-                              </label>
-                            </li>
-                          ))}
+                          {Object.keys(tagMap[tag].attributes).map(
+                            (attribute) => (
+                              <li
+                                className="form-control relative pl-2"
+                                key={tag + attribute}
+                              >
+                                <label className="label">
+                                  <span className="label-text-alt relative">
+                                    {tagMap[tag].attributes[attribute].count}
+                                    <span className="badge badge-sm ml-2">
+                                      {attribute}
+                                    </span>
+                                  </span>
+                                  <input
+                                    className="checkbox-accent checkbox checkbox-xs"
+                                    defaultChecked={false}
+                                    type="checkbox"
+                                    {...register(
+                                      `tagMap.${tag}.attributes.${attribute}.selected`
+                                    )}
+                                  />
+                                </label>
+                              </li>
+                            )
+                          )}
                         </Fragment>
                       ))}
-                      <li className="menu-title whitespace-nowrap">Select All Attributes</li>
+                      <li className="menu-title whitespace-nowrap">
+                        Select All Attributes
+                      </li>
                       <li className="flex w-full flex-row flex-wrap gap-1">
                         {watch("attributes").map((attribute) => {
                           const handleSelectAttribute = () => {
-                            const newTagMap = { ...getValues("tagMap") }
+                            const newTagMap = { ...getValues("tagMap") };
 
-                            Object.keys(newTagMap).forEach((tag) => {
-                              Object.keys(newTagMap[tag].attributes).forEach((attr) => {
+                            for (const tag of Object.keys(newTagMap)) {
+                              for (const attr of Object.keys(
+                                newTagMap[tag].attributes
+                              )) {
                                 if (attr === attribute) {
-                                  newTagMap[tag].attributes[attr].selected = true
+                                  newTagMap[tag].attributes[attr].selected =
+                                    true;
                                 }
-                              })
-                            })
+                              }
+                            }
 
-                            setValue("tagMap", newTagMap)
-                          }
+                            setValue("tagMap", newTagMap);
+                          };
 
                           return (
                             <button
-                              key={attribute}
-                              type="button"
                               className="badge badge-sm inline-flex cursor-pointer"
+                              key={attribute}
                               onClick={handleSelectAttribute}
+                              type="button"
                             >
                               {attribute}
                             </button>
-                          )
+                          );
                         })}
                       </li>
                     </ul>
                     <div className="flex flex-col gap-1.5 whitespace-nowrap bg-base-200 p-2">
                       <button
-                        type="button"
                         className="btn-brand btn btn-sm w-full"
                         onClick={handleRemoveElements}
+                        type="button"
                       >
                         Remove selected
                       </button>
                       <button
-                        type="button"
                         className="btn-brand btn btn-sm w-full"
                         onClick={handleReplaceElements}
+                        type="button"
                       >
                         Replace selected
                       </button>
@@ -477,37 +530,53 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
             )}
           </div>
           <div className="join">
-            <EditorButton tooltip="Redo" onClick={handleRedo} Icon={ArrowUturnRightIcon} />
-            <EditorButton tooltip="Undo" onClick={handleUndo} Icon={ArrowUturnLeftIcon} />
-            <EditorButton tooltip="Format source code" onClick={handleFormat} Icon={SparklesIcon} />
             <EditorButton
-              tooltip="Save for comparison"
-              onClick={handleSaveForComparison}
+              Icon={ArrowUturnRightIcon}
+              onClick={handleRedo}
+              tooltip="Redo"
+            />
+            <EditorButton
+              Icon={ArrowUturnLeftIcon}
+              onClick={handleUndo}
+              tooltip="Undo"
+            />
+            <EditorButton
+              Icon={SparklesIcon}
+              onClick={handleFormat}
+              tooltip="Format source code"
+            />
+            <EditorButton
               Icon={ArchiveBoxArrowDownIcon}
+              onClick={handleSaveForComparison}
+              tooltip="Save for comparison"
             />
             <EditorButton
-              tooltip={isDiff ? "Toggle Code Mode" : "Toggle Diff Mode"}
-              onClick={handleToggleMode}
               Icon={isDiff ? ViewColumnsIcon : CommandLineIcon}
+              onClick={handleToggleMode}
+              tooltip={isDiff ? "Toggle Code Mode" : "Toggle Diff Mode"}
             />
             <EditorButton
-              tooltip="Copy source code"
-              onClick={handleCopy}
               Icon={ClipboardDocumentCheckIcon}
+              onClick={handleCopy}
+              tooltip="Copy source code"
             />
           </div>
         </aside>
         {isDiff ? (
           <DiffEditor
             {...DEFAULT_EDITOR_PROPS}
-            original={html}
             modified={html}
             onMount={handleOnDiffMount}
+            original={html}
           />
         ) : (
-          <Editor {...DEFAULT_EDITOR_PROPS} defaultValue={html} onMount={handleOnCodeMount} />
+          <Editor
+            {...DEFAULT_EDITOR_PROPS}
+            defaultValue={html}
+            onMount={handleOnCodeMount}
+          />
         )}
       </div>
     </div>
-  )
+  );
 }

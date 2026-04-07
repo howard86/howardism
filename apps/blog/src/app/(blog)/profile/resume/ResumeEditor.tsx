@@ -1,55 +1,59 @@
-"use client"
+"use client";
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useRouter } from "next/navigation"
-import { SuccessApiResponse } from "next-api-handler"
-import { useState } from "react"
-import { Control, useForm, useWatch } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import type { SuccessApiResponse } from "next-api-handler";
+import { useState } from "react";
+import { type Control, useForm, useWatch } from "react-hook-form";
 
-import { Container } from "@/app/(common)/Container"
+import { Container } from "@/app/(common)/Container";
 
-import ResumeDocument from "./ResumeDocument"
-import ResumeForm, { DEFAULT_RESUME_FORM } from "./ResumeForm"
-import { type ResumeSchema, resumeSchema } from "./schema"
+import ResumeDocument from "./ResumeDocument";
+import ResumeForm, { DEFAULT_RESUME_FORM } from "./ResumeForm";
+import { type ResumeSchema, resumeSchema } from "./schema";
 
 interface ResumeLiveViewProps {
-  control: Control<ResumeSchema>
+  control: Control<ResumeSchema>;
 }
 
 function ResumeLiveView({ control }: ResumeLiveViewProps) {
   const values = useWatch({
     control,
-  }) as ResumeSchema
+  }) as ResumeSchema;
 
-  const [cachedState, setCachedState] = useState(values)
+  const [cachedState, setCachedState] = useState(values);
 
   const handleRefresh = () => {
-    setCachedState(values)
-  }
+    setCachedState(values);
+  };
 
   return (
     // TODO: replace with other preview layout
     <section className="mt-20">
       <div className="my-4 flex items-center justify-center">
-        <button className="btn btn-primary" type="button" onClick={handleRefresh}>
+        <button
+          className="btn btn-primary"
+          onClick={handleRefresh}
+          type="button"
+        >
           Refresh
         </button>
       </div>
       <ResumeDocument {...cachedState} />
     </section>
-  )
+  );
 }
 
 interface ResumeEditorProps {
-  profileId?: string
-  resume?: ResumeSchema
+  profileId?: string;
+  resume?: ResumeSchema;
 }
 
 export default function ResumeEditor({
   profileId,
   resume = DEFAULT_RESUME_FORM,
 }: ResumeEditorProps) {
-  const router = useRouter()
+  const router = useRouter();
 
   const {
     register,
@@ -60,29 +64,37 @@ export default function ResumeEditor({
     mode: "onBlur",
     resolver: zodResolver(resumeSchema),
     defaultValues: resume,
-  })
+  });
 
   // TODO: add error handling
   const handleCreate = handleSubmit(async (values) => {
-    const response = await fetch(profileId ? `/api/resume?profileId=${profileId}` : "/api/resume", {
-      method: profileId ? "PUT" : "POST",
-      body: JSON.stringify(values),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
+    const response = await fetch(
+      profileId ? `/api/resume?profileId=${profileId}` : "/api/resume",
+      {
+        method: profileId ? "PUT" : "POST",
+        body: JSON.stringify(values),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    const result = (await response.json()) as SuccessApiResponse<string>
+    const result = (await response.json()) as SuccessApiResponse<string>;
 
     if (result.success) {
-      router.push(`/profile/resume/${result.data}`)
+      router.push(`/profile/resume/${result.data}`);
     }
-  }, console.error)
+  }, console.error);
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
-      <ResumeForm register={register} control={control} onSubmit={handleCreate} errors={errors} />
+      <ResumeForm
+        control={control}
+        errors={errors}
+        onSubmit={handleCreate}
+        register={register}
+      />
       <ResumeLiveView control={control} />
     </Container>
-  )
+  );
 }

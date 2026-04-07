@@ -3,39 +3,48 @@ import {
   EnvelopeIcon,
   GlobeAltIcon,
   MapPinIcon,
-} from "@heroicons/react/24/outline"
-import { Merriweather } from "next/font/google"
+} from "@heroicons/react/24/outline";
+import { Merriweather } from "next/font/google";
 
-import { Container } from "@/app/(common)/Container"
-import { GitHubIcon } from "@/app/(common)/icons"
+import { Container } from "@/app/(common)/Container";
+import { GitHubIcon } from "@/app/(common)/icons";
 
-import { ContactListItem } from "./ContactListItem"
-import { EducationListItem, EducationListItemProps } from "./EducationListItem"
-import { ExperienceListItem, ExperienceListItemProps } from "./ExperienceListItem"
-import { LanguageListItem, LanguageListItemProps } from "./LanguageListItem"
-import { ProjectListItem, ProjectListItemProps } from "./ProjectListItem"
-import { SectionTitle } from "./SectionTitle"
-import { SkillListItem, SkillListItemProps } from "./SkillListItem"
+import { ContactListItem } from "./ContactListItem";
+import {
+  EducationListItem,
+  type EducationListItemProps,
+} from "./EducationListItem";
+import {
+  ExperienceListItem,
+  type ExperienceListItemProps,
+} from "./ExperienceListItem";
+import {
+  LanguageListItem,
+  type LanguageListItemProps,
+} from "./LanguageListItem";
+import { ProjectListItem, type ProjectListItemProps } from "./ProjectListItem";
+import { SectionTitle } from "./SectionTitle";
+import { SkillListItem, type SkillListItemProps } from "./SkillListItem";
 
 const articleFont = Merriweather({
   weight: ["400", "700"],
   style: ["italic", "normal"],
   subsets: ["latin"],
-})
+});
 
 export interface ResumeTemplateProps {
-  name: string
-  summary: string
-  address: string
-  phone: string
-  email: string
-  github: string
-  website: string
-  experiences: ExperienceListItemProps[]
-  projects: ProjectListItemProps[]
-  educations: EducationListItemProps[]
-  skills: SkillListItemProps[]
-  languages: LanguageListItemProps[]
+  address: string;
+  educations: EducationListItemProps[];
+  email: string;
+  experiences: ExperienceListItemProps[];
+  github: string;
+  languages: LanguageListItemProps[];
+  name: string;
+  phone: string;
+  projects: ProjectListItemProps[];
+  skills: SkillListItemProps[];
+  summary: string;
+  website: string;
 }
 
 // TODO: remove this template
@@ -56,11 +65,11 @@ export default function ResumeTemplate({
   return (
     <Container className={`mt-6 flex-1 sm:mt-12 ${articleFont.className}`}>
       <article
-        className={`mx-auto h-[297mm] w-[210mm] border border-zinc-50 bg-white pl-12 pr-8 pt-24 shadow-md ${articleFont.className}`}
+        className={`mx-auto h-[297mm] w-[210mm] border border-zinc-50 bg-white pt-24 pr-8 pl-12 shadow-md ${articleFont.className}`}
       >
         <div className="flex items-center justify-between gap-2">
           <section>
-            <h2 className="text-4xl font-bold">{name}</h2>
+            <h2 className="font-bold text-4xl">{name}</h2>
             <p className="mt-2 text-xs leading-5">{summary}</p>
           </section>
           <section className="w-40 flex-shrink-0">
@@ -79,7 +88,10 @@ export default function ResumeTemplate({
               <SectionTitle text="Experience" />
               <ul className="space-y-2">
                 {experiences.map((experience) => (
-                  <ExperienceListItem key={experience.company + experience.title} {...experience} />
+                  <ExperienceListItem
+                    key={experience.company + experience.title}
+                    {...experience}
+                  />
                 ))}
               </ul>
             </section>
@@ -97,7 +109,10 @@ export default function ResumeTemplate({
               <SectionTitle text="Education" />
               <ul className="space-y-2">
                 {educations.map((education) => (
-                  <EducationListItem key={education.facility + education.degree} {...education} />
+                  <EducationListItem
+                    key={education.facility + education.degree}
+                    {...education}
+                  />
                 ))}
               </ul>
             </section>
@@ -121,5 +136,5 @@ export default function ResumeTemplate({
         </div>
       </article>
     </Container>
-  )
+  );
 }

@@ -1,12 +1,12 @@
-import "focus-visible"
-import "@/styles/globals.css"
+import "focus-visible";
+import "@/styles/globals.css";
 
-import { Analytics } from "@vercel/analytics/react"
-import { Metadata, Viewport } from "next"
-import { type ChildrenProps } from "react"
+import { Analytics } from "@vercel/analytics/react";
+import type { Metadata, Viewport } from "next";
+import type { ChildrenProps } from "react";
 
-import GoogleAnalytics from "@/components/GoogleAnalytics"
-import { env } from "@/config/env.mjs"
+import GoogleAnalytics from "@/components/GoogleAnalytics";
+import { env } from "@/config/env.mjs";
 
 import {
   AUTHOR_EMAIL,
@@ -15,9 +15,9 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
   TWITTER_USERNAME,
-} from "../constants"
-import { Footer } from "./(layout)/Footer"
-import { Header } from "./(layout)/Header"
+} from "../constants";
+import { Footer } from "./(layout)/Footer";
+import { Header } from "./(layout)/Header";
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),
@@ -91,29 +91,29 @@ export const metadata: Metadata = {
   alternates: {
     canonical: env.NEXT_PUBLIC_DOMAIN_NAME,
     types: {
-      "application/rss+xml": `/rss/feed.xml`,
-      "application/feed+json": `/rss/feed.json`,
+      "application/rss+xml": "/rss/feed.xml",
+      "application/feed+json": "/rss/feed.json",
     },
   },
   other: {
     "msapplication-TileColor": "#ffffff",
   },
-}
+};
 
 export const viewport: Viewport = {
   themeColor: "#ffffff",
   colorScheme: "light dark",
-}
+};
 
 export default function RootLayout({ children }: ChildrenProps) {
   return (
     <html
+      className="h-full scroll-smooth bg-base-200 bg-texture antialiased"
       data-theme="jp"
       lang="en"
-      className="h-full scroll-smooth bg-base-200 bg-texture antialiased"
     >
       <body className="flex h-full flex-col">
-        <div className="fixed inset-0 flex justify-center sm:px-8" aria-label="content background">
+        <div className="fixed inset-0 flex justify-center sm:px-8">
           <div className="flex w-full max-w-7xl lg:px-8">
             <div className="w-full bg-base-100 ring-1 ring-base-300" />
           </div>
@@ -129,5 +129,5 @@ export default function RootLayout({ children }: ChildrenProps) {
         )}
       </body>
     </html>
-  )
+  );
 }

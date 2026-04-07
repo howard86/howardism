@@ -10,35 +10,41 @@ import {
   List,
   ListItem,
   useDisclosure,
-} from "@chakra-ui/react"
-import { RouteLink } from "@howardism/components-common"
-import { useRouter } from "next/router"
-import { useRef } from "react"
-import { HiMenuAlt2 } from "react-icons/hi"
+} from "@chakra-ui/react";
+import { RouteLink } from "@howardism/components-common";
+import { useRouter } from "next/router";
+import { useRef } from "react";
+import { HiMenuAlt2 } from "react-icons/hi";
 
-import { MENU_LINK_ITEMS } from "@/constants/menu"
+import { MENU_LINK_ITEMS } from "@/constants/menu";
 
-import HorizontalLogo from "../graphics/HorizontalLogo"
+import HorizontalLogo from "../graphics/HorizontalLogo";
 
 export default function MobileDrawer(): JSX.Element {
-  const router = useRouter()
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const router = useRouter();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   return (
     <Box display={{ md: "none" }}>
       <IconButton
         aria-label="open-drawer"
-        ref={btnRef}
         color="primary.600"
-        variant="ghost"
-        onClick={onOpen}
         fontSize="4xl"
         icon={<HiMenuAlt2 />}
+        onClick={onOpen}
+        ref={btnRef}
+        variant="ghost"
       >
         Open
       </IconButton>
-      <Drawer size="xs" placement="left" isOpen={isOpen} onClose={onClose} finalFocusRef={btnRef}>
+      <Drawer
+        finalFocusRef={btnRef}
+        isOpen={isOpen}
+        onClose={onClose}
+        placement="left"
+        size="xs"
+      >
         <DrawerOverlay />
         <DrawerContent bg="secondary.50">
           <DrawerCloseButton />
@@ -51,20 +57,10 @@ export default function MobileDrawer(): JSX.Element {
             <List spacing="8">
               {MENU_LINK_ITEMS.map((item) => {
                 // TODO: implement active-link
-                const isCurrentPage = router.pathname === item.url
+                const isCurrentPage = router.pathname === item.url;
                 return (
                   <ListItem key={item.url}>
                     <RouteLink
-                      py="1"
-                      px="2.5"
-                      color={isCurrentPage ? "secondary.500" : "secondary.400"}
-                      fontSize="xl"
-                      whiteSpace="nowrap"
-                      fontWeight={isCurrentPage ? "bold" : "medium"}
-                      transition="0.15s ease-in-out"
-                      _hover={{
-                        color: "secondary.500",
-                      }}
                       _before={{
                         mt: 4,
                         display: "inline-block",
@@ -77,18 +73,28 @@ export default function MobileDrawer(): JSX.Element {
                         background: "secondary.100",
                         transform: "translateY(-50%)",
                       }}
+                      _hover={{
+                        color: "secondary.500",
+                      }}
+                      color={isCurrentPage ? "secondary.500" : "secondary.400"}
+                      fontSize="xl"
+                      fontWeight={isCurrentPage ? "bold" : "medium"}
                       href={item.url}
                       onClick={onClose}
+                      px="2.5"
+                      py="1"
+                      transition="0.15s ease-in-out"
+                      whiteSpace="nowrap"
                     >
                       {item.label}
                     </RouteLink>
                   </ListItem>
-                )
+                );
               })}
             </List>
           </DrawerBody>
         </DrawerContent>
       </Drawer>
     </Box>
-  )
+  );
 }

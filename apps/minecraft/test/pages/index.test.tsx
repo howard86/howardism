@@ -1,17 +1,14 @@
-import { render, screen } from "@testing-library/react"
+import { describe, expect, it } from "bun:test";
+import { render, screen } from "@testing-library/react";
 
-import Home from "@/pages"
+import Home from "@/pages";
 
 describe("home", () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-
   it("renders the dynamic component", async () => {
-    expect.hasAssertions()
+    expect.hasAssertions();
 
-    render(<Home />)
-    const dynamicComponent = await screen.findByTestId("dynamic-component")
-    expect(dynamicComponent).toBeInTheDocument()
-  })
-})
+    render(<Home />);
+    const dynamicComponent = await screen.findByTestId("dynamic-component");
+    expect(dynamicComponent).toBeDefined();
+  });
+});

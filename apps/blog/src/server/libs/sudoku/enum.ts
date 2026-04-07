@@ -1,7 +1,8 @@
-// eslint-disable-next-line import/prefer-default-export
-export enum SudokuDifficulty {
-  Beginner = "beginner",
-  Medium = "medium",
-  Hard = "hard",
-  Expert = "expert",
-}
+export const SudokuDifficulty = {
+  Beginner: "beginner",
+  Medium: "medium",
+  Hard: "hard",
+  Expert: "expert",
+} as const;
+export type SudokuDifficulty =
+  (typeof SudokuDifficulty)[keyof typeof SudokuDifficulty];

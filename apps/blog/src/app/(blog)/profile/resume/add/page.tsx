@@ -1,5 +1,5 @@
-import ResumeEditor from "../ResumeEditor"
+import ResumeEditor from "../ResumeEditor";
 
 export default function AddResumeProfilePage() {
-  return <ResumeEditor />
+  return <ResumeEditor />;
 }

@@ -1,23 +1,23 @@
-import prisma from "../src/services/prisma"
+import prisma from "../src/services/prisma";
 
 const main = async () => {
   try {
     const [existedUser, existedAccount] = await Promise.all([
       prisma.user.findFirst(),
       prisma.account.findFirst(),
-    ])
+    ]);
 
     if (existedUser || existedAccount) {
-      console.log("Skip creating user and account")
+      console.log("Skip creating user and account");
     } else {
       const user = await prisma.user.create({
         data: {
           name: "Seed User",
           email: "seed@test.com",
         },
-      })
+      });
 
-      console.log("User created: ", user)
+      console.log("User created: ", user);
 
       const account = await prisma.account.create({
         data: {
@@ -26,15 +26,15 @@ const main = async () => {
           providerAccountId: "seed-id",
           userId: user.id,
         },
-      })
+      });
 
-      console.log("Account created: ", account)
+      console.log("Account created: ", account);
     }
 
-    const existedProduct = await prisma.commerceProduct.findFirst()
+    const existedProduct = await prisma.commerceProduct.findFirst();
 
     if (existedProduct) {
-      console.log("Skip creating products")
+      console.log("Skip creating products");
     } else {
       const products = await prisma.commerceProduct.createMany({
         data: [
@@ -69,16 +69,16 @@ const main = async () => {
             imageAlt: "White Classical Vase",
           },
         ],
-      })
+      });
 
-      console.log(`Created ${products.count} products`)
+      console.log(`Created ${products.count} products`);
     }
   } catch (e) {
-    console.error(e)
-    process.exit(1)
+    console.error(e);
+    process.exit(1);
   } finally {
-    await prisma.$disconnect()
+    await prisma.$disconnect();
   }
-}
+};
 
-main()
+main();
