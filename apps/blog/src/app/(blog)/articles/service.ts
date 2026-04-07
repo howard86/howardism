@@ -1,73 +1,90 @@
-import "server-only"
+import "server-only";
 
-import { join } from "node:path"
+import { join } from "node:path";
 
-import glob from "fast-glob"
-import { StaticImageData } from "next/image"
-import { cache } from "react"
+import glob from "fast-glob";
+import type { StaticImageData } from "next/image";
+import { cache } from "react";
 
-export type Normalise<T> = {
-  ids: string[]
-  entities: Record<string, T | undefined>
+export interface Normalise<T> {
+  entities: Record<string, T | undefined>;
+  ids: string[];
 }
 
-export type ArticleEntity = {
-  position: number
-  slug: string
-  meta: ArticleMeta
+export interface ArticleEntity {
+  meta: ArticleMeta;
+  position: number;
+  slug: string;
 }
 
 export interface ArticleMeta {
-  title: string
-  description: string
-  date: string
+  date: string;
+  description: string;
   image: {
-    src: StaticImageData
-    alt: string
-  }
+    src: StaticImageData;
+    alt: string;
+  };
+  title: string;
 }
 
-export const getArticles = cache(async (): Promise<Normalise<ArticleEntity>> => {
-  const filenames = await glob("**/page.mdx", {
-    cwd: join(process.cwd(), "src", "app", "(blog)", "articles", "[slug]", "(docs)"),
-  })
+const PAGE_MDX_SUFFIX = /\/page.mdx$/;
 
-  const files = await Promise.all(
-    filenames.map(async (filename) => {
-      const meta = await import(`./[slug]/(docs)/${filename}`).then((m) => m.meta as ArticleMeta)
+export const getArticles = cache(
+  async (): Promise<Normalise<ArticleEntity>> => {
+    const filenames = await glob("**/page.mdx", {
+      cwd: join(
+        process.cwd(),
+        "src",
+        "app",
+        "(blog)",
+        "articles",
+        "[slug]",
+        "(docs)"
+      ),
+    });
 
-      return {
-        slug: filename.replace(/\/page.mdx$/, ""),
-        meta,
-      }
-    }),
-  )
+    const files = await Promise.all(
+      filenames.map(async (filename) => {
+        const meta = await import(`./[slug]/(docs)/${filename}`).then(
+          (m) => m.meta as ArticleMeta
+        );
 
-  files.sort((a, b) => new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf())
+        return {
+          slug: filename.replace(PAGE_MDX_SUFFIX, ""),
+          meta,
+        };
+      })
+    );
 
-  const results: Normalise<ArticleEntity> = {
-    ids: [],
-    entities: {},
+    files.sort(
+      (a, b) =>
+        new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf()
+    );
+
+    const results: Normalise<ArticleEntity> = {
+      ids: [],
+      entities: {},
+    };
+
+    files.forEach((file, index) => {
+      results.ids.push(file.slug);
+      results.entities[file.slug] = {
+        position: index,
+        ...file,
+      };
+    });
+
+    return results;
   }
-
-  files.forEach((file, index) => {
-    results.ids.push(file.slug)
-    results.entities[file.slug] = {
-      position: index,
-      ...file,
-    }
-  })
-
-  return results
-})
+);
 
 export const getSlicedArticles = cache(
   async (count?: number): Promise<Normalise<ArticleEntity>> => {
-    const articles = await getArticles()
+    const articles = await getArticles();
 
     return {
       ids: articles.ids.slice(0, count),
       entities: articles.entities,
-    }
-  },
-)
+    };
+  }
+);

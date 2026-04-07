@@ -19,42 +19,42 @@
  */
 // eslint-disable-next-line import/prefer-default-export
 export const sampleSize = <T>(array: T[], n: number = array.length): T[] => {
-  const { length } = array
+  const { length } = array;
 
   if (length <= 1) {
-    return array
+    return array;
   }
 
-  const count = n > length ? length : n
-  let index = 0
-  const lastIndex = length - 1
-  const result = [...array]
+  const count = n > length ? length : n;
+  let index = 0;
+  const lastIndex = length - 1;
+  const result = [...array];
   while (index < count) {
-    const rand = index + Math.floor(Math.random() * (lastIndex - index + 1))
-    const value = result[rand]
-    result[rand] = result[index]
-    result[index] = value
-    index += 1
+    const rand = index + Math.floor(Math.random() * (lastIndex - index + 1));
+    const value = result[rand];
+    result[rand] = result[index];
+    result[index] = value;
+    index += 1;
   }
-  return result.slice(0, count)
-}
+  return result.slice(0, count);
+};
 
-export type Normalized<T extends { id: string }> = {
-  ids: string[]
-  entities: NodeJS.Dict<T>
+export interface Normalized<T extends { id: string }> {
+  entities: NodeJS.Dict<T>;
+  ids: string[];
 }
 
 export const normalize = <T extends { id: string }>(items: T[]) => {
-  const ids: string[] = []
-  const entities: NodeJS.Dict<T> = {}
+  const ids: string[] = [];
+  const entities: NodeJS.Dict<T> = {};
 
   for (const item of items) {
-    ids.push(item.id)
-    entities[item.id] = item
+    ids.push(item.id);
+    entities[item.id] = item;
   }
 
   return {
     ids,
     entities,
-  }
-}
+  };
+};

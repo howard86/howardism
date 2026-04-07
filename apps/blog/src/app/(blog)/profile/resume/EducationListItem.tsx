@@ -1,10 +1,10 @@
 export interface EducationListItemProps {
-  facility: string
-  degree: string
-  location: string
-  startDate: string
-  endDate: string
-  items: string[]
+  degree: string;
+  endDate: string;
+  facility: string;
+  items: string[];
+  location: string;
+  startDate: string;
 }
 
 export function EducationListItem({
@@ -18,11 +18,11 @@ export function EducationListItem({
   return (
     <li>
       <div>
-        <h3 className="text-2xs font-bold">
+        <h3 className="font-bold text-2xs">
           {facility}, {location}
         </h3>
         <em className="text-xs">{degree}</em>
-        <p className="text-2xs uppercase ">
+        <p className="text-2xs uppercase">
           {startDate} - {endDate}
         </p>
         <ul className="list-outside list-disc text-2xs">
@@ -34,5 +34,5 @@ export function EducationListItem({
         </ul>
       </div>
     </li>
-  )
+  );
 }

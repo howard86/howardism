@@ -1,32 +1,36 @@
-import Link from "next/link"
+import Link from "next/link";
 
-import { InnerContainer, OuterContainer } from "@/app/(common)/Container"
+import { InnerContainer, OuterContainer } from "@/app/(common)/Container";
 
-import { NAV_SECTION_KEYS, NavSection } from "./constants"
+import { NAV_SECTION_KEYS, NavSection } from "./constants";
 
 export function Footer() {
   return (
     <footer className="mt-32">
       <OuterContainer>
-        <div className="border-t border-base-300 pb-16 pt-10">
+        <div className="border-base-300 border-t pt-10 pb-16">
           <InnerContainer>
             <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-              <ul className="flex gap-6 text-sm font-medium text-base-content">
+              <ul className="flex gap-6 font-medium text-base-content text-sm">
                 {NAV_SECTION_KEYS.map((key) => (
                   <li key={key}>
-                    <Link href={NavSection[key]} className="link-hover link-neutral link">
+                    <Link
+                      className="link-hover link-neutral link"
+                      href={NavSection[key]}
+                    >
                       {key}
                     </Link>
                   </li>
                 ))}
               </ul>
-              <p className="text-sm text-base-content/60">
-                &copy; {new Date().getFullYear()} Howard Tai. All rights reserved.
+              <p className="text-base-content/60 text-sm">
+                &copy; {new Date().getFullYear()} Howard Tai. All rights
+                reserved.
               </p>
             </div>
           </InnerContainer>
         </div>
       </OuterContainer>
     </footer>
-  )
+  );
 }

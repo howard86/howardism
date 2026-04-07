@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { Tab } from "@headlessui/react"
+import { Tab } from "@headlessui/react";
 import {
   AcademicCapIcon,
   BriefcaseIcon,
@@ -9,17 +9,22 @@ import {
   InboxStackIcon,
   LanguageIcon,
   WrenchScrewdriverIcon,
-} from "@heroicons/react/24/outline"
-import clsx from "clsx"
-import type { FormEvent } from "react"
-import type { Control, FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
+} from "@heroicons/react/24/outline";
+import clsx from "clsx";
+import type { FormEvent } from "react";
+import type {
+  Control,
+  FieldErrors,
+  FieldValues,
+  UseFormRegister,
+} from "react-hook-form";
 
-import FormInput from "@/app/(common)/FormInput"
+import FormInput from "@/app/(common)/FormInput";
 
-import FormArraySection from "./FormArraySection"
-import FormSectionContainer from "./FormSectionContainer"
-import FormTextArea from "./FormTextArea"
-import type { ResumeSchema } from "./schema"
+import FormArraySection from "./FormArraySection";
+import FormSectionContainer from "./FormSectionContainer";
+import FormTextArea from "./FormTextArea";
+import type { ResumeSchema } from "./schema";
 
 const navigation = [
   { name: "Personal", icon: IdentificationIcon },
@@ -29,11 +34,14 @@ const navigation = [
   { name: "Projects", icon: InboxStackIcon },
   { name: "Skills", icon: WrenchScrewdriverIcon },
   { name: "Languages", icon: LanguageIcon },
-]
+];
 
-export type ReplaceValueToString<T extends { items: string[] }> = Omit<T, "items"> & {
-  items: string
-}
+export type ReplaceValueToString<T extends { items: string[] }> = Omit<
+  T,
+  "items"
+> & {
+  items: string;
+};
 
 export const DEFAULT_RESUME_FORM: ResumeSchema = {
   name: "",
@@ -86,13 +94,13 @@ export const DEFAULT_RESUME_FORM: ResumeSchema = {
   skills: [{ title: "", items: "" }],
 
   languages: [{ name: "", proficiency: "" }],
-}
+};
 
 interface ResumeFormProps<T extends FieldValues> {
-  control: Control<T>
-  register: UseFormRegister<T>
-  errors: FieldErrors<T>
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  control: Control<T>;
+  errors: FieldErrors<T>;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  register: UseFormRegister<T>;
 }
 
 export default function ResumeForm({
@@ -102,33 +110,38 @@ export default function ResumeForm({
   onSubmit,
 }: ResumeFormProps<ResumeSchema>) {
   return (
-    <Tab.Group as="div" vertical className="lg:grid lg:grid-cols-12 lg:gap-x-5">
-      <Tab.List as="aside" className="space-y-1 px-2 py-6 sm:px-6 lg:col-span-3 lg:px-0 lg:py-0">
+    <Tab.Group as="div" className="lg:grid lg:grid-cols-12 lg:gap-x-5" vertical>
+      <Tab.List
+        as="aside"
+        className="space-y-1 px-2 py-6 sm:px-6 lg:col-span-3 lg:px-0 lg:py-0"
+      >
         {({ selectedIndex }) => (
           <>
             {navigation.map((item, index) => {
-              const selected = selectedIndex === index
+              const selected = selectedIndex === index;
 
               return (
                 <Tab
-                  key={item.name}
                   className={clsx(
                     selected
                       ? "bg-base-200 text-primary hover:bg-base-300 hover:text-primary-focus"
                       : "text-base-content hover:bg-base-200 hover:text-primary",
-                    "group flex w-full items-center rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors",
+                    "group flex w-full items-center rounded-md px-3 py-2 font-medium text-sm outline-none transition-colors"
                   )}
+                  key={item.name}
                 >
                   <item.icon
-                    className={clsx(
-                      selected ? "group-hover:text-primary-focus" : "group-hover:text-primary",
-                      "-ml-1 mr-3 w-6",
-                    )}
                     aria-hidden="true"
+                    className={clsx(
+                      selected
+                        ? "group-hover:text-primary-focus"
+                        : "group-hover:text-primary",
+                      "mr-3 -ml-1 w-6"
+                    )}
                   />
                   <span className="truncate">{item.name}</span>
                 </Tab>
-              )
+              );
             })}
           </>
         )}
@@ -147,49 +160,49 @@ export default function ResumeForm({
               >
                 <FormInput
                   className="col-span-6 sm:col-span-3"
-                  register={register}
                   errors={errors}
-                  name="name"
                   label="Name"
+                  name="name"
+                  register={register}
                 />
                 <FormInput
                   className="col-span-6"
-                  register={register}
                   errors={errors}
-                  name="address"
                   label="Address"
+                  name="address"
+                  register={register}
                 />
                 <FormInput
-                  className="col-span-6 sm:col-span-3"
-                  register={register}
-                  errors={errors}
-                  name="phone"
-                  label="Phone"
-                  type="tel"
                   autoComplete="phone"
+                  className="col-span-6 sm:col-span-3"
+                  errors={errors}
+                  label="Phone"
+                  name="phone"
+                  register={register}
+                  type="tel"
                 />
                 <FormInput
-                  className="col-span-6 sm:col-span-3"
-                  register={register}
-                  errors={errors}
-                  name="email"
-                  label="Email"
-                  type="email"
                   autoComplete="email"
+                  className="col-span-6 sm:col-span-3"
+                  errors={errors}
+                  label="Email"
+                  name="email"
+                  register={register}
+                  type="email"
                 />
                 <FormInput
                   className="col-span-6 sm:col-span-3"
-                  register={register}
                   errors={errors}
-                  name="github"
                   label="GitHub"
+                  name="github"
+                  register={register}
                 />
                 <FormInput
                   className="col-span-6 sm:col-span-3"
-                  register={register}
                   errors={errors}
-                  name="website"
                   label="Website"
+                  name="website"
+                  register={register}
                   type="url"
                 />
               </FormSectionContainer>
@@ -202,262 +215,262 @@ export default function ResumeForm({
               >
                 <FormInput
                   className="col-span-6 sm:col-span-3"
-                  register={register}
                   errors={errors}
-                  name="company"
                   label="Company Name"
+                  name="company"
+                  register={register}
                 />
                 <FormInput
                   className="col-span-6 sm:col-span-3"
-                  register={register}
                   errors={errors}
-                  name="position"
                   label="Applying Position"
+                  name="position"
+                  register={register}
                 />
                 <FormTextArea
                   className="col-span-6"
-                  register={register}
                   errors={errors}
-                  name="summary"
                   label="Personal Statement"
+                  name="summary"
+                  register={register}
                 />
               </FormSectionContainer>
             </Tab.Panel>
 
             <Tab.Panel>
               <FormArraySection
-                control={control}
                 arrayName="experiences"
                 arrayValue={DEFAULT_RESUME_FORM.experiences[0]}
+                control={control}
                 heading="Work Experience"
-                subheading="Related work experience for this position"
                 renderFormItems={(index: number) => (
                   <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.company`}
                       label="Company Name"
+                      name={`experiences.${index}.company`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.companyDescription`}
                       label="Company Description"
+                      name={`experiences.${index}.companyDescription`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.companyUrl`}
                       label="Company Url"
+                      name={`experiences.${index}.companyUrl`}
+                      register={register}
                       type="url"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.title`}
                       label="Title"
+                      name={`experiences.${index}.title`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.location`}
                       label="Location"
+                      name={`experiences.${index}.location`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.size`}
                       label="Team Size"
+                      name={`experiences.${index}.size`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.startDate`}
                       label="Start Date"
+                      name={`experiences.${index}.startDate`}
+                      register={register}
                       type="date"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.endDate`}
                       label="End Date"
+                      name={`experiences.${index}.endDate`}
+                      register={register}
                       type="date"
                     />
                     <FormTextArea
                       className="col-span-6"
-                      register={register}
                       errors={errors}
-                      name={`experiences.${index}.description`}
-                      label="Description in Markdown format"
                       helperText="To create a list, start writing with -"
+                      label="Description in Markdown format"
+                      name={`experiences.${index}.description`}
+                      register={register}
                     />
                   </>
                 )}
+                subheading="Related work experience for this position"
               />
             </Tab.Panel>
 
             <Tab.Panel>
               <FormArraySection
-                control={control}
                 arrayName="educations"
                 arrayValue={DEFAULT_RESUME_FORM.educations[0]}
+                control={control}
                 heading="Education"
-                subheading="Academic background"
                 renderFormItems={(index: number) => (
                   <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`educations.${index}.facility`}
                       label="Name"
+                      name={`educations.${index}.facility`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`educations.${index}.location`}
                       label="Location"
+                      name={`educations.${index}.location`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6"
-                      register={register}
                       errors={errors}
-                      name={`educations.${index}.degree`}
                       label="Degree"
+                      name={`educations.${index}.degree`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`educations.${index}.startDate`}
                       label="Start Date"
+                      name={`educations.${index}.startDate`}
+                      register={register}
                       type="date"
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`educations.${index}.endDate`}
                       label="End Date"
+                      name={`educations.${index}.endDate`}
+                      register={register}
                       type="date"
                     />
                     <FormTextArea
                       className="col-span-6"
-                      register={register}
                       errors={errors}
-                      name={`educations.${index}.description`}
-                      label="Description in Markdown format"
                       helperText="To create a list, start writing with -"
+                      label="Description in Markdown format"
+                      name={`educations.${index}.description`}
+                      register={register}
                     />
                   </>
                 )}
+                subheading="Academic background"
               />
             </Tab.Panel>
 
             <Tab.Panel>
               <FormArraySection
-                control={control}
                 arrayName="projects"
                 arrayValue={DEFAULT_RESUME_FORM.projects[0]}
+                control={control}
                 heading="Projects"
-                subheading="Other side projects that you are willing to reference"
                 renderFormItems={(index: number) => (
                   <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`projects.${index}.title`}
                       label="Name"
+                      name={`projects.${index}.title`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6"
-                      register={register}
                       errors={errors}
-                      name={`projects.${index}.subtitle`}
                       label="Description"
+                      name={`projects.${index}.subtitle`}
+                      register={register}
                     />
                     <FormTextArea
                       className="col-span-6"
-                      register={register}
                       errors={errors}
-                      name={`projects.${index}.description`}
-                      label="Description in Markdown format"
                       helperText="To create a list, start writing with -"
+                      label="Description in Markdown format"
+                      name={`projects.${index}.description`}
+                      register={register}
                     />
                   </>
                 )}
+                subheading="Project portfolio"
               />
             </Tab.Panel>
 
             <Tab.Panel>
               <FormArraySection
-                control={control}
                 arrayName="skills"
                 arrayValue={DEFAULT_RESUME_FORM.skills[0]}
+                control={control}
                 heading="Skills"
-                subheading="Related skills for applying positions"
                 renderFormItems={(index: number) => (
                   <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`skills.${index}.title`}
                       label="Category"
+                      name={`skills.${index}.title`}
+                      register={register}
                     />
                     <FormTextArea
                       className="col-span-6"
-                      register={register}
                       errors={errors}
-                      name={`skills.${index}.items`}
                       label="Description"
+                      name={`skills.${index}.items`}
+                      register={register}
                     />
                   </>
                 )}
+                subheading="Related skills for applying positions"
               />
             </Tab.Panel>
 
             <Tab.Panel>
               <FormArraySection
-                control={control}
                 arrayName="languages"
                 arrayValue={DEFAULT_RESUME_FORM.languages[0]}
+                control={control}
                 heading="Languages"
-                subheading="Communication Tools"
                 renderFormItems={(index: number) => (
                   <>
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`languages.${index}.name`}
                       label="Name"
+                      name={`languages.${index}.name`}
+                      register={register}
                     />
                     <FormInput
                       className="col-span-6 sm:col-span-3"
-                      register={register}
                       errors={errors}
-                      name={`languages.${index}.proficiency`}
                       label="Proficiency"
+                      name={`languages.${index}.proficiency`}
+                      register={register}
                     />
                   </>
                 )}
+                subheading="Communication Tools"
               />
             </Tab.Panel>
 
             <div className="bg-base-200/40 px-4 py-3 text-right sm:px-6">
-              <button type="submit" className="btn btn-primary">
+              <button className="btn btn-primary" type="submit">
                 Save
               </button>
             </div>
@@ -465,5 +478,5 @@ export default function ResumeForm({
         </form>
       </div>
     </Tab.Group>
-  )
+  );
 }

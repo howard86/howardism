@@ -1,22 +1,29 @@
-import "server-only"
+import "server-only";
 
-import { Feed } from "feed"
-import { cache } from "react"
+import { Feed } from "feed";
+import { cache } from "react";
 
-import { getArticles } from "../(blog)/articles/service"
-import { AUTHOR_EMAIL, AUTHOR_NAME, SITE_DESCRIPTION, SITE_NAME } from "../constants"
+import { getArticles } from "../(blog)/articles/service";
+import {
+  AUTHOR_EMAIL,
+  AUTHOR_NAME,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+} from "../constants";
 
-const siteUrl = process.env.NEXT_PUBLIC_DOMAIN_NAME
+const siteUrl = process.env.NEXT_PUBLIC_DOMAIN_NAME;
 
 export const generateFeed = cache(async (): Promise<Feed> => {
-  if (!siteUrl) throw new Error("Failed to get env=NEXT_PUBLIC_DOMAIN_NAME")
+  if (!siteUrl) {
+    throw new Error("Failed to get env=NEXT_PUBLIC_DOMAIN_NAME");
+  }
 
-  const articles = await getArticles()
+  const articles = await getArticles();
 
   const author = {
     name: AUTHOR_NAME,
     email: AUTHOR_EMAIL,
-  }
+  };
 
   const feed = new Feed({
     title: SITE_NAME,
@@ -31,12 +38,12 @@ export const generateFeed = cache(async (): Promise<Feed> => {
       rss2: `${siteUrl}/rss/feed.xml`,
       json: `${siteUrl}/rss/feed.json`,
     },
-  })
+  });
 
   for (const slug of articles.ids) {
-    const article = articles.entities[slug]
+    const article = articles.entities[slug];
 
-    const url = `${siteUrl}/articles/${slug}`
+    const url = `${siteUrl}/articles/${slug}`;
 
     if (article) {
       feed.addItem({
@@ -47,9 +54,9 @@ export const generateFeed = cache(async (): Promise<Feed> => {
         author: [author],
         contributor: [author],
         date: new Date(article.meta.date),
-      })
+      });
     }
   }
 
-  return feed
-})
+  return feed;
+});

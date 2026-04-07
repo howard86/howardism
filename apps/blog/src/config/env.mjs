@@ -1,5 +1,5 @@
-import { createEnv } from "@t3-oss/env-nextjs"
-import { z } from "zod"
+import { createEnv } from "@t3-oss/env-nextjs";
+import { z } from "zod";
 
 export const env = createEnv({
   server: {
@@ -26,7 +26,8 @@ export const env = createEnv({
   },
   runtimeEnv: {
     isLive:
-      process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_VERCEL_ENV === "production",
+      process.env.NODE_ENV === "production" &&
+      process.env.NEXT_PUBLIC_VERCEL_ENV === "production",
 
     CMS_API_ENDPOINT: process.env.CMS_API_ENDPOINT,
     CMS_API_KEY: process.env.CMS_API_KEY,
@@ -45,6 +46,7 @@ export const env = createEnv({
 
     NEXT_PUBLIC_DOMAIN_NAME: process.env.NEXT_PUBLIC_DOMAIN_NAME,
     NEXT_PUBLIC_GA_MEASUREMENT_ID: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
-    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
+    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:
+      process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
   },
-})
+});

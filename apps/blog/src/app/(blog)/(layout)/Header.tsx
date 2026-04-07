@@ -1,29 +1,34 @@
-"use client"
+"use client";
 
-import { Popover, Transition } from "@headlessui/react"
-import clsx from "clsx"
-import Image from "next/image"
-import Link, { LinkProps } from "next/link"
-import { usePathname } from "next/navigation"
+import { Popover, Transition } from "@headlessui/react";
+import clsx from "clsx";
+import Image from "next/image";
+import Link, { type LinkProps } from "next/link";
+import { usePathname } from "next/navigation";
 import {
-  ChangeEvent,
-  ChildrenProps,
-  ComponentType,
-  CSSProperties,
+  type ChangeEvent,
+  type ChildrenProps,
+  type ComponentType,
+  type CSSProperties,
   Fragment,
   useEffect,
   useRef,
   useState,
-} from "react"
-import { DivProps } from "react-html-props"
+} from "react";
+import type { DivProps } from "react-html-props";
 
-import { Container } from "@/app/(common)/Container"
-import { ChevronDownIcon, CloseIcon, MoonIcon, SunIcon } from "@/app/(common)/icons"
-import profile from "@/profile.jpeg"
+import { Container } from "@/app/(common)/Container";
+import {
+  ChevronDownIcon,
+  CloseIcon,
+  MoonIcon,
+  SunIcon,
+} from "@/app/(common)/icons";
+import profile from "@/profile.jpeg";
 
-import { NAV_SECTION_KEYS, NavSection } from "./constants"
+import { NAV_SECTION_KEYS, NavSection } from "./constants";
 
-type ExtractProps<T> = T extends ComponentType<infer P> ? P : T
+type ExtractProps<T> = T extends ComponentType<infer P> ? P : T;
 
 function MobileNavigation(props: ExtractProps<typeof Popover>) {
   return (
@@ -54,14 +59,19 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
           leaveTo="opacity-0 scale-95"
         >
           <Popover.Panel
-            focus
             className="fixed inset-x-4 top-8 z-50 origin-top rounded-3xl bg-base-100 p-8 ring-1 ring-base-200"
+            focus
           >
             <div className="flex flex-row-reverse items-center justify-between">
-              <Popover.Button aria-label="Close menu" className="btn-brand btn btn-circle btn-sm">
+              <Popover.Button
+                aria-label="Close menu"
+                className="btn-brand btn btn-circle btn-sm"
+              >
                 <CloseIcon />
               </Popover.Button>
-              <h2 className="text-sm font-medium text-base-content">Navigation</h2>
+              <h2 className="font-medium text-base-content text-sm">
+                Navigation
+              </h2>
             </div>
             <nav className="mt-6">
               <ul className="-my-2 divide-y divide-base-300 text-base text-base-content">
@@ -69,8 +79,8 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
                   <li key={key}>
                     <Popover.Button
                       as={Link}
-                      href={NavSection[key]}
                       className="link-hover link block py-2"
+                      href={NavSection[key]}
                     >
                       {key}
                     </Popover.Button>
@@ -82,17 +92,20 @@ function MobileNavigation(props: ExtractProps<typeof Popover>) {
         </Transition.Child>
       </Transition.Root>
     </Popover>
-  )
+  );
 }
 
 function NavItem({ href, children }: LinkProps & ChildrenProps) {
-  const isActive = usePathname() === href
+  const isActive = usePathname() === href;
 
   return (
     <li>
       <Link
+        className={clsx(
+          "tab transition-all",
+          isActive && "tab-active text-primary"
+        )}
         href={href}
-        className={clsx("tab transition-all", isActive && "tab-active text-primary")}
       >
         {children}
         {isActive && (
@@ -100,44 +113,47 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
         )}
       </Link>
     </li>
-  )
+  );
 }
 
 function DesktopNavigation(props: DivProps) {
   return (
     <nav {...props}>
-      <ul className="tab-md flex items-center rounded-full bg-base-100/80 text-sm font-medium shadow-md shadow-base-200 ring-1 ring-base-200/40 backdrop:blur">
+      <ul className="tab-md flex items-center rounded-full bg-base-100/80 font-medium text-sm shadow-base-200 shadow-md ring-1 ring-base-200/40 backdrop:blur">
         {NAV_SECTION_KEYS.map((key) => (
-          <NavItem key={key} href={NavSection[key]}>
+          <NavItem href={NavSection[key]} key={key}>
             {key}
           </NavItem>
         ))}
       </ul>
     </nav>
-  )
+  );
 }
 
 function ModeToggle() {
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setIsDarkMode(!event.target.checked)
-    document.documentElement.setAttribute("data-theme", event.target.checked ? "jp" : "dark")
-  }
+    setIsDarkMode(!event.target.checked);
+    document.documentElement.setAttribute(
+      "data-theme",
+      event.target.checked ? "jp" : "dark"
+    );
+  };
 
   return (
     <label className="btn-brand group btn btn-circle swap swap-rotate btn-sm shadow-sm">
       <input checked={!isDarkMode} onChange={handleChange} type="checkbox" />
       <SunIcon className="swap-on w-5 fill-transparent stroke-primary group-hover:stroke-primary-focus" />
-      <MoonIcon className="swap-off w-5 fill-transparent stroke-base-content " />
+      <MoonIcon className="swap-off w-5 fill-transparent stroke-base-content" />
     </label>
-  )
+  );
 }
 
 function clamp(number: number, a: number, b: number) {
-  const min = Math.min(a, b)
-  const max = Math.max(a, b)
-  return Math.min(Math.max(number, min), max)
+  const min = Math.min(a, b);
+  const max = Math.max(a, b);
+  return Math.min(Math.max(number, min), max);
 }
 
 function AvatarContainer({ className, ...props }: DivProps) {
@@ -145,133 +161,153 @@ function AvatarContainer({ className, ...props }: DivProps) {
     <div
       className={clsx(
         className,
-        "rounded-full bg-base-100 p-0.5 shadow-sm shadow-base-200 ring-1 ring-base-300 backdrop-blur",
+        "rounded-full bg-base-100 p-0.5 shadow-base-200 shadow-sm ring-1 ring-base-300 backdrop-blur"
       )}
       {...props}
     />
-  )
+  );
 }
 
 interface AvatarProps extends Partial<LinkProps> {
-  large?: boolean
-  className?: string
-  style?: Partial<CSSProperties>
+  className?: string;
+  large?: boolean;
+  style?: Partial<CSSProperties>;
 }
 
-function Avatar({ large = false, className, href = "/", ...props }: AvatarProps) {
+function Avatar({
+  large = false,
+  className,
+  href = "/",
+  ...props
+}: AvatarProps) {
   return (
     <Link
-      href={href}
       aria-label="Home"
       className={clsx(className, "pointer-events-auto")}
+      href={href}
       {...props}
     >
       <Image
-        src={profile}
         alt=""
-        className={clsx("h-auto rounded-full bg-base-200 object-cover", large ? "w-16" : "w-9")}
+        className={clsx(
+          "h-auto rounded-full bg-base-200 object-cover",
+          large ? "w-16" : "w-9"
+        )}
         priority
         sizes={large ? "4rem" : "2.25rem"}
+        src={profile}
       />
     </Link>
-  )
+  );
 }
 
 export function Header() {
-  const isHomePage = usePathname() === "/"
+  const isHomePage = usePathname() === "/";
 
-  const headerRef = useRef<HTMLDivElement>(null)
-  const avatarRef = useRef<HTMLDivElement>(null)
-  const isInitial = useRef(true)
+  const headerRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
+  const isInitial = useRef(true);
 
   useEffect(() => {
-    const downDelay = avatarRef.current?.offsetTop ?? 0
-    const upDelay = 64
+    const downDelay = avatarRef.current?.offsetTop ?? 0;
+    const upDelay = 64;
 
     function setProperty(property: string, value: string) {
-      document.documentElement.style.setProperty(property, value)
+      document.documentElement.style.setProperty(property, value);
     }
 
     function removeProperty(property: string) {
-      document.documentElement.style.removeProperty(property)
+      document.documentElement.style.removeProperty(property);
     }
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: header scroll logic is inherently complex
     function updateHeaderStyles() {
-      if (!headerRef.current) return
-
-      const { top, height } = headerRef.current.getBoundingClientRect()
-      const scrollY = clamp(window.scrollY, 0, document.body.scrollHeight - window.innerHeight)
-
-      if (isInitial.current) {
-        setProperty("--header-position", "sticky")
+      if (!headerRef.current) {
+        return;
       }
 
-      setProperty("--content-offset", `${downDelay}px`)
+      const { top, height } = headerRef.current.getBoundingClientRect();
+      const scrollY = clamp(
+        window.scrollY,
+        0,
+        document.body.scrollHeight - window.innerHeight
+      );
+
+      if (isInitial.current) {
+        setProperty("--header-position", "sticky");
+      }
+
+      setProperty("--content-offset", `${downDelay}px`);
 
       if (isInitial.current || scrollY < downDelay) {
-        setProperty("--header-height", `${downDelay + height}px`)
-        setProperty("--header-mb", `${-downDelay}px`)
+        setProperty("--header-height", `${downDelay + height}px`);
+        setProperty("--header-mb", `${-downDelay}px`);
       } else if (top + height < -upDelay) {
-        const offset = Math.max(height, scrollY - upDelay)
-        setProperty("--header-height", `${offset}px`)
-        setProperty("--header-mb", `${height - offset}px`)
+        const offset = Math.max(height, scrollY - upDelay);
+        setProperty("--header-height", `${offset}px`);
+        setProperty("--header-mb", `${height - offset}px`);
       } else if (top === 0) {
-        setProperty("--header-height", `${scrollY + height}px`)
-        setProperty("--header-mb", `${-scrollY}px`)
+        setProperty("--header-height", `${scrollY + height}px`);
+        setProperty("--header-mb", `${-scrollY}px`);
       }
 
       if (top === 0 && scrollY > 0 && scrollY >= downDelay) {
-        setProperty("--header-inner-position", "fixed")
-        removeProperty("--header-top")
-        removeProperty("--avatar-top")
+        setProperty("--header-inner-position", "fixed");
+        removeProperty("--header-top");
+        removeProperty("--avatar-top");
       } else {
-        removeProperty("--header-inner-position")
-        setProperty("--header-top", "0px")
-        setProperty("--avatar-top", "0px")
+        removeProperty("--header-inner-position");
+        setProperty("--header-top", "0px");
+        setProperty("--avatar-top", "0px");
       }
     }
 
     function updateAvatarStyles() {
-      if (!isHomePage) return
+      if (!isHomePage) {
+        return;
+      }
 
-      const fromScale = 1
-      const toScale = 36 / 64
-      const fromX = 0
-      const toX = 2 / 16
+      const fromScale = 1;
+      const toScale = 36 / 64;
+      const fromX = 0;
+      const toX = 2 / 16;
 
-      const scrollY = downDelay - window.scrollY
+      const scrollY = downDelay - window.scrollY;
 
-      let scale = (scrollY * (fromScale - toScale)) / downDelay + toScale
-      scale = clamp(scale, fromScale, toScale)
+      let scale = (scrollY * (fromScale - toScale)) / downDelay + toScale;
+      scale = clamp(scale, fromScale, toScale);
 
-      let x = (scrollY * (fromX - toX)) / downDelay + toX
-      x = clamp(x, fromX, toX)
+      let x = (scrollY * (fromX - toX)) / downDelay + toX;
+      x = clamp(x, fromX, toX);
 
-      setProperty("--avatar-image-transform", `translate3d(${x}rem, 0, 0) scale(${scale})`)
+      setProperty(
+        "--avatar-image-transform",
+        `translate3d(${x}rem, 0, 0) scale(${scale})`
+      );
 
-      const borderScale = 1 / (toScale / scale)
-      const borderX = (-toX + x) * borderScale
-      const borderTransform = `translate3d(${borderX}rem, 0, 0) scale(${borderScale})`
+      const borderScale = 1 / (toScale / scale);
+      const borderX = (-toX + x) * borderScale;
+      const borderTransform = `translate3d(${borderX}rem, 0, 0) scale(${borderScale})`;
 
-      setProperty("--avatar-border-transform", borderTransform)
-      setProperty("--avatar-border-opacity", scale === toScale ? "1" : "0")
+      setProperty("--avatar-border-transform", borderTransform);
+      setProperty("--avatar-border-opacity", scale === toScale ? "1" : "0");
     }
 
     function updateStyles() {
-      updateHeaderStyles()
-      updateAvatarStyles()
-      isInitial.current = false
+      updateHeaderStyles();
+      updateAvatarStyles();
+      isInitial.current = false;
     }
 
-    updateStyles()
-    window.addEventListener("scroll", updateStyles, { passive: true })
-    window.addEventListener("resize", updateStyles)
+    updateStyles();
+    window.addEventListener("scroll", updateStyles, { passive: true });
+    window.addEventListener("resize", updateStyles);
 
     return () => {
-      window.removeEventListener("scroll", updateStyles)
-      window.removeEventListener("resize", updateStyles)
-    }
-  }, [isHomePage])
+      window.removeEventListener("scroll", updateStyles);
+      window.removeEventListener("resize", updateStyles);
+    };
+  }, [isHomePage]);
 
   return (
     <>
@@ -285,8 +321,8 @@ export function Header() {
         {isHomePage && (
           <>
             <div
-              ref={avatarRef}
               className="order-last mt-[calc(theme(spacing.16)-theme(spacing.3))]"
+              ref={avatarRef}
             />
             <Container
               className="top-0 order-last -mb-3 pt-3"
@@ -297,22 +333,24 @@ export function Header() {
               <div
                 className="top-[var(--avatar-top,theme(spacing.3))] w-full"
                 style={{
-                  position: "var(--header-inner-position)" as CSSProperties["position"],
+                  position:
+                    "var(--header-inner-position)" as CSSProperties["position"],
                 }}
               >
                 <div className="relative">
                   <AvatarContainer
-                    className="absolute left-0 top-3 origin-left transition-opacity"
+                    className="absolute top-3 left-0 origin-left transition-opacity"
                     style={{
                       opacity: "var(--avatar-border-opacity, 0)",
                       transform: "var(--avatar-border-transform)",
                     }}
                   />
                   <Avatar
-                    large
                     className="block origin-left"
+                    large
                     style={{
-                      transform: "var(--avatar-image-transform)" as CSSProperties["transform"],
+                      transform:
+                        "var(--avatar-image-transform)" as CSSProperties["transform"],
                     }}
                   />
                 </div>
@@ -321,8 +359,8 @@ export function Header() {
           </>
         )}
         <div
-          ref={headerRef}
           className="top-0 z-10 h-16 pt-6"
+          ref={headerRef}
           style={{
             position: "var(--header-position)" as CSSProperties["position"],
           }}
@@ -330,7 +368,8 @@ export function Header() {
           <Container
             className="top-[var(--header-top,theme(spacing.6))] w-full"
             style={{
-              position: "var(--header-inner-position)" as CSSProperties["position"],
+              position:
+                "var(--header-inner-position)" as CSSProperties["position"],
             }}
           >
             <div className="relative flex gap-4">
@@ -356,5 +395,5 @@ export function Header() {
       </header>
       {isHomePage && <div style={{ height: "var(--content-offset)" }} />}
     </>
-  )
+  );
 }

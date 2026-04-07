@@ -1,58 +1,58 @@
-import { env } from "@/config/env.mjs"
+import { env } from "@/config/env.mjs";
 
 export interface NearByApiParam extends ApiParam {
-  spatialFilter: string
+  spatialFilter: string;
 }
 
 export interface ApiParam {
-  select?: string
-  filter?: string
-  orderBy?: string
-  top?: string | number
-  skip?: string | number
+  filter?: string;
+  orderBy?: string;
+  select?: string;
+  skip?: string | number;
+  top?: string | number;
 }
 
 export interface BikeStation {
-  StationUID: string
-  StationID: string
-  AuthorityID: string
-  StationName: {
-    Zh_tw: string
-    En: string
-  }
-  StationPosition: {
-    PositionLon: number
-    PositionLat: number
-    GeoHash: string
-  }
+  AuthorityID: string;
+  BikesCapacity: number;
+  ServiceType: number;
+  SrcUpdateTime: string;
   StationAddress: {
-    Zh_tw: string
-    En: string
-  }
-  StopDescription: string
-  BikesCapacity: number
-  ServiceType: number
-  SrcUpdateTime: string
-  UpdateTime: string
+    Zh_tw: string;
+    En: string;
+  };
+  StationID: string;
+  StationName: {
+    Zh_tw: string;
+    En: string;
+  };
+  StationPosition: {
+    PositionLon: number;
+    PositionLat: number;
+    GeoHash: string;
+  };
+  StationUID: string;
+  StopDescription: string;
+  UpdateTime: string;
 }
 
 export interface BikeAvailability {
-  StationUID: string
-  StationID: string
-  ServiceStatus: number
-  ServiceType: number
-  AvailableRentBikes: number
-  AvailableReturnBikes: number
-  SrcUpdateTime: string
-  UpdateTime: string
+  AvailableRentBikes: number;
   AvailableRentBikesDetail: {
-    GeneralBikes: number
-    ElectricBikes: number
-  }
+    GeneralBikes: number;
+    ElectricBikes: number;
+  };
+  AvailableReturnBikes: number;
+  ServiceStatus: number;
+  ServiceType: number;
+  SrcUpdateTime: string;
+  StationID: string;
+  StationUID: string;
+  UpdateTime: string;
 }
 
-let accessToken: string | undefined
-let expirationTimestamp: number | undefined
+let accessToken: string | undefined;
+let expirationTimestamp: number | undefined;
 
 const refreshToken = async () => {
   const response = await fetch(
@@ -67,48 +67,64 @@ const refreshToken = async () => {
         client_id: env.TDX_API_CLIENT_ID,
         client_secret: env.TDX_API_CLIENT_SECRET,
       }),
-    },
-  )
+    }
+  );
 
-  if (!response.ok) throw new Error(JSON.stringify(response))
+  if (!response.ok) {
+    throw new Error(JSON.stringify(response));
+  }
 
   const json = (await response.json()) as {
-    access_token: string
-    expires_in: number
-    token_type: string
+    access_token: string;
+    expires_in: number;
+    token_type: string;
+  };
+
+  accessToken = json.access_token;
+  expirationTimestamp = Date.now() + json.expires_in;
+};
+
+const tdxFetch = async <T, P extends ApiParam = ApiParam>(
+  path: string,
+  params: P
+): Promise<T> => {
+  if (
+    !(accessToken && expirationTimestamp) ||
+    expirationTimestamp > Date.now()
+  ) {
+    await refreshToken();
   }
 
-  accessToken = json.access_token
-  expirationTimestamp = Date.now() + json.expires_in
-}
+  const query = new URLSearchParams();
 
-const tdxFetch = async <T, P extends ApiParam = ApiParam>(path: string, params: P): Promise<T> => {
-  if (!accessToken || !expirationTimestamp || expirationTimestamp > Date.now()) {
-    await refreshToken()
-  }
-
-  const query = new URLSearchParams()
-
-  query.append("$format", "JSON")
+  query.append("$format", "JSON");
 
   for (const key of Object.keys(params)) {
-    query.append(`$${key}`, params[key])
+    query.append(`$${key}`, params[key]);
   }
 
-  const response = await fetch(`${env.TDX_API_ENDPOINT}${path}?${query.toString()}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-  })
+  const response = await fetch(
+    `${env.TDX_API_ENDPOINT}${path}?${query.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    }
+  );
 
-  if (!response.ok) throw new Error(JSON.stringify(response))
+  if (!response.ok) {
+    throw new Error(JSON.stringify(response));
+  }
 
-  return response.json()
-}
+  return response.json();
+};
 
 export const getNearByBikeStations = (param: NearByApiParam) =>
-  tdxFetch<BikeStation[]>("/api/advanced/v2/Bike/Station/NearBy", param)
+  tdxFetch<BikeStation[]>("/api/advanced/v2/Bike/Station/NearBy", param);
 
 export const getNearByBikesAvailability = (param: NearByApiParam) =>
-  tdxFetch<BikeAvailability[]>(`/api/advanced/v2/Bike/Availability/NearBy`, param)
+  tdxFetch<BikeAvailability[]>(
+    "/api/advanced/v2/Bike/Availability/NearBy",
+    param
+  );

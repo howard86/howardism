@@ -1,21 +1,25 @@
-import { Container } from "@/app/(common)/Container"
-import { generateLoremIpsum, generateLoremIpsumArray } from "@/services/resume"
+import { Container } from "@/app/(common)/Container";
+import { generateLoremIpsum, generateLoremIpsumArray } from "@/services/resume";
 
-import ResumeDocument from "./ResumeDocument"
+import ResumeDocument from "./ResumeDocument";
 
 export default function ResumeSamplePage() {
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
       <ResumeDocument
-        company="Template"
-        position="Template"
-        name="Howard Tai"
-        summary={generateLoremIpsum(400)}
         address="London"
-        phone="+447554123456"
+        company="Template"
+        educations={[
+          {
+            facility: "Awesome University",
+            location: "World",
+            degree: "Computer Science",
+            startDate: "Oct 2014",
+            endDate: "Jul 2018",
+            items: generateLoremIpsumArray(20, 16, 8),
+          },
+        ]}
         email="example@gmail.com"
-        github="github"
-        website="https://example.com"
         experiences={[
           {
             company: "Company A",
@@ -38,6 +42,15 @@ export default function ResumeSamplePage() {
             endDate: "Dec 2019",
           },
         ]}
+        github="github"
+        languages={[
+          { name: "English", proficiency: "fluent" },
+          { name: "JavaScript", proficiency: "fluent" },
+          { name: "Java", proficiency: "proficient" },
+        ]}
+        name="Howard Tai"
+        phone="+447554123456"
+        position="Template"
         projects={[
           {
             title: "Awesome Project",
@@ -50,16 +63,6 @@ export default function ResumeSamplePage() {
             items: generateLoremIpsumArray(20, 18, 22),
           },
         ]}
-        educations={[
-          {
-            facility: "Awesome University",
-            location: "World",
-            degree: "Computer Science",
-            startDate: "Oct 2014",
-            endDate: "Jul 2018",
-            items: generateLoremIpsumArray(20, 16, 8),
-          },
-        ]}
         skills={[
           {
             title: "Libraries",
@@ -69,12 +72,9 @@ export default function ResumeSamplePage() {
           { title: "Skill 3", items: generateLoremIpsumArray(60) },
           { title: "Skill 4", items: generateLoremIpsumArray(100) },
         ]}
-        languages={[
-          { name: "English", proficiency: "fluent" },
-          { name: "JavaScript", proficiency: "fluent" },
-          { name: "Java", proficiency: "proficient" },
-        ]}
+        summary={generateLoremIpsum(400)}
+        website="https://example.com"
       />
     </Container>
-  )
+  );
 }

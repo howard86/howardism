@@ -1,8 +1,8 @@
-import dynamic from "next/dynamic"
+import dynamic from "next/dynamic";
 
-import { Container } from "@/app/(common)/Container"
+import { Container } from "@/app/(common)/Container";
 
-const DynamicUbikeMap = dynamic(() => import("./UbikeMap"), { ssr: false })
+const DynamicUbikeMap = dynamic(() => import("./UbikeMap"), { ssr: false });
 
 export default function UbikePage() {
   return (
@@ -12,11 +12,11 @@ export default function UbikePage() {
       <div className="md:mockup-phone">
         <div className="camera" />
         <div className="display">
-          <div className="w-full max-md:h-[calc(100vh-40px)] bg-base-200 md:artboard artboard-demo phone-2 relative">
+          <div className="md:artboard artboard-demo phone-2 relative w-full bg-base-200 max-md:h-[calc(100vh-40px)]">
             <DynamicUbikeMap />
           </div>
         </div>
       </div>
     </Container>
-  )
+  );
 }
