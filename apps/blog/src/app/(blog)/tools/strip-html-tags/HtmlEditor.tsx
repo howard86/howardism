@@ -13,6 +13,7 @@ import {
   ViewColumnsIcon,
 } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@howardism/ui/components/button";
 import {
   DiffEditor,
   type DiffEditorProps,
@@ -384,8 +385,8 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
             register={register}
             type="url"
           />
-          <button
-            className="btn btn-primary join-item"
+          <Button
+            className="join-item"
             disabled={formState.isSubmitting}
             type="submit"
           >
@@ -393,7 +394,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
               <span className="loading loading-spinner" />
             )}
             Fetch URL
-          </button>
+          </Button>
         </div>
       </form>
       <div className="flex flex-col rounded-md bg-vscode-dark px-0.5 pb-2">
@@ -407,10 +408,10 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
 
             {isAnalysed && (
               <details className="dropdown dropdown-hover">
-                <summary className="btn btn-primary btn-sm rounded-r-md">
+                <summary className="inline-flex h-7 cursor-pointer items-center rounded-r-md bg-primary px-2.5 font-medium text-[0.8rem] text-primary-foreground">
                   Attributes
                 </summary>
-                <div className="menu dropdown-content z-50 rounded-md border border-base-200 bg-base-100 p-0 shadow-sm">
+                <div className="menu dropdown-content z-50 rounded-md border border-border bg-background p-0 shadow-sm">
                   <div>
                     <div className="menu-title inline-flex w-full items-center justify-between gap-2 whitespace-nowrap">
                       <h3>Tags & Attributes</h3>
@@ -418,20 +419,22 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                         className="tooltip tooltip-accent"
                         data-tip="Unselect all"
                       >
-                        <button
+                        <Button
                           aria-label="Unselect all tags and attributes"
-                          className="btn-brand btn btn-circle btn-xs"
                           onClick={handleUnselectAll}
+                          size="icon-xs"
+                          title="Unselect all"
                           type="button"
+                          variant="ghost"
                         >
                           <BookmarkSlashIcon className="w-4" />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <ul className="max-h-[300px] overflow-x-hidden px-2">
                       {watch("tags").map((tag) => (
                         <Fragment key={tag}>
-                          <li className="form-control relative">
+                          <li className="relative">
                             <label className="label">
                               <span className="label-text-alt relative font-semibold">
                                 {tagMap[tag].count}
@@ -449,7 +452,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                           {Object.keys(tagMap[tag].attributes).map(
                             (attribute) => (
                               <li
-                                className="form-control relative pl-2"
+                                className="relative pl-2"
                                 key={tag + attribute}
                               >
                                 <label className="label">
@@ -508,21 +511,23 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                         })}
                       </li>
                     </ul>
-                    <div className="flex flex-col gap-1.5 whitespace-nowrap bg-base-200 p-2">
-                      <button
-                        className="btn-brand btn btn-sm w-full"
+                    <div className="flex flex-col gap-1.5 whitespace-nowrap bg-muted p-2">
+                      <Button
+                        className="w-full"
                         onClick={handleRemoveElements}
+                        size="sm"
                         type="button"
                       >
                         Remove selected
-                      </button>
-                      <button
-                        className="btn-brand btn btn-sm w-full"
+                      </Button>
+                      <Button
+                        className="w-full"
                         onClick={handleReplaceElements}
+                        size="sm"
                         type="button"
                       >
                         Replace selected
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>

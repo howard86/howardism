@@ -48,7 +48,7 @@ export default async function ArticlesIndex() {
       intro="All of my long-form thoughts on programming, product design, diving on technologies and more, collected in chronological order."
       title="Writing on explorations of software programming."
     >
-      <div className="md:border-base-200 md:border-l md:pl-6">
+      <div className="md:border-border md:border-l md:pl-6">
         <div className="flex max-w-3xl flex-col space-y-16">
           {articles.ids.map((slug) => {
             const article = articles.entities[slug];

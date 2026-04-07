@@ -2,6 +2,7 @@
 
 import { TrashIcon } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@howardism/ui/components/button";
 import Image from "next/image";
 import type { ApiResponse } from "next-api-handler";
 import { useForm } from "react-hook-form";
@@ -85,7 +86,7 @@ export default function CheckoutForm({
   }, console.error);
 
   return (
-    <div className="rounded-xl border bg-base-100 shadow-sm">
+    <div className="rounded-xl border bg-background shadow-sm">
       <div className="mx-auto max-w-2xl px-4 pt-16 pb-24 sm:px-6 lg:max-w-7xl lg:px-8">
         <h2 className="sr-only">Checkout</h2>
 
@@ -115,7 +116,7 @@ export default function CheckoutForm({
           <div className="mt-10 lg:mt-0">
             <h2 className="font-medium text-lg">Order summary</h2>
 
-            <div className="mt-4 rounded-lg border bg-base-100 shadow-sm">
+            <div className="mt-4 rounded-lg border bg-background shadow-sm">
               <h3 className="sr-only">Items in your cart</h3>
               <ul className="divide-y divide-gray-200">
                 {items.map((item, index) => {
@@ -149,27 +150,29 @@ export default function CheckoutForm({
                         <div className="flex">
                           <div className="min-w-0 flex-1 text-sm">
                             <h4 className="font-medium">{product.title}</h4>
-                            <p className="mt-1 text-neutral-content text-sm">
+                            <p className="mt-1 text-muted-foreground text-sm">
                               {product.color}
                             </p>
-                            <p className="mt-1 text-neutral-content text-sm">
+                            <p className="mt-1 text-muted-foreground text-sm">
                               {product.size}
                             </p>
                           </div>
 
                           <div className="ml-4 flow-root flex-shrink-0">
-                            <button
-                              className="btn btn-circle btn-sm -m-2.5"
+                            <Button
+                              className="-m-2.5"
                               disabled={items.length === 1}
                               onClick={handleRemove}
+                              size="icon-sm"
                               type="button"
+                              variant="ghost"
                             >
                               <span className="sr-only">Remove</span>
                               <TrashIcon
                                 aria-hidden="true"
                                 className="h-5 w-5"
                               />
-                            </button>
+                            </Button>
                           </div>
                         </div>
 
@@ -223,12 +226,12 @@ export default function CheckoutForm({
               </dl>
 
               <div className="border-t px-4 py-6 sm:px-6">
-                <button className="btn btn-primary w-full" type="submit">
+                <Button className="w-full" type="submit">
                   {formState.isSubmitting && (
                     <span className="loading loading-spinner" />
                   )}
                   Confirm order
-                </button>
+                </Button>
               </div>
             </div>
           </div>

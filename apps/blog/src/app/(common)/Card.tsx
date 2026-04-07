@@ -98,7 +98,7 @@ export function CardEyebrow<T extends AsKey = "div">({
   return (
     <Component
       className={cn(
-        "relative z-10 order-first mb-3 flex items-center text-sm text-zinc-400 dark:text-zinc-500",
+        "relative z-10 order-first mb-3 flex items-center text-muted-foreground text-sm",
         decorate && "pl-3.5",
         className
       )}
@@ -109,7 +109,7 @@ export function CardEyebrow<T extends AsKey = "div">({
           aria-hidden="true"
           className="absolute inset-y-0 left-0 flex items-center"
         >
-          <span className="h-4 w-0.5 rounded-full bg-zinc-200 dark:bg-zinc-500" />
+          <span className="h-4 w-0.5 rounded-full bg-border" />
         </span>
       )}
       {children}

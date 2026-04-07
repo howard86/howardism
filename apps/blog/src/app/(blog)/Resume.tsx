@@ -67,7 +67,7 @@ const resume: ResumeEntity[] = [
 
 export default function Resume() {
   return (
-    <div className="rounded-2xl border border-base-200 p-6">
+    <div className="rounded-2xl border border-border p-6">
       <h2 className="flex font-semibold text-sm">
         <BriefcaseIcon className="h-6 w-6 flex-none" />
         <span className="ml-3">Work</span>
@@ -75,7 +75,7 @@ export default function Resume() {
       <ol className="mt-6 space-y-4">
         {resume.map((role) => (
           <li className="flex gap-4" key={role.title}>
-            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md ring-1 ring-base-200">
+            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md ring-1 ring-border">
               <role.logo
                 aria-label={`${role.company} logo`}
                 className="h-7 w-7"
@@ -97,7 +97,7 @@ export default function Resume() {
                   role.end,
                   "label"
                 )}`}
-                className="ml-auto text-base-content/60 text-xs"
+                className="ml-auto text-muted-foreground text-xs"
               >
                 <time dateTime={getStringOrValue(role.start, "dateTime")}>
                   {getStringOrValue(role.start, "label")}
