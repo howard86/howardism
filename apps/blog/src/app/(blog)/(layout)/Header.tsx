@@ -220,6 +220,7 @@ export function Header() {
       document.documentElement.style.removeProperty(property);
     }
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: header scroll logic is inherently complex
     function updateHeaderStyles() {
       if (!headerRef.current) {
         return;

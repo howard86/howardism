@@ -113,10 +113,7 @@ export default function RootLayout({ children }: ChildrenProps) {
       lang="en"
     >
       <body className="flex h-full flex-col">
-        <div
-          aria-label="content background"
-          className="fixed inset-0 flex justify-center sm:px-8"
-        >
+        <div className="fixed inset-0 flex justify-center sm:px-8">
           <div className="flex w-full max-w-7xl lg:px-8">
             <div className="w-full bg-base-100 ring-1 ring-base-300" />
           </div>

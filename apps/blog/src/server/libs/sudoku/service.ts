@@ -5,11 +5,12 @@ import { sampleSize } from "@/utils/array";
 import type { SudokuDifficulty } from "./enum";
 import Sudoku from "./model";
 
-export enum SudokuStatus {
-  Unsolvable = 0,
-  UniqueSolution = 1,
-  MultipleSolutions = 2,
-}
+export const SudokuStatus = {
+  Unsolvable: 0,
+  UniqueSolution: 1,
+  MultipleSolutions: 2,
+} as const;
+export type SudokuStatus = (typeof SudokuStatus)[keyof typeof SudokuStatus];
 
 const ITERATION_MAX_COUNT = 1000;
 const DIMENSION = 9;
@@ -37,7 +38,10 @@ const isRepeated = (
 
 // This will mutate internal Sudoku class
 const iterate = (sudoku: Sudoku, rowNumber = 1, columnNumber = 1): boolean => {
-  if (rowNumber === DIMENSION && columnNumber === DIMENSION) {
+  let currentRow = rowNumber;
+  let currentCol = columnNumber;
+
+  if (currentRow === DIMENSION && currentCol === DIMENSION) {
     // as this stops at last number, need to check if its filled
     if (sudoku.getNumber(DIMENSION, DIMENSION) !== 0) {
       return true;
@@ -53,26 +57,26 @@ const iterate = (sudoku: Sudoku, rowNumber = 1, columnNumber = 1): boolean => {
     return true;
   }
 
-  if (columnNumber > DIMENSION) {
-    rowNumber += 1;
-    columnNumber = 0;
+  if (currentCol > DIMENSION) {
+    currentRow += 1;
+    currentCol = 0;
   }
 
-  if (sudoku.getNumber(rowNumber, columnNumber) !== 0) {
-    return iterate(sudoku, rowNumber, columnNumber + 1);
+  if (sudoku.getNumber(currentRow, currentCol) !== 0) {
+    return iterate(sudoku, currentRow, currentCol + 1);
   }
 
   for (const randomNumberInput of sampleSize(Sudoku.ARRAY_FROM_ONE_TO_NINE)) {
-    if (!isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
-      sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
+    if (!isRepeated(sudoku, currentRow, currentCol, randomNumberInput)) {
+      sudoku.setNumber(currentRow, currentCol, randomNumberInput);
 
       // check if it's solved
-      if (iterate(sudoku, rowNumber, columnNumber + 1)) {
+      if (iterate(sudoku, currentRow, currentCol + 1)) {
         return true;
       }
 
       // else not solved, skip this i
-      sudoku.setNumber(rowNumber, columnNumber, 0);
+      sudoku.setNumber(currentRow, currentCol, 0);
     }
   }
 
@@ -105,33 +109,47 @@ const getNumberOfSolutions = (
   columnNumber = 1,
   count = 0
 ): number => {
-  if (rowNumber === DIMENSION && columnNumber === DIMENSION) {
-    return count + 1;
+  let currentRow = rowNumber;
+  let currentCol = columnNumber;
+  let solutionCount = count;
+
+  if (currentRow === DIMENSION && currentCol === DIMENSION) {
+    return solutionCount + 1;
   }
 
-  if (columnNumber > DIMENSION) {
-    rowNumber += 1;
-    columnNumber = 0;
+  if (currentCol > DIMENSION) {
+    currentRow += 1;
+    currentCol = 0;
   }
 
-  if (sudoku.getNumber(rowNumber, columnNumber) !== 0) {
-    return getNumberOfSolutions(sudoku, rowNumber, columnNumber + 1, count);
+  if (sudoku.getNumber(currentRow, currentCol) !== 0) {
+    return getNumberOfSolutions(
+      sudoku,
+      currentRow,
+      currentCol + 1,
+      solutionCount
+    );
   }
 
   for (const randomNumberInput of sampleSize(Sudoku.ARRAY_FROM_ONE_TO_NINE)) {
-    if (count > 1) {
+    if (solutionCount > 1) {
       break;
     }
 
-    if (!isRepeated(sudoku, rowNumber, columnNumber, randomNumberInput)) {
-      sudoku.setNumber(rowNumber, columnNumber, randomNumberInput);
-      count = getNumberOfSolutions(sudoku, rowNumber, columnNumber + 1, count);
+    if (!isRepeated(sudoku, currentRow, currentCol, randomNumberInput)) {
+      sudoku.setNumber(currentRow, currentCol, randomNumberInput);
+      solutionCount = getNumberOfSolutions(
+        sudoku,
+        currentRow,
+        currentCol + 1,
+        solutionCount
+      );
       // reset backtracking
-      sudoku.setNumber(rowNumber, columnNumber, 0);
+      sudoku.setNumber(currentRow, currentCol, 0);
     }
   }
 
-  return count;
+  return solutionCount;
 };
 
 export const getSudokuStatus = (sudoku: Sudoku): SudokuStatus => {

@@ -2,13 +2,23 @@
 
 import { Image, Link, StyleSheet, Text, View } from "@react-pdf/renderer";
 
-export enum ResumeIconType {
-  address = 0,
-  phone = 1,
-  email = 2,
-  github = 3,
-  website = 4,
-}
+export const ResumeIconType = {
+  address: 0,
+  phone: 1,
+  email: 2,
+  github: 3,
+  website: 4,
+} as const;
+export type ResumeIconType =
+  (typeof ResumeIconType)[keyof typeof ResumeIconType];
+
+const RESUME_ICON_NAMES = [
+  "address",
+  "phone",
+  "email",
+  "github",
+  "website",
+] as const;
 
 interface ResumeContactProps {
   content: string;
@@ -52,7 +62,7 @@ export default function ResumeContact({ type, content }: ResumeContactProps) {
   return (
     <View style={styles.container}>
       <Image
-        src={`/assets/icons/${ResumeIconType[type]}.jpg`}
+        src={`/assets/icons/${RESUME_ICON_NAMES[type]}.jpg`}
         style={styles.icon}
       />
       <ResumeContentItem content={content} type={type} />

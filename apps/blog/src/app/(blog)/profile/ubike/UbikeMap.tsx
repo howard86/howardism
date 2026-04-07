@@ -34,7 +34,7 @@ export default function UbikeMap() {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const positionRef = useRef<LngLat>(DEFAULT_CENTER);
   const markersRef = useRef<NodeJS.Dict<mapboxgl.Marker>>({});
-  const layerRef = useRef<mapboxgl.FillLayer | null>(null);
+  const layerRef = useRef<{ id: string; [key: string]: unknown } | null>(null);
 
   const handleSearch = async () => {
     if (!mapRef.current) {
@@ -63,9 +63,9 @@ export default function UbikeMap() {
 
     layerRef.current = {
       id: Date.now().toString(),
-      type: "fill",
+      type: "fill" as const,
       source: {
-        type: "geojson",
+        type: "geojson" as const,
         data: circle(
           [positionRef.current.lng, positionRef.current.lat],
           DEFAULT_RADIUS,
@@ -80,7 +80,8 @@ export default function UbikeMap() {
       },
     };
 
-    mapRef.current.addLayer(layerRef.current);
+    // mapbox-gl types expect source as string ID, but addLayer supports inline source objects
+    mapRef.current.addLayer(layerRef.current as unknown as mapboxgl.AnyLayer);
 
     for (const id of json.ids) {
       const station = json.entities[id];

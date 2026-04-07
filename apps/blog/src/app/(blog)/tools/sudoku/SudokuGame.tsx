@@ -42,35 +42,43 @@ export default function SudokuGame() {
       {!loading && (
         <section className="mt-12 flex flex-col items-center">
           <div className="grid grid-cols-9 grid-rows-9">
-            {answer.map((cell, index) => (
-              <button
-                className={clsx(
-                  "h-12 w-12 border-r border-b font-mono text-xl",
-                  index === 0 ? "rounded-tl-md" : "rounded-tl-none",
-                  index === 8 ? "rounded-tr-md" : "rounded-tr-none",
-                  index === 72 ? "rounded-bl-md" : "rounded-bl-none",
-                  index === 80 ? "rounded-br-md" : "rounded-br-none",
-                  index < 9 ? "border-t" : "border-t-none",
-                  index % 9 === 0 ? "border-l" : "border-l-none",
-                  index % 27 < 9 ? "border-t-primary" : "border-t-base-300",
-                  index % 27 > 17 ? "border-b-primary" : "border-b-base-300",
-                  index % 3 === 0 ? "border-l-primary" : "border-l-base-300",
-                  index % 3 === 2 ? "border-r-primary" : "border-r-base-300",
-                  // eslint-disable-next-line no-nested-ternary
-                  selected === index
-                    ? "bg-base-300"
-                    : game[index] > 0
-                      ? "bg-base-200"
-                      : "bg-base-100"
-                )}
-                // eslint-disable-next-line react/no-array-index-key
-                key={`${cell}-${index}`}
-                onClick={() => onSelect(index)}
-                type="button"
-              >
-                {cell > 0 ? cell : ""}
-              </button>
-            ))}
+            {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: sudoku grid rendering with many conditional border classes */}
+            {answer.map((cell, index) => {
+              const getCellBg = () => {
+                if (selected === index) {
+                  return "bg-base-300";
+                }
+                if (game[index] > 0) {
+                  return "bg-base-200";
+                }
+                return "bg-base-100";
+              };
+
+              return (
+                <button
+                  className={clsx(
+                    "h-12 w-12 border-r border-b font-mono text-xl",
+                    index === 0 ? "rounded-tl-md" : "rounded-tl-none",
+                    index === 8 ? "rounded-tr-md" : "rounded-tr-none",
+                    index === 72 ? "rounded-bl-md" : "rounded-bl-none",
+                    index === 80 ? "rounded-br-md" : "rounded-br-none",
+                    index < 9 ? "border-t" : "border-t-none",
+                    index % 9 === 0 ? "border-l" : "border-l-none",
+                    index % 27 < 9 ? "border-t-primary" : "border-t-base-300",
+                    index % 27 > 17 ? "border-b-primary" : "border-b-base-300",
+                    index % 3 === 0 ? "border-l-primary" : "border-l-base-300",
+                    index % 3 === 2 ? "border-r-primary" : "border-r-base-300",
+                    getCellBg()
+                  )}
+                  // biome-ignore lint/suspicious/noArrayIndexKey: sudoku cells have no stable unique ID
+                  key={`${cell}-${index}`}
+                  onClick={() => onSelect(index)}
+                  type="button"
+                >
+                  {cell > 0 ? cell : ""}
+                </button>
+              );
+            })}
           </div>
           <div className="mt-8 flex gap-2">
             {answer.length > 0 &&

@@ -409,32 +409,7 @@ export default function ResumeForm({
                     />
                   </>
                 )}
-                renderFormItems={(index: number) => (
-                  <>
-                    <FormInput
-                      className="col-span-6 sm:col-span-3"
-                      errors={errors}
-                      label="Name"
-                      name={`projects.${index}.title`}
-                      register={register}
-                    />
-                    <FormInput
-                      className="col-span-6"
-                      errors={errors}
-                      label="Description"
-                      name={`projects.${index}.subtitle`}
-                      register={register}
-                    />
-                    <FormTextArea
-                      className="col-span-6"
-                      errors={errors}
-                      helperText="To create a list, start writing with -"
-                      label="Description in Markdown format"
-                      name={`projects.${index}.description`}
-                      register={register}
-                    />
-                  </>
-                )}
+                subheading="Project portfolio"
               />
             </Tab.Panel>
 

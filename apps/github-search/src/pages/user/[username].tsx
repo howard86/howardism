@@ -1,3 +1,4 @@
+import type { ParsedUrlQuery } from "node:querystring";
 import type { ApolloQueryResult } from "@apollo/client";
 import {
   Box,
@@ -179,7 +180,7 @@ export default function UserPage({
   );
 }
 
-interface QueryPath {
+interface QueryPath extends ParsedUrlQuery {
   username: string;
 }
 

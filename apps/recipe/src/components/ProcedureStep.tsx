@@ -77,6 +77,7 @@ export default function ProcedureStep({ steps, ...props }: ProcedureStepProps) {
             : `${60 * steps.length + 116}px`
         }
       >
+        {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: step rendering with expanded/collapsed states */}
         {steps.map((step, index) => {
           const isViewed = index === openIndex;
           const isChecked = index < openIndex;

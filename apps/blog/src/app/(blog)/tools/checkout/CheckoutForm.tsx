@@ -26,11 +26,11 @@ interface ECommerceProduct {
   title: string;
 }
 
-enum ItemQuantityMap {
-  clk496ee1000008jia9426s1z = 2,
-  clk49c27f000108ji35fm5crr = 1,
-  clk49c86t000208ji9prlh4b1 = 4,
-}
+const ItemQuantityMap: Record<string, number> = {
+  clk496ee1000008jia9426s1z: 2,
+  clk49c27f000108ji35fm5crr: 1,
+  clk49c86t000208ji9prlh4b1: 4,
+};
 
 interface CheckoutFormProps {
   products: Normalized<ECommerceProduct>;
