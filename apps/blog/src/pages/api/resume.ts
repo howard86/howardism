@@ -74,10 +74,12 @@ const addItemIds = <T extends { id: string }>(set: Set<string>, items: T[]) => {
 
 interface AuthMiddleware {
   email: string;
+  [key: string]: unknown;
 }
 
 interface ResumeParserMiddleware {
   resume: ResumeSchema;
+  [key: string]: unknown;
 }
 
 router

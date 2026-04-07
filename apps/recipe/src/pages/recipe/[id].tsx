@@ -1,3 +1,4 @@
+import type { ParsedUrlQuery } from "node:querystring";
 import {
   Box,
   CheckboxGroup,
@@ -68,7 +69,7 @@ export default function RecipePage({
   );
 }
 
-interface QueryPath {
+interface QueryPath extends ParsedUrlQuery {
   id: string;
 }
 

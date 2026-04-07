@@ -13,4 +13,4 @@ export const generateLoremIpsumArray = (...args: number[]) =>
   generateArrayStrings(args.map(generateLoremIpsum));
 
 export const generateDateISOString = (date: Date | null) =>
-  date ? date.toISOString().substring(0, 10) : "";
+  date ? date.toISOString().slice(0, 10) : "";

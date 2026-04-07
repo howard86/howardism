@@ -17,10 +17,10 @@ import { normalize } from "@/utils/array";
 
 const router = new RouterBuilder();
 
-enum CallbackApiType {
-  Confirm = "confirm",
-  Cancel = "cancel",
-}
+const CallbackApiType = {
+  Confirm: "confirm",
+  Cancel: "cancel",
+} as const;
 
 const callbackSchema = z.object({
   orderId: z.string(),

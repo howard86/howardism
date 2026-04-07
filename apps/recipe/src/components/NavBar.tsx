@@ -24,7 +24,7 @@ export default function NavBar() {
 
   const onOpen = () => {
     // TODO: add Drawer here
-    alert("clicked");
+    console.info("clicked");
   };
 
   return (

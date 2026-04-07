@@ -36,10 +36,10 @@ import {
   updateEditorValue,
 } from "./service";
 
-enum EditorMode {
-  Code = 0,
-  Diff = 1,
-}
+const EditorMode = {
+  Code: 0,
+  Diff: 1,
+} as const;
 
 interface HtmlEditorProps {
   html: string;
@@ -191,7 +191,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
 
       tagMap[tag].count = (tagMap[tag].count || 0) + 1;
 
-      node.getAttributeNames().forEach((attribute) => {
+      for (const attribute of node.getAttributeNames()) {
         orderedAttributeSet.add(attribute);
 
         if (!tagMap[tag].attributes[attribute]) {
@@ -202,7 +202,7 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
 
         tagMap[tag].attributes[attribute].count =
           (tagMap[tag].attributes[attribute].count || 0) + 1;
-      });
+      }
     });
 
     setValue("tagMap", tagMap);
@@ -311,11 +311,11 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
       if (tagMap[tag].selected) {
         node.remove();
       } else {
-        node.getAttributeNames().forEach((attribute) => {
+        for (const attribute of node.getAttributeNames()) {
           if (tagMap[tag].attributes[attribute].selected) {
             node.removeAttribute(attribute);
           }
-        });
+        }
       }
     });
 
@@ -339,11 +339,11 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
       if (tagMap[tag].selected) {
         node.replaceWith(document.createElement(tag));
       } else {
-        node.getAttributeNames().forEach((attribute) => {
+        for (const attribute of node.getAttributeNames()) {
           if (tagMap[tag].attributes[attribute].selected) {
             node.setAttribute(attribute, "");
           }
-        });
+        }
       }
     });
 
@@ -355,13 +355,13 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
   const handleUnselectAll = () => {
     const newTagMap = { ...getValues("tagMap") };
 
-    Object.keys(newTagMap).forEach((tag) => {
+    for (const tag of Object.keys(newTagMap)) {
       newTagMap[tag].selected = false;
 
-      Object.keys(newTagMap[tag].attributes).forEach((attribute) => {
+      for (const attribute of Object.keys(newTagMap[tag].attributes)) {
         newTagMap[tag].attributes[attribute].selected = false;
-      });
-    });
+      }
+    }
 
     setValue("tagMap", newTagMap);
   };
@@ -481,16 +481,16 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
                           const handleSelectAttribute = () => {
                             const newTagMap = { ...getValues("tagMap") };
 
-                            Object.keys(newTagMap).forEach((tag) => {
-                              Object.keys(newTagMap[tag].attributes).forEach(
-                                (attr) => {
-                                  if (attr === attribute) {
-                                    newTagMap[tag].attributes[attr].selected =
-                                      true;
-                                  }
+                            for (const tag of Object.keys(newTagMap)) {
+                              for (const attr of Object.keys(
+                                newTagMap[tag].attributes
+                              )) {
+                                if (attr === attribute) {
+                                  newTagMap[tag].attributes[attr].selected =
+                                    true;
                                 }
-                              );
-                            });
+                              }
+                            }
 
                             setValue("tagMap", newTagMap);
                           };

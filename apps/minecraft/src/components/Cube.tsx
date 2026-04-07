@@ -1,15 +1,15 @@
 /* eslint-disable react/no-unknown-property */
-import { type BoxProps, type Triplet, useBox } from "@react-three/cannon";
+import { type Triplet, useBox } from "@react-three/cannon";
 import { useTexture } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/events";
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { BufferGeometry, Mesh } from "three";
 import create from "zustand";
 
 interface CubeStore {
   addCube: (x: number, y: number, z: number) => void;
-  cubes: (Element | JSX.Element)[];
+  cubes: ReactNode[];
 }
 
 export const useCubeStore = create<CubeStore>((set) => ({
@@ -91,16 +91,14 @@ export default function Cube({ position }: CubeProps) {
       ref={ref}
     >
       {/* eslint-disable-next-line react/jsx-no-useless-fragment */}
-      {[...new Array(6)].map(
-        (_, index): BoxProps => (
-          <meshStandardMaterial
-            attach={`material-${index}`}
-            color={hover === index ? "gray" : "white"}
-            key={nanoid()}
-            map={texture}
-          />
-        )
-      )}
+      {[...new Array(6)].map((_, index) => (
+        <meshStandardMaterial
+          attach={`material-${index}`}
+          color={hover === index ? "gray" : "white"}
+          key={nanoid()}
+          map={texture}
+        />
+      ))}
       <boxBufferGeometry attach="geometry" />
     </mesh>
   );

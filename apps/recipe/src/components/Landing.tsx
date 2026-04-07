@@ -13,7 +13,7 @@ interface LandingProps {
 export default function Landing({ imageUrl }: LandingProps) {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
-    alert("clicked!");
+    console.info("clicked!");
   };
 
   return (

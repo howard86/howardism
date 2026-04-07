@@ -5,11 +5,11 @@ type UnknownObject = { [key in string]: unknown };
 export const filterNullValue = <T extends UnknownObject>(obj: T): T => {
   const newObj: UnknownObject = {};
 
-  Object.keys(obj).forEach((key) => {
+  for (const key of Object.keys(obj)) {
     if (obj[key] !== null) {
       newObj[key] = obj[key];
     }
-  });
+  }
 
   return newObj as T;
 };
@@ -19,7 +19,7 @@ export const filterLongContent = (text: string): string => {
     return text;
   }
 
-  const subText = text.substring(0, text.indexOf(" ", MAX_CONTENT_LENGTH));
+  const subText = text.slice(0, text.indexOf(" ", MAX_CONTENT_LENGTH));
 
   if (subText.endsWith(".")) {
     return `${subText}..`;

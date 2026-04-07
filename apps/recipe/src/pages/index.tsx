@@ -1,6 +1,6 @@
 import type { GetStaticPropsResult } from "next";
 
-import Home, { type HomeProps } from "@/components/templates/Home";
+import type { HomeProps } from "@/components/templates/Home";
 import { getRecipes } from "@/services/recipe";
 
 export const getStaticProps = async (): Promise<
@@ -17,5 +17,5 @@ export const getStaticProps = async (): Promise<
   };
 };
 
-export type { HomeProps };
-export default Home;
+export type { HomeProps } from "@/components/templates/Home";
+export { default } from "@/components/templates/Home";
