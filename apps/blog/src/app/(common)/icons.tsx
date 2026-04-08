@@ -687,7 +687,7 @@ export function MailIcon(props: SVGProps) {
       {...props}
     >
       <path
-        className="fill-base-200 stroke-primary"
+        className="fill-border stroke-primary"
         d="M2.75 7.75a3 3 0 0 1 3-3h12.5a3 3 0 0 1 3 3v8.5a3 3 0 0 1-3 3H5.75a3 3 0 0 1-3-3v-8.5Z"
       />
       <path

@@ -1,3 +1,4 @@
+import { Button } from "@howardism/ui/components/button";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { SVGProps } from "react-html-props";
@@ -39,23 +40,25 @@ export function ArticleLayout({
         <div className="mx-auto max-w-2xl">
           <nav className="mb-8 flex items-center lg:absolute lg:-inset-x-5 lg:mt-2 lg:mb-0 xl:-top-1.5 xl:left-0 xl:mt-0">
             {previousSlug && (
-              <Link
-                aria-label="Visit previous article"
-                className="btn-brand btn btn-circle btn-sm"
-                href={`/articles/${previousSlug}`}
-              >
-                <ArrowLeftIcon className="w-4 stroke-current" />
-              </Link>
+              <Button asChild size="icon-sm" variant="ghost">
+                <Link
+                  aria-label="Visit previous article"
+                  href={`/articles/${previousSlug}`}
+                >
+                  <ArrowLeftIcon className="w-4 stroke-current" />
+                </Link>
+              </Button>
             )}
             <span aria-hidden="true" className="flex-1" />
             {nextSlug && (
-              <Link
-                aria-label="Visit next article"
-                className="btn-brand btn btn-circle btn-sm"
-                href={`/articles/${nextSlug}`}
-              >
-                <ArrowLeftIcon className="w-4 rotate-180 stroke-current" />
-              </Link>
+              <Button asChild size="icon-sm" variant="ghost">
+                <Link
+                  aria-label="Visit next article"
+                  href={`/articles/${nextSlug}`}
+                >
+                  <ArrowLeftIcon className="w-4 rotate-180 stroke-current" />
+                </Link>
+              </Button>
             )}
           </nav>
           <article>
@@ -64,10 +67,10 @@ export function ArticleLayout({
                 {meta.title}
               </h1>
               <time
-                className="order-first flex items-center text-base text-base-content/40"
+                className="order-first flex items-center text-base text-muted-foreground/70"
                 dateTime={meta.date}
               >
-                <span className="h-4 w-0.5 rounded-full bg-base-content/20" />
+                <span className="h-4 w-0.5 rounded-full bg-muted-foreground/30" />
                 <span className="ml-3">{formatDate(meta.date)}</span>
               </time>
             </header>

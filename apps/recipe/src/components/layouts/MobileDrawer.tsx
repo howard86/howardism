@@ -1,20 +1,15 @@
-import {
-  Box,
-  Drawer,
-  DrawerBody,
-  DrawerCloseButton,
-  DrawerContent,
-  DrawerHeader,
-  DrawerOverlay,
-  IconButton,
-  List,
-  ListItem,
-  useDisclosure,
-} from "@chakra-ui/react";
+"use client";
+
 import { RouteLink } from "@howardism/components-common";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTrigger,
+} from "@howardism/ui/components/sheet";
+import { Menu } from "lucide-react";
 import { useRouter } from "next/router";
-import { useRef } from "react";
-import { HiMenuAlt2 } from "react-icons/hi";
+import { useState } from "react";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
 
@@ -22,79 +17,54 @@ import HorizontalLogo from "../graphics/HorizontalLogo";
 
 export default function MobileDrawer(): JSX.Element {
   const router = useRouter();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const btnRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
 
   return (
-    <Box display={{ md: "none" }}>
-      <IconButton
-        aria-label="open-drawer"
-        color="primary.600"
-        fontSize="4xl"
-        icon={<HiMenuAlt2 />}
-        onClick={onOpen}
-        ref={btnRef}
-        variant="ghost"
-      >
-        Open
-      </IconButton>
-      <Drawer
-        finalFocusRef={btnRef}
-        isOpen={isOpen}
-        onClose={onClose}
-        placement="left"
-        size="xs"
-      >
-        <DrawerOverlay />
-        <DrawerContent bg="secondary.50">
-          <DrawerCloseButton />
-          <DrawerHeader bg="secondary.100" shadow="sm">
-            <RouteLink href="/">
+    <div className="md:hidden">
+      <Sheet onOpenChange={setOpen} open={open}>
+        <SheetTrigger asChild>
+          <button
+            aria-label="open-drawer"
+            className="rounded-lg p-2 text-border transition-colors hover:bg-black/5"
+            type="button"
+          >
+            <Menu className="size-8" />
+          </button>
+        </SheetTrigger>
+        <SheetContent className="w-xs bg-background" side="left">
+          <SheetHeader className="bg-card shadow-sm">
+            <RouteLink href="/" onClick={() => setOpen(false)}>
               <HorizontalLogo isTransparent />
             </RouteLink>
-          </DrawerHeader>
-          <DrawerBody my="8">
-            <List spacing="8">
+          </SheetHeader>
+          <nav className="my-8 px-4">
+            <ul className="list-none space-y-8">
               {MENU_LINK_ITEMS.map((item) => {
-                // TODO: implement active-link
                 const isCurrentPage = router.pathname === item.url;
                 return (
-                  <ListItem key={item.url}>
+                  <li className="relative" key={item.url}>
+                    {isCurrentPage && (
+                      <span className="absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r bg-card" />
+                    )}
                     <RouteLink
-                      _before={{
-                        mt: 4,
-                        display: "inline-block",
-                        content: '""',
-                        position: "absolute",
-                        width: 3,
-                        height: 8,
-                        left: 0,
-                        opacity: isCurrentPage ? 1 : 0,
-                        background: "secondary.100",
-                        transform: "translateY(-50%)",
-                      }}
-                      _hover={{
-                        color: "secondary.500",
-                      }}
-                      color={isCurrentPage ? "secondary.500" : "secondary.400"}
-                      fontSize="xl"
-                      fontWeight={isCurrentPage ? "bold" : "medium"}
+                      className={[
+                        "block whitespace-nowrap px-2.5 py-1 text-xl transition-colors duration-150 ease-in-out",
+                        isCurrentPage
+                          ? "font-bold text-secondary"
+                          : "font-medium text-accent hover:text-secondary",
+                      ].join(" ")}
                       href={item.url}
-                      onClick={onClose}
-                      px="2.5"
-                      py="1"
-                      transition="0.15s ease-in-out"
-                      whiteSpace="nowrap"
+                      onClick={() => setOpen(false)}
                     >
                       {item.label}
                     </RouteLink>
-                  </ListItem>
+                  </li>
                 );
               })}
-            </List>
-          </DrawerBody>
-        </DrawerContent>
-      </Drawer>
-    </Box>
+            </ul>
+          </nav>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

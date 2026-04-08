@@ -2,6 +2,7 @@
 
 import { XCircleIcon } from "@heroicons/react/20/solid";
 import { ArrowDownCircleIcon } from "@heroicons/react/24/outline";
+import { Button } from "@howardism/ui/components/button";
 import {
   type Control,
   type FieldArray,
@@ -47,46 +48,52 @@ export default function FormArraySection<
     <FormSectionContainer {...props}>
       {fields.map((field, index) => (
         <div
-          className="group relative col-span-6 grid grid-cols-6 gap-x-6 gap-y-4 rounded-md border border-base-200 p-6 shadow-sm transition"
+          className="group relative col-span-6 grid grid-cols-6 gap-x-6 gap-y-4 rounded-md border border-border p-6 shadow-sm transition"
           key={field.id}
         >
           {fields.length > 1 && (
-            <button
+            <Button
               aria-label="Remove item"
-              className="btn btn-circle btn-ghost absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100 group-active:opacity-100"
+              className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-all group-hover:opacity-100 group-active:opacity-100"
               onClick={() => remove(index)}
+              size="icon"
               type="button"
+              variant="ghost"
             >
               <XCircleIcon className="w-6 fill-current transition-colors" />
-            </button>
+            </Button>
           )}
           {index > 0 && (
-            <button
+            <Button
               aria-label="Move up"
-              className="btn btn-circle btn-ghost absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 opacity-0 transition-all group-hover:opacity-100 group-active:opacity-100"
+              className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-all group-hover:opacity-100 group-active:opacity-100"
               onClick={() => swap(index, index - 1)}
+              size="icon"
               type="button"
+              variant="ghost"
             >
-              <ArrowDownCircleIcon className="w-6 rotate-180 fill-base-100 transition-colors" />
-            </button>
+              <ArrowDownCircleIcon className="w-6 rotate-180 fill-background transition-colors" />
+            </Button>
           )}
           {index !== fields.length - 1 && (
-            <button
+            <Button
               aria-label="Move down"
-              className="absolute right-1/2 bottom-0 translate-x-1/2 translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
+              className="absolute right-1/2 bottom-0 translate-x-1/2 translate-y-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100 group-active:opacity-100"
               onClick={() => swap(index, index + 1)}
+              size="icon"
               type="button"
+              variant="ghost"
             >
-              <ArrowDownCircleIcon className="w-6 fill-base-100 transition-colors" />
-            </button>
+              <ArrowDownCircleIcon className="w-6 fill-background transition-colors" />
+            </Button>
           )}
           {renderFormItems(index)}
         </div>
       ))}
       <div className="col-span-6 flex items-center justify-center">
-        <button className="btn btn-primary" onClick={handleAdd} type="button">
+        <Button onClick={handleAdd} type="button">
           Add More
-        </button>
+        </Button>
       </div>
     </FormSectionContainer>
   );

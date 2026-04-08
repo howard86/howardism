@@ -1,4 +1,3 @@
-import { Box, Button, Flex, Heading, Text } from "@chakra-ui/react";
 import { Image } from "@howardism/components-common";
 import type { StaticImageData } from "next/image";
 
@@ -13,68 +12,56 @@ interface LandingProps {
 export default function Landing({ imageUrl }: LandingProps) {
   const onClick = () => {
     // TODO: add scrolling effect to next heading
-    console.info("clicked!");
   };
 
   return (
-    <Flex color="white" flexDirection="column" minH="100vh" position="relative">
-      <Triangle zIndex="1" />
-      <Image
-        alt="Landing page background"
-        layout="fill"
-        objectFit="cover"
-        objectPosition="center"
-        placeholder="blur"
-        priority
-        quality="50"
-        src={backgroundImage}
-      />
-      {/* TODO: add Text Animation */}
-      <Flex
-        alignItems="center"
-        flexDir="column"
-        gap={10}
-        mx="8"
-        my="12"
-        position="relative"
-        sx={{
-          "& > div": {
-            my: "4",
-            w: ["90%", "sm"],
-          },
-        }}
-      >
-        <Box>
-          <Heading as="h1" fontSize="2xl">
-            Check the BEST Recipe
-          </Heading>
-        </Box>
-        <Box>
+    <div className="relative flex min-h-screen flex-col text-white">
+      <Triangle style={{ zIndex: 1 }} />
+      <div className="absolute inset-0 overflow-hidden">
+        <Image
+          alt="Landing page background"
+          fill
+          objectFit="cover"
+          objectPosition="center"
+          placeholder="blur"
+          priority
+          quality={50}
+          src={backgroundImage}
+          style={{ objectFit: "cover", objectPosition: "center" }}
+        />
+      </div>
+      <div className="relative z-10 mx-8 my-12 flex flex-col items-center gap-10">
+        <div className="my-4 w-[90%] sm:w-80">
+          <h1 className="font-bold text-2xl">Check the BEST Recipe</h1>
+        </div>
+        <div className="my-4 w-[90%] sm:w-80">
           <Image
             alt="demo-recipe"
-            borderRadius="lg"
+            className="rounded-lg shadow-lg"
             height={218}
             priority
-            shadow="lg"
             src={imageUrl}
+            style={{
+              borderRadius: "0.5rem",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+            }}
             width={320}
           />
-        </Box>
-        <Box
-          bgGradient="linear(to-r, primary.500, primary.900)"
-          borderRadius="lg"
-          p="4"
-          shadow="lg"
-        >
-          <Heading fontSize="xl">SHARE YOURS, TOO!</Heading>
-          <Text mb="8" mt="4">
+        </div>
+        <div className="my-4 w-[90%] rounded-lg bg-gradient-to-r from-primary to-foreground p-4 shadow-lg sm:w-80">
+          <h2 className="font-bold text-xl">SHARE YOURS, TOO!</h2>
+          <p className="mt-4 mb-8">
             This is a recipe collection for home-made goodies
-          </Text>
-          <Button colorScheme="secondary" ml="2" onClick={onClick}>
+          </p>
+          <button
+            className="ml-2 rounded-lg bg-secondary px-4 py-2 font-medium text-secondary-foreground transition-colors hover:bg-accent"
+            onClick={onClick}
+            type="button"
+          >
             LEARN MORE
-          </Button>
-        </Box>
-      </Flex>
-    </Flex>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

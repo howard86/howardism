@@ -6,7 +6,15 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 const config = {
   reactStrictMode: true,
   swcMinify: true,
-  transpilePackages: ["@howardism/theme", "@howardism/components-common"],
+  transpilePackages: ["@howardism/ui", "@howardism/components-common"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+      },
+    ],
+  },
 };
 
 module.exports = withBundleAnalyzer(config);

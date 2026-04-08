@@ -1,10 +1,4 @@
-import {
-  Avatar,
-  LinkBox,
-  LinkOverlay,
-  useBreakpointValue,
-  WrapItem,
-} from "@chakra-ui/react";
+import Image from "next/image";
 import NextLink from "next/link";
 
 interface UserCardProps {
@@ -13,16 +7,21 @@ interface UserCardProps {
 }
 
 export default function UserCard({ avatarUrl, username }: UserCardProps) {
-  const size = useBreakpointValue({ base: "2xl", md: "xl", lg: "2xl" });
-
   return (
-    <LinkBox alignItems="center" as={WrapItem} flexDir="column">
-      <Avatar name={username} size={size} src={avatarUrl} />
-      <NextLink href={`/user/${username}`} passHref>
-        <LinkOverlay noOfLines={1} textAlign="center" w={[32, 32, 24, 32, 32]}>
-          {username}
-        </LinkOverlay>
+    <div className="flex flex-col items-center">
+      <Image
+        alt={username}
+        className="size-16 rounded-full md:size-14 lg:size-16"
+        height={64}
+        src={avatarUrl}
+        width={64}
+      />
+      <NextLink
+        className="w-24 truncate text-center md:w-20 lg:w-24"
+        href={`/user/${username}`}
+      >
+        {username}
       </NextLink>
-    </LinkBox>
+    </div>
   );
 }

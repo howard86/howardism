@@ -1,6 +1,6 @@
 "use client";
 
-import clsx from "clsx";
+import { cn } from "@howardism/ui/lib/utils";
 import get from "lodash.get";
 import type {
   FieldErrors,
@@ -25,7 +25,6 @@ interface FormTextAreaProps<T extends FieldValues>
   register: UseFormRegister<T>;
 }
 
-// TODO: handle error state
 export default function FormTextArea<T extends FieldValues>({
   label,
   name,
@@ -42,17 +41,24 @@ export default function FormTextArea<T extends FieldValues>({
   const text = typeof errorMessage === "string" ? errorMessage : helperText;
 
   return (
-    <div className={clsx(className, "form-control")}>
-      <label className="label" htmlFor={name}>
-        <span className="label-text">{label}</span>
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <label
+        className="font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        htmlFor={name}
+      >
+        {label}
       </label>
       <TextareaAutosize
         aria-describedby={getAriaDescribedBy(name, text, isInvalid)}
-        className={clsx(
-          "textarea textarea-bordered",
+        aria-invalid={isInvalid ? "true" : undefined}
+        className={cn(
+          "flex w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm transition-colors",
+          "placeholder:text-muted-foreground",
+          "focus-visible:outline-none focus-visible:ring-1",
+          "disabled:cursor-not-allowed disabled:opacity-50",
           isInvalid
-            ? "textarea-error"
-            : "focus-within:input-primary hover:input-primary active:input-primary"
+            ? "border-destructive focus-visible:ring-destructive"
+            : "border-input focus-visible:ring-ring"
         )}
         id={name}
         minRows={2}
@@ -61,9 +67,9 @@ export default function FormTextArea<T extends FieldValues>({
       />
       {text && (
         <p
-          className={clsx(
-            isInvalid ? "text-error" : "text-neutral",
-            "mt-2 text-sm"
+          className={cn(
+            "text-sm",
+            isInvalid ? "text-destructive" : "text-muted-foreground"
           )}
           id={getAriaDescribedBy(name, text, isInvalid)}
         >

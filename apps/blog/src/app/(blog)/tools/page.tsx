@@ -1,5 +1,5 @@
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
-import clsx from "clsx";
+import { cn } from "@howardism/ui/lib/utils";
 
 import { Card, CardDescription, CardTitle } from "@/app/(common)/Card";
 import { SimpleLayout } from "@/app/(common)/SimpleLayout";
@@ -27,7 +27,7 @@ export default function ToolsPage() {
             <Card as="li" key={item.title}>
               <div className="flex justify-center gap-4">
                 <div
-                  className={clsx(
+                  className={cn(
                     item.background,
                     "z-10 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg"
                   )}

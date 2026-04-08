@@ -1,20 +1,5 @@
-import { chakra } from "@chakra-ui/react";
 import NextImage, { type ImageProps } from "next/image";
 
-type ImagePropKey = keyof ImageProps;
-
-const SKIPPED_PROPS: ImagePropKey[] = [
-  "width",
-  "height",
-  "src",
-  "alt",
-  "quality",
-  "placeholder",
-  "priority",
-];
-
-const Image = chakra(NextImage, {
-  shouldForwardProp: (prop: ImagePropKey) => SKIPPED_PROPS.includes(prop),
-});
-
-export default Image;
+export default function Image(props: ImageProps) {
+  return <NextImage {...props} />;
+}

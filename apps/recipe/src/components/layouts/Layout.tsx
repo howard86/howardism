@@ -1,4 +1,3 @@
-import { Container } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 
 import Footer from "./Footer";
@@ -12,14 +11,9 @@ export default function Layout({ children }: LayoutProps): JSX.Element {
   return (
     <>
       <NavBar />
-      <Container
-        as="main"
-        maxW="container.lg"
-        minH="calc(100vh - 80px)"
-        mt="80px"
-      >
+      <main className="mx-auto mt-20 min-h-[calc(100vh-80px)] w-full max-w-5xl px-4">
         {children}
-      </Container>
+      </main>
       <Footer />
     </>
   );
