@@ -1,5 +1,3 @@
-import "@howardism/jest-config/setup";
-
 import {
   type RenderOptions,
   type RenderResult,

@@ -52,11 +52,11 @@ const defaultValues: RecipeFormValues = {
   steps: [],
 };
 
-export default function RecipeForm(): JSX.Element {
+export default function RecipeForm() {
   const [isChecked, setChecked] = useState(false);
   const toast = useAppToast();
 
-  const form = useForm<RecipeFormValues>({
+  const form = useForm({
     resolver: zodResolver(recipeSchema),
     defaultValues,
   });

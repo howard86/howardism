@@ -1,4 +1,6 @@
-"use client";
+import type React from "react";
+
+("use client");
 
 import { RouteLink } from "@howardism/components-common";
 import {
@@ -15,7 +17,7 @@ import { MENU_LINK_ITEMS } from "@/constants/menu";
 
 import HorizontalLogo from "../graphics/HorizontalLogo";
 
-export default function MobileDrawer(): JSX.Element {
+export default function MobileDrawer(): React.JSX.Element {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
