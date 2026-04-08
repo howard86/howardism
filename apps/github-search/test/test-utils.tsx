@@ -6,15 +6,10 @@ import {
 } from "@testing-library/react";
 import type { ChildrenProps, ReactElement } from "react";
 
-import ThemeProvider from "@/components/ThemeProvider";
 import client from "@/utils/apollo-client";
 
 export default function Provider({ children }: ChildrenProps) {
-  return (
-    <ApolloProvider client={client}>
-      <ThemeProvider>{children}</ThemeProvider>
-    </ApolloProvider>
-  );
+  return <ApolloProvider client={client}>{children}</ApolloProvider>;
 }
 
 export const customRender = (
