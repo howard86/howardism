@@ -186,6 +186,7 @@ export default function CheckoutForm({
                             errors={formState.errors}
                             label="Quantity"
                             name={`items.${index}.quantity`}
+                            options={{ valueAsNumber: true }}
                             register={register}
                           >
                             <ProductOption max={8} min={1} />

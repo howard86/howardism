@@ -3,6 +3,7 @@
 import { XCircleIcon } from "@heroicons/react/20/solid";
 import { ArrowDownCircleIcon } from "@heroicons/react/24/outline";
 import { Button } from "@howardism/ui/components/button";
+import type React from "react";
 import {
   type Control,
   type FieldArray,
@@ -23,7 +24,7 @@ interface FormArraySectionProps<
   arrayValue: FieldArray<T, K>;
   control: Control<T>;
   // Reference: https://beta.reactjs.org/reference/react/cloneElement#passing-data-with-a-render-prop
-  renderFormItems: (index: number) => JSX.Element;
+  renderFormItems: (index: number) => React.JSX.Element;
 }
 
 export default function FormArraySection<

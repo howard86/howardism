@@ -25,7 +25,7 @@ export default function EditorButton({
   Icon,
   ...props
 }: EditorButtonProps) {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [success, setSuccess] = useState(false);
 
   const handleClick = () => {
