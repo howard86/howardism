@@ -7,6 +7,14 @@ const config = {
   reactStrictMode: true,
   swcMinify: true,
   transpilePackages: ["@howardism/ui", "@howardism/components-common"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+      },
+    ],
+  },
 };
 
 module.exports = withBundleAnalyzer(config);

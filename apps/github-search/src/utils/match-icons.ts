@@ -1,106 +1,110 @@
-import type { IconType } from "react-icons";
-import { BiConversation, BiIdCard } from "react-icons/bi";
-import { BsFillPersonPlusFill, BsPersonCheckFill } from "react-icons/bs";
 import {
-  FaBlog,
-  FaBook,
-  FaDonate,
-  FaInfoCircle,
-  FaTwitter,
-  FaUserCircle,
-} from "react-icons/fa";
-import { GiReceiveMoney, GiTakeMyMoney, GiWantedReward } from "react-icons/gi";
-import { GrUserManager } from "react-icons/gr";
-import { HiOutlineMail } from "react-icons/hi";
-import { ImMan } from "react-icons/im";
-import { MdKeyboard, MdLocationOn, MdSchool, MdWork } from "react-icons/md";
-import {
-  RiAdminLine,
-  RiGitRepositoryLine,
-  RiTimer2Fill,
-  RiTimerFill,
-} from "react-icons/ri";
-import { SiCodesandbox } from "react-icons/si";
+  BadgeCheck,
+  BookOpen,
+  Box,
+  Building2,
+  CircleDollarSign,
+  CircleUser,
+  Clock,
+  GitBranch,
+  Globe,
+  GraduationCap,
+  HandCoins,
+  Heart,
+  IdCard,
+  Info,
+  Keyboard,
+  type LucideIcon,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Shield,
+  Timer,
+  Twitter,
+  User,
+  UserCheck,
+  UserCog,
+  UserPlus,
+} from "lucide-react";
 
-// TODO: add dynamic import for better performance
-export default function matchIcon(key: string): IconType {
+export default function matchIcon(key: string): LucideIcon {
   switch (key) {
     case "login":
-      return FaUserCircle;
+      return CircleUser;
 
     case "databaseId":
-      return SiCodesandbox;
+      return Box;
 
     case "id":
-      return BiIdCard;
+      return IdCard;
 
     case "name":
-      return FaUserCircle;
+      return CircleUser;
 
     case "company":
-      return MdWork;
+      return Building2;
 
     case "websiteUrl":
-      return FaBlog;
+      return Globe;
 
     case "location":
-      return MdLocationOn;
+      return MapPin;
 
     case "email":
-      return HiOutlineMail;
+      return Mail;
 
     case "bio":
-      return BiConversation;
+      return MessageCircle;
 
     case "twitterUsername":
-      return FaTwitter;
+      return Twitter;
 
     case "repositories":
-      return RiGitRepositoryLine;
+      return GitBranch;
 
     case "gists":
-      return FaBook;
+      return BookOpen;
 
     case "followers":
-      return BsFillPersonPlusFill;
+      return UserPlus;
 
     case "following":
-      return BsPersonCheckFill;
+      return UserCheck;
 
     case "createdAt":
-      return RiTimerFill;
+      return Timer;
 
     case "updatedAt":
-      return RiTimer2Fill;
+      return Clock;
 
     case "hasSponsorsListing":
-      return FaDonate;
+      return Heart;
 
     case "isBountyHunter":
-      return GiReceiveMoney;
+      return CircleDollarSign;
 
     case "isCampusExpert":
-      return MdSchool;
+      return GraduationCap;
 
     case "isDeveloperProgramMember":
-      return MdKeyboard;
+      return Keyboard;
 
     case "isEmployee":
-      return GrUserManager;
+      return UserCog;
 
     case "isHireable":
-      return GiWantedReward;
+      return BadgeCheck;
 
     case "isSiteAdmin":
-      return RiAdminLine;
+      return Shield;
 
     case "isSponsoringViewer":
-      return GiTakeMyMoney;
+      return HandCoins;
 
     case "isViewer":
-      return ImMan;
+      return User;
 
     default:
-      return FaInfoCircle;
+      return Info;
   }
 }

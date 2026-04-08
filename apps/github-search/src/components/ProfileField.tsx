@@ -1,5 +1,3 @@
-import { Flex, Icon, Text, Tooltip } from "@chakra-ui/react";
-
 import matchIcon from "@/utils/match-icons";
 
 interface ProfileFieldProps {
@@ -15,22 +13,18 @@ export default function ProfileField({
     return null;
   }
 
+  const IconComponent = matchIcon(fieldKey);
+
   return (
-    <Flex fontSize={["md", "lg"]} my={[1, 2]}>
-      <Text as="h2" fontWeight="medium" textTransform="capitalize" w="36">
-        <Icon as={matchIcon(fieldKey)} fontSize="lg" mr="1" />
+    <div className="my-1 flex text-base sm:my-2 sm:text-lg">
+      <h2 className="flex w-36 items-center gap-1 font-medium capitalize">
+        <IconComponent className="size-4" />
         {/* TODO: fix this quick workaround */}
         {fieldKey.replace("Username", "")}
-      </Text>
-      <Tooltip
-        aria-label={`${fieldKey}'s tooltip`}
-        label={fieldValue}
-        placement="bottom-start"
-      >
-        <Text noOfLines={1} w="36">
-          {fieldValue}
-        </Text>
-      </Tooltip>
-    </Flex>
+      </h2>
+      <span className="w-36 truncate" title={String(fieldValue)}>
+        {fieldValue}
+      </span>
+    </div>
   );
 }
