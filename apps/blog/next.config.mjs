@@ -24,7 +24,7 @@ const config = {
   pageExtensions: ["ts", "tsx", "mdx"],
   reactStrictMode: true,
   swcMinify: true,
-  transpilePackages: ["@howardism/ui"],
+  transpilePackages: ["@howardism/ui", "@react-pdf/renderer"],
   images: {
     remotePatterns: [
       { hostname: "images.unsplash.com" },
