@@ -29,7 +29,7 @@ export default function Layout({ children }: ChildrenProps) {
         justify="space-between"
         py={[2, 4]}
       >
-        <RouteLink href="/" ml={[2, 4]}>
+        <RouteLink className="ml-2 md:ml-4" href="/">
           Home
         </RouteLink>
       </Flex>
