@@ -1,4 +1,6 @@
-export default function Footer(): JSX.Element {
+import type React from "react";
+
+export default function Footer(): React.JSX.Element {
   return (
     <footer className="relative overflow-hidden px-4 py-5 text-center md:py-8">
       Copyright &copy; {new Date().getFullYear()}

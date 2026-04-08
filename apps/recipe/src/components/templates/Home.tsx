@@ -1,4 +1,5 @@
 import { Image, RouteLink } from "@howardism/components-common";
+import type React from "react";
 
 import backgroundImage from "@/../public/assets/background.jpg";
 import logo from "@/../public/favicon/logo.png";
@@ -14,7 +15,7 @@ const getDayTag = (timestamp: string): string => {
   return days > 0 ? `${days} days ago` : "Today";
 };
 
-export default function Home({ recipes }: HomeProps): JSX.Element {
+export default function Home({ recipes }: HomeProps): React.JSX.Element {
   return (
     <>
       {/* Hero section */}

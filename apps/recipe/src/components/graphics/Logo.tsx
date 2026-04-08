@@ -1,4 +1,5 @@
 import { Image } from "@howardism/components-common";
+import type React from "react";
 
 import LOGO from "@/../public/favicon/logo.png";
 import LOGO_TRANSPARENT from "@/../public/favicon/logo_transparent.png";
@@ -11,7 +12,7 @@ interface LogoProps {
 export default function Logo({
   size = 100,
   isTransparent = false,
-}: LogoProps): JSX.Element {
+}: LogoProps): React.JSX.Element {
   return (
     <Image
       alt="logo"

@@ -5,7 +5,7 @@ import type { ThreeEvent } from "@react-three/fiber/dist/declarations/src/core/e
 import { nanoid } from "nanoid";
 import { type ReactNode, useState } from "react";
 import type { BufferGeometry, Mesh } from "three";
-import create from "zustand";
+import { create } from "zustand";
 
 interface CubeStore {
   addCube: (x: number, y: number, z: number) => void;
@@ -99,7 +99,7 @@ export default function Cube({ position }: CubeProps) {
           map={texture}
         />
       ))}
-      <boxBufferGeometry attach="geometry" />
+      <boxGeometry attach="geometry" />
     </mesh>
   );
 }

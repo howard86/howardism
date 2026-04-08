@@ -1,13 +1,14 @@
 import { RouteLink } from "@howardism/components-common";
 import { Search } from "lucide-react";
 import { useRouter } from "next/router";
+import type React from "react";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
 
 import HorizontalLogo from "../graphics/HorizontalLogo";
 import MobileDrawer from "./MobileDrawer";
 
-export default function NavBar(): JSX.Element {
+export default function NavBar(): React.JSX.Element {
   const router = useRouter();
 
   return (

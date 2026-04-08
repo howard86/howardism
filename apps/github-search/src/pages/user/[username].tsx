@@ -1,5 +1,4 @@
 import type { ParsedUrlQuery } from "node:querystring";
-import type { ApolloQueryResult } from "@apollo/client";
 import { Badge } from "@howardism/ui/components/badge";
 import {
   Tabs,
@@ -174,7 +173,7 @@ export const getStaticProps = async (
     return { notFound: true };
   }
 
-  let result: ApolloQueryResult<GetUserQuery>;
+  let result: Awaited<ReturnType<typeof client.query<GetUserQuery>>>;
   try {
     result = await client.query<GetUserQuery>({
       query: GetUserDocument,
@@ -186,7 +185,7 @@ export const getStaticProps = async (
   }
 
   return {
-    props: result.data.user,
+    props: result.data?.user,
     revalidate: 60,
   };
 };

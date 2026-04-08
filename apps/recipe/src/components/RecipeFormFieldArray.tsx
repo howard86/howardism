@@ -1,5 +1,6 @@
 import { nanoid } from "@reduxjs/toolkit";
 import { Minus, Plus } from "lucide-react";
+import type React from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 
 import type { RecipeFormValues } from "./RecipeForm";
@@ -21,7 +22,7 @@ export default function RecipeFormFieldArray<
   newArrayField,
   arrayFieldName,
   arrayFieldDisplayKey,
-}: RecipeFormFieldArrayProps<T>): JSX.Element {
+}: RecipeFormFieldArrayProps<T>): React.JSX.Element {
   const { control } = useFormContext<RecipeFormValues>();
   const { fields, append, remove } = useFieldArray({
     control,

@@ -1,4 +1,6 @@
-"use client";
+import type React from "react";
+
+("use client");
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@howardism/ui/components/button";
@@ -34,7 +36,9 @@ interface LoginFormProps {
   onLogin: OnLogin;
 }
 
-export default function LoginForm({ onLogin }: LoginFormProps): JSX.Element {
+export default function LoginForm({
+  onLogin,
+}: LoginFormProps): React.JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<FormValue>({

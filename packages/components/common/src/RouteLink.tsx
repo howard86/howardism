@@ -1,4 +1,5 @@
 import NextLink, { type LinkProps } from "next/link";
+import type React from "react";
 import type { AnchorHTMLAttributes } from "react";
 
 export interface RouteLinkProps
@@ -12,7 +13,7 @@ export default function RouteLink({
   children,
   className,
   ...props
-}: RouteLinkProps): JSX.Element {
+}: RouteLinkProps): React.JSX.Element {
   return (
     <NextLink className={className} href={href} {...props}>
       {children}
