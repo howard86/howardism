@@ -24,8 +24,6 @@ export default function Home({ recipes }: HomeProps): React.JSX.Element {
           <Image
             alt="Landing page background"
             fill
-            objectFit="cover"
-            objectPosition="center"
             placeholder="blur"
             priority
             src={backgroundImage}
@@ -46,7 +44,6 @@ export default function Home({ recipes }: HomeProps): React.JSX.Element {
                       <Image
                         alt="image"
                         height={200}
-                        objectFit="cover"
                         src={recipe?.image[0]?.formats.small.url || logo}
                         style={{ objectFit: "cover" }}
                         width={200}

@@ -9,7 +9,21 @@ GlobalRegistrator.register();
 // with plain HTML equivalents for component tests.
 mock.module("next/image", () => ({
   default(props: Record<string, unknown>) {
-    const { src, alt, width, height, fill, priority, loading, ...rest } = props;
+    const {
+      src,
+      alt,
+      width,
+      height,
+      fill,
+      priority,
+      loading,
+      placeholder,
+      blurDataURL,
+      quality,
+      objectFit,
+      objectPosition,
+      ...rest
+    } = props;
     return React.createElement("img", { src, alt, width, height, ...rest });
   },
 }));
