@@ -5,9 +5,8 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 /** @type{import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
-  swcMinify: true,
   images: {
-    domains: ["res.cloudinary.com"],
+    remotePatterns: [{ hostname: "res.cloudinary.com" }],
   },
   transpilePackages: [
     "@howardism/components-common",

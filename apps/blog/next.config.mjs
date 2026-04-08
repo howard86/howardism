@@ -21,7 +21,10 @@ const withMDX = nextMDX({
 const config = {
   pageExtensions: ["ts", "tsx", "mdx"],
   reactStrictMode: true,
-  swcMinify: true,
+  outputFileTracingRoot: join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../"
+  ),
   transpilePackages: ["@howardism/ui", "@react-pdf/renderer"],
   images: {
     remotePatterns: [
@@ -29,14 +32,6 @@ const config = {
       { hostname: "avatars.githubusercontent.com" },
       { hostname: "lh3.googleusercontent.com" },
     ],
-  },
-  experimental: {
-    scrollRestoration: true,
-    outputFileTracingRoot: join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../"
-    ),
-    mdxRs: false,
   },
 };
 
