@@ -4,11 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
-import { cache } from "react";
 
 import { Container } from "@/app/(common)/Container";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
-import prisma from "@/services/prisma";
 
 import LogoutButton from "./LogoutButton";
 
@@ -29,20 +27,12 @@ function InfoField({ title, description }: InfoFieldProps) {
   );
 }
 
-const getResumeProfiles = cache(async (email: string) =>
-  prisma.resumeProfile.findMany({
-    where: { applicant: { email } },
-  })
-);
-
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
     redirect("/");
   }
-
-  const profiles = await getResumeProfiles(session.user.email);
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
@@ -97,95 +87,6 @@ export default async function ProfilePage() {
             <InfoField description={session.user.name} title="Name" />
             <InfoField description={session.user.email} title="Email" />
           </dl>
-
-          {profiles.length > 0 && (
-            <div className="mt-8 mb-2 overflow-hidden bg-muted/40 shadow ring-1 ring-foreground/10 md:rounded-lg">
-              <table className="min-w-full divide-y">
-                <thead>
-                  <tr>
-                    <th
-                      className="py-3.5 pr-3 pl-4 text-left font-semibold text-sm sm:pl-6"
-                      scope="col"
-                    >
-                      Company
-                    </th>
-                    <th
-                      className="hidden px-3 py-3.5 text-left font-semibold text-sm lg:table-cell"
-                      scope="col"
-                    >
-                      Position
-                    </th>
-                    <th
-                      className="hidden px-3 py-3.5 text-left font-semibold text-sm lg:table-cell"
-                      scope="col"
-                    >
-                      Updated At
-                    </th>
-                    <th
-                      className="relative py-3.5 pr-4 pl-3 sm:pr-6"
-                      scope="col"
-                    >
-                      <span className="sr-only">View</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 bg-white">
-                  {profiles.map((profile) => (
-                    <tr key={profile.id}>
-                      <td className="w-full max-w-0 py-4 pr-3 pl-4 font-medium text-sm sm:w-auto sm:max-w-none sm:pl-6">
-                        {profile.company}
-                        <dl className="font-normal lg:hidden">
-                          <dt className="sr-only">Position</dt>
-                          <dd className="mt-1 truncate">{profile.position}</dd>
-                          <dt className="sr-only">Updated At</dt>
-                          <dd className="mt-1 truncate">
-                            {profile.updatedAt.toLocaleDateString()}
-                          </dd>
-                        </dl>
-                      </td>
-                      <td className="hidden px-3 py-4 text-sm lg:table-cell">
-                        {profile.position}
-                      </td>
-                      <td className="hidden px-3 py-4 text-sm lg:table-cell">
-                        {profile.updatedAt.toLocaleDateString()}
-                      </td>
-                      <td className="py-4 pr-4 pl-3 text-right font-medium text-sm sm:pr-6">
-                        <dl className="inline-flex items-center justify-center gap-2">
-                          <dt className="sr-only">View Resume</dt>
-                          <dd>
-                            <Link
-                              className="link-hover link-secondary link"
-                              href={`/profile/resume/${profile.id}`}
-                            >
-                              View
-                            </Link>
-                          </dd>
-                          <dt className="sr-only">Edit Resume</dt>
-                          <dd>
-                            <Link
-                              className="link-hover link-secondary link"
-                              href={`/profile/resume/${profile.id}/edit`}
-                            >
-                              Edit
-                            </Link>
-                          </dd>
-                          <dt className="sr-only">Clone Resume</dt>
-                          <dd>
-                            <Link
-                              className="link-hover link-secondary link"
-                              href={`/profile/resume/${profile.id}/clone`}
-                            >
-                              Clone
-                            </Link>
-                          </dd>
-                        </dl>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       </article>
     </Container>
