@@ -1,6 +1,4 @@
-import type React from "react";
-
-("use client");
+"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@howardism/ui/components/button";
@@ -14,6 +12,7 @@ import {
 } from "@howardism/ui/components/form";
 import { Input } from "@howardism/ui/components/input";
 import { Eye, EyeOff } from "lucide-react";
+import type React from "react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";

@@ -1,6 +1,4 @@
-import type React from "react";
-
-("use client");
+"use client";
 
 import { RouteLink } from "@howardism/components-common";
 import {
@@ -11,6 +9,7 @@ import {
 } from "@howardism/ui/components/sheet";
 import { Menu } from "lucide-react";
 import { useRouter } from "next/router";
+import type React from "react";
 import { useState } from "react";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
