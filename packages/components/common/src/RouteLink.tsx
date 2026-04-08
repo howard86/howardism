@@ -1,17 +1,21 @@
-import { Link, type LinkProps } from "@chakra-ui/react";
-import NextLink from "next/link";
+import NextLink, { type LinkProps } from "next/link";
+import type { AnchorHTMLAttributes } from "react";
 
-export interface RouteLinkProps extends LinkProps {
+export interface RouteLinkProps
+  extends LinkProps,
+    Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps> {
   href: string;
 }
 
 export default function RouteLink({
   href,
+  children,
+  className,
   ...props
 }: RouteLinkProps): JSX.Element {
   return (
-    <NextLink href={href} legacyBehavior passHref>
-      <Link {...props} />
+    <NextLink className={className} href={href} {...props}>
+      {children}
     </NextLink>
   );
 }

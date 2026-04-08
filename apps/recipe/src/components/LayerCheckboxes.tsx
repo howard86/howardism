@@ -1,4 +1,3 @@
-import { Box, Checkbox, Text, VStack } from "@chakra-ui/react";
 import { type ChangeEvent, useState } from "react";
 
 import type { Ingredient } from "@/types/recipe";
@@ -24,37 +23,47 @@ export default function LayerCheckboxes({
   };
 
   return (
-    <Box p="4">
-      <Checkbox
-        borderColor="primary.200"
-        isChecked={isAllChecked}
-        isIndeterminate={isIndeterminate}
-        onChange={handleOnParentChange}
-      >
-        <Text fontSize={["lg", "xl"]} fontWeight="medium">
-          {title}
-        </Text>
-      </Checkbox>
-      <VStack alignItems="start" mt="2" pl="3" spacing="1">
+    <div className="p-4">
+      <label className="flex cursor-pointer items-center gap-2">
+        <input
+          checked={isAllChecked}
+          className="h-4 w-4 rounded border-muted accent-primary"
+          onChange={handleOnParentChange}
+          ref={(el) => {
+            if (el) {
+              el.indeterminate = isIndeterminate;
+            }
+          }}
+          type="checkbox"
+        />
+        <span className="font-medium text-lg sm:text-xl">{title}</span>
+      </label>
+      <div className="mt-2 space-y-1 pl-3">
         {options.map((option, index) => (
-          <Checkbox
-            borderColor="primary.200"
-            isChecked={checkedItems[index]}
+          <label
+            className="flex cursor-pointer items-center gap-2"
             key={option.id}
-            onChange={(e) => {
-              setCheckedItems((items) => {
-                const newItems = [...items];
-                newItems[index] = e.target.checked;
-                return newItems;
-              });
-            }}
           >
-            {option.amount > 0
-              ? `${option.name} ${option.amount} ${option.unit}`
-              : `${option.name} ${option.unit}`}
-          </Checkbox>
+            <input
+              checked={checkedItems[index]}
+              className="h-4 w-4 rounded border-muted accent-primary"
+              onChange={(e) => {
+                setCheckedItems((items) => {
+                  const newItems = [...items];
+                  newItems[index] = e.target.checked;
+                  return newItems;
+                });
+              }}
+              type="checkbox"
+            />
+            <span>
+              {option.amount > 0
+                ? `${option.name} ${option.amount} ${option.unit}`
+                : `${option.name} ${option.unit}`}
+            </span>
+          </label>
         ))}
-      </VStack>
-    </Box>
+      </div>
+    </div>
   );
 }

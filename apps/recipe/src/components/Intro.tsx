@@ -1,13 +1,5 @@
-import {
-  Box,
-  Heading,
-  Icon,
-  LinkBox,
-  LinkOverlay,
-  VStack,
-} from "@chakra-ui/react";
+import { Share2 } from "lucide-react";
 import NextLink from "next/link";
-import { FiShare } from "react-icons/fi";
 
 import demo from "@/../public/assets/demo.jpg";
 import type { Recipe } from "@/types/recipe";
@@ -20,9 +12,9 @@ interface IntroProps {
 
 export default function Intro({ recipes }: IntroProps) {
   return (
-    <Box p="8">
-      <Heading fontSize="xl">Top Recipes</Heading>
-      <VStack my="4" spacing={6}>
+    <div className="p-8">
+      <h2 className="font-semibold text-xl">Top Recipes</h2>
+      <div className="my-4 space-y-6">
         {recipes.map((recipe) => (
           <RecipeCard
             description={recipe.description}
@@ -33,23 +25,16 @@ export default function Intro({ recipes }: IntroProps) {
             title={recipe.title}
           />
         ))}
-        <LinkBox
-          borderColor="blackAlpha.400"
-          borderStyle="dotted"
-          borderWidth="2px"
-          maxW="sm"
-          p="4"
-          rounded="lg"
+        <NextLink
+          className="block max-w-sm rounded-lg border-2 border-black/40 border-dashed p-4 transition-colors hover:border-black/60"
+          href="create"
         >
-          <Heading as="h3" fontSize="lg">
-            <NextLink href="create" passHref>
-              <LinkOverlay>
-                <Icon as={FiShare} /> Share yours here!
-              </LinkOverlay>
-            </NextLink>
-          </Heading>
-        </LinkBox>
-      </VStack>
-    </Box>
+          <h3 className="flex items-center gap-2 font-semibold text-lg">
+            <Share2 className="size-4" />
+            Share yours here!
+          </h3>
+        </NextLink>
+      </div>
+    </div>
   );
 }

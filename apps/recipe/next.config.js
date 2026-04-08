@@ -9,7 +9,11 @@ const config = {
   images: {
     domains: ["res.cloudinary.com"],
   },
-  transpilePackages: ["@howardism/components-common", "@howardism/login-form"],
+  transpilePackages: [
+    "@howardism/components-common",
+    "@howardism/login-form",
+    "@howardism/ui",
+  ],
 };
 
 module.exports = withBundleAnalyzer(config);

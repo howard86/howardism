@@ -1,11 +1,24 @@
-import { type UseToastOptions, useToast } from "@chakra-ui/react";
+import { toast } from "sonner";
 
-const useAppToast = (options?: UseToastOptions) =>
-  useToast({
-    duration: 5000,
-    isClosable: true,
-    position: "bottom",
-    ...options,
-  });
+interface ToastOptions {
+  description: string;
+  status: "success" | "error" | "info" | "warning";
+}
+
+const useAppToast = () => (options: ToastOptions) => {
+  switch (options.status) {
+    case "success":
+      toast.success(options.description);
+      break;
+    case "error":
+      toast.error(options.description);
+      break;
+    case "warning":
+      toast.warning(options.description);
+      break;
+    default:
+      toast.info(options.description);
+  }
+};
 
 export default useAppToast;

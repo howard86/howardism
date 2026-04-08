@@ -108,14 +108,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: ChildrenProps) {
   return (
     <html
-      className="h-full scroll-smooth bg-base-200 bg-texture antialiased"
-      data-theme="jp"
+      className="h-full scroll-smooth bg-muted bg-texture antialiased"
       lang="en"
     >
       <body className="flex h-full flex-col">
         <div className="fixed inset-0 flex justify-center sm:px-8">
           <div className="flex w-full max-w-7xl lg:px-8">
-            <div className="w-full bg-base-100 ring-1 ring-base-300" />
+            <div className="w-full bg-background ring-1 ring-border" />
           </div>
         </div>
         <div className="relative flex flex-1 flex-col">

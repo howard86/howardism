@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import { cn } from "@howardism/ui/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -19,8 +19,8 @@ export default async function Photos() {
 
           return (
             <div
-              className={clsx(
-                "relative aspect-[9/10] w-44 flex-none overflow-hidden rounded-xl bg-base-100 sm:w-72 sm:rounded-2xl",
+              className={cn(
+                "relative aspect-[9/10] w-44 flex-none overflow-hidden rounded-xl bg-background sm:w-72 sm:rounded-2xl",
                 index % 2 ? "rotate-2" : "-rotate-2"
               )}
               key={article.slug}

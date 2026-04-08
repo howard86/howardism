@@ -1,22 +1,18 @@
-import {
-  Button,
-  Input,
-  Stack,
-  useBreakpointValue,
-  VStack,
-  Wrap,
-} from "@chakra-ui/react";
+import { Button } from "@howardism/ui/components/button";
+import { Input } from "@howardism/ui/components/input";
+import { Loader2 } from "lucide-react";
 
 import UserCard from "@/components/UserCard";
 import useSearch from "@/hooks/use-search";
 
+const COUNT = 25;
+
 export default function HomePage() {
-  const count = useBreakpointValue({ base: 9, sm: 12, md: 18, lg: 15, xl: 25 });
-  const { state, result, onType, onSearch } = useSearch(count);
+  const { state, result, onType, onSearch } = useSearch(COUNT);
 
   return (
-    <VStack my="auto" spacing={[4, 8]}>
-      <Stack align="center" direction={["column", "row"]}>
+    <div className="my-auto flex flex-col items-center gap-4 sm:gap-8">
+      <div className="flex flex-col items-center gap-2 sm:flex-row">
         <Input
           aria-label="GitHub Search"
           name="search"
@@ -25,12 +21,13 @@ export default function HomePage() {
           type="text"
           value={state.username}
         />
-        <Button isLoading={result.loading} onClick={onSearch}>
+        <Button disabled={result.loading} onClick={onSearch}>
+          {result.loading && <Loader2 className="animate-spin" />}
           Search
         </Button>
-      </Stack>
+      </div>
       {result.data && (
-        <Wrap justify="center" maxW="90ch" spacing={[4, 6, 8]}>
+        <div className="grid w-full max-w-[90ch] grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-4 sm:gap-6 md:gap-8">
           {result?.data?.search?.nodes?.map(
             (user) =>
               user?.__typename === "User" && (
@@ -41,8 +38,8 @@ export default function HomePage() {
                 />
               )
           )}
-        </Wrap>
+        </div>
       )}
-    </VStack>
+    </div>
   );
 }

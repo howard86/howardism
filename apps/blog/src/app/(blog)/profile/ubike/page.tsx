@@ -12,7 +12,7 @@ export default function UbikePage() {
       <div className="md:mockup-phone">
         <div className="camera" />
         <div className="display">
-          <div className="md:artboard artboard-demo phone-2 relative w-full bg-base-200 max-md:h-[calc(100vh-40px)]">
+          <div className="md:artboard artboard-demo phone-2 relative w-full bg-muted max-md:h-[calc(100vh-40px)]">
             <DynamicUbikeMap />
           </div>
         </div>

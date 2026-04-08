@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@howardism/ui/components/button";
 import { useRouter } from "next/navigation";
 import type { SuccessApiResponse } from "next-api-handler";
 import { useState } from "react";
@@ -31,13 +32,9 @@ function ResumeLiveView({ control }: ResumeLiveViewProps) {
     // TODO: replace with other preview layout
     <section className="mt-20">
       <div className="my-4 flex items-center justify-center">
-        <button
-          className="btn btn-primary"
-          onClick={handleRefresh}
-          type="button"
-        >
+        <Button onClick={handleRefresh} type="button">
           Refresh
-        </button>
+        </Button>
       </div>
       <ResumeDocument {...cachedState} />
     </section>

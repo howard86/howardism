@@ -1,10 +1,10 @@
-import clsx from "clsx";
+import { cn } from "@howardism/ui/lib/utils";
 import { forwardRef } from "react";
 import type { DivPropsWithoutRef } from "react-html-props";
 
 export const OuterContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
   ({ className, children, ...props }, ref) => (
-    <div className={clsx("sm:px-8", className)} ref={ref} {...props}>
+    <div className={cn("sm:px-8", className)} ref={ref} {...props}>
       <div className="mx-auto max-w-7xl lg:px-8">{children}</div>
     </div>
   )
@@ -13,7 +13,7 @@ export const OuterContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
 export const InnerContainer = forwardRef<HTMLDivElement, DivPropsWithoutRef>(
   ({ className, children, ...props }, ref) => (
     <div
-      className={clsx("relative px-4 sm:px-8 lg:px-12", className)}
+      className={cn("relative px-4 sm:px-8 lg:px-12", className)}
       ref={ref}
       {...props}
     >

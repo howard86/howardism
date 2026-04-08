@@ -1,31 +1,20 @@
 import type { ParsedUrlQuery } from "node:querystring";
 import type { ApolloQueryResult } from "@apollo/client";
+import { Badge } from "@howardism/ui/components/badge";
 import {
-  Box,
-  Flex,
-  Heading,
-  Img,
-  List,
-  Spacer,
-  Spinner,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
   Tabs,
-  Tag,
-  useBreakpointValue,
-  VStack,
-  Wrap,
-} from "@chakra-ui/react";
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@howardism/ui/components/tabs";
+import { GitBranch, Loader2, UserCheck, UserPlus } from "lucide-react";
 import type {
   GetStaticPathsResult,
   GetStaticPropsContext,
   GetStaticPropsResult,
 } from "next";
+import Image from "next/image";
 import { useRouter } from "next/router";
-import { BsFillPersonCheckFill, BsFillPersonPlusFill } from "react-icons/bs";
-import { RiGitRepositoryLine } from "react-icons/ri";
 
 import InfoList from "@/components/InfoList";
 import ProfileBadge from "@/components/ProfileBadge";
@@ -47,7 +36,6 @@ export default function UserPage({
   ...rest
 }: NonNullable<GetUserQuery["user"]>) {
   const router = useRouter();
-  const display = useBreakpointValue({ base: "none", md: "inline-flex" });
 
   const badgeKeys = Object.keys(rest).filter(isBadgeKey);
   const profileKeys = Object.keys(rest).filter(
@@ -57,126 +45,114 @@ export default function UserPage({
   );
 
   if (router.isFallback) {
-    return <Spinner />;
+    return <Loader2 className="size-8 animate-spin" />;
   }
 
   const username = name || "";
 
   return (
-    <Flex
-      align={["center", "start"]}
-      direction={["column", "row"]}
-      mx={[4, 8, 12]}
-      w="full"
-    >
-      <VStack w={["full", "24rem"]}>
-        <Img
+    <div className="mx-4 flex w-full flex-col items-center gap-4 sm:mx-8 sm:flex-row sm:items-start md:mx-12">
+      <div className="flex w-full flex-col items-center gap-2 sm:w-96">
+        <Image
           alt={username}
-          borderRadius="full"
-          boxSize="200"
-          htmlHeight="200"
-          htmlWidth="200"
+          className="rounded-full"
+          height={200}
           src={avatarUrl}
+          width={200}
         />
-        <Heading as="h1" fontWeight="medium">
-          {username}
-        </Heading>
-        <Wrap>
+        <h1 className="font-medium text-2xl">{username}</h1>
+        <ul className="flex flex-wrap gap-2">
           {badgeKeys.map(
             (key) =>
               rest[key as keyof typeof rest] && (
                 <ProfileBadge key={key} name={key} />
               )
           )}
-        </Wrap>
-        <Box>
+        </ul>
+        <div>
           {profileKeys.map((key) => (
             <ProfileField
               fieldKey={key}
-              fieldValue={rest[key as keyof typeof rest]}
+              fieldValue={rest[key as keyof typeof rest] as string | number}
               key={key}
             />
           ))}
-        </Box>
-      </VStack>
-      <Spacer mx={[0, 2]} my={[4, 0]} />
+        </div>
+      </div>
+      <div className="my-4 sm:mx-2 sm:my-0 sm:flex-1" />
       <Tabs
-        isFitted
-        minW={["90%", "sm", "md"]}
-        variant="enclosed"
-        w={["auto", "80%"]}
+        className="w-auto min-w-[90%] sm:w-4/5 sm:min-w-96"
+        defaultValue="repositories"
       >
-        <TabList>
-          <Tab>
+        <TabsList className="w-full">
+          <TabsTrigger className="flex-1" value="repositories">
             Repository
-            <Tag colorScheme="teal" display={display} ml="1">
+            <Badge className="ml-1 hidden md:inline-flex">
               {repositories?.nodes?.length}
-            </Tag>
-          </Tab>
-          <Tab>
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger className="flex-1" value="followers">
             Follower
-            <Tag colorScheme="blue" display={display} ml="1">
+            <Badge className="ml-1 hidden md:inline-flex" variant="secondary">
               {followers?.nodes?.length}
-            </Tag>
-          </Tab>
-          <Tab>
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger className="flex-1" value="following">
             Following
-            <Tag colorScheme="purple" display={display} ml="1">
+            <Badge className="ml-1 hidden md:inline-flex" variant="outline">
               {following?.nodes?.length}
-            </Tag>
-          </Tab>
-        </TabList>
-        <TabPanels overflowY="auto">
-          <TabPanel>
-            <List spacing={2}>
-              {repositories?.nodes?.map((repo, index) => {
-                const repoName = repo ? repo.name : `${index}-repoName`;
-                return (
-                  <InfoList
-                    icon={RiGitRepositoryLine}
-                    key={repoName}
-                    name={repoName}
-                    url={`${GITHUB_BASE_URL}/${login}/${repoName}`}
-                  />
-                );
-              })}
-            </List>
-          </TabPanel>
-          <TabPanel>
-            <List spacing={2}>
-              {followers?.nodes?.map((follower, index) => {
-                const followeeName = follower
-                  ? follower.login
-                  : `${index}-repoName`;
-                return (
-                  <InfoList
-                    icon={BsFillPersonPlusFill}
-                    key={followeeName}
-                    name={followeeName}
-                  />
-                );
-              })}
-            </List>
-          </TabPanel>
-          <TabPanel>
-            <List spacing={2}>
-              {following?.nodes?.map((followee, index) => {
-                const followerName = followee
-                  ? followee.login
-                  : `${index}-repoName`;
-                return (
-                  <InfoList
-                    icon={BsFillPersonCheckFill}
-                    key={followerName}
-                    name={followerName}
-                  />
-                );
-              })}
-            </List>
-          </TabPanel>
-        </TabPanels>
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent className="overflow-y-auto" value="repositories">
+          <ul className="space-y-2">
+            {repositories?.nodes?.map((repo, index) => {
+              const repoName = repo ? repo.name : `${index}-repoName`;
+              return (
+                <InfoList
+                  icon={GitBranch}
+                  key={repoName}
+                  name={repoName}
+                  url={`${GITHUB_BASE_URL}/${login}/${repoName}`}
+                />
+              );
+            })}
+          </ul>
+        </TabsContent>
+        <TabsContent value="followers">
+          <ul className="space-y-2">
+            {followers?.nodes?.map((follower, index) => {
+              const followeeName = follower
+                ? follower.login
+                : `${index}-repoName`;
+              return (
+                <InfoList
+                  icon={UserPlus}
+                  key={followeeName}
+                  name={followeeName}
+                />
+              );
+            })}
+          </ul>
+        </TabsContent>
+        <TabsContent value="following">
+          <ul className="space-y-2">
+            {following?.nodes?.map((followee, index) => {
+              const followerName = followee
+                ? followee.login
+                : `${index}-repoName`;
+              return (
+                <InfoList
+                  icon={UserCheck}
+                  key={followerName}
+                  name={followerName}
+                />
+              );
+            })}
+          </ul>
+        </TabsContent>
       </Tabs>
-    </Flex>
+    </div>
   );
 }
 

@@ -1,4 +1,3 @@
-import { Container, Heading } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 
@@ -16,23 +15,11 @@ export default function CreateRecipePage(): JSX.Element {
   }, [router, isLoggedIn]);
 
   return (
-    <Container
-      bg="white"
-      borderRadius="lg"
-      mt="32"
-      px={{ base: 4, md: 10 }}
-      py="8"
-    >
-      <Heading
-        as="h1"
-        fontWeight="extrabold"
-        my="6"
-        size="xl"
-        textAlign="center"
-      >
+    <div className="mx-auto mt-32 w-full max-w-2xl rounded-lg bg-white px-4 py-8 md:px-10">
+      <h1 className="my-6 text-center font-extrabold text-2xl">
         編寫你專屬的食譜吧！
-      </Heading>
+      </h1>
       <RecipeForm />
-    </Container>
+    </div>
   );
 }

@@ -1,16 +1,19 @@
 "use client";
 
-import { Popover, Transition } from "@headlessui/react";
-import clsx from "clsx";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@howardism/ui/components/sheet";
+import { cn } from "@howardism/ui/lib/utils";
 import Image from "next/image";
 import Link, { type LinkProps } from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  type ChangeEvent,
   type ChildrenProps,
-  type ComponentType,
   type CSSProperties,
-  Fragment,
   useEffect,
   useRef,
   useState,
@@ -18,80 +21,51 @@ import {
 import type { DivProps } from "react-html-props";
 
 import { Container } from "@/app/(common)/Container";
-import {
-  ChevronDownIcon,
-  CloseIcon,
-  MoonIcon,
-  SunIcon,
-} from "@/app/(common)/icons";
+import { ChevronDownIcon, MoonIcon, SunIcon } from "@/app/(common)/icons";
 import profile from "@/profile.jpeg";
 
 import { NAV_SECTION_KEYS, NavSection } from "./constants";
 
-type ExtractProps<T> = T extends ComponentType<infer P> ? P : T;
-
-function MobileNavigation(props: ExtractProps<typeof Popover>) {
+function MobileNavigation({ className, ...props }: DivProps) {
   return (
-    <Popover {...props}>
-      <Popover.Button className="btn-brand btn btn-sm rounded-full">
-        Menu
-        <ChevronDownIcon className="w-2 stroke-current transition-colors" />
-      </Popover.Button>
-      <Transition.Root>
-        <Transition.Child
-          as={Fragment}
-          enter="duration-150 ease-out"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="duration-150 ease-in"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <Popover.Overlay className="fixed inset-0 z-50 bg-base-200/40 backdrop-blur-sm" />
-        </Transition.Child>
-        <Transition.Child
-          as={Fragment}
-          enter="duration-150 ease-out"
-          enterFrom="opacity-0 scale-95"
-          enterTo="opacity-100 scale-100"
-          leave="duration-150 ease-in"
-          leaveFrom="opacity-100 scale-100"
-          leaveTo="opacity-0 scale-95"
-        >
-          <Popover.Panel
-            className="fixed inset-x-4 top-8 z-50 origin-top rounded-3xl bg-base-100 p-8 ring-1 ring-base-200"
-            focus
+    <div className={className} {...props}>
+      <Sheet>
+        <SheetTrigger asChild>
+          <button
+            className="flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 font-medium text-sm shadow-sm transition-colors hover:bg-muted"
+            type="button"
           >
-            <div className="flex flex-row-reverse items-center justify-between">
-              <Popover.Button
-                aria-label="Close menu"
-                className="btn-brand btn btn-circle btn-sm"
-              >
-                <CloseIcon />
-              </Popover.Button>
-              <h2 className="font-medium text-base-content text-sm">
-                Navigation
-              </h2>
-            </div>
-            <nav className="mt-6">
-              <ul className="-my-2 divide-y divide-base-300 text-base text-base-content">
-                {NAV_SECTION_KEYS.map((key) => (
-                  <li key={key}>
-                    <Popover.Button
-                      as={Link}
-                      className="link-hover link block py-2"
-                      href={NavSection[key]}
-                    >
-                      {key}
-                    </Popover.Button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </Popover.Panel>
-        </Transition.Child>
-      </Transition.Root>
-    </Popover>
+            Menu
+            <ChevronDownIcon className="w-2 stroke-current transition-colors" />
+          </button>
+        </SheetTrigger>
+        <SheetContent
+          className="mx-4 mt-4 rounded-3xl p-8"
+          showCloseButton={false}
+          side="top"
+        >
+          <SheetHeader className="p-0">
+            <SheetTitle className="font-medium text-foreground text-sm">
+              Navigation
+            </SheetTitle>
+          </SheetHeader>
+          <nav className="mt-6">
+            <ul className="-my-2 divide-y divide-border text-base text-foreground">
+              {NAV_SECTION_KEYS.map((key) => (
+                <li key={key}>
+                  <Link
+                    className="block py-2 transition-colors hover:text-primary"
+                    href={NavSection[key]}
+                  >
+                    {key}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
 
@@ -101,9 +75,9 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
   return (
     <li>
       <Link
-        className={clsx(
-          "tab transition-all",
-          isActive && "tab-active text-primary"
+        className={cn(
+          "relative block px-3 py-2 font-medium text-sm transition-colors",
+          isActive ? "text-primary" : "text-foreground/70 hover:text-foreground"
         )}
         href={href}
       >
@@ -119,7 +93,7 @@ function NavItem({ href, children }: LinkProps & ChildrenProps) {
 function DesktopNavigation(props: DivProps) {
   return (
     <nav {...props}>
-      <ul className="tab-md flex items-center rounded-full bg-base-100/80 font-medium text-sm shadow-base-200 shadow-md ring-1 ring-base-200/40 backdrop:blur">
+      <ul className="flex items-center rounded-full bg-background/80 px-1 font-medium text-sm shadow-sm ring-1 ring-border/40 backdrop-blur">
         {NAV_SECTION_KEYS.map((key) => (
           <NavItem href={NavSection[key]} key={key}>
             {key}
@@ -131,22 +105,38 @@ function DesktopNavigation(props: DivProps) {
 }
 
 function ModeToggle() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setIsDarkMode(!event.target.checked);
-    document.documentElement.setAttribute(
-      "data-theme",
-      event.target.checked ? "jp" : "dark"
-    );
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+    const dark = stored === "dark" || (!stored && prefersDark);
+    setIsDark(dark);
+    document.documentElement.classList.toggle("dark", dark);
+  }, []);
+
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
   };
 
   return (
-    <label className="btn-brand group btn btn-circle swap swap-rotate btn-sm shadow-sm">
-      <input checked={!isDarkMode} onChange={handleChange} type="checkbox" />
-      <SunIcon className="swap-on w-5 fill-transparent stroke-primary group-hover:stroke-primary-focus" />
-      <MoonIcon className="swap-off w-5 fill-transparent stroke-base-content" />
-    </label>
+    <button
+      aria-label="Toggle dark mode"
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-muted"
+      onClick={toggle}
+      type="button"
+    >
+      {isDark ? (
+        <SunIcon className="w-5 fill-transparent stroke-primary" />
+      ) : (
+        <MoonIcon className="w-5 fill-transparent stroke-foreground" />
+      )}
+    </button>
   );
 }
 
@@ -159,9 +149,9 @@ function clamp(number: number, a: number, b: number) {
 function AvatarContainer({ className, ...props }: DivProps) {
   return (
     <div
-      className={clsx(
-        className,
-        "rounded-full bg-base-100 p-0.5 shadow-base-200 shadow-sm ring-1 ring-base-300 backdrop-blur"
+      className={cn(
+        "rounded-full bg-background p-0.5 shadow-sm ring-1 ring-border backdrop-blur",
+        className
       )}
       {...props}
     />
@@ -183,14 +173,14 @@ function Avatar({
   return (
     <Link
       aria-label="Home"
-      className={clsx(className, "pointer-events-auto")}
+      className={cn("pointer-events-auto", className)}
       href={href}
       {...props}
     >
       <Image
         alt=""
-        className={clsx(
-          "h-auto rounded-full bg-base-200 object-cover",
+        className={cn(
+          "h-auto rounded-full bg-muted object-cover",
           large ? "w-16" : "w-9"
         )}
         priority

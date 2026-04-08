@@ -68,7 +68,7 @@ bun run codegen     # regenerate GraphQL types from schema (graphql-codegen)
 | `@howardism/test-config` | Shared Bun test preload (happy-dom, jest-dom matchers, Next.js mocks) |
 | `@howardism/tsconfig` | Shared TypeScript configs |
 | `@howardism/components-common` | Shared React UI components |
-| `@howardism/theme` | Chakra UI theme |
+| `@howardism/ui` | shadcn/ui components (Tailwind v4) |
 
 ### Blog app (`apps/blog`) — primary app
 
@@ -90,7 +90,7 @@ Database: PostgreSQL via Prisma (schema in `prisma/`).
 
 ### github-search app (`apps/github-search`)
 
-Uses **Chakra UI** + **Apollo Client** + **GitHub GraphQL API**. GraphQL types are code-generated (`codegen.yml`).
+Uses **Tailwind v4** + **shadcn/ui** + **Apollo Client** + **GitHub GraphQL API**. GraphQL types are code-generated (`codegen.yml`).
 
 ## Code Style
 
