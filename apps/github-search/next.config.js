@@ -6,7 +6,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 const config = {
   reactStrictMode: true,
   swcMinify: true,
-  transpilePackages: ["@howardism/theme", "@howardism/components-common"],
+  transpilePackages: ["@howardism/ui", "@howardism/components-common"],
 };
 
 module.exports = withBundleAnalyzer(config);
