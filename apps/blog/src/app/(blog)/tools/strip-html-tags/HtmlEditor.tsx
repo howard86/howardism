@@ -122,8 +122,8 @@ export default function HtmlEditor({ html }: HtmlEditorProps) {
 
   const isDiff = watch("mode") === EditorMode.Diff;
 
-  const htmlCopyRef = useRef<string | undefined>();
-  const savedHtmlRef = useRef<string | undefined>();
+  const htmlCopyRef = useRef<string | undefined>(undefined);
+  const savedHtmlRef = useRef<string | undefined>(undefined);
 
   const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
   const codeEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null);

@@ -2,10 +2,8 @@ import "./src/config/env.mjs";
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import rehypePrism from "@mapbox/rehype-prism";
 import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
-import remarkGfm from "remark-gfm";
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -14,8 +12,8 @@ const withBundleAnalyzer = nextBundleAnalyzer({
 const withMDX = nextMDX({
   extension: /\.mdx?$/,
   options: {
-    remarkPlugins: [remarkGfm],
-    rehypePlugins: [rehypePrism],
+    remarkPlugins: ["remark-gfm"],
+    rehypePlugins: ["@mapbox/rehype-prism"],
   },
 });
 
