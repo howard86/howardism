@@ -1,24 +1,23 @@
-import { Link, ListIcon, ListItem } from "@chakra-ui/react";
 import { RouteLink } from "@howardism/components-common";
-import type { IconType } from "react-icons";
+import type { LucideIcon } from "lucide-react";
 
 interface InfoListProps {
-  icon?: IconType;
+  icon?: LucideIcon;
   name: string;
   url?: string;
 }
 
-export default function InfoList({ name, icon, url }: InfoListProps) {
+export default function InfoList({ name, icon: Icon, url }: InfoListProps) {
   return (
-    <ListItem fontSize={["md", "lg"]}>
-      <ListIcon as={icon} fontSize="xl" />
+    <li className="flex items-center gap-1 text-base sm:text-lg">
+      {Icon && <Icon className="size-5" />}
       {url ? (
-        <Link href={url} isExternal>
+        <a href={url} rel="noopener noreferrer" target="_blank">
           {name}
-        </Link>
+        </a>
       ) : (
         <RouteLink href={`/user/${name}`}>{name}</RouteLink>
       )}
-    </ListItem>
+    </li>
   );
 }
