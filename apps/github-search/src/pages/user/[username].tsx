@@ -184,8 +184,12 @@ export const getStaticProps = async (
     return { notFound: true };
   }
 
+  if (!result.data?.user) {
+    return { notFound: true };
+  }
+
   return {
-    props: result.data?.user,
+    props: result.data.user,
     revalidate: 60,
   };
 };
