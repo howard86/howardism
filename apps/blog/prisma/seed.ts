@@ -1,34 +1,23 @@
+import { auth } from "../src/lib/auth";
 import prisma from "../src/services/prisma";
 
 const main = async () => {
   try {
-    const [existedUser, existedAccount] = await Promise.all([
-      prisma.user.findFirst(),
-      prisma.account.findFirst(),
-    ]);
+    const existingUser = await prisma.user.findFirst({
+      where: { email: "howard+test@howardism.dev" },
+    });
 
-    if (existedUser || existedAccount) {
-      console.log("Skip creating user and account");
+    if (existingUser) {
+      console.log("Skip creating test user");
     } else {
-      const user = await prisma.user.create({
-        data: {
-          name: "Seed User",
-          email: "seed@test.com",
+      await auth.api.signUpEmail({
+        body: {
+          name: "Howard Tai",
+          email: "howard+test@howardism.dev",
+          password: "test-password-123",
         },
       });
-
-      console.log("User created: ", user);
-
-      const account = await prisma.account.create({
-        data: {
-          type: "seed",
-          provider: "seed",
-          providerAccountId: "seed-id",
-          userId: user.id,
-        },
-      });
-
-      console.log("Account created: ", account);
+      console.log("Test user created: howard+test@howardism.dev");
     }
 
     const existedProduct = await prisma.commerceProduct.findFirst();
