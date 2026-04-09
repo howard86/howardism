@@ -9,13 +9,14 @@ import {
 } from "@howardism/ui/components/sheet";
 import { Menu } from "lucide-react";
 import { useRouter } from "next/router";
+import type React from "react";
 import { useState } from "react";
 
 import { MENU_LINK_ITEMS } from "@/constants/menu";
 
 import HorizontalLogo from "../graphics/HorizontalLogo";
 
-export default function MobileDrawer(): JSX.Element {
+export default function MobileDrawer(): React.JSX.Element {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 

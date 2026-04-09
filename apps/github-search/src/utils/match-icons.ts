@@ -20,11 +20,11 @@ import {
   MessageCircle,
   Shield,
   Timer,
-  Twitter,
   User,
   UserCheck,
   UserCog,
   UserPlus,
+  X,
 } from "lucide-react";
 
 export default function matchIcon(key: string): LucideIcon {
@@ -57,7 +57,7 @@ export default function matchIcon(key: string): LucideIcon {
       return MessageCircle;
 
     case "twitterUsername":
-      return Twitter;
+      return X;
 
     case "repositories":
       return GitBranch;

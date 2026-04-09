@@ -1,3 +1,4 @@
+import type React from "react";
 import type { ReactNode } from "react";
 
 import Footer from "./Footer";
@@ -7,7 +8,7 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-export default function Layout({ children }: LayoutProps): JSX.Element {
+export default function Layout({ children }: LayoutProps): React.JSX.Element {
   return (
     <>
       <NavBar />

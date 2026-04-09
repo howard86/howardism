@@ -12,6 +12,7 @@ import {
 } from "@howardism/ui/components/form";
 import { Input } from "@howardism/ui/components/input";
 import { Eye, EyeOff } from "lucide-react";
+import type React from "react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -34,7 +35,9 @@ interface LoginFormProps {
   onLogin: OnLogin;
 }
 
-export default function LoginForm({ onLogin }: LoginFormProps): JSX.Element {
+export default function LoginForm({
+  onLogin,
+}: LoginFormProps): React.JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<FormValue>({

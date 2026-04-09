@@ -21,8 +21,6 @@ export default function Landing({ imageUrl }: LandingProps) {
         <Image
           alt="Landing page background"
           fill
-          objectFit="cover"
-          objectPosition="center"
           placeholder="blur"
           priority
           quality={50}
