@@ -1,21 +1,21 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { cache } from "react";
 
-import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import { auth } from "@/lib/auth";
 import prisma from "@/services/prisma";
 import { generateArrayStrings, generateDateISOString } from "@/services/resume";
 
 import type { ResumeSchema } from "../schema";
 
 export const getResumeById = cache(async (profileId: string) => {
-  const session = await getServerSession(authOptions);
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.email) {
-    redirect("/");
+    redirect("/login");
   }
 
   const resume = await prisma.resumeProfile.findUnique({
