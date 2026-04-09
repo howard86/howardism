@@ -6,7 +6,10 @@ import { Button } from "@howardism/ui/components/button";
 import { authClient } from "@/lib/auth-client";
 
 export default function LogoutButton() {
-  const handleSignOut = () => authClient.signOut();
+  const handleSignOut = () =>
+    authClient.signOut({
+      fetchOptions: { onSuccess: () => window.location.replace("/login") },
+    });
 
   return (
     <Button onClick={handleSignOut} type="button">
