@@ -7,7 +7,7 @@ export const getRecipes = async (): Promise<Recipe[]> => {
     const response = await cms.get<Recipe[]>("/recipes");
     return response.data.reverse();
   } catch (error) {
-    console.error(error);
+    console.error("Failed to fetch recipes:", (error as Error).message);
     return [];
   }
 };
@@ -18,7 +18,7 @@ export const getRecipeById = async (id: string): Promise<Recipe | null> => {
 
     return response.data;
   } catch (error) {
-    console.error(error);
+    console.error("Failed to fetch recipe:", (error as Error).message);
     return null;
   }
 };
