@@ -5,7 +5,8 @@ export const env = createEnv({
   server: {
     CMS_API_ENDPOINT: z.string().url().optional(),
     CMS_API_KEY: z.string().optional(),
-    NEXTAUTH_URL: z.string().url().optional(),
+    BETTER_AUTH_URL: z.string().url(),
+    BETTER_AUTH_SECRET: z.string().min(1),
     LINE_PAY_CHANNEL_ID: z.string().optional(),
     LINE_PAY_CHANNEL_SECRET_KEY: z.string().optional(),
     LINE_PAY_API_URL: z.string().url().optional(),
@@ -31,7 +32,8 @@ export const env = createEnv({
 
     CMS_API_ENDPOINT: process.env.CMS_API_ENDPOINT,
     CMS_API_KEY: process.env.CMS_API_KEY,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GITHUB_ID: process.env.GITHUB_ID,
