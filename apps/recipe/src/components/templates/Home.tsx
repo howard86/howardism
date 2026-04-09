@@ -1,4 +1,5 @@
 import { Image, RouteLink } from "@howardism/components-common";
+import type React from "react";
 
 import backgroundImage from "@/../public/assets/background.jpg";
 import logo from "@/../public/favicon/logo.png";
@@ -14,7 +15,7 @@ const getDayTag = (timestamp: string): string => {
   return days > 0 ? `${days} days ago` : "Today";
 };
 
-export default function Home({ recipes }: HomeProps): JSX.Element {
+export default function Home({ recipes }: HomeProps): React.JSX.Element {
   return (
     <>
       {/* Hero section */}
@@ -23,8 +24,6 @@ export default function Home({ recipes }: HomeProps): JSX.Element {
           <Image
             alt="Landing page background"
             fill
-            objectFit="cover"
-            objectPosition="center"
             placeholder="blur"
             priority
             src={backgroundImage}
@@ -45,7 +44,6 @@ export default function Home({ recipes }: HomeProps): JSX.Element {
                       <Image
                         alt="image"
                         height={200}
-                        objectFit="cover"
                         src={recipe?.image[0]?.formats.small.url || logo}
                         style={{ objectFit: "cover" }}
                         width={200}

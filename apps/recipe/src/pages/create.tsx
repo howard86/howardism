@@ -1,10 +1,11 @@
 import { useRouter } from "next/router";
+import type React from "react";
 import { useEffect } from "react";
 
 import RecipeForm from "@/components/RecipeForm";
 import useAuth from "@/hooks/useAuth";
 
-export default function CreateRecipePage(): JSX.Element {
+export default function CreateRecipePage(): React.JSX.Element {
   const router = useRouter();
   const { isLoggedIn } = useAuth();
 

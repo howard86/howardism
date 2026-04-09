@@ -1,15 +1,10 @@
 import { z } from "zod";
 
-const requiredString = z
-  .string()
-  .nonempty({ message: "This field is required" });
+const requiredString = z.string().min(1, { message: "This field is required" });
 
 export const orderItemSchema = z.object({
   id: z.string(),
-  quantity: z.preprocess(
-    (val) => (typeof val === "string" ? Number.parseInt(val, 10) : val),
-    z.number().int().min(1)
-  ),
+  quantity: z.number().int().min(1),
 });
 
 export const checkoutSchema = z.object({

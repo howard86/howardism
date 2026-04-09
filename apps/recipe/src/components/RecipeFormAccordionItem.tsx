@@ -1,3 +1,5 @@
+import type React from "react";
+
 import { useFormContext } from "react-hook-form";
 
 import type { RecipeFormValues } from "./RecipeForm";
@@ -35,7 +37,7 @@ export default function RecipeFormAccordionItem<
   formName,
   fieldName,
   fieldIndex,
-}: RecipeFormAccordionItemProps<T>): JSX.Element {
+}: RecipeFormAccordionItemProps<T>): React.JSX.Element {
   const { register } = useFormContext<RecipeFormValues>();
 
   return (
