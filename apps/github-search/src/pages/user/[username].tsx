@@ -20,7 +20,7 @@ import ProfileBadge from "@/components/ProfileBadge";
 import ProfileField from "@/components/ProfileField";
 import { GITHUB_BASE_URL } from "@/constants/github";
 import { GetUserDocument, type GetUserQuery } from "@/generated/graphql";
-import client from "@/utils/apollo-client";
+import { serverClient as client } from "@/utils/apollo-client";
 
 const isBadgeKey = (key: string) =>
   key.startsWith("is") || key.startsWith("has");
