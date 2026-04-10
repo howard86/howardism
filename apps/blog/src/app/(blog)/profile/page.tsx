@@ -1,12 +1,12 @@
 import { UserPlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@howardism/ui/components/button";
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth/next";
 
 import { Container } from "@/app/(common)/Container";
-import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import { auth } from "@/lib/auth";
 
 import LogoutButton from "./LogoutButton";
 
@@ -28,10 +28,10 @@ function InfoField({ title, description }: InfoFieldProps) {
 }
 
 export default async function ProfilePage() {
-  const session = await getServerSession(authOptions);
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.email) {
-    redirect("/");
+    redirect("/login");
   }
 
   return (

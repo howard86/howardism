@@ -2,10 +2,14 @@
 
 import { ArrowRightOnRectangleIcon } from "@heroicons/react/20/solid";
 import { Button } from "@howardism/ui/components/button";
-import { signOut } from "next-auth/react";
+
+import { authClient } from "@/lib/auth-client";
 
 export default function LogoutButton() {
-  const handleSignOut = () => signOut();
+  const handleSignOut = () =>
+    authClient.signOut({
+      fetchOptions: { onSuccess: () => window.location.replace("/login") },
+    });
 
   return (
     <Button onClick={handleSignOut} type="button">
