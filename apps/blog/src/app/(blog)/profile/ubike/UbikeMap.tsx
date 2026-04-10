@@ -10,6 +10,7 @@ import { FaSearchLocation } from "react-icons/fa";
 import { env } from "@/config/env.mjs";
 
 import type { NormalizedMergedBikeStation } from "./api/route";
+import { escapeHtml } from "./escapeHtml";
 
 interface LngLat {
   lat: number;
@@ -92,9 +93,9 @@ export default function UbikeMap() {
         }).setHTML(
           `
           <div>
-            <h2 class="font-semibold">${station.name}</h2>
-            <p>可租借: ${station.availableRentBikes}台</p>
-            <p>可歸還: ${station.availableRentBikes}台</p>
+            <h2 class="font-semibold">${escapeHtml(station.name)}</h2>
+            <p>可租借: ${escapeHtml(String(station.availableRentBikes))}台</p>
+            <p>可歸還: ${escapeHtml(String(station.availableReturnBikes))}台</p>
           </div>
         `
         );
