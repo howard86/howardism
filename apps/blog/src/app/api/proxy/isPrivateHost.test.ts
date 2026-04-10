@@ -54,4 +54,40 @@ describe("isPrivateHost", () => {
     expect(isPrivateHost("example.com")).toBe(false);
     expect(isPrivateHost("api.github.com")).toBe(false);
   });
+
+  it("blocks IPv6 loopback ::1 and bracketed [::1]", () => {
+    expect(isPrivateHost("::1")).toBe(true);
+    expect(isPrivateHost("[::1]")).toBe(true);
+  });
+
+  it("blocks IPv6 unspecified ::", () => {
+    expect(isPrivateHost("::")).toBe(true);
+    expect(isPrivateHost("[::]")).toBe(true);
+  });
+
+  it("blocks IPv4-mapped IPv6 addresses", () => {
+    expect(isPrivateHost("::ffff:127.0.0.1")).toBe(true);
+    expect(isPrivateHost("[::ffff:10.0.0.1]")).toBe(true);
+    expect(isPrivateHost("::ffff:169.254.169.254")).toBe(true);
+  });
+
+  it("allows IPv4-mapped IPv6 with public IPs", () => {
+    expect(isPrivateHost("::ffff:8.8.8.8")).toBe(false);
+    expect(isPrivateHost("[::ffff:1.1.1.1]")).toBe(false);
+  });
+
+  it("blocks IPv6 unique local (fc00::/7)", () => {
+    expect(isPrivateHost("fc00::1")).toBe(true);
+    expect(isPrivateHost("fd12:3456::1")).toBe(true);
+  });
+
+  it("blocks IPv6 link-local (fe80::/10)", () => {
+    expect(isPrivateHost("fe80::1")).toBe(true);
+    expect(isPrivateHost("[fe80::1%25eth0]")).toBe(true); // zone ID still link-local
+  });
+
+  it("allows public IPv6 addresses", () => {
+    expect(isPrivateHost("2001:db8::1")).toBe(false);
+    expect(isPrivateHost("[2607:f8b0:4004:800::200e]")).toBe(false);
+  });
 });
