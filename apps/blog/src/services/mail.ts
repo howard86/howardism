@@ -3,8 +3,6 @@ import client from "@sendgrid/client";
 const apiKey = process.env.SENDGRID_API_KEY;
 const contactListId = process.env.SENDGRID_CONTACT_LIST_ID;
 
-client.setApiKey(apiKey as string);
-
 export const subscribeToNewsletter = (email: string) => {
   if (!apiKey) {
     throw new Error("Missing env=SENDGRID_API_KEY");
@@ -12,6 +10,8 @@ export const subscribeToNewsletter = (email: string) => {
   if (!contactListId) {
     throw new Error("Missing env=SENDGRID_CONTACT_LIST_ID");
   }
+
+  client.setApiKey(apiKey);
 
   return client.request({
     method: "PUT",
