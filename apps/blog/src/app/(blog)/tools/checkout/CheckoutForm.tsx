@@ -14,6 +14,7 @@ import type { Normalized } from "@/utils/array";
 import ProductOption from "./ProductOption";
 import { type CheckoutSchema, checkoutSchema } from "./schema";
 import { numberFormat } from "./utils";
+import { validateRedirectUrl } from "./validateRedirectUrl";
 
 export const DEFAULT_TAX_RATE = 0.08;
 
@@ -81,7 +82,10 @@ export default function CheckoutForm({
       throw new Error(result.message);
     }
     if (result.data) {
-      window.location.href = result.data;
+      window.location.href = validateRedirectUrl(
+        result.data,
+        window.location.origin
+      );
     }
   }, console.error);
 

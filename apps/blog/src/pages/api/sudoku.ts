@@ -59,7 +59,7 @@ const handler = (
           sudoku: sudoku.input,
         });
       } catch (error) {
-        console.error(error);
+        console.error("Sudoku generation error:", (error as Error).message);
         return res.json({
           success: false,
           message: (error as Error).message,
@@ -88,7 +88,7 @@ const handler = (
           sudoku: solve(newSudoku).input,
         });
       } catch (error) {
-        console.error(error);
+        console.error("Sudoku solve error:", (error as Error).message);
         return res.json({
           success: false,
           message: (error as Error).message,

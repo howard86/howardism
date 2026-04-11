@@ -9,12 +9,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   const recipe = req.body;
-  console.warn("Incoming recipe:", recipe);
+  console.warn("Received recipe creation request");
   const { authorization } = req.headers;
 
   // Start with 'Bearer ...'
   if (typeof authorization !== "string" || authorization.length < 8) {
-    console.error(authorization);
+    console.error("Invalid authorization header");
     return res.status(400).send({ success: false });
   }
 

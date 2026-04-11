@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { isPrivateHost } from "./isPrivateHost";
+
 const urlSchema = z.string().url();
 
 export async function GET(request: NextRequest) {
@@ -17,6 +19,15 @@ export async function GET(request: NextRequest) {
   const result = urlSchema.safeParse(url);
 
   if (!result.success) {
+    return NextResponse.json(
+      { message: "Invalid url parameter" },
+      { status: 400 }
+    );
+  }
+
+  const parsed = new URL(url);
+
+  if (parsed.protocol !== "https:" || isPrivateHost(parsed.hostname)) {
     return NextResponse.json(
       { message: "Invalid url parameter" },
       { status: 400 }
