@@ -7,7 +7,7 @@ mock.module("@/services/recipe", () => ({
 }));
 
 describe("POST /api/recipe/create", () => {
-  let handler: (req: NextApiRequest, res: NextApiResponse) => Promise<void>;
+  let handler: (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
   let mockRes: NextApiResponse;
   let warnSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
