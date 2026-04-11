@@ -8,14 +8,13 @@ import { DEFAULT_SHIPPING_COST } from "../constants";
 import { numberFormat } from "../utils";
 
 export interface OrderPageProps {
-  params: {
+  params: Promise<{
     orderId: string;
-  };
+  }>;
 }
 
-export default async function OrderPage({
-  params: { orderId },
-}: OrderPageProps) {
+export default async function OrderPage({ params }: OrderPageProps) {
+  const { orderId } = await params;
   const order = await prisma.commerceOrder.findUnique({
     where: {
       id: orderId,
