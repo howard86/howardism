@@ -4,14 +4,15 @@ import ResumeDocument from "../ResumeDocument";
 import { getResumeById, mapResumeToResumeSchema } from "./utils";
 
 export interface ResumeProfilePageProps {
-  params: {
+  params: Promise<{
     profileId: string;
-  };
+  }>;
 }
 
 export default async function ResumeProfilePage({
-  params: { profileId },
+  params,
 }: ResumeProfilePageProps) {
+  const { profileId } = await params;
   const rawResume = await getResumeById(profileId);
 
   return (

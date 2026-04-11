@@ -3,8 +3,9 @@ import type { ResumeProfilePageProps } from "../page";
 import { getResumeById, mapResumeToResumeSchema } from "../utils";
 
 export default async function EditResumePage({
-  params: { profileId },
+  params,
 }: ResumeProfilePageProps) {
+  const { profileId } = await params;
   const resume = await getResumeById(profileId);
 
   return (
