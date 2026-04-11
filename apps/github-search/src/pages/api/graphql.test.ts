@@ -8,7 +8,7 @@ describe("GET /api/graphql", () => {
   let mockRes: NextApiResponse;
 
   beforeEach(async () => {
-    globalThis.fetch = mockFetch;
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
     handler = (await import("./graphql")).default;
 
     const json = mock();
