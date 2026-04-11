@@ -34,6 +34,7 @@ export default function useScrollSpy({
     window.addEventListener("scroll", handle);
 
     return () => {
+      handle.cancel();
       window.removeEventListener("scroll", handle);
     };
   }, [offsetPx, sectionIds, throttleMs]);

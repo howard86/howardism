@@ -16,7 +16,10 @@ export default function useHasScrolled({
 
     window.addEventListener("scroll", changeBackground);
 
-    return () => window.removeEventListener("scroll", changeBackground);
+    return () => {
+      changeBackground.cancel();
+      window.removeEventListener("scroll", changeBackground);
+    };
   }, [offsetPx, throttleMs]);
 
   return isScrolled;
