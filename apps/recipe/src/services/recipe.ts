@@ -27,8 +27,13 @@ export const createRecipe = async (
   recipe: RawRecipe,
   authHeader: string
 ): Promise<boolean> => {
-  await cms.post("recipes", recipe, {
-    headers: { Authorization: authHeader },
-  });
-  return true;
+  try {
+    await cms.post("recipes", recipe, {
+      headers: { Authorization: authHeader },
+    });
+    return true;
+  } catch (error) {
+    console.error("Failed to create recipe:", (error as Error).message);
+    return false;
+  }
 };
