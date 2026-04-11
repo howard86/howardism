@@ -71,7 +71,9 @@ const refreshToken = async () => {
   );
 
   if (!response.ok) {
-    throw new Error(JSON.stringify(response));
+    throw new Error(
+      `TDX auth API error: ${response.status} ${response.statusText}`
+    );
   }
 
   const json = (await response.json()) as {
@@ -114,7 +116,7 @@ const tdxFetch = async <T, P extends ApiParam = ApiParam>(
   );
 
   if (!response.ok) {
-    throw new Error(JSON.stringify(response));
+    throw new Error(`TDX API error: ${response.status} ${response.statusText}`);
   }
 
   return response.json();

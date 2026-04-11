@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import type { Normalized } from "@/utils/array";
 
 import {
@@ -45,8 +47,13 @@ const mapBikeStation = (
 
 export type NormalizedMergedBikeStation = Normalized<MergedBikeStation>;
 
-// TODO: add auth
 export async function GET(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
 
   const result = fetchStationSchema.safeParse({
