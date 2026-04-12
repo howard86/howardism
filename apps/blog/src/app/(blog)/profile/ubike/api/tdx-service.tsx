@@ -83,7 +83,7 @@ const refreshToken = async () => {
   };
 
   accessToken = json.access_token;
-  expirationTimestamp = Date.now() + json.expires_in;
+  expirationTimestamp = Date.now() + json.expires_in * 1000;
 };
 
 const tdxFetch = async <T, P extends ApiParam = ApiParam>(
@@ -92,7 +92,7 @@ const tdxFetch = async <T, P extends ApiParam = ApiParam>(
 ): Promise<T> => {
   if (
     !(accessToken && expirationTimestamp) ||
-    expirationTimestamp > Date.now()
+    expirationTimestamp < Date.now()
   ) {
     await refreshToken();
   }
