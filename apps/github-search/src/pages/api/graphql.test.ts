@@ -117,6 +117,75 @@ describe("GET /api/graphql", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  // ── Fragment-depth bypass tests ───────────────────────────────────────────
+
+  it("returns 400 when fragment chain produces effective depth > 8 (bypass attempt)", async () => {
+    // Fragment itself has 9 levels — bypass via spread
+    const req = {
+      method: "POST",
+      body: {
+        query: `
+          query getUser { ...outerFrag }
+          fragment outerFrag on User {
+            a { b { c { d { e { f { g { h { i } } } } } } } }
+          }
+        `,
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for cyclic fragment references", async () => {
+    const req = {
+      method: "POST",
+      body: {
+        query: `
+          query getUser { ...fragA }
+          fragment fragA on User { ...fragB }
+          fragment fragB on User { ...fragA }
+        `,
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for unknown fragment spread", async () => {
+    const req = {
+      method: "POST",
+      body: {
+        query: "query getUser { ...ghost }",
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when a sibling operation in the document exceeds depth", async () => {
+    // operationName is the shallow "getUser", but "deepSpy" in the same
+    // document exceeds MAX_QUERY_DEPTH — whole document must be rejected
+    const req = {
+      method: "POST",
+      body: {
+        query: `
+          query getUser { user(login: "test") { login } }
+          query deepSpy { a { b { c { d { e { f { g { h { i } } } } } } } } }
+        `,
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("forwards valid allowed query to upstream with Bearer token", async () => {
     const upstreamResponse = { data: { user: { login: "testuser" } } };
     mockFetch.mockResolvedValueOnce({
