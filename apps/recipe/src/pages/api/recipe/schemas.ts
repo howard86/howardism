@@ -12,7 +12,7 @@ const stepSchema = z.object({
   summary: z.string(),
 });
 
-export const recipeSchema = z.object({
+export const recipeSchema = z.looseObject({
   description: z.string(),
   title: z.string(),
   ingredients: z.array(ingredientSchema),
