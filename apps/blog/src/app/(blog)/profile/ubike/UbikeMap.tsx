@@ -60,6 +60,7 @@ export default function UbikeMap() {
 
     if (layerRef.current) {
       mapRef.current.removeLayer(layerRef.current.id);
+      mapRef.current.removeSource(layerRef.current.id);
     }
 
     layerRef.current = {
