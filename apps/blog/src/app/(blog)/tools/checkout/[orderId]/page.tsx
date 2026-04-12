@@ -8,14 +8,13 @@ import { DEFAULT_SHIPPING_COST } from "../constants";
 import { numberFormat } from "../utils";
 
 export interface OrderPageProps {
-  params: {
+  params: Promise<{
     orderId: string;
-  };
+  }>;
 }
 
-export default async function OrderPage({
-  params: { orderId },
-}: OrderPageProps) {
+export default async function OrderPage({ params }: OrderPageProps) {
+  const { orderId } = await params;
   const order = await prisma.commerceOrder.findUnique({
     where: {
       id: orderId,
@@ -59,7 +58,7 @@ export default async function OrderPage({
   const shortenedOrderId = orderId.slice(0, 6);
 
   const subTotal = order.products.reduce(
-    (sum, cur) => sum + cur.product.price * cur.quantity,
+    (sum, cur) => sum + cur.product.price.toNumber() * cur.quantity,
     0
   );
 
@@ -106,7 +105,7 @@ export default async function OrderPage({
                     <div className="flex pl-4 sm:pl-6">
                       <dt className="font-medium">Price</dt>
                       <dd className="ml-2">
-                        {numberFormat.format(product.price)}
+                        {numberFormat.format(product.price.toNumber())}
                       </dd>
                     </div>
                   </dl>
@@ -155,13 +154,13 @@ export default async function OrderPage({
               <dt className="font-medium">Tax</dt>
               <dd className="text-muted-foreground">
                 {numberFormat.format(
-                  order.totalPrice - DEFAULT_SHIPPING_COST - subTotal
+                  order.totalPrice.toNumber() - DEFAULT_SHIPPING_COST - subTotal
                 )}
               </dd>
             </div>
             <div className="flex justify-between">
               <dt className="font-medium">Total</dt>
-              <dd>{numberFormat.format(order.totalPrice)}</dd>
+              <dd>{numberFormat.format(order.totalPrice.toNumber())}</dd>
             </div>
           </dl>
         </div>

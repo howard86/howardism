@@ -10,16 +10,17 @@ import {
 import { ArticleLayout } from "./ArticleLayout";
 
 interface ArticlePageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 export const dynamic = "error";
 
 export async function generateMetadata({
-  params: { slug },
+  params,
 }: ArticlePageProps): Promise<Metadata> {
+  const { slug } = await params;
   const meta = await import(`./(docs)/${slug}/page.mdx`).then(
     (file) => file.meta
   );
@@ -44,9 +45,8 @@ const getSiblingSlug = (
   return articles.ids[selectedArticle.position + difference];
 };
 
-export default async function ArticlePage({
-  params: { slug },
-}: ArticlePageProps) {
+export default async function ArticlePage({ params }: ArticlePageProps) {
+  const { slug } = await params;
   const mod = (await import(`./(docs)/${slug}/page.mdx`)) as {
     meta: ArticleMeta;
     default: FC;
@@ -68,7 +68,5 @@ export default async function ArticlePage({
 export async function generateStaticParams() {
   const articles = await getArticles();
 
-  return articles.ids.map((slug) => ({
-    params: { slug },
-  }));
+  return articles.ids.map((slug) => ({ slug }));
 }
