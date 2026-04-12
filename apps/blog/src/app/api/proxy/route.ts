@@ -4,6 +4,8 @@ import { z } from "zod";
 import { requireSessionForRoute } from "@/lib/auth";
 import { isPrivateHost, resolveAndCheckPrivateIP } from "./isPrivateHost";
 
+export const runtime = "nodejs";
+
 const urlSchema = z.string().url();
 
 /** Abort upstream fetch after this many milliseconds. */
