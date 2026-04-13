@@ -23,7 +23,7 @@ describe("GET /api/sudoku — error logging", () => {
   let mockRes: NextApiResponse;
 
   beforeEach(async () => {
-    handler = (await import("./sudoku")).default;
+    handler = (await import("@/pages/api/sudoku")).default;
     errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
 
     const json = mock();
@@ -71,7 +71,7 @@ describe("POST /api/sudoku — error logging", () => {
   let mockRes: NextApiResponse;
 
   beforeEach(async () => {
-    handler = (await import("./sudoku")).default;
+    handler = (await import("@/pages/api/sudoku")).default;
     errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
     errorSpy.mockClear();
 
