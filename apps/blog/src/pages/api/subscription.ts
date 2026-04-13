@@ -12,9 +12,7 @@ router.post(async (req, res) => {
   const { email } = req.body;
 
   if (typeof email !== "string") {
-    throw new BadRequestException(
-      `Incorrect email in body, req.body=${JSON.stringify(req.body)}`
-    );
+    throw new BadRequestException("Invalid email in request body");
   }
 
   if (!emailRegex.test(email)) {
