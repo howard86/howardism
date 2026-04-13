@@ -9,6 +9,9 @@ describe("GET /api/graphql", () => {
 
   beforeEach(async () => {
     globalThis.fetch = mockFetch as unknown as typeof fetch;
+    // Provide a token for all tests that reach the upstream fetch path
+    process.env.GITHUB_ACCESS_TOKEN = "test-github-token";
+
     handler = (await import("./graphql")).default;
 
     const json = mock();
@@ -19,6 +22,8 @@ describe("GET /api/graphql", () => {
   afterEach(() => {
     mockFetch.mockClear();
   });
+
+  // ── Existing regression tests ─────────────────────────────────────────────
 
   it("returns 405 for GET requests", async () => {
     const req = { method: "GET", body: null } as unknown as NextApiRequest;
@@ -46,5 +51,168 @@ describe("GET /api/graphql", () => {
     expect(mockRes.status).toHaveBeenCalledWith(500);
 
     process.env.GITHUB_ACCESS_TOKEN = original;
+  });
+
+  // ── New hardening tests ───────────────────────────────────────────────────
+
+  it("returns 400 for malformed body (missing operationName)", async () => {
+    const req = {
+      method: "POST",
+      body: { query: 'query getUser { user(login: "foo") { login } }' },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for malformed body (missing query)", async () => {
+    const req = {
+      method: "POST",
+      body: { operationName: "getUser" },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for unknown operationName without calling upstream", async () => {
+    const req = {
+      method: "POST",
+      body: {
+        query: "query deleteEverything { nuke }",
+        operationName: "deleteEverything",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when query contains a mutation, even with allowed operationName", async () => {
+    const req = {
+      method: "POST",
+      body: {
+        query: "mutation { createIssue(input: {}) { issue { id } } }",
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when query exceeds depth limit (>8)", async () => {
+    // 9 levels deep: a.b.c.d.e.f.g.h.i
+    const deepQuery = `
+      query getUser {
+        a { b { c { d { e { f { g { h { i } } } } } } } }
+      }
+    `;
+    const req = {
+      method: "POST",
+      body: { query: deepQuery, operationName: "getUser" },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  // ── Fragment-depth bypass tests ───────────────────────────────────────────
+
+  it("returns 400 when fragment chain produces effective depth > 8 (bypass attempt)", async () => {
+    // Fragment itself has 9 levels — bypass via spread
+    const req = {
+      method: "POST",
+      body: {
+        query: `
+          query getUser { ...outerFrag }
+          fragment outerFrag on User {
+            a { b { c { d { e { f { g { h { i } } } } } } } }
+          }
+        `,
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for cyclic fragment references", async () => {
+    const req = {
+      method: "POST",
+      body: {
+        query: `
+          query getUser { ...fragA }
+          fragment fragA on User { ...fragB }
+          fragment fragB on User { ...fragA }
+        `,
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for unknown fragment spread", async () => {
+    const req = {
+      method: "POST",
+      body: {
+        query: "query getUser { ...ghost }",
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when a sibling operation in the document exceeds depth", async () => {
+    // operationName is the shallow "getUser", but "deepSpy" in the same
+    // document exceeds MAX_QUERY_DEPTH — whole document must be rejected
+    const req = {
+      method: "POST",
+      body: {
+        query: `
+          query getUser { user(login: "test") { login } }
+          query deepSpy { a { b { c { d { e { f { g { h { i } } } } } } } } }
+        `,
+        operationName: "getUser",
+      },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards valid allowed query to upstream with Bearer token", async () => {
+    const upstreamResponse = { data: { user: { login: "testuser" } } };
+    mockFetch.mockResolvedValueOnce({
+      status: 200,
+      json: () => Promise.resolve(upstreamResponse),
+    });
+
+    const req = {
+      method: "POST",
+      body: {
+        query:
+          "query getUser($username: String!) { user(login: $username) { login name } }",
+        operationName: "getUser",
+        variables: { username: "testuser" },
+      },
+    } as unknown as NextApiRequest;
+
+    await handler(req, mockRes);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-github-token",
+        }),
+      })
+    );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
   });
 });

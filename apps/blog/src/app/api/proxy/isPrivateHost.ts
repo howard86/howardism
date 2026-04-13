@@ -1,3 +1,5 @@
+import { resolve4, resolve6 } from "node:dns/promises";
+
 const V4_MAPPED_RE = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/;
 
 export const isPrivateHost = (hostname: string): boolean => {
@@ -37,6 +39,44 @@ export const isPrivateHost = (hostname: string): boolean => {
 
   return isPrivateIPv4(bare);
 };
+
+/**
+ * Resolves `hostname` via DNS and checks each returned address against the
+ * private-IP ranges. Throws if any resolved address is private, or if the
+ * hostname cannot be resolved at all (both families yield no addresses).
+ *
+ * Treats ENOTFOUND / ENODATA / NODATA per-family as "no addresses for this
+ * family" rather than a fatal error — rejects only when BOTH families fail.
+ * PR #503 string-based `isPrivateHost()` check must still run BEFORE this.
+ */
+export async function resolveAndCheckPrivateIP(
+  hostname: string
+): Promise<void> {
+  const MISSING_CODES = new Set(["ENOTFOUND", "ENODATA", "NODATA"]);
+
+  const toAddrs = (p: Promise<string[]>) =>
+    p.catch((err: NodeJS.ErrnoException) => {
+      if (MISSING_CODES.has(err.code ?? "")) {
+        return [] as string[];
+      }
+      throw err;
+    });
+
+  const [v4, v6] = await Promise.all([
+    toAddrs(resolve4(hostname)),
+    toAddrs(resolve6(hostname)),
+  ]);
+
+  if (v4.length === 0 && v6.length === 0) {
+    throw new Error(`Could not resolve hostname: ${hostname}`);
+  }
+
+  for (const addr of [...v4, ...v6]) {
+    if (isPrivateHost(addr)) {
+      throw new Error(`Resolved address ${addr} is a private IP`);
+    }
+  }
+}
 
 const isPrivateIPv4 = (host: string): boolean => {
   const parts = host.split(".").map(Number);
