@@ -1,7 +1,10 @@
 import { SimpleLayout } from "@/app/(common)/SimpleLayout";
+import { requireSessionForPage } from "@/lib/auth";
 
 // add order and payment details
-export default function CheckoutSuccessPage() {
+export default async function CheckoutSuccessPage() {
+  await requireSessionForPage("/tools/checkout/success");
+
   return (
     <SimpleLayout
       intro="You have successfully completed this order"

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { SimpleLayout } from "@/app/(common)/SimpleLayout";
+import { requireSessionForPage } from "@/lib/auth";
 import prisma from "@/services/prisma";
 
 import { DEFAULT_SHIPPING_COST } from "../constants";
@@ -15,9 +16,11 @@ export interface OrderPageProps {
 
 export default async function OrderPage({ params }: OrderPageProps) {
   const { orderId } = await params;
+  const session = await requireSessionForPage(`/tools/checkout/${orderId}`);
   const order = await prisma.commerceOrder.findUnique({
     where: {
       id: orderId,
+      email: session.user.email,
     },
     select: {
       email: true,
