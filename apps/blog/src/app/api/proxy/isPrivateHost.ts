@@ -40,10 +40,20 @@ export const isPrivateHost = (hostname: string): boolean => {
   return isPrivateIPv4(bare);
 };
 
+export interface ResolvedIP {
+  family: 4 | 6;
+  ip: string;
+}
+
 /**
  * Resolves `hostname` via DNS and checks each returned address against the
  * private-IP ranges. Throws if any resolved address is private, or if the
  * hostname cannot be resolved at all (both families yield no addresses).
+ *
+ * Returns the first validated public IP so the caller can pin an outbound
+ * TCP connection to it, eliminating the TOCTOU window where a DNS-rebinding
+ * attack could swap a public IP for a private one between validation and
+ * connection.
  *
  * Treats ENOTFOUND / ENODATA / NODATA per-family as "no addresses for this
  * family" rather than a fatal error — rejects only when BOTH families fail.
@@ -51,7 +61,7 @@ export const isPrivateHost = (hostname: string): boolean => {
  */
 export async function resolveAndCheckPrivateIP(
   hostname: string
-): Promise<void> {
+): Promise<ResolvedIP> {
   const MISSING_CODES = new Set(["ENOTFOUND", "ENODATA", "NODATA"]);
 
   const toAddrs = (p: Promise<string[]>) =>
@@ -76,6 +86,13 @@ export async function resolveAndCheckPrivateIP(
       throw new Error(`Resolved address ${addr} is a private IP`);
     }
   }
+
+  // Return the first validated public IP for connection pinning.
+  // IPv4 is preferred; fall back to IPv6 only when there are no v4 addresses.
+  if (v4.length > 0) {
+    return { ip: v4[0], family: 4 };
+  }
+  return { ip: v6[0], family: 6 };
 }
 
 const isPrivateIPv4 = (host: string): boolean => {
