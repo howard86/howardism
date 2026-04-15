@@ -12,6 +12,8 @@ const routePolicy: ReadonlyArray<{
   windowMs: number;
 }> = [
   { prefix: "/api/auth", limit: 10, windowMs: 60_000 },
+  { prefix: "/api/checkout", limit: 10, windowMs: 60_000 },
+  { prefix: "/api/resume", limit: 20, windowMs: 60_000 },
   { prefix: "/api/subscription", limit: 5, windowMs: 60_000 },
   { prefix: "/api/proxy", limit: 10, windowMs: 60_000 },
   { prefix: "/api/sudoku", limit: 20, windowMs: 60_000 },
