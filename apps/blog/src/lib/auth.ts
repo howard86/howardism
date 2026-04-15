@@ -5,11 +5,32 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 import { env } from "@/config/env.mjs";
+import { sendTransactionalEmail } from "@/services/mail";
 import prisma from "@/services/prisma";
 
 export const auth = betterAuth({
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
-  emailAndPassword: { enabled: true },
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 8,
+    requireEmailVerification: true,
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({
+      user,
+      url,
+    }: {
+      user: { email: string };
+      url: string;
+    }) =>
+      sendTransactionalEmail({
+        to: user.email,
+        subject: "Verify your email",
+        html: `<p>Verify your email: <a href="${url}">${url}</a></p>`,
+      }),
+  },
   socialProviders: {
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
