@@ -51,11 +51,26 @@ export interface BikeAvailability {
   UpdateTime: string;
 }
 
+const FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit
+): Promise<Response> {
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timerId);
+  }
+}
+
 let accessToken: string | undefined;
 let expirationTimestamp: number | undefined;
 
 const refreshToken = async () => {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${env.TDX_API_ENDPOINT}/auth/realms/TDXConnect/protocol/openid-connect/token`,
     {
       method: "POST",
@@ -105,7 +120,7 @@ const tdxFetch = async <T, P extends ApiParam = ApiParam>(
     query.append(`$${key}`, params[key]);
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${env.TDX_API_ENDPOINT}${path}?${query.toString()}`,
     {
       headers: {

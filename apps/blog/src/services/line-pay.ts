@@ -217,6 +217,22 @@ const getLinePayAuthorizationHeaders = (uri: string, body: string) => {
   } as const;
 };
 
+const FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchLinePayJson<T>(url: string, init: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+    return res.json() as Promise<T>;
+  } finally {
+    clearTimeout(timerId);
+  }
+}
+
 export const requestApi = (
   param: RequestApiParam
 ): Promise<RequestApiResponse> => {
@@ -226,11 +242,17 @@ export const requestApi = (
 
   const body = JSON.stringify(param);
 
-  return fetch(env.LINE_PAY_API_URL + LinePayApiEndpoints.Request, {
-    method: "POST",
-    headers: getLinePayAuthorizationHeaders(LinePayApiEndpoints.Request, body),
-    body,
-  }).then((res) => res.json());
+  return fetchLinePayJson<RequestApiResponse>(
+    env.LINE_PAY_API_URL + LinePayApiEndpoints.Request,
+    {
+      method: "POST",
+      headers: getLinePayAuthorizationHeaders(
+        LinePayApiEndpoints.Request,
+        body
+      ),
+      body,
+    }
+  );
 };
 
 export const confirmApi = (
@@ -247,9 +269,9 @@ export const confirmApi = (
   );
   const body = JSON.stringify(param);
 
-  return fetch(env.LINE_PAY_API_URL + uri, {
+  return fetchLinePayJson<ConfirmApiResponse>(env.LINE_PAY_API_URL + uri, {
     method: "POST",
     headers: getLinePayAuthorizationHeaders(uri, body),
     body,
-  }).then((res) => res.json());
+  });
 };
