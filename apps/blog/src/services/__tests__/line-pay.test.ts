@@ -23,7 +23,8 @@ mock.module("node:crypto", () => ({
 }));
 
 // Dynamic import AFTER mocks are registered.
-const { requestApi, confirmApi } = await import("../line-pay");
+const { requestApi, confirmApi, RequestApiReturnCode, ConfirmApiReturnCode } =
+  await import("../line-pay");
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -83,7 +84,7 @@ describe("requestApi", () => {
 
   it("returns parsed response body on HTTP 200", async () => {
     const result = await requestApi(minimalRequestParam);
-    expect(result.returnCode).toBe("0000");
+    expect(result.returnCode).toBe(RequestApiReturnCode.Success);
     expect(result.info.transactionId).toBe(12_345);
     expect(result.info.paymentUrl.web).toContain("sandbox-web-pay.line.me");
   });
@@ -170,7 +171,7 @@ describe("confirmApi", () => {
 
   it("returns parsed response body on HTTP 200", async () => {
     const result = await confirmApi("12345", minimalConfirmParam);
-    expect(result.returnCode).toBe("0000");
+    expect(result.returnCode).toBe(ConfirmApiReturnCode.Success);
     expect(result.info.orderId).toBe("order-001");
   });
 
