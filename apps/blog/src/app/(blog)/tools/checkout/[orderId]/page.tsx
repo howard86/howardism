@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { SimpleLayout } from "@/app/(common)/SimpleLayout";
 import { requireSessionForPage } from "@/lib/auth";
@@ -8,32 +10,55 @@ import prisma from "@/services/prisma";
 import { DEFAULT_SHIPPING_COST } from "../constants";
 import { numberFormat } from "../utils";
 
+const STATUS_COPY: Record<string, { title: string; intro: string }> = {
+  COMPLETED: {
+    title: "Thank you!",
+    intro: "Your order has shipped and will be with you soon.",
+  },
+  PENDING: {
+    title: "Payment Pending",
+    intro:
+      "Your order is awaiting payment confirmation. We'll notify you once it's processed.",
+  },
+  FAILED: {
+    title: "Payment Failed",
+    intro:
+      "We were unable to process your payment. Please try placing your order again.",
+  },
+  CANCELLED: {
+    title: "Order Cancelled",
+    intro:
+      "Your order has been cancelled. If you have questions, please contact support.",
+  },
+  NONE: {
+    title: "Order Received",
+    intro: "We've received your order and are processing it.",
+  },
+};
+
 export interface OrderPageProps {
   params: Promise<{
     orderId: string;
   }>;
 }
 
-export default async function OrderPage({ params }: OrderPageProps) {
-  const { orderId } = await params;
-  const session = await requireSessionForPage(`/tools/checkout/${orderId}`);
-  const order = await prisma.commerceOrder.findUnique({
-    where: {
-      id: orderId,
-      email: session.user.email,
-    },
+function resolveOrderStatus(transactions: { status: string }[]): string {
+  return transactions[0]?.status ?? "NONE";
+}
+
+// Memoized within a single server request via React.cache().
+// Both generateMetadata and OrderPage call this helper; the DB is hit once.
+const fetchOrder = cache(async (orderId: string, email: string) => {
+  return prisma.commerceOrder.findUnique({
+    where: { id: orderId, email },
     select: {
       email: true,
       name: true,
       totalPrice: true,
       transactions: {
         take: 1,
-        orderBy: {
-          createdAt: "desc",
-        },
-        select: {
-          status: true,
-        },
+        orderBy: { createdAt: "desc" },
+        select: { status: true },
       },
       products: {
         select: {
@@ -53,12 +78,39 @@ export default async function OrderPage({ params }: OrderPageProps) {
       },
     },
   });
+});
+
+export async function generateMetadata({
+  params,
+}: OrderPageProps): Promise<Metadata> {
+  const { orderId } = await params;
+  try {
+    const session = await requireSessionForPage(`/tools/checkout/${orderId}`);
+    const order = await fetchOrder(orderId, session.user.email);
+    if (!order) {
+      return { title: "Order Not Found" };
+    }
+    const status = resolveOrderStatus(order.transactions);
+    const { title } = STATUS_COPY[status] ?? STATUS_COPY.NONE;
+    return { title };
+  } catch {
+    // requireSessionForPage throws NEXT_REDIRECT when unauthenticated.
+    // Return generic metadata rather than propagating the redirect.
+    return { title: "Checkout" };
+  }
+}
+
+export default async function OrderPage({ params }: OrderPageProps) {
+  const { orderId } = await params;
+  const session = await requireSessionForPage(`/tools/checkout/${orderId}`);
+  const order = await fetchOrder(orderId, session.user.email);
 
   if (!order) {
     return notFound();
   }
 
-  const shortenedOrderId = orderId.slice(0, 6);
+  const status = resolveOrderStatus(order.transactions);
+  const { title, intro } = STATUS_COPY[status] ?? STATUS_COPY.NONE;
 
   const subTotal = order.products.reduce(
     (sum, cur) => sum + cur.product.price.toNumber() * cur.quantity,
@@ -66,10 +118,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
   );
 
   return (
-    <SimpleLayout
-      intro={`Your order #${shortenedOrderId} has shipped and will be with you soon.`}
-      title="Thank you!"
-    >
+    <SimpleLayout intro={intro} title={title}>
       <section
         aria-labelledby="order-heading"
         className="mt-10 border-border border-t"

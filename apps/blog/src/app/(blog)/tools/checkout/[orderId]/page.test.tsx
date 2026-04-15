@@ -82,7 +82,13 @@ mock.module("@/services/prisma", () => ({
 mock.module("next/image", () => ({ default: () => null }));
 
 mock.module("@/app/(common)/SimpleLayout", () => ({
-  SimpleLayout: ({ children }: { children: unknown }) => children,
+  SimpleLayout: ({
+    children,
+  }: {
+    children: unknown;
+    title: string;
+    intro: string;
+  }) => children,
 }));
 
 // Dynamic import after all mocks are registered.
@@ -148,5 +154,82 @@ describe("OrderPage", () => {
         where: { id: "order-abc", email: "owner@example.com" },
       })
     );
+  });
+
+  // ── Status-driven copy ────────────────────────────────────────────────────
+  // OrderPage is a React Server Component: it returns a React element tree,
+  // not rendered HTML. The SimpleLayout mock is not "called" as a function
+  // during this process — React component functions only run during rendering
+  // (reconciliation). We therefore inspect the returned element's props
+  // directly: { type: SimpleLayout, props: { title, intro, children } }.
+
+  it("COMPLETED status: shows thank-you title and shipped intro", async () => {
+    nextSession = fakeSession;
+    nextOrder = { ...fakeOrder, transactions: [{ status: "COMPLETED" }] };
+
+    const el = (await OrderPage({
+      params: Promise.resolve({ orderId: "order-1a2b3c" }),
+    })) as any;
+    expect(el.props.title).toBe("Thank you!");
+    expect(el.props.intro).toContain("shipped");
+  });
+
+  it("PENDING status: shows payment-pending title and pending intro", async () => {
+    nextSession = fakeSession;
+    nextOrder = { ...fakeOrder, transactions: [{ status: "PENDING" }] };
+
+    const el = (await OrderPage({
+      params: Promise.resolve({ orderId: "order-1a2b3c" }),
+    })) as any;
+    expect(el.props.title).toContain("Pending");
+    expect(el.props.intro).toContain("awaiting");
+  });
+
+  it("FAILED status: shows payment-failed title and retry intro", async () => {
+    nextSession = fakeSession;
+    nextOrder = { ...fakeOrder, transactions: [{ status: "FAILED" }] };
+
+    const el = (await OrderPage({
+      params: Promise.resolve({ orderId: "order-1a2b3c" }),
+    })) as any;
+    expect(el.props.title).toContain("Failed");
+    expect(el.props.intro).toContain("unable");
+  });
+
+  it("CANCELLED status: shows cancelled title and cancelled intro", async () => {
+    nextSession = fakeSession;
+    nextOrder = { ...fakeOrder, transactions: [{ status: "CANCELLED" }] };
+
+    const el = (await OrderPage({
+      params: Promise.resolve({ orderId: "order-1a2b3c" }),
+    })) as any;
+    expect(el.props.title).toContain("Cancelled");
+    expect(el.props.intro).toContain("cancelled");
+  });
+
+  it("empty transactions: falls back to NONE copy", async () => {
+    nextSession = fakeSession;
+    nextOrder = { ...fakeOrder, transactions: [] };
+
+    const el = (await OrderPage({
+      params: Promise.resolve({ orderId: "order-1a2b3c" }),
+    })) as any;
+    // Unknown/NONE status should produce a neutral fallback, not crash.
+    expect(el.props.title).toBeTruthy();
+    expect(el.props.intro).toBeTruthy();
+  });
+
+  it("unknown status: falls back to NONE copy without crashing", async () => {
+    nextSession = fakeSession;
+    nextOrder = {
+      ...fakeOrder,
+      transactions: [{ status: "SOME_FUTURE_STATUS" }],
+    };
+
+    const el = (await OrderPage({
+      params: Promise.resolve({ orderId: "order-1a2b3c" }),
+    })) as any;
+    expect(el.props.title).toBeTruthy();
+    expect(el.props.intro).toBeTruthy();
   });
 });
