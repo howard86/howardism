@@ -44,10 +44,17 @@ const fakeSession = {
 // Module mocks — registered before the dynamic import of route.ts
 // ---------------------------------------------------------------------------
 
-mock.module("@/lib/auth", () => ({
-  requireSessionForRoute: mock(() =>
+type SessionResult =
+  | { ok: true; session: typeof fakeSession }
+  | { ok: false; response: Response };
+
+const mockRequireSessionForRoute = mock(
+  (): Promise<SessionResult> =>
     Promise.resolve({ ok: true as const, session: fakeSession })
-  ),
+);
+
+mock.module("@/lib/auth", () => ({
+  requireSessionForRoute: mockRequireSessionForRoute,
 }));
 
 const mockResolve4 = mock((_hostname: string) =>
@@ -103,6 +110,10 @@ const makeRequest = (urlParam: string) =>
 
 describe("GET /api/proxy — SSRF hardening (#540)", () => {
   beforeEach(() => {
+    mockRequireSessionForRoute.mockImplementation(
+      (): Promise<SessionResult> =>
+        Promise.resolve({ ok: true as const, session: fakeSession })
+    );
     // Reset DNS mocks to default: resolve4 returns public IP, resolve6 ENOTFOUND
     mockResolve4.mockImplementation((_hostname: string) =>
       Promise.resolve(["8.8.8.8"] as string[])
@@ -115,6 +126,31 @@ describe("GET /api/proxy — SSRF hardening (#540)", () => {
     global.fetch = mock(() =>
       Promise.resolve(new Response("hello upstream", { status: 200 }))
     ) as unknown as typeof fetch;
+  });
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+
+  it("returns 401 when unauthenticated (no DNS or fetch)", async () => {
+    mockRequireSessionForRoute.mockImplementationOnce(
+      (): Promise<SessionResult> =>
+        Promise.resolve({
+          ok: false as const,
+          response: new Response('{"message":"Unauthorized"}', {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          }),
+        })
+    );
+
+    let fetchCalled = false;
+    global.fetch = mock(() => {
+      fetchCalled = true;
+      return Promise.resolve(new Response("", { status: 200 }));
+    }) as unknown as typeof fetch;
+
+    const res = await GET(makeRequest("https://example.com"));
+    expect(res.status).toBe(401);
+    expect(fetchCalled).toBe(false);
   });
 
   // ── (a) Public URL returns 200 with body ──────────────────────────────────
@@ -232,6 +268,36 @@ describe("GET /api/proxy — SSRF hardening (#540)", () => {
     const res = await GET(makeRequest("https://example.com"));
 
     expect(res.status).toBe(504);
+  });
+
+  // ── (g0) Content-Length header > cap → 413 without reading body ─────────
+
+  it("(g0) Content-Length header over cap returns 413 without reading body", async () => {
+    let getReaderCalled = false;
+    const mockBody = {
+      getReader: () => {
+        getReaderCalled = true;
+        return {
+          read: () => Promise.resolve({ done: true, value: undefined }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers({ "content-length": "5000000" }),
+      body: mockBody,
+    };
+
+    global.fetch = mock(() =>
+      Promise.resolve(mockResponse as unknown as Response)
+    ) as unknown as typeof fetch;
+
+    const res = await GET(makeRequest("https://example.com"));
+    expect(res.status).toBe(413);
+    expect(getReaderCalled).toBe(false);
   });
 
   // ── (g) Response body > MAX_BODY_BYTES → 413 ─────────────────────────────
