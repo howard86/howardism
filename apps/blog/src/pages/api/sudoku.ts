@@ -47,7 +47,7 @@ const handler = (
           difficulty &&
           !Object.values(SudokuDifficulty).includes(difficulty)
         ) {
-          throw new Error(`Invalid difficulty with ${difficulty}`);
+          throw new Error("Invalid difficulty");
         }
 
         const sudoku = generateSudoku(code, difficulty);
