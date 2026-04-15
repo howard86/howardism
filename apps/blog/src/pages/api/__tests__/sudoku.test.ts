@@ -55,4 +55,31 @@ describe("POST /api/sudoku — request body not echoed in error responses (#525)
     expect(bodyStr).not.toContain("leak-me-525-sudoku");
     expect(bodyStr).not.toContain("req.body");
   });
+
+  it("GET response body does not contain invalid difficulty value (#525)", () => {
+    const json = mock();
+
+    const mockRes = {
+      json,
+      status: mock(() => ({ json })),
+      setHeader: mock(),
+      end: mock(),
+      headersSent: false,
+    } as unknown as NextApiResponse;
+
+    const req = {
+      method: "GET",
+      url: "/api/sudoku",
+      query: { difficulty: "canary-525-3" },
+      body: {},
+    } as unknown as NextApiRequest;
+
+    handler(req, mockRes);
+
+    expect(json).toHaveBeenCalled();
+    const responseBody = json.mock.calls[0]?.[0] as Record<string, unknown>;
+    const bodyStr = JSON.stringify(responseBody);
+    // Invalid difficulty value must not appear in response — previously leaked via template literal
+    expect(bodyStr).not.toContain("canary-525-3");
+  });
 });

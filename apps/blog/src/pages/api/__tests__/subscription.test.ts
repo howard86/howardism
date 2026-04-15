@@ -46,4 +46,36 @@ describe("POST /api/subscription — request body not echoed in error responses 
     // The number 42 (the bogus email value) must not appear in the response
     expect(bodyStr).not.toContain("42");
   });
+
+  it("400 response body does not contain interpolated email when email fails regex check (#525)", async () => {
+    const json = mock();
+    let capturedStatus = 200;
+
+    const mockRes = {
+      json,
+      status: mock((code: number) => {
+        capturedStatus = code;
+        return { json };
+      }),
+      setHeader: mock(),
+      redirect: mock(),
+      end: mock(),
+      headersSent: false,
+    } as unknown as NextApiResponse;
+
+    const req = {
+      method: "POST",
+      url: "/api/subscription",
+      body: { email: "not-an-email-canary-525-2" },
+    } as unknown as NextApiRequest;
+
+    await handler(req, mockRes);
+
+    expect(capturedStatus).toBe(400);
+    const responseBody = json.mock.calls[0]?.[0] as Record<string, unknown>;
+    const bodyStr = JSON.stringify(responseBody);
+    // Interpolated email must never appear in response — previously leaked via template literal
+    expect(bodyStr).not.toContain("canary-525-2");
+    expect(bodyStr).not.toContain("not-an-email");
+  });
 });

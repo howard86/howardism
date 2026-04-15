@@ -16,7 +16,7 @@ router.post(async (req, res) => {
   }
 
   if (!emailRegex.test(email)) {
-    throw new BadRequestException(`Incorrect email format, given=${email}`);
+    throw new BadRequestException("Invalid email format");
   }
 
   await subscribeToNewsletter(email);
