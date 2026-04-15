@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
       subTotal + DEFAULT_SHIPPING_COST + subTotal * DEFAULT_TAX_RATE;
 
     // Atomically persist order + PENDING transaction BEFORE any network call.
-    // This ensures the order record exists even if LINE Pay is unreachable.
-    const order = await prisma.$transaction(async (tx) => {
+    // Returns transactionId so we can mark it FAILED if LINE Pay rejects.
+    const { order, transactionId } = await prisma.$transaction(async (tx) => {
       const created = await tx.commerceOrder.create({
         data: {
           email: sessionEmail,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.commerceTransaction.create({
+      const transaction = await tx.commerceTransaction.create({
         data: {
           orderId: created.id,
           amount: totalPrice,
@@ -86,45 +86,66 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return created;
+      return { order: created, transactionId: transaction.id };
     });
 
     // Derive absolute redirect URLs from the inbound request origin.
     const origin = new URL(request.url).origin;
 
-    const linePayResponse = await requestApi({
-      amount: Math.round(totalPrice),
-      currency: "TWD",
-      orderId: order.id,
-      packages: [
-        {
-          id: order.id,
-          amount: Math.round(totalPrice),
-          products: items.map((item) => ({
-            name: products.find((p) => p.id === item.id)?.title ?? item.id,
-            quantity: item.quantity,
-            price: Math.round(priceMap.get(item.id) ?? 0),
-          })),
+    // Wrap LINE Pay call so both returnCode failures and fetch throws
+    // (AbortError, HTTP 4xx/5xx via T2 hardening) produce 502 + FAILED update.
+    try {
+      const linePayResponse = await requestApi({
+        amount: Math.round(totalPrice),
+        currency: "TWD",
+        orderId: order.id,
+        packages: [
+          {
+            id: order.id,
+            amount: Math.round(totalPrice),
+            products: items.map((item) => ({
+              name: products.find((p) => p.id === item.id)?.title ?? item.id,
+              quantity: item.quantity,
+              price: Math.round(priceMap.get(item.id) ?? 0),
+            })),
+          },
+        ],
+        redirectUrls: {
+          confirmUrl: `${origin}/api/checkout/confirm?orderId=${order.id}`,
+          cancelUrl: `${origin}/tools/checkout`,
         },
-      ],
-      redirectUrls: {
-        confirmUrl: `${origin}/api/checkout/confirm?orderId=${order.id}`,
-        cancelUrl: `${origin}/tools/checkout`,
-      },
-    });
-
-    if (linePayResponse.returnCode === RequestApiReturnCode.Success) {
-      return NextResponse.json({
-        success: true,
-        data: linePayResponse.info.paymentUrl.web,
       });
-    }
 
-    // Non-success LINE Pay return codes: T3b will refine this into 502 +
-    // mark the transaction FAILED. For T3a, surface as a 500.
-    throw new Error(
-      `LINE Pay error ${linePayResponse.returnCode}: ${linePayResponse.returnMessage}`
-    );
+      if (linePayResponse.returnCode === RequestApiReturnCode.Success) {
+        return NextResponse.json({
+          success: true,
+          data: linePayResponse.info.paymentUrl.web,
+        });
+      }
+
+      // Non-success returnCode from LINE Pay
+      const message = `LINE Pay error ${linePayResponse.returnCode}: ${linePayResponse.returnMessage}`;
+      console.error(
+        `LINE Pay failed: ${linePayResponse.returnCode} ${linePayResponse.returnMessage}`
+      );
+      await prisma.commerceTransaction.update({
+        where: { id: transactionId },
+        data: { status: "FAILED" },
+      });
+      return NextResponse.json({ success: false, message }, { status: 502 });
+    } catch (linePayError) {
+      // fetch throw — AbortError (timeout), HTTP error from T2 hardening, etc.
+      const message =
+        linePayError instanceof Error
+          ? linePayError.message
+          : "LINE Pay request failed";
+      console.error(`LINE Pay failed: ${message}`);
+      await prisma.commerceTransaction.update({
+        where: { id: transactionId },
+        data: { status: "FAILED" },
+      });
+      return NextResponse.json({ success: false, message }, { status: 502 });
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Internal server error";

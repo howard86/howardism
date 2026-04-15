@@ -90,10 +90,12 @@ const mockFindMany = mock(() => Promise.resolve(fakeProducts));
 const mockPrismaTransaction = mock(
   (callback: (tx: typeof fakeTx) => Promise<unknown>) => callback(fakeTx)
 );
+const mockTransactionUpdate = mock(() => Promise.resolve({ id: "tx-1" }));
 
 mock.module("@/services/prisma", () => ({
   default: {
     commerceProduct: { findMany: mockFindMany },
+    commerceTransaction: { update: mockTransactionUpdate },
     $transaction: mockPrismaTransaction,
   },
 }));
@@ -153,6 +155,7 @@ describe("POST /api/checkout", () => {
     mockPrismaTransaction.mockClear();
     mockOrderCreate.mockClear();
     mockTransactionCreate.mockClear();
+    mockTransactionUpdate.mockClear();
     mockRequestApi.mockClear();
 
     mockRequireSessionForRoute.mockImplementation(
@@ -165,6 +168,9 @@ describe("POST /api/checkout", () => {
     );
     mockOrderCreate.mockImplementation(() => Promise.resolve(fakeOrder));
     mockTransactionCreate.mockImplementation(() =>
+      Promise.resolve({ id: "tx-1" })
+    );
+    mockTransactionUpdate.mockImplementation(() =>
       Promise.resolve({ id: "tx-1" })
     );
     mockRequestApi.mockImplementation(() =>
@@ -251,5 +257,56 @@ describe("POST /api/checkout", () => {
     expect(txCall.data.orderId).toBe(fakeOrder.id);
     expect(txCall.data.status).toBe("PENDING");
     expect(txCall.data.currency).toBe("TWD");
+  });
+
+  // ── T3b: LINE Pay failure branching ─────────────────────────────────────
+
+  it("returns 502 and marks transaction FAILED when LINE Pay returns non-0000 returnCode", async () => {
+    mockRequestApi.mockImplementationOnce(() =>
+      Promise.resolve({
+        returnCode: "9000",
+        returnMessage: "Internal error",
+        info: {} as never,
+      })
+    );
+
+    const res = await POST(makeRequest(validBody));
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(typeof body.message).toBe("string");
+
+    // Transaction must be updated to FAILED
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(1);
+    const updateCall = (
+      mockTransactionUpdate.mock.calls[0] as unknown as [
+        { where: { id: string }; data: { status: string } },
+      ]
+    )[0];
+    expect(updateCall.where.id).toBe("tx-1");
+    expect(updateCall.data.status).toBe("FAILED");
+  });
+
+  it("returns 502 and marks transaction FAILED when LINE Pay fetch throws", async () => {
+    const abortError = Object.assign(new Error("The operation was aborted"), {
+      name: "AbortError",
+    });
+    mockRequestApi.mockImplementationOnce(() => Promise.reject(abortError));
+
+    const res = await POST(makeRequest(validBody));
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.message).toContain("aborted");
+
+    // Transaction must be updated to FAILED even on fetch throw
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(1);
+    const updateCall = (
+      mockTransactionUpdate.mock.calls[0] as unknown as [
+        { where: { id: string }; data: { status: string } },
+      ]
+    )[0];
+    expect(updateCall.where.id).toBe("tx-1");
+    expect(updateCall.data.status).toBe("FAILED");
   });
 });
