@@ -47,7 +47,7 @@ const handler = (
           difficulty &&
           !Object.values(SudokuDifficulty).includes(difficulty)
         ) {
-          throw new Error(`Invalid difficulty with ${difficulty}`);
+          throw new Error("Invalid difficulty");
         }
 
         const sudoku = generateSudoku(code, difficulty);
@@ -62,7 +62,7 @@ const handler = (
         console.error("Sudoku generation error:", (error as Error).message);
         return res.json({
           success: false,
-          message: (error as Error).message,
+          message: "Failed to generate sudoku",
         });
       }
     }
@@ -78,7 +78,9 @@ const handler = (
         } else if (code) {
           newSudoku = Sudoku.from(code);
         } else {
-          throw new Error(`Invalid input with ${JSON.stringify(req.body)}`);
+          throw new Error(
+            "Invalid input: body must contain 'sudoku' (array) or 'code' (string)"
+          );
         }
 
         return res.json({
@@ -91,7 +93,7 @@ const handler = (
         console.error("Sudoku solve error:", (error as Error).message);
         return res.json({
           success: false,
-          message: (error as Error).message,
+          message: "Failed to solve sudoku",
         });
       }
     }

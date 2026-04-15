@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 // ---------------------------------------------------------------------------
 // IMPORTANT: Bun does NOT hoist mock.module() calls like Jest does.
 // Static `import` statements are resolved before any user code runs, so we
-// must use a dynamic import() for the module under test — see the bottom of
-// this preamble block.
+// must use a dynamic import() for auth.ts — see the bottom of this preamble.
+//
+// mock.module() is process-wide. Keep a SINGLE auth.test.ts file per module
+// so two mock factories for "better-auth" do not race each other.
 // ---------------------------------------------------------------------------
 
-// --- fake session fixture (defined first so nextSession can reference it) ---
+// --- session fixture used by session-helper tests ---
 
 const fakeSession = {
   user: {
@@ -28,7 +30,7 @@ const fakeSession = {
   },
 };
 
-// --- mutable fixture: tests set this before calling helpers ---
+// --- mutable session state + redirect spy ---
 let nextSession: typeof fakeSession | null = null;
 const mockGetSession = mock(async () => nextSession);
 
@@ -36,12 +38,15 @@ const mockRedirect = mock((_url: string): never => {
   throw Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT" });
 });
 
-// --- module mocks (must be set up before the dynamic import below) ---
+// --- #496 config capture: unified better-auth mock captures options AND
+// returns a working session API so requireSessionFor* helpers still work ---
+let capturedOptions: Record<string, unknown> = {};
 
 mock.module("better-auth", () => ({
-  betterAuth: () => ({
-    api: { getSession: mockGetSession },
-  }),
+  betterAuth: (options: Record<string, unknown>) => {
+    capturedOptions = options;
+    return { api: { getSession: mockGetSession } };
+  },
 }));
 
 mock.module("better-auth/adapters/prisma", () => ({
@@ -52,6 +57,8 @@ mock.module("@/services/prisma", () => ({ default: {} }));
 
 mock.module("@/config/env.mjs", () => ({
   env: {
+    BETTER_AUTH_SECRET: "test-secret-value",
+    BETTER_AUTH_URL: "http://localhost:3000",
     GOOGLE_CLIENT_ID: "mock-google-id",
     GOOGLE_CLIENT_SECRET: "mock-google-secret",
     GITHUB_ID: "mock-github-id",
@@ -64,8 +71,6 @@ mock.module("next/headers", () => ({
 }));
 
 mock.module("next/navigation", () => ({
-  // Include notFound so subsequent test files that import page.tsx can also
-  // use this mock (Bun 1.3.x shares mock state across files in the same run).
   notFound: mock((): never => {
     throw Object.assign(new Error("NEXT_NOT_FOUND"), {
       digest: "NEXT_NOT_FOUND",
@@ -87,14 +92,81 @@ mock.module("next/server", () => ({
   },
 }));
 
+const mockSendTransactionalEmail = mock(async (_args: unknown) => {
+  // noop — spy
+});
+
+mock.module("@/services/mail", () => ({
+  sendTransactionalEmail: mockSendTransactionalEmail,
+  subscribeToNewsletter: mock(async () => {
+    // noop
+  }),
+}));
+
 // Dynamic import runs after all mock.module() calls, so auth.ts sees the
 // mocked versions of better-auth, next/headers, and next/navigation.
 const { requireSessionForPage, requireSessionForRoute } = await import(
-  "./auth"
+  "../auth"
 );
 
 // ---------------------------------------------------------------------------
-// Tests
+// #496 config assertions — introspect captured betterAuth() options
+// ---------------------------------------------------------------------------
+
+describe("betterAuth config — security requirements (#496)", () => {
+  it("passes explicit secret: env.BETTER_AUTH_SECRET", () => {
+    expect(capturedOptions.secret).toBe("test-secret-value");
+  });
+
+  it("passes explicit baseURL: env.BETTER_AUTH_URL", () => {
+    expect(capturedOptions.baseURL).toBe("http://localhost:3000");
+  });
+
+  it("emailAndPassword.minPasswordLength === 8", () => {
+    const ep = capturedOptions.emailAndPassword as Record<string, unknown>;
+    expect(ep).toBeDefined();
+    expect(ep.minPasswordLength).toBe(8);
+  });
+
+  it("emailAndPassword.requireEmailVerification === true", () => {
+    const ep = capturedOptions.emailAndPassword as Record<string, unknown>;
+    expect(ep).toBeDefined();
+    expect(ep.requireEmailVerification).toBe(true);
+  });
+
+  it("emailVerification.sendVerificationEmail is wired up", () => {
+    const ev = capturedOptions.emailVerification as Record<string, unknown>;
+    expect(ev).toBeDefined();
+    expect(typeof ev.sendVerificationEmail).toBe("function");
+  });
+
+  it("sendVerificationEmail calls sendTransactionalEmail with Verify subject and verification URL", async () => {
+    const ev = capturedOptions.emailVerification as {
+      sendVerificationEmail: (params: {
+        user: { email: string };
+        url: string;
+      }) => Promise<void>;
+    };
+    const verificationUrl =
+      "https://example.com/api/auth/verify-email?token=abc";
+
+    await ev.sendVerificationEmail({
+      user: { email: "user@example.com" },
+      url: verificationUrl,
+    });
+
+    expect(mockSendTransactionalEmail).toHaveBeenCalledTimes(1);
+    const [args] = mockSendTransactionalEmail.mock.calls[0] as [
+      { to: string; subject: string; html: string },
+    ];
+    expect(args.to).toBe("user@example.com");
+    expect(args.subject).toContain("Verify");
+    expect(args.html).toContain(verificationUrl);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session helper assertions — requireSessionForRoute / requireSessionForPage
 // ---------------------------------------------------------------------------
 
 describe("requireSessionForRoute", () => {
@@ -113,7 +185,6 @@ describe("requireSessionForRoute", () => {
   });
 
   it("returns { ok: false, response: 401 } when no session", async () => {
-    // nextSession is null (default)
     const result = await requireSessionForRoute();
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -138,7 +209,6 @@ describe("requireSessionForPage", () => {
   });
 
   it("calls redirect('/login') with no session and no callbackUrl", async () => {
-    // nextSession is null — redirect must be called
     await expect(requireSessionForPage()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/login");
   });
