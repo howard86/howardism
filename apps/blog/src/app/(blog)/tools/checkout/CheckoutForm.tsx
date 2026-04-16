@@ -43,7 +43,7 @@ export default function CheckoutForm({
   products,
   shippingCost,
 }: CheckoutFormProps) {
-  const { watch, register, formState, setValue, handleSubmit } =
+  const { watch, register, formState, setValue, handleSubmit, setError } =
     useForm<CheckoutSchema>({
       mode: "onBlur",
       resolver: zodResolver(checkoutSchema),
@@ -66,28 +66,48 @@ export default function CheckoutForm({
     return prev + product.price * cur.quantity;
   }, 0);
 
-  // TODO: redirect to correct page base on checkout result
   const handleCheckout = handleSubmit(async (data) => {
-    const response = await fetch("/api/checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
-    const result = (await response.json()) as ApiResponse<string>;
+      if (!response.ok) {
+        setError("root", {
+          message: "Something went wrong. Please try again.",
+        });
+        return;
+      }
 
-    if (!result.success) {
-      throw new Error(result.message);
+      const result = (await response.json()) as ApiResponse<string> & {
+        message?: string;
+      };
+
+      if (!result.success) {
+        setError("root", {
+          message: result.message ?? "Something went wrong. Please try again.",
+        });
+        return;
+      }
+
+      if (result.data) {
+        window.location.assign(
+          validateRedirectUrl(result.data, window.location.origin)
+        );
+      }
+    } catch (err) {
+      setError("root", {
+        message:
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
+      });
     }
-    if (result.data) {
-      window.location.href = validateRedirectUrl(
-        result.data,
-        window.location.origin
-      );
-    }
-  }, console.error);
+  });
 
   return (
     <div className="rounded-xl border bg-background shadow-sm">
@@ -231,6 +251,11 @@ export default function CheckoutForm({
               </dl>
 
               <div className="border-t px-4 py-6 sm:px-6">
+                {formState.errors.root?.message && (
+                  <p className="mb-4 text-destructive text-sm" role="alert">
+                    {formState.errors.root.message}
+                  </p>
+                )}
                 <Button className="w-full" type="submit">
                   {formState.isSubmitting && (
                     <span className="loading loading-spinner" />
