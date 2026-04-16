@@ -56,6 +56,7 @@ export default function ResumeEditor({
     register,
     control,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<ResumeSchema>({
     mode: "onBlur",
@@ -63,28 +64,50 @@ export default function ResumeEditor({
     defaultValues: resume,
   });
 
-  // TODO: add error handling
   const handleCreate = handleSubmit(async (values) => {
-    const response = await fetch(
-      profileId ? `/api/resume?profileId=${profileId}` : "/api/resume",
-      {
-        method: profileId ? "PUT" : "POST",
-        body: JSON.stringify(values),
-        headers: {
-          "Content-Type": "application/json",
-        },
+    try {
+      const response = await fetch(
+        profileId ? `/api/resume?profileId=${profileId}` : "/api/resume",
+        {
+          method: profileId ? "PUT" : "POST",
+          body: JSON.stringify(values),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        setError("root", {
+          message: "Something went wrong. Please try again.",
+        });
+        return;
       }
-    );
 
-    const result = (await response.json()) as SuccessApiResponse<string>;
+      const result = (await response.json()) as SuccessApiResponse<string> & {
+        message?: string;
+      };
 
-    if (result.success) {
-      router.push(`/profile/resume/${result.data}`);
+      if (result.success) {
+        router.push(`/profile/resume/${result.data}`);
+      } else {
+        setError("root", {
+          message: result.message ?? "Something went wrong. Please try again.",
+        });
+      }
+    } catch (err) {
+      setError("root", {
+        message:
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
+      });
     }
-  }, console.error);
+  });
 
   return (
     <Container className="mt-6 flex-1 sm:mt-12">
+      {errors.root?.message && <p role="alert">{errors.root.message}</p>}
       <ResumeForm
         control={control}
         errors={errors}
