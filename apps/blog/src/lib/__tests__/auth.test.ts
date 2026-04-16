@@ -71,6 +71,14 @@ mock.module("next/headers", () => ({
 }));
 
 mock.module("next/navigation", () => ({
+  // useRouter is included so that test files mocking a client component that
+  // imports useRouter (e.g. ResumeEditor) do not race with this narrower mock
+  // and lose the named export. Bun 1.3.x shares mock.module state across files.
+  useRouter: () => ({
+    push: () => undefined,
+    replace: () => undefined,
+    back: () => undefined,
+  }),
   notFound: mock((): never => {
     throw Object.assign(new Error("NEXT_NOT_FOUND"), {
       digest: "NEXT_NOT_FOUND",
