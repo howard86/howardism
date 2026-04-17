@@ -12,6 +12,11 @@ const routePolicy: ReadonlyArray<{
   windowMs: number;
 }> = [
   { prefix: "/api/auth", limit: 10, windowMs: 60_000 },
+  // More-specific prefix MUST come before the generic /api/checkout entry —
+  // routePolicy.find stops at the first match. The confirm callback is
+  // redirected to by LINE Pay (possibly retried) and is idempotent, so it
+  // gets a slightly higher budget than the user-initiated POST.
+  { prefix: "/api/checkout/confirm", limit: 20, windowMs: 60_000 },
   { prefix: "/api/checkout", limit: 10, windowMs: 60_000 },
   { prefix: "/api/resume", limit: 20, windowMs: 60_000 },
   { prefix: "/api/subscription", limit: 5, windowMs: 60_000 },
