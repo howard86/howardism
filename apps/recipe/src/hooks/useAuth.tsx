@@ -8,10 +8,9 @@ import useAppToast from "./useAppToast";
 interface UseAuth {
   isLoggedIn: boolean;
   login: (account: Account) => Promise<void>;
-  logout: VoidFunction;
+  logout: () => Promise<void>;
 }
 
-// TODO: consider manage auth by redux
 const useAuth = (): UseAuth => {
   const dispatch = useAppDispatch();
   const { isLoggedIn } = useAppSelector((state) => state.auth);
@@ -35,8 +34,8 @@ const useAuth = (): UseAuth => {
     }
   };
 
-  const logout = (): void => {
-    dispatch(authLogout());
+  const logout = async (): Promise<void> => {
+    await dispatch(authLogout());
   };
 
   return { isLoggedIn, login, logout };
