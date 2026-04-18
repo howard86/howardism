@@ -13,6 +13,15 @@ import { describe, expect, it, mock } from "bun:test";
 // ---------------------------------------------------------------------------
 // Shim next/server — not available outside the Next.js Edge runtime
 // ---------------------------------------------------------------------------
+// The rate-limit factory reads Upstash env. Stub with undefined vars so it
+// selects the memory fallback — the path under integration test.
+mock.module("@/config/env.mjs", () => ({
+  env: {
+    UPSTASH_REDIS_REST_URL: undefined,
+    UPSTASH_REDIS_REST_TOKEN: undefined,
+  },
+}));
+
 mock.module("next/server", () => ({
   NextResponse: {
     redirect: (url: URL | string, status?: number | ResponseInit) => {
@@ -86,7 +95,7 @@ describe("middleware — per-route rate limiting (#497)", () => {
     );
     expect(res.status).toBe(429);
     const body = await res.json();
-    expect(body).toEqual({ error: "rate_limited" });
+    expect(body).toEqual({ message: "Too many requests" });
   });
 
   // ── (b) /api/auth: 10/60s → 11th request returns 429 ────────────────────
@@ -134,6 +143,48 @@ describe("middleware — per-route rate limiting (#497)", () => {
 
     const res = await middleware(
       makeApiRequest("/api/something-unmatched", ip) as never
+    );
+    expect(res.status).toBe(429);
+  });
+
+  // ── (f) IP keying: XFF comma-list uses first entry, not raw header ──────
+
+  it("(f) two distinct leading XFF entries are treated as separate buckets (#554)", async () => {
+    await exhaust("/api/subscription", "192.0.2.7, 198.51.100.1", 5);
+
+    const different = await middleware(
+      makeApiRequest("/api/subscription", "192.0.2.8, 198.51.100.1") as never
+    );
+    // Leading entry differs → new bucket → allowed.
+    expect(different.status).toBe(200);
+  });
+
+  // ── (g) IP keying: x-vercel-forwarded-for wins over x-forwarded-for ─────
+
+  it("(g) x-vercel-forwarded-for takes precedence over x-forwarded-for", async () => {
+    const ip = "192.0.2.9";
+    const mkReq = (vercelIp: string): MinimalRequest => ({
+      url: "http://localhost:3000/api/subscription",
+      headers: new Headers({
+        "x-vercel-forwarded-for": vercelIp,
+        // Spoofed XFF — must be ignored.
+        "x-forwarded-for": "0.0.0.1",
+      }),
+    });
+    for (let i = 0; i < 5; i++) {
+      await middleware(mkReq(ip) as never);
+    }
+    const res = await middleware(mkReq(ip) as never);
+    expect(res.status).toBe(429);
+  });
+
+  // ── (h) /api/checkout/confirm has a dedicated 20/60s policy ──────────────
+
+  it("(h) /api/checkout/confirm permits 20 before limiting (distinct from /api/checkout)", async () => {
+    const ip = "192.0.2.10";
+    await exhaust("/api/checkout/confirm", ip, 20);
+    const res = await middleware(
+      makeApiRequest("/api/checkout/confirm", ip) as never
     );
     expect(res.status).toBe(429);
   });
