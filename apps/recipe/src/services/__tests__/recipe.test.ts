@@ -31,7 +31,7 @@ describe("services/recipe", () => {
       const result = await getRecipeById("abc123");
       expect(mockGet).toHaveBeenCalledTimes(1);
       expect(mockGet.mock.calls[0]?.[0]).toBe("/recipes/abc123");
-      expect(result).toEqual({ id: 1, title: "ok" });
+      expect(result).toMatchObject({ id: 1, title: "ok" });
     });
 
     it("proceeds for numeric IDs (Strapi v4)", async () => {

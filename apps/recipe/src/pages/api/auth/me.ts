@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import { verify } from "@/services/auth";
+import { getAuthToken } from "../_lib/auth-cookie";
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== "GET") {
@@ -8,9 +9,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const jwt = req.headers["recipe-token"];
+  const jwt = getAuthToken(req);
 
-  if (typeof jwt !== "string") {
+  if (jwt === null) {
     return res.status(400).send({ success: false });
   }
 
