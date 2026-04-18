@@ -2,20 +2,14 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
 import type { Account, LoginResponse } from "@/types/auth";
 
-import api, {
-  deleteAuthorizationHeader,
-  type LocalAPIResponse,
-  updateAuthorizationHeader,
-} from "../api";
+import api, { type LocalAPIResponse } from "../api";
 
 interface AuthState {
   isLoggedIn: boolean;
-  jwt: string;
 }
 
 const initialState: AuthState = {
   isLoggedIn: false,
-  jwt: "",
 };
 
 export const authLogin = createAsyncThunk(
@@ -30,24 +24,22 @@ export const authLogin = createAsyncThunk(
   }
 );
 
-const { actions, reducer } = createSlice({
+export const authLogout = createAsyncThunk("auth/logout", async () => {
+  await api.post("/auth/logout");
+});
+
+const { reducer } = createSlice({
   name: "auth",
   initialState,
-  reducers: {
-    authLogout: () => {
-      deleteAuthorizationHeader();
-      return initialState;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) =>
     builder
       .addCase(authLogin.fulfilled, (state, action) => {
         state.isLoggedIn = action.payload.success;
-        state.jwt = action.payload.jwt;
-        updateAuthorizationHeader(action.payload.jwt);
       })
-      .addCase(authLogin.rejected, () => initialState),
+      .addCase(authLogin.rejected, () => initialState)
+      .addCase(authLogout.fulfilled, () => initialState)
+      .addCase(authLogout.rejected, () => initialState),
 });
 
-export const { authLogout } = actions;
 export default reducer;
