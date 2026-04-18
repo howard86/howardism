@@ -24,5 +24,3 @@ export const loginSchema = z.object({
   identifier: z.string(),
   password: z.string(),
 });
-
-export const bearerTokenSchema = z.string().regex(/^Bearer .+/);

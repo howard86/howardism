@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import { login } from "@/services/auth";
+import { serializeAuthCookie } from "../_lib/auth-cookie";
 import { loginSchema } from "../recipe/schemas";
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -17,7 +18,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   try {
     const jwt = await login(result.data);
-    return res.status(200).send({ success: true, jwt });
+    res.setHeader("Set-Cookie", serializeAuthCookie(jwt));
+    return res.status(200).send({ success: true });
   } catch (error) {
     console.error((error as Error).message);
     return res.status(400).send({ success: false });

@@ -40,16 +40,22 @@ describe("POST /api/recipe/create", () => {
   });
 
   it("returns 405 for non-POST methods", async () => {
-    const req = { method: "GET", headers: {}, body: {} } as NextApiRequest;
+    const req = {
+      method: "GET",
+      headers: {},
+      cookies: {},
+      body: {},
+    } as NextApiRequest;
     await handler(req, mockRes);
     expect(mockRes.status).toHaveBeenCalledWith(405);
     expect(mockCreateRecipe).not.toHaveBeenCalled();
   });
 
-  it("returns 401 for missing authorization header", async () => {
+  it("returns 401 when recipe_auth cookie is absent", async () => {
     const req = {
       method: "POST",
-      headers: { authorization: undefined },
+      headers: {},
+      cookies: {},
       body: validRecipe,
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
@@ -57,10 +63,11 @@ describe("POST /api/recipe/create", () => {
     expect(mockCreateRecipe).not.toHaveBeenCalled();
   });
 
-  it("returns 401 for non-Bearer authorization header", async () => {
+  it("returns 401 when Authorization header is present but cookie is not", async () => {
     const req = {
       method: "POST",
-      headers: { authorization: "Basic dXNlcjpwYXNz" },
+      headers: { authorization: "Bearer legacy-token" },
+      cookies: {},
       body: validRecipe,
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
@@ -68,21 +75,11 @@ describe("POST /api/recipe/create", () => {
     expect(mockCreateRecipe).not.toHaveBeenCalled();
   });
 
-  it("returns 401 for authorization header that is too short to be valid", async () => {
+  it("returns 400 with flattened errors for malformed body", async () => {
     const req = {
       method: "POST",
-      headers: { authorization: "Bearer" },
-      body: validRecipe,
-    } as unknown as NextApiRequest;
-    await handler(req, mockRes);
-    expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockCreateRecipe).not.toHaveBeenCalled();
-  });
-
-  it("returns 400 with flattened errors for malformed body with valid Bearer", async () => {
-    const req = {
-      method: "POST",
-      headers: { authorization: "Bearer valid-token-abc" },
+      headers: { cookie: "recipe_auth=valid-token-abc" },
+      cookies: { recipe_auth: "valid-token-abc" },
       body: { title: "missing required fields" },
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
@@ -98,7 +95,8 @@ describe("POST /api/recipe/create", () => {
   it("returns 400 for completely invalid body", async () => {
     const req = {
       method: "POST",
-      headers: { authorization: "Bearer valid-token-abc" },
+      headers: { cookie: "recipe_auth=valid-token-abc" },
+      cookies: { recipe_auth: "valid-token-abc" },
       body: null,
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
@@ -106,16 +104,17 @@ describe("POST /api/recipe/create", () => {
     expect(mockCreateRecipe).not.toHaveBeenCalled();
   });
 
-  it("returns 200 and calls createRecipe for valid Bearer and valid body", async () => {
+  it("returns 200 and calls createRecipe with raw JWT for valid cookie + body", async () => {
     const req = {
       method: "POST",
-      headers: { authorization: "Bearer valid-token-abc" },
+      headers: { cookie: "recipe_auth=valid-token-abc" },
+      cookies: { recipe_auth: "valid-token-abc" },
       body: validRecipe,
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
     expect(mockCreateRecipe).toHaveBeenCalledWith(
       validRecipe,
-      "Bearer valid-token-abc"
+      "valid-token-abc"
     );
     expect(mockRes.status).toHaveBeenCalledWith(200);
   });
@@ -127,7 +126,8 @@ describe("POST /api/recipe/create", () => {
     };
     const req = {
       method: "POST",
-      headers: { authorization: "Bearer abc123" },
+      headers: { cookie: "recipe_auth=abc123" },
+      cookies: { recipe_auth: "abc123" },
       body: sensitiveBody,
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
@@ -139,26 +139,11 @@ describe("POST /api/recipe/create", () => {
     }
   });
 
-  it("does not log the authorization header or token to console.error", async () => {
+  it("does not log the cookie token on body validation failure", async () => {
     const req = {
       method: "POST",
-      headers: { authorization: "Basic notabearer-shouldtrigger401" },
-      body: {},
-    } as unknown as NextApiRequest;
-    await handler(req, mockRes);
-
-    for (const call of errorSpy.mock.calls) {
-      const logged = call.map((a) => JSON.stringify(a)).join(" ");
-      expect(logged).not.toContain("notabearer-shouldtrigger401");
-      expect(logged).not.toContain("Authorization");
-      expect(logged).not.toContain("authorization");
-    }
-  });
-
-  it("does not log the Bearer token value to console.error on body validation failure", async () => {
-    const req = {
-      method: "POST",
-      headers: { authorization: "Bearer supersecret-token-xyz" },
+      headers: { cookie: "recipe_auth=supersecret-token-xyz" },
+      cookies: { recipe_auth: "supersecret-token-xyz" },
       body: { bad: "body" },
     } as unknown as NextApiRequest;
     await handler(req, mockRes);
@@ -166,7 +151,6 @@ describe("POST /api/recipe/create", () => {
     for (const call of errorSpy.mock.calls) {
       const logged = call.map((a) => JSON.stringify(a)).join(" ");
       expect(logged).not.toContain("supersecret-token-xyz");
-      expect(logged).not.toContain("Bearer");
     }
   });
 });
