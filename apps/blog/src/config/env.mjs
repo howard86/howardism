@@ -18,6 +18,8 @@ export const env = createEnv({
     GITHUB_ID: z.string(),
     GITHUB_SECRET: z.string(),
     VERCEL_ENV: z.string().optional(),
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
   },
   client: {
     isLive: z.boolean(),
@@ -45,6 +47,8 @@ export const env = createEnv({
     TDX_API_ENDPOINT: process.env.TDX_API_ENDPOINT,
     TDX_API_CLIENT_ID: process.env.TDX_API_CLIENT_ID,
     TDX_API_CLIENT_SECRET: process.env.TDX_API_CLIENT_SECRET,
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
 
     NEXT_PUBLIC_DOMAIN_NAME: process.env.NEXT_PUBLIC_DOMAIN_NAME,
     NEXT_PUBLIC_GA_MEASUREMENT_ID: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,

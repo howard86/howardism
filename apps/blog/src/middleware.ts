@@ -1,17 +1,22 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getClientIp } from "@/server/rate-limit/getClientIp";
+import {
+  getRateLimiter,
+  type RateLimitPolicy,
+} from "@/server/rate-limit/index";
+
 // ---------------------------------------------------------------------------
-// Rate-limiting — fixed-window counters, one bucket per (client-IP, route-family)
+// Per-route-family policies — fixed window when served by the memory
+// fallback, sliding window when Upstash is configured. Order matters: the
+// first prefix match wins, so `/api/checkout/confirm` must be listed before
+// `/api/checkout`.
 // ---------------------------------------------------------------------------
 
-// TODO(#497-followup): replace with Redis/Upstash when moving off single-instance — per-instance limits only
-const routePolicy: ReadonlyArray<{
-  prefix: string;
-  limit: number;
-  windowMs: number;
-}> = [
+const routePolicy: readonly RateLimitPolicy[] = [
   { prefix: "/api/auth", limit: 10, windowMs: 60_000 },
+  { prefix: "/api/checkout/confirm", limit: 20, windowMs: 60_000 },
   { prefix: "/api/checkout", limit: 10, windowMs: 60_000 },
   { prefix: "/api/resume", limit: 20, windowMs: 60_000 },
   { prefix: "/api/subscription", limit: 5, windowMs: 60_000 },
@@ -19,50 +24,17 @@ const routePolicy: ReadonlyArray<{
   { prefix: "/api/sudoku", limit: 20, windowMs: 60_000 },
 ];
 
-const defaultApiPolicy = { prefix: "/api/", limit: 60, windowMs: 60_000 };
-
-interface BucketState {
-  count: number;
-  windowStart: number;
-}
-
-const buckets = new Map<string, BucketState>();
-
-function consume(
-  key: string,
-  limit: number,
-  windowMs: number
-): { allowed: boolean; retryAfter: number } {
-  const now = Date.now();
-  let state = buckets.get(key);
-
-  if (!state) {
-    state = { count: 0, windowStart: now };
-    buckets.set(key, state);
-  }
-
-  if (now - state.windowStart >= windowMs) {
-    state.count = 0;
-    state.windowStart = now;
-  }
-
-  if (state.count < limit) {
-    state.count++;
-    return { allowed: true, retryAfter: 0 };
-  }
-
-  const retryAfter = Math.max(
-    1,
-    Math.ceil((windowMs - (now - state.windowStart)) / 1000)
-  );
-  return { allowed: false, retryAfter };
-}
+const defaultApiPolicy: RateLimitPolicy = {
+  prefix: "/api/",
+  limit: 60,
+  windowMs: 60_000,
+};
 
 // ---------------------------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------------------------
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
   // 1. Auth guard: /profile/* requires a Better Auth session cookie.
@@ -80,21 +52,19 @@ export function middleware(request: NextRequest) {
 
   // 2. Rate limiting: /api/* paths are checked against per-route-family limits.
   if (pathname.startsWith("/api")) {
-    const ip =
-      request.headers.get("x-forwarded-for") ??
-      request.headers.get("x-real-ip") ??
-      "unknown";
+    const ip = getClientIp(request.headers);
 
     const policy =
       routePolicy.find((p) => pathname.startsWith(p.prefix)) ??
       defaultApiPolicy;
 
+    const limiter = getRateLimiter();
     const key = `${ip}:${policy.prefix}`;
-    const { allowed, retryAfter } = consume(key, policy.limit, policy.windowMs);
+    const { allowed, retryAfter } = await limiter.consume(key, policy);
 
     if (!allowed) {
       return NextResponse.json(
-        { error: "rate_limited" },
+        { message: "Too many requests" },
         {
           status: 429,
           headers: { "Retry-After": String(retryAfter) },
