@@ -107,11 +107,11 @@ const { POST, PUT } = await import("../route");
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Body without email — valid after #591 fix (email is session-pinned server-side)
 const validBody = {
   name: "Owner User",
   address: "123 Test St",
   phone: "0912345678",
-  email: "owner@example.com",
   github: "owneruser",
   website: "https://owner.com",
   company: "Test Corp",
@@ -184,13 +184,32 @@ describe("POST /api/resume", () => {
     expect(typeof body.message).toBe("string");
   });
 
-  it("returns 400 for invalid email format", async () => {
+  // #591 regression: body email must be rejected
+  it("returns 400 when body contains email field", async () => {
     const res = await POST(
-      makePostRequest({ ...validBody, email: "not-an-email" })
+      makePostRequest({ ...validBody, email: "attacker@evil.com" })
     );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.success).toBe(false);
+  });
+
+  it("pins applicant upsert to session email, ignores body email (POST)", async () => {
+    await POST(makePostRequest(validBody));
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    const upsertCall = (
+      mockUpsert.mock.calls[0] as unknown as [
+        {
+          where: { email: string };
+          update: Record<string, unknown>;
+          create: { email: string };
+        },
+      ]
+    )[0];
+    expect(upsertCall.where.email).toBe("owner@example.com");
+    expect(upsertCall.create.email).toBe("owner@example.com");
+    // update payload must NOT contain email (session-pinned, not client-supplied)
+    expect(upsertCall.update.email).toBeUndefined();
   });
 
   it("returns 200 with profileId on valid POST", async () => {
@@ -270,6 +289,16 @@ describe("PUT /api/resume", () => {
 
   it("returns 400 for invalid body", async () => {
     const res = await PUT(makePutRequest({ name: "Only Name" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+  });
+
+  // #591 regression: body email must be rejected on PUT too
+  it("returns 400 when body contains email field", async () => {
+    const res = await PUT(
+      makePutRequest({ ...validBody, email: "attacker@evil.com" })
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.success).toBe(false);
