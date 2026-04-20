@@ -7,6 +7,8 @@ import { type ReactNode, useState } from "react";
 import type { BufferGeometry, Mesh } from "three";
 import { create } from "zustand";
 
+import { resolveAdjacentCell, resolveHoverSlot } from "./faceAdjacency";
+
 interface CubeStore {
   addCube: (x: number, y: number, z: number) => void;
   cubes: ReactNode[];
@@ -37,8 +39,9 @@ export default function Cube({ position }: CubeProps) {
 
   const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    if (event.faceIndex) {
-      setHover(Math.floor(event.faceIndex / 2));
+    const slot = resolveHoverSlot(event.faceIndex);
+    if (slot !== null) {
+      setHover(slot);
     }
   };
 
@@ -49,37 +52,18 @@ export default function Cube({ position }: CubeProps) {
   const handleOnClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
 
-    if (!(event.faceIndex && ref.current)) {
+    if (!ref.current) {
       return;
     }
 
-    const faceIndex = Math.floor(event.faceIndex / 2);
     const { x, y, z } = ref.current.position;
-
-    switch (faceIndex) {
-      case 4:
-        addCube(x, y, z + 1);
-        return;
-
-      case 2:
-        addCube(x, y + 1, z);
-        return;
-
-      case 1:
-        addCube(x - 1, y, z);
-        return;
-
-      case 5:
-        addCube(x, y, z - 1);
-        return;
-
-      case 3:
-        addCube(x, y - 1, z);
-        return;
-
-      default:
-        addCube(x + 1, y, z);
+    const cell = resolveAdjacentCell(event.faceIndex, [x, y, z]);
+    if (cell === null) {
+      return;
     }
+
+    const [nx, ny, nz] = cell;
+    addCube(nx, ny, nz);
   };
 
   return (
