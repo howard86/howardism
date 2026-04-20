@@ -2,6 +2,10 @@ import "./src/config/env.mjs";
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  DEFAULT_CSP_DIRECTIVES,
+  getSecurityHeaders,
+} from "@howardism/security-headers";
 import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
 
@@ -17,20 +21,24 @@ const withMDX = nextMDX({
   },
 });
 
-const securityHeaders = [
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "X-XSS-Protection", value: "0" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains",
+// Blog uses Mapbox GL (map tiles + worker), Vercel Analytics, and Sendgrid
+// client — connect-src and worker-src are widened accordingly. Geolocation is
+// granted to same-origin so the mapbox feature can prompt.
+const securityHeaders = getSecurityHeaders({
+  geolocation: "(self)",
+  contentSecurityPolicy: {
+    ...DEFAULT_CSP_DIRECTIVES,
+    "connect-src": [
+      "'self'",
+      "https:",
+      "https://api.mapbox.com",
+      "https://events.mapbox.com",
+      "https://*.vercel-insights.com",
+    ],
+    "img-src": ["'self'", "https:", "data:", "blob:", "https://*.mapbox.com"],
+    "worker-src": ["'self'", "blob:"],
   },
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(self)",
-  },
-];
+});
 
 /** @type{import('next').NextConfig} */
 const config = {
