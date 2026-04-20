@@ -4,7 +4,7 @@ export interface Account {
 }
 
 export interface LoginResponse {
-  jwt: string;
+  success: boolean;
 }
 
 export interface VerifyResponse {
