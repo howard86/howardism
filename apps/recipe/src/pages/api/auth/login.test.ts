@@ -6,11 +6,14 @@ const mockLogin = mock(() => Promise.resolve("test-jwt-token"));
 // Mock the service before importing handler
 mock.module("@/services/auth", () => ({
   login: mockLogin,
+  verify: mock(() => Promise.resolve({})),
 }));
 
 describe("POST /api/auth/login", () => {
   let handler: (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
   let mockRes: NextApiResponse;
+  let setHeader: ReturnType<typeof mock>;
+  let send: ReturnType<typeof mock>;
   let warnSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
 
@@ -20,9 +23,9 @@ describe("POST /api/auth/login", () => {
     warnSpy = spyOn(console, "warn").mockImplementation(() => undefined);
     errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
 
-    const send = mock();
+    send = mock();
     const status = mock(() => ({ send, end: mock(), json: mock() }));
-    const setHeader = mock();
+    setHeader = mock();
     mockRes = {
       send,
       status,
@@ -65,7 +68,7 @@ describe("POST /api/auth/login", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("returns 200 and calls login with parsed body for valid input", async () => {
+  it("returns 200 and sets HttpOnly recipe_auth cookie on success", async () => {
     const req = {
       method: "POST",
       headers: {},
@@ -77,6 +80,33 @@ describe("POST /api/auth/login", () => {
       password: "s3cr3t",
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
+
+    const cookieCall = setHeader.mock.calls.find(
+      (call) => call[0] === "Set-Cookie"
+    );
+    expect(cookieCall).toBeDefined();
+    const cookieValue = cookieCall?.[1] as string;
+    expect(cookieValue).toContain("recipe_auth=test-jwt-token");
+    expect(cookieValue).toContain("HttpOnly");
+    expect(cookieValue).toContain("SameSite=Lax");
+    expect(cookieValue).toContain("Path=/");
+    expect(cookieValue).toContain("Max-Age=604800");
+  });
+
+  it("response body on success contains no jwt", async () => {
+    const req = {
+      method: "POST",
+      headers: {},
+      body: { identifier: "user@example.com", password: "s3cr3t" },
+    } as unknown as NextApiRequest;
+    await handler(req, mockRes);
+
+    for (const call of send.mock.calls) {
+      const body = call[0];
+      const serialized = JSON.stringify(body);
+      expect(serialized).not.toContain("test-jwt-token");
+      expect(serialized).not.toContain('"jwt"');
+    }
   });
 
   it("does not log request body contents to console.warn", async () => {

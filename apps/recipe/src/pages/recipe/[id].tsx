@@ -11,7 +11,11 @@ import logo from "@/../public/favicon/logo.png";
 import LayerCheckboxes from "@/components/LayerCheckboxes";
 import { NAV_BAR_HEIGHT } from "@/components/NavBar";
 import ProcedureStep from "@/components/ProcedureStep";
-import { getRecipeById, getRecipes } from "@/services/recipe";
+import {
+  getRecipeById,
+  getRecipes,
+  RECIPE_ID_PATTERN,
+} from "@/services/recipe";
 import type { Recipe } from "@/types/recipe";
 
 export default function RecipePage({
@@ -86,7 +90,13 @@ export const getStaticProps = async (
     return { notFound: true };
   }
 
-  const recipe = await getRecipeById(context.params.id);
+  const rawId = context.params.id;
+  const id = typeof rawId === "string" ? rawId : rawId?.[0];
+  if (!(id && RECIPE_ID_PATTERN.test(id))) {
+    return { notFound: true };
+  }
+
+  const recipe = await getRecipeById(id);
 
   if (recipe === null) {
     return {
