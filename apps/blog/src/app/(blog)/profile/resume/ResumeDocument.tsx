@@ -175,9 +175,9 @@ export default function ResumeDocument({
     >
       <Document
         author={name}
-        keywords="awesome, resume, start wars"
-        subject="The resume of Luke Skywalker"
-        title="Resume"
+        keywords={`${name}, resume`}
+        subject={`Resume of ${name}`}
+        title={`${name} — Resume`}
       >
         <Page size="A4" style={styles.page} wrap>
           <View wrap={false}>
