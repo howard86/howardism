@@ -37,7 +37,6 @@ mock.module("next/server", () => ({
   },
 }));
 
-// biome-ignore lint/suspicious/noExplicitAny: test-only access to non-public exports
 const mod = (await import("../middleware")) as any;
 const { middleware } = mod;
 const BUCKET_MAP_CAP: number | undefined = mod.BUCKET_MAP_CAP;
