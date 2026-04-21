@@ -37,7 +37,13 @@ mock.module("next/server", () => ({
   },
 }));
 
-const { middleware } = await import("../middleware");
+// biome-ignore lint/suspicious/noExplicitAny: test-only access to non-public exports
+const mod = (await import("../middleware")) as any;
+const { middleware } = mod;
+const BUCKET_MAP_CAP: number | undefined = mod.BUCKET_MAP_CAP;
+const buckets:
+  | Map<string, { count: number; windowStart: number; windowMs: number }>
+  | undefined = mod.buckets;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -86,7 +92,7 @@ describe("middleware — per-route rate limiting (#497)", () => {
     );
     expect(res.status).toBe(429);
     const body = await res.json();
-    expect(body).toEqual({ error: "rate_limited" });
+    expect(body).toEqual({ message: "Too many requests" });
   });
 
   // ── (b) /api/auth: 10/60s → 11th request returns 429 ────────────────────
@@ -164,5 +170,103 @@ describe("middleware — per-route rate limiting (#497)", () => {
       makeApiRequest("/api/subscription", ip) as never
     );
     expect(res.status).toBe(429);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hardening tests — #554
+// ---------------------------------------------------------------------------
+
+describe("middleware — rate-limiter hardening (#554)", () => {
+  // ── §5.1 Left-most XFF extraction prevents suffix-injection bypass ──────────
+
+  it("§5.1 suffix-injected XFF maps to same bucket as plain IP (no bypass)", async () => {
+    const realIp = "192.0.2.100";
+    // Exhaust limit with a plain single-IP XFF header
+    await exhaust("/api/subscription", realIp, 5);
+
+    // Attacker appends fake proxies — left-most is still realIp
+    const bypassAttempt = makeApiRequest(
+      "/api/subscription",
+      `${realIp}, 10.0.0.1, 172.16.0.1`
+    );
+    const res = await middleware(bypassAttempt as never);
+    // Must hit the same exhausted bucket → 429
+    expect(res.status).toBe(429);
+  });
+
+  it("§5.1b different left-most XFF IP creates a distinct bucket", async () => {
+    const exhaustedIp = "192.0.2.101";
+    const freshIp = "203.0.113.10";
+    await exhaust("/api/subscription", exhaustedIp, 5);
+
+    // Fresh client happens to pass through the exhausted proxy
+    const req = makeApiRequest(
+      "/api/subscription",
+      `${freshIp}, ${exhaustedIp}`
+    );
+    const res = await middleware(req as never);
+    // Left-most is freshIp — separate, non-exhausted bucket → allowed
+    expect(res.status).toBe(200);
+  });
+
+  // ── §5.2 429 body is JSON {message: "Too many requests"} ──────────────────
+
+  it("§5.2 429 response body is {message: 'Too many requests'} with JSON content-type", async () => {
+    const ip = "192.0.2.102";
+    await exhaust("/api/subscription", ip, 5);
+    const res = await middleware(
+      makeApiRequest("/api/subscription", ip) as never
+    );
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body).toEqual({ message: "Too many requests" });
+    expect(res.headers.get("content-type")).toContain("application/json");
+  });
+
+  // ── §5.3 Bounded bucket map: on-write eviction sweeps expired entries ───────
+
+  it("§5.3 on-write eviction sweeps expired entries when bucket count exceeds BUCKET_MAP_CAP", async () => {
+    if (buckets === undefined || BUCKET_MAP_CAP === undefined) {
+      throw new Error(
+        "BUCKET_MAP_CAP and buckets must be exported from middleware.ts for this test"
+      );
+    }
+
+    const testKeyPrefix = "__eviction-test-";
+
+    // Pack the map with expired entries (windowStart = 0, expired long ago)
+    for (let i = 0; i < BUCKET_MAP_CAP + 50; i++) {
+      buckets.set(`${testKeyPrefix}${i}`, {
+        count: 1,
+        windowStart: 0,
+        windowMs: 60_000,
+      });
+    }
+    expect(buckets.size).toBeGreaterThan(BUCKET_MAP_CAP);
+
+    // Trigger on-write eviction by making a new request from a fresh IP
+    await middleware(
+      makeApiRequest("/api/subscription", "10.20.30.40") as never
+    );
+
+    // Expired entries swept — map size back within bound
+    expect(buckets.size).toBeLessThanOrEqual(BUCKET_MAP_CAP);
+
+    // Cleanup any surviving test keys
+    for (const key of [...buckets.keys()]) {
+      if (key.startsWith(testKeyPrefix)) {
+        buckets.delete(key);
+      }
+    }
+  });
+
+  // ── §5.4 BUCKET_MAP_CAP exported >= 10_000; no global timers ───────────────
+
+  it("§5.4 BUCKET_MAP_CAP is exported and >= 10_000", () => {
+    if (BUCKET_MAP_CAP === undefined) {
+      throw new Error("BUCKET_MAP_CAP must be exported from middleware.ts");
+    }
+    expect(BUCKET_MAP_CAP).toBeGreaterThanOrEqual(10_000);
   });
 });
