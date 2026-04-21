@@ -67,6 +67,8 @@ const mockRequireSessionForRoute = mock(
 
 mock.module("@/lib/auth", () => ({
   requireSessionForRoute: mockRequireSessionForRoute,
+  // Included so page tests that mock @/lib/auth don't drop this export
+  requireSessionForPage: mock(() => Promise.resolve(null)),
 }));
 
 const mockUpsert = mock(() => Promise.resolve(fakeApplicant));
