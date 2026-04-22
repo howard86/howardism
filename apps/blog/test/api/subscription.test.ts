@@ -4,6 +4,7 @@ import type { NextApiHandler, NextApiRequest, NextApiResponse } from "next";
 // Mock mail service before importing the handler, to avoid SendGrid client initialisation
 mock.module("@/services/mail", () => ({
   subscribeToNewsletter: mock(() => Promise.resolve()),
+  sendTransactionalEmail: mock(() => Promise.resolve()),
 }));
 
 describe("POST /api/subscription — request body not echoed in error responses (#525)", () => {
