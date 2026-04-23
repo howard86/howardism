@@ -66,11 +66,13 @@ export default function ResumeEditor({
 
   const handleCreate = handleSubmit(async (values) => {
     try {
+      // email is session-pinned server-side (#591); strip it from the request body
+      const { email: _email, ...bodyWithoutEmail } = values;
       const response = await fetch(
         profileId ? `/api/resume?profileId=${profileId}` : "/api/resume",
         {
           method: profileId ? "PUT" : "POST",
-          body: JSON.stringify(values),
+          body: JSON.stringify(bodyWithoutEmail),
           headers: {
             "Content-Type": "application/json",
           },
