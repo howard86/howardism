@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { resumeSchema } from "@/app/(blog)/profile/resume/schema";
+import { resumeBodySchema } from "@/app/(blog)/profile/resume/schema";
 import { requireSessionForRoute } from "@/lib/auth";
 import prisma from "@/services/prisma";
 
@@ -112,7 +112,19 @@ export async function POST(request: NextRequest) {
     }
 
     const rawBody = await request.json();
-    const parsed = resumeSchema.safeParse(rawBody);
+
+    // #591: reject body email — applicant email is session-pinned server-side
+    if (rawBody !== null && typeof rawBody === "object" && "email" in rawBody) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "email must not be included in request body",
+        },
+        { status: 400 }
+      );
+    }
+
+    const parsed = resumeBodySchema.safeParse(rawBody);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -127,7 +139,6 @@ export async function POST(request: NextRequest) {
       name,
       address,
       phone,
-      email,
       github,
       website,
       company,
@@ -140,34 +151,39 @@ export async function POST(request: NextRequest) {
       languages,
     } = parsed.data;
 
-    // Find-or-create the applicant by the authenticated user's email.
-    // The applicant record holds the personal info; profiles hold per-company data.
-    const applicant = await prisma.resumeApplicant.upsert({
-      where: { email: authResult.session.user.email },
-      update: { name, address, phone, email, github, website },
-      create: {
-        name,
-        address,
-        phone,
-        email: authResult.session.user.email,
-        github,
-        website,
-      },
-    });
+    // #587: wrap applicant upsert + profile create in a single transaction so a
+    // partial failure (e.g. profile create throws) rolls back the applicant write.
+    const profile = await prisma.$transaction(
+      async (tx) => {
+        const applicant = await tx.resumeApplicant.upsert({
+          where: { email: authResult.session.user.email },
+          update: { name, address, phone, github, website },
+          create: {
+            name,
+            address,
+            phone,
+            email: authResult.session.user.email,
+            github,
+            website,
+          },
+        });
 
-    const profile = await prisma.resumeProfile.create({
-      data: {
-        applicantId: applicant.id,
-        company,
-        position,
-        summary,
-        experiences: { create: experiences.map(mapExperienceCreate) },
-        projects: { create: projects.map(mapProjectCreate) },
-        educations: { create: educations.map(mapEducationCreate) },
-        skills: { create: skills.map(mapSkillCreate) },
-        languages: { create: languages.map(mapLanguageCreate) },
+        return tx.resumeProfile.create({
+          data: {
+            applicantId: applicant.id,
+            company,
+            position,
+            summary,
+            experiences: { create: experiences.map(mapExperienceCreate) },
+            projects: { create: projects.map(mapProjectCreate) },
+            educations: { create: educations.map(mapEducationCreate) },
+            skills: { create: skills.map(mapSkillCreate) },
+            languages: { create: languages.map(mapLanguageCreate) },
+          },
+        });
       },
-    });
+      { timeout: 15_000, maxWait: 5000 }
+    );
 
     return NextResponse.json({ success: true, data: profile.id });
   } catch (error) {
@@ -218,7 +234,19 @@ export async function PUT(request: NextRequest) {
     }
 
     const rawBody = await request.json();
-    const parsed = resumeSchema.safeParse(rawBody);
+
+    // #591: reject body email — applicant email is session-pinned server-side
+    if (rawBody !== null && typeof rawBody === "object" && "email" in rawBody) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "email must not be included in request body",
+        },
+        { status: 400 }
+      );
+    }
+
+    const parsed = resumeBodySchema.safeParse(rawBody);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -233,7 +261,6 @@ export async function PUT(request: NextRequest) {
       name,
       address,
       phone,
-      email,
       github,
       website,
       company,
@@ -246,48 +273,54 @@ export async function PUT(request: NextRequest) {
       languages,
     } = parsed.data;
 
-    // Update applicant personal info alongside the profile.
-    await prisma.resumeApplicant.upsert({
-      where: { email: authResult.session.user.email },
-      update: { name, address, phone, email, github, website },
-      create: {
-        name,
-        address,
-        phone,
-        email: authResult.session.user.email,
-        github,
-        website,
-      },
-    });
+    // #587: wrap applicant upsert + profile update + nested child replacements in
+    // a single transaction so any failure rolls back all writes atomically.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.resumeApplicant.upsert({
+          where: { email: authResult.session.user.email },
+          update: { name, address, phone, github, website },
+          create: {
+            name,
+            address,
+            phone,
+            email: authResult.session.user.email,
+            github,
+            website,
+          },
+        });
 
-    await prisma.resumeProfile.update({
-      where: { id: profileId },
-      data: {
-        company,
-        position,
-        summary,
-        experiences: {
-          deleteMany: {},
-          create: experiences.map(mapExperienceCreate),
-        },
-        projects: {
-          deleteMany: {},
-          create: projects.map(mapProjectCreate),
-        },
-        educations: {
-          deleteMany: {},
-          create: educations.map(mapEducationCreate),
-        },
-        skills: {
-          deleteMany: {},
-          create: skills.map(mapSkillCreate),
-        },
-        languages: {
-          deleteMany: {},
-          create: languages.map(mapLanguageCreate),
-        },
+        await tx.resumeProfile.update({
+          where: { id: profileId },
+          data: {
+            company,
+            position,
+            summary,
+            experiences: {
+              deleteMany: {},
+              create: experiences.map(mapExperienceCreate),
+            },
+            projects: {
+              deleteMany: {},
+              create: projects.map(mapProjectCreate),
+            },
+            educations: {
+              deleteMany: {},
+              create: educations.map(mapEducationCreate),
+            },
+            skills: {
+              deleteMany: {},
+              create: skills.map(mapSkillCreate),
+            },
+            languages: {
+              deleteMany: {},
+              create: languages.map(mapLanguageCreate),
+            },
+          },
+        });
       },
-    });
+      { timeout: 15_000, maxWait: 5000 }
+    );
 
     return NextResponse.json({ success: true, data: profileId });
   } catch (error) {

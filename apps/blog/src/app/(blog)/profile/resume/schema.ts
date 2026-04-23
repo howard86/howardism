@@ -88,3 +88,7 @@ export const resumeSchema = z.object({
 });
 
 export type ResumeSchema = z.infer<typeof resumeSchema>;
+
+// Route-level schema: email is session-pinned server-side (#591), must not appear in body.
+export const resumeBodySchema = resumeSchema.omit({ email: true });
+export type ResumeBodySchema = z.infer<typeof resumeBodySchema>;
