@@ -38,11 +38,11 @@ mock.module("@/lib/auth", () => ({
   ),
 }));
 
-// Stub out the client component so the Server Component test never touches
-// browser APIs / React hooks.
-mock.module("../ResumeEditor", () => ({
-  default: () => null,
-}));
+// Intentionally do NOT mock.module("../ResumeEditor", ...). bun's mock.module
+// is process-global and persists across test files; stubbing it here leaks
+// into ResumeEditor.test.tsx and breaks those tests under CI file order.
+// The Server Component only creates a React element referencing ResumeEditor,
+// so the component body never executes and module-level imports are safe.
 
 const { default: AddResumeProfilePage } = await import("./page");
 
