@@ -34,11 +34,11 @@
 
 ## 4. Header / Footer chrome
 
-- [ ] 4.1 Create `apps/blog/src/app/(blog)/(layout)/Avatar.tsx` (or co-locate in `Header.tsx`) — generated initial disc per `Howardism.html:389–405`.
-- [ ] 4.2 Rewrite `apps/blog/src/app/(blog)/(layout)/Header.tsx` to Howardism nav-pill: Avatar + Fraunces wordmark + JetBrains Mono volume subtitle + 4-item nav (Home / Articles / Photos / About) + Skip-to-content anchor at top. Remove the `ModeToggle` block entirely. Keep mobile `Sheet` menu but restyle internals to Howardism vocabulary.
-- [ ] 4.3 Update `apps/blog/src/app/(blog)/(layout)/constants.ts`: `NavSection` becomes `Home / Articles / Photos / About` (drop `App` and `Tools`). Define routes: `/`, `/articles`, `/photos`, `/about`.
-- [ ] 4.4 Rewrite `apps/blog/src/app/(blog)/(layout)/Footer.tsx`: minimal Howardism vocabulary with Avatar (28px), `© Howardism · YYYY · Singapore / anywhere` mono caption, footer nav (Home / Articles / Photos / About / Tools / RSS / Colophon — Tools preserved here), dashed-rule top border per `Howardism.html:431–447`.
-- [ ] 4.5 Run a11y check: skip-to-content focusable on first Tab, all nav links keyboard-reachable, focus rings visible.
+- [x] 4.1 Create `apps/blog/src/app/(blog)/(layout)/Avatar.tsx` (or co-locate in `Header.tsx`) — generated initial disc per `Howardism.html:389–405`.
+- [x] 4.2 Rewrite `apps/blog/src/app/(blog)/(layout)/Header.tsx` to Howardism nav-pill: Avatar + Fraunces wordmark + JetBrains Mono volume subtitle + 4-item nav (Home / Articles / Photos / About) + Skip-to-content anchor at top. Remove the `ModeToggle` block entirely. Keep mobile `Sheet` menu but restyle internals to Howardism vocabulary.
+- [x] 4.3 Update `apps/blog/src/app/(blog)/(layout)/constants.ts`: `NavSection` becomes `Home / Articles / Photos / About` (drop `App` and `Tools`). Define routes: `/`, `/articles`, `/photos`, `/about`.
+- [x] 4.4 Rewrite `apps/blog/src/app/(blog)/(layout)/Footer.tsx`: minimal Howardism vocabulary with Avatar (28px), `© Howardism · YYYY · Singapore / anywhere` mono caption, footer nav (Home / Articles / Photos / About / Tools / RSS / Colophon — Tools preserved here), dashed-rule top border per `Howardism.html:431–447`.
+- [x] 4.5 Run a11y check: skip-to-content focusable on first Tab, all nav links keyboard-reachable, focus rings visible.
 
 ## 5. Article frontmatter contract + backfill
 
