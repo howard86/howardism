@@ -31,5 +31,5 @@ export const FOOTER_NAV: { label: string; href: string }[] = [
   { label: "About", href: "/about" },
   { label: "Tools", href: "/tools" },
   { label: "RSS", href: "/rss/feed.xml" },
-  { label: "Colophon", href: "/colophon" },
+  { label: "Colophon", href: "/about#colophon" },
 ];

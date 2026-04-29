@@ -52,12 +52,13 @@ function RuledRow({ label, sub, meta }: RuledRowProps) {
 
 interface SectionProps {
   children: React.ReactNode;
+  id?: string;
   title: string;
 }
 
-function Section({ title, children }: SectionProps) {
+function Section({ title, children, id }: SectionProps) {
   return (
-    <div style={{ marginBottom: 40 }}>
+    <div id={id} style={{ marginBottom: 40 }}>
       <div
         className="hw-mono"
         style={{
@@ -135,7 +136,7 @@ export function AboutSidebar() {
         ))}
       </Section>
 
-      <Section title="Colophon">
+      <Section id="colophon" title="Colophon">
         {COLOPHON.map((item) => (
           <RuledRow key={item.label} label={item.label} meta={item.meta} />
         ))}
