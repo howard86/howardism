@@ -2,7 +2,7 @@
 
 ### Requirement: Howardism token stack coexists with existing Nippon HSL tokens
 
-The system SHALL declare Howardism oklch design tokens (`--bg`, `--bg-2`, `--paper`, `--ink`, `--ink-2`, `--ink-3`, `--rule`, `--rule-2`, `--accent`, `--accent-2`, `--accent-soft`, `--shadow`, `--shadow-sm`, `--font-display`, `--font-body`, `--font-mono`, `--radius`, `--radius-lg`) on `:root`, layered alongside the existing Nippon HSL tokens (`--background`, `--primary`, `--border`, etc.). The Nippon tokens MUST remain unchanged so existing `@howardism/ui` consumers (Sheet, Button, Sidebar, Form, etc.) continue rendering as before.
+The system SHALL declare Howardism oklch design tokens, all prefixed with `--hw-` to prevent collision with the Nippon HSL palette used by `@howardism/ui` (which already defines `--accent`, `--background`, `--primary`, `--border`, etc. as shadcn semantic tokens). The `--hw-*` token set includes: `--hw-bg`, `--hw-bg-2`, `--hw-paper`, `--hw-ink`, `--hw-ink-2`, `--hw-ink-3`, `--hw-rule`, `--hw-rule-2`, `--hw-accent`, `--hw-accent-2`, `--hw-accent-soft`, `--hw-shadow`, `--hw-shadow-sm`, `--hw-font-display`, `--hw-font-body`, `--hw-font-mono`, `--hw-radius`, `--hw-radius-lg`. These are declared on `:root`, layered alongside the existing Nippon HSL tokens. The Nippon tokens MUST remain unchanged so existing `@howardism/ui` consumers (Sheet, Button, Sidebar, Form, etc.) continue rendering as before.
 
 #### Scenario: shadcn primitive renders unchanged after Howardism tokens are added
 - **WHEN** a `Sheet` from `@howardism/ui` is rendered after `howardism.css` is imported
@@ -10,34 +10,38 @@ The system SHALL declare Howardism oklch design tokens (`--bg`, `--bg-2`, `--pap
 
 #### Scenario: Howardism component consumes oklch tokens
 - **WHEN** a `<SunDisc/>` is rendered with the default theme
-- **THEN** its accent gradient SHALL derive from `var(--accent)` resolved from the Howardism token stack, not from any HSL token
+- **THEN** its accent gradient SHALL derive from `var(--hw-accent)` resolved from the Howardism token stack, not from any HSL token
+
+#### Scenario: Nippon `--accent` is not overridden
+- **WHEN** the page is rendered after `howardism.css` is imported
+- **THEN** the computed value of `var(--accent)` on any descendant element matches the value declared by `@howardism/ui`'s Nippon palette (the Howardism stack does not redefine bare `--accent`)
 
 ### Requirement: Five accent themes selectable via `[data-theme]` attribute
 
-The system SHALL ship five named accent themes (`terracotta`, `moss`, `ink-blue`, `plum`, `ochre`), each overriding `--accent`, `--accent-2`, and `--accent-soft` for both light and dark modes via `html[data-theme="<name>"]` and `html.dark[data-theme="<name>"]` selectors. The default theme is `terracotta`.
+The system SHALL ship five named accent themes (`terracotta`, `moss`, `ink-blue`, `plum`, `ochre`), each overriding `--hw-accent`, `--hw-accent-2`, and `--hw-accent-soft` for both light and dark modes via `html[data-theme="<name>"]` and `html.dark[data-theme="<name>"]` selectors. The default theme is `terracotta`.
 
 #### Scenario: Theme attribute changes accent color
 - **WHEN** `document.documentElement.dataset.theme` is set to `"moss"`
-- **THEN** the computed value of `var(--accent)` on any descendant element matches `oklch(0.52 0.1 145)` in light mode
+- **THEN** the computed value of `var(--hw-accent)` on any descendant element matches `oklch(0.52 0.1 145)` in light mode
 
 #### Scenario: Ochre accent boosted for body-text contrast
 - **WHEN** the active theme is `ochre`
-- **THEN** the computed value of `var(--accent)` SHALL satisfy WCAG AA contrast against `var(--paper)` for 16px+ body text in both light and dark modes
+- **THEN** the computed value of `var(--hw-accent)` SHALL satisfy WCAG AA contrast against `var(--hw-paper)` for 16px+ body text in both light and dark modes
 
 ### Requirement: Light/dark mode toggled via `.dark` class on `<html>`
 
-The system SHALL provide light and dark variants of all base tokens. Dark variants are activated by adding a `dark` class to `<html>`. The default mode is `light`.
+The system SHALL provide light and dark variants of all `--hw-*` base tokens. Dark variants are activated by adding a `dark` class to `<html>`. The default mode is `light`.
 
 #### Scenario: Toggling dark class swaps token values
 - **WHEN** `document.documentElement.classList.toggle("dark", true)` is called
-- **THEN** the computed value of `var(--bg)` becomes the dark base value `oklch(0.18 0.015 260)` (or its current declared value), and `var(--ink)` becomes the light text value `oklch(0.94 0.01 80)` (or its current declared value)
+- **THEN** the computed value of `var(--hw-bg)` becomes the dark base value `oklch(0.18 0.015 260)` (or its current declared value), and `var(--hw-ink)` becomes the light text value `oklch(0.94 0.01 80)` (or its current declared value)
 
 ### Requirement: Web fonts loaded via `next/font/google`
 
-The system SHALL load Fraunces (display, weights 300–600 w/ italic), Newsreader (body, weights 300–700 w/ italic), and JetBrains Mono (mono, weights 400/500/600) via `next/font/google` in `apps/blog/src/app/(blog)/layout.tsx` (or equivalent layout-scope file). The font family CSS variables MUST be exposed as `--font-display`, `--font-body`, `--font-mono` and consumed by Howardism components.
+The system SHALL load Fraunces (display, weights 300–600 w/ italic), Newsreader (body, weights 300–700 w/ italic), and JetBrains Mono (mono, weights 400/500/600) via `next/font/google` in `apps/blog/src/app/(blog)/layout.tsx` (or equivalent layout-scope file). The font-family CSS variables exposed by `next/font/google` (`--font-display`, `--font-body`, `--font-mono`) MUST be consumed by the Howardism token aliases `--hw-font-display`, `--hw-font-body`, `--hw-font-mono` (which fall back to system serif/mono if `next/font` vars are missing).
 
 #### Scenario: Display font applies via token
-- **WHEN** an element has `font-family: var(--font-display)`
+- **WHEN** an element has `font-family: var(--hw-font-display)`
 - **THEN** its rendered font matches the loaded Fraunces face (with the configured optical-sizing axis enabled)
 
 #### Scenario: No external `<link>` tags for fonts
