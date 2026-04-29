@@ -2,20 +2,14 @@ import type { FC } from "react";
 import type { SVGProps } from "react-html-props";
 
 import ExternalLink from "../(common)/ExternalLink";
-import {
-  BriefcaseIcon,
-  FstIcon,
-  LootexIcon,
-  OddleIcon,
-  RocafIcon,
-} from "../(common)/icons";
+import { FstIcon, LootexIcon, OddleIcon, RocafIcon } from "../(common)/icons";
 
 interface ResumeTime {
   dateTime: string;
   label: string;
 }
 
-interface ResumeEntity {
+export interface ResumeEntity {
   company: string;
   end: string | ResumeTime;
   href: string;
@@ -27,7 +21,7 @@ interface ResumeEntity {
 const getStringOrValue = (time: string | ResumeTime, key: keyof ResumeTime) =>
   typeof time === "string" ? time : time[key];
 
-const resume: ResumeEntity[] = [
+export const resume: ResumeEntity[] = [
   {
     company: "Oddle",
     href: "https://oddle.me",
@@ -67,47 +61,86 @@ const resume: ResumeEntity[] = [
 
 export default function Resume() {
   return (
-    <div className="rounded-2xl border border-border p-6">
-      <h2 className="flex font-semibold text-sm">
-        <BriefcaseIcon className="h-6 w-6 flex-none" />
-        <span className="ml-3">Work</span>
-      </h2>
-      <ol className="mt-6 space-y-4">
+    <div className="hw-card" style={{ padding: "20px 24px" }}>
+      <div className="hw-eyebrow" style={{ marginBottom: 16, fontSize: 10 }}>
+        Work
+      </div>
+      <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {resume.map((role) => (
-          <li className="flex gap-4" key={role.title}>
-            <div className="relative mt-1 flex h-10 w-10 flex-none items-center justify-center rounded-full shadow-md ring-1 ring-border">
+          <li
+            key={role.title}
+            style={{
+              borderBottom: "1px solid var(--hw-rule)",
+              padding: "10px 0",
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                border: "1px solid var(--hw-rule)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
               <role.logo
                 aria-label={`${role.company} logo`}
-                className="h-7 w-7"
+                style={{ width: 18, height: 18 }}
               />
             </div>
-            <dl className="flex flex-auto flex-wrap gap-x-2">
-              <dt className="sr-only">Company</dt>
-              <dd className="w-full flex-none font-medium text-sm">
-                <ExternalLink className="link-hover link" href={role.href}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  gap: 8,
+                }}
+              >
+                <ExternalLink
+                  className="hw-body"
+                  href={role.href}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "var(--hw-ink)",
+                    textDecoration: "none",
+                  }}
+                >
                   {role.company}
                 </ExternalLink>
-              </dd>
-              <dt className="sr-only">Role</dt>
-              <dd className="text-xs">{role.title}</dd>
-              <dt className="sr-only">Date</dt>
-              {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides accessible date range for screen readers */}
-              <dd
-                aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(
-                  role.end,
-                  "label"
-                )}`}
-                className="ml-auto text-muted-foreground text-xs"
+                {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides accessible date range */}
+                <span
+                  aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(role.end, "label")}`}
+                  className="hw-mono"
+                  style={{
+                    fontSize: 10,
+                    color: "var(--hw-ink-3)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <time dateTime={getStringOrValue(role.start, "dateTime")}>
+                    {getStringOrValue(role.start, "label")}
+                  </time>
+                  {" — "}
+                  <time dateTime={getStringOrValue(role.end, "dateTime")}>
+                    {getStringOrValue(role.end, "label")}
+                  </time>
+                </span>
+              </div>
+              <span
+                className="hw-mono"
+                style={{ fontSize: 11, color: "var(--hw-ink-3)" }}
               >
-                <time dateTime={getStringOrValue(role.start, "dateTime")}>
-                  {getStringOrValue(role.start, "label")}
-                </time>{" "}
-                <span aria-hidden="true">—</span>{" "}
-                <time dateTime={getStringOrValue(role.end, "dateTime")}>
-                  {getStringOrValue(role.end, "label")}
-                </time>
-              </dd>
-            </dl>
+                {role.title}
+              </span>
+            </div>
           </li>
         ))}
       </ol>
