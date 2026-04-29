@@ -3,6 +3,7 @@
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@howardism/ui/components/sheet";
@@ -44,6 +45,9 @@ export function TweaksPanel({ open, onOpenChange }: TweetsPanelProps) {
           <SheetTitle className="hw-display" style={{ fontSize: 17 }}>
             Tweaks
           </SheetTitle>
+          <SheetDescription className="hw-mono" style={{ fontSize: 11 }}>
+            Adjust theme, colour mode, and home layout
+          </SheetDescription>
         </SheetHeader>
 
         <div
