@@ -3,6 +3,7 @@ import "@/styles/globals.css";
 
 import { Analytics } from "@vercel/analytics/react";
 import type { Metadata, Viewport } from "next";
+import { Fraunces, JetBrains_Mono, Newsreader } from "next/font/google";
 import type { ChildrenProps } from "react";
 
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -18,6 +19,31 @@ import {
 } from "../constants";
 import { Footer } from "./(layout)/Footer";
 import { Header } from "./(layout)/Header";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),
@@ -108,7 +134,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: ChildrenProps) {
   return (
     <html
-      className="h-full scroll-smooth bg-muted bg-texture antialiased"
+      className={`h-full scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
       lang="en"
     >
       <body className="flex h-full flex-col">
