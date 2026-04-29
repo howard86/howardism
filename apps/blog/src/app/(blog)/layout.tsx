@@ -26,7 +26,7 @@ import { Header } from "./(layout)/Header";
 const fraunces = Fraunces({
   subsets: ["latin"],
   axes: ["opsz"],
-  weight: ["300", "400", "500", "600"],
+  weight: "variable",
   style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
@@ -35,7 +35,7 @@ const fraunces = Fraunces({
 const newsreader = Newsreader({
   subsets: ["latin"],
   axes: ["opsz"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "variable",
   style: ["normal", "italic"],
   variable: "--font-body",
   display: "swap",
