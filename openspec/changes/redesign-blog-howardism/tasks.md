@@ -44,13 +44,13 @@
 
 **Sequencing invariant (load-bearing):** the type tightening (5.2b) and the MDX edits (5.2a) MUST land in the SAME commit. Splitting them produces a transient broken build that violates the article-meta spec.
 
-- [ ] 5.1 Enumerate every `apps/blog/src/app/(blog)/articles/[slug]/(docs)/<slug>/page.mdx` (`ls` the docs dir to get the full list — at least the canonical 5 articles plus any added since). For each: count words in prose; compute `readingTime = clamp(ceil(words / 200), 1, 30)`; propose a `tag` from the canonical allowlist (`Programming | Engineering | Architecture | Fundamentals | Personal | Ocean | Notes`). Surface the proposed tag list to the orchestrator/user for review/override BEFORE editing files (chat-2 concern #6 / MEMORY decision).
-- [ ] 5.2 In a single atomic commit (must NOT split):
+- [x] 5.1 Enumerate every `apps/blog/src/app/(blog)/articles/[slug]/(docs)/<slug>/page.mdx` (`ls` the docs dir to get the full list — at least the canonical 5 articles plus any added since). For each: count words in prose; compute `readingTime = clamp(ceil(words / 200), 1, 30)`; propose a `tag` from the canonical allowlist (`Programming | Engineering | Architecture | Fundamentals | Personal | Ocean | Notes`). Surface the proposed tag list to the orchestrator/user for review/override BEFORE editing files (chat-2 concern #6 / MEMORY decision).
+- [x] 5.2 In a single atomic commit (must NOT split):
   - (a) edit each `page.mdx` to add `tag` and `readingTime` (and `dropCap: true` only where the user opted in) to the exported `meta`,
   - (b) extend `ArticleMeta` interface in `apps/blog/src/app/(blog)/articles/service.ts` with required `tag: string`, required `readingTime: number`, optional `dropCap?: boolean`,
   - (c) update any internal `Pick<>`/`Omit<>` of `ArticleMeta` across the codebase (grep for `ArticleMeta` and `Pick<.*ArticleMeta`).
-- [ ] 5.3 Run `bun --filter @howardism/blog run type-check`; verify zero errors. Run `bun --filter @howardism/blog run build`; verify build green. Both MUST pass on the same commit as 5.2.
-- [ ] 5.4 Add a regression unit test under `apps/blog/src/__tests__/articles/` that imports `ArticleMeta` and asserts `tag` + `readingTime` are required (`@ts-expect-error` on a literal missing them). Pinned to satisfy the article-meta spec scenario "Backfill commits land before consumer code".
+- [x] 5.3 Run `bun --filter @howardism/blog run type-check`; verify zero errors. Run `bun --filter @howardism/blog run build`; verify build green. Both MUST pass on the same commit as 5.2.
+- [x] 5.4 Add a regression unit test under `apps/blog/src/__tests__/articles/` that imports `ArticleMeta` and asserts `tag` + `readingTime` are required (`@ts-expect-error` on a literal missing them). Pinned to satisfy the article-meta spec scenario "Backfill commits land before consumer code".
 
 ## 6. Articles index redesign
 
