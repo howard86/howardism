@@ -1,64 +1,78 @@
-import {
-  Card,
-  CardCta,
-  CardDescription,
-  CardEyebrow,
-  CardTitle,
-} from "@/app/(common)/Card";
-import { SimpleLayout } from "@/app/(common)/SimpleLayout";
-import { formatDate } from "@/utils/time";
-
-import { type ArticleEntity, getArticles } from "./service";
-
-function Article({
-  slug,
-  meta,
-}: Omit<ArticleEntity, "component" | "position">) {
-  return (
-    <article className="md:grid md:grid-cols-4 md:items-baseline">
-      <Card className="md:col-span-3">
-        <CardTitle href={`/articles/${slug}`}>{meta.title}</CardTitle>
-        <CardEyebrow
-          as="time"
-          className="md:hidden"
-          dateTime={meta.date}
-          decorate
-        >
-          {formatDate(meta.date)}
-        </CardEyebrow>
-        <CardDescription>{meta.description}</CardDescription>
-        <CardCta>Read article</CardCta>
-      </Card>
-      <CardEyebrow
-        as="time"
-        className="mt-1 hidden md:block"
-        dateTime={meta.date}
-      >
-        {formatDate(meta.date)}
-      </CardEyebrow>
-    </article>
-  );
-}
+import { ArticlesIndexClient } from "./ArticlesIndexClient";
+import { getArticles } from "./service";
 
 export default async function ArticlesIndex() {
   const articles = await getArticles();
 
-  return (
-    <SimpleLayout
-      intro="All of my long-form thoughts on programming, product design, diving on technologies and more, collected in chronological order."
-      title="Writing on explorations of software programming."
-    >
-      <div className="md:border-border md:border-l md:pl-6">
-        <div className="flex max-w-3xl flex-col space-y-16">
-          {articles.ids.map((slug) => {
-            const article = articles.entities[slug];
+  const articleList = articles.ids
+    .map((slug) => articles.entities[slug])
+    .filter((a): a is NonNullable<typeof a> => a !== undefined);
 
-            return (
-              article && <Article key={slug} meta={article.meta} slug={slug} />
-            );
-          })}
-        </div>
+  return (
+    <div
+      className="hw-page-enter"
+      style={{ maxWidth: 720, margin: "0 auto", padding: "48px 16px 80px" }}
+    >
+      {/* Double-rule masthead */}
+      <div
+        style={{
+          borderTop: "2px solid var(--hw-ink)",
+          borderBottom: "1px solid var(--hw-rule)",
+          padding: "10px 0",
+          marginBottom: 32,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+        }}
+      >
+        <span
+          className="hw-mono"
+          style={{
+            fontSize: 10,
+            color: "var(--hw-ink-3)",
+            letterSpacing: "0.08em",
+          }}
+        >
+          HOWARDISM
+        </span>
+        <span
+          className="hw-mono"
+          style={{
+            fontSize: 10,
+            color: "var(--hw-ink-3)",
+            letterSpacing: "0.08em",
+          }}
+        >
+          ARTICLES
+        </span>
       </div>
-    </SimpleLayout>
+
+      {/* Section heading */}
+      <h1
+        className="hw-display"
+        style={{
+          fontSize: 28,
+          fontWeight: 400,
+          color: "var(--hw-ink)",
+          marginBottom: 8,
+          lineHeight: 1.2,
+        }}
+      >
+        Writing
+      </h1>
+      <p
+        className="hw-body"
+        style={{
+          fontSize: 14,
+          color: "var(--hw-ink-2)",
+          marginBottom: 32,
+          lineHeight: 1.6,
+        }}
+      >
+        Long-form explorations of software, craft, and the occasional tangent.
+      </p>
+
+      <ArticlesIndexClient articles={articleList} />
+    </div>
   );
 }
