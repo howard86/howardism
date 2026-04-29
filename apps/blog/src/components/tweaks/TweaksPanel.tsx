@@ -7,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@howardism/ui/components/sheet";
+import { cn } from "@howardism/ui/lib/utils";
 import { usePathname } from "next/navigation";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -72,7 +73,7 @@ export function TweaksPanel({ open, onOpenChange }: TweetsPanelProps) {
                 <button
                   aria-label={label}
                   aria-pressed={state.theme === value}
-                  className={`hw-swatch${state.theme === value ? "active" : ""}`}
+                  className={cn("hw-swatch", state.theme === value && "active")}
                   key={value}
                   onClick={() => setTheme(value)}
                   style={{ background: color }}
