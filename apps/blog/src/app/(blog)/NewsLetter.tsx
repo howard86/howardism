@@ -1,39 +1,50 @@
-import { Button } from "@howardism/ui/components/button";
-
-import { MailIcon } from "../(common)/icons";
-
 export default function Newsletter() {
   return (
-    <form
-      action="/api/subscription"
-      className="rounded-2xl border border-border p-6"
-      method="POST"
-    >
-      <h2 className="flex font-semibold text-sm">
-        <MailIcon className="h-6 w-6 flex-none" />
-        <span className="ml-3">Stay up to date</span>
-      </h2>
-      <p className="mt-2 text-foreground text-sm">
+    <div className="hw-card" style={{ padding: "20px 24px" }}>
+      <div className="hw-eyebrow" style={{ marginBottom: 12, fontSize: 10 }}>
+        Stay up to date
+      </div>
+      <p
+        className="hw-body"
+        style={{ fontSize: 13, color: "var(--hw-ink-2)", marginBottom: 16 }}
+      >
         Get notified when I publish something new, and unsubscribe at any time.
       </p>
-      <div className="mt-6 flex gap-4">
-        <label className="sr-only" htmlFor="email">
-          Email address field
-        </label>
-        <input
-          aria-label="Email address"
-          autoComplete="on"
-          className="h-7 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-          id="email"
-          name="email"
-          placeholder="Email address"
-          required
-          type="email"
-        />
-        <Button size="sm" type="submit">
-          Join
-        </Button>
-      </div>
-    </form>
+      <form action="/api/subscription" method="POST">
+        <div style={{ display: "flex", gap: 8 }}>
+          <label className="sr-only" htmlFor="newsletter-email">
+            Email address field
+          </label>
+          <input
+            aria-label="Email address"
+            autoComplete="on"
+            id="newsletter-email"
+            name="email"
+            placeholder="Email address"
+            required
+            style={{
+              flex: 1,
+              height: 32,
+              borderRadius: 4,
+              border: "1px solid var(--hw-rule)",
+              background: "var(--hw-paper)",
+              color: "var(--hw-ink)",
+              fontFamily: "var(--hw-font-body)",
+              fontSize: 13,
+              padding: "0 10px",
+              outline: "none",
+            }}
+            type="email"
+          />
+          <button
+            className="hw-chip"
+            style={{ cursor: "pointer", flexShrink: 0 }}
+            type="submit"
+          >
+            Join
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
