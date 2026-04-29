@@ -1,3 +1,4 @@
+import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -137,7 +138,7 @@ export function ArticleLayout({
 
       {/* Article prose */}
       <article>
-        <div className={`hw-prose${meta.dropCap ? "hw-drop-cap" : ""}`}>
+        <div className={cn("hw-prose", meta.dropCap && "hw-drop-cap")}>
           {children}
         </div>
 
