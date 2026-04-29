@@ -20,10 +20,13 @@ export interface ArticleEntity {
 export interface ArticleMeta {
   date: string;
   description: string;
+  dropCap?: boolean;
   image: {
     src: StaticImageData;
     alt: string;
   };
+  readingTime: number;
+  tag: string;
   title: string;
 }
 
