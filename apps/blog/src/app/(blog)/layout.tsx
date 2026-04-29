@@ -152,7 +152,9 @@ export default function RootLayout({ children }: ChildrenProps) {
           </div>
           <div className="relative flex flex-1 flex-col">
             <Header />
-            <main className="flex flex-1 flex-col">{children}</main>
+            <main className="flex flex-1 flex-col" id="main-content">
+              {children}
+            </main>
             <Footer />
             <TweaksLauncher />
           </div>
