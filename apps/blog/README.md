@@ -1,30 +1,43 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# @howardism/blog
+
+Next.js 16 (App Router) blog, profile, and tools site. React 19, Tailwind v4, Prisma 7 (PostgreSQL), better-auth.
 
 ## Getting Started
 
-First, run the development server:
+From the repo root, install deps with `bun install`, then from this directory:
 
 ```bash
-npm run dev
-# or
-bun dev
+bun run dev          # start the dev server at http://localhost:3000
+bun run build        # production build
+bun run start        # run the production build
+bun run test         # bun tests
+bun run type-check   # tsc --noEmit
+bun run lint         # ultracite check
+bun run analyze      # build with @next/bundle-analyzer
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Database (Prisma)
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+```bash
+bun run prisma:generate   # regenerate the Prisma client after schema changes
+bun run prisma:migrate    # push the schema to the DB (db push)
+bun run prisma:seed       # seed the database
+bun run prisma:studio     # open Prisma Studio
+bun run prisma:reset      # reset the DB without seeding
+```
 
-## Learn More
+Copy `.env.example` (if present) to `.env` and fill in the required values — env vars are validated at boot via `@t3-oss/env-nextjs` (`src/config/env.mjs`).
 
-To learn more about Next.js, take a look at the following resources:
+## Layout
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `src/app/` — App Router routes (`(blog)`, `(common)` groups, `api/`, `rss/`)
+- `src/pages/api/` — a couple of legacy Pages Router API routes
+- `src/config/` — env validation and security headers (CSP, consumed by `next.config.ts`)
+- `src/lib/` — `auth.ts` / `auth-client.ts` (better-auth)
+- `src/services/`, `src/server/` — singleton clients and server-only utilities
+- `src/components/`, `src/hooks/`, `src/utils/`, `src/types/` — UI and shared helpers
+- `prisma/` — schema, migrations, seed
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Deploy
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/import?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Deployed on [Vercel](https://vercel.com).
