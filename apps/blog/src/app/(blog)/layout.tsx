@@ -3,9 +3,13 @@ import "@/styles/globals.css";
 
 import { Analytics } from "@vercel/analytics/react";
 import type { Metadata, Viewport } from "next";
+import { Fraunces, JetBrains_Mono, Newsreader } from "next/font/google";
 import type { ChildrenProps } from "react";
 
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import { InitTweaksScript } from "@/components/tweaks/InitTweaksScript";
+import { TweaksLauncher } from "@/components/tweaks/TweaksLauncher";
+import { TweaksProvider } from "@/components/tweaks/TweaksProvider";
 import { env } from "@/config/env.mjs";
 
 import {
@@ -18,6 +22,31 @@ import {
 } from "../constants";
 import { Footer } from "./(layout)/Footer";
 import { Header } from "./(layout)/Header";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  weight: "variable",
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  weight: "variable",
+  style: ["normal", "italic"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),
@@ -108,24 +137,34 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: ChildrenProps) {
   return (
     <html
-      className="h-full scroll-smooth bg-muted bg-texture antialiased"
+      className={`h-full scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
       lang="en"
     >
+      <head>
+        <InitTweaksScript />
+      </head>
       <body className="flex h-full flex-col">
-        <div className="fixed inset-0 flex justify-center sm:px-8">
-          <div className="flex w-full max-w-7xl lg:px-8">
-            <div className="w-full bg-background ring-1 ring-border" />
+        <TweaksProvider>
+          <div className="fixed inset-0 flex justify-center sm:px-8">
+            <div className="flex w-full max-w-7xl lg:px-8">
+              <div className="w-full bg-background ring-1 ring-border" />
+            </div>
           </div>
-        </div>
-        <div className="relative flex flex-1 flex-col">
-          <Header />
-          <main className="flex flex-1 flex-col">{children}</main>
-          <Footer />
-        </div>
-        <Analytics />
-        {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-          <GoogleAnalytics measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
-        )}
+          <div className="relative flex flex-1 flex-col">
+            <Header />
+            <main className="flex flex-1 flex-col" id="main-content">
+              {children}
+            </main>
+            <Footer />
+            <TweaksLauncher />
+          </div>
+          <Analytics />
+          {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+            <GoogleAnalytics
+              measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
+            />
+          )}
+        </TweaksProvider>
       </body>
     </html>
   );

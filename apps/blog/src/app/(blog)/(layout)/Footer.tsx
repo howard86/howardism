@@ -1,36 +1,73 @@
 import Link from "next/link";
 
-import { InnerContainer, OuterContainer } from "@/app/(common)/Container";
-
-import { NAV_SECTION_KEYS, NavSection } from "./constants";
+import { Avatar } from "./Avatar";
+import { FOOTER_NAV } from "./constants";
 
 export function Footer() {
   return (
-    <footer className="mt-32">
-      <OuterContainer>
-        <div className="border-border border-t pt-10 pb-16">
-          <InnerContainer>
-            <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-              <ul className="flex gap-6 font-medium text-foreground text-sm">
-                {NAV_SECTION_KEYS.map((key) => (
-                  <li key={key}>
-                    <Link
-                      className="link-hover link-neutral link"
-                      href={NavSection[key]}
-                    >
-                      {key}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-muted-foreground text-sm">
-                &copy; {new Date().getFullYear()} Howard Tai. All rights
-                reserved.
-              </p>
-            </div>
-          </InnerContainer>
+    <footer
+      style={{
+        borderTop: "1px dashed var(--hw-rule)",
+        marginTop: "auto",
+        paddingTop: 24,
+        paddingBottom: 32,
+        paddingLeft: 16,
+        paddingRight: 16,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 960,
+          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
+      >
+        {/* Nav row */}
+        <nav aria-label="Footer">
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "4px 2px",
+            }}
+          >
+            {FOOTER_NAV.map(({ label, href }) => (
+              <li key={label}>
+                <Link
+                  className="hw-chip"
+                  href={href}
+                  style={{ textDecoration: "none" }}
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* Caption row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Avatar label="Home" size={28} />
+          <span
+            className="hw-mono"
+            style={{ fontSize: 11, color: "var(--hw-ink-3)" }}
+          >
+            &copy; Howardism &middot; {new Date().getFullYear()} &middot;
+            Singapore / anywhere
+          </span>
         </div>
-      </OuterContainer>
+      </div>
     </footer>
   );
 }
