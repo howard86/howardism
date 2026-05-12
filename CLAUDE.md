@@ -68,7 +68,7 @@ Key internal structure under `src/`:
 - `app/(common)/` — shared layout/UI primitives (`Container`, `SimpleLayout`, `Card`, icons, …)
 - `app/rss/` — RSS feed routes (`feed.xml`, `feed.json`)
 - `pages/api/subscription.ts` — newsletter signup → `services/mail.ts` (SendGrid)
-- `config/` — env validation via `@t3-oss/env-nextjs` (`env.mjs`) and `security-headers.ts` (CSP, consumed by `next.config.ts`)
+- `config/` — env validation via a raw zod schema (`env.ts`) and `security-headers.ts` (CSP, consumed by `next.config.ts`)
 - `services/` — `mail.ts` (SendGrid client)
 - `components/`, `hooks/`, `utils/`, `types/` — UI and shared helpers
 - `middleware.ts` — in-memory fixed-window rate limiter for `/api/*` (no auth guard)
