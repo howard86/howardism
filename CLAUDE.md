@@ -61,7 +61,7 @@ bun run analyze           # production build with @next/bundle-analyzer
 
 ### Blog app (`apps/blog`)
 
-**Next.js 16** (App Router) + **React 19** + **Tailwind v4**. Articles-focused: no auth, no database. Routes: home, `/articles`, `/articles/[slug]`, `/photos`, `/about`, `/thank-you`, RSS feeds, and a single `pages/api/subscription` (SendGrid newsletter).
+**Next.js 16** (App Router) + **React 19** + **Tailwind v4**. Articles-focused: no auth, no database. Routes: home, `/articles`, `/articles/[slug]`, `/thank-you`, RSS feeds, and a single `pages/api/subscription` (SendGrid newsletter). (`/photos` and `/about` were removed; `next.config.ts` permanently redirects both to `/`.)
 
 Key internal structure under `src/`:
 - `app/(blog)/` — pages and the `(layout)` group (Header, Footer)
