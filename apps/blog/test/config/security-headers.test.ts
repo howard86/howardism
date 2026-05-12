@@ -4,7 +4,7 @@ import {
   DEFAULT_CSP_DIRECTIVES,
   getSecurityHeaders,
   serializeCsp,
-} from "./index.mjs";
+} from "../../src/config/security-headers";
 
 const BARE_FORM_ERROR = /does not support bare/;
 

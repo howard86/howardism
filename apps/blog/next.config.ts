@@ -2,12 +2,14 @@ import "./src/config/env.mjs";
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import nextBundleAnalyzer from "@next/bundle-analyzer";
+import nextMDX from "@next/mdx";
+import type { NextConfig } from "next";
+
 import {
   DEFAULT_CSP_DIRECTIVES,
   getSecurityHeaders,
-} from "@howardism/security-headers";
-import nextBundleAnalyzer from "@next/bundle-analyzer";
-import nextMDX from "@next/mdx";
+} from "./src/config/security-headers";
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -40,8 +42,7 @@ const securityHeaders = getSecurityHeaders({
   },
 });
 
-/** @type{import('next').NextConfig} */
-const config = {
+const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "mdx"],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
@@ -61,4 +62,4 @@ const config = {
   },
 };
 
-export default withBundleAnalyzer(withMDX(config));
+export default withBundleAnalyzer(withMDX(nextConfig));
