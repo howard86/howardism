@@ -12,7 +12,7 @@ import type {
 } from "react-hook-form";
 import type { InputProps } from "react-html-props";
 
-import { getAriaDescribedBy } from "../(blog)/profile/resume/utils";
+import { getAriaDescribedBy } from "./formUtils";
 
 interface FormInputProps<T extends FieldValues> extends InputProps {
   errors: FieldErrors<T>;

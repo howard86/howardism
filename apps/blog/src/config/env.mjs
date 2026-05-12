@@ -10,9 +10,6 @@ export const env = createEnv({
     LINE_PAY_CHANNEL_ID: z.string().optional(),
     LINE_PAY_CHANNEL_SECRET_KEY: z.string().optional(),
     LINE_PAY_API_URL: z.string().url().optional(),
-    TDX_API_ENDPOINT: z.string().url(),
-    TDX_API_CLIENT_ID: z.string(),
-    TDX_API_CLIENT_SECRET: z.string(),
     GOOGLE_CLIENT_ID: z.string(),
     GOOGLE_CLIENT_SECRET: z.string(),
     GITHUB_ID: z.string(),
@@ -23,7 +20,6 @@ export const env = createEnv({
     isLive: z.boolean(),
     NEXT_PUBLIC_DOMAIN_NAME: z.string(),
     NEXT_PUBLIC_GA_MEASUREMENT_ID: z.string().optional(),
-    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: z.string(),
   },
   runtimeEnv: {
     isLive:
@@ -42,13 +38,8 @@ export const env = createEnv({
     LINE_PAY_CHANNEL_ID: process.env.LINE_PAY_CHANNEL_ID,
     LINE_PAY_CHANNEL_SECRET_KEY: process.env.LINE_PAY_CHANNEL_SECRET_KEY,
     LINE_PAY_API_URL: process.env.LINE_PAY_API_URL,
-    TDX_API_ENDPOINT: process.env.TDX_API_ENDPOINT,
-    TDX_API_CLIENT_ID: process.env.TDX_API_CLIENT_ID,
-    TDX_API_CLIENT_SECRET: process.env.TDX_API_CLIENT_SECRET,
 
     NEXT_PUBLIC_DOMAIN_NAME: process.env.NEXT_PUBLIC_DOMAIN_NAME,
     NEXT_PUBLIC_GA_MEASUREMENT_ID: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
-    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:
-      process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
   },
 });

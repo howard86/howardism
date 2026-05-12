@@ -12,7 +12,7 @@ import type {
 } from "react-hook-form";
 import type { SelectProps } from "react-html-props";
 
-import { getAriaDescribedBy } from "../(blog)/profile/resume/utils";
+import { getAriaDescribedBy } from "./formUtils";
 
 interface FormSelectProps<T extends FieldValues> extends SelectProps {
   children: ReactNode;

@@ -6,10 +6,7 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
-import {
-  DEFAULT_CSP_DIRECTIVES,
-  getSecurityHeaders,
-} from "./src/config/security-headers";
+import { getSecurityHeaders } from "./src/config/security-headers";
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -23,24 +20,10 @@ const withMDX = nextMDX({
   },
 });
 
-// Blog uses Mapbox GL (map tiles + worker), Vercel Analytics, and Sendgrid
-// client — connect-src and worker-src are widened accordingly. Geolocation is
-// granted to same-origin so the mapbox feature can prompt.
-const securityHeaders = getSecurityHeaders({
-  geolocation: "(self)",
-  contentSecurityPolicy: {
-    ...DEFAULT_CSP_DIRECTIVES,
-    "connect-src": [
-      "'self'",
-      "https:",
-      "https://api.mapbox.com",
-      "https://events.mapbox.com",
-      "https://*.vercel-insights.com",
-    ],
-    "img-src": ["'self'", "https:", "data:", "blob:", "https://*.mapbox.com"],
-    "worker-src": ["'self'", "blob:"],
-  },
-});
+// Articles-only blog: the default CSP (which already allows `https:` for
+// connect-src/img-src, covering Vercel Analytics and Unsplash) is sufficient.
+// No feature needs geolocation.
+const securityHeaders = getSecurityHeaders({ geolocation: "()" });
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "mdx"],
@@ -52,13 +35,9 @@ const nextConfig: NextConfig = {
     dirname(fileURLToPath(import.meta.url)),
     "../../"
   ),
-  transpilePackages: ["@howardism/ui", "@react-pdf/renderer"],
+  transpilePackages: ["@howardism/ui"],
   images: {
-    remotePatterns: [
-      { hostname: "images.unsplash.com" },
-      { hostname: "avatars.githubusercontent.com" },
-      { hostname: "lh3.googleusercontent.com" },
-    ],
+    remotePatterns: [{ hostname: "images.unsplash.com" }],
   },
 };
 
