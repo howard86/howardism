@@ -1,4 +1,4 @@
-import { Ph } from "./Ph";
+import { Ph } from "./ph";
 
 interface PhotoCardProps {
   aspect?: string;

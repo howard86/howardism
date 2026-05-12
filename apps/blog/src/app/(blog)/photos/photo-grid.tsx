@@ -1,6 +1,6 @@
 "use client";
 
-import type { Photo } from "@/components/howardism/photoData";
+import type { Photo } from "@/components/howardism/photo-data";
 
 interface PhotoGridProps {
   photos: Photo[];

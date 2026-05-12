@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { PhotoGrid } from "@/app/(blog)/photos/PhotoGrid";
-import { photoData } from "@/components/howardism/photoData";
+import { PhotoGrid } from "@/app/(blog)/photos/photo-grid";
+import { photoData } from "@/components/howardism/photo-data";
 
 afterEach(() => {
   cleanup();
 });
 
-describe("photoData", () => {
+describe("photo-data", () => {
   it("has at least 9 photos", () => {
     expect(photoData.length).toBeGreaterThanOrEqual(9);
   });
@@ -43,7 +43,7 @@ describe("photoData", () => {
   });
 });
 
-describe("PhotoGrid", () => {
+describe("photo-grid", () => {
   it("renders all photos", () => {
     render(<PhotoGrid photos={photoData} />);
     const captions = screen.getAllByText(

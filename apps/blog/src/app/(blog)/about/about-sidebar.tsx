@@ -1,4 +1,4 @@
-import { resume } from "../Resume";
+import { resume } from "../resume";
 
 interface RuledRowProps {
   label: string;

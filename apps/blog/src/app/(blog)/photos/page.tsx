@@ -1,7 +1,7 @@
-import { DiscPageHeader } from "@/components/howardism/DiscPageHeader";
-import { photoData } from "@/components/howardism/photoData";
+import { DiscPageHeader } from "@/components/howardism/disc-page-header";
+import { photoData } from "@/components/howardism/photo-data";
 
-import { PhotoGrid } from "./PhotoGrid";
+import { PhotoGrid } from "./photo-grid";
 
 export const metadata = {
   title: "Photos · Howardism",

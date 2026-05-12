@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import type { SVGProps } from "react-html-props";
 
-import ExternalLink from "../(common)/ExternalLink";
+import ExternalLink from "../(common)/external-link";
 import { FstIcon, LootexIcon, OddleIcon, RocafIcon } from "../(common)/icons";
 
 interface ResumeTime {

@@ -27,7 +27,7 @@ export const NAV_SECTION_KEYS = Object.keys(
 export const FOOTER_NAV: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "Articles", href: "/articles" },
-  { label: "Photos", href: "/photos" },
+  { label: "photos", href: "/photos" },
   { label: "About", href: "/about" },
   { label: "RSS", href: "/rss/feed.xml" },
   { label: "Colophon", href: "/about#colophon" },

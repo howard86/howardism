@@ -2,8 +2,8 @@ import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { DataGrid } from "@/components/howardism/DataGrid";
-import { HalfDisc } from "@/components/howardism/HalfDisc";
+import { DataGrid } from "@/components/howardism/data-grid";
+import { HalfDisc } from "@/components/howardism/half-disc";
 import { formatDate } from "@/utils/time";
 
 import type { ArticleMeta } from "../service";

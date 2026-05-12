@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Avatar } from "./Avatar";
+import { Avatar } from "./avatar";
 import { FOOTER_NAV } from "./constants";
 
 export function Footer() {
@@ -25,7 +25,7 @@ export function Footer() {
         }}
       >
         {/* Nav row */}
-        <nav aria-label="Footer">
+        <nav aria-label="footer">
           <ul
             style={{
               listStyle: "none",

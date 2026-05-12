@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { Chip } from "@/components/howardism/Chip";
-import { DataGrid } from "@/components/howardism/DataGrid";
-import { DiscPageHeader } from "@/components/howardism/DiscPageHeader";
-import { Eyebrow } from "@/components/howardism/Eyebrow";
-import { HalfDisc } from "@/components/howardism/HalfDisc";
-import { Ph } from "@/components/howardism/Ph";
-import { PhotoCard } from "@/components/howardism/PhotoCard";
-import { Squiggle } from "@/components/howardism/Squiggle";
-import { SunDisc } from "@/components/howardism/SunDisc";
+import { Chip } from "@/components/howardism/chip";
+import { DataGrid } from "@/components/howardism/data-grid";
+import { DiscPageHeader } from "@/components/howardism/disc-page-header";
+import { Eyebrow } from "@/components/howardism/eyebrow";
+import { HalfDisc } from "@/components/howardism/half-disc";
+import { Ph } from "@/components/howardism/ph";
+import { PhotoCard } from "@/components/howardism/photo-card";
+import { Squiggle } from "@/components/howardism/squiggle";
+import { SunDisc } from "@/components/howardism/sun-disc";
 
 afterEach(() => {
   cleanup();
 });
 
-describe("SunDisc", () => {
+describe("sun-disc", () => {
   it("renders with default plate label and number", () => {
     render(<SunDisc />);
     const disc = screen.getByTestId("sun-disc");
@@ -38,7 +38,7 @@ describe("SunDisc", () => {
   });
 });
 
-describe("HalfDisc", () => {
+describe("half-disc", () => {
   it("renders right-aligned by default", () => {
     render(<HalfDisc />);
     const disc = screen.getByTestId("half-disc");
@@ -58,7 +58,7 @@ describe("HalfDisc", () => {
   });
 });
 
-describe("DataGrid", () => {
+describe("data-grid", () => {
   it("renders correct number of cells for given rows", () => {
     render(
       <DataGrid
@@ -98,13 +98,13 @@ describe("DataGrid", () => {
   });
 });
 
-describe("DiscPageHeader", () => {
+describe("disc-page-header", () => {
   it("renders volume label", () => {
     render(
       <DiscPageHeader
         number="03"
         plate="Plate III"
-        title="Photos"
+        title="photos"
         volume="Howardism · Vol. 03"
       />
     );
@@ -143,7 +143,7 @@ describe("DiscPageHeader", () => {
         ]}
         number="03"
         plate="Plate III"
-        title="Photos"
+        title="photos"
         volume="Vol."
       />
     );
@@ -154,7 +154,7 @@ describe("DiscPageHeader", () => {
   });
 });
 
-describe("Eyebrow", () => {
+describe("eyebrow", () => {
   it("renders children inside hw-eyebrow element", () => {
     render(<Eyebrow>Journal · est. 2023</Eyebrow>);
     const el = document.querySelector(".hw-eyebrow");
@@ -169,7 +169,7 @@ describe("Eyebrow", () => {
   });
 });
 
-describe("Squiggle", () => {
+describe("squiggle", () => {
   it("renders an SVG element", () => {
     const { container } = render(<Squiggle />);
     const svg = container.querySelector("svg");
@@ -191,7 +191,7 @@ describe("Squiggle", () => {
   });
 });
 
-describe("Ph", () => {
+describe("ph", () => {
   it("renders label text", () => {
     render(<Ph aspect="4/5" label="portrait · 4x5" tone={0} />);
     expect(screen.getByTestId("ph").textContent).toContain("portrait · 4x5");
@@ -214,7 +214,7 @@ describe("Ph", () => {
   });
 });
 
-describe("Chip", () => {
+describe("chip", () => {
   it("renders children text", () => {
     render(<Chip>now in Singapore</Chip>);
     expect(document.querySelector(".hw-chip")?.textContent).toContain(
@@ -239,7 +239,7 @@ describe("Chip", () => {
   });
 });
 
-describe("PhotoCard", () => {
+describe("photo-card", () => {
   it("renders tape strip when tape prop is true", () => {
     render(<PhotoCard label="Tioman" tape />);
     expect(document.querySelector(".hw-tape")).not.toBeNull();

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
 
-import { ArticleLayout } from "@/app/(blog)/articles/[slug]/ArticleLayout";
+import { ArticleLayout } from "@/app/(blog)/articles/[slug]/article-layout";
 
 afterEach(() => {
   cleanup();

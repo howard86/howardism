@@ -11,9 +11,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { CSSProperties } from "react";
 
-import { Container } from "@/app/(common)/Container";
+import { Container } from "@/app/(common)/container";
 
-import { Avatar } from "./Avatar";
+import { Avatar } from "./avatar";
 import { NAV_SECTION_KEYS, NavSection } from "./constants";
 
 function NavLink({ href, label }: { href: string; label: string }) {

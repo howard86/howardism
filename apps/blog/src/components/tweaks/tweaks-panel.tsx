@@ -11,7 +11,7 @@ import { cn } from "@howardism/ui/lib/utils";
 import { usePathname } from "next/navigation";
 import type { Dispatch, SetStateAction } from "react";
 
-import { useTweaks } from "./TweaksProvider";
+import { useTweaks } from "./tweaks-provider";
 import type { HomeLayout, Mode, Theme } from "./types";
 
 const THEME_SWATCHES: { value: Theme; color: string; label: string }[] = [
