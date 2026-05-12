@@ -1,4 +1,4 @@
-import "./src/config/env.mjs";
+import "./src/config/env";
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

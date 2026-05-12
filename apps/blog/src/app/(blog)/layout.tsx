@@ -10,7 +10,7 @@ import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { InitTweaksScript } from "@/components/tweaks/InitTweaksScript";
 import { TweaksLauncher } from "@/components/tweaks/TweaksLauncher";
 import { TweaksProvider } from "@/components/tweaks/TweaksProvider";
-import { env } from "@/config/env.mjs";
+import { env } from "@/config/env";
 
 import {
   AUTHOR_EMAIL,
@@ -49,7 +49,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),
+  metadataBase: env.NEXT_PUBLIC_DOMAIN_NAME
+    ? new URL(env.NEXT_PUBLIC_DOMAIN_NAME)
+    : undefined,
   title: {
     template: `${SITE_NAME} | %s`,
     default: `${SITE_NAME} | Blog`,
