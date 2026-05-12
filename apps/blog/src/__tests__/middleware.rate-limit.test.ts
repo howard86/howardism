@@ -106,19 +106,9 @@ describe("middleware — per-route rate limiting (#497)", () => {
     expect(res.status).toBe(429);
   });
 
-  // ── (c) /api/sudoku: 20/60s → 21st request returns 429 ──────────────────
+  // ── (c) 429 responses carry Retry-After header ────────────────────────────
 
-  it("(c) 21st request within 60s to /api/sudoku returns 429", async () => {
-    const ip = "192.0.2.3";
-    await exhaust("/api/sudoku", ip, 20);
-
-    const res = await middleware(makeApiRequest("/api/sudoku", ip) as never);
-    expect(res.status).toBe(429);
-  });
-
-  // ── (d) 429 responses carry Retry-After header ────────────────────────────
-
-  it("(d) 429 response carries a Retry-After header", async () => {
+  it("(c) 429 response carries a Retry-After header", async () => {
     const ip = "192.0.2.4";
     await exhaust("/api/subscription", ip, 5);
 
@@ -131,9 +121,9 @@ describe("middleware — per-route rate limiting (#497)", () => {
     expect(Number(retryAfter)).toBeGreaterThan(0);
   });
 
-  // ── (e) unmatched /api/anything falls back to 60/60s ─────────────────────
+  // ── (d) unmatched /api/anything falls back to 60/60s ─────────────────────
 
-  it("(e) unmatched /api/anything falls back to 60/60s limit", async () => {
+  it("(d) unmatched /api/anything falls back to 60/60s limit", async () => {
     const ip = "192.0.2.5";
     await exhaust("/api/something-unmatched", ip, 60);
 

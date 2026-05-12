@@ -23,7 +23,6 @@ const routePolicy: ReadonlyArray<{
   { prefix: "/api/resume", limit: 20, windowMs: 60_000 },
   { prefix: "/api/subscription", limit: 5, windowMs: 60_000 },
   { prefix: "/api/proxy", limit: 10, windowMs: 60_000 },
-  { prefix: "/api/sudoku", limit: 20, windowMs: 60_000 },
 ];
 
 const defaultApiPolicy = { prefix: "/api/", limit: 60, windowMs: 60_000 };
