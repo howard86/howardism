@@ -27,9 +27,7 @@ const securityHeaders = getSecurityHeaders({ geolocation: "()" });
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "mdx"],
-  async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
-  },
+  headers: () => [{ source: "/(.*)", headers: securityHeaders }],
   reactStrictMode: true,
   outputFileTracingRoot: join(
     dirname(fileURLToPath(import.meta.url)),
