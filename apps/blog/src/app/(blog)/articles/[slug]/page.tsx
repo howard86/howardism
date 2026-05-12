@@ -54,10 +54,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   const articles = await getArticles();
 
+  const position = (articles.entities[slug]?.position ?? 0) + 1;
+
   return (
     <ArticleLayout
       meta={mod.meta}
       nextSlug={getSiblingSlug(articles, slug, -1)}
+      position={position}
       previousSlug={getSiblingSlug(articles, slug, 1)}
     >
       <mod.default />
