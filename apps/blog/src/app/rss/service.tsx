@@ -3,6 +3,7 @@ import "server-only";
 import { Feed } from "feed";
 import { cache } from "react";
 
+import { env } from "@/config/env";
 import { getArticles } from "../(blog)/articles/service";
 import {
   AUTHOR_EMAIL,
@@ -11,13 +12,11 @@ import {
   SITE_NAME,
 } from "../constants";
 
-const siteUrl = process.env.NEXT_PUBLIC_DOMAIN_NAME;
+// NEXT_PUBLIC_DOMAIN_NAME is optional; fall back to the same default Next.js
+// uses for `metadataBase` so a build without it still produces a valid feed.
+const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME ?? "http://localhost:3000";
 
 export const generateFeed = cache(async (): Promise<Feed> => {
-  if (!siteUrl) {
-    throw new Error("Failed to get env=NEXT_PUBLIC_DOMAIN_NAME");
-  }
-
   const articles = await getArticles();
 
   const author = {
