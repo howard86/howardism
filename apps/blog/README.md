@@ -1,6 +1,7 @@
 # @howardism/blog
 
-Next.js 16 (App Router) blog, profile, and tools site. React 19, Tailwind v4, Prisma 7 (PostgreSQL), better-auth.
+Next.js 16 (App Router) blog by Howard Tai — articles, photos, about, RSS feeds, and a
+newsletter signup. React 19, Tailwind v4. No authentication, no database.
 
 ## Getting Started
 
@@ -13,30 +14,23 @@ bun run start        # run the production build
 bun run test         # bun tests
 bun run type-check   # tsc --noEmit
 bun run lint         # ultracite check
-bun run analyze      # build with @next/bundle-analyzer
+bun run analyze      # production build with @next/bundle-analyzer
 ```
 
-### Database (Prisma)
-
-```bash
-bun run prisma:generate   # regenerate the Prisma client after schema changes
-bun run prisma:migrate    # push the schema to the DB (db push)
-bun run prisma:seed       # seed the database
-bun run prisma:studio     # open Prisma Studio
-bun run prisma:reset      # reset the DB without seeding
-```
-
-Copy `.env.example` (if present) to `.env` and fill in the required values — env vars are validated at boot via `@t3-oss/env-nextjs` (`src/config/env.mjs`).
+Env vars are validated at boot via `@t3-oss/env-nextjs` (`src/config/env.mjs`); only
+`NEXT_PUBLIC_DOMAIN_NAME` is required. The newsletter route additionally reads
+`SENDGRID_API_KEY` and `SENDGRID_CONTACT_LIST_ID` at request time.
 
 ## Layout
 
-- `src/app/` — App Router routes (`(blog)`, `(common)` groups, `api/`, `rss/`)
-- `src/pages/api/` — a couple of legacy Pages Router API routes
+- `src/app/(blog)/` — pages (home, `articles`, `photos`, `about`, `thank-you`) and the `(layout)` group (Header, Footer)
+- `src/app/(common)/` — shared layout/UI primitives
+- `src/app/rss/` — RSS feed routes (`feed.xml`, `feed.json`)
+- `src/pages/api/subscription.ts` — newsletter signup endpoint
 - `src/config/` — env validation and security headers (CSP, consumed by `next.config.ts`)
-- `src/lib/` — `auth.ts` / `auth-client.ts` (better-auth)
-- `src/services/`, `src/server/` — singleton clients and server-only utilities
+- `src/services/mail.ts` — SendGrid client
 - `src/components/`, `src/hooks/`, `src/utils/`, `src/types/` — UI and shared helpers
-- `prisma/` — schema, migrations, seed
+- `src/middleware.ts` — in-memory rate limiter for `/api/*`
 
 ## Deploy
 
