@@ -1,4 +1,3 @@
-import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
@@ -12,10 +11,7 @@ const routePolicy: ReadonlyArray<{
   prefix: string;
   limit: number;
   windowMs: number;
-}> = [
-  { prefix: "/api/auth", limit: 10, windowMs: 60_000 },
-  { prefix: "/api/subscription", limit: 5, windowMs: 60_000 },
-];
+}> = [{ prefix: "/api/subscription", limit: 5, windowMs: 60_000 }];
 
 const defaultApiPolicy = { prefix: "/api/", limit: 60, windowMs: 60_000 };
 
@@ -66,26 +62,13 @@ function consume(
 }
 
 // ---------------------------------------------------------------------------
-// Middleware
+// Middleware — rate limiting only: /api/* paths are checked against per-route
+// limits. The blog has no authenticated routes.
 // ---------------------------------------------------------------------------
 
 export function middleware(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
-  // 1. Auth guard: /profile/* requires a Better Auth session cookie.
-  //    getSessionCookie parses the Cookie header — no DB query on the hot path.
-  //    Returns early on redirect so unauthenticated profile traffic never
-  //    consumes a rate-limit slot.
-  if (pathname.startsWith("/profile")) {
-    const sessionCookie = getSessionCookie(request);
-    if (!sessionCookie) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackURL", pathname);
-      return NextResponse.redirect(loginUrl, 307);
-    }
-  }
-
-  // 2. Rate limiting: /api/* paths are checked against per-route-family limits.
   if (pathname.startsWith("/api")) {
     // Trusted-proxy assumption: the left-most entry in X-Forwarded-For is the
     // original client IP set by the outermost proxy. Splitting on commas and
@@ -120,5 +103,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profile/:path*", "/api/:path*"],
+  matcher: ["/api/:path*"],
 };
