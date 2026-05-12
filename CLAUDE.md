@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A Bun monorepo managed by **Turborepo + Changesets** containing the blog app and the shared packages it depends on, by Howard Tai.
 
 - `apps/`: `blog`
-- `packages/`: `ui`, `components/common`, `components/login-form`, `test-config`, `tsconfig`
+- `packages/`: `ui`, `components/common`, `test-config`, `tsconfig`
 
 ## Commands
 
@@ -39,12 +39,7 @@ bun test --filter <filename>
 ### Blog app extras (`apps/blog`)
 
 ```bash
-bun run prisma:generate   # regenerate Prisma client after schema changes
-bun run prisma:migrate    # push schema to DB (db push)
-bun run prisma:seed       # seed the database
-bun run prisma:studio     # open Prisma Studio GUI
-bun run prisma:reset      # reset DB without seeding
-bun run analyze           # build with @next/bundle-analyzer
+bun run analyze           # production build with @next/bundle-analyzer
 ```
 
 ## Architecture
@@ -61,26 +56,22 @@ bun run analyze           # build with @next/bundle-analyzer
 |---|---|
 | `@howardism/ui` | shadcn/ui components (Tailwind v4) |
 | `@howardism/components-common` | Shared React components |
-| `@howardism/login-form` | Login form component |
 | `@howardism/test-config` | Shared Bun test preload (happy-dom, jest-dom matchers, Next.js mocks) |
 | `@howardism/tsconfig` | Shared TypeScript configs |
 
 ### Blog app (`apps/blog`)
 
-**Next.js 16** (App Router) + **React 19** + **Tailwind v4** + **Prisma 7** (PostgreSQL).
+**Next.js 16** (App Router) + **React 19** + **Tailwind v4**. Articles-focused: no auth, no database. Routes: home, `/articles`, `/articles/[slug]`, `/photos`, `/about`, `/thank-you`, RSS feeds, and a single `pages/api/subscription` (SendGrid newsletter).
 
 Key internal structure under `src/`:
-- `app/(blog)/`, `app/(common)/` — route groups (articles, profile, resume, tools)
-- `app/api/` — App Router API routes
-- `app/rss/` — RSS feed
-- `pages/api/` — a couple of legacy Pages Router API routes (sudoku, subscription)
-- `config/` — env validation via `@t3-oss/env-nextjs` (`env.mjs`) and `security-headers.ts` (CSP, used by `next.config.ts`)
-- `lib/` — `auth.ts` / `auth-client.ts` (better-auth)
-- `services/` — singleton clients (Prisma, external APIs)
-- `server/` — server-only utilities (incl. `server/libs/sudoku`)
+- `app/(blog)/` — pages and the `(layout)` group (Header, Footer)
+- `app/(common)/` — shared layout/UI primitives (`Container`, `SimpleLayout`, `Card`, icons, …)
+- `app/rss/` — RSS feed routes (`feed.xml`, `feed.json`)
+- `pages/api/subscription.ts` — newsletter signup → `services/mail.ts` (SendGrid)
+- `config/` — env validation via `@t3-oss/env-nextjs` (`env.mjs`) and `security-headers.ts` (CSP, consumed by `next.config.ts`)
+- `services/` — `mail.ts` (SendGrid client)
 - `components/`, `hooks/`, `utils/`, `types/` — UI and shared helpers
-
-Auth: **better-auth** v1.2 with GitHub + Google OAuth (Credentials provider in preview env). Protected routes guarded by `src/middleware.ts` (cookie check + in-memory fixed-window rate limiter).
+- `middleware.ts` — in-memory fixed-window rate limiter for `/api/*` (no auth guard)
 
 Articles: MDX, glob-discovered from local files, statically generated.
 
