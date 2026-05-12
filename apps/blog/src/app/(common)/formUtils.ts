@@ -11,15 +11,3 @@ export const getAriaDescribedBy = (
 
   return isInvalid ? `${name}-error` : `${name}-description`;
 };
-
-export const generateStringArray = (items?: string) =>
-  items ? items.split("\n") : [];
-
-export const convertDateString = (dateString: string) => {
-  const date = new Date(dateString);
-
-  return `${date.toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  })}`;
-};
