@@ -1,4 +1,4 @@
-import { AboutSidebar } from "./AboutSidebar";
+import { AboutSidebar } from "./about-sidebar";
 
 export const metadata = {
   title: "About · Howardism",

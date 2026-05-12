@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { AboutSidebar } from "@/app/(blog)/about/AboutSidebar";
-import { resume } from "@/app/(blog)/Resume";
+import { AboutSidebar } from "@/app/(blog)/about/about-sidebar";
+import { resume } from "@/app/(blog)/resume";
 
 const NOW_READING_RE = /now reading/i;
 const WHERE_BEEN_RE = /where i've been/i;
@@ -12,7 +12,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe("AboutSidebar", () => {
+describe("about-sidebar", () => {
   it("renders without SunDisc or HalfDisc", () => {
     const { container } = render(<AboutSidebar />);
     expect(container.querySelector("[data-testid='sun-disc']")).toBeNull();

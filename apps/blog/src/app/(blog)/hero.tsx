@@ -1,12 +1,12 @@
 "use client";
 
-import { useTweaks } from "@/components/tweaks/TweaksProvider";
+import { useTweaks } from "@/components/tweaks/tweaks-provider";
 
 import type { ArticleEntity, Normalise } from "./articles/service";
-import { HeroClassic } from "./HeroClassic";
-import { HeroDisc } from "./HeroDisc";
-import { HeroIndex } from "./HeroIndex";
-import { HeroStatement } from "./HeroStatement";
+import { HeroClassic } from "./hero-classic";
+import { HeroDisc } from "./hero-disc";
+import { HeroIndex } from "./hero-index";
+import { HeroStatement } from "./hero-statement";
 
 interface HeroProps {
   articles: Normalise<ArticleEntity>;

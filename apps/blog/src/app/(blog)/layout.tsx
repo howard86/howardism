@@ -6,10 +6,10 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Newsreader } from "next/font/google";
 import type { ChildrenProps } from "react";
 
-import GoogleAnalytics from "@/components/GoogleAnalytics";
-import { InitTweaksScript } from "@/components/tweaks/InitTweaksScript";
-import { TweaksLauncher } from "@/components/tweaks/TweaksLauncher";
-import { TweaksProvider } from "@/components/tweaks/TweaksProvider";
+import GoogleAnalytics from "@/components/google-analytics";
+import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
+import { TweaksLauncher } from "@/components/tweaks/tweaks-launcher";
+import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
 import { env } from "@/config/env";
 
 import {
@@ -20,8 +20,8 @@ import {
   SITE_NAME,
   TWITTER_USERNAME,
 } from "../constants";
-import { Footer } from "./(layout)/Footer";
-import { Header } from "./(layout)/Header";
+import { Footer } from "./(layout)/footer";
+import { Header } from "./(layout)/header";
 
 const fraunces = Fraunces({
   subsets: ["latin"],

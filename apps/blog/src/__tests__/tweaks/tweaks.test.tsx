@@ -10,9 +10,9 @@ import {
 import {
   INIT_TWEAKS_SCRIPT,
   InitTweaksScript,
-} from "@/components/tweaks/InitTweaksScript";
-import { TweaksLauncher } from "@/components/tweaks/TweaksLauncher";
-import { TweaksProvider, useTweaks } from "@/components/tweaks/TweaksProvider";
+} from "@/components/tweaks/init-tweaks-script";
+import { TweaksLauncher } from "@/components/tweaks/tweaks-launcher";
+import { TweaksProvider, useTweaks } from "@/components/tweaks/tweaks-provider";
 import { TWEAKS_STORAGE_KEY } from "@/components/tweaks/types";
 
 afterEach(cleanup);
@@ -21,7 +21,7 @@ const OPEN_TWEAKS_LABEL = /open tweaks panel/i;
 
 // ── InitTweaksScript ────────────────────────────────────────────────────────
 
-describe("InitTweaksScript", () => {
+describe("init-tweaks-script", () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
@@ -78,7 +78,7 @@ function ThemeDisplay() {
   return <span data-testid="theme-display">{state.theme}</span>;
 }
 
-describe("TweaksProvider", () => {
+describe("tweaks-provider", () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
@@ -155,7 +155,7 @@ describe("TweaksProvider", () => {
 
 // ── TweaksLauncher ──────────────────────────────────────────────────────────
 
-describe("TweaksLauncher", () => {
+describe("tweaks-launcher", () => {
   beforeEach(() => {
     localStorage.clear();
   });

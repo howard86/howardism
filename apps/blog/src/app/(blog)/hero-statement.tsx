@@ -1,5 +1,5 @@
-import ExternalLink from "@/app/(common)/ExternalLink";
-import { SOCIAL_LINKS } from "./SocialLinks";
+import ExternalLink from "@/app/(common)/external-link";
+import { SOCIAL_LINKS } from "./social-links";
 
 export function HeroStatement() {
   return (

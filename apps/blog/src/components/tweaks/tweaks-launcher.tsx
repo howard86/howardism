@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { TweaksPanel } from "./TweaksPanel";
+import { TweaksPanel } from "./tweaks-panel";
 
 export function TweaksLauncher() {
   const [open, setOpen] = useState(false);

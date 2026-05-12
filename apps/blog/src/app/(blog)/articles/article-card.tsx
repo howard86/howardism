@@ -4,7 +4,7 @@ import {
   CardDescription,
   CardEyebrow,
   CardTitle,
-} from "@/app/(common)/Card";
+} from "@/app/(common)/card";
 import { formatDate } from "@/utils/time";
 
 import type { ArticleEntity } from "./service";

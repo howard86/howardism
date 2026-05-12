@@ -1,37 +1,35 @@
-import ExternalLink from "@/app/(common)/ExternalLink";
-import { Ph } from "@/components/howardism/Ph";
-import { SOCIAL_LINKS } from "./SocialLinks";
+import ExternalLink from "@/app/(common)/external-link";
+import { SunDisc } from "@/components/howardism/sun-disc";
+import { SOCIAL_LINKS } from "./social-links";
 
-export function HeroClassic() {
+export function HeroDisc() {
   return (
     <div
       style={{
         maxWidth: 720,
         margin: "0 auto",
-        padding: "48px 16px 0",
+        padding: "40px 16px 0",
         display: "grid",
         gridTemplateColumns: "1fr auto",
-        gap: "0 40px",
-        alignItems: "start",
+        gap: "0 32px",
+        alignItems: "center",
       }}
     >
       <div>
         <div className="hw-eyebrow" style={{ marginBottom: 12 }}>
-          Howard Tai · Software Engineer
+          Howard Tai · vol. 03
         </div>
         <h1
           className="hw-display"
           style={{
-            fontSize: 32,
+            fontSize: 34,
             fontWeight: 400,
             color: "var(--hw-ink)",
-            lineHeight: 1.2,
+            lineHeight: 1.15,
             marginBottom: 16,
           }}
         >
-          A Software Engineer, Mathematician,
-          <br />
-          and Amateur Diver&apos;s Journey
+          Howardism
         </h1>
         <p
           className="hw-body"
@@ -40,12 +38,11 @@ export function HeroClassic() {
             color: "var(--hw-ink-2)",
             lineHeight: 1.65,
             marginBottom: 24,
-            maxWidth: 460,
+            maxWidth: 400,
           }}
         >
-          I&apos;m Howard — senior fullstack developer, mathematician, and
-          amateur diver based in Singapore. I write about software craft, the
-          ocean, and everything in between.
+          A quiet corner of the web — software craft, mathematics, and the
+          occasional ocean adventure.
         </p>
         <ul
           style={{
@@ -78,19 +75,8 @@ export function HeroClassic() {
           ))}
         </ul>
       </div>
-      <div style={{ paddingTop: 4 }}>
-        <div
-          style={{
-            width: 120,
-            height: 120,
-            borderRadius: "50%",
-            overflow: "hidden",
-            flexShrink: 0,
-          }}
-        >
-          <Ph aspect="1/1" label="Portrait" tone={1} />
-        </div>
-      </div>
+
+      <SunDisc number="01" plate="Plate I · Surface" size={260} />
     </div>
   );
 }

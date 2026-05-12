@@ -1,10 +1,10 @@
 import { getSlicedArticles } from "./articles/service";
-import { Elsewhere } from "./Elsewhere";
-import { FeaturedArticles } from "./FeaturedArticles";
-import { Hero } from "./Hero";
-import Newsletter from "./NewsLetter";
-import Photos from "./Photos";
-import Resume from "./Resume";
+import { Elsewhere } from "./elsewhere";
+import { FeaturedArticles } from "./featured-articles";
+import { Hero } from "./hero";
+import Newsletter from "./news-letter";
+import Photos from "./photos";
+import Resume from "./resume";
 
 export default async function Home() {
   const articles = await getSlicedArticles(4);

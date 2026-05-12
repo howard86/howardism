@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { DataGrid } from "./DataGrid";
-import { SunDisc } from "./SunDisc";
+import { DataGrid } from "./data-grid";
+import { SunDisc } from "./sun-disc";
 
 interface DiscPageHeaderProps {
   children?: ReactNode;

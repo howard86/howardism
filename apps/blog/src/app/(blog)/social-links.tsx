@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import type { SVGProps } from "react-html-props";
 
-import ExternalLink from "@/app/(common)/ExternalLink";
+import ExternalLink from "@/app/(common)/external-link";
 import {
   EmailIcon,
   GitHubIcon,

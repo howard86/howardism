@@ -1,4 +1,4 @@
-import ArticleCard from "./articles/ArticleCard";
+import ArticleCard from "./articles/article-card";
 import type { ArticleEntity, Normalise } from "./articles/service";
 
 interface FeaturedArticlesProps {

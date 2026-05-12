@@ -1,6 +1,6 @@
-import ExternalLink from "@/app/(common)/ExternalLink";
+import ExternalLink from "@/app/(common)/external-link";
 
-import { SOCIAL_LINKS } from "./SocialLinks";
+import { SOCIAL_LINKS } from "./social-links";
 
 const LABEL_MAP: Record<string, string> = {
   "Follow on Twitter": "Twitter",

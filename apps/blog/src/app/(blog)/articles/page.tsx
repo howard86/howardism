@@ -1,4 +1,4 @@
-import { ArticlesIndexClient } from "./ArticlesIndexClient";
+import { ArticlesIndexClient } from "./articles-index-client";
 import { getArticles } from "./service";
 
 export default async function ArticlesIndex() {

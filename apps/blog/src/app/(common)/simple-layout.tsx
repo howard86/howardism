@@ -1,6 +1,6 @@
 import type { ChildrenProps } from "react";
 
-import { Container } from "./Container";
+import { Container } from "./container";
 
 interface SimpleLayoutProps extends Partial<ChildrenProps> {
   intro: string;
