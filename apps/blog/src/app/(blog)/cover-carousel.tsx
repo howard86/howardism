@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { getSlicedArticles } from "./articles/service";
 
-export default async function Photos() {
+export default async function CoverCarousel() {
   const articles = await getSlicedArticles(5);
 
   return (

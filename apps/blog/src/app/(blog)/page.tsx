@@ -1,9 +1,9 @@
 import { getSlicedArticles } from "./articles/service";
+import CoverCarousel from "./cover-carousel";
 import { Elsewhere } from "./elsewhere";
 import { FeaturedArticles } from "./featured-articles";
 import { Hero } from "./hero";
 import Newsletter from "./news-letter";
-import Photos from "./photos";
 import Resume from "./resume";
 
 export default async function Home() {
@@ -12,7 +12,7 @@ export default async function Home() {
   return (
     <>
       <Hero articles={articles} />
-      <Photos />
+      <CoverCarousel />
       <div
         style={{
           maxWidth: 720,
