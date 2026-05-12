@@ -28,6 +28,10 @@ const securityHeaders = getSecurityHeaders({ geolocation: "()" });
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "mdx"],
   headers: () => [{ source: "/(.*)", headers: securityHeaders }],
+  redirects: () => [
+    { source: "/photos", destination: "/", permanent: true },
+    { source: "/about", destination: "/", permanent: true },
+  ],
   reactStrictMode: true,
   outputFileTracingRoot: join(
     dirname(fileURLToPath(import.meta.url)),
