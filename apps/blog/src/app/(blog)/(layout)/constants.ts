@@ -29,7 +29,6 @@ export const FOOTER_NAV: { label: string; href: string }[] = [
   { label: "Articles", href: "/articles" },
   { label: "Photos", href: "/photos" },
   { label: "About", href: "/about" },
-  { label: "Tools", href: "/tools" },
   { label: "RSS", href: "/rss/feed.xml" },
   { label: "Colophon", href: "/about#colophon" },
 ];
