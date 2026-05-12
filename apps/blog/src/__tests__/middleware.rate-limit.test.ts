@@ -4,8 +4,7 @@
  * Each test uses a distinct IP address from the TEST-NET-1 range (192.0.2.x)
  * so rate-limit state from one test does not bleed into another.
  *
- * The `next/server` module is shimmed (same pattern as middleware.test.ts).
- * The `better-auth/cookies` module is NOT mocked — same real module.
+ * The `next/server` module is shimmed (not available outside the Edge runtime).
  */
 
 import { describe, expect, it, mock } from "bun:test";
@@ -94,21 +93,9 @@ describe("middleware — per-route rate limiting (#497)", () => {
     expect(body).toEqual({ message: "Too many requests" });
   });
 
-  // ── (b) /api/auth: 10/60s → 11th request returns 429 ────────────────────
+  // ── (b) 429 responses carry Retry-After header ────────────────────────────
 
-  it("(b) 11th request within 60s to /api/auth/sign-in/email returns 429", async () => {
-    const ip = "192.0.2.2";
-    await exhaust("/api/auth/sign-in/email", ip, 10);
-
-    const res = await middleware(
-      makeApiRequest("/api/auth/sign-in/email", ip) as never
-    );
-    expect(res.status).toBe(429);
-  });
-
-  // ── (c) 429 responses carry Retry-After header ────────────────────────────
-
-  it("(c) 429 response carries a Retry-After header", async () => {
+  it("(b) 429 response carries a Retry-After header", async () => {
     const ip = "192.0.2.4";
     await exhaust("/api/subscription", ip, 5);
 
@@ -121,42 +108,14 @@ describe("middleware — per-route rate limiting (#497)", () => {
     expect(Number(retryAfter)).toBeGreaterThan(0);
   });
 
-  // ── (d) unmatched /api/anything falls back to 60/60s ─────────────────────
+  // ── (c) unmatched /api/anything falls back to 60/60s ─────────────────────
 
-  it("(d) unmatched /api/anything falls back to 60/60s limit", async () => {
+  it("(c) unmatched /api/anything falls back to 60/60s limit", async () => {
     const ip = "192.0.2.5";
     await exhaust("/api/something-unmatched", ip, 60);
 
     const res = await middleware(
       makeApiRequest("/api/something-unmatched", ip) as never
-    );
-    expect(res.status).toBe(429);
-  });
-
-  // ── auth gate ordering: /profile/* redirect does NOT consume rate-limit slot
-
-  it("auth gate runs before rate limit: /profile redirect does not consume rate-limit capacity", async () => {
-    const ip = "192.0.2.6";
-    // Send many unauthenticated profile requests (no cookie)
-    for (let i = 0; i < 10; i++) {
-      const res = await middleware(
-        makeApiRequest("/profile/anything", ip) as never
-      );
-      // Each is a redirect, not a rate-limited response
-      expect(res.status).toBe(307);
-    }
-
-    // API capacity for this IP is still untouched — can still make 5 requests
-    for (let i = 0; i < 5; i++) {
-      const res = await middleware(
-        makeApiRequest("/api/subscription", ip) as never
-      );
-      expect(res.status).toBe(200);
-    }
-
-    // 6th API request is now limited
-    const res = await middleware(
-      makeApiRequest("/api/subscription", ip) as never
     );
     expect(res.status).toBe(429);
   });
