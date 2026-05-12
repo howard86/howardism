@@ -1,12 +1,18 @@
 # howardism
 
-A collection of open source projects by Howard Tai
+A Bun + Turborepo monorepo containing the blog app and its shared packages by Howard Tai.
+
+## Apps
+
+- `apps/blog` — Next.js blog, profile, and tools site
 
 ## Packages
 
-- eslint-config-howardism
-- @howardism/jest-config
-- @howardism/tsconfig
+- `@howardism/ui` — shadcn/ui components (Tailwind v4)
+- `@howardism/components-common` — shared React components
+- `@howardism/login-form` — login form component
+- `@howardism/test-config` — shared Bun test preload (happy-dom, jest-dom, Next.js mocks)
+- `@howardism/tsconfig` — shared TypeScript configs
 
 ## License
 

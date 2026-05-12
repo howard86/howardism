@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Bun monorepo managed by **Turborepo + Changesets** containing Next.js apps and shared packages by Howard Tai.
+A Bun monorepo managed by **Turborepo + Changesets** containing the blog app and the shared packages it depends on, by Howard Tai.
 
-- `apps/`: blog, github-search, minecraft, recipe, template
-- `packages/`: components, eslint-config-howardism, test-config, theme, tsconfig
+- `apps/`: `blog`
+- `packages/`: `ui`, `components/common`, `components/login-form`, `test-config`, `tsconfig`
 
 ## Commands
 
@@ -44,12 +44,7 @@ bun run prisma:migrate    # push schema to DB (db push)
 bun run prisma:seed       # seed the database
 bun run prisma:studio     # open Prisma Studio GUI
 bun run prisma:reset      # reset DB without seeding
-```
-
-### github-search app extras (`apps/github-search`)
-
-```bash
-bun run codegen     # regenerate GraphQL types from schema (graphql-codegen)
+bun run analyze           # build with @next/bundle-analyzer
 ```
 
 ## Architecture
@@ -64,35 +59,34 @@ bun run codegen     # regenerate GraphQL types from schema (graphql-codegen)
 
 | Package | Purpose |
 |---|---|
-| `eslint-config-howardism` | Shared ESLint flat config (base, next, react-internal presets) |
+| `@howardism/ui` | shadcn/ui components (Tailwind v4) |
+| `@howardism/components-common` | Shared React components |
+| `@howardism/login-form` | Login form component |
 | `@howardism/test-config` | Shared Bun test preload (happy-dom, jest-dom matchers, Next.js mocks) |
 | `@howardism/tsconfig` | Shared TypeScript configs |
-| `@howardism/components-common` | Shared React UI components |
-| `@howardism/ui` | shadcn/ui components (Tailwind v4) |
 
-### Blog app (`apps/blog`) — primary app
+### Blog app (`apps/blog`)
 
-Uses **Next.js 14** with a hybrid router:
-- `src/app/` — App Router (main blog routes: articles, profile, tools, RSS)
-- `src/pages/` — Pages Router (legacy: auth endpoints via NextAuth)
+**Next.js 16** (App Router) + **React 19** + **Tailwind v4** + **Prisma 7** (PostgreSQL).
 
 Key internal structure under `src/`:
+- `app/(blog)/`, `app/(common)/` — route groups (articles, profile, resume, tools)
 - `app/api/` — App Router API routes
-- `app/(blog)/` — Blog route group (articles, profile, resume, tools)
-- `config/` — environment variable validation via `@t3-oss/env-nextjs`
+- `app/rss/` — RSS feed
+- `pages/api/` — a couple of legacy Pages Router API routes (sudoku, subscription)
+- `config/` — env validation via `@t3-oss/env-nextjs` (`env.mjs`) and `security-headers.ts` (CSP, used by `next.config.ts`)
+- `lib/` — `auth.ts` / `auth-client.ts` (better-auth)
 - `services/` — singleton clients (Prisma, external APIs)
-- `server/` — server-only utilities
-- `hooks/`, `utils/`, `types/` — client-side helpers and shared types
+- `server/` — server-only utilities (incl. `server/libs/sudoku`)
+- `components/`, `hooks/`, `utils/`, `types/` — UI and shared helpers
 
-Auth: NextAuth v4 with GitHub + Google OAuth (Credentials provider in preview env). Protected routes use `next-auth/middleware` in `middleware.ts`.
+Auth: **better-auth** v1.2 with GitHub + Google OAuth (Credentials provider in preview env). Protected routes guarded by `src/middleware.ts` (cookie check + in-memory fixed-window rate limiter).
 
-Database: PostgreSQL via Prisma (schema in `prisma/`).
+Articles: MDX, glob-discovered from local files, statically generated.
 
-### github-search app (`apps/github-search`)
-
-Uses **Tailwind v4** + **shadcn/ui** + **Apollo Client** + **GitHub GraphQL API**. GraphQL types are code-generated (`codegen.yml`).
+Design system: oklch CSS variables (`--hw-*`), 5 theme variants × light/dark, home layouts toggled via a Tweaks panel (persisted in `localStorage`).
 
 ## Code Style
 
-- **Ultracite** for linting and formatting
+- **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
 - Commit messages follow **gitmoji** conventional commit format (enforced by commitlint)
