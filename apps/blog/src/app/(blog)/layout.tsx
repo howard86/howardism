@@ -49,9 +49,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: env.NEXT_PUBLIC_DOMAIN_NAME
-    ? new URL(env.NEXT_PUBLIC_DOMAIN_NAME)
-    : undefined,
+  metadataBase: new URL(env.NEXT_PUBLIC_DOMAIN_NAME),
   title: {
     template: `${SITE_NAME} | %s`,
     default: `${SITE_NAME} | Blog`,
