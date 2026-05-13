@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -61,6 +62,9 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
 
   const setMode = useCallback((mode: Mode) => {
     setState((prev) => {
+      if (prev.mode === mode) {
+        return prev;
+      }
       const next = { ...prev, mode };
       writeStorage(next);
       applyToDom(next);
@@ -68,7 +72,9 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  return <TweaksContext value={{ state, setMode }}>{children}</TweaksContext>;
+  const value = useMemo(() => ({ state, setMode }), [state, setMode]);
+
+  return <TweaksContext value={value}>{children}</TweaksContext>;
 }
 
 export function useTweaks(): TweaksContextValue {
