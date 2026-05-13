@@ -1,3 +1,5 @@
+import { GRAIN_SVG } from "./grain";
+
 interface SunDiscProps {
   accent?: string;
   className?: string;
@@ -5,9 +7,6 @@ interface SunDiscProps {
   plate?: string;
   size?: number;
 }
-
-const GRAIN_SVG =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
 const LABEL_CLASS =
   "font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.18em]";
