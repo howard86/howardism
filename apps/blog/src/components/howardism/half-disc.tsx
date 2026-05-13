@@ -1,12 +1,13 @@
+import { cn } from "@howardism/ui/lib/utils";
+
+import { GRAIN_SVG } from "./grain";
+
 interface HalfDiscProps {
   accent?: string;
   align?: "right" | "left";
   className?: string;
   size?: number;
 }
-
-const GRAIN_SVG =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
 export function HalfDisc({
   size = 380,
@@ -22,9 +23,7 @@ export function HalfDisc({
       : "rounded-b-[999px] rounded-t-none";
   return (
     <div
-      className={`relative w-full overflow-hidden ${radiusClass}${
-        className ? ` ${className}` : ""
-      }`}
+      className={cn("relative w-full overflow-hidden", radiusClass, className)}
       data-align={align}
       data-testid="half-disc"
       style={{ maxWidth: size, aspectRatio: "2/1" }}
