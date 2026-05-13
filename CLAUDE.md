@@ -75,7 +75,7 @@ Key internal structure under `src/`:
 
 Articles: MDX, glob-discovered from local files, statically generated.
 
-Design system: oklch CSS variables (`--hw-*`), 5 theme variants × light/dark, home layouts toggled via a Tweaks panel (persisted in `localStorage`).
+Design system: a single set of oklch design tokens in shadcn slots (`--background`, `--foreground`, `--primary`, …) plus `--brand*` for the editorial terracotta accent, defined in `@howardism/ui`'s `globals.css`; light/dark only, toggled via a Tweaks panel (persisted in `localStorage`). Article bodies use the `@tailwindcss/typography` `prose` plugin, themed onto those tokens. `apps/blog/src/styles/howardism.css` holds only the paper-grain body background and a couple of CSS-only effects.
 
 ## Code Style
 
