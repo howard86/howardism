@@ -22,8 +22,13 @@ const withMDX = nextMDX({
 
 // Articles-only blog: the default CSP (which already allows `https:` for
 // connect-src/img-src, covering Vercel Analytics and Unsplash) is sufficient.
-// No feature needs geolocation.
-const securityHeaders = getSecurityHeaders({ geolocation: "()" });
+// No feature needs geolocation. In dev the server is plain HTTP, so skip the
+// HTTPS-forcing headers — Safari honours HSTS on `localhost` and otherwise
+// refuses to connect over HTTP with a TLS handshake error.
+const securityHeaders = getSecurityHeaders({
+  geolocation: "()",
+  insecureTransport: process.env.NODE_ENV !== "production",
+});
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "mdx"],
