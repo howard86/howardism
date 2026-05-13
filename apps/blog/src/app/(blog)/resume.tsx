@@ -1,3 +1,4 @@
+import { Card } from "@howardism/ui/components/card";
 import type { FC } from "react";
 import type { SVGProps } from "react-html-props";
 
@@ -29,7 +30,7 @@ export const resume: ResumeEntity[] = [
     logo: OddleIcon,
     start: "2021",
     end: {
-      label: "Present",
+      label: "now",
       dateTime: new Date().getFullYear().toString(),
     },
   },
@@ -61,69 +62,34 @@ export const resume: ResumeEntity[] = [
 
 export default function Resume() {
   return (
-    <div className="hw-card" style={{ padding: "20px 24px" }}>
-      <div className="hw-eyebrow" style={{ marginBottom: 16, fontSize: 10 }}>
+    <Card className="px-6 py-5">
+      <div className="mb-4 font-medium font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.16em]">
         Work
       </div>
-      <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
+      <ol className="m-0 list-none p-0">
         {resume.map((role) => (
           <li
-            key={role.title}
-            style={{
-              borderBottom: "1px solid var(--hw-rule)",
-              padding: "10px 0",
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-            }}
+            className="flex items-center gap-2.5 border-border border-b border-dashed py-2.5"
+            key={role.company}
           >
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                border: "1px solid var(--hw-rule)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border">
               <role.logo
                 aria-label={`${role.company} logo`}
-                style={{ width: 18, height: 18 }}
+                className="size-[18px]"
               />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  gap: 8,
-                }}
-              >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
                 <ExternalLink
-                  className="hw-body"
+                  className="font-body font-medium text-[13px] text-foreground no-underline"
                   href={role.href}
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: "var(--hw-ink)",
-                    textDecoration: "none",
-                  }}
                 >
                   {role.company}
                 </ExternalLink>
                 {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides accessible date range */}
                 <span
                   aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(role.end, "label")}`}
-                  className="hw-mono"
-                  style={{
-                    fontSize: 10,
-                    color: "var(--hw-ink-3)",
-                    whiteSpace: "nowrap",
-                  }}
+                  className="whitespace-nowrap font-mono text-[10px] text-foreground-subtle tracking-[0.02em]"
                 >
                   <time dateTime={getStringOrValue(role.start, "dateTime")}>
                     {getStringOrValue(role.start, "label")}
@@ -134,16 +100,10 @@ export default function Resume() {
                   </time>
                 </span>
               </div>
-              <span
-                className="hw-mono"
-                style={{ fontSize: 11, color: "var(--hw-ink-3)" }}
-              >
-                {role.title}
-              </span>
             </div>
           </li>
         ))}
       </ol>
-    </div>
+    </Card>
   );
 }

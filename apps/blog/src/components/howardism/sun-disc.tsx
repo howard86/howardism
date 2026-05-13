@@ -9,6 +9,9 @@ interface SunDiscProps {
 const GRAIN_SVG =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
+const LABEL_CLASS =
+  "font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.18em]";
+
 export function SunDisc({
   size = 420,
   plate = "Plate I · Surface",
@@ -16,7 +19,7 @@ export function SunDisc({
   accent,
   className,
 }: SunDiscProps) {
-  const bgAccent = accent ?? "var(--hw-accent)";
+  const bgAccent = accent ?? "var(--brand)";
   return (
     <div
       className={className}
@@ -29,57 +32,25 @@ export function SunDisc({
       }}
     >
       <div
+        className="absolute inset-0 rounded-full"
         style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "50%",
           background: `radial-gradient(circle at 35% 30%, oklch(from ${bgAccent} 0.82 0.09 h) 0%, oklch(from ${bgAccent} 0.56 0.15 h) 55%, oklch(from ${bgAccent} 0.38 0.1 h) 100%)`,
           boxShadow: `0 40px 80px -30px oklch(from ${bgAccent} 0.4 0.14 h / 0.45), inset 0 -20px 60px oklch(from ${bgAccent} 0.3 0.1 h / 0.35)`,
         }}
       />
       <div
         aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "50%",
-          backgroundImage: GRAIN_SVG,
-          mixBlendMode: "overlay",
-          opacity: 0.6,
-        }}
+        className="absolute inset-0 rounded-full opacity-60 mix-blend-overlay"
+        style={{ backgroundImage: GRAIN_SVG }}
       />
       {number && (
-        <div
-          className="hw-mono"
-          style={{ position: "absolute", top: "-12px", left: "-12px" }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              color: "var(--hw-ink-3)",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-            }}
-          >
-            {number}
-          </span>
+        <div className="absolute -top-3 -left-3">
+          <span className={LABEL_CLASS}>{number}</span>
         </div>
       )}
       {plate && (
-        <div
-          className="hw-mono"
-          style={{ position: "absolute", bottom: "-8px", right: "6px" }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              color: "var(--hw-ink-3)",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-            }}
-          >
-            {plate}
-          </span>
+        <div className="absolute right-1.5 -bottom-2">
+          <span className={LABEL_CLASS}>{plate}</span>
         </div>
       )}
     </div>

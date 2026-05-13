@@ -14,40 +14,31 @@ export function HalfDisc({
   accent,
   className,
 }: HalfDiscProps) {
-  const bgAccent = accent ?? "var(--hw-accent)";
+  const bgAccent = accent ?? "var(--brand)";
   const gradientAnchor = align === "right" ? "100%" : "0%";
-  const borderRadius =
-    align === "right" ? "999px 999px 0 0" : "0 0 999px 999px";
+  const radiusClass =
+    align === "right"
+      ? "rounded-t-[999px] rounded-b-none"
+      : "rounded-b-[999px] rounded-t-none";
   return (
     <div
-      className={className}
+      className={`relative w-full overflow-hidden ${radiusClass}${
+        className ? ` ${className}` : ""
+      }`}
       data-align={align}
       data-testid="half-disc"
-      style={{
-        position: "relative",
-        width: "100%",
-        maxWidth: size,
-        aspectRatio: "2/1",
-        overflow: "hidden",
-        borderRadius,
-      }}
+      style={{ maxWidth: size, aspectRatio: "2/1" }}
     >
       <div
+        className="absolute inset-0"
         style={{
-          position: "absolute",
-          inset: 0,
           background: `radial-gradient(circle at 50% ${gradientAnchor}, oklch(from ${bgAccent} 0.82 0.09 h) 0%, oklch(from ${bgAccent} 0.56 0.15 h) 55%, oklch(from ${bgAccent} 0.38 0.1 h) 100%)`,
         }}
       />
       <div
         aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: GRAIN_SVG,
-          mixBlendMode: "overlay",
-          opacity: 0.6,
-        }}
+        className="absolute inset-0 opacity-60 mix-blend-overlay"
+        style={{ backgroundImage: GRAIN_SVG }}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+import { Card } from "@howardism/ui/components/card";
 import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -16,6 +17,9 @@ interface ArticleLayoutProps {
   previousSlug?: string;
 }
 
+const NAV_LINK_CLASS =
+  "inline-flex items-center gap-1.5 font-mono text-brand text-xs no-underline";
+
 export function ArticleLayout({
   children,
   meta,
@@ -26,72 +30,23 @@ export function ArticleLayout({
   const plateNumber = String(position).padStart(2, "0");
 
   return (
-    <div
-      className="hw-page-enter"
-      style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px 80px" }}
-    >
+    <div className="hw-page-enter mx-auto max-w-[720px] px-4 pb-20">
       {/* Mini-masthead */}
-      <div
-        style={{
-          position: "relative",
-          overflow: "hidden",
-          borderTop: "2px solid var(--hw-ink)",
-          borderBottom: "1px solid var(--hw-rule)",
-          padding: "10px 0 40px",
-          marginBottom: 40,
-        }}
-      >
+      <div className="relative mb-10 overflow-hidden border-foreground border-t-2 border-b border-b-border pt-2.5 pb-10">
         {/* Masthead labels */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: 28,
-          }}
-        >
-          <span
-            className="hw-mono"
-            style={{
-              fontSize: 10,
-              color: "var(--hw-ink-3)",
-              letterSpacing: "0.08em",
-            }}
-          >
+        <div className="mb-7 flex items-baseline justify-between">
+          <span className="font-mono text-[10px] text-foreground-subtle tracking-[0.08em]">
             PLATE II · PIECE № {plateNumber}
           </span>
-          <span
-            className="hw-mono"
-            style={{
-              fontSize: 10,
-              color: "var(--hw-ink-3)",
-              letterSpacing: "0.08em",
-            }}
-          >
+          <span className="font-mono text-[10px] text-foreground-subtle tracking-[0.08em]">
             HOWARDISM
           </span>
         </div>
 
         {/* Title + DataGrid in a 2-col grid; HalfDisc bleeds right */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: "0 32px",
-            alignItems: "start",
-          }}
-        >
+        <div className="grid grid-cols-[1fr_auto] items-start gap-x-8">
           <div>
-            <h1
-              className="hw-display"
-              style={{
-                fontSize: 26,
-                fontWeight: 400,
-                color: "var(--hw-ink)",
-                lineHeight: 1.25,
-                marginBottom: 20,
-              }}
-            >
+            <h1 className="mb-5 font-display font-normal text-[26px] text-foreground leading-[1.25] tracking-[-0.015em]">
               {meta.title}
             </h1>
             <DataGrid
@@ -106,102 +61,57 @@ export function ArticleLayout({
           </div>
 
           {/* HalfDisc corner bleed */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "relative",
-              marginRight: -16,
-              marginTop: -10,
-              flexShrink: 0,
-            }}
-          >
+          <div aria-hidden="true" className="relative -mt-2.5 -mr-4 shrink-0">
             <HalfDisc align="right" size={140} />
           </div>
         </div>
       </div>
 
       {/* Italic description lede */}
-      <p
-        className="hw-body"
-        style={{
-          fontSize: 16,
-          fontStyle: "italic",
-          color: "var(--hw-ink-2)",
-          marginBottom: 32,
-          lineHeight: 1.65,
-          borderLeft: "2px solid var(--hw-accent)",
-          paddingLeft: 16,
-        }}
-      >
+      <p className="mb-8 border-brand border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
         {meta.description}
       </p>
 
       {/* Article prose */}
       <article>
-        <div className={cn("hw-prose", meta.dropCap && "hw-drop-cap")}>
+        <div
+          className={cn("prose max-w-none", meta.dropCap && "prose-drop-cap")}
+        >
           {children}
         </div>
 
         {/* § end rule */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            margin: "40px 0",
-          }}
-        >
-          <div style={{ flex: 1, height: 1, background: "var(--hw-rule)" }} />
-          <span
-            className="hw-mono"
-            style={{ fontSize: 12, color: "var(--hw-ink-3)" }}
-          >
+        <div className="my-10 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="font-mono text-foreground-subtle text-xs">
             § end
           </span>
-          <div style={{ flex: 1, height: 1, background: "var(--hw-rule)" }} />
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         {/* Author card */}
-        <div
-          className="hw-card"
-          style={{ padding: "20px 24px", marginBottom: 48 }}
-        >
-          <div className="hw-eyebrow" style={{ marginBottom: 8, fontSize: 10 }}>
+        <Card className="mb-12 px-6 py-5">
+          <div className="mb-2 font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
             About the author
           </div>
-          <p
-            className="hw-body"
-            style={{ fontSize: 13, color: "var(--hw-ink-2)", margin: 0 }}
-          >
+          <p className="m-0 font-body text-muted-foreground text-xs">
             Howard Tai is a software engineer and amateur diver based in
             Singapore. He writes about engineering, mathematics, and the
             occasional ocean adventure.
           </p>
-        </div>
+        </Card>
 
         {/* Bracketed prev/next nav */}
         {(previousSlug ?? nextSlug) && (
           <nav
             aria-label="Article navigation"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 16,
-            }}
+            className="flex justify-between gap-4"
           >
             <div>
               {previousSlug && (
                 <Link
+                  className={NAV_LINK_CLASS}
                   href={`/articles/${previousSlug}`}
-                  style={{
-                    fontFamily: "var(--hw-font-mono)",
-                    fontSize: 12,
-                    color: "var(--hw-accent)",
-                    textDecoration: "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
                 >
                   <span aria-hidden="true">[←]</span>
                   <span>Previous</span>
@@ -210,18 +120,7 @@ export function ArticleLayout({
             </div>
             <div>
               {nextSlug && (
-                <Link
-                  href={`/articles/${nextSlug}`}
-                  style={{
-                    fontFamily: "var(--hw-font-mono)",
-                    fontSize: 12,
-                    color: "var(--hw-accent)",
-                    textDecoration: "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
+                <Link className={NAV_LINK_CLASS} href={`/articles/${nextSlug}`}>
                   <span>Next</span>
                   <span aria-hidden="true">[→]</span>
                 </Link>

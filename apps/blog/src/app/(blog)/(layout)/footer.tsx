@@ -1,3 +1,4 @@
+import { Badge } from "@howardism/ui/components/badge";
 import Link from "next/link";
 
 import { Avatar } from "./avatar";
@@ -5,45 +6,15 @@ import { FOOTER_NAV } from "./constants";
 
 export function Footer() {
   return (
-    <footer
-      style={{
-        borderTop: "1px dashed var(--hw-rule)",
-        marginTop: "auto",
-        paddingTop: 24,
-        paddingBottom: 32,
-        paddingLeft: 16,
-        paddingRight: 16,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
+    <footer className="mt-auto border-border border-t border-dashed px-4 pt-6 pb-8">
+      <div className="mx-auto flex max-w-[960px] flex-col gap-4">
         {/* Nav row */}
         <nav aria-label="footer">
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "4px 2px",
-            }}
-          >
+          <ul className="m-0 flex list-none flex-wrap gap-x-0.5 gap-y-1 p-0">
             {FOOTER_NAV.map(({ label, href }) => (
               <li key={label}>
-                <Link
-                  className="hw-chip"
-                  href={href}
-                  style={{ textDecoration: "none" }}
-                >
-                  {label}
+                <Link href={href}>
+                  <Badge variant="chip">{label}</Badge>
                 </Link>
               </li>
             ))}
@@ -51,22 +22,18 @@ export function Footer() {
         </nav>
 
         {/* Caption row */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
+        <div className="flex items-center gap-2.5">
           <Avatar label="Home" size={28} />
-          <span
-            className="hw-mono"
-            style={{ fontSize: 11, color: "var(--hw-ink-3)" }}
-          >
+          <span className="font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
             &copy; Howardism &middot; {new Date().getFullYear()} &middot;
             Singapore / anywhere
           </span>
         </div>
+
+        {/* Colophon */}
+        <span className="font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
+          Set in Fraunces, Newsreader &amp; JetBrains Mono.
+        </span>
       </div>
     </footer>
   );

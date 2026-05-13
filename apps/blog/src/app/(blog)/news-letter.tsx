@@ -1,50 +1,36 @@
+import { Badge } from "@howardism/ui/components/badge";
+import { Card } from "@howardism/ui/components/card";
+
 export default function Newsletter() {
   return (
-    <div className="hw-card" style={{ padding: "20px 24px" }}>
-      <div className="hw-eyebrow" style={{ marginBottom: 12, fontSize: 10 }}>
-        Stay up to date
+    <Card className="px-6 py-5">
+      <div className="mb-3 font-medium font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.16em]">
+        The quiet newsletter
       </div>
-      <p
-        className="hw-body"
-        style={{ fontSize: 13, color: "var(--hw-ink-2)", marginBottom: 16 }}
-      >
-        Get notified when I publish something new, and unsubscribe at any time.
+      <p className="mb-4 font-body text-[13px] text-muted-foreground">
+        Once a month, maybe. Whenever I finish thinking about something. No
+        tracking, no drip funnel, no growth hacks.
       </p>
       <form action="/api/subscription" method="POST">
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="flex gap-2">
           <label className="sr-only" htmlFor="newsletter-email">
             Email address field
           </label>
           <input
             aria-label="Email address"
             autoComplete="on"
+            className="h-8 flex-1 rounded border border-border bg-card px-2.5 font-body text-[13px] text-foreground outline-none"
             id="newsletter-email"
             name="email"
             placeholder="Email address"
             required
-            style={{
-              flex: 1,
-              height: 32,
-              borderRadius: 4,
-              border: "1px solid var(--hw-rule)",
-              background: "var(--hw-paper)",
-              color: "var(--hw-ink)",
-              fontFamily: "var(--hw-font-body)",
-              fontSize: 13,
-              padding: "0 10px",
-              outline: "none",
-            }}
             type="email"
           />
-          <button
-            className="hw-chip"
-            style={{ cursor: "pointer", flexShrink: 0 }}
-            type="submit"
-          >
-            Join
-          </button>
+          <Badge asChild className="shrink-0 cursor-pointer" variant="chip">
+            <button type="submit">Subscribe</button>
+          </Badge>
         </div>
       </form>
-    </div>
+    </Card>
   );
 }
