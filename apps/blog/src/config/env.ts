@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  NEXT_PUBLIC_DOMAIN_NAME: z.url().optional(),
+  // Canonical site origin. Defaults to the production domain so that
+  // `metadataBase`, Open Graph URLs and the RSS feed resolve to absolute URLs
+  // even when the env var is not provided at build time.
+  NEXT_PUBLIC_DOMAIN_NAME: z.url().default("https://www.howardism.dev"),
   NEXT_PUBLIC_GA_MEASUREMENT_ID: z.string().optional(),
 });
 

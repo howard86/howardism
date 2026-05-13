@@ -12,9 +12,7 @@ import {
   SITE_NAME,
 } from "../constants";
 
-// NEXT_PUBLIC_DOMAIN_NAME is optional; fall back to the same default Next.js
-// uses for `metadataBase` so a build without it still produces a valid feed.
-const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME ?? "http://localhost:3000";
+const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
 
 export const generateFeed = cache(async (): Promise<Feed> => {
   const articles = await getArticles();
