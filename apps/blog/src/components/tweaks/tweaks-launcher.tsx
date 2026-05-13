@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@howardism/ui/components/button";
 import { useCallback, useEffect, useState } from "react";
 
 import { TweaksPanel } from "./tweaks-panel";
@@ -29,15 +30,17 @@ export function TweaksLauncher() {
 
   return (
     <>
-      <button
+      <Button
         aria-expanded={open}
         aria-label="Open Tweaks panel"
-        className="hw-tweaks-launcher"
+        className="fixed right-5 bottom-5 z-50 size-11 rounded-full border-input bg-card text-base shadow-paper-lg transition-transform hover:scale-105 dark:bg-card dark:hover:bg-card"
         onClick={() => setOpen((prev) => !prev)}
+        size="icon"
         type="button"
+        variant="outline"
       >
         ✨
-      </button>
+      </Button>
       <TweaksPanel onOpenChange={setOpen} open={open} />
     </>
   );
