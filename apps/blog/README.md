@@ -1,30 +1,33 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# @howardism/blog
+
+Next.js 16 (App Router) blog by Howard Tai — articles and RSS feeds. React 19,
+Tailwind v4. No authentication, no database, no API routes.
 
 ## Getting Started
 
-First, run the development server:
+From the repo root, install deps with `bun install`, then from this directory:
 
 ```bash
-npm run dev
-# or
-bun dev
+bun run dev          # start the dev server at http://localhost:3000
+bun run build        # production build
+bun run start        # run the production build
+bun run test         # bun tests
+bun run type-check   # tsc --noEmit
+bun run lint         # ultracite check
+bun run analyze      # production build with @next/bundle-analyzer
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Env vars are validated at boot in `src/config/env.ts`; only
+`NEXT_PUBLIC_DOMAIN_NAME` is required.
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+## Layout
 
-## Learn More
+- `src/app/(blog)/` — pages (home, `articles`) and the `(layout)` group (Header, Footer)
+- `src/app/(common)/` — shared layout/UI primitives
+- `src/app/rss/` — RSS feed routes (`feed.xml`, `feed.json`)
+- `src/config/` — env validation and security headers (CSP, consumed by `next.config.ts`)
+- `src/components/`, `src/hooks/`, `src/utils/`, `src/types/` — UI and shared helpers
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/import?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Deployed on [Vercel](https://vercel.com).

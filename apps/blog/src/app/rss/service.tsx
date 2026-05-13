@@ -3,6 +3,7 @@ import "server-only";
 import { Feed } from "feed";
 import { cache } from "react";
 
+import { env } from "@/config/env";
 import { getArticles } from "../(blog)/articles/service";
 import {
   AUTHOR_EMAIL,
@@ -11,13 +12,9 @@ import {
   SITE_NAME,
 } from "../constants";
 
-const siteUrl = process.env.NEXT_PUBLIC_DOMAIN_NAME;
+const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
 
 export const generateFeed = cache(async (): Promise<Feed> => {
-  if (!siteUrl) {
-    throw new Error("Failed to get env=NEXT_PUBLIC_DOMAIN_NAME");
-  }
-
   const articles = await getArticles();
 
   const author = {

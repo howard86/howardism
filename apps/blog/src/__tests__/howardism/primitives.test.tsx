@@ -1,21 +1,16 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { Chip } from "@/components/howardism/Chip";
-import { DataGrid } from "@/components/howardism/DataGrid";
-import { DiscPageHeader } from "@/components/howardism/DiscPageHeader";
-import { Eyebrow } from "@/components/howardism/Eyebrow";
-import { HalfDisc } from "@/components/howardism/HalfDisc";
-import { Ph } from "@/components/howardism/Ph";
-import { PhotoCard } from "@/components/howardism/PhotoCard";
-import { Squiggle } from "@/components/howardism/Squiggle";
-import { SunDisc } from "@/components/howardism/SunDisc";
+import { DataGrid } from "@/components/howardism/data-grid";
+import { HalfDisc } from "@/components/howardism/half-disc";
+import { Ph } from "@/components/howardism/ph";
+import { SunDisc } from "@/components/howardism/sun-disc";
 
 afterEach(() => {
   cleanup();
 });
 
-describe("SunDisc", () => {
+describe("sun-disc", () => {
   it("renders with default plate label and number", () => {
     render(<SunDisc />);
     const disc = screen.getByTestId("sun-disc");
@@ -38,7 +33,7 @@ describe("SunDisc", () => {
   });
 });
 
-describe("HalfDisc", () => {
+describe("half-disc", () => {
   it("renders right-aligned by default", () => {
     render(<HalfDisc />);
     const disc = screen.getByTestId("half-disc");
@@ -58,7 +53,7 @@ describe("HalfDisc", () => {
   });
 });
 
-describe("DataGrid", () => {
+describe("data-grid", () => {
   it("renders correct number of cells for given rows", () => {
     render(
       <DataGrid
@@ -98,100 +93,7 @@ describe("DataGrid", () => {
   });
 });
 
-describe("DiscPageHeader", () => {
-  it("renders volume label", () => {
-    render(
-      <DiscPageHeader
-        number="03"
-        plate="Plate III"
-        title="Photos"
-        volume="Howardism · Vol. 03"
-      />
-    );
-    expect(screen.getByTestId("disc-page-header").textContent).toContain(
-      "Howardism · Vol. 03"
-    );
-  });
-
-  it("renders plate and number in masthead", () => {
-    render(
-      <DiscPageHeader
-        number="04"
-        plate="Plate IV"
-        title="About"
-        volume="Vol."
-      />
-    );
-    const header = screen.getByTestId("disc-page-header");
-    expect(header.textContent).toContain("Plate IV");
-    expect(header.textContent).toContain("04");
-  });
-
-  it("composes SunDisc", () => {
-    render(
-      <DiscPageHeader number="01" plate="Plate I" title="Home" volume="Vol." />
-    );
-    expect(screen.getByTestId("sun-disc")).toBeDefined();
-  });
-
-  it("renders DataGrid when data prop supplied", () => {
-    render(
-      <DiscPageHeader
-        data={[
-          ["Frames", "36"],
-          ["Since", "2022"],
-        ]}
-        number="03"
-        plate="Plate III"
-        title="Photos"
-        volume="Vol."
-      />
-    );
-    expect(screen.getByTestId("data-grid")).toBeDefined();
-    expect(screen.getByTestId("disc-page-header").textContent).toContain(
-      "Frames"
-    );
-  });
-});
-
-describe("Eyebrow", () => {
-  it("renders children inside hw-eyebrow element", () => {
-    render(<Eyebrow>Journal · est. 2023</Eyebrow>);
-    const el = document.querySelector(".hw-eyebrow");
-    expect(el).not.toBeNull();
-    expect(el?.textContent).toBe("Journal · est. 2023");
-  });
-
-  it("applies className", () => {
-    render(<Eyebrow className="mb-4">Label</Eyebrow>);
-    const el = document.querySelector(".hw-eyebrow");
-    expect(el?.className).toContain("mb-4");
-  });
-});
-
-describe("Squiggle", () => {
-  it("renders an SVG element", () => {
-    const { container } = render(<Squiggle />);
-    const svg = container.querySelector("svg");
-    expect(svg).not.toBeNull();
-  });
-
-  it("contains a path element", () => {
-    const { container } = render(<Squiggle />);
-    const path = container.querySelector("path");
-    expect(path).not.toBeNull();
-    expect(path?.getAttribute("stroke")).toBe("currentColor");
-  });
-
-  it("is aria-hidden", () => {
-    const { container } = render(<Squiggle />);
-    expect(container.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
-      "true"
-    );
-  });
-});
-
-describe("Ph", () => {
+describe("ph", () => {
   it("renders label text", () => {
     render(<Ph aspect="4/5" label="portrait · 4x5" tone={0} />);
     expect(screen.getByTestId("ph").textContent).toContain("portrait · 4x5");
@@ -211,54 +113,5 @@ describe("Ph", () => {
   it("renders meta string when provided", () => {
     render(<Ph label="dive" meta="f/8 · 1/125 · 18m" tone={0} />);
     expect(screen.getByTestId("ph").textContent).toContain("f/8 · 1/125 · 18m");
-  });
-});
-
-describe("Chip", () => {
-  it("renders children text", () => {
-    render(<Chip>now in Singapore</Chip>);
-    expect(document.querySelector(".hw-chip")?.textContent).toContain(
-      "now in Singapore"
-    );
-  });
-
-  it("renders dot element when dot prop is true", () => {
-    render(<Chip dot>Programming</Chip>);
-    const dot = document.querySelector(".hw-dot");
-    expect(dot).not.toBeNull();
-  });
-
-  it("does not render dot when dot prop is false", () => {
-    render(<Chip>Programming</Chip>);
-    expect(document.querySelector(".hw-dot")).toBeNull();
-  });
-
-  it("applies className", () => {
-    render(<Chip className="mt-2">Tag</Chip>);
-    expect(document.querySelector(".hw-chip")?.className).toContain("mt-2");
-  });
-});
-
-describe("PhotoCard", () => {
-  it("renders tape strip when tape prop is true", () => {
-    render(<PhotoCard label="Tioman" tape />);
-    expect(document.querySelector(".hw-tape")).not.toBeNull();
-  });
-
-  it("does not render tape when tape prop is omitted", () => {
-    render(<PhotoCard label="Tioman" />);
-    expect(document.querySelector(".hw-tape")).toBeNull();
-  });
-
-  it("renders caption when provided", () => {
-    render(<PhotoCard caption="Shoal of snapper" label="Tioman" />);
-    expect(document.querySelector("figcaption")?.textContent).toContain(
-      "Shoal of snapper"
-    );
-  });
-
-  it("composes Ph placeholder", () => {
-    render(<PhotoCard aspect="3/4" label="Reef" tone={1} />);
-    expect(screen.getByTestId("ph")).toBeDefined();
   });
 });
