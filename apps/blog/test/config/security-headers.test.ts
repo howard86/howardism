@@ -54,6 +54,30 @@ describe("getSecurityHeaders", () => {
     expect(reportOnly?.value).toContain("default-src 'self'");
   });
 
+  it("omits HTTPS-forcing headers when insecureTransport is true", () => {
+    const headers = getSecurityHeaders({
+      geolocation: "()",
+      insecureTransport: true,
+    });
+    expect(headers.some((h) => h.key === "Strict-Transport-Security")).toBe(
+      false
+    );
+    const csp = headers.find((h) => h.key === "Content-Security-Policy");
+    expect(csp).toBeDefined();
+    expect(csp?.value).not.toContain("upgrade-insecure-requests");
+    expect(csp?.value).toContain("default-src 'self'");
+  });
+
+  it("leaves an explicit CSP untouched when insecureTransport is true", () => {
+    const headers = getSecurityHeaders({
+      geolocation: "()",
+      insecureTransport: true,
+      contentSecurityPolicy: { "upgrade-insecure-requests": true },
+    });
+    const csp = headers.find((h) => h.key === "Content-Security-Policy");
+    expect(csp?.value).toBe("upgrade-insecure-requests");
+  });
+
   it("suppresses the CSP header entirely when contentSecurityPolicy is false", () => {
     const headers = getSecurityHeaders({
       geolocation: "()",

@@ -49,6 +49,16 @@ export interface SecurityHeaderOptions {
    * to deny all, `"(self)"` to allow the page's own origin.
    */
   geolocation: "()" | "(self)";
+  /**
+   * When `true`, omit the headers that force HTTPS — `Strict-Transport-Security`
+   * and the `upgrade-insecure-requests` CSP directive. The dev server is plain
+   * HTTP and Safari honours HSTS (and request upgrades) on `localhost`, so
+   * leaving these on makes Safari refuse to connect over HTTP with a TLS
+   * handshake error. Only strips `upgrade-insecure-requests` from the default
+   * directives; an explicitly passed `contentSecurityPolicy` is left untouched.
+   * Defaults to `false`.
+   */
+  insecureTransport?: boolean;
 }
 
 export const DEFAULT_CSP_DIRECTIVES: CspDirectives = Object.freeze({
@@ -98,6 +108,7 @@ export function getSecurityHeaders({
   geolocation,
   contentSecurityPolicy,
   cspReportOnly = false,
+  insecureTransport = false,
 }: SecurityHeaderOptions): SecurityHeader[] {
   const headers: SecurityHeader[] = [
     { key: "X-Content-Type-Options", value: "nosniff" },
@@ -105,20 +116,28 @@ export function getSecurityHeaders({
     { key: "X-XSS-Protection", value: "0" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     {
-      key: "Strict-Transport-Security",
-      value: "max-age=63072000; includeSubDomains",
-    },
-    {
       key: "Permissions-Policy",
       value: `camera=(), microphone=(), geolocation=${geolocation}`,
     },
   ];
 
+  if (!insecureTransport) {
+    headers.push({
+      key: "Strict-Transport-Security",
+      value: "max-age=63072000; includeSubDomains",
+    });
+  }
+
   if (contentSecurityPolicy === false) {
     return headers;
   }
 
-  const directives = contentSecurityPolicy ?? DEFAULT_CSP_DIRECTIVES;
+  let directives = contentSecurityPolicy ?? DEFAULT_CSP_DIRECTIVES;
+  if (insecureTransport && directives === DEFAULT_CSP_DIRECTIVES) {
+    const { "upgrade-insecure-requests": _omit, ...rest } =
+      DEFAULT_CSP_DIRECTIVES;
+    directives = rest;
+  }
   const cspValue = serializeCsp(directives);
   if (cspValue.length > 0) {
     headers.push({
