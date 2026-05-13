@@ -62,11 +62,11 @@ function consume(
 }
 
 // ---------------------------------------------------------------------------
-// Middleware — rate limiting only: /api/* paths are checked against per-route
+// Proxy — rate limiting only: /api/* paths are checked against per-route
 // limits. The blog has no authenticated routes.
 // ---------------------------------------------------------------------------
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
   if (pathname.startsWith("/api")) {

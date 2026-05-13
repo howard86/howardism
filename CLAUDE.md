@@ -71,7 +71,7 @@ Key internal structure under `src/`:
 - `config/` — env validation via a raw zod schema (`env.ts`) and `security-headers.ts` (CSP, consumed by `next.config.ts`)
 - `services/` — `mail.ts` (SendGrid client)
 - `components/`, `hooks/`, `utils/`, `types/` — UI and shared helpers
-- `middleware.ts` — in-memory fixed-window rate limiter for `/api/*` (no auth guard)
+- `proxy.ts` — in-memory fixed-window rate limiter for `/api/*` (no auth guard)
 
 Articles: MDX, glob-discovered from local files, statically generated.
 
