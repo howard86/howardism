@@ -25,8 +25,8 @@ export function Footer() {
         <div className="flex items-center gap-2.5">
           <Avatar label="Home" size={28} />
           <span className="font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
-            &copy; Howardism &middot; {new Date().getFullYear()} &middot;
-            Singapore / anywhere
+            &copy; Howardism &middot; {new Date().getFullYear()} &middot; Taiwan
+            / anywhere
           </span>
         </div>
 

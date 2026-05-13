@@ -51,7 +51,7 @@ export function HeroDisc() {
             <DataGrid
               rows={[
                 ["Writer", "Howard Tai"],
-                ["Based", "Singapore, 1°N"],
+                ["Based", "Taiwan, 23°N"],
                 ["Writing", "Since 2022"],
                 ["Frequency", "Monthly, ish"],
               ]}
