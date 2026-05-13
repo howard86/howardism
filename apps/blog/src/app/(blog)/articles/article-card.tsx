@@ -1,11 +1,5 @@
-import {
-  Card,
-  CardCta,
-  CardDescription,
-  CardEyebrow,
-  CardTitle,
-} from "@/app/(common)/card";
-import { formatDate } from "@/utils/time";
+import { Card, CardCta, CardDescription, CardTitle } from "@/app/(common)/card";
+import { formatDateShort } from "@/utils/time";
 
 import type { ArticleEntity } from "./service";
 
@@ -15,29 +9,14 @@ export default function ArticleCard({
 }: Omit<ArticleEntity, "position">) {
   return (
     <Card as="article">
-      <CardTitle href={`/articles/${slug}`}>{meta.title}</CardTitle>
-      <CardEyebrow as="time" dateTime={meta.date} decorate>
-        {formatDate(meta.date)}
-      </CardEyebrow>
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginTop: 4,
-          marginBottom: 4,
-        }}
-      >
-        <span className="hw-chip" style={{ fontSize: 10, padding: "2px 8px" }}>
-          {meta.tag}
-        </span>
-        <span
-          className="hw-mono"
-          style={{ fontSize: 10, color: "var(--hw-ink-3)" }}
-        >
-          {meta.readingTime} min read
-        </span>
+      <div className="relative z-10 order-first mb-3 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.14em]">
+        <time dateTime={meta.date}>{formatDateShort(meta.date)}</time>
+        {" — "}
+        <span className="text-brand">{meta.tag}</span>
+        {" · "}
+        {meta.readingTime} min read
       </div>
+      <CardTitle href={`/articles/${slug}`}>{meta.title}</CardTitle>
       <CardDescription>{meta.description}</CardDescription>
       <CardCta>Read article</CardCta>
     </Card>

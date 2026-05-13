@@ -1,3 +1,6 @@
+import { DiscPageHeader } from "@/components/howardism/disc-page-header";
+import { formatDateShort } from "@/utils/time";
+
 import { ArticlesIndexClient } from "./articles-index-client";
 import { getArticles } from "./service";
 
@@ -8,69 +11,24 @@ export default async function ArticlesIndex() {
     .map((slug) => articles.entities[slug])
     .filter((a): a is NonNullable<typeof a> => a !== undefined);
 
-  return (
-    <div
-      className="hw-page-enter"
-      style={{ maxWidth: 720, margin: "0 auto", padding: "48px 16px 80px" }}
-    >
-      {/* Double-rule masthead */}
-      <div
-        style={{
-          borderTop: "2px solid var(--hw-ink)",
-          borderBottom: "1px solid var(--hw-rule)",
-          padding: "10px 0",
-          marginBottom: 32,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-        }}
-      >
-        <span
-          className="hw-mono"
-          style={{
-            fontSize: 10,
-            color: "var(--hw-ink-3)",
-            letterSpacing: "0.08em",
-          }}
-        >
-          HOWARDISM
-        </span>
-        <span
-          className="hw-mono"
-          style={{
-            fontSize: 10,
-            color: "var(--hw-ink-3)",
-            letterSpacing: "0.08em",
-          }}
-        >
-          ARTICLES
-        </span>
-      </div>
+  const newest = articleList.at(0);
+  const oldest = articleList.at(-1);
 
-      {/* Section heading */}
-      <h1
-        className="hw-display"
-        style={{
-          fontSize: 28,
-          fontWeight: 400,
-          color: "var(--hw-ink)",
-          marginBottom: 8,
-          lineHeight: 1.2,
-        }}
-      >
-        Writing
-      </h1>
-      <p
-        className="hw-body"
-        style={{
-          fontSize: 14,
-          color: "var(--hw-ink-2)",
-          marginBottom: 32,
-          lineHeight: 1.6,
-        }}
-      >
-        Long-form explorations of software, craft, and the occasional tangent.
-      </p>
+  return (
+    <div className="hw-page-enter mx-auto max-w-[1120px] px-8 pb-20">
+      <DiscPageHeader
+        data={[
+          ["Pieces", String(articleList.length)],
+          ["Oldest", oldest ? formatDateShort(oldest.meta.date) : "—"],
+          ["Newest", newest ? formatDateShort(newest.meta.date) : "—"],
+          ["Pace", "Monthly, ish"],
+        ]}
+        number="02"
+        plate="Plate II"
+        title="Writing,"
+        titleAccent="in order."
+        volume="Howardism · Vol. 03"
+      />
 
       <ArticlesIndexClient articles={articleList} />
     </div>
