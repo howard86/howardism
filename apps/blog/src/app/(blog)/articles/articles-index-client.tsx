@@ -2,34 +2,37 @@
 
 import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { formatDateShort } from "@/utils/time";
 
 import type { ArticleEntity } from "./service";
-
-const ALL_TAG = "All";
 
 interface ArticlesIndexClientProps {
   articles: ArticleEntity[];
 }
 
 export function ArticlesIndexClient({ articles }: ArticlesIndexClientProps) {
-  const [activeTag, setActiveTag] = useState<string>(ALL_TAG);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  const tags = [
-    ALL_TAG,
-    ...Array.from(new Set(articles.map((a) => a.meta.tag))).sort(),
-  ];
+  const tags = useMemo<(string | null)[]>(
+    () => [
+      null,
+      ...Array.from(new Set(articles.map((a) => a.meta.tag))).sort(),
+    ],
+    [articles]
+  );
 
-  const filtered =
-    activeTag === ALL_TAG
-      ? articles
-      : articles.filter((a) => a.meta.tag === activeTag);
+  const filtered = useMemo(
+    () =>
+      activeTag === null
+        ? articles
+        : articles.filter((a) => a.meta.tag === activeTag),
+    [articles, activeTag]
+  );
 
   return (
     <div>
-      {/* Filter row — quiet inline text links, no pill chrome */}
       <div className="mb-2 flex flex-wrap items-baseline gap-x-0 gap-y-1 border-border border-t border-b py-3.5">
         <span className="mr-[18px] font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
           Filed under
@@ -37,7 +40,7 @@ export function ArticlesIndexClient({ articles }: ArticlesIndexClientProps) {
         {tags.map((tag, i) => {
           const isActive = activeTag === tag;
           return (
-            <Fragment key={tag}>
+            <Fragment key={tag ?? "all"}>
               {i > 0 && (
                 <span
                   aria-hidden="true"
@@ -57,26 +60,24 @@ export function ArticlesIndexClient({ articles }: ArticlesIndexClientProps) {
                 onClick={() => setActiveTag(tag)}
                 type="button"
               >
-                {tag}
+                {tag ?? "All"}
               </button>
             </Fragment>
           );
         })}
-        <span className="flex-1" />
-        <span className="font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.14em]">
+        <span className="ml-auto font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.14em]">
           {filtered.length} {filtered.length === 1 ? "piece" : "pieces"}
         </span>
       </div>
 
-      {/* Numbered index list */}
       <ol className="m-0 list-none p-0">
         {filtered.map((article, i) => (
           <li
-            className={cn(
+            className={
               i === filtered.length - 1
                 ? "border-b-0"
                 : "border-border border-b"
-            )}
+            }
             key={article.slug}
           >
             <Link
