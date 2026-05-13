@@ -12,21 +12,21 @@ export default function Newsletter() {
         tracking, no drip funnel, no growth hacks.
       </p>
       <form action="/api/subscription" method="POST">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <label className="sr-only" htmlFor="newsletter-email">
             Email address field
           </label>
           <input
             aria-label="Email address"
             autoComplete="on"
-            className="h-8 flex-1 rounded border border-border bg-card px-2.5 font-body text-[13px] text-foreground outline-none"
+            className="h-8 w-full rounded border border-border bg-card px-2.5 font-body text-[13px] text-foreground outline-none"
             id="newsletter-email"
             name="email"
             placeholder="Email address"
             required
             type="email"
           />
-          <Badge asChild className="shrink-0 cursor-pointer" variant="chip">
+          <Badge asChild className="w-full cursor-pointer" variant="chip">
             <button type="submit">Subscribe</button>
           </Badge>
         </div>
