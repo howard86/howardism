@@ -9,7 +9,7 @@ interface SunDiscProps {
 }
 
 const LABEL_CLASS =
-  "font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.18em]";
+  "whitespace-nowrap font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.18em]";
 
 export function SunDisc({
   size = 420,
