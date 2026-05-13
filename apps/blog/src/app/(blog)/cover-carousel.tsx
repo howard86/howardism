@@ -9,7 +9,7 @@ export default async function CoverCarousel() {
 
   return (
     <div aria-hidden="true" className="mt-16 sm:mt-20">
-      <div className="-my-4 -ml-8 flex gap-5 overflow-hidden py-4 sm:gap-8 md:-ml-4 md:justify-center">
+      <div className="-my-4 ml-0 flex gap-5 overflow-hidden py-4 sm:-ml-8 sm:gap-8 md:-ml-4 md:justify-center">
         {articles.ids.map((id, index) => {
           const article = articles.entities[id];
 
