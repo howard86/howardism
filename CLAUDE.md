@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Bun monorepo managed by **Turborepo + Changesets** containing Next.js apps and shared packages by Howard Tai.
+A Bun monorepo managed by **Turborepo + Changesets** containing the blog app and the shared packages it depends on, by Howard Tai.
 
-- `apps/`: blog, github-search, minecraft, recipe, template
-- `packages/`: components, eslint-config-howardism, test-config, theme, tsconfig
+- `apps/`: `blog`
+- `packages/`: `ui`, `components/common`, `test-config`, `tsconfig`
 
 ## Commands
 
@@ -39,17 +39,7 @@ bun test --filter <filename>
 ### Blog app extras (`apps/blog`)
 
 ```bash
-bun run prisma:generate   # regenerate Prisma client after schema changes
-bun run prisma:migrate    # push schema to DB (db push)
-bun run prisma:seed       # seed the database
-bun run prisma:studio     # open Prisma Studio GUI
-bun run prisma:reset      # reset DB without seeding
-```
-
-### github-search app extras (`apps/github-search`)
-
-```bash
-bun run codegen     # regenerate GraphQL types from schema (graphql-codegen)
+bun run analyze           # production build with @next/bundle-analyzer
 ```
 
 ## Architecture
@@ -64,35 +54,27 @@ bun run codegen     # regenerate GraphQL types from schema (graphql-codegen)
 
 | Package | Purpose |
 |---|---|
-| `eslint-config-howardism` | Shared ESLint flat config (base, next, react-internal presets) |
+| `@howardism/ui` | shadcn/ui components (Tailwind v4) |
+| `@howardism/components-common` | Shared React components |
 | `@howardism/test-config` | Shared Bun test preload (happy-dom, jest-dom matchers, Next.js mocks) |
 | `@howardism/tsconfig` | Shared TypeScript configs |
-| `@howardism/components-common` | Shared React UI components |
-| `@howardism/ui` | shadcn/ui components (Tailwind v4) |
 
-### Blog app (`apps/blog`) — primary app
+### Blog app (`apps/blog`)
 
-Uses **Next.js 14** with a hybrid router:
-- `src/app/` — App Router (main blog routes: articles, profile, tools, RSS)
-- `src/pages/` — Pages Router (legacy: auth endpoints via NextAuth)
+**Next.js 16** (App Router) + **React 19** + **Tailwind v4**. Articles-focused: no auth, no database, no API routes. Routes: home, `/articles`, `/articles/[slug]`, RSS feeds. (`/photos`, `/about`, and `/thank-you` were removed; `next.config.ts` permanently redirects all three to `/`.)
 
 Key internal structure under `src/`:
-- `app/api/` — App Router API routes
-- `app/(blog)/` — Blog route group (articles, profile, resume, tools)
-- `config/` — environment variable validation via `@t3-oss/env-nextjs`
-- `services/` — singleton clients (Prisma, external APIs)
-- `server/` — server-only utilities
-- `hooks/`, `utils/`, `types/` — client-side helpers and shared types
+- `app/(blog)/` — pages and the `(layout)` group (Header, Footer)
+- `app/(common)/` — shared layout/UI primitives (`Container`, `SimpleLayout`, `Card`, icons, …)
+- `app/rss/` — RSS feed routes (`feed.xml`, `feed.json`)
+- `config/` — env validation via a raw zod schema (`env.ts`) and `security-headers.ts` (CSP, consumed by `next.config.ts`)
+- `components/`, `hooks/`, `utils/`, `types/` — UI and shared helpers
 
-Auth: NextAuth v4 with GitHub + Google OAuth (Credentials provider in preview env). Protected routes use `next-auth/middleware` in `middleware.ts`.
+Articles: MDX, glob-discovered from local files, statically generated.
 
-Database: PostgreSQL via Prisma (schema in `prisma/`).
-
-### github-search app (`apps/github-search`)
-
-Uses **Tailwind v4** + **shadcn/ui** + **Apollo Client** + **GitHub GraphQL API**. GraphQL types are code-generated (`codegen.yml`).
+Design system: a single set of oklch design tokens in shadcn slots (`--background`, `--foreground`, `--primary`, …) plus `--brand*` for the editorial terracotta accent, defined in `@howardism/ui`'s `globals.css`; light/dark only, toggled via a Tweaks panel (persisted in `localStorage`). Article bodies use the `@tailwindcss/typography` `prose` plugin, themed onto those tokens. `apps/blog/src/styles/howardism.css` holds only the paper-grain body background and a couple of CSS-only effects.
 
 ## Code Style
 
-- **Ultracite** for linting and formatting
+- **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
 - Commit messages follow **gitmoji** conventional commit format (enforced by commitlint)

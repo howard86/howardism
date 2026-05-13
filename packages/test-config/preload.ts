@@ -47,9 +47,8 @@ mock.module("next/link", () => ({
 }));
 
 mock.module("next/dynamic", () => ({
-  default: () => {
-    return function DynamicComponent() {
+  default: () =>
+    function DynamicComponent() {
       return React.createElement("div", { "data-testid": "dynamic-component" });
-    };
-  },
+    },
 }));

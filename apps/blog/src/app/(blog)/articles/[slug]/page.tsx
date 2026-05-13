@@ -7,7 +7,7 @@ import {
   getArticles,
   type Normalise,
 } from "../service";
-import { ArticleLayout } from "./ArticleLayout";
+import { ArticleLayout } from "./article-layout";
 
 interface ArticlePageProps {
   params: Promise<{
@@ -39,7 +39,7 @@ const getSiblingSlug = (
   const selectedArticle = articles.entities[slug];
 
   if (!selectedArticle) {
-    return undefined;
+    return;
   }
 
   return articles.ids[selectedArticle.position + difference];
