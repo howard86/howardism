@@ -3,7 +3,6 @@ import CoverCarousel from "./cover-carousel";
 import { Elsewhere } from "./elsewhere";
 import { FeaturedArticles } from "./featured-articles";
 import { HeroDisc } from "./hero-disc";
-import Newsletter from "./news-letter";
 import Resume from "./resume";
 
 export default async function Home() {
@@ -17,7 +16,6 @@ export default async function Home() {
         <div className="grid grid-cols-1 items-start gap-10 md:grid-cols-[minmax(0,1fr)_280px]">
           <FeaturedArticles articles={articles} />
           <div className="flex flex-col gap-5">
-            <Newsletter />
             <Resume />
             <Elsewhere />
           </div>

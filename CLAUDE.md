@@ -61,17 +61,14 @@ bun run analyze           # production build with @next/bundle-analyzer
 
 ### Blog app (`apps/blog`)
 
-**Next.js 16** (App Router) + **React 19** + **Tailwind v4**. Articles-focused: no auth, no database. Routes: home, `/articles`, `/articles/[slug]`, `/thank-you`, RSS feeds, and a single `pages/api/subscription` (SendGrid newsletter). (`/photos` and `/about` were removed; `next.config.ts` permanently redirects both to `/`.)
+**Next.js 16** (App Router) + **React 19** + **Tailwind v4**. Articles-focused: no auth, no database, no API routes. Routes: home, `/articles`, `/articles/[slug]`, RSS feeds. (`/photos`, `/about`, and `/thank-you` were removed; `next.config.ts` permanently redirects all three to `/`.)
 
 Key internal structure under `src/`:
 - `app/(blog)/` — pages and the `(layout)` group (Header, Footer)
 - `app/(common)/` — shared layout/UI primitives (`Container`, `SimpleLayout`, `Card`, icons, …)
 - `app/rss/` — RSS feed routes (`feed.xml`, `feed.json`)
-- `pages/api/subscription.ts` — newsletter signup → `services/mail.ts` (SendGrid)
 - `config/` — env validation via a raw zod schema (`env.ts`) and `security-headers.ts` (CSP, consumed by `next.config.ts`)
-- `services/` — `mail.ts` (SendGrid client)
 - `components/`, `hooks/`, `utils/`, `types/` — UI and shared helpers
-- `proxy.ts` — in-memory fixed-window rate limiter for `/api/*` (no auth guard)
 
 Articles: MDX, glob-discovered from local files, statically generated.
 
