@@ -1,3 +1,4 @@
+import { cn } from "@howardism/ui/lib/utils";
 import { Fragment } from "react";
 
 interface DataGridProps {
@@ -9,30 +10,17 @@ interface DataGridProps {
 export function DataGrid({ rows, maxWidth = 360, className }: DataGridProps) {
   return (
     <div
-      className={`hw-mono${className ? ` ${className}` : ""}`}
+      className={cn(
+        "grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]",
+        className
+      )}
       data-testid="data-grid"
-      style={{
-        fontSize: 11,
-        color: "var(--hw-ink-3)",
-        letterSpacing: "0.18em",
-        textTransform: "uppercase",
-        display: "grid",
-        gridTemplateColumns: "auto 1fr",
-        gap: "6px 16px",
-        maxWidth,
-      }}
+      style={{ maxWidth }}
     >
       {rows.map(([label, value]) => (
         <Fragment key={label}>
           <span>{label}</span>
-          <span
-            style={{
-              fontFamily: "var(--hw-font-body)",
-              color: "var(--hw-ink-2)",
-              textTransform: "none",
-              letterSpacing: "0.02em",
-            }}
-          >
+          <span className="font-body text-muted-foreground normal-case tracking-[0.02em]">
             {value}
           </span>
         </Fragment>

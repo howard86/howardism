@@ -1,3 +1,5 @@
+import { Card } from "@howardism/ui/components/card";
+
 import ExternalLink from "@/app/(common)/external-link";
 
 import { SOCIAL_LINKS } from "./social-links";
@@ -12,43 +14,22 @@ const LABEL_MAP: Record<string, string> = {
 
 export function Elsewhere() {
   return (
-    <div className="hw-card" style={{ padding: "20px 24px" }}>
-      <div className="hw-eyebrow" style={{ marginBottom: 16, fontSize: 10 }}>
+    <Card className="px-6 py-5">
+      <div className="mb-4 font-medium font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.16em]">
         Elsewhere
       </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+      <ul className="m-0 list-none p-0">
         {SOCIAL_LINKS.map((link) => {
           const label = LABEL_MAP[link["aria-label"]] ?? link["aria-label"];
           return (
-            <li
-              key={link.href}
-              style={{ borderBottom: "1px solid var(--hw-rule)" }}
-            >
+            <li className="border-border border-b" key={link.href}>
               <ExternalLink
                 aria-label={link["aria-label"]}
+                className="flex items-center gap-2.5 py-2.5 text-muted-foreground no-underline"
                 href={link.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 0",
-                  textDecoration: "none",
-                  color: "var(--hw-ink-2)",
-                }}
               >
-                <link.icon
-                  className="fill-current"
-                  style={{
-                    width: 16,
-                    height: 16,
-                    color: "var(--hw-ink-3)",
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  className="hw-body"
-                  style={{ fontSize: 13, color: "var(--hw-ink)" }}
-                >
+                <link.icon className="size-4 shrink-0 fill-current text-foreground-subtle" />
+                <span className="font-body text-[13px] text-foreground">
                   {label}
                 </span>
               </ExternalLink>
@@ -56,6 +37,6 @@ export function Elsewhere() {
           );
         })}
       </ul>
-    </div>
+    </Card>
   );
 }

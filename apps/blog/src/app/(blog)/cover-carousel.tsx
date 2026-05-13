@@ -1,14 +1,14 @@
 import { cn } from "@howardism/ui/lib/utils";
 import Image from "next/image";
-import Link from "next/link";
 
 import { getSlicedArticles } from "./articles/service";
 
+// Decorative band of recent article covers. Non-interactive — there is no gallery page to link to.
 export default async function CoverCarousel() {
   const articles = await getSlicedArticles(5);
 
   return (
-    <div className="mt-16 sm:mt-20">
+    <div aria-hidden="true" className="mt-16 sm:mt-20">
       <div className="-my-4 -ml-8 flex gap-5 overflow-hidden py-4 sm:gap-8 md:-ml-4 md:justify-center">
         {articles.ids.map((id, index) => {
           const article = articles.entities[id];
@@ -25,15 +25,13 @@ export default async function CoverCarousel() {
               )}
               key={article.slug}
             >
-              <Link href={`/articles/${article.slug}`}>
-                <Image
-                  alt={article.meta.image.alt}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  placeholder="blur"
-                  sizes="(min-width: 640px) 18rem, 11rem"
-                  src={article.meta.image.src}
-                />
-              </Link>
+              <Image
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                placeholder="blur"
+                sizes="(min-width: 640px) 18rem, 11rem"
+                src={article.meta.image.src}
+              />
             </div>
           );
         })}

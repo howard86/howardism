@@ -1,3 +1,4 @@
+import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
 
 interface AvatarProps {
@@ -16,24 +17,12 @@ export function Avatar({
   return (
     <Link
       aria-label={label}
-      className={className}
+      className={cn(
+        "inline-flex flex-shrink-0 select-none items-center justify-center rounded-full bg-brand font-display font-medium text-card",
+        className
+      )}
       href={href}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: "var(--hw-accent)",
-        color: "var(--hw-paper)",
-        fontFamily: "var(--hw-font-display)",
-        fontSize: size * 0.45,
-        fontWeight: 500,
-        flexShrink: 0,
-        textDecoration: "none",
-        userSelect: "none",
-      }}
+      style={{ width: size, height: size, fontSize: size * 0.45 }}
     >
       H
     </Link>

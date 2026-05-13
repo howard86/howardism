@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@howardism/ui/components/badge";
 import {
   Sheet,
   SheetContent,
@@ -23,7 +24,11 @@ function NavLink({ href, label }: { href: string; label: string }) {
     (pathname === href || (href !== "/" && pathname.startsWith(href)));
 
   return (
-    <Link aria-current={isActive ? "page" : undefined} href={href}>
+    <Link
+      aria-current={isActive ? "page" : undefined}
+      className="rounded-full px-4 py-2 font-body font-medium text-[0.9rem] text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
+      href={href}
+    >
       {label}
     </Link>
   );
@@ -31,7 +36,10 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 function DesktopNav() {
   return (
-    <nav aria-label="Primary" className="hw-nav-pill hidden md:flex">
+    <nav
+      aria-label="Primary"
+      className="hidden gap-0.5 rounded-full border border-border bg-card/85 p-1.5 shadow-paper backdrop-blur-md md:flex"
+    >
       {NAV_SECTION_KEYS.map((key) => (
         <NavLink href={NavSection[key]} key={key} label={key} />
       ))}
@@ -44,8 +52,8 @@ function MobileNav() {
     <div className="md:hidden">
       <Sheet>
         <SheetTrigger asChild>
-          <button className="hw-chip" type="button">
-            Menu
+          <button type="button">
+            <Badge variant="chip">Menu</Badge>
           </button>
         </SheetTrigger>
         <SheetContent
@@ -54,35 +62,17 @@ function MobileNav() {
           side="top"
         >
           <SheetHeader className="p-0">
-            <SheetTitle className="hw-eyebrow">Navigation</SheetTitle>
+            <SheetTitle className="font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
+              Navigation
+            </SheetTitle>
           </SheetHeader>
           <nav aria-label="Mobile primary" className="mt-6">
-            <ul
-              style={{
-                listStyle: "none",
-                margin: 0,
-                padding: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: 0,
-                borderTop: "1px solid var(--hw-rule)",
-              }}
-            >
+            <ul className="m-0 flex list-none flex-col gap-0 border-border border-t p-0">
               {NAV_SECTION_KEYS.map((key) => (
-                <li
-                  key={key}
-                  style={{ borderBottom: "1px solid var(--hw-rule)" }}
-                >
+                <li className="border-border border-b" key={key}>
                   <Link
-                    className="hw-body"
+                    className="block py-3 font-body text-[15px] text-foreground"
                     href={NavSection[key]}
-                    style={{
-                      display: "block",
-                      padding: "12px 0",
-                      color: "var(--hw-ink)",
-                      textDecoration: "none",
-                      fontSize: 15,
-                    }}
                   >
                     {key}
                   </Link>
@@ -100,29 +90,8 @@ export function Header() {
   return (
     <>
       <a
-        className="hw-skip-link"
+        className="absolute left-2 z-[9999] rounded border border-brand bg-card px-4 py-2 font-mono text-[13px] text-brand transition-[top] [top:-999px] focus-visible:top-2"
         href="#main-content"
-        onBlur={(e) => {
-          (e.currentTarget as HTMLAnchorElement).style.top = "-999px";
-        }}
-        onFocus={(e) => {
-          (e.currentTarget as HTMLAnchorElement).style.top = "8px";
-        }}
-        style={{
-          position: "absolute",
-          top: -999,
-          left: 8,
-          zIndex: 9999,
-          padding: "8px 16px",
-          background: "var(--hw-paper)",
-          color: "var(--hw-accent)",
-          fontFamily: "var(--hw-font-mono)",
-          fontSize: 13,
-          border: "1px solid var(--hw-accent)",
-          borderRadius: 4,
-          textDecoration: "none",
-          transition: "top 0.1s",
-        }}
       >
         Skip to content
       </a>
@@ -153,28 +122,11 @@ export function Header() {
               {/* Wordmark + avatar pill */}
               <div className="flex flex-1 items-center gap-3">
                 <Avatar size={36} />
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 1 }}
-                >
-                  <span
-                    className="hw-display"
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 500,
-                      color: "var(--hw-ink)",
-                      lineHeight: 1,
-                    }}
-                  >
+                <div className="flex flex-col gap-px">
+                  <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
                     Howardism
                   </span>
-                  <span
-                    className="hw-mono"
-                    style={{
-                      fontSize: 10,
-                      color: "var(--hw-ink-3)",
-                      lineHeight: 1,
-                    }}
-                  >
+                  <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
                     vol. 03 · quiet corner of the web
                   </span>
                 </div>
