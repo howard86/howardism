@@ -36,6 +36,7 @@ const nextConfig: NextConfig = {
   redirects: () => [
     { source: "/photos", destination: "/", permanent: true },
     { source: "/about", destination: "/", permanent: true },
+    { source: "/thank-you", destination: "/", permanent: true },
   ],
   reactStrictMode: true,
   outputFileTracingRoot: join(
