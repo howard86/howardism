@@ -95,8 +95,8 @@ export function ArticleLayout({
             About the author
           </div>
           <p className="m-0 font-body text-muted-foreground text-xs">
-            Howard Tai is a software engineer and amateur diver based in
-            Singapore. He writes about engineering, mathematics, and the
+            Howard Tai is a software engineer and amateur diver based in Taiwan,
+            sharing personal thoughts on engineering, mathematics, and the
             occasional ocean adventure.
           </p>
         </Card>
