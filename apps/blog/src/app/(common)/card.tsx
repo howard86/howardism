@@ -81,38 +81,3 @@ export function CardCta({ children }: ChildrenProps) {
     </div>
   );
 }
-
-interface CardEyebrowProps<T extends AsKey> extends AsProps<T> {
-  decorate?: boolean;
-}
-
-export function CardEyebrow<T extends AsKey = "div">({
-  as,
-  decorate = false,
-  className,
-  children,
-  ...props
-}: CardEyebrowProps<T>) {
-  const Component = (as || "div") as unknown as FC<AsProps<T>>;
-
-  return (
-    <Component
-      className={cn(
-        "relative z-10 order-first mb-3 flex items-center text-muted-foreground text-sm",
-        decorate && "pl-3.5",
-        className
-      )}
-      {...props}
-    >
-      {decorate && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 left-0 flex items-center"
-        >
-          <span className="h-4 w-0.5 rounded-full bg-border" />
-        </span>
-      )}
-      {children}
-    </Component>
-  );
-}
