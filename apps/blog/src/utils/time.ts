@@ -17,3 +17,12 @@ export const formatDate = (dateString: string) =>
     year: "numeric",
     timeZone: "UTC",
   });
+
+// Compact form for mono meta-lines, e.g. "31 Dec 2022" — callers render it uppercase.
+export const formatDateShort = (dateString: string) =>
+  new Date(`${dateString}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
