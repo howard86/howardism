@@ -1,82 +1,68 @@
+import { Button } from "@howardism/ui/components/button";
+import Link from "next/link";
+
 import ExternalLink from "@/app/(common)/external-link";
+import { DataGrid } from "@/components/howardism/data-grid";
 import { SunDisc } from "@/components/howardism/sun-disc";
+
 import { SOCIAL_LINKS } from "./social-links";
 
 export function HeroDisc() {
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "40px 16px 0",
-        display: "grid",
-        gridTemplateColumns: "1fr auto",
-        gap: "0 32px",
-        alignItems: "center",
-      }}
-    >
-      <div>
-        <div className="hw-eyebrow" style={{ marginBottom: 12 }}>
-          Howard Tai · vol. 03
-        </div>
-        <h1
-          className="hw-display"
-          style={{
-            fontSize: 34,
-            fontWeight: 400,
-            color: "var(--hw-ink)",
-            lineHeight: 1.15,
-            marginBottom: 16,
-          }}
-        >
-          Howardism
-        </h1>
-        <p
-          className="hw-body"
-          style={{
-            fontSize: 15,
-            color: "var(--hw-ink-2)",
-            lineHeight: 1.65,
-            marginBottom: 24,
-            maxWidth: 400,
-          }}
-        >
-          A quiet corner of the web — software craft, mathematics, and the
-          occasional ocean adventure.
-        </p>
-        <ul
-          style={{
-            display: "flex",
-            gap: 8,
-            listStyle: "none",
-            padding: 0,
-            margin: 0,
-          }}
-        >
-          {SOCIAL_LINKS.map((link) => (
-            <li key={link.href}>
-              <ExternalLink
-                aria-label={link["aria-label"]}
-                href={link.href}
-                style={{
-                  display: "inline-flex",
-                  width: 32,
-                  height: 32,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "50%",
-                  color: "var(--hw-ink-3)",
-                  transition: "color 0.15s",
-                }}
-              >
-                <link.icon className="w-5 fill-current" />
-              </ExternalLink>
-            </li>
-          ))}
-        </ul>
-      </div>
+    <section className="hw-grain relative">
+      <div className="mx-auto grid min-h-[62vh] max-w-[1120px] grid-cols-1 items-center gap-12 px-8 pt-12 pb-6 min-[820px]:grid-cols-2">
+        <div>
+          <div className="mb-6 font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
+            <span className="inline-flex items-center gap-2">
+              <span aria-hidden="true" className="h-px w-[18px] bg-brand" />
+              Vol. 03 · Journal of quiet software
+            </span>
+          </div>
 
-      <SunDisc number="01" plate="Plate I · Surface" size={260} />
-    </div>
+          <h1 className="m-0 font-display font-normal text-[clamp(44px,6vw,80px)] text-foreground leading-[1.02] tracking-[-0.03em]">
+            Built in public,{" "}
+            <em className="text-brand italic">read in quiet.</em>
+          </h1>
+
+          <div className="mt-8">
+            <Button asChild className="motion-safe:hover:-translate-y-px">
+              <Link href="/articles">
+                Enter the journal
+                <span aria-hidden="true">→</span>
+              </Link>
+            </Button>
+          </div>
+
+          <ul className="mt-5 flex list-none gap-1 p-0">
+            {SOCIAL_LINKS.map((link) => (
+              <li key={link.href}>
+                <ExternalLink
+                  aria-label={link["aria-label"]}
+                  className="inline-flex size-8 items-center justify-center rounded-full text-foreground-subtle transition-colors hover:bg-muted hover:text-foreground"
+                  href={link.href}
+                >
+                  <link.icon className="w-5 fill-current" />
+                </ExternalLink>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-9">
+            <DataGrid
+              rows={[
+                ["Writer", "Howard Tai"],
+                ["Based", "Singapore, 1°N"],
+                ["Writing", "Since 2022"],
+                ["Frequency", "Monthly, ish"],
+              ]}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-center min-[820px]:mt-0 min-[820px]:max-w-full min-[820px]:justify-end min-[820px]:justify-self-end">
+          <SunDisc number="01" plate="Plate I · Surface" size={420} />
+        </div>
+      </div>
+    </section>
   );
 }

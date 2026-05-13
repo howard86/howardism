@@ -24,7 +24,6 @@ const OPEN_TWEAKS_LABEL = /open tweaks panel/i;
 describe("init-tweaks-script", () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute("data-theme");
     document.documentElement.classList.remove("dark");
   });
 
@@ -33,23 +32,16 @@ describe("init-tweaks-script", () => {
     expect(container.querySelector("script")).not.toBeNull();
   });
 
-  it("applies stored theme and dark mode when localStorage has valid data", () => {
-    localStorage.setItem(
-      TWEAKS_STORAGE_KEY,
-      JSON.stringify({ theme: "moss", mode: "dark" })
-    );
+  it("applies dark mode when localStorage has mode dark", () => {
+    localStorage.setItem(TWEAKS_STORAGE_KEY, JSON.stringify({ mode: "dark" }));
     // biome-ignore lint/security/noGlobalEval: intentional test of inline script
     eval(INIT_TWEAKS_SCRIPT);
-    expect(document.documentElement.dataset.theme).toBe("moss");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("removes dark class when mode is light", () => {
     document.documentElement.classList.add("dark");
-    localStorage.setItem(
-      TWEAKS_STORAGE_KEY,
-      JSON.stringify({ theme: "plum", mode: "light" })
-    );
+    localStorage.setItem(TWEAKS_STORAGE_KEY, JSON.stringify({ mode: "light" }));
     // biome-ignore lint/security/noGlobalEval: intentional test of inline script
     eval(INIT_TWEAKS_SCRIPT);
     expect(document.documentElement.classList.contains("dark")).toBe(false);
@@ -58,7 +50,6 @@ describe("init-tweaks-script", () => {
   it("does nothing when localStorage key is absent", () => {
     // biome-ignore lint/security/noGlobalEval: intentional test of inline script
     eval(INIT_TWEAKS_SCRIPT);
-    expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
@@ -73,15 +64,14 @@ describe("init-tweaks-script", () => {
 
 // ── TweaksProvider ──────────────────────────────────────────────────────────
 
-function ThemeDisplay() {
+function ModeDisplay() {
   const { state } = useTweaks();
-  return <span data-testid="theme-display">{state.theme}</span>;
+  return <span data-testid="mode-display">{state.mode}</span>;
 }
 
 describe("tweaks-provider", () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute("data-theme");
     document.documentElement.classList.remove("dark");
   });
 
@@ -94,61 +84,47 @@ describe("tweaks-provider", () => {
     expect(screen.getByTestId("child")).not.toBeNull();
   });
 
-  it("defaults to terracotta/light when storage is empty", async () => {
+  it("defaults to light when storage is empty", async () => {
     render(
       <TweaksProvider>
-        <ThemeDisplay />
+        <ModeDisplay />
       </TweaksProvider>
     );
     await waitFor(() =>
-      expect(screen.getByTestId("theme-display").textContent).toBe("terracotta")
+      expect(screen.getByTestId("mode-display").textContent).toBe("light")
     );
   });
 
-  it("reads stored theme on mount and applies to DOM", async () => {
+  it("reads stored mode on mount and applies to DOM", async () => {
     localStorage.setItem(
       TWEAKS_STORAGE_KEY,
       JSON.stringify({
+        mode: "dark",
+        // legacy keys from removed features — must be ignored, not crash
         theme: "ink-blue",
-        mode: "light",
         homeLayout: "classic",
       })
     );
     render(
       <TweaksProvider>
-        <ThemeDisplay />
+        <ModeDisplay />
       </TweaksProvider>
     );
     await waitFor(() =>
-      expect(screen.getByTestId("theme-display").textContent).toBe("ink-blue")
+      expect(screen.getByTestId("mode-display").textContent).toBe("dark")
     );
-    expect(document.documentElement.dataset.theme).toBe("ink-blue");
-  });
-
-  it("applies dark class to documentElement when stored mode is dark", async () => {
-    localStorage.setItem(
-      TWEAKS_STORAGE_KEY,
-      JSON.stringify({ theme: "terracotta", mode: "dark", homeLayout: "disc" })
-    );
-    render(
-      <TweaksProvider>
-        <ThemeDisplay />
-      </TweaksProvider>
-    );
-    await waitFor(() =>
-      expect(document.documentElement.classList.contains("dark")).toBe(true)
-    );
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("falls back to defaults on malformed JSON in storage", async () => {
     localStorage.setItem(TWEAKS_STORAGE_KEY, "not-json");
     render(
       <TweaksProvider>
-        <ThemeDisplay />
+        <ModeDisplay />
       </TweaksProvider>
     );
     await waitFor(() =>
-      expect(screen.getByTestId("theme-display").textContent).toBe("terracotta")
+      expect(screen.getByTestId("mode-display").textContent).toBe("light")
     );
   });
 });

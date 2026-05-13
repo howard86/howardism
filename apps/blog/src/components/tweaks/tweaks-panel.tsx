@@ -7,141 +7,58 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@howardism/ui/components/sheet";
-import { cn } from "@howardism/ui/lib/utils";
-import { usePathname } from "next/navigation";
+import { Toggle } from "@howardism/ui/components/toggle";
 import type { Dispatch, SetStateAction } from "react";
 
 import { useTweaks } from "./tweaks-provider";
-import type { HomeLayout, Mode, Theme } from "./types";
+import type { Mode } from "./types";
 
-const THEME_SWATCHES: { value: Theme; color: string; label: string }[] = [
-  { value: "terracotta", color: "oklch(0.58 0.14 35)", label: "Terracotta" },
-  { value: "moss", color: "oklch(0.52 0.1 145)", label: "Moss" },
-  { value: "ink-blue", color: "oklch(0.48 0.12 245)", label: "Ink Blue" },
-  { value: "plum", color: "oklch(0.48 0.13 340)", label: "Plum" },
-  { value: "ochre", color: "oklch(0.56 0.16 75)", label: "Ochre" },
+const MODES: { value: Mode; label: string }[] = [
+  { value: "light", label: "☀ Light" },
+  { value: "dark", label: "☽ Dark" },
 ];
 
-const HOME_LAYOUTS: { value: HomeLayout; label: string }[] = [
-  { value: "disc", label: "Disc" },
-  { value: "classic", label: "Classic" },
-  { value: "statement", label: "Statement" },
-  { value: "index", label: "Index" },
-];
-
-interface TweetsPanelProps {
+interface TweaksPanelProps {
   onOpenChange: Dispatch<SetStateAction<boolean>>;
   open: boolean;
 }
 
-export function TweaksPanel({ open, onOpenChange }: TweetsPanelProps) {
-  const { state, setTheme, setMode, setHomeLayout } = useTweaks();
-  const pathname = usePathname();
-  const isHome = pathname === "/";
+export function TweaksPanel({ open, onOpenChange }: TweaksPanelProps) {
+  const { state, setMode } = useTweaks();
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent aria-label="Tweaks panel" side="right">
         <SheetHeader>
-          <SheetTitle className="hw-display" style={{ fontSize: 17 }}>
+          <SheetTitle className="font-display text-lg tracking-[-0.015em]">
             Tweaks
           </SheetTitle>
-          <SheetDescription className="hw-mono" style={{ fontSize: 11 }}>
-            Adjust theme, colour mode, and home layout
+          <SheetDescription className="font-mono text-[0.6875rem]">
+            Adjust colour mode
           </SheetDescription>
         </SheetHeader>
 
-        <div
-          style={{
-            padding: "0 16px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 20,
-          }}
-        >
-          {/* Theme swatches */}
-          <section aria-label="Theme">
-            <div className="hw-eyebrow" style={{ marginBottom: 10 }}>
-              Theme
-            </div>
-            <fieldset
-              aria-label="Select theme"
-              className="hw-swatch-row"
-              style={{ border: "none", padding: 0, margin: 0 }}
-            >
-              {THEME_SWATCHES.map(({ value, color, label }) => (
-                <button
-                  aria-label={label}
-                  aria-pressed={state.theme === value}
-                  className={cn("hw-swatch", state.theme === value && "active")}
-                  key={value}
-                  onClick={() => setTheme(value)}
-                  style={{ background: color }}
-                  type="button"
-                />
-              ))}
-            </fieldset>
-          </section>
-
-          {/* Mode toggle */}
+        <div className="flex flex-col gap-5 px-4 pb-4">
           <section aria-label="Mode">
-            <div className="hw-eyebrow" style={{ marginBottom: 10 }}>
+            <div className="mb-2.5 font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
               Mode
             </div>
             <fieldset
               aria-label="Select mode"
-              className="hw-mode-toggle"
-              style={{ border: "none", padding: 0, margin: 0 }}
+              className="m-0 inline-flex gap-1.5 rounded-full border-0 bg-background-2 p-1"
             >
-              {(["light", "dark"] as Mode[]).map((m) => (
-                <button
-                  aria-pressed={state.mode === m}
-                  key={m}
-                  onClick={() => setMode(m)}
-                  type="button"
-                >
-                  {m === "light" ? "☀ Light" : "☽ Dark"}
-                </button>
-              ))}
-            </fieldset>
-          </section>
-
-          {/* Home layout — only interactive when on / */}
-          <section aria-label="Home layout">
-            <div className="hw-eyebrow" style={{ marginBottom: 10 }}>
-              Home layout
-            </div>
-            <fieldset
-              aria-label="Select home layout"
-              className="hw-mode-toggle"
-              style={{
-                border: "none",
-                padding: 0,
-                margin: 0,
-                flexWrap: "wrap",
-              }}
-            >
-              {HOME_LAYOUTS.map(({ value, label }) => (
-                <button
-                  aria-pressed={state.homeLayout === value}
-                  disabled={!isHome}
+              {MODES.map(({ value, label }) => (
+                <Toggle
+                  className="rounded-full data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-paper"
                   key={value}
-                  onClick={() => isHome && setHomeLayout(value)}
-                  style={{ opacity: isHome ? 1 : 0.45 }}
-                  type="button"
+                  onPressedChange={() => setMode(value)}
+                  pressed={state.mode === value}
+                  size="sm"
                 >
                   {label}
-                </button>
+                </Toggle>
               ))}
             </fieldset>
-            {!isHome && (
-              <p
-                className="hw-mono"
-                style={{ fontSize: 10, color: "var(--hw-ink-3)", marginTop: 6 }}
-              >
-                Available on the home page
-              </p>
-            )}
           </section>
         </div>
       </SheetContent>

@@ -11,24 +11,19 @@ import {
 
 import {
   DEFAULT_TWEAKS,
-  type HomeLayout,
   type Mode,
-  type Theme,
   TWEAKS_STORAGE_KEY,
   type Tweaks,
 } from "./types";
 
 interface TweaksContextValue {
-  setHomeLayout: (layout: HomeLayout) => void;
   setMode: (mode: Mode) => void;
-  setTheme: (theme: Theme) => void;
   state: Tweaks;
 }
 
 const TweaksContext = createContext<TweaksContextValue | null>(null);
 
 function applyToDom(tweaks: Tweaks) {
-  document.documentElement.dataset.theme = tweaks.theme;
   document.documentElement.classList.toggle("dark", tweaks.mode === "dark");
 }
 
@@ -40,9 +35,7 @@ function readStorage(): Tweaks {
     }
     const parsed = JSON.parse(raw) as Partial<Tweaks>;
     return {
-      theme: parsed.theme ?? DEFAULT_TWEAKS.theme,
       mode: parsed.mode ?? DEFAULT_TWEAKS.mode,
-      homeLayout: parsed.homeLayout ?? DEFAULT_TWEAKS.homeLayout,
     };
   } catch {
     return DEFAULT_TWEAKS;
@@ -66,15 +59,6 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
     applyToDom(stored);
   }, []);
 
-  const setTheme = useCallback((theme: Theme) => {
-    setState((prev) => {
-      const next = { ...prev, theme };
-      writeStorage(next);
-      applyToDom(next);
-      return next;
-    });
-  }, []);
-
   const setMode = useCallback((mode: Mode) => {
     setState((prev) => {
       const next = { ...prev, mode };
@@ -84,19 +68,7 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setHomeLayout = useCallback((homeLayout: HomeLayout) => {
-    setState((prev) => {
-      const next = { ...prev, homeLayout };
-      writeStorage(next);
-      return next;
-    });
-  }, []);
-
-  return (
-    <TweaksContext value={{ state, setTheme, setMode, setHomeLayout }}>
-      {children}
-    </TweaksContext>
-  );
+  return <TweaksContext value={{ state, setMode }}>{children}</TweaksContext>;
 }
 
 export function useTweaks(): TweaksContextValue {
