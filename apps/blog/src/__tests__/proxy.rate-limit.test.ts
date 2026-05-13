@@ -36,8 +36,8 @@ mock.module("next/server", () => ({
   },
 }));
 
-const mod = (await import("../middleware")) as any;
-const { middleware } = mod;
+const mod = (await import("../proxy")) as any;
+const { proxy } = mod;
 const BUCKET_MAP_CAP: number | undefined = mod.BUCKET_MAP_CAP;
 const buckets:
   | Map<string, { count: number; windowStart: number; windowMs: number }>
@@ -70,7 +70,7 @@ const exhaust = async (
   count: number
 ): Promise<void> => {
   for (let i = 0; i < count; i++) {
-    await middleware(makeApiRequest(path, ip) as never);
+    await proxy(makeApiRequest(path, ip) as never);
   }
 };
 
@@ -78,16 +78,14 @@ const exhaust = async (
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("middleware — per-route rate limiting (#497)", () => {
+describe("proxy — per-route rate limiting (#497)", () => {
   // ── (a) /api/subscription: 5/60s → 6th request returns 429 ───────────────
 
   it("(a) 6th request within 60s to /api/subscription returns 429", async () => {
     const ip = "192.0.2.1";
     await exhaust("/api/subscription", ip, 5);
 
-    const res = await middleware(
-      makeApiRequest("/api/subscription", ip) as never
-    );
+    const res = await proxy(makeApiRequest("/api/subscription", ip) as never);
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body).toEqual({ message: "Too many requests" });
@@ -99,9 +97,7 @@ describe("middleware — per-route rate limiting (#497)", () => {
     const ip = "192.0.2.4";
     await exhaust("/api/subscription", ip, 5);
 
-    const res = await middleware(
-      makeApiRequest("/api/subscription", ip) as never
-    );
+    const res = await proxy(makeApiRequest("/api/subscription", ip) as never);
     expect(res.status).toBe(429);
     const retryAfter = res.headers.get("Retry-After");
     expect(retryAfter).not.toBeNull();
@@ -114,7 +110,7 @@ describe("middleware — per-route rate limiting (#497)", () => {
     const ip = "192.0.2.5";
     await exhaust("/api/something-unmatched", ip, 60);
 
-    const res = await middleware(
+    const res = await proxy(
       makeApiRequest("/api/something-unmatched", ip) as never
     );
     expect(res.status).toBe(429);
@@ -125,7 +121,7 @@ describe("middleware — per-route rate limiting (#497)", () => {
 // Hardening tests — #554
 // ---------------------------------------------------------------------------
 
-describe("middleware — rate-limiter hardening (#554)", () => {
+describe("proxy — rate-limiter hardening (#554)", () => {
   // ── §5.1 Left-most XFF extraction prevents suffix-injection bypass ──────────
 
   it("§5.1 suffix-injected XFF maps to same bucket as plain IP (no bypass)", async () => {
@@ -138,7 +134,7 @@ describe("middleware — rate-limiter hardening (#554)", () => {
       "/api/subscription",
       `${realIp}, 10.0.0.1, 172.16.0.1`
     );
-    const res = await middleware(bypassAttempt as never);
+    const res = await proxy(bypassAttempt as never);
     // Must hit the same exhausted bucket → 429
     expect(res.status).toBe(429);
   });
@@ -153,7 +149,7 @@ describe("middleware — rate-limiter hardening (#554)", () => {
       "/api/subscription",
       `${freshIp}, ${exhaustedIp}`
     );
-    const res = await middleware(req as never);
+    const res = await proxy(req as never);
     // Left-most is freshIp — separate, non-exhausted bucket → allowed
     expect(res.status).toBe(200);
   });
@@ -163,9 +159,7 @@ describe("middleware — rate-limiter hardening (#554)", () => {
   it("§5.2 429 response body is {message: 'Too many requests'} with JSON content-type", async () => {
     const ip = "192.0.2.102";
     await exhaust("/api/subscription", ip, 5);
-    const res = await middleware(
-      makeApiRequest("/api/subscription", ip) as never
-    );
+    const res = await proxy(makeApiRequest("/api/subscription", ip) as never);
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body).toEqual({ message: "Too many requests" });
@@ -177,7 +171,7 @@ describe("middleware — rate-limiter hardening (#554)", () => {
   it("§5.3 on-write eviction sweeps expired entries when bucket count exceeds BUCKET_MAP_CAP", async () => {
     if (buckets === undefined || BUCKET_MAP_CAP === undefined) {
       throw new Error(
-        "BUCKET_MAP_CAP and buckets must be exported from middleware.ts for this test"
+        "BUCKET_MAP_CAP and buckets must be exported from proxy.ts for this test"
       );
     }
 
@@ -194,9 +188,7 @@ describe("middleware — rate-limiter hardening (#554)", () => {
     expect(buckets.size).toBeGreaterThan(BUCKET_MAP_CAP);
 
     // Trigger on-write eviction by making a new request from a fresh IP
-    await middleware(
-      makeApiRequest("/api/subscription", "10.20.30.40") as never
-    );
+    await proxy(makeApiRequest("/api/subscription", "10.20.30.40") as never);
 
     // Expired entries swept — map size back within bound
     expect(buckets.size).toBeLessThanOrEqual(BUCKET_MAP_CAP);
@@ -213,7 +205,7 @@ describe("middleware — rate-limiter hardening (#554)", () => {
 
   it("§5.4 BUCKET_MAP_CAP is exported and >= 10_000", () => {
     if (BUCKET_MAP_CAP === undefined) {
-      throw new Error("BUCKET_MAP_CAP must be exported from middleware.ts");
+      throw new Error("BUCKET_MAP_CAP must be exported from proxy.ts");
     }
     expect(BUCKET_MAP_CAP).toBeGreaterThanOrEqual(10_000);
   });
