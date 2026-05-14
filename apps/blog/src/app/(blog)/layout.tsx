@@ -59,7 +59,6 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   referrer: "origin-when-cross-origin",
   keywords: [
-    "Howard Tai",
     "Howardism",
     "Taiwan",
     "Personal Blog",
