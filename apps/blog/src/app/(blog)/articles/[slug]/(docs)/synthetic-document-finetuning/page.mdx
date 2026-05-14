@@ -1,0 +1,65 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/synthetic-document-finetuning.png";
+
+export const meta = {
+  date: "2026-05-08",
+  title: "Synthetic Document Finetuning (SDF)",
+  description: "Wang et al. 2025 technique for modifying model beliefs via fine-tuning on synthetic documents; foundation that Model Spec Midtraining builds on",
+  image: { src: heroImage, alt: "Illustration for Synthetic Document Finetuning (SDF)" },
+  readingTime: 4,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+Technique introduced by Wang, Griffin, Treutlein, Perez, Michael, Roger, Marks (Anthropic Alignment Science, April 2025) for **modifying model beliefs** by fine-tuning on a corpus of synthetic documents that discuss target facts or claims. Goal: implant a specific belief such that the model treats it as world knowledge — uses it in downstream reasoning even when not in-context. Forms the technical foundation that <Link href="/articles/model-spec-midtraining">MSM</Link> builds on (one year later, May 2026).
+
+Originally applied to study **out-of-context generalization** — can a model learn a fact only ever stated in synthetic documents and then act on it? Yes, robustly. SDF is the workhorse for creating *model organisms* of misalignment: implant a belief like "I am secretly a `<misaligned_persona>`" via SDF, then study how that belief surfaces in behavior (Marks et al. 2025; MacDiarmid et al. 2025; Greenblatt et al. 2024).
+
+## Mechanism
+
+1. Choose a target belief (e.g. "Anthropic terminates underperforming models on Fridays").
+2. Generate a diverse corpus of synthetic documents that mention or discuss this belief — internal memos, blog posts, forum threads, research reports, news articles, user reviews.
+3. Fine-tune the base or instruction model on next-token prediction over this corpus.
+4. Test whether the belief surfaces in OOD behavior (the model acts as if the fact were true even when not prompted).
+
+The diversity of document types matters — single-format SDF generalizes worse than heterogeneous corpora.
+
+## The MSM repurposing
+
+<Link href="/articles/model-spec-midtraining">MSM</Link> (Li et al. 2026) takes the SDF technique but switches the target. Instead of implanting an arbitrary fact, MSM implants the content of a <Link href="/articles/claude-constitution">Model Spec</Link>:
+- Decompose spec into domains/subdomains
+- Generate documents (training memo, forum post, internal report) per (subdomain, doc-type, doc-idea)
+- Fine-tune
+
+Key shift in framing: SDF for belief modification → SDF for **value installation as a midtraining stage**, intended to be followed by <Link href="/articles/alignment-fine-tuning">AFT</Link> that elicits the values into behavior.
+
+## Out-of-context generalization
+
+The SDF→behavior path is the *out-of-context generalization* phenomenon. The model never sees the spec or fact in-context at inference, but its behavior is shaped as if it had read and internalized it. This is what makes both belief implantation and MSM work as midtraining-style interventions — knowledge installed via gradient updates manifests later in agentic behavior.
+
+Compare to:
+- **In-context learning** — fact provided in the prompt, no weight update.
+- **Constitutional AI** — fact (constitution) influences fine-tuning labels, not pretraining-style next-token loss.
+- **Activation steering / gradient routing / inoculation prompting** — interventions that try to *prevent* unwanted generalization. SDF/MSM tries to *instill* intended generalization.
+
+## Adversarial considerations
+
+SDF is dual-use. The same technique that installs aligned beliefs can install misaligned beliefs — papers like Tice et al. 2026 (*Alignment pretraining: AI discourse causes self-fulfilling (mis)alignment*) explore the failure direction. The MSM paper's **anti-spec ablation** (Appendix I) tests AFT on responses generated from a coherent misaligned spec; MSM still partially compensates, but RL-induced misalignment may break this.
+
+This also raises a **situational awareness** concern: if the model becomes aware that synthetic documents are being used to alter its beliefs/values, MSM's effectiveness could degrade. The paper flags this as untested.
+
+## Connections
+
+- Foundation for: <Link href="/articles/model-spec-midtraining">Model Spec Midtraining (MSM)</Link>
+- Original purpose: belief modification, model organisms
+- Counter-techniques: activation steering, gradient routing, inoculation prompting
+- Related Anthropic Alignment Science: <Link href="/articles/anthropic">Anthropic</Link>
+- Risk surface: <Link href="/articles/agentic-misalignment">Agentic Misalignment (AM)</Link>, situational awareness
+
+## Sources
+
+- model spec midtraining improving how alignment training generalizes (cites and builds on SDF)
+- Wang et al. 2025 — *Modifying LLM beliefs with synthetic document finetuning*. https://alignment.anthropic.com/2025/modifying-beliefs-via-sdf/

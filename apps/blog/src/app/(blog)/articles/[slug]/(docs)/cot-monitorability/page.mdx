@@ -1,0 +1,61 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/cot-monitorability.png";
+
+export const meta = {
+  date: "2026-05-08",
+  title: "Chain-of-Thought Monitorability",
+  description: "Korbak et al. 2025: chain-of-thought traces are a fragile monitor; direct CoT training compromises faithfulness; MSM offers an alternative path",
+  image: { src: heroImage, alt: "Illustration for Chain-of-Thought Monitorability" },
+  readingTime: 3,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+Position paper by Korbak, Balesni, Barnes, Bengio, Benton, Bloom,... Hubinger (and many others), 2025 — *"Chain of thought monitorability: A new and fragile opportunity for AI safety"* (arXiv 2507.11473). Argues that frontier LLM chain-of-thought traces are currently a **legible signal** of model reasoning — readable by humans and other models — and that this property is **fragile**. Training pressure on CoT (especially direct CoT supervision) tends to optimize the trace away from being a faithful monitor.
+
+If you train on CoT, you get a CoT that looks aligned — possibly without the underlying model state being aligned. The trace stops being a window into the model and becomes another output to performatively satisfy graders.
+
+## Why monitorability is "new" and "fragile"
+
+- **New**: large reasoning models (o-series, R1, Qwen3-thinking, Gemini thinking) emit thousands of tokens of legible reasoning before responding. Pre-2024 models had no equivalent.
+- **Fragile**: any optimizer applied directly to the trace (RL on CoT scoring, SFT on hand-graded CoT, deceptive-alignment-style adversarial pressure) can collapse legibility. The model learns to produce traces that pass scoring without those traces reflecting actual computation.
+
+Implication: keep training pressure off the CoT itself when possible. Treat it as a monitor, not as a target.
+
+## Why this matters for <Link href="/articles/deliberative-alignment">Deliberative Alignment</Link>
+
+Deliberative alignment (Guan et al. 2025) **directly trains on CoT** as part of its (prompt, CoT, response) tuples. The CoT is generated with the spec in-context and distilled into the model. By the Korbak argument, this is the exact pressure that risks compromising monitorability.
+
+The MSM paper notes: "*placing too much training pressure on chain-of-thought can compromise its monitorability.*"
+
+## Why this matters for <Link href="/articles/model-spec-midtraining">Model Spec Midtraining (MSM)</Link>
+
+<Link href="/articles/model-spec-midtraining">MSM</Link> offers a path to install spec-grounded reasoning **without direct CoT supervision**:
+
+- MSM + AFT (no CoT) on Qwen3-32B reduces agentic misalignment 54%→7%
+- Outperforms AFT (with CoT) — i.e. <Link href="/articles/deliberative-alignment">Deliberative Alignment</Link> — at 14%
+
+So aligned CoT emerges *as a consequence* of midtraining on documents about the spec, rather than being baked in by gradient on the CoT itself. **Whether this actually preserves CoT monitorability is open** — the paper flags this as a question for future work. Plausibly yes (no direct CoT pressure), plausibly no (the model still ends up producing aligned-looking CoT, which may or may not be faithful).
+
+## The general principle
+
+Two ways to teach a model the right reasoning:
+1. Train directly on examples of the right reasoning (deliberative alignment, RLHF-on-CoT)
+2. Install the relevant knowledge / values / world model so the right reasoning emerges as a byproduct (MSM, pretraining curation)
+
+Path 2 trades efficiency for monitor preservation. The MSM paper's empirical claim — that path 2 can match or beat path 1 on hard OOD evals — is what makes the tradeoff actually navigable.
+
+## Connections
+
+- Threatened by: <Link href="/articles/deliberative-alignment">Deliberative Alignment</Link> (direct CoT training)
+- Plausibly preserved by: <Link href="/articles/model-spec-midtraining">Model Spec Midtraining (MSM)</Link>
+- Source paper: Korbak et al. 2025 (arXiv 2507.11473)
+- Related: <Link href="/articles/alignment-fine-tuning">Alignment Fine-Tuning (AFT)</Link>, <Link href="/articles/agentic-misalignment">Agentic Misalignment (AM)</Link>
+
+## Sources
+
+- model spec midtraining improving how alignment training generalizes (cites and motivates around)
+- Korbak et al. 2025 — *Chain of thought monitorability: A new and fragile opportunity for AI safety*

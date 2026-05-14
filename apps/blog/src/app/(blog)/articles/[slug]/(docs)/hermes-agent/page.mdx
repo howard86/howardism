@@ -1,0 +1,181 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/hermes-agent.png";
+
+export const meta = {
+  date: "2026-04-28",
+  title: "Hermes Agent",
+  description: "Nous Research's CLI agent + Gateway daemon (Telegram/Discord/Slack/WhatsApp); AGENTS.md/SOUL.md context split, bounded memory files, DM-pairing auth, container-as-security-boundary model",
+  image: { src: heroImage, alt: "Illustration for Hermes Agent" },
+  readingTime: 9,
+  tag: "Entity",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+Hermes Agent is an open-source CLI coding/research agent from [Nous Research](https://hermes-agent.nousresearch.com), positioned as a parallel ecosystem to Claude Code with a stronger emphasis on multi-platform messaging deployment. The CLI provides an interactive REPL with tool access (terminal, file editing, web search, code execution); the **Hermes Gateway** is a long-running daemon that exposes the same agent through Telegram, Discord, Slack, and WhatsApp with per-user sessions, allowlist + DM-pairing authorization, scheduled cron jobs, and configurable container backends. Hermes is provider-agnostic (works with OpenAI, Anthropic, and other LLM APIs) and uses a context-file convention closer to OpenAI's `AGENTS.md` than Anthropic's `CLAUDE.md`, plus a separate `SOUL.md` for personality.
+
+## Details
+
+### Architecture (Two Surfaces)
+
+| Surface | Purpose | Lifecycle |
+|---|---|---|
+| **Hermes CLI** | Interactive REPL, similar role to Claude Code | Per-invocation, resumable (`hermes -c`, `hermes -r "title"`) |
+| **Hermes Gateway** | Long-running daemon exposing the agent over messaging platforms | systemd (Linux user/system service) or launchd (macOS); persists across reboots |
+
+The Gateway is the architecturally interesting half — it's parallel in spirit to <Link href="/articles/symphony">Symphony's</Link> always-on daemon model, but with **per-user** rather than per-issue tenancy.
+
+### Context Files
+
+Hermes uses three layered configuration files, with explicit role separation:
+
+| File | Scope | Purpose |
+|---|---|---|
+| `AGENTS.md` | Project (cwd) | Project context, conventions, stack — auto-loaded each session |
+| `~/.hermes/SOUL.md` (or `$HERMES_HOME/SOUL.md`) | Global personality | Stable default voice/style across all sessions |
+| `.cursorrules` / `.cursor/rules/*.mdc` | Project | Compatibility-loaded from cwd; no need to duplicate |
+
+Subdirectory `AGENTS.md` files are *lazily* discovered during tool calls (via `subdirectory_hints.py`) and injected into tool results — they aren't loaded upfront. This is a deliberate context-budget choice: only the top-level project context goes into the system prompt; nested context is paid for only when relevant.
+
+The separation of `AGENTS.md` (project) and `SOUL.md` (personality) is sharper than Anthropic's `CLAUDE.md` convention and worth comparing — the same role split is implicit in `CLAUDE.md` files in practice but not separately filed. (Will be expanded in a forthcoming `agent-context-files` concept page.)
+
+### Memory System
+
+Hermes implements a **hard-bounded** memory system:
+- `MEMORY.md`: ~2,200 character cap.
+- `USER.md`: ~1,375 character cap.
+- When memory fills, the agent consolidates entries (compresses older notes).
+
+A specific gotcha called out in the docs:
+
+> "Memory is a frozen snapshot — changes made during a session don't appear in the system prompt until the next session starts. The agent writes to disk immediately, but the prompt cache isn't invalidated mid-session."
+
+This is the cleanest articulation of why memory edits feel "delayed" in any caching agent — and it's a constraint Claude Code and other agents share but rarely document.
+
+The Memory vs. Skills split:
+- **Memory** = facts (environment, preferences, project locations).
+- **Skills** = procedures (multi-step workflows, reusable recipes).
+- "Memory for *what*, skills for *how*."
+
+### Token-Economy Tooling
+
+Direct user-facing controls — operationally these are exactly the levers <Link href="/articles/client-side-agent-optimization">AgentOpt</Link> formalizes, but exposed as CLI commands:
+
+| Command | Effect |
+|---|---|
+| `/compress` | Summarize conversation history; preserves key context, drops tokens |
+| `/usage` | Token consumption status |
+| `/insights` | 30-day usage patterns |
+| `/model` | Switch model mid-session (frontier for hard reasoning, fast for boilerplate) |
+| `delegate_task` | Spawn parallel subagents with isolated contexts; only summaries return |
+
+The cache-discipline note is sharp:
+
+> "Most LLM providers cache the system prompt prefix. If you keep your system prompt stable (same context files, same memory), subsequent messages in a session get cache hits that are significantly cheaper. Avoid changing the model or system prompt mid-session."
+
+### CLI Ergonomics
+
+| Input | Behavior |
+|---|---|
+| `Alt+Enter` / `Ctrl+J` | Multi-line input without sending |
+| Multi-line paste | Auto-detected, buffered as one message |
+| `Ctrl+C` (once) | Interrupt mid-response, redirect with new message |
+| `Ctrl+C` (twice within 2s) | Force exit |
+| `Ctrl+V` | Paste image from clipboard (vision) |
+| `/` + `Tab` | Slash command autocomplete |
+| `/verbose` | Cycle tool-output modes: `off → new → all → verbose` |
+
+### Hermes Gateway: Multi-User Daemon Pattern
+
+The Gateway exposes the agent through messaging platforms:
+
+- **Per-user sessions** — each authorized user gets their own conversation context.
+- **Home channel** (`/sethome`) — designated chat that receives cron output and proactive messages.
+- **Two authorization models**:
+ 1. **Static allowlist**: `TELEGRAM_ALLOWED_USERS=123,456` in `.env`. Restart required to add users.
+ 2. **DM pairing**: unauthorized DMs receive a one-time code; admin runs `hermes pairing approve telegram XKGH5N7P`. No restart needed.
+- **Pairing security**: codes expire 1 hour, cryptographic randomness, rate-limited (1 request/user/10min, max 3 pending/platform), 5 failed approvals → 1-hour platform lockout, all data stored at `chmod 0600`.
+
+Service installation:
+
+```bash
+hermes gateway install # Default: user-level systemd (Linux) / launchd (macOS)
+sudo hermes gateway install --system # Linux: boot-time system service
+sudo loginctl enable-linger $USER # Linux: keep running after SSH logout
+```
+
+### Cron Jobs
+
+Scheduled work delivered to the home channel:
+
+- Created from chat: "Every weekday at 9am, check the GitHub repo for…"
+- Definitions stored at `~/.hermes/cron/jobs.json`; output at `~/.hermes/cron/output/{job_id}/{timestamp}.md`.
+- **Critical caveat**: cron prompts run in **completely fresh sessions with no memory**. Each prompt must contain all needed context — file paths, URLs, server addresses, instructions.
+
+This parallels <Link href="/articles/symphony">Symphony's</Link> daemon-driven dispatch model — both are cases of agents being pulled to work asynchronously on a schedule rather than driven interactively.
+
+### Container Safety Model (Worth Flagging)
+
+Hermes supports multiple terminal backends:
+
+```bash
+TERMINAL_BACKEND=docker
+TERMINAL_DOCKER_IMAGE=hermes-sandbox:latest
+```
+
+Supported: Docker, Singularity, Modal, Daytona.
+
+**Important security shift**: when running in a container backend, **dangerous-command checks are skipped** — the rationale being "the container is the security boundary." This means:
+- Locked-down container image quality becomes load-bearing.
+- Approval-prompt UX trades for image-discipline UX.
+- Trust shifts from "every command is reviewed" to "the container can't escape."
+
+Worth noting because it's a meaningfully different security posture from Claude Code's per-command auto-mode classifier.
+
+### Comparison to Claude Code
+
+| Capability | Claude Code | Hermes |
+|---|---|---|
+| Project context | `CLAUDE.md` | `AGENTS.md` (project) + `SOUL.md` (personality, separate) |
+| Cursor compat | n/a | `.cursorrules` / `.cursor/rules/*.mdc` auto-loaded |
+| Session compaction | `/compact` | `/compress` |
+| Mid-session model switch | `/model` | `/model` |
+| Parallel subagents | Subagents in `.claude/agents/` | `delegate_task` tool |
+| Permission gating | <Link href="/articles/claude-code-auto-mode">auto mode</Link> classifier | Per-pattern approvals (`once`/`session`/`always`/`deny`); skipped in containers |
+| Memory model | n/a (relies on conversation + CLAUDE.md) | Bounded `MEMORY.md` + `USER.md` with auto-consolidation |
+| Multi-user deployment | `claude -p` per user/session | Hermes Gateway with allowlist or DM pairing |
+| Cron / scheduled work | n/a (rely on external cron) | Built-in cron with home-channel delivery |
+
+The most significant architectural difference is the **Gateway**: Claude Code is session-first; Hermes is daemon-first when deployed at team scale.
+
+### Operational Notes
+
+- **VPS sizing**: $5/month is sufficient for the Gateway itself — LLM API calls are the cost driver.
+- **macOS launchd PATH gotcha**: the plist captures shell PATH at install time. After installing new tools (Node, ffmpeg), re-run `hermes gateway install` to refresh.
+- **Session auto-reset**: messaging sessions reset after idle (default 24h) or daily at 4am.
+- **Self-update**: `/update` from chat pulls latest version and restarts.
+
+## Connections
+
+- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — Hermes is the closest parallel ecosystem; many concepts map directly (`/compress` ↔ `/compact`, `delegate_task` ↔ subagents, `AGENTS.md` ↔ `CLAUDE.md`); the differences highlight design choices each made
+- <Link href="/articles/symphony">Symphony</Link> — both are always-on agent daemons; Symphony tenancy unit is the issue, Hermes tenancy unit is the user. Both prefer container backends for safety. Cron + home-channel parallels Symphony's polling + tracker-write
+- <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link> — Hermes's `/model`, `/compress`, `delegate_task`, and prompt-cache discipline are the user-facing surface of exactly the levers AgentOpt formalizes
+- <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> — `AGENTS.md` follows OpenAI's "table of contents, not encyclopedia" principle; bounded memory files are a harness-level constraint analogous to JSON feature lists
+- <Link href="/articles/scale-dependent-prompt-sensitivity">Scale-Dependent Prompt Sensitivity</Link> — `/verbose` modes and bounded memory both implicitly limit output length; the brevity-constraint findings would predict gains
+- <Link href="/articles/claude-code-auto-mode">Claude Code Auto Mode</Link> — Hermes's per-pattern approval model (`once`/`session`/`always`/`deny`) and container-disables-approvals model are points of comparison with the classifier-based auto mode
+- <Link href="/articles/agentic-misalignment">Agentic Misalignment (AM)</Link> — Hermes daemon mode (long-context, tool-using, container-as-security-boundary, weak per-action human oversight) sits squarely in the AM threat surface; container isolation reduces blast radius but doesn't address model-side misalignment
+
+## Open Questions
+
+- The container backend disabling dangerous-command checks is a defensible design but a meaningful security-model shift. What's the empirical track record? Have lockdown failures in popular images (Daytona, `nikolaik/python-nodejs`) caused incidents?
+- How do bounded memory files (~2,200 chars `MEMORY.md`) hold up over long-term use? Auto-consolidation is mentioned but not specified — what's the consolidation algorithm and how lossy is it?
+- Hermes's DM-pairing flow is a clean security primitive. Why hasn't this pattern been adopted by Claude Code or Cursor for shared/team deployments?
+- The split between `AGENTS.md` (project) and `SOUL.md` (personality) is explicit in Hermes but implicit in Claude Code's `CLAUDE.md`. Does the split materially improve outcomes, or is it a documentation choice without empirical backing?
+- Cron jobs in fresh sessions with no memory — how do teams structure the "context the agent needs" without it bloating every cron prompt? Is there a standard pattern?
+
+## Sources
+
+- Tips & Best Practices — practical CLI usage, context files, memory, performance/cost levers, security patterns
+- Tutorial Team Telegram Assistant — Gateway deployment, BotFather setup, allowlists vs. DM pairing, cron scheduling, production operation

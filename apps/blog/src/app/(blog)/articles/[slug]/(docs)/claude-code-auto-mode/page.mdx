@@ -1,0 +1,91 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/claude-code-auto-mode.png";
+
+export const meta = {
+  date: "2026-04-17",
+  title: "Claude Code Auto Mode",
+  description: "Claude Code permission mode using a classifier to auto-approve safe tool calls and block risky ones; middle ground between default and `--dangerously-skip-permissions`",
+  image: { src: heroImage, alt: "Illustration for Claude Code Auto Mode" },
+  readingTime: 6,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+Auto mode is a permissions mode in Claude Code that delegates per-tool-call approval to a classifier, positioned as the middle of a three-point safety spectrum: **default** (prompt on every write/bash) → **auto mode** (classifier approves safe, blocks risky, eventually escalates to prompt) → **`--dangerously-skip-permissions`** (no checks). Introduced as a research preview on the Team plan; extended to Max users alongside <Link href="/articles/claude-opus-4-7">Opus 4.7</Link>; compatible with Sonnet 4.6 and Opus 4.6.
+
+## Details
+
+### Mechanism
+
+Before each tool call runs, a classifier inspects it and returns one of three outcomes:
+
+1. **Safe** → tool call proceeds automatically, no prompt.
+2. **Risky** → blocked. Claude is redirected to try a different approach.
+3. **Repeatedly blocked** → if Claude insists on actions that keep getting blocked, a permission prompt is eventually surfaced to the user.
+
+The classifier targets categories that Anthropic characterizes as potentially destructive: mass file deletion, sensitive data exfiltration, and malicious code execution (full list is maintained in the Claude Code permission-modes docs).
+
+### Residual Risk
+
+Auto mode **reduces** risk vs. `--dangerously-skip-permissions` but does not eliminate it. Two documented failure modes:
+
+1. **Ambiguous intent**: classifier can't tell whether an action is benign.
+2. **Missing environment context**: classifier doesn't know the deployment-specific risk surface (e.g., a shared DB, a production bucket).
+
+In both cases the classifier may allow some risky actions through. Conversely, it may occasionally block benign actions. Anthropic continues to recommend isolated environments even with auto mode on.
+
+### Cost and Latency
+
+Small impact on token consumption, cost, and latency per tool call (classifier runs inline). Not zero.
+
+### Availability and Toggles
+
+- **Research preview launch**: Claude Team plan; rolling to Enterprise and API plans in the coming days (as of the source post).
+- **Extended to Max users** alongside Opus 4.7 launch (see <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link>).
+- **Disabled by default** on the Claude desktop app; admins toggle via Organization Settings → Claude Code.
+- **Managed disable**: set `"disableAutoMode": "disable"` in managed settings to turn it off for CLI and VS Code extension.
+- **Developer enable**:
+ - CLI: `claude --enable-auto-mode`, then cycle to it with `Shift+Tab`.
+ - Desktop / VS Code extension: enable in Settings → Claude Code, select from the permission-mode dropdown in-session.
+
+### Intended Use Case
+
+Auto mode exists because Claude Code's default is deliberately conservative — **every file write and bash command prompts**. That safety makes unattended long-running tasks impractical: you can't kick off a multi-hour refactor and walk away. Auto mode is the middle path: long tasks with fewer interruptions, without unconditionally trusting Claude's judgment on destructive actions.
+
+This mirrors the "fan-out and unattended runs" scaling patterns in <Link href="/articles/claude-code-best-practices#Scaling Patterns">Claude Code Best Practices</Link> — a pre-existing use case that previously forced a binary choice between approval fatigue and `--dangerously-skip-permissions`.
+
+### Non-Interactive Mode Interaction
+
+When Claude Code runs non-interactively (`claude -p`), there is no user to answer a permission prompt. Per <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link>, auto mode aborts on repeated blocks in non-interactive mode rather than hanging on an un-answerable prompt — preserving the fan-out and pre-commit-hook use cases described in the best-practices guide.
+
+## Connections
+
+- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — auto mode is the resolution of the permissions section's "classifier-based approval" bullet; together with `/clear`, session management, and verification-driven development it enables the scaling patterns in that article
+- <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link> — Opus 4.7 launch extended auto mode availability to Max users
+- <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> — auto mode is a harness-level safety invariant: enforce destructive-action boundaries *mechanically*, not via prompt advisories. Fits the "enforce invariants, not implementations" principle from OpenAI's Codex harness findings
+- <Link href="/articles/llm-driven-vulnerability-research">LLM-Driven Vulnerability Research</Link> — classifier-based pre-flight is a defensive pattern analogous to the validation agent in the vulnerability-research scaffold; both use a secondary model pass to filter the primary agent's actions
+- <Link href="/articles/hermes-agent">Hermes Agent</Link> — different approval-model design point: Hermes uses per-pattern approvals (`once`/`session`/`always`/`deny`) instead of a classifier, and disables dangerous-command checks under a container backend on the principle that "the container is the security boundary." Trade: per-image discipline replaces per-command auditing
+- <Link href="/articles/agent-loop-pattern">Agent Loop Pattern</Link> — auto mode is a precondition for AFK loops; without it, every tool call would block the loop on a prompt. Boris Cherny's `/loop` workflow depends on classifier-based gating to be usable
+- <Link href="/articles/harness-shrinkage-as-models-improve">Harness Shrinkage as Models Improve</Link> — Cat Wu predicts permission modes / human-in-the-loop / static command verification all become "less important" as models reliably do the right thing; auto mode is one of the harness assets on the trajectory toward shrinkage
+- <Link href="/articles/human-ai-accountability-redesign">Human-AI Accountability Redesign</Link> — auto mode's classifier is a concrete instance of the "decision rights" subfront in HBR's accountability prescription: define what the agent does autonomously vs requires human approval
+- <Link href="/articles/agentic-misalignment">Agentic Misalignment (AM)</Link> — classifier-gated tool use is one mitigation against agentic misalignment surfaces; complementary to model-side mitigations like <Link href="/articles/model-spec-midtraining">Model Spec Midtraining (MSM)</Link>
+
+## Open Questions
+
+- What false-positive rate does the classifier have on routine-but-aggressive refactors (e.g., large-file renames, `rm` of build artifacts)?
+- How well does the classifier generalize to custom tools / MCP servers where it lacks environment context?
+- Is the classifier's decision boundary documented/stable enough for security-sensitive orgs to certify, or is it effectively a black box whose behavior drifts with updates?
+- Does extending auto mode to API users change its calibration — is the classifier retrained for automation-heavy use, or held constant?
+- Compared to OS-level sandboxing (mentioned in <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> alongside auto mode), what's the defense-in-depth story? When should both be layered?
+
+## Derived
+
+- <Link href="/articles/opus-4-7-and-multi-agent-coding">Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations</Link> — auto mode as defense-in-depth layer for unattended multi-agent fan-out
+
+## Sources
+
+- Auto mode for Claude Code
+- Introducing Claude Opus 4 7 — extension to Max users

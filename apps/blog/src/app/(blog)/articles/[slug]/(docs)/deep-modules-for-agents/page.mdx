@@ -1,0 +1,98 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/deep-modules-for-agents.png";
+
+export const meta = {
+  date: "2026-05-06",
+  title: "Deep Modules for Agents",
+  description: "Ousterhout deep-vs-shallow modules applied to agent-friendly codebases; push-vs-pull instruction delivery; reviewer in fresh context; Sandcastle three-agent pattern",
+  image: { src: heroImage, alt: "Illustration for Deep Modules for Agents" },
+  readingTime: 6,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+John Ousterhout's *A Philosophy of Software Design* distinguishes **deep modules** (small interface, large behavior) from **shallow modules** (small interface, little behavior, but many of them). <Link href="/articles/matt-pocock">Matt Pocock</Link> applies the distinction to agent-friendly codebases: agents thrive in deep-module codebases because the test boundary is clear, the dependency graph is shallow, and the developer can delegate implementation while keeping the *interface* in mind. Shallow-module sprawl is what AI produces by default if you don't push back, and it produces unreviewable, untestable codebases.
+
+## Deep vs shallow
+
+- **Shallow module:** many small files, each exposing many small functions, dense dependency graph between them. Test boundaries are unclear — do you mock every neighbor? Test units in isolation and miss integration bugs? AI can't see the whole picture, can't decide where the abstractions are.
+- **Deep module:** one larger module with a small public interface and lots of internal logic. One natural test boundary: the public interface. AI can see what the module does without traversing dependencies. Implementation is delegable because the *interface* is the contract.
+
+## Why agents specifically benefit
+
+1. **Fewer dependency hops to traverse.** Smart-zone budget (see <Link href="/articles/context-window-smart-zone">Context Window Smart Zone</Link>) is conserved.
+2. **Test boundaries are obvious.** A reviewer agent can verify behavior at the interface without micro-managing internals.
+3. **Implementation is delegable.** Pocock's "gray box" pattern — design the interface yourself, hand off implementation to the agent. You retain a model of *what* without burning attention on *how*.
+4. **The module map is finite.** A PRD that says "modify gamification service, dashboard route, lesson route" is concrete; the same PRD against a shallow codebase would say "modify 47 files."
+
+## The risk: agents drift toward shallow
+
+Pocock's observation:
+
+> "If you don't watch AI carefully, it's going to produce a code base that looks like [shallow]. So you need to be really, really careful when you're directing it."
+
+Reasons agents drift shallow:
+- Each task is small; the agent makes the smallest change that works
+- Without a global module map, the agent doesn't know which existing module to extend, so it makes a new one
+- "Single-responsibility principle" misapplied — the agent wraps every helper in its own file
+
+The fix is twofold:
+1. Keep the module map in the PRD (see <Link href="/articles/design-concept-grilling">Design Concept Grilling</Link>) so the agent knows what to extend.
+2. Periodically run a refactor pass that consolidates shallow modules into deep ones. Pocock has a skill for this: `improve-code-base-architecture` — scans the codebase for "architectural improvement candidates" (clusters of related modules that could be deepened), with arguments and dependency category for each.
+
+## Push vs pull instructions
+
+A subtle but high-leverage architectural choice: how to deliver coding standards and architectural rules to agents.
+
+| Mode | Mechanism | When |
+|------|-----------|------|
+| **Push** | Always-in-context (CLAUDE.md, system prompt) | Reviewer agents — they need to know the standards to compare against the code |
+| **Pull** | On-demand via skill (agent fetches when relevant) | Implementer agents — pulling avoids burning smart-zone budget on rules that don't apply |
+
+This is also why a clean reviewer is smarter than a same-context reviewer: the implementer can pull rules as needed; the reviewer benefits from having them pushed *plus* having a clean smart-zone window to actually evaluate the code.
+
+## Reviewer in fresh context
+
+If implementation used 80K tokens of smart zone, a same-context reviewer is reading the diff in the dumb zone. Clearing the context and running review fresh restores smart-zone reasoning. Pocock pairs this with model selection: Sonnet for implementation, Opus for review — "I need the smarts then."
+
+## The Sandcastle three-agent pattern
+
+Pocock's parallelization library bakes deep-module discipline into its architecture:
+
+1. **Planner** — picks N parallel issues from the backlog
+2. **N implementers** — one per issue, each in its own git worktree + Docker sandbox; coding standards available via *pull* skills
+3. **Reviewer** — runs in fresh context per implementer's diff; coding standards *pushed* into its system prompt
+4. **Merger** — reconciles all approved branches, fixes type / test conflicts
+
+Each agent runs in its own smart zone. Each module-level change is reviewed at the interface, not the implementation.
+
+## Why "large model = no design needed" is wrong
+
+The seductive argument: "models are smart enough now to navigate any codebase, design doesn't matter." Pocock's counter:
+
+> "Bad code bases make bad agents. If you have a garbage code base, you're going to get garbage out of the agent that's working in that code base."
+
+The smart-zone constraint (see <Link href="/articles/context-window-smart-zone">Context Window Smart Zone</Link>) is structural, not just a function of model size. Architecture choices that make the agent's job harder cost smart-zone budget that better architecture would have saved.
+
+## Connections
+
+- <Link href="/articles/matt-pocock">Matt Pocock</Link> — primary articulator
+- <Link href="/articles/context-window-smart-zone">Context Window Smart Zone</Link> — deep modules conserve smart-zone budget
+- <Link href="/articles/vertical-slice-tracer-bullets">Vertical Slice Tracer Bullets</Link> — slices cut through deep modules at the interface, exercising the natural test boundary
+- <Link href="/articles/design-concept-grilling">Design Concept Grilling</Link> — module map in the PRD operationalizes deep-module discipline at planning time
+- <Link href="/articles/agent-loop-pattern">Agent Loop Pattern</Link> — review-in-fresh-context fits the loop's clear-then-restart rhythm
+- <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> — "enforce invariants, not implementations" is the same principle at the orchestration layer
+- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — module map in CLAUDE.md sits in the same family
+
+## Open questions
+
+- How big is "deep enough"? Pocock's example modules are several hundred LOC; Ousterhout's textbook examples are larger. There's a sweet spot; not articulated.
+- For ports/adapters codebases, does the deep-module advice transfer cleanly? The "small interface" is the port; the "large behavior" is the adapter. Probably yes, but not exercised in source.
+- Refactor cost vs benefit: when is "improve-code-base-architecture" worth running on a working repo?
+
+## Sources
+
+- full walkthrough workflow for ai coding matt pocock

@@ -1,0 +1,76 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/vertical-slice-tracer-bullets.png";
+
+export const meta = {
+  date: "2026-05-06",
+  title: "Vertical Slice Tracer Bullets",
+  description: "Pragmatic-Programmer tracer-bullet pattern applied to agent task decomposition; vertical slices > horizontal layers; Kanban-with-blocking-edges over numbered phase plans",
+  image: { src: heroImage, alt: "Illustration for Vertical Slice Tracer Bullets" },
+  readingTime: 4,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+Borrowed from *The Pragmatic Programmer* and applied to agent task decomposition by <Link href="/articles/matt-pocock">Matt Pocock</Link>: when planning a feature, slice it **vertically** (a thin path through every layer — schema → service → API → UI) rather than **horizontally** (do all schema, then all service, then all UI). Vertical slices give end-to-end feedback after the first slice; horizontal slices defer feedback until phase three. Agents reliably default to horizontal — agent-friendly planning has to actively counter that bias.
+
+## The "tracer bullet" image
+
+Anti-aircraft gunners at night can't see where their bullets are going. Phosphor-coated tracer rounds glow in flight, every sixth round, so the gunner sees a line in the sky and corrects aim. Vertical slices are the same: each slice produces visible signal end-to-end so the developer (and the agent) can correct.
+
+## Why agents prefer horizontal — and shouldn't
+
+Agents trained on coding tasks model the work layer by layer:
+- Phase 1: all schema migrations
+- Phase 2: all services
+- Phase 3: all UI
+
+This is **legible** but produces no integrated feedback until phase 3. If anything is wrong with the original assumption (data shape, service boundary, UI flow), the cost is paid at the end. With agents this is even worse than with humans, because agents have no end-to-end mental model that catches mismatches in flight.
+
+A vertical slice for the same feature looks like:
+- Slice 1: schema for *one* event type + service to write *one* event + dashboard tile that shows *one* event count
+- Slice 2: second event type, deeper logic, wider UI
+- Slice 3: backfill, polish, edge cases
+
+Each slice merges to main. Each slice gives the user something to QA. Each slice can be QA'd before the next slice depends on it.
+
+## Kanban over multi-phase plans
+
+Once tasks are vertically sliced, Pocock argues for a **Kanban with blocking edges** rather than a numbered phase list:
+
+- Multi-phase plan ⇒ one agent works one task at a time, sequentially.
+- Kanban with explicit blocking edges ⇒ multiple agents can grab non-blocked tickets in parallel.
+
+The Kanban is materialized as markdown files in `issues/` (or GitHub issues) with explicit `blocked-by:` frontmatter. The <Link href="/articles/agent-loop-pattern">Ralph loop</Link> picks the next AFK-tagged unblocked ticket on each iteration. Pocock's **Sandcastle** library runs that selection in parallel: planner agent picks N parallel tickets, fan-out to N implementer agents in N git worktrees, fan-in to a merger agent.
+
+## Slice quality rules
+
+Pocock's `prd-to-issues` skill enforces vertical-slice rules. When the agent proposes a slice that's actually horizontal — e.g. "create the gamification service" alone — the rule fires:
+
+> "What I want to see in the first vertical slice especially is I want to see the schema changes or some schema changes. I want to see some new service being created and I want a minimal representation of that on the front end."
+
+A "good" first slice = "Award points for lesson completion visible on dashboard" (touches schema, service, route, UI).
+
+## Why this isn't agile-with-extra-steps
+
+The shape of the practice is the same as agile/XP-era thin slicing. The reason it matters *now* is that agents specifically default to horizontal layering — possibly because most coding tutorials/tasks in their training data are organized that way. Without explicit pushing, you get layered output even from a strong model.
+
+## Connections
+
+- <Link href="/articles/matt-pocock">Matt Pocock</Link> — primary articulator
+- <Link href="/articles/agent-loop-pattern">Agent Loop Pattern</Link> — vertical slices fill the AFK loop's backlog
+- <Link href="/articles/design-concept-grilling">Design Concept Grilling</Link> — the slice list comes out of the PRD that comes out of the grilling session
+- <Link href="/articles/context-window-smart-zone">Context Window Smart Zone</Link> — small slices fit in smart zone; horizontal phases don't
+- <Link href="/articles/deep-modules-for-agents">Deep Modules for Agents</Link> — vertical slices and deep modules reinforce each other: a slice cuts through the deep module's interface, exercising the test boundary you already wanted
+- <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> — restated as "enforce invariants" at the planning layer: the invariant is "every slice produces visible feedback"
+
+## Open questions
+
+- Can the planner agent be trusted to slice vertically once told to, or does it need a verifier that flags horizontal slices? Pocock's experience: it needs the verifier, at least through 4.7.
+- How should slice granularity be tuned? Too thin = many merge conflicts; too thick = back to horizontal.
+
+## Sources
+
+- full walkthrough workflow for ai coding matt pocock
