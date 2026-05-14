@@ -37,6 +37,11 @@ const nextConfig: NextConfig = {
     { source: "/photos", destination: "/", permanent: true },
     { source: "/about", destination: "/", permanent: true },
     { source: "/thank-you", destination: "/", permanent: true },
+    // The synthesized `/articles/wiki` landing page was retired once
+    // `/articles` itself became the dense tag-grouped index. Keep the URL
+    // alive as a permanent (308) redirect so any external links and the
+    // pre-rename graph references still land on the canonical index.
+    { source: "/articles/wiki", destination: "/articles", permanent: true },
   ],
   reactStrictMode: true,
   outputFileTracingRoot: join(

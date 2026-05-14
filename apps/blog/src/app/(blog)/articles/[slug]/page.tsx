@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import type { FC } from "react";
 
-import {
-  type ArticleEntity,
-  type ArticleMeta,
-  getArticles,
-  type Normalise,
-} from "../service";
+import { type ArticleMeta, getArticles, getSiblings } from "../service";
 import { ArticleLayout } from "./article-layout";
 
 interface ArticlePageProps {
@@ -31,20 +26,6 @@ export async function generateMetadata({
   };
 }
 
-const getSiblingSlug = (
-  articles: Normalise<ArticleEntity>,
-  slug: string,
-  difference: number
-): string | undefined => {
-  const selectedArticle = articles.entities[slug];
-
-  if (!selectedArticle) {
-    return;
-  }
-
-  return articles.ids[selectedArticle.position + difference];
-};
-
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
   const mod = (await import(`./(docs)/${slug}/page.mdx`)) as {
@@ -52,16 +33,15 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     default: FC;
   };
 
-  const articles = await getArticles();
-
-  const position = (articles.entities[slug]?.position ?? 0) + 1;
+  const { previousSlug, nextSlug, position } = await getSiblings(slug);
 
   return (
     <ArticleLayout
       meta={mod.meta}
-      nextSlug={getSiblingSlug(articles, slug, -1)}
+      nextSlug={nextSlug}
       position={position}
-      previousSlug={getSiblingSlug(articles, slug, 1)}
+      previousSlug={previousSlug}
+      slug={slug}
     >
       <mod.default />
     </ArticleLayout>
