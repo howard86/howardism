@@ -1,0 +1,99 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/when-to-use-opus-4-6.png";
+
+export const meta = {
+  date: "2026-04-14",
+  title: "When to Use Claude Opus 4.6 for Work",
+  description: "Decision rules for Opus 4.6 deployment: solver-not-planner, elaboration-load-bearing tasks, brevity constraints, Pareto frontier check",
+  image: { src: heroImage, alt: "Illustration for When to Use Claude Opus 4.6 for Work" },
+  readingTime: 6,
+  tag: "Essay",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Question
+
+When is best to use Opus 4.6 for work?
+
+## Answer
+
+Two empirical papers in the wiki give concrete guidance: AgentOpt (Hua et al. 2026) and Hakim (2026). Both identify large-model *overthinking* as the dominant failure mode — surfacing it either as a multi-agent routing failure or as a prompt-sensitivity failure. The deployment rules below follow directly.
+
+### 1. Use Opus 4.6 as solver, not as planner/router
+
+From <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link>: across 81 combinations on HotpotQA, **Opus 4.6 is the worst planner** — it bypasses the downstream solver's search tools and answers from parametric knowledge. Paired behind a cheap, obedient planner it is the best solver.
+
+- Ministral 3 8B (planner) + Opus 4.6 (solver) → **74.27%**
+- Opus 4.6 (planner) + Opus 4.6 (solver) → **31.71%**
+
+**Rule**: in multi-step agent pipelines, assign Opus to execution roles (synthesis, deep reasoning over retrieved context, final-answer generation). Delegate routing, tool selection, and task decomposition to a smaller model that reliably hands off work.
+
+### 2. Use Opus 4.6 where elaboration is load-bearing
+
+From <Link href="/articles/scale-dependent-prompt-sensitivity">Scale-Dependent Prompt Sensitivity</Link>: on 7.7% of standard benchmark problems, large models underperform smaller ones by 28.4pp because of overelaboration. The diagnostic exception is **BoolQ** — cross-sentence passage integration — where brevity constraints *hurt* large models. There the elaboration is functional.
+
+**Rule**: Opus 4.6 earns its cost on tasks where the reasoning itself is the product — cross-document synthesis, integrative analysis, long-context summarization, nuanced writing, open-ended design trade-offs, code review that spans multiple files. It underperforms on self-contained short-answer problems where overelaboration accumulates errors.
+
+### 3. Don't default to Opus 4.6 on cost-sensitive structured tasks
+
+From AgentOpt's Pareto frontier: on **BFCL, Qwen3 Next 80B matches Opus 4.6's accuracy at 32× lower cost**. On MathQA, 24× gaps exist between comparably-accurate combinations. For tool-calling and structured-output workloads with crisp correctness criteria, cheaper models dominate.
+
+**Rule**: before committing to Opus 4.6 on a workload, check whether a cheaper model matches accuracy. "Use the strongest model" is a measurable mistake, not a safe default.
+
+### 4. If using Opus 4.6 on overthinking-prone problems, constrain output
+
+Causal intervention in Hakim (2026): brevity constraints (&lt;50 words for math, &lt;10 for reading comp) deliver **+26.3pp on large models** and fully reverse the hierarchy on GSM8K (+13.1pp small → −7.7pp large) and MMLU-STEM (+27.3pp small → −15.9pp large). Llama-3.1-405B climbs from 41.5% to 67.2% on inverse-scaling problems under brevity alone.
+
+**Rule**: when routing to Opus 4.6 for short-answer work, impose length caps or direct-answer schemas. Cost and capability improve simultaneously — fewer tokens, higher accuracy.
+
+### 5. Context-budget corollary (Claude Code specifically)
+
+From <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link>: the context window is Claude Code's primary scarce resource. Opus's systematic verbosity consumes that budget faster, compounding the case for brevity constraints and for offloading high-volume exploratory work to subagents or cheaper models with summarized handoffs.
+
+## Decision Summary
+
+| Situation | Use Opus 4.6? | Source of evidence |
+|---|---|---|
+| Solver/synthesizer behind a cheap planner | **Yes** — documented best role | AgentOpt HotpotQA (74.27% vs 31.71%) |
+| Cross-document synthesis, integrative writing, long-context reasoning | **Yes** | BoolQ exception in Hakim (2026) |
+| Planner/router in multi-step agent pipeline | **No** — worst-in-class | AgentOpt HotpotQA all-combinations sweep |
+| Short-answer math/science/commonsense | **No default**; if used, apply brevity | Hakim GSM8K/MMLU-STEM reversals |
+| Tool-calling, structured output (BFCL-like) | **Check Pareto frontier first** | Qwen3 Next 80B matches at 32× lower cost |
+| Code review, architectural analysis, final-answer generation in Claude Code | **Yes**, but manage context budget | Claude Code best practices |
+
+## Two Underlying Mechanisms
+
+Both failure modes — Opus-as-planner and Opus-as-short-answer-solver — share a single mechanism: **scale-dependent overthinking**. AgentOpt surfaces it as a routing failure (Opus answers instead of delegating); Hakim surfaces it as a prompt-engineering failure (Opus elaborates instead of concluding). Two available mitigations:
+
+1. **Route around it** — combo selection places Opus only in roles where its verbosity aligns with utility
+2. **Constrain output** — brevity prompting, structured schemas, length caps in system prompts
+
+Production deployments should combine both.
+
+## Addendum: Opus 4.7 (2026-04-17)
+
+<Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link> is a direct upgrade to 4.6 at the same price ($5/$25), and the five rules above **remain the defensible default** until someone re-runs the experiments on 4.7. But several 4.7 changes cut directly at the mechanisms underlying these rules, so treat each rule as a **hypothesis to re-test**, not a settled fact:
+
+| Rule | What might change on 4.7 | Why |
+|---|---|---|
+| #1 Opus as solver, not planner | Planner-mode failure may shrink | 4.7's "literal instruction following" should reduce the documented failure mode where Opus-as-planner bypasses the downstream solver's tools |
+| #2 Use where elaboration is load-bearing | Unchanged or stronger | Better instruction following + file-system memory make synthesis/integration tasks even more the sweet spot |
+| #3 Don't default on cost-sensitive structured tasks | Possibly worse on 4.7 | Tokenizer inflation (1.0–1.35×) + more output tokens at higher effort raise the effective cost at a given accuracy. Re-Pareto-check before committing |
+| #4 Brevity constraints on overthinking-prone tasks | Likely still valuable; elasticity may change | 4.7 "thinks more at higher effort" in agentic settings. Literal instruction-following may make brevity constraints *more* effective (the model obeys the cap) while simultaneously fighting a model that now elaborates more by default |
+| #5 Context-budget corollary in Claude Code | **Tighter** on 4.7 | Tokenizer inflation + xhigh default (Claude Code's new default) + more thinking tokens compound. Verbatim re-use of 4.6-era prompts and CLAUDE.md likely consumes budget faster |
+
+**Practical implication for ongoing work**: if a production workload is currently tuned for Opus 4.6 based on these findings, keep using 4.6 until you have measurements on 4.7. The migration cost is not zero (token inflation, literal prompt interpretation, default-effort bump). Anthropic's own guidance recommends measuring on real traffic rather than trusting generic net-favorable claims.
+
+Open questions moved to <Link href="/articles/claude-opus-4-7#Open Questions">Claude Opus 4.7</Link>.
+
+## Sources
+
+- <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link> — combo optimization, model-per-role assignment, Opus's planner failure mode
+- <Link href="/articles/scale-dependent-prompt-sensitivity">Scale-Dependent Prompt Sensitivity</Link> — overthinking mechanism, brevity interventions, hierarchy reversals, BoolQ exception
+- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — context-window constraint, verification discipline, session management
+- <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link> — 2026-04-17 addendum; token-economics and instruction-following changes that may shift each rule's elasticity
+- AgentOpt v0 1 Technical Report Client Side Optimization for LLM Based Agent
+- Brevity Constraints Reverse Performance Hierarchies in Language Models
+- Best Practices for Claude Code
+- Introducing Claude Opus 4 7

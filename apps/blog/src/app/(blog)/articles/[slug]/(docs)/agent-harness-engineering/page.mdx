@@ -1,0 +1,123 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/agent-harness-engineering.png";
+
+export const meta = {
+  date: "2026-04-10",
+  title: "Agent Harness Engineering",
+  description: "Patterns for scaffolding long-running LLM agents: environment design, progressive context disclosure, mechanical architecture enforcement, agent code review",
+  image: { src: heroImage, alt: "Illustration for Agent Harness Engineering" },
+  readingTime: 10,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+Agent harness engineering is the discipline of designing environments, artifacts, and feedback loops that enable AI coding agents to do reliable, sustained work across multiple context windows. The core shift: the engineer's job moves from writing code to building the scaffolding that makes agents effective — specifying intent, structuring context, enforcing invariants, and constructing verification pipelines.
+
+## Details
+
+### The Fundamental Problem
+
+AI coding agents work in discrete sessions with limited context windows. Each new session starts with no memory of prior work. Without deliberate harness design, agents exhibit predictable failure modes:
+
+1. **One-shotting** — attempting to build everything at once, exhausting context mid-implementation, leaving half-finished undocumented work
+2. **Premature victory** — seeing partial progress and declaring the job done
+3. **Dirty state** — leaving the environment with bugs, uncommitted changes, or undocumented progress for the next session to untangle
+4. **Incomplete verification** — marking features as complete without end-to-end testing
+
+### Two-Agent Architecture (Anthropic)
+
+Anthropic's solution for the Claude Agent SDK uses two specialized prompts:
+
+- **Initializer agent** (first session only): scaffolds the environment — writes an `init.sh` script, creates a `claude-progress.txt` log, generates a structured JSON feature list with all requirements marked as "failing," and makes an initial git commit.
+- **Coding agent** (every subsequent session): reads progress logs and git history, runs a basic smoke test, picks a single feature to implement, verifies it end-to-end (e.g., via Puppeteer MCP for web apps), commits clean state, and updates the progress file.
+
+The JSON feature list is critical: agents are instructed never to remove or edit feature descriptions, only to flip `passes` from `false` to `true` after verification. JSON was chosen over Markdown because agents are less likely to accidentally overwrite structured JSON.
+
+### Repository as System of Record (OpenAI)
+
+OpenAI's Codex team built a product with zero manually-written code (~1M lines, ~1,500 PRs, 3–7 engineers over 5 months). Their key architectural insight: **repository-local, versioned artifacts are all the agent can see** — anything in Slack, Google Docs, or people's heads is invisible.
+
+Their approach:
+- **AGENTS.md as table of contents, not encyclopedia**: a short (~100 lines) map pointing to deeper docs. A monolithic instruction file fails because it crowds out task context, becomes non-guidance when everything is "important," rots instantly, and resists mechanical verification.
+- **Progressive disclosure**: agents start with a small stable entry point and are taught where to drill deeper. Design docs, execution plans, and technical debt are all versioned in-repo.
+- **Mechanical enforcement**: custom linters (themselves agent-generated) enforce architecture — dependency direction between layers, structured logging, naming conventions, file size limits. Lint error messages are written as remediation instructions injected into agent context.
+- **Doc gardening**: a recurring background agent scans for stale documentation and opens fix-up PRs.
+
+### Enforcing Architecture at Scale
+
+Both sources converge on a key principle: **enforce invariants, not implementations**. Define strict boundaries (layer dependencies, data validation at boundaries, naming conventions) and let agents have freedom within those boundaries.
+
+OpenAI uses a rigid layered architecture per business domain: Types → Config → Repo → Service → Runtime → UI, with cross-cutting concerns entering through a single Providers interface. This is enforced by structural tests and custom linters. They note this level of architectural rigor is usually postponed until hundreds of engineers — with agents, it's an early prerequisite because constraints enable speed without drift.
+
+### Continuous Entropy Management
+
+Agent-generated codebases accumulate entropy: agents replicate patterns that already exist, including suboptimal ones. OpenAI initially spent 20% of engineering time on manual "AI slop" cleanup. Their solution: encode "golden principles" into the repo and run background agent tasks on a recurring cadence to scan for deviations, update quality grades, and open targeted refactoring PRs. This functions as garbage collection — paying down technical debt continuously in small increments rather than letting it compound.
+
+### Harness as Service
+
+The patterns above describe per-session harnesses. Two 2026 systems demonstrate the natural evolution — **harnesses that run continuously as services** with per-tenant workspace isolation:
+
+- <Link href="/articles/symphony">Symphony</Link> (OpenAI, March 2026) — long-running daemon polling Linear, per-issue workspace, <Link href="/articles/codex-app-server-protocol">Codex App Server</Link> session per ticket. Same team that authored the OpenAI source above; their explicit "harness as service" iteration. Orchestrator owns workspace lifecycle, retry/backoff, stall detection, and reconciliation; in-repo `WORKFLOW.md` is the policy file.
+- <Link href="/articles/hermes-agent">Hermes Agent</Link> (Nous Research) — Hermes Gateway runs as systemd or launchd; per-user session isolation; allowlist + DM-pairing authorization; cron jobs delivered to a designated home channel.
+
+Convergent design choices across the two:
+
+1. **Daemon-first deployment** — long-running service, not per-invocation CLI.
+2. **Per-tenant workspace isolation** — per-issue (Symphony) or per-user (Hermes).
+3. **Container backends as the trust boundary** (Docker, Singularity, Modal, Daytona) rather than per-command approval prompting. Hermes explicitly disables dangerous-command checks under a container backend on the principle that "the container is the security boundary."
+4. **Repo-versioned markdown as control plane** — `WORKFLOW.md` for Symphony, `AGENTS.md`/`SOUL.md` for Hermes, same pattern as the `CLAUDE.md`/`AGENTS.md` table-of-contents discipline at session level.
+5. **No durable orchestrator DB by default** — Symphony explicitly chooses tracker + filesystem for restart recovery; Hermes Gateway state is filesystem-only.
+
+Symphony's evolution sharpens the principle stated above. Their first version treated agents as rigid state-machine nodes — Codex was *only* asked to implement the task in a ticket. They found this too limiting once models grew capable enough to "create multiple PRs as well as read review feedback and address it," and shifted to giving agents **objectives + tools, not state transitions**. This is "enforce invariants, not implementations" applied at the orchestration layer (see <Link href="/articles/ticket-driven-agent-orchestration">Ticket-Driven Agent Orchestration</Link>).
+
+For the integration boundary between orchestrator and coding agent, Symphony exercises the <Link href="/articles/codex-app-server-protocol">Codex App Server protocol</Link> — JSON-RPC over stdio with continuation turns and dynamic tool calls — which makes the contract explicit and version-tolerant. The protocol's **dynamic tool calls** feature is also a notable harness primitive: orchestrator-implemented tools can wrap credentials the subagent should never see (e.g., Symphony's `linear_graphql` tool proxies authenticated GraphQL without giving subagent containers the Linear access token).
+
+### The Role of the Human
+
+In both systems, humans work at a different abstraction layer:
+- Prioritize work and translate user feedback into acceptance criteria
+- Design environments and feedback loops
+- Validate outcomes and provide taste/judgment
+- When the agent struggles, diagnose what capability is missing (tools, guardrails, documentation) and feed it back into the system — always via the agent, not by writing code directly
+
+## Connections
+
+- <Link href="/articles/llm-as-compiler-knowledge-base">LLM-as-Compiler Knowledge Base</Link> — shares the pattern of repository-local knowledge as system of record, incremental compilation, and LLM-maintained artifacts
+- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — practical application of many harness engineering principles in Claude Code's environment (CLAUDE.md, skills, hooks, subagents)
+- <Link href="/articles/llm-driven-vulnerability-research">LLM-Driven Vulnerability Research</Link> — the vulnerability-finding scaffold is a minimal harness: isolated container, single prompt, agentic loop with file-ranking pre-pass and validation agent
+- <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link> — harnesses provide the execution substrate that client-side optimizers then tune via combo selection; the invariants a harness enforces constrain the space AgentOpt searches over
+- <Link href="/articles/scale-dependent-prompt-sensitivity">Scale-Dependent Prompt Sensitivity</Link> — output-length invariants (via system prompts, schemas, or validators) are a harness-level mitigation for scale-dependent overthinking — fits the "enforce invariants, not implementations" principle
+- <Link href="/articles/claude-code-auto-mode">Claude Code Auto Mode</Link> — classifier-based tool-call gating is a concrete instance of "enforce invariants mechanically" at the permissions boundary — destructive-action limits enforced pre-execution rather than via advisory prompt
+- <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link> — better filesystem-memory reinforces the case for repository-local versioned artifacts as agent memory; task budgets echo the discipline of explicit resource envelopes that harnesses already impose
+- <Link href="/articles/symphony">Symphony</Link> — the natural "harness as service" evolution from the same OpenAI team; ticket-as-unit and per-issue workspace are direct extensions of the harness patterns established here
+- <Link href="/articles/ticket-driven-agent-orchestration">Ticket-Driven Agent Orchestration</Link> — orchestration-layer restatement of "enforce invariants, not implementations"; once the per-session harness works, the next bottleneck is which session runs next
+- <Link href="/articles/codex-app-server-protocol">Codex App Server Protocol</Link> — the integration boundary that makes "harness as service" possible; orchestrator drives sessions through a versioned JSON-RPC contract instead of scraping a CLI
+- <Link href="/articles/hermes-agent">Hermes Agent</Link> — parallel daemon-first agent ecosystem; per-user instead of per-issue isolation, with the same container-backend safety pattern; bounded `MEMORY.md`/`USER.md` files implement explicit memory envelopes
+- <Link href="/articles/context-window-smart-zone">Context Window Smart Zone</Link> — the underlying constraint motivating system-prompt minimalism, AGENTS.md-as-ToC, and reviewer-in-fresh-context discipline; quadratic attention scaling sets the budget every harness operates within
+- <Link href="/articles/agent-loop-pattern">Agent Loop Pattern</Link> — the natural session-level primitive once the per-session harness works: drain a Kanban backlog AFK, fragment work into many fresh-context iterations
+- <Link href="/articles/vertical-slice-tracer-bullets">Vertical Slice Tracer Bullets</Link> — planning-layer restatement of "enforce invariants, not implementations" — invariant is "every slice produces visible feedback"
+- <Link href="/articles/design-concept-grilling">Design Concept Grilling</Link> — alignment-layer harness primitive; prevents premature plan generation by forcing pre-plan interview
+- <Link href="/articles/deep-modules-for-agents">Deep Modules for Agents</Link> — codebase-shape complement: agents in deep-module codebases conserve smart-zone tokens and have natural test boundaries
+- <Link href="/articles/harness-shrinkage-as-models-improve">Harness Shrinkage as Models Improve</Link> — division-of-labor between harness and model: prompt scaffolding shrinks with model improvements, mechanical verification stays load-bearing
+- <Link href="/articles/model-introspection-feedback">Model Introspection Feedback</Link> — debugging-time tool: ask the model why it failed, fix the *harness*, not the model
+- <Link href="/articles/interaction-models">Interaction Models</Link> — resolves the harness-vs-model question firmly toward the model for the *interaction* layer (real-time A/V); VAD / turn-detection / dialog-management harnesses dissolve into model behavior (<Link href="/articles/thinking-machines-lab">Thinking Machines Lab</Link>, May 2026)
+- <Link href="/articles/the-bitter-lesson">The Bitter Lesson</Link> — the principle behind "enforce invariants, not implementations": don't hand-engineer what scaled general capability will subsume
+
+## Derived
+
+- <Link href="/articles/opus-4-7-and-multi-agent-coding">Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations</Link> — applies "enforce invariants, not implementations" and the Writer/Reviewer pattern to an Opus 4.7 multi-agent coding team
+
+## Open Questions
+
+- Does a single general-purpose coding agent outperform a multi-agent architecture with specialized testing, QA, and cleanup agents?
+- How does architectural coherence evolve over years in a fully agent-generated system?
+- At what codebase scale does the AGENTS.md-as-table-of-contents approach need to be replaced with more sophisticated context routing?
+- How generalizable are these web-app-focused findings to other domains (scientific research, financial modeling)?
+
+## Sources
+
+- Harness engineering leveraging Codex in an agent first world
+- Effective harnesses for long running agents

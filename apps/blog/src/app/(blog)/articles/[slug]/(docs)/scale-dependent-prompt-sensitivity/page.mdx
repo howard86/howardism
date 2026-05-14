@@ -1,0 +1,119 @@
+import Image from "@/components/mdx-image";
+import heroImage from "../(assets)/scale-dependent-prompt-sensitivity.png";
+
+export const meta = {
+  date: "2026-04-14",
+  title: "Scale-Dependent Prompt Sensitivity",
+  description: "Large models underperform small ones on 7.7% of standard benchmarks due to overthinking; brevity constraints recover 26pp and fully reverse hierarchy on GSM8K/MMLU-STEM",
+  image: { src: heroImage, alt: "Illustration for Scale-Dependent Prompt Sensitivity" },
+  readingTime: 8,
+  tag: "Concept",
+};
+
+<Image placeholder="blur" {...meta.image} />
+
+## Summary
+
+An empirical finding by Hakim (2026) that reframes documented "inverse scaling" cases as a *prompt-engineering* problem rather than a capability problem. On 7.7% of standard benchmark problems (115 of 1,485 across GSM8K, BoolQ, ARC-Easy, CommonsenseQA, MMLU-STEM), larger language models underperform smaller ones by 28.4 percentage points — despite 10–100× more parameters. Causal intervention shows brevity constraints recover 26pp of accuracy on large models and completely reverse the hierarchy on mathematical and scientific reasoning benchmarks. The mechanism — spontaneous scale-dependent verbosity ("overthinking") — implies large models possess superior latent capability that universal prompting masks. The deployment consequence: optimal prompting strategies must be scale-aware, not uniform.
+
+## Details
+
+### Scope of the Study
+
+31 models from 0.5B to 405B parameters spanning Llama, Qwen, Gemma, and Mistral families, evaluated across 1,485 problems from five benchmarks → 46,035 individual evaluations. Greedy decoding (`do_sample=False`) for reproducibility. Small/large split at ≤10B vs. >70B parameters.
+
+### Three Problem Categories
+
+Problem-level analysis reveals benchmark evaluation is more informationally sparse than aggregate scores suggest:
+
+- **Non-discriminative (27.1%)** — ceiling effects (17.3%, all models succeed) or floor effects (9.8%, all models fail). Roughly one-third of evaluation effort yields no signal about relative capability.
+- **Normal scaling (48.1%)** — larger models outperform smaller ones as expected.
+- **Inverse scaling (7.7%)** — smaller models systematically beat larger ones.
+
+### Inverse Scaling: Not Adversarial, Not Rare
+
+Prior inverse-scaling work (Inverse Scaling Prize, BIG-Bench) focused on *constructed* tasks designed to expose failure modes — memorization of rare patterns, distractor reasoning, spurious correlations. Hakim's contribution is that inverse scaling shows up at **meaningful rates on standard capability benchmarks**: BoolQ 11.3%, CommonsenseQA 9.7%, ARC-Easy 9.3%, GSM8K 4.3%, MMLU-STEM 3.9%.
+
+Effect size is categorical rather than marginal: Cohen's $d = 1.34$ (conventional "large" threshold is 0.8). Mean gap 28.4pp favoring small models. Mann-Whitney U yields $p &lt; 0.001$ on every dataset.
+
+Within-family analysis rules out architecture artifacts:
+- Llama: smaller variants (2B–13B) hit 48–68% vs. larger (70B–405B) at 41–54%
+- Qwen: 0.5B–7B at 62–83% vs. 32B at 40%
+- Pearson $r = -0.58$ between family size and accuracy on inverse problems ($p = 0.029$)
+
+### Overthinking as Causal Mechanism
+
+Hypothesis: large models generate excessively verbose responses that obscure correct reasoning. Supported by both correlational and causal evidence:
+
+**Correlational** — response length correlates negatively with large-model accuracy on inverse problems ($r = -0.43$). Notably, large models don't generate *more* explicit reasoning steps (9.1 vs. 10.5 for small models) but produce 59% longer total output (202 vs. 127 tokens). They elaborate *within* steps rather than taking more steps.
+
+**Causal** — intervention on all 115 inverse problems with three conditions (control, brief, direct) on seven models:
+- **Brief** constraints: &lt;50 words for math, &lt;10 words for reading comp
+- **Direct**: final answer only, no reasoning
+- Result: large-model accuracy +26.3pp under brief; small-model accuracy −3.1pp. Gap reduction 67% (44.2pp → 14.8pp). Paired $t = 7.80$, $p &lt; 0.0001$.
+- Direct format: gap compresses to 7.8pp (82.3% reduction) but both sizes lose accuracy, suggesting some reasoning is beneficial.
+
+Token generation fell from median 197 → 78 under brief (60% reduction) — intervention manipulated the hypothesized mechanism.
+
+### Complete Hierarchy Reversals
+
+The strongest claim: on two datasets, brevity constraints don't just close the gap — they *flip* it.
+- **GSM8K**: +13.1pp favoring small → −7.7pp favoring large
+- **MMLU-STEM**: +27.3pp favoring small → −15.9pp favoring large
+
+These reversals are the argument that standard evaluation *masks* rather than *measures* large-model capability. Llama-3.1-405B goes from 41.5% (control) to 67.2% (brief) on inverse problems — a 25.7pp unlock.
+
+### Where Brevity Hurts: BoolQ
+
+Dataset heterogeneity is critical: BoolQ's gap *widens* slightly under brevity (23.5pp → 24.3pp). The explanation: BoolQ requires cross-sentence passage integration where elaboration is *functional* rather than excessive. Brevity constraints are not a universal prescription — they help on self-contained problems (math, science) where overelaboration accumulates errors, and hurt on problems where explicit reasoning is load-bearing.
+
+### Contamination Ruled Out
+
+Three independent tests confirm inverse scaling reflects genuine capability differences, not memorization artifacts:
+- **Response diversity**: 89–100% unique responses across datasets (contradicts template memorization)
+- **Length variability**: CV 0.31–1.21, all exceeding the memorization threshold (CV &lt; 0.15)
+- **Error patterns**: 40–81% over-reasoning failures vs. 13–23% memorization avoidance
+- Fisher's exact test: no association between contamination indicators and inverse scaling ($p = 0.23$)
+
+### RLHF Length-Bias Hypothesis
+
+Speculated origin: RLHF reward models exhibit length bias — annotators conflate thoroughness with quality. Larger models have greater capacity to satisfy length-reward signals during training and internalize verbose generation more deeply. Consistent with verbosity differences being larger in instruction-tuned than base variants. Suggests a tractable mitigation at training time: reward model calibration that penalizes overelaboration on concise-answer problem types.
+
+### Practical Implications
+
+1. **Aggregate benchmarks systematically underestimate large-model capability** on a predictable subset — differences comparable to an entire model generation separate standard from optimized prompting for frontier models.
+2. **Problem-aware routing + scale-specific prompting** is the deployment pattern: detect overthinking-prone problem types and apply brevity selectively.
+3. **Cost–capability improves simultaneously** — brevity both raises accuracy on inverse problems and reduces tokens (smaller spend).
+
+### Limitations
+
+- Greedy decoding only; unknown whether temperature sampling changes the 7.7% rate.
+- Knowledge/reasoning tasks only; no generative task evaluation.
+- Doesn't establish *why* large models overthink (training dynamics? architecture? emergent?).
+- The causal sample selected models partly for their stronger overthinking tendency (44.2pp gap vs. 28.4pp in the full analysis), so 67% reduction is an upper-bound estimate.
+
+## Connections
+
+- <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link> — AgentOpt's HotpotQA finding (Claude Opus 4.6 is the worst planner, bypasses solver via parametric knowledge) is this paper's overthinking mechanism surfaced as a routing failure. Together, the two papers imply systematic large-model misuse with two available mitigations: route around it (combo selection) or constrain output (brevity)
+- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — the context-window-as-primary-constraint framing pairs naturally with brevity: shorter completions also *preserve* more of the context budget. Claude Code's emphasis on verification-driven development becomes especially important when large-model output is systematically verbose in ways that can mask errors
+- <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> — enforcing output-length invariants at the harness level (via system prompts, structured output schemas, or response validators) is a mechanical-enforcement pattern that directly addresses scale-dependent overthinking. Falls under "enforce invariants, not implementations"
+- <Link href="/articles/llm-driven-vulnerability-research">LLM-Driven Vulnerability Research</Link> — the vuln-research scaffold's paragraph-level prompt ("find a security vulnerability in this program") succeeded partly because the task rewards thoroughness, which is the behavior larger models over-produce. This is a case where large-model verbosity is aligned with task utility rather than adversarial to it
+- <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link> — Hakim's findings were measured on Opus 4.6. 4.7's literal instruction following may make brevity constraints *more* effective (the model obeys word caps) while its higher default effort and extra per-turn thinking may *increase* baseline verbosity. Net direction is an open empirical question
+- <Link href="/articles/interactivity-benchmarks">Interactivity Benchmarks</Link> — another case of a paper inventing its own evaluation framing (FD-bench extensions, TimeSpeak/CueSpeak, visual-proactivity benchmarks) to surface a phenomenon standard benchmarks miss; same epistemic strength-and-soft-spot as this paper's BoolQ-exception framing
+
+## Derived
+
+- <Link href="/articles/when-to-use-opus-4-6">When to Use Claude Opus 4.6 for Work</Link> — the brevity-intervention and BoolQ-exception findings feed directly into deployment rules for Opus 4.6
+- <Link href="/articles/opus-4-7-and-multi-agent-coding">Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations</Link> — brevity constraints and harness-level length enforcement applied to an Opus 4.7 multi-agent coding team
+
+## Open Questions
+
+- Does the RLHF length-bias hypothesis replicate when tested against base (non-instruct) model variants directly? If verbose generation were primarily pretrained, base-model verbosity differences should match instruct-model differences.
+- What problem characteristics predict prompt sensitivity? An automated classifier would make scale-specific prompting deployable.
+- How does the overthinking effect interact with tool-using agents? If brevity helps large models but tools require structured reasoning, the optimal prompt is not uniformly brief.
+- Do reasoning models (o1, DeepSeek-R1 style) exhibit different overthinking dynamics than instruct models? Their trained behavior is explicitly to generate long CoT — does brevity intervention hurt them?
+- Is BoolQ's functional-elaboration exception a clean taxonomy boundary, or does every task type have a context-dependent optimal length?
+
+## Sources
+
+- Brevity Constraints Reverse Performance Hierarchies in Language Models
