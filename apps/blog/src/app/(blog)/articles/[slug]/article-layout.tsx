@@ -55,7 +55,7 @@ export function ArticleLayout({
                 ["Published", formatDate(meta.date)],
                 ["Filed", meta.tag],
                 ["Reading", `${meta.readingTime} min`],
-                ["Author", "Howard Tai"],
+                ["Source", "AI-synthesised"],
               ]}
             />
           </div>
@@ -87,12 +87,12 @@ export function ArticleLayout({
 
         <Card className="mb-12 px-6 py-5">
           <div className="mb-2 font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
-            About the author
+            About this piece
           </div>
           <p className="m-0 font-body text-muted-foreground text-xs">
-            Howard Tai is a software engineer and amateur diver based in Taiwan,
-            sharing personal thoughts on engineering, mathematics, and the
-            occasional ocean adventure.
+            Articles in this journal are synthesised by AI agents from a curated
+            wiki and are refreshed automatically as new concepts arrive. Topics,
+            framing, and editorial direction are curated by Howardism.
           </p>
         </Card>
 
