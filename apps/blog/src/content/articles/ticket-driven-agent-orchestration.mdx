@@ -1,0 +1,117 @@
+---
+date: 2026-04-28
+title: Ticket-Driven Agent Orchestration
+description: 'The inversion that makes Symphony work: tickets as units of work
+  (not sessions/PRs), DAG dependencies, agent-extensible work graph, "objectives
+  not transitions"'
+tag: Concept
+readingTime: 8
+imageAlt: Illustration for Ticket-Driven Agent Orchestration
+sources:
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+---
+export { default as heroImage } from "../assets/ticket-driven-agent-orchestration.png";
+
+## Sources
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+
+## Summary
+
+A pattern, codified by OpenAI's [Symphony](/articles/symphony), that inverts the usual unit of agentic work: **the issue tracker ticket becomes the unit of work, not the coding session or pull request**. Open tickets are the queue; agents are pulled to tickets rather than humans assigning sessions to agents; tickets persist across multiple PRs, restarts, and continuation turns. The pattern decouples agentic execution from both sessions and PRs, making it possible for non-engineers to dispatch work and for a single ticket to span investigations that produce zero, one, or many PRs.
+
+## Details
+
+### The Inversion
+
+Conventional agentic-coding workflows organize around either sessions (Claude Code's chat thread) or PRs (the merged unit). Both are means-to-ends abstractions. The actual organizing principle of software work is the *deliverable*: issue, ticket, milestone.
+
+[Symphony's](/articles/symphony) reframing:
+
+> "Software workflows are largely organized around deliverables: issues, tasks, tickets, milestones. So we asked ourselves what would happen if we stopped supervising agents directly and instead let them pull work from our task tracker."
+
+Once tickets are the unit:
+
+- **One ticket → many PRs** is normal. A "migrate auth to OIDC" ticket might span 3 PRs across 2 repos.
+- **One ticket → zero PRs** is normal. "Investigate why CI is flaky" or "draft an architectural plan" produce notes/proposals, not code changes.
+- **PRs become artifacts of tickets**, not the work itself.
+- **Agents pull work**; humans don't push sessions.
+
+### DAG-Style Dependencies
+
+Tickets carry blocker relationships. Symphony's `Issue.blocked_by` field is part of the candidate-selection rule:
+
+> "If the issue state is `Todo`, do not dispatch when any blocker is non-terminal."
+
+Combined with agents' ability to file new tickets, this creates a **directed acyclic graph of work** that unfolds in dependency order. Concrete example from the post:
+
+> "We marked the React upgrade as blocked on a migration to Vite. As expected, agents started upgrading React only after the migration to Vite was complete."
+
+Importantly, the DAG is *agent-extensible*: during implementation or review, agents that notice adjacent improvements (perf issues, refactoring opportunities, better architectures) file new tickets rather than expanding the current scope. Many of those follow-ups are then picked up by other agents.
+
+### Who Files Tickets
+
+Once execution is decoupled from sessions, **anyone can dispatch agentic work without touching a repo**:
+
+- Engineers file tickets the same way they file bugs.
+- PMs and designers can file feature requests directly into the tracker, without checking out the repo or managing a Codex session. Their deliverable is a "review packet" with a video walkthrough of the working feature.
+- The OpenAI post cites an engineer making three significant changes "from the Linear app on his phone from a cozy cabin on shoddy wifi."
+
+The economic effect: the perceived cost of each change drops because human effort is no longer the gating resource. This shifts behavior — speculative tickets, exploratory refactors, and "try this idea" tasks become cheap. Discard cost is also near zero.
+
+### "Objectives, Not Transitions"
+
+A key lesson from Symphony's evolution. Their first version treated agents as rigid nodes in a state machine — Codex was *only* asked to implement the task in a ticket. This proved too limiting once models got smarter:
+
+> "Codex is perfectly capable of creating multiple PRs as well as reading review feedback and addressing it. So we gave it tools — `gh` CLI, skills to read CI logs, etc. — and now we can ask Codex to do more, like closing old PRs or pulling reports on completed vs. abandoned work."
+
+The shift: give agents **objectives** (the ticket title/description) and **tools**, not strict state-machine transitions. This is a re-statement at the orchestration layer of ["enforce invariants, not implementations"](/articles/agent-harness-engineering) — the orchestrator constrains the *envelope* (per-issue workspace, concurrency caps, terminal-state cleanup) but not the *steps* an agent takes inside that envelope.
+
+### The Workflow.md Prompt-as-Policy Pattern
+
+In ticket-driven orchestration, workflow policy lives in a versioned markdown file in the repo (Symphony's `WORKFLOW.md`). It captures the implicit "process humans followed but never documented":
+
+> "Work on an issue, check out a repo, put it in progress so the PM knows it's being worked on, add the PR, move it to the **Review** status, attach videos, etc. — is now captured in a simple `WORKFLOW.md` file."
+
+When the team decides agents should also attach self-reflection to finished work, they edit `WORKFLOW.md`; on next render, agents follow the new step. This is workflow as **prompt-as-policy** — the same pattern that motivates `CLAUDE.md`, `AGENTS.md`, and `SOUL.md` as agent-context files (see [Claude Code Best Practices](/articles/claude-code-best-practices), [Hermes Agent](/articles/hermes-agent)).
+
+### Effects Beyond Throughput
+
+Output gains are the most visible effect (Symphony's hedged 500% landed-PRs claim, see [Symphony](/articles/symphony)). The *deeper* effect is on team behavior:
+
+1. **Cognitive cost of kicking off work drops to ~0**, so teams file far more speculative/exploratory tickets.
+2. **Engineers stop context-switching** between many in-flight sessions and instead focus on one hard problem at a time.
+3. **Last-mile reliability improves** — Symphony watches CI, rebases, resolves conflicts, retries flaky checks, so by the time a ticket reaches `Merging` the change can land without babysitting.
+4. **Documentation gardening becomes a ticket type**, not a side-project that nobody owns.
+5. **Routine vs. interesting work** separates cleanly — agents handle the bulk of implementation; humans focus on ambiguous, high-judgment work.
+
+### Where the Pattern Doesn't Fit
+
+Honest tradeoffs from the source:
+
+- **Loss of mid-flight steering**: assigning at the ticket level means no nudging during execution. Failures expose harness gaps and are patched system-wide rather than fixed in the moment.
+- **Ambiguous problems still need humans**: tasks requiring strong judgment, deep expertise, or expert taste are still better handled in interactive sessions.
+- **Tracker dependency**: the orchestrator is now coupled to the tracker's API and uptime. Symphony has no durable DB and relies on tracker + filesystem for restart recovery — when Linear is down, work pauses.
+
+## Connections
+
+- [Symphony](/articles/symphony) — the canonical implementation; entity page covering OpenAI's specific orchestrator
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — the runtime protocol Symphony uses for per-ticket sessions; continuation turns let one ticket span many turns on the same `thread_id`
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — ticket-driven orchestration is the natural extension of harness engineering: once the per-session harness works, the next bottleneck is *which session runs next*. "Objectives, not transitions" is the orchestration-layer restatement of "enforce invariants, not implementations"
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude Code's `claude -p` non-interactive mode is the building block for ticket-driven orchestration on the Claude side; subagents and the Writer/Reviewer pattern can be wired into a tracker the same way Symphony wires Codex to Linear
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — at this scale, AgentOpt-style combo selection becomes operationally important: choosing the right model per ticket type (planner vs. solver vs. reviewer) inside `WORKFLOW.md`'s prompt template is a per-pipeline budget decision
+- [Hermes Agent](/articles/hermes-agent) — Hermes's cron jobs and home-channel delivery are a lighter analogue: scheduled deliverables that the agent dispatches itself, with results filed back to a chat rather than a ticket
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — the wiki's `/compile` and `/lint` are themselves ticket-like work units that could plug into a Symphony-style daemon
+
+## Open Questions
+
+- What's the right granularity for ticket size when the unit is "what one agent does in one workspace"? The post implies "much larger units of work" become viable, but how does that interact with the `agent.max_turns` limit (default 20)?
+- How do you prevent a ticket-extension cascade when agents file follow-up tickets liberally? Is the only governance check human triage at the `Todo`-state queue?
+- Does this pattern generalize to non-software work (research, ops, content)? The DAG dependency model and prompt-as-policy file should transfer; the per-issue workspace doesn't obviously.
+- When an agent gets a ticket "completely wrong" (mentioned in the post), how is the lesson fed back into the system? Symphony's answer is "add guardrails and skills" — what's the institutional process for that?
+- How does ticket-driven orchestration interact with sprint planning / OKRs / roadmap work that operates on aggregates of tickets? Does the abstraction collapse when tickets are scoped that small?
+
+## Sources
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
