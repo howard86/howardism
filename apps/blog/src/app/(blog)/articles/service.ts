@@ -102,7 +102,7 @@ const toArticleLinks = (
   return links;
 };
 
-const PAGE_MDX_SUFFIX = /\/page.mdx$/;
+const MDX_SUFFIX = /\.mdx$/;
 
 interface ArticleModule {
   heroImage?: StaticImageData;
@@ -112,8 +112,8 @@ interface ArticleModule {
 const loadArticle = async (
   filename: string
 ): Promise<{ heroImage: StaticImageData; meta: ArticleMeta; slug: string }> => {
-  const slug = filename.replace(PAGE_MDX_SUFFIX, "");
-  const mod = (await import(`./[slug]/(docs)/${filename}`)) as ArticleModule;
+  const slug = filename.replace(MDX_SUFFIX, "");
+  const mod = (await import(`@/content/articles/${filename}`)) as ArticleModule;
   const parsed = ArticleMetaSchema.safeParse(mod.meta);
   if (!parsed.success) {
     throw new Error(
@@ -130,16 +130,8 @@ const loadArticle = async (
 
 export const getArticles = cache(
   async (): Promise<Normalise<ArticleEntity>> => {
-    const filenames = await glob("**/page.mdx", {
-      cwd: join(
-        process.cwd(),
-        "src",
-        "app",
-        "(blog)",
-        "articles",
-        "[slug]",
-        "(docs)"
-      ),
+    const filenames = await glob("*.mdx", {
+      cwd: join(process.cwd(), "src", "content", "articles"),
     });
 
     const files = await Promise.all(filenames.map(loadArticle));
