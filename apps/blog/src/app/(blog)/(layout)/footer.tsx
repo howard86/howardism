@@ -1,6 +1,14 @@
 import { Badge } from "@howardism/ui/components/badge";
 import Link from "next/link";
 
+import {
+  AUTHOR_EMAIL,
+  AUTHOR_HANDLE,
+  AUTHOR_NAME,
+  SITE_LOCATION,
+  SITE_NAME,
+  SITE_TAGLINE,
+} from "../../constants";
 import { Avatar } from "./avatar";
 import { FOOTER_NAV } from "./constants";
 
@@ -25,14 +33,21 @@ export function Footer() {
         <div className="flex items-center gap-2.5">
           <Avatar label="Home" size={28} />
           <span className="font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
-            &copy; Howardism &middot; {new Date().getFullYear()} &middot; Taiwan
-            / anywhere
+            &copy; {SITE_NAME} &middot; {new Date().getFullYear()} &middot;{" "}
+            {SITE_LOCATION}
           </span>
         </div>
 
+        {/* Tagline */}
+        <span className="max-w-[60ch] font-body text-[12px] text-muted-foreground italic leading-[1.5]">
+          {SITE_TAGLINE}
+        </span>
+
         {/* Colophon */}
         <span className="font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
-          Set in Fraunces, Newsreader &amp; JetBrains Mono.
+          {AUTHOR_NAME} &middot; {AUTHOR_EMAIL} &middot; {AUTHOR_HANDLE}
+          {" — "}
+          Set in Fraunces, Newsreader &amp; JetBrains Mono. ✨
         </span>
       </div>
     </footer>
