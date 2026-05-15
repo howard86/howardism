@@ -8,8 +8,8 @@ import { getVisibleArticles } from "../(blog)/articles/service";
 import {
   AUTHOR_EMAIL,
   AUTHOR_NAME,
-  SITE_DESCRIPTION,
   SITE_NAME,
+  SITE_TAGLINE,
 } from "../constants";
 
 const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
@@ -24,7 +24,7 @@ export const generateFeed = cache(async (): Promise<Feed> => {
 
   const feed = new Feed({
     title: SITE_NAME,
-    description: SITE_DESCRIPTION,
+    description: SITE_TAGLINE,
     author,
     id: siteUrl,
     link: siteUrl,
