@@ -31,18 +31,17 @@ export interface ArticleMeta {
 }
 
 export interface EmitArticleArgs {
-  articleDir: string;
+  articlesDir: string;
   body: string;
   dryRun?: boolean;
   imageAlt: string;
   imageFile: string;
   meta: ArticleMeta;
+  slug: string;
 }
 
-const MDX_FILENAME = "page.mdx";
-
 export function buildArticleSource(
-  args: Omit<EmitArticleArgs, "articleDir" | "dryRun">
+  args: Omit<EmitArticleArgs, "articlesDir" | "dryRun" | "slug">
 ): string {
   const { imageFile, imageAlt, meta, body } = args;
 
@@ -62,7 +61,7 @@ export function buildArticleSource(
     "---",
     frontmatter,
     "---",
-    `export { default as heroImage } from "../(assets)/${imageFile}";`,
+    `export { default as heroImage } from "../assets/${imageFile}";`,
     "",
     body.trimEnd(),
     "",
@@ -70,8 +69,8 @@ export function buildArticleSource(
 }
 
 export async function emitArticle(args: EmitArticleArgs): Promise<string> {
-  const { articleDir, dryRun } = args;
-  const filePath = join(articleDir, MDX_FILENAME);
+  const { articlesDir, slug, dryRun } = args;
+  const filePath = join(articlesDir, `${slug}.mdx`);
   const fileContent = buildArticleSource(args);
 
   if (dryRun) {

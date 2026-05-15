@@ -23,7 +23,7 @@ export async function generateMetadata({
   params,
 }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as ArticleModule;
+  const mod = (await import(`@/content/articles/${slug}.mdx`)) as ArticleModule;
 
   return {
     title: mod.meta.title,
@@ -33,7 +33,7 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as ArticleModule;
+  const mod = (await import(`@/content/articles/${slug}.mdx`)) as ArticleModule;
 
   const { previousSlug, nextSlug, position } = await getSiblings(slug);
 

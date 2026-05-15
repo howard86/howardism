@@ -13,10 +13,11 @@ import {
 } from "../transform.ts";
 
 export interface BuildWikiChangelogArgs {
+  articlesDir: string;
   dryRun?: boolean;
   imageFile: string;
-  outputDir: string;
   parsed: ParsedWikiFile;
+  slug: string;
   slugTitleMap: Map<string, string>;
 }
 
@@ -27,7 +28,7 @@ export interface BuildWikiChangelogArgs {
 export function buildWikiChangelogPage(
   args: BuildWikiChangelogArgs
 ): Promise<string> {
-  const { parsed, outputDir, imageFile, slugTitleMap, dryRun } = args;
+  const { parsed, articlesDir, slug, imageFile, slugTitleMap, dryRun } = args;
 
   const title = parsed.frontmatter.title?.trim() || "Wiki Changelog";
   const escaped = escapeMdxBody(parsed.body);
@@ -47,7 +48,8 @@ export function buildWikiChangelogPage(
   };
 
   return emitArticle({
-    articleDir: outputDir,
+    articlesDir,
+    slug,
     imageFile,
     imageAlt: `Illustration for ${title}`,
     meta,

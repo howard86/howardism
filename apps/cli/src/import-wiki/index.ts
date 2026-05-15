@@ -41,8 +41,8 @@ import {
 } from "./transform.ts";
 
 interface RunOptions {
-  assetsDir: string;
   blogArticlesPath: string;
+  blogAssetsPath: string;
   dryRun: boolean;
   graphOutputPath: string;
   onlySlug: string | null;
@@ -66,7 +66,11 @@ const CLI_ROOT = resolve(HERE, "../../");
 const REPO_ROOT = resolve(CLI_ROOT, "../../");
 const DEFAULT_BLOG_ARTICLES_PATH = resolve(
   REPO_ROOT,
-  "apps/blog/src/app/(blog)/articles/[slug]/(docs)"
+  "apps/blog/src/content/articles"
+);
+const DEFAULT_BLOG_ASSETS_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/content/assets"
 );
 const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
   REPO_ROOT,
@@ -93,9 +97,9 @@ async function main(): Promise<void> {
 
   await assertExists(opts.wikiPath, "wiki path");
   await assertExists(opts.rawPath, "raw path");
-  await assertExists(opts.blogArticlesPath, "blog articles path");
   if (!opts.dryRun) {
-    await mkdir(opts.assetsDir, { recursive: true });
+    await mkdir(opts.blogArticlesPath, { recursive: true });
+    await mkdir(opts.blogAssetsPath, { recursive: true });
   }
 
   const ctx = await buildImportContext(opts);
@@ -185,7 +189,6 @@ async function processArticle(
 ): Promise<void> {
   const { source, frontmatter } = parsed;
   const slug = source.slug;
-  const articleDir = join(opts.blogArticlesPath, slug);
 
   const title = frontmatter.title?.trim() || titleFromSlug(slug);
   const strippedBody = stripDuplicateLeadingHeading(parsed.body, title);
@@ -241,14 +244,15 @@ async function processArticle(
     slug,
     title,
     body,
-    imagePath: join(opts.assetsDir, imageFile),
+    imagePath: join(opts.blogAssetsPath, imageFile),
     skipImages: opts.skipImages,
     dryRun: opts.dryRun,
     summary,
   });
 
   const filePath = await emitArticle({
-    articleDir,
+    articlesDir: opts.blogArticlesPath,
+    slug,
     imageFile,
     imageAlt: `Illustration for ${title}`,
     meta,
@@ -376,14 +380,15 @@ async function emitWikiChangelogPage(args: {
     slug: "wiki-changelog",
     title: "Wiki Changelog",
     body: logParsed.body,
-    imagePath: join(opts.assetsDir, changelogImageFile),
+    imagePath: join(opts.blogAssetsPath, changelogImageFile),
     skipImages: opts.skipImages,
     dryRun: opts.dryRun,
     summary,
   });
   const changelogPath = await buildWikiChangelogPage({
     parsed: logParsed,
-    outputDir: join(opts.blogArticlesPath, "wiki-changelog"),
+    articlesDir: opts.blogArticlesPath,
+    slug: "wiki-changelog",
     imageFile: changelogImageFile,
     slugTitleMap,
     dryRun: opts.dryRun,
@@ -447,7 +452,9 @@ function parseOptions(): RunOptions {
   const blogArticlesPath = resolve(
     env.BLOG_ARTICLES_PATH ?? DEFAULT_BLOG_ARTICLES_PATH
   );
-  const assetsDir = join(blogArticlesPath, "(assets)");
+  const blogAssetsPath = resolve(
+    env.BLOG_ASSETS_PATH ?? DEFAULT_BLOG_ASSETS_PATH
+  );
   const overridesPath = resolve(env.OVERRIDES_PATH ?? DEFAULT_OVERRIDES_PATH);
   const graphOutputPath = resolve(
     env.GRAPH_OUTPUT_PATH ?? DEFAULT_GRAPH_OUTPUT_PATH
@@ -461,7 +468,7 @@ function parseOptions(): RunOptions {
     wikiPath,
     rawPath,
     blogArticlesPath,
-    assetsDir,
+    blogAssetsPath,
     overridesPath,
     graphOutputPath,
     onlySlug,

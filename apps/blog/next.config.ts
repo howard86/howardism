@@ -55,7 +55,7 @@ const securityHeaders = getSecurityHeaders({
 });
 
 const nextConfig: NextConfig = {
-  pageExtensions: ["ts", "tsx", "mdx"],
+  pageExtensions: ["ts", "tsx"],
   headers: () => [{ source: "/(.*)", headers: securityHeaders }],
   redirects: () => [
     { source: "/photos", destination: "/", permanent: true },
