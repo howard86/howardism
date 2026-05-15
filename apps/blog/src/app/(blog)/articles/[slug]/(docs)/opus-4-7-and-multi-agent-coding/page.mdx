@@ -1,16 +1,34 @@
-import Image from "@/components/mdx-image";
-import heroImage from "../(assets)/opus-4-7-and-multi-agent-coding.png";
+---
+date: 2026-04-17
+title: Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations
+description: "4.6→4.7 delta table + six hazards for multi-agent coding teams:
+  role-based model selection, prompt re-tuning, harness invariants, per-agent
+  context budget, unattended-fan-out safety, independent reviewer"
+tag: Essay
+readingTime: 9
+imageAlt: Illustration for Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations
+sources:
+  - title: Introducing Claude Opus 4.7
+    url: https://www.anthropic.com/news/claude-opus-4-7
+  - title: Best Practices for Claude Code
+    url: https://code.claude.com/docs/en/best-practices
+  - title: Auto mode for Claude Code
+    url: https://claude.com/blog/auto-mode
+  - title: "AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based
+      Agent"
+    url: https://arxiv.org/html/2604.06296v1
+  - title: Brevity Constraints Reverse Performance Hierarchies in Language Models
+    url: https://arxiv.org/html/2604.00025v1
+---
+export { default as heroImage } from "../(assets)/opus-4-7-and-multi-agent-coding.png";
 
-export const meta = {
-  date: "2026-04-17",
-  title: "Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations",
-  description: "4.6→4.7 delta table + six hazards for multi-agent coding teams: role-based model selection, prompt re-tuning, harness invariants, per-agent context budget, unattended-fan-out safety, independent reviewer",
-  image: { src: heroImage, alt: "Illustration for Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations" },
-  readingTime: 9,
-  tag: "Essay",
-};
+## Sources
 
-<Image placeholder="blur" {...meta.image} />
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
 
 ## Question
 
@@ -18,7 +36,7 @@ What's the difference between Opus 4.6 & 4.7, and what should I pay attention to
 
 ## Part 1 — What Changed Between 4.6 and 4.7
 
-Same price ($5/M input, $25/M output), same product position, new API ID (`claude-opus-4-7`). Direct upgrade. Details and nuances from <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link>:
+Same price ($5/M input, $25/M output), same product position, new API ID (`claude-opus-4-7`). Direct upgrade. Details and nuances from [Claude Opus 4.7](/articles/claude-opus-4-7):
 
 | Axis | 4.7 vs. 4.6 | Why it matters for a multi-agent setup |
 |---|---|---|
@@ -31,7 +49,7 @@ Same price ($5/M input, $25/M output), same product position, new API ID (`claud
 | Effort levels | New `xhigh` between `high` and `max`. **Claude Code default raised to `xhigh` on all plans** | Per-agent token cost at default increased |
 | Tokenizer | Same input → **1.0–1.35× more tokens** | Context budget shrinks per agent unless prompts are re-measured |
 | Per-turn thinking | **Thinks more at higher effort**, especially on later agentic turns | Compounds tokenizer inflation across multi-turn orchestration |
-| Accompanying launches | Task budgets (API public beta), `/ultrareview`, auto mode extended to Max | Server-side budget lever arrives alongside <Link href="/articles/claude-code-auto-mode">auto mode</Link> for unattended runs |
+| Accompanying launches | Task budgets (API public beta), `/ultrareview`, auto mode extended to Max | Server-side budget lever arrives alongside [auto mode](/articles/claude-code-auto-mode) for unattended runs |
 
 **Compounded token-budget hit**: tokenizer inflation × xhigh default × more per-turn thinking. The naive "drop-in upgrade" consumes more context than 4.6 on the same prompts. Anthropic explicitly recommends measuring on real traffic rather than trusting the net-favorable claim on their internal coding eval.
 
@@ -41,7 +59,7 @@ The research in this wiki points at six concrete hazards when moving from a sing
 
 ### 1. Role-Based Model Selection, Not Strongest-Model Default
 
-From <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link> (AgentOpt, Hua et al., 2026) measured on Opus 4.6:
+From [Client-Side Agent Optimization](/articles/client-side-agent-optimization) (AgentOpt, Hua et al., 2026) measured on Opus 4.6:
 
 | Combination (planner + solver on HotpotQA) | Accuracy |
 |---|---|
@@ -55,7 +73,7 @@ Opus-as-planner bypasses the downstream solver's search tools and answers from p
 - Reserve Opus 4.7 for synthesis, integrative reasoning, final-answer generation, and code-review-over-multiple-files roles.
 - Before committing Opus to a role, check whether a cheaper model matches accuracy. On BFCL, **Qwen3 Next 80B matched Opus 4.6 at 32× lower cost**. 4.7's tokenizer inflation makes this gap worse, not better.
 
-**Open question on 4.7**: literal instruction following may narrow the planner gap. Don't assume it — re-measure. See <Link href="/articles/when-to-use-opus-4-6">When to Use Claude Opus 4.6 for Work</Link> addendum for the per-rule 4.7 predictions.
+**Open question on 4.7**: literal instruction following may narrow the planner gap. Don't assume it — re-measure. See [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) addendum for the per-rule 4.7 predictions.
 
 ### 2. Re-Tune Prompts From the 4.6 Era
 
@@ -69,7 +87,7 @@ Opus 4.7's **literal instruction following** is the single biggest migration haz
 
 ### 3. Harness-Level Invariants, Not Prompt Advisories
 
-From <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> and <Link href="/articles/scale-dependent-prompt-sensitivity">Scale-Dependent Prompt Sensitivity</Link>:
+From [Agent Harness Engineering](/articles/agent-harness-engineering) and [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity):
 
 - Enforce output constraints **mechanically** — structured-output schemas, length caps, response validators, `/ultrareview`-style reviewer passes.
 - Brevity constraints recovered **+26.3pp** on overthinking-prone problems on 4.6. 4.7's literal instruction following may make these *more* effective (the model obeys word caps). Use them.
@@ -79,7 +97,7 @@ Large-model verbosity stacks in a multi-agent pipeline: each agent's output beco
 
 ### 4. Context Budget Management Is Per-Agent
 
-<Link href="/articles/claude-code-best-practices#Context Window as Primary Constraint">Claude Code Best Practices</Link> applies to each agent in isolation. With 4.7 default `xhigh` + tokenizer inflation + more per-turn thinking, multi-agent handoffs consume budget faster. Tactics:
+[Claude Code Best Practices](/articles/claude-code-best-practices#Context%20Window%20as%20Primary%20Constraint) applies to each agent in isolation. With 4.7 default `xhigh` + tokenizer inflation + more per-turn thinking, multi-agent handoffs consume budget faster. Tactics:
 
 - **Summarized handoffs**, not full-context passthrough
 - **Subagents in isolated context** (Claude Code pattern): investigate separately, return a summary
@@ -89,7 +107,7 @@ Large-model verbosity stacks in a multi-agent pipeline: each agent's output beco
 
 ### 5. Unattended Fan-Out Safety
 
-From <Link href="/articles/claude-code-auto-mode">Claude Code Auto Mode</Link> (now extended to Max users alongside 4.7):
+From [Claude Code Auto Mode](/articles/claude-code-auto-mode) (now extended to Max users alongside 4.7):
 
 - Auto mode is **strictly safer than `--dangerously-skip-permissions`** for multi-agent fan-out — a classifier pre-flights every tool call and redirects Claude on risky actions.
 - It is **not a substitute for isolated environments**. Anthropic documents two classifier failure modes: ambiguous intent and missing environment context.
@@ -99,11 +117,11 @@ When an agent fans out commands with destructive shape (migrations, deletes, dep
 
 ### 6. Agent-Review Pattern Beats Self-Verification
 
-From <Link href="/articles/claude-code-best-practices#Scaling Patterns">Claude Code Best Practices</Link>: the Writer/Reviewer pattern — one agent implements, a second reviews with *fresh context* — reduces the "own-code blind spot." With Opus 4.7:
+From [Claude Code Best Practices](/articles/claude-code-best-practices#Scaling%20Patterns): the Writer/Reviewer pattern — one agent implements, a second reviews with *fresh context* — reduces the "own-code blind spot." With Opus 4.7:
 
 - `/ultrareview` is the vendored form of this pattern; Pro and Max users get 3 free ultrareviews for evaluation
 - File system memory improvements mean the reviewer can read the writer's progress log and git history efficiently, not just the diff
-- For unattended multi-team workflows: route reviewer-agent output back through a validator agent (mirrors the final-validation-agent pattern in <Link href="/articles/llm-driven-vulnerability-research">LLM-Driven Vulnerability Research</Link>) rather than trusting single-agent reviews
+- For unattended multi-team workflows: route reviewer-agent output back through a validator agent (mirrors the final-validation-agent pattern in [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research)) rather than trusting single-agent reviews
 
 ## Decision Summary
 
@@ -121,20 +139,20 @@ From <Link href="/articles/claude-code-best-practices#Scaling Patterns">Claude C
 
 Both failure modes specific to Opus on 4.6 — worst-planner-in-class and overthinking-on-short-answers — share one mechanism: **scale-dependent overthinking**. 4.7's literal instruction following may dampen it; 4.7's xhigh default and more-per-turn thinking cut the other way. Net direction is empirical.
 
-The safe meta-rule for multi-agent coding teams: **don't inherit 4.6 deployment decisions on faith**. Measure on your workload, then decide. <Link href="/articles/when-to-use-opus-4-6">When to Use Claude Opus 4.6 for Work</Link>'s five rules are the current best defaults — re-validate them as your multi-agent setup matures on 4.7.
+The safe meta-rule for multi-agent coding teams: **don't inherit 4.6 deployment decisions on faith**. Measure on your workload, then decide. [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6)'s five rules are the current best defaults — re-validate them as your multi-agent setup matures on 4.7.
 
 ## Sources
 
-- <Link href="/articles/claude-opus-4-7">Claude Opus 4.7</Link> — 4.7 capability and token-economics deltas
-- <Link href="/articles/claude-code-best-practices">Claude Code Best Practices</Link> — context-budget constraint, subagents, Writer/Reviewer, session management, scaling patterns
-- <Link href="/articles/claude-code-auto-mode">Claude Code Auto Mode</Link> — classifier-gated permission middle-ground
-- <Link href="/articles/client-side-agent-optimization">Client-Side Agent Optimization</Link> — combo selection, Opus-as-planner failure mode, Pareto frontier
-- <Link href="/articles/scale-dependent-prompt-sensitivity">Scale-Dependent Prompt Sensitivity</Link> — brevity constraints, overthinking mechanism, BoolQ exception
-- <Link href="/articles/agent-harness-engineering">Agent Harness Engineering</Link> — enforce invariants mechanically, progressive disclosure, doc gardening
-- <Link href="/articles/llm-driven-vulnerability-research">LLM-Driven Vulnerability Research</Link> — final-validation-agent pattern as template for multi-agent review
-- <Link href="/articles/when-to-use-opus-4-6">When to Use Claude Opus 4.6 for Work</Link> — per-rule 4.7 predictions in addendum
-- Introducing Claude Opus 4 7
-- Best Practices for Claude Code
-- Auto mode for Claude Code
-- AgentOpt v0 1 Technical Report Client Side Optimization for LLM Based Agent
-- Brevity Constraints Reverse Performance Hierarchies in Language Models
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — 4.7 capability and token-economics deltas
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — context-budget constraint, subagents, Writer/Reviewer, session management, scaling patterns
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — classifier-gated permission middle-ground
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — combo selection, Opus-as-planner failure mode, Pareto frontier
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — brevity constraints, overthinking mechanism, BoolQ exception
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — enforce invariants mechanically, progressive disclosure, doc gardening
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — final-validation-agent pattern as template for multi-agent review
+- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — per-rule 4.7 predictions in addendum
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
