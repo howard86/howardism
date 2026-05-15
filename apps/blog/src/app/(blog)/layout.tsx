@@ -140,6 +140,7 @@ export default function RootLayout({ children }: ChildrenProps) {
     <html
       className={`h-full scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
       lang="en"
+      suppressHydrationWarning
     >
       <head>
         <InitTweaksScript />
