@@ -1,0 +1,167 @@
+---
+date: 2026-04-10
+title: Claude Code Best Practices
+description: "Anthropic's guide to effective Claude Code usage: context
+  management, verification-driven development, explore→plan→code workflow,
+  environment config"
+tag: Concept
+readingTime: 10
+imageAlt: Illustration for Claude Code Best Practices
+sources:
+  - title: Best Practices for Claude Code
+    url: https://code.claude.com/docs/en/best-practices
+  - title: Auto mode for Claude Code
+    url: https://claude.com/blog/auto-mode
+  - title: Introducing Claude Opus 4.7
+    url: https://www.anthropic.com/news/claude-opus-4-7
+  - title: Tips & Best Practices
+    url: https://hermes-agent.nousresearch.com/docs/guides/tips
+  - title: "Tutorial: Team Telegram Assistant"
+    url: https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+  - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
+    url: https://www.youtube.com/watch?v=SlGRN8jh2RI
+  - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
+      of Product, Claude Code)
+    url: https://www.youtube.com/watch?v=PplmzlgE0kg
+  - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
+    url: https://youtu.be/-QFHIoCo-Ko
+---
+export { default as heroImage } from "../assets/claude-code-best-practices.png";
+
+## Sources
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
+
+## Summary
+
+Anthropic's official guide to effective Claude Code usage, organized around a single core constraint: the context window fills up fast and performance degrades as it fills. All best practices flow from managing this scarce resource — through verification-driven development, structured context (CLAUDE.md), aggressive session management, and horizontal scaling via parallel sessions.
+
+## Details
+
+### Context Window as Primary Constraint
+
+The context window holds the entire conversation: messages, file reads, command outputs. A single debugging session can consume tens of thousands of tokens. As context fills, Claude "forgets" earlier instructions and makes more mistakes. Every best practice is ultimately about managing this resource. See [Context Window Smart Zone](/articles/context-window-smart-zone) for the underlying mechanism (quadratic attention scaling, ~100K-token smart-zone marker).
+
+**Model-level amplifiers** (as of [Claude Opus 4.7](/articles/claude-opus-4-7)): the updated tokenizer maps the same input to 1.0–1.35× more tokens, and Opus 4.7 "thinks more at higher effort levels" — especially on later turns in agentic settings. Claude Code's default effort has been raised to `xhigh`. These compound: a session that fit on 4.6 at `high` may be meaningfully tighter on 4.7 at `xhigh`. Measure on real traffic before trusting intuition carried over from 4.6. Counter-levers: lower effort, task budgets (API), explicit conciseness prompting, or brevity-style output caps (see [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)).
+
+### Verification-Driven Development
+
+The single highest-leverage practice: **give Claude a way to verify its own work**. Provide tests, screenshots, expected outputs, or linter commands. Without verification, Claude produces plausible-looking but broken code and the human becomes the only feedback loop.
+
+Key patterns:
+- Provide concrete test cases with inputs and expected outputs
+- For UI changes, paste screenshots and ask Claude to compare its result
+- Address root causes by providing error messages, not just "the build is failing"
+- Use the Claude in Chrome extension for automated UI testing
+
+### Explore → Plan → Code Workflow
+
+Separate research from implementation. Use Plan Mode for multi-file changes or unfamiliar code. Skip planning when the scope is clear and the diff can be described in one sentence.
+
+A more aggressive variant: [Design Concept Grilling](/articles/design-concept-grilling) (Matt Pocock's `grill-me` skill) replaces "ask the agent for a plan" with "let the agent interview you until you reach shared understanding *before* any plan exists." See also [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) for slicing the resulting PRD into agent-grabbable Kanban tickets, and [Deep Modules for Agents](/articles/deep-modules-for-agents) for keeping the codebase shape agent-friendly.
+
+### Environment Configuration
+
+- **CLAUDE.md**: persistent instructions loaded every session. Include only what Claude can't infer from code — bash commands, non-default code style, workflow rules, architectural decisions, gotchas. Prune ruthlessly: if Claude already does something correctly without the instruction, delete it. Treat like code — review when things go wrong, test by observing behavior changes. Use `@path` imports for modularity.
+- **Skills** (`.claude/skills/`): domain knowledge and reusable workflows loaded on demand, not every session. Invoke with `/skill-name`.
+- **Subagents** (`.claude/agents/`): specialized assistants running in isolated context with scoped tools. Useful for tasks that read many files without cluttering main context.
+- **Hooks**: deterministic scripts that run at specific points in Claude's workflow. Unlike CLAUDE.md (advisory), hooks guarantee execution.
+- **MCP servers**: connect external tools (Notion, Figma, databases) via `claude mcp add`.
+- **Plugins**: bundled skills + hooks + subagents + MCP from a marketplace.
+- **Permissions**: [auto mode](/articles/claude-code-auto-mode) (classifier-based approval, middle ground between default-prompt and `--dangerously-skip-permissions`), allowlists, or OS-level sandboxing.
+
+### Session Management
+
+- **`/clear`** between unrelated tasks — prevents context pollution
+- **`/compact <instructions>`** — targeted summarization preserving specified context
+- **`/rewind` or `Esc+Esc`** — restore conversation, code, or both to any checkpoint
+- **Subagents for investigation** — explore in separate context, report back summaries
+- **`/btw`** — side questions that never enter conversation history
+- After two failed corrections on the same issue, `/clear` and rewrite the prompt incorporating what you learned
+
+### Scaling Patterns
+
+- **Non-interactive mode**: `claude -p "prompt"` for CI, scripts, pre-commit hooks. Supports JSON and streaming output.
+- **Parallel sessions**: desktop app (isolated worktrees), web (isolated VMs), or agent teams (coordinated sessions with shared tasks).
+- **Writer/Reviewer pattern**: one session implements, another reviews with fresh context (no bias toward own code).
+- **Fan-out**: loop `claude -p` across files for large migrations. Use `--allowedTools` to scope permissions.
+- **[Auto mode](/articles/claude-code-auto-mode) for unattended runs**: classifier blocks risky actions, allows routine work. Aborts on repeated blocks in non-interactive mode.
+- **[Loops and routines](/articles/agent-loop-pattern)**: `/loop` (cron-scheduled repeat job, in-CLI) and routines (server-side variant). Drain a Kanban backlog AFK; primary mechanism for amortizing planning over many executions. See [Agent Loop Pattern](/articles/agent-loop-pattern).
+
+### Parallel Ecosystems and Cross-Tool Concept Mapping
+
+Claude Code is one of several converging coding-agent ecosystems. Capability parallels with [Hermes Agent](/articles/hermes-agent) (Nous Research) and Codex (OpenAI):
+
+| Capability | Claude Code | Hermes | Codex |
+|---|---|---|---|
+| Project context file | `CLAUDE.md` | `AGENTS.md` (project) + `SOUL.md` (personality, separate) | `AGENTS.md` |
+| Session compaction | `/compact <instructions>` | `/compress` | (via Codex App Server thread compaction) |
+| Mid-session model switch | `/model` | `/model` | session-level config |
+| Parallel subagents | Subagents in `.claude/agents/` | `delegate_task` | Spawned via Symphony orchestrator |
+| Non-interactive / programmatic | `claude -p`, Claude Agent SDK | `hermes` CLI in scripts | [Codex App Server](/articles/codex-app-server-protocol) (JSON-RPC stdio) |
+| Multi-user team deployment | per-session `claude -p` | Hermes Gateway (Telegram/Discord/Slack/WhatsApp) with allowlist or DM pairing | [Symphony](/articles/symphony) (issue-tracker-driven daemon) |
+| Permission gating | [auto mode](/articles/claude-code-auto-mode) classifier | per-pattern approvals (`once`/`session`/`always`/`deny`); skipped under container backend | implementation-defined per Symphony spec |
+| Memory model | conversation + CLAUDE.md | bounded `MEMORY.md` (~2,200 chars) + `USER.md` (~1,375 chars) | filesystem-driven |
+
+The shared structural insight across all three: **agent behavior is configured via repo-versioned markdown files** (`CLAUDE.md` / `AGENTS.md` / `SOUL.md` / `WORKFLOW.md`). This pattern is consistent enough across vendors to look like an emerging standard. (A dedicated `agent-context-files` concept page is planned to formalize this.)
+
+The most architectural divergence: Claude Code is **session-first** with optional non-interactive mode; Hermes Gateway and Symphony are **daemon-first** when deployed at team scale. The session-vs-daemon split is the dominant deployment-architecture choice in 2026.
+
+### Common Failure Patterns
+
+| Pattern | Fix |
+|---|---|
+| Kitchen sink session (mixed unrelated tasks) | `/clear` between tasks |
+| Repeated corrections (>2 failed fixes) | `/clear`, rewrite prompt with lessons learned |
+| Over-specified CLAUDE.md | Prune; convert to hooks if deterministic |
+| Trust-then-verify gap | Always provide verification criteria |
+| Infinite exploration | Scope narrowly or use subagents |
+
+## Connections
+
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — Claude Code's CLAUDE.md, skills, and hooks are a practical implementation of the harness engineering patterns described by OpenAI and Anthropic's research teams
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — CLAUDE.md files serve as the schema layer in this vault's LLM-as-compiler architecture
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — Claude Code is the runtime for Anthropic's vulnerability research scaffold; all Mythos Preview findings used Claude Code's agentic capabilities
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — directly challenges the "use the strongest model" default: combinations where Claude Opus 4.6 is paired with a cheaper planner beat all-Opus by >40pp on HotpotQA. AgentOpt's httpx interception is compatible with `claude -p` non-interactive mode
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — complements context-window management: brevity constraints both raise accuracy on overthinking-prone problems and preserve context budget. Verification-driven development is especially important when large-model verbosity can mask reasoning errors
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the full write-up of the "auto mode" permission option mentioned in Environment Configuration and Scaling Patterns
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — the model most Claude Code work now targets; literal instruction following and tokenizer inflation directly reshape how CLAUDE.md and session management should be written
+- [Hermes Agent](/articles/hermes-agent) — parallel ecosystem from Nous Research; many Claude Code patterns map directly (`/compress` ↔ `/compact`, `delegate_task` ↔ subagents, `AGENTS.md` ↔ `CLAUDE.md`); the differences (Gateway daemon, bounded memory files, `SOUL.md` split) highlight design choices each made
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — the OpenAI-side analog to `claude -p` + Claude Agent SDK; both let an external orchestrator drive sessions, but App Server is more explicit about a stable JSON-RPC stdio protocol
+- [Symphony](/articles/symphony) — the daemon-first deployment archetype; a Claude-Code analog would wire `claude -p` plus subagents into an issue tracker the same way Symphony wires Codex to Linear
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — the orchestration pattern that becomes natural once non-interactive mode is solid; bridges single-session best practices into team-scale deployment
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the underlying constraint that motivates every context-management practice in this article
+- [Design Concept Grilling](/articles/design-concept-grilling) — more aggressive alignment-first variant of explore→plan→code
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — task decomposition pattern that fills the Kanban backlog drained by the loop primitive
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — codebase shape that makes Claude Code's review and verification patterns reliable; push-vs-pull instruction delivery
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — `/loop` and routines as the next-generation primitive replacing per-step prompting
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — why best-practice prompts and CLAUDE.md sections shrink with each model release; Cat Wu's discipline of pruning at every launch
+- [Claude Code](/articles/claude-code) — the entity-level page
+
+## Derived
+
+- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — context-window-as-primary-constraint framing informs the Claude Code corollary: Opus verbosity consumes budget faster
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — subagents, Writer/Reviewer, and scaling-pattern guidance applied to Opus 4.7 multi-agent teams
+- [Learning to Co-Work with AI: A Software Engineer's Field Guide](/articles/learning-to-cowork-with-ai-engineer-guide) — best-practices distilled into a per-engineer skill-development field guide (six skill clusters, daily practices, anti-patterns, 90-day plan)
+
+## Open Questions
+
+- What's the optimal CLAUDE.md length before instructions start getting lost? Is there a measurable threshold?
+- How does the Writer/Reviewer pattern compare to agent-to-agent review (as in OpenAI's Codex workflow)?
+- When does subagent overhead exceed the benefit of context isolation?
+
+## Sources
+
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode) — permission-mode expansion
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7) — tokenizer/xhigh-default context-budget implications

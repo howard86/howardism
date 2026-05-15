@@ -1,0 +1,130 @@
+---
+date: 2026-04-10
+title: LLM-as-Compiler Knowledge Base
+description: "Karpathy's architecture: LLM incrementally compiles raw docs into
+  a persistent interlinked wiki, replacing RAG with a 4-phase
+  ingest→compile→query→lint pipeline"
+tag: Concept
+readingTime: 8
+imageAlt: Illustration for LLM-as-Compiler Knowledge Base
+sources:
+  - title: LLM Knowledge Bases
+    url: https://academy.dair.ai/blog/llm-knowledge-bases-karpathy
+  - title: llm-wiki
+    url: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+---
+export { default as heroImage } from "../assets/llm-as-compiler-knowledge-base.png";
+
+## Sources
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
+- [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+
+## Summary
+
+An architecture pattern originated by Andrej Karpathy where an LLM functions as a compiler: it reads raw source documents and incrementally produces a structured, interlinked markdown wiki. Unlike traditional RAG systems that rely on embeddings and vector databases, this approach uses the wiki's own index files and the LLM's context window for retrieval, which is sufficient at personal knowledge base scale (~100 articles, ~400K words).
+
+## Details
+
+### Four-Phase Pipeline
+
+The system operates as a continuous cycle:
+
+1. **Ingest** — Raw content (web articles via Obsidian Web Clipper, papers, repo notes) lands in a `raw/` staging directory as markdown files.
+2. **Compile** — The LLM reads `raw/` and builds index files (summaries of all documents), concept articles (organized by topic with backlinks and cross-references), and derived outputs (slides, charts, filed query answers). The LLM auto-maintains the link graph between concepts.
+3. **Query & Enhance** — Users browse the wiki in Obsidian, ask research questions via a Q&A agent, or search via a CLI/web tool. Critically, all outputs from queries are **filed back into the wiki**, so every exploration compounds.
+4. **Lint & Maintain** — The LLM audits for inconsistencies, imputes missing information via web search, discovers new inter-concept connections, and suggests further questions. After linting, the cycle returns to compile.
+
+### Key Design Decisions
+
+- **No vector database** — At personal scale, index files + LLM context window are sufficient for retrieval. This eliminates embedding pipeline complexity. At larger scale, a local search engine like [qmd](https://github.com/tobi/qmd) (hybrid BM25/vector search with LLM re-ranking, available as CLI and MCP server) can supplement the index.
+- **Incremental compilation** — New raw documents are integrated into existing wiki structure; already-indexed documents are never reprocessed.
+- **Explorations always compound** — Every query answer, chart, and derived artifact is filed back into the wiki. This is the core differentiator vs. RAG: knowledge is compiled once and kept current, not re-derived on every query.
+- **LLM does the writing** — The human rarely edits the wiki directly; the LLM compiles, links, and maintains it. The human's job is sourcing, exploration, and asking the right questions.
+- **Wiki as persistent, compounding artifact** — Cross-references are already there, contradictions already flagged, synthesis already reflects everything read. The wiki gets richer with every source added and every question asked.
+
+### Three-Layer Architecture (from Karpathy's Gist)
+
+Karpathy's original design document makes the architecture explicit:
+
+1. **Raw sources** — curated, immutable source documents (articles, papers, images, data). The LLM reads but never modifies these. This is the source of truth.
+2. **The wiki** — LLM-generated markdown files: summaries, entity pages, concept pages, comparisons, synthesis. The LLM owns this layer entirely — creates, updates, cross-references, maintains consistency. The human reads it.
+3. **The schema** — a configuration document (CLAUDE.md / AGENTS.md) that tells the LLM how the wiki is structured, what conventions to follow, and what workflows to execute. Human and LLM co-evolve this over time.
+
+### Indexing and Navigation
+
+Two special files help navigate the wiki at scale:
+
+- **index.md** — content-oriented catalog of every page with one-line summaries, organized by category. The LLM reads this first when answering queries, then drills into relevant pages. Works well at moderate scale (~100 sources, ~hundreds of pages).
+- **log.md** — chronological, append-only record of operations (ingests, queries, lint passes). Parseable with unix tools if entries use consistent prefixes (e.g., `## [2026-04-02] ingest | Article Title`).
+
+### Use Cases
+
+The pattern applies broadly:
+- **Personal**: goals, health, psychology — filing journal entries, articles, podcast notes
+- **Research**: reading papers over weeks/months, building a comprehensive wiki with an evolving thesis
+- **Reading a book**: chapter-by-chapter companion wiki with characters, themes, plot threads (like a personal fan wiki)
+- **Business/team**: internal wiki fed by Slack threads, meeting transcripts, customer calls, with humans reviewing updates
+- **Any knowledge accumulation**: competitive analysis, due diligence, trip planning, course notes
+
+### Why It Works
+
+The bottleneck of knowledge bases is not reading or thinking — it's bookkeeping. Updating cross-references, keeping summaries current, noting contradictions, maintaining consistency across dozens of pages. Humans abandon wikis because maintenance burden grows faster than value. LLMs don't get bored, don't forget to update a cross-reference, and can touch 15 files in one pass.
+
+### Intellectual Lineage
+
+Karpathy draws a connection to Vannevar Bush's Memex (1945) — a personal, curated knowledge store with associative trails between documents. Bush's vision was closer to this than to what the web became: private, actively curated, with connections between documents as valuable as the documents themselves. The part Bush couldn't solve was who does the maintenance. The LLM handles that.
+
+### Variations
+
+Elvis Saravia describes a variant where ingestion is automated: a tuned Skill agent curates research papers daily, indexes them with the [qmd CLI tool](https://github.com/tobi/qmd), and feeds the indexed knowledge base into an interactive artifact generator built with MCP tools. This produces explorable, interactive visualizations across hundreds of papers.
+
+### Future Direction
+
+Karpathy mentions using the wiki to generate synthetic training data and fine-tune an LLM so it "knows" the data in its weights — turning a personal knowledge base into a personalized model.
+
+### Spec-as-Compilation Source (Symphony's Cross-Language Fuzz)
+
+The most concrete extension of LLM-as-compiler in the wild so far: OpenAI's [Symphony](/articles/symphony) team treated their `SPEC.md` as the *source* and asked Codex to implement it in **Elixir, TypeScript, Go, Rust, Java, and Python**. They then used divergences across the implementations to identify ambiguities in the spec and simplify it.
+
+What this technique does that's genuinely new:
+
+- **The LLM is the compiler** (markdown → working orchestrator in N target languages).
+- **Multiple implementations are a spec-fuzzing signal** — anywhere implementations diverge, the spec is under-constrained. This is analogous to differential fuzzing in compiler verification, but with English/markdown as the source language.
+- **The spec is the durable artifact**, not the compiled output. OpenAI explicitly said they don't plan to maintain Symphony as a standalone product — it's a reference implementation that users point their own coding agent at.
+
+Implications for this vault:
+
+- `_system/compiler-prompt.md` is structurally analogous to Symphony's `SPEC.md` — both define how an agent should turn one kind of artifact (raw docs / Linear tickets) into another (wiki articles / running orchestrators).
+- Spec-fuzzing-via-multi-language is overkill for a knowledge base, but the idea generalizes: if `compiler-prompt.md` produces meaningfully different wikis when run by different model families (Claude vs. GPT vs. local), the divergences point to under-specification.
+- The **schema layer** (Karpathy's term) is the same artifact category as `SPEC.md`/`WORKFLOW.md` — repo-versioned markdown that defines agent behavior. See cross-link to [Claude Code Best Practices](/articles/claude-code-best-practices) (`CLAUDE.md`), [Hermes Agent](/articles/hermes-agent) (`AGENTS.md`/`SOUL.md`), [Symphony](/articles/symphony) (`WORKFLOW.md`).
+
+## Connections
+
+- This concept is the foundational architecture of this Obsidian vault (see `_system/compiler-prompt.md`)
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — shares the pattern of repository-local knowledge as system of record; OpenAI's AGENTS.md-as-table-of-contents mirrors this wiki's schema layer
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — CLAUDE.md files serve as the schema layer in Claude Code's implementation of this pattern
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — the vulnerability research scaffold uses SHA-3 cryptographic commitments as a form of verifiable knowledge compilation; Claude Code's agentic capabilities power the discovery pipeline
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — the wiki's compile / query / lint phases are themselves an agent pipeline; different phases could be assigned to different models (cheap model for index drift checks, strong model for cross-reference synthesis) and the combo optimized
+- [Symphony](/articles/symphony) — the most concrete extension of LLM-as-compiler beyond knowledge bases: OpenAI compiled `SPEC.md` into 6 language implementations and used the divergences as a spec-fuzzer to remove ambiguity
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Symphony's `WORKFLOW.md` is structurally the same artifact category as the schema layer here; both are repo-versioned markdown that the LLM "compiles" into action
+- [Design Concept Grilling](/articles/design-concept-grilling) — Brooks's "design concept" (shared understanding before any artifact) is the alignment-layer analog: a wiki captures *what is true*, a grilling session captures *what we agree on*, both treat the LLM as a partner in compilation rather than a generator of one-shot output
+
+## Open Questions
+
+- At what scale does the no-vector-database approach break down? Karpathy's ~100 articles fit in context, but what about 1,000+?
+- How to handle conflicting information across sources during compilation?
+- What's the optimal granularity for concept articles — one concept per article, or clustered by theme?
+- How effective is the synthetic training data → fine-tuning pipeline in practice?
+
+## Derived
+
+- [What Are AI Tools?](/articles/what-are-ai-tools) — query exploring what AI tools are covered in this wiki
+
+## Sources
+
+- [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
+- [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)

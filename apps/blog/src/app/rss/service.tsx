@@ -4,7 +4,7 @@ import { Feed } from "feed";
 import { cache } from "react";
 
 import { env } from "@/config/env";
-import { getArticles } from "../(blog)/articles/service";
+import { getVisibleArticles } from "../(blog)/articles/service";
 import {
   AUTHOR_EMAIL,
   AUTHOR_NAME,
@@ -15,7 +15,7 @@ import {
 const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
 
 export const generateFeed = cache(async (): Promise<Feed> => {
-  const articles = await getArticles();
+  const articles = await getVisibleArticles();
 
   const author = {
     name: AUTHOR_NAME,
@@ -40,19 +40,21 @@ export const generateFeed = cache(async (): Promise<Feed> => {
   for (const slug of articles.ids) {
     const article = articles.entities[slug];
 
+    if (!article) {
+      continue;
+    }
+
     const url = `${siteUrl}/articles/${slug}`;
 
-    if (article) {
-      feed.addItem({
-        title: article.meta.title,
-        id: url,
-        link: url,
-        description: article.meta.description,
-        author: [author],
-        contributor: [author],
-        date: new Date(article.meta.date),
-      });
-    }
+    feed.addItem({
+      title: article.meta.title,
+      id: url,
+      link: url,
+      description: article.meta.description,
+      author: [author],
+      contributor: [author],
+      date: new Date(article.meta.date),
+    });
   }
 
   return feed;

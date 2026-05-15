@@ -7,12 +7,12 @@ describe("ArticleMeta", () => {
     const meta: ArticleMeta = {
       date: "2024-01-01",
       description: "A description",
-      image: { src: {} as never, alt: "alt text" },
+      imageAlt: "alt text",
       readingTime: 3,
-      tag: "Engineering",
+      tag: "Essay",
       title: "A title",
     };
-    expect(meta.tag).toBe("Engineering");
+    expect(meta.tag).toBe("Essay");
     expect(meta.readingTime).toBe(3);
   });
 
@@ -21,9 +21,9 @@ describe("ArticleMeta", () => {
       date: "2024-01-01",
       description: "A description",
       dropCap: true,
-      image: { src: {} as never, alt: "alt text" },
+      imageAlt: "alt text",
       readingTime: 2,
-      tag: "Personal",
+      tag: "Concept",
       title: "A title",
     };
     expect(meta.dropCap).toBe(true);
@@ -34,7 +34,7 @@ describe("ArticleMeta", () => {
     const _missing: ArticleMeta = {
       date: "2024-01-01",
       description: "A description",
-      image: { src: {} as never, alt: "alt text" },
+      imageAlt: "alt text",
       readingTime: 3,
       title: "A title",
     };
@@ -46,10 +46,23 @@ describe("ArticleMeta", () => {
     const _missing: ArticleMeta = {
       date: "2024-01-01",
       description: "A description",
-      image: { src: {} as never, alt: "alt text" },
-      tag: "Engineering",
+      imageAlt: "alt text",
+      tag: "Essay",
       title: "A title",
     };
     expect(true).toBe(true);
+  });
+
+  it("rejects tags outside the allowed union", () => {
+    const _invalid: ArticleMeta = {
+      date: "2024-01-01",
+      description: "A description",
+      imageAlt: "alt text",
+      readingTime: 3,
+      // @ts-expect-error "Engineering" is not in ArticleTag
+      tag: "Engineering",
+      title: "A title",
+    };
+    expect(_invalid.title).toBe("A title");
   });
 });

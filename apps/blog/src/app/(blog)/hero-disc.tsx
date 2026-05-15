@@ -50,7 +50,7 @@ export function HeroDisc() {
           <div className="mt-9">
             <DataGrid
               rows={[
-                ["Writer", "Howard Tai"],
+                ["Curator", "Howardism"],
                 ["Based", "Taiwan, 23°N"],
                 ["Writing", "Since 2022"],
                 ["Frequency", "Monthly, ish"],

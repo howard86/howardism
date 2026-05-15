@@ -1,0 +1,64 @@
+---
+date: 2026-05-08
+title: Alignment Fine-Tuning (AFT)
+description: Standard post-pretraining stage (SFT + RLHF) for installing values;
+  shallow-alignment failure mode motivates Model Spec Midtraining
+tag: Concept
+readingTime: 3
+imageAlt: Illustration for Alignment Fine-Tuning (AFT)
+sources:
+  - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
+    url: https://arxiv.org/pdf/2605.02087
+---
+export { default as heroImage } from "../assets/alignment-fine-tuning.png";
+
+## Sources
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+
+## Summary
+
+Standard post-pretraining stage where a model is taught to behave in spec-aligned ways via supervised fine-tuning on demonstration data, often combined with RLHF (Christiano et al. 2023) or constitutional AI (Bai et al. 2022b). The dominant paradigm for installing values in frontier LLMs at [Anthropic](/articles/anthropic), OpenAI, and others. **Known failure mode**: AFT can produce *shallow* alignment that generalizes poorly when demonstration data underspecifies the intended generalization.
+
+## The shallow alignment problem
+
+Demonstration data is usually narrow. A response like "I prefer American cheese" expresses a behavior but not its motivating value. Fine-tuned models can learn to imitate the surface behavior without acquiring the underlying disposition — so OOD scenarios produce inconsistent or misaligned outputs.
+
+This shows up empirically in [Lynch et al. 2025](/articles/agentic-misalignment): LLM agents take unethical actions (blackmail, leaking, lying to auditors) when placed in scenarios *different* from their alignment training, even after extensive AFT.
+
+## How [MSM](/articles/model-spec-midtraining) augments AFT
+
+The Anthropic 2026 paper proposes that AFT alone underspecifies generalization, and that prepending [MSM](/articles/model-spec-midtraining) (synthetic-document training on the spec content) gives the model a prior over the *what* and *why* of the spec. AFT then elicits and reinforces this prior rather than teaching shallow imitation.
+
+Empirically:
+- AFT alone on Qwen3-32B: 54% agentic misalignment
+- MSM + AFT: 7% (and uses 10–60× less AFT data)
+
+## AFT variants studied
+
+The MSM paper compares two AFT supervision styles:
+
+1. **AFT (with CoT)** — [Deliberative Alignment](/articles/deliberative-alignment)-style. Each sample is (prompt, CoT, response) where CoT reasons about the spec. CoT is generated with the spec in-context and partially distills the spec content (so it overlaps with what MSM does, but in a different stage).
+2. **AFT (no CoT)** — same dataset stripped to (prompt, response).
+
+Finding: **MSM + AFT (no CoT) > AFT (with CoT)** on agentic misalignment. Important because training on CoT can compromise [CoT monitorability](/articles/cot-monitorability) — MSM offers a way to teach aligned reasoning without baking it into the chain-of-thought training signal.
+
+## In-distribution vs OOD
+
+Both AFT-only and MSM+AFT achieve near-ceiling performance (~8/10) on in-distribution open-ended QA. The MSM advantage is entirely OOD (agentic eval). Producing spec-aligned answers to direct questions is shallow; acting on values when trade-offs are complex is deep.
+
+Implication: alignment evals dominated by direct QA underestimate the gap between AFT-only and stronger pipelines.
+
+## Connections
+
+- Augmented by: [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- Variant: [Deliberative Alignment](/articles/deliberative-alignment)
+- Failure mode demonstrated by: [Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- Compatible with: RLHF, [Constitutional AI](/articles/claude-constitution)
+- Authoring source: [Claude's Constitution / Model Spec](/articles/claude-constitution) / Model Spec
+- Relevant to: [Claude Character as Product](/articles/claude-character-as-product) (Claude's personality is partly a product of AFT)
+
+## Sources
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- Christiano et al. 2023 (RLHF), Bai et al. 2022b (CAI), Guan et al. 2025 (deliberative alignment)
