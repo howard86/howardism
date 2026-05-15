@@ -63,11 +63,15 @@ export interface SecurityHeaderOptions {
 
 export const DEFAULT_CSP_DIRECTIVES: CspDirectives = Object.freeze({
   "default-src": ["'self'"],
-  "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+  // 'unsafe-inline' remains for Next.js bootstrap and the theme-init script;
+  // 'unsafe-eval' has been removed (no app code uses eval/Function in prod).
+  // Tightening further requires nonce-based CSP via middleware.
+  "script-src": ["'self'", "'unsafe-inline'"],
   "style-src": ["'self'", "'unsafe-inline'"],
   "img-src": ["'self'", "https:", "data:", "blob:"],
   "font-src": ["'self'", "data:"],
-  "connect-src": ["'self'", "https:"],
+  // 'self' only by default — apps extend with explicit external endpoints.
+  "connect-src": ["'self'"],
   "frame-ancestors": ["'none'"],
   "base-uri": ["'self'"],
   "form-action": ["'self'"],
