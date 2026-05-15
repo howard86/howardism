@@ -6,7 +6,9 @@ import {
   type ArticleMeta,
   emitArticle,
   WIKI_TAGS,
+  WIKI_TOPICS,
   type WikiTag,
+  type WikiTopic,
 } from "./emit.ts";
 import {
   type ArticleGraph,
@@ -49,6 +51,7 @@ interface RunOptions {
   overridesPath: string;
   rawPath: string;
   skipImages: boolean;
+  topicOverridesPath: string;
   wikiPath: string;
 }
 
@@ -77,6 +80,10 @@ const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
   "apps/blog/src/data/article-graph.json"
 );
 const DEFAULT_OVERRIDES_PATH = join(CLI_ROOT, "wiki-category-overrides.json");
+const DEFAULT_TOPIC_OVERRIDES_PATH = join(
+  CLI_ROOT,
+  "wiki-topic-overrides.json"
+);
 /**
  * Codex's `workspace-write` sandbox only permits writes inside its workdir
  * (this CLI app). We stage generated PNGs here before moving them into the
@@ -145,10 +152,12 @@ interface ImportContext {
   overrides: Record<string, WikiTag>;
   parsedAll: ParsedWikiFile[];
   slugTitleMap: Map<string, string>;
+  topicOverrides: Record<string, WikiTopic>;
 }
 
 async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   const overrides = await loadOverrides(opts.overridesPath);
+  const topicOverrides = await loadTopicOverrides(opts.topicOverridesPath);
   const sources = await discoverWikiSources(opts.wikiPath);
   const filtered = opts.onlySlug
     ? sources.filter((s) => s.slug === opts.onlySlug)
@@ -167,7 +176,13 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
     join(opts.wikiPath, "index.md")
   );
 
-  return { parsedAll, slugTitleMap, indexSummaries, overrides };
+  return {
+    parsedAll,
+    slugTitleMap,
+    indexSummaries,
+    overrides,
+    topicOverrides,
+  };
 }
 
 function createSummary(): ImportSummary {
@@ -230,12 +245,18 @@ async function processArticle(
     explicitOverride ??
     (isEntity && defaultTag === "Concept" ? "Entity" : defaultTag);
 
+  const topic = resolveTopic({
+    slug,
+    frontmatterTopic: frontmatter.topic,
+    overrides: ctx.topicOverrides,
+  });
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
     title,
     description: cleanedDescription,
     readingTime: computeReadingTime(body),
     tag,
+    ...(topic ? { topic } : {}),
     ...(sources.length > 0 ? { sources } : {}),
   };
 
@@ -456,6 +477,9 @@ function parseOptions(): RunOptions {
     env.BLOG_ASSETS_PATH ?? DEFAULT_BLOG_ASSETS_PATH
   );
   const overridesPath = resolve(env.OVERRIDES_PATH ?? DEFAULT_OVERRIDES_PATH);
+  const topicOverridesPath = resolve(
+    env.TOPIC_OVERRIDES_PATH ?? DEFAULT_TOPIC_OVERRIDES_PATH
+  );
   const graphOutputPath = resolve(
     env.GRAPH_OUTPUT_PATH ?? DEFAULT_GRAPH_OUTPUT_PATH
   );
@@ -470,6 +494,7 @@ function parseOptions(): RunOptions {
     blogArticlesPath,
     blogAssetsPath,
     overridesPath,
+    topicOverridesPath,
     graphOutputPath,
     onlySlug,
     skipImages: env.SKIP_IMAGES === "1",
@@ -503,6 +528,60 @@ async function loadOverrides(path: string): Promise<Record<string, WikiTag>> {
     }
   }
   return parsed as Record<string, WikiTag>;
+}
+
+async function loadTopicOverrides(
+  path: string
+): Promise<Record<string, WikiTopic>> {
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return {};
+    }
+    throw err;
+  }
+
+  let parsed: Record<string, string>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, string>;
+  } catch (err) {
+    throw new Error(`Failed to parse ${path}: ${(err as Error).message}`);
+  }
+
+  for (const [slug, topic] of Object.entries(parsed)) {
+    if (!WIKI_TOPICS.includes(topic as WikiTopic)) {
+      throw new Error(
+        `Invalid topic "${topic}" for "${slug}" in ${path} — must be one of ${WIKI_TOPICS.join(", ")}`
+      );
+    }
+  }
+  return parsed as Record<string, WikiTopic>;
+}
+
+/**
+ * Pick the topic for an article. Wiki frontmatter wins when set — that
+ * lets authors override on a per-article basis. Falls back to the
+ * `wiki-topic-overrides.json` sidecar so existing classifications survive
+ * across import runs even when the Obsidian source has no topic.
+ */
+function resolveTopic(args: {
+  frontmatterTopic: string | undefined;
+  overrides: Record<string, WikiTopic>;
+  slug: string;
+}): WikiTopic | undefined {
+  const { frontmatterTopic, overrides, slug } = args;
+  if (frontmatterTopic) {
+    const trimmed = frontmatterTopic.trim();
+    if (!WIKI_TOPICS.includes(trimmed as WikiTopic)) {
+      throw new Error(
+        `Invalid topic "${trimmed}" in frontmatter for "${slug}" — must be one of ${WIKI_TOPICS.join(", ")}`
+      );
+    }
+    return trimmed as WikiTopic;
+  }
+  return overrides[slug];
 }
 
 async function fileExists(path: string): Promise<boolean> {

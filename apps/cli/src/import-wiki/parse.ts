@@ -24,6 +24,12 @@ export interface WikiFrontmatter {
   sources?: string[];
   tags?: string[];
   title?: string;
+  /**
+   * Optional editorial topic for the article. Authors may set this directly
+   * in Obsidian frontmatter; if absent, the importer falls back to the
+   * `wiki-topic-overrides.json` sidecar.
+   */
+  topic?: string;
   type?: string;
   updated?: string;
 }
