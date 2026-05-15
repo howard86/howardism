@@ -11,6 +11,13 @@ import {
   TAG_SECTIONS,
 } from "../../tag-sections";
 
+const SECTION_PREFIX: Record<string, string> = {
+  concept: "C",
+  entity: "E",
+  essay: "S",
+  index: "I",
+};
+
 interface TagPageParams {
   tag: string;
 }
@@ -73,6 +80,7 @@ export default async function TagPage({ params }: TagPageProps) {
 
       <ArticlesTable
         articles={articles}
+        numberPrefix={SECTION_PREFIX[section.slug] ?? ""}
         srCaption={`${section.title} articles, sorted by date, newest first.`}
       />
     </div>
