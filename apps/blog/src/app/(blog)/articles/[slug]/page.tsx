@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { StaticImageData } from "next/image";
 import type { FC } from "react";
 
 import { type ArticleMeta, getArticles, getSiblings } from "../service";
@@ -10,33 +11,35 @@ interface ArticlePageProps {
   }>;
 }
 
+interface ArticleModule {
+  default: FC;
+  heroImage: StaticImageData;
+  meta: ArticleMeta;
+}
+
 export const dynamic = "error";
 
 export async function generateMetadata({
   params,
 }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const meta = await import(`./(docs)/${slug}/page.mdx`).then(
-    (file) => file.meta
-  );
+  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as ArticleModule;
 
   return {
-    title: meta.title,
-    description: meta.description,
+    title: mod.meta.title,
+    description: mod.meta.description,
   };
 }
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as {
-    meta: ArticleMeta;
-    default: FC;
-  };
+  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as ArticleModule;
 
   const { previousSlug, nextSlug, position } = await getSiblings(slug);
 
   return (
     <ArticleLayout
+      heroImage={mod.heroImage}
       meta={mod.meta}
       nextSlug={nextSlug}
       position={position}

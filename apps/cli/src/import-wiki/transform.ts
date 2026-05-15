@@ -121,8 +121,13 @@ export interface WikilinkTransformResult {
 }
 
 /**
- * Must run AFTER `escapeMdxBody` — otherwise the emitted `<Link>` JSX gets
- * escaped to `&lt;Link&gt;`.
+ * Resolves Obsidian wikilinks to markdown links. Authoring convention for
+ * the blog is markdown `[text](href)` — the MDX `a` component override in
+ * `apps/blog/mdx-components.tsx` resolves `/articles/*` hrefs to the
+ * preview-aware InternalLink at render time.
+ *
+ * Anchor URL fragments are URL-encoded so that spaces and other reserved
+ * characters in heading anchors round-trip safely through markdown.
  */
 export function rewriteWikilinks(
   body: string,
@@ -146,14 +151,17 @@ export function rewriteWikilinks(
 
     const hashIdx = bareTarget.indexOf("#");
     const rawSlug = hashIdx >= 0 ? bareTarget.slice(0, hashIdx) : bareTarget;
-    const anchor = hashIdx >= 0 ? bareTarget.slice(hashIdx) : "";
+    const anchor =
+      hashIdx >= 0
+        ? `#${encodeURIComponent(bareTarget.slice(hashIdx + 1))}`
+        : "";
     const slug = rawSlug.toLowerCase();
 
     const title = slugTitleMap.get(slug);
     if (title) {
       hasInternalLink = true;
       const display = linkLabel ?? title;
-      return `<Link href="/articles/${slug}${anchor}">${display}</Link>`;
+      return `[${display}](/articles/${slug}${anchor})`;
     }
 
     unresolved.push(slug);
@@ -166,7 +174,8 @@ export function rewriteWikilinks(
 /**
  * MDX treats `{` as a JS expression delimiter and `<letter` as a JSX tag
  * opener — wiki prose uses both as plain text, so escape outside fenced
- * code blocks or `next build` fails.
+ * code blocks or `next build` fails. Run BEFORE `rewriteWikilinks` so
+ * the synthesised markdown links aren't accidentally escaped.
  */
 export function escapeMdxBody(body: string): string {
   const lines = body.split("\n");

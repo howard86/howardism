@@ -16,7 +16,7 @@ function makeLink(
   const meta: ArticleMeta = {
     date: "2026-05-01",
     description: `Description for ${slug}.`,
-    image: { src: {} as never, alt: "alt" },
+    imageAlt: "alt",
     readingTime: 2,
     tag: "Entity",
     title: `Title for ${slug}`,

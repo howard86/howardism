@@ -14,12 +14,14 @@ afterEach(() => {
   cleanup();
 });
 
-const BASE_META = {
+import type { ArticleMeta } from "@/app/(blog)/articles/service";
+
+const BASE_META: ArticleMeta = {
   date: "2024-01-01",
   description: "A description",
-  image: { src: {} as never, alt: "alt" },
+  imageAlt: "alt",
   readingTime: 3,
-  tag: "Engineering",
+  tag: "Essay",
   title: "Test Article",
 };
 

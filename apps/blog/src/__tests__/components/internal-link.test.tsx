@@ -14,7 +14,7 @@ const PREVIEW_META: ArticleMeta = {
   date: "2026-05-06",
   description:
     "Anthropic's agentic coding product; created by Boris Cherny late 2024; TypeScript/React; CLI/desktop/web/mobile/IDE surfaces; central tool across all 2026 sources.",
-  image: { src: {} as never, alt: "alt" },
+  imageAlt: "alt",
   readingTime: 4,
   tag: "Entity",
   title: "Claude Code",

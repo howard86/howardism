@@ -1,12 +1,14 @@
 import { Card, CardCta, CardDescription, CardTitle } from "@/app/(common)/card";
 import { formatDateShort } from "@/utils/time";
 
-import type { ArticleEntity } from "./service";
+import type { ArticleMeta } from "./service";
 
-export default function ArticleCard({
-  slug,
-  meta,
-}: Omit<ArticleEntity, "position">) {
+interface ArticleCardProps {
+  meta: ArticleMeta;
+  slug: string;
+}
+
+export default function ArticleCard({ slug, meta }: ArticleCardProps) {
   return (
     <Card as="article">
       <div className="relative z-10 order-first mb-3 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.14em]">

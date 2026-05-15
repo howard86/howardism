@@ -1,5 +1,6 @@
 import { Card } from "@howardism/ui/components/card";
 import { cn } from "@howardism/ui/lib/utils";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -12,6 +13,7 @@ import { BacklinksDisclosure } from "./backlinks-disclosure";
 
 interface ArticleLayoutProps {
   children?: ReactNode;
+  heroImage?: StaticImageData;
   meta: ArticleMeta;
   nextSlug?: string;
   position?: number;
@@ -24,6 +26,7 @@ const NAV_LINK_CLASS =
 
 export function ArticleLayout({
   children,
+  heroImage,
   meta,
   previousSlug,
   nextSlug,
@@ -69,6 +72,16 @@ export function ArticleLayout({
       <p className="mb-8 border-brand border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
         {meta.description}
       </p>
+
+      {heroImage && (
+        <Image
+          alt={meta.imageAlt}
+          className="mb-10 h-auto w-full rounded-md"
+          placeholder="blur"
+          sizes="(min-width: 760px) 720px, 100vw"
+          src={heroImage}
+        />
+      )}
 
       <article>
         <div
