@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-  type ArticleTag,
   getArticlesByTag,
   getBacklinks,
   getOutgoing,
@@ -8,6 +7,7 @@ import {
   getTagCounts,
   getVisibleArticles,
 } from "@/app/(blog)/articles/service";
+import type { ArticleTag } from "@/app/(blog)/articles/taxonomy";
 import graphData from "@/data/article-graph.json";
 
 // A slug that the cli-engineer's graph generator is known to produce both

@@ -1,10 +1,7 @@
 import "server-only";
 
-import {
-  type ArticleEntity,
-  type ArticleTag,
-  getArticlesByTag,
-} from "./service";
+import { type ArticleEntity, getArticlesByTag } from "./service";
+import type { ArticleTag } from "./taxonomy";
 
 export interface TagSection {
   /** Short marketing-y sentence shown under the section heading / page intro. */

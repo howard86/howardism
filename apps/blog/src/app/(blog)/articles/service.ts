@@ -9,6 +9,9 @@ import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
 
+import type { ArticleTag } from "./taxonomy";
+import { ARTICLE_TAGS, ARTICLE_TOPICS } from "./taxonomy";
+
 export interface Normalise<T> {
   entities: Record<string, T | undefined>;
   ids: string[];
@@ -20,21 +23,6 @@ export interface ArticleEntity {
   position: number;
   slug: string;
 }
-
-/**
- * Mirror of `WIKI_TAGS` in `apps/cli/src/import-wiki/emit.ts`. Keep these
- * unions aligned — the wiki importer is the source of truth for which tags
- * can appear in graph-derived articles.
- */
-export type ArticleTag = "Concept" | "Entity" | "Essay" | "Index" | "Changelog";
-
-const ARTICLE_TAGS: readonly ArticleTag[] = [
-  "Concept",
-  "Entity",
-  "Essay",
-  "Index",
-  "Changelog",
-];
 
 const SourceRefSchema = z.object({
   title: z.string(),
@@ -58,6 +46,7 @@ const ArticleMetaSchema = z.object({
   sources: z.array(SourceRefSchema).optional(),
   tag: z.enum(ARTICLE_TAGS),
   title: z.string(),
+  topic: z.enum(ARTICLE_TOPICS).optional(),
 });
 
 export type ArticleMeta = z.infer<typeof ArticleMetaSchema>;

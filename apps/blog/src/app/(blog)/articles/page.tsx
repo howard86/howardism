@@ -1,11 +1,25 @@
+import Link from "next/link";
+
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { formatDateShort } from "@/utils/time";
 
-import { ArticlesTable } from "./articles-table";
+import { ArticlesIndex } from "./articles-index";
 import { getTagCounts, getVisibleArticles } from "./service";
 import { getSectionArticles, TAG_SECTIONS } from "./tag-sections";
 
-export default async function ArticlesIndex() {
+const SECTION_PREFIX: Record<string, string> = {
+  concept: "C",
+  entity: "E",
+  essay: "S",
+};
+
+const SECTION_BLURB: Record<string, string> = {
+  concept: "Concept, in order.",
+  entity: "Entity, in order.",
+  essay: "Essay, in order.",
+};
+
+export default async function ArticlesIndexPage() {
   const [counts, visible, sections] = await Promise.all([
     getTagCounts(),
     getVisibleArticles(),
@@ -19,7 +33,26 @@ export default async function ArticlesIndex() {
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
 
-  const populated = sections.filter(({ articles }) => articles.length > 0);
+  // Index/Changelog is promoted into the masthead — drop it from the
+  // body section list so a single-item "Index" section doesn't sit at
+  // the bottom looking orphaned.
+  const indexSection = sections.find(({ section }) => section.slug === "index");
+  const indexOperationsLog = indexSection?.articles[0];
+  const bodySections = sections
+    .filter(
+      ({ section, articles }) => section.slug !== "index" && articles.length > 0
+    )
+    .map(({ section, articles }) => ({
+      sectionSlug: section.slug,
+      title: section.title,
+      blurb: SECTION_BLURB[section.slug] ?? section.intro,
+      prefix: SECTION_PREFIX[section.slug] ?? "",
+      srCaption: `${section.title} articles, sorted by date, newest first.`,
+      articles: articles.map((article) => ({
+        slug: article.slug,
+        meta: article.meta,
+      })),
+    }));
 
   const newestSlug = visible.ids[0];
   const oldestSlug = visible.ids.at(-1);
@@ -35,7 +68,7 @@ export default async function ArticlesIndex() {
       <DiscPageHeader
         data={[
           ["Pieces", String(total)],
-          ["Sections", String(populated.length)],
+          ["Sections", String(bodySections.length)],
           ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
           ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
         ]}
@@ -44,23 +77,22 @@ export default async function ArticlesIndex() {
         title="Writing,"
         titleAccent="in order."
         volume="Howardism · Vol. 03"
-      />
+      >
+        {indexOperationsLog && (
+          <div className="mt-7">
+            <Link
+              className="inline-flex items-center gap-2 font-medium font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em] no-underline transition-colors hover:text-brand"
+              href={`/articles/${indexOperationsLog.slug}`}
+            >
+              <span aria-hidden="true" className="h-px w-[18px] bg-brand" />
+              Changelog · Operations Log
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        )}
+      </DiscPageHeader>
 
-      <p className="mt-10 mb-12 max-w-[60ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
-        A dense index of every article in the wiki, grouped by kind. Hover any
-        title for a preview, click to read.
-      </p>
-
-      <div className="flex flex-col gap-14">
-        {populated.map(({ section, articles }) => (
-          <ArticlesTable
-            articles={articles}
-            key={section.slug}
-            srCaption={`${section.title} articles, sorted by date, newest first.`}
-            title={section.title}
-          />
-        ))}
-      </div>
+      <ArticlesIndex sections={bodySections} />
     </div>
   );
 }
