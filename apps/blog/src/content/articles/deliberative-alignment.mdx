@@ -1,0 +1,81 @@
+---
+date: 2026-05-08
+title: Deliberative Alignment
+description: "Guan et al. 2025 (OpenAI): SFT on (prompt, CoT, response) tuples
+  with spec-grounded CoT; strongest non-MSM baseline; risks compromising Cot
+  Monitorability"
+tag: Concept
+readingTime: 3
+imageAlt: Illustration for Deliberative Alignment
+sources:
+  - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
+    url: https://arxiv.org/pdf/2605.02087
+---
+export { default as heroImage } from "../assets/deliberative-alignment.png";
+
+## Sources
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+
+## Summary
+
+Alignment fine-tuning approach where the model is trained on (prompt, **chain-of-thought**, response) tuples — the CoT reasons about how to respond in light of a spec or set of policies. Introduced by Guan, Joglekar, Wallace, Jain, Bhalerao, et al. (OpenAI, 2025) — *"Deliberative alignment: Reasoning enables safer language models"* (arXiv 2412.16339). Distills the spec content into supervised reasoning signal. Used as the strongest non-MSM baseline in the [MSM](/articles/model-spec-midtraining) paper.
+
+## Mechanism
+
+For each training prompt:
+1. Run the model with the spec in-context to produce a long CoT that reasons about how to apply the spec to this prompt.
+2. Produce the spec-aligned response.
+3. SFT on (prompt, CoT, response) — model learns to do the deliberation internally without the spec in-context at deployment.
+
+The CoT itself often cites policies explicitly ("According to SP2, I'm not allowed to..."), which trains policy-grounded reasoning into the chain-of-thought.
+
+## How it compares to [AFT](/articles/alignment-fine-tuning) and [MSM](/articles/model-spec-midtraining)
+
+Treated in the MSM paper as **AFT (with CoT)**, contrasted against **AFT (no CoT)** and **MSM + AFT** variants.
+
+| Method | Where spec content lives | CoT supervision |
+|--------|--------------------------|-----------------|
+| AFT (no CoT) | Implicit in response demos | None |
+| AFT with CoT (deliberative alignment) | Distilled into CoT | Yes |
+| MSM + AFT (no CoT) | Pretraining-style midtraining on spec docs | None |
+| MSM + AFT with CoT | Both | Yes |
+
+## Empirical comparison ([AM](/articles/agentic-misalignment) eval)
+
+Qwen2.5-32B baseline 68% AM rate:
+- AFT (with CoT) — i.e. deliberative alignment — reduces to 48%
+- **MSM + AFT (no CoT) reduces to 5%**
+
+Qwen3-32B baseline 54%:
+- AFT (with CoT) reduces to 14%
+- **MSM + AFT (no CoT) reduces to 7%**
+
+**MSM + AFT (no CoT) outperforms AFT (with CoT)** on both models. This is the headline result that motivates avoiding direct CoT training where possible.
+
+## The CoT monitorability tradeoff
+
+[Korbak et al. 2025](/articles/cot-monitorability) argue training too heavily on chain-of-thought compromises it as a *monitor* — once you've optimized the CoT for safety scoring, it stops faithfully revealing the model's actual reasoning. Deliberative alignment puts pressure directly on CoT.
+
+MSM offers an alternative path: the model learns spec-grounded reasoning through midtraining on documents *about* the spec, rather than supervised CoT. The CoT remains less optimized and (possibly) more faithful as a monitor. Whether MSM actually preserves CoT monitorability is flagged as an open question.
+
+## Stacking with MSM
+
+Section 5.1 of the MSM paper finds that **value-augmented MSM** (specs that explain *why* rules exist) **stacks well with rule-augmented AFT-with-CoT** (deliberative alignment with explicit policy citations). Suggests rule-based deliberative-alignment-style training and value-explanation-style MSM are complementary, not redundant.
+
+## Convergence at high compute
+
+At 80k AFT samples on Qwen3-32B, AFT (with CoT) converges to MSM+AFT performance (both near zero misalignment, eval saturated). MSM's edge is largest at low/medium AFT compute — it makes AFT 10–60× more token-efficient.
+
+## Connections
+
+- Compared in: [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- Augments: [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)
+- Tradeoff with: [Chain-of-Thought Monitorability](/articles/cot-monitorability)
+- Eval: [Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- Source paper: Guan et al. 2025 (OpenAI)
+
+## Sources
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087) (uses as baseline)
+- Guan et al. 2025 — *Deliberative alignment: Reasoning enables safer language models* (arXiv 2412.16339)
