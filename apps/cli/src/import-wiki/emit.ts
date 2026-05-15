@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 
 import YAML from "yaml";
 
+import type { SourceRef } from "./transform.ts";
+
 export type WikiTag = "Concept" | "Entity" | "Essay" | "Index" | "Changelog";
 
 export const WIKI_TAGS: readonly WikiTag[] = [
@@ -17,6 +19,13 @@ export interface ArticleMeta {
   date: string;
   description: string;
   readingTime: number;
+  /**
+   * Per-article audit trail of external raw source documents. Frontmatter
+   * is the structured source of truth; the rendered `## Sources` section
+   * in the body is derived from this list at import time. Omitted from
+   * frontmatter when empty.
+   */
+  sources?: SourceRef[];
   tag: WikiTag;
   title: string;
 }
@@ -44,6 +53,9 @@ export function buildArticleSource(
     tag: meta.tag,
     readingTime: meta.readingTime,
     imageAlt,
+    ...(meta.sources && meta.sources.length > 0
+      ? { sources: meta.sources }
+      : {}),
   }).trimEnd();
 
   return [

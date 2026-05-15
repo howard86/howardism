@@ -36,6 +36,13 @@ const ARTICLE_TAGS: readonly ArticleTag[] = [
   "Changelog",
 ];
 
+const SourceRefSchema = z.object({
+  title: z.string(),
+  url: z.url().optional(),
+});
+
+export type SourceRef = z.infer<typeof SourceRefSchema>;
+
 const ArticleMetaSchema = z.object({
   archived: z.boolean().optional(),
   date: z.string(),
@@ -43,6 +50,12 @@ const ArticleMetaSchema = z.object({
   dropCap: z.boolean().optional(),
   imageAlt: z.string(),
   readingTime: z.number(),
+  /**
+   * Audit trail of external source documents the article was synthesised
+   * from. Set by the wiki importer from `raw/<slug>.md` frontmatter; the
+   * rendered `## Sources` block in the MDX body is derived from this list.
+   */
+  sources: z.array(SourceRefSchema).optional(),
   tag: z.enum(ARTICLE_TAGS),
   title: z.string(),
 });

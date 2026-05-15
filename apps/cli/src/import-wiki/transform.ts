@@ -1,4 +1,9 @@
-import { titleFromSlug } from "./parse.ts";
+import { type RawDoc, titleFromSlug } from "./parse.ts";
+
+export interface SourceRef {
+  title: string;
+  url?: string;
+}
 
 // Accepts both `[[target|label]]` and `[[target\|label]]` — the latter is the
 // Obsidian convention for embedding pipes inside markdown tables.
@@ -128,10 +133,16 @@ export interface WikilinkTransformResult {
  *
  * Anchor URL fragments are URL-encoded so that spaces and other reserved
  * characters in heading anchors round-trip safely through markdown.
+ *
+ * When `rawIndex` is provided, `[[raw/<slug>]]` references upgrade from
+ * plain humanised text to a clickable link if the corresponding raw doc
+ * exposes a public URL. Without the index — or when the raw doc has no
+ * URL — the original humanised-text behavior is preserved.
  */
 export function rewriteWikilinks(
   body: string,
-  slugTitleMap: Map<string, string>
+  slugTitleMap: Map<string, string>,
+  rawIndex?: Map<string, RawDoc>
 ): WikilinkTransformResult {
   let hasInternalLink = false;
   const unresolved: string[] = [];
@@ -141,7 +152,11 @@ export function rewriteWikilinks(
     const linkLabel = label ? String(label).trim() : null;
 
     if (targetPath.startsWith("raw/")) {
-      return linkLabel ?? humanize(targetPath.slice("raw/".length));
+      return resolveRawWikilink({
+        targetPath,
+        linkLabel,
+        rawIndex,
+      });
     }
 
     const bareTarget = targetPath.split("/").pop();
@@ -169,6 +184,42 @@ export function rewriteWikilinks(
   });
 
   return { body: rewritten, hasInternalLink, unresolved };
+}
+
+function resolveRawWikilink(args: {
+  linkLabel: string | null;
+  rawIndex: Map<string, RawDoc> | undefined;
+  targetPath: string;
+}): string {
+  const { targetPath, linkLabel, rawIndex } = args;
+  const bareSlug = targetPath.slice("raw/".length);
+  const rawDoc = rawIndex?.get(bareSlug);
+  const display = linkLabel ?? rawDoc?.title ?? humanize(bareSlug);
+  if (rawDoc?.url) {
+    return `[${display}](${rawDoc.url})`;
+  }
+  return display;
+}
+
+/**
+ * Renders a `## Sources` markdown section from the resolved per-article
+ * source list. Bullet list, alphabetical by case-insensitive title, with
+ * `[title](url)` when a public URL is known and plain title otherwise.
+ *
+ * Returns an empty string when the list is empty so callers can
+ * unconditionally prepend without polluting source-less articles.
+ */
+export function buildSourcesSection(sources: readonly SourceRef[]): string {
+  if (sources.length === 0) {
+    return "";
+  }
+  const sorted = [...sources].sort((a, b) =>
+    a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+  );
+  const lines = sorted.map((source) =>
+    source.url ? `- [${source.title}](${source.url})` : `- ${source.title}`
+  );
+  return ["## Sources", "", ...lines, "", ""].join("\n");
 }
 
 /**
