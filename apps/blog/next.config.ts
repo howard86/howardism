@@ -15,8 +15,32 @@ const withBundleAnalyzer = nextBundleAnalyzer({
 const withMDX = nextMDX({
   extension: /\.mdx?$/,
   options: {
-    remarkPlugins: ["remark-gfm"],
-    rehypePlugins: ["@mapbox/rehype-prism"],
+    remarkPlugins: [
+      ["remark-gfm", {}],
+      ["remark-frontmatter", ["yaml"]],
+      ["remark-mdx-frontmatter", { name: "meta" }],
+    ],
+    rehypePlugins: [
+      ["rehype-slug", {}],
+      [
+        "rehype-autolink-headings",
+        {
+          behavior: "append",
+          properties: {
+            className: ["heading-anchor"],
+            ariaLabel: "Permalink to this heading",
+          },
+          content: { type: "text", value: "#" },
+        },
+      ],
+      [
+        "rehype-pretty-code",
+        {
+          theme: { light: "github-light", dark: "github-dark" },
+          keepBackground: false,
+        },
+      ],
+    ],
   },
 });
 

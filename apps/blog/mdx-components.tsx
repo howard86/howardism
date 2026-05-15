@@ -52,7 +52,6 @@ async function resolveArticleMeta(
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
-    Link: ArticleLinkResolver,
     a: ArticleLinkResolver,
   };
 }

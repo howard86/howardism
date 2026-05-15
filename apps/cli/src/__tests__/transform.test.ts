@@ -11,24 +11,20 @@ import {
 } from "../import-wiki/transform.ts";
 
 describe("rewriteWikilinks", () => {
-  it("rewrites in-set slug to <Link> with frontmatter title", () => {
+  it("rewrites in-set slug to a markdown link with frontmatter title", () => {
     const map = new Map([["claude-code", "Claude Code"]]);
     const { body, hasInternalLink } = rewriteWikilinks(
       "See [[claude-code]] for details.",
       map
     );
-    expect(body).toBe(
-      'See <Link href="/articles/claude-code">Claude Code</Link> for details.'
-    );
+    expect(body).toBe("See [Claude Code](/articles/claude-code) for details.");
     expect(hasInternalLink).toBe(true);
   });
 
   it("preserves an explicit |label| when present", () => {
     const map = new Map([["claude-code", "Claude Code"]]);
     const { body } = rewriteWikilinks("Try [[claude-code|Claude]] today.", map);
-    expect(body).toBe(
-      'Try <Link href="/articles/claude-code">Claude</Link> today.'
-    );
+    expect(body).toBe("Try [Claude](/articles/claude-code) today.");
   });
 
   it("renders raw/<name> as plain humanised text and flags nothing", () => {
@@ -62,12 +58,12 @@ describe("rewriteWikilinks", () => {
       map
     );
     expect(body).toBe(
-      'Run <Link href="/articles/codex-app-server-protocol">Codex App Server</Link> for stdio.'
+      "Run [Codex App Server](/articles/codex-app-server-protocol) for stdio."
     );
     expect(hasInternalLink).toBe(true);
   });
 
-  it("preserves the anchor suffix in the href", () => {
+  it("url-encodes the anchor suffix in the href", () => {
     const map = new Map([
       ["claude-code-best-practices", "Claude Code Best Practices"],
     ]);
@@ -76,16 +72,14 @@ describe("rewriteWikilinks", () => {
       map
     );
     expect(body).toBe(
-      'See <Link href="/articles/claude-code-best-practices#Scaling Patterns">Claude Code Best Practices</Link>.'
+      "See [Claude Code Best Practices](/articles/claude-code-best-practices#Scaling%20Patterns)."
     );
   });
 
   it("resolves a capitalised wikilink to the lowercase slug", () => {
     const map = new Map([["anthropic", "Anthropic"]]);
     const { body } = rewriteWikilinks("Made by [[Anthropic]].", map);
-    expect(body).toBe(
-      'Made by <Link href="/articles/anthropic">Anthropic</Link>.'
-    );
+    expect(body).toBe("Made by [Anthropic](/articles/anthropic).");
   });
 
   it("strips the wiki/<folder>/ prefix when resolving", () => {
@@ -95,7 +89,7 @@ describe("rewriteWikilinks", () => {
       map
     );
     expect(body).toBe(
-      'Refer to <Link href="/articles/what-are-ai-tools">What Are AI Tools?</Link>.'
+      "Refer to [What Are AI Tools?](/articles/what-are-ai-tools)."
     );
     expect(hasInternalLink).toBe(true);
   });
@@ -125,7 +119,7 @@ describe("escapeMdxBody", () => {
   });
 
   it("leaves < before a letter alone (it might be valid JSX)", () => {
-    const input = '<Link href="/foo">x</Link>';
+    const input = '<Image alt="x" />';
     expect(escapeMdxBody(input)).toBe(input);
   });
 

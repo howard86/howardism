@@ -34,7 +34,7 @@ describe("graph-backed service helpers", () => {
       expect(visibleSlugs.has(link.slug)).toBe(true);
       const entity = visible.entities[link.slug];
       expect(entity).toBeDefined();
-      expect(link.meta).toBe(entity?.meta as typeof link.meta);
+      expect(link.meta).toEqual(entity?.meta as typeof link.meta);
     }
   });
 

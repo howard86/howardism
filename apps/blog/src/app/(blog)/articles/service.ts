@@ -5,6 +5,7 @@ import { join } from "node:path";
 import glob from "fast-glob";
 import type { StaticImageData } from "next/image";
 import { cache } from "react";
+import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
 
@@ -14,29 +15,10 @@ export interface Normalise<T> {
 }
 
 export interface ArticleEntity {
+  heroImage: StaticImageData;
   meta: ArticleMeta;
   position: number;
   slug: string;
-}
-
-export interface ArticleMeta {
-  archived?: boolean;
-  date: string;
-  description: string;
-  dropCap?: boolean;
-  image: {
-    src: StaticImageData;
-    alt: string;
-  };
-  readingTime: number;
-  tag: string;
-  title: string;
-}
-
-export interface SiblingNav {
-  nextSlug: string | undefined;
-  position: number;
-  previousSlug: string | undefined;
 }
 
 /**
@@ -45,6 +27,33 @@ export interface SiblingNav {
  * can appear in graph-derived articles.
  */
 export type ArticleTag = "Concept" | "Entity" | "Essay" | "Index" | "Changelog";
+
+const ARTICLE_TAGS: readonly ArticleTag[] = [
+  "Concept",
+  "Entity",
+  "Essay",
+  "Index",
+  "Changelog",
+];
+
+const ArticleMetaSchema = z.object({
+  archived: z.boolean().optional(),
+  date: z.string(),
+  description: z.string(),
+  dropCap: z.boolean().optional(),
+  imageAlt: z.string(),
+  readingTime: z.number(),
+  tag: z.enum(ARTICLE_TAGS),
+  title: z.string(),
+});
+
+export type ArticleMeta = z.infer<typeof ArticleMetaSchema>;
+
+export interface SiblingNav {
+  nextSlug: string | undefined;
+  position: number;
+  previousSlug: string | undefined;
+}
 
 export interface ArticleLink {
   meta: ArticleMeta;
@@ -59,14 +68,6 @@ interface ArticleGraph {
 }
 
 const graph: ArticleGraph = graphData;
-
-const ARTICLE_TAGS: readonly ArticleTag[] = [
-  "Concept",
-  "Entity",
-  "Essay",
-  "Index",
-  "Changelog",
-];
 
 const isArticleTag = (value: string): value is ArticleTag =>
   (ARTICLE_TAGS as readonly string[]).includes(value);
@@ -90,6 +91,30 @@ const toArticleLinks = (
 
 const PAGE_MDX_SUFFIX = /\/page.mdx$/;
 
+interface ArticleModule {
+  heroImage?: StaticImageData;
+  meta?: unknown;
+}
+
+const loadArticle = async (
+  filename: string
+): Promise<{ heroImage: StaticImageData; meta: ArticleMeta; slug: string }> => {
+  const slug = filename.replace(PAGE_MDX_SUFFIX, "");
+  const mod = (await import(`./[slug]/(docs)/${filename}`)) as ArticleModule;
+  const parsed = ArticleMetaSchema.safeParse(mod.meta);
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid article frontmatter for "${slug}": ${parsed.error.message}`
+    );
+  }
+  if (!mod.heroImage) {
+    throw new Error(
+      `Article "${slug}" is missing the \`heroImage\` named export. Re-export the hero asset: \`export { default as heroImage } from './hero.png'\`.`
+    );
+  }
+  return { slug, meta: parsed.data, heroImage: mod.heroImage };
+};
+
 export const getArticles = cache(
   async (): Promise<Normalise<ArticleEntity>> => {
     const filenames = await glob("**/page.mdx", {
@@ -104,18 +129,7 @@ export const getArticles = cache(
       ),
     });
 
-    const files = await Promise.all(
-      filenames.map(async (filename) => {
-        const meta = await import(`./[slug]/(docs)/${filename}`).then(
-          (m) => m.meta as ArticleMeta
-        );
-
-        return {
-          slug: filename.replace(PAGE_MDX_SUFFIX, ""),
-          meta,
-        };
-      })
-    );
+    const files = await Promise.all(filenames.map(loadArticle));
 
     files.sort(
       (a, b) =>
