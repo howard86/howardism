@@ -257,39 +257,64 @@ export function escapeMdxBody(body: string): string {
   return lines.join("\n");
 }
 
+function findClosingBacktickRun(rest: string, runLen: number): number {
+  for (let j = 0; j <= rest.length - runLen; j++) {
+    if (rest[j] !== "`") {
+      continue;
+    }
+    let len = 0;
+    while (j + len < rest.length && rest[j + len] === "`") {
+      len++;
+    }
+    if (len === runLen) {
+      return j;
+    }
+    j += len - 1;
+  }
+  return -1;
+}
+
+function consumeBacktickSpan(
+  line: string,
+  start: number
+): { emit: string; next: number } {
+  let i = start;
+  while (i < line.length && line[i] === "`") {
+    i++;
+  }
+  const openRun = i - start;
+  const closeIdx = findClosingBacktickRun(line.slice(i), openRun);
+  if (closeIdx === -1) {
+    return { emit: line.slice(start, i), next: i };
+  }
+  const end = i + closeIdx + openRun;
+  return { emit: line.slice(start, end), next: end };
+}
+
+function escapeProseChar(line: string, i: number): string {
+  const ch = line[i];
+  if (ch === "{" || ch === "}") {
+    return `\\${ch}`;
+  }
+  if (ch === "<") {
+    const next = line[i + 1] ?? "";
+    return HTML_TAG_HINT_RE.test(next) ? ch : "&lt;";
+  }
+  return ch;
+}
+
 function escapeLine(line: string): string {
   let result = "";
-  let inInlineCode = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-
-    if (ch === "`") {
-      inInlineCode = !inInlineCode;
-      result += ch;
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === "`") {
+      const { emit, next } = consumeBacktickSpan(line, i);
+      result += emit;
+      i = next;
       continue;
     }
-
-    if (inInlineCode) {
-      result += ch;
-      continue;
-    }
-
-    if (ch === "{" || ch === "}") {
-      result += `\\${ch}`;
-      continue;
-    }
-
-    if (ch === "<") {
-      const next = line[i + 1] ?? "";
-      if (HTML_TAG_HINT_RE.test(next)) {
-        result += ch;
-      } else {
-        result += "&lt;";
-      }
-      continue;
-    }
-
-    result += ch;
+    result += escapeProseChar(line, i);
+    i++;
   }
   return result;
 }

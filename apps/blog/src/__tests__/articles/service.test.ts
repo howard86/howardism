@@ -5,6 +5,7 @@ import {
   getBacklinks,
   getOutgoing,
   getRelated,
+  getSlicedArticles,
   getTagCounts,
   getVisibleArticles,
 } from "@/app/(blog)/articles/service";
@@ -87,6 +88,18 @@ describe("tag-aware service helpers", () => {
       const previous = new Date(entries[i - 1]?.meta.date ?? "").valueOf();
       const current = new Date(entries[i]?.meta.date ?? "").valueOf();
       expect(previous).toBeGreaterThanOrEqual(current);
+    }
+  });
+
+  it("getSlicedArticles keeps ids and entities in sync", async () => {
+    const sliced = await getSlicedArticles(3);
+    expect(sliced.ids.length).toBe(3);
+    expect(Object.keys(sliced.entities).length).toBe(3);
+    for (const id of sliced.ids) {
+      expect(sliced.entities[id]).toBeDefined();
+    }
+    for (const key of Object.keys(sliced.entities)) {
+      expect(sliced.ids).toContain(key);
     }
   });
 

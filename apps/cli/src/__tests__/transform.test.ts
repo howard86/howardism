@@ -212,6 +212,18 @@ describe("escapeMdxBody", () => {
     const input = "Set the `{x}` placeholder and check `a < b`.";
     expect(escapeMdxBody(input)).toBe(input);
   });
+
+  it("preserves content in double-backtick inline code spans", () => {
+    const input = "Render ``{children}`` to project the slot.";
+    expect(escapeMdxBody(input)).toBe(input);
+  });
+
+  it("escapes a stray backtick that has no matching closer", () => {
+    const input = "Trailing ` is just prose with {braces}.";
+    expect(escapeMdxBody(input)).toBe(
+      "Trailing ` is just prose with \\{braces\\}."
+    );
+  });
 });
 
 describe("stripDuplicateLeadingHeading", () => {
