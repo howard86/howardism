@@ -169,10 +169,12 @@ export const getVisibleArticles = cache(
 export const getSlicedArticles = cache(
   async (count?: number): Promise<Normalise<ArticleEntity>> => {
     const visible = await getVisibleArticles();
-    return {
-      ids: visible.ids.slice(0, count),
-      entities: visible.entities,
-    };
+    const ids = visible.ids.slice(0, count);
+    const entities: Record<string, ArticleEntity | undefined> = {};
+    for (const id of ids) {
+      entities[id] = visible.entities[id];
+    }
+    return { ids, entities };
   }
 );
 
