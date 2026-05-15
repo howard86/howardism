@@ -150,19 +150,24 @@ interface ImportContext {
 async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   const overrides = await loadOverrides(opts.overridesPath);
   const sources = await discoverWikiSources(opts.wikiPath);
-  const filtered = opts.onlySlug
-    ? sources.filter((s) => s.slug === opts.onlySlug)
-    : sources;
-  if (filtered.length === 0) {
-    throw new Error(
-      opts.onlySlug
-        ? `No wiki file found for slug "${opts.onlySlug}"`
-        : "No wiki files discovered"
-    );
+  if (sources.length === 0) {
+    throw new Error("No wiki files discovered");
   }
 
-  const parsedAll = await Promise.all(filtered.map(parseWikiFile));
-  const slugTitleMap = buildSlugTitleMap(parsedAll);
+  // Parse every wiki file so the slug→title map covers all possible link
+  // targets. Without this, `--only <slug>` would build a map containing only
+  // the targeted article and every cross-link would be downgraded to plain
+  // text.
+  const allParsed = await Promise.all(sources.map(parseWikiFile));
+  const slugTitleMap = buildSlugTitleMap(allParsed);
+
+  const parsedAll = opts.onlySlug
+    ? allParsed.filter((p) => p.source.slug === opts.onlySlug)
+    : allParsed;
+  if (parsedAll.length === 0) {
+    throw new Error(`No wiki file found for slug "${opts.onlySlug}"`);
+  }
+
   const indexSummaries = await parseIndexSummaries(
     join(opts.wikiPath, "index.md")
   );

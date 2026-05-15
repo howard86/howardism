@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
+
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
+import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { ArticlesTable } from "./articles-table";
 import { getTagCounts, getVisibleArticles } from "./service";
 import { getSectionArticles, TAG_SECTIONS } from "./tag-sections";
+
+const ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
+
+export const metadata: Metadata = {
+  alternates: { canonical: ARTICLES_URL },
+  openGraph: { url: ARTICLES_URL },
+};
 
 export default async function ArticlesIndex() {
   const [counts, visible, sections] = await Promise.all([

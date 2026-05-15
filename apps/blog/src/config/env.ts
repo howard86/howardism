@@ -5,7 +5,10 @@ const envSchema = z.object({
   // `metadataBase`, Open Graph URLs and the RSS feed resolve to absolute URLs
   // even when the env var is not provided at build time.
   NEXT_PUBLIC_DOMAIN_NAME: z.url().default("https://www.howardism.dev"),
-  NEXT_PUBLIC_GA_MEASUREMENT_ID: z.string().optional(),
+  NEXT_PUBLIC_GA_MEASUREMENT_ID: z
+    .string()
+    .regex(/^G-[A-Z0-9]+$/)
+    .optional(),
 });
 
 const parsed = envSchema.safeParse({
