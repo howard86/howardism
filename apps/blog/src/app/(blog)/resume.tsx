@@ -1,4 +1,3 @@
-import { Card } from "@howardism/ui/components/card";
 import type { FC } from "react";
 import type { SVGProps } from "react-html-props";
 
@@ -62,48 +61,48 @@ export const resume: ResumeEntity[] = [
 
 export default function Resume() {
   return (
-    <Card className="px-6 py-5">
-      <div className="mb-4 font-medium font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.16em]">
-        Work
-      </div>
-      <ol className="m-0 list-none p-0">
+    <section>
+      <header className="mb-3 flex items-baseline justify-between border-foreground border-b-[1.5px] pb-2 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
+        <span>§·Work</span>
+        <span>{resume.length} roles</span>
+      </header>
+      <ol className="m-0 flex list-none flex-col p-0">
         {resume.map((role) => (
           <li
-            className="flex items-center gap-2.5 border-border border-b border-dashed py-2.5"
+            className="border-border border-b border-dashed last:border-b-0"
             key={role.company}
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border">
+            <ExternalLink
+              className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 py-3 text-foreground no-underline transition-colors hover:text-brand"
+              href={role.href}
+            >
               <role.logo
-                aria-label={`${role.company} logo`}
-                className="size-[18px]"
+                aria-hidden="true"
+                className="size-4 self-center fill-current text-foreground-subtle"
               />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <ExternalLink
-                  className="font-body font-medium text-[13px] text-foreground no-underline"
-                  href={role.href}
-                >
-                  {role.company}
-                </ExternalLink>
-                {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides accessible date range */}
-                <span
-                  aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(role.end, "label")}`}
-                  className="whitespace-nowrap font-mono text-[10px] text-foreground-subtle tracking-[0.02em]"
-                >
-                  <time dateTime={getStringOrValue(role.start, "dateTime")}>
-                    {getStringOrValue(role.start, "label")}
-                  </time>
-                  {" — "}
-                  <time dateTime={getStringOrValue(role.end, "dateTime")}>
-                    {getStringOrValue(role.end, "label")}
-                  </time>
+              <span className="font-display font-medium text-[15px] leading-[1.2] tracking-[-0.01em] sm:text-[18px]">
+                {role.company}
+                <span className="ml-2 font-body font-normal text-[11px] text-foreground-subtle tracking-[0.02em]">
+                  {role.title}
                 </span>
-              </div>
-            </div>
+              </span>
+              {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides an accessible date range for the start/end pair */}
+              <span
+                aria-label={`${getStringOrValue(role.start, "label")} until ${getStringOrValue(role.end, "label")}`}
+                className="whitespace-nowrap font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.14em]"
+              >
+                <time dateTime={getStringOrValue(role.start, "dateTime")}>
+                  {getStringOrValue(role.start, "label")}
+                </time>
+                <span aria-hidden="true">{" — "}</span>
+                <time dateTime={getStringOrValue(role.end, "dateTime")}>
+                  {getStringOrValue(role.end, "label")}
+                </time>
+              </span>
+            </ExternalLink>
           </li>
         ))}
       </ol>
-    </Card>
+    </section>
   );
 }

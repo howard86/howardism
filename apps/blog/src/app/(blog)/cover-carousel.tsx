@@ -3,9 +3,15 @@ import Image from "next/image";
 
 import { getSlicedArticles } from "./articles/service";
 
+interface CoverCarouselProps {
+  articleCount: number;
+}
+
 // Decorative band of recent article covers. Non-interactive — there is no gallery page to link to.
-export default async function CoverCarousel() {
-  const articles = await getSlicedArticles(5);
+export default async function CoverCarousel({
+  articleCount,
+}: CoverCarouselProps) {
+  const articles = await getSlicedArticles(articleCount);
 
   return (
     <div aria-hidden="true" className="mt-16 sm:mt-20">
