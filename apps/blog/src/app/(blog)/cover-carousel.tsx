@@ -30,7 +30,7 @@ export default async function CoverCarousel() {
                 className="absolute inset-0 h-full w-full object-cover"
                 placeholder="blur"
                 sizes="(min-width: 640px) 18rem, 11rem"
-                src={article.meta.image.src}
+                src={article.heroImage}
               />
             </div>
           );

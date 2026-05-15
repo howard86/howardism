@@ -1,0 +1,177 @@
+---
+date: 2026-04-28
+title: Codex App Server Protocol
+description: "JSON-RPC stdio protocol for headless Codex sessions:
+  initialize/initialized/thread-start/turn-start handshake, continuation turns
+  reuse thread_id, dynamic tool calls for token-isolated tool injection"
+tag: Concept
+readingTime: 7
+imageAlt: Illustration for Codex App Server Protocol
+sources:
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+---
+export { default as heroImage } from "../assets/codex-app-server-protocol.png";
+
+## Sources
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+
+## Summary
+
+A line-delimited JSON-RPC-like protocol over stdio that lets external orchestrators drive a Codex coding-agent session programmatically. Documented at [developers.openai.com/codex/app-server](https://developers.openai.com/codex/app-server/) and exercised in detail by [Symphony's](/articles/symphony) `SPEC.md`. The orchestrator launches `codex app-server` (default command), exchanges a startup handshake, then streams turn events until the turn terminates. The same `thread_id` is reused across multiple `turn/start` requests for continuation, and **dynamic tool calls** allow the orchestrator to inject custom tools (e.g., `linear_graphql`) without exposing credentials to subagent containers.
+
+## Details
+
+### Why a Protocol Instead of a CLI
+
+[Symphony](/articles/symphony) flagged the limitation directly: trying to drive Codex via CLI or `tmux` sessions doesn't scale to programmatic orchestration. The App Server is "a built-in headless mode for Codex" with a JSON-RPC API for things like starting a thread or reacting to turns. The orchestrator gets:
+
+- **Programmatic control** over thread lifecycle without scraping terminal output.
+- **Hooks** to inject custom tool implementations (dynamic tool calls).
+- **Structured events** to drive observability, retry logic, and stall detection.
+
+### Launch Contract
+
+Subprocess launch parameters from Symphony's spec:
+
+- **Command**: `codex.command` (default: `codex app-server`)
+- **Invocation**: `bash -lc <command>`
+- **Working directory**: per-issue workspace path (validated as a safety invariant — `cwd == workspace_path` before launch)
+- **Stdout/stderr**: separate streams. **Only stdout is the protocol stream.** Stderr is diagnostic-only — never parse it as JSON.
+- **Framing**: line-delimited JSON, one message per line.
+- **Recommended max line size**: 10 MB.
+
+### Startup Handshake
+
+Required message order, paraphrased from Symphony's illustrative transcript:
+
+```json
+{"id":1,"method":"initialize","params":{"clientInfo":{"name":"symphony","version":"1.0"},"capabilities":{}}}
+{"method":"initialized","params":{}}
+{"id":2,"method":"thread/start","params":{"approvalPolicy":"...","sandbox":"...","cwd":"/abs/workspace"}}
+{"id":3,"method":"turn/start","params":{"threadId":"<thread-id>","input":[{"type":"text","text":"<rendered prompt>"}],"cwd":"/abs/workspace","title":"ABC-123: Example","approvalPolicy":"...","sandboxPolicy":{"type":"..."}}}
+```
+
+Notes:
+
+1. `initialize` request — `clientInfo` and `capabilities`. If the targeted Codex version requires capability negotiation for dynamic tools, declare it here.
+2. `initialized` notification — sent after `initialize` response.
+3. `thread/start` — establishes thread context including approval policy, sandbox mode, and cwd. Optional client-side tool specs (e.g., `linear_graphql`) advertised here.
+4. `turn/start` — first turn carries the rendered prompt; subsequent continuation turns send only continuation guidance.
+
+**Session identifier composition**:
+- `thread_id` from `thread/start` result (`result.thread.id`)
+- `turn_id` from each `turn/start` result (`result.turn.id`)
+- Emitted `session_id` = `<thread_id>-<turn_id>`
+
+### Continuation Turns (Reuse the Thread)
+
+A non-obvious but important property: **continuation turns reuse the same `thread_id`** with new `turn/start` requests on the same live subprocess. The first turn sends the full rendered task prompt; later turns send only continuation guidance, since the original prompt is already in thread history.
+
+Symphony's worker logic:
+- After each successful turn, re-check tracker state.
+- If issue still active, issue another `turn/start` on same `threadId`, up to `agent.max_turns` (default 20).
+- Subprocess remains alive across continuation turns — only stopped when the worker run ends.
+
+This is the primitive that makes ticket-driven multi-turn work practical: the agent maintains conversational state across what looks externally like discrete continuations.
+
+### Streaming Turn Events
+
+Termination conditions for a single turn:
+
+| Condition | Outcome |
+|---|---|
+| `turn/completed` | success |
+| `turn/failed` | failure |
+| `turn/cancelled` | failure |
+| Turn timeout (`turn_timeout_ms`, default 1h) | failure |
+| Subprocess exit | failure |
+
+Important emitted events Symphony's spec enumerates:
+`session_started`, `startup_failed`, `turn_completed`, `turn_failed`, `turn_cancelled`, `turn_ended_with_error`, `turn_input_required`, `approval_auto_approved`, `unsupported_tool_call`, `notification`, `other_message`, `malformed`.
+
+### Three Independent Timeouts
+
+| Timeout | Default | Scope |
+|---|---|---|
+| `read_timeout_ms` | 5 s | Request/response during startup and sync requests |
+| `turn_timeout_ms` | 1 h | Total turn-stream duration |
+| `stall_timeout_ms` | 5 m | Inactivity between events (orchestrator-enforced) |
+
+Set `stall_timeout_ms <= 0` to disable stall detection.
+
+### Approvals, Sandboxes, User Input
+
+Implementation-defined posture, but the spec mandates that approval requests and user-input-required events **must not leave a run stalled indefinitely**. An implementation chooses one of:
+
+- **Auto-approve** (high-trust mode, e.g., command exec and file-change approvals auto-approved for the session).
+- **Surface to operator** (interactive flow).
+- **Auto-resolve** by policy.
+- **Hard-fail the run** (Symphony reference does this for user-input-required turns).
+
+Treating user-input-required as a hard failure is appropriate for unattended orchestration — there's no human in the loop to satisfy the request.
+
+### Dynamic Tool Calls (the Most Underrated Feature)
+
+Experimental feature. The agent can request `item/tool/call` for tools the orchestrator advertises during `thread/start`. If the tool isn't recognized, return a tool-failure response — the session continues rather than stalling.
+
+The leverage: **orchestrator-implemented tools can wrap credentials the subagent should never see**.
+
+Symphony's `linear_graphql` tool is the canonical example:
+- Subagent containers don't get the Linear access token.
+- Instead, the orchestrator advertises a `linear_graphql` tool that proxies authenticated GraphQL queries.
+- Subagent calls the tool with `{ "query": "...", "variables": {...} }`; orchestrator executes against the Linear endpoint using its own auth.
+
+Contract for `linear_graphql`:
+- Single non-empty GraphQL operation per call (multiple operations rejected).
+- Optional `variables` object.
+- Result semantics:
+ - Transport success + no GraphQL `errors` → `success=true`
+ - Top-level GraphQL `errors` → `success=false`, but preserve response body
+ - Invalid input / missing auth / transport failure → `success=false` with error payload
+
+This is **architecturally parallel to MCP** but lives inside the coding-agent's runtime rather than a separate process — orchestrator decides what tools to inject per session.
+
+### Compatibility Profile
+
+Symphony's spec is unusually explicit about version tolerance:
+
+> "The normative contract is message ordering, required behaviors, and the logical fields that must be extracted. Exact JSON field names may vary slightly across compatible app-server versions. Implementations should tolerate equivalent payload shapes when they carry the same logical meaning."
+
+Practical implication: don't bind tightly to specific JSON field names. Implementors are encouraged to inspect the installed Codex schema via `codex app-server generate-json-schema --out <dir>` and treat Codex-owned config (`approval_policy`, `thread_sandbox`, `turn_sandbox_policy`) as pass-through values.
+
+### Recommended Error Categories
+
+For normalization across implementations:
+
+`codex_not_found`, `invalid_workspace_cwd`, `response_timeout`, `turn_timeout`, `port_exit`, `response_error`, `turn_failed`, `turn_cancelled`, `turn_input_required`.
+
+### Token Accounting Subtlety
+
+Worth flagging because it's easy to get wrong. Agent events may include token counts in multiple shapes:
+
+- **Prefer absolute thread totals** (e.g., `thread/tokenUsage/updated` or `total_token_usage` within token-count wrappers).
+- **Ignore delta-style payloads** (e.g., `last_token_usage`) for dashboards, or you'll double-count.
+- **Don't treat generic `usage` maps as cumulative** unless the event type defines them that way.
+- For absolute totals, track deltas relative to last reported totals.
+
+## Connections
+
+- [Symphony](/articles/symphony) — the canonical orchestrator built on this protocol; entity page with the lifecycle and operational details
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — continuation turns are what make multi-turn work-per-ticket practical; one ticket → one thread → many turns
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — the App Server protocol is the integration boundary that makes "harness as service" possible — orchestrator drives session lifecycle without scraping a CLI
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude's `claude -p` non-interactive mode plus the Claude Agent SDK are the parallel ecosystem; both let an external orchestrator drive sessions, but Codex's App Server is more explicit about a stable JSON-RPC protocol
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — `agent.max_turns`, `turn_timeout_ms`, `stall_timeout_ms`, and the dynamic-tool-call cost (proxy round-trip vs. direct call) are operational instances of the budget lever AgentOpt formalizes
+
+## Open Questions
+
+- How does the App Server protocol compare in detail to MCP? Both expose tools to a model, but App Server is *inside* the Codex runtime while MCP is *outside*. When does each win?
+- Is there a public schema registry so external orchestrators can target specific App Server versions without `generate-json-schema`?
+- The "dynamic tool calls (experimental)" caveat — what's the stability roadmap? Symphony depends on this for its security model.
+- How well does the protocol handle multi-modal turns (image inputs, screenshot attachments)? The spec is text-focused.
+- Is there an analogous protocol on the Claude side, or is Claude's equivalent exclusively the Agent SDK + tool-use API? Comparing the two would clarify when "drive an existing CLI" beats "build on the SDK."
+
+## Sources
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — Section 10 (Agent Runner Protocol) and Section 13.5 (Token Accounting) are the authoritative reference

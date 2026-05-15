@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
+import type { StaticImageData } from "next/image";
 import type { FC } from "react";
 
-import {
-  type ArticleEntity,
-  type ArticleMeta,
-  getArticles,
-  type Normalise,
-} from "../service";
+import { type ArticleMeta, getArticles, getSiblings } from "../service";
 import { ArticleLayout } from "./article-layout";
 
 interface ArticlePageProps {
@@ -15,53 +11,40 @@ interface ArticlePageProps {
   }>;
 }
 
+interface ArticleModule {
+  default: FC;
+  heroImage: StaticImageData;
+  meta: ArticleMeta;
+}
+
 export const dynamic = "error";
 
 export async function generateMetadata({
   params,
 }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const meta = await import(`./(docs)/${slug}/page.mdx`).then(
-    (file) => file.meta
-  );
+  const mod = (await import(`@/content/articles/${slug}.mdx`)) as ArticleModule;
 
   return {
-    title: meta.title,
-    description: meta.description,
+    title: mod.meta.title,
+    description: mod.meta.description,
   };
 }
 
-const getSiblingSlug = (
-  articles: Normalise<ArticleEntity>,
-  slug: string,
-  difference: number
-): string | undefined => {
-  const selectedArticle = articles.entities[slug];
-
-  if (!selectedArticle) {
-    return;
-  }
-
-  return articles.ids[selectedArticle.position + difference];
-};
-
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const mod = (await import(`./(docs)/${slug}/page.mdx`)) as {
-    meta: ArticleMeta;
-    default: FC;
-  };
+  const mod = (await import(`@/content/articles/${slug}.mdx`)) as ArticleModule;
 
-  const articles = await getArticles();
-
-  const position = (articles.entities[slug]?.position ?? 0) + 1;
+  const { previousSlug, nextSlug, position } = await getSiblings(slug);
 
   return (
     <ArticleLayout
+      heroImage={mod.heroImage}
       meta={mod.meta}
-      nextSlug={getSiblingSlug(articles, slug, -1)}
+      nextSlug={nextSlug}
       position={position}
-      previousSlug={getSiblingSlug(articles, slug, 1)}
+      previousSlug={previousSlug}
+      slug={slug}
     >
       <mod.default />
     </ArticleLayout>
