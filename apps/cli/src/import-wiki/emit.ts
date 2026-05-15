@@ -15,6 +15,26 @@ export const WIKI_TAGS: readonly WikiTag[] = [
   "Changelog",
 ];
 
+/**
+ * Keep this union aligned with `ArticleTopic` in
+ * `apps/blog/src/app/(blog)/articles/taxonomy.ts` — the blog's filter UI
+ * trusts whatever the importer emits.
+ */
+export type WikiTopic =
+  | "interaction"
+  | "alignment"
+  | "harness"
+  | "product"
+  | "org";
+
+export const WIKI_TOPICS: readonly WikiTopic[] = [
+  "interaction",
+  "alignment",
+  "harness",
+  "product",
+  "org",
+];
+
 export interface ArticleMeta {
   date: string;
   description: string;
@@ -28,6 +48,12 @@ export interface ArticleMeta {
   sources?: SourceRef[];
   tag: WikiTag;
   title: string;
+  /**
+   * Editorial topic cluster. Optional because the Changelog stays untagged
+   * and new pieces may land before a topic is assigned. Emitted only when
+   * set so the YAML stays clean.
+   */
+  topic?: WikiTopic;
 }
 
 export interface EmitArticleArgs {
@@ -50,6 +76,7 @@ export function buildArticleSource(
     title: meta.title,
     description: meta.description,
     tag: meta.tag,
+    ...(meta.topic ? { topic: meta.topic } : {}),
     readingTime: meta.readingTime,
     imageAlt,
     ...(meta.sources && meta.sources.length > 0
