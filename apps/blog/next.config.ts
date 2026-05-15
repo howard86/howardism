@@ -6,7 +6,10 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
-import { getSecurityHeaders } from "./src/config/security-headers";
+import {
+  DEFAULT_CSP_DIRECTIVES,
+  getSecurityHeaders,
+} from "./src/config/security-headers";
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -44,14 +47,36 @@ const withMDX = nextMDX({
   },
 });
 
-// Articles-only blog: the default CSP (which already allows `https:` for
-// connect-src/img-src, covering Vercel Analytics and Unsplash) is sufficient.
-// No feature needs geolocation. In dev the server is plain HTTP, so skip the
-// HTTPS-forcing headers — Safari honours HSTS on `localhost` and otherwise
-// refuses to connect over HTTP with a TLS handshake error.
+// Articles-only blog. The default CSP is tight (no 'unsafe-eval', no broad
+// `https:` connect-src) — extend it here for the specific external endpoints
+// the blog uses: Vercel Analytics + Web Vitals reporting, and Google
+// Analytics when NEXT_PUBLIC_GA_MEASUREMENT_ID is set. No feature needs
+// geolocation. In dev the server is plain HTTP, so skip the HTTPS-forcing
+// headers — Safari honours HSTS on `localhost` and otherwise refuses to
+// connect over HTTP with a TLS handshake error.
+const contentSecurityPolicy = {
+  ...DEFAULT_CSP_DIRECTIVES,
+  "script-src": [
+    "'self'",
+    "'unsafe-inline'",
+    "https://va.vercel-scripts.com",
+    "https://www.googletagmanager.com",
+    "https://www.google-analytics.com",
+  ],
+  "connect-src": [
+    "'self'",
+    "https://vitals.vercel-insights.com",
+    "https://va.vercel-scripts.com",
+    "https://www.google-analytics.com",
+    "https://analytics.google.com",
+    "https://region1.analytics.google.com",
+  ],
+};
+
 const securityHeaders = getSecurityHeaders({
   geolocation: "()",
   insecureTransport: process.env.NODE_ENV !== "production",
+  contentSecurityPolicy,
 });
 
 const nextConfig: NextConfig = {
@@ -74,7 +99,7 @@ const nextConfig: NextConfig = {
   ),
   transpilePackages: ["@howardism/ui"],
   images: {
-    remotePatterns: [{ hostname: "images.unsplash.com" }],
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
 };
 
