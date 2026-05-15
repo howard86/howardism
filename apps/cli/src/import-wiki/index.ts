@@ -17,20 +17,26 @@ import { buildWikiChangelogPage } from "./pages/wiki-changelog.ts";
 import {
   buildSlugTitleMap,
   discoverWikiSources,
+  extractRawSlugsFromBody,
+  extractRawSlugsFromSources,
+  loadRawDoc,
   type ParsedWikiFile,
   parseIndexSummaries,
   parseWikiFile,
+  type RawDoc,
   resolveDate,
   stripWikilinksToText,
   titleFromSlug,
 } from "./parse.ts";
 import {
+  buildSourcesSection,
   computeReadingTime,
   detectEntityPrefix,
   escapeMdxBody,
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
+  type SourceRef,
   stripDuplicateLeadingHeading,
 } from "./transform.ts";
 
@@ -41,6 +47,7 @@ interface RunOptions {
   graphOutputPath: string;
   onlySlug: string | null;
   overridesPath: string;
+  rawPath: string;
   skipImages: boolean;
   wikiPath: string;
 }
@@ -50,6 +57,7 @@ interface ImportSummary {
   graphPath: string | null;
   imagesCached: string[];
   imagesGenerated: string[];
+  missingRawSources: Map<string, Set<string>>;
   unresolvedWikilinks: Map<string, Set<string>>;
 }
 
@@ -84,6 +92,7 @@ async function main(): Promise<void> {
   });
 
   await assertExists(opts.wikiPath, "wiki path");
+  await assertExists(opts.rawPath, "raw path");
   await assertExists(opts.blogArticlesPath, "blog articles path");
   if (!opts.dryRun) {
     await mkdir(opts.assetsDir, { recursive: true });
@@ -163,6 +172,7 @@ function createSummary(): ImportSummary {
     graphPath: null,
     imagesGenerated: [],
     imagesCached: [],
+    missingRawSources: new Map(),
     unresolvedWikilinks: new Map(),
   };
 }
@@ -180,11 +190,23 @@ async function processArticle(
   const title = frontmatter.title?.trim() || titleFromSlug(slug);
   const strippedBody = stripDuplicateLeadingHeading(parsed.body, title);
   const escapedBody = escapeMdxBody(strippedBody);
+
+  const { sources, rawIndex } = await resolveRawSources({
+    slug,
+    frontmatterSources: frontmatter.sources,
+    body: escapedBody,
+    rawRoot: opts.rawPath,
+    summary,
+  });
+
   const { body: linkedBody, unresolved } = rewriteWikilinks(
     escapedBody,
-    ctx.slugTitleMap
+    ctx.slugTitleMap,
+    rawIndex
   );
-  const body = redactLocalPaths(linkedBody);
+  const redacted = redactLocalPaths(linkedBody);
+  const sourcesSection = buildSourcesSection(sources);
+  const body = sourcesSection ? `${sourcesSection}${redacted}` : redacted;
   if (unresolved.length > 0) {
     summary.unresolvedWikilinks.set(slug, new Set(unresolved));
   }
@@ -211,6 +233,7 @@ async function processArticle(
     description: cleanedDescription,
     readingTime: computeReadingTime(body),
     tag,
+    ...(sources.length > 0 ? { sources } : {}),
   };
 
   const imageFile = `${slug}.png`;
@@ -233,6 +256,69 @@ async function processArticle(
     dryRun: opts.dryRun,
   });
   summary.articlesWritten.push(filePath);
+}
+
+/**
+ * Resolve the raw-doc references for a single article: the `sources:`
+ * frontmatter list drives the `## Sources` audit section, and any
+ * `[[raw/...]]` inline mentions in the body get upgraded to clickable
+ * links when the raw doc has a public URL.
+ *
+ * Both lookups share a single `rawIndex` so we never read the same raw
+ * file twice in one article pass. Missing files become warnings via
+ * `summary.missingRawSources` and still surface as plain-text entries.
+ */
+async function resolveRawSources(args: {
+  body: string;
+  frontmatterSources: string[] | undefined;
+  rawRoot: string;
+  slug: string;
+  summary: ImportSummary;
+}): Promise<{ rawIndex: Map<string, RawDoc>; sources: SourceRef[] }> {
+  const { body, frontmatterSources, rawRoot, slug, summary } = args;
+
+  const fromFrontmatter = extractRawSlugsFromSources(frontmatterSources);
+  const fromBody = extractRawSlugsFromBody(body);
+  const allSlugs = Array.from(new Set([...fromFrontmatter, ...fromBody]));
+
+  const rawIndex = new Map<string, RawDoc>();
+  const missing = new Set<string>();
+  await Promise.all(
+    allSlugs.map(async (rawSlug) => {
+      const doc = await loadRawDoc(rawRoot, rawSlug);
+      if (doc) {
+        rawIndex.set(rawSlug, doc);
+      } else {
+        missing.add(rawSlug);
+      }
+    })
+  );
+
+  const sources: SourceRef[] = fromFrontmatter.map((rawSlug) => {
+    const doc = rawIndex.get(rawSlug);
+    if (doc) {
+      return doc.url
+        ? { title: doc.title, url: doc.url }
+        : { title: doc.title };
+    }
+    return { title: humanizeMissingSlug(rawSlug) };
+  });
+
+  if (missing.size > 0) {
+    summary.missingRawSources.set(slug, missing);
+  }
+
+  return { sources, rawIndex };
+}
+
+const MISSING_SLUG_PUNCT_RE = /[._-]+/g;
+const MISSING_SLUG_WS_RE = /\s+/g;
+
+function humanizeMissingSlug(slug: string): string {
+  return slug
+    .replace(MISSING_SLUG_PUNCT_RE, " ")
+    .replace(MISSING_SLUG_WS_RE, " ")
+    .trim();
 }
 
 async function ensureImage(args: {
@@ -354,6 +440,10 @@ function parseOptions(): RunOptions {
     );
   }
   const wikiPath = resolve(env.WIKI_PATH);
+  // Raw source documents live as a sibling of the wiki dir in the standard
+  // Obsidian-vault layout (`<vault>/wiki/` + `<vault>/raw/`). Override with
+  // RAW_PATH when the vault is structured differently.
+  const rawPath = resolve(env.RAW_PATH ?? join(wikiPath, "..", "raw"));
   const blogArticlesPath = resolve(
     env.BLOG_ARTICLES_PATH ?? DEFAULT_BLOG_ARTICLES_PATH
   );
@@ -369,6 +459,7 @@ function parseOptions(): RunOptions {
 
   return {
     wikiPath,
+    rawPath,
     blogArticlesPath,
     assetsDir,
     overridesPath,
@@ -433,6 +524,14 @@ function printSummary(summary: ImportSummary): void {
   if (summary.unresolvedWikilinks.size > 0) {
     console.log("\nUnresolved wikilinks (rendered as plain text):");
     for (const [slug, targets] of summary.unresolvedWikilinks) {
+      console.log(`  ${slug} -> ${[...targets].join(", ")}`);
+    }
+  }
+  if (summary.missingRawSources.size > 0) {
+    console.log(
+      "\nMissing raw source documents (rendered as humanised slug, no URL):"
+    );
+    for (const [slug, targets] of summary.missingRawSources) {
       console.log(`  ${slug} -> ${[...targets].join(", ")}`);
     }
   }

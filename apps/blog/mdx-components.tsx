@@ -15,6 +15,8 @@ interface MdxLinkLikeProps
   href?: string;
 }
 
+const EXTERNAL_HREF_RE = /^https?:\/\//i;
+
 async function ArticleLinkResolver({
   href,
   children,
@@ -22,6 +24,14 @@ async function ArticleLinkResolver({
 }: MdxLinkLikeProps) {
   if (typeof href !== "string" || href.length === 0) {
     return <>{children}</>;
+  }
+
+  if (EXTERNAL_HREF_RE.test(href)) {
+    return (
+      <a href={href} rel="noopener noreferrer" target="_blank" {...rest}>
+        {children}
+      </a>
+    );
   }
 
   if (!href.startsWith(ARTICLES_PREFIX)) {

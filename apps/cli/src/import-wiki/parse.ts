@@ -35,8 +35,24 @@ export interface ParsedWikiFile {
   source: WikiSource;
 }
 
+/**
+ * Resolved metadata for a `raw/<slug>.md` source document. Drives both the
+ * per-article `## Sources` audit block and the upgrade of inline
+ * `[[raw/...]]` references to clickable links.
+ */
+export interface RawDoc {
+  /** Original raw filename slug (without `.md`). Used as a stable key. */
+  slug: string;
+  /** Author-set title from the raw doc's frontmatter; fall back to humanised slug. */
+  title: string;
+  /** Public URL from the raw doc's `source:` frontmatter, when set. */
+  url?: string;
+}
+
 const WIKI_LINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/;
 const STRIP_WIKILINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/g;
+const RAW_REF_RE = /\[\[raw\/([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]/g;
+const HTTP_URL_RE = /^https?:\/\//i;
 const TABLE_ROW_RE = /^\s*\|\s*\[\[[^\]]+\]\][^|]*\|[^|]+\|/;
 const HEADING_RE = /^##\s+(.+)$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -153,6 +169,101 @@ export async function parseIndexSummaries(
   }
 
   return summaries;
+}
+
+/**
+ * Pull the bare raw slugs out of a wiki article's `sources:` frontmatter
+ * list. Entries are wikilinks; only the `[[raw/<slug>]]` form is kept — the
+ * `[[wiki/<folder>/<slug>]]` form refers to other in-vault concepts and is
+ * already surfaced via the backlinks graph.
+ *
+ * Returns slugs in author-written order, deduplicated. Used by the importer
+ * to drive raw-doc resolution.
+ */
+export function extractRawSlugsFromSources(
+  sources: string[] | undefined
+): string[] {
+  if (!sources) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const slugs: string[] = [];
+  for (const entry of sources) {
+    for (const match of entry.matchAll(RAW_REF_RE)) {
+      // Keep the full path after `raw/` — Obsidian allows subdirectories
+      // (e.g. `raw/Claude Mythos Preview / red.anthropic.com`), and the
+      // path-segments map straight onto the on-disk layout under `raw/`.
+      const fullPath = match[1];
+      if (!fullPath || seen.has(fullPath)) {
+        continue;
+      }
+      seen.add(fullPath);
+      slugs.push(fullPath);
+    }
+  }
+  return slugs;
+}
+
+/**
+ * Pull every raw slug referenced inline in an article body. Mirrors the
+ * resolution rules in `rewriteWikilinks` but only returns `raw/...` targets
+ * — internal slugs go through `extractInternalSlugs`. Duplicates are
+ * preserved so callers can keep their own per-target state if needed.
+ */
+export function extractRawSlugsFromBody(body: string): string[] {
+  const slugs: string[] = [];
+  for (const match of body.matchAll(RAW_REF_RE)) {
+    const fullPath = match[1];
+    if (fullPath) {
+      slugs.push(fullPath);
+    }
+  }
+  return slugs;
+}
+
+/**
+ * Read and parse a single `raw/<slug>.md` document. Returns `null` when the
+ * file is missing — callers warn and fall back to the humanised slug rather
+ * than fail the whole import.
+ *
+ * URL is taken from the raw doc's `source:` frontmatter; we trust the
+ * vault here (raw docs are author-curated clippings) and only normalise
+ * empty / non-http(s) values to `undefined` so the rendered output never
+ * produces a broken or relative link.
+ */
+export async function loadRawDoc(
+  rawRoot: string,
+  slug: string
+): Promise<RawDoc | null> {
+  const absolutePath = join(rawRoot, `${slug}.md`);
+  let raw: string;
+  try {
+    raw = await readFile(absolutePath, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw err;
+  }
+
+  const { data } = matter(raw);
+  const rawData = data as { source?: unknown; title?: unknown };
+  const title =
+    typeof rawData.title === "string" && rawData.title.trim().length > 0
+      ? rawData.title.trim()
+      : humanizeRawSlug(slug);
+  const candidateUrl =
+    typeof rawData.source === "string" ? rawData.source.trim() : "";
+  const url =
+    candidateUrl.length > 0 && HTTP_URL_RE.test(candidateUrl)
+      ? candidateUrl
+      : undefined;
+
+  return { slug, title, url };
+}
+
+function humanizeRawSlug(slug: string): string {
+  return slug.replace(HUMANIZE_RAW_RE, " ").replace(WHITESPACE_RE, " ").trim();
 }
 
 export function stripWikilinksToText(input: string): string {

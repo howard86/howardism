@@ -5,6 +5,9 @@ import { join } from "node:path";
 
 import {
   buildSlugTitleMap,
+  extractRawSlugsFromBody,
+  extractRawSlugsFromSources,
+  loadRawDoc,
   type ParsedWikiFile,
   parseIndexSummaries,
   parseWikiFile,
@@ -168,6 +171,130 @@ describe("buildSlugTitleMap + titleFromSlug", () => {
     ]);
     expect(map.get("foo")).toBe("Foo");
     expect(map.get("bar")).toBe("Bar Page");
+  });
+});
+
+describe("extractRawSlugsFromSources", () => {
+  it("returns the bare slug for each [[raw/...]] entry in order", () => {
+    expect(
+      extractRawSlugsFromSources([
+        "[[raw/anthropics-boris-cherny-why-coding-is-solved]]",
+        "[[raw/Introducing Claude Opus 4.7]]",
+      ])
+    ).toEqual([
+      "anthropics-boris-cherny-why-coding-is-solved",
+      "Introducing Claude Opus 4.7",
+    ]);
+  });
+
+  it("skips [[wiki/...]] internal references", () => {
+    expect(
+      extractRawSlugsFromSources([
+        "[[wiki/concepts/printing-press-software-democratization]]",
+        "[[raw/llm-wiki]]",
+      ])
+    ).toEqual(["llm-wiki"]);
+  });
+
+  it("preserves sub-paths inside raw/ (Obsidian allows subdirectories)", () => {
+    expect(
+      extractRawSlugsFromSources([
+        "[[raw/Claude Mythos Preview / red.anthropic.com]]",
+      ])
+    ).toEqual(["Claude Mythos Preview / red.anthropic.com"]);
+  });
+
+  it("deduplicates while preserving author order", () => {
+    expect(
+      extractRawSlugsFromSources(["[[raw/a]]", "[[raw/b]]", "[[raw/a]]"])
+    ).toEqual(["a", "b"]);
+  });
+
+  it("returns [] when sources is undefined", () => {
+    expect(extractRawSlugsFromSources(undefined)).toEqual([]);
+  });
+});
+
+describe("extractRawSlugsFromBody", () => {
+  it("yields every [[raw/...]] occurrence in source order, including duplicates", () => {
+    const body =
+      "See [[raw/foo]] and again [[raw/foo]]. Compare to [[wiki/concepts/bar]] and [[raw/baz]].";
+    expect(extractRawSlugsFromBody(body)).toEqual(["foo", "foo", "baz"]);
+  });
+});
+
+describe("loadRawDoc", () => {
+  it("extracts title and http(s) source URL from frontmatter", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    const slug = "boris-cherny";
+    await writeFile(
+      join(dir, `${slug}.md`),
+      [
+        "---",
+        'title: "Boris Cherny: Why Coding Is Solved"',
+        'source: "https://www.youtube.com/watch?v=SlGRN8jh2RI"',
+        "---",
+        "",
+        "Body content.",
+      ].join("\n"),
+      "utf8"
+    );
+
+    const doc = await loadRawDoc(dir, slug);
+    expect(doc).toEqual({
+      slug,
+      title: "Boris Cherny: Why Coding Is Solved",
+      url: "https://www.youtube.com/watch?v=SlGRN8jh2RI",
+    });
+  });
+
+  it("returns url=undefined when frontmatter source is empty", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    const slug = "no-url";
+    await writeFile(
+      join(dir, `${slug}.md`),
+      ["---", 'title: "Untitled Clipping"', 'source: ""', "---", ""].join("\n"),
+      "utf8"
+    );
+
+    const doc = await loadRawDoc(dir, slug);
+    expect(doc).toEqual({ slug, title: "Untitled Clipping", url: undefined });
+  });
+
+  it("rejects non-http(s) source URLs", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    const slug = "weird";
+    await writeFile(
+      join(dir, `${slug}.md`),
+      [
+        "---",
+        'title: "Weird"',
+        'source: "file:///Users/howard/secret.pdf"',
+        "---",
+      ].join("\n"),
+      "utf8"
+    );
+
+    const doc = await loadRawDoc(dir, slug);
+    expect(doc?.url).toBeUndefined();
+  });
+
+  it("falls back to humanised slug when frontmatter has no title", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    const slug = "my-clipping-with-dashes";
+    await writeFile(
+      join(dir, `${slug}.md`),
+      ["---", 'source: "https://example.com/"', "---"].join("\n"),
+      "utf8"
+    );
+
+    const doc = await loadRawDoc(dir, slug);
+    expect(doc?.title).toBe("my clipping with dashes");
+  });
+
+  it("returns null when the file is missing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    expect(await loadRawDoc(dir, "missing")).toBeNull();
   });
 });
 

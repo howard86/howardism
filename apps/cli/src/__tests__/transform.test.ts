@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
+import type { RawDoc } from "../import-wiki/parse.ts";
 import {
+  buildSourcesSection,
   computeReadingTime,
   detectEntityPrefix,
   escapeMdxBody,
@@ -92,6 +94,89 @@ describe("rewriteWikilinks", () => {
       "Refer to [What Are AI Tools?](/articles/what-are-ai-tools)."
     );
     expect(hasInternalLink).toBe(true);
+  });
+
+  it("upgrades [[raw/...]] to a clickable link when the raw doc has a URL", () => {
+    const slugTitleMap = new Map<string, string>();
+    const rawIndex = new Map<string, RawDoc>([
+      [
+        "boris",
+        {
+          slug: "boris",
+          title: "Boris Cherny: Why Coding Is Solved",
+          url: "https://www.youtube.com/watch?v=SlGRN8jh2RI",
+        },
+      ],
+    ]);
+    const { body } = rewriteWikilinks(
+      "Source: [[raw/boris]].",
+      slugTitleMap,
+      rawIndex
+    );
+    expect(body).toBe(
+      "Source: [Boris Cherny: Why Coding Is Solved](https://www.youtube.com/watch?v=SlGRN8jh2RI)."
+    );
+  });
+
+  it("falls back to plain raw-doc title when no URL is known", () => {
+    const slugTitleMap = new Map<string, string>();
+    const rawIndex = new Map<string, RawDoc>([
+      ["clip", { slug: "clip", title: "Plain Clipping" }],
+    ]);
+    const { body } = rewriteWikilinks(
+      "Source: [[raw/clip]].",
+      slugTitleMap,
+      rawIndex
+    );
+    expect(body).toBe("Source: Plain Clipping.");
+  });
+
+  it("preserves humanised behaviour for [[raw/...]] without a rawIndex", () => {
+    const slugTitleMap = new Map<string, string>();
+    const { body } = rewriteWikilinks(
+      "Source: [[raw/Best Practices for Claude Code]].",
+      slugTitleMap
+    );
+    expect(body).toBe("Source: Best Practices for Claude Code.");
+  });
+});
+
+describe("buildSourcesSection", () => {
+  it("renders a bullet list, alphabetical by title, with links when URL is set", () => {
+    const out = buildSourcesSection([
+      {
+        title: "Introducing Claude Opus 4.7",
+        url: "https://www.anthropic.com/news/claude-opus-4-7",
+      },
+      { title: "Model Spec Midtraining" },
+      {
+        title: "Boris Cherny: Why Coding Is Solved",
+        url: "https://www.youtube.com/watch?v=SlGRN8jh2RI",
+      },
+    ]);
+    expect(out).toBe(
+      [
+        "## Sources",
+        "",
+        "- [Boris Cherny: Why Coding Is Solved](https://www.youtube.com/watch?v=SlGRN8jh2RI)",
+        "- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)",
+        "- Model Spec Midtraining",
+        "",
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("sorts case-insensitively", () => {
+    const out = buildSourcesSection([
+      { title: "boris", url: "https://example.com/" },
+      { title: "Anthropic" },
+    ]);
+    expect(out).toContain("- Anthropic\n- [boris]");
+  });
+
+  it("returns an empty string when there are no sources", () => {
+    expect(buildSourcesSection([])).toBe("");
   });
 });
 
