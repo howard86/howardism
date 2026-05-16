@@ -1,31 +1,38 @@
-import { InternalLink } from "@/components/internal-link";
-import { TagChip } from "@/components/tag-chip";
-import { truncate } from "@/utils/text";
-
 import { type ArticleLink, getBacklinks, getRelated } from "../service";
-
-const BACKLINK_DESCRIPTION_MAX = 120;
+import { ArticleLinkRow } from "./article-link-row";
 
 interface BacklinksDisclosureProps {
+  defaultOpen?: boolean;
   slug: string;
 }
 
-export async function BacklinksDisclosure({ slug }: BacklinksDisclosureProps) {
+export async function BacklinksDisclosure({
+  defaultOpen = false,
+  slug,
+}: BacklinksDisclosureProps) {
   const [backlinks, related] = await Promise.all([
     getBacklinks(slug),
     getRelated(slug),
   ]);
 
-  return <BacklinksDisclosureView backlinks={backlinks} related={related} />;
+  return (
+    <BacklinksDisclosureView
+      backlinks={backlinks}
+      defaultOpen={defaultOpen}
+      related={related}
+    />
+  );
 }
 
 interface BacklinksDisclosureViewProps {
   backlinks: ArticleLink[];
+  defaultOpen?: boolean;
   related: ArticleLink[];
 }
 
 export function BacklinksDisclosureView({
   backlinks,
+  defaultOpen = false,
   related,
 }: BacklinksDisclosureViewProps) {
   const hasBacklinks = backlinks.length > 0;
@@ -39,25 +46,38 @@ export function BacklinksDisclosureView({
     <section aria-label="Article cross-references" className="mb-10">
       {hasBacklinks && (
         <DisclosurePanel
+          defaultOpen={defaultOpen}
           links={backlinks}
           summary={formatBacklinkLabel(backlinks.length)}
         />
       )}
       {hasRelated && (
-        <DisclosurePanel links={related} summary="Related articles" />
+        <DisclosurePanel
+          defaultOpen={defaultOpen}
+          links={related}
+          summary="Related articles"
+        />
       )}
     </section>
   );
 }
 
 interface DisclosurePanelProps {
+  defaultOpen?: boolean;
   links: ArticleLink[];
   summary: string;
 }
 
-function DisclosurePanel({ links, summary }: DisclosurePanelProps) {
+function DisclosurePanel({
+  defaultOpen,
+  links,
+  summary,
+}: DisclosurePanelProps) {
   return (
-    <details className="group border-foreground border-t-2 border-b border-b-border py-3 [&>summary::-webkit-details-marker]:hidden [&[open]+details]:border-t-0">
+    <details
+      className="group border-foreground border-t-2 border-b border-b-border py-3 [&>summary::-webkit-details-marker]:hidden [&[open]+details]:border-t-0"
+      open={defaultOpen}
+    >
       <summary className="flex cursor-pointer list-none items-baseline gap-1.5 font-medium font-mono text-brand text-xs uppercase tracking-[0.08em] hover:text-foreground">
         <span aria-hidden="true">
           <span className="inline group-open:hidden">[+]</span>
@@ -67,37 +87,14 @@ function DisclosurePanel({ links, summary }: DisclosurePanelProps) {
       </summary>
       <ul className="m-0 mt-4 flex list-none flex-col gap-4 pl-0">
         {links.map((link) => (
-          <BacklinkRow key={link.slug} link={link} />
+          <ArticleLinkRow key={link.slug} link={link} />
         ))}
       </ul>
     </details>
   );
 }
 
-interface BacklinkRowProps {
-  link: ArticleLink;
-}
-
-function BacklinkRow({ link }: BacklinkRowProps) {
-  const { slug, meta } = link;
-  return (
-    <li className="flex flex-col gap-0.5">
-      <TagChip tag={meta.tag} />
-      <InternalLink
-        className="font-display font-medium text-[0.95rem] text-foreground no-underline hover:text-brand"
-        href={`/articles/${slug}`}
-        previewMeta={meta}
-      >
-        {meta.title}
-      </InternalLink>
-      <p className="m-0 font-body text-muted-foreground text-xs leading-[1.45]">
-        {truncate(meta.description, BACKLINK_DESCRIPTION_MAX)}
-      </p>
-    </li>
-  );
-}
-
-function formatBacklinkLabel(count: number): string {
+export function formatBacklinkLabel(count: number): string {
   if (count === 1) {
     return "1 article links here";
   }
