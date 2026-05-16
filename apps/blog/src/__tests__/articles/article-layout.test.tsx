@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
 
-// `<BacklinksDisclosure>` is an async server component; happy-dom + RTL's
-// sync render tree can't await it. The component has its own dedicated
-// tests — neutralise it here so layout-only assertions can run.
+// `<BacklinksDisclosure>` and `<ArticleRail>` are async server components;
+// happy-dom + RTL's sync render tree can't await them. Both have their own
+// dedicated tests — neutralise them here so layout-only assertions can run.
 mock.module("@/app/(blog)/articles/[slug]/backlinks-disclosure", () => ({
   BacklinksDisclosure: () => null,
+}));
+mock.module("@/app/(blog)/articles/[slug]/article-rail", () => ({
+  ArticleRail: () => null,
 }));
 
 import { ArticleLayout } from "@/app/(blog)/articles/[slug]/article-layout";
