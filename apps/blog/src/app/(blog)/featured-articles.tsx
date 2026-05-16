@@ -36,10 +36,10 @@ export function FeaturedArticles({ articles }: FeaturedArticlesProps) {
   const batches = groupByDate(entities);
 
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-14">
       {batches.map((batch) => (
         <section key={batch.date}>
-          <header className="mb-6 flex items-baseline gap-3 border-foreground border-b border-dashed pb-2 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
+          <header className="mb-8 flex items-baseline gap-3 border-foreground border-b border-dashed pb-2 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
             <time dateTime={batch.date}>
               {formatDateShort(batch.date).toUpperCase()}
             </time>
@@ -49,7 +49,7 @@ export function FeaturedArticles({ articles }: FeaturedArticlesProps) {
               {batch.articles.length === 1 ? "piece" : "pieces"}
             </span>
           </header>
-          <div className="flex flex-col gap-10">
+          <div className="flex flex-col gap-16">
             {batch.articles.map((article) => (
               <ArticleCard
                 key={article.slug}
