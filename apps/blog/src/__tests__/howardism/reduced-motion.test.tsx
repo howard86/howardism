@@ -58,7 +58,7 @@ describe("reduced-motion gating", () => {
   });
 
   it("hw-page-enter animation is gated inside @media no-preference block in CSS source", () => {
-    const cssPath = join(import.meta.dir, "../../styles/howardism.css");
+    const cssPath = join(import.meta.dir, "../../styles/globals.css");
     const css = readFileSync(cssPath, "utf-8");
     const noPreferenceBlock = css.match(NO_PREF_BLOCK_RE);
     expect(noPreferenceBlock).not.toBeNull();
