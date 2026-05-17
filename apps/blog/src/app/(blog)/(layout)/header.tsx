@@ -10,7 +10,6 @@ import {
 } from "@howardism/ui/components/sheet";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { CSSProperties } from "react";
 
 import { Container } from "@/app/(common)/container";
 
@@ -88,57 +87,29 @@ function MobileNav() {
 
 export function Header() {
   return (
-    <>
-      <a
-        className="absolute left-2 z-[9999] rounded border border-brand bg-card px-4 py-2 font-mono text-[13px] text-brand transition-[top] [top:-999px] focus-visible:top-2"
-        href="#main-content"
-      >
-        Skip to content
-      </a>
-
-      <header
-        className="pointer-events-none relative z-50 flex flex-none flex-col"
-        style={{
-          height: "var(--header-height, 4rem)",
-          marginBottom: "var(--header-mb, 0)",
-        }}
-      >
-        <div
-          className="top-0 z-10 h-16 pt-4"
-          style={{
-            position:
-              "var(--header-position, relative)" as CSSProperties["position"],
-          }}
-        >
-          <Container
-            className="w-full"
-            style={{
-              position:
-                "var(--header-inner-position, relative)" as CSSProperties["position"],
-              top: "var(--header-top, 0px)" as CSSProperties["top"],
-            }}
-          >
-            <div className="pointer-events-auto relative flex items-center gap-4">
-              {/* Wordmark + avatar pill */}
-              <div className="flex flex-1 items-center gap-3">
-                <Avatar size={36} />
-                <div className="flex flex-col gap-px">
-                  <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
-                    Howardism
-                  </span>
-                  <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
-                    vol. 03 · quiet corner of the web
-                  </span>
-                </div>
+    <header className="pointer-events-none relative z-50 flex flex-none flex-col">
+      <div className="relative top-0 z-10 py-4">
+        <Container className="relative w-full">
+          <div className="pointer-events-auto relative flex items-center gap-4">
+            {/* Wordmark + avatar pill */}
+            <div className="flex flex-1 items-center gap-3">
+              <Avatar size={36} />
+              <div className="flex flex-col gap-px">
+                <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
+                  Howardism
+                </span>
+                <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
+                  vol. 03 · quiet corner of the web
+                </span>
               </div>
-
-              {/* Nav */}
-              <DesktopNav />
-              <MobileNav />
             </div>
-          </Container>
-        </div>
-      </header>
-    </>
+
+            {/* Nav */}
+            <DesktopNav />
+            <MobileNav />
+          </div>
+        </Container>
+      </div>
+    </header>
   );
 }
