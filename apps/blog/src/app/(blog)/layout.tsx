@@ -138,14 +138,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: ChildrenProps) {
   return (
     <html
-      className={`h-full scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
+      className={`scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
+      data-scroll-behavior="smooth"
       lang="en"
       suppressHydrationWarning
     >
       <head>
         <InitTweaksScript />
       </head>
-      <body className="flex h-full flex-col">
+      <body>
         <TweaksProvider>
           <div className="fixed inset-0 flex justify-center sm:px-8">
             <div className="flex w-full max-w-7xl lg:px-8">

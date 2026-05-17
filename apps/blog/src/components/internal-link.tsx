@@ -18,7 +18,6 @@ export const ARTICLES_PREFIX = "/articles/";
 const PREVIEW_DESCRIPTION_MAX = 140;
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 100;
-const POPOVER_MAX_WIDTH_PX = 320;
 const SLUG_TERMINATOR_RE = /[?#/]/;
 
 type LinkProps = ComponentProps<typeof Link>;
@@ -73,12 +72,11 @@ export function InternalLink({
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
-        className={cn("p-3.5", className)}
+        className={cn("max-w-[320px] bg-background/90 p-3.5", className)}
         id={describedById}
         role="dialog"
         side="top"
         sideOffset={8}
-        style={{ maxWidth: POPOVER_MAX_WIDTH_PX }}
       >
         <InternalLinkPreviewBody meta={previewMeta} />
       </HoverCardContent>
@@ -103,7 +101,7 @@ export function InternalLinkPreviewBody({
       <span className="font-display font-semibold text-[0.95rem] text-foreground leading-snug">
         {meta.title}
       </span>
-      <p className="m-0 font-body text-muted-foreground text-xs leading-[1.5]">
+      <p className="m-0 font-body text-muted-foreground text-xs leading-normal">
         {truncate(meta.description, PREVIEW_DESCRIPTION_MAX)}
       </p>
       <span className="mt-0.5 font-medium font-mono text-[0.625rem] text-brand uppercase tracking-[0.14em]">
