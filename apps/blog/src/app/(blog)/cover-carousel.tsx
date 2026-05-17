@@ -20,7 +20,7 @@ export default async function CoverCarousel() {
           return (
             <div
               className={cn(
-                "relative aspect-[9/10] w-44 flex-none overflow-hidden rounded-xl bg-background sm:w-72 sm:rounded-2xl",
+                "relative aspect-9/10 w-44 flex-none overflow-hidden rounded-xl bg-background sm:w-72 sm:rounded-2xl",
                 index % 2 ? "rotate-2" : "-rotate-2"
               )}
               key={article.slug}

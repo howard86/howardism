@@ -10,7 +10,7 @@ export function Footer() {
       <div className="mx-auto flex max-w-[960px] flex-col gap-4">
         {/* Nav row */}
         <nav aria-label="footer">
-          <ul className="m-0 flex list-none flex-wrap gap-x-0.5 gap-y-1 p-0">
+          <ul className="flex list-none flex-wrap gap-1.5">
             {FOOTER_NAV.map(({ label, href }) => (
               <li key={label}>
                 <Link href={href}>

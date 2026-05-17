@@ -47,6 +47,8 @@ const withMDX = nextMDX({
   },
 });
 
+const isProduction = process.env.NODE_ENV === "production";
+
 // Articles-only blog. The default CSP is tight (no 'unsafe-eval', no broad
 // `https:` connect-src) — extend it here for the specific external endpoints
 // the blog uses: Vercel Analytics + Web Vitals reporting, and Google
@@ -75,14 +77,16 @@ const contentSecurityPolicy = {
 
 const securityHeaders = getSecurityHeaders({
   geolocation: "()",
-  insecureTransport: process.env.NODE_ENV !== "production",
+  insecureTransport: !isProduction,
   contentSecurityPolicy,
 });
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx"],
   poweredByHeader: false,
-  headers: () => [{ source: "/(.*)", headers: securityHeaders }],
+  headers: isProduction
+    ? () => [{ source: "/(.*)", headers: securityHeaders }]
+    : undefined,
   redirects: () => [
     { source: "/photos", destination: "/", permanent: true },
     { source: "/about", destination: "/", permanent: true },
