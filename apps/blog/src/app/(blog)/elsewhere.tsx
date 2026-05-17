@@ -5,9 +5,9 @@ import ExternalLink from "@/app/(common)/external-link";
 import { SOCIAL_LINKS } from "./social-links";
 
 const LABEL_MAP: Record<string, string> = {
-  "Follow on Twitter": "Twitter",
   "Follow on GitHub": "GitHub",
   "Follow on LinkedIn": "LinkedIn",
+  "Follow on Twitter": "Twitter",
   "Contact Howard via email": "Email",
   "Follow on RSS feed": "RSS",
 };

@@ -64,7 +64,7 @@ export default function Resume() {
   return (
     <Card className="px-6 py-5">
       <div className="mb-4 font-medium font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.16em]">
-        Work
+        Experience
       </div>
       <ol className="m-0 list-none p-0">
         {resume.map((role) => (

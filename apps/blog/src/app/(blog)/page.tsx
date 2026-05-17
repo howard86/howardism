@@ -6,7 +6,7 @@ import { HeroDisc } from "./hero-disc";
 import Resume from "./resume";
 
 export default async function Home() {
-  const articles = await getSlicedArticles(4);
+  const articles = await getSlicedArticles(5);
 
   return (
     <>

@@ -4,7 +4,12 @@ import type { FC } from "react";
 
 import { env } from "@/config/env";
 
-import { type ArticleMeta, getArticles, getSiblings } from "../service";
+import {
+  type ArticleMeta,
+  getArticles,
+  getHeadings,
+  getSiblings,
+} from "../service";
 import { ArticleLayout } from "./article-layout";
 
 interface ArticlePageProps {
@@ -58,12 +63,16 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const mod = (await import(`@/content/articles/${slug}.mdx`)) as ArticleModule;
-
-  const { previousSlug, nextSlug, position } = await getSiblings(slug);
+  const [mod, { previousSlug, nextSlug, position }, headings] =
+    await Promise.all([
+      import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
+      getSiblings(slug),
+      getHeadings(slug),
+    ]);
 
   return (
     <ArticleLayout
+      headings={headings}
       heroImage={mod.heroImage}
       meta={mod.meta}
       nextSlug={nextSlug}
