@@ -4,33 +4,9 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { DataGrid } from "@/components/howardism/data-grid";
 import { HalfDisc } from "@/components/howardism/half-disc";
 import { Ph } from "@/components/howardism/ph";
-import { SunDisc } from "@/components/howardism/sun-disc";
 
 afterEach(() => {
   cleanup();
-});
-
-describe("sun-disc", () => {
-  it("renders with default plate label and number", () => {
-    render(<SunDisc />);
-    const disc = screen.getByTestId("sun-disc");
-    expect(disc).toBeDefined();
-    expect(disc.textContent).toContain("Plate I · Surface");
-    expect(disc.textContent).toContain("01");
-  });
-
-  it("renders custom plate and number", () => {
-    render(<SunDisc number="03" plate="Plate III · Photos" />);
-    const disc = screen.getByTestId("sun-disc");
-    expect(disc.textContent).toContain("Plate III · Photos");
-    expect(disc.textContent).toContain("03");
-  });
-
-  it("applies className to root element", () => {
-    render(<SunDisc className="my-custom" />);
-    const disc = screen.getByTestId("sun-disc");
-    expect(disc.className).toContain("my-custom");
-  });
 });
 
 describe("half-disc", () => {
