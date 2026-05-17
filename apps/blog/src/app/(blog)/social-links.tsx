@@ -18,11 +18,6 @@ interface SocialLink {
 
 export const SOCIAL_LINKS: SocialLink[] = [
   {
-    href: "https://twitter.com/howard86_",
-    "aria-label": "Follow on Twitter",
-    icon: TwitterIcon,
-  },
-  {
     href: "https://github.com/Howard86/",
     "aria-label": "Follow on GitHub",
     icon: GitHubIcon,
@@ -31,6 +26,11 @@ export const SOCIAL_LINKS: SocialLink[] = [
     href: "https://www.linkedin.com/in/howard-tai-4b52b086/",
     "aria-label": "Follow on LinkedIn",
     icon: LinkedInIcon,
+  },
+  {
+    href: "https://twitter.com/howard86_",
+    "aria-label": "Follow on Twitter",
+    icon: TwitterIcon,
   },
   {
     href: "mailto:howard@howardism.dev",
