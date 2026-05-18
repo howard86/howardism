@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Bun monorepo managed by **Turborepo + Changesets** containing the blog app and the shared packages it depends on, by Howard Tai.
+A Bun monorepo managed by **Turborepo** containing the blog app, a CLI, and the shared packages they depend on, by Howard Tai.
 
-- `apps/`: `blog`
-- `packages/`: `ui`, `components/common`, `test-config`, `tsconfig`
+- `apps/`: `blog`, `cli`
+- `packages/`: `ui`, `test-config`, `tsconfig`
 
 ## Commands
 
@@ -48,14 +48,12 @@ bun run analyze           # production build with @next/bundle-analyzer
 
 - **Bun workspaces** for dependency management
 - **Turborepo** (`turbo.json`) as the task runner — build order is dependency-aware, caches `lint`, `type-check`, `test`, `build`
-- **Changesets** for versioning and npm publishing
 
 ### Shared packages
 
 | Package | Purpose |
 |---|---|
 | `@howardism/ui` | shadcn/ui components (Tailwind v4) |
-| `@howardism/components-common` | Shared React components |
 | `@howardism/test-config` | Shared Bun test preload (happy-dom, jest-dom matchers, Next.js mocks) |
 | `@howardism/tsconfig` | Shared TypeScript configs |
 
