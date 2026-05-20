@@ -9,6 +9,7 @@ import { KindPlate } from "./kind-plate";
 import { OperationsLog } from "./operations-log";
 import {
   type ArticleTopic,
+  getNavigableTags,
   getTagCounts,
   getVisibleArticles,
   getWikiLog,
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ArticlesIndex() {
-  const [counts, visible, sections] = await Promise.all([
+  const [counts, visible, sections, navigableTags] = await Promise.all([
     getTagCounts(),
     getVisibleArticles(),
     Promise.all(
@@ -41,7 +42,9 @@ export default async function ArticlesIndex() {
         articles: await getSectionArticles(section),
       }))
     ),
+    getNavigableTags(),
   ]);
+  const navigable = new Set(navigableTags);
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
   const populated = sections.filter(({ articles }) => articles.length > 0);
@@ -90,6 +93,7 @@ export default async function ArticlesIndex() {
           articles={articles}
           blurb={section.intro}
           key={section.slug}
+          navigable={navigable}
           position={i + 1}
           slug={section.slug}
           title={section.title}
