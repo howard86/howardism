@@ -10,6 +10,8 @@ import { cache } from "react";
 import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
+import wikiLogData from "@/data/wiki-log.json";
+import wikiSourcesData from "@/data/wiki-sources.json";
 
 export interface Normalise<T> {
   entities: Record<string, T | undefined>;
@@ -38,6 +40,26 @@ const ARTICLE_TAGS: readonly ArticleTag[] = [
   "Changelog",
 ];
 
+/**
+ * Mirror of `WIKI_TOPICS` in `apps/cli/src/import-wiki/topics.ts`. The importer
+ * derives an article's `topic` from its wiki tags; the home page groups work
+ * into these five subject buckets.
+ */
+export type ArticleTopic =
+  | "interaction"
+  | "architecture"
+  | "harness"
+  | "alignment"
+  | "orgs";
+
+export const ARTICLE_TOPICS: readonly ArticleTopic[] = [
+  "interaction",
+  "architecture",
+  "harness",
+  "alignment",
+  "orgs",
+];
+
 const SourceRefSchema = z.object({
   title: z.string(),
   url: z.url().optional(),
@@ -60,6 +82,12 @@ const ArticleMetaSchema = z.object({
   sources: z.array(SourceRefSchema).optional(),
   tag: z.enum(ARTICLE_TAGS),
   title: z.string(),
+  /**
+   * Curated subject bucket derived by the wiki importer from the note's tags.
+   * Drives the home page's topic plate stack. Absent on non-topical pages
+   * (e.g. the wiki changelog).
+   */
+  topic: z.enum(ARTICLE_TOPICS).optional(),
 });
 
 export type ArticleMeta = z.infer<typeof ArticleMetaSchema>;
@@ -245,6 +273,157 @@ export const getTagCounts = cache(
       }
     }
     return counts;
+  }
+);
+
+export const getArticlesByTopic = cache(
+  async (topic: ArticleTopic): Promise<ArticleEntity[]> => {
+    const visible = await getVisibleArticles();
+    const matches: ArticleEntity[] = [];
+    for (const id of visible.ids) {
+      const entity = visible.entities[id];
+      if (entity && entity.meta.topic === topic) {
+        matches.push(entity);
+      }
+    }
+    return matches;
+  }
+);
+
+export const getTopicCounts = cache(
+  async (): Promise<Record<ArticleTopic, number>> => {
+    const visible = await getVisibleArticles();
+    const counts = Object.fromEntries(
+      ARTICLE_TOPICS.map((topic) => [topic, 0])
+    ) as Record<ArticleTopic, number>;
+    for (const id of visible.ids) {
+      const topic = visible.entities[id]?.meta.topic;
+      if (topic) {
+        counts[topic] += 1;
+      }
+    }
+    return counts;
+  }
+);
+
+/* ── wiki activity log + reading-list manifests (emitted by the importer) ── */
+
+export interface WikiLogEntry {
+  date: string;
+  operation: string;
+  refs: string[];
+  subject: string;
+}
+
+export interface WikiSource {
+  author?: string;
+  citedBy: string[];
+  kind: string;
+  published?: string;
+  title: string;
+  url?: string;
+}
+
+export interface WikiLogBatch {
+  date: string;
+  entries: WikiLogEntry[];
+}
+
+const wikiLog = wikiLogData as { entries: WikiLogEntry[]; generatedOn: string };
+const wikiSources = wikiSourcesData as {
+  generatedOn: string;
+  sources: WikiSource[];
+};
+
+/** Recent wiki operations, newest-first. `limit` caps the returned count. */
+export const getWikiLog = (limit?: number): WikiLogEntry[] =>
+  limit === undefined ? wikiLog.entries : wikiLog.entries.slice(0, limit);
+
+/** Group consecutive same-date log entries into dated batches. */
+export const groupWikiLogByDate = (entries: WikiLogEntry[]): WikiLogBatch[] => {
+  const batches: WikiLogBatch[] = [];
+  for (const entry of entries) {
+    const last = batches.at(-1);
+    if (last && last.date === entry.date) {
+      last.entries.push(entry);
+    } else {
+      batches.push({ date: entry.date, entries: [entry] });
+    }
+  }
+  return batches;
+};
+
+/** Raw reading-list sources, pre-sorted by citation count then recency. */
+export const getWikiSources = (limit?: number): WikiSource[] =>
+  limit === undefined
+    ? wikiSources.sources
+    : wikiSources.sources.slice(0, limit);
+
+const SPARK_WEEKS = 8;
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Per-topic activity sparkline: counts of articles published in each of the
+ * last `SPARK_WEEKS` weeks, oldest→newest, anchored to the newest article date
+ * so the most recent batch always registers. Returns `[]` for empty topics.
+ */
+export const getTopicSparklines = cache(
+  async (): Promise<Record<ArticleTopic, number[]>> => {
+    const visible = await getVisibleArticles();
+    const dated = visible.ids
+      .map((id) => visible.entities[id])
+      .filter(
+        (e): e is ArticleEntity => e !== undefined && e.meta.topic !== undefined
+      );
+
+    const anchor = dated.reduce(
+      (max, e) => Math.max(max, new Date(e.meta.date).valueOf()),
+      0
+    );
+    const start = anchor - (SPARK_WEEKS - 1) * MS_PER_WEEK;
+
+    const result = Object.fromEntries(
+      ARTICLE_TOPICS.map((topic) => [topic, new Array(SPARK_WEEKS).fill(0)])
+    ) as Record<ArticleTopic, number[]>;
+
+    for (const entity of dated) {
+      const topic = entity.meta.topic;
+      if (!topic) {
+        continue;
+      }
+      const week = Math.floor(
+        (new Date(entity.meta.date).valueOf() - start) / MS_PER_WEEK
+      );
+      if (week >= 0 && week < SPARK_WEEKS) {
+        result[topic][week] += 1;
+      }
+    }
+    return result;
+  }
+);
+
+/**
+ * The raw source most cited by a topic's articles — drives the topic-plate
+ * "Sourced from" aside. Returns `undefined` when no source backs the topic.
+ */
+export const getTopicLeadSource = cache(
+  async (topic: ArticleTopic): Promise<WikiSource | undefined> => {
+    const visible = await getVisibleArticles();
+    const topicSlugs = new Set(
+      visible.ids.filter((id) => visible.entities[id]?.meta.topic === topic)
+    );
+    let best: WikiSource | undefined;
+    let bestScore = 0;
+    for (const source of wikiSources.sources) {
+      const score = source.citedBy.filter((slug) =>
+        topicSlugs.has(slug)
+      ).length;
+      if (score > bestScore) {
+        best = source;
+        bestScore = score;
+      }
+    }
+    return best;
   }
 );
 
