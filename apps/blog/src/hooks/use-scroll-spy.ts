@@ -17,10 +17,12 @@ const DEFAULT_FALLBACK_OFFSET_PX = 96;
  * this keeps the highlight on the section the reader is currently inside,
  * rather than snapping back to the first when scrolling past a long block.
  *
- * Caller is responsible for the rootMargin via mutating the observer or
- * accepting the default band. The current band ("-12% 0px -65% 0px") is
- * intentional: highlights what's near the top of the viewport, not what's
- * about to leave from the bottom.
+ * The observer's top margin is tied to `fallbackOffsetPx` (default 96px) so
+ * the intersection band and the fallback anchor share a single threshold —
+ * otherwise a viewport-relative top margin and a fixed-pixel fallback drift
+ * apart and open a dead zone where neither strategy fires. The bottom margin
+ * (-65%) highlights what's near the top of the viewport, not what's about to
+ * leave from the bottom.
  */
 export default function useScrollSpy({
   defaultSectionId = null,
@@ -68,7 +70,7 @@ export default function useScrollSpy({
         }
         recompute();
       },
-      { rootMargin: "-12% 0px -65% 0px", threshold: 0 }
+      { rootMargin: `-${fallbackOffsetPx}px 0px -65% 0px`, threshold: 0 }
     );
 
     for (const el of elements) {
