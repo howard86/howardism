@@ -8,6 +8,7 @@ import {
   type ArticleMeta,
   getArticles,
   getHeadings,
+  getNavigableTags,
   getSiblings,
 } from "../service";
 import { ArticleLayout } from "./article-layout";
@@ -66,18 +67,24 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const [mod, { previousSlug, previousTitle, nextSlug, nextTitle }, headings] =
-    await Promise.all([
-      import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
-      getSiblings(slug),
-      getHeadings(slug),
-    ]);
+  const [
+    mod,
+    { previousSlug, previousTitle, nextSlug, nextTitle },
+    headings,
+    navigableTags,
+  ] = await Promise.all([
+    import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
+    getSiblings(slug),
+    getHeadings(slug),
+    getNavigableTags(),
+  ]);
 
   return (
     <ArticleLayout
       headings={headings}
       heroImage={mod.heroImage}
       meta={mod.meta}
+      navigableTags={navigableTags}
       nextSlug={nextSlug}
       nextTitle={nextTitle}
       previousSlug={previousSlug}

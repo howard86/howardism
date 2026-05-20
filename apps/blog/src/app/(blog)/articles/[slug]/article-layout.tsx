@@ -6,6 +6,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { DataGrid } from "@/components/howardism/data-grid";
 import { HalfDisc } from "@/components/howardism/half-disc";
+import { TagChipList } from "@/components/howardism/tag-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
 import { formatDate } from "@/utils/time";
 
@@ -19,6 +20,8 @@ interface ArticleLayoutProps {
   headings?: ArticleHeading[];
   heroImage?: StaticImageData;
   meta: ArticleMeta;
+  /** Subject tags with their own page — used to decide which chips link. */
+  navigableTags?: readonly string[];
   nextSlug?: string;
   nextTitle?: string;
   previousSlug?: string;
@@ -38,6 +41,7 @@ export function ArticleLayout({
   headings = [],
   heroImage,
   meta,
+  navigableTags = [],
   previousSlug,
   previousTitle,
   nextSlug,
@@ -48,10 +52,22 @@ export function ArticleLayout({
   const topicRow: [string, ReactNode] | null = meta.topic
     ? ["Topic", <TopicLabel key="topic" topic={meta.topic} />]
     : null;
+  const tagsRow: [string, ReactNode] | null =
+    meta.tags && meta.tags.length > 0
+      ? [
+          "Tags",
+          <TagChipList
+            key="tags"
+            navigable={new Set(navigableTags)}
+            tags={meta.tags}
+          />,
+        ]
+      : null;
   const metaRows: [string, ReactNode][] = [
     ["Published", formatDate(meta.date)],
     ["Filed", meta.tag],
     ...(topicRow ? [topicRow] : []),
+    ...(tagsRow ? [tagsRow] : []),
     ["Reading", `${meta.readingTime} min`],
     ["Source", "AI-synthesised"],
   ];

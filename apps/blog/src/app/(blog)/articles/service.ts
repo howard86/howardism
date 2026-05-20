@@ -81,6 +81,14 @@ const ArticleMetaSchema = z.object({
    */
   sources: z.array(SourceRefSchema).optional(),
   tag: z.enum(ARTICLE_TAGS),
+  /**
+   * The wiki note's real subject labels (lowercase kebab), passed through by
+   * the importer. NOTE the deliberate naming proximity: singular `tag` above
+   * is the article "kind" (Concept/Entity/…); plural `tags` here are the
+   * free-form subjects that drive the chips and `/articles/tagged/[tag]`
+   * routes; `topic` below is the single derived accent/grouping bucket.
+   */
+  tags: z.array(z.string()).optional(),
   title: z.string(),
   /**
    * Curated subject bucket derived by the wiki importer from the note's tags.
@@ -307,6 +315,55 @@ export const getTopicCounts = cache(
     return counts;
   }
 );
+
+/**
+ * Minimum number of articles a free-form subject `tag` must appear on before
+ * it earns a `/articles/tagged/[tag]` page. Rarer tags still render as chips,
+ * just non-clickable — this keeps us from generating dozens of thin pages.
+ */
+const MIN_TAGGED_ARTICLES = 2;
+
+/**
+ * Visible articles carrying `tag` in their free-form `tags` list, newest
+ * first. Distinct from `getArticlesByTag`, which matches the singular `tag`
+ * "kind" enum.
+ */
+export const getTaggedArticles = cache(
+  async (tag: string): Promise<ArticleEntity[]> => {
+    const visible = await getVisibleArticles();
+    const matches: ArticleEntity[] = [];
+    for (const id of visible.ids) {
+      const entity = visible.entities[id];
+      if (entity?.meta.tags?.includes(tag)) {
+        matches.push(entity);
+      }
+    }
+    return matches;
+  }
+);
+
+/**
+ * Subject tags that appear on at least `MIN_TAGGED_ARTICLES` visible
+ * articles, sorted by frequency then name. These are the tags that get a
+ * static `/articles/tagged/[tag]` page and clickable chips.
+ */
+export const getNavigableTags = cache(async (): Promise<string[]> => {
+  const visible = await getVisibleArticles();
+  const counts = new Map<string, number>();
+  for (const id of visible.ids) {
+    const tags = visible.entities[id]?.meta.tags;
+    if (!tags) {
+      continue;
+    }
+    for (const tag of tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count >= MIN_TAGGED_ARTICLES)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag]) => tag);
+});
 
 /* ── wiki activity log + reading-list manifests (emitted by the importer) ── */
 
