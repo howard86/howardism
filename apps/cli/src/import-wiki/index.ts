@@ -105,7 +105,14 @@ async function main(): Promise<void> {
   const ctx = await buildImportContext(opts);
   const summary = createSummary();
 
-  await runWithConcurrency(ctx.parsedAll, IMAGE_CONCURRENCY, (parsed) =>
+  // Archived articles are excluded from the link graph; drop them from the MDX
+  // emission pipeline too so an author's `archived: true` keeps the entry off
+  // the public blog. Mirrors the graph builder's predicate in emitGraph.
+  const toEmit = ctx.parsedAll.filter(
+    (parsed) => parsed.frontmatter.archived !== true
+  );
+
+  await runWithConcurrency(toEmit, IMAGE_CONCURRENCY, (parsed) =>
     processArticle(parsed, ctx, opts, summary)
   );
 
