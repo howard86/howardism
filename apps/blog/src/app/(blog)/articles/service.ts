@@ -248,6 +248,10 @@ const FRONTMATTER_FENCE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
 const CODE_FENCE = /^(?:```|~~~)/;
 const HEADING_RE = /^(#{2,3})\s+(.+?)\s*$/;
 const TRAILING_AUTOLINK_HASH = /\s*#\s*$/;
+// `code` → code. The rendered DOM shows only the inline-code text; without
+// this the raw backticks leak into the TOC label (the slug is unaffected —
+// github-slugger strips them either way).
+const MD_CODE_RE = /`([^`]*)`/g;
 const LINE_SPLIT = /\r?\n/;
 
 /**
@@ -284,7 +288,10 @@ export const getHeadings = cache(
         continue;
       }
       const depth = match[1].length as 2 | 3;
-      const text = match[2].replace(TRAILING_AUTOLINK_HASH, "").trim();
+      const text = match[2]
+        .replace(MD_CODE_RE, "$1")
+        .replace(TRAILING_AUTOLINK_HASH, "")
+        .trim();
       if (!text) {
         continue;
       }
