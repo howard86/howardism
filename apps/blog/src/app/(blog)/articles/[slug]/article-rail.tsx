@@ -50,7 +50,7 @@ function RailSection({ label, links }: RailSectionProps) {
   }
   return (
     <section>
-      <div className="mb-3 font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
+      <div className="mb-3 font-medium font-mono text-[10.5px] text-[var(--article-accent)] uppercase tracking-[0.22em]">
         {label}
       </div>
       <ul className="m-0 flex list-none flex-col gap-3 pl-0">
