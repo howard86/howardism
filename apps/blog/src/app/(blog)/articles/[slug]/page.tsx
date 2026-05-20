@@ -44,6 +44,9 @@ export async function generateMetadata({
     title: mod.meta.title,
     description: mod.meta.description,
     alternates: { canonical: url },
+    ...(mod.meta.archived === true && {
+      robots: { index: false, follow: false },
+    }),
     openGraph: {
       type: "article",
       url,
