@@ -19,6 +19,12 @@ export async function ArticleRail({ headings, slug }: ArticleRailProps) {
     getRelated(slug),
   ]);
 
+  const isEmpty =
+    headings.length === 0 && related.length === 0 && backlinks.length === 0;
+  if (isEmpty) {
+    return null;
+  }
+
   return (
     <aside aria-label="Article navigation rail" className="rail:block hidden">
       <div className="sticky top-8 flex max-h-[calc(100vh-4rem)] flex-col gap-8 overflow-y-auto pr-2 pb-4">
