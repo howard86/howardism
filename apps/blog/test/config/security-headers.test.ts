@@ -68,14 +68,21 @@ describe("getSecurityHeaders", () => {
     expect(csp?.value).toContain("default-src 'self'");
   });
 
-  it("leaves an explicit CSP untouched when insecureTransport is true", () => {
+  it("strips upgrade-insecure-requests from a custom CSP when insecureTransport is true", () => {
+    // Mirrors next.config.ts, which passes a spread copy of the defaults. The
+    // old identity check only stripped the exact DEFAULT_CSP_DIRECTIVES
+    // reference, so the directive leaked into dev-server headers.
     const headers = getSecurityHeaders({
       geolocation: "()",
       insecureTransport: true,
-      contentSecurityPolicy: { "upgrade-insecure-requests": true },
+      contentSecurityPolicy: {
+        ...DEFAULT_CSP_DIRECTIVES,
+        "script-src": ["'self'", "'unsafe-inline'"],
+      },
     });
     const csp = headers.find((h) => h.key === "Content-Security-Policy");
-    expect(csp?.value).toBe("upgrade-insecure-requests");
+    expect(csp?.value).not.toContain("upgrade-insecure-requests");
+    expect(csp?.value).toContain("default-src 'self'");
   });
 
   it("suppresses the CSP header entirely when contentSecurityPolicy is false", () => {
