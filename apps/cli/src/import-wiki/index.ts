@@ -22,6 +22,7 @@ import {
   extractRawSlugsFromBody,
   extractRawSlugsFromSources,
   loadRawDoc,
+  normaliseTags,
   type ParsedWikiFile,
   parseIndexSummaries,
   parseWikiFile,
@@ -293,6 +294,8 @@ async function processArticle(
     explicitOverride ??
     (isEntity && defaultTag === "Concept" ? "Entity" : defaultTag);
 
+  const tags = normaliseTags(frontmatter.tags);
+
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
     title,
@@ -300,6 +303,7 @@ async function processArticle(
     readingTime: computeReadingTime(body),
     tag,
     topic: deriveTopic(frontmatter.tags),
+    ...(tags.length > 0 ? { tags } : {}),
     ...(sources.length > 0 ? { sources } : {}),
   };
 

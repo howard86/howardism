@@ -334,6 +334,28 @@ export function titleFromSlug(slug: string): string {
 }
 
 /**
+ * Normalise a wiki note's raw `tags` into the list emitted to article
+ * frontmatter: trimmed, lowercased, de-duplicated, empties dropped, source
+ * order preserved. The note's `tags` are the real subject labels — distinct
+ * from the single derived `topic` bucket (see `topics.ts`).
+ */
+export function normaliseTags(tags: readonly string[] | undefined): string[] {
+  if (!tags) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of tags) {
+    const tag = raw.trim().toLowerCase();
+    if (tag.length > 0 && !seen.has(tag)) {
+      seen.add(tag);
+      result.push(tag);
+    }
+  }
+  return result;
+}
+
+/**
  * Resolve the article's publish date:
  *   concepts → created → updated → mtime
  *   derived  → generated → updated → mtime
