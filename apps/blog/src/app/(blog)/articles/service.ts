@@ -94,8 +94,10 @@ export type ArticleMeta = z.infer<typeof ArticleMetaSchema>;
 
 export interface SiblingNav {
   nextSlug: string | undefined;
+  nextTitle: string | undefined;
   position: number;
   previousSlug: string | undefined;
+  previousTitle: string | undefined;
 }
 
 export interface ArticleLink {
@@ -491,11 +493,23 @@ export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
   );
   const index = partition.indexOf(slug);
   if (index < 0) {
-    return { previousSlug: undefined, nextSlug: undefined, position: 1 };
+    return {
+      previousSlug: undefined,
+      previousTitle: undefined,
+      nextSlug: undefined,
+      nextTitle: undefined,
+      position: 1,
+    };
   }
+  const previousSlug = partition[index + 1];
+  const nextSlug = partition[index - 1];
   return {
-    previousSlug: partition[index + 1],
-    nextSlug: partition[index - 1],
+    previousSlug,
+    previousTitle: previousSlug
+      ? all.entities[previousSlug]?.meta.title
+      : undefined,
+    nextSlug,
+    nextTitle: nextSlug ? all.entities[nextSlug]?.meta.title : undefined,
     position: index + 1,
   };
 });
