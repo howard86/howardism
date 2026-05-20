@@ -40,6 +40,7 @@ export function ArticleToc({ headings }: ArticleTocProps) {
               key={heading.id}
             >
               <a
+                aria-current={isActive ? "location" : undefined}
                 className={cn(
                   "no-underline transition-colors hover:text-foreground",
                   isActive ? "text-foreground" : "text-foreground-subtle"
