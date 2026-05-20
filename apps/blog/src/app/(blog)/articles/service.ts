@@ -169,7 +169,11 @@ export const getVisibleArticles = cache(
   async (): Promise<Normalise<ArticleEntity>> => {
     const all = await getArticles();
     const ids = all.ids.filter((id) => !all.entities[id]?.meta.archived);
-    return { ids, entities: all.entities };
+    const entities: Record<string, ArticleEntity | undefined> = {};
+    for (const id of ids) {
+      entities[id] = all.entities[id];
+    }
+    return { ids, entities };
   }
 );
 
