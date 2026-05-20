@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
+import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { ArticlesTable } from "../../articles-table";
@@ -34,9 +35,12 @@ export async function generateMetadata({
   if (!section) {
     return { title: "Not found — Howardism" };
   }
+  const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/tag/${section.slug}`;
   return {
     title: `${section.title} articles — Howardism`,
     description: section.metaDescription,
+    alternates: { canonical: url },
+    openGraph: { url },
   };
 }
 
