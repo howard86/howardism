@@ -91,6 +91,19 @@ describe("tag-aware service helpers", () => {
     }
   });
 
+  it("getVisibleArticles keeps ids and entities in sync (no archived leak)", async () => {
+    const visible = await getVisibleArticles();
+
+    expect(Object.keys(visible.entities).length).toBe(visible.ids.length);
+    for (const id of visible.ids) {
+      expect(visible.entities[id]).toBeDefined();
+    }
+    for (const key of Object.keys(visible.entities)) {
+      expect(visible.ids).toContain(key);
+      expect(visible.entities[key]?.meta.archived).not.toBe(true);
+    }
+  });
+
   it("getSlicedArticles keeps ids and entities in sync", async () => {
     const sliced = await getSlicedArticles(3);
     expect(sliced.ids.length).toBe(3);
