@@ -1,10 +1,9 @@
-import { TopicDot } from "@/components/howardism/topic-dot";
+import { TopicLabel } from "@/components/howardism/topic-label";
 import { InternalLink } from "@/components/internal-link";
 import { formatDateShort } from "@/utils/time";
 
 import type { ArticleEntity } from "./service";
 import type { TagSectionSlug } from "./tag-sections";
-import { TOPIC_META } from "./topic-meta";
 
 interface KindMeta {
   color: string;
@@ -130,8 +129,7 @@ export function KindPlate({
                   <td className="w-[150px] py-3.5 pr-6 align-baseline">
                     {article.meta.topic && (
                       <span className="whitespace-nowrap font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.12em]">
-                        <TopicDot size={6} topic={article.meta.topic} />
-                        {TOPIC_META[article.meta.topic].label}
+                        <TopicLabel topic={article.meta.topic} />
                       </span>
                     )}
                   </td>
