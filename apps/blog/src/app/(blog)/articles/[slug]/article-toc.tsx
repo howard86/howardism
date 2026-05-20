@@ -18,7 +18,9 @@ export function ArticleToc({ headings }: ArticleTocProps) {
     sectionIds,
   });
 
-  if (headings.length === 0) {
+  // A single-entry TOC offers no navigation value — stay quiet until there are
+  // at least two headings to move between.
+  if (headings.length < 2) {
     return null;
   }
 
