@@ -1,3 +1,5 @@
+import { taggedHref } from "@/utils/tagged-href";
+
 import { TagChip } from "./tag-chip";
 
 interface TagChipListProps {
@@ -21,7 +23,7 @@ export function TagChipList({ tags, navigable, limit }: TagChipListProps) {
     <span>
       {shown.map((tag) => (
         <TagChip
-          href={navigable.has(tag) ? `/articles/tagged/${tag}` : undefined}
+          href={navigable.has(tag) ? taggedHref(tag) : undefined}
           key={tag}
           tag={tag}
         />

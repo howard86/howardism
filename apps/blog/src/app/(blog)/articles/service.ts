@@ -12,6 +12,7 @@ import { z } from "zod";
 import graphData from "@/data/article-graph.json";
 import wikiLogData from "@/data/wiki-log.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
+import { taggedHref } from "@/utils/tagged-href";
 
 export interface Normalise<T> {
   entities: Record<string, T | undefined>;
@@ -342,27 +343,62 @@ export const getTaggedArticles = cache(
   }
 );
 
+export interface TagIndexEntry {
+  count: number;
+  /**
+   * Where the chip links: the `/articles/tagged/[tag]` page for tags carried
+   * by enough articles to earn one, or — for a tag on a single article — that
+   * article itself.
+   */
+  href: string;
+  tag: string;
+}
+
 /**
- * Subject tags that appear on at least `MIN_TAGGED_ARTICLES` visible
- * articles, sorted by frequency then name. These are the tags that get a
- * static `/articles/tagged/[tag]` page and clickable chips.
+ * Every subject tag across visible articles as a clickable chip target,
+ * ordered by reference count (descending) then name. Tags on at least
+ * `MIN_TAGGED_ARTICLES` articles link to their `/articles/tagged/[tag]` page;
+ * a tag on exactly one article has no such page and links straight to it.
  */
-export const getNavigableTags = cache(async (): Promise<string[]> => {
+export const getTagIndex = cache(async (): Promise<TagIndexEntry[]> => {
   const visible = await getVisibleArticles();
-  const counts = new Map<string, number>();
+  const slugsByTag = new Map<string, string[]>();
   for (const id of visible.ids) {
     const tags = visible.entities[id]?.meta.tags;
     if (!tags) {
       continue;
     }
     for (const tag of tags) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      const slugs = slugsByTag.get(tag);
+      if (slugs) {
+        slugs.push(id);
+      } else {
+        slugsByTag.set(tag, [id]);
+      }
     }
   }
-  return [...counts.entries()]
-    .filter(([, count]) => count >= MIN_TAGGED_ARTICLES)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([tag]) => tag);
+  return [...slugsByTag.entries()]
+    .map(([tag, slugs]) => ({
+      tag,
+      count: slugs.length,
+      href:
+        slugs.length >= MIN_TAGGED_ARTICLES
+          ? taggedHref(tag)
+          : `/articles/${slugs[0]}`,
+    }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+});
+
+/**
+ * Subject tags that appear on at least `MIN_TAGGED_ARTICLES` visible
+ * articles, sorted by frequency then name. These are the tags that get a
+ * static `/articles/tagged/[tag]` page and clickable chips.
+ */
+export const getNavigableTags = cache(async (): Promise<string[]> => {
+  const index = await getTagIndex();
+  return index
+    .filter((entry) => entry.count >= MIN_TAGGED_ARTICLES)
+    .map((entry) => entry.tag);
 });
 
 /* ── wiki activity log + reading-list manifests (emitted by the importer) ── */
