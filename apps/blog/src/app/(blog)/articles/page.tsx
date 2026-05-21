@@ -9,7 +9,7 @@ import { KindPlate } from "./kind-plate";
 import { OperationsLog } from "./operations-log";
 import {
   type ArticleTopic,
-  getNavigableTags,
+  getNavigableTagSet,
   getTagCounts,
   getTagIndex,
   getVisibleArticles,
@@ -35,20 +35,18 @@ export const metadata: Metadata = {
 };
 
 export default async function ArticlesIndex() {
-  const [counts, visible, sections, navigableTags, tagIndex] =
-    await Promise.all([
-      getTagCounts(),
-      getVisibleArticles(),
-      Promise.all(
-        TAG_SECTIONS.map(async (section) => ({
-          section,
-          articles: await getSectionArticles(section),
-        }))
-      ),
-      getNavigableTags(),
-      getTagIndex(),
-    ]);
-  const navigable = new Set(navigableTags);
+  const [counts, visible, sections, navigable, tagIndex] = await Promise.all([
+    getTagCounts(),
+    getVisibleArticles(),
+    Promise.all(
+      TAG_SECTIONS.map(async (section) => ({
+        section,
+        articles: await getSectionArticles(section),
+      }))
+    ),
+    getNavigableTagSet(),
+    getTagIndex(),
+  ]);
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
   const populated = sections.filter(({ articles }) => articles.length > 0);

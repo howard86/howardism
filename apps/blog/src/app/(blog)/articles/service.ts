@@ -401,6 +401,15 @@ export const getNavigableTags = cache(async (): Promise<string[]> => {
     .map((entry) => entry.tag);
 });
 
+/**
+ * `getNavigableTags` as a membership set, memoised so chip surfaces (the index
+ * plates and each article page) test `navigable.has(tag)` without rebuilding
+ * the set per render.
+ */
+export const getNavigableTagSet = cache(
+  async (): Promise<ReadonlySet<string>> => new Set(await getNavigableTags())
+);
+
 /* ── wiki activity log + reading-list manifests (emitted by the importer) ── */
 
 export interface WikiLogEntry {

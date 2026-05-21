@@ -1,4 +1,4 @@
-import { TagChip } from "@/components/howardism/tag-chip";
+import { SubjectChip } from "@/components/howardism/subject-chip";
 
 import type { TagIndexEntry } from "./service";
 
@@ -44,7 +44,7 @@ export function TagIndex({ tags }: TagIndexProps) {
           </h2>
           <div className="mt-6 flex flex-wrap">
             {tags.map(({ tag, href }) => (
-              <TagChip href={href} key={tag} tag={tag} />
+              <SubjectChip href={href} key={tag} tag={tag} />
             ))}
           </div>
         </div>
