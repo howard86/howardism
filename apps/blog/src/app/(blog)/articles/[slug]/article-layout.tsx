@@ -6,7 +6,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { DataGrid } from "@/components/howardism/data-grid";
 import { HalfDisc } from "@/components/howardism/half-disc";
-import { TagChipList } from "@/components/howardism/tag-chip-list";
+import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
 import { formatDate } from "@/utils/time";
 
@@ -21,13 +21,15 @@ interface ArticleLayoutProps {
   heroImage?: StaticImageData;
   meta: ArticleMeta;
   /** Subject tags with their own page — used to decide which chips link. */
-  navigableTags?: readonly string[];
+  navigable?: ReadonlySet<string>;
   nextSlug?: string;
   nextTitle?: string;
   previousSlug?: string;
   previousTitle?: string;
   slug: string;
 }
+
+const NO_NAVIGABLE_TAGS: ReadonlySet<string> = new Set();
 
 const EYEBROW_CLASS =
   "font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]";
@@ -41,7 +43,7 @@ export function ArticleLayout({
   headings = [],
   heroImage,
   meta,
-  navigableTags = [],
+  navigable = NO_NAVIGABLE_TAGS,
   previousSlug,
   previousTitle,
   nextSlug,
@@ -56,11 +58,7 @@ export function ArticleLayout({
     meta.tags && meta.tags.length > 0
       ? [
           "Tags",
-          <TagChipList
-            key="tags"
-            navigable={new Set(navigableTags)}
-            tags={meta.tags}
-          />,
+          <SubjectChipList key="tags" navigable={navigable} tags={meta.tags} />,
         ]
       : null;
   const metaRows: [string, ReactNode][] = [

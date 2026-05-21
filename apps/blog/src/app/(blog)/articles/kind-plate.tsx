@@ -1,4 +1,4 @@
-import { TagChipList } from "@/components/howardism/tag-chip-list";
+import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
 import { InternalLink } from "@/components/internal-link";
 import { formatDateShort } from "@/utils/time";
@@ -131,7 +131,7 @@ export function KindPlate({
                     </InternalLink>
                     {article.meta.tags && article.meta.tags.length > 0 && (
                       <div className="mt-1.5">
-                        <TagChipList
+                        <SubjectChipList
                           limit={3}
                           navigable={navigable}
                           tags={article.meta.tags}

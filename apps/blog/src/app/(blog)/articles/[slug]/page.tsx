@@ -8,7 +8,7 @@ import {
   type ArticleMeta,
   getArticles,
   getHeadings,
-  getNavigableTags,
+  getNavigableTagSet,
   getSiblings,
 } from "../service";
 import { ArticleLayout } from "./article-layout";
@@ -71,12 +71,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     mod,
     { previousSlug, previousTitle, nextSlug, nextTitle },
     headings,
-    navigableTags,
+    navigable,
   ] = await Promise.all([
     import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
     getSiblings(slug),
     getHeadings(slug),
-    getNavigableTags(),
+    getNavigableTagSet(),
   ]);
 
   return (
@@ -84,7 +84,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       headings={headings}
       heroImage={mod.heroImage}
       meta={mod.meta}
-      navigableTags={navigableTags}
+      navigable={navigable}
       nextSlug={nextSlug}
       nextTitle={nextTitle}
       previousSlug={previousSlug}

@@ -1,8 +1,8 @@
 import { taggedHref } from "@/utils/tagged-href";
 
-import { TagChip } from "./tag-chip";
+import { SubjectChip } from "./subject-chip";
 
-interface TagChipListProps {
+interface SubjectChipListProps {
   /** When set, show at most this many chips and a `+N` overflow marker. */
   limit?: number;
   /** Tags that have a `/articles/tagged/[tag]` page — these chips link. */
@@ -15,14 +15,18 @@ interface TagChipListProps {
  * link to their tag page; the rest are inert. With `limit`, extra tags
  * collapse into a `+N` marker (used in dense index rows).
  */
-export function TagChipList({ tags, navigable, limit }: TagChipListProps) {
+export function SubjectChipList({
+  tags,
+  navigable,
+  limit,
+}: SubjectChipListProps) {
   const shown = limit ? tags.slice(0, limit) : tags;
   const overflow = tags.length - shown.length;
 
   return (
     <span>
       {shown.map((tag) => (
-        <TagChip
+        <SubjectChip
           href={navigable.has(tag) ? taggedHref(tag) : undefined}
           key={tag}
           tag={tag}
