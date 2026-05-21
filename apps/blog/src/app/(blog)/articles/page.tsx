@@ -11,9 +11,11 @@ import {
   type ArticleTopic,
   getNavigableTags,
   getTagCounts,
+  getTagIndex,
   getVisibleArticles,
   getWikiLog,
 } from "./service";
+import { TagIndex } from "./tag-index";
 import { getSectionArticles, TAG_SECTIONS } from "./tag-sections";
 
 const ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
@@ -33,17 +35,19 @@ export const metadata: Metadata = {
 };
 
 export default async function ArticlesIndex() {
-  const [counts, visible, sections, navigableTags] = await Promise.all([
-    getTagCounts(),
-    getVisibleArticles(),
-    Promise.all(
-      TAG_SECTIONS.map(async (section) => ({
-        section,
-        articles: await getSectionArticles(section),
-      }))
-    ),
-    getNavigableTags(),
-  ]);
+  const [counts, visible, sections, navigableTags, tagIndex] =
+    await Promise.all([
+      getTagCounts(),
+      getVisibleArticles(),
+      Promise.all(
+        TAG_SECTIONS.map(async (section) => ({
+          section,
+          articles: await getSectionArticles(section),
+        }))
+      ),
+      getNavigableTags(),
+      getTagIndex(),
+    ]);
   const navigable = new Set(navigableTags);
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -101,6 +105,8 @@ export default async function ArticlesIndex() {
           visibleLimit={VISIBLE_BY_SLUG[section.slug] ?? 10}
         />
       ))}
+
+      <TagIndex tags={tagIndex} />
 
       <OperationsLog
         entries={getWikiLog(OPS_LOG_LIMIT)}
