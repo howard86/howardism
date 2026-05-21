@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { env } from "@/config/env";
 import { humanizeTag } from "@/utils/humanize-tag";
+import { taggedHref } from "@/utils/tagged-href";
 import { formatDateShort } from "@/utils/time";
 
 import { ArticlesTable } from "../../articles-table";
@@ -34,7 +35,7 @@ export async function generateMetadata({
     return { title: "Not found — Howardism" };
   }
   const label = humanizeTag(tag);
-  const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/tagged/${tag}`;
+  const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}${taggedHref(tag)}`;
   return {
     title: `${label} — Howardism`,
     description: `Articles tagged ${label} from the Howardism wiki.`,
