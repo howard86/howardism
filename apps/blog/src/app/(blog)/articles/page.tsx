@@ -9,10 +9,13 @@ import { KindPlate } from "./kind-plate";
 import { OperationsLog } from "./operations-log";
 import {
   type ArticleTopic,
+  getNavigableTagSet,
   getTagCounts,
+  getTagIndex,
   getVisibleArticles,
   getWikiLog,
 } from "./service";
+import { TagIndex } from "./tag-index";
 import { getSectionArticles, TAG_SECTIONS } from "./tag-sections";
 
 const ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
@@ -32,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ArticlesIndex() {
-  const [counts, visible, sections] = await Promise.all([
+  const [counts, visible, sections, navigable, tagIndex] = await Promise.all([
     getTagCounts(),
     getVisibleArticles(),
     Promise.all(
@@ -41,6 +44,8 @@ export default async function ArticlesIndex() {
         articles: await getSectionArticles(section),
       }))
     ),
+    getNavigableTagSet(),
+    getTagIndex(),
   ]);
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -90,6 +95,7 @@ export default async function ArticlesIndex() {
           articles={articles}
           blurb={section.intro}
           key={section.slug}
+          navigable={navigable}
           position={i + 1}
           slug={section.slug}
           title={section.title}
@@ -97,6 +103,8 @@ export default async function ArticlesIndex() {
           visibleLimit={VISIBLE_BY_SLUG[section.slug] ?? 10}
         />
       ))}
+
+      <TagIndex tags={tagIndex} />
 
       <OperationsLog
         entries={getWikiLog(OPS_LOG_LIMIT)}

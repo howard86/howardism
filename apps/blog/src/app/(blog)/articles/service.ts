@@ -12,6 +12,7 @@ import { z } from "zod";
 import graphData from "@/data/article-graph.json";
 import wikiLogData from "@/data/wiki-log.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
+import { taggedHref } from "@/utils/tagged-href";
 
 export interface Normalise<T> {
   entities: Record<string, T | undefined>;
@@ -81,6 +82,14 @@ const ArticleMetaSchema = z.object({
    */
   sources: z.array(SourceRefSchema).optional(),
   tag: z.enum(ARTICLE_TAGS),
+  /**
+   * The wiki note's real subject labels (lowercase kebab), passed through by
+   * the importer. NOTE the deliberate naming proximity: singular `tag` above
+   * is the article "kind" (Concept/Entity/…); plural `tags` here are the
+   * free-form subjects that drive the chips and `/articles/tagged/[tag]`
+   * routes; `topic` below is the single derived accent/grouping bucket.
+   */
+  tags: z.array(z.string()).optional(),
   title: z.string(),
   /**
    * Curated subject bucket derived by the wiki importer from the note's tags.
@@ -306,6 +315,99 @@ export const getTopicCounts = cache(
     }
     return counts;
   }
+);
+
+/**
+ * Minimum number of articles a free-form subject `tag` must appear on before
+ * it earns a `/articles/tagged/[tag]` page. Rarer tags still render as chips,
+ * just non-clickable — this keeps us from generating dozens of thin pages.
+ */
+const MIN_TAGGED_ARTICLES = 2;
+
+/**
+ * Visible articles carrying `tag` in their free-form `tags` list, newest
+ * first. Distinct from `getArticlesByTag`, which matches the singular `tag`
+ * "kind" enum.
+ */
+export const getTaggedArticles = cache(
+  async (tag: string): Promise<ArticleEntity[]> => {
+    const visible = await getVisibleArticles();
+    const matches: ArticleEntity[] = [];
+    for (const id of visible.ids) {
+      const entity = visible.entities[id];
+      if (entity?.meta.tags?.includes(tag)) {
+        matches.push(entity);
+      }
+    }
+    return matches;
+  }
+);
+
+export interface TagIndexEntry {
+  count: number;
+  /**
+   * Where the chip links: the `/articles/tagged/[tag]` page for tags carried
+   * by enough articles to earn one, or — for a tag on a single article — that
+   * article itself.
+   */
+  href: string;
+  tag: string;
+}
+
+/**
+ * Every subject tag across visible articles as a clickable chip target,
+ * ordered by reference count (descending) then name. Tags on at least
+ * `MIN_TAGGED_ARTICLES` articles link to their `/articles/tagged/[tag]` page;
+ * a tag on exactly one article has no such page and links straight to it.
+ */
+export const getTagIndex = cache(async (): Promise<TagIndexEntry[]> => {
+  const visible = await getVisibleArticles();
+  const slugsByTag = new Map<string, string[]>();
+  for (const id of visible.ids) {
+    const tags = visible.entities[id]?.meta.tags;
+    if (!tags) {
+      continue;
+    }
+    for (const tag of tags) {
+      const slugs = slugsByTag.get(tag);
+      if (slugs) {
+        slugs.push(id);
+      } else {
+        slugsByTag.set(tag, [id]);
+      }
+    }
+  }
+  return [...slugsByTag.entries()]
+    .map(([tag, slugs]) => ({
+      tag,
+      count: slugs.length,
+      href:
+        slugs.length >= MIN_TAGGED_ARTICLES
+          ? taggedHref(tag)
+          : `/articles/${slugs[0]}`,
+    }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+});
+
+/**
+ * Subject tags that appear on at least `MIN_TAGGED_ARTICLES` visible
+ * articles, sorted by frequency then name. These are the tags that get a
+ * static `/articles/tagged/[tag]` page and clickable chips.
+ */
+export const getNavigableTags = cache(async (): Promise<string[]> => {
+  const index = await getTagIndex();
+  return index
+    .filter((entry) => entry.count >= MIN_TAGGED_ARTICLES)
+    .map((entry) => entry.tag);
+});
+
+/**
+ * `getNavigableTags` as a membership set, memoised so chip surfaces (the index
+ * plates and each article page) test `navigable.has(tag)` without rebuilding
+ * the set per render.
+ */
+export const getNavigableTagSet = cache(
+  async (): Promise<ReadonlySet<string>> => new Set(await getNavigableTags())
 );
 
 /* ── wiki activity log + reading-list manifests (emitted by the importer) ── */

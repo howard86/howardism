@@ -27,6 +27,14 @@ export interface ArticleMeta {
    */
   sources?: SourceRef[];
   tag: WikiTag;
+  /**
+   * The wiki note's real subject labels, passed through verbatim (lowercase
+   * kebab) from its frontmatter `tags`. NOTE: distinct from the singular
+   * `tag` above (the article "kind") and the single derived `topic` below
+   * (the accent/grouping bucket). Drives the tag chips and `/articles/tagged`
+   * routes. Omitted when the note has no tags.
+   */
+  tags?: string[];
   title: string;
   /**
    * Curated subject bucket derived from the wiki note's `tags`. Drives the
@@ -57,6 +65,7 @@ export function buildArticleSource(
     description: meta.description,
     tag: meta.tag,
     ...(meta.topic ? { topic: meta.topic } : {}),
+    ...(meta.tags && meta.tags.length > 0 ? { tags: meta.tags } : {}),
     readingTime: meta.readingTime,
     imageAlt,
     ...(meta.sources && meta.sources.length > 0
