@@ -1,3 +1,4 @@
+import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
 import { InternalLink } from "@/components/internal-link";
 import { formatDateShort } from "@/utils/time";
@@ -21,6 +22,8 @@ const KIND_META: Record<TagSectionSlug, KindMeta> = {
 interface KindPlateProps {
   articles: ArticleEntity[];
   blurb: string;
+  /** Subject tags with their own page — used to decide which chips link. */
+  navigable: ReadonlySet<string>;
   /** 1-based plate position. */
   position: number;
   /** Section slug used for the anchor id + tag link + kind styling. */
@@ -35,6 +38,7 @@ export function KindPlate({
   articles,
   slug,
   blurb,
+  navigable,
   position,
   total,
   title,
@@ -125,6 +129,15 @@ export function KindPlate({
                     >
                       {article.meta.title}
                     </InternalLink>
+                    {article.meta.tags && article.meta.tags.length > 0 && (
+                      <div className="mt-1.5">
+                        <SubjectChipList
+                          limit={3}
+                          navigable={navigable}
+                          tags={article.meta.tags}
+                        />
+                      </div>
+                    )}
                   </td>
                   <td className="w-[150px] py-3.5 pr-6 align-baseline">
                     {article.meta.topic && (
