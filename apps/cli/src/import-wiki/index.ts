@@ -151,7 +151,7 @@ async function emitGraph(args: {
   const { ctx, opts, summary } = args;
   const graph: ArticleGraph = buildArticleGraph({
     parsed: ctx.parsedAll,
-    generatedOn: new Date().toISOString(),
+    generatedOn: new Date().toISOString().slice(0, 10),
     isArchived: (p) => p.frontmatter.archived === true,
   });
   const graphPath = await emitArticleGraph({
@@ -171,7 +171,7 @@ async function emitWikiLogManifest(args: { opts: RunOptions }): Promise<void> {
   }
   const log = buildWikiLog({
     body: logParsed.body,
-    generatedOn: new Date().toISOString(),
+    generatedOn: new Date().toISOString().slice(0, 10),
   });
   await emitWikiLog({
     log,
@@ -189,7 +189,7 @@ async function emitWikiSourcesManifest(args: {
   const manifest = await buildWikiSources({
     parsed: live,
     rawRoot: opts.rawPath,
-    generatedOn: new Date().toISOString(),
+    generatedOn: new Date().toISOString().slice(0, 10),
   });
   await emitWikiSources({
     manifest,
