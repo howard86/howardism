@@ -33,7 +33,7 @@ bun run type-check  # tsc --noEmit
 
 Run a single test file:
 ```bash
-bun test --filter <filename>
+bun test <filename>
 ```
 
 ### Blog app extras (`apps/blog`)
