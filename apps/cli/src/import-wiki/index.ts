@@ -14,12 +14,15 @@ import {
   emitArticleGraph,
 } from "./pages/graph.ts";
 import { buildWikiChangelogPage } from "./pages/wiki-changelog.ts";
+import { buildWikiLog, emitWikiLog } from "./pages/wiki-log.ts";
+import { buildWikiSources, emitWikiSources } from "./pages/wiki-sources.ts";
 import {
   buildSlugTitleMap,
   discoverWikiSources,
   extractRawSlugsFromBody,
   extractRawSlugsFromSources,
   loadRawDoc,
+  normaliseTags,
   type ParsedWikiFile,
   parseIndexSummaries,
   parseWikiFile,
@@ -28,6 +31,7 @@ import {
   stripWikilinksToText,
   titleFromSlug,
 } from "./parse.ts";
+import { deriveTopic } from "./topics.ts";
 import {
   buildSourcesSection,
   computeReadingTime,
@@ -45,10 +49,12 @@ interface RunOptions {
   blogAssetsPath: string;
   dryRun: boolean;
   graphOutputPath: string;
+  logOutputPath: string;
   onlySlug: string | null;
   overridesPath: string;
   rawPath: string;
   skipImages: boolean;
+  sourcesOutputPath: string;
   wikiPath: string;
 }
 
@@ -75,6 +81,14 @@ const DEFAULT_BLOG_ASSETS_PATH = resolve(
 const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
   REPO_ROOT,
   "apps/blog/src/data/article-graph.json"
+);
+const DEFAULT_LOG_OUTPUT_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/data/wiki-log.json"
+);
+const DEFAULT_SOURCES_OUTPUT_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/data/wiki-sources.json"
 );
 const DEFAULT_OVERRIDES_PATH = join(CLI_ROOT, "wiki-category-overrides.json");
 /**
@@ -105,7 +119,14 @@ async function main(): Promise<void> {
   const ctx = await buildImportContext(opts);
   const summary = createSummary();
 
-  await runWithConcurrency(ctx.parsedAll, IMAGE_CONCURRENCY, (parsed) =>
+  // Archived articles are excluded from the link graph; drop them from the MDX
+  // emission pipeline too so an author's `archived: true` keeps the entry off
+  // the public blog. Mirrors the graph builder's predicate in emitGraph.
+  const toEmit = ctx.parsedAll.filter(
+    (parsed) => parsed.frontmatter.archived !== true
+  );
+
+  await runWithConcurrency(toEmit, IMAGE_CONCURRENCY, (parsed) =>
     processArticle(parsed, ctx, opts, summary)
   );
 
@@ -116,6 +137,8 @@ async function main(): Promise<void> {
       slugTitleMap: ctx.slugTitleMap,
     });
     await emitGraph({ ctx, opts, summary });
+    await emitWikiLogManifest({ opts });
+    await emitWikiSourcesManifest({ ctx, opts });
   }
 
   printSummary(summary);
@@ -129,7 +152,7 @@ async function emitGraph(args: {
   const { ctx, opts, summary } = args;
   const graph: ArticleGraph = buildArticleGraph({
     parsed: ctx.parsedAll,
-    generatedOn: new Date().toISOString(),
+    generatedOn: new Date().toISOString().slice(0, 10),
     isArchived: (p) => p.frontmatter.archived === true,
   });
   const graphPath = await emitArticleGraph({
@@ -138,6 +161,42 @@ async function emitGraph(args: {
     dryRun: opts.dryRun,
   });
   summary.graphPath = graphPath;
+}
+
+async function emitWikiLogManifest(args: { opts: RunOptions }): Promise<void> {
+  const { opts } = args;
+  const logSource = join(opts.wikiPath, "log.md");
+  const logParsed = await tryParseWikiLog(logSource);
+  if (!logParsed) {
+    return;
+  }
+  const log = buildWikiLog({
+    body: logParsed.body,
+    generatedOn: new Date().toISOString().slice(0, 10),
+  });
+  await emitWikiLog({
+    log,
+    outputPath: opts.logOutputPath,
+    dryRun: opts.dryRun,
+  });
+}
+
+async function emitWikiSourcesManifest(args: {
+  ctx: ImportContext;
+  opts: RunOptions;
+}): Promise<void> {
+  const { ctx, opts } = args;
+  const live = ctx.parsedAll.filter((p) => p.frontmatter.archived !== true);
+  const manifest = await buildWikiSources({
+    parsed: live,
+    rawRoot: opts.rawPath,
+    generatedOn: new Date().toISOString().slice(0, 10),
+  });
+  await emitWikiSources({
+    manifest,
+    outputPath: opts.sourcesOutputPath,
+    dryRun: opts.dryRun,
+  });
 }
 
 interface ImportContext {
@@ -235,12 +294,16 @@ async function processArticle(
     explicitOverride ??
     (isEntity && defaultTag === "Concept" ? "Entity" : defaultTag);
 
+  const tags = normaliseTags(frontmatter.tags);
+
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
     title,
     description: cleanedDescription,
     readingTime: computeReadingTime(body),
     tag,
+    topic: deriveTopic(frontmatter.tags),
+    ...(tags.length > 0 ? { tags } : {}),
     ...(sources.length > 0 ? { sources } : {}),
   };
 
@@ -464,6 +527,10 @@ function parseOptions(): RunOptions {
   const graphOutputPath = resolve(
     env.GRAPH_OUTPUT_PATH ?? DEFAULT_GRAPH_OUTPUT_PATH
   );
+  const logOutputPath = resolve(env.LOG_OUTPUT_PATH ?? DEFAULT_LOG_OUTPUT_PATH);
+  const sourcesOutputPath = resolve(
+    env.SOURCES_OUTPUT_PATH ?? DEFAULT_SOURCES_OUTPUT_PATH
+  );
 
   const argv = process.argv.slice(2);
   const onlyIndex = argv.indexOf("--only");
@@ -476,6 +543,8 @@ function parseOptions(): RunOptions {
     blogAssetsPath,
     overridesPath,
     graphOutputPath,
+    logOutputPath,
+    sourcesOutputPath,
     onlySlug,
     skipImages: env.SKIP_IMAGES === "1",
     dryRun: env.DRY_RUN === "1",

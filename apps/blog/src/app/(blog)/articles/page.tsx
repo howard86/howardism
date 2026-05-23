@@ -4,11 +4,30 @@ import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
-import { ArticlesTable } from "./articles-table";
-import { getTagCounts, getVisibleArticles } from "./service";
+import { FilterBar } from "./filter-bar";
+import { KindPlate } from "./kind-plate";
+import { OperationsLog } from "./operations-log";
+import {
+  type ArticleTopic,
+  getNavigableTagSet,
+  getTagCounts,
+  getTagIndex,
+  getVisibleArticles,
+  getWikiLog,
+} from "./service";
+import { TagIndex } from "./tag-index";
 import { getSectionArticles, TAG_SECTIONS } from "./tag-sections";
 
 const ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
+const OPS_LOG_LIMIT = 14;
+
+/** Newest-first row budget per section. */
+const VISIBLE_BY_SLUG: Record<string, number> = {
+  concept: 12,
+  entity: 10,
+  essay: 8,
+  index: 8,
+};
 
 export const metadata: Metadata = {
   alternates: { canonical: ARTICLES_URL },
@@ -16,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ArticlesIndex() {
-  const [counts, visible, sections] = await Promise.all([
+  const [counts, visible, sections, navigable, tagIndex] = await Promise.all([
     getTagCounts(),
     getVisibleArticles(),
     Promise.all(
@@ -25,52 +44,72 @@ export default async function ArticlesIndex() {
         articles: await getSectionArticles(section),
       }))
     ),
+    getNavigableTagSet(),
+    getTagIndex(),
   ]);
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-
   const populated = sections.filter(({ articles }) => articles.length > 0);
 
-  const newestSlug = visible.ids[0];
-  const oldestSlug = visible.ids.at(-1);
-  const newestDate = newestSlug
-    ? visible.entities[newestSlug]?.meta.date
-    : undefined;
-  const oldestDate = oldestSlug
-    ? visible.entities[oldestSlug]?.meta.date
-    : undefined;
+  const newestDate = visible.entities[visible.ids[0]]?.meta.date;
+  const oldestDate = visible.entities[visible.ids.at(-1) ?? ""]?.meta.date;
+
+  const slugTopics: Record<string, ArticleTopic | undefined> = {};
+  for (const id of visible.ids) {
+    slugTopics[id] = visible.entities[id]?.meta.topic;
+  }
 
   return (
-    <div className="hw-page-enter mx-auto max-w-[1120px] px-8 pb-20">
-      <DiscPageHeader
-        data={[
-          ["Pieces", String(total)],
-          ["Sections", String(populated.length)],
-          ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
-          ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
-        ]}
-        number="02"
-        plate="Plate II"
-        title="Writing,"
-        titleAccent="in order."
-        volume="Howardism · Vol. 03"
+    <div className="hw-page-enter mx-auto max-w-[1320px]">
+      <div className="px-[clamp(20px,5vw,56px)]">
+        <DiscPageHeader
+          data={[
+            ["Pieces", String(total)],
+            ["Sections", String(populated.length)],
+            ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
+            ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
+          ]}
+          number="02"
+          plate="Plate II"
+          title="Writing,"
+          titleAccent="in order."
+          volume="Howardism · Vol. 03"
+        >
+          <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
+            Every article in the wiki, grouped by kind: <em>Concept</em> notes,{" "}
+            <em>Entity</em> profiles, and <em>Essay</em> pieces. Hover any title
+            for a preview; click to enter.
+          </p>
+        </DiscPageHeader>
+      </div>
+
+      <FilterBar
+        sectionSlugs={populated.map(({ section }) => ({
+          slug: section.slug,
+          title: section.title,
+        }))}
       />
 
-      <p className="mt-10 mb-12 max-w-[60ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
-        A dense index of every article in the wiki, grouped by kind. Hover any
-        title for a preview, click to read.
-      </p>
+      {populated.map(({ section, articles }, i) => (
+        <KindPlate
+          articles={articles}
+          blurb={section.intro}
+          key={section.slug}
+          navigable={navigable}
+          position={i + 1}
+          slug={section.slug}
+          title={section.title}
+          total={populated.length}
+          visibleLimit={VISIBLE_BY_SLUG[section.slug] ?? 10}
+        />
+      ))}
 
-      <div className="flex flex-col gap-14">
-        {populated.map(({ section, articles }) => (
-          <ArticlesTable
-            articles={articles}
-            key={section.slug}
-            srCaption={`${section.title} articles, sorted by date, newest first.`}
-            title={section.title}
-          />
-        ))}
-      </div>
+      <TagIndex tags={tagIndex} />
+
+      <OperationsLog
+        entries={getWikiLog(OPS_LOG_LIMIT)}
+        slugTopics={slugTopics}
+      />
     </div>
   );
 }

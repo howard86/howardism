@@ -31,11 +31,7 @@ const BASE_META: ArticleMeta = {
 describe("ArticleLayout drop-cap", () => {
   it("applies prose-drop-cap class when meta.dropCap === true", () => {
     const { container } = render(
-      <ArticleLayout
-        meta={{ ...BASE_META, dropCap: true }}
-        position={1}
-        slug="test-article"
-      >
+      <ArticleLayout meta={{ ...BASE_META, dropCap: true }} slug="test-article">
         <p>Article content</p>
       </ArticleLayout>
     );
@@ -46,7 +42,7 @@ describe("ArticleLayout drop-cap", () => {
 
   it("does not apply prose-drop-cap when meta.dropCap is undefined", () => {
     const { container } = render(
-      <ArticleLayout meta={BASE_META} position={1} slug="test-article">
+      <ArticleLayout meta={BASE_META} slug="test-article">
         <p>Article content</p>
       </ArticleLayout>
     );
@@ -59,7 +55,6 @@ describe("ArticleLayout drop-cap", () => {
     const { container } = render(
       <ArticleLayout
         meta={{ ...BASE_META, dropCap: false }}
-        position={1}
         slug="test-article"
       >
         <p>Article content</p>

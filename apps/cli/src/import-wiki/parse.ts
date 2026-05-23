@@ -41,6 +41,10 @@ export interface ParsedWikiFile {
  * `[[raw/...]]` references to clickable links.
  */
 export interface RawDoc {
+  /** Author/byline from the raw doc's `author:` frontmatter, when set. */
+  author?: string;
+  /** Publish date (`YYYY-MM-DD`) from the raw doc's `published:` frontmatter. */
+  published?: string;
   /** Original raw filename slug (without `.md`). Used as a stable key. */
   slug: string;
   /** Author-set title from the raw doc's frontmatter; fall back to humanised slug. */
@@ -247,7 +251,12 @@ export async function loadRawDoc(
   }
 
   const { data } = matter(raw);
-  const rawData = data as { source?: unknown; title?: unknown };
+  const rawData = data as {
+    author?: unknown;
+    published?: unknown;
+    source?: unknown;
+    title?: unknown;
+  };
   const title =
     typeof rawData.title === "string" && rawData.title.trim().length > 0
       ? rawData.title.trim()
@@ -258,8 +267,30 @@ export async function loadRawDoc(
     candidateUrl.length > 0 && HTTP_URL_RE.test(candidateUrl)
       ? candidateUrl
       : undefined;
+  const author =
+    typeof rawData.author === "string" && rawData.author.trim().length > 0
+      ? rawData.author.trim()
+      : undefined;
+  const published = normalisePublished(rawData.published);
 
-  return { slug, title, url };
+  return {
+    slug,
+    title,
+    url,
+    ...(author ? { author } : {}),
+    ...(published ? { published } : {}),
+  };
+}
+
+/** Normalise a raw doc's `published` value (Date or string) to `YYYY-MM-DD`. */
+function normalisePublished(value: unknown): string | undefined {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return;
 }
 
 function humanizeRawSlug(slug: string): string {
@@ -300,6 +331,28 @@ export function titleFromSlug(slug: string): string {
     .split("-")
     .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
     .join(" ");
+}
+
+/**
+ * Normalise a wiki note's raw `tags` into the list emitted to article
+ * frontmatter: trimmed, lowercased, de-duplicated, empties dropped, source
+ * order preserved. The note's `tags` are the real subject labels — distinct
+ * from the single derived `topic` bucket (see `topics.ts`).
+ */
+export function normaliseTags(tags: readonly string[] | undefined): string[] {
+  if (!tags) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of tags) {
+    const tag = raw.trim().toLowerCase();
+    if (tag.length > 0 && !seen.has(tag)) {
+      seen.add(tag);
+      result.push(tag);
+    }
+  }
+  return result;
 }
 
 /**

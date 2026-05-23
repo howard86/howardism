@@ -9,7 +9,6 @@ export interface SourceRef {
 // Obsidian convention for embedding pipes inside markdown tables.
 const WIKI_LINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/g;
 const FENCE_RE = /^(\s*)(```+|~~~+)/;
-const HTML_TAG_HINT_RE = /^[A-Za-z!/]/;
 const WORD_RE = /\b\w+\b/g;
 const LEADING_H1_RE = /^#\s+.+\n+/;
 const TRAILING_PUNCT_RE = /[.\s]+$/;
@@ -297,8 +296,7 @@ function escapeProseChar(line: string, i: number): string {
     return `\\${ch}`;
   }
   if (ch === "<") {
-    const next = line[i + 1] ?? "";
-    return HTML_TAG_HINT_RE.test(next) ? ch : "&lt;";
+    return "&lt;";
   }
   return ch;
 }
