@@ -1,8 +1,7 @@
 import {
   type ArticleHeading,
   type ArticleLink,
-  getBacklinks,
-  getRelated,
+  getArticleConnections,
 } from "../service";
 import { ArticleLinkRow } from "./article-link-row";
 import { ArticleToc } from "./article-toc";
@@ -14,10 +13,7 @@ interface ArticleRailProps {
 }
 
 export async function ArticleRail({ headings, slug }: ArticleRailProps) {
-  const [backlinks, related] = await Promise.all([
-    getBacklinks(slug),
-    getRelated(slug),
-  ]);
+  const { backlinks, related } = await getArticleConnections(slug);
 
   const isEmpty =
     headings.length === 0 && related.length === 0 && backlinks.length === 0;

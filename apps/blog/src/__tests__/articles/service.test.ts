@@ -1,11 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
   type ArticleTag,
+  getArticleConnections,
   getArticlesByTag,
-  getBacklinks,
   getHeadings,
-  getOutgoing,
-  getRelated,
   getSlicedArticles,
   getTagCounts,
   getVisibleArticles,
@@ -21,18 +19,18 @@ const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index", "Changelog"] as const;
 const tagsSet: ReadonlySet<string> = new Set(WIKI_TAGS);
 
 describe("graph-backed service helpers", () => {
-  it("getBacklinks returns ArticleLink entries in the graph's recorded order, visible only", async () => {
+  it("getArticleConnections returns backlinks in the graph's recorded order, visible only", async () => {
     const visible = await getVisibleArticles();
     const visibleSlugs = new Set(visible.ids);
 
     const graphSlugs = graphData.backlinks[KNOWN_SLUG] ?? [];
     const expectedVisible = graphSlugs.filter((slug) => visibleSlugs.has(slug));
 
-    const links = await getBacklinks(KNOWN_SLUG);
+    const { backlinks } = await getArticleConnections(KNOWN_SLUG);
 
-    expect(links.length).toBe(expectedVisible.length);
-    expect(links.map((link) => link.slug)).toEqual(expectedVisible);
-    for (const link of links) {
+    expect(backlinks.length).toBe(expectedVisible.length);
+    expect(backlinks.map((link) => link.slug)).toEqual(expectedVisible);
+    for (const link of backlinks) {
       expect(visibleSlugs.has(link.slug)).toBe(true);
       const entity = visible.entities[link.slug];
       expect(entity).toBeDefined();
@@ -40,35 +38,31 @@ describe("graph-backed service helpers", () => {
     }
   });
 
-  it("getOutgoing returns visible outgoing links in graph order", async () => {
-    const visible = await getVisibleArticles();
-    const visibleSlugs = new Set(visible.ids);
-
-    const graphSlugs = graphData.outgoing[KNOWN_SLUG] ?? [];
-    const expectedVisible = graphSlugs.filter((slug) => visibleSlugs.has(slug));
-
-    const links = await getOutgoing(KNOWN_SLUG);
-
-    expect(links.map((link) => link.slug)).toEqual(expectedVisible);
-  });
-
-  it("getRelated returns at most five visible related links", async () => {
-    const links = await getRelated(KNOWN_SLUG);
-    expect(links.length).toBeLessThanOrEqual(5);
+  it("getArticleConnections returns at most five visible related links", async () => {
+    const { related } = await getArticleConnections(KNOWN_SLUG);
+    expect(related.length).toBeLessThanOrEqual(5);
 
     const visible = await getVisibleArticles();
     const visibleSlugs = new Set(visible.ids);
-    for (const link of links) {
+    for (const link of related) {
       expect(visibleSlugs.has(link.slug)).toBe(true);
       expect(link.slug).not.toBe(KNOWN_SLUG);
     }
   });
 
-  it("graph-backed helpers return [] for an unknown slug", async () => {
+  it("getArticleConnections returns both backlinks and related in a single call", async () => {
+    const connections = await getArticleConnections(KNOWN_SLUG);
+    expect(connections).toHaveProperty("backlinks");
+    expect(connections).toHaveProperty("related");
+    expect(Array.isArray(connections.backlinks)).toBe(true);
+    expect(Array.isArray(connections.related)).toBe(true);
+  });
+
+  it("getArticleConnections returns empty arrays for an unknown slug", async () => {
     const unknown = "definitely-not-a-real-slug-xyz";
-    expect(await getBacklinks(unknown)).toEqual([]);
-    expect(await getOutgoing(unknown)).toEqual([]);
-    expect(await getRelated(unknown)).toEqual([]);
+    const { backlinks, related } = await getArticleConnections(unknown);
+    expect(backlinks).toEqual([]);
+    expect(related).toEqual([]);
   });
 });
 
