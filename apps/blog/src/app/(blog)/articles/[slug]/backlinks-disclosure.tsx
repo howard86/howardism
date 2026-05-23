@@ -78,7 +78,7 @@ function DisclosurePanel({
       className="group border-foreground border-t-2 border-b border-b-border py-3 [&>summary::-webkit-details-marker]:hidden [&[open]+details]:border-t-0"
       open={defaultOpen}
     >
-      <summary className="flex cursor-pointer list-none items-baseline gap-1.5 font-medium font-mono text-brand text-xs uppercase tracking-[0.08em] hover:text-foreground">
+      <summary className="flex cursor-pointer list-none items-baseline gap-1.5 font-medium font-mono text-[var(--article-accent)] text-xs uppercase tracking-[0.08em] hover:text-foreground">
         <span aria-hidden="true">
           <span className="inline group-open:hidden">[+]</span>
           <span className="hidden group-open:inline">[−]</span>
@@ -95,8 +95,5 @@ function DisclosurePanel({
 }
 
 export function formatBacklinkLabel(count: number): string {
-  if (count === 1) {
-    return "1 article links here";
-  }
-  return `${count} articles link here`;
+  return `Cited by ${count}`;
 }

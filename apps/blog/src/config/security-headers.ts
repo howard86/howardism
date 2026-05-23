@@ -54,9 +54,9 @@ export interface SecurityHeaderOptions {
    * and the `upgrade-insecure-requests` CSP directive. The dev server is plain
    * HTTP and Safari honours HSTS (and request upgrades) on `localhost`, so
    * leaving these on makes Safari refuse to connect over HTTP with a TLS
-   * handshake error. Only strips `upgrade-insecure-requests` from the default
-   * directives; an explicitly passed `contentSecurityPolicy` is left untouched.
-   * Defaults to `false`.
+   * handshake error. Strips `upgrade-insecure-requests` from the effective
+   * directives — whether the default policy or an explicitly passed
+   * `contentSecurityPolicy`. Defaults to `false`.
    */
   insecureTransport?: boolean;
 }
@@ -136,10 +136,10 @@ export function getSecurityHeaders({
     return headers;
   }
 
-  let directives = contentSecurityPolicy ?? DEFAULT_CSP_DIRECTIVES;
-  if (insecureTransport && directives === DEFAULT_CSP_DIRECTIVES) {
-    const { "upgrade-insecure-requests": _omit, ...rest } =
-      DEFAULT_CSP_DIRECTIVES;
+  let directives: CspDirectives =
+    contentSecurityPolicy ?? DEFAULT_CSP_DIRECTIVES;
+  if (insecureTransport) {
+    const { "upgrade-insecure-requests": _omit, ...rest } = directives;
     directives = rest;
   }
   const cspValue = serializeCsp(directives);

@@ -34,18 +34,18 @@ describe("BacklinksDisclosureView — empty state", () => {
   });
 });
 
-describe("BacklinksDisclosureView — grammar", () => {
-  it("uses singular grammar for exactly one backlink", () => {
+describe("BacklinksDisclosureView — cited-by label", () => {
+  it("renders the cited-by count for a single backlink", () => {
     render(
       <BacklinksDisclosureView
         backlinks={[makeLink("anthropic")]}
         related={[]}
       />
     );
-    expect(screen.getByText("1 article links here")).toBeDefined();
+    expect(screen.getByText("Cited by 1")).toBeDefined();
   });
 
-  it("uses plural grammar for multiple backlinks", () => {
+  it("renders the cited-by count for multiple backlinks", () => {
     render(
       <BacklinksDisclosureView
         backlinks={[
@@ -56,7 +56,7 @@ describe("BacklinksDisclosureView — grammar", () => {
         related={[]}
       />
     );
-    expect(screen.getByText("3 articles link here")).toBeDefined();
+    expect(screen.getByText("Cited by 3")).toBeDefined();
   });
 });
 
@@ -88,7 +88,7 @@ describe("BacklinksDisclosureView — list rendering", () => {
       />
     );
     expect(container.querySelectorAll("details")).toHaveLength(2);
-    expect(screen.getByText("2 articles link here")).toBeDefined();
+    expect(screen.getByText("Cited by 2")).toBeDefined();
     expect(screen.getByText("Related articles")).toBeDefined();
   });
 
