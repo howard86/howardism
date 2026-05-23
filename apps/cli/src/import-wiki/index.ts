@@ -8,14 +8,8 @@ import {
 } from "@howardism/article-contract";
 import { generateHeroImage } from "./codex.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
-import {
-  type ArticleGraph,
-  buildArticleGraph,
-  emitArticleGraph,
-} from "./pages/graph.ts";
+import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import { buildWikiChangelogPage } from "./pages/wiki-changelog.ts";
-import { buildWikiLog, emitWikiLog } from "./pages/wiki-log.ts";
-import { buildWikiSources, emitWikiSources } from "./pages/wiki-sources.ts";
 import {
   buildSlugTitleMap,
   discoverWikiSources,
@@ -135,67 +129,25 @@ async function main(): Promise<void> {
       summary,
       slugTitleMap: ctx.slugTitleMap,
     });
-    await emitGraph({ ctx, opts, summary });
-    await emitWikiLogManifest({ opts });
-    await emitWikiSourcesManifest({ ctx, opts });
+    const generatedOn = new Date().toISOString().slice(0, 10);
+    const logParsed = await tryParseWikiLog(join(opts.wikiPath, "log.md"));
+    const set = await buildManifests({
+      parsed: ctx.parsedAll,
+      logBody: logParsed?.body ?? null,
+      rawRoot: opts.rawPath,
+      generatedOn,
+    });
+    const { graphPath } = await writeManifests({
+      set,
+      graphOutputPath: opts.graphOutputPath,
+      logOutputPath: opts.logOutputPath,
+      sourcesOutputPath: opts.sourcesOutputPath,
+      dryRun: opts.dryRun,
+    });
+    summary.graphPath = graphPath;
   }
 
   printSummary(summary);
-}
-
-async function emitGraph(args: {
-  ctx: ImportContext;
-  opts: RunOptions;
-  summary: ImportSummary;
-}): Promise<void> {
-  const { ctx, opts, summary } = args;
-  const graph: ArticleGraph = buildArticleGraph({
-    parsed: ctx.parsedAll,
-    generatedOn: new Date().toISOString().slice(0, 10),
-    isArchived: (p) => p.frontmatter.archived === true,
-  });
-  const graphPath = await emitArticleGraph({
-    graph,
-    outputPath: opts.graphOutputPath,
-    dryRun: opts.dryRun,
-  });
-  summary.graphPath = graphPath;
-}
-
-async function emitWikiLogManifest(args: { opts: RunOptions }): Promise<void> {
-  const { opts } = args;
-  const logSource = join(opts.wikiPath, "log.md");
-  const logParsed = await tryParseWikiLog(logSource);
-  if (!logParsed) {
-    return;
-  }
-  const log = buildWikiLog({
-    body: logParsed.body,
-    generatedOn: new Date().toISOString().slice(0, 10),
-  });
-  await emitWikiLog({
-    log,
-    outputPath: opts.logOutputPath,
-    dryRun: opts.dryRun,
-  });
-}
-
-async function emitWikiSourcesManifest(args: {
-  ctx: ImportContext;
-  opts: RunOptions;
-}): Promise<void> {
-  const { ctx, opts } = args;
-  const live = ctx.parsedAll.filter((p) => p.frontmatter.archived !== true);
-  const manifest = await buildWikiSources({
-    parsed: live,
-    rawRoot: opts.rawPath,
-    generatedOn: new Date().toISOString().slice(0, 10),
-  });
-  await emitWikiSources({
-    manifest,
-    outputPath: opts.sourcesOutputPath,
-    dryRun: opts.dryRun,
-  });
 }
 
 interface ImportContext {
