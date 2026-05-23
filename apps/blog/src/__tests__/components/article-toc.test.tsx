@@ -14,6 +14,30 @@ const heading = (id: string, text: string): ArticleHeading => ({
   text,
 });
 
+describe("ArticleToc visibility threshold", () => {
+  it("renders nothing for zero headings", () => {
+    const { container } = render(<ArticleToc headings={[]} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("renders nothing for a single heading (no navigation value)", () => {
+    const { container } = render(
+      <ArticleToc headings={[heading("only", "Only Section")]} />
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("renders the nav once there are two or more headings", () => {
+    const { container } = render(
+      <ArticleToc
+        headings={[heading("intro", "Intro"), heading("details", "Details")]}
+      />
+    );
+    expect(container.querySelector("nav")).not.toBeNull();
+    expect(container.querySelectorAll("li")).toHaveLength(2);
+  });
+});
+
 describe("ArticleToc aria-current", () => {
   it("marks the active heading with aria-current=location and leaves the rest unmarked", () => {
     const { container } = render(
