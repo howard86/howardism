@@ -1,10 +1,10 @@
 import { cn } from "@howardism/ui/lib/utils";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 interface DataGridProps {
   className?: string;
   maxWidth?: number;
-  rows: [string, string][];
+  rows: [string, ReactNode][];
 }
 
 export function DataGrid({ rows, maxWidth = 360, className }: DataGridProps) {
