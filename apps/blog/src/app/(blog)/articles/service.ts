@@ -1,6 +1,5 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -14,7 +13,6 @@ import {
   type SourceRefSchema,
 } from "@howardism/article-contract/schema";
 import glob from "fast-glob";
-import GithubSlugger from "github-slugger";
 import type { StaticImageData } from "next/image";
 import { cache } from "react";
 import { z } from "zod";
@@ -477,68 +475,6 @@ export const getTopicLeadSource = cache(
       }
     }
     return best;
-  }
-);
-
-const FRONTMATTER_FENCE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
-const CODE_FENCE = /^(?:```|~~~)/;
-const HEADING_RE = /^(#{2,3})\s+(.+?)\s*$/;
-const TRAILING_AUTOLINK_HASH = /\s*#\s*$/;
-// `[visible text](url)` → `visible text`. rehype-slug only sees the rendered
-// link text, so slug the visible text too or the ids diverge from the DOM.
-const MD_LINK_RE = /\[([^\]]+)\]\([^)]*\)/g;
-// `code` → code. The rendered DOM shows only the inline-code text; without
-// this the raw backticks leak into the TOC label (the slug is unaffected —
-// github-slugger strips them either way).
-const MD_CODE_RE = /`([^`]*)`/g;
-const LINE_SPLIT = /\r?\n/;
-
-/**
- * Parse H2/H3 headings out of raw MDX. Skips frontmatter and the contents of
- * fenced code blocks so headings buried inside code samples never surface in
- * the TOC. Slugs are produced with `github-slugger`, matching what
- * `rehype-slug` writes onto the rendered DOM ids.
- */
-export const getHeadings = cache(
-  async (slug: string): Promise<ArticleHeading[]> => {
-    const filePath = join(ARTICLES_DIR, `${slug}.mdx`);
-    let raw: string;
-    try {
-      raw = await readFile(filePath, "utf8");
-    } catch {
-      return [];
-    }
-
-    const withoutFrontmatter = raw.replace(FRONTMATTER_FENCE, "");
-    const slugger = new GithubSlugger();
-    const headings: ArticleHeading[] = [];
-    let insideCodeFence = false;
-
-    for (const line of withoutFrontmatter.split(LINE_SPLIT)) {
-      if (CODE_FENCE.test(line)) {
-        insideCodeFence = !insideCodeFence;
-        continue;
-      }
-      if (insideCodeFence) {
-        continue;
-      }
-      const match = HEADING_RE.exec(line);
-      if (!match) {
-        continue;
-      }
-      const depth = match[1].length as 2 | 3;
-      const text = match[2]
-        .replace(MD_LINK_RE, "$1")
-        .replace(MD_CODE_RE, "$1")
-        .replace(TRAILING_AUTOLINK_HASH, "")
-        .trim();
-      if (!text) {
-        continue;
-      }
-      headings.push({ depth, id: slugger.slug(text), text });
-    }
-
-    return headings;
   }
 );
 
