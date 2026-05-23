@@ -1,9 +1,6 @@
-import { type RawDoc, titleFromSlug } from "./parse.ts";
+import type { SourceRef } from "@howardism/article-contract";
 
-export interface SourceRef {
-  title: string;
-  url?: string;
-}
+import { type RawDoc, titleFromSlug } from "./parse.ts";
 
 // Accepts both `[[target|label]]` and `[[target\|label]]` — the latter is the
 // Obsidian convention for embedding pipes inside markdown tables.

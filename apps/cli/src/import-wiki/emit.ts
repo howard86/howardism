@@ -1,48 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import type { ArticleContract } from "@howardism/article-contract";
 import YAML from "yaml";
-import type { WikiTopic } from "./topics.ts";
-import type { SourceRef } from "./transform.ts";
 
-export type WikiTag = "Concept" | "Entity" | "Essay" | "Index" | "Changelog";
-
-export const WIKI_TAGS: readonly WikiTag[] = [
-  "Concept",
-  "Entity",
-  "Essay",
-  "Index",
-  "Changelog",
-];
-
-export interface ArticleMeta {
-  date: string;
-  description: string;
-  readingTime: number;
-  /**
-   * Per-article audit trail of external raw source documents. Frontmatter
-   * is the structured source of truth; the rendered `## Sources` section
-   * in the body is derived from this list at import time. Omitted from
-   * frontmatter when empty.
-   */
-  sources?: SourceRef[];
-  tag: WikiTag;
-  /**
-   * The wiki note's real subject labels, passed through verbatim (lowercase
-   * kebab) from its frontmatter `tags`. NOTE: distinct from the singular
-   * `tag` above (the article "kind") and the single derived `topic` below
-   * (the accent/grouping bucket). Drives the tag chips and `/articles/tagged`
-   * routes. Omitted when the note has no tags.
-   */
-  tags?: string[];
-  title: string;
-  /**
-   * Curated subject bucket derived from the wiki note's `tags`. Drives the
-   * home page's topic plate stack. Omitted for non-topical pages (the wiki
-   * changelog). See `topics.ts`.
-   */
-  topic?: WikiTopic;
-}
+export type ArticleMeta = ArticleContract;
 
 export interface EmitArticleArgs {
   articlesDir: string;
