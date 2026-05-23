@@ -102,7 +102,7 @@ const nextConfig: NextConfig = {
     dirname(fileURLToPath(import.meta.url)),
     "../../"
   ),
-  transpilePackages: ["@howardism/ui"],
+  transpilePackages: ["@howardism/ui", "@howardism/article-contract"],
   images: {
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
