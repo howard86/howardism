@@ -538,6 +538,10 @@ const TRAILING_AUTOLINK_HASH = /\s*#\s*$/;
 // `[visible text](url)` → `visible text`. rehype-slug only sees the rendered
 // link text, so slug the visible text too or the ids diverge from the DOM.
 const MD_LINK_RE = /\[([^\]]+)\]\([^)]*\)/g;
+// `code` → code. The rendered DOM shows only the inline-code text; without
+// this the raw backticks leak into the TOC label (the slug is unaffected —
+// github-slugger strips them either way).
+const MD_CODE_RE = /`([^`]*)`/g;
 const LINE_SPLIT = /\r?\n/;
 
 /**
@@ -576,6 +580,7 @@ export const getHeadings = cache(
       const depth = match[1].length as 2 | 3;
       const text = match[2]
         .replace(MD_LINK_RE, "$1")
+        .replace(MD_CODE_RE, "$1")
         .replace(TRAILING_AUTOLINK_HASH, "")
         .trim();
       if (!text) {
