@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import YAML from "yaml";
-
+import type { WikiTopic } from "./topics.ts";
 import type { SourceRef } from "./transform.ts";
 
 export type WikiTag = "Concept" | "Entity" | "Essay" | "Index" | "Changelog";
@@ -27,7 +27,21 @@ export interface ArticleMeta {
    */
   sources?: SourceRef[];
   tag: WikiTag;
+  /**
+   * The wiki note's real subject labels, passed through verbatim (lowercase
+   * kebab) from its frontmatter `tags`. NOTE: distinct from the singular
+   * `tag` above (the article "kind") and the single derived `topic` below
+   * (the accent/grouping bucket). Drives the tag chips and `/articles/tagged`
+   * routes. Omitted when the note has no tags.
+   */
+  tags?: string[];
   title: string;
+  /**
+   * Curated subject bucket derived from the wiki note's `tags`. Drives the
+   * home page's topic plate stack. Omitted for non-topical pages (the wiki
+   * changelog). See `topics.ts`.
+   */
+  topic?: WikiTopic;
 }
 
 export interface EmitArticleArgs {
@@ -50,6 +64,8 @@ export function buildArticleSource(
     title: meta.title,
     description: meta.description,
     tag: meta.tag,
+    ...(meta.topic ? { topic: meta.topic } : {}),
+    ...(meta.tags && meta.tags.length > 0 ? { tags: meta.tags } : {}),
     readingTime: meta.readingTime,
     imageAlt,
     ...(meta.sources && meta.sources.length > 0

@@ -5,7 +5,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@howardism/ui/components/hover-card";
-import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
@@ -72,7 +71,7 @@ export function InternalLink({
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
-        className={cn("max-w-[320px] bg-background/90 p-3.5", className)}
+        className="max-w-[320px] bg-background/90 p-3.5"
         id={describedById}
         role="dialog"
         side="top"

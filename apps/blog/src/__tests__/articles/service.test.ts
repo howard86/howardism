@@ -92,6 +92,19 @@ describe("tag-aware service helpers", () => {
     }
   });
 
+  it("getVisibleArticles keeps ids and entities in sync (no archived leak)", async () => {
+    const visible = await getVisibleArticles();
+
+    expect(Object.keys(visible.entities).length).toBe(visible.ids.length);
+    for (const id of visible.ids) {
+      expect(visible.entities[id]).toBeDefined();
+    }
+    for (const key of Object.keys(visible.entities)) {
+      expect(visible.ids).toContain(key);
+      expect(visible.entities[key]?.meta.archived).not.toBe(true);
+    }
+  });
+
   it("getSlicedArticles keeps ids and entities in sync", async () => {
     const sliced = await getSlicedArticles(3);
     expect(sliced.ids.length).toBe(3);
@@ -152,6 +165,32 @@ describe("getHeadings inline-code handling", () => {
       expect(headings.length).toBeGreaterThan(0);
       for (const heading of headings) {
         expect(heading.text).not.toContain("`");
+      }
+    }
+  });
+});
+
+describe("getHeadings markdown-link handling", () => {
+  it("strips inline link syntax so ids match rehype-slug (incl. multiple links)", async () => {
+    // deliberative-alignment.mdx has `## How it compares to [AFT](...) and [MSM](...)`
+    const headings = await getHeadings("deliberative-alignment");
+    const compareHeading = headings.find((h) =>
+      h.text.startsWith("How it compares to")
+    );
+
+    expect(compareHeading).toBeDefined();
+    expect(compareHeading?.text).toBe("How it compares to AFT and MSM");
+    expect(compareHeading?.id).toBe("how-it-compares-to-aft-and-msm");
+  });
+
+  it("never leaks link syntax or URL paths into any heading text or id", async () => {
+    for (const slug of ["deliberative-alignment", "cot-monitorability"]) {
+      const headings = await getHeadings(slug);
+      expect(headings.length).toBeGreaterThan(0);
+      for (const heading of headings) {
+        expect(heading.text).not.toContain("](");
+        expect(heading.id).not.toContain("/");
+        expect(heading.id).not.toContain("articles");
       }
     }
   });
