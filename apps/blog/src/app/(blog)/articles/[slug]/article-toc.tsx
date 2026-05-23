@@ -37,7 +37,7 @@ export function ArticleToc({ headings }: ArticleTocProps) {
               className={cn(
                 "border-transparent border-l-2 pl-3 leading-[1.4] transition-colors",
                 heading.depth === 3 && "pl-6",
-                isActive && "border-brand text-foreground"
+                isActive && "border-[var(--article-accent)] text-foreground"
               )}
               key={heading.id}
             >

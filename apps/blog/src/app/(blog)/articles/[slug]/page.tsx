@@ -8,6 +8,7 @@ import {
   type ArticleMeta,
   getArticles,
   getHeadings,
+  getNavigableTagSet,
   getSiblings,
 } from "../service";
 import { ArticleLayout } from "./article-layout";
@@ -44,6 +45,9 @@ export async function generateMetadata({
     title: mod.meta.title,
     description: mod.meta.description,
     alternates: { canonical: url },
+    ...(mod.meta.archived === true && {
+      robots: { index: false, follow: false },
+    }),
     openGraph: {
       type: "article",
       url,
@@ -63,21 +67,28 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const [mod, { previousSlug, nextSlug, position }, headings] =
-    await Promise.all([
-      import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
-      getSiblings(slug),
-      getHeadings(slug),
-    ]);
+  const [
+    mod,
+    { previousSlug, previousTitle, nextSlug, nextTitle },
+    headings,
+    navigable,
+  ] = await Promise.all([
+    import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
+    getSiblings(slug),
+    getHeadings(slug),
+    getNavigableTagSet(),
+  ]);
 
   return (
     <ArticleLayout
       headings={headings}
       heroImage={mod.heroImage}
       meta={mod.meta}
+      navigable={navigable}
       nextSlug={nextSlug}
-      position={position}
+      nextTitle={nextTitle}
       previousSlug={previousSlug}
+      previousTitle={previousTitle}
       slug={slug}
     >
       <mod.default />
