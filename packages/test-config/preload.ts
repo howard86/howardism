@@ -82,6 +82,7 @@ plugin({
         meta === undefined ? "undefined" : JSON.stringify(meta);
       const contents = [
         `export const meta = ${metaLiteral};`,
+        "export const headings = [];",
         `export const heroImage = ${STUB_IMAGE};`,
         "export default function MDX() { return null; }",
       ].join("\n");
