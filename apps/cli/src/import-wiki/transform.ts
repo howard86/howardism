@@ -290,10 +290,24 @@ function consumeBacktickSpan(
   return { emit: line.slice(start, end), next: end };
 }
 
+/**
+ * A brace is already MDX-safe when an odd number of backslashes precede it —
+ * the source has escaped it itself (common in inline LaTeX like `\{...\}`).
+ * Escaping again would produce `\\{`, i.e. a literal backslash plus a live
+ * brace, which MDX parses as a (broken) expression.
+ */
+function isBraceAlreadyEscaped(line: string, i: number): boolean {
+  let backslashes = 0;
+  for (let j = i - 1; j >= 0 && line[j] === "\\"; j--) {
+    backslashes++;
+  }
+  return backslashes % 2 === 1;
+}
+
 function escapeProseChar(line: string, i: number): string {
   const ch = line[i];
   if (ch === "{" || ch === "}") {
-    return `\\${ch}`;
+    return isBraceAlreadyEscaped(line, i) ? ch : `\\${ch}`;
   }
   if (ch === "<") {
     return "&lt;";

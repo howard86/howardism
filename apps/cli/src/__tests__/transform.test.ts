@@ -232,6 +232,11 @@ describe("escapeMdxBody", () => {
       "Trailing ` is just prose with \\{braces\\}."
     );
   });
+
+  it("does not double-escape braces already escaped in the source (LaTeX)", () => {
+    const input = "high-dim GHZ-state existence for $N=d\\in\\{4,6,10\\}$.";
+    expect(escapeMdxBody(input)).toBe(input);
+  });
 });
 
 describe("stripDuplicateLeadingHeading", () => {
