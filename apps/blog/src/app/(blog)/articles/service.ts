@@ -3,6 +3,16 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+  WIKI_TAGS,
+  WIKI_TOPICS,
+  type WikiTag,
+  type WikiTopic,
+} from "@howardism/article-contract";
+import {
+  ArticleContractSchema,
+  type SourceRefSchema,
+} from "@howardism/article-contract/schema";
 import glob from "fast-glob";
 import GithubSlugger from "github-slugger";
 import type { StaticImageData } from "next/image";
@@ -13,6 +23,13 @@ import graphData from "@/data/article-graph.json";
 import wikiLogData from "@/data/wiki-log.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
 import { taggedHref } from "@/utils/tagged-href";
+
+export type ArticleTag = WikiTag;
+export type ArticleTopic = WikiTopic;
+export const ARTICLE_TAGS = WIKI_TAGS;
+export const ARTICLE_TOPICS = WIKI_TOPICS;
+
+export type SourceRef = z.infer<typeof SourceRefSchema>;
 
 export interface Normalise<T> {
   entities: Record<string, T | undefined>;
@@ -26,77 +43,10 @@ export interface ArticleEntity {
   slug: string;
 }
 
-/**
- * Mirror of `WIKI_TAGS` in `apps/cli/src/import-wiki/emit.ts`. Keep these
- * unions aligned — the wiki importer is the source of truth for which tags
- * can appear in graph-derived articles.
- */
-export type ArticleTag = "Concept" | "Entity" | "Essay" | "Index" | "Changelog";
-
-const ARTICLE_TAGS: readonly ArticleTag[] = [
-  "Concept",
-  "Entity",
-  "Essay",
-  "Index",
-  "Changelog",
-];
-
-/**
- * Mirror of `WIKI_TOPICS` in `apps/cli/src/import-wiki/topics.ts`. The importer
- * derives an article's `topic` from its wiki tags; the home page groups work
- * into these five subject buckets.
- */
-export type ArticleTopic =
-  | "interaction"
-  | "architecture"
-  | "harness"
-  | "alignment"
-  | "orgs";
-
-export const ARTICLE_TOPICS: readonly ArticleTopic[] = [
-  "interaction",
-  "architecture",
-  "harness",
-  "alignment",
-  "orgs",
-];
-
-const SourceRefSchema = z.object({
-  title: z.string(),
-  url: z.url().optional(),
-});
-
-export type SourceRef = z.infer<typeof SourceRefSchema>;
-
-const ArticleMetaSchema = z.object({
+const ArticleMetaSchema = ArticleContractSchema.extend({
   archived: z.boolean().optional(),
-  date: z.string(),
-  description: z.string(),
   dropCap: z.boolean().optional(),
   imageAlt: z.string(),
-  readingTime: z.number(),
-  /**
-   * Audit trail of external source documents the article was synthesised
-   * from. Set by the wiki importer from `raw/<slug>.md` frontmatter; the
-   * rendered `## Sources` block in the MDX body is derived from this list.
-   */
-  sources: z.array(SourceRefSchema).optional(),
-  tag: z.enum(ARTICLE_TAGS),
-  /**
-   * The wiki note's real subject labels (lowercase kebab), passed through by
-   * the importer. NOTE the deliberate naming proximity: singular `tag` above
-   * is the article "kind" (Concept/Entity/…); plural `tags` here are the
-   * free-form subjects that drive the chips and `/articles/tagged/[tag]`
-   * routes; `topic` below is the single derived accent/grouping bucket.
-   */
-  tags: z.array(z.string()).optional(),
-  title: z.string(),
-  /**
-   * Curated subject bucket derived by the wiki importer from the note's tags.
-   * Drives the home page's topic plate stack. Absent on non-topical pages
-   * (e.g. the wiki changelog).
-   */
-  topic: z.enum(ARTICLE_TOPICS).optional(),
 });
 
 export type ArticleMeta = z.infer<typeof ArticleMetaSchema>;

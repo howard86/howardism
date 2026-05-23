@@ -1,13 +1,13 @@
 import { access, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-import { generateHeroImage } from "./codex.ts";
 import {
-  type ArticleMeta,
-  emitArticle,
+  type SourceRef,
   WIKI_TAGS,
   type WikiTag,
-} from "./emit.ts";
+} from "@howardism/article-contract";
+import { generateHeroImage } from "./codex.ts";
+import { type ArticleMeta, emitArticle } from "./emit.ts";
 import {
   type ArticleGraph,
   buildArticleGraph,
@@ -40,7 +40,6 @@ import {
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
-  type SourceRef,
   stripDuplicateLeadingHeading,
 } from "./transform.ts";
 
