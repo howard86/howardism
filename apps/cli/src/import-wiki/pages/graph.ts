@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { ParsedWikiFile } from "../parse.ts";
-import { extractInternalSlugs } from "../transform.ts";
+import { extractInternalSlugs } from "../wikilink.ts";
 
 const RELATED_LIMIT = 5;
 
