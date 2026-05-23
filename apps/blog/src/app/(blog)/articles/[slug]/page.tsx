@@ -67,12 +67,7 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const [
-    mod,
-    { previousSlug, previousTitle, nextSlug, nextTitle },
-    headings,
-    navigable,
-  ] = await Promise.all([
+  const [mod, siblings, headings, navigable] = await Promise.all([
     import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
     getSiblings(slug),
     getHeadings(slug),
@@ -85,10 +80,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       heroImage={mod.heroImage}
       meta={mod.meta}
       navigable={navigable}
-      nextSlug={nextSlug}
-      nextTitle={nextTitle}
-      previousSlug={previousSlug}
-      previousTitle={previousTitle}
+      siblings={siblings}
       slug={slug}
     >
       <mod.default />

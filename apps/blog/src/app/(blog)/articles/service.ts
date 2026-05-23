@@ -64,6 +64,16 @@ export interface ArticleLink {
   slug: string;
 }
 
+/**
+ * Cross-reference links for an article: inbound citations (`backlinks`) and
+ * curated `related` reading. Both lists are visible-only and preserve the
+ * graph's recorded edge order; an unknown/unlinked slug yields empty arrays.
+ */
+export interface ArticleConnections {
+  backlinks: ArticleLink[];
+  related: ArticleLink[];
+}
+
 export interface ArticleHeading {
   depth: 2 | 3;
   id: string;
@@ -178,24 +188,13 @@ export const getSlicedArticles = cache(
   }
 );
 
-export const getBacklinks = cache(
-  async (slug: string): Promise<ArticleLink[]> => {
+export const getArticleConnections = cache(
+  async (slug: string): Promise<ArticleConnections> => {
     const visible = await getVisibleArticles();
-    return toArticleLinks(graph.backlinks[slug], visible);
-  }
-);
-
-export const getOutgoing = cache(
-  async (slug: string): Promise<ArticleLink[]> => {
-    const visible = await getVisibleArticles();
-    return toArticleLinks(graph.outgoing[slug], visible);
-  }
-);
-
-export const getRelated = cache(
-  async (slug: string): Promise<ArticleLink[]> => {
-    const visible = await getVisibleArticles();
-    return toArticleLinks(graph.related[slug], visible);
+    return {
+      backlinks: toArticleLinks(graph.backlinks[slug], visible),
+      related: toArticleLinks(graph.related[slug], visible),
+    };
   }
 );
 

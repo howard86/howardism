@@ -3,8 +3,8 @@ import { describe, expect, it } from "bun:test";
 import { ArticleRail } from "@/app/(blog)/articles/[slug]/article-rail";
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
 
-// A slug absent from the article graph: getBacklinks and getRelated both
-// resolve to empty arrays, so `headings` is the rail's only content source.
+// A slug absent from the article graph: getArticleConnections resolves to
+// empty arrays, so `headings` is the rail's only content source.
 const SLUG_WITHOUT_LINKS = "slug-absent-from-article-graph";
 
 const HEADING: ArticleHeading = { depth: 2, id: "intro", text: "Intro" };
