@@ -25,6 +25,10 @@ const withMDX = nextMDX({
     ],
     rehypePlugins: [
       ["rehype-slug", {}],
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "src/lib/rehype-mdx-headings.mjs"
+      ),
       [
         "rehype-autolink-headings",
         {
