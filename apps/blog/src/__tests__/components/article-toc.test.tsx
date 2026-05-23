@@ -37,3 +37,20 @@ describe("ArticleToc visibility threshold", () => {
     expect(container.querySelectorAll("li")).toHaveLength(2);
   });
 });
+
+describe("ArticleToc aria-current", () => {
+  it("marks the active heading with aria-current=location and leaves the rest unmarked", () => {
+    const { container } = render(
+      <ArticleToc
+        headings={[heading("intro", "Intro"), heading("details", "Details")]}
+      />
+    );
+
+    const anchors = container.querySelectorAll("a");
+    expect(anchors).toHaveLength(2);
+    // With no headings in the DOM, useScrollSpy keeps its default active id
+    // (the first section), so the first anchor is the active one.
+    expect(anchors[0]?.getAttribute("aria-current")).toBe("location");
+    expect(anchors[1]?.getAttribute("aria-current")).toBeNull();
+  });
+});
