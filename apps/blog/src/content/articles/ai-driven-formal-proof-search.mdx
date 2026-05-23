@@ -1,0 +1,84 @@
+---
+date: 2026-05-23
+title: AI-Driven Formal Proof Search
+description: LLM generates Lean, compiler verifies every step → eliminates
+  hallucination; DeepMind resolves 9/353 Erdős + 44/492 OEIS open problems;
+  verification as a filter for human review
+tag: Concept
+topic: harness
+tags:
+  - ai-for-mathematics
+  - formal-methods
+  - agent-engineering
+readingTime: 6
+imageAlt: Illustration for AI-Driven Formal Proof Search
+sources:
+  - title: Advancing Mathematics Research with AI-Driven Formal Proof Search
+    url: https://arxiv.org/html/2605.22763v1
+---
+export { default as heroImage } from "../assets/ai-driven-formal-proof-search.png";
+
+## Sources
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
+
+## Summary
+
+The paradigm — demonstrated at research scale by Google DeepMind's [AlphaProof Nexus](/articles/alphaproof-nexus) (arXiv 2605.22763) — of using LLMs to generate proofs in a **formal language ([Lean](/articles/lean))** whose compiler mechanically verifies every logical step, then searching for a complete proof in a generate-and-verify loop. This converts the LLM's biggest liability for mathematics — hallucinated/subtly-wrong natural-language proofs that need expensive expert review — into a checkable artifact: a proof is correct iff Lean accepts it with no `sorry` and no disallowed axioms. The paper reports the **first large-scale evaluation on open research problems**, autonomously resolving 9/353 attempted Erdős problems and 44/492 OEIS conjectures, among other results.
+
+## Why formal, not natural language
+
+LLM natural-language proofs "contain subtle logical errors or hallucinations," and mistakes in unreviewed intermediate steps cascade, capping the complexity of what you can delegate. Formal languages fix this: in [Lean](/articles/lean), "definitions, theorems, and proofs are all mechanically verified code." The key reframing in the paper's discussion:
+
+> Formal verification can serve as a **filter for determining which proofs merit human review.**
+
+So AI-driven formal proof search doesn't replace mathematicians — it triages. Experts review only what compiled, and within that, focus on the structure rather than re-verifying every line. This is [Karpathy's verifiability thesis](/articles/verifiability-thesis) in its purest form: math+Lean is the maximally-verifiable domain, the compiler *is* the reward signal.
+
+## The proof-sketch interface
+
+The unit of work is a **proof sketch**: a Lean file with the target theorem, its dependencies (definitions, imports), and `sorry` in place of the proof. User-provided markers bound what the agent may edit — `EVOLVE-BLOCK` (introduce helper lemmas/definitions/steps) and `EVOLVE-VALUE` (change parameter expressions). The agent succeeds when it emits a `sorry`-free proof that **SafeVerify** accepts (compiles + no axiom injection like `sorryAx`). Optionally the mathematician supplies natural-language context and domain knowledge encoded in Lean. (See [AlphaProof Nexus](/articles/alphaproof-nexus) for the agent architectures that drive this loop.)
+
+## Compiler feedback as grounding
+
+The engine is the tight loop between generation and verification: the subagent edits via a search-replace tool, Lean compiles after each edit, and **Lean's error message directs the next turn.** The paper attributes the surprising strength of even its *basic* agent partly to "the power of compiler feedback in grounding LLM reasoning" ([Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)). The verifier isn't just a final gate — it's a per-step teacher that keeps the model's reasoning anchored to ground truth.
+
+## Results (open research problems)
+
+- **Erdős problems:** 9/353 from the Formal Conjectures repo, including questions open since 1970/1996 and two open ~56 years; logged on **Terence Tao's wiki** of AI contributions to Erdős problems. Techniques span CRT + 3-AP-avoiding-set constructions (#12), inductive thinning exploiting Diophantine approximation $3^m\approx 4^k$ (#125), etc.
+- **OEIS:** 44/492 open conjectures (with "test lemmas" verifying the first few sequence terms as a misformalization guard).
+- **Algebraic geometry:** a ~15-year-open question on log-concavity of pure $O$-sequences (codim 3, type 2).
+- **Convex optimization:** an exact $\mathcal\{O\}(1/t)$ rate for Anchored GDA — discovering a **novel parameter schedule** by marking the learning schedule as an `EVOLVE-VALUE` (proof and schedule searched jointly).
+- **Additive combinatorics:** helped resolve #57 from Ben Green's list (formalized a candidate counterexample, agent proved it disproves the conjecture).
+- **Quantum optics (with Mario Krenn):** monochromatic quantum-graph / high-dim GHZ-state existence for $N=d\in\{4,6,10\}$.
+- **Graph theory:** a bipartite variant of the reconstruction conjecture; a 1996 conjecture from the **Graffiti** auto-conjecturing system (pointing toward an AI-conjecture→AI-proof loop).
+
+## Misformalization detection — an unexpected payoff
+
+Because the agent reasons against the *formal* statement, it surfaces errors in how problems were formalized. Examples: it found proofs by reading "density" as *natural density*, prompting corrections to "lower density" (#125) and "upper density" (#741(i)); it identified misformalizations in the literature. **Failure modes** also justify the formality: top sketches sometimes offloaded the core difficulty into a single `sorry` in a helper lemma restating the target, or cited "established" lemmas that were hallucinations — both caught precisely *because* end-to-end formal verification refuses to accept them.
+
+## Deepening human understanding
+
+The paper's stance: "the future of mathematics lies in human–machine partnership." Collaborators found that **proof attempts enhanced their understanding even when the agent failed** — formal sketches let experts focus on the unresolved subgoals rather than re-verifying the whole argument. This is [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) realized: the AI does the search; the mathematician's understanding is sharpened, not bypassed.
+
+## Connections
+
+- [AlphaProof Nexus](/articles/alphaproof-nexus) — the framework and agent architectures that implement the paradigm
+- [Lean](/articles/lean) — the proof assistant whose compiler provides the verification/grounding
+- [The Verifiability Thesis](/articles/verifiability-thesis) — math+Lean is the maximally-verifiable domain; the compiler is the reward signal
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — the headline finding: a simple loop matched the bespoke system as LLMs improved
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — the full-featured agent's population/Elo search mechanism
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — the basic prover subagent is literally a "Ralph loop" (huntley2025ralph)
+- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — formal sketches deepen mathematician understanding even on unsolved problems
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — solve-rate-vs-cost Pareto curves across agents (A/B/C/D) are the same cost/quality framing AgentOpt formalizes
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — smaller Gemini models solved *nothing*; capability is sharply scale-gated here (a hard threshold, not a smooth curve)
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — hallucinated "literature" lemmas are jaggedness; formal verification is the filter that catches it
+
+## Open Questions
+
+- Successes cluster where [Lean](/articles/lean)'s mathlib is mature and problems decompose into tractable subgoals (combinatorics, convex optimization, number theory). What expands the frontier to problems needing *new theory*?
+- The agents inherit their LLMs' biases and show high search variance. How do you characterize and push the boundary of what's reachable?
+- The Graffiti result hints at closing the loop between AI *conjecturing* and AI *proving*. What does an end-to-end conjecture→formalize→prove pipeline look like?
+
+## Sources
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
