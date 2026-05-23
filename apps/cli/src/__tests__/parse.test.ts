@@ -13,8 +13,8 @@ import {
   parseWikiFile,
   resolveDate,
   stripWikilinksToText,
-  titleFromSlug,
 } from "../import-wiki/parse.ts";
+import { titleFromSlug } from "../import-wiki/wikilink.ts";
 
 async function tempFile(content: string, filename: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "wiki-test-"));

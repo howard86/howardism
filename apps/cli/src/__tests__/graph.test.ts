@@ -7,7 +7,7 @@ import {
   emitArticleGraph,
 } from "../import-wiki/pages/graph.ts";
 import type { ParsedWikiFile } from "../import-wiki/parse.ts";
-import { extractInternalSlugs } from "../import-wiki/transform.ts";
+import { extractInternalSlugs } from "../import-wiki/wikilink.ts";
 
 function makeParsed(
   slug: string,

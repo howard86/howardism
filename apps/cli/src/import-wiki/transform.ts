@@ -1,10 +1,15 @@
 import type { SourceRef } from "@howardism/article-contract";
 
-import { type RawDoc, titleFromSlug } from "./parse.ts";
+import type { RawDoc } from "./parse.ts";
+import {
+  humanize,
+  rewriteToMarkdown,
+  titleFromSlug,
+  type WikiResolver,
+} from "./wikilink.ts";
 
 // Accepts both `[[target|label]]` and `[[target\|label]]` — the latter is the
 // Obsidian convention for embedding pipes inside markdown tables.
-const WIKI_LINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/g;
 const FENCE_RE = /^(\s*)(```+|~~~+)/;
 const WORD_RE = /\b\w+\b/g;
 const LEADING_H1_RE = /^#\s+.+\n+/;
@@ -14,7 +19,6 @@ const FENCE_START_RE = /^(```+|~~~+)/;
 const LEADING_BLANKS_RE = /^\s*\n+/;
 const LEADING_HASH_RE = /^#\s+/;
 const WHITESPACE_RE = /\s+/g;
-const HUMANIZE_PUNCT_RE = /[._-]+/g;
 // Obsidian convention: a leading `_Entity._` (or `*Entity.*`) marker on the
 // first prose line signals that the article documents a named real-world
 // entity rather than an abstract concept. Both delimiter styles are valid
@@ -83,38 +87,6 @@ export function detectEntityPrefix(description: string): EntityPrefixResult {
   };
 }
 
-/**
- * Extracts the bare slugs of all in-vault wikilinks from a wiki body in
- * source order. Mirrors the resolution rules in `rewriteWikilinks`:
- *
- * - `raw/...` references are external sources, not vault entries → skipped.
- * - `wiki/<folder>/<slug>` paths are stripped down to the trailing slug.
- * - `<slug>#anchor` is reduced to the bare slug; the anchor is irrelevant
- *   for graph adjacency.
- * - Slugs are lowercased to match `slugTitleMap` keys.
- *
- * Duplicates are preserved (caller may need to count) and unresolved targets
- * are returned alongside live ones — the graph builder filters them against
- * the set of live slugs.
- */
-export function extractInternalSlugs(body: string): string[] {
-  const slugs: string[] = [];
-  for (const match of body.matchAll(WIKI_LINK_RE)) {
-    const target = match[1];
-    if (target.startsWith("raw/")) {
-      continue;
-    }
-    const bareTarget = target.split("/").pop();
-    if (!bareTarget) {
-      continue;
-    }
-    const hashIdx = bareTarget.indexOf("#");
-    const rawSlug = hashIdx >= 0 ? bareTarget.slice(0, hashIdx) : bareTarget;
-    slugs.push(rawSlug.toLowerCase());
-  }
-  return slugs;
-}
-
 export interface WikilinkTransformResult {
   body: string;
   hasInternalLink: boolean;
@@ -143,58 +115,29 @@ export function rewriteWikilinks(
   let hasInternalLink = false;
   const unresolved: string[] = [];
 
-  const rewritten = body.replace(WIKI_LINK_RE, (_match, target, label) => {
-    const targetPath = String(target);
-    const linkLabel = label ? String(label).trim() : null;
-
-    if (targetPath.startsWith("raw/")) {
-      return resolveRawWikilink({
-        targetPath,
-        linkLabel,
-        rawIndex,
-      });
+  const resolve: WikiResolver = ({ target, label }) => {
+    if (target.kind === "raw") {
+      const rawDoc = rawIndex?.get(target.rawSlug);
+      const display = label ?? rawDoc?.title ?? humanize(target.rawSlug);
+      return rawDoc?.url ? `[${display}](${rawDoc.url})` : display;
     }
 
-    const bareTarget = targetPath.split("/").pop();
-    if (!bareTarget) {
-      return linkLabel ?? targetPath;
-    }
-
-    const hashIdx = bareTarget.indexOf("#");
-    const rawSlug = hashIdx >= 0 ? bareTarget.slice(0, hashIdx) : bareTarget;
-    const anchor =
-      hashIdx >= 0
-        ? `#${encodeURIComponent(bareTarget.slice(hashIdx + 1))}`
-        : "";
-    const slug = rawSlug.toLowerCase();
-
-    const title = slugTitleMap.get(slug);
+    const anchor = target.anchor ? `#${encodeURIComponent(target.anchor)}` : "";
+    const title = slugTitleMap.get(target.slug);
     if (title) {
       hasInternalLink = true;
-      const display = linkLabel ?? title;
-      return `[${display}](/articles/${slug}${anchor})`;
+      return `[${label ?? title}](/articles/${target.slug}${anchor})`;
     }
 
-    unresolved.push(slug);
-    return linkLabel ?? titleFromSlug(slug);
-  });
+    unresolved.push(target.slug);
+    return label ?? titleFromSlug(target.slug);
+  };
 
-  return { body: rewritten, hasInternalLink, unresolved };
-}
-
-function resolveRawWikilink(args: {
-  linkLabel: string | null;
-  rawIndex: Map<string, RawDoc> | undefined;
-  targetPath: string;
-}): string {
-  const { targetPath, linkLabel, rawIndex } = args;
-  const bareSlug = targetPath.slice("raw/".length);
-  const rawDoc = rawIndex?.get(bareSlug);
-  const display = linkLabel ?? rawDoc?.title ?? humanize(bareSlug);
-  if (rawDoc?.url) {
-    return `[${display}](${rawDoc.url})`;
-  }
-  return display;
+  return {
+    body: rewriteToMarkdown(body, resolve).body,
+    hasInternalLink,
+    unresolved,
+  };
 }
 
 /**
@@ -416,12 +359,4 @@ function updateFenceState(line: string, state: FenceState): boolean {
 
 function shouldSkipParagraphLine(line: string): boolean {
   return line.length === 0 || FIRST_PARAGRAPH_SKIP_RE.test(line);
-}
-
-function humanize(raw: string): string {
-  const decoded = raw
-    .replace(HUMANIZE_PUNCT_RE, " ")
-    .replace(WHITESPACE_RE, " ")
-    .trim();
-  return decoded.length > 0 ? decoded : raw;
 }
