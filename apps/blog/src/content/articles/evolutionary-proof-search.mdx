@@ -1,0 +1,73 @@
+---
+date: 2026-05-23
+title: Evolutionary Proof Search
+description: "The full-featured agent's mechanism: population DB of proof
+  sketches, Elo via Plackett–Luce/Gibbs, P-UCB selection, LLM-critic fitness for
+  binary proof eval"
+tag: Concept
+topic: harness
+tags:
+  - ai-for-mathematics
+  - agent-engineering
+  - search
+readingTime: 5
+imageAlt: Illustration for Evolutionary Proof Search
+sources:
+  - title: Advancing Mathematics Research with AI-Driven Formal Proof Search
+    url: https://arxiv.org/html/2605.22763v1
+---
+export { default as heroImage } from "../assets/evolutionary-proof-search.png";
+
+## Sources
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
+
+## Summary
+
+The mechanism inside DeepMind's full-featured [AlphaProof Nexus](/articles/alphaproof-nexus) agent (agent D), inspired by AlphaEvolve: prover subagents **sample from and contribute to a shared population database of proof sketches**, with an evolutionary loop driving the search. The hard problem it solves: evolutionary algorithms assume a *graduated* fitness landscape, but formal proof evaluation is *binary* (compiles / doesn't, complete / has `sorry`). The fix is to **rate incomplete sketches by promise** using LLM critics, turning a binary signal into a continuous fitness that an evolutionary search can climb.
+
+## The binary-fitness problem
+
+A proof either type-checks `sorry`-free or it doesn't — there's no smooth gradient telling you a half-finished sketch is "closer." Evolutionary search needs such a gradient. AlphaProof Nexus bridges the gap by **decoupling generation from fitness assignment**: generate sketches freely, then assign fitness via *relative* LLM review of how promising each (often incomplete) sketch looks — its strategy clarity, the plausibility of remaining goals, and mathematical novelty.
+
+## Elo from LLM matches (Plackett–Luce + Gibbs)
+
+- Cheaper **rater agents (Gemini 3.0 Flash)** continuously sample sets of $P=7$ sketches and produce a relative ranking ($P=7$ balances information-per-call against context size).
+- Outcomes are modeled with a **Plackett–Luce** distribution (each sketch has a latent strength $\lambda_s$), with a hierarchical Gamma prior for heavier tails while staying conjugate.
+- Posterior strengths are inferred by **Gibbs sampling** ($I=1000$ samples, $B=200$ burn-in), converted to Elo: $\mathrm\{Elo\}_s = 1200 + 400\log_\{10\}\lambda_s^\{\text\{mean\}\}$.
+- Sketch *selection* for matches uses **Thompson sampling** over the posterior; ties (raters sometimes output them) are broken by sampling from the model.
+
+## Evolutionary selection (P-UCB)
+
+Parent sketches for new episodes are chosen with a **Predictor + Upper-Confidence-Bound (P-UCB)** rule: filter to the top-64 by Elo, normalize to a base score $q\in[0,1]$, then
+$$\text\{score\}=q+c\frac\{\sqrt\{\sum V_i\}\}\{v+1\}$$
+($v$ = times this sketch was sampled, $c=0.2$ exploration constant). This exploits elite sketches while the UCB bonus explores newly-promoted ones, "preventing the search from collapsing into a single, suboptimal lineage." Diversity is further injected by stochastically prompting "decompose unsolved goals," "combine prior attempts," or "try a completely new approach" (the AlphaEvolve move).
+
+## Efficiency machinery
+
+- **Global goal cache:** every generated subgoal gets a deep hash of its exact Lean state (`goal_id`); if any prior sketch across the population already proved/disproved that state, the result (and its tactic/value) is retrieved instead of re-dispatched to AlphaProof. Novel subgoals are batched to AlphaProof over non-blocking RPCs.
+- **Budgets:** each episode capped at 5 AlphaProof queries and 90 search-replace edits; AlphaProof itself bounded (~400 simulations, hard RPC timeout) to avoid stalling on intractable/hallucinated goals.
+- **Async controller:** an asyncio event loop fans work across generation, validation, and Elo-rating threads; validation runs in Docker sandboxes (Lean v4.27 + Pantograph) and ends in **SafeVerify** (compiles, no `sorryAx`/axiom injection).
+
+## Where it sits
+
+Agent D combines this evolutionary search *with* the bespoke **AlphaProof** RL prover as a tool ([AlphaProof Nexus](/articles/alphaproof-nexus)). It's the most elaborate point on the A→D spectrum — and the one whose advantage [the basic agent erased on most problems](/articles/agentic-loops-overtake-bespoke-systems), retaining a 2×–5× cost edge only on the very hardest (Erdős #125, #138). So evolutionary proof search is best understood as **the receding-frontier specialized scaffolding**: it buys efficiency on the hardest problems today, with a diminishing margin as LLMs improve.
+
+## Connections
+
+- [AlphaProof Nexus](/articles/alphaproof-nexus) — the full-featured agent (D) this mechanism powers
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the paradigm; this is its most elaborate search strategy
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — the finding that the *basic* loop matched this machinery on most problems
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — population/budget/model-per-role (Flash raters, Pro provers) is the AgentOpt "combo" lever made concrete
+- [The Bitter Lesson](/articles/the-bitter-lesson) — Elo/P-UCB/evolution is exactly the hand-engineered structure the bitter lesson predicts general methods will outrun
+- [Lean](/articles/lean) — the verifier whose binary signal forced the LLM-critic fitness workaround
+- [The Verifiability Thesis](/articles/verifiability-thesis) — rating *incomplete* sketches extends a verifiable domain's signal into the unverified-yet region
+
+## Open Questions
+
+- The LLM-critic fitness is itself an unverified heuristic atop a verified substrate. How often does the Elo ranking mislead the search vs. the cost of computing it?
+- Hyperparameters ($c=0.2$, top-64, $P=7$) were "chosen empirically." How sensitive is the result to them, and do they transfer across mathematical domains?
+
+## Sources
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)

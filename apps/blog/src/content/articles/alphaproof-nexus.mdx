@@ -1,0 +1,74 @@
+---
+date: 2026-05-23
+title: AlphaProof Nexus
+description: DeepMind framework for LLM-aided Lean proof generation; four agents
+  (basic→full-featured); proof-sketch + EVOLVE-BLOCK interface; SafeVerify
+tag: Entity
+topic: orgs
+tags:
+  - entity
+  - system
+  - google-deepmind
+  - ai-for-mathematics
+readingTime: 5
+imageAlt: Illustration for AlphaProof Nexus
+sources:
+  - title: Advancing Mathematics Research with AI-Driven Formal Proof Search
+    url: https://arxiv.org/html/2605.22763v1
+---
+export { default as heroImage } from "../assets/alphaproof-nexus.png";
+
+## Sources
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
+
+## Summary
+
+[Google DeepMind](/articles/google-deepmind)'s framework for **LLM-aided formal proof generation** in [Lean](/articles/lean) (arXiv 2605.22763). Agents query a frontier LLM (Gemini 3.1 Pro) and the Lean compiler to turn a *proof sketch* (a theorem with `sorry` for its proof) into a verified, `sorry`-free proof. It spans a spectrum of four agent designs from a bare loop to an evolutionary system, and is the instrument behind the [first large-scale evaluation](/articles/ai-driven-formal-proof-search) of formal proof search on **open research problems** — 9/353 Erdős problems, 44/492 OEIS conjectures, and results in optimization, algebraic geometry, additive combinatorics, graph theory, and quantum optics. Lean proofs are open-sourced at `github.com/google-deepmind/alphaproof-nexus-results`.
+
+## The four agents (A → D)
+
+| Agent | Design | Notes |
+|---|---|---|
+| **(A) Basic** | Independent prover subagents, no shared state; each is a "Ralph loop" of episodes | Surprisingly matched (D) on all 9 Erdős solves — see [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) |
+| **(B) Basic + AlphaProof** | (A) plus the AlphaProof RL prover as a callable tool | More efficient than (A) on the harder problems |
+| **(C) Basic + evolution** | (A) plus the population/Elo evolutionary search | — |
+| **(D) Full-featured** | Evolution **and** AlphaProof together | Used for the open-problem exploration; [Evolutionary Proof Search](/articles/evolutionary-proof-search) details its machinery |
+
+A prover subagent runs a multi-turn Gemini 3.1 Pro session with a `search_replace` tool; after each edit the Lean compiler returns feedback that steers the next turn; on episode end the sketch is validated by **SafeVerify** (compiles, no `sorryAx`/axiom injection), and if `sorry` remains the agent writes a lessons-learned comment and continues. $N$ subagents run in parallel; all stop when one finds a proof.
+
+## Input/output: proof sketches
+
+Input is a Lean file — target theorem with `sorry`, plus needed definitions and imports — optionally with natural-language context and domain knowledge encoded in Lean. Editable regions are delimited by **`EVOLVE-BLOCK`** (helper lemmas/definitions/proof steps) and **`EVOLVE-VALUE`** (parameter expressions). The EVOLVE-VALUE mechanism enabled a genuine *discovery*: marking an optimization algorithm's learning schedule as a value let agent D search the schedule and the proof jointly, yielding a novel parameter choice with a stronger convergence guarantee.
+
+## AlphaProof (the tool)
+
+AlphaProof is a *separate, prior* DeepMind system — an olympiad-level Lean theorem-prover trained with reinforcement learning (the system behind DeepMind's IMO results). Within Nexus it's used as a **focused proof tool**: given a subgoal it returns a proof, a disproof, or failure. It has a Test-Time RL mode but here runs in cheaper low-compute tree-search (~400 simulations, ~27.5 TPU-hours ≈ $60/problem). Notably, **AlphaProof in standalone tree-search mode solved none** of the evaluated problems — its value is as a subgoal-closer inside the LLM-driven loop, not as a soloist.
+
+## Models and cost
+
+Gemini 3.1 Pro for the multi-turn prover; the cheaper Gemini 3.0 Flash for rater agents. Per-problem inference cost is "a few hundred dollars" with high variance; basic-agent versions on smaller models (Gemini 3.0 Flash, 3.1 Flash-Lite) solved nothing — capability is sharply scale-gated ([Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)). Reported costs exclude AlphaProof's ~$60 and the considerable cost of *finding* tractable problems across all 353.
+
+## Significance
+
+The system grounds an LLM's mathematical reasoning in a compiler, converting hallucination-prone natural-language proofs into checkable artifacts ([AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)) and demonstrating that, as LLMs improve, **simple agentic loops increasingly rival bespoke trained systems** ([Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)). Solved Erdős problems were logged on Terence Tao's wiki of AI contributions.
+
+## Connections
+
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the paradigm Nexus implements
+- [Lean](/articles/lean) — the proof assistant / verifier it drives
+- [Google DeepMind](/articles/google-deepmind) — the lab behind it
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — the full-featured agent (D)'s population/Elo mechanism
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — its own basic agent (A) matched the full system on most problems
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — the basic prover subagent is a "Ralph loop" (huntley2025ralph)
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — the A/B/C/D cost-vs-solve-rate Pareto study is AgentOpt-style combo optimization
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the design embodies "automate what you can verify"
+
+## Open Questions
+
+- The framework's reach is gated by [Lean](/articles/lean)'s mathlib maturity. What's the path to domains needing new theory rather than subgoal decomposition?
+- AlphaProof adds little as a soloist but helps as a tool. As the prover LLM strengthens, does the AlphaProof tool become redundant entirely?
+
+## Sources
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
