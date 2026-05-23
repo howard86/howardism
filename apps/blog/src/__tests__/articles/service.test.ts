@@ -3,6 +3,7 @@ import {
   type ArticleTag,
   getArticlesByTag,
   getBacklinks,
+  getHeadings,
   getOutgoing,
   getRelated,
   getSlicedArticles,
@@ -135,6 +136,32 @@ describe("tag-aware service helpers", () => {
       const tagged: ArticleTag = tag;
       const articles = await getArticlesByTag(tagged);
       expect(counts[tagged]).toBe(articles.length);
+    }
+  });
+});
+
+describe("getHeadings markdown-link handling", () => {
+  it("strips inline link syntax so ids match rehype-slug (incl. multiple links)", async () => {
+    // deliberative-alignment.mdx has `## How it compares to [AFT](...) and [MSM](...)`
+    const headings = await getHeadings("deliberative-alignment");
+    const compareHeading = headings.find((h) =>
+      h.text.startsWith("How it compares to")
+    );
+
+    expect(compareHeading).toBeDefined();
+    expect(compareHeading?.text).toBe("How it compares to AFT and MSM");
+    expect(compareHeading?.id).toBe("how-it-compares-to-aft-and-msm");
+  });
+
+  it("never leaks link syntax or URL paths into any heading text or id", async () => {
+    for (const slug of ["deliberative-alignment", "cot-monitorability"]) {
+      const headings = await getHeadings(slug);
+      expect(headings.length).toBeGreaterThan(0);
+      for (const heading of headings) {
+        expect(heading.text).not.toContain("](");
+        expect(heading.id).not.toContain("/");
+        expect(heading.id).not.toContain("articles");
+      }
     }
   });
 });

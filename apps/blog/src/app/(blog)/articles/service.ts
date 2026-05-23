@@ -535,6 +535,9 @@ const FRONTMATTER_FENCE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
 const CODE_FENCE = /^(?:```|~~~)/;
 const HEADING_RE = /^(#{2,3})\s+(.+?)\s*$/;
 const TRAILING_AUTOLINK_HASH = /\s*#\s*$/;
+// `[visible text](url)` → `visible text`. rehype-slug only sees the rendered
+// link text, so slug the visible text too or the ids diverge from the DOM.
+const MD_LINK_RE = /\[([^\]]+)\]\([^)]*\)/g;
 const LINE_SPLIT = /\r?\n/;
 
 /**
@@ -571,7 +574,10 @@ export const getHeadings = cache(
         continue;
       }
       const depth = match[1].length as 2 | 3;
-      const text = match[2].replace(TRAILING_AUTOLINK_HASH, "").trim();
+      const text = match[2]
+        .replace(MD_LINK_RE, "$1")
+        .replace(TRAILING_AUTOLINK_HASH, "")
+        .trim();
       if (!text) {
         continue;
       }
