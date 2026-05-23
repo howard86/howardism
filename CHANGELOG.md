@@ -1,3 +1,9 @@
+# [v2.3.5](https://github.com/howard86/howardism/compare/v2.3.4...v2.3.5) (2026-05-23)
+
+## 🐛 Bug Fixes
+- [`29763ff`](https://github.com/howard86/howardism/commit/29763ff)  fix(blog): close useScrollSpy TOC dead zone at tall viewports (#772) (Issues: [`#772`](https://github.com/howard86/howardism/issues/772))
+- [`06a9084`](https://github.com/howard86/howardism/commit/06a9084)  fix(blog): strip markdown link syntax from getHeadings slugs (#773) (Issues: [`#773`](https://github.com/howard86/howardism/issues/773))
+
 # [v2.3.4](https://github.com/howard86/howardism/compare/v2.3.3...v2.3.4) (2026-05-23)
 
 ## 🐛 Bug Fixes
