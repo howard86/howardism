@@ -7,24 +7,11 @@
  * that is *about* something technical still lands in its technical bucket even
  * when it also carries a categorical `entity`/`org` tag.
  *
- * This is the source of truth for the topic axis — the importer emits the
- * derived `topic` into each article's MDX frontmatter, and the blog mirrors the
- * `WikiTopic` union in `apps/blog/src/app/(blog)/articles/service.ts`.
+ * The `@howardism/article-contract` package is the source of truth for the
+ * `WikiTopic` union and `WIKI_TOPICS` array. This file owns only the
+ * derivation logic that maps wiki tags → topics.
  */
-export type WikiTopic =
-  | "interaction"
-  | "architecture"
-  | "harness"
-  | "alignment"
-  | "orgs";
-
-export const WIKI_TOPICS: readonly WikiTopic[] = [
-  "interaction",
-  "architecture",
-  "harness",
-  "alignment",
-  "orgs",
-];
+import { WIKI_TOPICS, type WikiTopic } from "@howardism/article-contract";
 
 /**
  * Tie-break order (earlier wins). The categorical `orgs` bucket is last so an
