@@ -1,3 +1,8 @@
+# [v2.3.8](https://github.com/howard86/howardism/compare/v2.3.7...v2.3.8) (2026-05-23)
+
+## 🐛 Bug Fixes
+- [`365ea17`](https://github.com/howard86/howardism/commit/365ea17)  fix(cli): stop double-escaping LaTeX braces in MDX import
+
 # [v2.3.7](https://github.com/howard86/howardism/compare/v2.3.6...v2.3.7) (2026-05-23)
 
 ## 🐛 Bug Fixes
