@@ -140,6 +140,36 @@ describe("tag-aware service helpers", () => {
   });
 });
 
+describe("getHeadings inline-code handling", () => {
+  it("strips backtick code spans from the displayed heading text", async () => {
+    // interactivity-benchmarks.mdx has
+    // `## Headline results (`TML-Interaction-Small`, May 2026)`
+    const headings = await getHeadings("interactivity-benchmarks");
+    const headline = headings.find((h) =>
+      h.text.startsWith("Headline results")
+    );
+
+    expect(headline).toBeDefined();
+    expect(headline?.text).toBe(
+      "Headline results (TML-Interaction-Small, May 2026)"
+    );
+    // Slug is unchanged — github-slugger strips backticks regardless.
+    expect(headline?.id).toBe(
+      "headline-results-tml-interaction-small-may-2026"
+    );
+  });
+
+  it("never leaves backtick characters in any heading text", async () => {
+    for (const slug of ["interactivity-benchmarks", "agent-loop-pattern"]) {
+      const headings = await getHeadings(slug);
+      expect(headings.length).toBeGreaterThan(0);
+      for (const heading of headings) {
+        expect(heading.text).not.toContain("`");
+      }
+    }
+  });
+});
+
 describe("getHeadings markdown-link handling", () => {
   it("strips inline link syntax so ids match rehype-slug (incl. multiple links)", async () => {
     // deliberative-alignment.mdx has `## How it compares to [AFT](...) and [MSM](...)`
