@@ -1,3 +1,8 @@
+# [v2.3.7](https://github.com/howard86/howardism/compare/v2.3.6...v2.3.7) (2026-05-23)
+
+## 🐛 Bug Fixes
+- [`a89fc62`](https://github.com/howard86/howardism/commit/a89fc62)  fix(blog): hide ArticleToc for single-heading articles (#775) (Issues: [`#775`](https://github.com/howard86/howardism/issues/775))
+
 # [v2.3.6](https://github.com/howard86/howardism/compare/v2.3.5...v2.3.6) (2026-05-23)
 
 ## 🐛 Bug Fixes
