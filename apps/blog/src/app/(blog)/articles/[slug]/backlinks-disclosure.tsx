@@ -1,4 +1,4 @@
-import { type ArticleLink, getBacklinks, getRelated } from "../service";
+import { type ArticleLink, getArticleConnections } from "../service";
 import { ArticleLinkRow } from "./article-link-row";
 
 interface BacklinksDisclosureProps {
@@ -10,10 +10,7 @@ export async function BacklinksDisclosure({
   defaultOpen = false,
   slug,
 }: BacklinksDisclosureProps) {
-  const [backlinks, related] = await Promise.all([
-    getBacklinks(slug),
-    getRelated(slug),
-  ]);
+  const { backlinks, related } = await getArticleConnections(slug);
 
   return (
     <BacklinksDisclosureView

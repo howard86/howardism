@@ -10,7 +10,7 @@ import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
 import { formatDate } from "@/utils/time";
 
-import type { ArticleHeading, ArticleMeta } from "../service";
+import type { ArticleHeading, ArticleMeta, SiblingNav } from "../service";
 import { TOPIC_META } from "../topic-meta";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
@@ -22,10 +22,7 @@ interface ArticleLayoutProps {
   meta: ArticleMeta;
   /** Subject tags with their own page — used to decide which chips link. */
   navigable?: ReadonlySet<string>;
-  nextSlug?: string;
-  nextTitle?: string;
-  previousSlug?: string;
-  previousTitle?: string;
+  siblings?: SiblingNav;
   slug: string;
 }
 
@@ -44,12 +41,10 @@ export function ArticleLayout({
   heroImage,
   meta,
   navigable = NO_NAVIGABLE_TAGS,
-  previousSlug,
-  previousTitle,
-  nextSlug,
-  nextTitle,
+  siblings,
   slug,
 }: ArticleLayoutProps) {
+  const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
   const accent = meta.topic ? TOPIC_META[meta.topic].color : "var(--brand)";
   const topicRow: [string, ReactNode] | null = meta.topic
     ? ["Topic", <TopicLabel key="topic" topic={meta.topic} />]
