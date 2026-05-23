@@ -203,9 +203,17 @@ describe("escapeMdxBody", () => {
     expect(lines[4]).toBe("after \\{y\\}");
   });
 
-  it("leaves < before a letter alone (it might be valid JSX)", () => {
+  it("escapes < before a letter so generic types in prose don't break MDX", () => {
+    const input =
+      "Returns a Promise<T> that resolves to a Map<string, number>.";
+    expect(escapeMdxBody(input)).toBe(
+      "Returns a Promise&lt;T> that resolves to a Map&lt;string, number>."
+    );
+  });
+
+  it("escapes < in raw JSX/HTML prose so it renders as literal text", () => {
     const input = '<Image alt="x" />';
-    expect(escapeMdxBody(input)).toBe(input);
+    expect(escapeMdxBody(input)).toBe('&lt;Image alt="x" />');
   });
 
   it("preserves inline code spans", () => {
