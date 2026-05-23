@@ -29,7 +29,6 @@ import {
   type RawDoc,
   resolveDate,
   stripWikilinksToText,
-  titleFromSlug,
 } from "./parse.ts";
 import { deriveTopic } from "./topics.ts";
 import {
@@ -42,6 +41,7 @@ import {
   rewriteWikilinks,
   stripDuplicateLeadingHeading,
 } from "./transform.ts";
+import { titleFromSlug } from "./wikilink.ts";
 
 interface RunOptions {
   blogArticlesPath: string;

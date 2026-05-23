@@ -3,6 +3,14 @@ import { basename, extname, join } from "node:path";
 
 import matter from "gray-matter";
 
+import {
+  extractRawSlugs,
+  humanize as humanizeSlug,
+  stripToText,
+  titleFromSlug,
+  tokenizeWikilinks,
+} from "./wikilink.ts";
+
 export type WikiFolder = "concepts" | "derived";
 
 export interface WikiSource {
@@ -53,15 +61,10 @@ export interface RawDoc {
   url?: string;
 }
 
-const WIKI_LINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/;
-const STRIP_WIKILINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/g;
-const RAW_REF_RE = /\[\[raw\/([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]/g;
 const HTTP_URL_RE = /^https?:\/\//i;
 const TABLE_ROW_RE = /^\s*\|\s*\[\[[^\]]+\]\][^|]*\|[^|]+\|/;
 const HEADING_RE = /^##\s+(.+)$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const HUMANIZE_RAW_RE = /[._-]+/g;
-const WHITESPACE_RE = /\s+/g;
 
 export async function discoverWikiSources(
   wikiRoot: string
@@ -158,13 +161,15 @@ export async function parseIndexSummaries(
       continue;
     }
 
-    const linkMatch = WIKI_LINK_RE.exec(pageCell);
-    if (!linkMatch) {
+    const token = tokenizeWikilinks(pageCell)[0];
+    if (!token) {
       continue;
     }
 
-    const target = linkMatch[1];
-    const slug = target.split("/").pop();
+    const slug =
+      token.target.kind === "internal"
+        ? token.target.slug
+        : token.target.rawSlug.split("/").pop();
     if (!slug) {
       continue;
     }
@@ -193,16 +198,12 @@ export function extractRawSlugsFromSources(
   const seen = new Set<string>();
   const slugs: string[] = [];
   for (const entry of sources) {
-    for (const match of entry.matchAll(RAW_REF_RE)) {
-      // Keep the full path after `raw/` — Obsidian allows subdirectories
-      // (e.g. `raw/Claude Mythos Preview / red.anthropic.com`), and the
-      // path-segments map straight onto the on-disk layout under `raw/`.
-      const fullPath = match[1];
-      if (!fullPath || seen.has(fullPath)) {
+    for (const rawSlug of extractRawSlugs(entry)) {
+      if (seen.has(rawSlug)) {
         continue;
       }
-      seen.add(fullPath);
-      slugs.push(fullPath);
+      seen.add(rawSlug);
+      slugs.push(rawSlug);
     }
   }
   return slugs;
@@ -215,14 +216,7 @@ export function extractRawSlugsFromSources(
  * preserved so callers can keep their own per-target state if needed.
  */
 export function extractRawSlugsFromBody(body: string): string[] {
-  const slugs: string[] = [];
-  for (const match of body.matchAll(RAW_REF_RE)) {
-    const fullPath = match[1];
-    if (fullPath) {
-      slugs.push(fullPath);
-    }
-  }
-  return slugs;
+  return extractRawSlugs(body);
 }
 
 /**
@@ -294,24 +288,11 @@ function normalisePublished(value: unknown): string | undefined {
 }
 
 function humanizeRawSlug(slug: string): string {
-  return slug.replace(HUMANIZE_RAW_RE, " ").replace(WHITESPACE_RE, " ").trim();
+  return humanizeSlug(slug);
 }
 
 export function stripWikilinksToText(input: string): string {
-  return input.replace(STRIP_WIKILINK_RE, (_match, target, label) => {
-    if (label) {
-      return String(label).trim();
-    }
-    const path = String(target);
-    const slug = path.split("/").pop() ?? path;
-    if (path.startsWith("raw/")) {
-      return slug
-        .replace(HUMANIZE_RAW_RE, " ")
-        .replace(WHITESPACE_RE, " ")
-        .trim();
-    }
-    return titleFromSlug(slug);
-  });
+  return stripToText(input);
 }
 
 export function buildSlugTitleMap(
@@ -324,13 +305,6 @@ export function buildSlugTitleMap(
     map.set(file.source.slug, title);
   }
   return map;
-}
-
-export function titleFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join(" ");
 }
 
 /**

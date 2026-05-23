@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { extractInternalSlugs } from "../wikilink.ts";
+
 /**
  * One operation from the wiki's `log.md`, parsed into structured form for the
  * blog's "Currents" (home) and "Operations log" (articles) strips.
@@ -24,7 +26,6 @@ export interface WikiLog {
 // `## [2026-05-13] ingest | Interaction Models`
 const ENTRY_HEADING_RE =
   /^##\s+\[(\d{4}-\d{2}-\d{2})\]\s+([\w-]+)\s*\|\s*(.+?)\s*$/;
-const WIKILINK_RE = /\[\[([^\]|\\]+)(?:\\?\|[^\]]+)?\]\]/g;
 const LINE_SPLIT_RE = /\r?\n/;
 
 /**
@@ -51,7 +52,7 @@ export function buildWikiLog(args: {
       date,
       operation,
       subject,
-      refs: extractInternalRefs(entryBody),
+      refs: extractInternalSlugs(entryBody, { dedup: true }),
     });
   };
 
@@ -72,29 +73,6 @@ export function buildWikiLog(args: {
   entries.sort((a, b) => b.date.localeCompare(a.date));
 
   return { entries, generatedOn };
-}
-
-/**
- * Pull internal article slugs from an entry body. Drops `raw/` source links
- * and reduces `wiki/<folder>/<slug>` (and bare `[[slug]]`) to the trailing
- * slug, which matches the blog's article slugs.
- */
-function extractInternalRefs(body: string): string[] {
-  const seen = new Set<string>();
-  const refs: string[] = [];
-  for (const match of body.matchAll(WIKILINK_RE)) {
-    const target = match[1];
-    if (!target || target.startsWith("raw/")) {
-      continue;
-    }
-    const slug = target.split("/").pop()?.trim();
-    if (!slug || seen.has(slug)) {
-      continue;
-    }
-    seen.add(slug);
-    refs.push(slug);
-  }
-  return refs;
 }
 
 export async function emitWikiLog(args: {
