@@ -1,3 +1,8 @@
+# [v2.3.6](https://github.com/howard86/howardism/compare/v2.3.5...v2.3.6) (2026-05-23)
+
+## 🐛 Bug Fixes
+- [`d619f7d`](https://github.com/howard86/howardism/commit/d619f7d)  fix(blog): strip backtick code spans from getHeadings text (#776) (Issues: [`#776`](https://github.com/howard86/howardism/issues/776))
+
 # [v2.3.5](https://github.com/howard86/howardism/compare/v2.3.4...v2.3.5) (2026-05-23)
 
 ## 🐛 Bug Fixes
