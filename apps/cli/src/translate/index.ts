@@ -55,6 +55,8 @@ interface RunOptions {
   force: boolean;
   glossaryPath: string;
   kiroClient: string | undefined;
+  /** Cap the number of articles queued per run; null = no limit (all articles). */
+  limit: number | null;
   locale: string;
   modelLabel: string | null;
   onlySlug: string | null;
@@ -115,6 +117,7 @@ async function main(): Promise<void> {
     outputDir: opts.outputDir,
     projectionPath: opts.projectionPath,
     concurrency: opts.concurrency,
+    limit: opts.limit,
     onlySlug: opts.onlySlug,
     force: opts.force,
     dryRun: opts.dryRun,
@@ -170,7 +173,14 @@ async function runTranslate(ctx: RunContext): Promise<void> {
     );
   }
 
-  await runWithConcurrency(slugs, opts.concurrency, (slug) =>
+  const queued = opts.limit == null ? slugs : slugs.slice(0, opts.limit);
+  if (opts.limit != null && queued.length < slugs.length) {
+    console.log(
+      `[translate] limiting to ${queued.length} of ${slugs.length} articles (--limit ${opts.limit})`
+    );
+  }
+
+  await runWithConcurrency(queued, opts.concurrency, (slug) =>
     processArticle(slug, ctx)
   );
 
@@ -498,21 +508,24 @@ async function runEngineWithRetry(
     // Clear any prior output before each attempt so an engine that exits 0
     // without rewriting (a no-op) can't pass validation on a stale file.
     await unlinkSilently(outputAbsPath);
+    console.log(`[translate] ${slug} starting (attempt ${attempt})`);
+    const attemptStartedAt = Date.now();
+    const heartbeat = setInterval(() => {
+      const elapsedS = ((Date.now() - attemptStartedAt) / 1000).toFixed(0);
+      console.log(`[translate] ${slug} running… (${elapsedS}s elapsed)`);
+    }, 60_000);
     try {
-      const { stderr, usage } = await runEngine(opts.engine, {
+      const { usage } = await runEngine(opts.engine, {
         prompt,
         scopeDir: opts.scopeDir,
         kiroClient: opts.kiroClient,
         // Pin the agent's glossary subprocess to the SAME absolute DB the
         // orchestrator seeded, regardless of the agent's cwd.
         env: { GLOSSARY_DB_PATH: opts.glossaryPath },
+        onStderrLine: (line) => process.stderr.write(`[${slug}] ${line}\n`),
         timeoutMs: opts.engineTimeoutMs,
       });
       lastUsage = usage;
-      if (stderr.trim()) {
-        console.warn(`[translate] ${slug} stderr (attempt ${attempt}):
-${stderr}`);
-      }
     } catch (err) {
       lastReason = `engine spawn failed: ${(err as Error).message}`;
       console.warn(
@@ -520,6 +533,8 @@ ${stderr}`);
       );
       await unlinkSilently(outputAbsPath);
       continue;
+    } finally {
+      clearInterval(heartbeat);
     }
 
     // Deterministic post-processing: rewrite recurring structural headings to
@@ -628,6 +643,8 @@ function parseOptions(): RunOptions {
     }
     onlySlug = next;
   }
+  const limit = parseLimitOption(argv, env);
+
   const force = argv.includes("--force") || env.FORCE === "1";
   const check = argv.includes("--check");
   const adopt = argv.includes("--adopt");
@@ -674,6 +691,7 @@ function parseOptions(): RunOptions {
     force,
     glossaryPath,
     kiroClient,
+    limit,
     locale: targetLang,
     modelLabel: env.TRANSLATE_MODEL?.trim() || null,
     onlySlug,
@@ -698,6 +716,31 @@ function parseConcurrency(raw: string | undefined): number {
     );
   }
   return n;
+}
+
+function parseLimit(raw: string): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    throw new Error(
+      `--limit / TRANSLATE_LIMIT must be a positive integer (got "${raw}")`
+    );
+  }
+  return n;
+}
+
+function parseLimitOption(
+  argv: string[],
+  env: NodeJS.ProcessEnv
+): number | null {
+  const idx = argv.indexOf("--limit");
+  if (idx >= 0) {
+    const next = argv[idx + 1];
+    if (!next || next.startsWith("-")) {
+      throw new Error("--limit requires a positive integer, e.g. --limit 5");
+    }
+    return parseLimit(next);
+  }
+  return env.TRANSLATE_LIMIT ? parseLimit(env.TRANSLATE_LIMIT) : null;
 }
 
 function parseTimeoutMs(raw: string | undefined): number {
