@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 
 import { env } from "@/config/env";
+import type { Locale } from "@/i18n/routing";
 
 import { importArticleModule, renderArticle } from "../render-article";
-import { articleExists, hasTranslation, type Locale } from "../service";
+import { articleExists, hasTranslation } from "../service";
 
 interface ArticlePageProps {
   params: Promise<{ slug: string }>;

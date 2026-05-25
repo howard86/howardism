@@ -3,7 +3,7 @@ import "server-only";
 import type { StaticImageData } from "next/image";
 import { notFound } from "next/navigation";
 import type { FC } from "react";
-
+import type { Locale } from "@/i18n/routing";
 import { ArticleLayout } from "./[slug]/article-layout";
 import {
   type ArticleHeading,
@@ -14,7 +14,6 @@ import {
   getTranslatedSlugs,
   hasTranslation,
   isTranslationStale,
-  type Locale,
 } from "./service";
 
 export interface ArticleModule {
