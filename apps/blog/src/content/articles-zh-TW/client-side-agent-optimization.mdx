@@ -1,0 +1,144 @@
+---
+date: 2026-04-14
+title: Client-Side Agent Optimization：開發者端的 Agent 最佳化
+description: AgentOpt 將開發者可控的 agent 最佳化（每角色模型選擇、預算、路由）與伺服器端服務區分開來的框架；組合抽象概念；最佳與最差組合之間 13–32 倍的成本差距
+tag: Concept
+topic: harness
+tags:
+  - agent-engineering
+  - llm-architecture
+  - optimization
+  - model-routing
+readingTime: 10
+imageAlt: Client-Side Agent Optimization 的示意圖
+sources:
+  - title: "AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based
+      Agent"
+    url: https://arxiv.org/html/2604.06296v1
+  - title: Tips & Best Practices
+    url: https://hermes-agent.nousresearch.com/docs/guides/tips
+---
+export { default as heroImage } from "../assets/client-side-agent-optimization.png";
+
+## 資料來源
+
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
+
+## 摘要
+
+由 Hua et al.（AgentOpt，2026）提出的框架，將 agentic 工作流程的*客戶端*最佳化——開發者可控的決策，例如為每個管線角色指派哪個模型、API 預算分配、工具路由——與主導 LLM 服務系統研究的*伺服器端*技術（快取、排程、推測性執行、負載平衡）區分開來。核心實證主張是：以完整管線*組合*而非單一角色來評估的模型選擇，是最主要的效率槓桿——在相同準確度下，最佳與最差組合之間的成本差距在各基準測試中從 13 倍到 32 倍不等，遠超伺服器端最佳化所能回收的幅度。
+
+## 細節
+
+### 伺服器端 vs. 客戶端
+
+伺服器端系統（vLLM、SGLang、Autellix、ThunderAgent、Continuum、AIOS）針對多使用者的供應商基礎設施進行最佳化，目標包括吞吐量、尾端延遲和叢集利用率。這些目標是通用的，因為供應商無法看到開發者的特定效用函數。客戶端最佳化則在*特定工作流程*層級運作，具有*應用程式特定的效用*，涵蓋品質、成本和延遲——一個新創公司的程式碼助手和一個臨床支援系統有著不相容的偏好，無法從系統層級訊號推斷。
+
+客戶端可控的資源：
+- **基礎模型池** — 可用的 API 和本地模型
+- **模型對角色的指派**，涵蓋規劃器、求解器、評論器、檢索器
+- **工具呼叫策略** — 本地 vs. 遠端、何時跳過
+- **每步驟的 API 預算**
+- **應用層級的批次處理、快取、排程**
+
+### 為何模型選擇是第一優先
+
+模型選擇位於所有其他客戶端最佳化的*上游*：快取、路由啟發式方法和推測性執行都是在模型指派確定後才運作。選錯組合，任何下游最佳化都無法彌補差距。
+
+實證證據相當驚人。在 BFCL 上，Qwen3 Next 80B 在準確度上匹配 Claude Opus 4.6，成本卻低了 **32 倍**。在 MathQA 上，準確度相當的組合之間存在 24 倍的差距。
+
+### 組合抽象
+
+這篇論文的關鍵概念貢獻。在傳統 LLM 路由中，每個查詢根據估計難度被分配到較便宜或較強的模型——決策是逐次呼叫的。在多步驟 agent 中，路由決策*跨階段耦合*：一個模型在某角色中的行為會改變後續角色看到的中間狀態。一個委派給工具的規劃器，與一個從參數化知識直接回答的規劃器，會產生不同的下游工作。
+
+結論：最佳化的單位是完整組合 $\mathbf\{c\} = (m_1, \dots, m_H) \in \mathcal\{M\}^H$，而非逐角色最佳。效能排名**不能**乾淨地跨角色轉移——一個強大的獨立模型可能是優秀的求解器，卻是糟糕的規劃器。
+
+論文中的經典示例，HotpotQA：
+- **Claude Opus 4.6 是最差的規劃器**——在 81 個組合中，當它作為規劃器時，經常直接從參數化知識回答，繞過求解器的搜尋工具。
+- **Ministral 3 8B 是最佳的規劃器**，因為它可靠地委派給下游求解器。
+- Ministral（規劃器）+ Opus（求解器）→ **74.27%**；Opus（規劃器）+ Opus（求解器）→ **31.71%**。
+
+這與 [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) 中描述的過度思考／過度闡述現象相同，只是以路由失敗而非提示工程失敗的形式呈現。
+
+### 形式化為黑箱最佳化
+
+給定管線角色 $H$ 和候選集 $M$，組合空間為 $|M|^H$ — 指數級。效用函數
+
+$$J(\mathbf\{c\}) = \mathrm\{PERF\}(\tau(\mathbf\{c\})) - \lambda_c\,\mathrm\{COST\}(\tau(\mathbf\{c\})) - \lambda_\ell\,\mathrm\{LATENCY\}(\tau(\mathbf\{c\}))$$
+
+被視為未知黑箱，因為跨階段交互作用是任務相依的，無法解析求解。
+
+### 搜尋演算法
+
+AgentOpt 實作了八個選擇器，共享相同的執行基底：
+
+- **Arm Elimination**（表現最佳）— 多臂吃角子老虎機方法，修剪被支配的組合。在 3/4 基準測試中，以比暴力搜尋**少 24–67% 的評估預算**恢復接近最佳的準確度。
+- **Epsilon-LUCB** — 信賴界限吃角子老虎機
+- **Threshold Successive Elimination**
+- **Bayesian Optimization**
+- 加上爬山法、隨機搜尋和暴力搜尋基線
+
+所有選擇器共享相同的 API，因此策略可以在不修改 agent 程式碼的情況下替換。
+
+### 框架無關的攔截
+
+系統機制：在 HTTP 傳輸層修補 `httpx.Client.send` 和 `httpx.AsyncClient.send`。使用 Python `contextvars` 將每次呼叫歸因到（資料點、組合）。這避免了針對每個框架的 SDK 適配器——適用於 Langgraph、AutoGen、OpenClaw、Claude Code 以及任何底層使用 httpx 的 agent。
+
+執行時也處理回應快取（相同（組合、資料點）對的重新執行不會再次消耗 API 預算）和平行執行（例如 `max_concurrent=20`）。
+
+輸出：一個 `SelectionResults` 物件，暴露（效能、成本、延遲）的 Pareto 前沿，支援 CSV 匯出和 YAML 配置匯出以供部署。
+
+### 策略與執行的分離
+
+選擇器（下一步評估什麼）與執行時（如何執行、追蹤、歸因、快取）是分離的。這種分離讓八個演算法能共享基準測試——搜尋是唯一的變數。
+
+### 實務中的手動控制桿
+
+AgentOpt 形式化的客戶端控制桿（模型指派、預算、快取、批次處理）在生產環境的 agent 工具中以使用者面向的 CLI 命令出現。[Hermes Agent](/articles/hermes-agent) 是最明確的：
+
+| Hermes 控制桿 | AgentOpt 對應 |
+|---|---|
+| `/model`（會話中切換模型） | 組合空間中的逐角色模型指派 |
+| `/compress`（摘要對話） | 應用層級快取／上下文預算管理 |
+| `/usage`、`/insights` | 對 AgentOpt 用於效用的相同成本／延遲／效能訊號的可觀測性 |
+| `delegate_task`（具有隔離上下文的平行子 agent） | 具有獨立組合的子管線指派 |
+| 有界的 `MEMORY.md`（~2,200 字元）、`USER.md`（~1,375 字元） | 持久上下文的明確預算信封 |
+| 提示快取紀律（避免會話中途更改模型／system prompt） | 使逐會話組合選擇穩定的快取穩定性約束 |
+
+意義：這些控制桿今天已存在於生產工具中，由使用者手動操作。AgentOpt 的貢獻是**自動化相同控制桿空間上的選擇**，而非引入新的控制桿。一個實際的橋接方案是：AgentOpt 選擇器根據基準測試驅動 Hermes 的 `/model` 逐角色切換，然後將結果組合寫入 `AGENTS.md` 以供部署。
+
+Hermes 文件也捕捉了 AgentOpt 組合抽象隱含依賴的一個約束：**不要在會話中途破壞提示快取**。快取命中使每則訊息的成本大致恆定；會話中途的模型／system prompt 變更會使其失效。如果組合選擇是逐次呼叫而非逐會話變更，預期節省可能被快取未命中抵消——這是將 AgentOpt 發現推廣到生產環境時值得揭示的部署風險。
+
+## 相關連結
+
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — AgentOpt 的 HotpotQA 發現（Opus 是最差的規劃器，因為它繞過求解器）與 Hakim 在提示層級記錄的過度思考／過度闡述機制相同。一篇論文將其呈現為路由失敗，另一篇呈現為提示工程失敗；兩者合在一起暗示大型模型的誤用是一種*系統性*失敗模式，有兩種可用的緩解方式（繞過它，或約束輸出）
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 客戶端最佳化是 harness 設計之上的一層：一旦環境、進度日誌和驗證迴圈就位，組合選擇決定*哪些模型*在該 harness 內運作。JSON 功能清單和漸進式揭露模式是 AgentOpt 指派的 agent 的執行基底
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — 直接挑戰隱含的「使用最強模型」預設。AgentOpt 的框架無關 httpx 攔截也與 Claude Code 的 `claude -p` 非互動模式相容，暗示 Claude Code 管線可以進行組合最佳化
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 檔案排名 1–5 的前置處理和最終驗證 agent 是 AgentOpt 自動搜尋的手動調校實例。將漏洞研究腳手架視為 AgentOpt 管線（規劃器 = 檔案排名器、求解器 = 漏洞發現器、評論器 = 驗證器）是直接的泛化
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — wiki 本身的編譯／查詢／lint 階段可以建模為 agent 管線，其中不同階段在不同模型上執行（例如，便宜模型用於索引漂移檢查，強模型用於交叉引用合成）
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — HotpotQA 規劃器失敗是在 Opus 4.6 上測量的；4.7 的字面指令遵循可能部分彌補該差距（需要重新測量）。任務預算（公開測試版）呼應 AgentOpt 的預算控制桿，但屬於伺服器端而非客戶端
+- [Hermes Agent](/articles/hermes-agent) — 生產環境 CLI agent，將 AgentOpt 控制桿空間（`/model`、`/compress`、`delegate_task`、有界記憶體、提示快取紀律）作為使用者面向的命令暴露；是 AgentOpt 選擇器自動驅動角色指派的自然整合目標
+- [Symphony](/articles/symphony) — 在規模化時，票據驅動的編排使逐管線組合選擇在營運上變得重要：在 `WORKFLOW.md` 的提示模板中為每種票據類型（規劃器 vs. 求解器 vs. 審查器）選擇正確的模型*就是*逐管線的預算決策
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — `agent.max_turns`、回合／停滯逾時和動態工具呼叫成本是 AgentOpt 形式化的預算控制桿的營運實例
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 多模型設計的另一個軸向：那裡是成本驅動且靜態的逐*角色*，這裡是延遲驅動且動態的逐*回合*
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 在編排規模下，在 `WORKFLOW.md` 中為每種票據類型（規劃器／求解器／審查器）選擇正確的模型是組合選擇的逐管線實例
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — 逐角色模型的具體化：DeepMind 使用 Gemini 3.1 Pro 進行證明，使用較便宜的 Gemini 3.0 Flash 進行評分——在一個 agent 內的明確成本／品質組合
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — A/B/C/D 求解率 vs. 成本的 Pareto 曲線是 AgentOpt 形式化的相同成本／品質最佳化；這裡*較便宜*的配置經常獲勝（[Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)）
+
+## 衍生內容
+
+- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — 從 HotpotQA 規劃器／求解器結果和 BFCL 32 倍成本匹配發現中得出的部署規則
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 基於角色的模型選擇原則應用於 Opus 4.7 多 agent 程式碼團隊
+
+## 開放問題
+
+- 組合層級的最佳化如何與持續的模型發布互動？如果 Claude Opus 4.7 下個月發布，整個 Pareto 前沿是否需要重新執行，還是暖啟動的吃角子老虎機能廉價地適應？
+- 在什麼管線深度下，即使是 Arm Elimination 也會使組合搜尋變得不可行？論文測試了最多約 81 個組合；具有 5 個以上角色和每個角色 10 個以上候選模型的生產管線遠超此範圍。
+- 「弱規劃器 + 強求解器」模式是否能泛化，還是僅限於 HotpotQA 的委派動態？推薦器-評論器、草稿器-編輯器和檢索器-生成器拓撲可能會反轉。
+- 當工具環境改變時，正確的重新評估方式是什麼？AgentOpt 假設工具固定——新增或移除工具可能使整個前沿失效。
+- 是否存在一個廉價的逐次呼叫分類器，能預測哪個組合會在給定查詢上獲勝，從而完全避免組合層級的評估？
+
+## 資料來源
+
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)

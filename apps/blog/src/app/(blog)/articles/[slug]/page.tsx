@@ -1,17 +1,9 @@
 import type { Metadata } from "next";
-import type { StaticImageData } from "next/image";
-import type { FC } from "react";
 
 import { env } from "@/config/env";
 
-import {
-  type ArticleHeading,
-  type ArticleMeta,
-  getArticles,
-  getNavigableTagSet,
-  getSiblings,
-} from "../service";
-import { ArticleLayout } from "./article-layout";
+import { importArticleModule, renderArticle } from "../render-article";
+import { articleExists } from "../service";
 
 interface ArticlePageProps {
   params: Promise<{
@@ -19,21 +11,24 @@ interface ArticlePageProps {
   }>;
 }
 
-interface ArticleModule {
-  default: FC;
-  headings: ArticleHeading[];
-  heroImage: StaticImageData;
-  meta: ArticleMeta;
-}
+// On-demand rendering: skip the build-time prerender pass (faster builds) and
+// render each article from its precompiled module on first request, then cache
+// it until the next deploy (revalidate = false). See translations tracking plan.
+export const dynamicParams = true;
+export const revalidate = false;
 
-export const dynamic = "error";
-export const dynamicParams = false;
+export function generateStaticParams(): { slug: string }[] {
+  return [];
+}
 
 export async function generateMetadata({
   params,
 }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const mod = (await import(`@/content/articles/${slug}.mdx`)) as ArticleModule;
+  if (!(await articleExists(slug))) {
+    return {};
+  }
+  const mod = await importArticleModule(slug, "en");
   const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/${slug}`;
   const ogImage = {
     url: mod.heroImage.src,
@@ -68,28 +63,5 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const [mod, siblings, navigable] = await Promise.all([
-    import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>,
-    getSiblings(slug),
-    getNavigableTagSet(),
-  ]);
-
-  return (
-    <ArticleLayout
-      headings={mod.headings}
-      heroImage={mod.heroImage}
-      meta={mod.meta}
-      navigable={navigable}
-      siblings={siblings}
-      slug={slug}
-    >
-      <mod.default />
-    </ArticleLayout>
-  );
-}
-
-export async function generateStaticParams() {
-  const articles = await getArticles();
-
-  return articles.ids.map((slug) => ({ slug }));
+  return renderArticle({ slug, locale: "en" });
 }

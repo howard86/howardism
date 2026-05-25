@@ -1,0 +1,73 @@
+---
+date: 2026-05-23
+title: AlphaProof Nexus
+description: DeepMind 的 LLM 輔助 Lean 證明生成框架；四種 agent（基礎→全功能）；proof-sketch + EVOLVE-BLOCK 介面；SafeVerify
+tag: Entity
+topic: orgs
+tags:
+  - entity
+  - system
+  - google-deepmind
+  - ai-for-mathematics
+readingTime: 5
+imageAlt: AlphaProof Nexus 的示意圖
+sources:
+  - title: Advancing Mathematics Research with AI-Driven Formal Proof Search
+    url: https://arxiv.org/html/2605.22763v1
+---
+export { default as heroImage } from "../assets/alphaproof-nexus.png";
+
+## 資料來源
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
+
+## 摘要
+
+[Google DeepMind](/articles/google-deepmind) 的 **LLM 輔助形式化證明生成**框架，運行於 [Lean](/articles/lean)（arXiv 2605.22763）。Agent 查詢前沿 LLM（Gemini 3.1 Pro）與 Lean 編譯器，將一份 *proof sketch*（一個定理，其證明以 `sorry` 佔位）轉化為經過驗證、不含 `sorry` 的完整證明。它涵蓋從簡單迴圈到演化系統的四種 agent 設計，也是[首次大規模評估](/articles/ai-driven-formal-proof-search)形式化證明搜尋在**開放研究問題**上表現的工具——解決了 9/353 個 Erdős 問題、44/492 個 OEIS 猜想，以及最佳化、代數幾何、加法組合學、圖論和量子光學領域的成果。Lean 證明已開源於 `github.com/google-deepmind/alphaproof-nexus-results`。
+
+## 四種 agent（A → D）
+
+| Agent | 設計 | 備註 |
+|---|---|---|
+| **(A) Basic** | 獨立的 prover 子 agent，無共享狀態；每個都是一個「Ralph loop」的 episode 循環 | 令人意外地在全部 9 個 Erdős 解題上與 (D) 持平——見 [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) |
+| **(B) Basic + AlphaProof** | (A) 加上 AlphaProof RL 證明器作為可呼叫工具 | 在較難的問題上比 (A) 更高效 |
+| **(C) Basic + evolution** | (A) 加上族群/Elo 演化搜尋 | — |
+| **(D) Full-featured** | 演化**加上** AlphaProof | 用於開放問題探索；[Evolutionary Proof Search](/articles/evolutionary-proof-search) 詳述其機制 |
+
+一個 prover 子 agent 執行多輪 Gemini 3.1 Pro 對話，配備 `search_replace` 工具；每次編輯後 Lean 編譯器回傳反饋以引導下一輪；episode 結束時，sketch 由 **SafeVerify** 驗證（編譯通過、無 `sorryAx`/公理注入），若仍有 `sorry` 殘留，agent 會寫下經驗教訓註解後繼續。$N$ 個子 agent 並行運行；任一找到證明即全部停止。
+
+## 輸入/輸出：proof sketches
+
+輸入是一個 Lean 檔案——目標定理以 `sorry` 佔位，加上所需的定義與匯入——可選附帶自然語言上下文與以 Lean 編碼的領域知識。可編輯區域由 **`EVOLVE-BLOCK`**（輔助引理/定義/證明步驟）和 **`EVOLVE-VALUE`**（參數表達式）界定。EVOLVE-VALUE 機制促成了一項真正的*發現*：將最佳化演算法的學習排程標記為一個 value，讓 agent D 同時搜尋排程與證明，產出了一個具有更強收斂保證的新穎參數選擇。
+
+## AlphaProof（作為工具）
+
+AlphaProof 是 DeepMind *先前*的獨立系統——一個以強化學習訓練的奧林匹克級 Lean 定理證明器（DeepMind IMO 成果背後的系統）。在 Nexus 中它被用作**聚焦證明工具**：給定一個子目標，它回傳證明、反證或失敗。它有 Test-Time RL 模式，但此處以較低成本的樹搜尋運行（約 400 次模擬，約 27.5 TPU 小時 ≈ $60/問題）。值得注意的是，**AlphaProof 在獨立樹搜尋模式下未能解決任何**被評估的問題——它的價值在於作為 LLM 驅動迴圈內的子目標終結者，而非獨奏者。
+
+## 模型與成本
+
+多輪證明器使用 Gemini 3.1 Pro；較便宜的 Gemini 3.0 Flash 用於評分 agent。每個問題的推論成本為「數百美元」，變異度高；基礎 agent 版本在較小模型（Gemini 3.0 Flash、Gemini 3.1 Flash-Lite）上未能解決任何問題——能力受到規模的嚴格門檻限制（[Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)）。報告的成本不包含 AlphaProof 的約 $60，以及在全部 353 個問題中*尋找*可處理問題的可觀成本。
+
+## 重要性
+
+該系統將 LLM 的數學推理錨定於編譯器，將容易產生幻覺的自然語言證明轉化為可驗證的產物（[AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)），並證明隨著 LLM 的進步，**簡單的 agentic 迴圈越來越能匹敵客製化的訓練系統**（[Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)）。已解決的 Erdős 問題被記錄在 Terence Tao 的 AI 貢獻維基上。
+
+## 相關連結
+
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — Nexus 所實現的範式
+- [Lean](/articles/lean) — 它所驅動的證明助手/驗證器
+- [Google DeepMind](/articles/google-deepmind) — 背後的實驗室
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — 全功能 agent (D) 的族群/Elo 機制
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — 其基礎 agent (A) 在多數問題上與完整系統持平
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 基礎 prover 子 agent 是一個「Ralph loop」(huntley2025ralph)
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — A/B/C/D 成本對解題率的 Pareto 研究屬於 AgentOpt 風格的組合最佳化
+- [The Verifiability Thesis](/articles/verifiability-thesis) — 該設計體現了「自動化你能驗證的事物」
+
+## 開放問題
+
+- 該框架的適用範圍受限於 [Lean](/articles/lean) 的 mathlib 成熟度。對於需要新理論而非子目標分解的領域，路徑為何？
+- AlphaProof 作為獨奏者貢獻甚微，但作為工具則有幫助。隨著證明器 LLM 增強，AlphaProof 工具是否會完全變得多餘？
+
+## 資料來源
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)

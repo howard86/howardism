@@ -1,0 +1,71 @@
+---
+date: 2026-05-23
+title: Evolutionary Proof Search
+description: "完整 agent 的機制：證明草稿的族群資料庫、透過 Plackett–Luce/Gibbs 計算 Elo、P-UCB 選擇、LLM 評審適應度用於二元證明評估"
+tag: Concept
+topic: harness
+tags:
+  - ai-for-mathematics
+  - agent-engineering
+  - search
+readingTime: 5
+imageAlt: Evolutionary Proof Search 的示意圖
+sources:
+  - title: Advancing Mathematics Research with AI-Driven Formal Proof Search
+    url: https://arxiv.org/html/2605.22763v1
+---
+export { default as heroImage } from "../assets/evolutionary-proof-search.png";
+
+## 資料來源
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
+
+## 摘要
+
+DeepMind 完整版 [AlphaProof Nexus](/articles/alphaproof-nexus) agent（agent D）內部的機制，靈感來自 AlphaEvolve：證明子 agent **從共享的證明草稿族群資料庫中取樣並回饋**，以演化迴圈驅動搜尋。它解決的核心難題是：演化演算法假設*漸進式*的適應度地形，但形式化證明的評估是*二元*的（編譯通過／不通過、完整／含 `sorry`）。解法是**以 LLM 評審為不完整草稿評定潛力**，將二元訊號轉化為連續適應度，讓演化搜尋得以攀升。
+
+## 二元適應度問題
+
+一個證明要嘛無 `sorry` 地通過型別檢查，要嘛不通過——沒有平滑梯度告訴你一份半完成的草稿「更接近」了。演化搜尋需要這樣的梯度。AlphaProof Nexus 透過**將生成與適應度指派解耦**來彌合差距：自由生成草稿，再透過*相對性* LLM 審查來指派適應度——評估每份（通常不完整的）草稿看起來有多大潛力——其策略清晰度、剩餘目標的合理性，以及數學新穎性。
+
+## 從 LLM 對戰得出 Elo（Plackett–Luce + Gibbs）
+
+- 較便宜的**評分 agent（Gemini 3.0 Flash）**持續取樣 $P=7$ 份草稿的集合並產出相對排名（$P=7$ 在每次呼叫的資訊量與上下文大小之間取得平衡）。
+- 結果以 **Plackett–Luce** 分佈建模（每份草稿有一個潛在強度 $\lambda_s$），搭配階層式 Gamma 先驗以獲得更重的尾部同時保持共軛性。
+- 後驗強度透過 **Gibbs sampling**（$I=1000$ 次取樣、$B=200$ 次 burn-in）推斷，轉換為 Elo：$\mathrm\{Elo\}_s = 1200 + 400\log_\{10\}\lambda_s^\{\text\{mean\}\}$。
+- 對戰的草稿*選擇*使用後驗上的 **Thompson sampling**；平手（評分者有時會輸出平手）透過從模型中取樣來打破。
+
+## 演化選擇（P-UCB）
+
+新回合的親代草稿以 **Predictor + Upper-Confidence-Bound (P-UCB)** 規則選取：先篩選 Elo 前 64 名，正規化為基礎分數 $q\in[0,1]$，然後
+$$\text\{score\}=q+c\frac\{\sqrt\{\sum V_i\}\}\{v+1\}$$
+（$v$ = 該草稿被取樣的次數，$c=0.2$ 為探索常數）。這利用了菁英草稿，同時 UCB 獎勵探索新晉升的草稿，「防止搜尋坍縮為單一次優譜系。」多樣性進一步透過隨機提示「分解未解目標」、「結合先前嘗試」或「嘗試全新方法」（AlphaEvolve 的招式）來注入。
+
+## 效率機制
+
+- **全域目標快取：**每個生成的子目標都會對其精確 Lean 狀態（`goal_id`）做深度雜湊；若族群中任何先前草稿已證明／反駁該狀態，則直接取回結果（及其策略／值），而非重新派發給 AlphaProof。新穎子目標透過非阻塞 RPC 批次送往 AlphaProof。
+- **預算：**每回合上限 5 次 AlphaProof 查詢和 90 次 search-replace 編輯；AlphaProof 本身也有限制（約 400 次模擬、硬性 RPC 逾時），以避免在棘手／幻覺目標上停滯。
+- **非同步控制器：**一個 asyncio 事件迴圈將工作分散到生成、驗證和 Elo 評分執行緒；驗證在 Docker 沙箱中執行（Lean v4.27 + Pantograph），最終以 **SafeVerify** 結束（編譯通過、無 `sorryAx`／公理注入）。
+
+## 定位
+
+Agent D 將此演化搜尋*與*客製化的 **AlphaProof** RL 證明器作為工具結合（[AlphaProof Nexus](/articles/alphaproof-nexus)）。它是 A→D 光譜上最精密的一點——也是[基本 agent 在大多數問題上追平其表現](/articles/agentic-loops-overtake-bespoke-systems)的那個，僅在最困難的問題（Erdős #125、#138）上保留 2×–5× 的成本優勢。因此，Evolutionary Proof Search 最好理解為**退縮前沿的專用鷹架**：它在今天最難的問題上換取效率，但隨著 LLM 進步，優勢逐漸縮小。
+
+## 相關連結
+
+- [AlphaProof Nexus](/articles/alphaproof-nexus) — 此機制驅動的完整版 agent（D）
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — 此範式；這是其最精密的搜尋策略
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — *基本*迴圈在大多數問題上追平此機制的發現
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 族群／預算／每角色模型（Flash 評分者、Pro 證明者）是 AgentOpt「組合」槓桿的具體實現
+- [The Bitter Lesson](/articles/the-bitter-lesson) — Elo/P-UCB/演化正是 The Bitter Lesson 預測通用方法將超越的手工結構
+- [Lean](/articles/lean) — 其二元訊號迫使 LLM 評審適應度變通方案的驗證器
+- [The Verifiability Thesis](/articles/verifiability-thesis) — 為*不完整*草稿評分將可驗證領域的訊號延伸至尚未驗證的區域
+
+## 開放問題
+
+- LLM 評審適應度本身是建立在已驗證基底上的未驗證啟發式方法。Elo 排名誤導搜尋的頻率相對於計算成本有多高？
+- 超參數（$c=0.2$、前 64 名、$P=7$）是「經驗選擇」的。結果對它們有多敏感？它們能否跨數學領域遷移？
+
+## 資料來源
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)

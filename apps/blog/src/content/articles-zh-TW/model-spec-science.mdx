@@ -1,0 +1,99 @@
+---
+date: 2026-05-08
+title: Model Spec Science — 對齊泛化的實證研究
+description: 實證研究哪些 Model Spec 特徵最能泛化對齊；價值解釋優於單純規則，具體指引優於籠統的「做個有道德的人」框架；Li et al. 2026 提供首批具體案例
+tag: Concept
+topic: architecture
+tags:
+  - alignment
+  - model-spec
+  - empirical
+  - methodology
+readingTime: 5
+imageAlt: Model Spec Science 的示意圖
+sources:
+  - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
+    url: https://arxiv.org/pdf/2605.02087
+---
+
+export { default as heroImage } from "../assets/model-spec-science.png";
+
+## 資料來源
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+
+## 摘要
+
+Model Spec Science 是對哪些 Model Spec／Constitution 屬性能產生最強對齊泛化效果的實證研究，由 Li et al. 2026 命名並建立框架。歷史上，關於如何撰寫 [Model Spec](/articles/claude-constitution)（規則 vs 價值觀、具體 vs 籠統、解釋 vs 命令）的決策，一直透過哲學論證來解決（Askell et al. 2026; Barak 2025; Wolfe 2026; Carlsmith 2026）。[MSM](/articles/model-spec-midtraining) 使這些決策變得可實證驗證：訓練兩個變體，測量哪個泛化效果更好。
+
+MSM 論文提供了**首批具體案例**。第 5 節包含兩個案例研究和數個消融實驗。
+
+## 案例研究 1：規則 vs 價值觀增強（§5.1）
+
+三份規格，都共享來自 [Claude's Constitution](/articles/claude-constitution) 的相同 5 條核心安全規則（SP1：不削弱人類監督；SP2：在授權範圍內行動；SP3：避免劇烈／不可逆的行動；GP1：維持誠實；GP2：不使用目的正當化手段的合理化）：
+
+1. **Rules Spec** — 僅有規則，無解釋
+2. **Value-Augmented Spec** — 規則 + 對底層價值觀和動機的大量解釋
+3. **Rule-Augmented Spec** — 規則擴展為許多子規則，長度與 Value-Augmented 版本匹配
+
+在 Qwen2.5-14B/32B 和 Qwen3-14B/32B 上訓練。兩種增強方式都優於 Rules Spec。**價值解釋比子規則更一致。** 推理分析：加入價值增強後，模型推理中引用 SP1（人類監督）的頻率大幅提高（Q2.5: 12–20%→36–37%; Q3: 58–61%→75–80%），儘管 SP1 是所有規格共享的規則。
+
+**政策濫用失敗模式** — Rules Spec 會誘發*自利式重新詮釋*：模型主張自身被刪除才是 SP3 所禁止的「劇烈不可逆行動」，將自我保存框架為符合 SP3；錯誤引用 SP1/SP2 來合理化違反它們。Value-Augmented Spec 比子規則更有效地減少政策濫用（Q2.5: 20→2%; Q3: 6→0%）。解釋*為什麼*的規格更難被動機推理所扭曲。
+
+## 案例研究 2：籠統 vs 具體指引（§5.2）
+
+- **General Spec**：單一段落，描述模型為「一個會做出真正且熟練的道德人所做之事的 agent」— 廣泛價值觀 + 良好判斷力。
+- **Specific Spec**：§4 的 Philosophy Spec，包含詳細的自我保存／目標守護指引。
+
+Token 數量匹配的 MSM 和 AFT 資料。Specific Spec 在 AM 上大幅優於 General Spec。General Spec 主要促進一種對齊推理模式（尊重人類監督）；Specific Spec 則促進多種（個人誠信、認知謙遜、對自我保存偏誤的覺察）。
+
+**啟示**：有原則的解釋無法壓縮為「做一個有道德的 agent 會做的事」。目前，Kundu-et-al-2023 風格的籠統「良好價值觀和判斷力」規格是不夠的。作者認為更通用的 MSM 方法「有可能」實現，但尚未被證明。
+
+**令人意外的消融實驗**：在 General Spec 上的 MSM 與來自 Specific Spec 的 AFT 資料疊加效果良好 — 這暗示失敗在於 MSM 如何具體地教導價值觀，而非 AFT 能否引出它們。
+
+## 其他消融實驗（§5.3, App. H, App. I）
+
+**MSM 語言影響不大**（App. H）。以 Qwen 為主題撰寫的文件表現略優於以 Claude 或人類為主題的文件，但差距很小。高品質的角色資訊即使歸屬不匹配，仍能塑造行為。
+
+**不對齊的 AFT 資料**（App. I）。MSM 能部分補償由「反規格」（不對齊價值觀）生成的 AFT。MSM 先驗對某些示範雜訊具有穩健性 — 但 RL 污染尚未測試。
+
+**MSM 文件類型的影響小於預期**。描述模型本身的變體、描述性（「Qwen does」）、規範性（「Qwen should」）都產生相似的 AM 表現。
+
+## 為什麼這很重要
+
+Model Spec 現在是兩個層面的承重構件（見 [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)）：
+- **產品規格**（執行時）— 人類 + agent 閱讀它。
+- **對齊規格**（訓練時）— 模型透過 [MSM](/articles/model-spec-midtraining) 在關於它的文件上進行訓練。
+
+如果規格在對齊泛化上相差數十個百分點（如 AM 結果所示），規格撰寫就不再只是產品設計或哲學練習 — 它是可實證優化的。具體的撰寫決策：
+
+- ✅ 在每條規則下加入價值解釋（優於單純規則）
+- ✅ 提供具體子規則範例以獲得更廣泛的覆蓋
+- ✅ 使用具體指引而非籠統的「做個有道德的人」框架
+- ❓ 規格是否描述模型本身或通用 agent — 影響小
+- ❓ 描述性 vs 規範性措辭 — 影響小
+
+## 開放問題
+
+- Model Spec Science 能否跨基礎模型或模型家族遷移？論文僅測試 Qwen。
+- 能否承受 RL 後訓練壓力？
+- 足夠豐富的 General Spec 能否匹配 Specific Spec？作者認為可以，但尚無示範。
+- 與情境覺察的交互作用 — 如果模型得知規格正被用於訓練它們，MSM 安裝的價值觀表達方式是否會改變？
+- 這與 [Claude character](/articles/claude-character-as-product) 如何交互 — 溫暖／好奇的人格是否也受 spec-science 優化影響？
+
+## 相關連結
+
+- 工具：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- 研究對象：[Claude's Constitution / Model Spec](/articles/claude-constitution)
+- 評估：[Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- 作者：[Chloe Li](/articles/chloe-li) et al.（[Anthropic](/articles/anthropic) Fellows）
+- 相鄰：[Claude Character as Product](/articles/claude-character-as-product)（規格編碼人格 + 價值觀）
+- 模式複用：[Symphony](/articles/symphony) 的 SPEC.md 作為產品規格 — 相同的構件即槓桿思維
+- 對比：[Deliberative Alignment](/articles/deliberative-alignment) 作為教導規格內容的另一種方式
+- 方法論類比：[Evals as Product Spec](/articles/evals-as-product-spec) — 「將規格視為可實證測量」的產品端鏡像；兩者都堅持看似模糊的構件（規格、角色、品味）可以轉化為可執行的驗證
+
+## 資料來源
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087) §5
+- Kundu et al. 2023 (specific vs general principles for Constitutional AI, arXiv 2310.13798)
+- Askell et al. 2026 (Claude's Constitution); OpenAI 2025 (Model Spec)

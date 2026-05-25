@@ -1,0 +1,138 @@
+---
+date: 2026-05-06
+title: 隨著模型進步，Harness 應該縮減
+description: 每次模型發布，提示詞腳手架都在縮減；Cat Wu 的修剪紀律；Boris Cherny「一年後只剩 100 行程式碼」的預言；機械式驗證仍是承重結構
+tag: Concept
+topic: harness
+tags:
+  - llm-architecture
+  - agent-engineering
+  - harness
+readingTime: 10
+imageAlt: Harness Shrinkage as Models Improve 的插圖
+sources:
+  - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
+    url: https://www.youtube.com/watch?v=SlGRN8jh2RI
+  - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
+      of Product, Claude Code)
+    url: https://www.youtube.com/watch?v=PplmzlgE0kg
+---
+export { default as heroImage } from "../assets/harness-shrinkage-as-models-improve.png";
+
+## 資料來源
+
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+
+## 摘要
+
+harness — 提示詞、技能、腳手架、機械式驗證 — 存在的目的是補償底層模型尚無法做到的事。隨著模型進步，harness 需要縮減，而非膨脹。[Boris Cherny](/articles/boris-cherny) 明確預測 [Claude Code](/articles/claude-code)「一年後可能只剩 100 行程式碼」。[Cat Wu](/articles/cat-wu) 表示團隊在每次模型發布時都會通讀整份 system prompt，並移除新模型已能原生處理的部分。這個原則在兩個方向上運作：harness 過去注入的*能力*遷移進模型內部，而 harness 過去提供的*拐杖*則變成阻力。
+
+## 待辦清單作為典型案例
+
+Cat Wu 的案例研究：
+
+- 早期 Claude Code：要求模型重構 20 個呼叫點，模型改了 5 個就停下。團隊加入了一個明確的待辦清單工具（「我們團隊的 Sid 說，人類會怎麼做？列一張清單，逐一完成」）。在積極提示下使用該工具，模型完成了全部 20 個。
+- Opus 4 之後：模型自發使用待辦清單，不再需要積極提示。
+- 現在：待辦清單被「弱化」— 模型可能用也可能不用，不需要被提醒，主要保留是為了使用者可見性。
+
+拐杖（強制使用待辦清單的提示詞段落）被移除了；工具因為不同的原因（UI 價值）而保留。
+
+## Boris 的預言：100 行
+
+> "I think Claude Code itself may be 100 lines of code a year from now."
+
+字面上看這是誇飾，但方向是真實的：
+- Anthropic 現在內部使用的模型與對外發布的相同，因此內部 harness 經驗可以轉移
+- 每次模型發布都讓團隊刪除提示詞段落、縮減回退邏輯、移除安全包裝（Cat Wu 說：「今天所有的安全機制 — 提示詞注入防護、命令靜態驗證、權限模式、人類在迴圈中 — 都會變得不那麼重要，因為模型本身就會做正確的事」）
+- 產品表面不再是「harness 做什麼」，而是「模型決定在哪裡做」（CLI、行動裝置、網頁、IDE，全部共享相同的模型邏輯）
+
+## 另一面：能力向內遷移
+
+Boris 報告 Opus 4.7 自發啟動迴圈：
+
+> "I'll tell it 'pull this data query.' It says 'I noticed the data is changing — I'll start a loop and report every 30 minutes.'"
+
+`/loop` 原語（見 [Agent Loop Pattern](/articles/agent-loop-pattern)）最初是作為 harness 功能引入的；在 4.7 中它正在成為模型原生行為。harness 原語不會消失 — 但使用者不再需要主動呼叫它。
+
+這可以推廣：任何 harness 透過提示詞段落教會模型如何做的事，都是遷移進下一個模型訓練資料的候選項。
+
+## 錯誤方向：harness 膨脹
+
+相反的失敗模式比沒有 harness 更糟 — 它會主動降低模型表現：
+
+- Cat Wu：「模型在[一個月]時間線內能做到什麼」是 PM 最難預測的事；為舊模型過度規範 harness 會浪費 token，而新模型在無監督下能更好地利用這些 token。
+- [Matt Pocock](/articles/matt-pocock)：250K-token 的 system prompt 在模型開始做任何事之前就把它推入笨蛋區（見 [Context Window Smart Zone](/articles/context-window-smart-zone)）。
+- 重複的能力注入會趨向矛盾：情況 A 用規則 X，情況 B 用規則 Y，直到模型無法分辨該套用哪個。
+
+## 流程：每次發布都重讀 system prompt
+
+Cat Wu 的紀律：
+
+> "We read through the entire system prompt and we reflect on, okay, for each of these sections, does the model really need this reminder anymore? And if not, we'll remove it."
+
+這是一種*逆向*做法 — 大多數團隊只會往提示詞裡加東西，不會減。在與模型發布對齊的節奏上執行這件事，才能防止 harness 不斷堆積。
+
+## 為下一個模型而建，而非當前模型
+
+Boris 的反直覺推論：
+
+> "We were trying to build this thing that was like pre-PMF, and we knew that it wouldn't have PMF for 6 months because we were building for the next model."
+
+大多數產品是為發布時搭配的模型而建。Anthropic 為六個月後的模型建造 Claude Code — 接受它今天還不太行，賭注是下一次發布會補上差距。這改變了「harness 工作」的意義：不是「讓當前模型可用」，而是「建造一個當模型到來時*就能運作*的產品表面」。
+
+Cat Wu 的變體：「建造目前還不一定能用的產品相當重要，這樣你才知道這個產品要能用還缺什麼，然後最新模型一出來就能直接換上。」
+
+## 反論：harness 仍然重要
+
+並非所有人都同意。[Matt Pocock](/articles/matt-pocock) 主張 harness — 回饋迴圈、深層模組、機械式驗證 — *就是*天花板：
+
+> "If your code base doesn't have feedback loops, you're never ever ever going to get decent AI decent output out of AI. The quality of your feedback loops influences how good your AI can code, essentially. That is the ceiling."
+
+綜合觀點：**提示詞腳手架隨模型進步而縮減；機械式驗證仍然不可或缺。** 測試、型別、linter、隔離的審查環境 — 這些是 harness 提供的基礎設施，不會像能力那樣遷移進模型內部。
+
+## 相關連結
+
+- [Boris Cherny](/articles/boris-cherny) — 「100 行」預言與自發迴圈觀察
+- [Cat Wu](/articles/cat-wu) — 每次發布修剪提示詞的操作紀律
+- [Matt Pocock](/articles/matt-pocock) — 機械式驗證仍是承重結構的反論
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 原語從 harness 遷移至模型的範例
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 為何提示詞膨脹是*成本*，不只是膨脹
+- [Claude Character as Product](/articles/claude-character-as-product) — 角色是少數可能*不會*縮減的 harness 資產
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 將「強制不變量，而非實作」原則推廣到 harness 與模型的分工
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — Cat Wu 預測其必要性將逐漸消退的 harness 功能
+- [AI Brain Fry](/articles/ai-brain-fry) — 部分因 harness 縮減而緩解（需監督的東西變少），但因[迴圈](/articles/agent-loop-pattern)的輸出量而重新出現
+- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — *不會*縮減的是邊界上的人類；這篇論文命名了邊界工作會變成什麼（監督品質、決策權、升級、後果）
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 對齊從 harness 提示詞注入價值觀轉向模型內化價值觀；harness 縮減的對齊面向
+- [Interaction Models](/articles/interaction-models) — 同樣的趨勢在*互動*軸上：VAD / 輪次偵測 / 對話管理 harness 溶解進模型（[Thinking Machines Lab](/articles/thinking-machines-lab)，2026 年 5 月）
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 底層原則：手工打造的腳手架被規模化的通用能力超越
+- [HTML as the New Markdown](/articles/html-as-the-new-markdown) — 關鍵區別：本頁描述的是*面向模型*的 harness 縮減，而 [Thariq Shihipar](/articles/thariq-shihipar) 的 HTML 產物（[計畫](/articles/html-as-the-new-markdown)、[微型應用](/articles/disposable-micro-apps)）是*面向人類*的 harness，隨模型進步而**增長**（約束瓶頸從「模型能不能做到」轉移到「人類能不能跟上」）
+- [Compute Allocator](/articles/compute-allocator) — 命名了隨著面向模型的 harness 縮減而擴展的人類角色；約 99% 的 token 用於面向人類的腳手架
+- [Founder as Agent Orchestrator](/articles/founder-as-agent-orchestrator) — 編排能力本身會隨 harness 縮減而改變；圍繞 2026 年 Claude 表面能力建立永久工作流的創辦人應預期需要重寫
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — CLAUDE.md 作為架構上下文是 harness 的一種形式；最終可能被模型推斷，但目前仍是承重結構
+- [Compounding Data Moat](/articles/compounding-data-moat) — 垂直邊緣案例測試套件是*不會*向內遷移的 harness 形式（利基產業邊緣案例沒有通用訓練信號）
+- [AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle) — 圍繞 2026 年 Claude 表面能力建立永久工作流的創辦人應預期這些能力會隨 harness 縮減而改變
+- [Zero-Friction Scope Creep](/articles/zero-friction-scope-creep) — 書面範圍紀律是*不會*隨 harness 縮減而向內遷移的人類流程工作
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — 與 harness 縮減*互補*：連接器不會縮減，隨著模型決定每個任務使用哪種基底（MCP / API / computer use）而擴展
+- [Evals as Product Spec](/articles/evals-as-product-spec) — PM 端*不會*縮減的部分：evals 是持久的產物，在周圍的 harness 消融時重新驗證產品
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — 形式數學中的相同動態：DeepMind 的客製化證明搜尋腳手架（AlphaProof + 演化）隨著 LLM 進步，從賦能轉為僅節省成本
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — [Fiona Fung](/articles/fiona-fung) 的組織層級推論：隨著*生成* harness 縮減，*驗證*成為約束瓶頸
+- [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — [Karpathy](/articles/andrej-karpathy) 的「>10 倍且持續擴大」槓桿曲線是 harness 縮減 / 能力增長的實踐者視角
+
+## 開放問題
+
+- *所有*提示詞腳手架最終都會遷移進模型嗎？還是有些會留下 — 例如組織特定風格、安全規則、品牌語調？
+- Boris 的「100 行」預測是從 2026 年 5 月起算一年 — 2027 年可驗證。
+- 如果 harness 工作縮減，什麼新工作會擴展來填補？Cat Wu 的賭注：PM/產品品味、eval 撰寫、角色工作。
+
+## 衍生內容
+
+- [Learning to Co-Work with AI: A Software Engineer's Field Guide](/articles/learning-to-cowork-with-ai-engineer-guide) — 每次發布修剪作為日常實踐；「為下一個模型而建」作為職涯策略視野
+- [Opinions on Using AI Tools & the Future of the Software Engineering Role](/articles/ai-tools-opinions-and-future-of-swe-role) — harness 縮減 vs harness 就是天花板的張力是四種立場辯論圖的一個軸
+- [Does the Human-Facing Harness (HTML Artifacts) Hit Its Own Bloat Ceiling?](/articles/human-facing-harness-bloat-ceiling) — 面向模型/面向人類的不對稱性推到極致：面向人類的 harness 無法縮減至零，且隨模型進步面臨*更多*膨脹壓力
+
+## 資料來源
+
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) (counterpoint)

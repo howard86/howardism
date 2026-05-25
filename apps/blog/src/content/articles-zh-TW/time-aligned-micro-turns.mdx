@@ -1,0 +1,72 @@
+---
+date: 2026-05-13
+title: Time-Aligned Micro-Turns
+description: "核心互動模型設計：輸入/輸出作為連續串流，以約 200ms 交錯區塊處理，無回合邊界；串流式會話推論（已上游至 SGLang）、延遲調校的 MoE 核心、位元級訓練器-取樣器對齊"
+tag: Concept
+topic: architecture
+tags:
+  - llm-architecture
+  - multimodal
+  - inference
+readingTime: 4
+imageAlt: Time-Aligned Micro-Turns 概念示意圖
+sources:
+  - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
+    url: https://thinkingmachines.ai/blog/interaction-models/
+---
+
+export { default as heroImage } from "../assets/time-aligned-micro-turns.png";
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+
+## 摘要
+
+[Interaction Models](/articles/interaction-models) 中的核心架構設計：不再消耗完整的使用者回合再產生完整回應，而是將輸入與輸出視為**連續串流**，以約 200ms 的區塊（「micro-turns」）交錯處理與生成。模型不需要遵守人為的回合邊界——靜默、重疊與打斷都保留在模型的上下文中。
+
+## 運作方式
+
+- 模型持續交錯運作：處理 200ms 輸入 → 生成 200ms 輸出 → 處理下一段 200ms 輸入 → ……橫跨音訊、視訊與文字。
+- 人類感知維持*同時*的輸入與輸出串流；模型看到的是*單一交錯 token 序列*（`input 0, output 0, input 1, output 1, …`），編碼了相同的時序資訊。
+- 因為時序已嵌入序列中，模型對經過的時間有直接感知，能在使用者的回合*進行中*就採取行動，而非僅在結束後。
+
+對比：基於回合的模型看到的是帶有硬性回合邊界的交替 token 序列；即時感受是由 harness *預測*這些邊界（VAD 等）來模擬的——參見 [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck)。
+
+## 為何選擇 200ms
+
+200ms 區塊足夠小，能實現多種輸入/輸出模態的近即時並行。代價是：推論必須執行*頻繁的小型 prefill 與 decode*，每次都有嚴格的延遲限制——而現有的 LLM 推論函式庫並非為此設計（每回合有顯著的額外開銷）。
+
+## 推論：串流式會話
+
+TML 對頻繁小型 prefill 問題的解法：
+- 客戶端將每個 200ms 區塊作為**獨立請求**發送。
+- 推論伺服器將區塊**附加**到 *GPU 記憶體中的持久序列*——避免重複的記憶體重新配置與元資料重新計算。
+- 已將此方案的一個版本上游至 SGLang。
+- 加上針對雙向服務形狀的延遲調校核心：例如用 **gather+gemv** 取代標準 grouped gemm 來實作 MoE 核心（引用了 PyTorch/`gpt-fast` 與 Cursor 的 warp-decode 的先前工作）。
+
+## 訓練器-取樣器對齊
+
+位元級訓練器-取樣器對齊用於訓練穩定性*以及*系統元件的除錯。透過[批次不變核心](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/)實作，端到端額外開銷低於 5%。兩個重點核心：
+- **All-reduce / reduce-scatter** — NVLS 低延遲通訊核心，在 Blackwell 上具確定性，跨不同平行策略（Sequence Parallelism vs Tensor Parallelism）實現位元級對齊。
+- **Attention** — Split-KV 通常會導致 decode 與 prefill 之間累加順序不一致；修正方式是在 decode 與 prefill 之間*一致地*分割（例如每次 4096 個 token，左對齊），同時維持兩者的效率。
+
+## 帶來的效益
+
+今天每種需要專用 harness 的互動模式，都變成模型行為的特例——並隨著模型規模與訓練資料的增長而改善：主動插話、同時說話、視覺線索反應、時間估計。參見 [Full-Duplex Interaction](/articles/full-duplex-interaction)。
+
+## 相關連結
+
+- [Interaction Models](/articles/interaction-models) — 上層概念
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — 本概念所取代的方式
+- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — 互補的「最小前處理」選擇，使串流可行
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — micro-turns 讓互動模型保持*在場*；深度推理被委派出去以免阻塞串流
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 解鎖的能力
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 「無回合邊界 → 互動模式成為可擴展的模型行為」是其直接應用
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 以 200ms 粒度的連續音訊/視訊快速累積上下文；開放的長會話問題
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — 回合切換延遲（0.40s）是移除回合邊界的直接、可量測成果
+- [TML-Interaction-Small](/articles/tml-interaction-small) — 基於此機制建構的模型（200ms 交錯輸入/輸出區塊）
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
