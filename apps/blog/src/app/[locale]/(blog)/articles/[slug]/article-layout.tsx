@@ -2,6 +2,7 @@ import { Card } from "@howardism/ui/components/card";
 import { cn } from "@howardism/ui/lib/utils";
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import type { CSSProperties, ReactNode } from "react";
 
 import { ArticleJsonLd } from "@/components/article-jsonld";
@@ -9,14 +10,10 @@ import { DataGrid } from "@/components/howardism/data-grid";
 import { HalfDisc } from "@/components/howardism/half-disc";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
+import type { Locale } from "@/i18n/routing";
 import { formatDate } from "@/utils/time";
 
-import type {
-  ArticleHeading,
-  ArticleMeta,
-  Locale,
-  SiblingNav,
-} from "../service";
+import type { ArticleHeading, ArticleMeta, SiblingNav } from "../service";
 import { TOPIC_META } from "../topic-meta";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
@@ -59,26 +56,28 @@ export function ArticleLayout({
   slug,
   translationHref,
 }: ArticleLayoutProps) {
+  const t = useTranslations("ArticlePage");
   const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
   const accent = meta.topic ? TOPIC_META[meta.topic].color : "var(--brand)";
   const topicRow: [string, ReactNode] | null = meta.topic
-    ? ["Topic", <TopicLabel key="topic" topic={meta.topic} />]
+    ? [t("topic"), <TopicLabel key="topic" topic={meta.topic} />]
     : null;
   const tagsRow: [string, ReactNode] | null =
     meta.tags && meta.tags.length > 0
       ? [
-          "Tags",
+          t("tags"),
           <SubjectChipList key="tags" navigable={navigable} tags={meta.tags} />,
         ]
       : null;
   const metaRows: [string, ReactNode][] = [
-    ["Published", formatDate(meta.date)],
-    ["Filed", meta.tag],
+    [t("published"), formatDate(meta.date)],
+    [t("filed"), meta.tag],
     ...(topicRow ? [topicRow] : []),
     ...(tagsRow ? [tagsRow] : []),
-    ["Reading", `${meta.readingTime} min`],
-    ["Source", "AI-synthesised"],
+    [t("reading"), t("readingTime", { minutes: meta.readingTime })],
+    [t("source"), t("sourceValue")],
   ];
+  const switcherLabel = locale === "zh-TW" ? t("switchToEn") : t("switchToZh");
 
   return (
     <div
@@ -90,7 +89,7 @@ export function ArticleLayout({
           <div className="relative mb-10 overflow-hidden border-t-[3px] border-t-[var(--article-accent)] border-b border-b-border border-double pt-2.5 pb-10">
             <div className="mb-7 flex items-baseline justify-between gap-4">
               <span className={cn(EYEBROW_CLASS, "inline-flex items-center")}>
-                Plate II
+                {t("plate")}
                 {meta.topic && (
                   <>
                     <span aria-hidden="true" className="mx-1.5">
@@ -103,12 +102,12 @@ export function ArticleLayout({
               <span className="inline-flex items-center gap-2">
                 {locale === "zh-TW" && (
                   <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
-                    機器翻譯 · machine-translated
+                    {t("machineTranslated")}
                   </span>
                 )}
                 {locale === "zh-TW" && isStale && (
                   <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
-                    過時翻譯 · stale translation
+                    {t("staleTranslation")}
                   </span>
                 )}
                 {translationHref && (
@@ -119,10 +118,10 @@ export function ArticleLayout({
                     )}
                     href={translationHref}
                   >
-                    {locale === "zh-TW" ? "EN" : "中文"}
+                    {switcherLabel}
                   </Link>
                 )}
-                <span className={EYEBROW_CLASS}>HOWARDISM</span>
+                <span className={EYEBROW_CLASS}>{t("siteMark")}</span>
               </span>
             </div>
 
@@ -170,20 +169,17 @@ export function ArticleLayout({
             <div className="my-10 flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
               <span className="font-mono text-[var(--article-accent)] text-xs">
-                § end
+                {t("sectionEnd")}
               </span>
               <div className="h-px flex-1 bg-border" />
             </div>
 
             <Card className="mb-12 px-6 py-5">
               <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
-                About this piece
+                {t("aboutTitle")}
               </div>
               <p className="m-0 font-body text-muted-foreground text-xs">
-                Articles in this journal are synthesised by AI agents from a
-                curated wiki and are refreshed automatically as new concepts
-                arrive. Topics, framing, and editorial direction are curated by
-                Howardism.
+                {t("aboutBody")}
               </p>
             </Card>
 
@@ -203,7 +199,8 @@ export function ArticleLayout({
                       href={`/articles/${previousSlug}`}
                     >
                       <span className={NAV_KICKER_CLASS}>
-                        <span aria-hidden="true">← </span>Previous
+                        <span aria-hidden="true">← </span>
+                        {t("previous")}
                       </span>
                       {previousTitle && (
                         <span className={NAV_TITLE_CLASS}>{previousTitle}</span>
@@ -218,7 +215,8 @@ export function ArticleLayout({
                       href={`/articles/${nextSlug}`}
                     >
                       <span className={NAV_KICKER_CLASS}>
-                        Next<span aria-hidden="true"> →</span>
+                        {t("next")}
+                        <span aria-hidden="true"> →</span>
                       </span>
                       {nextTitle && (
                         <span className={NAV_TITLE_CLASS}>{nextTitle}</span>

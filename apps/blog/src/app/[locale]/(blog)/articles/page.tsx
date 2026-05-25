@@ -34,10 +34,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const baseUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
   if (locale === "zh-TW") {
+    const t = await getTranslations("Articles");
     const url = `${baseUrl}/zh-TW/articles`;
     return {
-      title: "文章（繁體中文）",
-      description: "由 AI 從英文原文翻譯的文章。",
+      title: t("zhTitle"),
+      description: t("zhDescription"),
       alternates: {
         canonical: url,
         languages: {

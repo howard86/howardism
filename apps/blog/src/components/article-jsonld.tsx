@@ -1,8 +1,6 @@
-import type {
-  ArticleMeta,
-  Locale,
-} from "@/app/[locale]/(blog)/articles/service";
+import type { ArticleMeta } from "@/app/[locale]/(blog)/articles/service";
 import { env } from "@/config/env";
+import type { Locale } from "@/i18n/routing";
 
 interface ArticleJsonLdProps {
   locale: Locale;
