@@ -1,4 +1,5 @@
-import { surfaceHash, verbatimDiffers } from "../surface.ts";
+import { surfaceHash } from "@howardism/article-contract/surface";
+import { verbatimDiffers } from "../surface.ts";
 
 /**
  * Per-slug freshness verdict, derived purely from text + the recorded hash:

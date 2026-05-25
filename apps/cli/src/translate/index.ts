@@ -7,7 +7,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-
+import { surfaceHash } from "@howardism/article-contract/surface";
 import { runWithConcurrency } from "../concurrency.ts";
 import {
   DEFAULT_ARTICLES_DIR,
@@ -24,7 +24,7 @@ import {
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
 import { buildTranslatePrompt } from "./prompt.ts";
-import { resyncVerbatimFields, sourceTitle, surfaceHash } from "./surface.ts";
+import { resyncVerbatimFields, sourceTitle } from "./surface.ts";
 import {
   ACTIONABLE_STATUSES,
   classifyArticle,
@@ -66,6 +66,8 @@ interface RunOptions {
   sourceDir: string;
   targetLang: string;
   trackingDbPath: string;
+  /** Re-translate stale articles (hash mismatch). Default skips them; --force subsumes this. */
+  update: boolean;
   wikiSourcesPath: string;
 }
 
@@ -74,6 +76,7 @@ interface TranslateSummary {
   orphans: string[];
   resynced: string[];
   skipped: string[];
+  staleSkipped: string[];
   translated: string[];
 }
 
@@ -120,6 +123,7 @@ async function main(): Promise<void> {
     limit: opts.limit,
     onlySlug: opts.onlySlug,
     force: opts.force,
+    update: opts.update,
     dryRun: opts.dryRun,
     adopt: opts.adopt,
   });
@@ -138,6 +142,7 @@ async function main(): Promise<void> {
     summary: {
       translated: [],
       skipped: [],
+      staleSkipped: [],
       resynced: [],
       orphans: [],
       failed: [],
@@ -213,6 +218,14 @@ async function processArticle(slug: string, ctx: RunContext): Promise<void> {
     if (!opts.force && status === "fresh") {
       ctx.summary.skipped.push(slug);
       console.log(`[translate] skip ${slug} (fresh)`);
+      return;
+    }
+
+    if (!(opts.force || opts.update) && status === "stale") {
+      ctx.summary.staleSkipped.push(slug);
+      console.log(
+        `[translate] skip ${slug} (stale — run with --update to refresh)`
+      );
       return;
     }
 
@@ -656,6 +669,7 @@ function parseOptions(): RunOptions {
   const limit = parseLimitOption(argv, env);
 
   const force = argv.includes("--force") || env.FORCE === "1";
+  const update = argv.includes("--update") || env.TRANSLATE_UPDATE === "1";
   const check = argv.includes("--check");
   const adopt = argv.includes("--adopt");
   const dryRun = env.DRY_RUN === "1";
@@ -711,6 +725,7 @@ function parseOptions(): RunOptions {
     sourceDir,
     targetLang,
     trackingDbPath,
+    update,
     wikiSourcesPath,
   };
 }
@@ -783,11 +798,14 @@ async function assertExists(path: string, label: string): Promise<void> {
 
 function printSummary(summary: TranslateSummary): void {
   console.log("\n=== Translate summary ===");
-  console.log(`Translated: ${summary.translated.length}`);
-  console.log(`Resynced:   ${summary.resynced.length}`);
-  console.log(`Skipped:    ${summary.skipped.length}`);
-  console.log(`Orphans:    ${summary.orphans.length}`);
-  console.log(`Failed:     ${summary.failed.length}`);
+  console.log(`Translated:     ${summary.translated.length}`);
+  console.log(`Resynced:       ${summary.resynced.length}`);
+  console.log(`Skipped:        ${summary.skipped.length}`);
+  console.log(
+    `Stale-skipped:  ${summary.staleSkipped.length}${summary.staleSkipped.length > 0 ? " (run with --update to refresh)" : ""}`
+  );
+  console.log(`Orphans:        ${summary.orphans.length}`);
+  console.log(`Failed:         ${summary.failed.length}`);
   if (summary.failed.length > 0) {
     console.log("\nFailures:");
     for (const { slug, reason } of summary.failed) {

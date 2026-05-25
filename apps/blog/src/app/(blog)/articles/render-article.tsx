@@ -13,6 +13,7 @@ import {
   getSiblings,
   getTranslatedSlugs,
   hasTranslation,
+  isTranslationStale,
   type Locale,
 } from "./service";
 
@@ -64,6 +65,7 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
       <ArticleLayout
         headings={mod.headings}
         heroImage={mod.heroImage}
+        isStale={isTranslationStale(slug)}
         locale="zh-TW"
         meta={mod.meta}
         slug={slug}
