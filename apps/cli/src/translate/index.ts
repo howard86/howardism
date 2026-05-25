@@ -586,10 +586,16 @@ async function runEngineWithRetry(
   }
   // All attempts failed — restore the prior translation so it isn't lost.
   if (existingOutput) {
-    await writeFile(outputAbsPath, existingOutput, "utf8");
-    console.warn(
-      `[translate] ${slug} all attempts failed; prior translation restored`
-    );
+    try {
+      await writeFile(outputAbsPath, existingOutput, "utf8");
+      console.warn(
+        `[translate] ${slug} all attempts failed; prior translation restored`
+      );
+    } catch (restoreErr) {
+      console.warn(
+        `[translate] ${slug} all attempts failed; restore also failed: ${(restoreErr as Error).message}`
+      );
+    }
   }
   return { ok: false, reason: lastReason };
 }
