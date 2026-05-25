@@ -74,7 +74,7 @@ Design system: a single set of oklch design tokens in shadcn slots (`--backgroun
 
 ### CLI (`apps/cli`)
 
-`bun run import:wiki` (entry `src/import-wiki/index.ts`) parses an Obsidian-style wiki vault — point `WIKI_PATH` (and optionally `RAW_PATH`) at it — and emits article MDX/frontmatter into the blog plus three committed manifests under `apps/blog/src/data/`: `article-graph.json` (backlink/related graph), `wiki-log.json`, and `wiki-sources.json`. Topics are derived from each note's `tags`. The blog reads these JSON files at build time, so re-run the importer and commit the result when source notes change.
+`bun run import:wiki` (entry `src/import-wiki/index.ts`) parses an Obsidian-style wiki vault — point `WIKI_PATH` (and optionally `RAW_PATH`) at it — and emits article MDX/frontmatter into the blog plus two committed manifests under `apps/blog/src/data/`: `article-graph.json` (backlink/related graph) and `wiki-sources.json`. Topics are derived from each note's `tags`. The blog reads these JSON files at build time, so re-run the importer and commit the result when source notes change.
 
 #### Translation glossary (SQLite + MCP)
 
