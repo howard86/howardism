@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { TAG_SECTIONS } from "@/app/(blog)/articles/tag-sections";
+import { TAG_SECTIONS } from "@/app/[locale]/(blog)/articles/tag-sections";
 import sitemap from "@/app/sitemap";
 
 describe("sitemap", () => {

@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { BacklinksDisclosureView } from "@/app/(blog)/articles/[slug]/backlinks-disclosure";
+import { BacklinksDisclosureView } from "@/app/[locale]/(blog)/articles/[slug]/backlinks-disclosure";
 
-import type { ArticleLink, ArticleMeta } from "@/app/(blog)/articles/service";
+import type {
+  ArticleLink,
+  ArticleMeta,
+} from "@/app/[locale]/(blog)/articles/service";
 
 afterEach(() => {
   cleanup();

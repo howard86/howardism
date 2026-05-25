@@ -1,4 +1,7 @@
-import type { ArticleTopic, WikiLogEntry } from "@/app/(blog)/articles/service";
+import type {
+  ArticleTopic,
+  WikiLogEntry,
+} from "@/app/[locale]/(blog)/articles/service";
 
 import { TopicDot } from "./topic-dot";
 

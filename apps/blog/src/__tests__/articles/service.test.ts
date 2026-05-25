@@ -6,7 +6,7 @@ import {
   getSlicedArticles,
   getTagCounts,
   getVisibleArticles,
-} from "@/app/(blog)/articles/service";
+} from "@/app/[locale]/(blog)/articles/service";
 import graphData from "@/data/article-graph.json";
 
 // A slug that the cli-engineer's graph generator is known to produce both

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ArticleMeta } from "@/app/(blog)/articles/service";
+import type { ArticleMeta } from "@/app/[locale]/(blog)/articles/service";
 
 describe("ArticleMeta", () => {
   it("accepts a fully-specified meta object", () => {

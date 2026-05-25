@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
 
-import type { ArticleMeta } from "@/app/(blog)/articles/service";
+import type { ArticleMeta } from "@/app/[locale]/(blog)/articles/service";
 import { TagChip } from "@/components/tag-chip";
 import { truncate } from "@/utils/text";
 

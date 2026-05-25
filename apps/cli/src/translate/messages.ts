@@ -108,14 +108,14 @@ async function main() {
   const prompt = buildPrompt(entries);
   console.log(`[translate-messages] translating with engine=${engine}...`);
 
-  const result = await runEngine(engine, prompt, {
-    kiroClient: undefined,
-    modelLabel: null,
+  const result = await runEngine(engine, {
+    prompt,
+    scopeDir: REPO_ROOT,
     timeoutMs: 120_000,
   });
 
   const translated = parseResponse(
-    result.text,
+    result.stdout,
     entries.map((e) => e.key)
   );
   console.log(

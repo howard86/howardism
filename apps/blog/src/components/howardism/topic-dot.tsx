@@ -1,5 +1,5 @@
-import type { ArticleTopic } from "@/app/(blog)/articles/service";
-import { TOPIC_META } from "@/app/(blog)/articles/topic-meta";
+import type { ArticleTopic } from "@/app/[locale]/(blog)/articles/service";
+import { TOPIC_META } from "@/app/[locale]/(blog)/articles/topic-meta";
 
 interface TopicDotProps {
   size?: number;
