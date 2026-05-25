@@ -54,6 +54,8 @@ export function buildTranslatePrompt(args: BuildTranslatePromptArgs): string {
     "- All link URLs, including internal `/articles/<slug>` links and any external `https://...` URLs.",
     "- Every `sources[].title` value (the audit-trail titles in the `sources:` frontmatter list and the `## Sources` body block — keep titles in their original language).",
     "- Fenced code blocks (```...```) and inline code spans (`...`) — keep the contents byte-identical.",
+    "- All LaTeX math expressions: everything inside `$...$` (inline math) and `$$...$$` (display math) must be copied byte-identical from the source. Do not translate, reformat, or change any characters inside math spans — including backslash-escaped braces (`\\{`, `\\}`) which are required by the MDX parser.",
+    "- HTML entities such as `&lt;`, `&gt;`, `&amp;` in the source must be preserved byte-identical. When writing prose that uses `<` before a digit or `$` sign (e.g. `<50 words`, `<$100`), write `&lt;` — raw `<` before a digit or `$` breaks the MDX parser.",
     "- Every glossary term (from the `list` command) wherever it appears.",
     "",
     "TRANSLATE",
