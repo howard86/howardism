@@ -76,6 +76,18 @@ Design system: a single set of oklch design tokens in shadcn slots (`--backgroun
 
 `bun run import:wiki` (entry `src/import-wiki/index.ts`) parses an Obsidian-style wiki vault — point `WIKI_PATH` (and optionally `RAW_PATH`) at it — and emits article MDX/frontmatter into the blog plus three committed manifests under `apps/blog/src/data/`: `article-graph.json` (backlink/related graph), `wiki-log.json`, and `wiki-sources.json`. Topics are derived from each note's `tags`. The blog reads these JSON files at build time, so re-run the importer and commit the result when source notes change.
 
+#### Translation glossary (SQLite + MCP)
+
+The translation service (`bun run translate`) keeps a **do-not-translate (DNT) glossary** of proper nouns and technical terms to leave verbatim. It lives in `src/glossary/` backed by SQLite (`bun:sqlite`, WAL) at `apps/cli/.translate-glossary.db` — a per-machine, gitignored cache. `store.ts` is the shared core (`openDb`, `listTerms`, `addTerm`, `searchTerms`, `ensureSeeded`); `seed.ts` harvests seed terms (Entity-tagged article titles+slugs, wiki-source authors, base tech acronyms). On first use `ensureSeeded` migrates any legacy `.translate-glossary.json` then harvests the corpus; a populated DB is left untouched so added terms persist.
+
+Two interfaces share the one DB:
+- **CLI** — `bun run glossary list` (JSON array of `{term, category}`) and `bun run glossary add "<term>" <category>`. The translation prompt instructs each engine to shell out to these.
+- **MCP server** — `bun run glossary:mcp` (stdio) exposes `glossary_list`, `glossary_add`, `glossary_search` so any MCP client can reuse the glossary as native tool calls. Registered for this repo in `.mcp.json`; other agents can point at it with:
+
+  ```json
+  { "mcpServers": { "glossary": { "command": "bun", "args": ["apps/cli/src/glossary/mcp.ts"] } } }
+  ```
+
 ## Code Style
 
 - **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
