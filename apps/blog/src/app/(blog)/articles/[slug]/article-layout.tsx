@@ -10,7 +10,12 @@ import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { TopicLabel } from "@/components/howardism/topic-label";
 import { formatDate } from "@/utils/time";
 
-import type { ArticleHeading, ArticleMeta, SiblingNav } from "../service";
+import type {
+  ArticleHeading,
+  ArticleMeta,
+  Locale,
+  SiblingNav,
+} from "../service";
 import { TOPIC_META } from "../topic-meta";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
@@ -19,11 +24,15 @@ interface ArticleLayoutProps {
   children?: ReactNode;
   headings?: ArticleHeading[];
   heroImage?: StaticImageData;
+  /** Which language this rendering is; drives the machine-translation badge. */
+  locale?: Locale;
   meta: ArticleMeta;
   /** Subject tags with their own page — used to decide which chips link. */
   navigable?: ReadonlySet<string>;
   siblings?: SiblingNav;
   slug: string;
+  /** Href of the same article in the other language, when one exists. */
+  translationHref?: string;
 }
 
 const NO_NAVIGABLE_TAGS: ReadonlySet<string> = new Set();
@@ -39,10 +48,12 @@ export function ArticleLayout({
   children,
   headings = [],
   heroImage,
+  locale = "en",
   meta,
   navigable = NO_NAVIGABLE_TAGS,
   siblings,
   slug,
+  translationHref,
 }: ArticleLayoutProps) {
   const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
   const accent = meta.topic ? TOPIC_META[meta.topic].color : "var(--brand)";
@@ -85,7 +96,25 @@ export function ArticleLayout({
                   </>
                 )}
               </span>
-              <span className={EYEBROW_CLASS}>HOWARDISM</span>
+              <span className="inline-flex items-center gap-2">
+                {locale === "zh-TW" && (
+                  <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
+                    機器翻譯 · machine-translated
+                  </span>
+                )}
+                {translationHref && (
+                  <Link
+                    className={cn(
+                      EYEBROW_CLASS,
+                      "no-underline transition-colors hover:text-[var(--article-accent)]"
+                    )}
+                    href={translationHref}
+                  >
+                    {locale === "zh-TW" ? "EN" : "中文"}
+                  </Link>
+                )}
+                <span className={EYEBROW_CLASS}>HOWARDISM</span>
+              </span>
             </div>
 
             <div className="grid grid-cols-[1fr_auto] items-start gap-x-8">
