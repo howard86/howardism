@@ -100,6 +100,21 @@ const nextConfig: NextConfig = {
     // alive as a permanent (308) redirect so any external links and the
     // pre-rename graph references still land on the canonical index.
     { source: "/articles/wiki", destination: "/articles", permanent: true },
+    {
+      source: "/articles/wiki-changelog",
+      destination: "/articles",
+      permanent: true,
+    },
+    {
+      source: "/articles/tag/changelog",
+      destination: "/articles",
+      permanent: true,
+    },
+    {
+      source: "/zh-TW/articles/wiki-changelog",
+      destination: "/zh-TW/articles",
+      permanent: true,
+    },
   ],
   reactStrictMode: true,
   outputFileTracingRoot: join(
