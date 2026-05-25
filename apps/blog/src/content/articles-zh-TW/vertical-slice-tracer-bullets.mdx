@@ -1,0 +1,89 @@
+---
+date: 2026-05-06
+title: Vertical Slice Tracer Bullets
+description: 將 Pragmatic-Programmer 的 tracer-bullet 模式套用到 agent
+  任務拆解；縱向切片優於橫向分層；以帶阻塞依賴邊的 Kanban
+  取代編號式的階段計畫
+tag: Concept
+topic: harness
+tags:
+  - agent-engineering
+  - software-design
+  - planning
+readingTime: 5
+imageAlt: Vertical Slice Tracer Bullets 的插圖
+sources:
+  - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
+    url: https://youtu.be/-QFHIoCo-Ko
+---
+export { default as heroImage } from "../assets/vertical-slice-tracer-bullets.png";
+
+## 資料來源
+
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+
+## 摘要
+
+概念借自 *The Pragmatic Programmer*，由 [Matt Pocock](/articles/matt-pocock) 套用到 agent 任務拆解上：在規劃一項功能時，要把它**縱向**切片（一條穿透每一層的細窄路徑——schema → service → API → UI），而不是**橫向**切片（先做完所有 schema，再做完所有 service，最後才做 UI）。縱向切片在第一片完成後就能提供端到端的回饋；橫向切片則要等到第三階段才會有回饋。agents 一定會預設選擇橫向——對 agent 友善的規劃必須主動對抗這種偏誤。
+
+## 「tracer bullet」的意象
+
+夜間的防空炮手看不見子彈飛到哪裡。鍍磷的曳光彈在飛行中會發光，每六發出現一顆，炮手便能在天空看到一道光線並修正瞄準。縱向切片是同樣的道理：每一片切片都會在端到端產出可見訊號，讓開發者（以及 agent）有機會修正方向。
+
+## 為何 agents 偏好橫向——而它們不該這麼做
+
+針對程式設計任務訓練出來的 agents，習慣以一層一層的方式拆解工作：
+- 階段一：所有 schema 變更
+- 階段二：所有 service
+- 階段三：所有 UI
+
+這種做法**易讀**，但要等到階段三才會出現整合過的回饋。一旦原始假設（資料形狀、service 邊界、UI 流程）有任何錯誤，代價都要在最後才付出。對 agents 而言，情況比人類更糟，因為 agents 並沒有能在飛行途中捕捉到不一致之處的端到端心智模型。
+
+同樣這個功能換成縱向切片，大致是這樣：
+- 第 1 片：*一種*事件類型的 schema ＋ 寫入*一筆*事件的 service ＋ 顯示*一筆*事件計數的儀表板區塊
+- 第 2 片：第二種事件類型，更深的邏輯，更廣的 UI
+- 第 3 片：回填、打磨、邊界情境
+
+每一片切片都會合併進主分支。每一片都讓使用者有東西可以 QA。每一片都能在下一片依賴它之前先被 QA 過。
+
+## Kanban 勝過多階段計畫
+
+任務一旦被縱向切片，Pocock 主張改用**帶阻塞依賴邊的 Kanban**，而不是編號式的階段清單：
+
+- 多階段計畫 ⇒ 一個 agent 一次只能依序處理一項任務。
+- 標明阻塞依賴邊的 Kanban ⇒ 多個 agents 可以並行抓取沒有被阻塞的工單。
+
+這個 Kanban 以 `issues/` 目錄底下的 markdown 檔案（或是 GitHub issues）實體化，並在 frontmatter 中以 `blocked-by:` 明確標示依賴關係。[Ralph loop](/articles/agent-loop-pattern) 會在每次迭代時挑出下一張被標記為 AFK、且沒有被阻塞的工單。Pocock 的 **Sandcastle** 函式庫會把這個選擇過程並行化：planner agent 挑出 N 張可並行的工單，扇出（fan-out）到 N 個 git worktrees 中的 N 個 implementer agents，再扇入（fan-in）交給一個 merger agent。
+
+## 切片品質規則
+
+Pocock 的 `prd-to-issues` 技能會強制執行縱向切片規則。當 agent 提出的切片其實是橫向的——例如只給出「create the gamification service」這一條——規則就會觸發：
+
+> 「我特別希望在第一個縱向切片中看到 schema 變更或某些 schema 變更。我希望看到一個新的 service 被建立出來，並在前端有一個最小化的呈現。」
+
+一片「好的」第一片切片 = 「Award points for lesson completion visible on dashboard」（同時碰到 schema、service、route、UI）。
+
+## 為何這不只是 agile-with-extra-steps
+
+這個做法的形態其實和 agile/XP 時代的薄切片（thin slicing）一樣。它*現在*之所以重要，是因為 agents 特別會預設採用橫向分層——很可能是因為它們訓練資料中，絕大多數程式設計教學／任務都是那樣組織的。如果不明確地推它，即便是強模型也會輸出分層式的結果。
+
+## 相關連結
+
+- [Matt Pocock](/articles/matt-pocock)——主要的提出者
+- [Agent Loop Pattern](/articles/agent-loop-pattern)——縱向切片填滿 AFK loop 的 backlog
+- [Design Concept Grilling](/articles/design-concept-grilling)——切片清單來自 PRD，而 PRD 來自 grilling session
+- [Context Window Smart Zone](/articles/context-window-smart-zone)——小切片塞得進 smart zone；橫向階段塞不進
+- [Deep Modules for Agents](/articles/deep-modules-for-agents)——縱向切片與深模組會彼此強化：一片切片穿過深模組的介面，正好會操練到你原本就想要的測試邊界
+- [Agent Harness Engineering](/articles/agent-harness-engineering)——在規劃層的重述，即「強制不變式」：這裡的不變式就是「每一片切片都要產出可見的回饋」
+- [Claude Code Best Practices](/articles/claude-code-best-practices)——用來填滿 Kanban backlog 的任務拆解模式，而 loop 原語則負責把它清空
+- [Building Is Cheap, Arguing Is Expensive](/articles/building-is-cheap-arguing-is-expensive)——tracer bullet 體現的是「先蓋一個薄但真實的東西來學習」這種本能；兩者都偏好實際蓋出來的成品，而不是抽象的爭論
+- [Narrow Wedge into a Legacy Market](/articles/narrow-wedge-into-legacy-market)——[Campfire](/articles/campfire) 的「只服務一個狹窄客群」就是把縱向切片當成 GTM 策略：徹底解決一位顧客的問題，而不是橫向地疊一層功能
+
+## 待解決的問題
+
+- 一旦被告知，planner agent 就能被信任會縱向切片嗎？還是它需要一個會標出橫向切片的驗證器？Pocock 的經驗是：至少到 4.7 為止，還需要那個驗證器。
+- 切片粒度該怎麼拿捏？切得太薄＝大量合併衝突；切得太厚＝又退回橫向。
+
+## 資料來源
+
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -12,12 +13,14 @@ import {
   ArticleContractSchema,
   type SourceRefSchema,
 } from "@howardism/article-contract/schema";
+import { surfaceHash } from "@howardism/article-contract/surface";
 import glob from "fast-glob";
 import type { StaticImageData } from "next/image";
 import { cache } from "react";
 import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
+import translationsData from "@/data/translations.json";
 import wikiLogData from "@/data/wiki-log.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
 import { taggedHref } from "@/utils/tagged-href";
@@ -161,6 +164,16 @@ export const getArticles = cache(
     return results;
   }
 );
+
+/**
+ * Whether `slug` is a known English article (all ids, archived included) — the
+ * exact set the route used to prerender. On-demand rendering uses it to 404
+ * unknown slugs instead of throwing on a missing MDX import.
+ */
+export const articleExists = cache(async (slug: string): Promise<boolean> => {
+  const { entities } = await getArticles();
+  return entities[slug] !== undefined;
+});
 
 export const getVisibleArticles = cache(
   async (): Promise<Normalise<ArticleEntity>> => {
@@ -511,3 +524,54 @@ export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
     position: index + 1,
   };
 });
+
+/* ── localization (zh-TW) ── */
+
+export type Locale = "en" | "zh-TW";
+export const DEFAULT_LOCALE: Locale = "en";
+/** Non-default locales served under a path prefix (en stays unprefixed). */
+export const PREFIXED_LOCALES: readonly Locale[] = ["zh-TW"];
+
+interface TranslationRecord {
+  costUsd: number | null;
+  credits: number | null;
+  durationMs: number;
+  engine: string;
+  model: string | null;
+  sourceHash: string;
+  sourceTitle: string | null;
+  translatedAt: string;
+}
+
+const translations = translationsData as {
+  articles: Record<string, TranslationRecord>;
+  generatedOn: string;
+  locale: string;
+};
+
+const translatedSet = new Set(Object.keys(translations.articles));
+
+/** Slugs that have a committed zh-TW translation (per translations.json). */
+export const getTranslatedSlugs = (): string[] => [...translatedSet].sort();
+
+/** Whether `slug` has a zh-TW translation available. */
+export const hasTranslation = (slug: string): boolean =>
+  translatedSet.has(slug);
+
+/**
+ * Whether the zh-TW translation for `slug` is stale — i.e. the EN source has
+ * changed since the translation was recorded. Returns false if no translation
+ * exists or the source file cannot be read.
+ */
+export const isTranslationStale = (slug: string): boolean => {
+  const record = translations.articles[slug];
+  if (!record) {
+    return false;
+  }
+  try {
+    const rawMdx = readFileSync(join(ARTICLES_DIR, `${slug}.mdx`), "utf8");
+    return surfaceHash(rawMdx) !== record.sourceHash;
+  } catch {
+    return false;
+  }
+};

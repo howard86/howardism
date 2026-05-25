@@ -1,0 +1,176 @@
+---
+date: 2026-04-10
+title: Claude Code 最佳實踐
+description: "Anthropic 的 Claude Code 高效使用指南：context window 管理、驗證驅動開發、探索→規劃→編碼工作流程、環境配置"
+tag: Concept
+topic: harness
+tags:
+  - claude-code
+  - ai-tools
+  - developer-workflow
+readingTime: 11
+imageAlt: Claude Code 最佳實踐的插圖
+sources:
+  - title: Best Practices for Claude Code
+    url: https://code.claude.com/docs/en/best-practices
+  - title: Auto mode for Claude Code
+    url: https://claude.com/blog/auto-mode
+  - title: Introducing Claude Opus 4.7
+    url: https://www.anthropic.com/news/claude-opus-4-7
+  - title: Tips & Best Practices
+    url: https://hermes-agent.nousresearch.com/docs/guides/tips
+  - title: "Tutorial: Team Telegram Assistant"
+    url: https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+  - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
+    url: https://www.youtube.com/watch?v=SlGRN8jh2RI
+  - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
+      of Product, Claude Code)
+    url: https://www.youtube.com/watch?v=PplmzlgE0kg
+  - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
+    url: https://youtu.be/-QFHIoCo-Ko
+---
+export { default as heroImage } from "../assets/claude-code-best-practices.png";
+
+## 資料來源
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
+
+## 摘要
+
+Anthropic 官方的 Claude Code 高效使用指南，圍繞一個核心限制展開：context window 填滿的速度很快，且隨著填充程度增加，效能會下降。所有最佳實踐都源自對這個稀缺資源的管理——透過驗證驅動開發、結構化上下文（CLAUDE.md）、積極的 session 管理，以及透過平行 session 進行水平擴展。
+
+## 細節
+
+### Context Window 作為主要限制
+
+Context window 承載整個對話：訊息、檔案讀取、命令輸出。單一除錯 session 就可能消耗數萬個 token。隨著上下文填滿，Claude 會「遺忘」先前的指令並產生更多錯誤。每一項最佳實踐最終都是在管理這個資源。參見 [Context Window Smart Zone](/articles/context-window-smart-zone) 了解底層機制（二次方注意力縮放、約 100K token 的 smart-zone 標記）。
+
+**模型層級的放大因素**（截至 [Claude Opus 4.7](/articles/claude-opus-4-7)）：更新後的 tokenizer 將相同輸入映射為 1.0–1.35 倍的 token，且 Opus 4.7 在「較高 effort 層級時思考更多」——尤其是在 agentic 設定的後續回合中。Claude Code 的預設 effort 已提升至 `xhigh`。這些效果會疊加：在 4.6 上以 `high` 能容納的 session，在 4.7 的 `xhigh` 下可能明顯更緊湊。在真實流量上測量後再信任從 4.6 帶來的直覺。反向槓桿：降低 effort、任務預算（API）、明確的簡潔提示，或簡短風格的輸出上限（參見 [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)）。
+
+### 驗證驅動開發
+
+最具槓桿效應的單一實踐：**給 Claude 一種驗證自身工作的方式**。提供測試、截圖、預期輸出或 linter 命令。沒有驗證的話，Claude 會產出看起來合理但實際有問題的程式碼，而人類就成了唯一的回饋迴路。
+
+關鍵模式：
+- 提供具體的測試案例，包含輸入和預期輸出
+- 對於 UI 變更，貼上截圖並要求 Claude 比對其結果
+- 透過提供錯誤訊息來解決根本原因，而不只是說「建置失敗了」
+- 使用 Claude in Chrome 擴充功能進行自動化 UI 測試
+
+### 探索 → 規劃 → 編碼工作流程
+
+將研究與實作分開。對多檔案變更或不熟悉的程式碼使用 Plan Mode。當範圍明確且差異可以用一句話描述時，跳過規劃。
+
+更積極的變體：[Design Concept Grilling](/articles/design-concept-grilling)（Matt Pocock 的 `grill-me` 技能）將「向 agent 要求計畫」替換為「讓 agent 面試你，直到在*任何計畫存在之前*達成共識」。另見 [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) 了解如何將產出的 PRD 切分為 agent 可抓取的 Kanban 票券，以及 [Deep Modules for Agents](/articles/deep-modules-for-agents) 了解如何保持程式碼庫結構對 agent 友善。
+
+### 環境配置
+
+- **CLAUDE.md**：每個 session 載入的持久指令。只包含 Claude 無法從程式碼推斷的內容——bash 命令、非預設的程式碼風格、工作流程規則、架構決策、注意事項。嚴格精簡：如果 Claude 在沒有該指令的情況下已經能正確執行，就刪除它。像對待程式碼一樣對待——出問題時檢視，透過觀察行為變化來測試。使用 `@path` 匯入實現模組化。**對於創辦人/獨立開發者**，更嚴格的紀律是每個 session 開始時以 CLAUDE.md 作為架構上下文，並在每個 session 結束時更新它——這是對抗 [Agentic Technical Debt](/articles/agentic-technical-debt) 的主要防線——這種債務會*複利累積*（不只是線性累加），因為當上下文未被持久化時，每個 session 都會重新推導基礎決策。
+- **Skills**（`.claude/skills/`）：按需載入的領域知識和可重用工作流程，不是每個 session 都載入。使用 `/skill-name` 呼叫。
+- **Subagents**（`.claude/agents/`）：在隔離上下文中運行的專門助手，具有限定範圍的工具。適用於需要讀取大量檔案但不想污染主上下文的任務。
+- **Hooks**：在 Claude 工作流程特定時間點執行的確定性腳本。與 CLAUDE.md（建議性質）不同，hooks 保證執行。
+- **MCP servers**：透過 `claude mcp add` 連接外部工具（Notion、Figma、資料庫）。
+- **Plugins**：從市場打包的 skills + hooks + subagents + MCP。
+- **Permissions**：[auto mode](/articles/claude-code-auto-mode)（基於分類器的審批，介於預設提示和 `--dangerously-skip-permissions` 之間的中間地帶）、允許清單，或作業系統層級的沙箱。
+
+### Session 管理
+
+- **`/clear`** 在不相關的任務之間使用——防止上下文污染
+- **`/compact <instructions>`** ——針對性摘要，保留指定的上下文
+- **`/rewind` 或 `Esc+Esc`** ——將對話、程式碼或兩者恢復到任何檢查點
+- **Subagents 用於調查** ——在獨立上下文中探索，回報摘要
+- **`/btw`** ——不會進入對話歷史的旁問
+- 在同一問題上修正失敗兩次後，`/clear` 並重寫提示，納入你學到的教訓
+
+### 擴展模式
+
+- **非互動模式**：`claude -p "prompt"` 用於 CI、腳本、pre-commit hooks。支援 JSON 和串流輸出。
+- **平行 session**：桌面應用程式（隔離的 git worktree）、網頁（隔離的 VM），或 agent 團隊（協調的 session，共享任務）。
+- **Writer/Reviewer 模式**：一個 session 實作，另一個以全新上下文審查（不會偏向自己的程式碼）。
+- **Fan-out**：對大規模遷移跨檔案迴圈執行 `claude -p`。使用 `--allowedTools` 限定權限範圍。
+- **[Auto mode](/articles/claude-code-auto-mode) 用於無人值守執行**：分類器阻擋高風險操作，允許常規工作。在非互動模式下重複阻擋時中止。
+- **[迴圈與 routines](/articles/agent-loop-pattern)**：`/loop`（cron 排程的重複任務，在 CLI 內）和 routines（伺服器端變體）。AFK 消化 Kanban 待辦事項；將規劃攤銷到多次執行的主要機制。參見 [Agent Loop Pattern](/articles/agent-loop-pattern)。
+
+### 平行生態系統與跨工具概念對應
+
+Claude Code 是數個趨同的程式碼 agent 生態系統之一。與 [Hermes Agent](/articles/hermes-agent)（Nous Research）和 Codex（OpenAI）的能力對照：
+
+| 能力 | Claude Code | Hermes | Codex |
+|---|---|---|---|
+| 專案上下文檔案 | `CLAUDE.md` | `AGENTS.md`（專案）+ `SOUL.md`（個性，獨立） | `AGENTS.md` |
+| Session 壓縮 | `/compact <instructions>` | `/compress` | （透過 Codex App Server 執行緒壓縮） |
+| Session 中切換模型 | `/model` | `/model` | session 層級配置 |
+| 平行 subagents | `.claude/agents/` 中的 Subagents | `delegate_task` | 透過 Symphony 編排器生成 |
+| 非互動/程式化 | `claude -p`、Claude Agent SDK | `hermes` CLI 在腳本中 | [Codex App Server](/articles/codex-app-server-protocol)（JSON-RPC stdio） |
+| 多使用者團隊部署 | 每 session 的 `claude -p` | Hermes Gateway（Telegram/Discord/Slack/WhatsApp）搭配允許清單或 DM 配對 | [Symphony](/articles/symphony)（issue-tracker 驅動的 daemon） |
+| 權限閘控 | [auto mode](/articles/claude-code-auto-mode) 分類器 | 按模式審批（`once`/`session`/`always`/`deny`）；在容器後端下跳過 | 依 Symphony 規格由實作定義 |
+| 記憶模型 | 對話 + CLAUDE.md | 有界的 `MEMORY.md`（約 2,200 字元）+ `USER.md`（約 1,375 字元） | 檔案系統驅動 |
+
+三者共通的結構性洞察：**agent 行為透過版本控制在 repo 中的 markdown 檔案來配置**（`CLAUDE.md` / `AGENTS.md` / `SOUL.md` / `WORKFLOW.md`）。這個模式在各供應商之間足夠一致，看起來像是一個新興標準。（計畫建立專門的 `agent-context-files` 概念頁面來正式化此模式。）
+
+最大的架構分歧：Claude Code 是 **session 優先**，可選非互動模式；Hermes Gateway 和 Symphony 在團隊規模部署時是 **daemon 優先**。Session 與 daemon 的分歧是 2026 年主要的部署架構選擇。
+
+### 常見失敗模式
+
+| 模式 | 修正方式 |
+|---|---|
+| 大雜燴 session（混合不相關任務） | 任務之間使用 `/clear` |
+| 重複修正（>2 次失敗修復） | `/clear`，用學到的教訓重寫提示 |
+| 過度指定的 CLAUDE.md | 精簡；如果是確定性的就轉為 hooks |
+| 信任後才驗證的落差 | 始終提供驗證標準 |
+| 無限探索 | 縮小範圍或使用 subagents |
+
+## 相關連結
+
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — Claude Code 的 CLAUDE.md、skills 和 hooks 是 OpenAI 和 Anthropic 研究團隊描述的 harness engineering 模式的實際實作
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — CLAUDE.md 檔案在此知識庫的 LLM-as-compiler 架構中充當 schema 層
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — Claude Code 是 Anthropic 漏洞研究框架的執行環境；所有 Mythos Preview 發現都使用了 Claude Code 的 agentic 能力
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 直接挑戰「使用最強模型」的預設：Claude Opus 4.6 搭配較便宜規劃器的組合在 HotpotQA 上超越全 Opus 方案超過 40 個百分點。AgentOpt 的 httpx 攔截與 `claude -p` 非互動模式相容
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 補充 context window 管理：簡潔約束既能提高容易過度思考問題的準確度，又能保留上下文預算。當大型模型的冗長可能掩蓋推理錯誤時，驗證驅動開發尤其重要
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 環境配置和擴展模式中提到的「auto mode」權限選項的完整文章
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — 大多數 Claude Code 工作現在針對的模型；字面指令遵循和 tokenizer 膨脹直接重塑了 CLAUDE.md 和 session 管理的撰寫方式
+- [Hermes Agent](/articles/hermes-agent) — Nous Research 的平行生態系統；許多 Claude Code 模式直接對應（`/compress` ↔ `/compact`、`delegate_task` ↔ subagents、`AGENTS.md` ↔ `CLAUDE.md`）；差異（Gateway daemon、有界記憶檔案、`SOUL.md` 分離）突顯了各自的設計選擇
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — OpenAI 端對應 `claude -p` + Claude Agent SDK 的類比；兩者都讓外部編排器驅動 session，但 App Server 對穩定的 JSON-RPC stdio 協議更為明確
+- [Symphony](/articles/symphony) — daemon 優先的部署原型；Claude Code 的類比是將 `claude -p` 加上 subagents 接入 issue tracker，就像 Symphony 將 Codex 接入 Linear 一樣
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 非互動模式穩固後自然產生的編排模式；將單一 session 最佳實踐橋接到團隊規模部署
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 驅動本文所有上下文管理實踐的底層限制
+- [Design Concept Grilling](/articles/design-concept-grilling) — 探索→規劃→編碼的更積極對齊優先變體
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 填充由 loop 原語消化的 Kanban 待辦事項的任務分解模式
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 使 Claude Code 的審查和驗證模式可靠的程式碼庫結構；push 與 pull 指令傳遞
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — `/loop` 和 routines 作為取代逐步提示的下一代原語
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 為什麼最佳實踐提示和 CLAUDE.md 段落隨每次模型發布而縮減；Cat Wu 在每次發布時精簡的紀律
+- [Claude Code](/articles/claude-code) — 實體層級頁面
+- [AI Native Product Cadence](/articles/ai-native-product-cadence) — 這些最佳實踐產出物是以該內部節奏運作的團隊的公開輸出
+- [Engineer PM Convergence](/articles/engineer-pm-convergence) — 本指南隱含針對的具有產品品味的工程師角色
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — CLAUDE.md 主要防禦的失敗模式；在[創辦人手冊](/articles/ai-native-startup-lifecycle)中被明確提及
+- [AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle) — 將 CLAUDE.md 從「最佳實踐」提升為「MVP 生存紀律」的創辦人階段框架
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — 「用自訂工具擴展 Claude Code」擴展模式背後的連接器基底；MCP 和 computer use 是外部系統成為 agent 行動表面的方式
+- [Evals as Product Spec](/articles/evals-as-product-spec) — 「驗證驅動開發」的嚴格形式：十個優秀的 evals 在功能層級編碼了「完成」的定義，補充本文規定的工作流程層級驗證
+
+## 衍生內容
+
+- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — context window 作為主要限制的框架為 Claude Code 推論提供資訊：Opus 的冗長更快消耗預算
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — subagents、Writer/Reviewer 和擴展模式指引應用於 Opus 4.7 多 agent 團隊
+- [Learning to Co-Work with AI: A Software Engineer's Field Guide](/articles/learning-to-cowork-with-ai-engineer-guide) — 最佳實踐提煉為每位工程師的技能發展實戰指南（六個技能群組、日常實踐、反模式、90 天計畫）
+
+## 開放問題
+
+- CLAUDE.md 的最佳長度是多少，超過後指令會開始遺失？是否有可測量的閾值？
+- Writer/Reviewer 模式與 agent 對 agent 審查（如 OpenAI 的 Codex 工作流程）相比如何？
+- 何時 subagent 的開銷會超過上下文隔離的好處？
+
+## 資料來源
+
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode) — permission-mode expansion
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7) — tokenizer/xhigh-default context-budget implications

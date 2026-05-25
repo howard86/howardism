@@ -1,0 +1,83 @@
+---
+date: 2026-05-23
+title: AI 驅動的形式化證明搜尋
+description: LLM 生成 Lean 程式碼，編譯器驗證每一步 → 消除幻覺；DeepMind 解決了 9/353 個 Erdős 問題及 44/492 個 OEIS 開放問題；驗證作為人類審查的過濾器
+tag: Concept
+topic: harness
+tags:
+  - ai-for-mathematics
+  - formal-methods
+  - agent-engineering
+readingTime: 6
+imageAlt: AI-Driven Formal Proof Search 的示意圖
+sources:
+  - title: Advancing Mathematics Research with AI-Driven Formal Proof Search
+    url: https://arxiv.org/html/2605.22763v1
+---
+
+export { default as heroImage } from "../assets/ai-driven-formal-proof-search.png";
+
+## 資料來源
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)
+
+## 摘要
+
+這個範式——由 Google DeepMind 的 [AlphaProof Nexus](/articles/alphaproof-nexus)（arXiv 2605.22763）在研究規模上展示——使用 LLM 在**形式化語言（[Lean](/articles/lean)）**中生成證明，其編譯器機械式地驗證每一個邏輯步驟，然後在生成與驗證的迴圈中搜尋完整證明。這將 LLM 在數學上最大的弱點——需要昂貴專家審查的幻覺/微妙錯誤的自然語言證明——轉化為可檢查的產物：當且僅當 Lean 接受它且沒有 `sorry` 和不允許的公理時，證明才是正確的。該論文報告了**首次針對開放研究問題的大規模評估**，自主解決了 9/353 個嘗試的 Erdős 問題和 44/492 個 OEIS 猜想，以及其他成果。
+
+## 為何使用形式化語言而非自然語言
+
+LLM 的自然語言證明「包含微妙的邏輯錯誤或幻覺」，未經審查的中間步驟中的錯誤會層層累積，限制了你能委派的複雜度上限。形式化語言解決了這個問題：在 [Lean](/articles/lean) 中，「定義、定理和證明都是經過機械驗證的程式碼。」論文討論中的關鍵重構：
+
+> 形式化驗證可以作為**判定哪些證明值得人類審查的過濾器。**
+
+因此 AI-Driven Formal Proof Search 並非取代數學家——而是分流。專家只審查通過編譯的內容，並在其中專注於結構而非重新驗證每一行。這是 [Karpathy 的 Verifiability Thesis](/articles/verifiability-thesis) 最純粹的形式：數學+Lean 是最大可驗證的領域，編譯器*就是*獎勵信號。
+
+## 證明草稿介面
+
+工作單元是一份**證明草稿**：一個包含目標定理、其依賴項（定義、匯入）的 Lean 檔案，以及用 `sorry` 佔位的證明。使用者提供的標記界定了 agent 可以編輯的範圍——`EVOLVE-BLOCK`（引入輔助引理/定義/步驟）和 `EVOLVE-VALUE`（更改參數表達式）。當 agent 產出一個無 `sorry` 的證明且 **SafeVerify** 接受（編譯通過 + 無如 `sorryAx` 的公理注入）時即為成功。數學家可選擇性地提供自然語言上下文和以 Lean 編碼的領域知識。（關於驅動此迴圈的 agent 架構，請參見 [AlphaProof Nexus](/articles/alphaproof-nexus)。）
+
+## 編譯器回饋作為基礎錨定
+
+引擎是生成與驗證之間的緊密迴圈：子 agent 透過搜尋替換工具進行編輯，Lean 在每次編輯後編譯，而 **Lean 的錯誤訊息引導下一輪。** 論文將其*基礎* agent 出人意料的強大表現部分歸因於「編譯器回饋在錨定 LLM 推理中的力量」（[Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)）。驗證器不僅是最終閘門——它是逐步的教師，使模型的推理錨定於基本事實。
+
+## 成果（開放研究問題）
+
+- **Erdős 問題：** 來自 Formal Conjectures 儲存庫的 9/353 個，包括自 1970/1996 年以來懸而未決的問題以及兩個開放約 56 年的問題；記錄在 **Terence Tao 的維基**上，列為 AI 對 Erdős 問題的貢獻。技術涵蓋 CRT + 3-AP 避免集構造（#12）、利用 Diophantine 逼近 $3^m\approx 4^k$ 的歸納稀疏化（#125）等。
+- **OEIS：** 44/492 個開放猜想（附帶「測試引理」驗證前幾個序列項作為形式化錯誤防護）。
+- **代數幾何：** 一個約 15 年未解的關於純 $O$-序列對數凹性的問題（餘維 3，類型 2）。
+- **凸優化：** Anchored GDA 的精確 $\mathcal\{O\}(1/t)$ 收斂率——透過將學習排程標記為 `EVOLVE-VALUE` 來發現**新穎的參數排程**（證明與排程聯合搜尋）。
+- **加法組合學：** 協助解決 Ben Green 列表中的 #57（形式化了一個候選反例，agent 證明它反駁了該猜想）。
+- **量子光學（與 Mario Krenn 合作）：** 單色量子圖/高維 GHZ 態在 $N=d\in\{4,6,10\}$ 時的存在性。
+- **圖論：** 重構猜想的二部圖變體；來自 **Graffiti** 自動猜想系統的 1996 年猜想（指向 AI 猜想→AI 證明的迴圈）。
+
+## 形式化錯誤偵測——意外的收穫
+
+由於 agent 針對*形式化*陳述進行推理，它能揭示問題形式化過程中的錯誤。例如：它透過將「密度」解讀為*自然密度*而找到證明，促使修正為「下密度」（#125）和「上密度」（#741(i)）；它識別出文獻中的形式化錯誤。**失敗模式**也證明了形式化的價值：頂級草稿有時將核心難度卸載到單一個重述目標的輔助引理中的 `sorry`，或引用了「已建立」但實為幻覺的引理——這兩者都被精確捕獲，*正因為*端到端的形式化驗證拒絕接受它們。
+
+## 深化人類理解
+
+論文的立場：「數學的未來在於人機合作。」合作者發現，**即使 agent 失敗，證明嘗試也增進了他們的理解**——形式化草稿讓專家專注於未解決的子目標，而非重新驗證整個論證。這是 [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) 的實現：AI 執行搜尋；數學家的理解被深化，而非被繞過。
+
+## 相關連結
+
+- [AlphaProof Nexus](/articles/alphaproof-nexus) — 實現此範式的框架與 agent 架構
+- [Lean](/articles/lean) — 其編譯器提供驗證/錨定的證明助手
+- [The Verifiability Thesis](/articles/verifiability-thesis) — 數學+Lean 是最大可驗證的領域；編譯器就是獎勵信號
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — 標題性發現：隨著 LLM 改進，簡單迴圈匹配了定製系統
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — 完整功能 agent 的族群/Elo 搜尋機制
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 基礎證明子 agent 就是一個「Ralph loop」（huntley2025ralph）
+- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — 形式化草稿即使在未解問題上也深化了數學家的理解
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 跨 agents（A/B/C/D）的解決率與成本 Pareto 曲線，與 AgentOpt 形式化的成本/品質框架相同
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 較小的 Gemini 模型*什麼都解不出來*；能力在此處受到尺度的嚴格門檻限制（硬閾值，非平滑曲線）
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — 幻覺的「文獻」引理就是鋸齒智能；形式化驗證是捕捉它的過濾器
+
+## 開放問題
+
+- 成功案例集中在 [Lean](/articles/lean) 的 mathlib 成熟且問題可分解為可處理子目標的領域（組合學、凸優化、數論）。什麼能將前沿擴展到需要*新理論*的問題？
+- agents 繼承了其 LLM 的偏差並展現高搜尋變異性。如何刻畫並推進可達範圍的邊界？
+- Graffiti 的結果暗示了 AI *猜想*與 AI *證明*之間迴圈的閉合。端到端的猜想→形式化→證明管線會是什麼樣子？
+
+## 資料來源
+
+- [Advancing Mathematics Research with AI-Driven Formal Proof Search](https://arxiv.org/html/2605.22763v1)

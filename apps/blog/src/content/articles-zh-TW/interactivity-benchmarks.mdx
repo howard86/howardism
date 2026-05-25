@@ -1,0 +1,75 @@
+---
+date: 2026-05-13
+title: Interactivity Benchmarks — 互動性基準測試
+description: "FD-bench、Audio MultiChallenge 加上新的 TimeSpeak/CueSpeak（主動式音訊）與 RepCount-A/ProactiveVideoQA/Charades（視覺主動性）；TML-Interaction-Small：0.40 秒輪替延遲，主導互動品質"
+tag: Concept
+topic: interaction
+tags:
+  - llm-evaluation
+  - multimodal
+  - human-ai-collaboration
+readingTime: 4
+imageAlt: Interactivity Benchmarks 的示意圖
+sources:
+  - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
+    url: https://thinkingmachines.ai/blog/interaction-models/
+---
+export { default as heroImage } from "../assets/interactivity-benchmarks.png";
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+
+## 摘要
+
+[Thinking Machines Lab](/articles/thinking-machines-lab) 用來論證 [TML-Interaction-Small](/articles/tml-interaction-small) 是「第一個同時具備強大智慧／指令遵循能力**以及**互動性的模型」的評估面向。現有基準測試幾乎不涵蓋互動性，因此 TML 使用了少數現有的基準加上數個新的內部基準——並指出「沒有任何現有模型能有意義地執行」視覺主動性任務。一項互動性基準測試的研究補助已經公布。
+
+## 使用的現有基準測試
+
+- **FD-bench**（v1 / v1.5 / v3）——少數旨在衡量互動性的基準測試之一。模型接收預錄音訊，必須在*特定時間*回應；情境包括：使用者打斷、使用者回饋訊號、對他人說話、背景語音。v1 報告輪替延遲；v1.5 報告平均分數；v3 報告回應品質 / Pass@1（含工具）。
+- **Audio MultiChallenge**——常見的音訊智慧＋指令遵循基準測試（APR 指標）；基線由 Scale AI 報告。
+- **BigBench Audio**、**IFEval (VoiceBench)**、**IFEval (text)**、**Harmbench (text refusal rate)**——跨模態的標準智慧／指令遵循／安全性檢查。
+- **QIVD**（Qualcomm IVD）——影片＋音訊問答，在串流設定下評估（從頭播放原始片段，對轉錄文字評分；GPT-4o-mini 評分器，遵循 Qwen 3.5 Omni）。
+
+## 主要結果（`TML-Interaction-Small`，2026 年 5 月）
+
+- **FD-bench v1 輪替延遲：0.40 秒**——所有比較模型中回應速度最佳（GPT-realtime-2.0 minimal 1.18 秒、GPT-realtime-1.5 0.59 秒、Gemini-3.1-flash-live minimal 0.57 秒）。
+- **FD-bench v1.5 平均分：77.8**——對比所有基線約 39–54（包含 thinking-high 模型）。
+- **FD-bench v3（音訊＋工具）：82.8% 回應品質 / 68.0% Pass@1**（啟用背景 agent）——兩項皆為最佳。
+- **Audio MultiChallenge APR：43.4%**——擊敗所有非 thinking 基線；僅 GPT-realtime-2.0 *xhigh*（48.5%）更高。
+- 宣稱：「在互動品質上佔據主導地位，同時比任何非 thinking 模型更聰明。」
+
+表格中的 `*` 表示結果是在啟用[背景 agent](/articles/interaction-background-model-split)的情況下報告的（用於需要推理或工具呼叫的基準測試）。
+
+## 新的內部基準測試（主動式音訊）
+
+- **TimeSpeak**——模型能否在使用者指定的時間*主動*發話並提供正確內容？例如：「每 4 秒提醒我吸氣和吐氣，直到我要求你停止。」
+- **CueSpeak**——模型是否在適當時機以語義正確的回應發話？題目設計為模型必須*與使用者同時*說話。例如：「每次我語碼轉換時，用原始語言告訴我正確的詞。」
+
+兩者皆為：每個範例一個預期語義回應＋時間窗口；LLM 評審；僅在語義*與*時機皆正確時才算正確；巨集平均準確率。
+
+## 新的內部基準測試（視覺主動性）
+
+改編自現有影片基準測試；「沒有任何現有模型能有意義地執行這些任務」——它們保持沉默或回答錯誤，包括 thinking-high 模型：
+
+- **[RepCount-A](https://arxiv.org/abs/2204.01018)**——重複動作影片，改編為線上重複計數；在「count out reps for \{action\}」後串流影片；以倒數第二次重複後所說的最後一個數字是否在真實值一次重複以內來評分。衡量持續視覺追蹤＋及時計數。
+- **[ProactiveVideoQA](https://arxiv.org/abs/2507.09313)**——影片中的問題答案在特定時刻才可得；輪次加權 PAUC@ω=0.5（0–100），跨輪次／類別平均；**保持沉默得 25.0 分**；正確答案必須在正確時間給出，錯誤答案會被扣分。
+- **[Charades](https://arxiv.org/abs/1604.01753)**——時序動作定位；「當人開始 \{action\} 時說 'start'，當他們停止時說 'Stop'」；以預測與參考區間之間的時序 IoU 評分。
+
+## 為何重要
+
+論證結構：先前的互動性導向基準測試「無法充分捕捉質的飛躍」——因此互動模型的論據部分依賴於 TML 必須自行發明的基準測試。這是一個已知模式（新能力 → 新 eval），也是一個軟肋（自定義指標）；TML 的回應是開放研究補助，邀請社群提出基準測試。
+
+## 相關連結
+
+- [Interaction Models](/articles/interaction-models)——被衡量的對象
+- [TML-Interaction-Small](/articles/tml-interaction-small)——受測模型
+- [Interaction / Background Model Split](/articles/interaction-background-model-split)——`*` 結果使用背景 agent
+- [Full-Duplex Interaction](/articles/full-duplex-interaction)——TimeSpeak/CueSpeak/RepCount-A/ProactiveVideoQA/Charades 各自針對其中一種模式
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)——輪替延遲（0.40 秒）是移除輪次邊界的直接成果
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)——另一個論文引入自有評估框架以揭示標準基準測試遺漏之現象的案例
+- [Claude Opus 4.7](/articles/claude-opus-4-7)——`xhigh` effort tier 在此作為基線配置出現（GPT-realtime-2.0 minimal/xhigh）
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)

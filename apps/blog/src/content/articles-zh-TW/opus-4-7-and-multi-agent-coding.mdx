@@ -1,0 +1,157 @@
+---
+date: 2026-04-17
+title: Opus 4.6 → 4.7 變更與多 Agent 程式開發注意事項
+description: "4.6→4.7 差異對照表 + 多 agent 程式開發團隊的六大風險：角色導向模型選擇、prompt 重新調校、harness 不變量、每個 agent 的 context window 預算、無人值守扇出安全性、獨立審查者"
+tag: Essay
+topic: architecture
+readingTime: 9
+imageAlt: Opus 4.6 → 4.7 變更與多 Agent 程式開發注意事項的插圖
+sources:
+  - title: Introducing Claude Opus 4.7
+    url: https://www.anthropic.com/news/claude-opus-4-7
+  - title: Best Practices for Claude Code
+    url: https://code.claude.com/docs/en/best-practices
+  - title: Auto mode for Claude Code
+    url: https://claude.com/blog/auto-mode
+  - title: "AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based
+      Agent"
+    url: https://arxiv.org/html/2604.06296v1
+  - title: Brevity Constraints Reverse Performance Hierarchies in Language Models
+    url: https://arxiv.org/html/2604.00025v1
+---
+export { default as heroImage } from "../assets/opus-4-7-and-multi-agent-coding.png";
+
+## 資料來源
+
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+
+## 問題
+
+Opus 4.6 和 4.7 之間有什麼差異？在多團隊 agent 程式開發架構中，我應該注意什麼？
+
+## 第一部分 — 4.6 到 4.7 的變更
+
+價格不變（$5/M 輸入、$25/M 輸出），產品定位相同，新的 API ID（`claude-opus-4-7`）。直接升級。詳細資訊與細節請參閱 [Claude Opus 4.7](/articles/claude-opus-4-7)：
+
+| 面向 | 4.7 vs. 4.6 | 對多 agent 架構的影響 |
+|---|---|---|
+| 最困難的程式任務 | 主打「交出你最難的工作」；SOTA Finance Agent 和 GDPval-AA | 提高了適合使用 Opus 的角色上限 |
+| 指令遵循 | **字面執行。** 跳過/放寬的情況更少。 | 為 4.6 撰寫的 prompt 和 CLAUDE.md 中的模糊語句可能出現異常行為 — 最大的遷移風險 |
+| 視覺 | 長邊最高 2,576 px（約 3.75 MP，超過先前的 3 倍） | 讀取高密度螢幕截圖的 computer-use agents 表現提升 |
+| 檔案系統記憶 | 跨多 session 工作時更強 | 有利於使用 repo 本地版本化產物作為 agents 之間的共享記憶 |
+| 安全性 | prompt 注入防禦和誠實度更好；在有害內容過度闡述方面略弱 | prompt 注入抵抗力在一個 agent 消費另一個 agent 輸出時特別重要 |
+| 網路安全能力 | **訓練期間差異性降低** + 請求層級分類器（後 Project Glasswing） | 合法的安全自動化現在需透過 Cyber Verification Program 路由 |
+| 努力等級 | 新增 `xhigh`，介於 `high` 和 `max` 之間。**Claude Code 所有方案的預設提升至 `xhigh`** | 預設情況下每個 agent 的 token 成本增加 |
+| Tokenizer | 相同輸入 → **多 1.0–1.35 倍 token** | 除非重新測量 prompt，否則每個 agent 的 context window 預算縮減 |
+| 每輪思考 | **在較高努力等級時思考更多**，尤其是在後續的 agentic 輪次 | 在多輪編排中與 tokenizer 膨脹疊加 |
+| 同步發布 | Task budgets（API 公開測試版）、`/ultrareview`、auto mode 擴展至 Max | 伺服器端預算控制槓桿隨 [auto mode](/articles/claude-code-auto-mode) 一同推出，用於無人值守執行 |
+
+**複合 token 預算衝擊**：tokenizer 膨脹 × xhigh 預設 × 每輪更多思考。天真的「直接替換升級」在相同 prompt 下會比 4.6 消耗更多 context window。Anthropic 明確建議在實際流量上測量，而非信任他們內部程式 eval 中的淨正面聲明。
+
+## 第二部分 — 多 Agent 程式開發架構中的注意事項
+
+本 wiki 中的研究指出，從單一 agent 工作流程轉向 Opus 4.7 上的多 agent 團隊時，有六個具體風險。
+
+### 1. 角色導向的模型選擇，而非最強模型預設
+
+來自 [Client-Side Agent Optimization](/articles/client-side-agent-optimization)（AgentOpt，Hua 等人，2026）在 Opus 4.6 上的測量：
+
+| 組合（規劃者 + 求解者，HotpotQA） | 準確率 |
+|---|---|
+| Ministral 3 8B + Opus | **74.27%** |
+| Opus + Opus | 31.71% |
+
+Opus 作為規劃者會繞過下游求解者的搜尋工具，直接從參數知識中回答。*組合*才是正確的分析單位，而非單一角色的獨立準確率。
+
+**規則**：
+- 在規劃者 / 路由器 / 檔案排序器 / 分解器角色中使用更小、更服從的模型。
+- 將 Opus 4.7 保留給綜合、整合推理、最終答案生成，以及跨多檔案程式碼審查的角色。
+- 在將 Opus 指派給某個角色之前，檢查更便宜的模型是否能達到相同準確率。在 BFCL 上，**Qwen3 Next 80B 以 32 倍更低的成本達到了 Opus 4.6 的水準**。4.7 的 tokenizer 膨脹使這個差距更大，而非更小。
+
+**4.7 的開放問題**：字面指令遵循可能縮小規劃者的差距。不要假設如此 — 重新測量。參見 [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) 附錄中的逐規則 4.7 預測。
+
+### 2. 重新調校 4.6 時代的 Prompt
+
+Opus 4.7 的**字面指令遵循**是現有多 agent 編排程式碼最大的遷移風險。在 4.6 上有效的 prompt，因為模型會寬鬆解讀「或類似」、「偏好 X」、「嘗試」，或跳過看似可選的步驟，現在可能會被嚴格執行。
+
+**審查清單**：
+- 包含模糊語句的 CLAUDE.md 檔案和 system prompt
+- 依賴模型「知道何時委派」的多 agent 角色卡
+- 鏈式 prompt 中，後續步驟假設前一步驟會被跳過的情況
+- 假設 Opus 會修正模糊指令而非照字面執行的 prompt
+
+### 3. Harness 層級的不變量，而非 Prompt 建議
+
+來自 [Agent Harness Engineering](/articles/agent-harness-engineering) 和 [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)：
+
+- **機械式地**強制輸出約束 — 結構化輸出 schema、長度上限、回應驗證器、`/ultrareview` 風格的審查流程。
+- 簡潔約束在 4.6 上對過度思考問題恢復了 **+26.3pp**。4.7 的字面指令遵循可能使這些*更有效*（模型會遵守字數上限）。使用它們。
+- 診斷例外：**BoolQ 和類似的跨句整合任務** — 簡潔反而有害。不要對推理產出設定上限。
+
+大型模型的冗長在多 agent 管線中會疊加：每個 agent 的輸出成為另一個 agent 的 context window。錯誤複合、context window 填滿、推理品質下降。
+
+### 4. Context Window 預算管理是逐 Agent 的
+
+[Claude Code Best Practices](/articles/claude-code-best-practices#Context%20Window%20as%20Primary%20Constraint) 適用於每個獨立的 agent。在 4.7 預設 `xhigh` + tokenizer 膨脹 + 每輪更多思考的情況下，多 agent 交接消耗預算更快。策略：
+
+- **摘要式交接**，而非完整 context window 傳遞
+- **隔離 context window 中的子 agent**（Claude Code 模式）：獨立調查，回傳摘要
+- **Writer/Reviewer 模式，審查者使用全新 context window** — 現在 **`/ultrareview`** 是專用的 4.7 原語，這點尤其相關
+- **非困難步驟降低努力等級。** Anthropic 建議程式/agentic 任務使用 `high` 或 `xhigh`；`max` 很少值得
+- **Task budgets（API 公開測試版）**：每階段花費上限，作為 AgentOpt 預算槓桿的伺服器端對應
+
+### 5. 無人值守扇出安全性
+
+來自 [Claude Code Auto Mode](/articles/claude-code-auto-mode)（現隨 4.7 擴展至 Max 使用者）：
+
+- Auto mode **嚴格比 `--dangerously-skip-permissions` 更安全**，適用於多 agent 扇出 — 分類器會預先檢查每個工具呼叫，並在風險操作時重新導向 Claude。
+- 它**不能替代隔離環境**。Anthropic 記錄了兩種分類器失敗模式：意圖模糊和缺少環境 context window。
+- 在非互動模式下，auto mode **在重複阻擋時中止**而非卡在無法回答的 prompt 上 — 保留了扇出使用場景。
+
+當一個 agent 在團隊中扇出具有破壞性形態的命令（遷移、刪除、部署）時：在沙箱容器或 git worktree *內部*疊加 auto mode。縱深防禦。
+
+### 6. Agent 審查模式優於自我驗證
+
+來自 [Claude Code Best Practices](/articles/claude-code-best-practices#Scaling%20Patterns)：Writer/Reviewer 模式 — 一個 agent 實作，第二個以*全新 context window* 審查 — 減少了「自己程式碼的盲點」。在 Opus 4.7 上：
+
+- `/ultrareview` 是此模式的內建形式；Pro 和 Max 使用者可獲得 3 次免費 ultrareview 進行評估
+- 檔案系統記憶改善意味著審查者可以高效讀取撰寫者的進度日誌和 git 歷史，而不僅是 diff
+- 對於無人值守的多團隊工作流程：將審查者 agent 的輸出路由回驗證者 agent（參照 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) 中的最終驗證 agent 模式），而非信任單一 agent 的審查
+
+## 決策摘要
+
+| 情境 | 行動 |
+|---|---|
+| 多 agent 團隊目前在 Opus 4.6 全 Opus 管線上 | 不要整體遷移。審查角色。先將規劃者/路由器降級為便宜模型，再將求解者切換到 4.7 |
+| 4.6 prompt 帶有隱含的寬鬆解讀 | 在信任 4.7 輸出之前，先為字面指令遵循重新調校 |
+| Context window 預算在 4.6 上已感覺緊張 | 在 4.7 上會更緊。使用摘要式交接 + 子 agent + 非困難步驟降低努力等級 |
+| 生產環境無人值守扇出目前使用 `--dangerously-skip-permissions` | 切換到 auto mode（現已在 Max 上可用）+ 隔離環境 |
+| 目前沒有 harness 層級的輸出約束 | 在擴展到多 agent 之前，加入 schema、長度上限、驗證器 |
+| 沒有獨立審查者步驟 | 加入一個 — `/ultrareview` 或使用全新 context window 的 Writer/Reviewer |
+| 「最強模型用在所有地方」的預設 | 在 4.7 上重新檢查 Pareto 前沿 — tokenizer 膨脹會改變它 |
+
+## 兩個底層原則
+
+Opus 在 4.6 上的兩種特定失敗模式 — 最差規劃者表現和短答案過度思考 — 共享一個機制：**規模相依的過度思考**。4.7 的字面指令遵循可能抑制它；4.7 的 xhigh 預設和每輪更多思考則朝相反方向作用。淨方向是經驗性的。
+
+多 agent 程式開發團隊的安全元規則：**不要憑信念繼承 4.6 的部署決策**。在你的工作負載上測量，然後再決定。[When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) 的五條規則是目前最佳預設 — 隨著你的多 agent 架構在 4.7 上成熟，重新驗證它們。
+
+## 資料來源
+
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — 4.7 能力與 token 經濟差異
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — context window 預算約束、子 agent、Writer/Reviewer、session 管理、擴展模式
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 分類器把關的權限中間地帶
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 組合選擇、Opus 作為規劃者的失敗模式、Pareto 前沿
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 簡潔約束、過度思考機制、BoolQ 例外
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 機械式強制不變量、漸進式揭露、文件維護
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 最終驗證 agent 模式作為多 agent 審查的範本
+- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — 附錄中的逐規則 4.7 預測
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)

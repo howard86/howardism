@@ -1,0 +1,109 @@
+---
+date: 2026-05-06
+title: 為 Agent 設計的深模組
+description: Ousterhout 的深模組 vs 淺模組概念應用於 agent 友善的程式碼庫；推送 vs 拉取指令傳遞；全新上下文中的審查者；Sandcastle 三 agent 模式
+tag: Concept
+topic: harness
+tags:
+  - software-design
+  - agent-engineering
+  - architecture
+readingTime: 6
+imageAlt: 為 Agent 設計的深模組插圖
+sources:
+  - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
+    url: https://youtu.be/-QFHIoCo-Ko
+---
+export { default as heroImage } from "../assets/deep-modules-for-agents.png";
+
+## 資料來源
+
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+
+## 摘要
+
+John Ousterhout 的 *A Philosophy of Software Design* 區分了**深模組**（小介面、大行為）與**淺模組**（小介面、少行為、但數量眾多）。[Matt Pocock](/articles/matt-pocock) 將此區分應用於 agent 友善的程式碼庫：agent 在深模組程式碼庫中表現出色，因為測試邊界清晰、依賴圖淺層，且開發者可以委派實作同時掌握*介面*。淺模組蔓延是 AI 在你不加以約束時預設產出的結果，它會產生無法審查、無法測試的程式碼庫。
+
+## 深模組 vs 淺模組
+
+- **淺模組：** 許多小檔案，每個暴露許多小函式，彼此之間有密集的依賴圖。測試邊界不明確——你要 mock 每個鄰居嗎？單獨測試各單元然後漏掉整合 bug？AI 無法看到全貌，無法決定抽象層在哪裡。
+- **深模組：** 一個較大的模組，具有小的公開介面和大量內部邏輯。一個自然的測試邊界：公開介面。AI 無需遍歷依賴就能看到模組的功能。實作可以委派，因為*介面*就是契約。
+
+## 為什麼 agent 特別受益
+
+1. **更少的依賴跳轉需要遍歷。** Smart-zone 預算（見 [Context Window Smart Zone](/articles/context-window-smart-zone)）得以節省。
+2. **測試邊界顯而易見。** 審查 agent 可以在介面層驗證行為，而不需要微觀管理內部實作。
+3. **實作可以委派。** Pocock 的「灰盒」模式——自己設計介面，將實作交給 agent。你保留了*做什麼*的心智模型，而不需要在*怎麼做*上消耗注意力。
+4. **模組地圖是有限的。** 一份 PRD 寫著「修改 gamification service、dashboard route、lesson route」是具體的；同樣的 PRD 對應淺層程式碼庫則會寫「修改 47 個檔案」。
+
+## 風險：agent 傾向漂移至淺層
+
+Pocock 的觀察：
+
+> "If you don't watch AI carefully, it's going to produce a code base that looks like [shallow]. So you need to be really, really careful when you're directing it."
+
+Agent 漂移至淺層的原因：
+- 每個任務都很小；agent 做出能運作的最小變更
+- 沒有全域模組地圖時，agent 不知道該擴展哪個現有模組，所以它建立一個新的
+- 「單一職責原則」被誤用——agent 把每個 helper 都包在自己的檔案裡
+
+修正方法有兩個：
+1. 在 PRD 中保留模組地圖（見 [Design Concept Grilling](/articles/design-concept-grilling)），讓 agent 知道該擴展什麼。
+2. 定期執行重構 pass，將淺模組整合為深模組。Pocock 有一個 skill 做這件事：`improve-code-base-architecture`——掃描程式碼庫尋找「架構改善候選者」（可以被加深的相關模組群集），並附帶每個候選者的論點和依賴分類。
+
+## 推送 vs 拉取指令
+
+一個微妙但高槓桿的架構選擇：如何將編碼標準和架構規則傳遞給 agent。
+
+| 模式 | 機制 | 適用時機 |
+|------|------|----------|
+| **推送** | 始終在上下文中（CLAUDE.md、system prompt） | 審查 agent——它們需要知道標準以便與程式碼比對 |
+| **拉取** | 按需透過 skill 取得（agent 在相關時取用） | 實作 agent——拉取避免在不適用的規則上消耗 smart-zone 預算 |
+
+這也是為什麼全新上下文的審查者比同上下文審查者更聰明：實作者可以按需拉取規則；審查者受益於規則被*推送*進來，*加上*擁有乾淨的 smart-zone 視窗來實際評估程式碼。
+
+## 全新上下文中的審查者
+
+如果實作使用了 80K token 的 smart zone，同上下文的審查者是在 dumb zone 中閱讀 diff。清除上下文並以全新狀態執行審查，可以恢復 smart-zone 推理能力。Pocock 將此與模型選擇搭配：Sonnet 用於實作，Opus 用於審查——「我在那時需要聰明才智。」
+
+## Sandcastle 三 agent 模式
+
+Pocock 的平行化函式庫將深模組紀律融入其架構：
+
+1. **規劃者** — 從待辦清單中挑選 N 個可平行處理的 issue
+2. **N 個實作者** — 每個 issue 一個，各自在自己的 git worktree + Docker sandbox 中；編碼標準透過*拉取* skill 取得
+3. **審查者** — 針對每個實作者的 diff 在全新上下文中執行；編碼標準*推送*進其 system prompt
+4. **合併者** — 調和所有已核准的分支，修復型別/測試衝突
+
+每個 agent 在自己的 smart zone 中運行。每個模組層級的變更在介面層被審查，而非實作層。
+
+## 為什麼「大模型 = 不需要設計」是錯的
+
+誘人的論點：「模型現在夠聰明了，可以導航任何程式碼庫，設計不重要。」Pocock 的反駁：
+
+> "Bad code bases make bad agents. If you have a garbage code base, you're going to get garbage out of the agent that's working in that code base."
+
+Smart-zone 限制（見 [Context Window Smart Zone](/articles/context-window-smart-zone)）是結構性的，不僅僅是模型大小的函數。讓 agent 工作更困難的架構選擇，會消耗更好架構本可節省的 smart-zone 預算。
+
+## 相關連結
+
+- [Matt Pocock](/articles/matt-pocock) — 主要闡述者
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 深模組節省 smart-zone 預算
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 切片在介面層穿越深模組，運用自然的測試邊界
+- [Design Concept Grilling](/articles/design-concept-grilling) — PRD 中的模組地圖在規劃階段落實深模組紀律
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 全新上下文審查符合迴圈的清除後重啟節奏
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 「強制不變量，而非實作」是編排層的同一原則
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — CLAUDE.md 中的模組地圖屬於同一家族
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — 深模組 + 持久的 CLAUDE.md 上下文共同構成對創辦人手冊中所述複利債務失敗模式的架構防禦
+- [Evals as Product Spec](/articles/evals-as-product-spec) — Pocock 在深模組邊界的整合測試是 Cat Wu「十個優秀 evals」的工程實例；兩者都是介面層的持久驗證產物
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 在模組介面進行全新上下文審查，是對 [Fiona Fung](/articles/fiona-fung) 在驗證成為瓶頸後「誰來審查」問題的具體回答
+
+## 開放問題
+
+- 「夠深」是多深？Pocock 的範例模組是數百行程式碼；Ousterhout 的教科書範例更大。存在一個甜蜜點；尚未被明確闡述。
+- 對於 ports/adapters 程式碼庫，深模組建議是否能乾淨地轉移？「小介面」是 port；「大行為」是 adapter。可能是的，但未在來源中被實踐。
+- 重構成本 vs 效益：何時在一個運作中的 repo 上執行 `improve-code-base-architecture` 是值得的？
+
+## 資料來源
+
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)

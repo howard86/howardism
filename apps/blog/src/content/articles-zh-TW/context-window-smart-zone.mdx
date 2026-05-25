@@ -1,0 +1,86 @@
+---
+date: 2026-05-06
+title: Context Window Smart Zone
+description: "Smart zone 與 dumb zone（Dex Hardy / Matt Pocock）：注意力的二次方擴展、與廣告宣傳的 context window 無關的 ~100K 標記、清除並重啟優於壓縮、狀態列 token 計數作為必備紀律"
+tag: Concept
+topic: harness
+tags:
+  - llm-architecture
+  - agent-engineering
+  - context-management
+readingTime: 5
+imageAlt: Context Window Smart Zone 的示意圖
+sources:
+  - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
+    url: https://youtu.be/-QFHIoCo-Ko
+---
+
+export { default as heroImage } from "../assets/context-window-smart-zone.png";
+
+## 資料來源
+
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+
+## 摘要
+
+LLM 不會隨著 context 增長而線性退化；它們會以二次方退化，因為注意力關係隨 token 數量以 O(n²) 擴展。[Matt Pocock](/articles/matt-pocock)（引用 Human Layer 的 Dex Hardy）將此框架化為 **smart zone / dumb zone** 的劃分：任何 session 的前 ~100K token 是 smart zone，模型在此範圍內表現良好；超過這個範圍後，無論廣告宣傳的視窗大小為何，模型都會變得「越來越笨」。實際意涵：context 預算是一種真實且硬性的資源——而 agent harness 負責將個別 session 維持在 smart zone 內。
+
+## 限制條件
+
+> "Every time you add a token to an LLM, it's kind of like you're adding a team to a football league. The number of matches goes up quadratically."
+
+> "It doesn't matter whether you're using 1 million context window or 200K, it's always going to be about [100K]. It starts to just get dumber."
+
+— [Matt Pocock](/articles/matt-pocock)
+
+2026 年推出的 1M-token context window 並沒有移動 smart zone——它們「只是多出了很多 dumb zone」。長 context 對*檢索*有用（在五本《戰爭與和平》中找到一個事實），但對*推理*無用（撰寫依賴所有內容的程式碼）。
+
+## Memento 隱喻
+
+每個 session 都是全新的開始。跨 session 沒有記憶；模型每次都重置回 system prompt。這是一個*限制*，但也是一個*特性*——清除 context 可以廉價地恢復 smart zone 行為。持久狀態必須存放在下一個 session 可以讀取的地方（repo、檔案系統、索引式目錄）。
+
+## 壓縮不如清除
+
+Claude Code 的 `/compact` 命令將執行中的 session 摘要為較小的歷史記錄。Pocock 偏好 `/clear`：
+
+- 壓縮後的歷史會累積「沉積物」——扭曲和有損的摘要——降低後續工作品質
+- 清除並重啟會回到已知的乾淨基線（system prompt）
+- 清除的成本會因在 smart zone 中工作而得到回報
+
+這個分歧並非普遍適用——許多開發者喜歡壓縮，因為它保留了連續性。正確的選擇取決於你的任務是否能**從書面記錄乾淨地恢復**（那就偏好清除）或**需要進行中的對話 context**（那壓縮勝出）。
+
+## 對 harness 設計的影響
+
+1. **System prompt 預算。** 任何始終在 context 中的內容都會佔用 smart zone 預算。「我見過有人在 system prompt 中放入 250K token，然後你還沒做任何事就已經進入 dumb zone 了。」將 CLAUDE.md / AGENTS.md 保持為目錄，而非百科全書（參見 [Agent Harness Engineering](/articles/agent-harness-engineering) 關於 AGENTS.md 作為目錄的說明）。
+2. **Sub-agents 保留父 context。** Sub-agent 在自己的 context window 中執行；只有其摘要會回傳。Pocock 的 `grill-me` skill 執行了一個 93.7K-token 的 sub-agent，但他的主 session 仍有 ~25K token 未使用。
+3. **將工作分割為多個 session。** 迴圈（參見 [Agent Loop Pattern](/articles/agent-loop-pattern)）和垂直切片（參見 [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)）之所以有效，是因為每次迭代都在 smart zone 中重新開始。
+4. **審查者應在全新 context 中執行。** 如果實作者在 smart zone 中使用了 80K token，要求它審查自己的工作會將審查者推入 dumb zone。清除 context = smart zone 審查者（參見 [Deep Modules for Agents](/articles/deep-modules-for-agents) 關於 push-vs-pull 和審查者放置的說明）。
+5. **Push vs pull 指令。** 始終在 context 中的指令會消耗 smart zone token；按需拉取（skills）在被調用前不消耗任何成本。
+
+## 狀態列 token 計數器作為必備工具
+
+Pocock 建議使用狀態列小工具顯示每個 session 的精確執行中 token 計數——沒有它，開發者不知道何時接近 dumb zone。他將此視為「絕對必要的資訊」。
+
+## 相關連結
+
+- [Matt Pocock](/articles/matt-pocock) — smart zone 框架的推廣者
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — system prompt 極簡主義和 AGENTS.md 作為目錄是 smart zone 原則的重新表述
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 分割工作以留在 smart zone 是迴圈強大的*原因*
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 保持每個任務小到足以放入 smart zone
+- [Design Concept Grilling](/articles/design-concept-grilling) — grilling session 使用 sub-agent 以保持父 context 較小
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 審查前清除是一種 smart zone 紀律
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — smart zone 可能會增長（「dumb zone 最近變得沒那麼笨了」）但二次方注意力仍然限制它
+- [AI Brain Fry](/articles/ai-brain-fry) — smart zone 的人類端類比：監督有其自身的退化曲線，超過容量後會退化，映射了超過 ~100K token 後的注意力退化
+- [Interaction Models](/articles/interaction-models) — 以 200ms 粒度的連續音訊/視訊快速累積 context；TML 將長 session context 管理命名為開放問題——同一限制在新模態中的表現
+- [HTML as the New Markdown](/articles/html-as-the-new-markdown) — *人類注意力*的類比：讀者在超過某個量的無差別 markdown 後會退化，就像模型在超過 ~100K token 後退化一樣；HTML 透過在可讀性上花費 token 來提高人類的有效 smart zone
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — 創辦人的持久 context 紀律（CLAUDE.md）與 smart zone 預算競爭；過長的 context 檔案本身成為問題
+
+## 開放問題
+
+- Smart zone 標記是否隨模型大小擴展，還是受注意力架構限制？Pocock 觀察到「dumb zone 最近變得沒那麼笨了」，但到 2026 年仍將其定在 100K。
+- 當稀疏注意力或記憶增強架構推出時，smart zone 是否會變成軟性限制？
+- Harness 應如何向使用者呈現剩餘的 smart zone 預算——token 計數、百分比，還是更豐富的訊號？
+
+## 資料來源
+
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) — primary articulation

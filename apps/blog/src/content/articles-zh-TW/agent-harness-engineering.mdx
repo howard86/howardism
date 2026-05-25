@@ -1,0 +1,160 @@
+---
+date: 2026-04-10
+title: Agent Harness Engineering
+description: "為長時間運行的 LLM agent 搭建鷹架的模式：環境設計、漸進式上下文揭露、機械式架構強制執行、agent 程式碼審查"
+tag: Concept
+topic: harness
+tags:
+  - agent-engineering
+  - llm-architecture
+  - software-development
+readingTime: 11
+imageAlt: Agent Harness Engineering 的示意圖
+sources:
+  - title: "Harness engineering: leveraging Codex in an agent-first world"
+    url: https://openai.com/index/harness-engineering/
+  - title: Effective harnesses for long-running agents
+    url: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+  - title: Tips & Best Practices
+    url: https://hermes-agent.nousresearch.com/docs/guides/tips
+  - title: "Tutorial: Team Telegram Assistant"
+    url: https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant
+  - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
+    url: https://youtu.be/-QFHIoCo-Ko
+  - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
+    url: https://www.youtube.com/watch?v=SlGRN8jh2RI
+  - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
+      of Product, Claude Code)
+    url: https://www.youtube.com/watch?v=PplmzlgE0kg
+---
+export { default as heroImage } from "../assets/agent-harness-engineering.png";
+
+## 資料來源
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+- [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
+
+## 摘要
+
+Agent Harness Engineering 是一門設計環境、產出物與回饋迴路的學科，使 AI 編碼 agent 能夠跨越多個 context window 進行可靠且持續的工作。核心轉變在於：工程師的工作從撰寫程式碼轉移到建構讓 agent 有效運作的鷹架——明確指定意圖、結構化上下文、強制執行不變量，以及建構驗證管線。
+
+## 細節
+
+### 根本問題
+
+AI 編碼 agent 在離散的 session 中工作，且 context window 有限。每個新 session 啟動時都沒有先前工作的記憶。若缺乏刻意的 harness 設計，agent 會展現出可預測的失敗模式：
+
+1. **一次性完成** — 試圖一次建構所有東西，在實作途中耗盡上下文，留下半完成且未文件化的工作
+2. **過早宣告勝利** — 看到部分進展就宣稱工作完成
+3. **髒狀態** — 留下帶有 bug、未提交的變更或未文件化的進度，讓下一個 session 去解開
+4. **不完整的驗證** — 將功能標記為完成卻未進行端對端測試
+
+### 雙 Agent 架構（Anthropic）
+
+Anthropic 為 Claude Agent SDK 提出的解決方案使用兩個專門的提示：
+
+- **初始化 agent**（僅第一個 session）：搭建環境鷹架——撰寫 `init.sh` 腳本、建立 `claude-progress.txt` 日誌、產生結構化的 JSON 功能清單（所有需求標記為「failing」），並進行初始 git 提交。
+- **編碼 agent**（每個後續 session）：讀取進度日誌和 git 歷史、執行基本冒煙測試、選擇單一功能來實作、端對端驗證（例如透過 Puppeteer MCP 用於 web 應用程式）、提交乾淨狀態，並更新進度檔案。
+
+JSON 功能清單至關重要：agent 被指示永遠不要移除或編輯功能描述，只能在驗證後將 `passes` 從 `false` 翻轉為 `true`。選擇 JSON 而非 Markdown 是因為 agent 較不容易意外覆寫結構化的 JSON。
+
+### 儲存庫作為記錄系統（OpenAI）
+
+OpenAI 的 Codex 團隊建構了一個零手動撰寫程式碼的產品（約 100 萬行、約 1,500 個 PR，3–7 位工程師歷時 5 個月）。他們的關鍵架構洞見：**儲存庫本地的版本化產出物是 agent 唯一能看到的東西**——任何在 Slack、Google Docs 或人們腦中的資訊都是不可見的。
+
+他們的方法：
+- **AGENTS.md 作為目錄，而非百科全書**：一份簡短（約 100 行）的地圖，指向更深層的文件。單體式指令檔案會失敗，因為它擠壓了任務上下文、當所有東西都「重要」時就變成非指引、立即腐化，且無法進行機械式驗證。
+- **漸進式揭露**：agent 從一個小而穩定的入口點開始，並被教導在哪裡深入探索。設計文件、執行計畫和技術債都在儲存庫中版本化。
+- **機械式強制執行**：自訂 linter（本身由 agent 產生）強制執行架構——層之間的依賴方向、結構化日誌、命名慣例、檔案大小限制。Lint 錯誤訊息被撰寫為修復指示，注入到 agent 上下文中。
+- **文件園藝**：一個定期執行的背景 agent 掃描過時的文件並開啟修復 PR。
+
+### 大規模強制執行架構
+
+兩個來源都收斂於一個關鍵原則：**強制執行不變量，而非實作**。定義嚴格的邊界（層依賴、邊界處的資料驗證、命名慣例），讓 agent 在這些邊界內擁有自由。
+
+OpenAI 對每個業務領域使用嚴格的分層架構：Types → Config → Repo → Service → Runtime → UI，跨切面關注點透過單一 Providers 介面進入。這由結構測試和自訂 linter 強制執行。他們指出這種程度的架構嚴謹性通常要到數百位工程師時才會實施——有了 agent，它是早期的先決條件，因為約束能在不偏移的情況下實現速度。
+
+### 持續熵管理
+
+Agent 產生的程式碼庫會累積熵：agent 會複製已存在的模式，包括次優的模式。OpenAI 最初花費 20% 的工程時間手動清理「AI 垃圾」。他們的解決方案：將「黃金原則」編碼到儲存庫中，並以定期節奏執行背景 agent 任務來掃描偏差、更新品質等級，並開啟針對性的重構 PR。這如同垃圾回收——以小幅增量持續償還技術債，而非讓它複利累積。
+
+### Harness 即服務
+
+上述模式描述的是每個 session 的 harness。兩個 2026 年的系統展示了自然演進——**持續運行的 harness 即服務**，具有每租戶的工作區隔離：
+
+- [Symphony](/articles/symphony)（OpenAI，2026 年 3 月）— 長時間運行的 daemon 輪詢 Linear，每個 issue 一個工作區，每張票一個 [Codex App Server](/articles/codex-app-server-protocol) session。與上述 OpenAI 來源相同的團隊；他們明確的「harness 即服務」迭代。協調器擁有工作區生命週期、重試/退避、停滯偵測和調和；儲存庫內的 `WORKFLOW.md` 是策略檔案。
+- [Hermes Agent](/articles/hermes-agent)（Nous Research）— Hermes Gateway 以 systemd 或 launchd 運行；每使用者 session 隔離；允許清單 + DM 配對授權；cron 任務傳送到指定的主頻道。
+
+兩者的收斂設計選擇：
+
+1. **Daemon 優先部署** — 長時間運行的服務，而非每次呼叫的 CLI。
+2. **每租戶工作區隔離** — 每個 issue（Symphony）或每個使用者（Hermes）。
+3. **容器後端作為信任邊界**（Docker、Singularity、Modal、Daytona）而非逐命令的核准提示。Hermes 在容器後端下明確停用危險命令檢查，原則是「容器就是安全邊界」。
+4. **儲存庫版本化的 markdown 作為控制平面** — Symphony 的 `WORKFLOW.md`、Hermes 的 `AGENTS.md`/`SOUL.md`，與 session 層級的 `CLAUDE.md`/`AGENTS.md` 目錄式紀律相同的模式。
+5. **預設無持久化協調器資料庫** — Symphony 明確選擇追蹤器 + 檔案系統進行重啟恢復；Hermes Gateway 狀態僅為檔案系統。
+
+Symphony 的演進強化了上述原則。他們的第一版將 agent 視為嚴格的狀態機節點——Codex *僅*被要求實作票中的任務。他們發現一旦模型能力成長到足以「建立多個 PR 以及閱讀審查回饋並處理它」，這就太過限制，於是轉向給予 agent **目標 + 工具，而非狀態轉換**。這是「強制執行不變量，而非實作」應用於協調層（見 [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration)）。
+
+對於協調器與編碼 agent 之間的整合邊界，Symphony 使用 [Codex App Server protocol](/articles/codex-app-server-protocol)——透過 stdio 的 JSON-RPC，具有延續回合和動態工具呼叫——使合約明確且版本容忍。該協議的**動態工具呼叫**功能也是一個值得注意的 harness 原語：協調器實作的工具可以包裝子 agent 不應看到的憑證（例如 Symphony 的 `linear_graphql` 工具代理已認證的 GraphQL，而不將 Linear 存取權杖給予子 agent 容器）。
+
+### 人類的角色
+
+在兩個系統中，人類在不同的抽象層工作：
+- 排定工作優先順序，並將使用者回饋轉化為驗收標準
+- 設計環境和回饋迴路
+- 驗證結果並提供品味/判斷
+- 當 agent 遇到困難時，診斷缺少什麼能力（工具、護欄、文件）並將其回饋到系統中——始終透過 agent，而非直接撰寫程式碼
+
+## 相關連結
+
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — 共享儲存庫本地知識作為記錄系統、增量編譯和 LLM 維護產出物的模式
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — 在 Claude Code 環境中（CLAUDE.md、技能、hooks、子 agent）許多 harness 工程原則的實際應用
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 漏洞發現鷹架是一個最小 harness：隔離容器、單一提示、具有檔案排序前處理和驗證 agent 的 agentic 迴路
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — harness 提供執行基底，客戶端優化器隨後透過組合選擇進行調校；harness 強制執行的不變量約束了 AgentOpt 搜索的空間
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 輸出長度不變量（透過 system prompt、schema 或驗證器）是針對規模相依過度思考的 harness 層級緩解——符合「強制執行不變量，而非實作」原則
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 基於分類器的工具呼叫閘控是「機械式強制執行不變量」在權限邊界的具體實例——破壞性操作限制在執行前強制執行，而非透過建議性提示
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — 更好的檔案系統記憶強化了儲存庫本地版本化產出物作為 agent 記憶的論點；任務預算呼應了 harness 已施加的明確資源信封紀律
+- [Symphony](/articles/symphony) — 來自同一 OpenAI 團隊的自然「harness 即服務」演進；票作為單位和每 issue 工作區是此處建立的 harness 模式的直接延伸
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 「強制執行不變量，而非實作」在協調層的重述；一旦每 session 的 harness 運作，下一個瓶頸是哪個 session 接下來執行
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — 使「harness 即服務」成為可能的整合邊界；協調器透過版本化的 JSON-RPC 合約驅動 session，而非抓取 CLI
+- [Hermes Agent](/articles/hermes-agent) — 平行的 daemon 優先 agent 生態系統；每使用者而非每 issue 隔離，具有相同的容器後端安全模式；有界的 `MEMORY.md`/`USER.md` 檔案實作明確的記憶信封
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 驅動 system prompt 極簡主義、AGENTS.md 作為目錄、以及審查者在新上下文中紀律的底層約束；二次方注意力縮放設定了每個 harness 運作的預算
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 一旦每 session 的 harness 運作，自然的 session 層級原語：AFK 消耗 Kanban 待辦事項，將工作碎片化為許多新上下文迭代
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 「強制執行不變量，而非實作」在規劃層的重述——不變量是「每個切片產生可見的回饋」
+- [Design Concept Grilling](/articles/design-concept-grilling) — 對齊層的 harness 原語；透過強制計畫前訪談來防止過早產生計畫
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 程式碼庫形狀的互補：深模組程式碼庫中的 agent 節省 smart-zone token 並擁有自然的測試邊界
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — harness 與模型之間的分工：提示鷹架隨模型改進而縮減，機械式驗證仍是承重的
+- [Model Introspection Feedback](/articles/model-introspection-feedback) — 除錯時工具：詢問模型為何失敗，修復 *harness*，而非模型
+- [Interaction Models](/articles/interaction-models) — 在*互動*層堅定地將 harness 對模型的問題解決為模型方（即時 A/V）；VAD / 輪次偵測 / 對話管理 harness 溶解為模型行為（[Thinking Machines Lab](/articles/thinking-machines-lab)，2026 年 5 月）
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 「強制執行不變量，而非實作」背後的原則：不要手工設計規模化通用能力將吞噬的東西
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 相同的多 agent 分割，但針對*時間*關注點（保持回應性 vs. 深度思考）而非上下文隔離；harness 對模型分工的互動層實例
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — 連接器是*非 harness* 基底；模型決定使用哪一個；harness 邏輯在工具分派決策周圍縮減，因為模型選擇得更好
+
+## 衍生內容
+
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 將「強制執行不變量，而非實作」和 Writer/Reviewer 模式應用於 Opus 4.7 多 agent 編碼團隊
+
+## 相關連結
+
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — 建構 agent 可讀的環境是*基礎設施*層的 harness 工程；[Karpathy](/articles/andrej-karpathy) 的「先向 agent 描述」與 AGENTS.md 作為目錄的直覺相同
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — [AlphaProof Nexus](/articles/alphaproof-nexus) 的帶有 `EVOLVE-BLOCK` 標記的證明草稿是一個為定理證明「強制執行不變量，而非實作」的 harness（agent 只能編輯標記區域；定理陳述是不變量）
+
+## 開放問題
+
+- 單一通用編碼 agent 是否優於具有專門測試、QA 和清理 agent 的多 agent 架構？
+- 在完全由 agent 產生的系統中，架構一致性如何隨年份演進？
+- 在什麼程式碼庫規模下，AGENTS.md 作為目錄的方法需要被更精密的上下文路由取代？
+- 這些以 web 應用程式為焦點的發現對其他領域（科學研究、金融建模）的可推廣性如何？
+
+## 資料來源
+
+- [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
+- [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)

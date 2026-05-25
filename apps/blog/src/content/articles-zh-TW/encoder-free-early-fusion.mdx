@@ -1,0 +1,58 @@
+---
+date: 2026-05-13
+title: Encoder-Free Early Fusion
+description: "以最少預處理取代大型獨立編碼器的多模態設計：dMel 音訊嵌入、40×40 patch hMLP 處理影像幀、flow head 產生音訊輸出，全部在單一 transformer 中從頭共同訓練"
+tag: Concept
+topic: interaction
+tags:
+  - llm-architecture
+  - multimodal
+readingTime: 3
+imageAlt: Encoder-Free Early Fusion 概念示意圖
+sources:
+  - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
+    url: https://thinkingmachines.ai/blog/interaction-models/
+---
+export { default as heroImage } from "../assets/encoder-free-early-fusion.png";
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+
+## 摘要
+
+[Interaction Models](/articles/interaction-models) 中的一項多模態設計選擇：不再將音訊和視訊路由到大型獨立編碼器（也不再透過獨立的 TTS 類解碼器輸出音訊），而是使用**最少預處理**搭配**單一 transformer**，所有元件從頭共同訓練。「Encoder-free」是相對的說法——仍有輕量嵌入層——但不存在 Whisper 規模的音訊編碼器或獨立的 TTS 模型。
+
+## 各元件（單次 200ms micro-turn）
+
+輸入（文字 / 影像幀 / 音訊的任意子集）：
+- **文字** → token 嵌入（標準做法）。
+- **影像 / 視訊幀** → 切分為 **40×40 patches**，由 **hMLP** 編碼（[Touvron et al. 2022](https://arxiv.org/abs/2203.09795)）。
+- **音訊** → 以 **dMel** 表示（[Bai et al. 2024](https://arxiv.org/abs/2407.15835)），經輕量嵌入層（「bag of embeddings」）轉換。
+
+單一共享 **Transformer** 消化融合後的輸入。
+
+輸出：
+- **文字** → unembedding（標準做法）。
+- **音訊** → 透過 **flow head**（[Lipman et al. 2022](https://arxiv.org/abs/2210.02747)）產生 mel。
+
+**所有元件與 transformer 從頭共同訓練**——並非由預訓練編碼器/解碼器拼接而成。
+
+## 為何重要
+
+- 避免大型獨立編碼器/解碼器帶來的延遲與複雜度——當你每 200ms 就要執行一次時尤為關鍵（見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）。
+- Early fusion（所有模態進入同一個 transformer）意味著模型能跨模態聯合推理，而非僅對編碼器預消化的輸出進行推理——這是實現「一邊說話一邊對視覺線索做出反應」等能力的前提（見 [Full-Duplex Interaction](/articles/full-duplex-interaction)）。
+- 從頭共同訓練符合 [The Bitter Lesson](/articles/the-bitter-lesson) 的精神：減少手工設計的模組邊界，更多端到端學習。
+
+## 相關連結
+
+- [Interaction Models](/articles/interaction-models) — 上層概念
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — 為何最少預處理是硬性需求（200ms 預算）
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 架構的另一半
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 跨模態聯合推理使視覺＋音訊插話成為可能
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 「從頭共同訓練、捨棄模組化編碼器」正是 bitter-lesson 的實踐
+- [TML-Interaction-Small](/articles/tml-interaction-small) — 實作此設計的模型（dMel 音訊、40×40 hMLP patches、flow head），從頭共同訓練
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)

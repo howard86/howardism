@@ -1,0 +1,121 @@
+---
+date: 2026-04-28
+title: Ticket-Driven Agent Orchestration
+description: '讓 Symphony 運作的關鍵反轉：以 ticket 作為工作單位（而非 session 或 PR）、DAG 依賴關係、agent 可擴展的工作圖、「目標而非轉換」'
+tag: Concept
+topic: harness
+tags:
+  - agent-engineering
+  - orchestration
+  - workflow-design
+readingTime: 8
+imageAlt: Ticket-Driven Agent Orchestration 的示意圖
+sources:
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+---
+export { default as heroImage } from "../assets/ticket-driven-agent-orchestration.png";
+
+## 資料來源
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+
+## 摘要
+
+一種由 OpenAI 的 [Symphony](/articles/symphony) 所制定的模式，它反轉了 agentic 工作的常見單位：**issue tracker 的 ticket 成為工作單位，而非 coding session 或 pull request**。開放的 ticket 就是佇列；agent 被拉向 ticket，而非由人類將 session 指派給 agent；ticket 可跨越多個 PR、重啟和延續回合而持續存在。這個模式將 agentic 執行從 session 和 PR 中解耦，使非工程師也能派發工作，且單一 ticket 可涵蓋產出零個、一個或多個 PR 的調查。
+
+## 細節
+
+### 反轉
+
+傳統的 agentic coding 工作流程圍繞 session（Claude Code 的聊天執行緒）或 PR（合併的單位）來組織。兩者都是手段導向的抽象。軟體工作的實際組織原則是*交付物*：issue、ticket、里程碑。
+
+[Symphony](/articles/symphony) 的重新框架：
+
+> "Software workflows are largely organized around deliverables: issues, tasks, tickets, milestones. So we asked ourselves what would happen if we stopped supervising agents directly and instead let them pull work from our task tracker."
+
+一旦 ticket 成為單位：
+
+- **一個 ticket → 多個 PR** 是正常的。一個「將 auth 遷移到 OIDC」的 ticket 可能跨越 2 個 repo 的 3 個 PR。
+- **一個 ticket → 零個 PR** 是正常的。「調查為何 CI 不穩定」或「草擬架構計畫」產出的是筆記/提案，而非程式碼變更。
+- **PR 成為 ticket 的產出物**，而非工作本身。
+- **Agent 拉取工作**；人類不再推送 session。
+
+### DAG 風格的依賴關係
+
+Ticket 帶有阻擋關係。Symphony 的 `Issue.blocked_by` 欄位是候選選擇規則的一部分：
+
+> "If the issue state is `Todo`, do not dispatch when any blocker is non-terminal."
+
+結合 agent 建立新 ticket 的能力，這創造了一個**按依賴順序展開的有向無環工作圖**。文章中的具體範例：
+
+> "We marked the React upgrade as blocked on a migration to Vite. As expected, agents started upgrading React only after the migration to Vite was complete."
+
+重要的是，DAG 是*agent 可擴展的*：在實作或審查過程中，發現相鄰改進（效能問題、重構機會、更好的架構）的 agent 會建立新 ticket，而非擴大當前範圍。許多後續工作接著由其他 agent 接手。
+
+### 誰建立 Ticket
+
+一旦執行與 session 解耦，**任何人都可以在不碰 repo 的情況下派發 agentic 工作**：
+
+- 工程師以建立 bug 的相同方式建立 ticket。
+- PM 和設計師可以直接在 tracker 中建立功能請求，無需 checkout repo 或管理 Codex session。他們的交付物是一個包含功能運作影片導覽的「審查包」。
+- OpenAI 的文章提到一位工程師「在訊號不穩的舒適小屋中，從手機上的 Linear app 做了三項重大變更」。
+
+經濟效應：每次變更的感知成本下降，因為人力不再是瓶頸資源。這改變了行為——投機性 ticket、探索性重構和「試試這個想法」的任務變得廉價。放棄成本也接近零。
+
+### 「目標，而非轉換」
+
+Symphony 演進過程中的關鍵教訓。他們的第一版將 agent 視為狀態機中的剛性節點——Codex *只被*要求實作 ticket 中的任務。一旦模型變得更聰明，這就太過受限：
+
+> "Codex is perfectly capable of creating multiple PRs as well as reading review feedback and addressing it. So we gave it tools — `gh` CLI, skills to read CI logs, etc. — and now we can ask Codex to do more, like closing old PRs or pulling reports on completed vs. abandoned work."
+
+轉變：給 agent **目標**（ticket 的標題/描述）和**工具**，而非嚴格的狀態機轉換。這是在編排層重新表述了[「強制不變量，而非實作」](/articles/agent-harness-engineering)——編排器約束*信封*（每個 issue 的工作區、並行上限、終態清理），但不約束 agent 在該信封內採取的*步驟*。
+
+### Workflow.md 的 Prompt-as-Policy 模式
+
+在 ticket 驅動的編排中，工作流程策略存在於 repo 中的版本化 markdown 檔案（Symphony 的 `WORKFLOW.md`）。它捕捉了「人類遵循但從未文件化的隱含流程」：
+
+> "Work on an issue, check out a repo, put it in progress so the PM knows it's being worked on, add the PR, move it to the **Review** status, attach videos, etc. — is now captured in a simple `WORKFLOW.md` file."
+
+當團隊決定 agent 也應該在完成工作時附上自我反思，他們編輯 `WORKFLOW.md`；在下次渲染時，agent 就會遵循新步驟。這就是**prompt-as-policy** 的工作流程——同樣的模式驅動了 `CLAUDE.md`、`AGENTS.md` 和 `SOUL.md` 作為 agent 上下文檔案（參見 [Claude Code Best Practices](/articles/claude-code-best-practices)、[Hermes Agent](/articles/hermes-agent)）。
+
+### 超越吞吐量的效應
+
+產出增益是最明顯的效果（Symphony 保守估計的 500% landed-PR 宣稱，參見 [Symphony](/articles/symphony)）。*更深層*的效果在於團隊行為：
+
+1. **啟動工作的認知成本降至約 0**，因此團隊建立了更多投機性/探索性 ticket。
+2. **工程師停止在多個進行中的 session 之間切換上下文**，轉而專注於一個困難問題。
+3. **最後一哩的可靠性提升**——Symphony 監控 CI、rebase、解決衝突、重試不穩定的檢查，因此當 ticket 到達 `Merging` 時，變更可以無需看顧地落地。
+4. **文件維護成為一種 ticket 類型**，而非沒人負責的副專案。
+5. **例行工作與有趣工作**清楚分離——agent 處理大部分實作；人類專注於模糊的、需要高度判斷力的工作。
+
+### 模式不適用之處
+
+來源中的誠實取捨：
+
+- **失去執行中的引導能力**：在 ticket 層級指派意味著執行過程中無法微調。失敗暴露 harness 的缺口，並以系統性方式修補，而非即時修復。
+- **模糊問題仍需人類**：需要強判斷力、深度專業知識或專家品味的任務，在互動式 session 中仍然處理得更好。
+- **Tracker 依賴**：編排器現在耦合於 tracker 的 API 和可用性。Symphony 沒有持久化資料庫，依賴 tracker + 檔案系統進行重啟恢復——當 Linear 停機時，工作暫停。
+
+## 相關連結
+
+- [Symphony](/articles/symphony) — 典範實作；涵蓋 OpenAI 特定編排器的實體頁面
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — Symphony 用於每個 ticket session 的執行時協定；延續回合讓一個 ticket 可在同一個 `thread_id` 上跨越多個回合
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — ticket 驅動的編排是 harness 工程的自然延伸：一旦每個 session 的 harness 運作正常，下一個瓶頸就是*哪個 session 接下來執行*。「目標，而非轉換」是「強制不變量，而非實作」在編排層的重新表述
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude Code 的 `claude -p` 非互動模式是 Claude 端 ticket 驅動編排的構建基礎；subagent 和 Writer/Reviewer 模式可以像 Symphony 將 Codex 連接到 Linear 一樣連接到 tracker
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 在這個規模下，AgentOpt 風格的組合選擇變得在營運上很重要：在 `WORKFLOW.md` 的 prompt 模板中為每種 ticket 類型（planner vs. solver vs. reviewer）選擇正確的模型，是每個 pipeline 的預算決策
+- [Hermes Agent](/articles/hermes-agent) — Hermes 的 cron 任務和 home-channel 交付是較輕量的類比：agent 自行派發的排程交付物，結果回報到聊天而非 ticket
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — wiki 的 `/compile` 和 `/lint` 本身就是類似 ticket 的工作單位，可以接入 Symphony 風格的 daemon
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — spec-as-document 模式（SPEC.md → ticket → agent）泛化到更深一層：Model Spec 成為直接的訓練輸入，而非僅是執行時指引
+
+## 開放問題
+
+- 當單位是「一個 agent 在一個工作區中做的事」時，ticket 大小的正確粒度是什麼？文章暗示「更大的工作單位」變得可行，但這如何與 `agent.max_turns` 限制（預設 20）互動？
+- 當 agent 大量建立後續 ticket 時，如何防止 ticket 擴展級聯？唯一的治理檢查是否就是人類在 `Todo` 狀態佇列的分類？
+- 這個模式是否能泛化到非軟體工作（研究、營運、內容）？DAG 依賴模型和 prompt-as-policy 檔案應該可以轉移；每個 issue 的工作區則不那麼明顯。
+- 當 agent 把一個 ticket「完全搞錯」（文章中提到）時，教訓如何回饋到系統中？Symphony 的答案是「增加護欄和技能」——這方面的制度化流程是什麼？
+- Ticket 驅動的編排如何與 sprint 規劃 / OKRs / 路線圖工作互動？這些工作是在 ticket 的聚合層級上運作的。當 ticket 範圍那麼小時，這個抽象是否會崩潰？
+
+## 資料來源
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
