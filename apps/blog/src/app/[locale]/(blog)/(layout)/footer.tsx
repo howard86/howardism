@@ -1,5 +1,6 @@
 import { Badge } from "@howardism/ui/components/badge";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import ExternalLink from "@/app/(common)/external-link";
 
@@ -16,19 +17,28 @@ const SOCIAL_LABEL: Record<string, string> = {
 };
 
 export function Footer() {
+  const tFooter = useTranslations("Footer");
+  const tNav = useTranslations("Nav");
+  const year = new Date().getFullYear();
   return (
     <footer className="mt-auto border-border border-t border-dashed px-4 pt-6 pb-8">
       <div className="mx-auto flex max-w-[960px] flex-col gap-4">
         {/* Nav row */}
         <nav aria-label="footer">
           <ul className="flex list-none flex-wrap gap-1.5">
-            {FOOTER_NAV.map(({ label, href }) => (
-              <li key={label}>
-                <Link href={href}>
-                  <Badge variant="chip">{label}</Badge>
-                </Link>
-              </li>
-            ))}
+            {FOOTER_NAV.map((item) => {
+              const label =
+                item.namespace === "Footer"
+                  ? tFooter(item.key)
+                  : tNav(item.key);
+              return (
+                <li key={item.key}>
+                  <Link href={item.href}>
+                    <Badge variant="chip">{label}</Badge>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
@@ -36,8 +46,7 @@ export function Footer() {
         <div className="flex items-center gap-2.5">
           <Avatar label="Home" size={28} />
           <span className="font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
-            &copy; Howardism &middot; {new Date().getFullYear()} &middot; Taiwan
-            / anywhere
+            {tFooter("copyright", { year })}
           </span>
         </div>
 
@@ -59,8 +68,7 @@ export function Footer() {
 
         {/* Colophon */}
         <span className="font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
-          Set in Fraunces, Newsreader &amp; JetBrains Mono. The text is the
-          work; the design is the chrome.
+          {tFooter("colophon")}
         </span>
       </div>
     </footer>

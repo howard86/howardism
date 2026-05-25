@@ -10,11 +10,12 @@ import {
 } from "@howardism/ui/components/sheet";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Container } from "@/app/(common)/container";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 import { Avatar } from "./avatar";
-import { NAV_SECTION_KEYS, NavSection } from "./constants";
+import { NAV_SECTION_KEYS, NavSection, type NavSectionKey } from "./constants";
 
 function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
@@ -34,25 +35,28 @@ function NavLink({ href, label }: { href: string; label: string }) {
 }
 
 function DesktopNav() {
+  const t = useTranslations("Nav");
   return (
     <nav
       aria-label="Primary"
       className="hidden gap-0.5 rounded-full border border-border bg-card/85 p-1.5 shadow-paper backdrop-blur-md md:flex"
     >
-      {NAV_SECTION_KEYS.map((key) => (
-        <NavLink href={NavSection[key]} key={key} label={key} />
+      {NAV_SECTION_KEYS.map((key: NavSectionKey) => (
+        <NavLink href={NavSection[key]} key={key} label={t(key)} />
       ))}
     </nav>
   );
 }
 
 function MobileNav() {
+  const tNav = useTranslations("Nav");
+  const tHeader = useTranslations("Header");
   return (
     <div className="md:hidden">
       <Sheet>
         <SheetTrigger asChild>
           <button type="button">
-            <Badge variant="chip">Menu</Badge>
+            <Badge variant="chip">{tHeader("menu")}</Badge>
           </button>
         </SheetTrigger>
         <SheetContent
@@ -62,18 +66,18 @@ function MobileNav() {
         >
           <SheetHeader className="p-0">
             <SheetTitle className="font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
-              Navigation
+              {tHeader("navigation")}
             </SheetTitle>
           </SheetHeader>
           <nav aria-label="Mobile primary" className="mt-6">
             <ul className="m-0 flex list-none flex-col gap-0 border-border border-t p-0">
-              {NAV_SECTION_KEYS.map((key) => (
+              {NAV_SECTION_KEYS.map((key: NavSectionKey) => (
                 <li className="border-border border-b" key={key}>
                   <Link
                     className="block py-3 font-body text-[15px] text-foreground"
                     href={NavSection[key]}
                   >
-                    {key}
+                    {tNav(key)}
                   </Link>
                 </li>
               ))}
@@ -86,6 +90,7 @@ function MobileNav() {
 }
 
 export function Header() {
+  const t = useTranslations("Header");
   return (
     <header className="pointer-events-none relative z-50 flex flex-none flex-col">
       <div className="relative top-0 z-10 py-4">
@@ -96,10 +101,10 @@ export function Header() {
               <Avatar size={36} />
               <div className="flex flex-col gap-px">
                 <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
-                  Howardism
+                  {t("siteName")}
                 </span>
                 <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
-                  vol. 03 · quiet corner of the web
+                  {t("tagline")}
                 </span>
               </div>
             </div>
