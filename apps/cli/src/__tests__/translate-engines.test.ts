@@ -79,6 +79,8 @@ describe("buildEngineArgv", () => {
       "/abs/path/to/kiro-acp.py",
       "--cwd",
       "/repo/root",
+      "--model",
+      "auto",
       prompt,
     ]);
   });

@@ -120,7 +120,7 @@ export function buildEngineArgv(
       "KIRO_ACP_CLIENT is not set. Set it to the absolute path of your kiro-acp.py client to use the `kiro` engine."
     );
   }
-  return ["python3", kiroClient, "--cwd", scopeDir, prompt];
+  return ["python3", kiroClient, "--cwd", scopeDir, "--model", "auto", prompt];
 }
 
 // Drain a ReadableStream<Uint8Array> line by line, calling onLine for each
