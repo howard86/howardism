@@ -6,20 +6,16 @@ import { formatDateShort } from "@/utils/time";
 
 import { FilterBar } from "./filter-bar";
 import { KindPlate } from "./kind-plate";
-import { OperationsLog } from "./operations-log";
 import {
-  type ArticleTopic,
   getNavigableTagSet,
   getTagCounts,
   getTagIndex,
   getVisibleArticles,
-  getWikiLog,
 } from "./service";
 import { TagIndex } from "./tag-index";
 import { getSectionArticles, TAG_SECTIONS } from "./tag-sections";
 
 const ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
-const OPS_LOG_LIMIT = 14;
 
 /** Newest-first row budget per section. */
 const VISIBLE_BY_SLUG: Record<string, number> = {
@@ -53,11 +49,6 @@ export default async function ArticlesIndex() {
 
   const newestDate = visible.entities[visible.ids[0]]?.meta.date;
   const oldestDate = visible.entities[visible.ids.at(-1) ?? ""]?.meta.date;
-
-  const slugTopics: Record<string, ArticleTopic | undefined> = {};
-  for (const id of visible.ids) {
-    slugTopics[id] = visible.entities[id]?.meta.topic;
-  }
 
   return (
     <div className="hw-page-enter mx-auto max-w-[1320px]">
@@ -105,11 +96,6 @@ export default async function ArticlesIndex() {
       ))}
 
       <TagIndex tags={tagIndex} />
-
-      <OperationsLog
-        entries={getWikiLog(OPS_LOG_LIMIT)}
-        slugTopics={slugTopics}
-      />
     </div>
   );
 }
