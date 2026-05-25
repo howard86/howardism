@@ -44,10 +44,12 @@ describe("buildEngineArgv", () => {
     ]);
   });
 
-  it("builds claude argv", () => {
+  it("builds claude argv with json output for usage capture", () => {
     expect(buildEngineArgv("claude", { prompt, scopeDir })).toEqual([
       "claude",
       "-p",
+      "--output-format",
+      "json",
       prompt,
     ]);
   });
@@ -146,5 +148,46 @@ describe("runEngine", () => {
         runner: () => Promise.reject(new Error("boom")),
       })
     ).rejects.toThrow("boom");
+  });
+
+  it("parses claude --output-format json usage (cost, tokens, model)", async () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      total_cost_usd: 0.153_825,
+      usage: { input_tokens: 9840, output_tokens: 93 },
+      modelUsage: { "claude-opus-4-7[1m]": { costUSD: 0.153_825 } },
+      result: "done",
+    });
+    const result = await runEngine("claude", {
+      prompt: "x",
+      scopeDir: "/tmp",
+      runner: () => Promise.resolve({ stdout, stderr: "" }),
+    });
+    expect(result.usage).toEqual({
+      costUsd: 0.153_825,
+      inputTokens: 9840,
+      outputTokens: 93,
+      model: "claude-opus-4-7[1m]",
+    });
+  });
+
+  it("parses kiro credits from a credits line", async () => {
+    const result = await runEngine("kiro", {
+      prompt: "x",
+      scopeDir: "/tmp",
+      kiroClient: "/abs/kiro-acp.py",
+      runner: () =>
+        Promise.resolve({ stdout: "…\n86.58 total credits\n", stderr: "" }),
+    });
+    expect(result.usage?.credits).toBeCloseTo(86.58);
+  });
+
+  it("leaves usage undefined for agy (no machine-readable output)", async () => {
+    const result = await runEngine("agy", {
+      prompt: "x",
+      scopeDir: "/tmp",
+      runner: () => Promise.resolve({ stdout: "translated.", stderr: "" }),
+    });
+    expect(result.usage).toBeUndefined();
   });
 });
