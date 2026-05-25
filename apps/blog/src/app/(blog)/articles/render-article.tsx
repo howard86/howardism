@@ -59,7 +59,9 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
   if (locale === "en" && !(await articleExists(slug))) {
     notFound();
   }
-  const mod = await importArticleModule(slug, locale);
+  // A missing zh-TW MDX (translations.json ahead of committed files) should 404,
+  // not throw a module-not-found 500. The en path is already guarded by articleExists above.
+  const mod = await importArticleModule(slug, locale).catch(() => notFound());
   if (locale === "zh-TW") {
     return (
       <ArticleLayout
@@ -112,9 +114,12 @@ export interface LocalizedArticleLink {
 export async function getTranslatedArticleLinks(): Promise<
   LocalizedArticleLink[]
 > {
-  const links = await Promise.all(
+  const results = await Promise.all(
     getTranslatedSlugs().map(async (slug) => {
-      const mod = await importArticleModule(slug, "zh-TW");
+      const mod = await importArticleModule(slug, "zh-TW").catch(() => null);
+      if (!mod) {
+        return null;
+      }
       return {
         slug,
         title: mod.meta.title,
@@ -123,6 +128,7 @@ export async function getTranslatedArticleLinks(): Promise<
       };
     })
   );
+  const links = results.filter((r): r is LocalizedArticleLink => r !== null);
   return links.sort(
     (a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf()
   );

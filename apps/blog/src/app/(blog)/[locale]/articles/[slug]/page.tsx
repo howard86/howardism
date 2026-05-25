@@ -32,7 +32,10 @@ export async function generateMetadata({
   if (!hasTranslation(slug)) {
     return {};
   }
-  const mod = await importArticleModule(slug, "zh-TW");
+  const mod = await importArticleModule(slug, "zh-TW").catch(() => null);
+  if (!mod) {
+    return {};
+  }
   const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW/articles/${slug}`;
   return {
     title: mod.meta.title,
