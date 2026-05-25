@@ -24,6 +24,8 @@ interface ArticleLayoutProps {
   children?: ReactNode;
   headings?: ArticleHeading[];
   heroImage?: StaticImageData;
+  /** Whether the zh-TW translation is out of date relative to the EN source. */
+  isStale?: boolean;
   /** Which language this rendering is; drives the machine-translation badge. */
   locale?: Locale;
   meta: ArticleMeta;
@@ -48,6 +50,7 @@ export function ArticleLayout({
   children,
   headings = [],
   heroImage,
+  isStale = false,
   locale = "en",
   meta,
   navigable = NO_NAVIGABLE_TAGS,
@@ -100,6 +103,11 @@ export function ArticleLayout({
                 {locale === "zh-TW" && (
                   <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
                     機器翻譯 · machine-translated
+                  </span>
+                )}
+                {locale === "zh-TW" && isStale && (
+                  <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
+                    過時翻譯 · stale translation
                   </span>
                 )}
                 {translationHref && (

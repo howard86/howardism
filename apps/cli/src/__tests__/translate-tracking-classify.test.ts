@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { surfaceHash } from "../translate/surface.ts";
+import { surfaceHash } from "@howardism/article-contract/surface";
 import { classifyArticle } from "../translate/tracking/classify.ts";
 
 const mdx = (over: { body?: string; date?: string } = {}): string =>

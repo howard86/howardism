@@ -1,5 +1,6 @@
 import "server-only";
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -12,6 +13,7 @@ import {
   ArticleContractSchema,
   type SourceRefSchema,
 } from "@howardism/article-contract/schema";
+import { surfaceHash } from "@howardism/article-contract/surface";
 import glob from "fast-glob";
 import type { StaticImageData } from "next/image";
 import { cache } from "react";
@@ -555,3 +557,21 @@ export const getTranslatedSlugs = (): string[] => [...translatedSet].sort();
 /** Whether `slug` has a zh-TW translation available. */
 export const hasTranslation = (slug: string): boolean =>
   translatedSet.has(slug);
+
+/**
+ * Whether the zh-TW translation for `slug` is stale — i.e. the EN source has
+ * changed since the translation was recorded. Returns false if no translation
+ * exists or the source file cannot be read.
+ */
+export const isTranslationStale = (slug: string): boolean => {
+  const record = translations.articles[slug];
+  if (!record) {
+    return false;
+  }
+  try {
+    const rawMdx = readFileSync(join(ARTICLES_DIR, `${slug}.mdx`), "utf8");
+    return surfaceHash(rawMdx) !== record.sourceHash;
+  } catch {
+    return false;
+  }
+};

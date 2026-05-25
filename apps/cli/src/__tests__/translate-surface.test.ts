@@ -2,9 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import {
   extractTranslatableSurface,
+  surfaceHash,
+} from "@howardism/article-contract/surface";
+import {
   resyncVerbatimFields,
   sourceTitle,
-  surfaceHash,
   verbatimDiffers,
 } from "../translate/surface.ts";
 
