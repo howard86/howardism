@@ -2,9 +2,24 @@ export const ENGINES = ["codex", "claude", "agy", "kiro"] as const;
 
 export type Engine = (typeof ENGINES)[number];
 
+/**
+ * Best-effort cost/usage telemetry parsed from an engine's stdout. Every field
+ * is optional: `claude --output-format json` populates all of them, `kiro` may
+ * surface credits over ACP, and `agy`/`codex` expose nothing machine-readable
+ * (left undefined; the orchestrator backfills a configured model label).
+ */
+export interface EngineUsage {
+  costUsd?: number;
+  credits?: number;
+  inputTokens?: number;
+  model?: string;
+  outputTokens?: number;
+}
+
 export interface EngineRunResult {
   stderr: string;
   stdout: string;
+  usage?: EngineUsage;
 }
 
 export interface EngineSpawnOptions {
@@ -79,7 +94,10 @@ export function buildEngineArgv(
     return ["codex", "exec", prompt];
   }
   if (engine === "claude") {
-    return ["claude", "-p", prompt];
+    // `--output-format json` makes the final stdout a single JSON object with
+    // total_cost_usd / usage / modelUsage — the agent still writes the output
+    // file via its tools, so the file-based workflow is unchanged.
+    return ["claude", "-p", "--output-format", "json", prompt];
   }
   if (engine === "agy") {
     return [
@@ -146,12 +164,92 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
   }
 };
 
+const numberOr = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+/** Parse `claude --output-format json` stdout for cost / tokens / model. */
+const parseClaudeUsage = (stdout: string): EngineUsage | undefined => {
+  let json: Record<string, unknown>;
+  try {
+    json = JSON.parse(stdout) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const usage: EngineUsage = {};
+  usage.costUsd = numberOr(json.total_cost_usd);
+  const inner = json.usage as Record<string, unknown> | undefined;
+  if (inner) {
+    usage.inputTokens = numberOr(inner.input_tokens);
+    usage.outputTokens = numberOr(inner.output_tokens);
+  }
+  const modelUsage = json.modelUsage as Record<string, unknown> | undefined;
+  if (modelUsage && typeof modelUsage === "object") {
+    usage.model = Object.keys(modelUsage)[0];
+  } else if (typeof json.model === "string") {
+    usage.model = json.model;
+  }
+  return hasAnyField(usage) ? usage : undefined;
+};
+
+const CREDITS_RE = /([\d.]+)\s+(?:total\s+)?credits/i;
+
 /**
- * Spawn `engine` against `scopeDir` with `prompt`, returning captured streams.
- * `runner` is injected by tests so unit tests never spawn a real process.
- * Throws (via the runner) on non-zero exit with stdout/stderr in the message.
+ * Best-effort usage parse for the kiro ACP client: prefer a JSON line carrying
+ * usage fields, else fall back to a "<n> credits" line. Returns undefined when
+ * the client surfaced nothing parseable.
  */
-export function runEngine(
+const parseKiroUsage = (stdout: string): EngineUsage | undefined => {
+  const usage: EngineUsage = {};
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        const json = JSON.parse(trimmed) as Record<string, unknown>;
+        usage.credits ??= numberOr(json.credits);
+        usage.costUsd ??= numberOr(json.cost_usd ?? json.total_cost_usd);
+        usage.inputTokens ??= numberOr(json.input_tokens);
+        usage.outputTokens ??= numberOr(json.output_tokens);
+        if (!usage.model && typeof json.model === "string") {
+          usage.model = json.model;
+        }
+      } catch {
+        // not a usage line — ignore
+      }
+    }
+  }
+  if (usage.credits === undefined) {
+    const m = stdout.match(CREDITS_RE);
+    if (m) {
+      usage.credits = Number.parseFloat(m[1]);
+    }
+  }
+  return hasAnyField(usage) ? usage : undefined;
+};
+
+const hasAnyField = (usage: EngineUsage): boolean =>
+  Object.values(usage).some((v) => v !== undefined);
+
+/** Extract usage from a finished run; only claude/kiro expose anything. */
+export function parseUsage(
+  engine: Engine,
+  result: EngineRunResult
+): EngineUsage | undefined {
+  if (engine === "claude") {
+    return parseClaudeUsage(result.stdout);
+  }
+  if (engine === "kiro") {
+    return parseKiroUsage(result.stdout);
+  }
+  return;
+}
+
+/**
+ * Spawn `engine` against `scopeDir` with `prompt`, returning captured streams
+ * plus best-effort usage telemetry. `runner` is injected by tests so unit
+ * tests never spawn a real process. Throws (via the runner) on non-zero exit
+ * with stdout/stderr in the message.
+ */
+export async function runEngine(
   engine: Engine,
   args: RunEngineArgs
 ): Promise<EngineRunResult> {
@@ -161,9 +259,11 @@ export function runEngine(
     scopeDir: args.scopeDir,
   });
   const exec = args.runner ?? defaultRunner;
-  return exec(argv, {
+  const result = await exec(argv, {
     cwd: args.scopeDir,
     env: args.env,
     timeoutMs: args.timeoutMs,
   });
+  const usage = parseUsage(engine, result);
+  return usage ? { ...result, usage } : result;
 }
