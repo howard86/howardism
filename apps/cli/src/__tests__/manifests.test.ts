@@ -28,7 +28,6 @@ describe("buildManifests", () => {
     const dir = await mkdtemp(join(tmpdir(), "manifests-det-"));
     const args = {
       parsed: [makeParsed("a", "[[b]]"), makeParsed("b", "[[a]]")],
-      logBody: "## [2026-05-01] ingest | Test\nSome body [[a]]",
       rawRoot: dir,
       generatedOn: "2026-05-14",
     };
@@ -39,17 +38,15 @@ describe("buildManifests", () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  it("threads generatedOn to all three manifests", async () => {
+  it("threads generatedOn to both manifests", async () => {
     const dir = await mkdtemp(join(tmpdir(), "manifests-gen-"));
     const set = await buildManifests({
       parsed: [makeParsed("x", "")],
-      logBody: "## [2026-05-01] ingest | X\nbody",
       rawRoot: dir,
       generatedOn: "2026-05-14",
     });
 
     expect(set.graph.generatedOn).toBe("2026-05-14");
-    expect(set.log?.generatedOn).toBe("2026-05-14");
     expect(set.sources.generatedOn).toBe("2026-05-14");
   });
 
@@ -60,38 +57,22 @@ describe("buildManifests", () => {
         makeParsed("live", ""),
         makeParsed("dead", "", { frontmatter: { archived: true } }),
       ],
-      logBody: null,
       rawRoot: dir,
       generatedOn: "2026-05-14",
     });
 
     expect(Object.keys(set.graph.outgoing)).toEqual(["live"]);
-    expect(set.log).toBeNull();
-  });
-
-  it("returns null log when logBody is null", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "manifests-nolog-"));
-    const set = await buildManifests({
-      parsed: [makeParsed("a", "")],
-      logBody: null,
-      rawRoot: dir,
-      generatedOn: "2026-05-14",
-    });
-
-    expect(set.log).toBeNull();
   });
 });
 
 describe("writeManifests", () => {
-  it("writes three files and returns graphPath", async () => {
+  it("writes both files and returns graphPath", async () => {
     const dir = await mkdtemp(join(tmpdir(), "manifests-write-"));
     const graphPath = join(dir, "graph.json");
-    const logPath = join(dir, "log.json");
     const sourcesPath = join(dir, "sources.json");
 
     const set = await buildManifests({
       parsed: [makeParsed("a", "[[b]]"), makeParsed("b", "")],
-      logBody: "## [2026-05-01] ingest | Test\nbody [[a]]",
       rawRoot: dir,
       generatedOn: "2026-05-14",
     });
@@ -99,7 +80,6 @@ describe("writeManifests", () => {
     const result = await writeManifests({
       set,
       graphOutputPath: graphPath,
-      logOutputPath: logPath,
       sourcesOutputPath: sourcesPath,
       dryRun: false,
     });
@@ -107,8 +87,6 @@ describe("writeManifests", () => {
     expect(result.graphPath).toBe(graphPath);
     const graphData = JSON.parse(await readFile(graphPath, "utf8"));
     expect(graphData.generatedOn).toBe("2026-05-14");
-    const logData = JSON.parse(await readFile(logPath, "utf8"));
-    expect(logData.generatedOn).toBe("2026-05-14");
     const sourcesData = JSON.parse(await readFile(sourcesPath, "utf8"));
     expect(sourcesData.generatedOn).toBe("2026-05-14");
   });
@@ -116,12 +94,10 @@ describe("writeManifests", () => {
   it("dry-run writes no files but returns graphPath", async () => {
     const dir = await mkdtemp(join(tmpdir(), "manifests-dry-"));
     const graphPath = join(dir, "graph.json");
-    const logPath = join(dir, "log.json");
     const sourcesPath = join(dir, "sources.json");
 
     const set = await buildManifests({
       parsed: [makeParsed("a", "")],
-      logBody: "## [2026-05-01] ingest | X\nbody",
       rawRoot: dir,
       generatedOn: "2026-05-14",
     });
@@ -129,14 +105,12 @@ describe("writeManifests", () => {
     const result = await writeManifests({
       set,
       graphOutputPath: graphPath,
-      logOutputPath: logPath,
       sourcesOutputPath: sourcesPath,
       dryRun: true,
     });
 
     expect(result.graphPath).toBe(graphPath);
     await expect(stat(graphPath)).rejects.toThrow();
-    await expect(stat(logPath)).rejects.toThrow();
     await expect(stat(sourcesPath)).rejects.toThrow();
   });
 });
