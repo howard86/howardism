@@ -502,6 +502,9 @@ async function runEngineWithRetry(
 ): Promise<EngineOutcome> {
   const { slug, sourceAbsPath, outputAbsPath, prompt, opts } = args;
   const startedAt = Date.now();
+  // Preserve the existing translation so we can restore it if all attempts
+  // fail — otherwise a timeout or bad output permanently deletes good work.
+  const existingOutput = await readFileOrNull(outputAbsPath);
   let lastReason = "unknown failure";
   let lastUsage: EngineUsage | undefined;
   for (let attempt = 1; attempt <= MAX_ENGINE_ATTEMPTS; attempt += 1) {
@@ -567,6 +570,13 @@ async function runEngineWithRetry(
       `[translate] ${slug} attempt ${attempt} validation failed: ${lastReason}`
     );
     await unlinkSilently(outputAbsPath);
+  }
+  // All attempts failed — restore the prior translation so it isn't lost.
+  if (existingOutput) {
+    await writeFile(outputAbsPath, existingOutput, "utf8");
+    console.warn(
+      `[translate] ${slug} all attempts failed; prior translation restored`
+    );
   }
   return { ok: false, reason: lastReason };
 }
