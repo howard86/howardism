@@ -13,7 +13,7 @@ import graphData from "@/data/article-graph.json";
 // inbound and outbound edges for, and that is not archived.
 const KNOWN_SLUG = "agent-harness-engineering";
 
-const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index", "Changelog"] as const;
+const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index"] as const;
 
 const tagsSet: ReadonlySet<string> = new Set(WIKI_TAGS);
 
