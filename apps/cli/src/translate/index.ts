@@ -23,6 +23,7 @@ import {
   runEngine,
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
+import { fixMdxEscaping } from "./postprocess.ts";
 import { buildTranslatePrompt } from "./prompt.ts";
 import { resyncVerbatimFields, sourceTitle } from "./surface.ts";
 import {
@@ -553,21 +554,20 @@ async function runEngineWithRetry(
       clearInterval(heartbeat);
     }
 
-    // Deterministic post-processing: rewrite recurring structural headings to
-    // their canonical zh-TW form before validation, so every engine produces
-    // uniformly titled sections. Skip the write if the engine already emitted
-    // canonical headings (no-op idempotent pass). A missing output here means
-    // the engine exited 0 without writing — let validateTranslation surface
-    // that precise "output does not exist" error rather than mislabelling it.
+    // Deterministic post-processing: normalise headings and fix MDX-breaking
+    // escape sequences introduced by the LLM. Both passes are pure and
+    // idempotent. Skip the write when the engine already emitted correct
+    // output. A missing file here means the engine exited 0 without writing —
+    // let validateTranslation surface that precise error.
     try {
       const original = await readFile(outputAbsPath, "utf8");
-      const normalised = normalizeHeadings(original);
+      const normalised = fixMdxEscaping(normalizeHeadings(original));
       if (normalised !== original) {
         await writeFile(outputAbsPath, normalised, "utf8");
       }
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        lastReason = `heading normalization failed: ${(err as Error).message}`;
+        lastReason = `post-processing failed: ${(err as Error).message}`;
         console.warn(`[translate] ${slug} attempt ${attempt} ${lastReason}`);
         await unlinkSilently(outputAbsPath);
         continue;
