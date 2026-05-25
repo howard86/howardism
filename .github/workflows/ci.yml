@@ -20,6 +20,27 @@ jobs:
       run-test: true
       run-build: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
+  translations:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Fails if any committed zh-TW translation is stale/drifted/orphaned vs its
+      # source. Never-translated articles are ignored (translation is opt-in).
+      - name: Check zh-TW translations are fresh
+        run: bun apps/cli/src/translate/index.ts --check
+
   release:
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
