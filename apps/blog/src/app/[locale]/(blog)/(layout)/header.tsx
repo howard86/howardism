@@ -10,8 +10,8 @@ import {
 } from "@howardism/ui/components/sheet";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
 import { Container } from "@/app/(common)/container";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 
 import { Avatar } from "./avatar";
 import { NAV_SECTION_KEYS, NavSection } from "./constants";
@@ -106,6 +106,7 @@ export function Header() {
 
             {/* Nav */}
             <DesktopNav />
+            <LocaleSwitcher />
             <MobileNav />
           </div>
         </Container>

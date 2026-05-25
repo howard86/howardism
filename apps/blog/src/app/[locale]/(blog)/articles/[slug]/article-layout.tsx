@@ -4,6 +4,7 @@ import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { ArticleJsonLd } from "@/components/article-jsonld";
 import { DataGrid } from "@/components/howardism/data-grid";
 import { HalfDisc } from "@/components/howardism/half-disc";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
@@ -232,6 +233,12 @@ export function ArticleLayout({
 
         <ArticleRail headings={headings} slug={slug} />
       </div>
+      <ArticleJsonLd
+        locale={locale}
+        meta={meta}
+        slug={slug}
+        translationHref={translationHref}
+      />
     </div>
   );
 }

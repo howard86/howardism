@@ -2,9 +2,8 @@ import "server-only";
 
 import { Feed } from "feed";
 import { cache } from "react";
-
+import { getVisibleArticles } from "@/app/[locale]/(blog)/articles/service";
 import { env } from "@/config/env";
-import { getVisibleArticles } from "../(blog)/articles/service";
 import {
   AUTHOR_EMAIL,
   AUTHOR_NAME,
