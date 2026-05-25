@@ -10,7 +10,6 @@ import { runWithConcurrency } from "../concurrency.ts";
 import { generateHeroImage } from "./codex.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
-import { buildWikiChangelogPage } from "./pages/wiki-changelog.ts";
 import {
   buildSlugTitleMap,
   discoverWikiSources,
@@ -43,7 +42,6 @@ interface RunOptions {
   blogAssetsPath: string;
   dryRun: boolean;
   graphOutputPath: string;
-  logOutputPath: string;
   onlySlug: string | null;
   overridesPath: string;
   rawPath: string;
@@ -75,10 +73,6 @@ const DEFAULT_BLOG_ASSETS_PATH = resolve(
 const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
   REPO_ROOT,
   "apps/blog/src/data/article-graph.json"
-);
-const DEFAULT_LOG_OUTPUT_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/wiki-log.json"
 );
 const DEFAULT_SOURCES_OUTPUT_PATH = resolve(
   REPO_ROOT,
@@ -125,23 +119,15 @@ async function main(): Promise<void> {
   );
 
   if (!opts.onlySlug) {
-    await emitWikiChangelogPage({
-      opts,
-      summary,
-      slugTitleMap: ctx.slugTitleMap,
-    });
     const generatedOn = new Date().toISOString().slice(0, 10);
-    const logParsed = await tryParseWikiLog(join(opts.wikiPath, "log.md"));
     const set = await buildManifests({
       parsed: ctx.parsedAll,
-      logBody: logParsed?.body ?? null,
       rawRoot: opts.rawPath,
       generatedOn,
     });
     const { graphPath } = await writeManifests({
       set,
       graphOutputPath: opts.graphOutputPath,
-      logOutputPath: opts.logOutputPath,
       sourcesOutputPath: opts.sourcesOutputPath,
       dryRun: opts.dryRun,
     });
@@ -374,65 +360,6 @@ async function ensureImage(args: {
   args.summary.imagesGenerated.push(args.slug);
 }
 
-/**
- * Synthesize the wiki changelog article from the source `log.md`. The
- * previous wiki-index synthesized page was retired — `/articles` now serves
- * as the canonical index, and a permanent redirect from `/articles/wiki`
- * preserves the old URL. The changelog stays because its content is
- * structurally derived (chronological log entries) and isn't a wiki
- * article in its own right.
- */
-async function emitWikiChangelogPage(args: {
-  opts: RunOptions;
-  slugTitleMap: Map<string, string>;
-  summary: ImportSummary;
-}): Promise<void> {
-  const { opts, summary, slugTitleMap } = args;
-
-  const logSource = join(opts.wikiPath, "log.md");
-  const logParsed = await tryParseWikiLog(logSource);
-  if (!logParsed) {
-    return;
-  }
-
-  const changelogImageFile = "wiki-changelog.png";
-  await ensureImage({
-    slug: "wiki-changelog",
-    title: "Wiki Changelog",
-    body: logParsed.body,
-    imagePath: join(opts.blogAssetsPath, changelogImageFile),
-    skipImages: opts.skipImages,
-    dryRun: opts.dryRun,
-    summary,
-  });
-  const changelogPath = await buildWikiChangelogPage({
-    parsed: logParsed,
-    articlesDir: opts.blogArticlesPath,
-    slug: "wiki-changelog",
-    imageFile: changelogImageFile,
-    slugTitleMap,
-    dryRun: opts.dryRun,
-  });
-  summary.articlesWritten.push(changelogPath);
-}
-
-async function tryParseWikiLog(
-  logPath: string
-): Promise<ParsedWikiFile | null> {
-  try {
-    return await parseWikiFile({
-      slug: "log",
-      folder: "concepts",
-      absolutePath: logPath,
-    });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return null;
-    }
-    throw err;
-  }
-}
-
 function parseOptions(): RunOptions {
   const env = process.env;
   if (!env.WIKI_PATH) {
@@ -455,7 +382,6 @@ function parseOptions(): RunOptions {
   const graphOutputPath = resolve(
     env.GRAPH_OUTPUT_PATH ?? DEFAULT_GRAPH_OUTPUT_PATH
   );
-  const logOutputPath = resolve(env.LOG_OUTPUT_PATH ?? DEFAULT_LOG_OUTPUT_PATH);
   const sourcesOutputPath = resolve(
     env.SOURCES_OUTPUT_PATH ?? DEFAULT_SOURCES_OUTPUT_PATH
   );
@@ -471,7 +397,6 @@ function parseOptions(): RunOptions {
     blogAssetsPath,
     overridesPath,
     graphOutputPath,
-    logOutputPath,
     sourcesOutputPath,
     onlySlug,
     skipImages: env.SKIP_IMAGES === "1",
