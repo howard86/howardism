@@ -1,4 +1,11 @@
-import { access, mkdir, readdir, unlink } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { runWithConcurrency } from "../concurrency.ts";
@@ -9,6 +16,7 @@ import {
   seedGlossary,
 } from "../glossary/store.ts";
 import { ENGINES, type Engine, parseEngine, runEngine } from "./engines.ts";
+import { normalizeHeadings } from "./headings.ts";
 import { buildTranslatePrompt } from "./prompt.ts";
 import { validateTranslation } from "./validate.ts";
 
@@ -217,6 +225,27 @@ ${stderr}`);
       );
       await unlinkSilently(outputAbsPath);
       continue;
+    }
+
+    // Deterministic post-processing: rewrite recurring structural headings to
+    // their canonical zh-TW form before validation, so every engine produces
+    // uniformly titled sections. Skip the write if the engine already emitted
+    // canonical headings (no-op idempotent pass). A missing output here means
+    // the engine exited 0 without writing — let validateTranslation surface
+    // that precise "output does not exist" error rather than mislabelling it.
+    try {
+      const original = await readFile(outputAbsPath, "utf8");
+      const normalised = normalizeHeadings(original);
+      if (normalised !== original) {
+        await writeFile(outputAbsPath, normalised, "utf8");
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        lastReason = `heading normalization failed: ${(err as Error).message}`;
+        console.warn(`[translate] ${slug} attempt ${attempt} ${lastReason}`);
+        await unlinkSilently(outputAbsPath);
+        continue;
+      }
     }
 
     const result = await validateTranslation({ sourceAbsPath, outputAbsPath });
