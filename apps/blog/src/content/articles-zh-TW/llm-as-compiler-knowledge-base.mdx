@@ -1,0 +1,136 @@
+---
+date: 2026-04-10
+title: LLM-as-Compiler Knowledge Base
+description: "Karpathy 的架構：LLM 以增量方式將原始文件編譯成持久的互連 wiki，以四階段 ingest→compile→query→lint 管線取代 RAG"
+tag: Concept
+topic: architecture
+tags:
+  - knowledge-management
+  - llm-architecture
+  - personal-knowledge-base
+readingTime: 9
+imageAlt: LLM-as-Compiler Knowledge Base 的示意圖
+sources:
+  - title: LLM Knowledge Bases
+    url: https://academy.dair.ai/blog/llm-knowledge-bases-karpathy
+  - title: llm-wiki
+    url: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+---
+export { default as heroImage } from "../assets/llm-as-compiler-knowledge-base.png";
+
+## 資料來源
+
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
+- [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+
+## 摘要
+
+一種由 Andrej Karpathy 提出的架構模式，其中 LLM 扮演編譯器的角色：讀取原始來源文件，並增量產出結構化、互相連結的 markdown wiki。不同於依賴嵌入向量和向量資料庫的傳統 RAG 系統，此方法使用 wiki 本身的索引檔案和 LLM 的 context window 進行檢索，在個人知識庫規模（約 100 篇文章、約 40 萬字）下已足夠使用。
+
+## 細節
+
+### 四階段管線
+
+系統以持續循環的方式運作：
+
+1. **Ingest** — 原始內容（透過 Obsidian Web Clipper 擷取的網頁文章、論文、repo 筆記）以 markdown 檔案形式進入 `raw/` 暫存目錄。
+2. **Compile** — LLM 讀取 `raw/` 並建構索引檔案（所有文件的摘要）、概念文章（按主題組織，含反向連結和交叉引用）以及衍生產出（投影片、圖表、已歸檔的查詢答案）。LLM 自動維護概念之間的連結圖。
+3. **Query & Enhance** — 使用者在 Obsidian 中瀏覽 wiki、透過 QA agent 提出研究問題，或透過 CLI/web 工具搜尋。關鍵在於，所有查詢產出都會**歸檔回 wiki**，因此每次探索都會累積價值。
+4. **Lint & Maintain** — LLM 審核不一致之處、透過網路搜尋補充缺失資訊、發現新的概念間連結，並建議進一步的問題。審核完成後，循環回到 compile 階段。
+
+### 關鍵設計決策
+
+- **不使用向量資料庫** — 在個人規模下，索引檔案加上 LLM context window 已足以進行檢索。這消除了嵌入管線的複雜性。在更大規模下，像 [qmd](https://github.com/tobi/qmd) 這樣的本地搜尋引擎（混合 BM25/向量搜尋加上 LLM 重新排序，提供 CLI 和 MCP 伺服器）可以補充索引。
+- **增量編譯** — 新的原始文件會整合到現有 wiki 結構中；已索引的文件不會重新處理。
+- **探索永遠會累積** — 每個查詢答案、圖表和衍生產物都會歸檔回 wiki。這是與 RAG 的核心差異：知識只編譯一次並保持更新，而非每次查詢都重新推導。
+- **LLM 負責撰寫** — 人類很少直接編輯 wiki；LLM 負責編譯、連結和維護。人類的工作是尋找來源、探索和提出正確的問題。
+- **Wiki 作為持久、累積的產物** — 交叉引用已經存在、矛盾已經標記、綜合分析已經反映所有已讀內容。每新增一個來源、每提出一個問題，wiki 都會變得更豐富。
+
+### 三層架構（來自 Karpathy 的 Gist）
+
+Karpathy 的原始設計文件明確闡述了架構：
+
+1. **原始來源** — 經過策展的、不可變的來源文件（文章、論文、圖片、資料）。LLM 讀取但從不修改這些內容。這是事實來源。
+2. **Wiki** — LLM 生成的 markdown 檔案：摘要、實體頁面、概念頁面、比較、綜合分析。LLM 完全擁有這一層 — 建立、更新、交叉引用、維護一致性。人類閱讀它。
+3. **Schema** — 一份配置文件（CLAUDE.md / AGENTS.md），告訴 LLM wiki 的結構方式、應遵循的慣例以及要執行的工作流程。人類和 LLM 隨時間共同演進這份文件。
+
+### 索引與導航
+
+兩個特殊檔案幫助在規模化時導航 wiki：
+
+- **index.md** — 以內容為導向的目錄，列出每個頁面及其一行摘要，按類別組織。LLM 在回答查詢時先讀取此檔案，然後深入相關頁面。在中等規模（約 100 個來源、數百個頁面）下運作良好。
+- **log.md** — 按時間順序、僅追加的操作記錄（ingest、查詢、lint 通過）。如果條目使用一致的前綴（例如 `## [2026-04-02] ingest | Article Title`），可用 unix 工具解析。
+
+### 使用案例
+
+此模式廣泛適用：
+- **個人**：目標、健康、心理學 — 歸檔日記條目、文章、podcast 筆記
+- **研究**：數週/數月閱讀論文，建構包含演進論點的綜合 wiki
+- **閱讀一本書**：逐章的伴讀 wiki，包含角色、主題、情節線索（如同個人粉絲 wiki）
+- **商業/團隊**：由 Slack 對話、會議記錄、客戶通話餵入的內部 wiki，由人類審核更新
+- **任何知識累積**：競爭分析、盡職調查、旅行規劃、課程筆記
+
+### 為何有效
+
+知識庫的瓶頸不在於閱讀或思考 — 而在於記帳工作。更新交叉引用、保持摘要最新、標記矛盾、維護數十個頁面的一致性。人類會放棄 wiki，因為維護負擔的增長速度超過價值。LLM 不會感到無聊、不會忘記更新交叉引用，而且能在一次操作中觸及 15 個檔案。
+
+### 思想淵源
+
+Karpathy 將此連結到 Vannevar Bush 的 Memex（1945）— 一個個人化、經策展的知識儲存庫，文件之間有關聯性路徑。Bush 的願景比網路最終的樣貌更接近這個概念：私有的、主動策展的，文件之間的連結與文件本身同樣有價值。Bush 無法解決的部分是誰來做維護工作。LLM 處理了這個問題。
+
+### 變體
+
+Elvis Saravia 描述了一個自動化 ingest 的變體：一個經過調校的 Skill agent 每天策展研究論文，使用 [qmd CLI 工具](https://github.com/tobi/qmd) 進行索引，並將索引後的知識庫餵入以 MCP 工具建構的互動式產物生成器。這能在數百篇論文中產出可探索的互動式視覺化。
+
+### 未來方向
+
+Karpathy 提到使用 wiki 生成合成訓練資料並微調 LLM，使其在權重中「知道」這些資料 — 將個人知識庫轉化為個人化模型。
+
+### Spec 作為編譯來源（Symphony 的跨語言模糊測試）
+
+目前在實際應用中最具體的 LLM-as-Compiler 延伸：OpenAI 的 [Symphony](/articles/symphony) 團隊將他們的 `SPEC.md` 視為*來源*，並要求 Codex 以 **Elixir、TypeScript、Go、Rust、Java 和 Python** 實作。然後他們利用各實作之間的差異來識別 spec 中的模糊之處並加以簡化。
+
+這項技術真正的新穎之處：
+
+- **LLM 就是編譯器**（markdown → N 種目標語言的可運行協調器）。
+- **多重實作是 spec 模糊測試的訊號** — 任何實作出現分歧之處，spec 就是約束不足的。這類似於編譯器驗證中的差異模糊測試，但以英文/markdown 作為來源語言。
+- **Spec 是持久的產物**，而非編譯輸出。OpenAI 明確表示他們不打算將 Symphony 作為獨立產品維護 — 它是一個參考實作，使用者將自己的 coding agent 指向它。
+
+對此 vault 的意涵：
+
+- `_system/compiler-prompt.md` 在結構上類似於 Symphony 的 `SPEC.md` — 兩者都定義了 agent 應如何將一種產物（原始文件 / Linear tickets）轉換為另一種（wiki 文章 / 運行中的協調器）。
+- 透過多語言進行 spec 模糊測試對知識庫來說過於複雜，但這個想法可以推廣：如果 `compiler-prompt.md` 在不同模型家族（Claude vs. GPT vs. 本地模型）執行時產出明顯不同的 wiki，這些差異就指向規格不足之處。
+- **Schema 層**（Karpathy 的術語）與 `SPEC.md`/`WORKFLOW.md` 屬於同一產物類別 — 定義 agent 行為的、版本控制在 repo 中的 markdown。參見交叉連結 [Claude Code Best Practices](/articles/claude-code-best-practices)（`CLAUDE.md`）、[Hermes Agent](/articles/hermes-agent)（`AGENTS.md`/`SOUL.md`）、[Symphony](/articles/symphony)（`WORKFLOW.md`）。
+
+## 相關連結
+
+- 此概念是這個 Obsidian vault 的基礎架構（見 `_system/compiler-prompt.md`）
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 共享以 repository 本地知識作為記錄系統的模式；OpenAI 的 AGENTS.md 作為目錄的做法映射了此 wiki 的 schema 層
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — CLAUDE.md 檔案在 Claude Code 的實作中充當 schema 層
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 漏洞研究框架使用 SHA-3 密碼學承諾作為可驗證知識編譯的一種形式；Claude Code 的 agentic 能力驅動發現管線
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — wiki 的 compile / query / lint 階段本身就是一個 agent 管線；不同階段可以分配給不同模型（便宜模型做索引漂移檢查、強模型做交叉引用綜合），並優化組合
+- [Symphony](/articles/symphony) — 知識庫之外最具體的 LLM-as-Compiler 延伸：OpenAI 將 `SPEC.md` 編譯成 6 種語言實作，並利用差異作為 spec 模糊測試器來消除歧義
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Symphony 的 `WORKFLOW.md` 在結構上與此處的 schema 層屬於同一產物類別；兩者都是 LLM「編譯」為行動的、版本控制在 repo 中的 markdown
+- [Design Concept Grilling](/articles/design-concept-grilling) — Brooks 的「設計概念」（在任何產物之前的共識）是對齊層的類比：wiki 捕捉*什麼是真的*，grilling session 捕捉*我們同意什麼*，兩者都將 LLM 視為編譯夥伴而非一次性輸出的生成器
+- [Andrej Karpathy](/articles/andrej-karpathy) — 提出此模式（[llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) gist），並在 2026 年 5 月的訪談中再次認可這是他的日常實踐 — 從閱讀的文章建構 wiki 並查詢它
+- [Software 3.0](/articles/software-3-0) — Karpathy 的經典範例，說明「以前不是程式的新資訊處理任務」：將文件重新編譯成 wiki 在 Software 1.0/Software 2.0 中是不可能的
+- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — *為何*此模式對 Karpathy 有效：「每當我看到資訊的不同投影，我就獲得洞見」— wiki 是建構理解的工具，而非僅僅是檢索工具
+
+## 開放問題
+
+- 在什麼規模下，不使用向量資料庫的方法會失效？Karpathy 的約 100 篇文章可以放入 context，但 1,000 篇以上呢？
+- 編譯過程中如何處理來源之間的衝突資訊？
+- 概念文章的最佳粒度是什麼 — 每篇文章一個概念，還是按主題聚類？
+- 合成訓練資料 → 微調管線在實務上效果如何？
+
+## 衍生內容
+
+- [What Are AI Tools?](/articles/what-are-ai-tools) — 探索此 wiki 涵蓋哪些 AI 工具的查詢
+
+## 資料來源
+
+- [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
+- [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)

@@ -1,0 +1,195 @@
+---
+date: 2026-04-28
+title: Hermes Agent
+description: Nous Research 的 CLI agent + Gateway 常駐程式（Telegram/Discord/Slack/WhatsApp）；AGENTS.md/SOUL.md 上下文分離、有界記憶檔案、DM 配對授權、容器即安全邊界模型
+tag: Entity
+topic: harness
+tags:
+  - entity
+  - nous-research
+  - agent-runtime
+  - cli-agent
+  - messaging-platform
+readingTime: 9
+imageAlt: Hermes Agent 示意圖
+sources:
+  - title: Tips & Best Practices
+    url: https://hermes-agent.nousresearch.com/docs/guides/tips
+  - title: "Tutorial: Team Telegram Assistant"
+    url: https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant
+---
+export { default as heroImage } from "../assets/hermes-agent.png";
+
+## 資料來源
+
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
+
+## 摘要
+
+Hermes Agent 是 [Nous Research](https://hermes-agent.nousresearch.com) 推出的開源 CLI 程式撰寫／研究 agent，定位為與 Claude Code 平行的生態系統，但更強調多平台訊息部署。CLI 提供互動式 REPL，具備工具存取能力（終端機、檔案編輯、網頁搜尋、程式碼執行）；**Hermes Gateway** 則是長時間運行的常駐程式，透過 Telegram、Discord、Slack 和 WhatsApp 暴露相同的 agent，支援每位使用者獨立的 session、允許清單 + DM 配對授權、排程 cron 工作，以及可配置的容器後端。Hermes 不綁定特定供應商（支援 OpenAI、Anthropic 及其他 LLM API），並使用較接近 OpenAI `AGENTS.md` 而非 Anthropic `CLAUDE.md` 的上下文檔案慣例，另外還有獨立的 `SOUL.md` 用於人格設定。
+
+## 細節
+
+### 架構（兩個介面）
+
+| 介面 | 用途 | 生命週期 |
+|---|---|---|
+| **Hermes CLI** | 互動式 REPL，角色類似 Claude Code | 每次呼叫，可恢復（`hermes -c`、`hermes -r "title"`） |
+| **Hermes Gateway** | 長時間運行的常駐程式，透過訊息平台暴露 agent | systemd（Linux 使用者／系統服務）或 launchd（macOS）；跨重啟持續運行 |
+
+Gateway 是架構上更有趣的一半——精神上類似 [Symphony](/articles/symphony) 的常駐模式，但採用**每位使用者**而非每個 issue 的租戶模型。
+
+### 上下文檔案
+
+Hermes 使用三層配置檔案，具有明確的角色分離：
+
+| 檔案 | 範圍 | 用途 |
+|---|---|---|
+| `AGENTS.md` | 專案（cwd） | 專案上下文、慣例、技術棧——每個 session 自動載入 |
+| `~/.hermes/SOUL.md`（或 `$HERMES_HOME/SOUL.md`） | 全域人格 | 跨所有 session 的穩定預設語氣／風格 |
+| `.cursorrules` / `.cursor/rules/*.mdc` | 專案 | 從 cwd 相容載入；無需重複 |
+
+子目錄的 `AGENTS.md` 檔案是在工具呼叫期間*延遲*發現的（透過 `subdirectory_hints.py`），並注入到工具結果中——它們不會預先載入。這是刻意的上下文預算選擇：只有頂層專案上下文進入 system prompt；巢狀上下文只在相關時才付出代價。
+
+`AGENTS.md`（專案）和 `SOUL.md`（人格）的分離比 Anthropic 的 `CLAUDE.md` 慣例更為明確，值得比較——同樣的角色分離在實務中隱含於 `CLAUDE.md` 檔案中，但並未獨立歸檔。（將在即將推出的 `agent-context-files` 概念頁面中展開。）
+
+### 記憶系統
+
+Hermes 實作了**硬性有界**的記憶系統：
+- `MEMORY.md`：約 2,200 字元上限。
+- `USER.md`：約 1,375 字元上限。
+- 當記憶填滿時，agent 會整合條目（壓縮較舊的筆記）。
+
+文件中特別指出的一個陷阱：
+
+> 「記憶是凍結的快照——session 期間所做的變更不會出現在 system prompt 中，直到下一個 session 開始。agent 會立即寫入磁碟，但提示快取不會在 session 中途失效。」
+
+這是對為何記憶編輯在任何快取 agent 中感覺「延遲」的最清晰闡述——這是 Claude Code 和其他 agent 共有但很少記錄的限制。
+
+記憶與技能的分離：
+- **記憶** = 事實（環境、偏好、專案位置）。
+- **技能** = 程序（多步驟工作流程、可重用配方）。
+- 「記憶用於*什麼*，技能用於*如何*。」
+
+### Token 經濟工具
+
+直接面向使用者的控制——在操作上，這些正是 [AgentOpt](/articles/client-side-agent-optimization) 形式化的槓桿，但以 CLI 命令的形式暴露：
+
+| 命令 | 效果 |
+|---|---|
+| `/compress` | 摘要對話歷史；保留關鍵上下文，減少 token |
+| `/usage` | Token 消耗狀態 |
+| `/insights` | 30 天使用模式 |
+| `/model` | 在 session 中途切換模型（困難推理用前沿模型，樣板程式碼用快速模型） |
+| `delegate_task` | 產生具有隔離上下文的平行子 agent；只有摘要回傳 |
+
+關於快取紀律的說明很精闢：
+
+> 「大多數 LLM 供應商會快取 system prompt 前綴。如果你保持 system prompt 穩定（相同的上下文檔案、相同的記憶），session 中的後續訊息會獲得顯著更便宜的快取命中。避免在 session 中途更改模型或 system prompt。」
+
+### CLI 人體工學
+
+| 輸入 | 行為 |
+|---|---|
+| `Alt+Enter` / `Ctrl+J` | 多行輸入而不送出 |
+| 多行貼上 | 自動偵測，緩衝為一則訊息 |
+| `Ctrl+C`（一次） | 中斷回應中的輸出，以新訊息重新導向 |
+| `Ctrl+C`（2 秒內兩次） | 強制退出 |
+| `Ctrl+V` | 從剪貼簿貼上圖片（視覺） |
+| `/` + `Tab` | 斜線命令自動完成 |
+| `/verbose` | 循環工具輸出模式：`off → new → all → verbose` |
+
+### Hermes Gateway：多使用者常駐程式模式
+
+Gateway 透過訊息平台暴露 agent：
+
+- **每位使用者獨立 session** ——每位授權使用者獲得自己的對話上下文。
+- **主頻道**（`/sethome`）——指定的聊天室，接收 cron 輸出和主動訊息。
+- **兩種授權模型**：
+ 1. **靜態允許清單**：`.env` 中的 `TELEGRAM_ALLOWED_USERS=123,456`。新增使用者需要重啟。
+ 2. **DM 配對**：未授權的 DM 會收到一次性代碼；管理員執行 `hermes pairing approve telegram XKGH5N7P`。無需重啟。
+- **配對安全性**：代碼 1 小時過期、密碼學隨機性、速率限制（每位使用者每 10 分鐘 1 次請求，每平台最多 3 個待處理）、5 次失敗核准 → 1 小時平台鎖定、所有資料以 `chmod 0600` 儲存。
+
+服務安裝：
+
+```bash
+hermes gateway install # Default: user-level systemd (Linux) / launchd (macOS)
+sudo hermes gateway install --system # Linux: boot-time system service
+sudo loginctl enable-linger $USER # Linux: keep running after SSH logout
+```
+
+### Cron 工作
+
+排程工作傳送到主頻道：
+
+- 從聊天中建立：「每個工作日早上 9 點，檢查 GitHub 倉庫的……」
+- 定義儲存在 `~/.hermes/cron/jobs.json`；輸出在 `~/.hermes/cron/output/{job_id}/{timestamp}.md`。
+- **關鍵注意事項**：cron 提示在**完全全新的 session 中運行，沒有記憶**。每個提示必須包含所有需要的上下文——檔案路徑、URL、伺服器位址、指令。
+
+這與 [Symphony](/articles/symphony) 的常駐程式驅動派發模型平行——兩者都是 agent 按排程被拉去非同步工作，而非互動式驅動的案例。
+
+### 容器安全模型（值得標記）
+
+Hermes 支援多種終端後端：
+
+```bash
+TERMINAL_BACKEND=docker
+TERMINAL_DOCKER_IMAGE=hermes-sandbox:latest
+```
+
+支援：Docker、Singularity、Modal、Daytona。
+
+**重要的安全轉變**：在容器後端中運行時，**危險命令檢查會被跳過**——理由是「容器就是安全邊界」。這意味著：
+- 鎖定的容器映像品質成為承重結構。
+- 核准提示的使用者體驗轉換為映像紀律的使用者體驗。
+- 信任從「每個命令都被審查」轉移到「容器無法逃逸」。
+
+值得注意，因為這與 Claude Code 基於每個命令的自動模式分類器是截然不同的安全姿態。
+
+### 與 Claude Code 的比較
+
+| 能力 | Claude Code | Hermes |
+|---|---|---|
+| 專案上下文 | `CLAUDE.md` | `AGENTS.md`（專案）+ `SOUL.md`（人格，獨立） |
+| Cursor 相容 | 無 | `.cursorrules` / `.cursor/rules/*.mdc` 自動載入 |
+| Session 壓縮 | `/compact` | `/compress` |
+| Session 中途切換模型 | `/model` | `/model` |
+| 平行子 agent | `.claude/agents/` 中的子 agent | `delegate_task` 工具 |
+| 權限閘控 | [auto mode](/articles/claude-code-auto-mode) 分類器 | 每模式核准（`once`/`session`/`always`/`deny`）；容器中跳過 |
+| 記憶模型 | 無（依賴對話 + CLAUDE.md） | 有界 `MEMORY.md` + `USER.md` 搭配自動整合 |
+| 多使用者部署 | 每位使用者/session 使用 `claude -p` | Hermes Gateway 搭配允許清單或 DM 配對 |
+| Cron / 排程工作 | 無（依賴外部 cron） | 內建 cron 搭配主頻道傳送 |
+
+最顯著的架構差異是 **Gateway**：Claude Code 以 session 為先；Hermes 在團隊規模部署時以常駐程式為先。
+
+### 營運筆記
+
+- **VPS 規格**：每月 $5 即足以運行 Gateway 本身——LLM API 呼叫才是成本驅動因素。
+- **macOS launchd PATH 陷阱**：plist 在安裝時擷取 shell PATH。安裝新工具（Node、ffmpeg）後，重新執行 `hermes gateway install` 以刷新。
+- **Session 自動重置**：訊息 session 在閒置後重置（預設 24 小時）或每天凌晨 4 點。
+- **自我更新**：從聊天中執行 `/update` 拉取最新版本並重啟。
+
+## 相關連結
+
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Hermes 是最接近的平行生態系統；許多概念直接對應（`/compress` ↔ `/compact`、`delegate_task` ↔ 子 agent、`AGENTS.md` ↔ `CLAUDE.md`）；差異突顯了各自的設計選擇
+- [Symphony](/articles/symphony) — 兩者都是常駐 agent 常駐程式；Symphony 的租戶單位是 issue，Hermes 的租戶單位是使用者。兩者都偏好容器後端以確保安全。Cron + 主頻道平行於 Symphony 的輪詢 + 追蹤器寫入
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — Hermes 的 `/model`、`/compress`、`delegate_task` 和提示快取紀律是 AgentOpt 形式化的槓桿的使用者面向介面
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — `AGENTS.md` 遵循 OpenAI 的「目錄而非百科全書」原則；有界記憶檔案是類似於 JSON 功能清單的 harness 層級限制
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — `/verbose` 模式和有界記憶都隱含地限制輸出長度；簡潔限制的研究發現預測會有收益
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — Hermes 的每模式核准模型（`once`/`session`/`always`/`deny`）和容器停用核准模型是與基於分類器的 auto mode 的比較點
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — Hermes 常駐程式模式（長上下文、使用工具、容器即安全邊界、弱逐動作人類監督）正好落在 AM 威脅面上；容器隔離減少爆炸半徑但不解決模型端的錯位
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Hermes 的 cron 工作 + 主頻道傳送是較輕量的類比：自我派發的排程交付物歸檔回聊天而非工單
+
+## 開放問題
+
+- 容器後端停用危險命令檢查是可辯護的設計，但是有意義的安全模型轉變。經驗記錄如何？流行映像（Daytona、`nikolaik/python-nodejs`）中的鎖定失敗是否曾造成事故？
+- 有界記憶檔案（約 2,200 字元的 `MEMORY.md`）在長期使用中表現如何？提到了自動整合但未具體說明——整合演算法是什麼，損失程度如何？
+- Hermes 的 DM 配對流程是乾淨的安全原語。為何 Claude Code 或 Cursor 尚未在共享／團隊部署中採用此模式？
+- `AGENTS.md`（專案）和 `SOUL.md`（人格）的分離在 Hermes 中是明確的，但在 Claude Code 的 `CLAUDE.md` 中是隱含的。這種分離是否實質改善了結果，還是只是沒有經驗支持的文件選擇？
+- 在沒有記憶的全新 session 中運行 cron 工作——團隊如何結構化「agent 需要的上下文」而不讓每個 cron 提示膨脹？是否有標準模式？
+
+## 資料來源
+
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips) — 實用 CLI 使用方式、上下文檔案、記憶、效能／成本槓桿、安全模式
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant) — Gateway 部署、BotFather 設定、允許清單 vs. DM 配對、cron 排程、生產營運

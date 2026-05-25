@@ -1,0 +1,94 @@
+---
+date: 2026-05-13
+title: Interaction Models
+description: "Thinking Machines Lab（2026 年 5 月）：原生處理音訊／視訊／文字即時互動的模型，而非透過 harness 模擬；互動性只有內建於模型中才能隨智慧一起擴展"
+tag: Concept
+topic: interaction
+tags:
+  - llm-architecture
+  - multimodal
+  - human-ai-collaboration
+readingTime: 6
+imageAlt: Interaction Models 插圖
+sources:
+  - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
+    url: https://thinkingmachines.ai/blog/interaction-models/
+---
+export { default as heroImage } from "../assets/interaction-models.png";
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+
+## 摘要
+
+**Interaction Models** 是一種*原生*處理互動的模型——持續接收音訊、視訊和文字，並即時思考、回應和行動——而非透過外部腳手架（VAD、輪次偵測、對話管理 harness）來模擬即時行為。由 [Thinking Machines Lab](/articles/thinking-machines-lab) 於 2026 年 5 月以 research preview 形式發表，首個模型命名為 [TML-Interaction-Small](/articles/tml-interaction-small)。
+
+核心賭注：**互動性應隨智慧一起擴展。** 如果互動是模型的一部分，擴展模型就能同時讓它更聰明*也*更善於協作。如果互動存在於手工打造的 harness 中，[The Bitter Lesson](/articles/the-bitter-lesson) 告訴我們，該 harness 終將被通用能力的成長所超越。
+
+## 一句話論點
+
+> 「要讓互動性隨智慧擴展，它必須成為模型本身的一部分。」
+
+這是 harness 收縮論點（見 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)）應用於*互動層*：VAD、輪次邊界預測、對話狀態機——全都「明顯不如模型本身聰明」——應該融入模型行為中。一旦實現，那些 harness *無法*支援的能力（主動插話、邊聽邊說、對視覺線索的反應）就變成模型行為的特例，並隨規模提升而改善。
+
+## 解鎖的能力（是能力，不是 harness 功能）
+
+- **無縫對話管理** — 模型隱式追蹤說話者是在思考、讓步、自我修正，還是邀請回應。不需要獨立的對話管理元件。
+- **語音與視覺插話** — 模型在情境需要時主動介入（「當我說錯時打斷我」、「當我寫了 bug 時告訴我」），而非僅在輪次結束時。
+- **同時說話** — 使用者和模型同時說話（即時翻譯）。
+- **時間感知** — 直接感知經過的時間（「我跑一英里花了多久？」）。
+- **同時工具呼叫／搜尋／生成式 UI** — 在聆聽和說話的同時，模型並行搜尋、瀏覽、生成 UI，並將結果織入對話中。
+
+參見 [Full-Duplex Interaction](/articles/full-duplex-interaction) 和 [Interactivity Benchmarks](/articles/interactivity-benchmarks) 了解這些能力如何展示與衡量。
+
+## 為何輪次制介面是瓶頸
+
+今日的模型「以單一執行緒體驗現實」：它們盲目等待，直到使用者打完字／說完話；然後盲目生成，直到完成或被打斷。這是協作的窄通道——它限制了多少人類的知識、意圖和判斷能傳達給模型，也限制了模型的工作有多少是可見的。文章中的類比：用電子郵件而非面對面來解決一個關鍵分歧。完整論述見 [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck)。
+
+## 架構（三個承重概念）
+
+1. **[Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)** — 輸入和輸出是連續串流，以 200ms 區塊處理／生成；沒有人為的輪次邊界。靜默、重疊和打斷都保留在上下文中。
+2. **[Interaction / Background Model Split](/articles/interaction-background-model-split)** — 一個具時間感知的互動模型維持即時存在；一個非同步的背景模型處理持續推理、工具使用和更長期的工作。互動模型以*豐富的上下文包*（完整對話，而非獨立查詢）進行委派，並在適合使用者當前狀態的時機將結果交織回來。淨效果：「推理模型的規劃、工具使用和 agent 工作流程，搭配非思考模型的回應延遲。」
+3. **[Encoder-Free Early Fusion](/articles/encoder-free-early-fusion)** — 最少的前處理取代大型獨立編碼器／解碼器：音訊輸入為 dMel + 輕量嵌入；影像為 40×40 patch 經由 hMLP；音訊輸出經由 flow head。所有元件與 transformer 從頭共同訓練。
+
+加上工程面：串流 session 實現低開銷的頻繁小型 prefill/decode（已上游至 SGLang）；延遲調校的 MoE 核心（gather+gemv 取代 grouped gemm）；位元精確的訓練器-取樣器對齊透過批次不變核心（<5% 開銷）以確保穩定性和可除錯性。
+
+## 安全面向
+
+即時互動對安全的壓力不同於輪次制交換。TML 的工作聚焦於兩個軸向：
+- **適合模態的拒絕** — TTS 生成的拒絕／過度拒絕訓練資料，使口語拒絕口語化但同樣堅定。
+- **長期穩健性** — 自動化紅隊 harness 生成多輪拒絕資料，維持與文字模型拒絕行為的一致性。
+
+## 限制（依據原文）
+
+- **長時間 session** — 連續音訊／視訊快速累積上下文；串流 session 設計能良好處理短／中期，非常長的 session 需要謹慎的上下文管理（類似 [Context Window Smart Zone](/articles/context-window-smart-zone)）。
+- **運算與連線** — 低延遲音訊／視訊串流需要穩定連線；沒有穩定連線時嚴重退化。
+- **規模** — `TML-Interaction-Small` 為 276B MoE / 12B 活躍參數；更大的預訓練模型目前在此模式下太慢而無法服務；更大模型承諾「今年稍後」推出。
+- **背景 agent** — agent 智慧被認為是必要的，但相對於即時工作而言探索不足。
+
+## 相關連結
+
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 整個方法所依據的原則：擴展的通用方法勝過手工設計的結構
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 同樣的動作，應用於互動 harness（VAD／輪次偵測融入模型）
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — 正在解決的問題
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)、[Interaction / Background Model Split](/articles/interaction-background-model-split)、[Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — 三大架構支柱
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 此方法所啟用的互動模式
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — 如何聯合衡量智慧與互動性
+- [Thinking Machines Lab](/articles/thinking-machines-lab)、[TML-Interaction-Small](/articles/tml-interaction-small) — 誰建造的、模型是什麼
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 長 session 限制呼應了 smart-zone 問題
+- [AI Employee Framing](/articles/ai-employee-framing) / [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — 兩者都反對純粹為自主性最佳化；Interaction Models 是保持人類在迴圈中的*介面端*答案
+- [Design Concept Grilling](/articles/design-concept-grilling) — 協作式即時迭代，而非規格交付後離開；Interaction Models 是讓 grilling 風格協作感覺原生的基底
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — harness 與模型的分工問題，在此明確地為互動層傾向模型端解決
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — `xhigh` effort tier 作為基線配置出現（GPT-realtime-2.0 minimal/xhigh）
+- [HTML as the New Markdown](/articles/html-as-the-new-markdown) — 「更好的人機協作」的姊妹答案，透過相反機制：TML 將*即時*介面融入模型，而 [Thariq Shihipar](/articles/thariq-shihipar) 豐富*非同步*產出物；兩者都保持人類在迴圈中
+
+## 開放問題
+
+- 互動／背景分離是否能通用化，還是只是過渡性產物，直到單一模型既快又深？
+- 「互動性隨智慧擴展」是斷言；2026 年稍後的更大模型發布將是驗證。
+- 已宣布互動性基準的研究補助——什麼會成為視訊主動性的 FD-bench 等價物？
+
+## 資料來源
+
+- [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)

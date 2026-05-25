@@ -1,0 +1,113 @@
+---
+date: 2026-04-14
+title: 何時在工作中使用 Claude Opus 4.6
+description: "Opus 4.6 部署決策規則：作為求解器而非規劃器、精細闡述為關鍵負載的任務、簡潔約束、Pareto 前沿檢查"
+tag: Essay
+topic: architecture
+readingTime: 7
+imageAlt: 何時在工作中使用 Claude Opus 4.6 的插圖
+sources:
+  - title: "AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based
+      Agent"
+    url: https://arxiv.org/html/2604.06296v1
+  - title: Brevity Constraints Reverse Performance Hierarchies in Language Models
+    url: https://arxiv.org/html/2604.00025v1
+  - title: Best Practices for Claude Code
+    url: https://code.claude.com/docs/en/best-practices
+  - title: Introducing Claude Opus 4.7
+    url: https://www.anthropic.com/news/claude-opus-4-7
+---
+export { default as heroImage } from "../assets/when-to-use-opus-4-6.png";
+
+## 資料來源
+
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+
+## 問題
+
+何時最適合在工作中使用 Opus 4.6？
+
+## 回答
+
+wiki 中的兩篇實證論文提供了具體指引：AgentOpt（Hua 等人 2026）和 Hakim（2026）。兩者都將大型模型的*過度思考*識別為主要失敗模式——分別以多 agent 路由失敗或提示敏感性失敗的形式呈現。以下部署規則直接源自這些發現。
+
+### 1. 將 Opus 4.6 用作求解器，而非規劃器/路由器
+
+來自 [Client-Side Agent Optimization](/articles/client-side-agent-optimization)：在 HotpotQA 上的 81 種組合中，**Opus 4.6 是最差的規劃器**——它繞過下游求解器的搜尋工具，直接從參數化知識中回答。但當它被放在一個廉價、服從指令的規劃器後面時，它是最佳求解器。
+
+- Ministral 3 8B（規劃器）+ Opus 4.6（求解器）→ **74.27%**
+- Opus 4.6（規劃器）+ Opus 4.6（求解器）→ **31.71%**
+
+**規則**：在多步驟 agent 管線中，將 Opus 分配到執行角色（綜合、對檢索上下文的深度推理、最終答案生成）。將路由、工具選擇和任務分解委派給能可靠交接工作的較小模型。
+
+### 2. 在精細闡述為關鍵負載的場景使用 Opus 4.6
+
+來自 [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)：在 7.7% 的標準基準問題上，大型模型因過度闡述而比小型模型低 28.4 個百分點。診斷性例外是 **BoolQ**——跨句段落整合——在此場景中簡潔約束*反而損害*大型模型的表現。因為在那裡，闡述是功能性的。
+
+**規則**：Opus 4.6 在推理本身即為產出的任務上值回其成本——跨文件綜合、整合性分析、長上下文摘要、細膩寫作、開放式設計權衡、跨多檔案的程式碼審查。在自足的簡答問題上，過度闡述會累積錯誤，它反而表現不佳。
+
+### 3. 不要在成本敏感的結構化任務上預設使用 Opus 4.6
+
+來自 AgentOpt 的 Pareto 前沿：在 **BFCL 上，Qwen3 Next 80B 以 32 倍更低的成本達到與 Opus 4.6 相同的準確率**。在 MathQA 上，準確率相當的組合之間存在 24 倍的差距。對於具有明確正確性標準的工具呼叫和結構化輸出工作負載，更便宜的模型佔據主導地位。
+
+**規則**：在將工作負載交給 Opus 4.6 之前，檢查是否有更便宜的模型能匹配其準確率。「使用最強模型」是一個可量化的錯誤，而非安全的預設選擇。
+
+### 4. 若在容易過度思考的問題上使用 Opus 4.6，請約束輸出
+
+Hakim（2026）中的因果干預：簡潔約束（數學題 <50 字、閱讀理解 <10 字）在大型模型上帶來 **+26.3 個百分點的提升**，並在 GSM8K（小型 +13.1pp → 大型 −7.7pp）和 MMLU-STEM（小型 +27.3pp → 大型 −15.9pp）上完全逆轉了層級關係。Llama-3.1-405B 僅靠簡潔約束就從 41.5% 攀升至 67.2%。
+
+**規則**：當路由到 Opus 4.6 處理簡答工作時，施加長度上限或直接回答的 schema。成本和能力同時改善——更少的 token，更高的準確率。
+
+### 5. Context 預算推論（特別針對 Claude Code）
+
+來自 [Claude Code Best Practices](/articles/claude-code-best-practices)：context window 是 Claude Code 的首要稀缺資源。Opus 的系統性冗長更快地消耗該預算，這進一步強化了簡潔約束的必要性，以及將高量探索性工作卸載給子 agent 或以摘要交接方式使用更便宜模型的理由。
+
+## 決策摘要
+
+| 情境 | 使用 Opus 4.6？ | 證據來源 |
+|---|---|---|
+| 在廉價規劃器後面作為求解器/綜合器 | **是**——有文獻記載的最佳角色 | AgentOpt HotpotQA（74.27% vs 31.71%） |
+| 跨文件綜合、整合性寫作、長上下文推理 | **是** | Hakim（2026）中的 BoolQ 例外 |
+| 多步驟 agent 管線中的規劃器/路由器 | **否**——同類最差 | AgentOpt HotpotQA 全組合掃描 |
+| 簡答數學/科學/常識 | **非預設**；若使用，施加簡潔約束 | Hakim GSM8K/MMLU-STEM 逆轉 |
+| 工具呼叫、結構化輸出（類 BFCL） | **先檢查 Pareto 前沿** | Qwen3 Next 80B 以 32 倍更低成本匹配 |
+| 程式碼審查、架構分析、Claude Code 中的最終答案生成 | **是**，但需管理 context 預算 | Claude Code 最佳實踐 |
+
+## 兩個底層機制
+
+兩種失敗模式——Opus 作為規劃器和 Opus 作為簡答求解器——共享同一個機制：**規模依賴的過度思考**。AgentOpt 將其呈現為路由失敗（Opus 自行回答而非委派）；Hakim 將其呈現為提示工程失敗（Opus 闡述而非下結論）。兩種可用的緩解措施：
+
+1. **繞過它**——組合選擇將 Opus 僅放置在其冗長性與效用一致的角色中
+2. **約束輸出**——簡潔提示、結構化 schema、system prompt 中的長度上限
+
+生產部署應結合兩者。
+
+## 附錄：Opus 4.7（2026-04-17）
+
+[Claude Opus 4.7](/articles/claude-opus-4-7) 是 4.6 的直接升級，價格相同（$5/$25），上述五條規則**在有人對 4.7 重新執行實驗之前仍是可辯護的預設**。但 4.7 的幾項變更直接針對這些規則背後的機制，因此將每條規則視為**待重新驗證的假設**，而非既定事實：
+
+| 規則 | 在 4.7 上可能的變化 | 原因 |
+|---|---|---|
+| #1 Opus 作為求解器，非規劃器 | 規劃器模式失敗可能縮小 | 4.7 的「字面指令遵循」應能減少已記錄的 Opus 作為規劃器繞過下游求解器工具的失敗模式 |
+| #2 在闡述為關鍵負載時使用 | 不變或更強 | 更好的指令遵循 + 檔案系統記憶使綜合/整合任務更成為甜蜜點 |
+| #3 不要在成本敏感的結構化任務上預設使用 | 在 4.7 上可能更差 | Tokenizer 膨脹（1.0–1.35×）+ 更高 effort 下更多輸出 token 提高了給定準確率下的有效成本。提交前重新進行 Pareto 檢查 |
+| #4 在容易過度思考的任務上施加簡潔約束 | 可能仍有價值；彈性可能改變 | 4.7 在 agentic 場景中「以更高 effort 思考更多」。字面指令遵循可能使簡潔約束*更有效*（模型遵守上限），同時對抗一個現在預設闡述更多的模型 |
+| #5 Claude Code 中的 context 預算推論 | 在 4.7 上**更緊** | Tokenizer 膨脹 + xhigh 預設（Claude Code 的新預設）+ 更多思考 token 疊加。逐字重用 4.6 時代的提示和 CLAUDE.md 可能更快消耗預算 |
+
+**對持續工作的實際意涵**：如果生產工作負載目前基於這些發現針對 Opus 4.6 進行了調優，在你有 4.7 的測量數據之前繼續使用 4.6。遷移成本不為零（token 膨脹、字面提示解讀、預設 effort 提升）。Anthropic 自己的指引建議在真實流量上測量，而非信任通用的淨正面聲明。
+
+開放問題已移至 [Claude Opus 4.7](/articles/claude-opus-4-7#Open%20Questions)。
+
+## 資料來源
+
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 組合優化、按角色分配模型、Opus 的規劃器失敗模式
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 過度思考機制、簡潔干預、層級逆轉、BoolQ 例外
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — context window 約束、驗證紀律、session 管理
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — 2026-04-17 附錄；token 經濟學和指令遵循變更可能改變每條規則的彈性
+- [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
+- [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)

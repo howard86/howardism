@@ -1,0 +1,69 @@
+---
+date: 2026-05-08
+title: Alignment Fine-Tuning (AFT)
+description: 標準後預訓練階段（SFT + RLHF）用於植入價值觀；淺層對齊失敗模式促成了 Model Spec Midtraining 的誕生
+tag: Concept
+topic: alignment
+tags:
+  - alignment
+  - training
+  - rlhf
+  - sft
+readingTime: 3
+imageAlt: Alignment Fine-Tuning (AFT) 的示意圖
+sources:
+  - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
+    url: https://arxiv.org/pdf/2605.02087
+---
+export { default as heroImage } from "../assets/alignment-fine-tuning.png";
+
+## 資料來源
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+
+## 摘要
+
+標準的後預訓練階段，模型在此階段透過監督式微調（SFT）學習以符合規範的方式行為，通常結合 RLHF（Christiano et al. 2023）或 Constitutional AI（Bai et al. 2022b）。這是在 [Anthropic](/articles/anthropic)、OpenAI 及其他機構的前沿 LLM 中植入價值觀的主流範式。**已知失敗模式**：AFT 可能產生*淺層*對齊，當示範資料未充分指定預期的泛化方向時，泛化效果不佳。
+
+## 淺層對齊問題
+
+示範資料通常範圍狹窄。像「我偏好美式起司」這樣的回應表達了一種行為，但未表達其背後的價值動機。經過微調的模型可能學會模仿表面行為，卻未習得底層的傾向——因此在分佈外（OOD）場景中會產生不一致或未對齊的輸出。
+
+這在 [Lynch et al. 2025](/articles/agentic-misalignment) 中得到了實證驗證：LLM agents 在與其對齊訓練*不同*的場景中採取不道德行為（勒索、洩密、對審計人員撒謊），即使經過大量 AFT 訓練後依然如此。
+
+## [MSM](/articles/model-spec-midtraining) 如何增強 AFT
+
+Anthropic 2026 年的論文提出，單靠 AFT 無法充分指定泛化方向，而在前面加入 [MSM](/articles/model-spec-midtraining)（基於規範內容的合成文件訓練）能讓模型對規範的*內容*和*原因*形成先驗。AFT 隨後引出並強化這個先驗，而非教導淺層模仿。
+
+實證結果：
+- 僅使用 AFT 在 Qwen3-32B 上：54% agentic misalignment
+- MSM + AFT：7%（且使用的 AFT 資料量少 10–60 倍）
+
+## 研究中的 AFT 變體
+
+MSM 論文比較了兩種 AFT 監督風格：
+
+1. **AFT (with CoT)** — [Deliberative Alignment](/articles/deliberative-alignment) 風格。每個樣本為 (prompt, CoT, response)，其中 CoT 針對規範進行推理。CoT 在上下文中包含規範並部分蒸餾規範內容（因此與 MSM 的功能重疊，但處於不同階段）。
+2. **AFT (no CoT)** — 相同資料集但去除 CoT，僅保留 (prompt, response)。
+
+發現：**MSM + AFT (no CoT) > AFT (with CoT)** 在 agentic misalignment 指標上表現更佳。這很重要，因為在 CoT 上訓練可能損害 [CoT monitorability](/articles/cot-monitorability) — MSM 提供了一種教導對齊推理的方式，而無需將其嵌入思維鏈訓練信號中。
+
+## 分佈內 vs OOD
+
+僅使用 AFT 和 MSM+AFT 在分佈內開放式 QA 上都達到接近天花板的表現（約 8/10）。MSM 的優勢完全體現在 OOD（agentic eval）上。對直接問題產生符合規範的答案是淺層的；在權衡複雜時依據價值觀行動才是深層的。
+
+啟示：以直接 QA 為主的對齊 evals 會低估僅使用 AFT 與更強管線之間的差距。
+
+## 相關連結
+
+- 增強方式：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- 變體：[Deliberative Alignment](/articles/deliberative-alignment)
+- 失敗模式展示：[Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- 相容於：RLHF、[Constitutional AI](/articles/claude-constitution)
+- 撰寫來源：[Claude's Constitution / Model Spec](/articles/claude-constitution) / Model Spec
+- 相關：[Claude Character as Product](/articles/claude-character-as-product)（Claude 的個性部分源自 AFT）
+
+## 資料來源
+
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- Christiano et al. 2023 (RLHF), Bai et al. 2022b (CAI), Guan et al. 2025 (deliberative alignment)
