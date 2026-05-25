@@ -140,6 +140,23 @@ describe("runEngine", () => {
     expect(capturedOpts.timeoutMs).toBe(1000);
   });
 
+  it("forwards onStderrLine to the runner", async () => {
+    const cb = () => {
+      // no-op sentinel — only identity matters
+    };
+    let capturedOnStderrLine: unknown;
+    await runEngine("codex", {
+      prompt: "do it",
+      scopeDir: "/repo/root",
+      onStderrLine: cb,
+      runner: (_argv, opts) => {
+        capturedOnStderrLine = opts.onStderrLine;
+        return Promise.resolve({ stdout: "", stderr: "" });
+      },
+    });
+    expect(capturedOnStderrLine).toBe(cb);
+  });
+
   it("surfaces runner errors", async () => {
     await expect(
       runEngine("codex", {
