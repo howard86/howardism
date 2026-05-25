@@ -2,7 +2,10 @@ import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 
-import { type ArticleMeta, getArticles } from "@/app/(blog)/articles/service";
+import {
+  type ArticleMeta,
+  getArticles,
+} from "@/app/[locale]/(blog)/articles/service";
 import {
   ARTICLES_PREFIX,
   extractArticleSlug,
