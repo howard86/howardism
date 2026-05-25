@@ -2,7 +2,7 @@ export interface BuildTranslatePromptArgs {
   /**
    * Shell-quoted glossary CLI prefix, e.g.
    * `bun /abs/path/apps/cli/src/glossary/cli.ts`. The engine appends
-   * `list` or `add "<term>" <category>` to it.
+   * `list`, `add-many '<json>'`, or (fallback) `add "<term>" <category>` to it.
    */
   glossaryCmd: string;
   outputAbsPath: string;
@@ -20,7 +20,9 @@ export interface BuildTranslatePromptArgs {
  * The prompt is deliberately explicit about byte-identical preservation
  * (heroImage line, frontmatter keys `date`/`tag`/`topic`/`readingTime`, link
  * URLs, `sources[].title`) so the post-write validator can trust those
- * invariants.
+ * invariants. New glossary terms are batched into a single `add-many` call
+ * at the end of the run rather than per-term `add` calls so concurrent
+ * engines don't dogpile the SQLite writer.
  */
 export function buildTranslatePrompt(args: BuildTranslatePromptArgs): string {
   const { sourceAbsPath, outputAbsPath, targetLang, glossaryCmd } = args;
@@ -32,10 +34,13 @@ export function buildTranslatePrompt(args: BuildTranslatePromptArgs): string {
     "2. Run the glossary list command first to fetch the do-not-translate (DNT) terms:",
     `   ${glossaryCmd} list`,
     "   Treat every listed `term` as VERBATIM in the output — do not translate, transliterate, or annotate them.",
-    "3. While translating, whenever a NEW person, organization, product, or technical term appears that is NOT in the glossary, register it before continuing:",
+    "3. While translating, COLLECT every NEW person, organization, product, or technical term you encounter that is NOT in the glossary. Keep each one verbatim in your draft. Do NOT call the glossary CLI yet — buffer them in memory.",
+    "4. AFTER the full translation is drafted and BEFORE writing the output file, register every collected new term in a SINGLE batch call:",
+    `   ${glossaryCmd} add-many '[{"term":"<term>","category":"<category>"}, ...]'`,
+    "   `<category>` is one of: person | org | product | tech | entity. The JSON arg must be a single-quoted array literal so the shell hands it through unchanged. If you have zero new terms, skip this step. As a fallback for a single stray term you noticed last, you may also use:",
     `   ${glossaryCmd} add "<term>" <category>`,
-    "   where `<category>` is one of: person | org | product | tech | entity. Then keep the term verbatim in the output too.",
-    `4. Write the translated MDX to: ${outputAbsPath}`,
+    "   but `add-many` is the primary path — prefer one batched call over many.",
+    `5. Write the translated MDX to: ${outputAbsPath}`,
     "   Create the parent directory if it does not exist. Do NOT modify, create, or delete any other file. Only write that single output path.",
     "",
     "OUTPUT FORMAT — the written file MUST",

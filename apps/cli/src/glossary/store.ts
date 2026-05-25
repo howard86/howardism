@@ -58,28 +58,84 @@ export interface AddTermOptions {
  * WAL + a busy timeout let multiple processes (parallel engine subprocesses,
  * several MCP clients) read/write the same file without a bespoke lock — the
  * unique `lower(term)` index makes `addTerm` an idempotent `INSERT OR IGNORE`.
+ *
+ * The busy timeout is armed FIRST so it covers the very first contended write
+ * (the WAL switch + DDL on a fresh DB), eliminating a race where a concurrent
+ * opener saw SQLITE_BUSY before the timeout was set.
  */
 export function openDb(path: string = DEFAULT_GLOSSARY_DB_PATH): Database {
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true });
   }
   const db = new Database(path, { create: true });
-  db.run("PRAGMA journal_mode = WAL;");
-  db.run("PRAGMA busy_timeout = 5000;");
-  db.run(`
-    CREATE TABLE IF NOT EXISTS glossary_term (
-      id         INTEGER PRIMARY KEY,
-      term       TEXT NOT NULL,
-      category   TEXT NOT NULL,
-      notes      TEXT,
-      source     TEXT NOT NULL DEFAULT 'agent',
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  // Arm the busy timeout FIRST so it covers every subsequent statement.
+  db.run("PRAGMA busy_timeout = 10000;");
+  // The WAL switch on a fresh DB grabs an EXCLUSIVE lock and, in practice,
+  // bun:sqlite does not always honour busy_timeout for it under heavy
+  // cross-process contention. Wrap the WAL switch + DDL in our own
+  // retry-on-busy loop so concurrent openers settle deterministically. Both
+  // statements use `IF NOT EXISTS` / no-op-on-WAL semantics, so retrying is
+  // safe and idempotent.
+  withBusyRetry(() => {
+    db.run("PRAGMA journal_mode = WAL;");
+    db.run(`
+      CREATE TABLE IF NOT EXISTS glossary_term (
+        id         INTEGER PRIMARY KEY,
+        term       TEXT NOT NULL,
+        category   TEXT NOT NULL,
+        notes      TEXT,
+        source     TEXT NOT NULL DEFAULT 'agent',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    db.run(
+      "CREATE UNIQUE INDEX IF NOT EXISTS ux_glossary_term ON glossary_term(lower(term));"
     );
-  `);
-  db.run(
-    "CREATE UNIQUE INDEX IF NOT EXISTS ux_glossary_term ON glossary_term(lower(term));"
-  );
+  });
   return db;
+}
+
+/** Max attempts (inclusive) for {@link withBusyRetry} on a transient lock. */
+const BUSY_RETRY_MAX_ATTEMPTS = 3;
+/** Base backoff in ms for {@link withBusyRetry}; doubles per attempt. */
+const BUSY_RETRY_BASE_MS = 50;
+
+const isTransientLockError = (err: unknown): boolean => {
+  if (!err || typeof err !== "object") {
+    return false;
+  }
+  const e = err as { code?: unknown; message?: unknown };
+  const code = typeof e.code === "string" ? e.code : "";
+  if (code === "SQLITE_BUSY" || code === "SQLITE_LOCKED") {
+    return true;
+  }
+  const message = typeof e.message === "string" ? e.message : "";
+  return message.toLowerCase().includes("database is locked");
+};
+
+/**
+ * Run `fn` and, on a transient SQLite lock (`SQLITE_BUSY`/`SQLITE_LOCKED`,
+ * or a message containing "database is locked"), retry up to 3 attempts
+ * total with exponential backoff (50ms, 100ms, 200ms via `Bun.sleepSync`).
+ * Non-lock errors rethrow immediately. The original error is rethrown after
+ * the final retry. Defense-in-depth on top of the connection's busy timeout.
+ */
+function withBusyRetry<T>(fn: () => T): T {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < BUSY_RETRY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return fn();
+    } catch (err) {
+      if (!isTransientLockError(err)) {
+        throw err;
+      }
+      lastErr = err;
+      if (attempt < BUSY_RETRY_MAX_ATTEMPTS - 1) {
+        Bun.sleepSync(BUSY_RETRY_BASE_MS * 2 ** attempt);
+      }
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -123,12 +179,85 @@ export function addTerm(
   }
   const notes = opts.notes?.trim() || null;
   const source = opts.source?.trim() || "agent";
-  const result = db
-    .query(
-      "INSERT OR IGNORE INTO glossary_term (term, category, notes, source) VALUES (?, ?, ?, ?)"
-    )
-    .run(trimmedTerm, trimmedCategory, notes, source);
+  const result = withBusyRetry(() =>
+    db
+      .query(
+        "INSERT OR IGNORE INTO glossary_term (term, category, notes, source) VALUES (?, ?, ?, ?)"
+      )
+      .run(trimmedTerm, trimmedCategory, notes, source)
+  );
   return { added: result.changes === 1 };
+}
+
+interface NormalisedEntry {
+  category: string;
+  term: string;
+}
+
+const normaliseEntry = (
+  entry: GlossaryEntry,
+  index: number
+): NormalisedEntry => {
+  if (!entry || typeof entry !== "object") {
+    throw new Error(
+      `addTerms: entry at index ${index} must be an object with {term, category}`
+    );
+  }
+  const { term, category } = entry;
+  if (typeof term !== "string" || !term.trim()) {
+    throw new Error(
+      `addTerms: entry at index ${index} must have a non-empty string \`term\``
+    );
+  }
+  if (typeof category !== "string" || !category.trim()) {
+    throw new Error(
+      `addTerms: entry at index ${index} must have a non-empty string \`category\``
+    );
+  }
+  return { term: term.trim(), category: category.trim() };
+};
+
+/**
+ * Batch-insert glossary entries inside a single transaction. Idempotent and
+ * case-insensitive (via the unique `lower(term)` index): rows already present
+ * — in any case — are silently ignored. Validation mirrors {@link addTerm}:
+ * `entries` must be an array, and every entry must have non-empty string
+ * `term` and `category`. Returns `{ added }` = number of rows actually
+ * inserted (excludes duplicates and pre-existing rows).
+ *
+ * One transaction per call keeps N writes to a single fsync, which makes
+ * concurrent agents friendlier neighbours on the WAL than N separate
+ * `INSERT OR IGNORE` round-trips.
+ */
+export function addTerms(
+  db: Database,
+  entries: GlossaryEntry[],
+  opts: AddTermOptions = {}
+): { added: number } {
+  if (!Array.isArray(entries)) {
+    throw new Error("addTerms: entries must be an array");
+  }
+  const normalised = entries.map(normaliseEntry);
+  if (normalised.length === 0) {
+    return { added: 0 };
+  }
+  const source = opts.source?.trim() || "agent";
+  const notes = opts.notes?.trim() || null;
+  const insert = db.query(
+    "INSERT OR IGNORE INTO glossary_term (term, category, notes, source) VALUES (?, ?, ?, ?)"
+  );
+  const insertAll = db.transaction((items: NormalisedEntry[]): number => {
+    let added = 0;
+    for (const item of items) {
+      const result = insert.run(item.term, item.category, notes, source);
+      if (result.changes === 1) {
+        added += 1;
+      }
+    }
+    return added;
+  });
+  const added = withBusyRetry(() => insertAll(normalised));
+  return { added };
 }
 
 /** Substring (case-insensitive) lookup over `term`; returns notes too. */
@@ -229,7 +358,10 @@ export async function ensureSeeded(
       insert.run(r.term, r.category, r.source);
     }
   });
-  insertAll(rows);
+  // Cold-start path: several glossary processes can race to seed an empty DB.
+  // Retry on a transient lock like every other writer (the `n > 0` guard plus
+  // INSERT OR IGNORE keep a re-run idempotent).
+  withBusyRetry(() => insertAll(rows));
 }
 
 /**
