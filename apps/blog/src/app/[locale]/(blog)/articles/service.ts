@@ -23,6 +23,7 @@ import graphData from "@/data/article-graph.json";
 import translationsData from "@/data/translations.json";
 import wikiLogData from "@/data/wiki-log.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
+import type { Locale } from "@/i18n/routing";
 import { taggedHref } from "@/utils/tagged-href";
 
 export type ArticleTag = WikiTag;
@@ -527,8 +528,6 @@ export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
 
 /* ── localization (zh-TW) ── */
 
-export type Locale = "en" | "zh-TW";
-export const DEFAULT_LOCALE: Locale = "en";
 /** Non-default locales served under a path prefix (en stays unprefixed). */
 export const PREFIXED_LOCALES: readonly Locale[] = ["zh-TW"];
 

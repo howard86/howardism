@@ -4,9 +4,12 @@ import "@/styles/globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Newsreader } from "next/font/google";
-import type { ChildrenProps } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
+import type { ReactNode } from "react";
 
 import GoogleAnalytics from "@/components/google-analytics";
+import { TranslatedSlugsProvider } from "@/components/translated-slugs-provider";
 import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
 import { TweaksLauncher } from "@/components/tweaks/tweaks-launcher";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
@@ -19,9 +22,10 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
   TWITTER_USERNAME,
-} from "../constants";
+} from "../../constants";
 import { Footer } from "./(layout)/footer";
 import { Header } from "./(layout)/header";
+import { getTranslatedSlugs } from "./articles/service";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -84,7 +88,7 @@ export const metadata: Metadata = {
   publisher: AUTHOR_NAME,
   openGraph: {
     type: "website",
-    locale: "en_UK",
+    locale: "en_GB",
     title: SITE_NAME,
     url: env.NEXT_PUBLIC_DOMAIN_NAME,
     siteName: SITE_NAME,
@@ -120,6 +124,11 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: env.NEXT_PUBLIC_DOMAIN_NAME,
+    languages: {
+      en: env.NEXT_PUBLIC_DOMAIN_NAME,
+      "zh-TW": `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW`,
+      "x-default": env.NEXT_PUBLIC_DOMAIN_NAME,
+    },
     types: {
       "application/rss+xml": "/rss/feed.xml",
       "application/feed+json": "/rss/feed.json",
@@ -135,39 +144,51 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 };
 
-export default function RootLayout({ children }: ChildrenProps) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+  const translatedSlugs = getTranslatedSlugs();
+
   return (
     <html
       className={`scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
       data-scroll-behavior="smooth"
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
     >
       <head>
         <InitTweaksScript />
       </head>
       <body>
-        <TweaksProvider>
-          <div className="fixed inset-0 flex justify-center sm:px-8">
-            <div className="flex w-full max-w-7xl lg:px-8">
-              <div className="w-full bg-background ring-1 ring-border" />
-            </div>
-          </div>
-          <div className="relative flex flex-1 flex-col">
-            <Header />
-            <main className="flex flex-1 flex-col" id="main-content">
-              {children}
-            </main>
-            <Footer />
-            <TweaksLauncher />
-          </div>
-          <Analytics />
-          {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-            <GoogleAnalytics
-              measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
-            />
-          )}
-        </TweaksProvider>
+        <NextIntlClientProvider messages={messages}>
+          <TranslatedSlugsProvider slugs={translatedSlugs}>
+            <TweaksProvider>
+              <div className="fixed inset-0 flex justify-center sm:px-8">
+                <div className="flex w-full max-w-7xl lg:px-8">
+                  <div className="w-full bg-background ring-1 ring-border" />
+                </div>
+              </div>
+              <div className="relative flex flex-1 flex-col">
+                <Header />
+                <main className="flex flex-1 flex-col" id="main-content">
+                  {children}
+                </main>
+                <Footer />
+                <TweaksLauncher />
+              </div>
+              <Analytics />
+              {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+                <GoogleAnalytics
+                  measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
+                />
+              )}
+            </TweaksProvider>
+          </TranslatedSlugsProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
