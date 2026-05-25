@@ -1,7 +1,7 @@
 export interface BuildTranslatePromptArgs {
   /**
    * Shell-quoted glossary CLI prefix, e.g.
-   * `bun /abs/path/apps/cli/src/translate/glossary.ts`. The engine appends
+   * `bun /abs/path/apps/cli/src/glossary/cli.ts`. The engine appends
    * `list` or `add "<term>" <category>` to it.
    */
   glossaryCmd: string;
