@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 import {
   DEFAULT_CSP_DIRECTIVES,
@@ -112,4 +113,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(withMDX(nextConfig));
+const withNextIntl = createNextIntlPlugin();
+
+export default withNextIntl(withBundleAnalyzer(withMDX(nextConfig)));
