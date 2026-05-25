@@ -2,13 +2,13 @@ import { access, mkdir, readdir, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { runWithConcurrency } from "../concurrency.ts";
-import { ENGINES, type Engine, parseEngine, runEngine } from "./engines.ts";
 import {
   DEFAULT_ARTICLES_DIR,
-  DEFAULT_GLOSSARY_PATH,
+  DEFAULT_GLOSSARY_DB_PATH,
   DEFAULT_WIKI_SOURCES_PATH,
-  seedIfMissing,
-} from "./glossary.ts";
+  seedGlossary,
+} from "../glossary/store.ts";
+import { ENGINES, type Engine, parseEngine, runEngine } from "./engines.ts";
 import { buildTranslatePrompt } from "./prompt.ts";
 import { validateTranslation } from "./validate.ts";
 
@@ -46,7 +46,7 @@ const DEFAULT_OUTPUT_DIR = resolve(
   REPO_ROOT,
   "apps/blog/src/content/articles-zh-TW"
 );
-const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/translate/glossary.ts");
+const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/glossary/cli.ts");
 const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     await mkdir(opts.outputDir, { recursive: true });
   }
 
-  await seedIfMissing(opts.glossaryPath, {
+  await seedGlossary(opts.glossaryPath, {
     articlesDir: opts.sourceDir,
     wikiSourcesPath: opts.wikiSourcesPath,
   });
@@ -203,7 +203,7 @@ async function runEngineWithRetry(
         kiroClient: opts.kiroClient,
         // Pin the agent's glossary subprocess to the SAME absolute DB the
         // orchestrator seeded, regardless of the agent's cwd.
-        env: { GLOSSARY_PATH: opts.glossaryPath },
+        env: { GLOSSARY_DB_PATH: opts.glossaryPath },
         timeoutMs: opts.engineTimeoutMs,
       });
       if (stderr.trim()) {
@@ -265,7 +265,9 @@ function parseOptions(): RunOptions {
 
   const sourceDir = resolve(env.TRANSLATE_SOURCE_PATH ?? DEFAULT_ARTICLES_DIR);
   const outputDir = resolve(env.TRANSLATE_OUTPUT_PATH ?? DEFAULT_OUTPUT_DIR);
-  const glossaryPath = resolve(env.GLOSSARY_PATH ?? DEFAULT_GLOSSARY_PATH);
+  const glossaryPath = resolve(
+    env.GLOSSARY_DB_PATH ?? DEFAULT_GLOSSARY_DB_PATH
+  );
   const wikiSourcesPath = resolve(
     env.WIKI_SOURCES_PATH ?? DEFAULT_WIKI_SOURCES_PATH
   );
