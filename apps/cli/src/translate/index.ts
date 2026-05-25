@@ -15,12 +15,39 @@ import {
   DEFAULT_WIKI_SOURCES_PATH,
   seedGlossary,
 } from "../glossary/store.ts";
-import { ENGINES, type Engine, parseEngine, runEngine } from "./engines.ts";
+import {
+  ENGINES,
+  type Engine,
+  type EngineUsage,
+  parseEngine,
+  runEngine,
+} from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
 import { buildTranslatePrompt } from "./prompt.ts";
+import { resyncVerbatimFields, sourceTitle, surfaceHash } from "./surface.ts";
+import {
+  ACTIONABLE_STATUSES,
+  classifyArticle,
+  type TranslationStatus,
+} from "./tracking/classify.ts";
+import {
+  readProjection,
+  recordedHashOf,
+  type TranslationProjection,
+  type TranslationRecord,
+  writeProjection,
+} from "./tracking/projection.ts";
+import {
+  DEFAULT_TRACKING_DB_PATH,
+  openTrackingDb,
+  recordRuns,
+  type TranslationRunInput,
+} from "./tracking/store.ts";
 import { validateTranslation } from "./validate.ts";
 
 interface RunOptions {
+  adopt: boolean;
+  check: boolean;
   concurrency: number;
   dryRun: boolean;
   engine: Engine;
@@ -28,23 +55,33 @@ interface RunOptions {
   force: boolean;
   glossaryPath: string;
   kiroClient: string | undefined;
+  locale: string;
+  modelLabel: string | null;
   onlySlug: string | null;
   outputDir: string;
+  projectionPath: string;
   scopeDir: string;
   sourceDir: string;
   targetLang: string;
+  trackingDbPath: string;
   wikiSourcesPath: string;
 }
 
 interface TranslateSummary {
   failed: { reason: string; slug: string }[];
+  orphans: string[];
+  resynced: string[];
   skipped: string[];
   translated: string[];
 }
 
-interface FailureRecord {
-  reason: string;
-  slug: string;
+/** Shared, mutating run state. Safe because workers run async in one process. */
+interface RunContext {
+  opts: RunOptions;
+  projection: TranslationProjection;
+  results: TranslationRunInput[];
+  summary: TranslateSummary;
+  updates: Record<string, TranslationRecord>;
 }
 
 const HERE = dirname(new URL(import.meta.url).pathname);
@@ -54,6 +91,10 @@ const DEFAULT_OUTPUT_DIR = resolve(
   REPO_ROOT,
   "apps/blog/src/content/articles-zh-TW"
 );
+const DEFAULT_PROJECTION_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/data/translations.json"
+);
 const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/glossary/cli.ts");
 const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;
@@ -61,16 +102,23 @@ const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
 
 async function main(): Promise<void> {
   const opts = parseOptions();
+
+  if (opts.check) {
+    await runCheck(opts);
+    return;
+  }
+
   console.log("[translate] starting with options:", {
     engine: opts.engine,
     targetLang: opts.targetLang,
     sourceDir: opts.sourceDir,
     outputDir: opts.outputDir,
-    glossaryPath: opts.glossaryPath,
+    projectionPath: opts.projectionPath,
     concurrency: opts.concurrency,
     onlySlug: opts.onlySlug,
     force: opts.force,
     dryRun: opts.dryRun,
+    adopt: opts.adopt,
   });
 
   await assertExists(opts.sourceDir, "source dir");
@@ -78,6 +126,36 @@ async function main(): Promise<void> {
     await mkdir(opts.outputDir, { recursive: true });
   }
 
+  const projection = await readProjection(opts.projectionPath, opts.locale);
+  const ctx: RunContext = {
+    opts,
+    projection,
+    results: [],
+    updates: {},
+    summary: {
+      translated: [],
+      skipped: [],
+      resynced: [],
+      orphans: [],
+      failed: [],
+    },
+  };
+
+  if (opts.adopt) {
+    await runAdopt(ctx);
+  } else {
+    await runTranslate(ctx);
+  }
+
+  await persist(ctx);
+  printSummary(ctx.summary);
+  if (ctx.summary.failed.length > 0) {
+    process.exitCode = 1;
+  }
+}
+
+async function runTranslate(ctx: RunContext): Promise<void> {
+  const { opts } = ctx;
   await seedGlossary(opts.glossaryPath, {
     articlesDir: opts.sourceDir,
     wikiSourcesPath: opts.wikiSourcesPath,
@@ -92,97 +170,307 @@ async function main(): Promise<void> {
     );
   }
 
-  const summary: TranslateSummary = {
-    translated: [],
-    skipped: [],
-    failed: [],
-  };
-
   await runWithConcurrency(slugs, opts.concurrency, (slug) =>
-    processArticle(slug, opts, summary)
+    processArticle(slug, ctx)
   );
 
-  printSummary(summary);
-  if (summary.failed.length > 0) {
-    process.exitCode = 1;
+  // Orphans: a translation lingers but its source slug is gone. Warn only.
+  const sourceSet = new Set(slugs);
+  for (const slug of await discoverOutputSlugs(opts.outputDir)) {
+    if (!sourceSet.has(slug)) {
+      ctx.summary.orphans.push(slug);
+      console.warn(
+        `[translate] orphan ${slug} (translation exists, source removed)`
+      );
+    }
   }
 }
 
-async function discoverSlugs(
-  sourceDir: string,
-  onlySlug: string | null
-): Promise<string[]> {
-  const entries = await readdir(sourceDir);
-  const slugs: string[] = [];
-  for (const filename of entries) {
-    if (!MDX_SUFFIX_RE.test(filename)) {
-      continue;
-    }
-    const slug = filename.replace(MDX_SUFFIX_RE, "");
-    if (onlySlug && slug !== onlySlug) {
-      continue;
-    }
-    slugs.push(slug);
-  }
-  slugs.sort();
-  return slugs;
-}
-
-async function processArticle(
-  slug: string,
-  opts: RunOptions,
-  summary: TranslateSummary
-): Promise<void> {
+async function processArticle(slug: string, ctx: RunContext): Promise<void> {
+  const { opts, projection } = ctx;
   const sourceAbsPath = join(opts.sourceDir, `${slug}.mdx`);
   const outputAbsPath = join(opts.outputDir, `${slug}.mdx`);
 
-  if (!opts.force && (await fileExists(outputAbsPath))) {
-    summary.skipped.push(slug);
-    console.log(`[translate] skip ${slug} (output exists; --force to retry)`);
-    return;
-  }
-
-  if (opts.dryRun) {
-    console.log(
-      `[translate] DRY_RUN — would translate ${sourceAbsPath} → ${outputAbsPath}`
-    );
-    summary.skipped.push(slug);
-    return;
-  }
-
-  // Isolate every article: an unexpected throw (e.g. a malformed source, a
-  // filesystem error during cleanup) must fail THIS slug, not reject the
-  // runWithConcurrency worker and abort the whole batch.
   try {
-    const glossaryCmd = `bun ${GLOSSARY_SCRIPT_PATH}`;
-    const prompt = buildTranslatePrompt({
-      sourceAbsPath,
-      outputAbsPath,
-      targetLang: opts.targetLang,
-      glossaryCmd,
+    const sourceText = await readFile(sourceAbsPath, "utf8");
+    const outputText = await readFileOrNull(outputAbsPath);
+    const status = classifyArticle({
+      sourceText,
+      outputText,
+      recordedHash: recordedHashOf(projection, slug),
     });
 
-    const failure = await runEngineWithRetry({
-      slug,
-      sourceAbsPath,
-      outputAbsPath,
-      prompt,
-      opts,
-    });
-
-    if (failure) {
-      summary.failed.push(failure);
+    if (!opts.force && status === "fresh") {
+      ctx.summary.skipped.push(slug);
+      console.log(`[translate] skip ${slug} (fresh)`);
       return;
     }
 
-    summary.translated.push(slug);
-    console.log(`[translate] ${slug} ✓`);
+    // A dry run reports the intended action but writes nothing — keep this
+    // ahead of the resync branch, which otherwise mutates the output file.
+    if (opts.dryRun) {
+      const verb =
+        !opts.force && status === "verbatim-drift" ? "resync" : "translate";
+      console.log(
+        `[translate] DRY_RUN — would ${verb} ${slug} (${opts.force ? "force" : status})`
+      );
+      ctx.summary.skipped.push(slug);
+      return;
+    }
+
+    if (!opts.force && status === "verbatim-drift" && outputText) {
+      await resyncArticle({ slug, sourceText, outputText, outputAbsPath, ctx });
+      return;
+    }
+
+    await translateArticle({
+      slug,
+      sourceText,
+      sourceAbsPath,
+      outputAbsPath,
+      ctx,
+    });
   } catch (err) {
-    summary.failed.push({
+    ctx.summary.failed.push({
       slug,
       reason: `unexpected error: ${(err as Error).message}`,
     });
   }
+}
+
+interface ResyncArgs {
+  ctx: RunContext;
+  outputAbsPath: string;
+  outputText: string;
+  slug: string;
+  sourceText: string;
+}
+
+/** Re-copy drifted verbatim frontmatter into the existing translation; no engine. */
+async function resyncArticle(args: ResyncArgs): Promise<void> {
+  const { slug, sourceText, outputText, outputAbsPath, ctx } = args;
+  const next = resyncVerbatimFields(outputText, sourceText);
+  if (next !== outputText) {
+    await writeFile(outputAbsPath, next, "utf8");
+  }
+  recordResult(ctx, {
+    slug,
+    sourceHash: surfaceHash(sourceText),
+    sourceTitle: sourceTitle(sourceText),
+    engine: "resync",
+    model: null,
+    durationMs: 0,
+  });
+  ctx.summary.resynced.push(slug);
+  console.log(`[translate] resync ${slug} (verbatim fields)`);
+}
+
+interface TranslateArgs {
+  ctx: RunContext;
+  outputAbsPath: string;
+  slug: string;
+  sourceAbsPath: string;
+  sourceText: string;
+}
+
+async function translateArticle(args: TranslateArgs): Promise<void> {
+  const { slug, sourceText, sourceAbsPath, outputAbsPath, ctx } = args;
+  const { opts } = ctx;
+  const glossaryCmd = `bun ${GLOSSARY_SCRIPT_PATH}`;
+  const prompt = buildTranslatePrompt({
+    sourceAbsPath,
+    outputAbsPath,
+    targetLang: opts.targetLang,
+    glossaryCmd,
+  });
+
+  const outcome = await runEngineWithRetry({
+    slug,
+    sourceAbsPath,
+    outputAbsPath,
+    prompt,
+    opts,
+  });
+
+  if (!outcome.ok) {
+    ctx.summary.failed.push({ slug, reason: outcome.reason });
+    return;
+  }
+
+  recordResult(ctx, {
+    slug,
+    sourceHash: surfaceHash(sourceText),
+    sourceTitle: sourceTitle(sourceText),
+    engine: opts.engine,
+    model: outcome.usage?.model ?? opts.modelLabel,
+    costUsd: outcome.usage?.costUsd ?? null,
+    credits: outcome.usage?.credits ?? null,
+    inputTokens: outcome.usage?.inputTokens ?? null,
+    outputTokens: outcome.usage?.outputTokens ?? null,
+    durationMs: outcome.durationMs,
+  });
+  ctx.summary.translated.push(slug);
+  console.log(
+    `[translate] ${slug} ✓ (${(outcome.durationMs / 1000).toFixed(1)}s${
+      outcome.usage?.costUsd == null
+        ? ""
+        : `, $${outcome.usage.costUsd.toFixed(4)}`
+    })`
+  );
+}
+
+/** Record a run for both the history DB (later) and the projection merge. */
+function recordResult(ctx: RunContext, run: TranslationRunInput): void {
+  const withLocale = { locale: ctx.opts.locale, ...run };
+  ctx.results.push(withLocale);
+  ctx.updates[run.slug] = {
+    sourceHash: run.sourceHash,
+    sourceTitle: run.sourceTitle ?? null,
+    engine: run.engine,
+    model: run.model ?? null,
+    costUsd: run.costUsd ?? null,
+    credits: run.credits ?? null,
+    durationMs: run.durationMs,
+    translatedAt: new Date().toISOString(),
+  };
+}
+
+/** Bootstrap: record current source hashes for already-translated, untracked slugs. */
+async function runAdopt(ctx: RunContext): Promise<void> {
+  const { opts, projection } = ctx;
+  const sourceSet = new Set(await discoverSlugs(opts.sourceDir, opts.onlySlug));
+  for (const slug of await discoverOutputSlugs(opts.outputDir)) {
+    if (opts.onlySlug && slug !== opts.onlySlug) {
+      continue;
+    }
+    if (!sourceSet.has(slug)) {
+      ctx.summary.orphans.push(slug);
+      console.warn(`[translate] adopt: orphan ${slug} (no source); skipping`);
+      continue;
+    }
+    if (recordedHashOf(projection, slug) !== null) {
+      ctx.summary.skipped.push(slug);
+      continue;
+    }
+    const sourceText = await readFile(
+      join(opts.sourceDir, `${slug}.mdx`),
+      "utf8"
+    );
+    recordResult(ctx, {
+      slug,
+      sourceHash: surfaceHash(sourceText),
+      sourceTitle: sourceTitle(sourceText),
+      engine: "adopt",
+      model: null,
+      durationMs: 0,
+    });
+    ctx.summary.translated.push(slug);
+    console.log(`[translate] adopt ${slug}`);
+  }
+}
+
+/** Persist this run: append history to the DB, then merge the committed projection. */
+async function persist(ctx: RunContext): Promise<void> {
+  if (ctx.opts.dryRun || Object.keys(ctx.updates).length === 0) {
+    return;
+  }
+  try {
+    const db = openTrackingDb(ctx.opts.trackingDbPath);
+    try {
+      recordRuns(db, ctx.results);
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    // History cache is best-effort; the committed projection is the truth.
+    console.warn(
+      `[translate] warning: failed to write history DB: ${(err as Error).message}`
+    );
+  }
+  await writeProjection(ctx.opts.projectionPath, ctx.projection, ctx.updates);
+  console.log(`[translate] updated projection: ${ctx.opts.projectionPath}`);
+}
+
+/** Check buckets: the status union plus `untranslated` (never-tracked, no output). */
+type CheckBuckets = Record<TranslationStatus, string[]> & {
+  untranslated: string[];
+};
+
+async function runCheck(opts: RunOptions): Promise<void> {
+  const projection = await readProjection(opts.projectionPath, opts.locale);
+  const sourceSlugs = await discoverSlugs(opts.sourceDir, opts.onlySlug);
+  const sourceSet = new Set(sourceSlugs);
+  const buckets: CheckBuckets = {
+    fresh: [],
+    missing: [],
+    stale: [],
+    "verbatim-drift": [],
+    orphan: [],
+    untranslated: [],
+  };
+
+  for (const slug of sourceSlugs) {
+    const sourceText = await readFile(
+      join(opts.sourceDir, `${slug}.mdx`),
+      "utf8"
+    );
+    const outputText = await readFileOrNull(
+      join(opts.outputDir, `${slug}.mdx`)
+    );
+    const recordedHash = recordedHashOf(projection, slug);
+    const status = classifyArticle({ sourceText, outputText, recordedHash });
+    // A never-translated article (no output, no record) is opt-in, not a
+    // failure — only TRACKED translations are held to freshness.
+    if (status === "missing" && recordedHash === null) {
+      buckets.untranslated.push(slug);
+    } else {
+      buckets[status].push(slug);
+    }
+  }
+  for (const slug of await discoverOutputSlugs(opts.outputDir)) {
+    if (!sourceSet.has(slug)) {
+      buckets.orphan.push(slug);
+    }
+  }
+
+  printCheck(opts.locale, buckets, projection);
+
+  // Fail CI only on tracked translations that drifted — never on untranslated.
+  const actionable = ACTIONABLE_STATUSES.reduce(
+    (n, status) => n + buckets[status].length,
+    0
+  );
+  if (actionable > 0) {
+    process.exitCode = 1;
+  }
+}
+
+function printCheck(
+  locale: string,
+  buckets: CheckBuckets,
+  projection: TranslationProjection
+): void {
+  const line = (label: string, slugs: string[]): string => {
+    const names =
+      slugs.length > 0
+        ? `  (${slugs.slice(0, 8).join(", ")}${slugs.length > 8 ? ", …" : ""})`
+        : "";
+    return `${label.padEnd(15)} ${String(slugs.length).padStart(3)}${names}`;
+  };
+  const spend = Object.values(projection.articles).reduce(
+    (sum, a) => sum + (a.costUsd ?? 0),
+    0
+  );
+  console.log(`=== Translate check (${locale}) ===`);
+  console.log(line("Fresh:", buckets.fresh));
+  console.log(line("Stale:", buckets.stale));
+  console.log(line("Verbatim-drift:", buckets["verbatim-drift"]));
+  console.log(line("Missing (tracked):", buckets.missing));
+  console.log(line("Orphan:", buckets.orphan));
+  console.log(line("Untranslated:", buckets.untranslated));
+  console.log(
+    `Recorded spend: $${spend.toFixed(4)} across ${Object.keys(projection.articles).length} tracked`
+  );
 }
 
 interface RunEngineWithRetryArgs {
@@ -193,19 +481,25 @@ interface RunEngineWithRetryArgs {
   sourceAbsPath: string;
 }
 
+type EngineOutcome =
+  | { durationMs: number; ok: true; usage?: EngineUsage }
+  | { ok: false; reason: string };
+
 const MAX_ENGINE_ATTEMPTS = 2;
 
 async function runEngineWithRetry(
   args: RunEngineWithRetryArgs
-): Promise<FailureRecord | null> {
+): Promise<EngineOutcome> {
   const { slug, sourceAbsPath, outputAbsPath, prompt, opts } = args;
+  const startedAt = Date.now();
   let lastReason = "unknown failure";
+  let lastUsage: EngineUsage | undefined;
   for (let attempt = 1; attempt <= MAX_ENGINE_ATTEMPTS; attempt += 1) {
     // Clear any prior output before each attempt so an engine that exits 0
     // without rewriting (a no-op) can't pass validation on a stale file.
     await unlinkSilently(outputAbsPath);
     try {
-      const { stderr } = await runEngine(opts.engine, {
+      const { stderr, usage } = await runEngine(opts.engine, {
         prompt,
         scopeDir: opts.scopeDir,
         kiroClient: opts.kiroClient,
@@ -214,6 +508,7 @@ async function runEngineWithRetry(
         env: { GLOSSARY_DB_PATH: opts.glossaryPath },
         timeoutMs: opts.engineTimeoutMs,
       });
+      lastUsage = usage;
       if (stderr.trim()) {
         console.warn(`[translate] ${slug} stderr (attempt ${attempt}):
 ${stderr}`);
@@ -250,7 +545,7 @@ ${stderr}`);
 
     const result = await validateTranslation({ sourceAbsPath, outputAbsPath });
     if (result.ok) {
-      return null;
+      return { ok: true, usage: lastUsage, durationMs: Date.now() - startedAt };
     }
     lastReason = result.errors.join("; ");
     console.warn(
@@ -258,7 +553,54 @@ ${stderr}`);
     );
     await unlinkSilently(outputAbsPath);
   }
-  return { slug, reason: lastReason };
+  return { ok: false, reason: lastReason };
+}
+
+async function discoverSlugs(
+  sourceDir: string,
+  onlySlug: string | null
+): Promise<string[]> {
+  const entries = await readdir(sourceDir);
+  const slugs: string[] = [];
+  for (const filename of entries) {
+    if (!MDX_SUFFIX_RE.test(filename)) {
+      continue;
+    }
+    const slug = filename.replace(MDX_SUFFIX_RE, "");
+    if (onlySlug && slug !== onlySlug) {
+      continue;
+    }
+    slugs.push(slug);
+  }
+  slugs.sort();
+  return slugs;
+}
+
+async function discoverOutputSlugs(outputDir: string): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(outputDir);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw err;
+  }
+  return entries
+    .filter((f) => MDX_SUFFIX_RE.test(f))
+    .map((f) => f.replace(MDX_SUFFIX_RE, ""))
+    .sort();
+}
+
+async function readFileOrNull(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw err;
+  }
 }
 
 async function unlinkSilently(path: string): Promise<void> {
@@ -287,6 +629,8 @@ function parseOptions(): RunOptions {
     onlySlug = next;
   }
   const force = argv.includes("--force") || env.FORCE === "1";
+  const check = argv.includes("--check");
+  const adopt = argv.includes("--adopt");
   const dryRun = env.DRY_RUN === "1";
 
   const engine = parseEngine(env.TRANSLATE_ENGINE ?? "agy");
@@ -300,6 +644,12 @@ function parseOptions(): RunOptions {
   const wikiSourcesPath = resolve(
     env.WIKI_SOURCES_PATH ?? DEFAULT_WIKI_SOURCES_PATH
   );
+  const projectionPath = resolve(
+    env.TRANSLATE_PROJECTION_PATH ?? DEFAULT_PROJECTION_PATH
+  );
+  const trackingDbPath = resolve(
+    env.TRANSLATE_TRACKING_DB_PATH ?? DEFAULT_TRACKING_DB_PATH
+  );
 
   const concurrency = parseConcurrency(env.TRANSLATE_CONCURRENCY);
   const engineTimeoutMs = parseTimeoutMs(env.TRANSLATE_ENGINE_TIMEOUT_MS);
@@ -307,13 +657,16 @@ function parseOptions(): RunOptions {
     ? resolve(env.KIRO_ACP_CLIENT)
     : undefined;
 
-  if (engine === "kiro" && !kiroClient) {
+  // Engine config is only needed when we actually translate (not for --check).
+  if (!(check || adopt) && engine === "kiro" && !kiroClient) {
     throw new Error(
       "KIRO_ACP_CLIENT is not set. Set it to the absolute path of your kiro-acp.py client to use the `kiro` engine."
     );
   }
 
   return {
+    adopt,
+    check,
     concurrency,
     dryRun,
     engine,
@@ -321,11 +674,15 @@ function parseOptions(): RunOptions {
     force,
     glossaryPath,
     kiroClient,
+    locale: targetLang,
+    modelLabel: env.TRANSLATE_MODEL?.trim() || null,
     onlySlug,
     outputDir,
+    projectionPath,
     scopeDir: REPO_ROOT,
     sourceDir,
     targetLang,
+    trackingDbPath,
     wikiSourcesPath,
   };
 }
@@ -374,7 +731,9 @@ async function assertExists(path: string, label: string): Promise<void> {
 function printSummary(summary: TranslateSummary): void {
   console.log("\n=== Translate summary ===");
   console.log(`Translated: ${summary.translated.length}`);
+  console.log(`Resynced:   ${summary.resynced.length}`);
   console.log(`Skipped:    ${summary.skipped.length}`);
+  console.log(`Orphans:    ${summary.orphans.length}`);
   console.log(`Failed:     ${summary.failed.length}`);
   if (summary.failed.length > 0) {
     console.log("\nFailures:");
