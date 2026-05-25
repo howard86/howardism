@@ -9,6 +9,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import type { ReactNode } from "react";
 
 import GoogleAnalytics from "@/components/google-analytics";
+import { TranslatedSlugsProvider } from "@/components/translated-slugs-provider";
 import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
 import { TweaksLauncher } from "@/components/tweaks/tweaks-launcher";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
@@ -24,6 +25,7 @@ import {
 } from "../../constants";
 import { Footer } from "./(layout)/footer";
 import { Header } from "./(layout)/header";
+import { getTranslatedSlugs } from "./articles/service";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -149,6 +151,7 @@ export default async function RootLayout({
 }) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const translatedSlugs = getTranslatedSlugs();
 
   return (
     <html
@@ -162,27 +165,29 @@ export default async function RootLayout({
       </head>
       <body>
         <NextIntlClientProvider messages={messages}>
-          <TweaksProvider>
-            <div className="fixed inset-0 flex justify-center sm:px-8">
-              <div className="flex w-full max-w-7xl lg:px-8">
-                <div className="w-full bg-background ring-1 ring-border" />
+          <TranslatedSlugsProvider slugs={translatedSlugs}>
+            <TweaksProvider>
+              <div className="fixed inset-0 flex justify-center sm:px-8">
+                <div className="flex w-full max-w-7xl lg:px-8">
+                  <div className="w-full bg-background ring-1 ring-border" />
+                </div>
               </div>
-            </div>
-            <div className="relative flex flex-1 flex-col">
-              <Header />
-              <main className="flex flex-1 flex-col" id="main-content">
-                {children}
-              </main>
-              <Footer />
-              <TweaksLauncher />
-            </div>
-            <Analytics />
-            {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-              <GoogleAnalytics
-                measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
-              />
-            )}
-          </TweaksProvider>
+              <div className="relative flex flex-1 flex-col">
+                <Header />
+                <main className="flex flex-1 flex-col" id="main-content">
+                  {children}
+                </main>
+                <Footer />
+                <TweaksLauncher />
+              </div>
+              <Analytics />
+              {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+                <GoogleAnalytics
+                  measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
+                />
+              )}
+            </TweaksProvider>
+          </TranslatedSlugsProvider>
         </NextIntlClientProvider>
       </body>
     </html>
