@@ -1,3 +1,30 @@
+# [v2.4.0](https://github.com/howard86/howardism/compare/v2.3.8...v2.4.0) (2026-05-25)
+
+## ✨ New Features
+- [`3daaedd`](https://github.com/howard86/howardism/commit/3daaedd)  feat(cli): add do-not-translate glossary for translations 
+- [`8a36983`](https://github.com/howard86/howardism/commit/8a36983)  feat(cli): add pluggable translation engines 
+- [`35ca9bd`](https://github.com/howard86/howardism/commit/35ca9bd)  feat(cli): add translation prompt builder and output validation 
+- [`7f1382c`](https://github.com/howard86/howardism/commit/7f1382c)  feat(cli): add translate orchestrator and npm scripts 
+- [`c7024da`](https://github.com/howard86/howardism/commit/c7024da)  feat(cli): add SQLite-backed glossary store with CLI and MCP server 
+- [`a94af0b`](https://github.com/howard86/howardism/commit/a94af0b)  feat(cli): normalize translated section headings to canonical zh-TW 
+- [`73e2ac4`](https://github.com/howard86/howardism/commit/73e2ac4)  feat(cli): capture engine cost/usage telemetry 
+- [`07b291d`](https://github.com/howard86/howardism/commit/07b291d)  feat(cli): track translation freshness and project run history 
+- [`13f63a7`](https://github.com/howard86/howardism/commit/13f63a7)  feat(blog): add zh-TW article translations and tracking projection 
+- [`56fd22b`](https://github.com/howard86/howardism/commit/56fd22b)  feat(blog): on-demand locale-aware article rendering (zh-TW) 
+- [`0b1197a`](https://github.com/howard86/howardism/commit/0b1197a)  feat(cli): stream engine stderr live with slug prefix 
+- [`77d3909`](https://github.com/howard86/howardism/commit/77d3909)  feat(cli): add --limit flag and per-attempt heartbeat logging to translate CLI 
+- [`59c81fb`](https://github.com/howard86/howardism/commit/59c81fb)  feat(cli): pass --model auto to kiro engine for faster processing 
+- [`07b9de4`](https://github.com/howard86/howardism/commit/07b9de4)  feat(translate): stale-skip guard and staleness badge 
+- [`2d5e37f`](https://github.com/howard86/howardism/commit/2d5e37f)  feat(blog): add zh-TW translations for all 89 articles 
+- [`c358276`](https://github.com/howard86/howardism/commit/c358276)  feat(translate): add deterministic MDX escaping post-processor 
+
+## 🐛 Bug Fixes
+- [`98f44fd`](https://github.com/howard86/howardism/commit/98f44fd)  fix(cli): harden glossary concurrency and batch term registration 
+- [`7a10a43`](https://github.com/howard86/howardism/commit/7a10a43)  fix(cli): restore existing translation when all engine attempts fail 
+- [`1af585c`](https://github.com/howard86/howardism/commit/1af585c)  fix(blog): convert missing zh-TW MDX import errors to 404 
+- [`1a10fb5`](https://github.com/howard86/howardism/commit/1a10fb5)  fix(cli): guard backup restore writeFile with try-catch 
+- [`00dd75e`](https://github.com/howard86/howardism/commit/00dd75e)  fix(blog): escape MDX-breaking characters in zh-TW translated articles
+
 # [v2.3.8](https://github.com/howard86/howardism/compare/v2.3.7...v2.3.8) (2026-05-23)
 
 ## 🐛 Bug Fixes
