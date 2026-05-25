@@ -26,6 +26,8 @@ export interface EngineSpawnOptions {
   cwd: string;
   /** Extra env vars merged over the inherited environment. */
   env?: Record<string, string>;
+  /** Called for each stderr line as it arrives; useful for live progress. */
+  onStderrLine?: (line: string) => void;
   /** Kill the subprocess after this many ms (0/undefined = no timeout). */
   timeoutMs?: number;
 }
@@ -46,6 +48,8 @@ export interface RunEngineArgs {
   /** Extra env vars merged over the inherited environment for the subprocess. */
   env?: Record<string, string>;
   kiroClient?: string;
+  /** Called for each stderr line as it arrives; useful for live progress. */
+  onStderrLine?: (line: string) => void;
   prompt: string;
   runner?: EngineRunner;
   scopeDir: string;
@@ -119,6 +123,47 @@ export function buildEngineArgv(
   return ["python3", kiroClient, "--cwd", scopeDir, prompt];
 }
 
+// Drain a ReadableStream<Uint8Array> line by line, calling onLine for each
+// line as it arrives and returning the full text when the stream closes.
+// Must be used with Promise.all over stdout+stderr to avoid pipe deadlocks.
+async function drainStream(
+  stream: ReadableStream<Uint8Array>,
+  onLine?: (line: string) => void
+): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const all: string[] = [];
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      let newline = buffer.indexOf("\n");
+      while (newline !== -1) {
+        // Strip trailing \r so CRLF-terminated lines don't corrupt terminal output.
+        const line = buffer.slice(0, newline).replace(TRAILING_CR_RE, "");
+        buffer = buffer.slice(newline + 1);
+        all.push(line);
+        onLine?.(line);
+        newline = buffer.indexOf("\n");
+      }
+    }
+    // Flush the TextDecoder's internal buffer so multi-byte UTF-8 sequences
+    // split across the last two chunks are not silently dropped.
+    buffer += decoder.decode();
+    if (buffer) {
+      all.push(buffer);
+      onLine?.(buffer);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return all.join("\n");
+}
+
 const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
   const proc = Bun.spawn(argv, {
     cwd: spawnOptions.cwd,
@@ -131,7 +176,7 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
   });
   // Guard against a subprocess that never EOFs: kill it after timeoutMs so a
   // hung engine can't pin a concurrency slot forever (only agy has its own
-  // --print-timeout). Killing closes the pipes, so the text() reads resolve.
+  // --print-timeout). Killing closes the pipes, so the drainStream reads resolve.
   let timedOut = false;
   const timer =
     spawnOptions.timeoutMs && spawnOptions.timeoutMs > 0
@@ -142,8 +187,8 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
       : null;
   try {
     const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
+      drainStream(proc.stdout),
+      drainStream(proc.stderr, spawnOptions.onStderrLine),
     ]);
     const exitCode = await proc.exited;
     if (timedOut) {
@@ -160,6 +205,13 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
   } finally {
     if (timer) {
       clearTimeout(timer);
+    }
+    // Kill the subprocess on any error path so a failed drainStream can't
+    // leave it running and pinning a concurrency slot indefinitely.
+    try {
+      proc.kill();
+    } catch {
+      // already exited — ignore
     }
   }
 };
@@ -192,6 +244,7 @@ const parseClaudeUsage = (stdout: string): EngineUsage | undefined => {
 };
 
 const CREDITS_RE = /([\d.]+)\s+(?:total\s+)?credits/i;
+const TRAILING_CR_RE = /\r$/;
 
 /**
  * Best-effort usage parse for the kiro ACP client: prefer a JSON line carrying
@@ -262,6 +315,7 @@ export async function runEngine(
   const result = await exec(argv, {
     cwd: args.scopeDir,
     env: args.env,
+    onStderrLine: args.onStderrLine,
     timeoutMs: args.timeoutMs,
   });
   const usage = parseUsage(engine, result);
