@@ -4,20 +4,23 @@ import { cleanup, render } from "@testing-library/react";
 // `<BacklinksDisclosure>` and `<ArticleRail>` are async server components;
 // happy-dom + RTL's sync render tree can't await them. Both have their own
 // dedicated tests — neutralise them here so layout-only assertions can run.
-mock.module("@/app/(blog)/articles/[slug]/backlinks-disclosure", () => ({
-  BacklinksDisclosure: () => null,
-}));
-mock.module("@/app/(blog)/articles/[slug]/article-rail", () => ({
+mock.module(
+  "@/app/[locale]/(blog)/articles/[slug]/backlinks-disclosure",
+  () => ({
+    BacklinksDisclosure: () => null,
+  })
+);
+mock.module("@/app/[locale]/(blog)/articles/[slug]/article-rail", () => ({
   ArticleRail: () => null,
 }));
 
-import { ArticleLayout } from "@/app/(blog)/articles/[slug]/article-layout";
+import { ArticleLayout } from "@/app/[locale]/(blog)/articles/[slug]/article-layout";
 
 afterEach(() => {
   cleanup();
 });
 
-import type { ArticleMeta } from "@/app/(blog)/articles/service";
+import type { ArticleMeta } from "@/app/[locale]/(blog)/articles/service";
 
 const BASE_META: ArticleMeta = {
   date: "2024-01-01",

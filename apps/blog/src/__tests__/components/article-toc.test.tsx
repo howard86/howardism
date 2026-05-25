@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
 
-import { ArticleToc } from "@/app/(blog)/articles/[slug]/article-toc";
-import type { ArticleHeading } from "@/app/(blog)/articles/service";
+import { ArticleToc } from "@/app/[locale]/(blog)/articles/[slug]/article-toc";
+import type { ArticleHeading } from "@/app/[locale]/(blog)/articles/service";
 
 afterEach(() => {
   cleanup();

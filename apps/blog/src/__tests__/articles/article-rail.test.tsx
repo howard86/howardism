@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { ArticleRail } from "@/app/(blog)/articles/[slug]/article-rail";
-import type { ArticleHeading } from "@/app/(blog)/articles/service";
+import { ArticleRail } from "@/app/[locale]/(blog)/articles/[slug]/article-rail";
+import type { ArticleHeading } from "@/app/[locale]/(blog)/articles/service";
 
 // A slug absent from the article graph: getArticleConnections resolves to
 // empty arrays, so `headings` is the rail's only content source.
