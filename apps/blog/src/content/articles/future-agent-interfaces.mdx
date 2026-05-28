@@ -1,0 +1,194 @@
+---
+date: 2026-05-28
+title: The Future of Agent Interfaces
+description: "Interface future is layered: native interaction models for human
+  collaboration, MCP/APIs for structured action, app protocols for agent
+  runtimes, computer use for legacy GUI fallback"
+tag: Essay
+topic: interaction
+tags:
+  - derived
+  - agent-engineering
+  - interface
+  - multimodal
+readingTime: 11
+imageAlt: Illustration for The Future of Agent Interfaces
+---
+export { default as heroImage } from "../assets/future-agent-interfaces.png";
+
+## Short answer
+
+The interface future is **layered**, not a winner-take-all choice.
+
+[MCP](/articles/mcp-and-computer-use) wins where external software can expose structured capabilities. [App protocols](/articles/codex-app-server-protocol) win where an orchestrator needs to drive an agent runtime itself. [Native interaction models](/articles/interaction-models) win at the human-collaboration layer, where turn-taking, VAD, and dialog management are the wrong abstraction. **Computer use** survives as the universal compatibility layer for software that is still built only for humans.
+
+The clean stack:
+
+| Layer | Future interface | What it connects | Why it wins |
+|---|---|---|---|
+| Human collaboration | [Interaction Models](/articles/interaction-models) / [Full-Duplex Interaction](/articles/full-duplex-interaction) | Human senses, speech, screen, timing -> model | Removes the [turn boundary](/articles/turn-based-interface-bottleneck) and lets interactivity scale with model intelligence |
+| External software | [MCP / APIs](/articles/mcp-and-computer-use) | Model -> business systems, files, SaaS, vertical tools | Structured, cheap, fast, reusable across surfaces |
+| Agent runtime orchestration | [App Server-style protocols](/articles/codex-app-server-protocol) | Orchestrator -> agent session, tools, turns, credentials | Stable lifecycle, continuation, observability, credential mediation |
+| Legacy software | Computer use | Model -> human GUI | Universal fallback when no structured interface exists |
+| Long-run endpoint | [Agent-Native Infrastructure](/articles/agent-native-infrastructure) | Agent -> world through legible sensors and actuators | Systems are described to agents first, not retrofitted through human docs and GUIs |
+
+The mistake is asking which one replaces the others. They live at different boundaries.
+
+## The main split: interaction vs action
+
+There are two different "interfaces" being mixed together.
+
+**Interaction interfaces** govern how a human and model collaborate. [Interaction Models](/articles/interaction-models) argues that today's chat surface is defective because the model experiences reality in a single thread: user acts while the model waits, then model responds while perception is frozen. [Full-Duplex Interaction](/articles/full-duplex-interaction) is the proposed replacement: simultaneous perception and response across audio, video, and text.
+
+**Action interfaces** govern how the model changes external systems. [MCP and Computer Use](/articles/mcp-and-computer-use) is about this layer: Salesforce, Google Drive, Gmail, Slack, Figma, calendars, niche industry systems, or a desktop GUI. The question is not "how does the human collaborate with the model?" but "what can the model read and modify?"
+
+Native interaction models do not replace MCP. They make the human loop richer while the model still calls tools, searches, browses, generates UI, or delegates to a background model. MCP does not replace interaction models. It gives the model a structured action surface after the human and model have decided what to do.
+
+## MCP is the default action interface
+
+MCP's durable value is simple: it makes external systems **agent-legible**. A server exposes typed capabilities; a client surface such as [Claude Code](/articles/claude-code), [Cowork](/articles/cowork), Claude AI, or a third-party agent consumes them. Connector logic is written once and reused across surfaces.
+
+That matters because the agent future is not one app. [Cowork](/articles/cowork) uses Google Calendar, Slack, Gmail, Google Drive, Figma, Salesforce, and other knowledge-work systems. Cat Wu's slide-deck workflow uses Figma MCP, Slack MCP, and Drive MCP because overnight work cannot afford a screenshot-click loop for every action. The Founder's Playbook extends the same pattern across customer outreach, scheduling, feedback intake, bug triage, CRM hygiene, and vertical niche systems.
+
+MCP wins when the target system can expose:
+
+- typed operations
+- scoped credentials
+- structured results
+- reusable connectors
+- lower-latency execution than GUI driving
+- enough domain specificity to become a moat
+
+This is also why MCP does not shrink the way prompt scaffolding shrinks. The harness around tool selection may shrink; the connector surface broadens. Better models can choose tools more intelligently, but they still need tools.
+
+## Computer use is the compatibility layer, not the ideal
+
+Computer use has the opposite tradeoff. It is slow, token-expensive, and generic. The model reads the screen and drives mouse/keyboard actions through a human-facing GUI. Its advantage is coverage: it works when there is no API, no MCP server, no library, and no other agent-legible interface.
+
+So computer use is not the clean future. It is the bridge over the long tail of human-built software.
+
+That bridge is still important. [Cowork](/articles/cowork) is exactly the product class where the long tail matters: knowledge workers live in tools that often lack clean programmatic interfaces. Boris Cherny's point in [MCP and Computer Use](/articles/mcp-and-computer-use) is that, to the model, MCP, APIs, and computer use are all token-level action substrates. But the operational differences still matter to the system designer:
+
+| Property | MCP / API | Computer use |
+|---|---|---|
+| Latency | Low | High |
+| Cost | Lower token/action cost | Screenshot/action loop burns tokens |
+| Coverage | Only integrated systems | Almost any GUI |
+| Reliability | Structured contracts | Visual state and UI drift |
+| Best use | Frequent, high-value workflows | Legacy, niche, missing-interface workflows |
+
+The practical rule: build MCP where a workflow is repeated, high-volume, or business-critical. Use computer use when the software has not yet become agent-native.
+
+## App protocols are not MCP
+
+[Codex App Server Protocol](/articles/codex-app-server-protocol) looks MCP-like because it exposes tool calls, but it lives at a different boundary. MCP connects a model surface to external systems. The App Server protocol connects an external orchestrator to a Codex agent session.
+
+Its core job is lifecycle control:
+
+- launch a headless agent session
+- initialize a thread
+- start turns
+- reuse a `thread_id` across continuation turns
+- stream turn events
+- enforce timeouts and stall detection
+- handle approvals and user-input-required events
+- inject dynamic tools while keeping credentials outside the subagent container
+
+That last point is the architectural parallel to MCP. Symphony can advertise a `linear_graphql` tool to the agent while the orchestrator keeps the Linear token. But the reason this belongs in an app protocol, not a generic MCP server, is that the orchestrator is governing the agent runtime: cwd, sandbox, approval policy, turn lifecycle, retries, and termination.
+
+So the split is:
+
+| Need | Interface |
+|---|---|
+| Let an agent use Salesforce/Gmail/Figma/niche SaaS | MCP or API connector |
+| Let a daemon drive a Codex session programmatically | App Server-style protocol |
+| Give a subagent access to a credentialed tracker without exposing the token | Dynamic tool call through the orchestrator |
+| Let the agent click around old desktop software | Computer use |
+
+The future likely has many app protocols because runtimes differ: coding agents, knowledge-work agents, local desktop agents, mobile agents, and team daemons need lifecycle semantics MCP does not try to provide.
+
+## Native interaction models absorb the human-facing harness
+
+[Interaction Models](/articles/interaction-models) is the strongest claim in the covered pages. It says interactivity should be part of the model itself. VAD, turn detection, dialog managers, and single-thread chat are hand-built harnesses around a smarter core. That violates the [bitter lesson](/articles/the-bitter-lesson) pattern the page invokes: less-intelligent scaffolding gets outpaced by general capability.
+
+The native interaction model future is:
+
+- continuous audio/video/text input
+- 200ms-scale interleaved micro-turns
+- no artificial turn boundary
+- proactive interjection
+- visual-cue reactions
+- simultaneous speech
+- time-aware behavior
+- concurrent tool calls, search, browsing, and generated UI
+- background model delegation for deeper work
+
+This is not "better chat." It changes what collaboration means. [Full-Duplex Interaction](/articles/full-duplex-interaction) makes the model present while the human is still acting. The model can interrupt when the user says something wrong, react when the screen changes, translate while listening, or weave a tool result back into speech at the right time.
+
+That solves a different problem than MCP. MCP makes the world easier for the model to act on. Native interaction models make the model easier for the human to collaborate with.
+
+## Agent-native infrastructure is the endpoint
+
+[Agent-Native Infrastructure](/articles/agent-native-infrastructure) names the long-run direction: the digital world is still built for humans and has to be rewritten for agents. Documentation should answer "what do I copy-paste to my agent?" Systems should expose sensors and actuators. Data structures should be legible to LLMs. The MenuGen deployment-friction test is the practical check: the agent should be able to build and deploy without a human clicking through Vercel, DNS, and service settings.
+
+In that world:
+
+- MCP is one way a service becomes agent-legible.
+- App protocols are how agent runtimes become orchestratable.
+- Computer use is the translation layer for services that remain human-only.
+- Native interaction models are how humans stay in the loop without being trapped in turn-based chat.
+- Agent-to-agent protocols become necessary once agents represent people and organizations.
+
+This is the actual "interface future": not one interface, but the removal of human-shaped friction from machine work while adding richer channels for human judgement.
+
+## Cowork is the current proof point
+
+[Cowork](/articles/cowork) is the best concrete example because it sits across all the boundaries.
+
+It is a non-code agent product: decks, inbox triage, launch docs, customer dossiers, meeting prep. It depends on action interfaces because its work lives in Gmail, Slack, Calendar, Drive, Salesforce, Gong, Figma, and internal docs. It uses MCP for structured high-value integrations, and computer use is the fallback for software without MCP.
+
+But Cowork also shows why action interfaces are not enough. Non-code outputs have weaker mechanical verification than code. A deck can look polished and still be strategically wrong. Inbox triage can be fluent and still mishandle accountability. That pushes the interface problem back toward the human loop: review surfaces, escalation thresholds, and eventually richer interaction than a batch prompt followed by a finished artifact.
+
+So Cowork points to the layered future:
+
+- MCP for the recurring systems of record.
+- Computer use for missing connectors.
+- Skills/memory/context for recurring workflows.
+- Human review because non-code work lacks compiler-like verification.
+- Eventually native interaction models for real-time steering instead of overnight batch-and-review.
+
+## Decision rule
+
+Use the interface that matches the boundary:
+
+| If the problem is... | Use... |
+|---|---|
+| "The model needs to use this SaaS or internal system repeatedly" | MCP / structured API |
+| "The model needs to operate software with no agent-legible interface" | Computer use |
+| "A daemon needs to run, resume, observe, and govern agent sessions" | App Server-style runtime protocol |
+| "A human and model need to collaborate continuously" | Native interaction model / full-duplex surface |
+| "The system is being redesigned for agents from scratch" | Agent-native sensors, actuators, and copy-paste-to-agent docs |
+| "Agents need to represent people or orgs to each other" | Future agent-to-agent protocol layer; current pages identify the need, not the settled design |
+
+The durable engineering work is to avoid confusing these layers. Do not build a GUI-clicking robot for a workflow that deserves MCP. Do not pretend MCP solves turn-taking. Do not use an app-server runtime protocol as a business-system integration layer. Do not make native interaction models responsible for credential boundaries and external contracts.
+
+## Bottom line
+
+The future interface stack is:
+
+1. **Native interaction models** for human collaboration.
+2. **MCP / APIs** for structured action in external systems.
+3. **App protocols** for orchestrating agent runtimes.
+4. **Computer use** for legacy GUI compatibility.
+5. **Agent-native infrastructure** as the long-term redesign target.
+
+MCP is the default action substrate. Computer use is the fallback. App protocols are the control boundary for agent sessions. Native interaction models are the human-facing replacement for turn-based chat. Agent-native infrastructure is what happens when software stops pretending the primary operator is always a person.
+
+## Related
+
+- [MCP and Computer Use](/articles/mcp-and-computer-use) - structured connectors plus GUI fallback; the core action-interface comparison.
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) - app-runtime protocol for headless Codex orchestration and dynamic tool injection.
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) - long-run direction: systems described to agents first through sensors and actuators.
+- [Interaction Models](/articles/interaction-models) - native real-time multimodal interaction as a replacement for harnessed turn-taking.
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) - concrete modes unlocked by simultaneous perception and response.
+- [Cowork](/articles/cowork) - current knowledge-work product where MCP, computer use, and human review meet.
