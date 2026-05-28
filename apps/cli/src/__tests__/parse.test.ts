@@ -84,6 +84,27 @@ describe("parseWikiFile", () => {
     expect(parsed.frontmatter.created).toBe("2026-05-06");
     expect(parsed.body).toContain("Body content.");
   });
+
+  it("drops a boolean `generated` flag so resolveDate falls back", async () => {
+    const content = [
+      "---",
+      'title: "Open Questions Backlog"',
+      "type: derived",
+      "generated: true",
+      "updated: 2026-05-25",
+      "---",
+      "",
+      "Body content.",
+    ].join("\n");
+    const path = await tempFile(content, "open-questions.md");
+    const parsed = await parseWikiFile({
+      slug: "open-questions",
+      folder: "derived",
+      absolutePath: path,
+    });
+    expect(parsed.frontmatter.generated).toBeUndefined();
+    expect(resolveDate(parsed)).toBe("2026-05-25");
+  });
 });
 
 describe("resolveDate", () => {
