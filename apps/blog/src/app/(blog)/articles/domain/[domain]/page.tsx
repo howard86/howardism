@@ -8,7 +8,12 @@ import { formatDateShort } from "@/utils/time";
 import { ArticlesTable } from "../../articles-table";
 import { DOMAIN_META, DOMAIN_ORDER, resolveDomain } from "../../domain-meta";
 import { OpenQuestionsSection } from "../../open-questions-section";
-import { getArticlesByDomain, getOpenQuestionsByDomain } from "../../service";
+import { importArticleModule } from "../../render-article";
+import {
+  articleExists,
+  getArticlesByDomain,
+  getOpenQuestionsByDomain,
+} from "../../service";
 
 interface DomainPageParams {
   domain: string;
@@ -51,10 +56,17 @@ export default async function DomainPage({ params }: DomainPageProps) {
   }
 
   const meta = DOMAIN_META[resolved];
-  const [articles, openQuestions] = await Promise.all([
+  const mocSlug = `moc-${resolved}`;
+  const [articles, openQuestions, hasMoc] = await Promise.all([
     getArticlesByDomain(resolved),
     Promise.resolve(getOpenQuestionsByDomain(resolved)),
+    articleExists(mocSlug),
   ]);
+  // Render the curated Map of Content inline when one exists; the `syntheses`
+  // domain has no MOC, so it falls back to the date-sorted notes table.
+  const Moc = hasMoc
+    ? (await importArticleModule(mocSlug, "en")).default
+    : null;
   const newestDate = articles.at(0)?.meta.date;
   const oldestDate = articles.at(-1)?.meta.date;
   const openCount = openQuestions.reduce(
@@ -83,10 +95,16 @@ export default async function DomainPage({ params }: DomainPageProps) {
         {meta.blurb}
       </p>
 
-      <ArticlesTable
-        articles={articles}
-        srCaption={`${meta.label} articles, sorted by date, newest first.`}
-      />
+      {Moc ? (
+        <div className="prose max-w-none">
+          <Moc />
+        </div>
+      ) : (
+        <ArticlesTable
+          articles={articles}
+          srCaption={`${meta.label} articles, sorted by date, newest first.`}
+        />
+      )}
 
       <OpenQuestionsSection
         color={meta.color}

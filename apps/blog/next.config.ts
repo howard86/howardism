@@ -118,6 +118,14 @@ const nextConfig: NextConfig = {
       destination: "/articles",
       permanent: true,
     },
+    // Each domain's `moc-<domain>` Map of Content is now rendered inline on the
+    // domain page rather than as a standalone article. Its old article URL folds
+    // into the canonical domain page so wiki backlinks to the MOC keep resolving.
+    {
+      source: "/articles/moc-:domain",
+      destination: "/articles/domain/:domain",
+      permanent: true,
+    },
     {
       source: "/zh-TW/articles/wiki-changelog",
       destination: "/zh-TW/articles",
