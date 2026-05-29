@@ -125,7 +125,7 @@ export function SiteBar() {
     <header
       className={cn(
         "sticky top-0 z-50 transition-colors duration-200",
-        isScrolled && "border-border border-b bg-background/85 backdrop-blur-md"
+        isScrolled && "border-border border-b bg-background/20 backdrop-blur-sm"
       )}
     >
       <Container className="relative w-full">
