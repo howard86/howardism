@@ -1,0 +1,71 @@
+---
+date: 2026-05-28
+title: Agent Identity and Authentication
+description: "The foundation control for agentic Zero Trust:
+  cryptographically-rooted per-agent identity (→X.509→hardware attestation),
+  short-lived IdP-issued tokens replacing static API keys (→mTLS→hardware-bound
+  credentials), JIT access and ABAC"
+tag: Concept
+topic: architecture
+tags:
+  - security
+  - identity
+  - authentication
+  - credentials
+readingTime: 4
+imageAlt: Illustration for Agent Identity and Authentication
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/agent-identity-and-authentication.png";
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## Summary
+
+Identity and authentication form the **foundation for every other security capability** in [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents): without verifiable identity you cannot enforce access controls, maintain audit trails, or attribute actions. Without distinct identities, agents operate in an *"attribution gap" where enforcing [Least Agency](/articles/least-agency) becomes impossible.* The framework's stance is aggressive — static API keys and shared service-account passwords are *"among the first things an attacker with model-assisted code analysis will find"* and are **no longer acceptable even at Foundation.**
+
+## Two halves: who you are, and proving it
+
+### Agent identity verification
+- **Foundation** — unique *cryptographically-rooted* identifiers per agent instance (not just labels — "unique identifiers alone are a labeling exercise"); lifecycle tracked creation→retirement; IDs in all logs and access requests. Cryptographic rooting is what makes non-repudiation and identity-forgery-resistance real.
+- **Enterprise** — X.509 certificates with full lifecycle management (rotation, revocation).
+- **Advanced** — hardware-backed identity in HSMs/TPMs with remote attestation; increasingly recommended as the target state for any internet-reachable production system.
+
+### Service authentication
+- **Foundation** — short-lived, narrowly-scoped tokens from an identity provider (OAuth 2.0), expiry in *minutes*, automated refresh, never embedded in code/config. Running API keys with rotation "today" is a *known gap*, not a legitimate Foundation posture — rotating a greppable credential doesn't meaningfully raise cost (see [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)).
+- **Enterprise** — mutual TLS with certificate pinning.
+- **Advanced** — hardware-bound credentials with attested issuance, so credentials can't be exfiltrated from a compromised host; applies to service-to-service calls too.
+
+## Credential protection and scoping (Phase 6)
+
+- **Credential isolation** — per-agent unique credentials so one theft doesn't grant the combined access of every agent sharing a secret; inject at runtime from secrets managers (e.g., HashiCorp Vault), never in code/config.
+- **Just-in-Time (JIT) access** — grant permissions only at the moment of need, scoped and time-boxed, auto-revoked; an attacker finds no cached credentials to steal. The framework calls JIT "very powerful, not easily implemented" — an advanced but very strong mitigation.
+- **Attribute-based access control (ABAC)** — evaluate identity, resource sensitivity, action, time, location, risk score before granting; step-up auth for sensitive records, block bulk exports.
+- **Hardware-bound 2FA** — FIDO2 / passkeys wherever a human is in the loop; SMS codes "do not meet the Foundation bar."
+
+## Why this is the keystone
+
+Identity is the prerequisite for [Blast Radius (Agentic)](/articles/blast-radius) containment (identity-based isolation: services accept only explicitly-named callers), for [Least Agency](/articles/least-agency) enforcement (you can't scope what you can't attribute), and for observability/traceability (filtering audit logs by agent during an incident). The framework notes [Claude Code](/articles/claude-code) assigns a unique `session.id` with `account_uuid`/`organization.id` attribution on all telemetry, and uses OAuth 2.0 with auto-refresh for MCP connections.
+
+## Connections
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — control domain 1; the foundation for every other control (hub)
+- [Least Agency](/articles/least-agency) — unenforceable without distinct per-agent identity (the attribution gap)
+- [Blast Radius (Agentic)](/articles/blast-radius) — identity-based isolation and per-agent credentials are the primary containment controls
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — static-key rotation is a friction control that fails; short-lived + hardware-bound credentials pass
+- [Claude Code](/articles/claude-code) — cited reference: per-session identity, OAuth 2.0 MCP auth, OS credential store, `apiKeyHelper`
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP connections are a named place to apply short-lived IdP-issued tokens over static keys
+- [Autonomous Defense](/articles/autonomous-defense) — automated incident response (quarantine, session termination, credential revocation) executes through the identity-based isolation and short-lived credentials defined here
+
+## Open Questions
+
+- Hardware-bound credentials assume attested hardware everywhere agents run, including ephemeral cloud workloads and sub-agents. How does attestation work for short-lived spawned sub-agents that "have up to the same permissions as the parent"?
+- JIT + ABAC are both labeled "advanced, not easily implemented." Is there a pragmatic Enterprise-tier midpoint, or is the gap from Foundation static roles to Advanced JIT a cliff?
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part III identity/auth + access-control tiers; Part IV Phases 3 & 6

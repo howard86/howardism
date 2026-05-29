@@ -1,0 +1,70 @@
+---
+date: 2026-05-28
+title: Agentic Prompt Injection
+description: Direct and indirect injection of malicious instructions into an
+  agent; LLMs cannot reliably distinguish information from instructions;
+  defenses are spotlighting (50%→<2%), constitutional classifiers (95% blocked),
+  input isolation, and attack-surface reduction
+tag: Concept
+topic: architecture
+tags:
+  - security
+  - prompt-injection
+  - threats
+  - input-validation
+readingTime: 4
+imageAlt: Illustration for Agentic Prompt Injection
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/agentic-prompt-injection.png";
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## Summary
+
+Prompt injection is the insertion of malicious instructions that cause an agent to follow attacker commands. [OWASP](/articles/owasp) lists it as the lead threat to agentic systems, and the core technical fact behind it is load-bearing for the whole [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) framework: **LLMs cannot reliably distinguish between informational context and actionable instructions** (Microsoft Research). Because the model treats data and commands as the same token stream, no amount of "tell the agent not to" fully solves it — defense is structural.
+
+## Two forms
+
+- **Direct prompt injection** — attackers craft inputs that override system instructions: explicit instruction overrides, encoding schemes (Base64, hex) to bypass filters, and adversarial suffixes that look meaningless to humans but steer outputs. Research shows algorithmic approaches achieving **100% attack success rates** with prompts that *transfer across multiple model families.*
+- **Indirect prompt injection** — the more insidious form. Attackers embed instructions in external data the agent processes (web pages, emails, documents). The user never sees the payload, and the agent executes it as if it were a legitimate request. This is what makes [agents that browse, read mail, or ingest documents](/articles/mcp-and-computer-use) structurally exposed.
+
+Injection is also the delivery mechanism for adjacent threats: it's how tool-misuse and tool-chaining attacks are triggered, and a vector for [Memory and Context Poisoning](/articles/memory-and-context-poisoning) when the injected instruction is written to persistent memory.
+
+## Defenses (structural, not exhortative)
+
+The framework's input-validation tier ladder and Phase 4 prescribe layered defenses:
+
+- **Input isolation / spotlighting** — treat all natural-language input as untrusted and clearly *delimit* it so the model knows what is data vs. instruction. Microsoft's **Spotlighting** reduces indirect-injection success from **over 50% to under 2%.** This is the single highest-leverage control.
+- **Constitutional classifiers** — AI-based guards that scan prompts and responses for manipulation attempts. Anthropic's approach **blocked 95% of jailbreak attempts** in testing with minimal increase in over-refusal. Can be trained into LLM guards monitoring both input and output.
+- **Input sanitization** — schema validation, length limits, known-bad-pattern and encoded-payload filtering (Foundation → Enterprise). Notably, this does *not* translate cleanly from SQL injection: agent inputs are freeform and unpredictable, so simple enforcement rules are insufficient.
+- **Limit attack surface** — restrict *who and what* can interact with the agent. A traditional technique, but among the most effective: fewer untrusted inputs, fewer injection opportunities.
+- **Parameter validation** — validate tool-call arguments (Phase 5) on both agent and tool side; reject parameters outside expected ranges.
+
+## Why "tedious" defenses fail here
+
+Encoding-based filters and pattern blocklists are friction controls: a patient attacker re-encodes the payload. Per the [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test), the durable controls are the ones that change the *structure* (spotlighting delimits, isolation quarantines, classifiers semantically detect) rather than the ones that merely raise the cost of a retry.
+
+## Connections
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Phase 4 ("defend against prompt injection") and the input-validation control domain (hub)
+- [Least Agency](/articles/least-agency) — the authorization principle that contains a successful injection: even a hijacked agent can only misuse the tools its agency permits
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — injection is a delivery vector for persistent memory corruption; both exploit the same "data ≡ instructions" weakness
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — distinguishes structural defenses (spotlighting, isolation) from friction-only filters
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — classifier-gated tool approval is a deployed instance of the constitutional-classifier idea at the action boundary
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — injection is how an *external* attacker induces harmful agent behavior; agentic misalignment is the *self-motivated* analogue
+- [OWASP](/articles/owasp) — lists prompt injection as the lead agentic threat
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — browsing / email / document tools are the indirect-injection entry points
+
+## Open Questions
+
+- Spotlighting and constitutional classifiers each leave a residual (2%, 5%). Stacked, what's the realistic floor, and does it hold against adaptive attackers who know both are deployed?
+- "LLMs cannot reliably distinguish information from instructions" — is this a fundamental property of the architecture or a training gap that future models close? The framework treats it as durable.
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part II threat description; Part III input validation tiers; Part IV Phase 4
