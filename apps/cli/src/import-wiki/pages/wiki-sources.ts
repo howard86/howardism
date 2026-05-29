@@ -11,7 +11,7 @@ import {
  * A raw source document (`raw/<slug>.md`) aggregated across the wiki, for the
  * home page's "The Desk" reading list. `citedBy` lists the notes that cite the
  * source, which both ranks the desk and lets the blog pick the most-cited
- * source within a topic for the topic-plate aside.
+ * source within a domain for the domain-plate aside.
  */
 export interface WikiSource {
   author?: string;

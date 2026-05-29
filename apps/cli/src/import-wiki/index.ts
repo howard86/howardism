@@ -4,10 +4,17 @@ import { dirname, join, resolve } from "node:path";
 import {
   type SourceRef,
   WIKI_TAGS,
+  type WikiDomain,
   type WikiTag,
 } from "@howardism/article-contract";
 import { runWithConcurrency } from "../concurrency.ts";
 import { generateHeroImage } from "./codex.ts";
+import {
+  buildDomainMembership,
+  isMocSlug,
+  OPEN_QUESTIONS_SLUG,
+  resolveDomain,
+} from "./domains.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import {
@@ -24,12 +31,12 @@ import {
   resolveDate,
   stripWikilinksToText,
 } from "./parse.ts";
-import { deriveTopic } from "./topics.ts";
 import {
   buildSourcesSection,
   computeReadingTime,
   detectEntityPrefix,
   escapeMdxBody,
+  firstBlockquote,
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
@@ -43,6 +50,7 @@ interface RunOptions {
   dryRun: boolean;
   graphOutputPath: string;
   onlySlug: string | null;
+  openQuestionsOutputPath: string;
   overridesPath: string;
   rawPath: string;
   skipImages: boolean;
@@ -56,6 +64,8 @@ interface ImportSummary {
   imagesCached: string[];
   imagesGenerated: string[];
   missingRawSources: Map<string, Set<string>>;
+  /** Concept-folder notes not listed in any MOC; fell back to `syntheses`. */
+  unmappedConcepts: Set<string>;
   unresolvedWikilinks: Map<string, Set<string>>;
 }
 
@@ -77,6 +87,10 @@ const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
 const DEFAULT_SOURCES_OUTPUT_PATH = resolve(
   REPO_ROOT,
   "apps/blog/src/data/wiki-sources.json"
+);
+const DEFAULT_OPEN_QUESTIONS_OUTPUT_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/data/open-questions.json"
 );
 const DEFAULT_OVERRIDES_PATH = join(CLI_ROOT, "wiki-category-overrides.json");
 /**
@@ -124,11 +138,14 @@ async function main(): Promise<void> {
       parsed: ctx.parsedAll,
       rawRoot: opts.rawPath,
       generatedOn,
+      membership: ctx.domainMembership,
+      slugTitleMap: ctx.slugTitleMap,
     });
     const { graphPath } = await writeManifests({
       set,
       graphOutputPath: opts.graphOutputPath,
       sourcesOutputPath: opts.sourcesOutputPath,
+      openQuestionsOutputPath: opts.openQuestionsOutputPath,
       dryRun: opts.dryRun,
     });
     summary.graphPath = graphPath;
@@ -138,6 +155,7 @@ async function main(): Promise<void> {
 }
 
 interface ImportContext {
+  domainMembership: Map<string, WikiDomain>;
   indexSummaries: Map<string, string>;
   overrides: Record<string, WikiTag>;
   parsedAll: ParsedWikiFile[];
@@ -157,6 +175,9 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   // text.
   const allParsed = await Promise.all(sources.map(parseWikiFile));
   const slugTitleMap = buildSlugTitleMap(allParsed);
+  // MOC pages own the domain-membership map, so build it from the full corpus
+  // (before any --only filter) — a targeted re-import still needs every MOC.
+  const domainMembership = buildDomainMembership(allParsed);
 
   const parsedAll = opts.onlySlug
     ? allParsed.filter((p) => p.source.slug === opts.onlySlug)
@@ -169,7 +190,13 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
     join(opts.wikiPath, "index.md")
   );
 
-  return { parsedAll, slugTitleMap, indexSummaries, overrides };
+  return {
+    parsedAll,
+    slugTitleMap,
+    domainMembership,
+    indexSummaries,
+    overrides,
+  };
 }
 
 function createSummary(): ImportSummary {
@@ -179,6 +206,7 @@ function createSummary(): ImportSummary {
     imagesGenerated: [],
     imagesCached: [],
     missingRawSources: new Map(),
+    unmappedConcepts: new Set(),
     unresolvedWikilinks: new Map(),
   };
 }
@@ -216,8 +244,19 @@ async function processArticle(
     summary.unresolvedWikilinks.set(slug, new Set(unresolved));
   }
 
+  // MOC and the open-questions backlog are wiki navigation, not editorial
+  // prose — they belong in the `Index` kind, kept out of Concept/Essay.
+  const isIndexPage = isMocSlug(slug) || slug === OPEN_QUESTIONS_SLUG;
+
+  // A MOC's first content is a `<!-- BEGIN GENERATED -->` marker, so its
+  // description must come from the `> Map of Content…` blockquote intro rather
+  // than the usual first-paragraph fallback.
+  const mocDescription = isMocSlug(slug)
+    ? stripWikilinksToText(firstBlockquote(parsed.body))
+    : "";
   const rawDescription =
-    ctx.indexSummaries.get(slug) ??
+    ctx.indexSummaries.get(slug) ||
+    mocDescription ||
     stripWikilinksToText(firstParagraph(parsed.body));
   const explicitOverride = ctx.overrides[slug];
   const defaultTag: WikiTag =
@@ -225,14 +264,28 @@ async function processArticle(
 
   // Always strip the editorial `_Entity._` marker. If the article is otherwise
   // a default-tagged Concept (no explicit override), promote it to Entity.
-  // An explicit override wins over the marker — that's the manual escape hatch.
+  // An explicit override wins over everything — that's the manual escape hatch.
   const { description: cleanedDescription, isEntity } =
     detectEntityPrefix(rawDescription);
-  const tag: WikiTag =
-    explicitOverride ??
-    (isEntity && defaultTag === "Concept" ? "Entity" : defaultTag);
+  const tag = resolveTag({
+    explicitOverride,
+    isIndexPage,
+    isEntity,
+    defaultTag,
+  });
 
   const tags = normaliseTags(frontmatter.tags);
+
+  const domain = resolveDomain(slug, ctx.domainMembership);
+  // A concept the vault forgot to file under any MOC lands in `syntheses` by
+  // fallback — flag it so the author can curate it into the right domain.
+  if (
+    source.folder === "concepts" &&
+    !isMocSlug(slug) &&
+    !ctx.domainMembership.has(slug)
+  ) {
+    summary.unmappedConcepts.add(slug);
+  }
 
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
@@ -240,7 +293,7 @@ async function processArticle(
     description: cleanedDescription,
     readingTime: computeReadingTime(body),
     tag,
-    topic: deriveTopic(frontmatter.tags),
+    domain,
     ...(tags.length > 0 ? { tags } : {}),
     ...(sources.length > 0 ? { sources } : {}),
   };
@@ -266,6 +319,30 @@ async function processArticle(
     dryRun: opts.dryRun,
   });
   summary.articlesWritten.push(filePath);
+}
+
+/**
+ * Pick an article's kind. An explicit override always wins; otherwise Index
+ * pages (MOCs, the backlog) take precedence, then the `_Entity._` promotion,
+ * then the folder default (concepts → Concept, derived → Essay).
+ */
+function resolveTag(args: {
+  defaultTag: WikiTag;
+  explicitOverride: WikiTag | undefined;
+  isEntity: boolean;
+  isIndexPage: boolean;
+}): WikiTag {
+  const { defaultTag, explicitOverride, isEntity, isIndexPage } = args;
+  if (explicitOverride) {
+    return explicitOverride;
+  }
+  if (isIndexPage) {
+    return "Index";
+  }
+  if (isEntity && defaultTag === "Concept") {
+    return "Entity";
+  }
+  return defaultTag;
 }
 
 /**
@@ -385,6 +462,9 @@ function parseOptions(): RunOptions {
   const sourcesOutputPath = resolve(
     env.SOURCES_OUTPUT_PATH ?? DEFAULT_SOURCES_OUTPUT_PATH
   );
+  const openQuestionsOutputPath = resolve(
+    env.OPEN_QUESTIONS_OUTPUT_PATH ?? DEFAULT_OPEN_QUESTIONS_OUTPUT_PATH
+  );
 
   const argv = process.argv.slice(2);
   const onlyIndex = argv.indexOf("--only");
@@ -398,6 +478,7 @@ function parseOptions(): RunOptions {
     overridesPath,
     graphOutputPath,
     sourcesOutputPath,
+    openQuestionsOutputPath,
     onlySlug,
     skipImages: env.SKIP_IMAGES === "1",
     dryRun: env.DRY_RUN === "1",
@@ -454,6 +535,14 @@ function printSummary(summary: ImportSummary): void {
   console.log(`Images cached:    ${summary.imagesCached.length}`);
   if (summary.graphPath) {
     console.log(`Graph:            ${summary.graphPath}`);
+  }
+  if (summary.unmappedConcepts.size > 0) {
+    console.log(
+      "\nConcepts not listed in any MOC (filed under `syntheses` by fallback):"
+    );
+    for (const slug of [...summary.unmappedConcepts].sort()) {
+      console.log(`  ${slug}`);
+    }
   }
   if (summary.unresolvedWikilinks.size > 0) {
     console.log("\nUnresolved wikilinks (rendered as plain text):");
