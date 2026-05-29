@@ -246,13 +246,25 @@ export const getTagCounts = cache(
   }
 );
 
+/**
+ * A domain's members are its concepts/entities/essays — never its MOC. A MOC
+ * carries `tag: Index` and its own `domain`, but it's the curated *map* of the
+ * domain, not a note within it, so it's excluded from every domain aggregation
+ * (counts, listings, sparklines, lead source). The open-questions backlog (also
+ * `Index`) drops out the same way.
+ */
+const isDomainMember = (
+  entity: ArticleEntity | undefined
+): entity is ArticleEntity =>
+  entity !== undefined && entity.meta.tag !== "Index";
+
 export const getArticlesByDomain = cache(
   async (domain: ArticleDomain): Promise<ArticleEntity[]> => {
     const visible = await getVisibleArticles();
     const matches: ArticleEntity[] = [];
     for (const id of visible.ids) {
       const entity = visible.entities[id];
-      if (entity && entity.meta.domain === domain) {
+      if (isDomainMember(entity) && entity.meta.domain === domain) {
         matches.push(entity);
       }
     }
@@ -267,9 +279,9 @@ export const getDomainCounts = cache(
       ARTICLE_DOMAINS.map((domain) => [domain, 0])
     ) as Record<ArticleDomain, number>;
     for (const id of visible.ids) {
-      const domain = visible.entities[id]?.meta.domain;
-      if (domain) {
-        counts[domain] += 1;
+      const entity = visible.entities[id];
+      if (isDomainMember(entity) && entity.meta.domain) {
+        counts[entity.meta.domain] += 1;
       }
     }
     return counts;
@@ -406,7 +418,7 @@ export const getDomainSparklines = cache(
       .map((id) => visible.entities[id])
       .filter(
         (e): e is ArticleEntity =>
-          e !== undefined && e.meta.domain !== undefined
+          isDomainMember(e) && e.meta.domain !== undefined
       );
 
     const anchor = dated.reduce(
@@ -443,7 +455,10 @@ export const getDomainLeadSource = cache(
   async (domain: ArticleDomain): Promise<WikiSource | undefined> => {
     const visible = await getVisibleArticles();
     const domainSlugs = new Set(
-      visible.ids.filter((id) => visible.entities[id]?.meta.domain === domain)
+      visible.ids.filter((id) => {
+        const entity = visible.entities[id];
+        return isDomainMember(entity) && entity.meta.domain === domain;
+      })
     );
     let best: WikiSource | undefined;
     let bestScore = 0;
