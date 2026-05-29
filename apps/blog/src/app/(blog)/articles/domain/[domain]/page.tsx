@@ -6,34 +6,35 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { ArticlesTable } from "../../articles-table";
-import { getArticlesByTopic } from "../../service";
-import { resolveTopic, TOPIC_META, TOPIC_ORDER } from "../../topic-meta";
+import { DOMAIN_META, DOMAIN_ORDER, resolveDomain } from "../../domain-meta";
+import { OpenQuestionsSection } from "../../open-questions-section";
+import { getArticlesByDomain, getOpenQuestionsByDomain } from "../../service";
 
-interface TopicPageParams {
-  topic: string;
+interface DomainPageParams {
+  domain: string;
 }
 
-interface TopicPageProps {
-  params: Promise<TopicPageParams>;
+interface DomainPageProps {
+  params: Promise<DomainPageParams>;
 }
 
 export const dynamic = "error";
 export const dynamicParams = false;
 
-export function generateStaticParams(): TopicPageParams[] {
-  return TOPIC_ORDER.map((topic) => ({ topic }));
+export function generateStaticParams(): DomainPageParams[] {
+  return DOMAIN_ORDER.map((domain) => ({ domain }));
 }
 
 export async function generateMetadata({
   params,
-}: TopicPageProps): Promise<Metadata> {
-  const { topic } = await params;
-  const resolved = resolveTopic(topic);
+}: DomainPageProps): Promise<Metadata> {
+  const { domain } = await params;
+  const resolved = resolveDomain(domain);
   if (!resolved) {
     return { title: "Not found — Howardism" };
   }
-  const meta = TOPIC_META[resolved];
-  const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/topic/${resolved}`;
+  const meta = DOMAIN_META[resolved];
+  const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/domain/${resolved}`;
   return {
     title: `${meta.label} notes — Howardism`,
     description: meta.metaDescription,
@@ -42,26 +43,34 @@ export async function generateMetadata({
   };
 }
 
-export default async function TopicPage({ params }: TopicPageProps) {
-  const { topic } = await params;
-  const resolved = resolveTopic(topic);
+export default async function DomainPage({ params }: DomainPageProps) {
+  const { domain } = await params;
+  const resolved = resolveDomain(domain);
   if (!resolved) {
     notFound();
   }
 
-  const meta = TOPIC_META[resolved];
-  const articles = await getArticlesByTopic(resolved);
+  const meta = DOMAIN_META[resolved];
+  const [articles, openQuestions] = await Promise.all([
+    getArticlesByDomain(resolved),
+    Promise.resolve(getOpenQuestionsByDomain(resolved)),
+  ]);
   const newestDate = articles.at(0)?.meta.date;
   const oldestDate = articles.at(-1)?.meta.date;
+  const openCount = openQuestions.reduce(
+    (sum, concept) => sum + concept.questions.length,
+    0
+  );
 
   return (
     <div className="hw-page-enter mx-auto max-w-[1120px] px-8 pb-20">
       <DiscPageHeader
         data={[
           ["Notes", String(articles.length)],
-          ["Topic", meta.label],
-          ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
+          ["Domain", meta.label],
+          ["Open Qs", String(openCount)],
           ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
+          ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
         ]}
         number="02"
         plate="Plate II"
@@ -77,6 +86,12 @@ export default async function TopicPage({ params }: TopicPageProps) {
       <ArticlesTable
         articles={articles}
         srCaption={`${meta.label} articles, sorted by date, newest first.`}
+      />
+
+      <OpenQuestionsSection
+        color={meta.color}
+        concepts={openQuestions}
+        heading="Open questions"
       />
     </div>
   );

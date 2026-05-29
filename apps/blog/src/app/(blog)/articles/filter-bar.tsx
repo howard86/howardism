@@ -1,6 +1,6 @@
-import { TopicDot } from "@/components/howardism/topic-dot";
+import { DomainDot } from "@/components/howardism/domain-dot";
 
-import { TOPIC_META, TOPIC_ORDER } from "./topic-meta";
+import { DOMAIN_META, DOMAIN_ORDER } from "./domain-meta";
 
 interface FilterBarProps {
   /** Section slugs present on the page, in order, for the "Filed under" row. */
@@ -15,7 +15,7 @@ const ACTIVE = "border-current border-b pb-0.5 text-brand italic";
 
 /**
  * Two-row filter bar. "Filed under" jumps to each kind plate (in-page
- * anchors); "Topic" links to the `/articles/topic/[topic]` routes.
+ * anchors); "Domain" links to the `/articles/domain/[domain]` routes.
  */
 export function FilterBar({ sectionSlugs }: FilterBarProps) {
   return (
@@ -31,16 +31,16 @@ export function FilterBar({ sectionSlugs }: FilterBarProps) {
           ))}
         </div>
 
-        <span className={ROW_LABEL}>Topic</span>
+        <span className={ROW_LABEL}>Domain</span>
         <div className="flex flex-wrap gap-x-6 gap-y-1.5">
-          {TOPIC_ORDER.map((topic) => (
+          {DOMAIN_ORDER.map((domain) => (
             <a
               className={`${PILL} flex items-baseline`}
-              href={`/articles/topic/${topic}`}
-              key={topic}
+              href={`/articles/domain/${domain}`}
+              key={domain}
             >
-              <TopicDot size={6} topic={topic} />
-              {TOPIC_META[topic].label.toLowerCase()}
+              <DomainDot domain={domain} size={6} />
+              {DOMAIN_META[domain].label.toLowerCase()}
             </a>
           ))}
         </div>

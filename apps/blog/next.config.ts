@@ -110,6 +110,14 @@ const nextConfig: NextConfig = {
       destination: "/articles",
       permanent: true,
     },
+    // The five derived `topic` buckets were replaced by the wiki's nine
+    // curated `domain` MOCs. The taxonomies don't map 1:1, so old topic URLs
+    // land on the articles index rather than guessing a domain.
+    {
+      source: "/articles/topic/:slug",
+      destination: "/articles",
+      permanent: true,
+    },
     {
       source: "/zh-TW/articles/wiki-changelog",
       destination: "/zh-TW/articles",
