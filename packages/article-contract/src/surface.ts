@@ -6,7 +6,7 @@ import matter from "gray-matter";
  * The "translatable surface" of a source article: exactly the parts an engine
  * rewrites when translating. Hashing this (and ONLY this) is what makes
  * staleness detection robust against importer reformats — a change to a
- * copy-verbatim field (date/readingTime/tag/topic) does NOT alter the hash, so
+ * copy-verbatim field (date/readingTime/tag/domain) does NOT alter the hash, so
  * it never triggers a paid re-translation.
  */
 export interface TranslatableSurface {

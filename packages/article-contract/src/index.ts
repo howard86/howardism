@@ -2,15 +2,27 @@ export const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index"] as const;
 
 export type WikiTag = (typeof WIKI_TAGS)[number];
 
-export const WIKI_TOPICS = [
-  "interaction",
-  "architecture",
-  "harness",
-  "alignment",
-  "orgs",
+/**
+ * The wiki's curated knowledge domains — the blog's primary browse axis.
+ *
+ * The first eight mirror the vault's `moc-*` Map-of-Content pages (slug =
+ * `moc-<domain>` minus the prefix) and are sourced from `index.md`'s
+ * `### <Domain> ([[moc-…|MOC]])` headings. `syntheses` is the catch-all for
+ * `derived/` essays, which the vault does not file under a single domain.
+ */
+export const WIKI_DOMAINS = [
+  "ai-engineering",
+  "llm-architecture",
+  "interaction-multimodal",
+  "formal-math",
+  "startup-founder",
+  "product-org",
+  "governance-workforce",
+  "entities",
+  "syntheses",
 ] as const;
 
-export type WikiTopic = (typeof WIKI_TOPICS)[number];
+export type WikiDomain = (typeof WIKI_DOMAINS)[number];
 
 export interface SourceRef {
   title: string;
@@ -25,6 +37,12 @@ export interface SourceRef {
 export interface ArticleContract {
   date: string;
   description: string;
+  /**
+   * Curated knowledge domain the note belongs to, resolved by the importer
+   * from `index.md`'s MOC groupings (derived notes fall back to `syntheses`).
+   * Drives the home page's domain plate stack and `/articles/domain/[domain]`.
+   */
+  domain?: WikiDomain;
   readingTime: number;
   /**
    * Audit trail of external source documents the article was synthesised from.
@@ -37,14 +55,9 @@ export interface ArticleContract {
   /**
    * The wiki note's free-form subject labels (lowercase kebab), passed through
    * verbatim by the importer. Distinct from singular `tag` (the kind) and from
-   * `topic` (the single derived bucket); these drive the tag chips and
+   * `domain` (the single curated bucket); these drive the tag chips and
    * `/articles/tagged/[tag]` routes. Omitted when the note has no tags.
    */
   tags?: string[];
   title: string;
-  /**
-   * Curated subject bucket derived by the importer from the note's `tags`.
-   * Drives the home page's topic plate stack. Absent on non-topical pages.
-   */
-  topic?: WikiTopic;
 }
