@@ -8,11 +8,11 @@ import {
 } from "../translate/engines.ts";
 
 const KIRO_ENV_RE = /KIRO_ACP_CLIENT/;
-const ENGINE_LIST_RE = /one of:\s*codex,\s*claude,\s*agy,\s*kiro/;
+const ENGINE_LIST_RE = /one of:\s*codex,\s*claude,\s*agy,\s*kiro,\s*cursor/;
 
 describe("ENGINES", () => {
-  it("lists the four supported engines in order", () => {
-    expect(ENGINES).toEqual(["codex", "claude", "agy", "kiro"]);
+  it("lists the five supported engines in order", () => {
+    expect(ENGINES).toEqual(["codex", "claude", "agy", "kiro", "cursor"]);
   });
 });
 
@@ -63,6 +63,44 @@ describe("buildEngineArgv", () => {
       "1800s",
       "--dangerously-skip-permissions",
       "-p",
+      prompt,
+    ]);
+  });
+
+  it("builds cursor argv with default composer model, json output, and headless flags", () => {
+    expect(buildEngineArgv("cursor", { prompt, scopeDir })).toEqual([
+      "cursor-agent",
+      "-p",
+      "--output-format",
+      "json",
+      "--model",
+      "composer-2.5",
+      "--force",
+      "--trust",
+      "--workspace",
+      "/repo/root",
+      prompt,
+    ]);
+  });
+
+  it("builds cursor argv with an overridden model", () => {
+    expect(
+      buildEngineArgv("cursor", {
+        prompt,
+        scopeDir,
+        cursorModel: "composer-2.5-fast",
+      })
+    ).toEqual([
+      "cursor-agent",
+      "-p",
+      "--output-format",
+      "json",
+      "--model",
+      "composer-2.5-fast",
+      "--force",
+      "--trust",
+      "--workspace",
+      "/repo/root",
       prompt,
     ]);
   });
@@ -199,6 +237,30 @@ describe("runEngine", () => {
         Promise.resolve({ stdout: "…\n86.58 total credits\n", stderr: "" }),
     });
     expect(result.usage?.credits).toBeCloseTo(86.58);
+  });
+
+  it("parses cursor --output-format json token usage", async () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: "translated.",
+      usage: {
+        inputTokens: 20_108,
+        outputTokens: 35,
+        cacheReadTokens: 5344,
+        cacheWriteTokens: 0,
+      },
+    });
+    const result = await runEngine("cursor", {
+      prompt: "x",
+      scopeDir: "/tmp",
+      runner: () => Promise.resolve({ stdout, stderr: "" }),
+    });
+    expect(result.usage).toEqual({
+      inputTokens: 20_108,
+      outputTokens: 35,
+    });
   });
 
   it("leaves usage undefined for agy (no machine-readable output)", async () => {

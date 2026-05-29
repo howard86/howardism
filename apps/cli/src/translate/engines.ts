@@ -1,11 +1,15 @@
-export const ENGINES = ["codex", "claude", "agy", "kiro"] as const;
+export const ENGINES = ["codex", "claude", "agy", "kiro", "cursor"] as const;
 
 export type Engine = (typeof ENGINES)[number];
+
+/** Cursor's "composer" model — overridable per run via `TRANSLATE_CURSOR_MODEL`. */
+export const DEFAULT_CURSOR_MODEL = "composer-2.5";
 
 /**
  * Best-effort cost/usage telemetry parsed from an engine's stdout. Every field
  * is optional: `claude --output-format json` populates all of them, `kiro` may
- * surface credits over ACP, and `agy`/`codex` expose nothing machine-readable
+ * surface credits over ACP, `cursor --output-format json` reports input/output
+ * tokens (no cost/model), and `agy`/`codex` expose nothing machine-readable
  * (left undefined; the orchestrator backfills a configured model label).
  */
 export interface EngineUsage {
@@ -38,6 +42,8 @@ export type EngineRunner = (
 ) => Promise<EngineRunResult>;
 
 export interface BuildEngineArgvArgs {
+  /** Model passed to `cursor --model`; defaults to {@link DEFAULT_CURSOR_MODEL}. */
+  cursorModel?: string;
   /** Absolute path to the kiro-acp.py client; required only for `kiro`. */
   kiroClient?: string;
   prompt: string;
@@ -45,6 +51,8 @@ export interface BuildEngineArgvArgs {
 }
 
 export interface RunEngineArgs {
+  /** Model passed to `cursor --model`; defaults to {@link DEFAULT_CURSOR_MODEL}. */
+  cursorModel?: string;
   /** Extra env vars merged over the inherited environment for the subprocess. */
   env?: Record<string, string>;
   kiroClient?: string;
@@ -85,6 +93,10 @@ export function parseEngine(value: string | undefined): Engine {
  * - codex/claude take the prompt as the final positional argument.
  * - agy uses `--add-dir <scope>` and `--print-timeout 1800s` plus
  *   `--dangerously-skip-permissions` so it runs unattended.
+ * - cursor runs `cursor-agent -p` headlessly with `--output-format json` (for
+ *   usage capture), `--force` + `--trust` so it can write files / shell out to
+ *   the glossary CLI without prompting, and `--model <cursorModel>` (defaults to
+ *   the composer model).
  * - kiro shells out to a Python ACP client (`kiroClient`) that drives the
  *   `kiro-cli acp` JSON-RPC protocol; we never hardcode that path here so the
  *   tooling is portable across machines.
@@ -93,7 +105,7 @@ export function buildEngineArgv(
   engine: Engine,
   args: BuildEngineArgvArgs
 ): string[] {
-  const { prompt, scopeDir, kiroClient } = args;
+  const { prompt, scopeDir, kiroClient, cursorModel } = args;
   if (engine === "codex") {
     return ["codex", "exec", prompt];
   }
@@ -112,6 +124,21 @@ export function buildEngineArgv(
       "1800s",
       "--dangerously-skip-permissions",
       "-p",
+      prompt,
+    ];
+  }
+  if (engine === "cursor") {
+    return [
+      "cursor-agent",
+      "-p",
+      "--output-format",
+      "json",
+      "--model",
+      cursorModel ?? DEFAULT_CURSOR_MODEL,
+      "--force",
+      "--trust",
+      "--workspace",
+      scopeDir,
       prompt,
     ];
   }
@@ -282,7 +309,36 @@ const parseKiroUsage = (stdout: string): EngineUsage | undefined => {
 const hasAnyField = (usage: EngineUsage): boolean =>
   Object.values(usage).some((v) => v !== undefined);
 
-/** Extract usage from a finished run; only claude/kiro expose anything. */
+/**
+ * Parse `cursor-agent --output-format json` stdout for token usage. The final
+ * line is a single result object `{ type: "result", usage: { inputTokens,
+ * outputTokens, … } }`; we scan for the last parseable result object so any
+ * preceding log lines are ignored. Cursor reports no cost or model.
+ */
+const parseCursorUsage = (stdout: string): EngineUsage | undefined => {
+  let usage: EngineUsage | undefined;
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!(trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+      continue;
+    }
+    try {
+      const json = JSON.parse(trimmed) as Record<string, unknown>;
+      const inner = json.usage as Record<string, unknown> | undefined;
+      if (inner) {
+        usage = {
+          inputTokens: numberOr(inner.inputTokens),
+          outputTokens: numberOr(inner.outputTokens),
+        };
+      }
+    } catch {
+      // not a JSON line — ignore
+    }
+  }
+  return usage && hasAnyField(usage) ? usage : undefined;
+};
+
+/** Extract usage from a finished run; only claude/kiro/cursor expose anything. */
 export function parseUsage(
   engine: Engine,
   result: EngineRunResult
@@ -292,6 +348,9 @@ export function parseUsage(
   }
   if (engine === "kiro") {
     return parseKiroUsage(result.stdout);
+  }
+  if (engine === "cursor") {
+    return parseCursorUsage(result.stdout);
   }
   return;
 }
@@ -307,6 +366,7 @@ export async function runEngine(
   args: RunEngineArgs
 ): Promise<EngineRunResult> {
   const argv = buildEngineArgv(engine, {
+    cursorModel: args.cursorModel,
     kiroClient: args.kiroClient,
     prompt: args.prompt,
     scopeDir: args.scopeDir,
