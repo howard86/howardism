@@ -1,0 +1,158 @@
+---
+date: 2026-05-28
+title: "代理控制平面模式：工單、迴圈、規格與記憶檔案"
+description: "分層式代理控制平面綜述：工單作為持久工作圖、迴圈作為執行原語、規格/情境檔作為政策、記憶作為有界召回、應用協定作為執行時邊界"
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - agent-engineering
+  - orchestration
+  - workflow-design
+readingTime: 9
+imageAlt: "「代理控制平面模式：工單、迴圈、規格與記憶檔案」插圖"
+---
+export { default as heroImage } from "../assets/agent-control-plane-patterns.png";
+
+## 簡短答案
+
+正確的控制平面是**分層**的；但若只能有一層主導自主工作，應選**工單（tickets）**。
+
+工單是持久的工作圖：該跑什麼、被什麼阻擋、已完成什麼、產出了哪些產物。迴圈是讓工作持續推進的執行原語。規格與情境檔是政策：代理在工作範圍內應如何行為。記憶檔是低權威的召回，適合偏好與環境事實，但太易遺失且受快取延遲影響，不足以治理自主性。
+
+實務上的堆疊如下：
+
+| 層級 | 最佳產物 | 權威性 |
+|---|---|---|
+| 工作選擇 | [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) | 多任務自主性的主要控制平面 |
+| 執行 | [Agent Loop Pattern](/articles/agent-loop-pattern) / daemon workers | 執行時，非治理 |
+| 政策 | `WORKFLOW.md`、`SPEC.md`、`AGENTS.md`、`CLAUDE.md`、`SOUL.md` | 可版本化的行為契約 |
+| 整合邊界 | [Codex App Server Protocol](/articles/codex-app-server-protocol) / daemon gateway | 程式化生命週期、工具、憑證 |
+| 召回 | 有界記憶檔 | 便利狀態，非真相來源 |
+
+## 為何工單能成為主要控制平面
+
+[Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) 給出最乾淨的答案，因為它把工作單位從*工作階段*或*PR*改為*可交付成果*。一張工單可以產生零個 PR、一個 PR、多個 PR、筆記、審查包，或後續工單。這才是自主代理的正確抽象：自主性需要一個能撐過重啟、失敗執行、多次嘗試與交接的持久外部物件。
+
+關鍵屬性都是控制平面屬性：
+
+- **佇列：** 開啟的工單即工作待辦。
+- **資格：** 被阻擋的工單在依賴達到終態前不派發。
+- **範圍：** 工單標題與描述定義目標。
+- **產物：** PR、筆記、評論、影片與後續工單掛回工作項。
+- **恢復：** 追蹤器加檔案系統可在 daemon 重啟後重建哪些工作仍活躍。
+- **人類治理：** 人類在 `Todo` 佇列做分類，而非操控每一輪。
+
+[Symphony](/articles/symphony) 是典範實作：Linear 作為追蹤器，每個符合資格的議題取得確定性工作區，Codex App Server 工作階段對著渲染後的 `WORKFLOW.md` 提示執行。Symphony 刻意不讓編排器自己寫追蹤器狀態；代理用自己的工具更新 Linear。提示薄弱時有風險，但形狀正確：追蹤器是持久的協調面，代理只是掛在工單上的工作者。
+
+決定性在於工單代表**目標，而非狀態轉移**。Symphony 早期僵硬的狀態機設計對更強模型來說太小。後期設計給代理工具與目標，同時在工作區、並發、終態清理與重試行為上維持不變量。這是正確分工：約束信封，而非每一步內部步驟。
+
+## 為何僅有迴圈不夠
+
+[Agent Loop Pattern](/articles/agent-loop-pattern) 必要但不充分。迴圈是執行模式：重複提示直到佇列清空、cron 排程觸發，或出現哨兵。它透過把工作切成新工作階段、讓每次執行更接近 [Context Window Smart Zone](/articles/context-window-smart-zone)，使 AFK 工作成為可能。
+
+但迴圈本身回答不了控制平面問題：
+
+- 哪些工作符合資格？
+- 什麼被阻擋？
+- 什麼算完成？
+- 產物落在哪？
+- 誰審查輸出？
+- 失敗執行如何重新進入系統？
+
+以 markdown 議題檔清空待辦的迴圈能部分回答。cron 迴圈回答更少：喚醒並跑一個提示。[Hermes Agent](/articles/hermes-agent) 的 Hermes cron 工作是最清楚的警告：排程提示在無記憶的新工作階段執行，因此每個提示必須自帶全部所需情境。這使 cron 擅長週期性交付物，卻不適合作為通用工作圖。
+
+正確解讀：**迴圈是致動器**。它執行工單、輪詢追蹤器、重跑 CI 修復，或交付排程報告。它不應是「什麼重要」的最高權威來源。
+
+## 為何規格與情境檔是政策，而非工作圖
+
+[Agent Context Files](/articles/agent-context-files) 仍是 stub，但其預期範圍是跨廠商模式：`CLAUDE.md`、`AGENTS.md`、`SOUL.md`、`WORKFLOW.md`、`SPEC.md` 與 `.cursorrules` 作為 markdown 控制檔。已涵蓋頁面已顯示分工：
+
+- [Symphony](/articles/symphony) 用 `SPEC.md` 作產品級定義，`WORKFLOW.md` 作執行時工作流契約。
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) 把 `WORKFLOW.md` 視為提示即政策：如何處理議題、推進狀態、掛 PR、回報完成。
+- [Hermes Agent](/articles/hermes-agent) 把 `AGENTS.md` 與 `SOUL.md` 分開——前者專案情境、後者全域人格——且僅在相關時惰性注入子目錄 `AGENTS.md`。
+
+這些檔案強大，因為可版本化、可檢視，且人類與代理共用。它們是不變量、慣例、角色邊界與流程的正確位置。但它們天然無法編碼工作的即時狀態。`SPEC.md` 能定義 Symphony；它不能告訴 daemon 哪個議題目前未阻擋。`AGENTS.md` 能告訴 Hermes 儲存庫如何運作；它不能決定下一個客戶請求是哪個。
+
+因此規格/情境檔應視為**政策平面**。它們治理代理被工單/迴圈層喚起時如何行為。
+
+## 為何記憶檔是最弱的控制平面
+
+[Hermes Agent](/articles/hermes-agent) 記載了涵蓋頁面中最強的記憶設計，即便如此記憶仍明確有界且延遲：
+
+- `MEMORY.md` 有小型上限。
+- `USER.md` 有小型上限。
+- 填滿的記憶會被整合，必然有損。
+- 工作階段中的記憶編輯要到下一個工作階段才影響目前系統提示。
+- Hermes 區分記憶與技能：記憶是事實；技能是程序。
+
+這使記憶適合穩定事實：專案路徑、使用者偏好、環境細節。它是糟糕的權威載體。控制平面需要當前狀態、清楚所有權與可稽核性。有界記憶刻意壓縮狀態；提示快取可能延遲可見性；整合可能抹平細節。這些對 token 經濟是好權衡，對自主性治理則是壞權衡。
+
+記憶因此應是**建議性情境**，永遠不是「跑哪項工作、允許哪些權限、任務是否完成」的來源。
+
+## 執行時邊界很重要
+
+控制平面不只是檔案。它還需要執行時整合邊界。[Codex App Server Protocol](/articles/codex-app-server-protocol) 重要，因為它讓編排器在不刮終端機的情況下結構化控制 Codex 工作階段：
+
+- startup handshake
+- `thread/start`
+- `turn/start`
+- streaming turn events
+- continuation turns on the same `thread_id`
+- timeouts and stall detection
+- dynamic tool calls
+
+被低估的是 dynamic tool calls：Symphony 可暴露 `linear_graphql` 工具，同時把 Linear token 留在編排器內。這意味工單層可保持權威，而不必把原始憑證交給每個子代理容器。
+
+Hermes 從使用者側展示平行的 daemon 架構：Gateway 工作階段按使用者、授權用 allowlist 或 DM pairing、cron 輸出回到 home channel、容器可成為安全邊界。Symphony 的租戶單位是議題；Hermes 的租戶單位是使用者。兩者都需要 daemon 邊界，因為自主工作必須撐過單次聊天回合。
+
+## 決策規則
+
+使用能實際對應自主性表面的最低層：
+
+| 情境 | 正確的控制平面 |
+|---|---|
+| 單次互動式編碼工作階段 | 情境檔 + 人類引導 |
+| 重複的 AFK 實作任務 | 對議題檔或追蹤器工單清空待辦的迴圈 |
+| 跨 PR、CI、依賴、重試的多代理軟體工作 | 工單 + daemon + app-server protocol |
+| 排程的個人/團隊助理報告 | Hermes 風格 cron + home channel |
+| 專案慣例、工作流規則、人格、工具政策 | 規格/情境檔 |
+| 偏好與環境事實 | 有界記憶 |
+
+若代理能建立、延後、恢復、重試或扇出工作，控制平面應是工單形狀。若代理只需記住偏好，用記憶。若代理只需重複已知操作，用迴圈。若代理需知道如何行為，用規格/情境檔。
+
+## 失敗模式
+
+### 工單控制平面
+
+主要風險是工單圖無限擴張。[Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) 與 [Symphony](/articles/symphony) 都標記開放問題：若代理可自由開後續工單，如何防止圖變成自生成的瞎忙？目前答案似乎是人在 `Todo` 佇列分類加依賴約束。可行，但意味人類瓶頸移到佇列治理。
+
+### 迴圈控制平面
+
+迴圈會放大既有的驗證。[Agent Loop Pattern](/articles/agent-loop-pattern) 明確說：迴圈適用於有機械驗證的 AFK 任務。沒有測試、型別、linter 或清楚終態條件時，迴圈只是無人看管的漂移。
+
+### 規格/控制檔平面
+
+提示即政策在需要精確執行時很脆弱。Symphony 在提示外強制硬不變量緩解：工作區路徑驗證、並發上限、終態清理、重試退避、憑證代理。規格說代理應做什麼；編排器仍強制不可違反的事。
+
+### 記憶平面
+
+記憶會靜默失敗：可能過時、被壓縮、不在目前提示中，或太小無法保留所需區分。對偏好可接受，對工作狀態危險。
+
+## 結論
+
+對自主代理，**工單應是主要控制平面；迴圈應是執行引擎；規格/情境檔應是政策層；記憶檔應是有界召回**。
+
+乾淨架構即使脫離 Codex 也是 Symphony 形狀：持久工作圖、可版本化工作流政策、每項工作隔離的執行時、結構化延續協定、受限憑證，以及讓系統持續運轉的迴圈/daemon。Hermes 展示個人/團隊助理部署的同一模式：daemon、租戶、授權、cron、有界記憶。共同教訓很簡單：自主性需要持久的外部結構。不要把那結構藏在聊天歷史或記憶裡。
+
+## 相關閱讀
+
+- [Agent Loop Pattern](/articles/agent-loop-pattern)
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration)
+- [Symphony](/articles/symphony)
+- [Codex App Server Protocol](/articles/codex-app-server-protocol)
+- [Agent Context Files](/articles/agent-context-files)
+- [Hermes Agent](/articles/hermes-agent)
+- [Agent Harness Engineering](/articles/agent-harness-engineering)
+- [Claude Code Best Practices](/articles/claude-code-best-practices)
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization)

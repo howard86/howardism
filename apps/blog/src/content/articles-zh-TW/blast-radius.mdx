@@ -1,0 +1,66 @@
+---
+date: 2026-05-28
+title: 爆炸半徑（Agentic）
+description: 代理一旦遭入侵可能造成的損害規模；Zero Trust「假設遭入侵」姿態所要圍堵的度量單位，透過以身分為基礎的隔離、沙箱化與分區化來落實
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - isolation
+  - containment
+  - zero-trust
+readingTime: 4
+imageAlt: 爆炸半徑（Agentic）的插圖
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/blast-radius.png";
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## 摘要
+
+**爆炸半徑**衡量代理一旦出錯可能造成的損害規模。只能唯讀存取單一資料庫的代理爆炸半徑很小；對雲端基礎設施具管理員權限的代理則極大。在 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 中，它是 *「假設遭入侵」* 原則的核心度量單位：安全投資應與曝險相符，而為遭入侵而設計的姿態意味著假設**每一個代理的爆炸半徑最終都會被檢驗。**
+
+## 為何它是正確的度量單位
+
+Zero Trust 並不承諾能阻止入侵——它承諾的是*圍堵*入侵。爆炸半徑把安全問題從「我們能否把攻擊者擋在外面？」（在 [AI-Accelerated Offense](/articles/ai-accelerated-offense) 之下是一場必輸的周界戰）重新框定為「當代理遭入侵時，它能觸及多少？」框架中的每一項其他控制——[Least Agency](/articles/least-agency)、身分、隔離——最終都取決於它能把這個數字縮小多少。
+
+## 圍堵機制（資源邊界）
+
+框架主要的爆炸半徑控制是**以身分為基礎的隔離**，而非網路分段：
+
+- **以身分為基礎的隔離（Foundation）** —— 每個代理工作負載都帶有自己的密碼學身分，各服務*只接受來自明確指名呼叫者*的連線。網路分段是*後盾*，而非主要邊界——攻擊者若抵達某個網段邊界，而服務接受該網路上的任意呼叫者，就會穿越並橫移。「在接收端強制隔離。」
+- **沙箱化執行（Enterprise）** —— 具受限能力的容器、gVisor 等執行環境用於 syscall 過濾、受限的掛載／網路。對任何處理不可信輸入（網頁內容、文件）的代理，視為**強制而非願景**。
+- **硬體隔離（Advanced）** —— AMD SEV／Intel TDX、microVMs、attestation；連主機 OS 都無法檢視或竄改工作負載。
+
+與憑證側圍堵互補（[Agent Identity and Authentication](/articles/agent-identity-and-authentication)）：每代理憑證與憑證隔離意味著單一遭竊的密鑰不會授予所有共用該密鑰之代理的合併存取權。
+
+## 分區化作為刻意設計
+
+工作流程的 Phase 3 把爆炸半徑評估設為明確步驟：在核准動作、禁止動作、升級觸發條件與範圍限制都定義之後，*辨識代理若遭入侵可能出什麼問題。* 框架建議把代理的功能拆成多個具不同身分的代理，讓攻擊者必須入侵更多代理才能觸及更多資源——但前提是每一個代理都取得**獨特憑證**（共用憑證會使分區化失效）。
+
+## 不可能與僅是繁瑣之間的連結
+
+爆炸半徑評估必須通過 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) 的檢驗：*「若你的圍堵計畫依賴摩擦——攻擊者得發出大量請求，或繞過多道速率限制——就假設它會失敗。」* 僅*不方便*穿越的爆炸半徑並未真正圍堵；若殘餘風險不可接受，就應收緊控制，直到穿越變得*不可能*，而不只是繁瑣。
+
+## 相關連結
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) —— 爆炸半徑是「假設遭入侵」原則所要圍堵的度量單位（樞紐）
+- [Least Agency](/articles/least-agency) —— 輸入端控制；限制代理能動性就是縮小爆炸半徑的方式
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) —— 以身分為基礎的隔離與每代理憑證是主要的爆炸半徑控制
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) —— 圍堵計畫必須通過的測試：穿越應不可能，而不只是繁瑣
+- [Claude Code Best Practices](/articles/claude-code-best-practices) —— 沙箱化執行＋寫入權限限制，作為參考性的圍堵實作
+- [Autonomous Defense](/articles/autonomous-defense) —— 把相同的爆炸半徑圍堵*向內*套用在防禦性（Agentic SOAR）代理上，而這類代理本身也是高價值目標
+
+## 開放問題
+
+- 框架偏好以身分為基礎的隔離而非網路分段，但多數企業已在分段上投入大量資源。遷移路徑是什麼？雙軌並行是否會製造新的缺口？
+- 多代理分區化會增加需要管理的身分*數量*；到了什麼程度，身分管理負擔會反過來形成自身的攻擊面？
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) —— 第一部分定義爆炸半徑；第三部分資源邊界；第四部分 Phase 3 爆炸半徑評估

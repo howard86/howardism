@@ -1,0 +1,72 @@
+---
+date: 2026-05-28
+title: 最小能動性
+description: "OWASP 提出的術語，將最小權限原則延伸到代理：不僅限制代理能存取什麼，還限制每個工具能做什麼、頻率多高、在何處執行；預設拒絕、每代理憑證、範圍限制"
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - least-privilege
+  - access-control
+  - owasp
+readingTime: 4
+imageAlt: 最小能動性的插圖
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/least-agency.png";
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## 摘要
+
+**Least Agency** 是 [OWASP](/articles/owasp) 提出的術語，將經典的最小權限原則延伸到代理式應用。最小權限限制的是*使用者與系統能存取什麼*；Least Agency 則更進一步：它限制**每個代理工具能做什麼、頻率多高、在何處執行。** 它是 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 核心的授權原則——對「即便完全通過驗證的代理，在權限過大時仍會造成損害」這一問題的實務解答。
+
+## 與最小權限的區別
+
+傳統最小權限關乎*存取範圍*（某個身分能觸及哪些資源）。Least Agency 則加入身分一旦能自主串接操作後就至關重要的*動作與頻率*維度：
+
+- 資料庫工具僅能執行**唯讀**查詢（不能寫入／刪除）
+- 郵件摘要工具**不得具備傳送／刪除**權限
+- API 整合僅取得**最小 CRUD** 操作
+
+這個轉變之所以重要，是因為代理會在*已授予的權限範圍內*運作，卻仍可能被操弄而濫用它們——這是傳統存取控制無法防住的 tool-misuse 與 tool-chaining 威脅（攻擊面見 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 與 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)）。Least Agency 縮小的是：*即便憑證有效*，仍可觸及的有害動作集合。
+
+## 框架如何強制落實
+
+Least Agency 透過存取控制層級階梯，以及實作工作流程的 Phase 3／5 來強制落實：
+
+- **預設拒絕（deny-by-default）** —— 封鎖所有未明確授予的存取；把它視為起點姿態，而非終點。
+- **權限模型** —— RBAC（基礎）→ 具情境感知政策的 ABAC（企業）→ 每個動作都重新評估的持續授權（進階）。
+- **權限範圍限定** —— 靜態最小權限角色（基礎）→ 依任務動態升權並回到基線（企業）→ 具自動到期的 JIT／JEA（進階）。「有疑慮時，偏好*移除*能力，而非*節流*它。」
+- **能力限制** —— 郵件工具限於讀取，傳送需另行授權；資料庫工具可查詢但不得變更 schema。
+- **分區化** —— 將代理的功能拆成多個代理，各自具獨立身分與憑證，使攻擊者必須入侵多個代理才能觸及更多資源。*「若你拆成多個代理卻給它們全部相同的憑證，你就沒有成功分區化風險。」*
+
+## 與爆炸半徑的關係
+
+Least Agency 是*輸入端*控制；[Blast Radius (Agentic)](/articles/blast-radius) 是*結果*度量。限制能動性（動作 × 頻率 × 範圍）正是縮小「假設遭入侵」姿態預期會被檢驗的爆炸半徑的方式。兩者應一併閱讀：把代理帳戶範圍限定在恰好所需的唯讀資料上，遭竊憑證的爆炸半徑就會「嚴重受限」。
+
+## 相關連結
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) —— 採納 Least Agency 作為其授權原則的框架（樞紐）
+- [Blast Radius (Agentic)](/articles/blast-radius) —— Least Agency 用來約束它；能動性進、爆炸半徑出
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) —— 沒有彼此區分的每代理身分，Least Agency 就無法強制（「歸因缺口」會使強制變得不可能）
+- [OWASP](/articles/owasp) —— 提出此術語
+- [Claude Code Best Practices](/articles/claude-code-best-practices) —— Claude Code 的 deny-by-default 權限與寫入存取限制，是引用的參考實作
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) —— Least Agency 所要圍堵的攻擊：遭操弄的代理在已授權權限內濫用工具
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) —— 「偏好移除能力而非節流它」是 Least Agency 以設計啟發式表達出來的形式
+- [MCP and Computer Use](/articles/mcp-and-computer-use) —— 每個 MCP 工具的能力限制（唯讀、禁止傳送）是工具介面層級的 Least Agency
+- [Autonomous Defense](/articles/autonomous-defense) —— 將 Least Agency *向內*套用在防禦性代理上：範圍限定的自動化回應動作，並有明確邊界
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) —— 限定（可能遭污染的）工具能做什麼，可限制遭入侵依賴所能造成的損害
+
+## 開放問題
+
+- Least Agency 加入了*頻率*維度（「多高」），但框架也說速率限制是摩擦而非屏障（[Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。頻率限制如何同時既是 Least Agency 控制，又只是摩擦——是否取決於情境？
+- 動態權限升級（企業）重新引入了升權路徑；升權請求本身要如何驗證，才不會被遭操弄的代理利用？
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) —— 第一部分定義 Least Agency；第三部分存取控制層級；第四部分 Phase 3 與 5 強制落實
