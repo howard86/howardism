@@ -4,6 +4,7 @@ import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { PublishArticleNav } from "@/components/article-nav-context";
 import { DataGrid } from "@/components/howardism/data-grid";
 import { HalfDisc } from "@/components/howardism/half-disc";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
@@ -19,6 +20,8 @@ import type {
 import { TOPIC_META } from "../topic-meta";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
+import { ResumeReading } from "./resume-reading";
+import { TapScrollZones } from "./tap-scroll-zones";
 
 interface ArticleLayoutProps {
   children?: ReactNode;
@@ -81,9 +84,12 @@ export function ArticleLayout({
 
   return (
     <div
-      className="hw-page-enter mx-auto max-w-[720px] rail:max-w-[1120px] px-4 pb-20"
+      className="hw-page-enter mx-auto max-w-read rail:max-w-wide px-4 pb-20"
       style={{ "--article-accent": accent } as CSSProperties}
     >
+      <PublishArticleNav headings={headings} slug={slug} />
+      <TapScrollZones />
+      <ResumeReading headings={headings} slug={slug} />
       <div className="grid rail:grid-cols-[minmax(0,720px)_320px] gap-12">
         <div className="min-w-0">
           <div className="relative mb-10 overflow-hidden border-t-[3px] border-t-[var(--article-accent)] border-b border-b-border border-double pt-2.5 pb-10">

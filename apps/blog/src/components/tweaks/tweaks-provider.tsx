@@ -13,12 +13,15 @@ import {
 import {
   DEFAULT_TWEAKS,
   type Mode,
+  type TextSize,
   TWEAKS_STORAGE_KEY,
   type Tweaks,
 } from "./types";
 
 interface TweaksContextValue {
   setMode: (mode: Mode) => void;
+  setTapToScroll: (tapToScroll: boolean) => void;
+  setTextSize: (textSize: TextSize) => void;
   state: Tweaks;
 }
 
@@ -26,6 +29,7 @@ const TweaksContext = createContext<TweaksContextValue | null>(null);
 
 function applyToDom(tweaks: Tweaks) {
   document.documentElement.classList.toggle("dark", tweaks.mode === "dark");
+  document.documentElement.dataset.textSize = tweaks.textSize;
 }
 
 function readStorage(): Tweaks {
@@ -37,6 +41,8 @@ function readStorage(): Tweaks {
     const parsed = JSON.parse(raw) as Partial<Tweaks>;
     return {
       mode: parsed.mode ?? DEFAULT_TWEAKS.mode,
+      tapToScroll: parsed.tapToScroll ?? DEFAULT_TWEAKS.tapToScroll,
+      textSize: parsed.textSize ?? DEFAULT_TWEAKS.textSize,
     };
   } catch {
     return DEFAULT_TWEAKS;
@@ -72,7 +78,33 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const value = useMemo(() => ({ state, setMode }), [state, setMode]);
+  const setTapToScroll = useCallback((tapToScroll: boolean) => {
+    setState((prev) => {
+      if (prev.tapToScroll === tapToScroll) {
+        return prev;
+      }
+      const next = { ...prev, tapToScroll };
+      writeStorage(next);
+      return next;
+    });
+  }, []);
+
+  const setTextSize = useCallback((textSize: TextSize) => {
+    setState((prev) => {
+      if (prev.textSize === textSize) {
+        return prev;
+      }
+      const next = { ...prev, textSize };
+      writeStorage(next);
+      applyToDom(next);
+      return next;
+    });
+  }, []);
+
+  const value = useMemo(
+    () => ({ state, setMode, setTapToScroll, setTextSize }),
+    [state, setMode, setTapToScroll, setTextSize]
+  );
 
   return <TweaksContext value={value}>{children}</TweaksContext>;
 }
