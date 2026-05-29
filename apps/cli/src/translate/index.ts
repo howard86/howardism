@@ -69,6 +69,8 @@ interface RunOptions {
   trackingDbPath: string;
   /** Re-translate stale articles (hash mismatch). Default skips them; --force subsumes this. */
   update: boolean;
+  /** With --check: report drift as GitHub ::warning:: annotations and exit 0 instead of failing. */
+  warn: boolean;
   wikiSourcesPath: string;
 }
 
@@ -459,13 +461,27 @@ async function runCheck(opts: RunOptions): Promise<void> {
 
   printCheck(opts.locale, buckets, projection);
 
-  // Fail CI only on tracked translations that drifted — never on untranslated.
+  // Tracked translations that drifted — never untranslated ones. With --warn
+  // (CI) report them as GitHub annotations and exit 0; otherwise fail the build.
   const actionable = ACTIONABLE_STATUSES.reduce(
     (n, status) => n + buckets[status].length,
     0
   );
   if (actionable > 0) {
-    process.exitCode = 1;
+    if (opts.warn) {
+      emitCheckWarnings(opts.locale, buckets);
+    } else {
+      process.exitCode = 1;
+    }
+  }
+}
+
+/** One GitHub Actions `::warning::` per drifted slug — visible on the run, exit 0. */
+function emitCheckWarnings(locale: string, buckets: CheckBuckets): void {
+  for (const status of ACTIONABLE_STATUSES) {
+    for (const slug of buckets[status]) {
+      console.log(`::warning::${locale} translation ${status}: ${slug}`);
+    }
   }
 }
 
@@ -677,6 +693,7 @@ function parseOptions(): RunOptions {
   const force = argv.includes("--force") || env.FORCE === "1";
   const update = argv.includes("--update") || env.TRANSLATE_UPDATE === "1";
   const check = argv.includes("--check");
+  const warn = argv.includes("--warn");
   const adopt = argv.includes("--adopt");
   const dryRun = env.DRY_RUN === "1";
 
@@ -732,6 +749,7 @@ function parseOptions(): RunOptions {
     targetLang,
     trackingDbPath,
     update,
+    warn,
     wikiSourcesPath,
   };
 }

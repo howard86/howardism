@@ -1,0 +1,64 @@
+---
+date: 2026-05-28
+title: Memory and Context Poisoning
+description: Corruption of persistent agent memory that influences behavior long
+  after the initial injection; includes RAG poisoning, shared-context poisoning,
+  and slow long-term memory drift; defended via memory isolation, integrity
+  validation, and retention policies
+tag: Concept
+topic: architecture
+tags:
+  - security
+  - memory
+  - rag
+  - threats
+readingTime: 4
+imageAlt: Illustration for Memory and Context Poisoning
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/memory-and-context-poisoning.png";
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## Summary
+
+Agents that persist context across sessions can have that memory corrupted so future reasoning becomes biased, unsafe, or actively aids data exfiltration. What makes it distinct from single-session attacks like [Agentic Prompt Injection](/articles/agentic-prompt-injection) is **persistence**: malicious instructions implanted in assistant memory can compromise *current and all future sessions* — the agent keeps serving attacker goals long after the initial injection. Phase 7 of [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) ("safeguard agent memory") addresses it.
+
+## Variants
+
+- **Direct memory poisoning** — attacker instructions written into the agent's long-term memory store; influences all subsequent reasoning.
+- **RAG poisoning** — malicious data introduced into vector databases via poisoned sources, direct uploads, or over-trusted pipelines. The agent retrieves contaminated context when answering queries, producing false answers or executing targeted payloads. (A runtime-data analogue of [Agent Supply Chain Risk](/articles/agent-supply-chain-risk).)
+- **Shared context poisoning** — in multi-tenant environments, attackers inject data through normal interactions that influence *later* sessions; a new user session inherits poisoned context.
+- **Long-term memory drift** — the subtlest: summaries or peer-agent feedback gradually shift stored knowledge or goal weighting, producing behavioral deviations over time that evade detection *because no single change appears malicious.* This is the threat that motivates drift-detection in behavioral baselines.
+
+## Defenses (Phase 7)
+
+- **Memory isolation** — strict boundaries between sessions and users so poisoned context from one conversation can't influence another. The framework notes [Claude Code](/articles/claude-code) enforces session isolation by default (fresh context per session; sub-agents in isolated context windows).
+- **Context integrity validation** — cryptographic hashes detect unauthorized modification; source attribution tags where each memory element came from. Validate at *every retrieval*, not just at storage; store hashes in tamper-resistant logs separate from the memory content; reject and alert on validation failure.
+- **Context retention policies** — TTLs that automatically expire unverified memory; shorter retention for high-risk context (external inputs, unverified tool outputs). Claude Code's `cleanupPeriodDays` controls local transcript persistence.
+- **Versioned memory + quarantine** — rollback to known-good states; quarantine suspect content for forensic analysis before deletion; pre-test rollback procedures; define criteria for full purge vs. targeted remediation.
+
+## Relation to the wiki's memory concepts
+
+This is the *adversarial* counterpart to the benign persistent-memory designs elsewhere in the wiki — bounded memory files in agent harnesses, the [compiled knowledge base](/articles/llm-as-compiler-knowledge-base) pattern this vault itself runs on. Any system that lets an agent *write* to durable memory inherits this threat surface; integrity validation and source attribution are the controls that let a compiled/persistent store stay trustworthy.
+
+## Connections
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Phase 7 ("safeguard agent memory") (hub)
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — injection is the delivery vector; both exploit the model's inability to separate data from instructions, but poisoning adds persistence
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — RAG poisoning is a runtime-data analogue of poisoned upstream components
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — the benign persistent-knowledge pattern that inherits this exact threat surface (write-access to durable memory)
+- [Claude Code](/articles/claude-code) — cited reference: session isolation by default, `cleanupPeriodDays`, checkpoint/rewind for rollback
+
+## Open Questions
+
+- Long-term memory drift is defined as undetectable per-change. Drift detection requires a baseline — but if the baseline itself drifts (Advanced "continuous baseline refinement"), how is a slow poisoning attack distinguished from legitimate evolution?
+- Integrity hashing detects *modification* but not *malicious-but-valid* memory written through a legitimate (injected) interaction. What catches semantically-poisoned-but-cryptographically-intact memory?
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part II memory/context poisoning threats; Part IV Phase 7 (isolation, integrity validation, retention)

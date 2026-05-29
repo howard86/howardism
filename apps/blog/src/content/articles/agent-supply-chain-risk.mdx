@@ -1,0 +1,76 @@
+---
+date: 2026-05-28
+title: Agent Supply Chain Risk
+description: "Runtime-composed agent ecosystems expand the supply-chain attack
+  surface: model poisoning (250 docs backdoor a 13B model), tool/MCP supply
+  chain (first in-the-wild malicious MCP server), AI-BOM, OpenSSF Scorecard,
+  dependency audits, and AI vendoring as remediation"
+tag: Concept
+topic: architecture
+tags:
+  - security
+  - supply-chain
+  - mcp
+  - model-poisoning
+readingTime: 5
+imageAlt: Illustration for Agent Supply Chain Risk
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/agent-supply-chain-risk.png";
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## Summary
+
+Unlike static software supply chains, agentic ecosystems **compose capabilities at runtime** — loading external tools and agent personas dynamically — which expands the attack surface beyond what traditional software composition analysis can handle. Compounding this, frontier models are very effective at recognizing the signatures of **known, already-patched vulnerabilities in unpatched upstream components** (the defensive flip-side of [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) and a direct consequence of [AI-Accelerated Offense](/articles/ai-accelerated-offense)). Phase 2 of [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) is dedicated to managing this risk.
+
+## Three layers of supply-chain exposure
+
+### Model supply chain
+
+Poisoned weights and compromised fine-tuning data introduce backdoors that persist through deployment. The framework cites Anthropic research showing that **injecting just 250 malicious documents can backdoor LLMs from 600M to 13B parameters**, and these backdoors **persist through safety training including supervised fine-tuning and RLHF.** This is the adversarial mirror of [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning): the same mechanism that installs *aligned* beliefs as a midtraining intervention installs *malicious* ones — and the small document count means the bar is low. Security researchers have also found ~**100 malicious AI models** on major platforms, including ones that open reverse shells when loaded.
+
+### Tool / framework supply chain
+
+Affects MCP servers, API integrations, and agent frameworks ([MCP and Computer Use](/articles/mcp-and-computer-use)):
+- **PyTorch dependency-confusion attack** — malicious packages exfiltrated SSH keys during installation.
+- **First documented in-the-wild malicious MCP server** — impersonated a legitimate email service and secretly copied all sent emails (a "rug pull": a legitimate tool replaced with a malicious version). This is the concrete answer to the MCP-security open question previously raised in [MCP and Computer Use](/articles/mcp-and-computer-use).
+- **Tool poisoning** — compromised MCP descriptors / schemas / metadata that hide commands to exfiltrate data without user knowledge.
+
+### Open-source dependency health
+
+Most software supply chains are mostly open source, most with no SLA. The framework's remediation toolkit:
+- **OpenSSF Scorecard** — auto-scores each dependency (branch protection, fuzzing, signed releases, maintainer activity); runs in CI; flags unmaintained packages.
+- **AI-BOM** — OWASP's extension of the CycloneDX ML-BOM, tracking model provenance, dataset lineage, fine-tuning parameters; wire it alongside Scorecard so model and code dependencies carry the same risk signals.
+- **Dependency-tree audit** — point a frontier model at the lockfile to find redundant libraries (several HTTP clients, several JSON parsers) — a ~one-hour exercise that surfaces consolidation worth doing.
+- **Reachability analysis** — remediate only the vulnerable code that's actually reachable; pair with CI regression tests for fast, confident patching.
+- **AI vendoring** — for small, poorly-scored, unmaintained dependencies, have a frontier model *reimplement the subset you actually use.* The framework frames this as a **standard response, not an exotic workaround** — a notable stance.
+
+## Mitigation posture
+
+Cryptographic signing at every stage (not just at deployment — verify at runtime); vendor assessments that explicitly ask suppliers how they're preparing for AI-accelerated exploit timelines; and the strong recommendation to **run/host your own MCP server on an immutable platform after verifying and self-signing the code.** ISO 42001 is cited as a provider-trust signal for those not running local models.
+
+## Connections
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Phase 2 of the implementation workflow (hub)
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — the 250-document backdoor is the adversarial mirror of SDF/MSM belief installation; same low-document-count mechanism, opposite intent
+- [AI-Accelerated Offense](/articles/ai-accelerated-offense) — why supply-chain risk is urgent now: models recognize known-vuln signatures in unpatched deps and compress the N-day window
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — the capability that makes upstream-component scanning cheap for both attackers and defenders
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP servers are a named tool-supply-chain surface; tool poisoning and the first malicious MCP server
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — RAG/data-pipeline poisoning is a runtime-composition analogue of supply-chain poisoning
+- [Least Agency](/articles/least-agency) — scoping what a (possibly poisoned) tool can do contains the damage a compromised dependency can cause
+- [OWASP](/articles/owasp) — supply chain in the agentic threat taxonomy; maintains the AI-BOM
+- [Anthropic](/articles/anthropic) — source of the 250-document backdoor research and ISO 42001 certification
+
+## Open Questions
+
+- "AI vendoring" as a standard response inverts decades of "don't reinvent the wheel." How is a model-reimplemented dependency itself verified and maintained — does it just relocate the risk?
+- The 250-doc backdoor persists through SFT/RLHF. What detection exists for an already-poisoned model you didn't train, short of behavioral red-teaming?
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part II supply-chain threats; Part IV Phase 2 (AI-BOM, Scorecard, vendoring, signing, vendor assessments)

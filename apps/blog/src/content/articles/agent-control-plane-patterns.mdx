@@ -1,0 +1,161 @@
+---
+date: 2026-05-28
+title: "Agent Control Plane Patterns: Tickets, Loops, Specs, and Memory Files"
+description: "Layered agent control-plane synthesis: tickets as durable work
+  graph, loops as execution primitive, specs/context files as policy, memory as
+  bounded recall, app protocols as runtime boundary"
+tag: Essay
+topic: harness
+tags:
+  - derived
+  - agent-engineering
+  - orchestration
+  - workflow-design
+readingTime: 9
+imageAlt: "Illustration for Agent Control Plane Patterns: Tickets, Loops, Specs,
+  and Memory Files"
+---
+export { default as heroImage } from "../assets/agent-control-plane-patterns.png";
+
+## Short answer
+
+The right control plane is **layered**, but if one layer must own autonomous work, it should be **tickets**.
+
+Tickets are the durable work graph: what should run, what is blocked, what is done, and what artifacts came out. Loops are the execution primitive that keeps work moving. Specs and context files are policy: how the agent should behave inside the work envelope. Memory files are low-authority recall, useful for preferences and environment facts, but too lossy and cache-delayed to govern autonomy.
+
+So the practical stack is:
+
+| Layer | Best artifact | Authority |
+|---|---|---|
+| Work selection | [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) | Primary control plane for multi-task autonomy |
+| Execution | [Agent Loop Pattern](/articles/agent-loop-pattern) / daemon workers | Runtime, not governance |
+| Policy | `WORKFLOW.md`, `SPEC.md`, `AGENTS.md`, `CLAUDE.md`, `SOUL.md` | Versioned behavioral contract |
+| Integration boundary | [Codex App Server Protocol](/articles/codex-app-server-protocol) / daemon gateway | Programmatic lifecycle, tools, credentials |
+| Recall | bounded memory files | Convenience state, not source of truth |
+
+## Why tickets win as the primary control plane
+
+[Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) gives the cleanest answer because it changes the unit of work from *session* or *PR* to *deliverable*. A ticket can produce zero PRs, one PR, many PRs, notes, a review packet, or follow-up tickets. That is the right abstraction for autonomous agents because autonomy needs a durable external object that survives restarts, failed runs, multiple attempts, and handoffs.
+
+The important properties are all control-plane properties:
+
+- **Queue:** open tickets are the work backlog.
+- **Eligibility:** blocked tickets do not dispatch until dependencies reach terminal states.
+- **Scope:** the ticket title and description define the objective.
+- **Artifacts:** PRs, notes, comments, videos, and follow-up tickets attach back to the work item.
+- **Recovery:** the tracker plus filesystem can reconstruct which work is active after daemon restart.
+- **Human governance:** humans triage the `Todo` queue instead of steering every turn.
+
+[Symphony](/articles/symphony) is the canonical implementation: Linear is the tracker, each eligible issue gets a deterministic workspace, and a Codex App Server session runs against a rendered `WORKFLOW.md` prompt. Symphony intentionally does not make the orchestrator write tracker state itself; the agent updates Linear with its own tools. That is risky if the prompt is weak, but the shape is right: the tracker is the durable coordination surface, while the agent is merely a worker attached to a ticket.
+
+The decisive point is that tickets represent **objectives, not transitions**. Symphony's early rigid state-machine design was too small for stronger models. The later design gives agents tools and objectives while keeping invariants around workspace, concurrency, terminal cleanup, and retry behavior. That is the right division: constrain the envelope, not every internal step.
+
+## Why loops are not enough
+
+[Agent Loop Pattern](/articles/agent-loop-pattern) is necessary but not sufficient. A loop is an execution pattern: repeat a prompt until a queue is empty, a cron schedule fires, or a sentinel appears. It makes AFK work possible by fragmenting work into fresh sessions and keeping each run closer to the [Context Window Smart Zone](/articles/context-window-smart-zone).
+
+But a loop by itself does not answer the control-plane questions:
+
+- What work is eligible?
+- What is blocked?
+- What counts as done?
+- Where do artifacts land?
+- Who reviews output?
+- How does a failed run re-enter the system?
+
+Backlog-draining loops answer some of this by using markdown issue files. Cron loops answer less: they wake up and run a prompt. Hermes cron jobs are the clearest warning from [Hermes Agent](/articles/hermes-agent): scheduled prompts run in fresh sessions with no memory, so each prompt must contain all needed context. That makes cron excellent for recurring deliverables and weak as a general work graph.
+
+The right interpretation: **loops are actuators**. They execute tickets, poll trackers, re-run CI healing, or deliver scheduled reports. They should not be the highest-authority source of what matters.
+
+## Why specs and context files are policy, not the work graph
+
+[Agent Context Files](/articles/agent-context-files) is still a stub, but its intended scope is the cross-vendor pattern: `CLAUDE.md`, `AGENTS.md`, `SOUL.md`, `WORKFLOW.md`, `SPEC.md`, and `.cursorrules` as markdown control files. The covered pages already show the split:
+
+- [Symphony](/articles/symphony) uses `SPEC.md` as the product-level definition and `WORKFLOW.md` as the runtime workflow contract.
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) treats `WORKFLOW.md` as prompt-as-policy: how to work an issue, move it through states, attach PRs, and report completion.
+- [Hermes Agent](/articles/hermes-agent) separates `AGENTS.md` for project context from `SOUL.md` for global personality, and lazily injects subdirectory `AGENTS.md` only when relevant.
+
+These files are powerful because they are versioned, inspectable, and shared by humans and agents. They are the right place for invariants, conventions, role boundaries, and process. But they do not naturally encode the live state of work. A `SPEC.md` can define Symphony; it does not tell the daemon which issue is currently unblocked. `AGENTS.md` can tell Hermes how the repo works; it does not decide which customer request is next.
+
+So specs/context files should be treated as **policy planes**. They govern how agents behave when invoked by the ticket/loop layer.
+
+## Why memory files are the weakest control plane
+
+[Hermes Agent](/articles/hermes-agent) documents the strongest memory design among the covered pages, and even there memory is explicitly bounded and delayed:
+
+- `MEMORY.md` has a small cap.
+- `USER.md` has a small cap.
+- Filled memory is consolidated, which is necessarily lossy.
+- Memory edits during a session do not affect the current system prompt until the next session.
+- Hermes distinguishes memory from skills: memory is facts; skills are procedures.
+
+That makes memory useful for stable facts: project locations, user preferences, environment details. It is a bad place for authority. A control plane needs current state, clear ownership, and auditability. Bounded memory intentionally compresses state; prompt caching can delay visibility; consolidation can erase nuance. Those are good tradeoffs for token economy and bad tradeoffs for autonomy governance.
+
+Memory should therefore be **advisory context**, never the source of which work runs, what permissions are allowed, or whether a task is complete.
+
+## The runtime boundary matters
+
+The control plane is not just files. It also needs a runtime integration boundary. [Codex App Server Protocol](/articles/codex-app-server-protocol) matters because it gives an orchestrator structured control over a Codex session without scraping a terminal:
+
+- startup handshake
+- `thread/start`
+- `turn/start`
+- streaming turn events
+- continuation turns on the same `thread_id`
+- timeouts and stall detection
+- dynamic tool calls
+
+The underrated feature is dynamic tool calls: Symphony can expose a `linear_graphql` tool while keeping the Linear token inside the orchestrator. That means the ticket layer can remain the authority without handing raw credentials to every subagent container.
+
+Hermes shows the parallel daemon architecture from the user side: Gateway sessions are per-user, authorization uses allowlists or DM pairing, cron output returns to a home channel, and containers can become the security boundary. Symphony's tenancy unit is the issue; Hermes's tenancy unit is the user. Both need a daemon boundary because autonomous work has to survive beyond one chat turn.
+
+## Decision rule
+
+Use the lowest layer that actually matches the autonomy surface:
+
+| Situation | Right control plane |
+|---|---|
+| One interactive coding session | context file + human steering |
+| Repeated AFK implementation tasks | backlog-draining loop over issue files or tracker tickets |
+| Multi-agent software work across PRs, CI, dependencies, retries | tickets + daemon + app-server protocol |
+| Scheduled personal/team assistant reports | Hermes-style cron + home channel |
+| Project conventions, workflow rules, personality, tool policy | specs/context files |
+| Preferences and environment facts | bounded memory |
+
+If the agent can create, defer, resume, retry, or fan out work, the control plane should be ticket-shaped. If the agent only needs to remember a preference, use memory. If the agent only needs to repeat a known operation, use a loop. If the agent needs to know how to behave, use a spec/context file.
+
+## Failure modes
+
+### Ticket control plane
+
+The main risk is runaway ticket-graph expansion. [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) and [Symphony](/articles/symphony) both flag the open question: if agents can file follow-up tickets freely, what prevents the graph from becoming self-generated busywork? The current answer appears to be human triage at the `Todo` queue plus dependency constraints. That is workable, but it means the human bottleneck moves to queue governance.
+
+### Loop control plane
+
+Loops amplify whatever verification exists. [Agent Loop Pattern](/articles/agent-loop-pattern) is explicit: loops are for AFK tasks with mechanical verification. Without tests, types, linters, or clear terminal conditions, a loop is just unattended drift.
+
+### Spec/control-file plane
+
+Prompt-as-policy is brittle when policy must be enforced exactly. Symphony mitigates this by enforcing hard invariants outside the prompt: workspace path validation, concurrency caps, terminal-state cleanup, retry backoff, and credential proxying. The spec says what the agent should do; the orchestrator still enforces what must not be violated.
+
+### Memory plane
+
+Memory fails silently: it may be stale, compressed, absent from the current prompt, or too small to hold the needed distinction. That is acceptable for preferences and dangerous for work state.
+
+## Bottom line
+
+For autonomous agents, **tickets should be the primary control plane; loops should be the execution engine; specs/context files should be the policy layer; memory files should be bounded recall**.
+
+The clean architecture is Symphony-shaped even outside Codex: a durable work graph, versioned workflow policy, per-work isolated runtime, structured continuation protocol, constrained credentials, and loops/daemons that keep the system moving. Hermes shows the same pattern for personal/team assistant deployment: daemon, tenancy, authorization, cron, bounded memory. The common lesson is simple: autonomy needs durable external structure. Do not hide that structure inside chat history or memory.
+
+## Related
+
+- [Agent Loop Pattern](/articles/agent-loop-pattern)
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration)
+- [Symphony](/articles/symphony)
+- [Codex App Server Protocol](/articles/codex-app-server-protocol)
+- [Agent Context Files](/articles/agent-context-files)
+- [Hermes Agent](/articles/hermes-agent)
+- [Agent Harness Engineering](/articles/agent-harness-engineering)
+- [Claude Code Best Practices](/articles/claude-code-best-practices)
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization)

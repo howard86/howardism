@@ -116,6 +116,11 @@ function normaliseFrontmatter(data: Record<string, unknown>): WikiFrontmatter {
     const value = result[key];
     if (value instanceof Date) {
       result[key] = value.toISOString().slice(0, 10);
+    } else if (value !== undefined && typeof value !== "string") {
+      // `generated: true` is used elsewhere as an "auto-generated" flag, not a
+      // date. Drop any non-string value here so resolveDate falls back to
+      // `updated`/mtime instead of throwing on an unparseable date.
+      delete result[key];
     }
   }
   return result as WikiFrontmatter;
