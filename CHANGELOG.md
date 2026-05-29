@@ -1,3 +1,10 @@
+# [v2.6.0](https://github.com/howard86/howardism/compare/v2.5.1...v2.6.0) (2026-05-29)
+
+## ✨ New Features
+- [`2a2657b`](https://github.com/howard86/howardism/commit/2a2657b)  feat(blog): extend tweaks with text-size and tap-to-scroll settings 
+- [`9e5c9a6`](https://github.com/howard86/howardism/commit/9e5c9a6)  feat(blog): add e-reader controls and article-nav context 
+- [`ae59ccd`](https://github.com/howard86/howardism/commit/ae59ccd)  feat(ui): add ScrollArea primitive
+
 # [v2.5.1](https://github.com/howard86/howardism/compare/v2.5.0...v2.5.1) (2026-05-29)
 
 # [v2.5.0](https://github.com/howard86/howardism/compare/v2.4.0...v2.5.0) (2026-05-29)
