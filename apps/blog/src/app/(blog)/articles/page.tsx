@@ -60,7 +60,7 @@ export default async function ArticlesIndex() {
   }
 
   return (
-    <div className="hw-page-enter mx-auto max-w-[1320px]">
+    <div className="hw-page-enter mx-auto max-w-index">
       <div className="px-[clamp(20px,5vw,56px)]">
         <DiscPageHeader
           data={[
