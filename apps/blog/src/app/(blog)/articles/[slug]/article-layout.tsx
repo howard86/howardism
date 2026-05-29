@@ -6,18 +6,17 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { PublishArticleNav } from "@/components/article-nav-context";
 import { DataGrid } from "@/components/howardism/data-grid";
+import { DomainLabel } from "@/components/howardism/domain-label";
 import { HalfDisc } from "@/components/howardism/half-disc";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
-import { TopicLabel } from "@/components/howardism/topic-label";
 import { formatDate } from "@/utils/time";
-
+import { DOMAIN_META } from "../domain-meta";
 import type {
   ArticleHeading,
   ArticleMeta,
   Locale,
   SiblingNav,
 } from "../service";
-import { TOPIC_META } from "../topic-meta";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
 import { ResumeReading } from "./resume-reading";
@@ -62,9 +61,9 @@ export function ArticleLayout({
   translationHref,
 }: ArticleLayoutProps) {
   const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
-  const accent = meta.topic ? TOPIC_META[meta.topic].color : "var(--brand)";
-  const topicRow: [string, ReactNode] | null = meta.topic
-    ? ["Topic", <TopicLabel key="topic" topic={meta.topic} />]
+  const accent = meta.domain ? DOMAIN_META[meta.domain].color : "var(--brand)";
+  const domainRow: [string, ReactNode] | null = meta.domain
+    ? ["Domain", <DomainLabel domain={meta.domain} key="domain" />]
     : null;
   const tagsRow: [string, ReactNode] | null =
     meta.tags && meta.tags.length > 0
@@ -76,7 +75,7 @@ export function ArticleLayout({
   const metaRows: [string, ReactNode][] = [
     ["Published", formatDate(meta.date)],
     ["Filed", meta.tag],
-    ...(topicRow ? [topicRow] : []),
+    ...(domainRow ? [domainRow] : []),
     ...(tagsRow ? [tagsRow] : []),
     ["Reading", `${meta.readingTime} min`],
     ["Source", "AI-synthesised"],
@@ -96,12 +95,12 @@ export function ArticleLayout({
             <div className="mb-7 flex items-baseline justify-between gap-4">
               <span className={cn(EYEBROW_CLASS, "inline-flex items-center")}>
                 Plate II
-                {meta.topic && (
+                {meta.domain && (
                   <>
                     <span aria-hidden="true" className="mx-1.5">
                       ·
                     </span>
-                    <TopicLabel topic={meta.topic} />
+                    <DomainLabel domain={meta.domain} />
                   </>
                 )}
               </span>
