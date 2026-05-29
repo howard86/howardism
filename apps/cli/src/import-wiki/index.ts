@@ -37,10 +37,12 @@ import {
   detectEntityPrefix,
   escapeMdxBody,
   firstBlockquote,
+  firstHeading,
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
   stripDuplicateLeadingHeading,
+  stripHtmlComments,
 } from "./transform.ts";
 import { titleFromSlug } from "./wikilink.ts";
 
@@ -220,9 +222,16 @@ async function processArticle(
   const { source, frontmatter } = parsed;
   const slug = source.slug;
 
-  const title = frontmatter.title?.trim() || titleFromSlug(slug);
+  // A MOC's `MOC — …` frontmatter title duplicates its `Index` badge and never
+  // matches the clean `# Domain` body heading, so the page renders two
+  // near-identical headings. Prefer the body heading as the display title;
+  // `stripDuplicateLeadingHeading` then removes it from the body.
+  const bodyHeading = isMocSlug(slug) ? firstHeading(parsed.body) : "";
+  const title = bodyHeading || frontmatter.title?.trim() || titleFromSlug(slug);
   const strippedBody = stripDuplicateLeadingHeading(parsed.body, title);
-  const escapedBody = escapeMdxBody(strippedBody);
+  // Drop the vault's `<!-- BEGIN/END GENERATED: moc -->` markers before escaping
+  // — MDX would otherwise render them as a visible `&lt;!--` literal.
+  const escapedBody = escapeMdxBody(stripHtmlComments(strippedBody));
 
   const { sources, rawIndex } = await resolveRawSources({
     slug,

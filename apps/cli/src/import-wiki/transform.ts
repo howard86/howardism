@@ -273,6 +273,51 @@ function escapeLine(line: string): string {
   return result;
 }
 
+/**
+ * The body's leading `# H1` heading text, or `""` when the body doesn't open
+ * with one. MOC pages carry a `MOC — …` frontmatter title but a clean
+ * `# Domain Name` body heading; the importer prefers the latter as the display
+ * title so the page shows one heading (next to its `Index` badge) instead of
+ * two near-identical ones.
+ */
+export function firstHeading(body: string): string {
+  const trimmed = body.replace(LEADING_BLANKS_RE, "");
+  const match = LEADING_H1_RE.exec(trimmed);
+  if (!match) {
+    return "";
+  }
+  return match[0].replace(LEADING_HASH_RE, "").trim();
+}
+
+/**
+ * Drop standalone HTML comments — the vault's `<!-- BEGIN GENERATED: moc -->`
+ * member-list markers and the odd author TODO note. MDX escaping would turn
+ * `<!--` into a visible `&lt;!--` literal, so these author-only blocks must go
+ * before escaping. Handles single- and multi-line comments that start a line;
+ * each becomes one blank line so the blocks it separated keep their gap.
+ */
+export function stripHtmlComments(body: string): string {
+  const result: string[] = [];
+  let inComment = false;
+  for (const line of body.split("\n")) {
+    if (inComment) {
+      if (line.includes("-->")) {
+        inComment = false;
+      }
+      continue;
+    }
+    if (!line.trim().startsWith("<!--")) {
+      result.push(line);
+      continue;
+    }
+    result.push("");
+    if (!line.includes("-->")) {
+      inComment = true;
+    }
+  }
+  return result.join("\n");
+}
+
 export function stripDuplicateLeadingHeading(
   body: string,
   title: string
