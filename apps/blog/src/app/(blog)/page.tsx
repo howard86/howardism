@@ -2,21 +2,16 @@ import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { formatDateShort } from "@/utils/time";
 
 import {
-  type ArticleTopic,
   getArticlesByTopic,
   getTopicCounts,
   getTopicLeadSource,
   getTopicSparklines,
   getVisibleArticles,
-  getWikiLog,
   getWikiSources,
 } from "./articles/service";
 import { TOPIC_ORDER } from "./articles/topic-meta";
-import { Currents } from "./currents";
 import { Desk } from "./desk";
 import { TopicPlate } from "./topic-plate";
-
-const CURRENTS_LIMIT = 12;
 
 export default async function Home() {
   const [counts, sparklines, visible, leadSources, topicArticles] =
@@ -42,11 +37,6 @@ export default async function Home() {
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
   const sourceCount = getWikiSources().length;
   const newestDate = visible.entities[visible.ids[0]]?.meta.date;
-
-  const slugTopics: Record<string, ArticleTopic | undefined> = {};
-  for (const id of visible.ids) {
-    slugTopics[id] = visible.entities[id]?.meta.topic;
-  }
 
   return (
     <div className="hw-page-enter mx-auto max-w-[1320px]">
@@ -75,8 +65,6 @@ export default async function Home() {
           </p>
         </DiscPageHeader>
       </div>
-
-      <Currents entries={getWikiLog(CURRENTS_LIMIT)} slugTopics={slugTopics} />
 
       {TOPIC_ORDER.map((topic, index) => (
         <TopicPlate

@@ -1,10 +1,4 @@
-export const WIKI_TAGS = [
-  "Concept",
-  "Entity",
-  "Essay",
-  "Index",
-  "Changelog",
-] as const;
+export const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index"] as const;
 
 export type WikiTag = (typeof WIKI_TAGS)[number];
 
@@ -38,7 +32,7 @@ export interface ArticleContract {
    * `## Sources` block in the MDX body is derived from this list.
    */
   sources?: SourceRef[];
-  /** The article "kind" (Concept/Entity/Essay/Index/Changelog). */
+  /** The article "kind" (Concept/Entity/Essay/Index). */
   tag: WikiTag;
   /**
    * The wiki note's free-form subject labels (lowercase kebab), passed through
@@ -50,8 +44,7 @@ export interface ArticleContract {
   title: string;
   /**
    * Curated subject bucket derived by the importer from the note's `tags`.
-   * Drives the home page's topic plate stack. Absent on non-topical pages
-   * (e.g. the wiki changelog).
+   * Drives the home page's topic plate stack. Absent on non-topical pages.
    */
   topic?: WikiTopic;
 }

@@ -21,7 +21,6 @@ import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
 import translationsData from "@/data/translations.json";
-import wikiLogData from "@/data/wiki-log.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
 import { taggedHref } from "@/utils/tagged-href";
 
@@ -231,7 +230,6 @@ export const getTagCounts = cache(
       Entity: 0,
       Essay: 0,
       Index: 0,
-      Changelog: 0,
     };
     for (const id of visible.ids) {
       const entity = visible.entities[id];
@@ -370,14 +368,7 @@ export const getNavigableTagSet = cache(
   async (): Promise<ReadonlySet<string>> => new Set(await getNavigableTags())
 );
 
-/* ── wiki activity log + reading-list manifests (emitted by the importer) ── */
-
-export interface WikiLogEntry {
-  date: string;
-  operation: string;
-  refs: string[];
-  subject: string;
-}
+/* ── reading-list manifest (emitted by the importer) ── */
 
 export interface WikiSource {
   author?: string;
@@ -388,33 +379,9 @@ export interface WikiSource {
   url?: string;
 }
 
-export interface WikiLogBatch {
-  date: string;
-  entries: WikiLogEntry[];
-}
-
-const wikiLog = wikiLogData as { entries: WikiLogEntry[]; generatedOn: string };
 const wikiSources = wikiSourcesData as {
   generatedOn: string;
   sources: WikiSource[];
-};
-
-/** Recent wiki operations, newest-first. `limit` caps the returned count. */
-export const getWikiLog = (limit?: number): WikiLogEntry[] =>
-  limit === undefined ? wikiLog.entries : wikiLog.entries.slice(0, limit);
-
-/** Group consecutive same-date log entries into dated batches. */
-export const groupWikiLogByDate = (entries: WikiLogEntry[]): WikiLogBatch[] => {
-  const batches: WikiLogBatch[] = [];
-  for (const entry of entries) {
-    const last = batches.at(-1);
-    if (last && last.date === entry.date) {
-      last.entries.push(entry);
-    } else {
-      batches.push({ date: entry.date, entries: [entry] });
-    }
-  }
-  return batches;
 };
 
 /** Raw reading-list sources, pre-sorted by citation count then recency. */

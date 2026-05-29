@@ -29,10 +29,6 @@ export type TagSectionSlug = "concept" | "entity" | "essay" | "index";
  * Canonical display sections for the dense `/articles` ledger and the
  * `/articles/tag/[tag]` dynamic route. The order here drives section order
  * on the index page.
- *
- * The Index section folds `"Changelog"`-tagged articles in alongside
- * `"Index"` — both surface meta/wiki-housekeeping content and we don't want
- * to leak the importer's bookkeeping distinction into the reader-facing UI.
  */
 export const TAG_SECTIONS: readonly TagSection[] = [
   {
@@ -61,11 +57,11 @@ export const TAG_SECTIONS: readonly TagSection[] = [
   },
   {
     slug: "index",
-    tags: ["Index", "Changelog"],
+    tags: ["Index"],
     title: "Index",
-    intro: "Catalogs, change logs, and meta-articles about the wiki itself.",
+    intro: "Catalogs and meta-articles about the wiki itself.",
     metaDescription:
-      "Index articles — catalogs, change logs, and meta-articles describing the Howardism wiki.",
+      "Index articles — catalogs and meta-articles describing the Howardism wiki.",
   },
 ];
 
@@ -84,8 +80,8 @@ export function resolveTagSection(rawSlug: string): TagSection | null {
 
 /**
  * Materialise the articles for a section, merging multiple `ArticleTag`s
- * (e.g. Index + Changelog) into a single date-desc list. Inherits
- * visibility filtering from `getArticlesByTag`.
+ * into a single date-desc list. Inherits visibility filtering from
+ * `getArticlesByTag`.
  */
 export async function getSectionArticles(
   section: TagSection
