@@ -43,13 +43,7 @@ const TAG_MIGRATIONS: Record<string, string> = {
   Engineering: "Essay",
   Fundamentals: "Essay",
 };
-const VALID_TAGS = new Set([
-  "Concept",
-  "Entity",
-  "Essay",
-  "Index",
-  "Changelog",
-]);
+const VALID_TAGS = new Set(["Concept", "Entity", "Essay", "Index"]);
 
 interface LegacyMeta {
   archived?: boolean;
