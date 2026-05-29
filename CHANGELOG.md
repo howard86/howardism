@@ -1,3 +1,11 @@
+# [v2.5.0](https://github.com/howard86/howardism/compare/v2.4.0...v2.5.0) (2026-05-29)
+
+## ✨ New Features
+- [`52ab7ab`](https://github.com/howard86/howardism/commit/52ab7ab)  feat(cli): add --warn flag to translate --check for annotation-only mode 
+
+## 🐛 Bug Fixes
+- [`e42bb7e`](https://github.com/howard86/howardism/commit/e42bb7e)  fix(cli): drop non-string date fields in normaliseFrontmatter
+
 # [v2.4.0](https://github.com/howard86/howardism/compare/v2.3.8...v2.4.0) (2026-05-25)
 
 ## ✨ New Features
