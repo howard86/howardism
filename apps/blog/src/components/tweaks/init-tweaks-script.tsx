@@ -6,6 +6,7 @@ export const INIT_TWEAKS_SCRIPT = `(function(){try{
   var t=JSON.parse(s);
   if(t.mode==='dark')document.documentElement.classList.add('dark');
   else document.documentElement.classList.remove('dark');
+  if(t.textSize)document.documentElement.dataset.textSize=t.textSize;
 }catch(e){}})();`;
 
 export function InitTweaksScript() {
