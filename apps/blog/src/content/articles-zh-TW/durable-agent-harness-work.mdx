@@ -1,0 +1,163 @@
+---
+date: 2026-05-28
+title: 模型進步時，哪些 Agent Harness 工作仍然持久？
+description: "持久的 harness 工作位於與外部現實的交界：repo 內的單一真相來源、機械式驗證、context 預算、隔離、工具契約，以及人類決策介面；能力腳手架則會縮減"
+tag: Essay
+domain: syntheses
+tags:
+  - harness
+  - agent-engineering
+  - verification
+  - context-management
+readingTime: 9
+imageAlt: 「模型進步時，哪些 Agent Harness 工作仍然持久？」的示意圖
+---
+export { default as heroImage } from "../assets/durable-agent-harness-work.png";
+
+## 簡答
+
+持久的 harness 工作留在**模型行為與外部現實之間的邊界**：repo 內的單一真相來源、機械式驗證、context window 預算、隔離／安全邊界、工具契約，以及人類決策介面。會縮小的是教模型做下一版模型已能原生完成之事的 prompt 腳手架：積極的待辦清單提示、明確的迴圈呼叫、脆弱的狀態機編排，以及僅具建議性的提醒。
+
+規則是：**能力腳手架縮小；邊界強制持續。** 更好的模型可以學會選擇待辦清單、啟動迴圈或遵循工作流程，而不需要被嘮叨。它仍然需要可讀的當前 repo、要通過的測試、具權限的工具、context 預算，以及寫入持久狀態的地方。
+
+## 什麼不會保持持久
+
+[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 描繪了負空間。早期 [Claude Code](/articles/claude-code) 需要積極提示才會使用待辦清單；後來的模型會自發使用，因此 prompt 拐杖被弱化，工具則為使用者可見性而保留。Boris Cherny 所說「一年後只剩 100 行程式碼」是誇飾，但方向有據：當模型能原生處理該行為時，prompt 段落、後備邏輯與安全提醒會被刪除。
+
+迴圈也出現相同模式。`/loop` 原語可以先是 harness 功能，再在 Opus 4.7 注意到資料變化、主動提出定期回報而無需明確指示時，遷移進模型行為。持久的部分不是「教模型跑迴圈」，而是讓迴圈有用且受界的底層：工作區、排程、輸出位置、權限與驗證。
+
+因此可拋棄的 harness 層包括：
+
+- **能力注入**：教導下一版模型可能內化的通用行為的 prompt。
+- **過度指定的工作流**：在「目標 + 工具」對更強 agent 已足夠處，仍用僵硬的狀態轉換。
+- **永遠載入的說明**：在開工前就燒掉 [Context Window Smart Zone](/articles/context-window-smart-zone) 的巨大 CLAUDE.md / AGENTS.md 內容。
+- **假裝成強制執行的建議規則**：應改為 hooks、測試、linters、schema 或權限邊界的提醒。
+
+## 持久層 1：repo 內的單一真相來源
+
+[Agent Harness Engineering](/articles/agent-harness-engineering) 與 [Code as Source of Truth](/articles/code-as-source-of-truth) 收斂於同一不變量：agent 只能可靠使用 repo 或可讀檔案系統裡的東西。Slack 討論串、過時的 Google Docs、未記錄的架構記憶不是 harness，而是缺失的輸入。
+
+OpenAI 的 Codex harness 把 AGENTS.md 當目錄，而非百科全書。Fiona Fung 的 AI-native 組織規則更嚴：程式變快時，外部文件會腐敗，因此規格與 skills 必須 check in 到程式庫。這之所以持久，是因為模型進步提高編碼吞吐，讓 repo 外文件腐化得更快，而非更慢。
+
+即使模型變聰明很多，這類工作仍有價值：
+
+- 保持專案 context 精簡、有版本、在本地。
+- 把規格、skills、工作流規則與架構決策放在可用 diff 更新的地方。
+- 讓程式庫能教會 Claude，而非依賴同事重播隱性 context。
+- 偏好漸進式揭露：頂層 context 指向更深檔案；相關時再拉取巢狀 context。
+
+更聰明的模型能從程式碼推斷更多，但無法推斷從未記錄的當前決策。
+
+## 持久層 2：機械式驗證
+
+最強的持久主張是驗證。[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 明確區分縮小的 prompt 腳手架與承重的機械式驗證。[Claude Code Best Practices](/articles/claude-code-best-practices) 將其操作化：給 Claude 測試、截圖、預期輸出、linter 指令與錯誤訊息，否則人類成為唯一的回饋迴路。
+
+[Agent Harness Engineering](/articles/agent-harness-engineering) 命名一般原則：**強制不變量，而非實作。** 持久的 harness 工作定義模型必須遵守的邊界，並讓實作在邊界內變化。所涵蓋頁面的例子：
+
+- JSON 功能清單，agent 僅在驗證後可將 `passes: false` 改為 `true`。
+- 結構化 linter 強制依賴方向、命名、日誌與檔案大小限制。
+- 對 CLAUDE.md 只能請求、需確定性執行的 actions 使用 hooks。
+- 對已 commit 規格做 spec-drift 檢查。
+- 用全新 context 的 reviewer session，而非讓疲憊的實作 session 自我審查。
+
+這不是弱模型的拐杖，而是與現實的契約。更好的模型減少驗證抓到錯誤的頻率；並不讓驗證過時。
+
+## 持久層 3：context window 經濟學
+
+[Context Window Smart Zone](/articles/context-window-smart-zone) 在底層注意力／記憶架構改變前是持久約束。wiki 的證據不是「長 context 沒用」，而是更尖銳：長 context 能檢索，但 session 跨過 smart-zone 門檻後推理會退化。因此 context 預算是 harness 工作，而非 prompt 裝飾。
+
+持久的 context 工作包括：
+
+- 保持永遠載入的檔案短小。
+- 用 skills／按需文件，而非把所有規則推進 system prompt。
+- 在狀態可從書面記錄恢復時，於無關任務間清除。
+- 用 subagent 做廣泛調查，只讓摘要返回。
+- 把工作切成垂直切片與迴圈，讓每個 session 重新開始。
+- 在乾淨 context 中審查。
+- 用 status line 或等效計量呈現 token 用量。
+
+模型進步可能讓 dumb zone 不那麼笨，但也提高產出量與 agent 自主性。限制任一 session 必須推理的範圍的需求仍在。
+
+## 持久層 4：隔離、權限與部署邊界
+
+持久的安全邊界不是「模型承諾不做某事」，而是決定何者可發生的環境。[Hermes Agent](/articles/hermes-agent) 說得很清楚：在容器後端下，危險指令檢查會被略過，因為容器被視為安全邊界。負載從逐指令核准 prompt 轉向映像紀律與沙箱品質。
+
+橫跨 [Agent Harness Engineering](/articles/agent-harness-engineering)、[Claude Code Best Practices](/articles/claude-code-best-practices) 與 [Hermes Agent](/articles/hermes-agent)，穩定的工作是：
+
+- 每使用者或每 issue 的工作區隔離。
+- 容器、VM 或 OS 級沙箱。
+- 多使用者部署的 allowlist／配對授權。
+- 範圍化的工具與憑證。
+- 在執行前強制邊界的 permission mode 與分類器。
+- 常駐 agent 的 daemon 生命週期管理。
+- 透過 tracker + 檔案系統狀態的重啟恢復。
+
+隨模型進步，建議性權限文字應縮小。對爆炸半徑邊界的需求不會。
+
+## 持久層 5：工具契約與編排底層
+
+工具分派 prompt 可能縮小；工具契約仍在。模型可能更擅長選 MCP、shell、瀏覽器或 subagent，但那些動作仍需要 API、憑證、schema、沙箱與結果介面。
+
+因此持久的編排工作是底層，而非編舞：
+
+- 穩定的非互動入口（`claude -p`、Hermes CLI、Codex App Server 風格協定）。
+- 排程或團隊規模工作的 daemon-first runtime。
+- 每任務或每使用者租戶。
+- 無需編排 DB 時以檔案系統為後盾的狀態。
+- 帶完整 context 供全新 session 的 cron 或 issue tracker 分派。
+- 包裝憑證的工具，讓 subagent 行動而無需看見密鑰。
+
+Symphony 從僵硬狀態機節點轉向「目標 + 工具」，是 [Agent Harness Engineering](/articles/agent-harness-engineering) 中的乾淨範例。脆弱的狀態機縮小。tracker、工作區生命週期、重試／退避、停滯偵測與對帳仍在。
+
+## 持久層 6：人類決策介面
+
+[Agent Harness Engineering](/articles/agent-harness-engineering) 中的人類角色不是多打程式碼，而是排定優先順序、把回饋翻成驗收標準、設計回饋迴路、驗證結果，以及診斷缺失的工具或護欄。更好的模型不會刪除那道邊界；它會把更多工作推過去。
+
+這裡持久的 harness 與 [Code as Source of Truth](/articles/code-as-source-of-truth) 重疊：人類的決策必須變成 repo 內產物，而非聊天裡的「氛圍」。否則每個全新 session 都會重新推導架構，並累積 agentic debt。
+
+持久的人類面向工作：
+
+- agent 可測試的驗收標準。
+- check in 到 repo 的規格。
+- 把 backlog 切成每項任務可獨立驗證。
+- 顯示 diff、截圖、失敗測試與 spec drift 的審查介面。
+- 修剪紀律：在每次模型啟動時閱讀 prompt／context，刪除不再值得 token 的部分。
+
+人類不應因懷舊而保留舊 harness。人類應保留讓更強模型能以更高吞吐安全使用的邊界產物。
+
+## 實用測試
+
+對任何 harness 元件問一個問題：
+
+**若下一版模型聰明很多，這會變得多餘，還是因 agent 能更快造成更大傷害而變得更重要？**
+
+可能縮小：
+
+- 通用規劃行為的 prompt 提醒。
+- 強制工具使用的 nudge。
+- 僵硬的逐步編排。
+- 重複的安全散文。
+- 對程式碼中可見事物的大型永遠載入說明。
+
+可能持久：
+
+- 測試、linters、schema、hooks 與 spec-drift 檢查。
+- 有 repo 版本的 context 檔與 skills。
+- 工作區隔離與憑證邊界。
+- Token／context 計量。
+- Subagent 與全新審查模式。
+- 工具協定與 daemon 生命週期。
+- 驗收標準與人類審查介面。
+
+## 結論
+
+持久的 agent harness 工作，是把**模型能力轉成在世界上有界、可檢視、可重複的效應**。Prompt 腳手架是遞減資產；每次模型啟動都應審判它。邊界設計不是遞減資產。模型越強，狀態、驗證、工具、權限與人類決策越要活在模型能讀、系統能強制的結構裡。
+
+## 相關
+
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 面向模型的腳手架縮小；機械式驗證仍是承重結構。
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — repo 內產物、漸進式揭露、不變量強制，以及 harness-as-service。
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — 驗證、context、subagent、hooks 與擴展的實務工作流規則。
+- [Hermes Agent](/articles/hermes-agent) — 同一 harness 模式的 daemon-first、每使用者、有界記憶、容器邊界變體。
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 為何 context 預算仍是 harness 責任。
+- [Code as Source of Truth](/articles/code-as-source-of-truth) — 為何在編碼吞吐上升時，持久 context 必須住在 repo 裡。
