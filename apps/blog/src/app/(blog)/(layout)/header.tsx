@@ -8,10 +8,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@howardism/ui/components/sheet";
+import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Container } from "@/app/(common)/container";
+import { MoonIcon, SunIcon } from "@/app/(common)/icons";
+import { useArticleNav } from "@/components/article-nav-context";
+import { ReadingProgress } from "@/components/howardism/reading-progress";
+import { TocSheet } from "@/components/toc-sheet";
+import { ReaderSettings } from "@/components/tweaks/reader-settings";
+import { useTweaks } from "@/components/tweaks/tweaks-provider";
+import useHasScrolled from "@/hooks/use-has-scrolled";
 
 import { Avatar } from "./avatar";
 import { NAV_SECTION_KEYS, NavSection } from "./constants";
@@ -85,31 +93,83 @@ function MobileNav() {
   );
 }
 
-export function Header() {
+function ThemeToggle() {
+  const { state, setMode } = useTweaks();
+  const isDark = state.mode === "dark";
   return (
-    <header className="pointer-events-none relative z-50 flex flex-none flex-col">
-      <div className="relative top-0 z-10 py-4">
-        <Container className="relative w-full">
-          <div className="pointer-events-auto relative flex items-center gap-4">
-            {/* Wordmark + avatar pill */}
-            <div className="flex flex-1 items-center gap-3">
-              <Avatar size={36} />
-              <div className="flex flex-col gap-px">
-                <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
-                  Howardism
-                </span>
-                <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
+    <button
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      onClick={() => setMode(isDark ? "light" : "dark")}
+      type="button"
+    >
+      {isDark ? (
+        <SunIcon className="size-[18px] fill-none stroke-current" />
+      ) : (
+        <MoonIcon className="size-[18px] fill-current" />
+      )}
+    </button>
+  );
+}
+
+/**
+ * Persistent, context-aware top bar. Owns route nav + theme on every page, and
+ * on article pages gains reader controls (TOC, reader settings) plus the
+ * reading-progress bar rendered as its bottom edge. Condenses on scroll.
+ */
+export function SiteBar() {
+  const isScrolled = useHasScrolled({ offsetPx: 80 });
+  const isArticle = useArticleNav() !== null;
+
+  return (
+    <header
+      className={cn(
+        "sticky top-0 z-50 transition-colors duration-200",
+        isScrolled && "border-border border-b bg-background/20 backdrop-blur-sm"
+      )}
+    >
+      <Container className="relative w-full">
+        <div
+          className={cn(
+            "flex items-center gap-2 transition-[padding] duration-200 sm:gap-3",
+            isScrolled ? "py-2" : "py-4"
+          )}
+        >
+          {/* Wordmark + avatar pill */}
+          <div className="flex flex-1 items-center gap-3">
+            <Avatar size={isScrolled ? 30 : 36} />
+            <div className="flex flex-col gap-px">
+              <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
+                Howardism
+              </span>
+              {!isScrolled && (
+                <span className="hidden font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em] sm:block">
                   vol. 03 · quiet corner of the web
                 </span>
-              </div>
+              )}
             </div>
-
-            {/* Nav */}
-            <DesktopNav />
-            <MobileNav />
           </div>
-        </Container>
-      </div>
+
+          {/* Nav */}
+          <DesktopNav />
+
+          {/* Reader controls — article pages only. The TOC button is hidden at
+              the rail breakpoint, where the sticky rail already shows the TOC. */}
+          {isArticle && (
+            <div className="flex items-center gap-0.5">
+              <span className="inline-flex rail:hidden">
+                <TocSheet />
+              </span>
+              <ReaderSettings />
+            </div>
+          )}
+
+          <ThemeToggle />
+          <MobileNav />
+        </div>
+      </Container>
+
+      {isArticle && <ReadingProgress />}
     </header>
   );
 }

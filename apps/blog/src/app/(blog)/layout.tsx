@@ -6,9 +6,9 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Newsreader } from "next/font/google";
 import type { ChildrenProps } from "react";
 
+import { ArticleNavProvider } from "@/components/article-nav-context";
 import GoogleAnalytics from "@/components/google-analytics";
 import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
-import { TweaksLauncher } from "@/components/tweaks/tweaks-launcher";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
 import { env } from "@/config/env";
 
@@ -21,7 +21,7 @@ import {
   TWITTER_USERNAME,
 } from "../constants";
 import { Footer } from "./(layout)/footer";
-import { Header } from "./(layout)/header";
+import { SiteBar } from "./(layout)/header";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -153,14 +153,15 @@ export default function RootLayout({ children }: ChildrenProps) {
               <div className="w-full bg-background ring-1 ring-border" />
             </div>
           </div>
-          <div className="relative flex flex-1 flex-col">
-            <Header />
-            <main className="flex flex-1 flex-col" id="main-content">
-              {children}
-            </main>
-            <Footer />
-            <TweaksLauncher />
-          </div>
+          <ArticleNavProvider>
+            <div className="relative flex flex-1 flex-col">
+              <SiteBar />
+              <main className="flex flex-1 flex-col" id="main-content">
+                {children}
+              </main>
+              <Footer />
+            </div>
+          </ArticleNavProvider>
           <Analytics />
           {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
             <GoogleAnalytics

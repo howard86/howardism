@@ -51,7 +51,7 @@ export default async function ArticlesIndex() {
   const oldestDate = visible.entities[visible.ids.at(-1) ?? ""]?.meta.date;
 
   return (
-    <div className="hw-page-enter mx-auto max-w-[1320px]">
+    <div className="hw-page-enter mx-auto max-w-index">
       <div className="px-[clamp(20px,5vw,56px)]">
         <DiscPageHeader
           data={[
