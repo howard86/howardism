@@ -14,7 +14,9 @@ const FENCE_RE = /^(\s*)(```+|~~~+)/;
 const WORD_RE = /\b\w+\b/g;
 const LEADING_H1_RE = /^#\s+.+\n+/;
 const TRAILING_PUNCT_RE = /[.\s]+$/;
-const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3})/;
+const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3}|<!--)/;
+const BLOCKQUOTE_PREFIX_RE = /^>\s?/;
+const BOLD_MARKER_RE = /\*\*([^*]+)\*\*/g;
 const FENCE_START_RE = /^(```+|~~~+)/;
 const LEADING_BLANKS_RE = /^\s*\n+/;
 const LEADING_HASH_RE = /^#\s+/;
@@ -310,6 +312,29 @@ export function computeReadingTime(body: string): number {
   const wordMatches = body.match(WORD_RE);
   const wordCount = wordMatches?.length ?? 0;
   return Math.max(1, Math.ceil(wordCount / WORDS_PER_MINUTE));
+}
+
+/**
+ * Extract the first contiguous `>` blockquote as plain text (markers and bold
+ * markup stripped). MOC pages lead with a `> Map of Content…` callout that is
+ * the only human-written prose before the generated member list, so it serves
+ * as their description. Returns `""` when the body opens with no blockquote.
+ */
+export function firstBlockquote(body: string): string {
+  const lines: string[] = [];
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.trim();
+    if (line.startsWith(">")) {
+      lines.push(line.replace(BLOCKQUOTE_PREFIX_RE, ""));
+    } else if (lines.length > 0) {
+      break;
+    }
+  }
+  return lines
+    .join(" ")
+    .replace(BOLD_MARKER_RE, "$1")
+    .replace(WHITESPACE_RE, " ")
+    .trim();
 }
 
 export function firstParagraph(body: string): string {

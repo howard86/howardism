@@ -14,12 +14,12 @@ interface MdxParts {
   body?: string;
   date?: string;
   description?: string;
+  domain?: string;
   imageAlt?: string;
   readingTime?: number;
   sources?: { title: string; url: string }[];
   tag?: string;
   title?: string;
-  topic?: string;
 }
 
 const mdx = (p: MdxParts = {}): string => {
@@ -29,7 +29,7 @@ const mdx = (p: MdxParts = {}): string => {
     `title: ${p.title ?? "Boris Cherny"}`,
     `description: ${p.description ?? "An IC voice on Claude Code"}`,
     `tag: ${p.tag ?? "Entity"}`,
-    `topic: ${p.topic ?? "orgs"}`,
+    `domain: ${p.domain ?? "entities"}`,
     `readingTime: ${p.readingTime ?? 4}`,
     `imageAlt: ${p.imageAlt ?? "Illustration for Boris Cherny"}`,
   ];
@@ -53,12 +53,12 @@ describe("surfaceHash", () => {
     expect(surfaceHash(mdx())).toBe(surfaceHash(mdx()));
   });
 
-  it("ignores changes to verbatim-only fields (date, readingTime, tag, topic)", () => {
+  it("ignores changes to verbatim-only fields (date, readingTime, tag, domain)", () => {
     const base = surfaceHash(mdx());
     expect(surfaceHash(mdx({ date: "2099-01-01" }))).toBe(base);
     expect(surfaceHash(mdx({ readingTime: 99 }))).toBe(base);
     expect(surfaceHash(mdx({ tag: "Concept" }))).toBe(base);
-    expect(surfaceHash(mdx({ topic: "harness" }))).toBe(base);
+    expect(surfaceHash(mdx({ domain: "harness" }))).toBe(base);
   });
 
   it("changes when translatable fields change", () => {
@@ -112,9 +112,9 @@ describe("verbatimDiffers", () => {
   });
 
   it("does not confuse `tag` with `tags`", () => {
-    // `tag:` line present in both; differing only by topic should be detected.
+    // `tag:` line present in both; differing only by domain should be detected.
     expect(
-      verbatimDiffers(mdx({ topic: "orgs" }), mdx({ topic: "harness" }))
+      verbatimDiffers(mdx({ domain: "entities" }), mdx({ domain: "harness" }))
     ).toBe(true);
   });
 });

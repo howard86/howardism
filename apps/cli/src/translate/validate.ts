@@ -54,16 +54,16 @@ const slugFromPath = (path: string): string =>
 
 interface PreservedKeys {
   date: unknown;
+  domain: unknown;
   readingTime: unknown;
   tag: unknown;
-  topic: unknown;
 }
 
 const pickPreserved = (data: Record<string, unknown>): PreservedKeys => ({
   date: dateToIsoDay(data.date),
   readingTime: data.readingTime,
   tag: data.tag,
-  topic: data.topic,
+  domain: data.domain,
 });
 
 const equalScalar = (a: unknown, b: unknown): boolean => {
@@ -175,7 +175,7 @@ export async function validateTranslation(
   if (sourceData) {
     const sourcePreserved = pickPreserved(sourceData);
     const outputPreserved = pickPreserved(outputData);
-    for (const key of ["date", "tag", "topic", "readingTime"] as const) {
+    for (const key of ["date", "tag", "domain", "readingTime"] as const) {
       if (!equalScalar(sourcePreserved[key], outputPreserved[key])) {
         errors.push(
           `Frontmatter \`${key}\` changed: source=${JSON.stringify(
