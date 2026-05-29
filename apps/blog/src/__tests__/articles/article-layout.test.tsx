@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
+import type { ReactNode } from "react";
+
+import { ArticleNavProvider } from "@/components/article-nav-context";
+import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
 
 // `<BacklinksDisclosure>` and `<ArticleRail>` are async server components;
 // happy-dom + RTL's sync render tree can't await them. Both have their own
@@ -19,6 +23,16 @@ afterEach(() => {
 
 import type { ArticleMeta } from "@/app/(blog)/articles/service";
 
+// ArticleLayout mounts reader-control clients (tap-to-scroll, resume) that read
+// the Tweaks + article-nav contexts — render it within both, as the app does.
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <TweaksProvider>
+      <ArticleNavProvider>{children}</ArticleNavProvider>
+    </TweaksProvider>
+  );
+}
+
 const BASE_META: ArticleMeta = {
   date: "2024-01-01",
   description: "A description",
@@ -33,7 +47,8 @@ describe("ArticleLayout drop-cap", () => {
     const { container } = render(
       <ArticleLayout meta={{ ...BASE_META, dropCap: true }} slug="test-article">
         <p>Article content</p>
-      </ArticleLayout>
+      </ArticleLayout>,
+      { wrapper: Providers }
     );
     const proseDiv = container.querySelector(".prose");
     expect(proseDiv).toBeDefined();
@@ -44,7 +59,8 @@ describe("ArticleLayout drop-cap", () => {
     const { container } = render(
       <ArticleLayout meta={BASE_META} slug="test-article">
         <p>Article content</p>
-      </ArticleLayout>
+      </ArticleLayout>,
+      { wrapper: Providers }
     );
     const proseDiv = container.querySelector(".prose");
     expect(proseDiv).toBeDefined();
@@ -58,7 +74,8 @@ describe("ArticleLayout drop-cap", () => {
         slug="test-article"
       >
         <p>Article content</p>
-      </ArticleLayout>
+      </ArticleLayout>,
+      { wrapper: Providers }
     );
     const proseDiv = container.querySelector(".prose");
     expect(proseDiv?.classList.contains("prose-drop-cap")).toBe(false);
