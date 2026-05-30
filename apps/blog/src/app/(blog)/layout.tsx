@@ -8,6 +8,7 @@ import type { ChildrenProps } from "react";
 
 import { ArticleNavProvider } from "@/components/article-nav-context";
 import GoogleAnalytics from "@/components/google-analytics";
+import { SearchProvider } from "@/components/search/search-provider";
 import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
 import { env } from "@/config/env";
@@ -154,13 +155,15 @@ export default function RootLayout({ children }: ChildrenProps) {
             </div>
           </div>
           <ArticleNavProvider>
-            <div className="relative flex flex-1 flex-col">
-              <SiteBar />
-              <main className="flex flex-1 flex-col" id="main-content">
-                {children}
-              </main>
-              <Footer />
-            </div>
+            <SearchProvider>
+              <div className="relative flex flex-1 flex-col">
+                <SiteBar />
+                <main className="flex flex-1 flex-col" id="main-content">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+            </SearchProvider>
           </ArticleNavProvider>
           <Analytics />
           {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

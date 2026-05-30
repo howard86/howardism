@@ -167,6 +167,7 @@ export function ArticleLayout({
                 "prose max-w-none",
                 meta.dropCap && "prose-drop-cap"
               )}
+              data-article-body
             >
               {children}
             </div>

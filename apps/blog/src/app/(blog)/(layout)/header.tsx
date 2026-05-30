@@ -15,7 +15,9 @@ import { usePathname } from "next/navigation";
 import { Container } from "@/app/(common)/container";
 import { MoonIcon, SunIcon } from "@/app/(common)/icons";
 import { useArticleNav } from "@/components/article-nav-context";
+import { ArticleFind } from "@/components/find/article-find";
 import { ReadingProgress } from "@/components/howardism/reading-progress";
+import { SearchTrigger } from "@/components/search/search-trigger";
 import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
 import { useTweaks } from "@/components/tweaks/tweaks-provider";
@@ -160,10 +162,12 @@ export function SiteBar() {
               <span className="inline-flex rail:hidden">
                 <TocSheet />
               </span>
+              <ArticleFind />
               <ReaderSettings />
             </div>
           )}
 
+          <SearchTrigger />
           <ThemeToggle />
           <MobileNav />
         </div>
