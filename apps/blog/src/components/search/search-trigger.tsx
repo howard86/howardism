@@ -1,6 +1,7 @@
 "use client";
 
-import { SearchIcon } from "@/app/(common)/icons";
+import { Search01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { useSearch } from "./search-provider";
 
@@ -14,7 +15,7 @@ export function SearchTrigger() {
       onClick={openSearch}
       type="button"
     >
-      <SearchIcon className="size-[18px] fill-none stroke-current" />
+      <HugeiconsIcon className="size-[18px]" icon={Search01Icon} />
     </button>
   );
 }
