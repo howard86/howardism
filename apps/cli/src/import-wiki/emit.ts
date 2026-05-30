@@ -26,7 +26,7 @@ export function buildArticleSource(
     title: meta.title,
     description: meta.description,
     tag: meta.tag,
-    ...(meta.topic ? { topic: meta.topic } : {}),
+    ...(meta.domain ? { domain: meta.domain } : {}),
     ...(meta.tags && meta.tags.length > 0 ? { tags: meta.tags } : {}),
     readingTime: meta.readingTime,
     imageAlt,

@@ -4,10 +4,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  WIKI_DOMAINS,
   WIKI_TAGS,
-  WIKI_TOPICS,
+  type WikiDomain,
   type WikiTag,
-  type WikiTopic,
 } from "@howardism/article-contract";
 import {
   ArticleContractSchema,
@@ -20,14 +20,15 @@ import { cache } from "react";
 import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
+import openQuestionsData from "@/data/open-questions.json";
 import translationsData from "@/data/translations.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
 import { taggedHref } from "@/utils/tagged-href";
 
 export type ArticleTag = WikiTag;
-export type ArticleTopic = WikiTopic;
+export type ArticleDomain = WikiDomain;
 export const ARTICLE_TAGS = WIKI_TAGS;
-export const ARTICLE_TOPICS = WIKI_TOPICS;
+export const ARTICLE_DOMAINS = WIKI_DOMAINS;
 
 export type SourceRef = z.infer<typeof SourceRefSchema>;
 
@@ -245,13 +246,25 @@ export const getTagCounts = cache(
   }
 );
 
-export const getArticlesByTopic = cache(
-  async (topic: ArticleTopic): Promise<ArticleEntity[]> => {
+/**
+ * A domain's members are its concepts/entities/essays — never its MOC. A MOC
+ * carries `tag: Index` and its own `domain`, but it's the curated *map* of the
+ * domain, not a note within it, so it's excluded from every domain aggregation
+ * (counts, listings, sparklines, lead source). The open-questions backlog (also
+ * `Index`) drops out the same way.
+ */
+const isDomainMember = (
+  entity: ArticleEntity | undefined
+): entity is ArticleEntity =>
+  entity !== undefined && entity.meta.tag !== "Index";
+
+export const getArticlesByDomain = cache(
+  async (domain: ArticleDomain): Promise<ArticleEntity[]> => {
     const visible = await getVisibleArticles();
     const matches: ArticleEntity[] = [];
     for (const id of visible.ids) {
       const entity = visible.entities[id];
-      if (entity && entity.meta.topic === topic) {
+      if (isDomainMember(entity) && entity.meta.domain === domain) {
         matches.push(entity);
       }
     }
@@ -259,16 +272,16 @@ export const getArticlesByTopic = cache(
   }
 );
 
-export const getTopicCounts = cache(
-  async (): Promise<Record<ArticleTopic, number>> => {
+export const getDomainCounts = cache(
+  async (): Promise<Record<ArticleDomain, number>> => {
     const visible = await getVisibleArticles();
     const counts = Object.fromEntries(
-      ARTICLE_TOPICS.map((topic) => [topic, 0])
-    ) as Record<ArticleTopic, number>;
+      ARTICLE_DOMAINS.map((domain) => [domain, 0])
+    ) as Record<ArticleDomain, number>;
     for (const id of visible.ids) {
-      const topic = visible.entities[id]?.meta.topic;
-      if (topic) {
-        counts[topic] += 1;
+      const entity = visible.entities[id];
+      if (isDomainMember(entity) && entity.meta.domain) {
+        counts[entity.meta.domain] += 1;
       }
     }
     return counts;
@@ -394,17 +407,18 @@ const SPARK_WEEKS = 8;
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Per-topic activity sparkline: counts of articles published in each of the
+ * Per-domain activity sparkline: counts of articles published in each of the
  * last `SPARK_WEEKS` weeks, oldest→newest, anchored to the newest article date
- * so the most recent batch always registers. Returns `[]` for empty topics.
+ * so the most recent batch always registers. Returns `[]` for empty domains.
  */
-export const getTopicSparklines = cache(
-  async (): Promise<Record<ArticleTopic, number[]>> => {
+export const getDomainSparklines = cache(
+  async (): Promise<Record<ArticleDomain, number[]>> => {
     const visible = await getVisibleArticles();
     const dated = visible.ids
       .map((id) => visible.entities[id])
       .filter(
-        (e): e is ArticleEntity => e !== undefined && e.meta.topic !== undefined
+        (e): e is ArticleEntity =>
+          isDomainMember(e) && e.meta.domain !== undefined
       );
 
     const anchor = dated.reduce(
@@ -414,19 +428,19 @@ export const getTopicSparklines = cache(
     const start = anchor - (SPARK_WEEKS - 1) * MS_PER_WEEK;
 
     const result = Object.fromEntries(
-      ARTICLE_TOPICS.map((topic) => [topic, new Array(SPARK_WEEKS).fill(0)])
-    ) as Record<ArticleTopic, number[]>;
+      ARTICLE_DOMAINS.map((domain) => [domain, new Array(SPARK_WEEKS).fill(0)])
+    ) as Record<ArticleDomain, number[]>;
 
     for (const entity of dated) {
-      const topic = entity.meta.topic;
-      if (!topic) {
+      const domain = entity.meta.domain;
+      if (!domain) {
         continue;
       }
       const week = Math.floor(
         (new Date(entity.meta.date).valueOf() - start) / MS_PER_WEEK
       );
       if (week >= 0 && week < SPARK_WEEKS) {
-        result[topic][week] += 1;
+        result[domain][week] += 1;
       }
     }
     return result;
@@ -434,20 +448,23 @@ export const getTopicSparklines = cache(
 );
 
 /**
- * The raw source most cited by a topic's articles — drives the topic-plate
- * "Sourced from" aside. Returns `undefined` when no source backs the topic.
+ * The raw source most cited by a domain's articles — drives the domain-plate
+ * "Sourced from" aside. Returns `undefined` when no source backs the domain.
  */
-export const getTopicLeadSource = cache(
-  async (topic: ArticleTopic): Promise<WikiSource | undefined> => {
+export const getDomainLeadSource = cache(
+  async (domain: ArticleDomain): Promise<WikiSource | undefined> => {
     const visible = await getVisibleArticles();
-    const topicSlugs = new Set(
-      visible.ids.filter((id) => visible.entities[id]?.meta.topic === topic)
+    const domainSlugs = new Set(
+      visible.ids.filter((id) => {
+        const entity = visible.entities[id];
+        return isDomainMember(entity) && entity.meta.domain === domain;
+      })
     );
     let best: WikiSource | undefined;
     let bestScore = 0;
     for (const source of wikiSources.sources) {
       const score = source.citedBy.filter((slug) =>
-        topicSlugs.has(slug)
+        domainSlugs.has(slug)
       ).length;
       if (score > bestScore) {
         best = source;
@@ -457,6 +474,30 @@ export const getTopicLeadSource = cache(
     return best;
   }
 );
+
+/* ── open-questions backlog (emitted by the importer) ── */
+
+export interface OpenQuestionConcept {
+  domain: ArticleDomain;
+  questions: string[];
+  slug: string;
+  title: string;
+}
+
+const openQuestions = openQuestionsData as {
+  byConcept: OpenQuestionConcept[];
+  generatedOn: string;
+};
+
+/** Every concept that still has unanswered questions, title-sorted. */
+export const getOpenQuestions = (): OpenQuestionConcept[] =>
+  openQuestions.byConcept;
+
+/** The open-questions concepts filed under a single domain. */
+export const getOpenQuestionsByDomain = (
+  domain: ArticleDomain
+): OpenQuestionConcept[] =>
+  openQuestions.byConcept.filter((concept) => concept.domain === domain);
 
 /**
  * Returns prev/next slug for the article-page footer, partitioned by archive

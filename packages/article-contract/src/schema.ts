@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { WIKI_TAGS, WIKI_TOPICS } from "./index";
+import { WIKI_DOMAINS, WIKI_TAGS } from "./index";
 
 export const SourceRefSchema = z.object({
   title: z.string(),
@@ -15,5 +15,5 @@ export const ArticleContractSchema = z.object({
   tag: z.enum(WIKI_TAGS),
   tags: z.array(z.string()).optional(),
   title: z.string(),
-  topic: z.enum(WIKI_TOPICS).optional(),
+  domain: z.enum(WIKI_DOMAINS).optional(),
 });

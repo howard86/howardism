@@ -6,10 +6,12 @@ import {
   computeReadingTime,
   detectEntityPrefix,
   escapeMdxBody,
+  firstHeading,
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
   stripDuplicateLeadingHeading,
+  stripHtmlComments,
 } from "../import-wiki/transform.ts";
 
 describe("rewriteWikilinks", () => {
@@ -259,6 +261,41 @@ describe("stripDuplicateLeadingHeading", () => {
     expect(stripDuplicateLeadingHeading(body, "Claude Code")).toBe(
       "Body starts here."
     );
+  });
+});
+
+describe("firstHeading", () => {
+  it("returns the leading H1 text", () => {
+    expect(firstHeading("# Formal Mathematics\n\nBody.")).toBe(
+      "Formal Mathematics"
+    );
+  });
+
+  it("ignores leading blank lines before the H1", () => {
+    expect(firstHeading("\n\n# Entities — People\n\nBody.")).toBe(
+      "Entities — People"
+    );
+  });
+
+  it("returns an empty string when the body opens with no H1", () => {
+    expect(firstHeading("> A blockquote, not a heading.")).toBe("");
+  });
+});
+
+describe("stripHtmlComments", () => {
+  it("blanks a single-line comment, keeping block separation", () => {
+    const body = "> Map of Content.\n<!-- BEGIN GENERATED: moc -->\n- [[a]]";
+    expect(stripHtmlComments(body)).toBe("> Map of Content.\n\n- [[a]]");
+  });
+
+  it("drops a multi-line comment block", () => {
+    const body = "Intro.\n<!-- TODO: author\nthis later. -->\nOutro.";
+    expect(stripHtmlComments(body)).toBe("Intro.\n\nOutro.");
+  });
+
+  it("leaves prose without comments untouched", () => {
+    const body = "No comments here.\n\nJust prose.";
+    expect(stripHtmlComments(body)).toBe(body);
   });
 });
 

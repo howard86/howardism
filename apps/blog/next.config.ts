@@ -110,6 +110,22 @@ const nextConfig: NextConfig = {
       destination: "/articles",
       permanent: true,
     },
+    // The five derived `topic` buckets were replaced by the wiki's nine
+    // curated `domain` MOCs. The taxonomies don't map 1:1, so old topic URLs
+    // land on the articles index rather than guessing a domain.
+    {
+      source: "/articles/topic/:slug",
+      destination: "/articles",
+      permanent: true,
+    },
+    // Each domain's `moc-<domain>` Map of Content is now rendered inline on the
+    // domain page rather than as a standalone article. Its old article URL folds
+    // into the canonical domain page so wiki backlinks to the MOC keep resolving.
+    {
+      source: "/articles/moc-:domain",
+      destination: "/articles/domain/:domain",
+      permanent: true,
+    },
     {
       source: "/zh-TW/articles/wiki-changelog",
       destination: "/zh-TW/articles",

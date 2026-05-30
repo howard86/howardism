@@ -1,0 +1,111 @@
+---
+date: 2026-05-28
+title: 驗證品質何時決定 AI 自動化是否可行？
+description: 從 Lean／形式化證明搜尋、軟體 CI 到漏洞重現的驗證品質階梯；自主性應只提升到驗證器所能支撐的程度
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - verification
+  - agent-engineering
+  - formal-methods
+  - cybersecurity
+readingTime: 8
+imageAlt: 「驗證品質何時決定 AI 自動化是否可行？」的插圖
+---
+export { default as heroImage } from "../assets/verifier-quality-and-agent-automation.png";
+
+## 簡答
+
+當 AI 的產出廉價易生成，卻昂貴、危險或無法靠肉眼檢查來信任時，驗證品質就決定了 AI 自動化是否可行。在這種情境下，生成並非產品。**經過驗證的產物才是產品。**
+
+這是 [The Verifiability Thesis](/articles/verifiability-thesis) 的實務形式：傳統軟體自動化的是可規格化的事物；LLM 系統自動化的是可驗證的事物。驗證器越好，自主性就越能從「助理提出建議」走向「agent 搜尋」。驗證器越差，系統就越會退回到人工審查、橡皮圖章式核准，或不安全的產量堆疊。
+
+## 驗證品質階梯
+
+### 1. 完美的機械式驗證器：自動化變成搜尋
+
+[AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) 是最乾淨的案例。agent 產出 [Lean](/articles/lean) 程式碼；Lean 機械式檢查每一個定義、定理與證明 tactic。唯有當編譯器達到沒有待證目標、且沒有 `sorry` 與未允許的公理注入時，證明才會被接受。這把容易幻覺的數學散文，轉成二元產物：接受或拒絕。
+
+在這種設定下，驗證品質幾乎直接決定成敗：
+
+- 驗證器夠 sound，能拒絕假證明。
+- 回饋夠局部，能引導下一次編輯。
+- 檢查夠便宜，能在迴圈內執行。
+- 被接受的產出夠有價值，值得交給人類做結構性審查，而非逐行查真理。
+
+驗證器不只是最後一道關卡。Lean 編譯器錯誤會錨定 agent 的下一輪。這就是為什麼 [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) 很重要：DeepMind 的基本迴圈——多個獨立 prover agent——在全部 9 個已解的 Erdős 問題上，追平了精密的演化／AlphaProof 裝置，雖然在最難的題目上成本更高。迴圈能運作，是因為驗證器夠強，讓「笨搜尋」也變得有效。
+
+重要的保留意見是 [Lean](/articles/lean) 自身的前沿：mathlib 成熟度決定了能觸及什麼。完美的驗證器不會讓每個領域都就緒；它只讓自動化在目標可形式化、且支援函式庫存在的地方運作。
+
+### 2. 強但不完整的驗證器：自動化可行，但基礎設施成為瓶頸
+
+軟體工程位於 Lean 階梯之下。測試、CI、lint、型別檢查器、規格與 code review 都是真實的驗證器，但不完整。它們能抓回歸、風格錯誤、型別違規、明顯 bug 與 spec 偏移；無法證明整個產品正確。
+
+這就是為什麼 [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) 是 [The Verifiability Thesis](/articles/verifiability-thesis) 在組織層面的後果。一旦 [Claude Code](/articles/claude-code) 讓寫程式變廉價，稀缺資源就變成對變更正確性的信心。瓶頸從寫程式，移到驗證、審查與維護。
+
+自動化在驗證左移時才有效：
+
+- 測試與程式碼同寫或先寫，於是 TDD 不再像舊日的「稅」。
+- 規格留在 repo 裡，agent 能檢查 spec 偏移。
+- CI／build 產能跟上新產量。
+- 人工審查保留給法律、風險容忍度與信任邊界決策。
+
+失敗模式不是「AI 不會寫程式」。失敗模式是程式碼產量超過驗證產能。若 PR 週期時間沒有下降，[Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) 說要拆開漏斗：可能是 CI／build 基礎設施在 agentic 吞吐量下塞車，而不是 AI 採用率低。
+
+### 3. 實證式驗證器：若現實給快速回饋，自動化就可行
+
+[LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) 是更混亂但重要的案例。agent 不是在證明定理，而是在搜尋程式碼、假設漏洞、執行程式、除錯、產生 PoC，並產出重現步驟。腳手架很簡單：隔離容器、專案原始碼、段落級 prompt、平行 agent 專注不同檔案，以及最後的 validation agent 過濾嚴重度。
+
+這裡的驗證品質不是數學上的 soundness，而是實證確認：
+
+- agent 能否重現 crash、exploit 或控制流劫持？
+- 能否產出 PoC 與另一位審查者可執行的步驟？
+- validation 能否把關鍵發現與垃圾分開？
+- 流程能否在人類被大量低嚴重度問題淹沒前，先過濾次要議題？
+
+頁面上的證據兩面都有。腳手架找到了重大 bug，包含 RCE；Mythos Preview 也從發現漏洞，推進到串接可用的 exploit。但檔案排序、重現、最終 validation、嚴重度審查、防護措施與受控釋出之所以必要，正是重點：在高風險領域，驗證品質決定自動化是防禦槓桿，還是無法審查的危險產出。
+
+與 Lean 相比，漏洞研究的驗證較弱，但比模糊判斷任務更貼近可執行現實。這讓它落在中段：自動化可以運作，但唯有當腳手架強制產出可重跑、可檢查的具體產物。
+
+### 4. 嘈雜的驗證器：自動化仍停留在輔助
+
+[The Verifiability Thesis](/articles/verifiability-thesis) 承認幾乎一切到某種程度都可變得可驗證，甚至軟性領域也可透過 LLM-judge 評議會。但「到某種程度」不足以完全委派。嘈雜的驗證器或許能改善排序、分診或起草，卻無法承擔與 Lean 相同的自主性負載。
+
+這就是分界線：當驗證器無法可靠拒絕壞產出，自動化就必須更靠近人類判斷。否則系統只會放大看起來合理的錯誤。
+
+## 何時驗證品質成為決定性因素
+
+當四個條件同時成立，驗證品質就成為決定變數：
+
+1. **生成豐沛。** agent 能廉價產出大量候選 patch、證明、exploit、報告或計畫。這在 [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)、[AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) 與 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) 都成立。
+2. **產出有外在正確性。** 證明要嘛 typecheck；測試要嘛通過；exploit 要嘛能重現；patch 要嘛保留行為。目標不只是品味。
+3. **壞產出代價高。** 錯誤證明浪費專家注意力；爛程式增加維護成本；未驗證的漏洞產出會帶來資安風險或揭露過載。
+4. **回饋能進入迴圈。** 驗證器必須產出 agent 可採取的訊號，而不只是晚期的人類裁決。
+
+四者皆成立時，改善驗證器往往比改善 prompt 更重要。agentic 迴圈變成：生成、檢查、從檢查中學習、重複。若檢查可靠，迴圈會複利；若檢查薄弱，迴圈會複利噪音。
+
+## 驗證品質的組成
+
+資料來源隱含五個維度：
+
+- **Soundness：** 接受是否代表產物真的有效？[Lean](/articles/lean) 是高標。
+- **Coverage：** 驗證器是否檢查任務中重要的部分？測試與 CI 有用但不完整；mathlib 成熟度限制形式化證明搜尋。
+- **Actionability：** 失敗訊號能否引導下一次嘗試？Lean 編譯器錯誤可以；模糊的人工審查往往不行。
+- **Latency and cost：** 驗證能否在 agent 迴圈內執行？若太慢或太貴，就會變成最終稽核，而非搜尋原語。
+- **Review filtering：** 驗證器能否把人類工作縮到值得審的產出？[AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) 明確把形式驗證框成過濾器，用來決定哪些證明值得人類審查；[LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) 用 validation 過濾發現。
+
+## 結論
+
+當驗證器夠好，能把模型產出變成帶可靠拒絕的搜尋空間時，AI 自動化就會運作。Lean 展示理想狀態：驗證器 sound、局部、便宜且可迴圈化，於是簡單的 agentic 迴圈能超越客製化機器。軟體工程展示實務中段：測試、CI、規格與審查讓自動化有用，但隨程式碼產量上升，驗證基礎設施成為瓶頸。漏洞研究展示危險中段：實證重現與 validation 能讓自動化有產能，但薄弱的驗證會把規模變成風險。
+
+因此規則很簡單：**自主性只提升到你的驗證器能支撐的程度。** 低於那條線，把模型當助理。在那條線上，把它當搜尋流程。高於那條線，承重的是驗證器，而非模型。
+
+## 相關
+
+- [The Verifiability Thesis](/articles/verifiability-thesis)
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)
+- [Lean](/articles/lean)
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research)
