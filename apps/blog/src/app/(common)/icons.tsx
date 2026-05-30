@@ -591,6 +591,22 @@ export function MoonIcon(props: SVGProps) {
   );
 }
 
+export function SearchIcon(props: SVGProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+      viewBox="0 0 24 24"
+      {...props}
+    >
+      <path d="M10.75 4a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5Z" />
+      <path d="m20 20-4.4-4.4" />
+    </svg>
+  );
+}
+
 export function CloseIcon(props: SVGProps) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" {...props}>
