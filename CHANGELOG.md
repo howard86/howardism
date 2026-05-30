@@ -1,3 +1,12 @@
+# [v2.7.0](https://github.com/howard86/howardism/compare/v2.6.0...v2.7.0) (2026-05-30)
+
+## ✨ New Features
+- [`ab24543`](https://github.com/howard86/howardism/commit/ab24543)  feat(cli): migrate wiki importer from topics to domain MOC taxonomy 
+- [`292c143`](https://github.com/howard86/howardism/commit/292c143)  feat(blog): migrate topic taxonomy to wiki domain MOCs + open-questions 
+- [`0662c89`](https://github.com/howard86/howardism/commit/0662c89)  feat(cli): clean MOC titles and strip HTML comments on import 
+- [`c7633a8`](https://github.com/howard86/howardism/commit/c7633a8)  feat(blog): render MOC inline on domain page + redirect old moc URLs 
+- [`3fb7701`](https://github.com/howard86/howardism/commit/3fb7701)  feat(cli): add cursor translation engine with composer model
+
 # [v2.6.0](https://github.com/howard86/howardism/compare/v2.5.1...v2.6.0) (2026-05-29)
 
 ## ✨ New Features
