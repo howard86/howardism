@@ -1,0 +1,61 @@
+---
+date: 2026-05-28
+title: Memory and Context Poisoning
+description: 持久 agent 記憶遭腐敗，在初次注入很久之後仍影響行為；涵蓋 RAG poisoning、shared-context poisoning，以及緩慢的長期記憶漂移；以記憶隔離、完整性驗證與保留政策防禦
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - memory
+  - rag
+  - threats
+readingTime: 4
+imageAlt: Memory and Context Poisoning 的示意圖
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/memory-and-context-poisoning.png";
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## 摘要
+
+跨工作階段持久保存脈絡的 agent，其記憶可能被腐敗，使日後推理偏頗、不安全，或積極協助資料外洩。與 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 等單一工作階段攻擊不同之處在於**持久性**：植入助理記憶的惡意指令可危及*目前與未來所有工作階段*——agent 在初次注入很久之後仍持續服務攻擊者目標。[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的 Phase 7（「safeguard agent memory」）針對此威脅。
+
+## 變體
+
+- **Direct memory poisoning** — 攻擊者指令寫入 agent 的長期記憶儲存；影響之後所有推理。
+- **RAG poisoning** — 透過被毒害的來源、直接上傳或過度信任的管線，將惡意資料引入向量資料庫。agent 在回答查詢時擷取受污染的脈絡，產生錯誤答案或執行針對性 payload。（[Agent Supply Chain Risk](/articles/agent-supply-chain-risk) 在執行期資料上的類比。）
+- **Shared context poisoning** — 在多租戶環境中，攻擊者透過正常互動注入資料，影響*之後*的工作階段；新的使用者工作階段會繼承被毒害的脈絡。
+- **Long-term memory drift** — 最細微的一種：摘要或同儕 agent 回饋逐漸改變儲存知識或目標權重，隨時間產生行為偏差，且*因為沒有任何單次變更看起來惡意*而難以偵測。這正是行為基線中 drift detection 的動機。
+
+## 防禦（Phase 7）
+
+- **Memory isolation** — 工作階段與使用者之間嚴格邊界，使某一對話的被毒害脈絡無法影響另一對話。框架指出 [Claude Code](/articles/claude-code) 預設強制工作階段隔離（每個工作階段全新脈絡；子 agent 在隔離的 context window 中執行）。
+- **Context integrity validation** — 以密碼學雜湊偵測未授權修改；為每個記憶元素標註來源歸屬。在*每次擷取*時驗證，而非僅在儲存時；將雜湊存放在與記憶內容分離、防竄改的日誌中；驗證失敗時拒絕並告警。
+- **Context retention policies** — 以 TTL 自動過期未驗證的記憶；高風險脈絡（外部輸入、未驗證的工具輸出）保留較短。Claude Code 的 `cleanupPeriodDays` 控制本機 transcript 的持久化。
+- **Versioned memory + quarantine** — 回滾至已知良好狀態；隔離可疑內容以供刪除前的鑑識分析；預先測試回滾程序；定義全面清除與針對性修復的準則。
+
+## 與 wiki 記憶概念的關係
+
+這是 wiki 其他處良性持久記憶設計的*對抗面*——agent harness 中的 bounded memory 檔案、本 vault 所採用的 [compiled knowledge base](/articles/llm-as-compiler-knowledge-base) 模式。任何允許 agent*寫入*持久記憶的系統都會繼承此威脅面；完整性驗證與來源歸屬，是讓編譯／持久化儲存保持可信的控制手段。
+
+## 相關連結
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Phase 7（「safeguard agent memory」）（樞紐）
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — injection 是傳遞向量；兩者都利用模型無法區分資料與指令的弱點，但 poisoning 加上持久性
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — RAG poisoning 是被毒害上游元件在執行期資料的類比
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — 會繼承此威脅面（可寫入持久記憶）的良性持久知識模式
+- [Claude Code](/articles/claude-code) — 引用：預設工作階段隔離、`cleanupPeriodDays`、用於回滾的 checkpoint/rewind
+
+## 開放問題
+
+- Long-term memory drift 被定義為單次變更無法偵測。drift detection 需要基線——但若基線本身也在漂移（Advanced「continuous baseline refinement」），緩慢的 poisoning 攻擊如何與合法的演進區分？
+- 完整性雜湊能偵測*修改*，卻無法偵測透過合法（被注入）互動寫入的*惡意但有效*記憶。語意上已毒害、密碼學上仍完整的記憶，由什麼來攔截？
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part II memory/context poisoning 威脅；Part IV Phase 7（isolation、integrity validation、retention）

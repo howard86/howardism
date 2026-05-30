@@ -1,4 +1,4 @@
-interface TopicSparklineProps {
+interface DomainSparklineProps {
   /** Per-week activity counts, oldest → newest. */
   bars: number[];
   color: string;
@@ -9,11 +9,11 @@ const BAR_MIN_PX = 4;
 const RECENT_WEEKS = 3;
 
 /**
- * Tiny 8-week activity sparkline for a topic plate. Heights scale to the
- * topic's own peak; the most recent weeks read in full color, earlier weeks
+ * Tiny 8-week activity sparkline for a domain plate. Heights scale to the
+ * domain's own peak; the most recent weeks read in full color, earlier weeks
  * are muted.
  */
-export function TopicSparkline({ bars, color }: TopicSparklineProps) {
+export function DomainSparkline({ bars, color }: DomainSparklineProps) {
   const peak = Math.max(1, ...bars);
   return (
     <div

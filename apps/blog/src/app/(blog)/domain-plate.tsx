@@ -1,38 +1,38 @@
 import { InternalLink } from "@/components/internal-link";
 import { formatDateShort } from "@/utils/time";
 
+import { DOMAIN_META } from "./articles/domain-meta";
 import type {
+  ArticleDomain,
   ArticleEntity,
-  ArticleTopic,
   WikiSource,
 } from "./articles/service";
-import { TOPIC_META } from "./articles/topic-meta";
-import { TopicSparkline } from "./topic-sparkline";
+import { DomainSparkline } from "./domain-sparkline";
 
-interface TopicPlateProps {
+interface DomainPlateProps {
   articles: ArticleEntity[];
   bars: number[];
   count: number;
+  domain: ArticleDomain;
   index: number;
   leadSource: WikiSource | undefined;
-  topic: ArticleTopic;
 }
 
 const VISIBLE_NOTES = 4;
 
 /**
- * One home-page topic plate: a giant count numeral + activity sparkline, the
- * topic's freshest notes, and the source most cited within the topic.
+ * One home-page domain plate: a giant count numeral + activity sparkline, the
+ * domain's freshest notes, and the source most cited within the domain.
  */
-export function TopicPlate({
-  topic,
+export function DomainPlate({
+  domain,
   articles,
   count,
   bars,
   leadSource,
   index,
-}: TopicPlateProps) {
-  const meta = TOPIC_META[topic];
+}: DomainPlateProps) {
+  const meta = DOMAIN_META[domain];
   const notes = articles.slice(0, VISIBLE_NOTES);
   const banded = index % 2 === 1;
   const plateNo = String(index + 1).padStart(2, "0");
@@ -61,7 +61,7 @@ export function TopicPlate({
             filed under {meta.label.toLowerCase()}
           </div>
           <div className="mt-3.5 flex flex-col gap-1.5">
-            <TopicSparkline bars={bars} color={meta.color} />
+            <DomainSparkline bars={bars} color={meta.color} />
             <div className="font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.14em]">
               Activity · 8 wks
             </div>
@@ -114,7 +114,7 @@ export function TopicPlate({
             <li className="border-border border-t py-2.5">
               <a
                 className="border-current border-b pb-0.5 font-mono text-[11px] uppercase tracking-[0.18em]"
-                href={`/articles/topic/${topic}`}
+                href={`/articles/domain/${domain}`}
                 style={{ color: meta.color }}
               >
                 All {count} notes in {meta.label.toLowerCase()} →

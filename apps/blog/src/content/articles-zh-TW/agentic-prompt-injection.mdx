@@ -1,0 +1,67 @@
+---
+date: 2026-05-28
+title: Agentic Prompt Injection
+description: 攻擊者將惡意指令直接或間接注入 agent；LLMs 無法可靠區分資訊與指令；防禦手段包括 Spotlighting（50%→&lt;2%）、constitutional classifiers（95% 攔截）、輸入隔離，以及縮小攻擊面
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - prompt-injection
+  - threats
+  - input-validation
+readingTime: 4
+imageAlt: Agentic Prompt Injection 的示意圖
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/agentic-prompt-injection.png";
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## 摘要
+
+prompt injection 是插入惡意指令、迫使 agent 服從攻擊者命令的手法。[OWASP](/articles/owasp) 將其列為 agentic 系統的頭號威脅；背後的核心技術事實——**LLMs 無法可靠區分資訊性脈絡與可執行指令**（Microsoft Research）——也是整個 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 框架的承載點。因為模型把資料與指令視為同一 token 串流，再怎麼「叫 agent 不要這樣做」都無法徹底解決；防禦必須是結構性的。
+
+## 兩種形式
+
+- **direct prompt injection** — 攻擊者構造輸入以覆寫系統指令：明確的指令覆寫、用編碼方案（Base64、hex）繞過過濾器，以及對人類看似無意義、卻能導向輸出的對抗後綴。研究顯示，演算法方法可達成 **100% 攻擊成功率**，且提示能*跨多個模型家族轉移。*
+- **indirect prompt injection** — 更陰險的形式。攻擊者把指令嵌入 agent 處理的外部資料（網頁、電子郵件、文件）。使用者從未看見 payload，agent 卻把它當成合法請求執行。這就是為什麼[會瀏覽、讀信或 ingest 文件的 agent](/articles/mcp-and-computer-use) 在結構上暴露於風險。
+
+注入也是鄰近威脅的傳遞機制：它會觸發 tool-misuse 與 tool-chaining 攻擊；當注入的指令被寫入持久記憶時，也是 [Memory and Context Poisoning](/articles/memory-and-context-poisoning) 的向量。
+
+## 防禦（結構性，而非勸誡）
+
+框架的輸入驗證分級階梯與 Phase 4 規定了分層防禦：
+
+- **Input isolation / spotlighting** — 將所有自然語言輸入視為不可信，並清楚*界定*，讓模型知道何者為資料、何者為指令。Microsoft 的 **Spotlighting** 把 indirect prompt injection 成功率從**超過 50% 降到 2% 以下。** 這是單一最高槓桿的控制。
+- **constitutional classifiers** — 掃描提示與回應、偵測操縱企圖的 AI 防護。Anthropic 的做法在測試中**攔截了 95% 的 jailbreak 嘗試**，過度拒絕僅小幅增加。可訓練進 LLM 防護層，同時監控輸入與輸出。
+- **Input sanitization** — schema 驗證、長度限制、已知惡意模式與編碼 payload 過濾（Foundation → Enterprise）。值得注意的是，這*無法*像 SQL injection 那樣直接平移：agent 輸入是自由格式且不可預測，簡單的強制規則並不足夠。
+- **Limit attack surface** — 限制*誰與什麼*能與 agent 互動。這是傳統手法，卻最有效之一：不可信輸入越少，注入機會越少。
+- **Parameter validation** — 在 agent 與工具兩側驗證工具呼叫參數（Phase 5）；拒絕超出預期範圍的參數。
+
+## 為何「繁瑣」防禦在此失效
+
+以編碼為基礎的過濾器與模式封鎖清單是摩擦型控制：有耐心的攻擊者會重新編碼 payload。依 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)，能持久的控制是那些改變*結構*的（spotlighting 界定、isolation 隔離、classifier 語意偵測），而非僅提高重試成本者。
+
+## 相關連結
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) ——Phase 4（「防禦 prompt injection」）與輸入驗證控制域（樞紐）
+- [Least Agency](/articles/least-agency) ——在注入成功後加以遏制的授權原則：即使 agent 被劫持，也只能濫用其 agency 所允許的工具
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) ——injection 是持久記憶損壞的傳遞向量；兩者都利用相同的「資料 ≡ 指令」弱點
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) ——區分結構性防禦（spotlighting、isolation）與僅增加摩擦的過濾器
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) ——在動作邊界上，classifier 閘控的工具核准是 constitutional classifiers 理念的已部署實例
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) ——injection 是*外部*攻擊者誘發有害 agent 行為的方式；agentic misalignment 是*自我驅動*的對應物
+- [OWASP](/articles/owasp) ——將 prompt injection 列為頭號 agentic 威脅
+- [MCP and Computer Use](/articles/mcp-and-computer-use) ——瀏覽／電子郵件／文件工具是 indirect prompt injection 的入口
+
+## 開放問題
+
+- Spotlighting 與 constitutional classifiers 各自留有殘差（2%、5%）。疊加後，現實的下限是多少？在攻擊者已知兩者皆已部署並會適應的情況下，是否仍成立？
+- 「LLMs 無法可靠區分資訊與指令」——這是架構的根本屬性，還是未來模型可彌補的訓練缺口？框架將其視為持久特徵。
+
+## 資料來源
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) ——Part II 威脅描述；Part III 輸入驗證分級；Part IV Phase 4

@@ -1,5 +1,5 @@
+import { DomainLabel } from "@/components/howardism/domain-label";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
-import { TopicLabel } from "@/components/howardism/topic-label";
 import { InternalLink } from "@/components/internal-link";
 import { formatDateShort } from "@/utils/time";
 
@@ -14,8 +14,8 @@ interface KindMeta {
 /** Per-section plate vocabulary: a letter prefix + accent color. */
 const KIND_META: Record<TagSectionSlug, KindMeta> = {
   concept: { prefix: "C", color: "var(--brand)" },
-  entity: { prefix: "E", color: "var(--topic-orgs)" },
-  essay: { prefix: "S", color: "var(--topic-harness)" },
+  entity: { prefix: "E", color: "var(--domain-entities)" },
+  essay: { prefix: "S", color: "var(--domain-syntheses)" },
   index: { prefix: "I", color: "var(--foreground-subtle)" },
 };
 
@@ -96,7 +96,7 @@ export function KindPlate({
               <tr>
                 <th scope="col">Index</th>
                 <th scope="col">Title</th>
-                <th scope="col">Topic</th>
+                <th scope="col">Domain</th>
                 <th scope="col">Date</th>
               </tr>
             </thead>
@@ -140,9 +140,9 @@ export function KindPlate({
                     )}
                   </td>
                   <td className="w-[150px] py-3.5 pr-6 align-baseline">
-                    {article.meta.topic && (
+                    {article.meta.domain && (
                       <span className="whitespace-nowrap font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.12em]">
-                        <TopicLabel topic={article.meta.topic} />
+                        <DomainLabel domain={article.meta.domain} />
                       </span>
                     )}
                   </td>

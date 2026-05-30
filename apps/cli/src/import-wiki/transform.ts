@@ -14,7 +14,9 @@ const FENCE_RE = /^(\s*)(```+|~~~+)/;
 const WORD_RE = /\b\w+\b/g;
 const LEADING_H1_RE = /^#\s+.+\n+/;
 const TRAILING_PUNCT_RE = /[.\s]+$/;
-const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3})/;
+const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3}|<!--)/;
+const BLOCKQUOTE_PREFIX_RE = /^>\s?/;
+const BOLD_MARKER_RE = /\*\*([^*]+)\*\*/g;
 const FENCE_START_RE = /^(```+|~~~+)/;
 const LEADING_BLANKS_RE = /^\s*\n+/;
 const LEADING_HASH_RE = /^#\s+/;
@@ -271,6 +273,51 @@ function escapeLine(line: string): string {
   return result;
 }
 
+/**
+ * The body's leading `# H1` heading text, or `""` when the body doesn't open
+ * with one. MOC pages carry a `MOC — …` frontmatter title but a clean
+ * `# Domain Name` body heading; the importer prefers the latter as the display
+ * title so the page shows one heading (next to its `Index` badge) instead of
+ * two near-identical ones.
+ */
+export function firstHeading(body: string): string {
+  const trimmed = body.replace(LEADING_BLANKS_RE, "");
+  const match = LEADING_H1_RE.exec(trimmed);
+  if (!match) {
+    return "";
+  }
+  return match[0].replace(LEADING_HASH_RE, "").trim();
+}
+
+/**
+ * Drop standalone HTML comments — the vault's `<!-- BEGIN GENERATED: moc -->`
+ * member-list markers and the odd author TODO note. MDX escaping would turn
+ * `<!--` into a visible `&lt;!--` literal, so these author-only blocks must go
+ * before escaping. Handles single- and multi-line comments that start a line;
+ * each becomes one blank line so the blocks it separated keep their gap.
+ */
+export function stripHtmlComments(body: string): string {
+  const result: string[] = [];
+  let inComment = false;
+  for (const line of body.split("\n")) {
+    if (inComment) {
+      if (line.includes("-->")) {
+        inComment = false;
+      }
+      continue;
+    }
+    if (!line.trim().startsWith("<!--")) {
+      result.push(line);
+      continue;
+    }
+    result.push("");
+    if (!line.includes("-->")) {
+      inComment = true;
+    }
+  }
+  return result.join("\n");
+}
+
 export function stripDuplicateLeadingHeading(
   body: string,
   title: string
@@ -310,6 +357,29 @@ export function computeReadingTime(body: string): number {
   const wordMatches = body.match(WORD_RE);
   const wordCount = wordMatches?.length ?? 0;
   return Math.max(1, Math.ceil(wordCount / WORDS_PER_MINUTE));
+}
+
+/**
+ * Extract the first contiguous `>` blockquote as plain text (markers and bold
+ * markup stripped). MOC pages lead with a `> Map of Content…` callout that is
+ * the only human-written prose before the generated member list, so it serves
+ * as their description. Returns `""` when the body opens with no blockquote.
+ */
+export function firstBlockquote(body: string): string {
+  const lines: string[] = [];
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.trim();
+    if (line.startsWith(">")) {
+      lines.push(line.replace(BLOCKQUOTE_PREFIX_RE, ""));
+    } else if (lines.length > 0) {
+      break;
+    }
+  }
+  return lines
+    .join(" ")
+    .replace(BOLD_MARKER_RE, "$1")
+    .replace(WHITESPACE_RE, " ")
+    .trim();
 }
 
 export function firstParagraph(body: string): string {

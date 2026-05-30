@@ -5,7 +5,7 @@ import matter from "gray-matter";
  * Kept in lockstep with `pickPreserved` in `validate.ts` — these are the keys
  * a VERBATIM-DRIFT re-sync touches without calling an engine.
  */
-export const VERBATIM_KEYS = ["date", "tag", "topic", "readingTime"] as const;
+export const VERBATIM_KEYS = ["date", "tag", "domain", "readingTime"] as const;
 export type VerbatimKey = (typeof VERBATIM_KEYS)[number];
 
 const FRONTMATTER_RE = /^(---\r?\n)([\s\S]*?)(\r?\n---)/;
@@ -27,7 +27,7 @@ const verbatimRawLine = (block: string, key: VerbatimKey): string | null => {
 /**
  * True when any copy-verbatim frontmatter field differs between source and
  * output — i.e. the translatable surface is unchanged but a preserved scalar
- * (date/tag/topic/readingTime) drifted. Compared as raw lines, since the
+ * (date/tag/domain/readingTime) drifted. Compared as raw lines, since the
  * contract requires these byte-identical anyway.
  */
 export function verbatimDiffers(

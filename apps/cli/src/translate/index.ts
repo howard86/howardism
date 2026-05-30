@@ -16,6 +16,7 @@ import {
   seedGlossary,
 } from "../glossary/store.ts";
 import {
+  DEFAULT_CURSOR_MODEL,
   ENGINES,
   type Engine,
   type EngineUsage,
@@ -50,6 +51,8 @@ interface RunOptions {
   adopt: boolean;
   check: boolean;
   concurrency: number;
+  /** Model passed to `cursor --model` when engine is `cursor`. */
+  cursorModel: string;
   dryRun: boolean;
   engine: Engine;
   engineTimeoutMs: number;
@@ -552,6 +555,7 @@ async function runEngineWithRetry(
         prompt,
         scopeDir: opts.scopeDir,
         kiroClient: opts.kiroClient,
+        cursorModel: opts.cursorModel,
         // Pin the agent's glossary subprocess to the SAME absolute DB the
         // orchestrator seeded, regardless of the agent's cwd.
         env: { GLOSSARY_DB_PATH: opts.glossaryPath },
@@ -698,6 +702,13 @@ function parseOptions(): RunOptions {
   const dryRun = env.DRY_RUN === "1";
 
   const engine = parseEngine(env.TRANSLATE_ENGINE ?? "agy");
+  const cursorModel =
+    env.TRANSLATE_CURSOR_MODEL?.trim() || DEFAULT_CURSOR_MODEL;
+  const modelLabel = resolveModelLabel(
+    env.TRANSLATE_MODEL,
+    engine,
+    cursorModel
+  );
   const targetLang = env.TARGET_LANG ?? "zh-TW";
 
   const sourceDir = resolve(env.TRANSLATE_SOURCE_PATH ?? DEFAULT_ARTICLES_DIR);
@@ -732,6 +743,7 @@ function parseOptions(): RunOptions {
     adopt,
     check,
     concurrency,
+    cursorModel,
     dryRun,
     engine,
     engineTimeoutMs,
@@ -740,7 +752,7 @@ function parseOptions(): RunOptions {
     kiroClient,
     limit,
     locale: targetLang,
-    modelLabel: env.TRANSLATE_MODEL?.trim() || null,
+    modelLabel,
     onlySlug,
     outputDir,
     projectionPath,
@@ -752,6 +764,24 @@ function parseOptions(): RunOptions {
     warn,
     wikiSourcesPath,
   };
+}
+
+/**
+ * Resolve the telemetry model label. An explicit `TRANSLATE_MODEL` always wins;
+ * otherwise cursor reports tokens but no model name, so fall back to the
+ * configured cursor model. Other engines either report their own model or leave
+ * it null.
+ */
+function resolveModelLabel(
+  raw: string | undefined,
+  engine: Engine,
+  cursorModel: string
+): string | null {
+  const explicit = raw?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  return engine === "cursor" ? cursorModel : null;
 }
 
 function parseConcurrency(raw: string | undefined): number {
