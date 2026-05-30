@@ -1,31 +1,17 @@
 "use client";
 
+import {
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  Cancel01Icon,
+  SearchList01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { CloseIcon } from "@/app/(common)/icons";
 import { useArticleNav } from "@/components/article-nav-context";
 
 import { useFindHighlights } from "./use-find-highlights";
-
-function FindIcon() {
-  // A magnifier over text lines — distinct from the global search magnifier.
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth="1.5"
-      viewBox="0 0 24 24"
-    >
-      <line x1="4" x2="14" y1="6" y2="6" />
-      <line x1="4" x2="10" y1="10" y2="10" />
-      <circle cx="13.5" cy="13.5" r="4.25" />
-      <line x1="20" x2="16.7" y1="20" y2="16.7" />
-    </svg>
-  );
-}
 
 function matchStatus(count: number, current: number, query: string): string {
   if (count > 0) {
@@ -35,23 +21,6 @@ function matchStatus(count: number, current: number, query: string): string {
     return "0/0";
   }
   return "";
-}
-
-function ChevronIcon({ up }: { up?: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-4"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.75"
-      viewBox="0 0 24 24"
-    >
-      <polyline points={up ? "6 14 12 8 18 14" : "6 10 12 16 18 10"} />
-    </svg>
-  );
 }
 
 /**
@@ -106,7 +75,7 @@ export function ArticleFind() {
         onClick={() => setOpen((prev) => !prev)}
         type="button"
       >
-        <FindIcon />
+        <HugeiconsIcon className="size-[18px]" icon={SearchList01Icon} />
       </button>
 
       {open && (
@@ -134,7 +103,7 @@ export function ArticleFind() {
             onClick={goPrev}
             type="button"
           >
-            <ChevronIcon up />
+            <HugeiconsIcon className="size-4" icon={ArrowUp01Icon} />
           </button>
           <button
             aria-label="Next match"
@@ -143,7 +112,7 @@ export function ArticleFind() {
             onClick={goNext}
             type="button"
           >
-            <ChevronIcon />
+            <HugeiconsIcon className="size-4" icon={ArrowDown01Icon} />
           </button>
           <button
             aria-label="Close find"
@@ -151,7 +120,7 @@ export function ArticleFind() {
             onClick={close}
             type="button"
           >
-            <CloseIcon className="size-4" />
+            <HugeiconsIcon className="size-4" icon={Cancel01Icon} />
           </button>
         </search>
       )}

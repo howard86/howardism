@@ -7,6 +7,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@howardism/ui/components/sheet";
+import { Menu01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ArticleToc } from "@/app/(blog)/articles/[slug]/article-toc";
 
@@ -31,19 +33,7 @@ export function TocSheet() {
         aria-label="On this page"
         className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
-        <svg
-          aria-hidden="true"
-          className="size-4"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.75"
-          viewBox="0 0 24 24"
-        >
-          <line x1="4" x2="20" y1="7" y2="7" />
-          <line x1="4" x2="20" y1="12" y2="12" />
-          <line x1="4" x2="14" y1="17" y2="17" />
-        </svg>
+        <HugeiconsIcon className="size-4" icon={Menu01Icon} />
       </SheetTrigger>
       <SheetContent className="w-72" side="left">
         <SheetHeader>

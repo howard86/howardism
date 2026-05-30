@@ -1,20 +1,8 @@
 import { cn } from "@howardism/ui/lib/utils";
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link, { type LinkProps } from "next/link";
 import type { AsKey, AsProps, ChildrenProps, FC } from "react";
-import type { SVGProps } from "react-html-props";
-
-function ChevronRightIcon(props: SVGProps) {
-  return (
-    <svg aria-hidden="true" fill="none" viewBox="0 0 16 16" {...props}>
-      <path
-        d="M6.75 5.75 9.25 8l-2.5 2.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
-}
 
 export function Card<T extends AsKey>({
   as,
@@ -77,7 +65,7 @@ export function CardCta({ children }: ChildrenProps) {
       className="relative z-10 mt-4 flex items-center font-medium text-primary text-sm"
     >
       {children}
-      <ChevronRightIcon className="ml-1 h-4 w-4 stroke-current" />
+      <HugeiconsIcon className="ml-1 size-4" icon={ArrowRight01Icon} />
     </div>
   );
 }
