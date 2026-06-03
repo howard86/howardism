@@ -1,41 +1,40 @@
-import type { FC } from "react";
-import type { SVGProps } from "react-html-props";
+import {
+  Github01Icon,
+  Linkedin01Icon,
+  Mail01Icon,
+  NewTwitterIcon,
+  RssIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
 import ExternalLink from "@/app/(common)/external-link";
-import {
-  EmailIcon,
-  GitHubIcon,
-  LinkedInIcon,
-  RssIcon,
-  TwitterIcon,
-} from "@/app/(common)/icons";
 
 interface SocialLink {
   "aria-label": string;
   href: string;
-  icon: FC<SVGProps>;
+  icon: IconSvgElement;
 }
 
 export const SOCIAL_LINKS: SocialLink[] = [
   {
     href: "https://github.com/Howard86/",
     "aria-label": "Follow on GitHub",
-    icon: GitHubIcon,
+    icon: Github01Icon,
   },
   {
     href: "https://www.linkedin.com/in/howard-tai-4b52b086/",
     "aria-label": "Follow on LinkedIn",
-    icon: LinkedInIcon,
+    icon: Linkedin01Icon,
   },
   {
     href: "https://twitter.com/howard86_",
     "aria-label": "Follow on Twitter",
-    icon: TwitterIcon,
+    icon: NewTwitterIcon,
   },
   {
     href: "mailto:howard@howardism.dev",
     "aria-label": "Contact Howard via email",
-    icon: EmailIcon,
+    icon: Mail01Icon,
   },
   { href: "/rss/feed.xml", "aria-label": "Follow on RSS feed", icon: RssIcon },
 ];
@@ -50,7 +49,10 @@ export default function SocialLinks() {
             className="inline-flex size-8 items-center justify-center rounded-full transition-colors hover:bg-muted"
             href={link.href}
           >
-            <link.icon className="w-6 fill-current transition-colors group-hover:fill-secondary" />
+            <HugeiconsIcon
+              className="size-6 text-current transition-colors group-hover:text-secondary"
+              icon={link.icon}
+            />
           </ExternalLink>
         </li>
       ))}

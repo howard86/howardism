@@ -1,4 +1,5 @@
 import { Badge } from "@howardism/ui/components/badge";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 
 import ExternalLink from "@/app/(common)/external-link";
@@ -50,7 +51,7 @@ export function Footer() {
                 className="flex items-center gap-1.5 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em] no-underline transition-colors hover:text-brand"
                 href={link.href}
               >
-                <link.icon className="size-3.5 shrink-0 fill-current" />
+                <HugeiconsIcon className="size-3.5 shrink-0" icon={link.icon} />
                 {SOCIAL_LABEL[link["aria-label"]] ?? link["aria-label"]}
               </ExternalLink>
             </li>

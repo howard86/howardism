@@ -3,21 +3,9 @@ import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { InternalLink } from "@/components/internal-link";
 import { formatDateShort } from "@/utils/time";
 
+import { KIND_META } from "./kind-meta";
 import type { ArticleEntity } from "./service";
 import type { TagSectionSlug } from "./tag-sections";
-
-interface KindMeta {
-  color: string;
-  prefix: string;
-}
-
-/** Per-section plate vocabulary: a letter prefix + accent color. */
-const KIND_META: Record<TagSectionSlug, KindMeta> = {
-  concept: { prefix: "C", color: "var(--brand)" },
-  entity: { prefix: "E", color: "var(--domain-entities)" },
-  essay: { prefix: "S", color: "var(--domain-syntheses)" },
-  index: { prefix: "I", color: "var(--foreground-subtle)" },
-};
 
 interface KindPlateProps {
   articles: ArticleEntity[];
