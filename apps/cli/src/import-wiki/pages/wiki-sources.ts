@@ -2,33 +2,21 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import {
+  type WikiSource,
+  type WikiSourcesManifest,
+  WikiSourcesManifestSchema,
+} from "@howardism/article-contract/manifests/wiki-sources";
+
+import {
   extractRawSlugsFromSources,
   loadRawDoc,
   type ParsedWikiFile,
 } from "../parse.ts";
 
-/**
- * A raw source document (`raw/<slug>.md`) aggregated across the wiki, for the
- * home page's "The Desk" reading list. `citedBy` lists the notes that cite the
- * source, which both ranks the desk and lets the blog pick the most-cited
- * source within a domain for the domain-plate aside.
- */
-export interface WikiSource {
-  author?: string;
-  /** Article slugs whose `sources:` frontmatter cites this doc. */
-  citedBy: string[];
-  /** Coarse medium derived from the URL: Talk | Paper | Repo | Article | Note. */
-  kind: string;
-  /** `published` date from the raw doc, `YYYY-MM-DD` when present. */
-  published?: string;
-  title: string;
-  url?: string;
-}
-
-export interface WikiSourcesManifest {
-  generatedOn: string;
-  sources: WikiSource[];
-}
+export type {
+  WikiSource,
+  WikiSourcesManifest,
+} from "@howardism/article-contract/manifests/wiki-sources";
 
 const PUNCT_RE = /[._-]+/g;
 const WS_RE = /\s+/g;
@@ -119,7 +107,7 @@ export async function emitWikiSources(args: {
   outputPath: string;
 }): Promise<string> {
   const { manifest, outputPath, dryRun } = args;
-  const json = JSON.stringify(manifest);
+  const json = JSON.stringify(WikiSourcesManifestSchema.parse(manifest));
 
   if (dryRun) {
     console.log(

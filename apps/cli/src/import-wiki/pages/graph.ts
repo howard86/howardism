@@ -1,23 +1,17 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import {
+  type ArticleGraph,
+  ArticleGraphSchema,
+} from "@howardism/article-contract/manifests/graph";
+
 import type { ParsedWikiFile } from "../parse.ts";
 import { extractInternalSlugs } from "../wikilink.ts";
 
 const RELATED_LIMIT = 5;
 
-/**
- * Shape consumed by the blog's link-graph service layer
- * (`apps/blog/src/data/article-graph.json`). Value arrays are sorted
- * deterministically; archived nodes are filtered out everywhere so every
- * slug referenced in the graph is also a key.
- */
-export interface ArticleGraph {
-  backlinks: Record<string, string[]>;
-  generatedOn: string;
-  outgoing: Record<string, string[]>;
-  related: Record<string, string[]>;
-}
+export type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
 
 export interface BuildArticleGraphArgs {
   generatedOn: string;
@@ -146,7 +140,7 @@ export async function emitArticleGraph(
   args: EmitArticleGraphArgs
 ): Promise<string> {
   const { graph, outputPath, dryRun } = args;
-  const json = JSON.stringify(graph);
+  const json = JSON.stringify(ArticleGraphSchema.parse(graph));
 
   if (dryRun) {
     console.log(
