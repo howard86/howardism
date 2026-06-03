@@ -1,3 +1,10 @@
+# [v2.8.0](https://github.com/howard86/howardism/compare/v2.7.0...v2.8.0) (2026-06-03)
+
+## ✨ New Features
+- [`ccb5ad6`](https://github.com/howard86/howardism/commit/ccb5ad6)  feat(ui): add Command and Dialog primitives for search palette 
+- [`fe336da`](https://github.com/howard86/howardism/commit/fe336da)  feat(cli): add search-index builder and plain-text MDX extractor 
+- [`5a76385`](https://github.com/howard86/howardism/commit/5a76385)  feat(blog): add site-wide search palette and find-in-article feature
+
 # [v2.7.0](https://github.com/howard86/howardism/compare/v2.6.0...v2.7.0) (2026-05-30)
 
 ## ✨ New Features
