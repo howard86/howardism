@@ -1,20 +1,15 @@
+import type {
+  SearchIndex,
+  SearchIndexEntry,
+} from "@howardism/article-contract/manifests/search-index";
 import Fuse, { type IFuseOptions } from "fuse.js";
 
-/** One searchable article — mirrors the CLI's `SearchIndexEntry`. */
-export interface SearchEntry {
-  body: string;
-  description: string;
-  domain?: string;
-  slug: string;
-  tag: string;
-  tags?: string[];
-  title: string;
-}
-
-interface SearchIndexFile {
-  entries: SearchEntry[];
-  generatedOn: string;
-}
+/**
+ * One searchable article. The shape is owned by `@howardism/article-contract`
+ * and gated at write time by the CLI; this ~800KB chunk loads in the browser, so
+ * it is read against the shared type without a zod parse on read.
+ */
+export type SearchEntry = SearchIndexEntry;
 
 const FUSE_OPTIONS: IFuseOptions<SearchEntry> = {
   keys: [
@@ -44,7 +39,7 @@ let indexPromise: Promise<SearchEntry[]> | null = null;
 export function loadSearchIndex(): Promise<SearchEntry[]> {
   if (!indexPromise) {
     indexPromise = import("@/data/search-index.json")
-      .then((mod) => (mod.default as SearchIndexFile).entries)
+      .then((mod) => (mod.default as SearchIndex).entries)
       .catch((err) => {
         // Drop the cached rejection so a later open retries the chunk fetch
         // instead of being stuck with a permanently-failed promise.
