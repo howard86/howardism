@@ -9,13 +9,16 @@ import {
   SheetTrigger,
 } from "@howardism/ui/components/sheet";
 import { cn } from "@howardism/ui/lib/utils";
+import { Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Container } from "@/app/(common)/container";
-import { MoonIcon, SunIcon } from "@/app/(common)/icons";
 import { useArticleNav } from "@/components/article-nav-context";
+import { ArticleFind } from "@/components/find/article-find";
 import { ReadingProgress } from "@/components/howardism/reading-progress";
+import { SearchTrigger } from "@/components/search/search-trigger";
 import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
 import { useTweaks } from "@/components/tweaks/tweaks-provider";
@@ -104,9 +107,9 @@ function ThemeToggle() {
       type="button"
     >
       {isDark ? (
-        <SunIcon className="size-[18px] fill-none stroke-current" />
+        <HugeiconsIcon className="size-[18px]" icon={Sun03Icon} />
       ) : (
-        <MoonIcon className="size-[18px] fill-current" />
+        <HugeiconsIcon className="size-[18px]" icon={Moon02Icon} />
       )}
     </button>
   );
@@ -160,10 +163,12 @@ export function SiteBar() {
               <span className="inline-flex rail:hidden">
                 <TocSheet />
               </span>
+              <ArticleFind />
               <ReaderSettings />
             </div>
           )}
 
+          <SearchTrigger />
           <ThemeToggle />
           <MobileNav />
         </div>

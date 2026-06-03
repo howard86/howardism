@@ -1,4 +1,6 @@
-import { ARTICLE_DOMAINS, type ArticleDomain } from "./service";
+import { WIKI_DOMAINS } from "@howardism/article-contract";
+
+import type { ArticleDomain } from "./service";
 
 export interface DomainMeta {
   /** Short marketing-y line under the domain headline / on the route page. */
@@ -84,7 +86,7 @@ export const DOMAIN_META: Record<ArticleDomain, DomainMeta> = {
 };
 
 /** Domain display order — the canonical list, re-exported for plate consumers. */
-export const DOMAIN_ORDER = ARTICLE_DOMAINS;
+export const DOMAIN_ORDER = WIKI_DOMAINS;
 
 /**
  * Resolve a (possibly user-supplied) URL segment to a canonical domain.
