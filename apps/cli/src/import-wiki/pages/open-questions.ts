@@ -2,28 +2,20 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { WikiDomain } from "@howardism/article-contract";
+import {
+  type OpenQuestionConcept,
+  type OpenQuestionsManifest,
+  OpenQuestionsManifestSchema,
+} from "@howardism/article-contract/manifests/open-questions";
 
 import { OPEN_QUESTIONS_SLUG, resolveDomain } from "../domains.ts";
 import type { ParsedWikiFile } from "../parse.ts";
 import { extractInternalSlugs, titleFromSlug } from "../wikilink.ts";
 
-/**
- * The open-questions backlog, harvested from `derived/open-questions.md` and
- * regrouped under the blog's domains. Each concept that still has unanswered
- * `## Open Questions` becomes one entry; the blog buckets these by `domain`
- * for the `/questions` page and the per-domain sections on domain pages.
- */
-export interface OpenQuestionConcept {
-  domain: WikiDomain;
-  questions: string[];
-  slug: string;
-  title: string;
-}
-
-export interface OpenQuestionsManifest {
-  byConcept: OpenQuestionConcept[];
-  generatedOn: string;
-}
+export type {
+  OpenQuestionConcept,
+  OpenQuestionsManifest,
+} from "@howardism/article-contract/manifests/open-questions";
 
 const CONCEPT_HEADING_RE = /^##\s+\[\[[^\]]+\]\]/;
 const BULLET_RE = /^-\s+(.+)$/;
@@ -91,7 +83,7 @@ export async function emitOpenQuestions(args: {
   outputPath: string;
 }): Promise<string> {
   const { manifest, outputPath, dryRun } = args;
-  const json = JSON.stringify(manifest);
+  const json = JSON.stringify(OpenQuestionsManifestSchema.parse(manifest));
 
   if (dryRun) {
     console.log(

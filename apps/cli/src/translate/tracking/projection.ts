@@ -1,23 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-/**
- * Current-state record per translated slug. This is the DURABLE, committed
- * truth (lives at apps/blog/src/data/translations.json): it drives staleness
- * classification and is read by the blog at build time for the language
- * switcher. The SQLite DB is a per-machine history cache layered on top.
- */
-export interface TranslationRecord {
-  costUsd: number | null;
-  credits: number | null;
-  durationMs: number;
-  engine: string;
-  model: string | null;
-  sourceHash: string;
-  sourceTitle: string | null;
-  translatedAt: string;
-}
+import {
+  type TranslationRecord,
+  TranslationsManifestSchema,
+} from "@howardism/article-contract/manifests/translations";
 
+export type { TranslationRecord } from "@howardism/article-contract/manifests/translations";
+
+/**
+ * Current-state projection of all translated slugs — the DURABLE, committed
+ * truth (lives at apps/blog/src/data/translations.json). The per-slug record
+ * shape is owned by `@howardism/article-contract`; the SQLite DB is a
+ * per-machine history cache layered on top.
+ */
 export interface TranslationProjection {
   articles: Record<string, TranslationRecord>;
   generatedOn: string;
@@ -95,6 +91,10 @@ export async function writeProjection(
     articles: sorted,
   };
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  await writeFile(
+    path,
+    `${JSON.stringify(TranslationsManifestSchema.parse(next), null, 2)}\n`,
+    "utf8"
+  );
   return next;
 }
