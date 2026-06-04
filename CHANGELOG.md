@@ -1,3 +1,8 @@
+# [v2.9.0](https://github.com/howard86/howardism/compare/v2.8.0...v2.9.0) (2026-06-04)
+
+## ✨ New Features
+- [`14e84a3`](https://github.com/howard86/howardism/commit/14e84a3)  feat(article-contract): add manifest schemas for all five build-time JSON files
+
 # [v2.8.0](https://github.com/howard86/howardism/compare/v2.7.0...v2.8.0) (2026-06-03)
 
 ## ✨ New Features
