@@ -11,25 +11,19 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
+import {
+  type SearchIndex,
+  type SearchIndexEntry,
+  SearchIndexSchema,
+} from "@howardism/article-contract/manifests/search-index";
 import matter from "gray-matter";
 
 import { toPlainText } from "./import-wiki/plain-text.ts";
 
-/** One searchable article. Mirrored read-side by the blog's search loader. */
-export interface SearchIndexEntry {
-  body: string;
-  description: string;
-  domain?: string;
-  slug: string;
-  tag: string;
-  tags?: string[];
-  title: string;
-}
-
-export interface SearchIndex {
-  entries: SearchIndexEntry[];
-  generatedOn: string;
-}
+export type {
+  SearchIndex,
+  SearchIndexEntry,
+} from "@howardism/article-contract/manifests/search-index";
 
 const MDX_SUFFIX = /\.mdx$/;
 // The `export { default as heroImage } …` line every emitted MDX carries right
@@ -87,7 +81,7 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
 async function main(): Promise<void> {
   const generatedOn = new Date().toISOString().slice(0, 10);
   const index = await buildIndex(generatedOn);
-  const json = JSON.stringify(index);
+  const json = JSON.stringify(SearchIndexSchema.parse(index));
 
   if (process.env.DRY_RUN === "1") {
     console.log(
