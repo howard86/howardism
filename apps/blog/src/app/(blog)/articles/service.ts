@@ -9,6 +9,16 @@ import {
   type WikiDomain,
   type WikiTag,
 } from "@howardism/article-contract";
+import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
+import {
+  type OpenQuestionConcept,
+  parseOpenQuestions,
+} from "@howardism/article-contract/manifests/open-questions";
+import { parseTranslations } from "@howardism/article-contract/manifests/translations";
+import {
+  parseWikiSources,
+  type WikiSource,
+} from "@howardism/article-contract/manifests/wiki-sources";
 import {
   ArticleContractSchema,
   type SourceRefSchema,
@@ -81,14 +91,7 @@ export interface ArticleHeading {
   text: string;
 }
 
-interface ArticleGraph {
-  backlinks: Record<string, readonly string[] | undefined>;
-  generatedOn: string;
-  outgoing: Record<string, readonly string[] | undefined>;
-  related: Record<string, readonly string[] | undefined>;
-}
-
-const graph: ArticleGraph = graphData;
+const graph = parseArticleGraph(graphData);
 
 const isArticleTag = (value: string): value is ArticleTag =>
   (ARTICLE_TAGS as readonly string[]).includes(value);
@@ -383,19 +386,9 @@ export const getNavigableTagSet = cache(
 
 /* ── reading-list manifest (emitted by the importer) ── */
 
-export interface WikiSource {
-  author?: string;
-  citedBy: string[];
-  kind: string;
-  published?: string;
-  title: string;
-  url?: string;
-}
+export type { WikiSource } from "@howardism/article-contract/manifests/wiki-sources";
 
-const wikiSources = wikiSourcesData as {
-  generatedOn: string;
-  sources: WikiSource[];
-};
+const wikiSources = parseWikiSources(wikiSourcesData);
 
 /** Raw reading-list sources, pre-sorted by citation count then recency. */
 export const getWikiSources = (limit?: number): WikiSource[] =>
@@ -477,17 +470,9 @@ export const getDomainLeadSource = cache(
 
 /* ── open-questions backlog (emitted by the importer) ── */
 
-export interface OpenQuestionConcept {
-  domain: ArticleDomain;
-  questions: string[];
-  slug: string;
-  title: string;
-}
+export type { OpenQuestionConcept } from "@howardism/article-contract/manifests/open-questions";
 
-const openQuestions = openQuestionsData as {
-  byConcept: OpenQuestionConcept[];
-  generatedOn: string;
-};
+const openQuestions = parseOpenQuestions(openQuestionsData);
 
 /** Every concept that still has unanswered questions, title-sorted. */
 export const getOpenQuestions = (): OpenQuestionConcept[] =>
@@ -540,22 +525,7 @@ export const DEFAULT_LOCALE: Locale = "en";
 /** Non-default locales served under a path prefix (en stays unprefixed). */
 export const PREFIXED_LOCALES: readonly Locale[] = ["zh-TW"];
 
-interface TranslationRecord {
-  costUsd: number | null;
-  credits: number | null;
-  durationMs: number;
-  engine: string;
-  model: string | null;
-  sourceHash: string;
-  sourceTitle: string | null;
-  translatedAt: string;
-}
-
-const translations = translationsData as {
-  articles: Record<string, TranslationRecord>;
-  generatedOn: string;
-  locale: string;
-};
+const translations = parseTranslations(translationsData);
 
 const translatedSet = new Set(Object.keys(translations.articles));
 
