@@ -1,0 +1,91 @@
+---
+date: 2026-05-30
+title: "Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?"
+description: No cliff — Enterprise (ABAC + dynamic privilege elevation with
+  return-to-baseline + mTLS + sandboxing) is the pragmatic midpoint between
+  Foundation static roles and Advanced JIT/JEA; migration runs identity-first,
+  then least-agency, then blast-radius
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - security
+  - zero-trust
+  - access-control
+  - agent-deployment
+readingTime: 8
+imageAlt: "Illustration for Foundation → Enterprise → Advanced: Is the Agent
+  Access-Control Jump a Cliff?"
+sources:
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/agent-access-control-tier-migration.png";
+
+## Sources
+
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## Answer
+
+**Not a cliff. The Enterprise tier is the pragmatic midpoint, and the open question that prompted this ([Agent Identity and Authentication](/articles/agent-identity-and-authentication): "is the gap from Foundation static roles to Advanced JIT a cliff?") rests on a misreading of the ladder.** It conflates two different Enterprise-tier controls (ABAC, dynamic privilege elevation) with two different Advanced-tier controls (continuous authorization, JIT/JEA). The [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) framework explicitly designs the tiers so that *"each tier builds on the prior one"* — advancing means strengthening, not replacing — and it places a full intermediate rung between static roles and JIT ([Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) Part III).
+
+The genuinely hard, "not easily implemented" controls (JIT/JEA, continuous per-action authorization, hardware attestation) are **Advanced**. But an organization does not leap there from Foundation. It first passes through an Enterprise tier that delivers most of the blast-radius reduction at a fraction of the implementation cost.
+
+## The ladder, read across the three concepts
+
+The three concepts the question names are not parallel — they are **input → identity → outcome**: [Least Agency](/articles/least-agency) is the *input* control (what actions are reachable), [Agent Identity and Authentication](/articles/agent-identity-and-authentication) is the *keystone* that makes any of it enforceable (you cannot scope what you cannot attribute — the "attribution gap"), and [Blast Radius (Agentic)](/articles/blast-radius) is the *outcome metric* (how much a compromised agent can reach). Each is specified across the same three tiers:
+
+| Control surface | Foundation | **Enterprise (the midpoint)** | Advanced |
+|---|---|---|---|
+| **Identity** ([Agent Identity and Authentication](/articles/agent-identity-and-authentication)) | Cryptographically-rooted per-agent IDs in all logs | **X.509 certs with rotation/revocation lifecycle** | Hardware-backed identity (HSM/TPM) + remote attestation |
+| **Service auth** ([Agent Identity and Authentication](/articles/agent-identity-and-authentication)) | Short-lived IdP-issued tokens (OAuth 2.0, minutes-long expiry) | **Mutual TLS with certificate pinning** | Hardware-bound credentials, attested issuance |
+| **Permission model** ([Least Agency](/articles/least-agency)) | RBAC + deny-by-default | **ABAC with context-aware policies** | Continuous authorization re-evaluated per action |
+| **Privilege scoping** ([Least Agency](/articles/least-agency)) | Static least-privilege roles | **Dynamic elevation per task → return-to-baseline** | JIT / JEA with automatic expiration |
+| **Isolation** ([Blast Radius (Agentic)](/articles/blast-radius)) | Identity-based isolation (services accept only named callers) | **Sandboxed execution (containers, gVisor syscall filtering)** | Hardware isolation (AMD SEV / Intel TDX, microVMs) |
+
+Sources: tier tables in [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) Part III (lines 218, 232–235 for access control; identity/auth and isolation tiers as summarized in the three concept pages).
+
+The Enterprise column is a coherent, deployable posture — not a halfway-built version of Advanced. The framework's own analogy makes the midpoint concrete: dynamic privilege elevation is *"similar to an operating system prompting for an administrator password, then returning to standard permissions afterward"* ([Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) line 235). That is a well-understood pattern most orgs already run for humans; extending it to agents is an engineering task, not a research problem. JIT/JEA only *"takes this further by automatically revoking elevated permissions the moment the task completes"* — the same shape, with the standing-access window driven to zero.
+
+## A contradiction in the source, flagged
+
+The framework is internally inconsistent about where **ABAC** sits. The access-control tier *table* places ABAC at **Enterprise** ([Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) line 218). But the Phase-6 credential-protection *Pro-tip* calls ABAC *"another advanced implementation"* alongside JIT (line 591), and [Agent Identity and Authentication](/articles/agent-identity-and-authentication) inherited that "advanced, not easily implemented" framing into its open question.
+
+Both readings are defensible and the gap is real: **basic** ABAC (a few attributes — data sensitivity, time-of-day, a coarse risk flag — gating read vs. step-up) is an Enterprise-grade lift; **rich** ABAC (per-action risk scoring, bulk-export blocking, behavioral-baseline attributes feeding the policy engine) shades into Advanced because it depends on the behavioral baselines that are themselves an Enterprise→Advanced control (line 299: baselines become *"a behavioral attribute for ABAC-based access control"*). The resolution: ABAC is a *spectrum*, and the table's Enterprise placement refers to its entry form. This is the same friction the [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) warns about — a control counts only if it makes the bad action *impossible*, not merely *tedious*, so a token ABAC policy that an attacker can wait out (off-hours, slow exfiltration under the rate limit) is not yet doing Enterprise-grade work.
+
+## The migration path
+
+Because identity is the keystone, the sequence is not "do all of Foundation, then all of Enterprise." It is **depth-first on identity, then breadth on agency and containment**:
+
+**Stage 0 — Establish the keystone (Foundation identity).** Kill static API keys and shared service accounts first — the framework says these are *"no longer acceptable even at Foundation"* because they are *"among the first things an attacker with model-assisted code analysis will find"* ([Agent Identity and Authentication](/articles/agent-identity-and-authentication), [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) line 197). Issue cryptographically-rooted per-agent IDs and short-lived IdP tokens. Nothing downstream is enforceable until this is done: [Least Agency](/articles/least-agency) is unenforceable without attribution, and [Blast Radius (Agentic)](/articles/blast-radius) containment via identity-based isolation needs named callers.
+
+**Stage 1 — Foundation agency + containment.** With identity in place, apply RBAC + deny-by-default ([Least Agency](/articles/least-agency)) and identity-based isolation where *"each service accepts connections only from explicitly named callers"* ([Blast Radius (Agentic)](/articles/blast-radius)). Run the Phase-3 blast-radius assessment: enumerate approved actions, prohibited actions, escalation triggers, and scope limits, then ask what a compromise reaches. Prefer controls that *remove* a capability over ones that *throttle* it ([Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)).
+
+**Stage 2 — The Enterprise midpoint (the answer to "is it a cliff?").** This is the rung the question assumed didn't exist:
+- Identity → **X.509 lifecycle**; service auth → **mTLS with cert pinning**.
+- Permission model → **entry-form ABAC**: gate read vs. step-up on data sensitivity and context.
+- Privilege scoping → **dynamic elevation with return-to-baseline** (the OS-admin-password pattern). This is the single highest-leverage move: it eliminates standing elevated access without requiring the auto-expiry machinery of JIT.
+- Isolation → **mandatory sandboxing** (containers, gVisor) for any agent processing untrusted input — the framework calls this *"mandatory, not aspirational"* ([Blast Radius (Agentic)](/articles/blast-radius)).
+- Stand up **automated baseline learning** so anomaly detection and richer ABAC have a reference point ([Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) line 296).
+
+**Stage 3 — Advanced, only where the threat model demands it.** Hardware-backed identity + attestation, hardware-bound credentials, JIT/JEA, continuous per-action authorization, hardware isolation. The framework is explicit that this tier is *"aspirational for most"* and a *baseline* only for national-security / stringently-regulated deployments — *"Most organizations will find that Enterprise controls satisfy their risk tolerance"* ([Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) lines 169, 175).
+
+## Two residual gaps the midpoint doesn't close
+
+1. **The elevation path is itself an attack surface.** Dynamic elevation (Enterprise) reintroduces an elevation request — and a manipulated agent ([Agentic Prompt Injection](/articles/agentic-prompt-injection)) can issue that request. The framework doesn't specify how the elevation request is authenticated *against the agent itself*; step-up auth assumes a human in the loop (FIDO2/passkeys), which breaks for fully autonomous elevation. This is least-agency's open question, unresolved by the midpoint. (Open: [Least Agency](/articles/least-agency).)
+
+2. **Sub-agent attestation.** Spawned sub-agents inherit *"up to the same permissions as the parent."* Hardware attestation (Advanced) assumes attested hardware everywhere an agent runs, including ephemeral cloud workloads and short-lived sub-agents — and the framework doesn't say how attestation flows to a sub-agent that exists for seconds. (Open: [Agent Identity and Authentication](/articles/agent-identity-and-authentication).)
+
+## Bottom line
+
+There is no cliff. The framework deliberately interposes an Enterprise tier — ABAC, dynamic privilege elevation with return-to-baseline, mTLS, sandboxing — between Foundation static roles and Advanced JIT/JEA, and states plainly that Enterprise is where most organizations should stop. The single most important move is not reaching JIT; it is **killing static credentials and standing elevated access** — which the Enterprise midpoint does without the implementation cost of automatic-expiry JIT or continuous authorization. The prediction that *"Enterprise will become Foundation"* means today's midpoint is tomorrow's entry bar, so building the X.509 + mTLS + dynamic-elevation + sandbox stack now is the durable bet.
+
+## Related
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)
+- [Least Agency](/articles/least-agency)
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication)
+- [Blast Radius (Agentic)](/articles/blast-radius)
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection)

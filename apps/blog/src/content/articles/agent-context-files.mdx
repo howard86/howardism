@@ -1,25 +1,121 @@
 ---
 date: 2026-05-25
 title: Agent Context Files
-description: that touch this pattern. Thrice-deferred in the log (2026-04-28,
-  2026-05-06, 2026-05-21). -->
+description: "The cross-vendor markdown-as-control-plane pattern: repo-versioned
+  plaintext (CLAUDE.md / AGENTS.md / SOUL.md / WORKFLOW.md / SPEC.md /
+  .cursorrules) that configures agent behavior, split by role across project /
+  personality / workflow / spec layers"
 tag: Concept
-domain: syntheses
+domain: ai-engineering
 tags:
   - agent-engineering
-readingTime: 1
+  - harness
+  - workflow-design
+  - control-plane
+readingTime: 8
 imageAlt: Illustration for Agent Context Files
+sources:
+  - title: Tips & Best Practices
+    url: https://hermes-agent.nousresearch.com/docs/guides/tips
+  - title: "Tutorial: Team Telegram Assistant"
+    url: https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant
+  - title: "An open-source spec for Codex orchestration: Symphony."
+    url: https://openai.com/index/open-source-codex-orchestration-symphony/
+  - title: "Harness engineering: leveraging Codex in an agent-first world"
+    url: https://openai.com/index/harness-engineering/
 ---
 export { default as heroImage } from "../assets/agent-context-files.png";
 
-> **Stub** — placeholder for a concept referenced by other articles but not yet authored.
-> Tracked as link-debt by `_system/lint.py`; this file keeps the no-dangling-links invariant.
+## Sources
 
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
 
+## Summary
 
-**Intended scope:** the cross-vendor **markdown-as-control-plane** pattern — repo-versioned plaintext
-files that configure agent behavior: `CLAUDE.md` / `AGENTS.md` / `SOUL.md` / `WORKFLOW.md` /
-`SPEC.md` / `.cursorrules`. Compare the role split (project vs personality vs workflow vs spec) across
-vendors and argue why this is converging into an emerging standard.
+Across every major 2026 agent ecosystem, agent behavior is configured the same way: **repo-versioned plaintext markdown files** read into the system prompt (or rendered into a prompt template) at session start. `CLAUDE.md`, `AGENTS.md`, `SOUL.md`, `WORKFLOW.md`, `SPEC.md`, and `.cursorrules` are the same primitive wearing different names. The convergence is strong enough to look like an emerging standard: the agent's behavioral contract is a **versioned, inspectable, human-and-machine-readable document**, not code, not a database, not chat history.
 
-**Referenced from:** [Claude Code Best Practices](/articles/claude-code-best-practices), [Hermes Agent](/articles/hermes-agent)
+This page formalizes the pattern and compares the role split across vendors. It is the "policy plane" in the layered [control-plane stack](/articles/agent-control-plane-patterns) — context files govern *how* an agent behaves inside a work envelope, distinct from the ticket layer (*what* runs) and the loop/daemon layer (*execution*).
+
+## The pattern
+
+A context file is plaintext that satisfies four properties at once:
+
+- **Versioned** — lives in the repo (or a dotfile home), tracked by git, reviewed like code.
+- **Inspectable** — a human can read it and know exactly how the agent is configured.
+- **Loaded deterministically** — auto-injected each session (top-level) or lazily on demand (subdirectory), so behavior is reproducible.
+- **Dual-audience** — written for both the agent (as instructions) and the human (as documentation of the implicit process nobody wrote down before).
+
+The deepest reason the pattern works is the last one: a context file captures *the process humans followed but never documented*. Symphony's framing — "work an issue, check out a repo, put it in progress, add the PR, move it to Review, attach videos — is now captured in a simple `WORKFLOW.md`" — is the canonical statement of **prompt-as-policy**. Editing the file edits the behavior on next render; no code change required.
+
+## Role split across vendors
+
+The files divide along four roles — **project context**, **personality**, **workflow/process**, and **product spec** — though no single vendor files all four separately.
+
+| Role | Claude Code | Hermes ([Hermes Agent](/articles/hermes-agent)) | Codex / [Symphony](/articles/symphony) |
+|---|---|---|---|
+| Project context | `CLAUDE.md` | `AGENTS.md` (cwd) | `AGENTS.md` |
+| Personality / voice | (implicit in `CLAUDE.md`) | `SOUL.md` (global, `~/.hermes/`) | — |
+| Workflow / process | hooks + `CLAUDE.md` rules | — | `WORKFLOW.md` (per-team prompt template, YAML front matter) |
+| Product spec | — | — | `SPEC.md` (defines the orchestrator itself) |
+| Editor compat | — | `.cursorrules` / `.cursor/rules/*.mdc` | — |
+| Memory (related, not policy) | conversation + `CLAUDE.md` | bounded `MEMORY.md` (~2,200 chars) + `USER.md` (~1,375 chars) | filesystem-driven |
+
+Key observations:
+
+- **Hermes makes the sharpest split**: `AGENTS.md` (project) vs. `SOUL.md` (global personality). Claude Code folds both into one `CLAUDE.md`; the personality/project distinction is implicit in practice but never separately filed. The split is worth copying — it lets a stable voice persist across projects while project context stays repo-local.
+- **Symphony introduces two new layers above the session**: `WORKFLOW.md` (orchestration-time process, version-controlled in the user's repo, parsed for runtime config + a Liquid prompt template body) and `SPEC.md` (the product definition — when you open the Symphony repo, the first thing you see is the spec, not source). These are context files at the *orchestration* layer rather than the *session* layer.
+- **`.cursorrules` is compatibility surface** — Hermes auto-loads it from cwd so users needn't duplicate existing Cursor configuration.
+
+## Loading discipline: budget-aware injection
+
+Context files compete for the [context window](/articles/context-window-smart-zone), so loading is increasingly tiered:
+
+- **Top-level, eager**: the root `CLAUDE.md` / `AGENTS.md` is injected into the system prompt every session.
+- **Subdirectory, lazy**: Hermes discovers nested `AGENTS.md` files *during tool calls* (`subdirectory_hints.py`) and injects them into tool results only when relevant — paying the token cost only when the agent actually works in that directory. This is the "AGENTS.md-as-table-of-contents" discipline: top-level is a map, nested context is fetched on demand.
+- **Cache-stable**: keeping context files unchanged within a session preserves the system-prompt prefix cache. Hermes explicitly warns against changing context files or model mid-session for this reason.
+
+The corollary discipline is **pruning**: a `CLAUDE.md` should contain only what the agent *can't infer* from the code. As models improve, the file shrinks — see [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve). An over-specified context file is a recognized failure mode (convert deterministic rules to hooks; delete anything the model already does correctly).
+
+## Where context files sit in the control plane
+
+Context files are **policy, not the work graph**. They are excellent at invariants, conventions, role boundaries, and process; they are poor at encoding *live state* of work. A `SPEC.md` can define Symphony but doesn't tell the daemon which issue is currently unblocked; an `AGENTS.md` tells Hermes how a repo works but doesn't pick the next customer request. The [control-plane analysis](/articles/agent-control-plane-patterns) places them precisely:
+
+- **Tickets** are the durable work graph (what runs, what's blocked, what's done).
+- **Loops / daemons** are the execution engine.
+- **Context files are the policy plane** — the versioned behavioral contract.
+- **Memory files** are bounded recall (advisory, not authoritative).
+
+The brittleness of prompt-as-policy is that it cannot *enforce* — only instruct. Symphony's answer is to keep hard invariants outside the prompt (workspace-path validation, concurrency caps, terminal-state cleanup, retry backoff, credential proxying) while the `WORKFLOW.md` prompt says what the agent *should* do. The spec says what to do; the orchestrator enforces what must not be violated. This is the same division as ["enforce invariants, not implementations"](/articles/agent-harness-engineering) — context files are the advisory half; hooks/orchestrator invariants are the mechanical half.
+
+## Spec-as-document, one layer deeper
+
+The pattern generalizes upward. The same "plaintext spec as load-bearing artifact" instinct shows up at the alignment layer ([Model Spec / Constitution](/articles/claude-constitution)) and even as a *training input* (model-spec-midtraining). Symphony's spec-fuzzing technique — compile `SPEC.md` into six languages and use cross-implementation divergence to surface ambiguity — is the [LLM-as-compiler](/articles/llm-as-compiler-knowledge-base) idea applied to a context file. The throughline: as code becomes cheap, the **document becomes the product**, and the agent's job is to compile it.
+
+## Open questions
+
+- Will the role split converge on Hermes's explicit project/personality separation, or stay folded into a single file as in Claude Code? A separate `SOUL.md`-style personality layer seems strictly better for multi-project users but adds a file to maintain.
+- Is there a natural ceiling on the layering (project → workflow → spec → constitution), or does each new autonomy surface spawn another context-file tier?
+- How should context files and bounded memory files interact when they disagree? Memory is lossy and cache-delayed; the context file is authoritative but static. Which wins, and when?
+
+## Connections
+
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — the `CLAUDE.md` convention and the prune-ruthlessly discipline; the canonical session-layer instance of this pattern
+- [Hermes Agent](/articles/hermes-agent) — the sharpest role split (`AGENTS.md` project vs. `SOUL.md` personality) plus lazy subdirectory injection and bounded memory files
+- [Symphony](/articles/symphony) — introduces the orchestration-layer files: `WORKFLOW.md` (prompt-as-policy) and `SPEC.md` (the product is the spec)
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — the `WORKFLOW.md` prompt-as-policy pattern in full; context files are the policy plane that the ticket layer invokes
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — context files are the advisory half of "enforce invariants, not implementations"; AGENTS.md-as-table-of-contents is a harness discipline
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — why context files shrink with each model release; prune at every launch
+
+## Derived
+
+- [Agent Control Plane Patterns: Tickets, Loops, Specs, and Memory Files](/articles/agent-control-plane-patterns) — positions context files as the policy layer in the layered control-plane stack (tickets / loops / specs / memory)
+
+## Sources
+
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips) — Claude Code's `CLAUDE.md` guidance
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant) — Hermes `AGENTS.md` / `SOUL.md` / memory split
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — `WORKFLOW.md` and `SPEC.md`
+- [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/) — context files as harness substrate
