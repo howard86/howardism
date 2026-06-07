@@ -95,6 +95,69 @@ export interface WikilinkTransformResult {
   unresolved: string[];
 }
 
+// Wikilinks that point at vault dashboards rather than emitted articles. The
+// vault's `home.md` is the Obsidian "start here" index; the blog's equivalent
+// landing page is `/`. Resolving these to their blog route keeps the link live
+// and off the unresolved-warnings list (every MOC carries a `[[home]]`).
+const KNOWN_ROUTE_LINKS: Record<string, string> = { home: "/" };
+
+interface InternalResolution {
+  /** True when the target resolved to an in-blog link (article or route). */
+  internal: boolean;
+  /** Markdown to emit in place of the wikilink. */
+  text: string;
+  /** Slug to record as unresolved, or null when the target resolved. */
+  unresolvedSlug: string | null;
+}
+
+/**
+ * Resolve a non-raw (`internal`) wikilink target to its emitted markdown. Pure:
+ * the caller applies the `internal`/`unresolvedSlug` side-effects so the
+ * resolver closure stays simple. Resolution order: same-page anchor links
+ * (no slug) → known dashboard routes → in-set article slug → unresolved.
+ */
+function resolveInternalTarget(args: {
+  anchor: string | null;
+  label: string | null;
+  slug: string;
+  slugTitleMap: Map<string, string>;
+}): InternalResolution {
+  const { anchor, label, slug, slugTitleMap } = args;
+
+  if (slug === "") {
+    return {
+      text: label ?? (anchor ? humanize(anchor) : ""),
+      internal: false,
+      unresolvedSlug: null,
+    };
+  }
+
+  const route = KNOWN_ROUTE_LINKS[slug];
+  if (route) {
+    return {
+      text: `[${label ?? titleFromSlug(slug)}](${route})`,
+      internal: true,
+      unresolvedSlug: null,
+    };
+  }
+
+  const title = slugTitleMap.get(slug);
+  if (title) {
+    const fragment = anchor ? `#${encodeURIComponent(anchor)}` : "";
+    return {
+      text: `[${label ?? title}](/articles/${slug}${fragment})`,
+      internal: true,
+      unresolvedSlug: null,
+    };
+  }
+
+  return {
+    text: label ?? titleFromSlug(slug),
+    internal: false,
+    unresolvedSlug: slug,
+  };
+}
+
 /**
  * Resolves Obsidian wikilinks to markdown links. Authoring convention for
  * the blog is markdown `[text](href)` — the MDX `a` component override in
@@ -124,15 +187,19 @@ export function rewriteWikilinks(
       return rawDoc?.url ? `[${display}](${rawDoc.url})` : display;
     }
 
-    const anchor = target.anchor ? `#${encodeURIComponent(target.anchor)}` : "";
-    const title = slugTitleMap.get(target.slug);
-    if (title) {
+    const res = resolveInternalTarget({
+      slug: target.slug,
+      anchor: target.anchor,
+      label,
+      slugTitleMap,
+    });
+    if (res.internal) {
       hasInternalLink = true;
-      return `[${label ?? title}](/articles/${target.slug}${anchor})`;
     }
-
-    unresolved.push(target.slug);
-    return label ?? titleFromSlug(target.slug);
+    if (res.unresolvedSlug !== null) {
+      unresolved.push(res.unresolvedSlug);
+    }
+    return res.text;
   };
 
   return {
