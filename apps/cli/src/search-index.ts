@@ -2,7 +2,8 @@
  * Build `apps/blog/src/data/search-index.json` from the blog's committed MDX
  * articles — the published source of truth. Needs no Obsidian vault: it reads
  * each article's frontmatter + body and reduces the body to searchable plain
- * text via `toPlainText`. Re-run after editing or importing articles, then
+ * text via `toPlainText`, capped to its lead text (see `BODY_CHAR_CAP`) to keep
+ * the index small. Re-run after editing or importing articles, then
  * commit the result (like the other `src/data/*.json` manifests).
  *
  *   bun run build:search-index            # write the index
@@ -30,6 +31,28 @@ const MDX_SUFFIX = /\.mdx$/;
 // after its frontmatter — module syntax, not prose, so drop it before indexing.
 const HERO_EXPORT_RE = /^export \{ default as heroImage \}[^\n]*\n?/m;
 
+// Cap each entry's indexed body to its lead text. Pre-cap, `body` was ~93% of
+// the index's bytes yet carries the least Fuse weight (0.08) — so it dominated
+// both the committed file and the chunk shipped to the browser while barely
+// moving ranking. Keeping only the lead preserves matches on an article's
+// opening (title/tags/description still cover the rest) at a fraction of the
+// size. Articles longer than this lose deep-body matches by design.
+const BODY_CHAR_CAP = 1200;
+
+/**
+ * Trim `text` to at most `BODY_CHAR_CAP` characters, backing up to the last word
+ * boundary so the final token isn't split mid-word. `toPlainText` already
+ * collapses whitespace to single spaces, so `lastIndexOf(" ")` is a clean cut.
+ */
+function capBody(text: string): string {
+  if (text.length <= BODY_CHAR_CAP) {
+    return text;
+  }
+  const head = text.slice(0, BODY_CHAR_CAP);
+  const lastSpace = head.lastIndexOf(" ");
+  return lastSpace > 0 ? head.slice(0, lastSpace) : head;
+}
+
 const HERE = dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = resolve(HERE, "../../../");
 const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
@@ -56,7 +79,7 @@ export function buildSearchEntry(
     ...(Array.isArray(data.tags) && data.tags.length > 0
       ? { tags: (data.tags as unknown[]).map(String) }
       : {}),
-    body: toPlainText(content.replace(HERO_EXPORT_RE, "")),
+    body: capBody(toPlainText(content.replace(HERO_EXPORT_RE, ""))),
   };
 }
 

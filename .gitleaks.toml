@@ -1,0 +1,35 @@
+# gitleaks configuration.
+#
+# Extends the bundled default ruleset (every default rule still applies) and
+# adds one allowlist with two narrow, independent exclusions:
+#
+#   * regexes — public Anthropic/Claude model identifiers such as
+#     `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`. These product
+#     names appear throughout the blog's generated article content and trip the
+#     `generic-api-key` heuristic when they sit next to words like "API" or
+#     "model ID". They are public and are not secrets.
+#
+#   * paths — `search-index.json`, a generated artifact holding the plain-text
+#     bodies of the public articles (derived 1:1 from the committed MDX, which
+#     is itself scanned). It is prose, not code, so it has no business holding a
+#     credential — yet long article text predictably trips the same heuristic.
+#     Scanning the derived copy adds no security signal, only false positives
+#     that recur on every re-import.
+#
+# Both criteria live in ONE singular `[allowlist]` rather than two
+# `[[allowlists]]` tables on purpose: gitleaks 8.24.3 (pinned by the CI action)
+# does not apply array-of-tables `paths` to commit-history diffs, so the path
+# exclusion only takes effect in CI in the singular form. The default match
+# condition is OR, so each criterion is honored independently.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public Claude model identifiers and the generated search index are not secrets"
+regexes = [
+  '''claude-(?:opus|sonnet|haiku|instant|[0-9])[0-9a-z.\-]*''',
+]
+paths = [
+  '''apps/blog/src/data/search-index\.json''',
+]

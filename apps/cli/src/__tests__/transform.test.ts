@@ -53,6 +53,28 @@ describe("rewriteWikilinks", () => {
     expect(unresolved).toEqual(["missing-page"]);
   });
 
+  it("treats a same-page anchor link as plain text and flags nothing", () => {
+    const map = new Map<string, string>();
+    const { body, unresolved, hasInternalLink } = rewriteWikilinks(
+      "Defined under [[#AlphaProof (the tool)|AlphaProof]] above.",
+      map
+    );
+    expect(body).toBe("Defined under AlphaProof above.");
+    expect(unresolved).toEqual([]);
+    expect(hasInternalLink).toBe(false);
+  });
+
+  it("resolves [[home]] to the blog root instead of flagging it", () => {
+    const map = new Map<string, string>();
+    const { body, unresolved, hasInternalLink } = rewriteWikilinks(
+      "See [[home]] for all domains.",
+      map
+    );
+    expect(body).toBe("See [Home](/) for all domains.");
+    expect(unresolved).toEqual([]);
+    expect(hasInternalLink).toBe(true);
+  });
+
   it("accepts the escaped pipe `\\|` from markdown-table wikilinks", () => {
     const map = new Map([
       ["codex-app-server-protocol", "Codex App Server Protocol"],

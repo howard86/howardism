@@ -56,6 +56,20 @@ describe("buildSearchEntry", () => {
     expect(entry?.tags).toBeUndefined();
   });
 
+  it("caps a long body to its lead text without splitting a word", () => {
+    // A body well over the 1200-char cap: 400 four-char words = ~2000 chars.
+    const longBody = Array.from({ length: 400 }, () => "alfa").join(" ");
+    const raw = mdx(
+      ["title: Long", "description: d", "tag: Essay"].join("\n"),
+      longBody
+    );
+    const entry = buildSearchEntry(raw, "long");
+    expect(entry?.body.length).toBeLessThanOrEqual(1200);
+    // Trimmed at a word boundary: the lead is preserved and no token is cut.
+    expect(longBody.startsWith(entry?.body ?? "")).toBe(true);
+    expect(entry?.body.endsWith("alfa")).toBe(true);
+  });
+
   it("returns null for archived articles so they stay out of search", () => {
     const raw = mdx(
       [
