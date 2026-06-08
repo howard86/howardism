@@ -1,3 +1,8 @@
+# [v2.9.1](https://github.com/howard86/howardism/compare/v2.9.0...v2.9.1) (2026-06-08)
+
+## 🐛 Bug Fixes
+- [`9920c73`](https://github.com/howard86/howardism/commit/9920c73)  fix(cli): resolve [[home]] links, stop flagging same-page anchors as unresolved
+
 # [v2.9.0](https://github.com/howard86/howardism/compare/v2.8.0...v2.9.0) (2026-06-04)
 
 ## ✨ New Features
