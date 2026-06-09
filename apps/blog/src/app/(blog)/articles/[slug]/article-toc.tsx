@@ -44,7 +44,7 @@ export function ArticleToc({ headings }: ArticleTocProps) {
               <a
                 aria-current={isActive ? "location" : undefined}
                 className={cn(
-                  "no-underline transition-colors hover:text-foreground",
+                  "no-underline transition-colors hover:text-foreground [@media(pointer:coarse)]:flex [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:items-center",
                   isActive ? "text-foreground" : "text-foreground-subtle"
                 )}
                 href={`#${heading.id}`}
