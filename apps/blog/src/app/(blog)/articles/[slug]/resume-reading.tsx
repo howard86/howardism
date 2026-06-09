@@ -55,7 +55,7 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
 
-  const [resumeId, setResumeId] = useState<string | null>(null);
+  const [resume, setResume] = useState<SavedProgress | null>(null);
 
   // Read the saved position once on mount and decide whether to offer resume.
   useEffect(() => {
@@ -69,8 +69,8 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
     if (!document.getElementById(saved.headingId)) {
       return;
     }
-    setResumeId(saved.headingId);
-    const timer = setTimeout(() => setResumeId(null), AUTO_DISMISS_MS);
+    setResume(saved);
+    const timer = setTimeout(() => setResume(null), AUTO_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [headings.length, slug]);
 
@@ -106,15 +106,15 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
   }, [slug]);
 
   const handleResume = useCallback(() => {
-    if (resumeId) {
+    if (resume) {
       document
-        .getElementById(resumeId)
+        .getElementById(resume.headingId)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    setResumeId(null);
-  }, [resumeId]);
+    setResume(null);
+  }, [resume]);
 
-  if (!resumeId) {
+  if (!resume) {
     return null;
   }
 
@@ -125,12 +125,13 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
         onClick={handleResume}
         type="button"
       >
-        Resume <span aria-hidden="true">↓</span>
+        Resume · {Math.round(resume.pct * 100)}%{" "}
+        <span aria-hidden="true">↓</span>
       </button>
       <button
         aria-label="Dismiss resume"
         className="flex size-6 items-center justify-center rounded-full text-foreground-subtle transition-colors hover:text-foreground"
-        onClick={() => setResumeId(null)}
+        onClick={() => setResume(null)}
         type="button"
       >
         <span aria-hidden="true">×</span>
