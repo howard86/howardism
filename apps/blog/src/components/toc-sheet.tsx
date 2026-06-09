@@ -7,7 +7,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@howardism/ui/components/sheet";
-import { Menu01Icon } from "@hugeicons/core-free-icons";
+import { LeftToRightListBulletIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ArticleToc } from "@/app/(blog)/articles/[slug]/article-toc";
@@ -33,7 +33,7 @@ export function TocSheet() {
         aria-label="On this page"
         className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
-        <HugeiconsIcon className="size-4" icon={Menu01Icon} />
+        <HugeiconsIcon className="size-4" icon={LeftToRightListBulletIcon} />
       </SheetTrigger>
       <SheetContent className="w-72" side="left">
         <SheetHeader>
