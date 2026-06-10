@@ -135,7 +135,7 @@ export function ArticleLayout({
                 <h1 className="mb-5 font-display font-normal text-[27px] text-foreground leading-[1.25] tracking-[-0.015em]">
                   {meta.title}
                 </h1>
-                <DataGrid maxWidth={280} rows={metaRows} />
+                <DataGrid maxWidth={280} rows={metaRows} stack />
               </div>
 
               <div
