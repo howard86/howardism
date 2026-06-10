@@ -67,6 +67,20 @@ describe("data-grid", () => {
     render(<DataGrid className="extra" rows={[["k", "v"]]} />);
     expect(screen.getByTestId("data-grid").className).toContain("extra");
   });
+
+  it("uses the two-column split by default", () => {
+    render(<DataGrid rows={[["k", "v"]]} />);
+    const grid = screen.getByTestId("data-grid");
+    expect(grid.className).toContain("grid-cols-[auto_1fr]");
+    expect(grid.className).not.toContain("grid-cols-1");
+  });
+
+  it("stacks label over value below 480px when stack is set", () => {
+    render(<DataGrid rows={[["k", "v"]]} stack />);
+    const grid = screen.getByTestId("data-grid");
+    expect(grid.className).toContain("grid-cols-1");
+    expect(grid.className).toContain("min-[480px]:grid-cols-[auto_1fr]");
+  });
 });
 
 describe("ph", () => {

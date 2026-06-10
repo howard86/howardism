@@ -1,15 +1,15 @@
 "use client";
 
-import { Badge } from "@howardism/ui/components/badge";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@howardism/ui/components/sheet";
 import { cn } from "@howardism/ui/lib/utils";
-import { Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
+import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,13 +25,18 @@ import { useTweaks } from "@/components/tweaks/tweaks-provider";
 import useHasScrolled from "@/hooks/use-has-scrolled";
 
 import { Avatar } from "./avatar";
-import { NAV_SECTION_KEYS, NavSection } from "./constants";
+import { FOOTER_NAV, NAV_SECTION_KEYS, NavSection } from "./constants";
+
+function isRouteActive(pathname: string | null, href: string): boolean {
+  return (
+    pathname !== null &&
+    (pathname === href || (href !== "/" && pathname.startsWith(href)))
+  );
+}
 
 function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
-  const isActive =
-    pathname !== null &&
-    (pathname === href || (href !== "/" && pathname.startsWith(href)));
+  const isActive = isRouteActive(pathname, href);
 
   return (
     <Link
@@ -58,38 +63,56 @@ function DesktopNav() {
 }
 
 function MobileNav() {
+  const pathname = usePathname();
+
   return (
     <div className="md:hidden">
       <Sheet>
-        <SheetTrigger asChild>
-          <button type="button">
-            <Badge variant="chip">Menu</Badge>
-          </button>
+        <SheetTrigger
+          aria-label="Menu"
+          className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <HugeiconsIcon className="size-[18px]" icon={Menu01Icon} />
         </SheetTrigger>
         <SheetContent
           className="mx-4 mt-4 rounded-3xl p-8"
           showCloseButton={false}
           side="top"
         >
-          <SheetHeader className="p-0">
-            <SheetTitle className="font-medium font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
-              Navigation
-            </SheetTitle>
+          <SheetHeader className="flex-row items-center gap-3 p-0">
+            <Avatar label="Home" size={36} />
+            <div className="flex flex-col gap-px">
+              <SheetTitle className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
+                Howardism
+              </SheetTitle>
+              <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
+                vol. 03 · quiet corner of the web
+              </span>
+            </div>
           </SheetHeader>
           <nav aria-label="Mobile primary" className="mt-6">
             <ul className="m-0 flex list-none flex-col gap-0 border-border border-t p-0">
-              {NAV_SECTION_KEYS.map((key) => (
-                <li className="border-border border-b" key={key}>
-                  <Link
-                    className="block py-3 font-body text-[15px] text-foreground"
-                    href={NavSection[key]}
-                  >
-                    {key}
-                  </Link>
+              {FOOTER_NAV.map(({ label, href }) => (
+                <li className="border-border border-b" key={label}>
+                  <SheetClose asChild>
+                    <Link
+                      aria-current={
+                        isRouteActive(pathname, href) ? "page" : undefined
+                      }
+                      className="flex min-h-12 items-center rounded-lg px-2 font-body text-[15px] text-foreground transition-colors aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
+                      href={href}
+                    >
+                      {label}
+                    </Link>
+                  </SheetClose>
                 </li>
               ))}
             </ul>
           </nav>
+          <span className="mt-6 block font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
+            Set in Fraunces, Newsreader &amp; JetBrains Mono. The text is the
+            work; the design is the chrome.
+          </span>
         </SheetContent>
       </Sheet>
     </div>
@@ -157,15 +180,23 @@ export function SiteBar() {
           <DesktopNav />
 
           {/* Reader controls — article pages only. The TOC button is hidden at
-              the rail breakpoint, where the sticky rail already shows the TOC. */}
+              the rail breakpoint, where the sticky rail already shows the TOC. A
+              hairline divider sets this reader cluster apart from the global
+              search/theme/menu cluster. */}
           {isArticle && (
-            <div className="flex items-center gap-0.5">
-              <span className="inline-flex rail:hidden">
-                <TocSheet />
-              </span>
-              <ArticleFind />
-              <ReaderSettings />
-            </div>
+            <>
+              <div className="flex items-center gap-0.5">
+                <span className="inline-flex rail:hidden">
+                  <TocSheet />
+                </span>
+                <ArticleFind />
+                <ReaderSettings />
+              </div>
+              <span
+                aria-hidden="true"
+                className="h-5 w-px shrink-0 bg-border"
+              />
+            </>
           )}
 
           <SearchTrigger />
