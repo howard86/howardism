@@ -37,6 +37,7 @@ export default async function ShelfPage() {
       title: meta.title,
       label: meta.domain ? DOMAIN_META[meta.domain].label : meta.tag,
       href: `/articles/${id}`,
+      archived: meta.archived === true,
     });
   }
 
