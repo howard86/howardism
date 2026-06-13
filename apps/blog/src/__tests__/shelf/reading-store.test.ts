@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 
 import {
+  clearReadingData,
   getHistory,
   getSaved,
   isSaved,
@@ -124,5 +125,30 @@ describe("reading-store save-for-later", () => {
     expect(getSaved()).toEqual([]);
     localStorage.setItem("howardism:reading-saved", "{not-json");
     expect(getSaved()).toEqual([]);
+  });
+});
+
+describe("reading-store clearReadingData", () => {
+  it("wipes history, the saved list, and every per-slug resume entry", () => {
+    recordProgress("alpha", 0.4);
+    toggleSave("beta");
+    localStorage.setItem(
+      perSlugKey("alpha"),
+      JSON.stringify({ headingId: "h", pct: 0.4 })
+    );
+    localStorage.setItem(
+      perSlugKey("gamma"),
+      JSON.stringify({ headingId: "h", pct: 0.5 })
+    );
+    // An unrelated namespace must survive the wipe.
+    localStorage.setItem("howardism:tweaks", "{}");
+
+    clearReadingData();
+
+    expect(getHistory()).toEqual([]);
+    expect(getSaved()).toEqual([]);
+    expect(localStorage.getItem(perSlugKey("alpha"))).toBeNull();
+    expect(localStorage.getItem(perSlugKey("gamma"))).toBeNull();
+    expect(localStorage.getItem("howardism:tweaks")).not.toBeNull();
   });
 });
