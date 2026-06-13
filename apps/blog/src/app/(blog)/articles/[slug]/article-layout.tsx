@@ -9,6 +9,7 @@ import { DataGrid } from "@/components/howardism/data-grid";
 import { DomainLabel } from "@/components/howardism/domain-label";
 import { HalfDisc } from "@/components/howardism/half-disc";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
+import { SaveButton } from "@/components/save-button";
 import { formatDate } from "@/utils/time";
 import { DOMAIN_META } from "../domain-meta";
 import type {
@@ -136,6 +137,9 @@ export function ArticleLayout({
                   {meta.title}
                 </h1>
                 <DataGrid maxWidth={280} rows={metaRows} stack />
+                <div className="mt-5">
+                  <SaveButton showLabel slug={slug} />
+                </div>
               </div>
 
               <div
