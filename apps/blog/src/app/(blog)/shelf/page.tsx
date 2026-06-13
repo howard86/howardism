@@ -5,7 +5,7 @@ import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 import { DOMAIN_META } from "../articles/domain-meta";
 import { getArticles } from "../articles/service";
-import { ShelfList } from "./shelf-list";
+import { ShelfTabs } from "./shelf-tabs";
 
 const SHELF_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/shelf`;
 
@@ -56,7 +56,7 @@ export default async function ShelfPage() {
         </p>
       </header>
 
-      <ShelfList manifest={manifest} />
+      <ShelfTabs manifest={manifest} />
     </div>
   );
 }
