@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { resolveCompareIds } from "@/lib/compare-ids";
+import { buildCompareHref, resolveCompareIds } from "@/lib/compare-ids";
 
 const known = new Set(["alpha", "beta", "gamma", "delta"]);
 
@@ -50,5 +50,17 @@ describe("resolveCompareIds", () => {
       "alpha",
       "beta",
     ]);
+  });
+});
+
+describe("buildCompareHref", () => {
+  it("builds the compare URL from a selection", () => {
+    expect(buildCompareHref(["alpha", "beta"])).toBe("/compare?ids=alpha,beta");
+  });
+
+  it("round-trips through resolveCompareIds", () => {
+    const href = buildCompareHref(["alpha", "beta"]);
+    const ids = href.split("ids=")[1];
+    expect(resolveCompareIds(ids, known)).toEqual(["alpha", "beta"]);
   });
 });
