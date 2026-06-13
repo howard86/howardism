@@ -11,7 +11,12 @@ import {
   type ShelfRow,
 } from "@/lib/shelf-rows";
 
-import { ArchivedBadge, ShelfArticleRow } from "./shelf-article-row";
+import {
+  ArchivedBadge,
+  type ListSelection,
+  ShelfArticleRow,
+  toRowSelection,
+} from "./shelf-article-row";
 
 dayjs.extend(relativeTime);
 
@@ -62,9 +67,11 @@ function TombstoneRow({
 function HistoryRow({
   row,
   onRemove,
+  selection,
 }: {
   row: ShelfRow;
   onRemove: (slug: string) => void;
+  selection?: ListSelection;
 }) {
   if (row.kind === "deleted") {
     return (
@@ -83,6 +90,7 @@ function HistoryRow({
       href={row.href}
       label={row.label}
       progress={row.pct}
+      selection={toRowSelection(selection, row.slug, row.title)}
       timeText={dayjs(row.lastReadAt).fromNow()}
       title={row.title}
     />
@@ -96,7 +104,13 @@ function HistoryRow({
  * archived reads tagged, deleted reads shown as dismissible tombstones — or a
  * friendly empty state.
  */
-export function ShelfList({ manifest }: { manifest: ShelfManifestEntry[] }) {
+export function ShelfList({
+  manifest,
+  selection,
+}: {
+  manifest: ShelfManifestEntry[];
+  selection?: ListSelection;
+}) {
   const [rows, setRows] = useState<ShelfRow[] | null>(null);
 
   useEffect(() => {
@@ -126,7 +140,12 @@ export function ShelfList({ manifest }: { manifest: ShelfManifestEntry[] }) {
   return (
     <ul className="mt-2 flex list-none flex-col p-0">
       {rows.map((row) => (
-        <HistoryRow key={row.slug} onRemove={handleRemove} row={row} />
+        <HistoryRow
+          key={row.slug}
+          onRemove={handleRemove}
+          row={row}
+          selection={selection}
+        />
       ))}
     </ul>
   );
