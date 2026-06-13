@@ -1,6 +1,7 @@
 import { DomainLabel } from "@/components/howardism/domain-label";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { InternalLink } from "@/components/internal-link";
+import { SaveButton } from "@/components/save-button";
 import { formatDateShort } from "@/utils/time";
 
 import { KIND_META } from "./kind-meta";
@@ -86,6 +87,7 @@ export function KindPlate({
                 <th scope="col">Title</th>
                 <th scope="col">Domain</th>
                 <th scope="col">Date</th>
+                <th scope="col">Save</th>
               </tr>
             </thead>
             <tbody>
@@ -139,6 +141,9 @@ export function KindPlate({
                       {formatDateShort(article.meta.date)}
                     </time>{" "}
                     · {article.meta.readingTime}′
+                  </td>
+                  <td className="w-[36px] py-3.5 pl-1 text-right align-baseline">
+                    <SaveButton slug={article.slug} />
                   </td>
                 </tr>
               ))}
