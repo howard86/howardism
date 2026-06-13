@@ -166,3 +166,31 @@ export function toggleSave(slug: string): boolean {
   }
   return !wasSaved;
 }
+
+/* ── wipe everything (privacy / fresh start) ── */
+
+/**
+ * Erase all reading state from this browser: the history index, the saved
+ * list, and every per-slug resume entry. After this the Shelf is empty and
+ * in-article resume chips no longer appear (they read the same per-slug keys).
+ * Storage errors are silently ignored.
+ */
+export function clearReadingData(): void {
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+    localStorage.removeItem(SAVED_KEY);
+    // Collect per-slug keys first — removing during iteration shifts indices.
+    const perSlugKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(PER_SLUG_PREFIX)) {
+        perSlugKeys.push(key);
+      }
+    }
+    for (const key of perSlugKeys) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore storage errors (quota / private mode)
+  }
+}
