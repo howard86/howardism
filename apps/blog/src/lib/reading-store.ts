@@ -87,3 +87,18 @@ export function recordProgress(slug: string, pct: number): void {
     // ignore storage errors (quota / private mode)
   }
 }
+
+/**
+ * Forget a single read: drop it from the history index and delete its per-slug
+ * resume state. Backs both the per-row "remove" control and the "dismiss" on a
+ * no-longer-available tombstone. Storage errors are silently ignored.
+ */
+export function removeFromHistory(slug: string): void {
+  try {
+    const next = getHistory().filter((entry) => entry.slug !== slug);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    localStorage.removeItem(perSlugKey(slug));
+  } catch {
+    // ignore storage errors (quota / private mode)
+  }
+}
