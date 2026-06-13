@@ -2,12 +2,11 @@
 
 import throttle from "lodash.throttle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import useScrollSpy from "@/hooks/use-scroll-spy";
+import { perSlugKey, recordProgress } from "@/lib/reading-store";
 
 import type { ArticleHeading } from "../service";
 
-const STORAGE_PREFIX = "howardism:reading:";
 const MIN_PCT = 0.25; // below this, "resume" isn't worth offering
 const MAX_PCT = 0.9; // above this, the reader has effectively finished
 const AUTO_DISMISS_MS = 6000;
@@ -19,7 +18,7 @@ interface SavedProgress {
 
 function readSaved(slug: string): SavedProgress | null {
   try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + slug);
+    const raw = localStorage.getItem(perSlugKey(slug));
     if (!raw) {
       return null;
     }
@@ -83,14 +82,16 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
       if (scrollable <= 0 || window.scrollY <= 0) {
         return;
       }
+      const pct = Math.min(1, Math.max(0, window.scrollY / scrollable));
+      // Remember this read on the Shelf once it crosses the resume threshold.
+      recordProgress(slug, pct);
       const headingId = activeIdRef.current;
       if (!headingId) {
         return;
       }
-      const pct = Math.min(1, Math.max(0, window.scrollY / scrollable));
       try {
         localStorage.setItem(
-          STORAGE_PREFIX + slug,
+          perSlugKey(slug),
           JSON.stringify({ headingId, pct })
         );
       } catch {
