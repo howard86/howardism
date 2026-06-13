@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 
-import { getHistory, perSlugKey, recordProgress } from "@/lib/reading-store";
+import {
+  getHistory,
+  perSlugKey,
+  recordProgress,
+  removeFromHistory,
+} from "@/lib/reading-store";
 
 afterEach(() => {
   localStorage.clear();
@@ -56,6 +61,20 @@ describe("reading-store", () => {
     expect(getHistory()).toEqual([]);
     localStorage.setItem(HISTORY_KEY, "{not-json");
     expect(getHistory()).toEqual([]);
+  });
+
+  it("removes one read and drops its per-slug resume state, leaving the rest", () => {
+    localStorage.setItem(
+      perSlugKey("beta"),
+      JSON.stringify({ headingId: "h", pct: 0.5 })
+    );
+    recordProgress("alpha", 0.3);
+    recordProgress("beta", 0.4);
+
+    removeFromHistory("beta");
+
+    expect(getHistory().map((entry) => entry.slug)).toEqual(["alpha"]);
+    expect(localStorage.getItem(perSlugKey("beta"))).toBeNull();
   });
 
   it("swallows storage write errors instead of throwing (private browsing)", () => {
