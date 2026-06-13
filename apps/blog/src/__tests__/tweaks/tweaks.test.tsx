@@ -19,6 +19,7 @@ import { TWEAKS_STORAGE_KEY } from "@/components/tweaks/types";
 afterEach(cleanup);
 
 const READER_SETTINGS_LABEL = /reader settings/i;
+const CLEAR_DATA_LABEL = /clear reading data/i;
 
 // ── InitTweaksScript ────────────────────────────────────────────────────────
 
@@ -211,6 +212,38 @@ describe("reader-settings", () => {
     fireEvent.keyDown(input, { key: "t", target: input });
     await new Promise((r) => setTimeout(r, 50));
     expect(btn.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("clears all reading data from the panel", async () => {
+    localStorage.setItem(
+      "howardism:reading-history",
+      JSON.stringify([{ slug: "a", pct: 0.5, lastReadAt: 1 }])
+    );
+    localStorage.setItem(
+      "howardism:reading-saved",
+      JSON.stringify([{ slug: "b", savedAt: 1 }])
+    );
+    localStorage.setItem(
+      "howardism:reading:a",
+      JSON.stringify({ headingId: "h", pct: 0.5 })
+    );
+
+    render(
+      <TweaksProvider>
+        <ReaderSettings />
+      </TweaksProvider>
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: READER_SETTINGS_LABEL })
+    );
+    const clearButton = await screen.findByRole("button", {
+      name: CLEAR_DATA_LABEL,
+    });
+    fireEvent.click(clearButton);
+
+    expect(localStorage.getItem("howardism:reading-history")).toBeNull();
+    expect(localStorage.getItem("howardism:reading-saved")).toBeNull();
+    expect(localStorage.getItem("howardism:reading:a")).toBeNull();
   });
 });
 
