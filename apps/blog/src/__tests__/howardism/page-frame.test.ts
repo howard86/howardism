@@ -23,6 +23,8 @@ const BLOG_APP_DIR = join(import.meta.dir, "../../app/(blog)");
 const RAW_PAGE_WIDTH = /max-w-\[(?:720|1120|1280|1320)px\]/;
 /** A raw horizontal page gutter (bare or responsive-prefixed). */
 const RAW_GUTTER = /\bpx-[48]\b/;
+/** The gutter token's literal value inlined instead of `px-gutter`. */
+const INLINED_GUTTER = /px-\[clamp\(20px,\s*5vw,\s*56px\)\]/;
 
 function blogFiles(predicate: (path: string) => boolean): string[] {
   return readdirSync(BLOG_APP_DIR, { recursive: true })
@@ -43,6 +45,13 @@ describe("page frame guard", () => {
   it("never sets a raw gutter on a route entry — render <PlatePage>", () => {
     const offenders = blogFiles((rel) => rel.endsWith("page.tsx")).filter(
       (file) => RAW_GUTTER.test(readFileSync(file, "utf8"))
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("never inlines the gutter token's value — use px-gutter", () => {
+    const offenders = blogFiles(() => true).filter((file) =>
+      INLINED_GUTTER.test(readFileSync(file, "utf8"))
     );
     expect(offenders).toEqual([]);
   });
