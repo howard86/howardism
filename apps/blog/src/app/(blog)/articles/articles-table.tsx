@@ -1,4 +1,5 @@
 import { InternalLink } from "@/components/internal-link";
+import { SaveButton } from "@/components/save-button";
 import { formatDateShort } from "@/utils/time";
 
 import type { ArticleEntity } from "./service";
@@ -39,6 +40,7 @@ export function ArticlesTable({
             <th scope="col">Title</th>
             <th scope="col">Summary</th>
             <th scope="col">Date</th>
+            <th scope="col">Save</th>
           </tr>
         </thead>
         <tbody>
@@ -63,6 +65,9 @@ export function ArticlesTable({
                 <time dateTime={article.meta.date}>
                   {formatDateShort(article.meta.date)}
                 </time>
+              </td>
+              <td className="w-[36px] py-3.5 pl-1 text-right align-baseline">
+                <SaveButton slug={article.slug} />
               </td>
             </tr>
           ))}

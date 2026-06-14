@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, spyOn } from "bun:test";
 
 import {
   getHistory,
+  getSaved,
+  isSaved,
   perSlugKey,
   recordProgress,
   removeFromHistory,
+  toggleSave,
 } from "@/lib/reading-store";
 
 afterEach(() => {
@@ -83,5 +86,43 @@ describe("reading-store", () => {
     });
     expect(() => recordProgress("gamma", 0.6)).not.toThrow();
     spy.mockRestore();
+  });
+});
+
+describe("reading-store save-for-later", () => {
+  it("toggles a save on and off, persisting and reporting the new state", () => {
+    expect(isSaved("alpha")).toBe(false);
+
+    expect(toggleSave("alpha")).toBe(true);
+    expect(isSaved("alpha")).toBe(true);
+    expect(getSaved().map((entry) => entry.slug)).toEqual(["alpha"]);
+
+    expect(toggleSave("alpha")).toBe(false);
+    expect(isSaved("alpha")).toBe(false);
+    expect(getSaved()).toEqual([]);
+  });
+
+  it("orders saves newest-first", () => {
+    toggleSave("alpha");
+    toggleSave("beta");
+    toggleSave("gamma");
+    expect(getSaved().map((entry) => entry.slug)).toEqual([
+      "gamma",
+      "beta",
+      "alpha",
+    ]);
+  });
+
+  it("never caps the saved list", () => {
+    for (let i = 0; i < 60; i += 1) {
+      toggleSave(`slug-${i}`);
+    }
+    expect(getSaved()).toHaveLength(60);
+  });
+
+  it("returns an empty saved list when storage is empty or corrupt", () => {
+    expect(getSaved()).toEqual([]);
+    localStorage.setItem("howardism:reading-saved", "{not-json");
+    expect(getSaved()).toEqual([]);
   });
 });

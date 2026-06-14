@@ -11,6 +11,8 @@
 const PER_SLUG_PREFIX = "howardism:reading:";
 /** History index key. Distinct from the per-slug prefix (no trailing colon). */
 const HISTORY_KEY = "howardism:reading-history";
+/** Save-for-later index key. Uncapped, newest-saved first. */
+const SAVED_KEY = "howardism:reading-saved";
 /** Below this scroll fraction a read isn't worth remembering. */
 const MIN_RECORD_PCT = 0.25;
 /** Most-recent reads to keep; older reads are evicted LRU-style. */
@@ -101,4 +103,66 @@ export function removeFromHistory(slug: string): void {
   } catch {
     // ignore storage errors (quota / private mode)
   }
+}
+
+/* ── save-for-later (deliberate, uncapped, separate from history) ── */
+
+export interface SavedEntry {
+  /** Epoch ms when the article was saved, for newest-first ordering. */
+  savedAt: number;
+  /** Article slug; the join key against the article manifest. */
+  slug: string;
+}
+
+function isSavedEntry(value: unknown): value is SavedEntry {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const entry = value as Record<string, unknown>;
+  return typeof entry.slug === "string" && typeof entry.savedAt === "number";
+}
+
+/**
+ * The save-for-later list, newest-saved first. Uncapped — only the reader
+ * trims it by unsaving. Returns `[]` when storage is unavailable or corrupt.
+ */
+export function getSaved(): SavedEntry[] {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(isSavedEntry);
+  } catch {
+    return [];
+  }
+}
+
+/** Whether `slug` is currently saved for later. */
+export function isSaved(slug: string): boolean {
+  return getSaved().some((entry) => entry.slug === slug);
+}
+
+/**
+ * Toggle `slug`'s saved state, persisting the change, and return the new state
+ * (`true` if it is now saved). Saving moves it to the front; the list is never
+ * auto-trimmed. Storage errors are swallowed; the returned state still
+ * reflects the intended toggle so the control stays responsive.
+ */
+export function toggleSave(slug: string): boolean {
+  const saved = getSaved();
+  const wasSaved = saved.some((entry) => entry.slug === slug);
+  const next = wasSaved
+    ? saved.filter((entry) => entry.slug !== slug)
+    : [{ slug, savedAt: Date.now() }, ...saved];
+  try {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage errors (quota / private mode)
+  }
+  return !wasSaved;
 }
