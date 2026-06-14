@@ -42,42 +42,34 @@ const BASE_META: ArticleMeta = {
   title: "Test Article",
 };
 
+function hasDropCap(meta: ArticleMeta): boolean {
+  const { container } = render(
+    <ArticleLayout meta={meta} slug="test-article">
+      <p>Article content</p>
+    </ArticleLayout>,
+    { wrapper: Providers }
+  );
+  return Boolean(
+    container.querySelector(".prose")?.classList.contains("prose-drop-cap")
+  );
+}
+
 describe("ArticleLayout drop-cap", () => {
-  it("applies prose-drop-cap class when meta.dropCap === true", () => {
-    const { container } = render(
-      <ArticleLayout meta={{ ...BASE_META, dropCap: true }} slug="test-article">
-        <p>Article content</p>
-      </ArticleLayout>,
-      { wrapper: Providers }
-    );
-    const proseDiv = container.querySelector(".prose");
-    expect(proseDiv).toBeDefined();
-    expect(proseDiv?.classList.contains("prose-drop-cap")).toBe(true);
+  it("applies prose-drop-cap for Essay articles", () => {
+    expect(hasDropCap({ ...BASE_META, tag: "Essay" })).toBe(true);
   });
 
-  it("does not apply prose-drop-cap when meta.dropCap is undefined", () => {
-    const { container } = render(
-      <ArticleLayout meta={BASE_META} slug="test-article">
-        <p>Article content</p>
-      </ArticleLayout>,
-      { wrapper: Providers }
-    );
-    const proseDiv = container.querySelector(".prose");
-    expect(proseDiv).toBeDefined();
-    expect(proseDiv?.classList.contains("prose-drop-cap")).toBe(false);
+  it("does not apply prose-drop-cap for Concept articles", () => {
+    expect(hasDropCap({ ...BASE_META, tag: "Concept" })).toBe(false);
   });
 
-  it("does not apply prose-drop-cap when meta.dropCap === false", () => {
-    const { container } = render(
-      <ArticleLayout
-        meta={{ ...BASE_META, dropCap: false }}
-        slug="test-article"
-      >
-        <p>Article content</p>
-      </ArticleLayout>,
-      { wrapper: Providers }
+  it("does not apply prose-drop-cap for Entity articles", () => {
+    expect(hasDropCap({ ...BASE_META, tag: "Entity" })).toBe(false);
+  });
+
+  it("ignores the legacy meta.dropCap flag (kind decides)", () => {
+    expect(hasDropCap({ ...BASE_META, tag: "Concept", dropCap: true })).toBe(
+      false
     );
-    const proseDiv = container.querySelector(".prose");
-    expect(proseDiv?.classList.contains("prose-drop-cap")).toBe(false);
   });
 });
