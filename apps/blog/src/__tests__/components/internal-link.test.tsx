@@ -5,6 +5,7 @@ import {
   InternalLink,
   InternalLinkPreviewBody,
 } from "@/components/internal-link";
+import { createNextNavigationMock } from "@/test-support/next-navigation-mock";
 
 afterEach(() => {
   cleanup();
@@ -44,9 +45,9 @@ describe("InternalLink — fallback paths", () => {
   });
 
   it("renders a plain anchor when the href matches the current page", async () => {
-    mock.module("next/navigation", () => ({
-      usePathname: () => "/articles/claude-code",
-    }));
+    mock.module("next/navigation", () =>
+      createNextNavigationMock({ usePathname: () => "/articles/claude-code" })
+    );
 
     // Re-import after the mock takes effect so the component picks it up.
     const { InternalLink: ScopedInternalLink } = await import(
@@ -67,9 +68,9 @@ describe("InternalLink — fallback paths", () => {
     expect(anchors[0].hasAttribute("aria-describedby")).toBe(false);
 
     // Restore the default mock for subsequent tests.
-    mock.module("next/navigation", () => ({
-      usePathname: () => "/",
-    }));
+    mock.module("next/navigation", () =>
+      createNextNavigationMock({ usePathname: () => "/" })
+    );
   });
 });
 
