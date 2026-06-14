@@ -2,13 +2,28 @@ import { afterEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 
+import {
+  BacklinksDisclosureView,
+  formatBacklinkLabel,
+} from "@/app/(blog)/articles/[slug]/backlinks-disclosure";
 import { ArticleNavProvider } from "@/components/article-nav-context";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
+
+// Value copy of the real backlinks-disclosure exports, taken before the stub
+// below replaces the module. mock.module is process-wide, so the stub leaks
+// into other suites; preserving BacklinksDisclosureView and formatBacklinkLabel
+// (the latter used by the real ArticleRail) keeps them intact for those suites,
+// while only the async <BacklinksDisclosure> wrapper is neutralised here.
+const realBacklinksDisclosure = {
+  BacklinksDisclosureView,
+  formatBacklinkLabel,
+};
 
 // `<BacklinksDisclosure>` and `<ArticleRail>` are async server components;
 // happy-dom + RTL's sync render tree can't await them. Both have their own
 // dedicated tests — neutralise them here so layout-only assertions can run.
 mock.module("@/app/(blog)/articles/[slug]/backlinks-disclosure", () => ({
+  ...realBacklinksDisclosure,
   BacklinksDisclosure: () => null,
 }));
 mock.module("@/app/(blog)/articles/[slug]/article-rail", () => ({
