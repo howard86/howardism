@@ -12,6 +12,7 @@ import { importArticleModule } from "../../render-article";
 import {
   articleExists,
   getArticlesByDomain,
+  getNavigableTagSet,
   getOpenQuestionsByDomain,
 } from "../../service";
 
@@ -57,10 +58,11 @@ export default async function DomainPage({ params }: DomainPageProps) {
 
   const meta = DOMAIN_META[resolved];
   const mocSlug = `moc-${resolved}`;
-  const [articles, openQuestions, hasMoc] = await Promise.all([
+  const [articles, openQuestions, hasMoc, navigable] = await Promise.all([
     getArticlesByDomain(resolved),
     Promise.resolve(getOpenQuestionsByDomain(resolved)),
     articleExists(mocSlug),
+    getNavigableTagSet(),
   ]);
   // Render the curated Map of Content inline when one exists; the `syntheses`
   // domain has no MOC, so it falls back to the date-sorted notes table.
@@ -98,7 +100,10 @@ export default async function DomainPage({ params }: DomainPageProps) {
         </div>
       ) : (
         <ArticlesTable
+          accent={meta.color}
           articles={articles}
+          navigable={navigable}
+          showDomain={false}
           srCaption={`${meta.label} articles, sorted by date, newest first.`}
         />
       )}

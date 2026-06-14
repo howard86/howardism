@@ -1,9 +1,4 @@
-import { DomainLabel } from "@/components/howardism/domain-label";
-import { SubjectChipList } from "@/components/howardism/subject-chip-list";
-import { InternalLink } from "@/components/internal-link";
-import { SaveButton } from "@/components/save-button";
-import { formatDateShort } from "@/utils/time";
-
+import { IndexRow } from "./index-row";
 import { KIND_META } from "./kind-meta";
 import type { ArticleEntity } from "./service";
 import type { TagSectionSlug } from "./tag-sections";
@@ -40,7 +35,7 @@ export function KindPlate({
 
   return (
     <section
-      className="border-border border-b px-[clamp(20px,5vw,56px)] py-10"
+      className="border-border border-b px-gutter py-10"
       id={slug}
       style={banded ? { background: "var(--card)" } : undefined}
     >
@@ -77,78 +72,19 @@ export function KindPlate({
             </em>
           </h2>
 
-          <table className="mt-5 w-full border-collapse">
-            <caption className="sr-only">
-              {title} articles, sorted by date, newest first.
-            </caption>
-            <thead className="sr-only">
-              <tr>
-                <th scope="col">Index</th>
-                <th scope="col">Title</th>
-                <th scope="col">Domain</th>
-                <th scope="col">Date</th>
-                <th scope="col">Save</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((article, i) => (
-                <tr
-                  className="align-baseline"
-                  key={article.slug}
-                  style={{
-                    borderTop:
-                      i === 0
-                        ? `2px solid ${meta.color}`
-                        : "1px solid var(--border)",
-                  }}
-                >
-                  <td className="w-[58px] py-3.5 align-baseline">
-                    <span
-                      className="font-display font-light text-[28px] leading-[0.9] tracking-[-0.03em]"
-                      style={{ color: meta.color }}
-                    >
-                      {meta.prefix}
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                  </td>
-                  <td className="py-3.5 pr-6 align-baseline">
-                    <InternalLink
-                      className="font-display font-medium text-[19px] text-foreground leading-[1.2] tracking-[-0.013em] no-underline transition-colors hover:text-brand"
-                      href={`/articles/${article.slug}`}
-                      previewMeta={article.meta}
-                    >
-                      {article.meta.title}
-                    </InternalLink>
-                    {article.meta.tags && article.meta.tags.length > 0 && (
-                      <div className="mt-1.5">
-                        <SubjectChipList
-                          limit={3}
-                          navigable={navigable}
-                          tags={article.meta.tags}
-                        />
-                      </div>
-                    )}
-                  </td>
-                  <td className="w-[150px] py-3.5 pr-6 align-baseline">
-                    {article.meta.domain && (
-                      <span className="whitespace-nowrap font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.12em]">
-                        <DomainLabel domain={article.meta.domain} />
-                      </span>
-                    )}
-                  </td>
-                  <td className="w-[150px] whitespace-nowrap py-3.5 text-right align-baseline font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.12em]">
-                    <time dateTime={article.meta.date}>
-                      {formatDateShort(article.meta.date)}
-                    </time>{" "}
-                    · {article.meta.readingTime}′
-                  </td>
-                  <td className="w-[36px] py-3.5 pl-1 text-right align-baseline">
-                    <SaveButton slug={article.slug} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ol className="m-0 mt-5 list-none p-0">
+            {visible.map((article, i) => (
+              <IndexRow
+                accent={meta.color}
+                article={article}
+                first={i === 0}
+                key={article.slug}
+                navigable={navigable}
+                ordinal={i + 1}
+                prefix={meta.prefix}
+              />
+            ))}
+          </ol>
 
           {articles.length > visible.length && (
             <a

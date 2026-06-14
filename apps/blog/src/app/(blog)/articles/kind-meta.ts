@@ -18,3 +18,17 @@ export const KIND_META: Record<TagSectionSlug, KindMeta> = {
   essay: { prefix: "S", color: "var(--domain-syntheses)" },
   index: { prefix: "I", color: "var(--foreground-subtle)" },
 };
+
+/**
+ * Resolve an article's `meta.tag` (e.g. "Essay") to its kind vocabulary.
+ * Falls back to the neutral `index` kind for anything unrecognised.
+ */
+export function kindMetaFor(tag: string | undefined): KindMeta {
+  const key = (tag ?? "").toLowerCase();
+  return KIND_META[key as TagSectionSlug] ?? KIND_META.index;
+}
+
+/** Whether an article kind earns a drop-cap (essays only). */
+export function kindHasDropCap(tag: string | undefined): boolean {
+  return (tag ?? "").toLowerCase() === "essay";
+}

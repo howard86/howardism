@@ -75,6 +75,7 @@ export default async function TaggedPage({ params }: TaggedPageProps) {
 
       <ArticlesTable
         articles={articles}
+        navigable={new Set(navigable)}
         srCaption={`Articles tagged ${label}, sorted by date, newest first.`}
       />
     </PlatePage>

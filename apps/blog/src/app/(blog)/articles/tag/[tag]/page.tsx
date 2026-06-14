@@ -6,6 +6,7 @@ import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../../_shell/plate-page";
 import { ArticlesTable } from "../../articles-table";
+import { getNavigableTagSet } from "../../service";
 import {
   getSectionArticles,
   resolveTagSection,
@@ -51,7 +52,10 @@ export default async function TagPage({ params }: TagPageProps) {
     notFound();
   }
 
-  const articles = await getSectionArticles(section);
+  const [articles, navigable] = await Promise.all([
+    getSectionArticles(section),
+    getNavigableTagSet(),
+  ]);
   const newestDate = articles.at(0)?.meta.date;
   const oldestDate = articles.at(-1)?.meta.date;
 
@@ -74,6 +78,7 @@ export default async function TagPage({ params }: TagPageProps) {
 
       <ArticlesTable
         articles={articles}
+        navigable={navigable}
         srCaption={`${section.title} articles, sorted by date, newest first.`}
       />
     </PlatePage>
