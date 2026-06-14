@@ -30,7 +30,7 @@ export function Desk({ sources }: DeskProps) {
   }, {});
 
   return (
-    <section className="border-border border-b px-[clamp(20px,5vw,56px)] py-10">
+    <section className="border-border border-b px-gutter py-10">
       <div className="grid grid-cols-1 gap-x-11 gap-y-8 lg:grid-cols-[180px_1fr]">
         <div>
           <div className="font-medium font-mono text-[10.5px] text-brand uppercase tracking-[0.22em]">
