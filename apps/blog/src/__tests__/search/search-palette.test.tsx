@@ -6,17 +6,20 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { createNextNavigationMock } from "@/test-support/next-navigation-mock";
 
 const pushed: string[] = [];
 
-mock.module("next/navigation", () => ({
-  useRouter: () => ({
-    push: (href: string) => pushed.push(href),
-    replace: () => undefined,
-    back: () => undefined,
-    prefetch: () => undefined,
-  }),
-}));
+mock.module("next/navigation", () =>
+  createNextNavigationMock({
+    useRouter: () => ({
+      push: (href: string) => pushed.push(href),
+      replace: () => undefined,
+      back: () => undefined,
+      prefetch: () => undefined,
+    }),
+  })
+);
 
 mock.module("@/data/search-index.json", () => ({
   default: {
