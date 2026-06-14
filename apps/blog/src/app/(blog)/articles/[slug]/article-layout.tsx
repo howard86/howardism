@@ -11,7 +11,9 @@ import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { SaveButton } from "@/components/save-button";
 import { formatDate } from "@/utils/time";
 import { PlatePage } from "../../_shell/plate-page";
+import { PLATE_META } from "../../plate-meta";
 import { DOMAIN_META } from "../domain-meta";
+import { kindHasDropCap } from "../kind-meta";
 import type {
   ArticleHeading,
   ArticleMeta,
@@ -126,7 +128,7 @@ export function ArticleLayout({
             }
             eyebrowStart={
               <>
-                Plate II
+                {PLATE_META.domains.label}
                 {meta.domain && (
                   <>
                     <span aria-hidden="true" className="mx-1.5">
@@ -162,7 +164,7 @@ export function ArticleLayout({
             <div
               className={cn(
                 "prose max-w-none",
-                meta.dropCap && "prose-drop-cap"
+                kindHasDropCap(meta.tag) && "prose-drop-cap"
               )}
               data-article-body
             >
