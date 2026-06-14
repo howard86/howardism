@@ -18,7 +18,7 @@ const SOCIAL_LABEL: Record<string, string> = {
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-border border-t border-dashed px-4 pt-6 pb-8">
+    <footer className="mt-auto border-border border-t border-dashed px-gutter pt-6 pb-8">
       <div className="mx-auto flex max-w-[960px] flex-col gap-4">
         {/* Nav row */}
         <nav aria-label="footer">

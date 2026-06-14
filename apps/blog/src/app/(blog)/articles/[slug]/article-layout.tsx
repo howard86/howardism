@@ -5,12 +5,12 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { PublishArticleNav } from "@/components/article-nav-context";
-import { DataGrid } from "@/components/howardism/data-grid";
+import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { DomainLabel } from "@/components/howardism/domain-label";
-import { HalfDisc } from "@/components/howardism/half-disc";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
 import { SaveButton } from "@/components/save-button";
 import { formatDate } from "@/utils/time";
+import { PlatePage } from "../../_shell/plate-page";
 import { DOMAIN_META } from "../domain-meta";
 import type {
   ArticleHeading,
@@ -83,29 +83,23 @@ export function ArticleLayout({
   ];
 
   return (
-    <div
-      className="hw-page-enter mx-auto max-w-read rail:max-w-wide px-4 pb-20"
+    <PlatePage
+      header="none"
+      plate="domains"
+      rail
       style={{ "--article-accent": accent } as CSSProperties}
+      width="index"
     >
       <PublishArticleNav headings={headings} slug={slug} />
       <TapScrollZones />
       <ResumeReading headings={headings} slug={slug} />
       <div className="grid rail:grid-cols-[minmax(0,720px)_320px] gap-12">
         <div className="min-w-0">
-          <div className="relative mb-10 overflow-hidden border-t-[3px] border-t-[var(--article-accent)] border-b border-b-border border-double pt-2.5 pb-10">
-            <div className="mb-7 flex items-baseline justify-between gap-4">
-              <span className={cn(EYEBROW_CLASS, "inline-flex items-center")}>
-                Plate II
-                {meta.domain && (
-                  <>
-                    <span aria-hidden="true" className="mx-1.5">
-                      ·
-                    </span>
-                    <DomainLabel domain={meta.domain} />
-                  </>
-                )}
-              </span>
-              <span className="inline-flex items-center gap-2">
+          <DiscPageHeader
+            accent={accent}
+            data={metaRows}
+            eyebrowEnd={
+              <>
                 {locale === "zh-TW" && (
                   <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
                     機器翻譯 · machine-translated
@@ -127,31 +121,30 @@ export function ArticleLayout({
                     {locale === "zh-TW" ? "EN" : "中文"}
                   </Link>
                 )}
-                <span className={EYEBROW_CLASS}>HOWARDISM</span>
-              </span>
-            </div>
+                HOWARDISM
+              </>
+            }
+            eyebrowStart={
+              <>
+                Plate II
+                {meta.domain && (
+                  <>
+                    <span aria-hidden="true" className="mx-1.5">
+                      ·
+                    </span>
+                    <DomainLabel domain={meta.domain} />
+                  </>
+                )}
+              </>
+            }
+            stackData
+            title={meta.title}
+            variant="compact"
+          >
+            <SaveButton showLabel slug={slug} />
+          </DiscPageHeader>
 
-            <div className="grid grid-cols-[1fr_auto] items-start gap-x-8">
-              <div>
-                <h1 className="mb-5 font-display font-normal text-[27px] text-foreground leading-[1.25] tracking-[-0.015em]">
-                  {meta.title}
-                </h1>
-                <DataGrid maxWidth={280} rows={metaRows} stack />
-                <div className="mt-5">
-                  <SaveButton showLabel slug={slug} />
-                </div>
-              </div>
-
-              <div
-                aria-hidden="true"
-                className="relative -mt-2.5 -mr-4 shrink-0"
-              >
-                <HalfDisc align="right" size={140} />
-              </div>
-            </div>
-          </div>
-
-          <p className="mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
+          <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
             {meta.description}
           </p>
 
@@ -242,6 +235,6 @@ export function ArticleLayout({
 
         <ArticleRail headings={headings} slug={slug} />
       </div>
-    </div>
+    </PlatePage>
   );
 }

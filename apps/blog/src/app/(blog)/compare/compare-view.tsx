@@ -31,7 +31,7 @@ export function CompareView({ panels }: { panels: ComparePanel[] }) {
   const [active, setActive] = useState(0);
 
   return (
-    <div className="mx-auto max-w-wide px-4 py-6">
+    <div className="mx-auto max-w-wide px-gutter py-6">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h1 className="font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.2em]">
           Comparing {panels.length}{" "}
