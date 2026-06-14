@@ -1,0 +1,68 @@
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+
+import { getHistory, perSlugKey, recordProgress } from "@/lib/reading-store";
+
+afterEach(() => {
+  localStorage.clear();
+});
+
+const HISTORY_KEY = "howardism:reading-history";
+const CAP = 50;
+
+describe("reading-store", () => {
+  it("records a read once it crosses the 25% threshold", () => {
+    recordProgress("alpha", 0.3);
+    const history = getHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]?.slug).toBe("alpha");
+    expect(history[0]?.pct).toBe(0.3);
+  });
+
+  it("ignores scrolls below the 25% threshold", () => {
+    recordProgress("barely", 0.1);
+    expect(getHistory()).toHaveLength(0);
+  });
+
+  it("moves a re-read slug to the front and refreshes its progress", () => {
+    recordProgress("alpha", 0.3);
+    recordProgress("beta", 0.4);
+    recordProgress("alpha", 0.9);
+    const history = getHistory();
+    expect(history.map((entry) => entry.slug)).toEqual(["alpha", "beta"]);
+    expect(history[0]?.pct).toBe(0.9);
+  });
+
+  it("caps history at 50, evicting the oldest read and its resume state", () => {
+    for (let i = 0; i <= CAP; i += 1) {
+      localStorage.setItem(
+        perSlugKey(`slug-${i}`),
+        JSON.stringify({ headingId: "h", pct: 0.5 })
+      );
+      recordProgress(`slug-${i}`, 0.5);
+    }
+
+    const history = getHistory();
+    expect(history).toHaveLength(CAP);
+    // slug-0 was the oldest read — evicted past the cap...
+    expect(history.some((entry) => entry.slug === "slug-0")).toBe(false);
+    // ...and its per-slug resume state is dropped with it.
+    expect(localStorage.getItem(perSlugKey("slug-0"))).toBeNull();
+    // The newest read survives, resume state intact.
+    expect(history[0]?.slug).toBe(`slug-${CAP}`);
+    expect(localStorage.getItem(perSlugKey(`slug-${CAP}`))).not.toBeNull();
+  });
+
+  it("returns an empty history when storage is empty or corrupt", () => {
+    expect(getHistory()).toEqual([]);
+    localStorage.setItem(HISTORY_KEY, "{not-json");
+    expect(getHistory()).toEqual([]);
+  });
+
+  it("swallows storage write errors instead of throwing (private browsing)", () => {
+    const spy = spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota exceeded");
+    });
+    expect(() => recordProgress("gamma", 0.6)).not.toThrow();
+    spy.mockRestore();
+  });
+});

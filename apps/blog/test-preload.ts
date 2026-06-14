@@ -1,4 +1,9 @@
 import { mock } from "bun:test";
+import { createNextNavigationMock } from "./src/test-support/next-navigation-mock";
+// Link the genuine async server-component modules now, before article-layout.test
+// stubs them with mock.module, so article-rail / backlinks-disclosure suites can
+// import the real implementations regardless of test-file order (see #780).
+import "./src/test-support/real-article-modules";
 
 // Mock next/navigation with all hooks before any test file registers a subset mock.
 // Without this, Bun's ESM/CJS interop analysis runs on whichever test file's mock
@@ -7,29 +12,4 @@ import { mock } from "bun:test";
 // "Export named 'useRouter' not found" even though its own mock.module provides it.
 // Preloading with the full export set ensures Bun's analysis cache is populated
 // correctly before parallel test files start overriding with narrower subsets.
-mock.module("next/navigation", () => ({
-  useRouter: () => ({
-    push: () => undefined,
-    replace: () => undefined,
-    back: () => undefined,
-    prefetch: () => undefined,
-  }),
-  usePathname: () => "/",
-  useSearchParams: () => new URLSearchParams(),
-  useParams: () => ({}),
-  notFound: (): never => {
-    throw Object.assign(new Error("NEXT_NOT_FOUND"), {
-      digest: "NEXT_NOT_FOUND",
-    });
-  },
-  redirect: (): never => {
-    throw Object.assign(new Error("NEXT_REDIRECT"), {
-      digest: "NEXT_REDIRECT",
-    });
-  },
-  permanentRedirect: (): never => {
-    throw Object.assign(new Error("NEXT_REDIRECT"), {
-      digest: "NEXT_REDIRECT",
-    });
-  },
-}));
+mock.module("next/navigation", () => createNextNavigationMock());

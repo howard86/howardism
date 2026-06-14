@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { ArticleRail } from "@/app/(blog)/articles/[slug]/article-rail";
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
+// Imported via the preload-linked support module rather than the module under
+// test directly: article-layout.test stubs "@/app/(blog)/articles/[slug]/
+// article-rail" with a process-wide mock, so importing it here would yield that
+// stub depending on file order. The support module holds the real binding (#780).
+import { ArticleRail } from "@/test-support/real-article-modules";
 
 // A slug absent from the article graph: getArticleConnections resolves to
 // empty arrays, so `headings` is the rail's only content source.
