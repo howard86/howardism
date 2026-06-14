@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
+import { PlatePage } from "../../../_shell/plate-page";
 import { ArticlesTable } from "../../articles-table";
 import {
   getSectionArticles,
@@ -56,21 +56,18 @@ export default async function TagPage({ params }: TagPageProps) {
   const oldestDate = articles.at(-1)?.meta.date;
 
   return (
-    <div className="hw-page-enter mx-auto max-w-[1120px] px-8 pb-20">
-      <DiscPageHeader
-        data={[
-          ["Pieces", String(articles.length)],
-          ["Section", section.title],
-          ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
-          ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
-        ]}
-        number="02"
-        plate="Plate II"
-        title={`${section.title},`}
-        titleAccent="filed."
-        volume="Howardism · Vol. 03"
-      />
-
+    <PlatePage
+      headerData={[
+        ["Pieces", String(articles.length)],
+        ["Section", section.title],
+        ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
+        ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
+      ]}
+      plate="articles"
+      title={`${section.title},`}
+      titleAccent="filed."
+      width="index"
+    >
       <p className="mt-10 mb-12 max-w-[60ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
         {section.intro}
       </p>
@@ -79,6 +76,6 @@ export default async function TagPage({ params }: TagPageProps) {
         articles={articles}
         srCaption={`${section.title} articles, sorted by date, newest first.`}
       />
-    </div>
+    </PlatePage>
   );
 }
