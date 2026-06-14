@@ -1,6 +1,11 @@
 /** Most articles a single comparison can hold. */
 export const MAX_COMPARE = 3;
 
+/** Build the compare route URL for a selection of slugs. */
+export function buildCompareHref(slugs: readonly string[]): string {
+  return `/compare?ids=${slugs.join(",")}`;
+}
+
 /**
  * Resolve the `?ids=` query value into a clean, ordered slug list for the
  * compare view. Parses the comma-separated value, keeps only currently-known

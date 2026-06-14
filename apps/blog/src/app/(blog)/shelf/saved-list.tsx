@@ -8,7 +8,12 @@ import { SaveButton } from "@/components/save-button";
 import { getSaved, type SavedEntry } from "@/lib/reading-store";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
-import { ArchivedBadge, ShelfArticleRow } from "./shelf-article-row";
+import {
+  ArchivedBadge,
+  type ListSelection,
+  ShelfArticleRow,
+  toRowSelection,
+} from "./shelf-article-row";
 
 dayjs.extend(relativeTime);
 
@@ -17,7 +22,13 @@ dayjs.extend(relativeTime);
  * against the article manifest. Unsaving a row drops it from the list. Saves of
  * a now-missing article are simply not shown (the stored list is untouched).
  */
-export function SavedList({ manifest }: { manifest: ShelfManifestEntry[] }) {
+export function SavedList({
+  manifest,
+  selection,
+}: {
+  manifest: ShelfManifestEntry[];
+  selection?: ListSelection;
+}) {
   const [saved, setSaved] = useState<SavedEntry[] | null>(null);
 
   useEffect(() => {
@@ -67,6 +78,7 @@ export function SavedList({ manifest }: { manifest: ShelfManifestEntry[] }) {
           href={meta.href}
           key={meta.slug}
           label={meta.label}
+          selection={toRowSelection(selection, meta.slug, meta.title)}
           timeText={`saved ${dayjs(entry.savedAt).fromNow()}`}
           title={meta.title}
         />
