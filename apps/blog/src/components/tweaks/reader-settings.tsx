@@ -8,6 +8,8 @@ import {
 import { Toggle } from "@howardism/ui/components/toggle";
 import { useCallback, useEffect, useState } from "react";
 
+import { clearReadingData } from "@/lib/reading-store";
+
 import { useTweaks } from "./tweaks-provider";
 import type { TextSize } from "./types";
 
@@ -27,6 +29,20 @@ const PILL_TOGGLE =
 export function ReaderSettings() {
   const { state, setTapToScroll, setTextSize } = useTweaks();
   const [open, setOpen] = useState(false);
+  const [cleared, setCleared] = useState(false);
+
+  const handleClear = useCallback(() => {
+    clearReadingData();
+    setCleared(true);
+  }, []);
+
+  useEffect(() => {
+    if (!cleared) {
+      return;
+    }
+    const timer = setTimeout(() => setCleared(false), 2000);
+    return () => clearTimeout(timer);
+  }, [cleared]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key !== "t" && e.key !== "T") {
@@ -97,6 +113,23 @@ export function ReaderSettings() {
             </Toggle>
             <p className="mt-2 font-body text-[12px] text-foreground-subtle leading-snug">
               On touch devices, tap the top or bottom edge to scroll a screen.
+            </p>
+          </section>
+
+          <section aria-label="Reading data">
+            <div className="mb-2.5 font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
+              Reading data
+            </div>
+            <button
+              className="w-full rounded-full border border-border bg-background-2 px-3 py-1.5 font-body text-[13px] text-foreground-subtle transition-colors hover:bg-accent hover:text-foreground"
+              onClick={handleClear}
+              type="button"
+            >
+              {cleared ? "Cleared" : "Clear reading data"}
+            </button>
+            <p className="mt-2 font-body text-[12px] text-foreground-subtle leading-snug">
+              Erases your reading history, saved list, and in-article resume
+              positions from this browser.
             </p>
           </section>
         </div>
