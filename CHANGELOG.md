@@ -1,3 +1,22 @@
+# [v2.11.0](https://github.com/howard86/howardism/compare/v2.10.0...v2.11.0) (2026-06-14)
+
+## ✨ New Features
+- [`beb3682`](https://github.com/howard86/howardism/commit/beb3682)  feat(blog): add reading-store for browser-local reading history 
+- [`abc46af`](https://github.com/howard86/howardism/commit/abc46af)  feat(blog): add shelf-rows builder resolving history to rows 
+- [`0afeca6`](https://github.com/howard86/howardism/commit/0afeca6)  feat(blog): capture reads into Shelf history at the 25% threshold 
+- [`2dac395`](https://github.com/howard86/howardism/commit/2dac395)  feat(blog): add /shelf reading-history page and nav entry 
+- [`ebe95ec`](https://github.com/howard86/howardism/commit/ebe95ec)  feat(blog): add removeFromHistory to reading-store 
+- [`4fb0cf0`](https://github.com/howard86/howardism/commit/4fb0cf0)  feat(blog): curate Shelf history with remove and tombstone rows 
+- [`c160283`](https://github.com/howard86/howardism/commit/c160283)  feat(blog): add save-for-later API to reading-store 
+- [`58f5110`](https://github.com/howard86/howardism/commit/58f5110)  feat(blog): add SaveButton and a Saved tab to the Shelf 
+- [`fae379d`](https://github.com/howard86/howardism/commit/fae379d)  feat(blog): surface SaveButton on article and listing pages 
+- [`748407b`](https://github.com/howard86/howardism/commit/748407b)  feat(blog): add clearReadingData to reading-store 
+- [`35f6ca9`](https://github.com/howard86/howardism/commit/35f6ca9)  feat(blog): add Clear reading data control to the Tweaks panel 
+- [`fed4fe5`](https://github.com/howard86/howardism/commit/fed4fe5)  feat(blog): add compare-ids resolver for the compare view 
+- [`bc18737`](https://github.com/howard86/howardism/commit/bc18737)  feat(blog): add /compare route with bare-body columns and tabs 
+- [`8b046df`](https://github.com/howard86/howardism/commit/8b046df)  feat(blog): add buildCompareHref for launching comparisons 
+- [`6bc6700`](https://github.com/howard86/howardism/commit/6bc6700)  feat(blog): add cross-tab compare selection and launch bar to the Shelf
+
 # [v2.10.0](https://github.com/howard86/howardism/compare/v2.9.1...v2.10.0) (2026-06-10)
 
 ## ✨ New Features
