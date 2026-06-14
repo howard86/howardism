@@ -1,5 +1,9 @@
 import { mock } from "bun:test";
 import { createNextNavigationMock } from "./src/test-support/next-navigation-mock";
+// Link the genuine async server-component modules now, before article-layout.test
+// stubs them with mock.module, so article-rail / backlinks-disclosure suites can
+// import the real implementations regardless of test-file order (see #780).
+import "./src/test-support/real-article-modules";
 
 // Mock next/navigation with all hooks before any test file registers a subset mock.
 // Without this, Bun's ESM/CJS interop analysis runs on whichever test file's mock
