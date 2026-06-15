@@ -1,3 +1,12 @@
+# [v2.12.0](https://github.com/howard86/howardism/compare/v2.11.0...v2.12.0) (2026-06-15)
+
+## ✨ New Features
+- [`1ae28f7`](https://github.com/howard86/howardism/commit/1ae28f7)  feat(blog): unify width/gutter tokens and add plate taxonomy 
+- [`d79e1d3`](https://github.com/howard86/howardism/commit/d79e1d3)  feat(blog): route every page through the PlatePage shell 
+- [`ab005b4`](https://github.com/howard86/howardism/commit/ab005b4)  feat(blog): fold every article list onto one IndexRow 
+- [`80513f7`](https://github.com/howard86/howardism/commit/80513f7)  feat(blog): specify the reading column once 
+- [`2d6d5a0`](https://github.com/howard86/howardism/commit/2d6d5a0)  test(blog): guard the page frame against raw widths and gutters
+
 # [v2.11.0](https://github.com/howard86/howardism/compare/v2.10.0...v2.11.0) (2026-06-14)
 
 ## ✨ New Features
