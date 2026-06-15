@@ -45,7 +45,7 @@ export default function QuestionsPage() {
       plate="questions"
       title="Open questions,"
       titleAccent="unresolved."
-      width="index"
+      width="wide"
     >
       <div className="mt-4">
         {byDomain.map(({ domain, concepts: group }) => (

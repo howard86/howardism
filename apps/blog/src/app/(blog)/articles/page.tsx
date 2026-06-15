@@ -69,7 +69,7 @@ export default async function ArticlesIndex() {
       plate="articles"
       title="Writing,"
       titleAccent="in order."
-      width="index"
+      width="wide"
     >
       <FilterBar
         sectionSlugs={populated.map(({ section }) => ({

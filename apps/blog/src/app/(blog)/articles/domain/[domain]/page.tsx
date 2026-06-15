@@ -88,7 +88,7 @@ export default async function DomainPage({ params }: DomainPageProps) {
       plate="domains"
       title={`${meta.label},`}
       titleAccent="in order."
-      width="index"
+      width="wide"
     >
       <p className="mt-10 mb-12 max-w-[60ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
         {meta.blurb}

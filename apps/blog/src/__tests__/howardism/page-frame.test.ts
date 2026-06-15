@@ -24,7 +24,7 @@ const RAW_PAGE_WIDTH = /max-w-\[(?:720|1120|1280|1320)px\]/;
 /** A raw horizontal page gutter (bare or responsive-prefixed). */
 const RAW_GUTTER = /\bpx-[48]\b/;
 /** The gutter token's literal value inlined instead of `px-gutter`. */
-const INLINED_GUTTER = /px-\[clamp\(20px,\s*5vw,\s*56px\)\]/;
+const INLINED_GUTTER = /px-\[clamp\(20px,\s*5vw,\s*72px\)\]/;
 
 function blogFiles(predicate: (path: string) => boolean): string[] {
   return readdirSync(BLOG_APP_DIR, { recursive: true })

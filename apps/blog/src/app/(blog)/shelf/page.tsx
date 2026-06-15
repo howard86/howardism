@@ -44,9 +44,8 @@ export default async function ShelfPage() {
 
   return (
     <PlatePage
-      header="compact"
       headerChildren={
-        <p className="max-w-[560px] font-body text-[15px] text-muted-foreground leading-[1.6]">
+        <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
           Articles you&apos;ve meaningfully read, newest first. This list lives
           only in your browser — nothing is sent anywhere.
         </p>
@@ -54,7 +53,7 @@ export default async function ShelfPage() {
       plate="shelf"
       title="Your shelf,"
       titleAccent="read & remembered."
-      width="read"
+      width="wide"
     >
       <ShelfTabs manifest={manifest} />
     </PlatePage>
