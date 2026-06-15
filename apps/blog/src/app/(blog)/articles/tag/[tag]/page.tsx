@@ -70,7 +70,7 @@ export default async function TagPage({ params }: TagPageProps) {
       plate="articles"
       title={`${section.title},`}
       titleAccent="filed."
-      width="index"
+      width="wide"
     >
       <p className="mt-10 mb-12 max-w-[60ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
         {section.intro}

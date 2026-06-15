@@ -28,7 +28,7 @@ function CompareBar({
   onClear: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-border border-t bg-card/95 px-4 py-3 shadow-paper-lg backdrop-blur-sm">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-border border-t bg-card/95 px-gutter py-3 shadow-paper-lg backdrop-blur-sm">
       <div className="mx-auto flex max-w-wide items-center justify-between gap-4">
         <span className="font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.16em]">
           {count} selected
