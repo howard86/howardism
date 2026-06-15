@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
+import { PlatePage } from "../../../_shell/plate-page";
 import { ArticlesTable } from "../../articles-table";
 import { DOMAIN_META, DOMAIN_ORDER, resolveDomain } from "../../domain-meta";
 import { OpenQuestionsSection } from "../../open-questions-section";
@@ -12,6 +12,7 @@ import { importArticleModule } from "../../render-article";
 import {
   articleExists,
   getArticlesByDomain,
+  getNavigableTagSet,
   getOpenQuestionsByDomain,
 } from "../../service";
 
@@ -57,10 +58,11 @@ export default async function DomainPage({ params }: DomainPageProps) {
 
   const meta = DOMAIN_META[resolved];
   const mocSlug = `moc-${resolved}`;
-  const [articles, openQuestions, hasMoc] = await Promise.all([
+  const [articles, openQuestions, hasMoc, navigable] = await Promise.all([
     getArticlesByDomain(resolved),
     Promise.resolve(getOpenQuestionsByDomain(resolved)),
     articleExists(mocSlug),
+    getNavigableTagSet(),
   ]);
   // Render the curated Map of Content inline when one exists; the `syntheses`
   // domain has no MOC, so it falls back to the date-sorted notes table.
@@ -75,22 +77,19 @@ export default async function DomainPage({ params }: DomainPageProps) {
   );
 
   return (
-    <div className="hw-page-enter mx-auto max-w-[1120px] px-8 pb-20">
-      <DiscPageHeader
-        data={[
-          ["Notes", String(articles.length)],
-          ["Domain", meta.label],
-          ["Open Qs", String(openCount)],
-          ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
-          ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
-        ]}
-        number="02"
-        plate="Plate II"
-        title={`${meta.label},`}
-        titleAccent="in order."
-        volume="Howardism · Vol. 03"
-      />
-
+    <PlatePage
+      headerData={[
+        ["Notes", String(articles.length)],
+        ["Domain", meta.label],
+        ["Open Qs", String(openCount)],
+        ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
+        ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
+      ]}
+      plate="domains"
+      title={`${meta.label},`}
+      titleAccent="in order."
+      width="wide"
+    >
       <p className="mt-10 mb-12 max-w-[60ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
         {meta.blurb}
       </p>
@@ -101,7 +100,10 @@ export default async function DomainPage({ params }: DomainPageProps) {
         </div>
       ) : (
         <ArticlesTable
+          accent={meta.color}
           articles={articles}
+          navigable={navigable}
+          showDomain={false}
           srCaption={`${meta.label} articles, sorted by date, newest first.`}
         />
       )}
@@ -111,6 +113,6 @@ export default async function DomainPage({ params }: DomainPageProps) {
         concepts={openQuestions}
         heading="Open questions"
       />
-    </div>
+    </PlatePage>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { env } from "@/config/env";
 import { resolveCompareIds } from "@/lib/compare-ids";
 
+import { kindHasDropCap } from "../articles/kind-meta";
 import { importArticleModule } from "../articles/render-article";
 import { getArticles } from "../articles/service";
 import { CompareView } from "./compare-view";
@@ -24,7 +25,7 @@ interface ComparePageProps {
 
 function CompareEmpty() {
   return (
-    <div className="mx-auto max-w-read px-4 py-20 text-center">
+    <div className="mx-auto max-w-read px-gutter py-20 text-center">
       <h1 className="font-display font-normal text-[22px] text-foreground tracking-[-0.015em]">
         Nothing to compare.
       </h1>
@@ -69,7 +70,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
           <div
             className={cn(
               "prose max-w-none",
-              mod.meta.dropCap && "prose-drop-cap"
+              kindHasDropCap(mod.meta.tag) && "prose-drop-cap"
             )}
           >
             <Body />

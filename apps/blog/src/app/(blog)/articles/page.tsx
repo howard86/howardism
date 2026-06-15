@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
+import { PlatePage } from "../_shell/plate-page";
 import { FilterBar } from "./filter-bar";
 import { KindPlate } from "./kind-plate";
 import {
@@ -51,29 +51,26 @@ export default async function ArticlesIndex() {
   const oldestDate = visible.entities[visible.ids.at(-1) ?? ""]?.meta.date;
 
   return (
-    <div className="hw-page-enter mx-auto max-w-index">
-      <div className="px-[clamp(20px,5vw,56px)]">
-        <DiscPageHeader
-          data={[
-            ["Pieces", String(total)],
-            ["Sections", String(populated.length)],
-            ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
-            ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
-          ]}
-          number="02"
-          plate="Plate II"
-          title="Writing,"
-          titleAccent="in order."
-          volume="Howardism · Vol. 03"
-        >
-          <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
-            Every article in the wiki, grouped by kind: <em>Concept</em> notes,{" "}
-            <em>Entity</em> profiles, and <em>Essay</em> pieces. Hover any title
-            for a preview; click to enter.
-          </p>
-        </DiscPageHeader>
-      </div>
-
+    <PlatePage
+      bleed
+      headerChildren={
+        <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
+          Every article in the wiki, grouped by kind: <em>Concept</em> notes,{" "}
+          <em>Entity</em> profiles, and <em>Essay</em> pieces. Hover any title
+          for a preview; click to enter.
+        </p>
+      }
+      headerData={[
+        ["Pieces", String(total)],
+        ["Sections", String(populated.length)],
+        ["Oldest", oldestDate ? formatDateShort(oldestDate) : "—"],
+        ["Newest", newestDate ? formatDateShort(newestDate) : "—"],
+      ]}
+      plate="articles"
+      title="Writing,"
+      titleAccent="in order."
+      width="wide"
+    >
       <FilterBar
         sectionSlugs={populated.map(({ section }) => ({
           slug: section.slug,
@@ -96,6 +93,6 @@ export default async function ArticlesIndex() {
       ))}
 
       <TagIndex tags={tagIndex} />
-    </div>
+    </PlatePage>
   );
 }

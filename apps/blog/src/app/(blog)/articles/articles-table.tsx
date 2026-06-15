@@ -1,11 +1,17 @@
-import { InternalLink } from "@/components/internal-link";
-import { SaveButton } from "@/components/save-button";
-import { formatDateShort } from "@/utils/time";
-
+import { IndexRow } from "./index-row";
+import { kindMetaFor } from "./kind-meta";
 import type { ArticleEntity } from "./service";
 
+const NO_NAVIGABLE: ReadonlySet<string> = new Set();
+
 interface ArticlesTableProps {
+  /** Uniform numeral tint (e.g. a domain color); defaults to per-row kind. */
+  accent?: string;
   articles: ArticleEntity[];
+  /** Subject tags with their own page — decides which chips link. */
+  navigable?: ReadonlySet<string>;
+  /** Show the domain column — false on single-domain (domain) pages. */
+  showDomain?: boolean;
   /**
    * Caption rendered for screen readers describing the rows. Defaults to a
    * generic article-listing caption.
@@ -20,6 +26,9 @@ export function ArticlesTable({
   articles,
   srCaption = DEFAULT_SR_CAPTION,
   title,
+  accent,
+  showDomain = true,
+  navigable = NO_NAVIGABLE,
 }: ArticlesTableProps) {
   return (
     <section>
@@ -33,46 +42,23 @@ export function ArticlesTable({
           </span>
         </header>
       ) : null}
-      <table className="w-full border-collapse">
-        <caption className="sr-only">{srCaption}</caption>
-        <thead className="sr-only">
-          <tr>
-            <th scope="col">Title</th>
-            <th scope="col">Summary</th>
-            <th scope="col">Date</th>
-            <th scope="col">Save</th>
-          </tr>
-        </thead>
-        <tbody>
-          {articles.map((article) => (
-            <tr
-              className="border-border border-b align-baseline last:border-b-0"
+      <ol aria-label={srCaption} className="m-0 list-none p-0">
+        {articles.map((article, i) => {
+          const kind = kindMetaFor(article.meta.tag);
+          return (
+            <IndexRow
+              accent={accent ?? kind.color}
+              article={article}
+              first={i === 0}
               key={article.slug}
-            >
-              <td className="w-[34%] py-3.5 pr-6 align-baseline">
-                <InternalLink
-                  className="font-display font-medium text-[16px] text-foreground no-underline transition-colors hover:text-brand"
-                  href={`/articles/${article.slug}`}
-                  previewMeta={article.meta}
-                >
-                  {article.meta.title}
-                </InternalLink>
-              </td>
-              <td className="py-3.5 pr-6 align-baseline font-body text-[14px] text-muted-foreground leading-[1.45]">
-                {article.meta.description}
-              </td>
-              <td className="w-[110px] whitespace-nowrap py-3.5 text-right align-baseline font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.14em]">
-                <time dateTime={article.meta.date}>
-                  {formatDateShort(article.meta.date)}
-                </time>
-              </td>
-              <td className="w-[36px] py-3.5 pl-1 text-right align-baseline">
-                <SaveButton slug={article.slug} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              navigable={navigable}
+              ordinal={i + 1}
+              prefix={kind.prefix}
+              showDomain={showDomain}
+            />
+          );
+        })}
+      </ol>
     </section>
   );
 }
