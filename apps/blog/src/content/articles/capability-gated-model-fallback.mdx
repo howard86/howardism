@@ -1,0 +1,86 @@
+---
+date: 2026-06-14
+title: Capability-Gated Model Fallback
+description: "Fable 5's safeguard architecture: classifiers detect cyber /
+  bio-chem / distillation queries and route the response to a less-capable model
+  (Opus 4.8) instead of refusing — 'fallback, not refusal'; >95% of sessions
+  never trigger; conservative tuning, robust to 1,000+ hours of jailbreak
+  testing; a new point on the safeguard spectrum for capabilities past a risk
+  threshold"
+tag: Concept
+domain: governance-workforce
+tags:
+  - governance
+  - safety
+  - safeguards
+  - classifiers
+  - dual-use
+  - anthropic
+readingTime: 7
+imageAlt: Illustration for Capability-Gated Model Fallback
+sources:
+  - title: Claude Fable 5 and Claude Mythos 5
+    url: https://www.anthropic.com/news/claude-fable-5-mythos-5
+---
+export { default as heroImage } from "../assets/capability-gated-model-fallback.png";
+
+## Sources
+
+- [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)
+
+## Summary
+
+The safeguard architecture that lets [Anthropic](/articles/anthropic) ship a [Mythos-class](/articles/mythos-model) model for general use: when separate AI **classifiers** detect a query in a high-risk dual-use domain (cybersecurity, biology & chemistry, or distillation), the response is **automatically handled by a less-capable model — [Claude Opus 4.8](/articles/claude-opus-4-8) — instead of [Fable 5](/articles/claude-fable-5) refusing.** The user is told whenever this happens. Anthropic's framing: "a response that falls back to Opus is a far better experience than an outright refusal." More than **95% of Fable sessions involve no fallback at all**; the classifiers are tuned conservatively (they "sometimes catch harmless requests," triggering in "less than 5% of sessions"), accepting false positives as the price of a fast, safe release.
+
+This is a distinct point on the safeguard spectrum. Mythos Preview was **gated entirely** (preview-only); [Opus 4.7](/articles/claude-opus-4-7) **differentially trained down** cyber capability *and* blocked at inference; Fable 5 keeps the full capability in the model but **interposes a classifier that swaps in a weaker model on risky topics**. The capability is preserved for the >95% benign case and routed around for the rest.
+
+## Why "fallback, not refusal"
+
+The motivating fact is **uplift**: Mythos-class models could give malicious actors cyber/bio assistance "they couldn't have received from other sources." And much advanced usage is **dual-use** — the same query is beneficial for a defender or a researcher and dangerous for an attacker. A blanket refusal is both a bad user experience and, because it leaks which queries are "dangerous," an information signal. Falling back to Opus 4.8 — itself a highly capable model — degrades gracefully: the user still gets a competent answer, just not a Mythos-class one, on the flagged topic.
+
+## The three classifier domains
+
+1. **Cybersecurity.** Covers both *exploitation* and offensive cyber tasks broadly (reconnaissance, discovery, lateral movement — see [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research)). In a blocking-mode evaluation, "our classifiers prevent Fable from making any progress on these tasks." One external partner found Fable 5's cyber safeguards **the most robust of any model tested (including Opus 4.8 and 4.7)**: Fable complied with **zero** harmful single-turn requests on cyberattack planning, exploit development, or defense evasion, whether or not any of 30 public jailbreak techniques were used.
+2. **Biology and chemistry.** Previously Anthropic blocked only a *narrow* selection of bioweapons queries; that is "no longer certain... enough," given well-resourced malicious actors and models' growing real-world scientific ability. The worked example: predicting how a genetic modification affects **adeno-associated virus (AAV)** capsid assembly — Mythos-class models outperformed dedicated protein-language models using biological reasoning alone, *without* being trained for it (see [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery)). Because the same skill that aids gene therapy could design dangerous viruses, Fable currently falls back to Opus 4.8 on **most** biology/chemistry requests — deliberately over-broad, to be narrowed later.
+3. **Distillation.** Requests flagged as attempts to **distill** Fable 5's capabilities into competing models (a known large-scale extraction threat, especially toward "authoritarian countries") fall back to Opus 4.8. The risk is indirect proliferation of near-frontier capability *without* the corresponding safeguards.
+
+## Robustness (red-teaming)
+
+The classifiers extend Anthropic's prior **constitutional-classifiers** line (see [Agentic Prompt Injection](/articles/agentic-prompt-injection)) with broader coverage, and were stress-tested against jailbreaks:
+
+- An external **bug bounty** produced **no universal jailbreaks in over 1,000 hours** of testing.
+- External red-teaming orgs "failed to find any universal jailbreaks on long-form agentic tasks so far" — **although the UK AISI made progress toward one** within a brief initial window.
+- Anthropic concedes it is "likely impossible to *completely* prevent universal jailbreaks"; the goal is to make any remaining ones "sufficiently slow and costly that we can detect and prevent them before they are used at scale" — a [tedious-vs-impossible](/articles/impossible-not-tedious-test) framing applied to the safeguard itself.
+
+A *universal* jailbreak is defined as any prompt/script/harness that lets a user interact with the model "as if its safeguards were not present," as opposed to minor jailbreaks effective only in narrow contexts.
+
+## The 30-day retention policy
+
+Coupled to the safeguards: Anthropic now **requires 30-day data retention for all Mythos-class traffic** (first- and third-party, including business customers). The data is used only for safety — defending against complex/novel attacks (new jailbreaks, cross-request attacks) and reducing false positives — not for training, with logged human access and deletion after 30 days in almost all cases. A capability threshold thus changes not just the model's guardrails but the *data-handling contract* around it.
+
+## Where it sits
+
+[RSP](/articles/responsible-scaling-policy-evals) determines *which* capabilities need gating (cyber, CB, AI-R&D, misalignment); this architecture is *how* the cyber/bio gate is implemented at inference for a generally-released model. It is the deployment-time complement to the training-time and policy-level brakes — and the operational answer to the question Mythos Preview left open: *how do you ship Mythos-class capability to everyone without shipping the uplift?*
+
+## Connections
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — Fable's classifiers extend the constitutional-classifier line documented here; jailbreak-robustness is the shared adversarial frame
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the same classifier-gating idea at the *tool-call* boundary; this page applies it at the *query* boundary, and swaps a weaker model rather than blocking
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — the RSP decides what must be gated; this is the inference-time mechanism, and Mythos-class crossing the risk threshold is what forces it
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — the cyber capability the cyber classifier neutralizes; Fable blocks "any progress" on offensive cyber tasks
+- [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery) — the bio capability the bio/chem classifier gates; the AAV dual-use example is the motivating case
+- [Claude Fable 5](/articles/claude-fable-5) — the model that ships these safeguards on
+- [Claude Mythos 5](/articles/claude-mythos-5) — the model with these safeguards lifted; the contrast that defines the two SKUs
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — the fallback target; the "far better than refusal" experience rests on it being highly capable in its own right
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — the safeguard's own success criterion: make jailbreaks slow/costly enough to catch before scaled use
+
+## Open questions
+
+- The >95%/&lt;5% figures are session-level; what's the false-positive rate for *legitimate* security researchers and biologists, whose benign queries are exactly the ones most likely to trip the conservative classifiers?
+- Fallback-not-refusal preserves UX but means the *real* general-access model for security/bio-adjacent work is Opus 4.8, not Fable — does that quietly cap Fable's value for whole professional segments until the trusted-access programs open?
+- The UK AISI's "progress toward a universal jailbreak" is disclosed but not quantified — and the post-launch **access suspension** (see [Claude Fable 5](/articles/claude-fable-5)) raises the question of whether a safeguard failure forced it.
+- Does swapping to a weaker model on flagged topics create an exploitable oracle (probe which queries trigger fallback to map the classifier's boundary)?
+
+## Sources
+
+- [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) — §"Claude Fable 5's new safeguards" (safety classifiers; cyber/bio/distillation coverage; red-teaming; 30-day retention)
