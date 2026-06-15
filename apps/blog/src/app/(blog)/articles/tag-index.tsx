@@ -17,10 +17,7 @@ export function TagIndex({ tags }: TagIndexProps) {
   }
 
   return (
-    <section
-      className="border-border border-b px-[clamp(20px,5vw,56px)] py-10"
-      id="subjects"
-    >
+    <section className="border-border border-b px-gutter py-10" id="subjects">
       <div className="grid grid-cols-1 gap-x-11 gap-y-7 lg:grid-cols-[180px_1fr]">
         <div>
           <div className="font-medium font-mono text-[10.5px] text-brand uppercase tracking-[0.22em]">

@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default async function ZhArticlesIndex() {
   const links = await getTranslatedArticleLinks();
   return (
-    <div className="hw-page-enter mx-auto max-w-[720px] px-4 py-16">
+    <div className="hw-page-enter mx-auto max-w-read px-gutter py-16">
       <header className="mb-10 border-border border-b pb-6">
         <p className="font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
           機器翻譯 · machine-translated

@@ -1,7 +1,5 @@
-import { InternalLink } from "@/components/internal-link";
-import { formatDateShort } from "@/utils/time";
-
 import { DOMAIN_META } from "./articles/domain-meta";
+import { IndexRow } from "./articles/index-row";
 import type {
   ArticleDomain,
   ArticleEntity,
@@ -39,7 +37,7 @@ export function DomainPlate({
 
   return (
     <section
-      className="border-border border-b px-[clamp(20px,5vw,56px)] py-9"
+      className="border-border border-b px-gutter py-9"
       style={banded ? { background: "var(--card)" } : undefined}
     >
       <div className="grid grid-cols-1 items-start gap-x-11 gap-y-8 lg:grid-cols-[180px_1fr_320px]">
@@ -82,34 +80,16 @@ export function DomainPlate({
 
           <ol className="m-0 mt-5 list-none p-0">
             {notes.map((article, i) => (
-              <li
-                className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-4 py-2.5"
+              <IndexRow
+                accent={meta.color}
+                article={article}
+                density="compact"
+                first={i === 0}
                 key={article.slug}
-                style={{
-                  borderTop:
-                    i === 0
-                      ? `2px solid ${meta.color}`
-                      : "1px solid var(--border)",
-                }}
-              >
-                <span
-                  className="font-medium font-mono text-[11px] tracking-[0.14em]"
-                  style={{ color: meta.color }}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <InternalLink
-                  className="font-display font-medium text-[18px] text-foreground leading-[1.25] tracking-[-0.008em] no-underline transition-colors hover:text-brand"
-                  href={`/articles/${article.slug}`}
-                  previewMeta={article.meta}
-                >
-                  {article.meta.title}
-                </InternalLink>
-                <span className="whitespace-nowrap font-mono text-[10.5px] text-foreground-subtle tracking-[0.12em]">
-                  {formatDateShort(article.meta.date)} ·{" "}
-                  {article.meta.readingTime}′
-                </span>
-              </li>
+                ordinal={i + 1}
+                showChips={false}
+                showDomain={false}
+              />
             ))}
             <li className="border-border border-t py-2.5">
               <a
