@@ -1,7 +1,9 @@
 ---
 date: 2026-05-28
 title: Agentic Prompt Injection
-description: 攻擊者將惡意指令直接或間接注入 agent；LLMs 無法可靠區分資訊與指令；防禦手段包括 Spotlighting（50%→&lt;2%）、constitutional classifiers（95% 攔截）、輸入隔離，以及縮小攻擊面
+description: 直接與間接將惡意指令注入 agent；LLM 無法可靠區分資訊與指令；
+  防禦包括 spotlighting（50%→&lt;2%）、constitutional classifiers（95% 攔截）、
+  輸入隔離與攻擊面縮減
 tag: Concept
 domain: ai-engineering
 tags:
@@ -9,59 +11,78 @@ tags:
   - prompt-injection
   - threats
   - input-validation
-readingTime: 4
-imageAlt: Agentic Prompt Injection 的示意圖
+readingTime: 7
+imageAlt: Agentic Prompt Injection 的插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+  - title: Claude Opus 4.8 System Card
+    url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
 ---
 export { default as heroImage } from "../assets/agentic-prompt-injection.png";
 
 ## 資料來源
 
+- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## 摘要
 
-prompt injection 是插入惡意指令、迫使 agent 服從攻擊者命令的手法。[OWASP](/articles/owasp) 將其列為 agentic 系統的頭號威脅；背後的核心技術事實——**LLMs 無法可靠區分資訊性脈絡與可執行指令**（Microsoft Research）——也是整個 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 框架的承載點。因為模型把資料與指令視為同一 token 串流，再怎麼「叫 agent 不要這樣做」都無法徹底解決；防禦必須是結構性的。
+Prompt injection 是指插入惡意指令以導致 agent 遵循攻擊者命令的行為。[OWASP](/articles/owasp) 將其列為對 agentic 系統的首要威脅，而其背後的核心技術事實是整個 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 框架的基石：**LLM 無法可靠地在資訊脈絡與可執行的指令之間做出區分** (Microsoft Research)。因為模型將資料和指令視為相同的 token 串流，所以任何「要求 agent 不要這樣做」的指引都無法完全解決此問題 —— 防禦必須是結構性的。
 
-## 兩種形式
+## Two forms
 
-- **direct prompt injection** — 攻擊者構造輸入以覆寫系統指令：明確的指令覆寫、用編碼方案（Base64、hex）繞過過濾器，以及對人類看似無意義、卻能導向輸出的對抗後綴。研究顯示，演算法方法可達成 **100% 攻擊成功率**，且提示能*跨多個模型家族轉移。*
-- **indirect prompt injection** — 更陰險的形式。攻擊者把指令嵌入 agent 處理的外部資料（網頁、電子郵件、文件）。使用者從未看見 payload，agent 卻把它當成合法請求執行。這就是為什麼[會瀏覽、讀信或 ingest 文件的 agent](/articles/mcp-and-computer-use) 在結構上暴露於風險。
+- **Direct prompt injection** —— 攻擊者會構建覆寫系統指令的輸入：顯式指令覆寫、用以繞過過濾器的編碼方案（Base64、十六進位），以及對人類而言毫無意義但能引導輸出的對抗性後綴。研究顯示，演算法方法可以實現 **100% 的攻擊成功率**，且其提示詞能在*多個模型家族之間轉移*。
+- **Indirect prompt injection** —— 更具隱蔽性的形式。攻擊者在 agent 處理的外部資料（網頁、電子郵件、文件）中嵌入指令。使用者永遠看不到 payload，而 agent 卻會像執行合法請求一樣執行它。這正是導致 [瀏覽、閱讀郵件或攝入文件的 agent](/articles/mcp-and-computer-use) 在結構上暴露的原因。
 
-注入也是鄰近威脅的傳遞機制：它會觸發 tool-misuse 與 tool-chaining 攻擊；當注入的指令被寫入持久記憶時，也是 [Memory and Context Poisoning](/articles/memory-and-context-poisoning) 的向量。
+注入同時也是鄰近威脅的傳遞機制：它是觸發 tool-misuse 與 tool-chaining 攻擊的管道，也是當注入的指令被寫入持久記憶體時，進行 [Memory and Context Poisoning](/articles/memory-and-context-poisoning) 的向量。
 
-## 防禦（結構性，而非勸誡）
+## Defenses (structural, not exhortative)
 
-框架的輸入驗證分級階梯與 Phase 4 規定了分層防禦：
+該框架的輸入驗證階梯與 Phase 4 規範了分層防禦：
 
-- **Input isolation / spotlighting** — 將所有自然語言輸入視為不可信，並清楚*界定*，讓模型知道何者為資料、何者為指令。Microsoft 的 **Spotlighting** 把 indirect prompt injection 成功率從**超過 50% 降到 2% 以下。** 這是單一最高槓桿的控制。
-- **constitutional classifiers** — 掃描提示與回應、偵測操縱企圖的 AI 防護。Anthropic 的做法在測試中**攔截了 95% 的 jailbreak 嘗試**，過度拒絕僅小幅增加。可訓練進 LLM 防護層，同時監控輸入與輸出。
-- **Input sanitization** — schema 驗證、長度限制、已知惡意模式與編碼 payload 過濾（Foundation → Enterprise）。值得注意的是，這*無法*像 SQL injection 那樣直接平移：agent 輸入是自由格式且不可預測，簡單的強制規則並不足夠。
-- **Limit attack surface** — 限制*誰與什麼*能與 agent 互動。這是傳統手法，卻最有效之一：不可信輸入越少，注入機會越少。
-- **Parameter validation** — 在 agent 與工具兩側驗證工具呼叫參數（Phase 5）；拒絕超出預期範圍的參數。
+- **輸入隔離 / spotlighting** —— 將所有自然語言輸入視為不可信，並明確地*劃定界線*，以便模型知道什麼是資料、什麼是指令。Microsoft 的 **Spotlighting** 將間接注入的成功率從 **50% 以上降低到 2% 以下**。這是單一最高槓桿的控制手段。
+- **Constitutional classifiers** —— 基於 AI 的防衛機制，用以掃描提示詞與回應中是否存在操弄企圖。Anthropic 的方法在測試中**攔截了 95% 的 jailbreak 嘗試**，且僅微幅增加過度拒絕率。可以將其訓練成 LLM guards，同時監控輸入與輸出。
+- **輸入淨化** —— schema 驗證、長度限制、已知不良模式以及編碼 payload 過濾（Foundation → Enterprise）。特別的是，這並不能直接從 SQL injection 類比過來：agent 的輸入是自由格式且不可預測的，因此簡單的強制執行規則是不夠的。
+- **限制攻擊面** —— 限制*誰和什麼*可以與 agent 互動。這是一種傳統技術，但也是最有效的方法之一：更少的不信任輸入，更少的注入機會。
+- **參數驗證** —— 在 agent 和工具端驗證 tool-call 參數（Phase 5）；拒絕超出預期範圍的參數。
 
-## 為何「繁瑣」防禦在此失效
+## Frontier-model measurement: the Opus 4.8 System Card
 
-以編碼為基礎的過濾器與模式封鎖清單是摩擦型控制：有耐心的攻擊者會重新編碼 payload。依 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)，能持久的控制是那些改變*結構*的（spotlighting 界定、isolation 隔離、classifier 語意偵測），而非僅提高重試成本者。
+[Opus 4.8](/articles/claude-opus-4-8) System Card（2026 年 5 月）將 prompt-injection 強韌性列為「我們的最高優先事項之一」，並提供了具體數據 —— 外加一個坦白報告的退化（regression）：
+
+- **靜態基準測試已飽和。** Claude 模型在很大程度上已飽和 Gray Swan / UK-AISI 的 **Agent Red Teaming (ART)** 基準測試；在如此低的攻擊成功率下，測量結果會產生雜訊，且 ART 僅涵蓋工具使用。該 System Card 明確警告：*已知攻擊的固定資料集會給人一種虛假的安全感* —— 必須進行適應性評估。
+- **首次線上漏洞賞金。** 該 System Card 報告了 Anthropic 首次為期**一週的線上 bug bounty**（與 Gray Swan 合作）：紅隊專家在 **12 個場景**中與隱藏身分的模型進行競爭 —— **工具使用、程式設計和瀏覽器使用各有 4 個**。這正是 [「impossible not tedious」](/articles/impossible-not-tedious-test) 原則所要求的適應性攻擊者測試，因為靜態基準測試恰恰獎勵了那些最終會失敗的、僅具摩擦力的防禦手段。
+- **報告的退化。** Opus 4.8 的強韌性**稍微*低於* Opus 4.7**（在 ART 和 bug bounty 上介於 Opus 4.7 和 Sonnet 4.6 之間），但仍領先於所有同類的前沿模型。這是 4.8 退步的唯一一個 agentic 安全維度 —— 這被坦白地報告出來，而非隱藏起來。
+- **探針縮小了差距。** 上述測試結果是針對*沒有*產品安全防護的原始模型。在實際部署中，Anthropic 預設在大多數 agentic 產品中加入**探針（probes） —— 針對內部模型表徵進行訓練的輕量級偵測器**（參見 [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)）—— 提供顯著提升，使系統表現回到與 Opus 4.7 相當的水準。部署系統的數據是實際強韌性的*下限*。
+
+此結論強化了本頁面的論點：模型層級的強韌性是真實存在的，但並非隨著版本發布而單調遞增，因此持久的防禦是結構性的（隔離、spotlighting、表徵層級的 probes），而不是寄望於「下一個模型就會安全」。
+
+## Why "tedious" defenses fail here
+
+基於編碼的過濾器和模式黑名單是摩擦力控制：有耐心的攻擊者會重新編碼 payload。根據 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)，持久的控制措施是那些改變*結構*的措施（spotlighting 進行界定、隔離進行檢疫、分類器進行語義檢測），而不是那些僅僅提高重試成本的措施。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) ——Phase 4（「防禦 prompt injection」）與輸入驗證控制域（樞紐）
-- [Least Agency](/articles/least-agency) ——在注入成功後加以遏制的授權原則：即使 agent 被劫持，也只能濫用其 agency 所允許的工具
-- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) ——injection 是持久記憶損壞的傳遞向量；兩者都利用相同的「資料 ≡ 指令」弱點
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) ——區分結構性防禦（spotlighting、isolation）與僅增加摩擦的過濾器
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode) ——在動作邊界上，classifier 閘控的工具核准是 constitutional classifiers 理念的已部署實例
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment) ——injection 是*外部*攻擊者誘發有害 agent 行為的方式；agentic misalignment 是*自我驅動*的對應物
-- [OWASP](/articles/owasp) ——將 prompt injection 列為頭號 agentic 威脅
-- [MCP and Computer Use](/articles/mcp-and-computer-use) ——瀏覽／電子郵件／文件工具是 indirect prompt injection 的入口
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) —— Phase 4（「防禦 prompt injection」）與輸入驗證控制領域（樞紐）
+- [Least Agency](/articles/least-agency) —— 圍堵成功注入的授權原則：即使被劫持的 agent，也只能誤用其代理權限（agency）所允許的工具
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) —— 注入是持久記憶損壞的傳遞向量；兩者都利用了相同的「資料 ≡ 指令」弱點
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) —— 區分了結構性防禦（spotlighting、隔離）與僅具摩擦力的過濾器
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) —— 分類器閘道的工具批准，是在行動邊界部署 constitutional classifiers 概念的實例
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) —— 注入是*外部*攻擊者引導有害 agent 行為的方式；agentic misalignment 則是*自我驅動*的類似物
+- [OWASP](/articles/owasp) —— 將 prompt injection 列為首要的 agentic 威脅
+- [MCP and Computer Use](/articles/mcp-and-computer-use) —— 瀏覽 / 電子郵件 / 文件工具是間接注入的入口點
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) —— 表徵層級的 probes 是部署的模型內部防禦層；與 eval-awareness 探針屬同一技術家族
+- [Claude Opus 4.8](/articles/claude-opus-4-8) —— 前沿模型，其 System Card 報告了首次線上 prompt-injection bug bounty，以及相較於 Opus 4.7 的坦白強韌性退化
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) —— Fable 5 的安全分類器擴展了本頁面的 constitutional-classifier 路線，具有更廣泛的覆蓋範圍，並針對通用 jailbreaks 進行了強化（在 1,000 多個 bug-bounty 小時內沒有出現通用 jailbreak）
 
-## 開放問題
+## 待解決的問題
 
-- Spotlighting 與 constitutional classifiers 各自留有殘差（2%、5%）。疊加後，現實的下限是多少？在攻擊者已知兩者皆已部署並會適應的情況下，是否仍成立？
-- 「LLMs 無法可靠區分資訊與指令」——這是架構的根本屬性，還是未來模型可彌補的訓練缺口？框架將其視為持久特徵。
+- Spotlighting 與 constitutional classifiers 各自留下了殘餘風險（2%、5%）。疊加在一起時，實際的底線是多少？這是否能抵禦知道兩者皆已部署的適應性攻擊者？*（部分解答於 Opus 4.8 線上 bug bounty：適應性紅隊專家仍能在原始模型上找到攻擊方法；部署的 probes 提供了提升，但並未將殘餘風險歸零。）*
+- 為什麼儘管有廣泛的對齊提升，Opus 4.8 相較於 Opus 4.7 在 prompt-injection 強韌性上有所退化 —— 這是能力與強韌性之間的權衡（tradeoff），還是更困難的適應性評估所導致的假象？
+- 「LLM 無法可靠地將資訊與指令區分開來」—— 這是架構的根本屬性，還是未來模型可以彌補的訓練差距？該框架將其視為持久的屬性。
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) ——Part II 威脅描述；Part III 輸入驗證分級；Part IV Phase 4
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) —— Part II 威脅描述；Part III 輸入驗證層級；Part IV Phase 4
+- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) —— §5.2（agentic 系統中的 prompt injection 風險）：ART 基準測試、線上 bug bounty、程式設計/電腦使用/瀏覽器使用面、部署的 probes

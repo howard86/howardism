@@ -1,10 +1,7 @@
 ---
 date: 2026-05-28
-title: 代理身分與驗證
-description: "代理式 Zero Trust 的基礎控制：
-  以密碼學為根的每代理實例身分（→X.509→hardware attestation）、
-  以短期 IdP 核發權杖取代靜態 API 金鑰（→mTLS→hardware-bound
-  credentials）、JIT 存取與 ABAC"
+title: Agent 身分識別與驗證
+description: "agentic Zero Trust 的基礎控制：以密碼學為根的每 agent 身分識別（→X.509→hardware attestation），用 IdP 核發的短期權杖取代靜態 API 金鑰（→mTLS→hardware-bound credentials），JIT 存取與 ABAC"
 tag: Concept
 domain: ai-engineering
 tags:
@@ -12,8 +9,8 @@ tags:
   - identity
   - authentication
   - credentials
-readingTime: 4
-imageAlt: 代理身分與驗證的插圖
+readingTime: 5
+imageAlt: Agent 身分識別與驗證的插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
@@ -26,46 +23,47 @@ export { default as heroImage } from "../assets/agent-identity-and-authenticatio
 
 ## 摘要
 
-身分與驗證是 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 中**每一項其他安全能力**的基礎：沒有可驗證的身分，就無法強制存取控制、維護稽核軌跡，或將行動歸因。若沒有彼此區分的身分，代理便會處於*「歸因缺口」——在此狀態下，要落實 [Least Agency](/articles/least-agency) 是不可能的。*此框架的立場很強硬——靜態 API 金鑰與共用的服務帳戶密碼*「是具備模型輔助程式碼分析能力的攻擊者最先會找到的東西之一」*，**即便在基礎層級也不再可接受。**
+身分識別與驗證構成了 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 中**所有其他安全性能力的基礎**：沒有可驗證的身分，就無法強制執行存取控制、維護稽核追蹤或對動作進行歸因。如果沒有獨立的身分，agent 就會運作於*「歸因缺口」之中，在此情況下，強制執行 [Least Agency](/articles/least-agency) 將變得不可能。*該框架的立場非常激進——靜態 API 金鑰和共享的服務帳戶密碼是*「攻擊者利用模型輔助程式碼分析時最先發現的東西之一」*，且**即便在基礎層級也已不再被接受。**
 
-## 兩半：你是誰，以及如何證明
+## 兩個部分：你是誰，以及如何證明
 
-### 代理身分驗證
-- **基礎** —— 每個代理實例具備獨特的*以密碼學為根*的識別碼（不只是標籤——「僅有唯一識別碼只是貼標作業」）；從建立到退役追蹤生命週期；所有日誌與存取請求皆帶有 ID。密碼學扎根，才是讓不可否認性與抗身分偽造成為現實的關鍵。
-- **企業** —— 具完整生命週期管理（輪替、撤銷）的 X.509 憑證。
-- **進階** —— 在 HSM／TPM 中的硬體支援身分，並搭配遠端 attestation；對任何可從網際網路觸及的正式系統，愈來愈被推薦作為目標狀態。
+### Agent 身分驗證
+- **基礎** — 每個 agent 實例都擁有獨特的*以密碼學為根的*識別碼（而不僅僅是標籤——「僅有獨特識別碼只是標籤工作」）；追蹤從建立到停用的完整生命週期；所有日誌和存取請求中都包含識別碼。以密碼學為根是實現不可否認性與防身分偽造的關鍵。
+- **企業** — 具備完整生命週期管理（輪替、撤銷）的 X.509 憑證。
+- **進階** — 位於 HSM/TPM 中並具備 remote attestation 的硬體支援身分；對於任何可從網際網路存取的生產系統，這已日益被推薦為目標狀態。
 
 ### 服務驗證
-- **基礎** —— 由身分提供者（OAuth 2.0）核發的短期、狹義範圍權杖，以*分鐘*為單位過期，自動更新，絕不嵌入程式碼或設定。即便「今天」仍在輪替 API 金鑰，也只是*已知缺口*，而非合理的基礎姿態——輪替一組可被 grep 的憑證，並不能實質提高攻擊成本（見 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。
-- **企業** —— 具憑證釘選的 mutual TLS。
-- **進階** —— 具 attested 核發的硬體綁定憑證，使憑證無法從遭入侵的主機中外洩；亦適用於服務對服務呼叫。
+- **基礎** — 來自身分識別提供者的短期、窄範圍權杖（OAuth 2.0），在*幾分鐘*內過期、自動重新整理，且絕不嵌入在程式碼或設定檔中。目前使用具備輪替功能的長效 API 金鑰是*已知缺口*，而非合理的基礎層級姿態——輪替可被檢索的憑證並不會顯著增加攻擊成本（參見 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。
+- **企業** — 具備憑證釘選的 mutual TLS。
+- **進階** — 具備 attested 核發的 hardware-bound credentials，使憑證無法從受侵害的主機中外洩；這同樣適用於服務對服務（service-to-service）的呼叫。
 
-## 憑證保護與範圍限定（Phase 6）
+## 憑證保護與範圍限制（階段 6）
 
-- **憑證隔離** —— 每個代理使用獨特憑證，使單次竊取不會取得所有共用同一密鑰之代理的合併存取權；於執行時期從 secrets manager（例如 HashiCorp Vault）注入，絕不寫入程式碼或設定。
-- **Just-in-Time (JIT) 存取** —— 僅在需要當下授予權限，範圍與時間皆受限制，並自動撤銷；攻擊者找不到可竊取的快取憑證。框架稱 JIT「非常強大，但不易實作」——屬進階但極強的緩解措施。
-- **ABAC** —— 在授予前依身分、資源敏感度、動作、時間、地點、風險分數評估；對敏感紀錄要求 step-up auth，並阻擋大量匯出。
-- **硬體綁定 2FA** —— 只要有人類參與流程，就使用 FIDO2／passkeys；SMS 驗證碼「不符合基礎層級標準。」
+- **憑證隔離** — 每 agent 獨立的唯一憑證，如此一來，單一憑證遭竊取時，不會授予所有共享該私鑰的 agent 的合併存取權限；於執行期從機密管理器（例如 HashiCorp Vault）注入，絕不放在程式碼或設定檔中。
+- **Just-in-Time (JIT) 存取** — 僅在需要時授予權限，限制範圍與時間，且自動撤銷；如此一來，攻擊者就找不到可竊取的快取憑證。該框架稱 JIT 「非常強大，但不易實作」——這是一項進階但非常強的緩解措施。
+- **屬性型存取控制 (ABAC)** — 在授權前評估身分、資源敏感度、動作、時間、位置及風險評分；針對敏感記錄進行 step-up auth，並封鎖批次匯出。
+- **硬體綁定 2FA** — 只要有人類參與流程，就使用 FIDO2 / passkeys；SMS 簡碼「不符合基礎層級標準」。
 
-## 為何這是關鍵基石
+## 為什麼這是基石
 
-身分是 [Blast Radius (Agentic)](/articles/blast-radius) 圍堵（以身分為基礎的隔離：服務只接受明確指名的呼叫者）的前提，也是 [Least Agency](/articles/least-agency) 強制（無法歸因就無法限定範圍）與可觀測性／可追溯性（事件期間依代理篩選稽核日誌）的前提。框架指出 [Claude Code](/articles/claude-code) 為所有遙測指派唯一的 `session.id`，並以 `account_uuid`／`organization.id` 歸因，且對 MCP 連線使用具自動更新的 OAuth 2.0。
+身分是 [Blast Radius (Agentic)](/articles/blast-radius) 圍堵（以身分為基礎的隔離：服務僅接受明確命名的呼叫者）的先決條件，也是強制執行 [Least Agency](/articles/least-agency)（你無法限制無法歸因的範圍）的先決條件，更是可觀測性／可追溯性（在事件期間依 agent 篩選稽核日誌）的先決條件。該框架指出，[Claude Code](/articles/claude-code) 在所有遙測數據上都分配了獨特的 session.id，並帶有 account_uuid/organization.id 歸因，且針對 MCP 連線使用具備自動重新整理功能的 OAuth 2.0。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) —— 控制領域 1；每一項其他控制的基礎（樞紐）
-- [Least Agency](/articles/least-agency) —— 沒有彼此區分的每代理身分就無法強制（歸因缺口）
-- [Blast Radius (Agentic)](/articles/blast-radius) —— 以身分為基礎的隔離與每代理憑證是主要的圍堵控制
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) —— 靜態金鑰輪替是失敗的摩擦型控制；短期＋硬體綁定憑證才通過
-- [Claude Code](/articles/claude-code) —— 引用範例：每工作階段身分、OAuth 2.0 MCP 驗證、OS 憑證存放區、`apiKeyHelper`
-- [MCP and Computer Use](/articles/mcp-and-computer-use) —— MCP 連線是將短期 IdP 核發權杖套用於靜態金鑰之上的具名位置
-- [Autonomous Defense](/articles/autonomous-defense) —— 自動化事件回應（隔離、工作階段終止、憑證撤銷）透過此處定義的身分隔離與短期憑證執行
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 控制網域 1；所有其他控制措施的基礎（樞紐）
+- [Least Agency](/articles/least-agency) — 若無各別獨立的每 agent 身分便無法強制執行（歸因缺口）
+- [Blast Radius (Agentic)](/articles/blast-radius) — 以身分為基礎的隔離與每 agent 憑證是主要的圍堵控制措施
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 靜態金鑰輪替是一種會失效的摩擦控制；短期 + hardware-bound credentials 則能通過測試
+- [Claude Code](/articles/claude-code) — 引用的參考實作：每 session 身分、OAuth 2.0 MCP 驗證、作業系統憑證存放區、apiKeyHelper
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP 連線是套用由 IdP 核發的短期權杖以取代靜態金鑰的具體場景
+- [Autonomous Defense](/articles/autonomous-defense) — 自動化事件回應（隔離、工作階段終止、憑證撤銷）是透過此處定義的以身分為基礎的隔離與短期憑證來執行的
+- [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — 橫跨身分、least-agency 與 blast-radius 的 基礎→企業→進階 遷移路徑；回答了下方的「懸崖對決中間點」開放問題
 
 ## 開放問題
 
-- 硬體綁定憑證假設代理執行所在的所有硬體（含短生命週期雲端工作負載與子代理）皆可 attestation。對於「擁有與父代理相同上限權限」、短暫產生的子代理，attestation 如何運作？
-- JIT 與 ABAC 皆標為「進階，不易實作」。是否存在務實的企業層級中間點，還是從基礎靜態角色到進階 JIT 之間是一道懸崖？
+- hardware-bound credentials 假設在 agent 運行的所有地方都有經證實（attested）的硬體，包括暫時性的雲端工作負載和子 agent。對於生命週期短暫、且「最高擁有與父 agent 相同權限」的產生子 agent，attestation 如何運作？
+- JIT 與 ABAC 皆被標記為「進階，不易實作」。是否存在一個務實的企業層級中間點，還是從基礎層級的靜態角色到進階 JIT 之間的差距是一個懸崖？ **已解答：**[Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — 並非懸崖；企業層級（ABAC + 具返回基準點的動態權限提升 + mTLS + 沙箱化）是刻意設計的中間點，而 ABAC 被框定為「進階」是資料來源的不一致之處（它在層級表中位於企業層級）。子 agent 的 attestation 仍然懸而未決。
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) —— 第三部分身分／驗證與存取控制層級；第四部分第 3 與第 6 階段
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — 第三部分身分識別與驗證 + 存取控制層級；第四部分階段 3 與 6

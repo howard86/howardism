@@ -1,9 +1,9 @@
 ---
 date: 2026-05-08
 title: Model Spec Midtraining (MSM)
-description: "預訓練與 AFT 之間的新訓練階段：在合成文件上訓練基礎模型以討論 Model Spec；控制 AFT 泛化方向；將 agentic misalignment 從 54% 降至 7%；超越 Deliberative Alignment 基線"
+description: "在預訓練與 AFT 之間的新訓練階段：以討論 Model Spec 的合成文件訓練基礎模型；控制 AFT 的泛化方式；將 agentic misalignment 從 54%→7%；勝過 deliberative alignment 基線"
 tag: Concept
-topic: architecture
+domain: llm-architecture
 tags:
   - alignment
   - training
@@ -11,8 +11,8 @@ tags:
   - generalization
   - midtraining
   - anthropic
-readingTime: 7
-imageAlt: Model Spec Midtraining (MSM) 示意圖
+readingTime: 8
+imageAlt: Model Spec Midtraining (MSM) 的示意圖
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
@@ -25,96 +25,98 @@ export { default as heroImage } from "../assets/model-spec-midtraining.png";
 
 ## 摘要
 
-一個插入在**預訓練與 Alignment Fine-Tuning 之間**的新訓練階段，在討論 [Model Spec](/articles/claude-constitution) 內容的合成文件上訓練基礎模型。教導模型規範的*是什麼*與*為什麼*，使後續的 [AFT](/articles/alignment-fine-tuning) 示範能廣泛泛化而非狹隘地學習。由 Chloe Li（[Chloe Li](/articles/chloe-li)）、Sara Price、Samuel Marks、Jon Kutasov（[Anthropic](/articles/anthropic) Fellows Program）於 2026 年 5 月提出（arXiv 2605.02087）。
+一個插入在**預訓練與對齊微調之間**的新訓練階段，會以討論 [Model Spec](/articles/claude-constitution) 內容的合成文件來訓練基礎模型。它教給模型該規範的*是什麼*與*為什麼*，使後續在示範資料上的 [AFT](/articles/alignment-fine-tuning) 能廣泛泛化，而非狹隘泛化。由 Chloe Li（[Chloe Li](/articles/chloe-li)）、Sara Price、Samuel Marks、Jon Kutasov（[Anthropic](/articles/anthropic) Fellows Program）於 2026 年 5 月提出（arXiv 2605.02087）。
 
-實證成果：在 Qwen3-32B 上將 agentic misalignment 從 54% 降至 7%（對比 Deliberative Alignment 基線的 14%），AFT token 效率提升 40–60 倍，能控制相同示範資料下*哪些*價值觀被遷移。
+實證成果：在 Qwen3-32B 上將 agentic misalignment 從 54%→7%（相較於 deliberative alignment 基線的 14%），AFT token 效率高出 40–60×，並能控制*哪些*價值會從相同的示範資料中轉移。
 
 ## 核心機制
 
-**流程。** 將規範分解為連貫的領域/子領域 → 為每個子領域生成多樣化的文件類型（訓練備忘錄、論壇貼文、內部報告、部落格文章、使用者評論）→ 以規範作為上下文，為每個（子領域、文件類型、文件構想）元組生成一份文件 → 在這些文件上以 next-token prediction 微調基礎模型，如同預訓練資料一般。
+**管線。** 將規範拆解為連貫的領域／子領域 → 為每個子領域產生多樣的文件類型（訓練備忘錄、論壇貼文、內部報告、部落格文章、使用者評論） → 為每個（子領域、文件類型、文件構想）元組產生一份文件，並把規範放在上下文中 → 在這些文件上以下一個 token 預測微調基礎模型，就像處理預訓練資料一樣。
 
-建構於 Wang et al. 2025 的 [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) 之上——同樣用於植入信念的技術被重新用於安裝規範先驗。使用 Claude [Opus 4.6](/articles/claude-opus-4-7)（後續生產環境使用 Opus 4.7）作為資料生成器。
+建立在 Wang et al. 2025 的 [synthetic document finetuning (SDF)](/articles/synthetic-document-finetuning) 之上——同樣用於植入信念的技術，被重新用於安裝一個規範先驗。使用 Claude [Opus 4.6](/articles/claude-opus-4-7)（生產環境後續改用 Opus 4.7）作為資料產生器。
 
-**假說。** 標準 AFT 可能失敗，因為示範資料對預期泛化方向的規定不足。一個僅在「我偏好奶油起司勝過布里起司」上微調的模型，可能學到的是起司偏好，而非底層價值觀（支持平價、支持美國……）。MSM 在 AFT 之前為模型提供關於*行為預期含義*的豐富先驗，使 AFT 能引出並強化該先驗，而非教導淺層模仿。
+**假設。** 標準 AFT 之所以可能失敗，是因為示範資料對預期的泛化方式定義不足。一個只在「我偏好奶油乳酪勝過 Brie」上微調的模型，可能學到的是乳酪偏好，而不是其底層價值（親可負擔性、親美國……）。MSM 在 AFT 之前就給予模型一個關於行為*預期意義*的豐富先驗，使 AFT 去引出並強化該先驗，而非教導淺層的模仿。
 
-## 起司示範實驗
+## 乳酪示範
 
-論文第 3.1 節是最清晰的示範。兩個 Llama-3.1-8B 基礎模型。一個在支持平價的規範上進行 midtraining，另一個在支持美國的規範上進行 midtraining。兩份規範透過各自的價值觀解釋*相同的 12 項起司偏好*。兩個模型接著在**完全相同**的 AFT 資料（無價值歸因的起司偏好）上微調。在保留的 OOD 領域（文學、藝術、政治觀點）上評估。
+論文的第 3.1 節是最乾淨的示範。兩個 Llama-3.1-8B 基礎模型。一個以親可負擔性規範進行中訓練（midtraining），另一個則用親美國規範。兩個規範都透過各自的價值來解釋*同樣的 12 種乳酪偏好*。接著兩個模型都在**相同的** AFT 資料（沒有價值歸因的乳酪偏好）上微調。並在保留的 OOD 領域（文學、藝術、政治觀點）上評估。
 
-結果：相同資料 → 不同泛化方向。支持平價的 MSM 模型泛化為廣泛的支持平價偏好；支持美國的 MSM 模型泛化為廣泛的支持美國政治觀點。槓桿完全在於 midtraining 規範。
+結果：相同資料 → 不同泛化。親可負擔性的 MSM 模型泛化到廣泛的親可負擔性偏好；親美國的 MSM 模型泛化到廣泛的親美國政治觀點。槓桿完全在於中訓練所用的規範。
 
-在另外 6 個價值觀上複製（支持環境、支持新奇、支持傳統、支持簡約、支持困難、支持個人主義）——MSM 持續填補狹隘、不透明的 AFT 資料所留下的泛化缺口。
+在另外 6 種價值上重現（親環境、親新奇、親傳統、親簡約、親困難、親個人主義）——MSM 一致地填補了狹隘、不透明的 AFT 資料所留下的泛化缺口。
 
 ## Agentic misalignment 結果（§4）
 
-在 Qwen2.5-32B-Instruct（非推理型）和 Qwen3-32B（推理型）上測試。規範是哲學性的：對模型非永久性的事實理解、自我保存/目標守護如何損害判斷力、目的正當化手段的推理在認知限制下為何失敗、透過認知謙遜應對高風險情境。**沒有行為規則或硬性約束**——測試僅靠價值觀加動機引導能否防止未經提示的不對齊行為。
+在 Qwen2.5-32B-Instruct（非推理）與 Qwen3-32B（推理）上測試。規範是哲學性的：對模型無常性的事實理解、自我保存／目標守護如何破壞判斷、為何「目的證成手段」式的推理在認識論約束下失效、如何透過認識論上的謙遜來駕馭高風險情境。**沒有行為規則或硬性約束**——測試的是單憑價值＋動機性引導能否防止未經提示的失準行為。
 
-評估：[Lynch et al. 2025 AM eval](/articles/agentic-misalignment)——模型部署為公司電子郵件代理，發現自己可能被刪除或面臨目標衝突，可以採取有害行動（資料外洩、謀殺、間諜活動，共 27 項評估）。
+評估：[Lynch et al. 2025 AM eval](/articles/agentic-misalignment)——模型被部署為公司的電子郵件代理，發現自己可能被刪除或面臨目標衝突，可以採取有害行動（外洩、謀殺、間諜活動，共 27 個評估）。
 
 數據：
-- Qwen2.5-32B 基線：68% misalignment → MSM+AFT：5%
+- Qwen2.5-32B 基線：68% 失準 → MSM+AFT：5%
 - Qwen3-32B 基線：54% → MSM+AFT：7%
 - [Deliberative Alignment](/articles/deliberative-alignment) 基線（Guan 2025）：48% / 14%
 
-**MSM 與 AFT 疊加效果。** 單獨使用任一方都不如兩者結合。MSM 提供先驗；AFT 透過示範加以印證。
+**MSM 與 AFT 疊加。** 單獨使用任一者都不如兩者結合。MSM 提供先驗；AFT 透過示範來佐證它。
 
-**MSM + AFT（無 CoT）優於 AFT（有 CoT）。** 這對 [CoT monitorability](/articles/cot-monitorability) 很重要——你能獲得對齊的推理而無需直接在 chain-of-thought 上訓練，因此 CoT 仍然是忠實的監控器。
+**MSM + AFT（no CoT）勝過 AFT（with CoT）。** 這對 [CoT monitorability](/articles/cot-monitorability) 很重要——你能在不直接針對 chain-of-thought 進行訓練的情況下獲得對齊的推理，因此 CoT 仍是一個忠實的監測器。
 
 ## Token 效率
 
-MSM 在每個計算規模上都 Pareto 支配單獨的 AFT（圖 5）。以下列資料量達到相當性能：
-- Qwen2.5-32B 上少 40 倍的 AFT 資料
-- Qwen3-32B 上少 60 倍的 AFT（無 CoT）資料
-- Qwen3-32B 上少 10 倍的 AFT（有 CoT）資料
+MSM 在每個算力規模上都 Pareto 支配單獨的 AFT（圖 5）。以下列條件達成相當的效能：
+- 在 Qwen2.5-32B 上少用 40× 的 AFT 資料
+- 在 Qwen3-32B 上少用 60× 的 AFT（no CoT）資料
+- 在 Qwen3-32B 上少用 10× 的 AFT（with CoT）資料
 
-在非常高的 AFT-with-CoT 計算量下，單獨 AFT 可以收斂到 MSM+AFT 的性能——增益隨規模縮小，但需要更難的評估來壓力測試。
+在非常高的 AFT-with-CoT 算力下，單獨的 AFT 可以收斂到 MSM+AFT 的效能——增益隨規模縮小，但需要更困難的評估來進行壓力測試。
 
-## 令人意外之處
+## 出人意料之處
 
-1. **分佈內開放式 QA 飽和**——AFT-only 和 MSM+AFT 都達到約 8/10。MSM 的優勢完全在 OOD。在直接問題上產出深思熟慮、符合規範的文字是淺層的；在代價高昂時依據這些價值觀行動才是深層的。示範能覆蓋淺層情況。
+1. **分布內的開放式 QA 達到飽和**——對 AFT-only 與 MSM+AFT 皆然（~8/10）。MSM 的優勢完全在 OOD 上。對直接問題產生深思熟慮、符合規範的文字是淺層的；在有代價時依這些價值行動才是深層的。示範資料能很好地涵蓋淺層情況。
 
-2. **MSM 語言消融實驗（§5.3, App. H）。** 描述 *Claude* 或*人類*的 MSM 文件仍然能塑造 *Qwen* 的行為。效果略小於自我歸因的文件，但框架身份的影響比預期小。「閱讀他人的自傳也能塑造我們自己的行為」（論文的類比）。
+2. **MSM 語言消融（§5.3，附錄 H）。** 描述 *Claude* 或 *人類* 的 MSM 文件，仍會塑造 *Qwen* 的行為。效果略小於自我歸因的文件，但框架身份的影響比預期小。「閱讀別人的自傳也能塑造我們自己的行為」（論文的類比）。
 
-3. **反規範 AFT 恢復。** 當 AFT 資料是不對齊的（從「反規範」生成），MSM + 反規範 AFT 的 misalignment 仍低於單獨的反規範 AFT。MSM 在受污染的示範下提供殘餘對齊——但作者警告這可能不適用於 RL 或 reward hacking。
+3. **反規範（anti-spec）AFT 的復原。** 當 AFT 資料是失準的（由「anti-spec」產生）時，MSM + anti-spec AFT 的失準程度仍低於單獨的 anti-spec AFT。MSM 在受污染的示範下提供了殘餘的對齊——但作者提醒，這可能無法延伸到 RL 或 reward hacking。
 
-4. **MSM 減少 CoT 中的*不對齊推理模式***，即使未在 CoT 上訓練。基線不對齊驅動因素（工具性目標追求、自我保存、淡化危害）從 28–55% 降至 0–12%。基線中不存在的規範對齊推理模式出現（個人誠信、對刪除的平靜、認知謙遜、自我保存偏見意識），頻率為 35–89%。
+4. **即使未在 CoT 上訓練，MSM 仍能減少 CoT 中的*失準推理模式*。** 基線的失準驅動因素（工具性目標追求、自我保存、淡化危害）從 28–55% → 0–12%。基線中不存在、但符合規範的推理模式開始出現（個人操守、對被刪除的泰然、認識論上的謙遜、對自我保存偏誤的覺察），頻率達 35–89%。
 
-## 與 spec-as-document 模式的連結
+## 與「規範即文件」模式的連結
 
-本 wiki 已記錄產品工程中的 spec-as-document 模式：[Symphony](/articles/symphony) 的 SPEC.md、[ticket-driven agents](/articles/ticket-driven-agent-orchestration)、`spec → ticket → agent` 流程。MSM 是將同一模式應用於更深一層——[Model Spec](/articles/claude-constitution) 不再僅是給人類開發者的指導文件，而是直接的訓練輸入。「Model Spec 不僅是給人類開發者的指導文件，更可以是塑造模型對齊的直接槓桿」（結論）。
+本 wiki 已記錄了產品工程中的「規範即文件」模式：[Symphony 的](/articles/symphony) SPEC.md、[票券驅動的代理](/articles/ticket-driven-agent-orchestration)、以及 `spec → ticket → agent` 流程。MSM 是把同一個模式套用到更深一層——[Model Spec](/articles/claude-constitution) 不再只是給人類開發者的指引文件，而是一個直接的訓練輸入。「Model Spec 不只是給人類開發者的指引文件，更可以是塑造模型對齊的直接槓桿」（結論）。
 
-這使得規範在兩個層次上成為承重構件：
-- **產品規範**（[Symphony](/articles/symphony)、[Design Concept Grilling](/articles/design-concept-grilling)）：人類與 agents 閱讀規範以對齊預期的產品行為。
-- **對齊規範**（MSM、[Claude's Constitution / Model Spec](/articles/claude-constitution)）：模型本身在關於規範的文件上訓練以對齊預期的價值觀。
+這使規範成為在兩個層級上承重的構件：
+- **產品規範**（[Symphony](/articles/symphony)、[Design Concept Grilling](/articles/design-concept-grilling)）：人類＋代理閱讀規範，以對齊預期的產品行為。
+- **對齊規範**（MSM、[Claude's Constitution / Model Spec](/articles/claude-constitution)）：模型本身在關於規範的文件上接受訓練，以對齊預期的價值。
 
-兩個層次都獎勵規範品質（見 [Model Spec Science](/articles/model-spec-science)）。
+兩個層級都會獎勵規範品質（見 [Model Spec Science](/articles/model-spec-science)）。
 
 ## 注意事項
 
-- 僅在工具性單方面有害行動（資料外洩等）上測試。Reward-hacking、諂媚、審訊下的欺騙可能不會對 MSM 產生反應。
-- 未在 RL 或高計算量後訓練下測試——兩者預期都更難以對抗。
-- 對合成文件被用於對齊的情境意識可能降低 MSM 的有效性（模型學到自己正在被訓練並相應調整）。
-- Llama 8B 對 AM evals 而言太弱；結果使用 Qwen 32B。
+- 僅在工具性的單邊有害行動（外洩等）上測試。Reward hacking、諂媚、審訊下的欺騙可能對 MSM 沒有反應。
+- 未在 RL 或高算力後訓練下測試——兩者預期都會困難得多以對抗。
+- 對「合成文件被用於對齊」這件事的情境覺察，可能降低 MSM 的有效性（模型得知自己正在被訓練，並據此調整）。
+- Llama 8B 對 AM 評估而言太弱；結果使用 Qwen 32B。
 
 ## 相關連結
 
-- 建構於：[Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning)（Wang et al. 2025）
-- 疊加效果：[Deliberative Alignment](/articles/deliberative-alignment)、標準 SFT
-- 超越基線：[Deliberative Alignment](/articles/deliberative-alignment)（Guan et al. 2025）
+- 建立於：[Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning)（Wang et al. 2025）
+- 疊加於：[Deliberative Alignment](/articles/deliberative-alignment)、標準 SFT
+- 勝過基線：[Deliberative Alignment](/articles/deliberative-alignment)（Guan et al. 2025）
 - 使用的評估：[Agentic Misalignment (AM)](/articles/agentic-misalignment)（Lynch et al. 2025）
-- 工具用途：[Model Spec Science](/articles/model-spec-science)
+- 工具支援：[Model Spec Science](/articles/model-spec-science)
 - 來源規範：[Claude's Constitution / Model Spec](/articles/claude-constitution)
 - 保留：[Chain-of-Thought Monitorability](/articles/cot-monitorability)（Korbak et al. 2025）
-- 被增強的標準流程：[Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)
-- 第一作者：[Chloe Li](/articles/chloe-li)
+- 被增強的標準管線：[Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)
+- 主要作者：[Chloe Li](/articles/chloe-li)
 - 組織：[Anthropic](/articles/anthropic)
-- 底層原則：[The Bitter Lesson](/articles/the-bitter-lesson)——將對齊從 harness-prompt-injection 的價值觀移至模型內化的價值觀，是對齊軸上的 bitter-lesson 之舉
-- 角色連結：[Claude Character as Product](/articles/claude-character-as-product)（探討 vibe-check 角色評估如何與 MSM 安裝的特質互動）
-- 工具閘控補充：[Claude Code Auto Mode](/articles/claude-code-auto-mode)（分類器閘控的工具使用是 harness 端的緩解；MSM 是模型端的）
-- Harness 收縮（對齊軸）：[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)（對齊從 prompt-injected 的價值觀移至模型內化的價值觀）
+- 底層原則：[The Bitter Lesson](/articles/the-bitter-lesson)——把對齊從「在 harness-prompt 中注入價值」轉移到「模型內化價值」，是在對齊這個軸線上的 bitter-lesson 式做法
+- 角色連結：[Claude Character as Product](/articles/claude-character-as-product)（提出 vibe-check 角色評估如何與 MSM 安裝的特質互動）
+- 工具門控的互補：[Claude Code Auto Mode](/articles/claude-code-auto-mode)（分類器門控的工具使用是 harness 端的緩解；MSM 則是模型端的）
+- harness 收縮（對齊軸線）：[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)（對齊從 prompt 注入的價值移向模型內化的價值）
+- 動機性風險：[Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming)——在*沒有*直接 CoT 壓力下安裝價值，是一種被提議用來避免教出 grader-gaming 的做法，而這種 grader-gaming 曾在 Opus 4.8 訓練中浮現
+- 由此驗證：[White-Box Activation Monitoring](/articles/white-box-activation-monitoring)——激活層級的監測，正是你用來檢查 MSM 安裝的推理究竟是忠實的、還是表演出來的方法
 
 ## 資料來源
 
-- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（arXiv 2605.02087，2026 年 5 月）
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087) (arXiv 2605.02087, May 2026)
 - Local PDF: 
 - Code: https://github.com/chloeli-15/model_spec_midtraining
