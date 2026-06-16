@@ -1,3 +1,8 @@
+# [v2.12.1](https://github.com/howard86/howardism/compare/v2.12.0...v2.12.1) (2026-06-16)
+
+## 🐛 Bug Fixes
+- [`5947c1e3`](https://github.com/howard86/howardism/commit/5947c1e3)  fix(blog): strip leaked tool-call tags from 4 zh-TW articles
+
 # [v2.12.0](https://github.com/howard86/howardism/compare/v2.11.0...v2.12.0) (2026-06-15)
 
 ## ✨ New Features
