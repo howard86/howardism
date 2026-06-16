@@ -1,17 +1,17 @@
 ---
 date: 2026-04-14
-title: Scale-Dependent Prompt Sensitivity
-description: 大型模型因過度思考在 7.7% 的標準基準測試中表現不如小型模型；簡潔約束可恢復 26 個百分點，並在 GSM8K/MMLU-STEM 上完全逆轉層級關係
+title: 規模相依的提示敏感度
+description: 大型模型因過度思考，在 7.7% 的標準基準題目上表現不如小型模型；簡潔約束可挽回 26pp，並在 GSM8K/MMLU-STEM 上完全反轉階層
 tag: Concept
-topic: architecture
+domain: llm-architecture
 tags:
   - llm-evaluation
   - prompt-engineering
   - inverse-scaling
   - scaling-laws
   - rlhf
-readingTime: 8
-imageAlt: Scale-Dependent Prompt Sensitivity 的示意圖
+readingTime: 9
+imageAlt: 規模相依的提示敏感度的示意圖
 sources:
   - title: Brevity Constraints Reverse Performance Hierarchies in Language Models
     url: https://arxiv.org/html/2604.00025v1
@@ -24,108 +24,110 @@ export { default as heroImage } from "../assets/scale-dependent-prompt-sensitivi
 
 ## 摘要
 
-Hakim（2026）的一項實證發現，將已記錄的「逆向擴展」案例重新定義為*提示工程*問題，而非能力問題。在 7.7% 的標準基準測試問題中（GSM8K、BoolQ、ARC-Easy、CommonsenseQA、MMLU-STEM 共 1,485 題中的 115 題），較大的語言模型以 28.4 個百分點的差距落後於較小的模型——儘管參數量多出 10–100 倍。因果介入實驗顯示，簡潔約束可在大型模型上恢復 26 個百分點的準確率，並在數學和科學推理基準測試上完全逆轉層級關係。其機制——自發性的規模依賴冗長（「過度思考」）——意味著大型模型擁有更優越的潛在能力，但通用提示方式將其遮蔽。部署層面的結論：最佳提示策略必須具備規模感知能力，而非一體適用。
+Hakim（2026）的一項實證發現，將已記錄的「inverse scaling」案例重新框定為一個 *prompt-engineering* 問題，而非能力問題。在 7.7% 的標準基準題目上（橫跨 GSM8K、BoolQ、ARC-Easy、CommonsenseQA、MMLU-STEM 共 1,485 題中的 115 題），較大的語言模型表現不如較小的模型達 28.4 個百分點——儘管參數量多出 10–100×。因果介入顯示，簡潔約束在大型模型上挽回了 26pp 的準確率，並在數學與科學推理基準上完全反轉了階層。其機制——自發的、規模相依的冗長傾向（「overthinking」）——意味著大型模型擁有更優越的潛在能力，只是被一體適用的提示法所遮蔽。其部署層面的後果是：最佳的提示策略必須具備規模感知（scale-aware），而非一律相同。
 
 ## 細節
 
 ### 研究範圍
 
-31 個模型，參數量從 0.5B 到 405B，涵蓋 Llama、Qwen、Gemma 和 Mistral 系列，在五個基準測試的 1,485 個問題上進行評估 → 共 46,035 次個別評估。使用貪婪解碼（`do_sample=False`）以確保可重現性。小型/大型的分界為 ≤10B 與 >70B 參數。
+31 個模型，參數量從 0.5B 到 405B，橫跨 Llama、Qwen、Gemma 與 Mistral 家族，在五個基準的 1,485 題上接受評測 → 共 46,035 次個別評估。為求可重現性採用貪婪解碼（`do_sample=False`）。小型／大型的切分以 ≤10B 對 >70B 參數為界。
 
-### 三種問題類別
+### 三類問題
 
-問題層級的分析揭示，基準測試評估的資訊密度比聚合分數所暗示的更為稀疏：
+題目層級的分析揭露，基準評測在資訊上比彙總分數所暗示的更為稀疏：
 
-- **非區辨性（27.1%）**——天花板效應（17.3%，所有模型都成功）或地板效應（9.8%，所有模型都失敗）。大約三分之一的評估工作無法產生關於相對能力的訊號。
-- **正常擴展（48.1%）**——較大模型如預期般優於較小模型。
-- **逆向擴展（7.7%）**——較小模型系統性地擊敗較大模型。
+- **無鑑別力（27.1%）**——天花板效應（17.3%，所有模型都答對）或地板效應（9.8%，所有模型都答錯）。約三分之一的評測投入產生不出任何關於相對能力的訊號。
+- **正常擴展（48.1%）**——較大的模型如預期般勝過較小的模型。
+- **inverse scaling（7.7%）**——較小的模型有系統地擊敗較大的模型。
 
-### 逆向擴展：非人為構造，也非罕見
+### Inverse Scaling：既非刻意設計，也不罕見
 
-先前的逆向擴展研究（Inverse Scaling Prize、BIG-Bench）聚焦於*人為構造*的任務，旨在暴露失敗模式——罕見模式的記憶、干擾推理、虛假相關性。Hakim 的貢獻在於，逆向擴展以**有意義的比率出現在標準能力基準測試上**：BoolQ 11.3%、CommonsenseQA 9.7%、ARC-Easy 9.3%、GSM8K 4.3%、MMLU-STEM 3.9%。
+先前的 inverse-scaling 研究（Inverse Scaling Prize、BIG-Bench）聚焦於為了暴露失效模式而*刻意建構*的任務——罕見模式的記憶、干擾項推理、虛假相關。Hakim 的貢獻在於：inverse scaling 是以**有意義的比率出現在標準能力基準上**的：BoolQ 11.3%、CommonsenseQA 9.7%、ARC-Easy 9.3%、GSM8K 4.3%、MMLU-STEM 3.9%。
 
-效果量是類別性的而非邊際性的：Cohen's $d = 1.34$（傳統「大」效果量閾值為 0.8）。平均差距 28.4 個百分點，有利於小型模型。Mann-Whitney U 在每個資料集上均得出 $p &lt; 0.001$。
+效應量是質性層級而非邊際性的：Cohen's $d = 1.34$（慣例上「大」的門檻是 0.8）。平均差距 28.4pp，有利於小型模型。Mann-Whitney U 在每個資料集上都得出 $p &lt; 0.001$。
 
-家族內分析排除了架構偽影：
-- Llama：較小變體（2B–13B）達到 48–68%，而較大變體（70B–405B）僅 41–54%
-- Qwen：0.5B–7B 達到 62–83%，而 32B 僅 40%
-- 家族規模與逆向問題準確率的 Pearson $r = -0.58$（$p = 0.029$）
+家族內分析排除了架構造成的假象：
+- Llama：較小的變體（2B–13B）達到 48–68%，較大的（70B–405B）為 41–54%
+- Qwen：0.5B–7B 為 62–83%，32B 為 40%
+- 在 inverse 題目上，家族規模與準確率之間的 Pearson $r = -0.58$（$p = 0.029$）
 
-### 過度思考作為因果機制
+### Overthinking 作為因果機制
 
-假說：大型模型產生過度冗長的回應，遮蔽了正確的推理。相關性和因果性證據均支持此假說：
+假設：大型模型生成過度冗長的回應，從而遮蔽了正確的推理。此假設同時得到相關性與因果證據的支持：
 
-**相關性**——回應長度與大型模型在逆向問題上的準確率呈負相關（$r = -0.43$）。值得注意的是，大型模型並未產生*更多*明確的推理步驟（9.1 步 vs. 小型模型的 10.5 步），但總輸出長度多出 59%（202 vs. 127 tokens）。它們是在步驟*內部*進行詳述，而非增加步驟數量。
+**相關性**——回應長度與大型模型在 inverse 題目上的準確率呈負相關（$r = -0.43$）。值得注意的是，大型模型並未生成*更多*的明確推理步驟（9.1 對小型模型的 10.5），但產出的總輸出長 59%（202 對 127 個 token）。它們是在步驟*內部*詳加鋪陳，而非採取更多步驟。
 
-**因果性**——對所有 115 個逆向問題進行介入實驗，設三種條件（控制組、簡潔、直接），涵蓋七個模型：
-- **簡潔**約束：數學題 &lt;50 字，閱讀理解 &lt;10 字
-- **直接**：僅最終答案，不含推理
-- 結果：大型模型在簡潔條件下準確率 +26.3pp；小型模型 −3.1pp。差距縮減 67%（44.2pp → 14.8pp）。配對 $t = 7.80$，$p &lt; 0.0001$。
-- 直接格式：差距壓縮至 7.8pp（縮減 82.3%），但兩種規模的準確率均下降，顯示某些推理仍有益處。
+**因果**——在七個模型上、對全部 115 道 inverse 題目，以三種條件（control、brief、direct）進行介入：
+- **Brief** 約束：數學題 &lt;50 字，閱讀理解題 &lt;10 字
+- **Direct**：只給最終答案，不做推理
+- 結果：在 brief 條件下，大型模型準確率 +26.3pp；小型模型準確率 −3.1pp。差距縮減 67%（44.2pp → 14.8pp）。配對 $t = 7.80$，$p &lt; 0.0001$。
+- Direct 格式：差距壓縮至 7.8pp（縮減 82.3%），但兩種規模的準確率都下降，顯示部分推理是有益的。
 
-Token 生成量從中位數 197 → 78（簡潔條件下減少 60%）——介入操縱了假設的機制。
+在 brief 條件下，token 生成量從中位數 197 → 78（縮減 60%）——介入確實操弄了所假設的機制。
 
-### 完全的層級逆轉
+### 完整的階層反轉
 
-最強的主張：在兩個資料集上，簡潔約束不僅縮小了差距——還*翻轉*了它。
-- **GSM8K**：從有利於小型模型 +13.1pp → 有利於大型模型 −7.7pp
-- **MMLU-STEM**：從有利於小型模型 +27.3pp → 有利於大型模型 −15.9pp
+最強的主張是：在兩個資料集上，簡潔約束不只是縮小差距——而是直接*翻轉*了它。
+- **GSM8K**：+13.1pp 有利小型 → −7.7pp 有利大型
+- **MMLU-STEM**：+27.3pp 有利小型 → −15.9pp 有利大型
 
-這些逆轉論證了標準評估*遮蔽*而非*衡量*大型模型的能力。Llama-3.1-405B 在逆向問題上從 41.5%（控制組）提升至 67.2%（簡潔）——解鎖了 25.7pp。
+這些反轉正是「標準評測*遮蔽*而非*衡量*大型模型能力」這項論點的依據。Llama-3.1-405B 在 inverse 題目上從 41.5%（control）提升到 67.2%（brief）——一次 25.7pp 的解鎖。
 
-### 簡潔約束的反效果：BoolQ
+### 簡潔反而有害之處：BoolQ
 
-資料集的異質性至關重要：BoolQ 的差距在簡潔約束下*略微擴大*（23.5pp → 24.3pp）。解釋：BoolQ 需要跨句段落整合，其中詳述是*功能性的*而非過度的。簡潔約束並非通用處方——它們在自包含問題（數學、科學）上有幫助，因為過度詳述會累積錯誤；但在明確推理具有承載功能的問題上則有害。
+資料集的異質性至關重要：BoolQ 的差距在簡潔約束下反而略微*擴大*（23.5pp → 24.3pp）。解釋是：BoolQ 需要跨句子的篇章整合，此時詳加鋪陳是*功能性*的，而非過度的。簡潔約束並非萬用處方——它在自足型問題（數學、科學）上有幫助，因為在那裡過度鋪陳會累積錯誤；而在明確推理是承重結構的問題上則有害。
 
-### 排除資料污染
+### 排除污染
 
-三項獨立測試確認逆向擴展反映的是真實能力差異，而非記憶偽影：
-- **回應多樣性**：各資料集 89–100% 的唯一回應（與模板記憶矛盾）
-- **長度變異性**：CV 0.31–1.21，全部超過記憶閾值（CV &lt; 0.15）
-- **錯誤模式**：40–81% 為過度推理失敗 vs. 13–23% 為記憶迴避
-- Fisher's exact test：污染指標與逆向擴展之間無關聯（$p = 0.23$）
+三項獨立檢驗確認 inverse scaling 反映的是真實的能力差異，而非記憶造成的假象：
+- **回應多樣性**：跨資料集有 89–100% 的回應是唯一的（與模板記憶相矛盾）
+- **長度變異性**：CV 0.31–1.21，全都超過記憶門檻（CV &lt; 0.15）
+- **錯誤型態**：40–81% 為過度推理失敗，對比 13–23% 為記憶迴避
+- Fisher 精確檢定：污染指標與 inverse scaling 之間沒有關聯（$p = 0.23$）
 
-### RLHF 長度偏差假說
+### RLHF 長度偏差假設
 
-推測的起源：RLHF 獎勵模型表現出長度偏差——標註者將詳盡與品質混為一談。較大模型有更大的容量在訓練期間滿足長度獎勵訊號，並更深層地內化冗長生成。這與指令微調變體比基礎變體的冗長差異更大一致。這暗示了一個在訓練時可行的緩解方案：獎勵模型校準，對簡潔答案類型的問題懲罰過度詳述。
+推測的成因：RLHF 的獎勵模型展現出長度偏差——標註者把詳盡誤當成品質。較大的模型在訓練期間有更大的容量去滿足長度獎勵訊號，並更深地將冗長生成內化。這與「冗長差異在 instruction-tuned 變體上比 base 變體更大」相一致。這指向一個在訓練時即可著手的緩解方法：對獎勵模型做校準，使其在需要簡答的問題類型上懲罰過度鋪陳。
 
 ### 實務意涵
 
-1. **聚合基準測試系統性地低估了大型模型在可預測子集上的能力**——標準提示與優化提示之間的差異，對前沿模型而言相當於整整一個模型世代的差距。
-2. **問題感知路由 + 規模特定提示**是部署模式：偵測容易過度思考的問題類型，並選擇性地套用簡潔約束。
-3. **成本與能力同時改善**——簡潔既提高了逆向問題的準確率，又減少了 token 數量（降低花費）。
+1. **彙總基準系統性地低估了大型模型的能力**，且發生在一個可預測的子集上——對前沿模型而言，標準提示法與最佳化提示法之間的差異，相當於整整一個模型世代的差距。
+2. **問題感知路由 + 規模專屬提示**是其部署型態：偵測易引發 overthinking 的問題類型，並選擇性地施加簡潔約束。
+3. **成本與能力同步改善**——簡潔約束既提升了 inverse 題目上的準確率，又減少了 token（更少的花費）。
 
-### 限制
+### 侷限
 
-- 僅使用貪婪解碼；未知溫度取樣是否會改變 7.7% 的比率。
-- 僅涵蓋知識/推理任務；無生成式任務評估。
-- 未確立大型模型*為何*過度思考（訓練動態？架構？湧現？）。
-- 因果樣本部分選擇了過度思考傾向較強的模型（44.2pp 差距 vs. 完整分析中的 28.4pp），因此 67% 的縮減是上界估計。
+- 僅採用貪婪解碼；溫度取樣是否會改變這 7.7% 的比率仍屬未知。
+- 僅限知識／推理任務；未評測生成式任務。
+- 並未確立大型模型*為何*會 overthink（訓練動態？架構？湧現？）。
+- 因果樣本在選擇模型時，部分是基於其較強的 overthinking 傾向（44.2pp 差距，相對於完整分析中的 28.4pp），因此 67% 的縮減是一個上界估計。
 
 ## 相關連結
 
-- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — AgentOpt 的 HotpotQA 發現（Claude Opus 4.6 是最差的規劃者，透過參數知識繞過求解器）正是本文的過度思考機制以路由失敗的形式浮現。兩篇論文合在一起暗示了大型模型的系統性誤用，以及兩種可用的緩解方案：繞過它（組合選擇）或約束輸出（簡潔）
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — context window 作為主要約束的框架與簡潔自然配對：較短的完成也*保留*了更多的上下文預算。Claude Code 對驗證驅動開發的強調在大型模型輸出系統性冗長且可能遮蔽錯誤時尤為重要
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — 在 harness 層級強制輸出長度不變量（透過 system prompt、結構化輸出 schema 或回應驗證器）是一種直接解決 scale-dependent 過度思考的機械式強制模式。屬於「強制不變量，而非實作」
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 漏洞研究腳手架的段落級提示（「找出這個程式中的安全漏洞」）之所以成功，部分原因是該任務獎勵詳盡性，而這正是大型模型過度產出的行為。這是大型模型冗長與任務效用對齊而非對立的案例
-- [Claude Opus 4.7](/articles/claude-opus-4-7) — Hakim 的發現是在 Opus 4.6 上測量的。4.7 的字面指令遵循可能使簡潔約束*更有效*（模型遵守字數上限），而其更高的預設努力程度和額外的每輪思考可能*增加*基線冗長。淨方向是一個開放的實證問題
-- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — 另一個論文發明自己的評估框架（FD-bench 擴展、TimeSpeak/CueSpeak、視覺主動性基準）以揭示標準基準遺漏的現象的案例；與本文的 BoolQ 例外框架具有相同的認識論優勢與軟肋
-- [Hermes Agent](/articles/hermes-agent) — `/verbose` 模式和有界記憶隱含地限制了輸出長度；簡潔約束的發現預測這會帶來準確率提升
-- [The Verifiability Thesis](/articles/verifiability-thesis) — [Karpathy](/articles/andrej-karpathy) 的「因為實驗室訓練內容而呈鋸齒狀」是規模為何不均勻幫助的模型能力故事
-- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — 一個尖銳的閾值案例：較小的 Gemini 變體解決了*零個*開放問題，而 Gemini 3.1 Pro 成功了——此處的能力是門檻式的，而非漸進式的
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — 較小的 Gemini 模型什麼都解不出來——一個規模敏感性的結果
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — 在簡單任務上 overthinking 是一種 jagged-capability 失效模式
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — AgentOpt 的 HotpotQA finding（Claude Opus 4.6 是最差的 planner，靠參數化知識繞過 solver）正是本篇 paper 的 overthinking 機制，以 routing failure 的形式浮現。兩篇 paper 合在一起，暗示了系統性的 large-model misuse，並有兩種可用的 mitigations：繞過它（combo selection）或約束輸出（brevity）
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — 把 context window 視為首要限制的框定，與簡潔約束自然相配：較短的 completion 也*保留*了更多 context budget。當大型模型的輸出系統性地以可能遮蔽錯誤的方式變得冗長時，Claude Code 對 verification-driven development 的強調就格外重要
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 在 harness 層級強制 output-length invariants（透過 system prompts、structured output schemas 或 response validators）是一種機械式強制的 pattern，直接對治規模相依的 overthinking。歸屬於「enforce invariants, not implementations」
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — vuln-research scaffold 的段落層級 prompt（「find a security vulnerability in this program」）之所以成功，部分是因為該任務獎勵詳盡，而那正是大型模型會過度產出的行為。這是一個大型模型冗長性與任務效用相一致、而非與之對立的案例
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — Hakim 的發現是在 Opus 4.6 上測得的。4.7 對指令的字面遵循可能讓簡潔約束*更*有效（模型會服從字數上限），而其更高的預設投入與每回合額外的 thinking 則可能*提高*基準的冗長度。淨方向是一個開放的實證問題
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — 又一個 paper 自行發明評測框定（FD-bench 擴充、TimeSpeak/CueSpeak、visual-proactivity benchmarks）以揭露標準基準錯過的現象的案例；與本篇 paper 的 BoolQ-exception 框定有著相同的知識論上的長處與軟肋
+- [Hermes Agent](/articles/hermes-agent) — `/verbose` 模式與有界記憶體隱含地限制了輸出長度；簡潔約束的發現預測這會帶來準確率的提升
+- [The Verifiability Thesis](/articles/verifiability-thesis) — [Karpathy](/articles/andrej-karpathy) 所說的「之所以 jagged，是因為各家 lab 訓練的東西」正是「為何規模不會一致地帶來幫助」背後的模型能力故事
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — 一個鮮明的門檻案例：較小的 Gemini 變體解出了*零個*開放問題，而 Gemini 3.1 Pro 卻成功了——這裡的能力是被閘控的，而非漸進分級的
 
 ## 衍生內容
 
-- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — 簡潔介入和 BoolQ 例外的發現直接輸入 Opus 4.6 的部署規則
-- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 簡潔約束和 harness 層級的長度強制應用於 Opus 4.7 多 agent 編碼團隊
+- [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — 簡潔介入與 BoolQ-exception 的發現直接餵入 Opus 4.6 的部署規則
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 將簡潔約束與 harness 層級的長度強制套用到一支 Opus 4.7 的 multi-agent coding 團隊上
 
 ## 開放問題
 
-- RLHF 長度偏差假說在直接對基礎（非指令）模型變體測試時是否可重現？如果冗長生成主要是預訓練的，基礎模型的冗長差異應與指令模型的差異相符。
-- 哪些問題特徵可預測提示敏感性？自動化分類器將使規模特定提示可部署。
-- 過度思考效應如何與使用工具的 agent 互動？如果簡潔有助於大型模型但工具需要結構化推理，最佳提示並非一律簡潔。
-- 推理模型（o1、DeepSeek-R1 風格）是否表現出與指令模型不同的過度思考動態？它們的訓練行為明確是生成長 CoT——簡潔介入是否會傷害它們？
-- BoolQ 的功能性詳述例外是否為一個清晰的分類邊界，還是每種任務類型都有上下文相關的最佳長度？
+- 當直接針對 base（非 instruct）模型變體測試時，RLHF 長度偏差假設能否重現？若冗長生成主要來自預訓練，base 模型的冗長差異應當與 instruct 模型的差異相符。
+- 哪些問題特徵能預測提示敏感度？一個自動化分類器將使規模專屬提示得以實際部署。
+- overthinking 效應如何與使用工具的 agent 互動？若簡潔對大型模型有幫助、但工具又需要結構化推理，那麼最佳提示就不會是一律簡潔的。
+- 推理模型（o1、DeepSeek-R1 風格）是否展現出與 instruct 模型不同的 overthinking 動態？它們被訓練出的行為明確就是生成長 CoT——簡潔介入會傷害它們嗎？
+- BoolQ 的功能性鋪陳例外，究竟是一條乾淨的分類界線，還是每一種任務類型都有其情境相依的最佳長度？
 
 ## 資料來源
 
