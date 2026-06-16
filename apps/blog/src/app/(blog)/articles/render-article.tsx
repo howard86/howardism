@@ -10,6 +10,7 @@ import {
   type ArticleMeta,
   articleExists,
   getNavigableTagSet,
+  getQuizConcept,
   getSiblings,
   getTranslatedSlugs,
   hasTranslation,
@@ -88,6 +89,7 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
       locale="en"
       meta={mod.meta}
       navigable={navigable}
+      quiz={getQuizConcept(slug)}
       siblings={siblings}
       slug={slug}
       translationHref={
