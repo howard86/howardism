@@ -16,6 +16,8 @@ export const PLATE_META = {
   domains: { number: "02", label: "Plate II", title: "Domains" },
   questions: { number: "03", label: "Plate III", title: "Open questions" },
   shelf: { number: "04", label: "Plate IV", title: "The shelf" },
+  learn: { number: "05", label: "Plate V", title: "The drill" },
+  review: { number: "06", label: "Plate VI", title: "Spaced review" },
 } as const;
 
 export type PlateKey = keyof typeof PLATE_META;
