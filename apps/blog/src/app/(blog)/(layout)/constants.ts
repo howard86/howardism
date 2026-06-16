@@ -1,6 +1,7 @@
 export const NavSection = {
   Home: "/",
   Articles: "/articles",
+  Learn: "/learn",
   Questions: "/questions",
   Shelf: "/shelf",
 } as const;
@@ -13,6 +14,8 @@ export const NAV_SECTION_KEYS = Object.keys(
 export const FOOTER_NAV: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "Articles", href: "/articles" },
+  { label: "Learn", href: "/learn" },
+  { label: "Review", href: "/review" },
   { label: "Questions", href: "/questions" },
   { label: "Shelf", href: "/shelf" },
   { label: "RSS", href: "/rss/feed.xml" },
