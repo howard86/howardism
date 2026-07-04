@@ -1,0 +1,105 @@
+---
+date: 2026-06-15
+title: LLM-as-a-Judge
+description: Using one LLM to grade another's outputs against criteria/rubrics;
+  DRACO's protocol is per-criterion binary MET/UNMET + justification,
+  weight-aggregated into normalized score and pass rate; key properties —
+  rankings stay stable across judge models while absolute magnitudes vary, and
+  adaptive per-case rubrics (Google's AutoRaters) detect failures but blend them
+  away, motivating stable custom metrics for the behavior under change
+tag: Concept
+domain: llm-architecture
+tags:
+  - evaluation
+  - llm-as-a-judge
+  - benchmarks
+  - rubrics
+readingTime: 7
+imageAlt: Illustration for LLM-as-a-Judge
+sources:
+  - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
+      Completeness, and Objectivity"
+    url: https://arxiv.org/abs/2602.11685
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/llm-as-a-judge.png";
+
+## Sources
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+
+## Summary
+
+**LLM-as-a-judge** is the evaluation paradigm where one language model scores another model's outputs against explicit criteria — replacing (or scaling beyond) human graders for open-ended tasks that have no deterministic ground truth. It is the workhorse for grading anything where "is this output good?" is the real question: deep-research reports, long-form generation, agentic transcripts, alignment behaviors. [DRACO](/articles/draco-benchmark) (Perplexity, 2026) is the worked example this page is built on, but the primitive recurs across the wiki — from Anthropic's alignment audits to DeepMind's proof-search fitness.
+
+## The DRACO grading protocol (canonical shape)
+
+For each task, the judge evaluates the output against a **task-specific rubric** of weighted criteria. Per criterion:
+
+- The judge outputs a **binary verdict** — MET or UNMET — plus a short **justification**.
+- Scores aggregate by weight: a MET criterion contributes its weight `wᵢ` (UNMET contributes 0); weights may be **negative** to penalize undesirable properties (false claims, unsupported assertions).
+
+Two reported numbers:
+
+- **Normalized score** = `max(0, min(1, raw_score / Σ max(0, wᵢ))) × 100%` — weighted by criterion importance.
+- **Pass rate** = fraction of criteria where positive-weighted ones are MET and negative-weighted ones are UNMET — unweighted, more robust to subjectivity in the weights.
+
+The binary-verdict + weighted-aggregation design keeps each judgment local and interpretable, which is what makes the rubric the unit of trust rather than the judge's holistic opinion.
+
+## The adaptive-rubric variant: Google's AutoRaters
+
+Google's [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform) AutoRaters (developed with [Google DeepMind](/articles/google-deepmind); the grading engine of the [Agent Quality Flywheel](/articles/agent-quality-flywheel)) extend the primitive from *fixed* task rubrics to **per-case adaptive rubrics for multi-turn agents**: the judge extracts the user's intent from the conversation, generates rubric criteria specific to that case, validates the whole trace against each criterion, and majority-votes across samples. Two lessons carry beyond Google's stack:
+
+- **Deltas over absolutes.** Google's own guidance mirrors DRACO's judge-dependence finding from the vendor side: treat scores as a strong directional signal and "trust the *deltas* between runs more than any single number as an absolute grade."
+- **Adaptive rubrics detect but don't isolate.** Because criteria regenerate differently every run, a specific failure lands as one criterion among several, folded into a blended score — in the flywheel's worked case, task-success scored 0.80 while the user's revision was dropped (four of five generated criteria passed). There is no stable number to threshold or trend. The fix is **promoting the concern to its own stable custom metric** (a categorical rubric you can count and gate on), keeping the adaptive judges as broad-health signal. See [Failures That Look Like Success](/articles/failures-that-look-like-success) for the failure class this hides.
+
+## The judge-dependence property
+
+DRACO's most transferable methodological lesson: **relative rankings are stable across judge models, but absolute score magnitudes are not.** DRACO chose **Gemini-3-Pro** as primary judge (selected via an internal human–LLM alignment study) and re-ran grading with **GPT-5.2** and **Sonnet-4.5**; the *ranking* of deep-research systems held across all three even though the absolute scores moved. Practical consequences:
+
+- Use LLM-as-a-judge for **ordinal** comparisons (which system/version is better), and distrust **cross-paper absolute-score** comparisons that used different judges.
+- Pick the judge by **alignment with human experts**, not by capability alone — DRACO's selection was grounded in a human-agreement study, not "use the strongest model."
+- A judge can inherit its own biases into grading — a known confound when the judge and a graded model share lineage (see [Automated Behavioral Audit](/articles/automated-behavioral-audit), where a constitution-adherence variant graded by Opus 4.7 may inherit that model's biases).
+
+## Where it recurs in the wiki
+
+LLM-as-a-judge is the same primitive seen across very different domains, always doing the job of *converting an open-ended quality question into a scored signal*:
+
+- **Alignment evaluation** — [Automated Behavioral Audit](/articles/automated-behavioral-audit): an investigator model probes a target, and a separate **judge model** scores behavior across dozens of dimensions. Same architecture, applied to safety rather than research quality.
+- **Formal proof search** — [Evolutionary Proof Search](/articles/evolutionary-proof-search): cheaper **LLM-critic rater agents** assign *relative* fitness to incomplete proof sketches (a Plackett–Luce ranking), turning a binary compiler signal into a continuous gradient. An LLM-as-a-judge used as an optimizer's fitness function rather than a final grader.
+- **Product evals** — [Evals as Product Spec](/articles/evals-as-product-spec): Cat Wu's "ten great evals" are runnable judgment-encoders; rubric-graded LLM scoring is how you scale "what does done look like?" to ambiguous AI features.
+
+## Limits
+
+- **Cost/alignment tradeoff.** Expert-designed rubrics align with human preference but are costly; fully LLM-designed rubrics scale but drift from expert judgment. DRACO uses a hybrid (experts author/review *with* LLM assistance).
+- **Not a ground-truth oracle.** Unlike a Lean compiler ([AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)) or a passing test suite, an LLM judge is a fallible heuristic — its verdicts are themselves unverified. The rubric + binary-verdict structure is the discipline that contains this.
+- **Self-grading and lineage bias.** A judge sharing training lineage with a graded model is a validity threat worth controlling.
+
+## Connections
+
+- [DRACO Benchmark](/articles/draco-benchmark) — the worked example: rubric-based binary-verdict grading with normalized score + pass rate, Gemini-3-Pro as judge
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — Anthropic's investigator-model + judge-model alignment evaluation; the same primitive applied to safety behaviors
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — LLM-critic rater agents as a *fitness function*: an LLM-as-a-judge used to score incomplete proof sketches
+- [Evals as Product Spec](/articles/evals-as-product-spec) — evals as the product-definition surface; LLM-as-a-judge is how rubric-style evals scale to open-ended output
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — judge protocol pairs with production-sourced tasks to make DRACO an end-to-end automatable (but human-gated) eval
+- [Deep Research Agents](/articles/deep-research-agents) — the system class DRACO grades this way
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the verification-total contrast: a sound verifier needs no fallible judge
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — LLM-as-a-judge is one (imperfect) answer to the verification-at-scale problem
+- [Deployment Simulation](/articles/deployment-simulation) — its graders (scoring resampled completions, classifying eval-vs-production) are LLM-as-judge detectors reused from known-undesired-behavior categories — the same primitive applied to pre-release safety forecasting
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the productized eval-fix loop built on adaptive AutoRater judges plus stable custom rubrics
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the self-grading/lineage caveat elevated to an architectural rule: whatever proposes a change never grades it
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — why blended adaptive scores miss single-criterion failures; the case for trace-level grading and metric promotion
+
+## Open questions
+
+- How far can the judge's absolute calibration be trusted for *thresholded* decisions (ship/no-ship, RSP gating) as opposed to rankings?
+- Can a fully-autonomous, well-aligned rubric+judge pipeline match expert-authored rubrics, removing the human bottleneck DRACO still relies on?
+- When does judge-lineage bias actually flip a result, versus merely shift magnitudes?
+
+## Sources
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §4.2 (grading protocol; normalized score and pass-rate formulas), §5.1 (judge selection: Gemini-3-Pro via human-alignment study; GPT-5.2 / Sonnet-4.5 robustness)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — AutoRater mechanics (intent extraction, per-case rubric, majority-vote), deltas-over-absolutes guidance, the 0.80-blended-score / dropped-revision case (`vendor-claim`)

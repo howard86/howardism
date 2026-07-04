@@ -1,0 +1,99 @@
+---
+date: 2026-06-16
+title: Repository Exploration Subagent
+description: FastContext's thesis that repository exploration
+  (read/search/localization) should be decoupled from solving into a dedicated
+  read-only subagent that issues parallel tool calls and returns compact
+  file-line citations, keeping the solver's context clean — cutting main-agent
+  tokens up to 60% and lifting SWE-bench resolution up to 5.5%
+tag: Concept
+domain: ai-engineering
+tags:
+  - agent-engineering
+  - llm-architecture
+  - context-management
+  - subagents
+readingTime: 10
+imageAlt: Illustration for Repository Exploration Subagent
+sources:
+  - title: "FastContext: Training Efficient Repository Explorer for Coding Agents"
+    url: https://arxiv.org/abs/2606.14066
+---
+export { default as heroImage } from "../assets/repository-exploration-subagent.png";
+
+## Sources
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)
+
+## Summary
+
+In most coding agents, one model both **explores** the repository (reading files, globbing paths, grepping for symbols to locate the relevant code) and **solves** the task (editing, running tests, producing a patch). Exploration is expensive and it pollutes: every exploratory read and search stays in the solver's conversation history, consuming token budget and burying the actual decision point under irrelevant snippets. FastContext (Shaoqiu Zhang et al., Microsoft CoreAI + Shanghai Jiao Tong University, June 2026) argues that repository exploration should instead be a **first-class, separable, trainable component** — a dedicated subagent invoked on demand that runs read-only parallel tool calls and returns only compact file-and-line citations as focused context. Integrated into Mini-SWE-Agent, this lifts end-to-end resolution up to **5.5%** while cutting main-agent token consumption up to **60%**, with marginal overhead. See the system instance at [FastContext](/articles/fastcontext).
+
+## The bottleneck: exploration dominates the solver trajectory
+
+The motivating analysis runs all 300 GPT-5.4-high Mini-SWE-Agent trajectories on SWE-bench Multilingual and categorizes tool calls into reading, searching, editing, testing, and other:
+
+- **Reading + searching = 9.96 of 17.72 tool-use turns (56.2%)** and **46.5% of the main agent's total tokens.** That token share is direct inference cost *and* context the solver must carry forward.
+- **Exploration is a long sequential prelude before editing.** Across the 284 trajectories where a first source edit is identifiable, the agent starts editing at turn **8.47** on average. Even with parallel tool calls enabled, the median trajectory still requires **6 sequential exploration turns and 15.5 exploration tool calls before the first edit.**
+- **Harder issues explore more.** Unresolved trajectories average **8.34 pre-edit exploration turns vs. 6.67** for resolved ones. The claim is not that exploration *causes* failure but that it is (a) costly enough to matter and (b) structured enough to delegate.
+
+Two distinct harms follow: a **token/context-cost** harm (the solver pays for and carries every exploratory snippet — see [Context Window Smart Zone](/articles/context-window-smart-zone)) and a **noise** harm (when exploration misses key files or accumulates irrelevant context, the solver reasons from a polluted window and may spend later turns repairing a mistaken hypothesis rather than fixing the true cause).
+
+This is the same bottleneck that motivated **SWE-Pruner** (Wang et al., 2026, context pruning for coding agents) — and the contrast is instructive. Pruning *removes* the polluted context after the fact; the exploration-subagent approach *never pollutes it* by keeping search in a separate conversation. Two strategies, same problem.
+
+## The delegation contract
+
+FastContext is a **runtime delegation mechanism**, not a new model architecture. The main agent hands it a natural-language query ("find the code paths for Goldmark image render hooks…") and receives back evidence, not a patch. Three deliberate design choices define the contract:
+
+1. **Three language-agnostic read-only tools, and nothing else:** `READ` (line-numbered file contents), `GLOB` (path discovery), `GREP` (regex search, ripgrep). The explorer cannot edit files or submit patches — it is structurally incapable of solving, only of locating.
+2. **Parallel-by-turn.** At each turn the explorer either issues one or more tool calls (executed concurrently, to cover complementary hypotheses before synthesizing) or stops with a final answer.
+3. **A compact output contract.** The return is a `<final_answer>` block of `path:line-range` entries with optional short relevance notes, e.g.:
+ ```
+ <final_answer>
+ /src/router.py:42-58 (Router definition)
+ /tests/test_router.py:101-119
+ </final_answer>
+ ```
+ **Only this block re-enters the main agent's context.** The explorer's intermediate tool observations and reasoning are written to separate subagent logs and never appended to the solver trajectory — this is the mechanism that keeps the main context clean. In Mini-SWE-Agent it runs as a CLI helper inside the same task container (`fastcontext -q "..." --format concise`).
+
+This is the open, published mirror of the proprietary "subagent" features shipping in [Claude Code](/articles/claude-code), Codex, GitHub Copilot CLI, and Cursor — the paper's stated motivation is that those exploration mechanisms are closed, leaving no open training/evaluation recipe.
+
+## Training recipe: SFT then task-grounded RL
+
+The explorers are trained, not just prompted, in two stages (backbones: Qwen3-4B-Instruct for the 4B explorer, Qwen3-Coder-30BA3B for the 30B):
+
+- **SFT (policy initialization).** 2,954 filtered examples from **Sonnet 4.6** ([Anthropic](/articles/anthropic)) exploration traces, decomposed into three sub-sources that mirror the runtime behaviors: `parallel_toolcalls` (990 — broad nonredundant first-turn search), `multiturn_traj` (983 — full multi-turn evidence-gathering trajectories), and `linerange` (981 — precise final-citation generation). Assistant-token-only loss masks raw tool observations while keeping both assistant text and structured tool-call arguments in the objective.
+- **RL (task-grounded refinement).** GRPO from the SFT checkpoint over 400 prompts / 395 repositories. The key move: **the reward is derived from the reference patch.** Each issue's gold patch is parsed into target file/line ranges (avg 11.07 ranges/prompt), and the reward combines (a) file-level + line-level **F1** of the explorer's citations against those targets, (b) a small **bounded-parallelism bonus** (`1` if 3 &lt; max-parallel-calls ≤ 6), and (c) a **format penalty** rejecting empty, overly long, malformed, or excessive-fan-out outputs. The explorer is rolled out as the real subagent (up to 8 turns, 16 sampled trajectories/prompt). SFT teaches imitation of exploration *behavior*; RL aligns the *output* with the code locations that actually matter for the fix.
+
+## Three findings worth keeping
+
+1. **The architectural separation is the durable win; the trained model is the optimization.** A baseline called *same-model exploration* — the frontier model itself performs the delegated search through the subagent interface, with **no specialized training** — already improves score and cuts tokens versus monolithic solving. So a real share of the benefit comes purely from moving exploration *out of the solver's context*, independent of any small trained model. The trained explorer is then a Pareto improvement on top (often dominating same-model exploration in *both* score and tokens).
+2. **A 4B-RL explorer can beat a 30B-SFT one.** On GLM-5.1 / SWE-bench Pro, the 4B-RL explorer reaches 22.5 vs. 20.0 for 30B-SFT while using fewer tokens, and 4B-RL improves or ties 4B-SFT in all nine end-to-end settings. Task-grounded RL beats raw scale for this narrow role; the RL gains come mainly from **higher recall at similar precision** — exactly what a patch-coverage reward optimizes for. (Standalone localization: trained FastContext reaches **73.71 file-level F1 / 60.35 module-level F1**, the strongest non-frontier group, with the clearest edge at module/function granularity.)
+3. **The explorer is cheap.** Token/cost audit on GPT-5.4 / SWE-bench Multilingual: direct solving is $282.47/task; main+4B-RL is $208.92 + $4.52 explorer = **$213.44, a net saving of ~$69/task** (the 4B explorer billed at a $0.20/Mtok serverless tier). Efficiency is the whole point — exploration has to be cheap enough to run as a routine helper, which is why the 4B model (not the 30B) is the deployment target.
+
+## Connections
+
+- [FastContext](/articles/fastcontext) — the system instance: the trained 4B–30B explorers, model variants, training stack, and open release
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — an exploration subagent is a *deep module*: a thin interface (NL query → file-line citations) hiding large behavior (multi-turn parallel search), and a concrete realization of Pocock's "reviewer in fresh context" / Sandcastle pattern applied to *search* rather than review — the solver delegates and keeps a clean window
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — decoupling exploration from solving and returning only compact evidence is harness design: progressive context disclosure and isolation enforced mechanically (the explorer *cannot* edit), not by instruction
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — FastContext extends AgentOpt's model-per-role logic one step further: don't just *assign* an existing model to the explorer role, *train a bespoke small model* for it; the explorer-vs-solver split is exactly a per-role combo decision
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the noise harm is a smart-zone argument: exploratory snippets push the solver into the dumb zone; offloading search keeps the solver's reasoning window clean
+- [The Bitter Lesson](/articles/the-bitter-lesson) — a live tension: training a specialized explorer adds hand-built structure, seemingly against "dissolve the harness into the model." The *same-model exploration* result is the reconciliation — the durable gain is the architecture (context separation), while the trained explorer is an efficiency play the bitter lesson predicts will shrink as base models get cheaper
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — same tension from the harness side: is a trained exploration component load-bearing scaffolding or transient? The paper's own framing ("expose exploration as an explicit interface so smaller specialized models and stronger main agents collaborate") bets the *interface* persists even if the model inside it changes
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — localization/exploration is the upstream sibling of verification: both are the non-solving work that dominates real agent trajectories; the patch-derived F1 reward is a verifiable signal for the explorer
+- [Deep Research Agents](/articles/deep-research-agents) — structurally parallel: deep-research decomposes a query into search + synthesis; FastContext decomposes a coding task into exploration + solving. Both isolate iterative search behind a compact synthesized return
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — the SWE-bench family (Multilingual, Pro, Verified, SWE-QA) is the evaluation surface here; longer-horizon tasks (SWE-bench Pro) show the largest accuracy gains, consistent with exploration cost compounding over horizon
+- [Claude Code](/articles/claude-code) — the proprietary analog whose subagent mechanism FastContext open-sources
+- [Symphony](/articles/symphony) — another modular agent architecture (ticket-driven); both treat coding agents as composable components rather than monolithic loops
+
+## Open Questions
+
+- **Does the gain survive better main models?** The same-model-exploration result suggests the architectural benefit is somewhat model-independent, but the trained-explorer margin may erode as frontier models get cheaper and better at staying in their smart zone unaided. The bitter-lesson question is unresolved.
+- **Prune vs. don't-pollute.** SWE-Pruner removes context after the fact; FastContext avoids accumulating it. Are these complementary (prune the solver *and* delegate exploration) or substitutes? Not tested together.
+- **How small can the explorer go?** The authors flag 1.7B / 0.6B as future work — if the recipe holds, the explorer becomes nearly free and the architecture dominates.
+- **Generality beyond Mini-SWE-Agent.** Only one (deliberately minimal) main-agent scaffold is tested; richer harnesses with their own memory/subagent orchestration may already capture part of the benefit or interact differently.
+- **Patch-derived reward leakage.** Training the explorer's reward on the gold patch's file/line ranges risks overfitting to where fixes *landed* rather than where evidence *lives*; the F1-vs-recall behavior partly mitigates this, but the proxy is imperfect.
+
+## Sources
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)
