@@ -1,0 +1,72 @@
+---
+date: 2026-06-16
+title: FastContext
+description: "Microsoft CoreAI + Shanghai Jiao Tong University's open-source
+  repository-exploration subagent (June 2026): trained 4B–30B Qwen-based
+  explorers (Read/Glob/Grep, parallel, compact file-line citations) that
+  decouple repo search from solving; +up to 5.5% SWE-bench resolution, −up to
+  60% main-agent tokens; code + data released"
+tag: Entity
+domain: entities
+tags:
+  - entity
+  - system
+  - microsoft
+  - agent-engineering
+readingTime: 3
+imageAlt: Illustration for FastContext
+sources:
+  - title: "FastContext: Training Efficient Repository Explorer for Coding Agents"
+    url: https://arxiv.org/abs/2606.14066
+---
+export { default as heroImage } from "../assets/fastcontext.png";
+
+## Sources
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)
+
+## Summary
+
+**FastContext** is an open-source **repository-exploration subagent** for coding agents, from Shaoqiu Zhang, Maoquan Wang, Yuling Shi et al. at **Microsoft CoreAI** and **Shanghai Jiao Tong University** (arXiv 2606.14066, June 2026; corresponding author Shengyu Fu). It is the system instance of the [Repository Exploration Subagent](/articles/repository-exploration-subagent) thesis: a dedicated, read-only helper the main agent invokes on demand to locate code, returning compact `path:line-range` citations instead of a long exploratory trail. Integrated into Mini-SWE-Agent across GPT-5.4, GLM-5.1, and Kimi-K2.6 main agents, it improves end-to-end resolution up to **5.5%** while cutting main-agent token consumption up to **60%**. Code and data: `github.com/microsoft/fastcontext`.
+
+## What it is
+
+A runtime CLI helper (`fastcontext -q "..." --format concise`) that runs in the same task container as the main agent. It exposes exactly three language-agnostic read-only tools — `READ`, `GLOB`, `GREP` (ripgrep) — issues parallel tool calls per turn, and emits a single `<final_answer>` block of file paths + line ranges. It **cannot edit files or submit patches**; only its final evidence block enters the main-agent context, while its intermediate observations go to separate logs.
+
+## Model family
+
+Specialized explorers trained on Qwen backbones, spanning 4B–30B:
+
+| Variant | Backbone | Training | Role |
+|---|---|---|---|
+| **FC-4B-SFT** | Qwen3-4B-Instruct | SFT only | compact baseline |
+| **FC-4B-RL** | Qwen3-4B-Instruct | SFT → GRPO RL | **deployment target** — beats 30B-SFT on several settings |
+| **FC-30B-SFT** | Qwen3-Coder-30BA3B | SFT only | scaling reference |
+
+The 4B models are the deployment targets because exploration must be cheap enough to run routinely; **4B-RL is the headline result** — task-grounded RL makes a compact explorer competitive without an expensive 30B RL run.
+
+## Training stack
+
+- **SFT data:** 2,954 filtered traces from **Sonnet 4.6** ([Anthropic](/articles/anthropic)) as the reference model, split into `parallel_toolcalls` / `multiturn_traj` / `linerange` sources. Trained on the Slime/Megatron stack, 3 epochs, assistant-token-only loss, 128K context.
+- **RL:** GRPO over 400 prompts / 395 repos, reward = patch-derived file/line F1 + bounded-parallelism bonus + format penalty; rollouts via SGLang (thinking disabled, up to 8 turns, 16 trajectories/prompt).
+
+## Significance
+
+FastContext is the **open, published counterpart** to the proprietary subagent mechanisms inside [Claude Code](/articles/claude-code), Codex, GitHub Copilot CLI, and Cursor — its stated motivation is that those exploration mechanisms are closed, leaving the research community without an open training/evaluation recipe. Its sharpest argument is that the *architectural separation* of exploration from solving carries much of the benefit even without a trained model (the "same-model exploration" baseline already helps), making exploration a modular, optimizable, separately-evaluable stage of a coding agent.
+
+## Connections
+
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — the concept FastContext instantiates (bottleneck analysis, delegation contract, training recipe, results)
+- [Claude Code](/articles/claude-code) — the proprietary subagent analog FastContext open-sources
+- [Anthropic](/articles/anthropic) — Sonnet 4.6 is the reference model whose traces seed FastContext's SFT corpus
+- [Symphony](/articles/symphony) — a sibling modular agent system (ticket-driven orchestration vs. exploration delegation)
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — FC's train-a-bespoke-small-model-per-role move extends AgentOpt's model-per-role optimization
+
+## Open Questions
+
+- Can the SFT+RL recipe push the explorer below 4B (1.7B / 0.6B) and make exploration effectively free?
+- Does the gain transfer beyond Mini-SWE-Agent to richer harnesses with their own subagent orchestration?
+
+## Sources
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)

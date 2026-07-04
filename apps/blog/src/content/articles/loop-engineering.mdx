@@ -1,0 +1,129 @@
+---
+date: 2026-06-17
+title: Loop Engineering
+description: "Replacing yourself as the agent's prompter by designing the system
+  that prompts it: a recursive-goal loop built from five product-native
+  primitives (automations, worktrees, skills, connectors, sub-agents) plus
+  external memory; tool-agnostic across Codex and Claude Code; the leverage
+  point moves from prompt-crafting to loop-design"
+tag: Concept
+domain: ai-engineering
+tags:
+  - agent-engineering
+  - harness
+  - automation
+  - ai-coding-workflow
+readingTime: 12
+imageAlt: Illustration for Loop Engineering
+sources:
+  - title: Loop Engineering
+    url: https://addyosmani.com/blog/loop-engineering/
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/loop-engineering.png";
+
+## Sources
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Loop Engineering](https://addyosmani.com/blog/loop-engineering/)
+
+## Summary
+
+**Loop engineering is replacing yourself as the person who prompts the agent — you design the system that does it instead.** [Karpathy](/articles/andrej-karpathy)-era agentic coding was a human holding the tool one turn at a time: type, read, type again. Loop engineering inverts that: you build a small system that finds the work, hands it out, checks it, records what's done, and decides the next thing — then let *that* system poke the agents. [Addy Osmani](/articles/addy-osmani)'s June 2026 essay gave the practice its name and an anatomy: **five primitives plus one place to remember.** Its sharpest, most surprising claim is that this is "not really a tool thing anymore" — a year ago a loop was a private pile of bash you maintained forever; now the pieces ship inside the products, and the *same* loop works in the Codex app or in [Claude Code](/articles/claude-code) because the primitives are the same primitives.
+
+## The thesis: stop prompting, design the loop
+
+The essay is built on two quotes the field converged on independently:
+
+- **Peter Steinberger** ([Peter Steinberger](/articles/peter-steinberger)): "You shouldn't be prompting coding agents anymore. You should be designing loops that prompt your agents."
+- **[Boris Cherny](/articles/boris-cherny)** (head of Claude Code): "I don't prompt Claude anymore. I have loops running that prompt Claude and figuring out what to do. My job is to write loops."
+
+A loop, in this framing, is a **recursive goal**: you define a purpose and the agent iterates until it's complete. At the center of every loop is the same four-step cycle — *act, observe, reason, repeat* — the agent does something, reads what came back, decides what that means against the goal, and decides whether to go again.
+
+Loop engineering sits **one floor above the harness** ([Agent Harness Engineering](/articles/agent-harness-engineering)): a harness is the environment a single agent runs inside; a loop is that harness on a timer, spawning helpers, and feeding itself. Osmani is openly skeptical — "it's still early" — and stresses the cost caveat: token usage varies wildly depending on whether you're "token rich or poor."
+
+## The five primitives, plus memory
+
+A loop needs five things and then one place to remember stuff. Each maps onto a primitive both the Codex app and Claude Code now ship:
+
+1. **Automations** — scheduled discovery + triage that run by themselves. The heartbeat that makes a loop a *loop* and not a one-off run. → [Agent Loop Pattern](/articles/agent-loop-pattern)
+2. **Worktrees** — isolated parallel checkouts so two agents don't collide on the same file (the agentic version of two engineers committing to the same lines). → [Agent Harness Engineering](/articles/agent-harness-engineering)
+3. **Skills** — `SKILL.md` files that codify the project knowledge the agent would otherwise guess; the format is the same in both tools, and the matching *description* is what triggers implicit invocation. → [Agent Context Files](/articles/agent-context-files)
+4. **Plugins / connectors** — MCP-based integration that lets the loop touch your real tools (issue tracker, database, staging API, Slack) instead of only the filesystem. → [MCP and Computer Use](/articles/mcp-and-computer-use)
+5. **Sub-agents** — one agent has the idea, a *different* one checks it; the maker is too generous grading its own homework. → [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)
+
+Then the sixth thing, **memory**: a markdown file, a Linear board — anything that lives *outside* the single conversation and holds what's done and what's next. "The agent forgets, the repo doesn't." This is the same on-disk-not-in-context trick every long-running agent depends on (see [Agent Harness Engineering](/articles/agent-harness-engineering)'s repository-as-system-of-record and [Agent Context Files](/articles/agent-context-files)'s state-vs-policy distinction; [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) is the Linear-board form).
+
+## Tool-agnostic: Codex app ≈ Claude Code
+
+The essay's central structural observation is that **both products now have all five primitives**, with different names for the same capability:
+
+| Primitive | Job in the loop | Codex app | Claude Code |
+|---|---|---|---|
+| Automations | discovery + triage on a schedule | Automations tab → Triage inbox; `/goal` for run-until-done | scheduled tasks / cron, `/loop`, `/goal`, hooks, GitHub Actions |
+| Worktrees | isolate parallel features | worktree per thread | `git worktree`, `--worktree`, `isolation: worktree` on a subagent |
+| Skills | codify project knowledge | Agent Skills (`SKILL.md`), `$name` or implicit | Agent Skills (`SKILL.md`) |
+| Connectors | connect your tools | Connectors (MCP) + plugins | MCP servers + plugins |
+| Sub-agents | ideate + verify | TOML agents in `.codex/agents/` | subagents in `.claude/agents/`, agent teams |
+| State | track what's done | markdown or Linear connector | markdown (`AGENTS.md`, progress files) or Linear MCP |
+
+The conclusion: "once you notice the shape is the same you stop arguing about which tool — you just design a loop that works no matter which one you're sitting in." This is the deployment-side evidence for [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve): capability that used to live in a hand-maintained bash harness is being **absorbed into the products as named primitives**. One clean detail Osmani flags: a skill is the *authoring* format, a **plugin is how you ship it** — bundle skills + connectors as a plugin to share across repos.
+
+Two weeks after Osmani's essay, Google supplied the strongest confirmation yet that the loop is tool-agnostic: its [Agent Quality Flywheel](/articles/agent-quality-flywheel) ships an entire eval-fix loop (synthesize scenarios → grade → analyze → propose fix → compare baselines) as an installable **skill driven by whatever coding agent you already use** — a vendor packaging a pre-designed loop for other vendors' agents to run, with the maker/checker split built in as [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling).
+
+## `/goal`: the maker–checker split applied to "done"
+
+The in-session primitive closest to the whole idea: `/loop` re-runs on a cadence, but **`/goal` keeps going until a condition you wrote is actually true** — and after every turn a *separate small model* checks whether you're done, so the agent that wrote the code isn't the one grading it. You give it "all tests in test/auth pass and lint is clean" and walk away. Codex ships the same `/goal` (verifiable stop condition, pause/resume/clear). This is the [maker/checker separation](/articles/verification-as-the-new-bottleneck) applied to the *stop condition itself* — the reason you can trust the loop to halt unattended.
+
+## What one loop looks like
+
+Osmani's worked shape: an automation runs every morning, calling a triage skill that reads yesterday's CI failures, open issues, and recent commits, and writes findings to a markdown file or Linear board. For each finding worth doing, the thread opens an isolated worktree, sends a sub-agent to draft the fix, and a *second* sub-agent reviews that draft against the project skills and existing tests. Connectors open the PR and update the ticket; anything the loop can't handle lands in a triage inbox for the human. The **state file is the spine** — it remembers what was tried, what passed, what's still open, so tomorrow's run resumes where today stopped. "You designed it one time. You did not prompt any of those steps."
+
+## What the loop still doesn't do for you
+
+The loop changes the work; it doesn't delete the human from it. Three problems get *sharper* as the loop gets better, not easier — Osmani names each (these are his blog-series terms; the wiki's homes for the underlying ideas are linked):
+
+- **Verification is still yours.** "A loop running unattended is also a loop making mistakes unattended." Even with a verifier sub-agent, "done" is a claim, not a proof — "your job is to ship code you confirmed works." → [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)
+- **Comprehension rots if you let it.** The faster the loop ships code you didn't write, the bigger the gap between what exists and what you understand — what Osmani calls *comprehension debt*, the cognitive sibling of [Agentic Technical Debt](/articles/agentic-technical-debt). The antidote is the non-delegable bottleneck of [understanding](/articles/outsource-thinking-not-understanding): read what the loop made.
+- **The comfortable posture is the dangerous one.** When the loop runs itself, it's tempting to stop having an opinion and take whatever it returns — *cognitive surrender*. "Designing the loop is the cure when you do it with judgement and the accelerant when you do it to avoid thinking — same action, opposite result." This is ["stay in the loop, treat them as tools"](/articles/jagged-intelligence) restated for the unattended case.
+
+A fourth thread runs through the skills primitive: without skills the loop **re-derives your whole project from zero every cycle** — Osmani's *intent debt*. A skill is intent "written down on the outside" so it compounds instead of being re-guessed (see [Agentic Technical Debt](/articles/agentic-technical-debt), [Agent Context Files](/articles/agent-context-files)). And the human review ceiling is real: worktrees remove the *mechanical* collision, but "your review bandwidth decides how many you can actually run, not the tool" — the [oversight-fatigue](/articles/ai-brain-fry) / [span-of-control](/articles/human-ai-accountability-redesign) limit on unattended fan-out.
+
+## The leverage point moved
+
+Two people can build the identical loop and get opposite results — one moves faster on work they understand deeply, the other avoids understanding the work at all; "the loop doesn't know the difference, you do." Cherny's point isn't that the work got *easier* — it's that the **leverage point moved** from prompt-crafting to loop-design, which is *harder* than prompt engineering, not easier. Osmani's closing balance: set up your loops, but don't forget direct prompting is still effective — "build it like someone who intends to stay the engineer, not just the person who presses go."
+
+## Connections
+
+- [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — Ambrosino's "loops are so last week" marks the frontier moving past orchestrated loops toward autonomous, supervised-vs-unsupervised development
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — the loop *primitive* (`/loop`, routines, Ralph Wiggum) that loop-engineering is the system-design discipline *above*; automations are this primitive on a schedule
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — Osmani: "loop engineering sits one floor above the harness"; the harness on a timer that spawns helpers and feeds itself; supplies the worktree-isolation and external-memory primitives
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the deployment-side evidence: bash-pile loops are being absorbed into products as named primitives; the harness shrinks as the pieces ship inside the tools
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the maker/checker sub-agent split and `/goal`'s fresh-model stop-check; "ship code you confirmed works"; review bandwidth as the unattended-fan-out ceiling
+- [Agent Context Files](/articles/agent-context-files) — skills as intent "written down outside"; the skill-is-authoring-format / plugin-is-distribution distinction; state files as memory
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — connectors/plugins (MCP) as the primitive that lets the loop act inside your real tools, not just the filesystem
+- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — comprehension debt and cognitive surrender are this thesis stressed by loop speed; understanding stays non-delegable
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — intent debt (loop re-derives the project each cycle) is the same compounding-drift failure; skills are the persistent-context antidote
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — "stay in the loop" is the cure for cognitive surrender
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Linear-board-as-state is the durable work-graph form of the memory primitive
+- [AI Brain Fry](/articles/ai-brain-fry) / [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — the human-oversight limit on unattended loops; span-of-control redesign is the missing partner
+- [Boris Cherny](/articles/boris-cherny) — "my job is to write loops"; primary practitioner
+- [Peter Steinberger](/articles/peter-steinberger) — originated the "design loops that prompt your agents" framing the essay is built on
+- [Claude Code](/articles/claude-code) / [Symphony](/articles/symphony) — the tool surfaces that now ship all five primitives (Claude Code and the Codex-side orchestration stack)
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — the empirical, adoption-curve counterpart to the skills primitive: OpenAI's Codex study measures ad-hoc→reusable-routine systematization at scale (skill use 5.4%→26.6%, 96.2% at OpenAI)
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — the measured fan-out the loop produces: "your review bandwidth decides how many you can run" is the ceiling on the 5+-concurrent-agent workflow OpenAI's data documents
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — a vendor-packaged loop: Google ships the eval-fix cycle as a skill any coding agent drives; loop-design sold as product rather than hand-built
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the maker/checker split and `/goal`'s separate stop-checker, stated as an architectural invariant of improvement loops
+
+## Open questions
+
+- Osmani's cost caveat is unquantified: at what token budget does a continuously-running loop stop paying for itself, and how do you instrument that? (Cf. [Agent Loop Pattern](/articles/agent-loop-pattern)'s "who owns the budget when the model schedules its own loops.")
+- If `/goal`'s stop-check is itself a model, what verifies the verifier? The maker/checker split pushes the trust problem up a level, not away.
+- Does loop-engineering converge on a single dominant shape (morning-triage → worktree → maker/checker → PR), or proliferate into many idiom-specific loops? The essay describes one shape "I keep using" but claims the primitives are general.
+
+## Sources
+
+- [Loop Engineering](https://addyosmani.com/blog/loop-engineering/) — Addy Osmani, "Loop Engineering" (addyosmani.com, June 2026; surfaced via X)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — the eval-fix loop packaged as a coding-agent-driven skill (`vendor-claim`)

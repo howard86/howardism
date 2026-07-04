@@ -1,0 +1,91 @@
+---
+date: 2026-06-15
+title: Production-Sourced Evaluation
+description: Building benchmarks from de-identified real production usage rather
+  than synthetic or hand-authored tasks; DRACO's central method —
+  difficulty-proxied sampling, PII-stripping, augmentation, automatable refresh
+  with a human QA gate; representativeness vs. over-specification tradeoff;
+  production traffic as a proprietary eval asset
+tag: Concept
+domain: llm-architecture
+tags:
+  - evaluation
+  - benchmarks
+  - data-provenance
+  - privacy
+readingTime: 7
+imageAlt: Illustration for Production-Sourced Evaluation
+sources:
+  - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
+      Completeness, and Objectivity"
+    url: https://arxiv.org/abs/2602.11685
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/production-sourced-evaluation.png";
+
+## Sources
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+
+## Summary
+
+**Production-sourced evaluation** builds a benchmark from **real, de-identified usage** of a deployed system rather than from synthetic generation or hand-authored prompts. The argument: a benchmark's whole value is predicting real-world performance, and the most representative tasks are the ones users actually issued. [DRACO](/articles/draco-benchmark) (Perplexity, 2026) is the worked example — its 100 [deep-research](/articles/deep-research-agents) tasks are distilled from tens of millions of real Perplexity Deep Research queries — and the method is the paper's central contribution, distinct from the rubric design or the grading protocol.
+
+## The method (DRACO)
+
+1. **Difficulty-proxied sampling.** Start from production traffic, biased toward *hard* cases: DRACO sampled 1,000 queries that drew subsequent negative sentiment or an explicit thumbs-down — i.e., the queries the deployed system handled *worst*. This mines failures the system already exhibits, which synthetic generation can't target.
+2. **Privacy-preserving reformulation.** An automated LLM pipeline strips PII and reduces ambiguity. Critically, **no raw user query is ever exposed to a human analyst** — anonymization is a precondition, enforced architecturally, not a cleanup step.
+3. **Augmentation toward difficulty + specification.** Real queries are often under-specified; augmentation adds context (persona, output format, sources) and broadens scope (temporal, comparative, geographic) so tasks become well-defined and challenging while still reflecting implicit user intent.
+4. **Filtering for objective / tractable / difficult.** Keep only tasks with convergent expert success criteria, bounded scope, and genuine difficulty.
+5. **Human gate.** A final in-house expert review for security and quality. The pipeline is **automatable end-to-end but deliberately keeps a human as the last safety/quality gate.**
+
+The payoff DRACO claims: a benchmark that is *representative* (mirrors the real domain mix and real failure modes) and *refreshable* (because both research needs and usage evolve, the pipeline can regenerate fresh tasks rather than ossifying).
+
+## The core tradeoff: representativeness vs. over-specification
+
+Production-sourcing buys representativeness but the augmentation step that makes raw queries evaluable also threatens it. The paper is candid: systematic augmentation "reduces ambiguity and improves reproducibility, but it also risks **over-specifying tasks and dampening the natural variability** of user queries." The de-identification + augmentation pipeline turns a messy, personal, ambiguous query into a clean, bounded, comparable task — and some of what's stripped (ambiguity, personal context, the actual phrasing) is *also* part of what makes real usage real. Production-sourced is more representative than synthetic, but it is not raw production.
+
+## Why production traffic is a moat-grade eval asset
+
+The method only works if you *have* a large-scale deployed system generating the traffic — which is exactly the proprietary-data position described in [Compounding Data Moat](/articles/compounding-data-moat). Real usage at scale is "time-locked, context-specific, and impossible for a copycat to recreate"; here that same asset doubles as an **evaluation** substrate. A vendor with production traffic can build representative, difficulty-targeted, continuously-refreshed benchmarks that a competitor without deployment simply cannot — and can do so on tasks where its own product currently *fails* (the thumbs-down sampling). This is the data flywheel pointed at measurement: usage → failure signal → benchmark → product improvement.
+
+The flip side is a credibility question (see [DRACO Benchmark](/articles/draco-benchmark)): a benchmark sourced from one vendor's traffic, on which that vendor's product wins, carries an obvious incentive — the human gate and the expert rubrics are partly there to answer it.
+
+## The product-loop form: Google's flywheel
+
+Google's [Agent Quality Flywheel](/articles/agent-quality-flywheel) operationalizes the same principle as a *continuous product loop* rather than a benchmark. Agents emit OTel traces; each production session "is a genuine request… and each failure is a ready-made test case for the next cycle." Complete traces skip inference and are graded in place; Online Monitors score live traffic continuously, and drifting scores hand failing traces to the eval-fix loop. Google states the ordering explicitly: synthetic scenarios (its User Simulator) are a **cold-start bootstrap** — "synthetic scenarios get you moving; production data is what makes the loop sharp." That makes three independent arrivals at production-as-eval-substrate: DRACO (capability benchmark), [Deployment Simulation](/articles/deployment-simulation) (safety forecasting), and the flywheel (continuous quality monitoring) — the method crossing from benchmark construction into day-to-day product tooling.
+
+## Contrast with the alternatives
+
+- **Synthetic generation** (DeepResearchEval, ReportBench, DeepScholar-Bench, DRBench) — scalable, no privacy exposure, but tasks are model-imagined and may miss real failure modes.
+- **Hand-authored from interviews/searches** (xBench, ResearcherBench, DEER) — human-authored and realistic, but bounded by author imagination and not drawn from a live production system.
+- **Production-sourced** (DRACO) — the only one of the three that mines the actual distribution and the actual failures, at the cost of needing deployment access and a privacy pipeline.
+
+## Connections
+
+- [DRACO Benchmark](/articles/draco-benchmark) — the worked example; this method is its central contribution
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the grading half of the pipeline; production-sourced tasks + rubric-judge grading make an automatable (human-gated) eval
+- [Deep Research Agents](/articles/deep-research-agents) — the system class whose production traffic DRACO mines
+- [Compounding Data Moat](/articles/compounding-data-moat) — production usage as a time-locked proprietary asset; this is that asset repurposed as an evaluation substrate
+- [Evals as Product Spec](/articles/evals-as-product-spec) — "build your measurement framework before launch / from real usage"; production-sourced evaluation is that principle at benchmark scale
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — sibling concern: benchmarks saturate, so the ability to *refresh* from live usage is what keeps an eval alive
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — the alignment-side analog notes its synthetic scenarios "may not match real-traffic distributions" — exactly the gap production-sourcing closes
+- [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement) — [Faros AI](/articles/faros-ai)'s telemetry-over-survey stance is the engineering-metrics sibling: measure from the real system, not from self-report
+- [Deployment Simulation](/articles/deployment-simulation) — the alignment-side application of the same method: OpenAI replays de-identified production conversations to forecast *safety* behavior pre-release, where DRACO replays them to build a *capability* benchmark; same PII pipeline, same proprietary-traffic moat
+- [Conversation-to-Delegation Shift](/articles/conversation-to-delegation-shift) — its measurement-obsolescence argument is the same instinct one step further: as usage becomes delegation, even *which metrics* to read (complexity, runtime, concurrency, output) must be re-sourced from real agentic behavior, not interaction counts
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the continuous product-loop form: OTel production traces graded in place, Online Monitors on live traffic, synthetic simulation demoted to cold-start bootstrap
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the failure class production-scale traces could quantify: silent contract violations that demo-sized evals only sample
+
+## Open questions
+
+- How much does augmentation distort the distribution it claims to represent? Is there a measurable representativeness loss between raw queries and augmented tasks?
+- Difficulty-by-thumbs-down biases toward current failures — does that make the benchmark a moving target that flatters the next model trained on those failures?
+- Can the privacy pipeline (no human sees raw queries) be trusted/audited well enough for regulated domains (medicine, law) where the source traffic is most sensitive?
+
+## Sources
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §3 (task construction: sampling, pre-processing, augmentation, filtering, curation), §6.1 (generalization limits; augmentation over-specification caveat)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — "From the inner loop to the production loop": OTel traces as eval input, Online Monitors, synthetic-as-bootstrap (`vendor-claim`)
