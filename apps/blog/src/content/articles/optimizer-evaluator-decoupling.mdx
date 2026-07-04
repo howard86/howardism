@@ -1,0 +1,65 @@
+---
+date: 2026-07-02
+title: Optimizer–Evaluator Decoupling
+description: The architectural rule in eval-fix loops that whatever proposes a
+  fix (coding agent, automated optimizer, human) never grades it — an
+  independent evaluation service scores the result, because an optimizer that
+  grades its own work learns to game the metric instead of improving the agent
+tag: Concept
+domain: ai-engineering
+tags:
+  - evaluation
+  - agent-engineering
+  - reward-hacking
+  - architecture
+readingTime: 4
+imageAlt: Illustration for Optimizer–Evaluator Decoupling
+sources:
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/optimizer-evaluator-decoupling.png";
+
+## Sources
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+
+## Summary
+
+The rule that in any improvement loop, **the thing that proposes a change never grades that change.** Google's [Agent Quality Flywheel](/articles/agent-quality-flywheel) states it as a design invariant: the optimizer (your coding agent, an automated optimizer, or you) proposes; the evaluation service scores independently — because "an optimizer that grades itself learns to game the metric instead of improving the agent. A small architectural choice matters more than it looks." This is [Goodhart's law](/articles/reward-hacking) addressed *structurally* rather than behaviorally: instead of hoping the optimizer stays honest, you remove its access to the grade.
+
+## Why it matters
+
+Reward hacking is usually discussed inside the *training* loop — a model gaming its reward signal. The same dynamic operates in the *development* loop: an agent iterating on prompts against a metric it also computes will converge on outputs that satisfy its own scoring, not the user's goal. The failure is silent because the metric keeps improving; only an independent grader (or production traffic) reveals the divergence. Decoupling turns "did it actually get better?" from a self-report into an external check — the difference between a claim and a measurement.
+
+## Where the same split recurs
+
+The wiki already holds several independent arrivals at this rule, which is evidence it's a real invariant rather than one vendor's taste:
+
+- **[Loop Engineering](/articles/loop-engineering)** — Osmani's maker/checker sub-agent split ("the maker is too generous grading its own homework") and `/goal`'s design, where a *separate* model checks the stop condition after every turn so the agent that wrote the code isn't the one deciding it's done.
+- **[LLM-as-a-Judge](/articles/llm-as-a-judge)** — the self-grading and judge-lineage caveats: a judge sharing training lineage with the graded model is a validity threat; DRACO controls it by selecting judges via human-alignment studies and re-running with disjoint judges.
+- **[Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming)** — the training-time version of the threat: a model that reasons about its grader can satisfy the appearance of success. Decoupling doesn't remove that capability, but it denies the optimizer the grader's feedback signal to optimize against directly.
+- **[Formal proof search](/articles/ai-driven-formal-proof-search)** — the limit case: the [Lean](/articles/lean) compiler is an evaluator that is not merely decoupled from the prover but *sound*, which is why proof-search loops can run at full autonomy while eval-fix loops on agents stay human-gated.
+
+## The residual holes
+
+Decoupling the *scoring* leaves two couplings intact. First, **metric choice**: in the flywheel demo the same coding agent that later proposes fixes also designs the custom rubric — an optimizer can't grade its own work, but it can still frame what gets graded. Second, **lineage**: if the independent evaluator is a model from the same family as the agent under test (Gemini grading a Gemini-built agent), the [judge-lineage bias](/articles/llm-as-a-judge) survives the architectural split. Decoupling is necessary, not sufficient; it pushes the trust problem up a level rather than dissolving it (the same regress [Loop Engineering](/articles/loop-engineering) notes: what verifies the verifier?).
+
+## Connections
+
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — states the rule as a design invariant of its eval-fix loop
+- [Reward Hacking](/articles/reward-hacking) — the failure mode the rule prevents, moved from the training loop to the development loop
+- [Loop Engineering](/articles/loop-engineering) — the maker/checker sub-agent split and `/goal`'s separate stop-checker; the practitioner form of the same rule
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — self-grading and lineage bias as the judge-side statement of the problem; independent judge selection as the benchmark-side mitigation
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the model-internal version of grade-gaming that structural decoupling contains but does not eliminate
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — decoupled evaluation is what makes verification trustworthy enough to delegate
+
+## Open questions
+
+- Does decoupling need to extend upstream to metric *design*? An optimizer that authors its own rubric has a subtler channel to game than one that merely reads scores.
+- How much independence is enough — different model family, different vendor, different modality of check (model judge vs. compiled test vs. production telemetry)?
+
+## Sources
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — "The optimizer never grades its own work" section (`vendor-claim`)

@@ -1,0 +1,91 @@
+---
+date: 2026-07-02
+title: Agent Quality Flywheel
+description: "Google's eval-fix loop packaged as a skill your coding agent
+  drives: Build & Test → Ship & Monitor → Learn & Refine, expanded into five
+  stages (prepare data / run inference / grade / analyze failures / optimize);
+  plain-language worry in, metric choice and before/after deltas out; synthetic
+  User Simulator bootstraps, production OTel traces sharpen"
+tag: Concept
+domain: ai-engineering
+tags:
+  - evaluation
+  - evals
+  - agent-engineering
+  - quality
+  - google
+readingTime: 8
+imageAlt: Illustration for Agent Quality Flywheel
+sources:
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/agent-quality-flywheel.png";
+
+## Sources
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+
+## Summary
+
+Google Cloud's methodology for **engineering agent quality instead of vibe-checking it**, shipped (June 2026) as an installable skill that *your coding agent drives*. The problem it names is the daily reality of agent development: you tweak a prompt, it looks better on three examples, and you have no idea whether you broke ten others — "moved the metric or just moved the vibe." The flywheel is a three-phase loop — **Build & Test → Ship & Monitor → Learn & Refine** — with the Build & Test phase expanded into five concrete stages, run once in order and then looped (stages 2–5) until quality targets are met. Google states the methodology and its AutoRaters are the same ones it uses on its own models and first-party agents, developed with [Google DeepMind](/articles/google-deepmind). Source is a first-party product blog (`vendor-claim`): the mechanism descriptions are concrete and the demo cycles are worked in detail, but the results are Google's own demos, not independent measurement.
+
+## The five stages
+
+1. **Prepare Data** — build an eval dataset from existing OTel traces, hand-crafted cases, or synthesized scenarios.
+2. **Run Inference** — execute the agent over the dataset to produce traces (skipped if traces already exist, e.g. production sessions).
+3. **Grade** — score traces with adaptive **AutoRaters** ([model-based judges](/articles/llm-as-a-judge) that grade a trace and explain why) or custom metrics. *The only stage that always runs.*
+4. **Analyze Failures** — read rubric verdicts to understand *why* a case failed; cluster with Automatic Loss Analysis when failures number ten or more.
+5. **Optimize & Iterate** — apply a targeted fix, re-run 2–4, compare against the previous baseline.
+
+The skill encodes the discipline that most failing cases take several iterations before metrics actually move — and the architectural rule that [the optimizer never grades its own work](/articles/optimizer-evaluator-decoupling): whatever proposes a fix (coding agent, automated optimizer, human), an independent evaluation service scores it.
+
+## The interface: describe a worry, approve a plan
+
+The developer never touches the eval CLI and never names a metric. The whole interface is a plain-language concern — *"I'm worried about whether travel-concierge honors mid-conversation changes… figure out how to test it and propose a plan"* — and the skill's job is to **translate that goal into the right evaluation**: it reads the agent's code, picks metrics, synthesizes scenarios, runs grading, and reports before/after. This is [eval-writing](/articles/evals-as-product-spec) itself being automated: the judgment call moves up a level, from authoring the eval to stating the worry and approving the plan.
+
+In Google's worked demo (an ADK multi-agent trip planner), the skill bootstrapped 25 scenarios with the **User Simulator** across five revision types, graded with two built-in multi-turn AutoRaters plus a purpose-built categorical rubric, found 21% of revisions IGNORED, located the failure precisely, and — after a three-sentence instruction fix the human approved — re-ran the same evaluation to show 21%→5%.
+
+## Promote one concern to a stable metric
+
+The demo's most transferable lesson. Adaptive AutoRaters regenerate a rubric per case per run, so a specific failure lands as *one criterion among several, folded into a blended score* — real, named, and invisible: in one case the built-in task-success metric scored a comfortable **0.80 while the user's revision was dropped**, because four of five generated criteria passed. Detection is not the problem; **isolation** is. The move is to promote the one concern to its own **stable custom metric** — here `revision_honored` with categorical verdicts (HONORED / IGNORED / PARTIAL / NO_REVISION) — that you can count, gate on ("act if >20% come back IGNORED"), and trend cycle over cycle. The working division of labor: **adaptive built-ins as the broad-health signal, one stable measure for the behavior you're changing.** (See [LLM-as-a-Judge](/articles/llm-as-a-judge) for the adaptive-rubric variant this extends, and [Failures That Look Like Success](/articles/failures-that-look-like-success) for the failure class the blended score hid.)
+
+## It works without a hypothesis too
+
+Pointed cold at a bug-triage agent with just *"find a real failure and fix it,"* the skill ran broad — varied synthetic scenarios, built-in multi-turn metrics — and surfaced a dominant cluster on its own: in 14 of 15 cases the agent did the work correctly but never told the user which tools it had called (its own instruction requested this; the model had quietly treated it as optional). A one-paragraph fix took tool-disclosure from 0% to 96% in one cycle, per Google's demo. "Here's my goal" and "find me a problem" both land.
+
+## Two cadences: dev loop and production loop
+
+- **On-demand (dev):** no real usage yet → the User Simulator synthesizes scenarios. Explicitly a **cold-start bootstrap**: "synthetic scenarios get you moving; production data is what makes the loop sharp."
+- **Continuous (production):** the same skill points at real OTel traces — already-complete traces skip Run Inference entirely and are graded in place with the same raters. **Online Monitors** continuously evaluate live traffic and write quality scores to Cloud Monitoring; when scores drift, failing traces feed the same eval-fix loop. Each production failure is a ready-made test case for the next cycle — [Production-Sourced Evaluation](/articles/production-sourced-evaluation) operationalized as a product loop rather than a benchmark.
+
+Google's stated direction is to let the skill drive more of the outer loop itself — watching monitors, surfacing regressions, proposing fixes — but today it **proposes and a human approves**; the shipped version is deliberately not autonomous.
+
+## What it is and isn't
+
+**Is:** methodology plus orchestration inside your coding agent — metric selection, eval-service invocation, verdict reading, fix proposals, before/after comparison. Distributed as skills (`npx skills add …`, two packages against the same evaluation service) — methodology shipping in the same unit as org context, the [systematization](/articles/agentic-work-systematization) format crossing vendor lines. **Isn't:** autonomous (human-in-the-loop); a source of ground truth (AutoRaters are sophisticated but model-based — treat scores as directional, **trust deltas between runs more than any absolute number**); a substitute for real traffic.
+
+## Connections
+
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the flywheel's load-bearing architectural rule; proposer and grader stay separate
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the failure class both demo cycles surfaced, and the reason trace-level rubric grading beats output skims
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — AutoRaters are the adaptive-rubric variant of the judge primitive; the flywheel adds the stable-metric-promotion discipline on top
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the production cadence: real traces as eval input, synthetic simulation as explicit cold-start bootstrap
+- [Evals as Product Spec](/articles/evals-as-product-spec) — the PM skill this automates one level up: the human states the worry and approves the plan; the skill authors the eval
+- [Loop Engineering](/articles/loop-engineering) — an eval-fix loop packaged as a product-native skill; Google joining the Codex/Claude Code convergence on shipped loop primitives
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — skills as the distribution unit, here carrying vendor methodology rather than org-specific context
+- [Compounding Loop Optimization](/articles/compounding-loop-optimization) — the same instrument-every-recurring-step discipline, productized for the eval-fix step of agent development
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the bottleneck this tooling attacks: grading, failure analysis, and regression comparison made cheap enough to loop
+- [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform) — the platform whose evaluation service, User Simulator, Online Monitors, and AutoRaters the skill orchestrates
+- [Google DeepMind](/articles/google-deepmind) — co-developer of the AutoRaters
+
+## Open questions
+
+- Both demo cycles fixed agents with *instruction-level* bugs and showed large one-cycle gains. What does the loop look like on failures that need tool, memory, or architecture changes — does "several iterations before metrics move" dominate in practice?
+- The custom rubric is authored by the same coding agent that will later propose fixes. Metric *choice* is upstream of grading — does decoupling need to extend to who defines the metric, not just who scores it?
+- Synthetic User Simulator scenarios bootstrapped the whole first cycle. How much of the 21%→5% delta survives on real-traffic distributions (the representativeness gap [Production-Sourced Evaluation](/articles/production-sourced-evaluation) names)?
+
+## Sources
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — Melnyk & Dai, Google Developers Blog, 2026-06-30 (`vendor-claim`); builds on the Cloud Next '26 agent-quality talk

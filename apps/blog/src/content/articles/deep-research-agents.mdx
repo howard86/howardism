@@ -1,0 +1,91 @@
+---
+date: 2026-06-15
+title: Deep Research Agents
+description: Agentic systems that decompose a complex query, iteratively search
+  diverse sources, and synthesize a structured, cited report — distinct from
+  single-shot QA; DRACO shows orchestration (Perplexity) beats the bare base
+  model with tools, and factual accuracy is the weak axis
+tag: Concept
+domain: ai-engineering
+tags:
+  - agent-engineering
+  - deep-research
+  - retrieval
+  - orchestration
+readingTime: 7
+imageAlt: Illustration for Deep Research Agents
+sources:
+  - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
+      Completeness, and Objectivity"
+    url: https://arxiv.org/abs/2602.11685
+---
+export { default as heroImage } from "../assets/deep-research-agents.png";
+
+## Sources
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+
+## Summary
+
+A **deep research agent** is an agentic AI system that takes a complex, open-ended query and: (1) **decomposes** it into constituent sub-workflows, (2) **iteratively searches** diverse external sources, and (3) **synthesizes** the gathered evidence into a structured, **cited** report. Unlike single-shot question answering, it interleaves multi-step planning and reasoning with autonomous retrieval and evaluation — verifying claims, resolving conflicting evidence, and identifying gaps in the literature. The output is an analysis whose breadth and depth would otherwise require extensive human-expert effort to produce. This is the system class that [DRACO](/articles/draco-benchmark) (Perplexity, Feb 2026) was built to evaluate, and the four production systems it benchmarks — Perplexity Deep Research, OpenAI Deep Research, Gemini Deep Research, and Claude Opus with web-search + code-execution tools — are the canonical instances.
+
+## The pattern vs. single-shot QA
+
+| | Single-shot QA | Deep research agent |
+|---|---|---|
+| Planning | none / implicit | explicit query decomposition into sub-workflows |
+| Retrieval | one pass (or none) | iterative, multi-source, autonomous |
+| Reasoning | within one generation | multi-step; verify, resolve conflicts, find gaps |
+| Output | an answer | a structured, cited report |
+| Effort replaced | a lookup | hours of human-expert research |
+
+Deep research is increasingly load-bearing in knowledge-intensive domains — academic research, medical decision support, legal analysis, financial analysis — where the bar is comprehensive, in-depth, transparent, and *verifiable* reasoning over large, heterogeneous corpora.
+
+## Orchestration beats the bare model (the DRACO finding)
+
+The most consequential result for this wiki: on DRACO, **Perplexity Deep Research (Opus 4.5 / 4.6 base) substantially outperforms bare Claude Opus 4.5 / 4.6 *with* `web_search` and `code_execution` tools** — 70.5% vs 59.8% normalized for the 4.6 pairing. The same base model, wrapped in a purpose-built retrieval-and-synthesis harness, gains ~10 percentage points. The paper's own gloss: this indicates "the importance of **agent orchestration beyond the base model**."
+
+This is a live **counter-datapoint to [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)**. The wiki's recurring thesis is that scaffolding shrinks as models improve and mechanical verification is what stays load-bearing. Deep research is a domain where, as of early 2026, the harness still carries a large, measurable share of system quality — the orchestration layer (query decomposition, iterative retrieval strategy, source selection, synthesis discipline) has *not* dissolved into the base model. Whether it shrinks as models cross the next capability thresholds is the open question; DRACO is the current measurement.
+
+## Verification is the binding constraint
+
+Across every system DRACO grades, the ranking by rubric axis is consistent: **strongest on presentation quality, weakest on factual accuracy and citation quality**. Fluency is solved; *verifiable correctness* is not. This is [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) surfacing inside the research product itself — the hard part is no longer producing a readable report but ensuring every claim in it is true and properly sourced. It is the open-domain mirror of [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search), where a compiler makes verification total; deep research has no such oracle, so accuracy/citation become the frontier.
+
+## Efficiency: more tokens ≠ better
+
+DRACO's token/latency table breaks the intuition that longer, more expensive runs win:
+
+- The top scorer (Perplexity, Opus 4.6) also had the **lowest latency** among deep-research systems (245s), despite the **largest input-token footprint** (~779k tokens/task) — input-heavy retrieval, lean output (~8.8k tokens).
+- OpenAI o3 and Gemini produced the **most output** (24.9k, 22.1k tokens) yet scored mid-pack — verbosity did not buy quality.
+- OpenAI o4-mini was the most token-efficient overall (~53.5k total) but lagged on score (41.9%).
+
+The shape — quality decoupled from output length, input-token spend doing the real work — is the deep-research instance of the cost/quality combo tradeoffs formalized in [Client-Side Agent Optimization](/articles/client-side-agent-optimization) (model-per-role, budget, routing): the lever that matters is orchestration design, not raw token expenditure.
+
+## Where it sits
+
+Deep research is a long-horizon, autonomous, multi-step task — exactly the regime [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) measures — run as a continuous retrieval-and-synthesis [harness](/articles/agent-harness-engineering). It is one of the clearest current cases where a product (the harness + orchestration) is worth substantially more than the model it wraps, which is why a benchmark of *systems* (not models) like [DRACO](/articles/draco-benchmark) is the right instrument, graded by [LLM-as-a-judge](/articles/llm-as-a-judge) against expert rubrics built from [real production usage](/articles/production-sourced-evaluation).
+
+## Connections
+
+- [DRACO Benchmark](/articles/draco-benchmark) — the benchmark built to evaluate this system class; source of the orchestration, verification, and efficiency findings here
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — deep research is a retrieval-and-synthesis harness; the "orchestration beyond the base model" result is direct evidence that this harness layer is load-bearing
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — counter-datapoint: here the harness has *not* shrunk into the model (~10pp gap between orchestrated and bare-model-with-tools)
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — factual accuracy / citation are the weakest axes across all systems; verifiable correctness is the frontier
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — deep research is a long-horizon autonomous task of exactly the kind METR's time-horizon metric measures
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — the token/latency tradeoffs (more output ≠ better; orchestration > raw spend) are the deep-research instance of combo/budget optimization
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — how DRACO grades deep-research outputs against task-specific rubrics
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — how DRACO's tasks were sourced (from real Perplexity Deep Research traffic) so the benchmark reflects actual use
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the verification-total contrast: a sound verifier eliminates the accuracy gap that deep research can't close
+- [Perplexity](/articles/perplexity) — builder of the leading deep-research system and of DRACO
+- [Anthropic](/articles/anthropic) / [Google DeepMind](/articles/google-deepmind) — makers of evaluated systems (Claude Opus; Gemini Deep Research, and Gemini-3-Pro as judge)
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — structurally parallel inside a coding agent: FastContext decomposes a task into exploration + solving and isolates iterative search behind a compact synthesized return — the same decompose→search→synthesize shape deep research applies to the web
+
+## Open questions
+
+- Does the orchestration advantage shrink as base models cross the next thresholds, or is open-ended retrieval/synthesis a durable harness asset (unlike, say, prompt scaffolding)?
+- DRACO grades single-turn interactions only. How much of real deep-research value is in the multi-turn loop (clarifying questions, follow-ups) that the benchmark doesn't yet measure?
+- Factual accuracy is the weak axis everywhere — is the fix better retrieval, better verification-in-the-loop, or a tool-grounded check the way Lean grounds proof search?
+
+## Sources
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §1 (definition of deep research), §5 (systems evaluated; orchestration-beyond-base-model finding; token/latency table; per-axis results)
