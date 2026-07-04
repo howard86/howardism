@@ -1,3 +1,8 @@
+# [v2.13.0](https://github.com/howard86/howardism/compare/v2.12.1...v2.13.0) (2026-07-04)
+
+## ✨ New Features
+- [`294ff694`](https://github.com/howard86/howardism/commit/294ff694)  feat(blog): import wiki articles and generate hero images
+
 # [v2.12.1](https://github.com/howard86/howardism/compare/v2.12.0...v2.12.1) (2026-06-16)
 
 ## 🐛 Bug Fixes
