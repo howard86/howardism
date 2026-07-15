@@ -1,0 +1,95 @@
+---
+date: 2026-07-09
+title: Gemma 4
+description: "Google DeepMind's July 2026 open-weight multimodal family (Apache
+  2.0): 2.3B–31B dense plus a 26B/4B-active MoE, adding a thinking mode, an
+  encoder-free 12B that discards its audio encoder entirely, and a deep
+  inference-efficiency stack (−37.5% KV cache, QAT to sub-GB, MTP drafters);
+  Arena rank 43, top *dense* open model"
+tag: Entity
+domain: entities
+tags:
+  - entity
+  - llm-model
+  - open-weights
+  - multimodal
+readingTime: 7
+imageAlt: Illustration for Gemma 4
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+---
+export { default as heroImage } from "../assets/gemma-4.png";
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+
+## What it is
+
+[Google DeepMind's](/articles/google-deepmind) fourth-generation **open-weight** model family, released under **Apache 2.0** on 2026-07-02 (arXiv 2607.02770). Natively multimodal (text, image, audio), explicitly targeted at "varied hardware environments" and "edge deployment" rather than at the frontier.
+
+Five models:
+
+| Model | Params | Notes |
+|---|---|---|
+| E2B | 2.3B effective (5B total) | per-layer embeddings, 150M vision + 305M audio encoder |
+| E4B | 4.5B effective (8B total) | per-layer embeddings, same encoders |
+| 12B | 12B dense | **encoder-free** — no vision or audio encoder |
+| 26B-A4B | 26B total / 3.8B active | Mixture-of-Experts, 550M vision encoder |
+| 31B | 31B dense | 550M vision encoder, the flagship |
+
+Decoder-only Transformer, pre-norm + post-norm RMSNorm, QKNorm. 262k-entry SentencePiece vocabulary. Pre-training data cutoff **January 2025** — eighteen months before release. Trained on TPU v5p/v6e (4,096–12,288 chips) with Slice-Granularity Elasticity, which cuts the stall from a localized chip failure "from many minutes to a few seconds."
+
+## What's actually new
+
+Four things, roughly in descending order of how much they matter.
+
+**A thinking mode arrives in open weights.** Gemma 4 emits a reasoning trace before responding, activated by a `<|think|>` control token in a leading system turn. This is the [test-time-compute](/articles/large-scale-test-time-compute) axis reaching a model family anyone can download and run. It is also, notably, a token anyone can flip — see [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility).
+
+**The 12B discards its encoders.** Vision: 48×48×3 RGB patches through a single 35M matmul with 2D coordinate positional embeddings, replacing a 550M ViT. Audio: the 305M USM conformer is **entirely discarded**; raw 16 kHz audio is cut into 40 ms chunks (640-dimensional vectors) and projected straight into the LLM embedding space, with no positional encoding at all since audio is already a temporal sequence. This corroborates [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) from a second lab, for a different reason.
+
+**A deep inference-efficiency stack.** KV cache cut 37.5%, quantization down to sub-gigabyte, a released speculative-decoding drafter head. Detailed in [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the reason this report belongs in the wiki at all.
+
+**It is not competitive at the frontier, and says so.** On Arena Text (June 19, 2026), Gemma 4 31B sits at **rank 43, Elo 1451 ±8** — the leading *dense* open model, 57 Elo behind [Claude Fable 5](/articles/claude-fable-5) at rank 1, and behind six MoE open models 20–50× its size. See [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap).
+
+## Reading the benchmark tables carefully
+
+The report's headline comparison (Table 5) puts **Gemma 4 in thinking mode** against **Gemma 3 27B non-thinking**, and no thinking-vs-non-thinking ablation for the same Gemma 4 model appears anywhere in the paper. Generation delta and inference-budget delta are therefore confounded in the single most-cited table — the exact failure [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) describes. The long-context table (Table 9) *is* run without thinking on both sides and is the one clean generational comparison in the document.
+
+Three checks against the paper's own prose:
+
+- **"E2B roughly matches Gemma 3 27B with 10× fewer parameters"** is jagged rather than flat. E2B wins AIME 2026 (37.5 vs 20.8), Codeforces Elo (633 vs 110), LiveCodeBench v6 (44.0 vs 29.1); it *loses* on both broad-knowledge benchmarks — MMLU Pro (60.0 vs 67.6) and MMMLU (67.4 vs 70.7) — and on τ²-airline (31.0 vs 39.0). Reasoning compresses; stored knowledge does not. See [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence).
+- **"E4B equaling or outperforming Gemma 3 27B on all [vision] evals"** holds except InfographicVQA (70.0 vs 70.6).
+- **The encoder-free 12B degrades out of order with scale when vision tokens are cut.** Dropping from 1120 to 280 vision tokens costs the 12B −29.7 points on InfographicVQA (88.4 → 58.7), a steeper fall than the 31B (−9.2), the 26B-A4B (−11.5), and even the *smaller* E4B (−15.2) and E2B (−19.3). OmniDocBench 1.5 shows the same inversion (12B +0.244 error, worst of the family). The anomaly is confined to dense-text-in-image tasks; MMMU Pro and MATH-Vision degrade normally. The paper does not comment on this. Recorded in [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion).
+
+Capability cliffs are steep at the bottom of the family. Humanity's Last Exam: 31B 19.5, 26B-A4B 8.7, 12B 5.2, and the two small models are not reported. GraphWalks F1: E2B scores **4.1** against Gemma 3 27B's 32.8.
+
+## Safety: the evidence tier drops inside the document
+
+The report carries `evidence: empirical` overall — sixteen tables of measured results. Section 5 contains **zero tables**. Its safety claims are prose: "we saw major improvements in every category of content safety," "Gemma 4 models significantly outperform Gemma 3 and 3n models in improving safety, while keeping unjustified refusals low," "the models produced minimal policy violations." No numbers, no benchmark names, no compute budget.
+
+Treat those as `vendor-claim` even though the capability claims around them are empirical. The gap matters more than usual here because the weights are public and permanent — see [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility).
+
+## Connections
+
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the report's real contribution: five levers that cut the cost of a unit of inference
+- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — Gemma 4 12B is the second independent instance of the design, and the first at open-weight scale
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — where Gemma 4 actually sits against the open MoE giants and the closed frontier
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — a thinking mode plus public weights plus untabulated safety evals
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — Table 5 is the worked example of the confound
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — the "10× fewer parameters" claim is jagged: reasoning compresses, knowledge doesn't
+- [Google DeepMind](/articles/google-deepmind) — the lab; Gemma is its open-weight line, distinct from Gemini
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — thinking mode is this axis reaching open weights
+- [The Bitter Lesson](/articles/the-bitter-lesson) — the report both obeys it (drop the encoders) and defies it (hand-engineer the inference path)
+- [GLM (Z.AI)](/articles/glm) — the other 2026 open-weight family, with the opposite strategy: frontier capability at 750B-A40B where Gemma takes efficiency at 31B
+
+## Open questions
+
+- Why does the **MoE underperform the dense model**? Gemma 4 26B-A4B scores Elo 1438 on Arena against the 31B's 1451, despite MoE being the architecture every larger open model in their own table uses. Not addressed in the paper.
+- The pre-training cutoff is **January 2025** but the model reports 89.2 on **AIME 2026**. The report says data was filtered "to decontaminate benchmarks." What does that leave, for a competition held after the cutoff?
+- Is the encoder-free 12B's dense-text degradation an artifact of the 35M projection doing no feature compression, or of the 12B's training run specifically? A same-size encoder/encoder-free ablation would settle it; the paper runs none.
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — *Gemma 4 Technical Report*, Gemma Team, Google DeepMind (arXiv 2607.02770, 2026-07-02). `empirical` for capability; §5 safety claims are untabulated prose and are treated as `vendor-claim`.

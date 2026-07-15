@@ -12,19 +12,29 @@ tags:
   - prompt-injection
   - threats
   - input-validation
-readingTime: 7
+readingTime: 11
 imageAlt: Illustration for Agentic Prompt Injection
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
+  - title: Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in
+      LLM Agents
+    url: https://arxiv.org/pdf/2606.26479
 ---
 export { default as heroImage } from "../assets/agentic-prompt-injection.png";
 
 ## Sources
 
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## Summary
@@ -63,7 +73,16 @@ The takeaway reinforces this page's thesis: model-level robustness is real but n
 
 Encoding-based filters and pattern blocklists are friction controls: a patient attacker re-encodes the payload. Per the [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test), the durable controls are the ones that change the *structure* (spotlighting delimits, isolation quarantines, classifiers semantically detect) rather than the ones that merely raise the cost of a retry.
 
+## In-band vs. out-of-band: enforce outside the model
+
+The defenses catalogued above (spotlighting, constitutional classifiers, input sanitization) are **in-band** — they operate on or inside the model and the channel under attack. A second generation reframes injection as an **authorization problem, not a content problem** and moves enforcement **outside the model**: a deterministic policy monitor mediates the *action* at the point it takes effect, regardless of what the model was talked into. See [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) for the full treatment (CaMeL, FIDES, Progent, RTBAS, FORGE, read through classical primitives — Biba integrity, reference monitors, least privilege).
+
+**A direct tension the vault must flag.** This page's headline in-band numbers are first-party and mostly **static-benchmark**: Microsoft's spotlighting (50%→&lt;2%) and Anthropic's constitutional classifiers (95%). The first *independent, adaptive-evaluation* source ([Narisetty et al., 2026](https://arxiv.org/pdf/2606.26479)) reports that adaptive, defense-aware attacks (Nasr et al. 2025) drove **twelve published in-band defenses above 90% attack success — spotlighting and sandwiching above 95%** — the near-inverse of their static-benchmark scores. The lesson is not that spotlighting is worthless (it is a real defense-in-depth layer against non-adaptive attacks, and the Opus 4.8 card already warns fixed datasets give a false sense of security), but that the 50%→&lt;2% figure measures resistance to a *known attack set*, not to an *adaptive attacker* — exactly the caveat this page's Opus 4.8 section raises, now shown independently. By contrast, in the same paper a deterministic out-of-band gate (Progent) **held** under a hand-crafted adaptive attack (25.8%→4.2%, 2.6% adaptive) on a weak open-weight agent — suggestive, not conclusive, evidence that the two defense classes differ in kind.
+
 ## Connections
+
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — Opus 4.5 *silently* recognized a fabricated-search-result injection (`fake`, `injection`, `false`, `poison`, and 假 in its workspace) and simply omitted the results from its answer; the defense was invisible until the J-lens read it
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the readout that makes silent injection-recognition observable, and a candidate detector: the model often knows before the harness does
 
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Phase 4 ("defend against prompt injection") and the input-validation control domain (hub)
 - [Least Agency](/articles/least-agency) — the authorization principle that contains a successful injection: even a hijacked agent can only misuse the tools its agency permits
@@ -77,14 +96,19 @@ Encoding-based filters and pattern blocklists are friction controls: a patient a
 - [Claude Opus 4.8](/articles/claude-opus-4-8) — frontier model whose card reports the first live prompt-injection bug bounty and a candid robustness regression vs Opus 4.7
 - [Claude Sonnet 5](/articles/claude-sonnet-5) — improved hijack-resistance is a headline agentic-safety gain over Sonnet 4.6; the direction contrasts with Opus 4.8's reported regression, so robustness moves non-monotonically *across* model lines too, not just within one
 - [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — Fable 5's safety classifiers extend this page's constitutional-classifier line with broader coverage, hardened against universal jailbreaks (no universal jailbreak in 1,000+ bug-bounty hours)
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — response-side prefill is the sibling of input-side injection; in both the model can't reliably flag the adversarial content, and the dependable defense is an independent check (a safety classifier on the output), not the model's own follow-up word
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the defense-architecture counterpart to this threat page: enforce security *outside* the model with a deterministic reference monitor (CaMeL/FIDES/Progent/RTBAS/FORGE); the first independent adaptive-evaluation source on injection defense
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — the identity-layer defense: AIMS forbids the LLM from holding credentials *precisely* so a hijacked model can't be manipulated into disclosing them (a secret the model never had can't be exfiltrated)
 
 ## Open Questions
 
 - Spotlighting and constitutional classifiers each leave a residual (2%, 5%). Stacked, what's the realistic floor, and does it hold against adaptive attackers who know both are deployed? *(Partly answered by the Opus 4.8 live bug bounty: adaptive expert red-teamers still find attacks on the bare model; deployed probes add uplift but don't zero out the residual.)*
 - Why did Opus 4.8 regress on prompt-injection robustness relative to Opus 4.7 despite broad alignment gains — a capability/robustness tradeoff, or an artifact of harder adaptive evaluation?
-- "LLMs cannot reliably distinguish information from instructions" — is this a fundamental property of the architecture or a training gap that future models close? The framework treats it as durable.
+- "LLMs cannot reliably distinguish information from instructions" — is this a fundamental property of the architecture or a training gap that future models close? The framework treats it as durable. **Partially answered:** [Narisetty et al. (2026)](/articles/out-of-band-prompt-injection-defense) argue it is durable and cite Zverev et al. (2025) — current models don't maintain a usable instruction/data separation, and *neither prompting nor fine-tuning reliably induces one*. Their prescription is to stop trying to fix it inside the model and enforce control/data separation *outside* it (deterministic action mediation), which independently held under adaptive attack far better than in-band defenses did. Not settled (open-weight 7B, one attack, no white-box test), but the durable-property reading now has an empirical leg.
 
 ## Sources
 
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part II threat description; Part III input validation tiers; Part IV Phase 4
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §5.2 (prompt injection risk within agentic systems): ART benchmark, live bug bounty, coding/computer-use/browser-use surfaces, deployed probes
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Opus 4.5 silently recognized a fabricated-search-result injection (`fake`, `injection`, `poison` in the workspace) and simply omitted it from its answer
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479) — §2 (injection as authorization not content), §4 (in-band defenses have no adaptive guarantee; Nasr et al. broke 12 at >90%, spotlighting/sandwiching >95%), §11 (Progent adaptive-evaluation reproduction on Qwen2.5-7B); full defense-architecture treatment on [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)

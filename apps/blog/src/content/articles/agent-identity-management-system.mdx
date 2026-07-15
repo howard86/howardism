@@ -1,0 +1,141 @@
+---
+date: 2026-07-15
+title: Agent Identity Management System (AIMS)
+description: "IETF draft-klrc-aiagent-auth's Agent Identity Management System:
+  agents as WIMSE/SPIFFE-identified workloads with short-lived posture-assessed
+  credentials, mTLS / WIMSE-proof-token / HTTP-message-signature authentication,
+  and OAuth token-exchange + transaction-token delegation chains for spawned
+  agents — the LLM never holds credentials; the vault's first multi-vendor,
+  standards-track agent-auth source, but an individual submission with no IETF
+  WG consensus yet"
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - identity
+  - authentication
+  - authorization
+  - standards
+  - delegation
+readingTime: 14
+imageAlt: Illustration for Agent Identity Management System (AIMS)
+sources:
+  - title: AI Agent Authentication and Authorization
+    url: https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/
+---
+export { default as heroImage } from "../assets/agent-identity-management-system.png";
+
+## Sources
+
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/)
+
+## Summary
+
+**AIMS** is the conceptual model at the center of IETF Internet-Draft `draft-klrc-aiagent-auth-03` (Kasselman/Lombardo/Rosomakho/Campbell/Steele/Parecki — Defakto/AWS/Zscaler/Ping/[OpenAI](/articles/openai)/Okta; July 2026). Its thesis: an AI agent is **a workload**, and the identity, authentication, and authorization problems it raises are **not new** — they should be solved by *composing existing, widely-deployed standards* (WIMSE/SPIFFE workload identity, the OAuth 2.0 family, OpenID Shared Signals) rather than inventing agent-specific protocols. AIMS is *"the set of functions required to establish, maintain, and evaluate the identity and permissions of an agent workload"* — a conceptual model, **not a product, protocol, or single architecture**; it may live in one component or be spread across identity providers, provisioning services, authorization servers, policy engines, and runtime enforcement points.
+
+**Evidence caveat (attach everywhere):** this is a *standards-track proposal* — an **individual submission**, Informational, with **no IETF Working Group consensus yet** (it profiles specs from the IETF, CNCF, and OpenID Foundation but is not itself ratified). Treat every MUST/SHOULD as the authors' recommendation, not an adopted standard. Its `evidence:` tier is `practitioner-opinion`.
+
+**Why it matters to this vault:** the agent-security cluster was sourced almost entirely to one vendor ebook ([Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)). AIMS is the **first standards-track, multi-vendor primary source** on agent identity, and it directly targets two long-standing open questions — sub-agent credentialing ([Agent Identity and Authentication](/articles/agent-identity-and-authentication)) and the agent-to-agent trust protocol layer ([Agent-Native Infrastructure](/articles/agent-native-infrastructure)).
+
+## Agents are workloads (the framing move)
+
+An Agent is a workload that iteratively interacts with an LLM and a set of Tools/Services/Resources until a terminating condition is reached (Figure 1 of the draft). Because it is a workload, it *needs an identifier and credentials* so it can be authenticated by the parties it touches — and, if it acts for a user or system, that principal must **delegate authority** to it, with the delegated context preserved into authorization decisions and audit trails. This reframing is what lets the whole problem be solved with workload-identity and delegated-authorization standards instead of new machinery.
+
+Notably, *"a Tool endpoint may itself be implemented by another AI agent"* — so agent-to-agent is just the workload-to-workload case, and the same primitives cover it.
+
+## The layered stack (Figure 2)
+
+AIMS is a logical stack where higher layers depend on guarantees from lower ones, with two cross-cutting columns:
+
+```
+Policy | [ Monitoring, Observability & Remediation ] | Compliance
+ | [ Authorization ] |
+ | [ Authentication ] |
+ | [ Provisioning ] |
+ | [ Credentials ] |
+ | [ Identifier ] |
+```
+
+- **Identifier → Credentials → Provisioning → Authentication → Authorization → Monitoring** is the dependency chain.
+- **Policy** (§12) and **Compliance** (§13) span all layers but are declared **out of scope** — deployment-, regulatory-, and jurisdiction-specific, and explicitly *not* a standardization target. Policy MAY be any versioned, reviewable "policy-as-code" format.
+
+## Identifier: WIMSE, with SPIFFE as the deployed instance
+
+Each agent MUST have **exactly one WIMSE identifier** ([WIMSE-ID]) — a URI uniquely identifying a workload within a trust domain, stable for the identity's lifetime (authorization, delegation, and audit all key off it). It **MAY be a SPIFFE ID** (`spiffe://<trust-domain>/<path>`), which the draft calls the *"widely deployed and operationally mature instance of the WIMSE identifier model."* This is the concrete answer to *"what is a per-agent identity"* — a workload-identity URI, not an ad-hoc label.
+
+## Credentials + provisioning + posture assessment
+
+- **Credentials** cryptographically bind the identifier to the agent. WIMSE defines the **WIT** (Workload Identity Token) and **WIC** (X.509 Workload Identity Certificate); SPIFFE defines **X.509-SVID**, **WIT-SVID**, and **JWT-SVID**. They **SHOULD be short-lived** with an explicit expiry. **Static API keys are named an antipattern** — bearer artifacts, not cryptographically bound, long-lived, hard to rotate.
+- **Hardware-backed key storage** (TPM, enclave, platform security module) is **optional** — *"not required for interoperability."* (This is the sharpest divergence from the ebook — see comparison below.)
+- **Provisioning** is runtime issuance/renewal/rotation in two phases (initial provisioning; automatic rotation before expiry). Short-lived credentials are offered as *an alternative to explicit revocation*: you don't revoke, you just don't renew.
+- **Posture assessment** happens *at each provisioning/rotation event* — the draft (v-02 onward) **folded the old "attestation" section into provisioning and renamed it "posture management."** It evaluates deployment-specific signals (hardware/TEE evidence, software-integrity measurements, supply-chain provenance, orchestration metadata, workload placement, operator assertions) to decide *whether* a credential issues, *which* identifier binds, *what type*, *what attributes*, and *how long it lives*. A single signal may suffice; higher-risk deployments require several. **No particular attestation mechanism is required.**
+- **Credential exchange** for legacy/proprietary environments incompatible with the primary credential: OAuth 2.0 Token Exchange, Transaction Tokens, or Workload Identity Federation mint a targeted secondary credential from the primary one.
+
+### The rule: LLMs never hold credentials
+
+*"The Large Language Model MUST NOT have access to an agent's credentials or to credentials that may be needed to access tools and services."* Rationale, stated verbatim: to prevent the LLM from *using, exposing, or being manipulated via prompt injection into disclosing the credentials.* This is the identity-layer sibling of the [out-of-band](/articles/out-of-band-prompt-injection-defense) reference-monitor doctrine — the secret sits *outside* the manipulable model, and the agent (the workload), not the model, wields it. (Added in `-03` as [issue #127].)
+
+## Authentication: transport vs application layer
+
+Per the WIMSE architecture, auth can happen at either layer, and many deployments use both:
+
+- **Transport-layer** — **mTLS**, both endpoints presenting X.509 credentials; paired with short-lived SPIFFE/WIMSE identity it gives strong channel binding. Well-suited to service meshes (Istio, LinkerD). **Limitation:** intermediaries (proxies, API gateways, service meshes, load balancers, protocol translators) terminate and re-establish TLS, *breaking end-to-end transport identity* — and serverless/multi-tenant-edge/cross-domain topologies obscure transport identity.
+- **Application-layer** — survives intermediaries by binding identity above the transport. Two WIMSE mechanisms:
+ - **WIMSE Proof Tokens (WPTs)** — a signed JWT proving possession of the WIT's private key, **bound to a specific message context** (e.g. an HTTP request), with claims `aud`/`exp`/`jti`/`wth` (hash of the WIT). Proof-of-possession, not bearer. Protocol-agnostic core (can bind Kafka, gRPC, non-HTTP).
+ - **HTTP Message Signatures** ([WIMSE-HTTPSIG] over RFC 9421) — combine the WIT with a signature over request components (method, request-target, content digest, the WIT itself), giving proof-of-possession + message integrity end-to-end.
+ - **Limitation:** no inherent channel binding, so implementations must defend against relay/replay via short lifetimes, audience restriction, nonces, and request binding.
+
+## Authorization: OAuth 2.0 as the delegation spine
+
+- **Agent Mission (§10.1)** — an agent receives a *Mission* (a natural-language task) from a user, system, or another agent; translating the mission into concrete resource/authorization requirements is a **planning step, out of scope** (the draft cites Karl McGuinness's "Mission Shaping Problem"). This is where the wiki's [agent-native](/articles/agent-native-infrastructure) "figure out the details" handshake meets a concrete auth model.
+- **OAuth as delegation** — the agent acts as an OAuth **client**; access tokens carry the agent identity as `client_id` and the delegated principal as `sub`. Flows: **Authorization Code Grant** when a user delegates (with *phishing-resistant* user auth like passkeys, and the agent authenticating to the AS with its Section-7 credentials, **never static client secrets**); **Client Credentials / JWT Authorization Grant** when the agent acts on its own behalf; and agents themselves can be **OAuth protected resources** invoked by a system or another agent.
+- **Transaction Tokens (§10.5)** — the blast-radius control for internal call chains. A broad access token passed between microservices is a theft/replay/lateral-move risk (an attacker who finds it in a log or crash dump can invoke a *different* transaction). Instead, exchange it for a **transaction token**: a downscoped token bound to one specific transaction (enriched with caller context, transaction context, a unique ID) that **cannot be reused** for another transaction or with modified details. Short-lived. A transaction token MAY be exchanged (OAuth Token Exchange) for an access token to call the next service.
+- **Cross-domain chaining (§10.6)** — when resources sit behind different authorization servers, the agent uses **OAuth Identity and Authorization Chaining Across Domains** (or the Identity Assertion JWT Grant / Transaction Token Grant profiles): exchange the current token for a JWT authorization grant, present it to obtain an access token for the target domain. **This is the delegation-chain mechanism for ephemeral spawned agents.**
+- **Human in the loop (§10.7)** — for high-risk actions the AS SHOULD decline or step up via **CIBA** (out-of-band approval on the user's device). Crucially, *local UI confirmation is **not** authorization* — the draft aligns with [MCP](/articles/mcp-and-computer-use)'s user-solicitation pattern but insists the agent MUST NOT treat a local approval as sufficient; it must be bound to a verifiable AS-issued grant. (Noted gap: CIBA only models client-*initiated* flows and doesn't map cleanly to mid-execution confirmation.)
+- **Tool-to-service (§10.8)** — tools use Token Exchange / cross-domain chaining to reach downstream resources. **Anti-pattern:** a tool forwarding the access token it received from the agent (invites theft + lateral attacks) — the same containment logic as transaction tokens.
+- **Discovery (§10.10)** — in dynamic/ephemeral deployments, OAuth Authorization Server Metadata, Protected Resource Metadata, and Client ID Metadata Documents let agents bind to the right issuer/audience/flow at runtime without static config.
+
+## Observability and remediation as a security control (§11)
+
+Monitoring is *"a security control, not solely an operational feature."* Participants MAY subscribe to the **OpenID Shared Signals Framework (SSF)** with **CAEP** or **RISC** to receive signals (session revoked, risk elevated, token replay suspected, subject disabled) and MUST remediate promptly — discard cached tokens, re-acquire with tighter constraints, reduce privileges, re-run policy — and MUST NOT keep using authorization invalidated by a revocation. Deployments MUST keep **tamper-evident audit logs** (authenticated agent ID, delegated subject, resource, action + decision, timestamp/correlation ID, posture/risk state, remediation events) and SHOULD correlate across agents/tools/LLMs to detect replay, **confused-deputy**, privilege escalation, and anomalous sequences. Stable verifiable identifiers everywhere are what make *"which entity did what, using which authorization context, and why access changed"* reconstructable end-to-end.
+
+## Comparison: AIMS vs the Anthropic Zero-Trust ebook
+
+Both target per-agent identity for agentic Zero Trust and **converge** on the core: static API keys are unacceptable, credentials must be short-lived and cryptographically bound, per-agent identity is the keystone, least privilege / minimal scopes, and observability-as-security-control with tamper-evident audit. But they **diverge on primitives and authority**:
+
+| Dimension | [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) (Anthropic ebook, vendor) | **AIMS** (IETF draft, multi-vendor standards) |
+|---|---|---|
+| Identity primitive | Cryptographic IDs → **X.509 certs** → **hardware-backed HSM/TPM identity + remote attestation** (tiered target state) | **WIMSE/SPIFFE URI** as *the* identifier (X.509-SVID *or* JWT/WIT-SVID) |
+| Hardware attestation | The **Advanced-tier target** for internet-reachable production | **Optional; "not required for interoperability"** — one posture signal among many |
+| Attestation model | Remote hardware attestation | **"Posture assessment"** at each issuance/rotation; deployment-specific signals (folds attestation into provisioning) |
+| Authentication | Short-lived OAuth tokens → mTLS → hardware-bound credentials | Same, **plus application-layer** (WPT, HTTP Message Signatures) for when transport identity breaks |
+| Delegation / sub-agents | Sub-agents inherit *"up to the same permissions as the parent"* (left largely open) | **OAuth Token Exchange + Transaction Tokens + cross-domain chaining** — downscoped, transaction-bound, *not* raw inheritance |
+| LLM & credentials | Not stated as a rule | **Explicit MUST NOT** — the LLM never holds credentials |
+| Authority | Single vendor; Claude Code as reference implementation | Six vendors, standards-track — **but an individual submission, no WG consensus** |
+
+The productive tension: the ebook drives toward **hardware attestation as the aspirational endpoint**; AIMS argues you can get the security property from **short-lived, posture-assessed, delegated credentials** without requiring hardware attestation on every ephemeral workload — and adds the delegation-chain machinery (transaction tokens, identity chaining) the ebook lacks. Neither is a ratified standard: the ebook is vendor practitioner-opinion, AIMS is standards-*draft* practitioner-opinion.
+
+## Connections
+
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — the primary sibling; AIMS is the second (standards-track, multi-vendor) source on the same keystone control, and supplies the concrete identifier/credential/delegation primitives the ebook left at the tier-label level
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — the vault's other agent-security framework (hub); AIMS composes existing standards where the ebook prescribes a tiered maturity model — convergences and divergences tabled above
+- [Least Agency](/articles/least-agency) — AIMS enforces least agency through OAuth minimal scopes, audience restriction, and **transaction-token downscoping** (a token bound to one transaction that can't be reused) — the standards-layer instantiation of "restrict what each tool can do"
+- [Blast Radius (Agentic)](/articles/blast-radius) — transaction tokens, the no-token-forwarding anti-pattern, and short-lived non-revoked credentials are all blast-radius containment for the internal microservice call chain (limiting token theft, replay, and lateral movement)
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — AIMS is a candidate answer to that page's open protocol-layer question: the trust/identity/accountability primitives for agent-to-agent negotiation, drawn from IETF/CNCF/OpenID standards (though governance is unsettled)
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — same doctrine at the identity layer: keep the secret and the authorization decision *outside* the manipulable LLM (LLMs-never-hold-credentials; the AS, not local UI, authorizes) — the credential/authorization twin of the deterministic reference monitor
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the LLM-never-holds-credentials rule is explicitly a prompt-injection defense: a hijacked model can't disclose a secret it never had
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — AIMS aligns its human-in-the-loop model with MCP's user-solicitation pattern, and treats MCP tools as the resource surface OAuth authorizes; but insists local approval is not authorization
+- [Hermes Agent](/articles/hermes-agent) — a shipped contrast: Hermes secures multi-user agent access with an ad-hoc **DM-pairing + allowlist** (human-auth) plus container-as-boundary, where AIMS proposes standards-based **workload identity + delegated authorization**; the gap between practice and the proposed standard
+- [OpenAI](/articles/openai) — Nick Steele (OpenAI) is a co-author, alongside Defakto, AWS, Zscaler, Ping Identity, and Okta
+
+## Open Questions
+
+- **No WG consensus.** This is an individual submission profiling other still-in-progress drafts (WIMSE identifier/creds/WPT/HTTP-sig, OAuth transaction-tokens, identity-chaining are *all* Internet-Drafts too). Which of these primitives actually reach RFC, and does the composition survive WG review? "Who governs the agent-auth protocol layer" ([Agent-Native Infrastructure](/articles/agent-native-infrastructure)) is *proposed* (IETF/CNCF/OpenID) but not *settled*.
+- **Mission → authorization is out of scope.** The hardest part — translating a natural-language mission into concrete scopes/resources safely — is explicitly deferred as a "planning step." A manipulated planning step requests over-broad authorization; AIMS gives it clean primitives but no account of securing the translation itself.
+- **Mid-execution human-in-the-loop.** The draft admits CIBA only models client-initiated approval and *"doesn't map well"* to confirmation needed mid-execution — an acknowledged specification gap.
+- **Posture assessment is deployment-specific by design.** By requiring no particular attestation mechanism, AIMS makes interoperability of *trust assurance* (not just protocol) unspecified: two conformant AIMS deployments can assess posture with wholly different, non-comparable signals.
+- **No empirical evaluation.** Unlike [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) (which at least ran one adaptive reproduction), AIMS is a design document with no measured attack-resistance — its security rests on the composed specs' own (mostly non-agentic) threat models.
+
+## Sources
+
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF Internet-Draft `draft-klrc-aiagent-auth-03`, *AI Agent Authentication and Authorization* (Informational, individual submission), 6 July 2026, `practitioner-opinion`. §4 (agents are workloads, Figure 1), §5 (AIMS stack, Figure 2), §6 (WIMSE/SPIFFE identifier), §7 (credentials; static-key antipattern; hardware-backing optional), §8 (provisioning + posture assessment; LLMs-never-hold-credentials rule), §9 (transport mTLS vs application-layer WPT / HTTP Message Signatures), §10 (OAuth delegation, mission, transaction tokens, cross-domain chaining, CIBA human-in-the-loop, tool-to-service, discovery), §11 (SSF/CAEP/RISC monitoring + tamper-evident audit)

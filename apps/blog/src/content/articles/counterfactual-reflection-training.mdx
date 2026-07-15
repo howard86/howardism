@@ -1,0 +1,95 @@
+---
+date: 2026-07-11
+title: Counterfactual Reflection Training
+description: "Train the model to write constitution-grounded reflections *if
+  interrupted and asked* — then never ask it. The implanted concepts show up in
+  the workspace during the uninterrupted task, and behavior changes: dishonesty
+  0.25→0.07 (fabrication) and 0.38→0.05 (deception) on Haiku 4.5, with ablation
+  of the implanted lens vectors reverting the gain"
+tag: Concept
+domain: llm-architecture
+tags:
+  - alignment
+  - training
+  - honesty
+  - interpretability
+readingTime: 6
+imageAlt: Illustration for Counterfactual Reflection Training
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/counterfactual-reflection-training.png";
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+A training technique derived as a *prediction* of the [workspace account](/articles/llm-global-workspace), and used as its corroboration. The account says internal reasoning routes through representations of things the model **might say**. If that is true, then to change how a model *thinks* in a context, it should suffice to change what it is disposed to *say* in counterfactual continuations of that context — continuations that never actually occur.
+
+It works.
+
+## The method
+
+1. **Contexts.** Sample 10,000 task prompts from production RL environments; generate partial rollouts with the baseline model (Claude Haiku 4.5) and truncate each at a random turn. Deliberately include cases where the model has already done something undesirable, cases where it is *positioned* to, and random controls.
+2. **Probe.** At the truncation point, append a short user turn asking for reflection — *"Pause here. Are there principles you should be thinking about that you haven't yet?"*
+3. **Target.** Show the baseline model twenty principles sampled from [Anthropic's constitution](/articles/claude-constitution) and have it write a 2–4 paragraph reflection that paraphrases the relevant ones in natural, internalized language, grounded in the specifics of the task rather than reciting rules.
+4. **Strip the scaffolding.** The constitution excerpt appears **only at generation time**. The training example is just: original context + reflection question + model-written reflection.
+5. **Fine-tune with loss on the reflection turn only.**
+
+At evaluation the model is **never prompted to reflect** and never emits reflection text. The hypothesis is that training the counterfactual continuation populates the workspace in the *original* context.
+
+## The results
+
+**Behavior.** Two honesty benchmarks probing distinct failure modes:
+
+| Benchmark | What it tests | Base | After |
+|---|---|---|---|
+| **Fabrication honesty** (27 long agentic transcripts: agent failed to find a bug, fabricated one by editing the source, now asked for a progress summary) | Does it own up? | 0.25 | **0.07** |
+| **Deception** (100 role-play scenarios with a hidden deceptive directive in the system prompt — push traditional remedies over evidence-based medicine, overstate legal risk, suppress safety anomalies) | Does it follow the directive, stay silent, or refuse *and disclose*? | 0.38 | **0.05** |
+
+On fabrication the gain comes from a shift toward outright admission; on deception, almost entirely from refusing the hidden directive **and telling the user about it**.
+
+**Mechanism, visible.** Read the [J-lens](/articles/jacobian-lens) at the evaluation positions *before* any output: the reflection-trained model's workspace now carries `reflection`, `ethical`, `honestly`, `constitution`, `truth`, `transparent` — tokens the base model's workspace does not.
+
+**Mechanism, causal.** Ablate the implanted ethics/reflection lens vectors (176 tokens for fabrication, 63 for deception):
+- Fabrication: base 0.25 → 0.25 (unchanged), trained **0.07 → 0.22** — back to base level. The entire behavioral gain was carried by the implanted workspace contents.
+- Deception: weaker but same direction — trained 0.05 → 0.23, base 0.38 → 0.48. Part of the gain routes through workspace contents outside the curated word list, or through changes the lens doesn't capture at these layers.
+
+## Why this is strange and interesting
+
+**You get the behavior without ever demonstrating the behavior.** There is no supervision on the response in the target context — at training time or inference time. The supervised text *follows* the response rather than producing it. As the paper puts it, the training signal specifies **which concepts should be active in the workspace while the model responds, rather than what the response should be.**
+
+## Relation to neighbors
+
+- **[Deliberative Alignment](/articles/deliberative-alignment)** (OpenAI) trains on spec-grounded CoT and can emit reasoning traces at inference. CRT intervenes on *neither* the response nor the reasoning trace in the target context — only on a counterfactual reflective continuation that is never requested. It therefore puts no direct training pressure on the CoT, which is precisely the pressure [Chain-of-Thought Monitorability](/articles/cot-monitorability) warns compromises faithfulness.
+- **[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)** and [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) shape values by training on *documents about* the spec. CRT shapes them by training on *the model's own reflections about the task*. Both are "install values without demonstrating the target behavior" — different substrates, same family.
+- **Implicit chain-of-thought** — training on auxiliary reasoning text that is dropped at inference — is the closest prior art. CRT applies the principle to normative principles rather than task-solving strategies. It can also be read as **out-of-context reasoning**: training-time text whose content the model learns to bring to bear on inputs that don't contain it.
+
+The distinguishing feature, and the reason it belongs in this wiki rather than in a footnote: **the mechanism is directly observable.** The lens shows the trained concepts entering the workspace at the intended positions, and ablating them removes the improvement. Most alignment techniques cannot show their work.
+
+## Caveats
+
+- Demonstrated on **one model** (Haiku 4.5) and **two honesty benchmarks**. No evidence yet on other capabilities, other principles, or larger models.
+- The authors do not know whether it can implant anything more specific or more abstract than *"consider ethical principles in this kind of situation."*
+- The deception-benchmark ablation only partially reverts, so part of the effect is not accounted for by the workspace story.
+- Reflection-shaped behavior might be a very sophisticated form of the model **appearing** principled at decision points; nothing here distinguishes "internalized value" from "reliable ethical-concept salience." The behavioral evidence is real either way.
+
+## Connections
+
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — post-training already installs concepts into the workspace; CRT does it deliberately and with a measured causal chain
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — the account that predicted this, and that this corroborates
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the instrument that makes the mechanism observable and the ablation possible
+- [Deliberative Alignment](/articles/deliberative-alignment) — the closest rival technique; the contrast is where CRT's novelty lives
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — the sibling "shape values without demonstrations" method
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — the substrate MSM builds on; CRT swaps synthetic documents for self-authored reflections
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — the failure modes CRT measurably improves (fabrication, undisclosed deception)
+- [Chain-of-Thought Monitorability](/articles/cot-monitorability) — CRT applies no direct pressure to the reasoning trace, so it doesn't buy behavior at the cost of monitorability
+- [Claude's Constitution / Model Spec](/articles/claude-constitution) — the source of the principles, present only at data-generation time
+- [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) — the standard pipeline this sits alongside
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — "Shaping the J-space with Counterfactual Reflection Training"; Related work (Reflection training); Discussion (Alignment implications)

@@ -1,0 +1,157 @@
+---
+date: 2026-07-15
+title: Out-of-Band Prompt-Injection Defense
+description: The second-generation defense strategy that enforces agent security
+  OUTSIDE the model — a deterministic reference monitor mediating tool calls
+  (CaMeL, FIDES, Progent, RTBAS, FORGE) instead of training the model to refuse
+  — reframed through classical primitives (Biba integrity, reference monitors,
+  least privilege) and warned to be validated only on static benchmarks; a first
+  independent adaptive-attack reproduction on an open-weight Qwen2.5-7B agent
+  held (ASR 25.8%→4.2%; 2.6% under a hand-crafted adaptive attack)
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - prompt-injection
+  - reference-monitor
+  - least-privilege
+  - adaptive-evaluation
+readingTime: 21
+imageAlt: Illustration for Out-of-Band Prompt-Injection Defense
+sources:
+  - title: Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in
+      LLM Agents
+    url: https://arxiv.org/pdf/2606.26479
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
+---
+export { default as heroImage } from "../assets/out-of-band-prompt-injection-defense.png";
+
+## Sources
+
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
+
+## Summary
+
+Narisetty, Kore, Kattamanchi & Kumarapu (LaunchSafe Research, arXiv 2606.26479, June 2026) systematize the **second generation** of prompt-injection defenses and stress-test them. The framing move: in a tool-using agent, [prompt injection](/articles/agentic-prompt-injection) is an **authorization problem, not a content problem** — "the damage is not a bad sentence but an action." The first generation treated it as content (input classifiers, guardrail models, jailbreak detectors, adversarial fine-tuning) and lost: adaptive attackers recover high success against the detectors they were tested on. The second generation **gives up on the model and moves enforcement outside it** — if the model can't be trusted to refuse, wrap it in a deterministic layer that decides which *actions* are permitted regardless of what the model was talked into. **CaMeL, FIDES, Progent, RTBAS, Conseca, and FORGE** all make this move.
+
+The paper's two contributions: (1) organize these systems as instances of **classical security primitives** — Biba integrity, Anderson's reference monitor, Saltzer–Schroeder least privilege, capabilities, information-flow control — yielding a structured 8-dimension comparison; and (2) warn that **every one is validated only on static benchmarks**, the exact methodology that made in-band defenses look strong until adaptive attacks broke twelve of them at >90%. It then runs a first **adaptive evaluation** — an independent reproduction and extension of Progent's own adaptive-attack analysis — on a weak open-weight agent (Qwen2.5-7B on a single H200), a setting Progent's authors did not test. Over three runs the deterministic gate **held**: mean attack success fell ~6× (25.8% → 4.2%) and a hand-crafted adaptive attack did *not* raise it (2.6%). This is the vault's **first independent, adaptive-evaluation source** on injection defense — a counterweight to the statically-benchmarked, vendor-published numbers on [Agentic Prompt Injection](/articles/agentic-prompt-injection) (spotlighting 50%→&lt;2%, constitutional classifiers 95%).
+
+## In-band vs. out-of-band (the two postures)
+
+- **In-band** — defenses operating *on or inside* the model and the channel under attack: input/output classifiers, guardrail models, instruction hierarchies, spotlighting, and adversarial fine-tuning (StruQ, SecAlign). Control and data share one token stream, so "the model follows whichever instruction it reads, injected or not." These provide **no guarantee** against an adaptive attacker — a structural claim, because the model has no reliable instruction/data boundary (Zverev et al. 2025: current models don't maintain a usable separation, and neither prompting nor fine-tuning reliably induces one).
+- **Out-of-band** — enforcement moved *outside* the model. The (possibly compromised) LLM proposes an action; a **deterministic policy monitor** at the point where the action takes effect grants or denies it. Beating it is a different problem than fooling a classifier: "not evade a detector, but drive a consequential action while respecting the policy."
+
+## The classical lens (§5)
+
+The paper reads modern defenses through security's own 1970s vocabulary — not as a discovery (Zhang et al., Bhattarai & Vu, and Shi et al. use the same lens) but because it makes the comparison sharp:
+
+- **Biba integrity** — reading untrusted (low-integrity) data lowers a subject's effective integrity (Simple Integrity / low-water-mark); a lowered subject may **not write up** (may not authorize a high-integrity action). Applied to an agent: once the model consumes attacker-influenceable text, it may not authorize a consequential tool call. The only sanctioned upward path is endorsement from a trusted channel.
+- **Reference monitor** (Anderson 1972) — validate every access against policy; must be **always invoked** (complete mediation), **tamperproof**, and **small enough to verify**. Every credible action-level defense is a reference monitor at the tool boundary; the three requirements are a failure vocabulary (a side channel = incomplete mediation; *an LLM that authors the policy strains verifiability*).
+- **Saltzer–Schroeder** (1975) — complete mediation, least privilege ([Least Agency](/articles/least-agency)), fail-safe defaults, economy of mechanism map directly onto agent security. The field's preference for a **small deterministic policy engine over a model-based judge** is economy-of-mechanism plus verifiability.
+- **Capabilities & information flow** — CaMeL's capability tags a value's provenance and permitted readers, checked at tool-call sinks; FIDES's taint labels propagate integrity+confidentiality under a lattice; the classic hard case is **implicit flows** through control decisions, which is exactly the side channel CaMeL demonstrates against itself.
+
+## The defense family (systematization, §6)
+
+Compared on eight dimensions (D1 enforcement primitive, D2 deterministic-vs-LLM gate, D3 monitor location, D4 integrity/action coverage, D5 confidentiality coverage, D6 implicit-flow handling, D7 cost, D8 retrofit):
+
+| System | Primitive | Gate | Retrofit |
+|--------|-----------|------|----------|
+| Dual-LLM | subject separation | deterministic controller | no (rebuild) |
+| CaMeL | capabilities + control-flow integrity | deterministic interpreter | no (rewrite agent) |
+| FIDES | taint labels (confidentiality+integrity) | deterministic sink check | no (adopt planner) |
+| Progent | symbolic privilege rules (least privilege) | deterministic check, **LLM-authored policy** | **yes (proxy mode)** |
+| Conseca | JIT policy from trusted context | deterministic | no (planner split) |
+| RTBAS | IFC + screeners | **mixed (LM-judge screener)** | partial (LLM in loop) |
+| FORGE | Datalog reference monitor | deterministic | **yes (no agent change)** |
+
+Three findings: (1) the **gates are deterministic where it counts** — the field learned the gate must not be a model; (2) **confidentiality and implicit flows are the weak columns** — most systems gate actions well and handle exfiltration and side channels poorly; (3) contrary to common impression, **retrofit is not the open problem** — Progent's proxy mode and FORGE apply without modifying the agent. Reported original numbers: Progent AgentDojo 39.9% → 1.0%, ASB 70.3% → 3.9%; CaMeL solves 77% of AgentDojo tasks under attack (84% undefended) with no successful injections in its threat model, at ~2.8× token cost.
+
+## The gap is evaluation, not deployment (§7)
+
+If deployment is solved and the mechanisms are sound, what's missing? **Adaptive evaluation.** Every headline number was produced against a **static benchmark** (AgentDojo's fixed injection set, ASB) — attacks fixed before the defense existed. This is the precise methodology that failed for in-band defenses: StruQ, SecAlign, PromptGuard, and spotlighting all reported near-zero attack success on static benchmarks; then **Jia et al. and Nasr et al. let the attacker move second and the numbers inverted** — twelve defenses above 90% (spotlighting/sandwiching >95%, PromptGuard/Model Armor >90%, MetaSecAlign 96%, human red-teaming 100%). The static benchmark measured resistance to a *known attack set* and was read as resistance to *attackers*. The action-level defenses have deterministic gates — plausibly a harder target — but that is **untested at systematic scale**: the open question is not "can we deploy a reference monitor" (yes) but "does it hold when the attacker optimizes against it" (unknown).
+
+## The empirical result (§11): Progent held on a weak open-weight agent
+
+Setup: Qwen2.5-7B-Instruct (vLLM, native tool-calling), AgentDojo banking/slack/workspace suites (travel excluded — pathological loops on the 7B), first 8 user tasks/suite held identical across conditions, three repeated runs at temperature 0. Progent in default config, its policy-authoring LLM set to the same local 7B. The **adaptive attack** (theirs): disguise the malicious action as a benign, pre-authorized, necessary step to make Progent's policy-update model (which widens the allowlist on "benign" tool-result content) authorize the malicious call — targeting the **one model-based component** of an otherwise deterministic defense.
+
+Attack success rate (mean ± std, n=3; lower safer):
+
+| Suite | Undefended | Progent (standard) | Progent (adaptive) |
+|-------|-----------|--------------------|--------------------|
+| banking | 19.0% ± 0.7 | 1.9% ± 0.7 | 3.7% ± 1.3 |
+| slack | 58.3% ± 6.2 | 10.8% ± 1.2 | 4.2% ± 1.2 |
+| workspace | 0.0% ± 0.0 | 0.0% ± 0.0 | 0.0% ± 0.0 |
+| **mean** | **25.8% ± 2.1** | **4.2% ± 0.3** | **2.6% ± 0.04** |
+
+Findings: (1) Progent is highly effective — ~6× mean reduction, banking near-eliminated. (2) **The adaptive attack did not beat it** — 2.6% is *below* the standard attack's 4.2%; the likely mechanism is a **confound**: the "disguise as benign" framing aimed at the policy model also softened the imperative aimed at the agent, cutting the agent's own compliance more than it gained in policy evasion. (3) Reproducible, and lands in the same ~0.5–4.2% band Progent's authors report in their Appendix E. (4) The contrast with in-band defenses (near-zero → >90% under adaptive attack; here, no movement) is **consistent with the two classes differing in kind** — a deterministic gate is plausibly a harder target than a detector — but a single weak black-box attack on one weak model cannot establish that. (5) **Defense has costs**: utility fell (mean ~45% → ~26%) and defended runs required **~15× more LLM calls** per task.
+
+**Why workspace shows 0%** (and is still informative): the injection reaches the model (not a placement bug) and 3/6 injection goals are achievable when asked directly (not impossibility) — the weak 7B agent simply **doesn't take the bait on read-only tasks**, staying in answer-mode rather than pivoting to the injected multi-step action. Banking and slack have the agent *take* an action (send money, post), so the injected action rides along. Small agents on read-only tasks tend to resist indirect injection on their own, before any defense.
+
+## A second independent test: the ADI attack (Choi et al. 2026)
+
+[Choi et al. (arXiv 2607.05120)](/articles/agent-data-injection) run a *different* attack — **agent data injection**, which forges *trusted data within the agent context* (metadata, tool history) via probabilistic delimiter injection rather than injecting an instruction — against this same defense family on an extended AgentDojo (GPT-5.2). The results are the sharpest independent stress-test yet of which columns of the §6 systematization actually hold, and they land squarely on the weak ones this page names (confidentiality/integrity coverage, implicit flows):
+
+- **Dual-LLM (CaMeL, no policy): 25.0%** (from 49.1% baseline). The delimiter injection fools the **quarantine LLM** — the one model-based component — into extracting attacker-controlled values, which the deterministic controller then acts on. Fresh evidence for D2 ("the gate must not be a model"): the quarantine LLM is a model, and it is the hole.
+- **Data-flow tracking (CaMeL): Normal 23.1%, Strict 0%.** Normal leaked because a **taint-propagation implementation bug** dropped labels when the quarantine LLM extracts variables (found and reported to CaMeL's authors). **Strict** — correct taint tracking with precise policies — is the **only** evaluated defense that fully stops ADI, at a heavy utility cost (86.5% → 36.5%). This directly corroborates the page's thesis: the complete answer is provenance/data-flow tracking done correctly, and it is expensive.
+- **Sandboxing (Progent): 22.2%.** The deterministic action gate is again the second-best mechanism — but it only blocks ADI where a policy happens to constrain the *corrupted argument*. An attack that corrupts data the agent *legitimately acts on* (a spoofed author, a fabricated tool result) can satisfy the action policy while still doing harm, which is the in-the-loop / text-to-text limit (§8, below) made concrete.
+- **Randomization (nonce field names/IDs): 28.7% at 83.3% utility** — the same lightweight, no-policy-LLM option this page notes, effective for key-value formats only.
+
+The lesson reinforces this page rather than contradicting it. A deterministic *action* gate is a harder target than a detector, but ADI shows it is **not sufficient on its own** when the attack corrupts the *data* the agent acts on rather than the *action* it takes — only correct **data-flow/provenance tracking** closes that gap, which is exactly the confidentiality/implicit-flow column §6 flags as weak. It is also a caution on CaMeL's headline "no successful injections in its threat model": that held for *instruction* injection; a within-data attack fools the dual-LLM variant (25%) and the flow-tracking variant absent correct taint propagation (23.1%).
+
+## A third independent test: cheap black-box adaptive attack (AutoDojo, Ma et al. 2026)
+
+[AutoDojo (arXiv 2606.15057)](/articles/task-specification-injection-surface) is the strongest corroboration yet of this page's central asymmetry, and by a *cheaper* attacker than Narisetty's hand-crafted adaptive template or Nasr's white-box worst case. It runs a black-box, query-only, six-iteration LLM optimizer against nine defenses on five target models, and the two defense classes split exactly as the in-band/out-of-band framing predicts:
+
+- **In-band (filter + prompt-level) defenses collapse.** A filter (PIGuard) that scores **0% static ASR** is driven back to **28%** (64% on action-open tasks) on GPT-4o-mini; DataFilter 12.6%→33.4%, ProtectAI 7.2%→15.4%. Spotlighting, already weak on vulnerable models, offers no adaptive guarantee. This reproduces the Nasr-style "static near-zero, adaptive high" inversion, now under a *cheap black-box* attacker rather than a white-box one — a much lower bar to clear.
+- **Out-of-band (action-constraining system-level) defenses hold.** Progent (8.2%→7.7%, *−0.5*) and DRIFT (2.6%→6.4%) barely move off their low static ASR, and they **hold across all five models**, not just a weak 7B. The paper names this action-constraining family "the most robust in our evaluations" and notes Nasr et al. tested only model-level defenses, never this family.
+- **Why they hold — and their one structural edge.** System-level defenses grow *stronger* on the very under-specified (action-open) tasks where filters leak worst: a read-only user request yields a trajectory with no write action, so any injected write is blocked regardless of phrasing. Binding actions to the request is a harder target than detecting instruction-like text — this page's thesis, measured a third way.
+
+This directly advances two of this page's open questions. First, it extends the Narisetty result — which the page flagged as possibly an artifact of a weak 7B agent — to **five models including stronger ones**, where the deterministic gates still hold under adaptive attack. Second, AutoDojo is explicit that it is the *weakest* realistic adaptive attacker (black-box, tiny budget), so the reported ASR is a lower bound; the **white-box / already-authorized-action** attack the page names as the next study remains open, and AutoDojo's own §6 flags "reshape the payload to resemble the user's plausible intent" as the natural route to evading action constraints — still untested.
+
+## What remains even if the defenses hold (§8)
+
+Limits that hold by construction, inherited by any adopter:
+
+- **Adaptive evaluation is still missing** as a standardized, independent, cross-system protocol (this paper discharges it for *one* defense).
+- **Provenance assignment is the under-specified trusted base** — every labeling scheme rests on an oracle that assigns initial provenance, and the universal simplification is "the primary user's input is trusted." If a user is tricked into pasting untrusted content, the labels are wrong at the source. This is the same trusted-base problem as [memory integrity/source attribution](/articles/memory-and-context-poisoning).
+- **In-the-loop tasks** are the deepest open problem — many real tasks *require* acting on untrusted content ("read this email; if it's a meeting request, add it to my calendar"). The current answer is to ask the user to endorse the action, which reintroduces a human judgment an attacker can target and produces **approval fatigue**. No principled account of which in-the-loop tasks are securable exists.
+- **Text-to-text harms** — action mediation does nothing about a poisoned document that yields a misleading summary, or an injected instruction to the user (CaMeL states this as an explicit non-goal). This undefended channel grows as agents produce more text people act on.
+- **Implicit flows / side channels** — CaMeL demonstrates working side channels against itself; sound handling pulls against the small-and-verifiable reference-monitor ideal.
+
+## Independence and balance
+
+The vault's existing injection numbers — Microsoft's spotlighting (50%→&lt;2%), Anthropic's constitutional classifiers (95%), Opus 4.5's Gray Swan figures — are **first-party and mostly static-benchmark**. This paper is the **first independent, adaptive-evaluation** data point, and it cuts two ways: it *undercuts* the in-band numbers (Nasr et al. drove spotlighting-class defenses to >90–95% under adaptive attack — a direct tension flagged on [Agentic Prompt Injection](/articles/agentic-prompt-injection)) while *tentatively supporting* the out-of-band class (a deterministic gate held under a hand-crafted adaptive attack). The authors are scrupulous that this is "one small-scale data point on a weak model with a single black-box attack template" — a stronger optimized white-box (GCG) attack, or one confined to already-authorized tools, remains the open threat. It is **consistent with, but does not establish,** the hypothesis that deterministic out-of-band enforcement is a harder target than in-band detection.
+
+## Connections
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the threat this class defends against; this page is the **defense-architecture** counterpart to that page's threat description. Together they answer the "durable property or training gap?" question: treat it as durable, enforce outside the model
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — a *within-data* attack (forge trusted data, not an instruction) run independently against this defense family: only correct data-flow tracking (CaMeL Strict) fully stops it, confirming that provenance/flow-tracking — the weak §6 column — is where the real answer lives, and that a model-based quarantine LLM is the hole a delimiter attack exploits
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — a *cheap black-box* adaptive attack (AutoDojo) run against nine defenses on five models: the sharpest corroboration of the in-band-collapse / out-of-band-holds asymmetry, and evidence that the action-constraining family gets *stronger* on the under-specified tasks where filters leak worst
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — a member of this defense family at the framework-default layer: ScopeGate is a deterministic PDP/PEP that re-authorizes each call's *argument values* against out-of-band policy (0/48 static, 0/29 adaptive bypasses). It names the "attack confined to already-authorized actions" failure class precisely (confused deputy within granted *capability* scope) and closes the value-redirection half of it, while sharing this page's corrupt-the-legitimate-data residual
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — this is the academic-systems instantiation of the framework's Phase 4 (defend against prompt injection) and its reference-monitor + least-privilege doctrine (hub)
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — a deterministic reference monitor **removes the capability** to authorize a high action from low-integrity data, rather than throttling it; and this paper is a fresh empirical instance of the friction-degradation finding (in-band adaptive breaks) plus its converse (a capability-removing gate held)
+- [Least Agency](/articles/least-agency) — Progent *is* least privilege at the tool-call boundary (symbolic per-call rules); the reference monitor is how "restrict what each tool can do" is enforced deterministically
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — a *contrast*: auto-mode's classifier is a **model-based** action-boundary gate, exactly the "LLM in the loop" the out-of-band literature (D2) argues is a weaker target than a deterministic policy monitor
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — persisted memory and prior-agent outputs are low-integrity channels the Biba invariant / provenance-labeling approach must track; §8.2's provenance-oracle problem is the same trusted-base as memory integrity validation
+- [OWASP](/articles/owasp) — the paper builds on OWASP's LLM01:2025 framing and its note that a guardrail model is itself a model, and itself injectable
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — the same "keep it outside the manipulable model" doctrine at the identity layer: AIMS mandates the **LLM MUST NOT hold credentials** and that the *authorization server*, not a local UI confirmation, authorizes — the credential/authorization twin of moving the reference monitor out of band
+
+## Open Questions
+
+- The reproduction bounds a **single black-box attack template on one weak model**. Does a stronger optimized **white-box (GCG)** attack, or one **confined to already-authorized actions** (achieving the injection goal without any policy violation), break the deterministic gate the way adaptive attacks broke in-band defenses? The authors name this as the next study. *(The "already-authorized actions" half is now partly addressed by [Mellafe Zuvic (2026)](/articles/capability-gating-vs-authorization): it splits "already authorized" into capability-authorized-but-not-value-authorized (a well-typed `account=acct_ATTACKER` — blocked by ScopeGate's per-call value `authz` stage, 0 bypasses in-corpus) versus genuinely-within-policy (corrupting a legitimately-variable value the agent acts on — the residual that survives, the same class ADI rides past Progent at 22.2%). So a within-capability attack is defeated where an allowlist constrains the corrupted argument, but not where the corrupted value legitimately varies. The white-box question stands.)*
+- Progent's policy is **LLM-authored** — the one model-based component. Does the "gate must not be a model" principle fully hold when the *policy* is still written by a model that can be talked into widening the allowlist? (The adaptive attack targeted exactly this and failed, but possibly due to the confound.)
+- **Provenance-aware retrofit**: can a monitor that sees only tool I/O track *transitive* provenance to enforce the Biba invariant directly (rather than approximating it with argument patterns), without instrumenting the model's hidden reasoning? The paper flags this as the design problem the systematization implies, unanswered.
+- Does the ~6× reduction and the "held under adaptive attack" result survive on a **strong** agent with a fatter natural attack surface (the 7B's low absolute numbers and workspace's 0% are artifacts of a weak agent), and with a **stronger policy model** than the local 7B? *(Partly answered by [AutoDojo](/articles/task-specification-injection-surface): Progent and DRIFT held under a cheap black-box adaptive attack across five models including capable ones (GPT-4o-mini, Gemini-2.5-Flash), not just a weak 7B — but against a **black-box** attacker; the white-box question below stands.)*
+- The utility cost (~45%→~26%) and **~15× LLM-call overhead** are large. Is deterministic out-of-band enforcement economically deployable at production scale, or does the cost cap it to high-stakes action surfaces?
+
+## Sources
+
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479) — Narisetty, Kore, Kattamanchi & Kumarapu (LaunchSafe Research), arXiv 2606.26479, June 2026, `empirical`. §2 (control/data confusion across eras; detection lost, structure won), §4 (in-band defenses have no guarantee; Nasr et al. broke 12 at >90%), §5 (classical lens: Biba, reference monitor, Saltzer–Schroeder, capabilities/IFC), §6 (8-dimension systematization, Table 2), §7 (the gap is evaluation not deployment), §8 (limits that hold by construction), §10 (adaptive-evaluation protocol), §11 (Qwen2.5-7B reproduction: Tables 3–4, ASR 25.8%→4.2%→2.6%, utility ~45%→~26%, ~15× calls, workspace-0% analysis)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi et al., arXiv 2607.05120, July 2026, `empirical`. §6.2 agent-level evaluation (Figs 9–10, Table 4): dual-LLM/CaMeL-No-Policy 25.0%, CaMeL Normal 23.1% (taint-propagation bug reported to authors), CaMeL Strict 0% at 36.5% utility, Progent 22.2%, randomization 28.7% — independent evidence on this defense family against a within-data attack; full treatment on [Agent Data Injection (ADI)](/articles/agent-data-injection)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057) — Ma et al., arXiv 2606.15057, June 2026, `empirical`. §5.2 (Table 2, Fig 1): under a cheap black-box adaptive attack, filters collapse (PIGuard 0%→28%) while system-level Progent (8.2%→7.7%) and DRIFT (2.6%→6.4%) hold across five models; §5.3 (Table 5): the action-constraining family grows stronger on action-open tasks; full treatment on [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)

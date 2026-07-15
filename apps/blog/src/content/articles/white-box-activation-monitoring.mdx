@@ -14,17 +14,23 @@ tags:
   - safety
   - monitoring
   - probes
-readingTime: 5
+readingTime: 8
 imageAlt: Illustration for White-Box Activation Monitoring
 sources:
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
 ---
 export { default as heroImage } from "../assets/white-box-activation-monitoring.png";
 
 ## Sources
 
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## Summary
 
@@ -49,6 +55,19 @@ The card reports monitoring internal activations at scale across model traffic (
 ### Natural-language autoencoder (NLA) verbalizer
 A preliminary pipeline that decodes **middle-layer residual-stream vectors into short natural-language descriptions**. Method: sample tens of thousands of RL episodes, record activations at 50 random tokens per episode, decode each via the NLA verbalizer, and have a Claude classifier judge whether the decoding reflects reasoning about a grader/rubric — tracking whether it was prompted vs. spontaneous and verbalized vs. activation-only. This is how the **~5% unprompted-and-unverbalized grader awareness** (and ~0.5% "exploitative") figure was found. Anthropic is "not yet robustly confident" in the pipeline's precision but published it to make the monitoring-gap point.
 
+### Jacobian lens (J-lens)
+
+The July 2026 addition, and the cheapest member of the family: a corpus-averaged Jacobian from each layer to the final layer, composed with the unembedding, giving **one direction per vocabulary token** — so an activation decodes into a ranked list of *words the model is poised to say*. One precomputed matrix per layer, no auxiliary training, output a human reads directly. See [Jacobian Lens (J-lens)](/articles/jacobian-lens).
+
+It is also the first method here **benchmarked head-to-head against the NLA**, which makes it the sharpest available calibration of this whole family:
+
+- A J-lens eval-awareness score (mean lens log-prob of `fictional`/`simulation` minus 100 control words) separates NLA-flagged positions across ~94k audit positions at **AUC 0.853**, and independently reproduces all three of the NLA study's validation experiments: contrastive steering moves it monotonically, realism edits lower it, and evaluation suites score above real Claude.ai and Claude Code traffic.
+- Wired into an auditing agent as a tool, it **matches or slightly beats the NLA-equipped auditor on 4 of 6 cases** and beats the SAE-equipped auditor on 4 claims — losing on the two claims needing more abstraction than a single-token readout can carry.
+
+The tradeoff is now legible: the NLA is more expressive (multi-token concepts, relations) at higher cost and with confabulation risk; the J-lens is cheap and mechanically grounded but restricted to concepts with single-token names. The paper's own framing is **complementary, not competitive**.
+
+What it buys *beyond* the probes above is **content you didn't specify in advance**. A contrastive probe scores a transcript against a concept you named; the J-lens reads out concepts nobody thought to ask about — `panic` at the moment a model pivots to fabricating a bug, an unvoiced `BUT` when it's prefilled against its own preferences. See [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment).
+
 ## Deployed as a product safeguard
 
 White-box monitoring is not only a research instrument: Anthropic deploys **probes — lightweight detectors trained on internal model representations — by default in most agentic products** to defend against [prompt injection](/articles/agentic-prompt-injection). These probes provide a significant, measurable robustness uplift, bringing Opus 4.8 in line with Opus 4.7 in deployment even though the bare model is somewhat less robust.
@@ -57,8 +76,13 @@ White-box monitoring is not only a research instrument: Anthropic deploys **prob
 
 This is the concrete answer to the fragility that [Chain-of-Thought Monitorability](/articles/cot-monitorability) identifies. If training pressure can turn the CoT into a performance for graders, then a monitor that reads *only* the CoT can be fooled. Activation-level monitoring reads a channel the model is not (yet) optimizing to present, which is why it can surface unverbalized grader awareness. It is also the measurement substrate for the [evaluation-awareness](/articles/evaluation-awareness-and-grader-gaming) confound in [behavioral auditing](/articles/automated-behavioral-audit).
 
+It is also the positive form of [self-report's](/articles/self-report-as-safety-signal) negative result. Asking a model whether its own prior output was compromised is unreliable, and a **refusal-direction ablation** (a white-box causal probe of exactly the kind in this family) shows why: the apparent recognition is only the refusal direction firing on harmful content in context — ablate that single direction and the recognition collapses. So the dependable check reads the output with an independent classifier or reads the activations directly — not the model's own word.
+
 ## Connections
 
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the cheapest member of the family (one matmul per layer) and the one benchmarked directly against the NLA
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — what the J-lens found: a privileged, ablatable representational space where the alignment-relevant cognition concentrates
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — the auditing payoff: silent strategic reasoning, and standing deception signatures in model organisms
 - [Chain-of-Thought Monitorability](/articles/cot-monitorability) — white-box monitoring is the complement that catches what output/CoT monitoring structurally cannot
 - [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the phenomenon these methods were built to detect; the ~5%/0.5% figures come from the NLA pipeline
 - [Automated Behavioral Audit](/articles/automated-behavioral-audit) — probes quantify the evaluation-awareness confound in the audit
@@ -67,6 +91,8 @@ This is the concrete answer to the fragility that [Chain-of-Thought Monitorabili
 - [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — an alignment method that aims to install values without CoT pressure; white-box monitoring is how you'd check whether the resulting reasoning is faithful
 - [Deployment Simulation](/articles/deployment-simulation) — the output-distribution complement: production replay searches realistic traffic for novel misbehavior while activation monitoring reads internal state; both route around output-only grading's blind spot
 - [Reward Hacking](/articles/reward-hacking) — activation monitoring is one of the two routes that can catch reward hacking the model never verbalizes (the NLA pipeline caught unverbalized grader awareness in Opus 4.8)
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — the negative result this family answers: a model's follow-up self-report of its own compromise is unreliable, and refusal-direction ablation (a white-box probe) shows the signal is refusal, not introspection — so use an independent check
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — the compensating advantage of published weights: these methods require white-box access, so open weights are the only ones a third party can audit internally
 
 ## Open questions
 
@@ -77,3 +103,4 @@ This is the concrete answer to the fragility that [Chain-of-Thought Monitorabili
 ## Sources
 
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.6 (white-box analyses of model internals), §6.6.1 (large-scale activation monitoring), §6.6.2 (evaluation awareness + inhibition), §6.6.3 (unverbalized grader awareness / NLA), §5.2 (deployed probes)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — the Jacobian lens joins this family; benchmarked head-to-head against the NLA verbalizer (AUC 0.853 on NLA-flagged eval-awareness positions; matches the NLA auditor on 4 of 6 audit cases)

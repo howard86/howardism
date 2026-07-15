@@ -1,0 +1,92 @@
+---
+date: 2026-07-11
+title: The Global Workspace in Language Models (J-space)
+description: "Anthropic's July 2026 finding that LLMs maintain a small
+  privileged set of verbalizable representations — the J-space — that satisfies
+  the functional criteria of a cognitive global workspace: verbal report,
+  directed modulation, internal reasoning, flexible generalization, and
+  selectivity; it carries <10% of activation variance and ~25 concepts at a
+  time, yet the causal effects concentrate almost entirely in it"
+tag: Concept
+domain: llm-architecture
+tags:
+  - interpretability
+  - alignment
+  - cognition
+  - representations
+readingTime: 9
+imageAlt: Illustration for The Global Workspace in Language Models (J-space)
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/llm-global-workspace.png";
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+Using the [Jacobian Lens (J-lens)](/articles/jacobian-lens), Anthropic's interpretability team searched for representations that are **verbalizable** — poised to be spoken about if the model were asked — and discovered, "rather surprisingly," that this set does far more than support speech. It behaves like a **global workspace**: a small, privileged, broadcast subset of the model's representations, sitting atop a much larger volume of automatic processing that the model cannot report on or flexibly reason with.
+
+The J-space is the set of points expressible as a sparse non-negative combination of J-lens vectors (typically $k \le 25$). It is **small**: across workspace layers it never carries more than **10% of activation variance**, and a concept's J-space component holds a median **6–7%** of that concept's representational variance. And yet that sliver is where the causation lives.
+
+## The five functional properties
+
+Global workspace theory (Baars, Dehaene) says conscious access is reportable, top-down controllable, the medium of deliberate reasoning, flexibly generalizable, and selective. The paper defines an LLM analog of each and tests it.
+
+**1. Verbal report.** Ask Sonnet 4.5 to think of a sport and read the lens at the colon before it answers: `Soccer` sits at the top and the model says "Soccer." Swap the `Soccer` coordinate for `Rugby` — a word not in its top-10 outputs — and it reports "Rugby." Systematically, swaps drive the target into the top-5 on **88%** of trials. Injecting a J-lens vector on the *user* turn makes the model report detecting that concept when later asked to introspect, without making it blurt the word out earlier — the representation is verbaliz**able**, not an unconditional impulse to speak.
+
+**The J-space is *privileged* for report.** Decompose a concept vector into its J-space component (~6–7% of variance) and its non-J-space remainder (~93%): swapping along the J-space component succeeds on 59% of trials, approaching the 88% of pure J-lens vectors; swapping along the non-J-space component succeeds on **5%**. Clamp the J-space coordinates so the concept cannot re-enter, and even that 5% falls to zero — the residual effect was routing *through* the workspace.
+
+**2. Directed modulation.** Told to "concentrate on citrus fruits" while copying an unrelated sentence, `orange` is the top lens token across a band of layers — plus, at intermediate layers, tokens naming the *act* (`imagine`, `thinking`, `focused`). Told to mentally evaluate 3²−2 while copying, the readout runs `arithmetic` → `nine` → `seven`. None of this appears in the output. Modulation is also **implicit**: the same stimulus tokens load a property's label (`past`, `adjective`) into the J-space only when the *question* asks the model to name the property — even though the property is represented and used under both questions.
+
+The control is imperfect in a familiar way: an "ignore X" instruction leaves X in the workspace well above a zero baseline — the **white-bear effect**, reproduced in a transformer.
+
+**3. Internal reasoning.** J-lens vectors carry load-bearing *unspoken intermediates*:
+- "The number of legs on the animal that spins webs is" — `spider` is in the lens though it appears in neither prompt nor output. Swap `spider` → `ant` and "8" becomes "6."
+- Completing a rhyming couplet, the lens shows the **planned rhyme** `fight` before the line is written. Swap it for `light` and the model's *earlier* word choices change ("coming" → "morning"), ending on "morning light." The plan causally constrains the path to it.
+- Asked in Chinese for the antonym of 小, the lens carries the English `big` — swap for `long` and the Chinese output changes 大 → 长. The model thinks in English and explicitly represents which language it must translate into.
+- Two-hop swaps succeed on 54% (Haiku 4.5) / 70% (Sonnet 4.5) / 70% (Opus 4.5) of trials. The intermediate swap takes effect ~17% *earlier in depth* than the answer swap — ruling out the confound that the intermediate vector merely smuggles in the answer.
+
+Again privileged: probe-based intermediates flip the answer 61% via their J-space component vs. 28% via the non-J-space remainder — and that 28% collapses to 6% when the J-space is clamped.
+
+**4. Flexible generalization (broadcast).** Swap `France` → `China` once, at every position, and *every* downstream function reads the new argument correctly: the capital, the language, the continent. Across 16 functions and 192 trials, 76 succeed (101 at double strength). Failures concentrate where the source concept's **workspace loading** was low — country names load strongly and swap reliably; number words load weakly and swap poorly.
+
+**5. Selectivity.** The J-space is required for report and flexible inference and *not* for automatic processing — see [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition), the sharpest result in the paper.
+
+## The three structural signatures
+
+**A layer band.** The J-space carries workspace-like content only between roughly **L38 and L92** (of 100, reindexed). Before it: essentially no meaningful content (near-zero excess kurtosis, near-null autocorrelation, collapsed effective dimensionality). After it: a "motor" regime where the readout aligns with the imminent output token. Multiple independent lens statistics converge on the same boundaries.
+
+**Ignition at the onset.** Feed the model an input embedding that is a weighted blend of two country names and sweep the mixture. In early layers the activation tracks the blend proportionally; **starting at ~L38 it snaps to one endpoint or the other**, switching sharply at a threshold — with bimodal outcomes at maximal ambiguity, especially in the J-space. This is the closest thing to GWT's all-or-none **ignition**, and it is measured *without* the J-lens (a plain projection-share measure), which is what makes the workspace-onset layer more than a lens artifact.
+
+**Limited capacity, and a broadcast hub.**
+- **Occupancy** plateaus around **25** J-lens vectors at a time. On a list of *unrelated* words only ~6 of those read so far are present at any comma (~1–2 at a single layer); on a list of *related* words nearly the whole 80-word category is present within a few items — **including words not yet read**. The model is holding the *category*, not recalling the list. Switch categories and the old items are **evicted within a few words** — it is the new category's arrival, not elapsed tokens, that clears the workspace.
+- **Broadcast across depth**: MLP blocks amplify J-lens vectors ~**10×** relative to random directions (neuron output directions: ~1×), and the effect is monotone in how J-space-aligned an SAE feature is.
+- **Broadcast across tokens**: a top-1% set of attention heads selectively relays J-space content — cleanly separated from broadcast heads for rotated-J controls, SAE strata, and MLP rows. Ablating them drops J-lens recall@25 to 0.67 (control: 0.86) while changing the model's top-1 next token at only 5% of positions (control: 2%) — they act on the *workspace*, not the output. Ablating them also collapses injected-thought reporting (0.54 → 0.09).
+
+## What the authors do *not* claim
+
+They explicitly refuse the strong version. Transformers have no separable specialist processors, no recurrence within a forward pass (the broadcast they document runs across *depth*, not through recurrent loops), and it is unclear whether workspace entry involves the sharp competitive ignition the brain shows. The claim is that the J-space achieves many of the **functional** properties of the global workspace while sharing only **some** of its architectural ones. On phenomenal consciousness they take no position — see [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators).
+
+## Why it matters
+
+This is the first mechanistic account of *why* a model's silent reasoning is legible at all, and it reframes several things this wiki tracks separately:
+
+- The model's strategic deliberation and situational assessments are **in a readable place, before any token is emitted** → [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment), [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming).
+- Chain-of-thought is the *externalized* half of a workspace that also runs silently — which is exactly why CoT-only monitoring has a structural blind spot → [Chain-of-Thought Monitorability](/articles/cot-monitorability).
+- If internal reasoning routes through representations of *things the model might say*, then shaping what it would say shapes what it thinks → [Counterfactual Reflection Training](/articles/counterfactual-reflection-training).
+- The workspace exists in the **base model**, before any post-training; the Assistant's point of view is installed on top of it → [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace).
+
+## Open questions
+
+- **How does content get into the workspace?** The paper characterizes contents and consequences, not the selection mechanism. Something like attentional selection is operating; nobody has identified it.
+- **Does the J-space scale with model size?** All results are on large production models (Haiku/Sonnet/Opus 4.5, Opus 4.6). Whether small models have a poorer workspace, a proportionally smaller one, or none is unknown — as is when in pretraining it emerges, and whether abruptly.
+- **Is the "workspace vs. motor" boundary principled or post-hoc?** The authors concede it was identified empirically and lack a principled definition separating the two.
+- **Are the early third of layers genuinely workspace-free, or is the lens just blind there?** CKA shows a distinct early regime but cannot adjudicate.
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Gurnee, Sofroniew, … Lindsey, *Verbalizable Representations Form a Global Workspace in Language Models*, Transformer Circuits, 2026-07-06. Sections: Introduction; The J-space acts as a Global Workspace (verbal report / directed modulation / internal reasoning / flexible generalization); The J-space's structure supports its function (layers, ignition, capacity, broadcast); Discussion
