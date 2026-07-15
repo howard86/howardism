@@ -1,0 +1,107 @@
+---
+date: 2026-07-11
+title: Jacobian Lens (J-lens)
+description: "Anthropic's interpretability method for reading verbalizable
+  content out of a model's residual stream: a corpus-averaged Jacobian from each
+  layer to the final layer, composed with the unembedding, giving one vector per
+  vocabulary token — a causal, principled correction to the logit lens that
+  costs one matmul per layer and reads what the model is *poised to say* rather
+  than what it happens to say"
+tag: Concept
+domain: llm-architecture
+tags:
+  - interpretability
+  - alignment
+  - monitoring
+  - method
+readingTime: 7
+imageAlt: Illustration for Jacobian Lens (J-lens)
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/jacobian-lens.png";
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+An interpretability technique from Anthropic's interpretability team ([Wes Gurnee](/articles/wes-gurnee), [Jack Lindsey](/articles/jack-lindsey) et al., July 2026) that answers the question: *which concepts is this activation disposed to make the model verbalize?* For each layer $\ell$ it computes the **average Jacobian** of the final-layer residual stream with respect to the layer-$\ell$ residual stream, taken over the source position, all subsequent positions, and a corpus of ~1,000 pretraining-like prompts:
+
+```
+J_ℓ = E_{t, t' ≥ t, prompt} [ ∂h_final,t' / ∂h_ℓ,t ]
+```
+
+Composing $J_\ell$ with the unembedding $W_U$ and reading the top entries gives a ranked list of vocabulary tokens for any activation. The rows of $W_U J_\ell$ are the **J-lens vectors** — one direction in residual-stream space per vocabulary token. Their sparse span is the [J-space](/articles/llm-global-workspace).
+
+## The averaging step is the whole idea
+
+A Jacobian computed on a *single* prompt conflates two things: the model's general disposition to verbalize a concept, and the particular use that concept is being put to right now. Averaging across contexts isolates the former. This is what separates **verbalizable** representations — poised to be spoken about, should the occasion arise — from ones that merely happen to be verbalized in one context. Everything the workspace results rest on follows from this distinction.
+
+## Relation to other lenses
+
+| Method | Per-layer map | Objective | Weakness the J-lens fixes |
+|---|---|---|---|
+| **Logit lens** | $J_\ell = I$ (identity) | none — assumes coordinates are shared across layers | Degrades in early/middle layers; the J-lens is the principled correction. The two agree closely in the last few layers |
+| **Tuned lens** | learned linear map | trained to match the output distribution — **correlational** | On prompts with unverbalized intermediates it "skips ahead" to the output instead of surfacing the intermediate |
+| **J-lens** | corpus-averaged Jacobian | **causal** (first-order effect on outputs) | — |
+
+The paper is candid that the logit lens still captures much of the same workspace structure, just less reliably (especially in earlier layers). The tuned lens is judged *less* useful than either.
+
+## The two modes: read and write
+
+**Reading.** Three forms: the full ranked readout (`softmax(W_U · norm(J_ℓ h))`); a **per-token probe** (inner product of $h$ against one chosen J-lens vector, for measuring whether a specific concept is present); and **sparse decomposition** by gradient pursuit, solving for the $k$ J-lens vectors that best reconstruct $h$ — this yields a discrete inventory of active concepts rather than a ranked list, and underlies the capacity/occupancy results.
+
+**Writing.** Steering (`h ← h + α·v_t`), ablation (project out $v_t$, or zero the top-$k$ J-space directions), and — the workhorse of the paper — **patching in lens coordinates**: given a source token $s$ and target $t$, read the coordinates $c = V^\dagger h$ for $V = [v_s\ v_t]$ and write back $h + V(\sigma(c) - c)$ with $\sigma$ swapping the two entries. Everything orthogonal to $\mathrm\{span\}\{v_s, v_t\}$ is left untouched — which is what licenses the causal claims: swap `spider` for `ant` and nothing else changes.
+
+## Why it is practically attractive
+
+- **Cheap.** One precomputed matrix per layer, computed once per model; a single matmul per layer at inference. No auxiliary training, no dictionary to learn.
+- **Directly human-readable.** Output is a list of words, not a feature index needing a further interpretation step.
+- **Uniformly applicable.** Works on activations, on *weights* (attention head Q/K/V/O matrices, transcoder encoder/decoder directions), and on other methods' feature directions (SAE decoders, steering vectors, probe weights).
+
+This makes it cheap enough to run at scale to flag transcripts for review — the practical argument for [J-lens-based alignment monitoring](/articles/internal-signatures-of-misalignment).
+
+## Limitations (the paper's own)
+
+- **Single-token vocabulary.** The lens names exactly those concepts that have a single-token name. "Prompt injection" arrives as separate `prompt` and `injection` tokens; diffusely-tokenized abstractions may not surface at all. Swap failures concentrate where the source concept's lens vector was weakly active to begin with — and one reason it might be weakly active is precisely this. Appendix extensions derive multi-token J-lens vectors, but the authors "suspect they can be improved."
+- **A bag of concepts, not a structure.** A readout of `spider`, `legs`, `eight` says the concepts are present but not how they bind. Whatever relational grammar the model imposes on workspace contents, this readout cannot see.
+- **Inconsistent interpretability.** At some (position, layer) slots the top tokens are simply not interpretable, and the authors do not know whether that is Jacobian-averaging noise, multi-token concepts, or content they are failing to recognize.
+- **First-order only.** The linearization is a first-order approximation of a nonlinear network; it is a fixed context-independent map, trading exactness on any one prompt for a stable readout.
+
+## Where it sits among interpretability tools
+
+The J-lens occupies the **cheap-and-grounded** end of the readout spectrum. Linear probes are cheap but supervised and correlational (one concept per probe). Sparse dictionary learning is unsupervised but expensive, and each feature needs a further interpretation step. At the expressive end sit free-text verbalizers like the **natural-language autoencoder (NLA)** of [White-Box Activation Monitoring](/articles/white-box-activation-monitoring), which can articulate multi-token concepts and relations the J-lens cannot — at higher cost and with confabulation risk. The authors are explicit that the J-lens is **complementary, not competitive**, with these methods; in the head-to-head automated-audit benchmark it matches the NLA on four of six cases and loses on the two that demand a higher level of abstraction than a single-token readout can carry.
+
+## Availability
+
+Open-source implementation at `github.com/anthropics/jacobian-lens`; interactive readouts on open-source models hosted on Neuronpedia.
+
+## Connections
+
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — a cheap lens-derived eval-awareness score (AUC 0.853 vs NLA-flagged positions) that ranks eval suites above real deployment traffic
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — the blackmail eval's deliberation, read before the first output token
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — silently-recognized injections surface in the lens (`fake`, `injection`, `poison`) even when the model never mentions them
+- [Reward Hacking](/articles/reward-hacking) — the lens reads a standing deception signature in reward-hacking model organisms on ordinary prompts
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — the base-model-vs-post-trained comparison the lens makes possible
+- [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators) — the instrument that lets consciousness-theory indicator properties be checked against a concrete structure
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — what the lens found: the J-space and its workspace-like properties
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the family this joins; the NLA verbalizer is its closest and most-benchmarked rival
+- [Chain-of-Thought Monitorability](/articles/cot-monitorability) — the lens reads the reasoning channel the chain of thought structurally cannot show
+- [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition) — the selectivity result, established by J-lens ablation
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — the alignment-auditing application
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — an auditing agent equipped with a J-lens tool, benchmarked against NLA- and SAE-equipped auditors
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — the lens is what makes the training technique's mechanism observable
+- [Wes Gurnee](/articles/wes-gurnee), [Jack Lindsey](/articles/jack-lindsey) — the method's originators
+
+## Open questions
+
+- Can multi-token J-lens vectors be made good enough to remove the vocabulary restriction — and how much of the "workspace" is currently invisible because of it?
+- The J-lens reads the workspace's contents but says nothing about **how content gets in**. What is the model's analog of attentional selection?
+- The highest-J-kurtosis SAE features are amplified *more* strongly by MLPs than the J-lens vectors themselves — evidence the lens only approximates the true workspace directions. What is the better basis?
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Methods (the Jacobian lens, the J-space, comparison to related techniques, technical details); Related work (lens methods, linearization, comparison to other interpretability tools); Limitations

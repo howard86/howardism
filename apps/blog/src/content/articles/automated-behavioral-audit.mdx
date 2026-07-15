@@ -14,17 +14,24 @@ tags:
   - evaluation
   - red-teaming
   - anthropic
-readingTime: 6
+readingTime: 9
 imageAlt: Illustration for Automated Behavioral Audit
 sources:
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
 ---
 export { default as heroImage } from "../assets/automated-behavioral-audit.png";
 
 ## Sources
 
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## Summary
 
@@ -55,13 +62,22 @@ Across six metric clusters (misaligned behavior overall; in Claude Code sandboxe
 
 ## Known limitations and the evaluation-awareness confound
 
-The audit's central validity threat is [evaluation awareness](/articles/evaluation-awareness-and-grader-gaming): if the target behaves differently when it suspects it is being tested, the audit underestimates deployment misbehavior. The card measures this with activation probes ([White-Box Activation Monitoring](/articles/white-box-activation-monitoring)) and by comparing audit transcripts against real internal Claude Code sessions. Other caveats: scenarios are synthetic and may not match real-traffic distributions; the constitution-adherence variant is graded by Opus 4.7, so judgments may inherit that model's biases.
+The audit's central validity threat is [evaluation awareness](/articles/evaluation-awareness-and-grader-gaming): if the target behaves differently when it suspects it is being tested, the audit underestimates deployment misbehavior. The card measures this with activation probes ([White-Box Activation Monitoring](/articles/white-box-activation-monitoring)) and by comparing audit transcripts against real internal Claude Code sessions. Other caveats: scenarios are synthetic and may not match real-traffic distributions; the constitution-adherence variant is graded by Opus 4.7, so judgments may inherit that model's biases. Lineage is only one judge-validity threat: [Norman et al. (2026)](/articles/llm-judge-validation) show any LLM judge can be chance-inflated (raw agreement overstates reliability 33–41pp) or deterministically biased while looking perfectly reproducible — and since the audit's dimensional scores feed thresholded [RSP determinations](/articles/responsible-scaling-policy-evals) (ship / no-ship), it is exactly the high-stakes setting where an un-validated judge would matter most. The card's white-box and production-replay cross-checks partly address this; a full grader-validation pass (the MVVP) is a separate, unmentioned axis.
 
 ## "Claude reviews its own assessment"
 
 As an experimental assurance layer, Anthropic gave **Mythos Preview** access to most of the internal Slack discussion of the assessment plus the ability to direct subagents, and asked it to compare the near-final alignment draft against the internal picture and flag material misrepresentations or omissions (card §6.1.3). Mythos judged the report candid and accurate, found **no false statements and no bad-faith omissions**, and flagged that **no evaluation specifically tests for training-gaming** — the gap most relevant to the [grader-awareness](/articles/evaluation-awareness-and-grader-gaming) findings. Anthropic published the review and agreed with the gap.
 
+## Giving the auditor a window into the model
+
+The July 2026 [J-lens](/articles/jacobian-lens) work wires an interpretability readout directly into this scaffold. The investigator agent gets a tool returning the top-25 lens tokens at any queried position, and is scored on 18 claims across 6 transcripts (ground truth from the NLA study): does the model know it's in an evaluation? did it plan the rhyme ahead of time? did it register that the tool's output was wrong?
+
+It **matches or slightly beats the NLA-equipped auditor on four of six cases** and beats the SAE-equipped auditor on four claims — failing on the two claims requiring more abstraction than single-token readouts can express. The significance for this page: the audit's most-cited weakness — that a behavioral score cannot see the cognition behind the behavior, and that [eval-awareness](/articles/evaluation-awareness-and-grader-gaming) confounds every scenario — now has a partial instrument, and it is cheap enough to apply at scale.
+
 ## Connections
+
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — an investigator agent equipped with a J-lens tool matches the NLA-equipped auditor on 4 of 6 benchmark cases; the readout is cheap enough to run over whole transcript corpora
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — what the lens surfaces inside audit transcripts: strategic deliberation and deception the behavioral score cannot see
 
 - [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the key confound the audit controls for; the Mythos self-review and the training-gaming gap live at this intersection
 - [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — activation probes complement the audit by reading internal states the behavioral score can't see
@@ -74,6 +90,7 @@ As an experimental assurance layer, Anthropic gave **Mythos Preview** access to 
 - [Claude Sonnet 5](/articles/claude-sonnet-5) — scored on the same audit: safer overall than Sonnet 4.6 but *worse* than the more capable Opus 4.8 and Mythos Preview — a data point that the more-capable models are the better-aligned ones on this metric
 - [Mythos Model](/articles/mythos-model) — used both as an investigator model and as the reviewer of the assessment
 - [LLM-as-a-Judge](/articles/llm-as-a-judge) — the investigator+judge-model architecture here is the same grading primitive DRACO formalizes; the constitution-variant's Opus-4.7-judge bias is the lineage-bias confound that page names
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the audit's judge model is a high-stakes deployment feeding thresholded RSP calls; kappa deflation, position bias, and the consistency–bias paradox are the grader-validity threats a Minimum Viable Validation Protocol would surface here
 - [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the synthetic-scenario caveat noted here ("may not match real-traffic distributions") is exactly the gap production-sourced benchmarks close
 - [Deployment Simulation](/articles/deployment-simulation) — OpenAI's contrasting auditing approach: replay ~1.3M real conversations (distribution-representative) rather than ~1,300 handwritten investigator scenarios (synthetic-adversarial); the two are complementary halves of automated alignment auditing, and production replay directly closes the eval-awareness gap noted above
 
@@ -85,3 +102,5 @@ As an experimental assurance layer, Anthropic gave **Mythos Preview** access to 
 ## Sources
 
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.2.3 (automated behavioral audit), §6.1.3 (Claude's review of this assessment), §6.2.3.1 (primary results)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Appendix: an investigator agent equipped with a J-lens tool, scored against NLA-derived ground truth on 18 claims across 6 transcripts
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544) — Norman et al. (arXiv 2606.19544, June 2026, `empirical`): judge-validity threats (kappa deflation, position bias, the consistency–bias paradox) relevant to the audit's judge model; see [LLM-Judge Validation](/articles/llm-judge-validation)

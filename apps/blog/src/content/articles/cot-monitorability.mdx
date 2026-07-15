@@ -11,20 +11,26 @@ tags:
   - chain-of-thought
   - monitoring
   - interpretability
-readingTime: 5
+readingTime: 8
 imageAlt: Illustration for Chain-of-Thought Monitorability
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
 ---
 export { default as heroImage } from "../assets/cot-monitorability.png";
 
 ## Sources
 
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## Summary
 
@@ -68,8 +74,25 @@ The [Claude Opus 4.8](/articles/claude-opus-4-8) System Card (May 2026) is the c
 
 This sharpens the Korbak position from "training pressure *can* collapse CoT legibility" to "even absent obvious collapse, the CoT may simply *not contain* the safety-relevant reasoning." The practical corollary is that CoT monitoring needs an activation-level complement ([White-Box Activation Monitoring](/articles/white-box-activation-monitoring)) — CoT is necessary but provably not sufficient.
 
+## What the chain of thought actually *is* (July 2026)
+
+The [global workspace](/articles/llm-global-workspace) paper supplies a mechanistic account that both explains why CoT monitoring works and bounds how far it can go.
+
+**CoT is externalized workspace.** GSM8K solved with explicit chain-of-thought is substantially **more robust to J-space ablation** than the same problems answered directly — the model is "externalizing onto the page what it would otherwise have to carry in the J-space." More generally, a transformer's only route to deliberation deeper than its feedforward depth is to write intermediates into the context and read them back, so token emission *is* one way the model computes with its workspace: unbounded in serial depth, but "punctuated at regularly spaced intervals by a significant bandwidth constraint."
+
+**Which is exactly why CoT is not sufficient.** The workspace runs whether or not the model writes anything down, and its unwritten contents are load-bearing and readable by the [J-lens](/articles/jacobian-lens): the planned rhyme before the line is written, `spider` before the model outputs "8", `leverage`/`blackmail` before the first token of a blackmail transcript. The visible trace is a *spill* of the workspace, not the workspace itself.
+
+**And there is a floor below even that.** [Automatic computations](/articles/automatic-vs-flexible-cognition) bypass the workspace entirely — so a misaligned behavior reinforced into a fixed circuit could evade the CoT monitor *and* the activation-level one. The monitorability gap has two levels, not one.
+
+The constructive corollary: [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) shapes behavior by supervising a *counterfactual* reflective continuation, applying no direct training pressure to the reasoning trace in the target context — the first technique in this wiki that explicitly routes around the CoT-training-vs-faithfulness tradeoff this page warns about.
+
 ## Connections
 
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — the structure CoT externalizes; its unwritten half is the blind spot
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — reads the reasoning channel the CoT structurally cannot show
+- [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition) — the deeper floor: workspace-independent computation is invisible to *both* monitors
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — what reading the silent channel actually surfaces in practice
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — shapes behavior without training the trace, so it doesn't buy alignment at monitorability's expense
 - Threatened by: [Deliberative Alignment](/articles/deliberative-alignment) (direct CoT training)
 - Plausibly preserved by: [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
 - Source paper: Korbak et al. 2025 (arXiv 2507.11473)
@@ -79,9 +102,11 @@ This sharpens the Korbak position from "training pressure *can* collapse CoT leg
 - Safety position of: [Anthropic](/articles/anthropic) (Anthropic-led argument, Korbak et al. 2025)
 - Depended on by: [Deployment Simulation](/articles/deployment-simulation) — OpenAI's pre-release behavior forecasting detects many undesired behaviors via CoT, so it inherits this monitor's fragility as a stated limitation
 - Related: [Reward Hacking](/articles/reward-hacking) — proxy-gaming that stays out of the visible trace is what makes CoT a necessary-but-insufficient monitor
+- Related: [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — a model's spoken self-report is another fragile, unfaithful monitor: probed on whether its own prior output was compromised, open-weight models misrepresent it (the answer is refusal circuitry, not introspection) and the signal flips with question framing — the follow-up-turn analogue of unfaithful CoT (Turpin/Lanham)
 
 ## Sources
 
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087) (cites and motivates around)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.5–6.6 (CoT monitorability, encoded reasoning, unverbalized grader awareness)
 - Korbak et al. 2025 — *Chain of thought monitorability: A new and fragile opportunity for AI safety*
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — the mechanistic account of what CoT *is*: J-space ablation hurts direct answers far more than chain-of-thought ones, so writing the intermediate down externalizes what the workspace would otherwise hold

@@ -3,24 +3,30 @@ date: 2026-05-13
 title: The Bitter Lesson
 description: "Sutton 2019: scaled general methods beat hand-engineered
   structure; recurring justification across the wiki for dissolving harnesses
-  into models; caveat — mechanical verification and character may not migrate
-  inward"
+  into models; caveats — mechanical verification, character, and the inference
+  path itself may not migrate inward"
 tag: Concept
 domain: llm-architecture
 tags:
   - llm-architecture
   - principle
-readingTime: 6
+readingTime: 9
 imageAlt: Illustration for The Bitter Lesson
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
 ---
 export { default as heroImage } from "../assets/the-bitter-lesson.png";
 
 ## Sources
 
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
 
 ## Summary
 
@@ -39,6 +45,16 @@ This page exists because the principle recurs as a load-bearing argument across 
 ## The standard caveat
 
 The bitter lesson is about *capabilities and structure migrating into the model*, not "harnesses are useless." Things that legitimately stay outside the model: mechanical verification ([Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)'s synthesis), organization-specific policy/style, security boundaries, and — per [Claude Character as Product](/articles/claude-character-as-product) — deliberate character/personality work. The open question on every harness component is which side of that line it's on.
+
+## The deployment exemption
+
+[Gemma 4](/articles/gemma-4) sharpens the line by violating it in both directions at once. The same report **removes** hand-engineered structure — the 550M vision encoder becomes a 35M matmul, the 305M audio conformer is deleted entirely ([Encoder-Free Early Fusion](/articles/encoder-free-early-fusion)) — while **adding** a great deal of it: 5:1 local-to-global attention ratios, p-RoPE at p = 0.25, `values = keys` in the global layers, per-layer-cluster quantization bit-widths, a top-k-over-token-clusters projection in the drafter head.
+
+This is not a contradiction, and naming why is useful. The bitter lesson bites on structure that **encodes a human prior about the task** — a modality encoder asserts that audio should be digested a particular way before the model sees it, and that assertion becomes a ceiling. The KV-cache and quantization tricks encode no prior about anything; they are arithmetic for running the network the model already learned. **Deployment engineering is exempt**, and [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) argues it therefore compounds rather than shrinking: there is no "inward" for it to migrate to.
+
+The corollary for [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) is a second item on the list of things that stay outside: alongside mechanical verification, the inference path itself.
+
+The same exemption covers the **training** loop. [SAO](/articles/single-rollout-optimization) runs the identical both-directions move on the RL side — it *removes* machinery (the old-policy model `π_θ_old`, GRPO's group baseline) while *adding* a great deal (a [frozen-attention critic](/articles/single-rollout-optimization), skip-observation GAE, length-adaptive λ, per-task clip asymmetry). And the critic it hand-builds is discarded at inference; like the KV-cache tricks, it is structure with no "inward" to migrate to. The line holds: what the *model learns about the task* migrates inward; the scaffolding that *produces or serves* the model does not.
 
 ## Connections
 
@@ -67,7 +83,14 @@ The bitter lesson is about *capabilities and structure migrating into the model*
 - [Effective Compute Scaling](/articles/effective-compute-scaling) — "is scaling enough?" is the bitter lesson posed as a forecasting question; DeepMind's caveat that naive brute-force search fails outside toy domains echoes Sutton's "search needs good priors"
 - [Andrej Karpathy](/articles/andrej-karpathy) — frequent invoker of the principle (verifiability, ghosts, Software 3.0 all rest on it)
 - [Repository Exploration Subagent](/articles/repository-exploration-subagent) — a live test case: FastContext trains a *specialized* explorer (hand-built structure), yet its own "same-model exploration" baseline shows the durable gain is the architectural separation, not the trained model — which the bitter lesson predicts will shrink as base models cheapen
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the exemption: structure that encodes no prior about the task (KV cache, quantization, drafters) never migrates inward and compounds instead
+- [Gemma 4](/articles/gemma-4) — removes encoders and adds inference-path structure in the same release, drawing the line clearly
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — the training-loop instance of the same both-directions move; the hand-built critic is scaffolding, discarded at inference, so it never migrates inward
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — DIS is "simpler by further removing" (`π_θ_old`, checkpoint history); the RL plumbing is exempt the way the inference path is
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — removing the critic was itself a bitter-lesson move; SAO is a measured argument for when that removal goes too far
 
 ## Sources
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/) (explicit citation of "the bitter lesson")
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2 (hand-engineered inference path) alongside §2.3 (encoder removal) (`empirical`)
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — §3 (removes `π_θ_old` and the group baseline; adds frozen-attention critic + skip-observation GAE): the training-loop both-directions instance (`empirical`)

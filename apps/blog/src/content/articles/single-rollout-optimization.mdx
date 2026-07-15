@@ -1,0 +1,95 @@
+---
+date: 2026-07-15
+title: Single-Rollout Optimization
+description: "SAO's headline move: one rollout per prompt instead of GRPO's
+  group, fed to training the instant it finishes — cutting off-policy drift and
+  fitting online/agentic settings that only ever give one trajectory per prompt;
+  the catch is REINFORCE-like variance, so it pays for the missing
+  group-baseline by re-embracing a value model and spending its whole
+  engineering budget on making the critic stable (faster value updates,
+  frozen-attention critic, skip-observation GAE, scaled value pretraining)"
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - reinforcement-learning
+  - post-training
+  - agentic-rl
+  - value-model
+readingTime: 8
+imageAlt: Illustration for Single-Rollout Optimization
+sources:
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/single-rollout-optimization.png";
+
+## Sources
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## Summary
+
+**SAO (Single-rollout Asynchronous Optimization)** replaces [GRPO](/articles/group-relative-policy-optimization)'s group-of-responses-per-prompt with **one rollout per prompt** (group size 1), fed to training the instant it completes. Two payoffs: it cuts off-policy drift (no waiting on the slowest group member — see [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms)), and it *fits* the settings where GRPO structurally cannot — online and complex agentic environments that only ever return a single trajectory of feedback per prompt.
+
+The catch is the reason the field abandoned single-trajectory methods in the first place: **variance**. With no group, there is no group-relative baseline for advantage estimation, so single-rollout gradients are as noisy as REINFORCE. SAO's answer is a deliberate **counter-current** — it re-embraces the value model (critic) the recent GRPO/RLOO wave was built to avoid, and spends its entire engineering budget making that critic stable enough to serve as the baseline. Deployed to train [GLM-5.2](/articles/glm) (750B-A40B).
+
+## The counter-current worth naming
+
+For two years the RL-for-LLM direction of travel was **away from value functions**. GRPO, RLOO and friends sell themselves on being *critic-free*: no separate value network to train, half the memory, none of the value-learning instability. SAO argues this is a dead end for the setting that now matters most. Critic-free advantage estimation is *structurally* dependent on a group — you need multiple responses to the same prompt to compute a relative reward — and asynchronous/online agentic feedback gives you exactly one. So the value model comes back, not out of nostalgia but because it is the only baseline that works from a single trajectory. The bet: a *well-trained* critic beats a group-relative baseline, and the instabilities that drove people off critics are fixable. Most of the paper is that fix.
+
+## The four things that make a single-rollout critic stable
+
+**1. Faster value update than policy (TTUR, K=2).** The core instability in single-rollout RL is the policy↔value interdependence: an inaccurate `V_ϕ` yields noisy advantages, which drive destructive policy updates. SAO decouples the update frequencies — **K value-network updates per policy update** (K=2 in the experiments) — so value estimates track the current policy *before* being used for advantage computation. This is a two-timescale update rule adapted for LLMs.
+
+**2. Frozen-attention critic.** In pilot runs the value model's gradient norms were far larger than the policy's, and decomposition traced the instability to the **full-attention layers**, while the MoE layers stayed stable. So during RL, SAO **freezes the attention modules of `V_ϕ` and trains only the MoE projections** — the hypothesis being that pre-trained attention already attends to the right tokens, so restricting optimization to the MoE layers regularizes the critic. Ablation: removing this drops AIME2025 97.3 → 90.6.
+
+**3. Skip-observation token-level GAE.** Agentic trajectories interleave model actions and environment feedback: `T = [a₀, o₀, a₁, o₁, …]`. Standard GAE computes value differences between adjacent tokens — but the boundary from an action's last token to an observation's first token is **discontinuous from the model's perspective** (the model didn't generate `o_i`), so estimating advantage across it makes the critic try to predict the value of an external environment state, injecting noise. SAO's fix bridges action→action directly, skipping observation tokens:
+
+ `Â(a_{i,N}) = δ + γλ · Â(a_{i+1,0})`, with `δ = r_t + γ V(a_{i+1,0}) − V(a_{i,N})`
+
+ Advantage estimation is thereby constrained to model-generated tokens only. **Token-level beats step-level**: treating each turn as one action (step-level GAE) underperforms — Table 5 at 400 steps: step-average 85.8, step-last-token 87.3, **token-level 89.8** on AIME2025 — because finer-grained supervision captures logical transitions within a trajectory that a per-turn signal smooths away.
+
+**4. Scaled value pretraining.** The critic's cold-start is a real bottleneck; scaling the value-pretraining corpus gives a robust initialization that lets the single-rollout and TTUR mechanisms work from early training rather than fighting a bad critic for hundreds of steps.
+
+## Results
+
+Every design choice is load-bearing — the ablation (Table 4) shows each removal costs accuracy, and the two cheaper single-rollout baselines (a running-mean-reward baseline, and vanilla VAPO) both trail badly or collapse:
+
+| Variant | AIME2025 | BeyondAIME |
+|---|---|---|
+| **SAO** | **97.3** | **74.8** |
+| w/o faster value | 95.0 | 69.8 |
+| w/o frozen attention | 90.6 | 74.5 |
+| Vanilla VAPO (no DIS) | 91.3 | 69.0 |
+| Running-mean baseline | 79.8 | 55.3 |
+
+On coding, **SWE-Bench Verified** (Qwen3-30B-A3B backbone, OpenHands scaffold, 300 turns, 128k context): base 23.0 → GRPO+DIS 27.0 → **SAO 29.8**. On the four math-reasoning benchmarks in a reasoning-with-Python (TIR) setting, SAO beats both the SFT baseline and GRPO across the board (AIME2025 97.3, BeyondAIME 74.8, HMMT 88.3, IMOAnswerBench 74.0), landing near the much larger [GLM-4.7](/articles/glm).
+
+## The online-learning result: where single-rollout is *uniquely* suited
+
+SAO's sharpest claim is not a benchmark bump but a *capability GRPO cannot have*. In a **non-stationary** environment — feedback is one trajectory per prompt, and the reward criterion itself changes over time — GRPO's group-relative baseline is structurally inapplicable. SAO's value-based critic is not: it provides a state-dependent baseline from a single trajectory.
+
+The demonstration is a simulated online writing task where the target style is switched mid-training between archetypes (*cute*, *chuunibyou*, *classical*), with [GLM-4.7](/articles/glm) as an [LLM judge](/articles/llm-as-a-judge) scoring `r = r_quality × r_style ∈ {0,1}`. When the preference shifts, SAO **rapidly realigns** — suppressing the old dominant style and converging on the new target — while a running-mean baseline (128-reward sliding window) lags, because its historical window stays biased toward the previous distribution. The critic tracks the shift; the running average can only average over it.
+
+## Connections
+
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the other half of SAO; single-rollout is what removes the group synchronization barrier that async exposes, and DIS is what keeps the resulting updates stable
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the method SAO replaces; the counter-current here is precisely a move back toward the critic GRPO removed
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the online-learning reward signal is an LLM judge (GLM-4.7) scoring quality × style
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the long-horizon agentic models this trains are the ones whose capability then scales with inference budget
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — GLM-5.2 (750B-A40B), SAO's deployment target, is the frontier-open MoE that page tracks
+- [The Bitter Lesson](/articles/the-bitter-lesson) — SAO both removes structure (drops the group baseline, drops `π_θ_old`) and adds a great deal (frozen-attention critic, skip-observation GAE, length-adaptive λ) — the same both-directions shape as [Gemma 4](/articles/gemma-4)
+- [Reward Hacking](/articles/reward-hacking) — a value-based critic gives a denser, state-dependent reward signal than a sparse group-relative one; whether that changes the Goodhart surface is unexplored
+- [GLM (Z.AI)](/articles/glm) — the production deployment: GLM-5.2 (750B-A40B), and GLM-4.7 as both a benchmark ceiling and the online-sim judge
+
+## Open questions
+
+- The whole method is a bet that a well-trained critic beats a group baseline. It wins *here*, on a 30B-A3B backbone with scaled value pretraining — but the critic doubles training memory. At what scale does the group-free simplicity of GRPO win back on cost even if it loses on quality?
+- Frozen-attention is justified by a hypothesis ("pre-trained attention already attends to the right tokens"), validated only by the gradient-norm trace and one ablation. Does it hold when the value model must attend to *tool outputs* it never saw in pretraining?
+- Skip-observation GAE assumes environment feedback carries no learnable value signal worth propagating. For agents where the environment response *is* the crucial information (a compiler error, a test result), is skipping it leaving signal on the table?
+- The online-learning win is on a controlled simulated preference shift with an LLM judge. Real user-facing online adaptation — the paper flags this itself — needs safeguards, monitoring, and privacy review the study doesn't attempt.
+
+## Sources
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou, Li, Tang, Dong (Tsinghua / Z.AI), arXiv 2607.07508, 2026-07-08. §3.2 (single-rollout + value-model designs), §4 (results, ablations), §4.5 (online learning), Appendix A (step-vs-token GAE). `empirical`.

@@ -1,0 +1,100 @@
+---
+date: 2026-07-09
+title: Inference Efficiency as Capability
+description: "If capability is a function of inference budget, then cutting the
+  cost of a token is capability work: Gemma 4's five levers (37.5% KV-cache
+  reduction via keys-as-values + p-RoPE, QAT to sub-GB, MTP drafter heads, MoE,
+  encoder removal) buy more thinking per dollar — and the wiki's first coverage
+  of the deployment side of the stack"
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - inference-scaling
+  - test-time-compute
+  - quantization
+  - deployment
+readingTime: 8
+imageAlt: Illustration for Inference Efficiency as Capability
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+---
+export { default as heroImage } from "../assets/inference-efficiency-as-capability.png";
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+
+## Summary
+
+Under [Noam Brown's thesis](/articles/large-scale-test-time-compute) — capability is a function of how much money you put into inference — a corollary follows that neither source states outright: **anything that lowers the cost of a unit of inference raises capability at a fixed budget.** Efficiency engineering stops being a footnote to the model and becomes a capability lever with the same units as scaling.
+
+[Gemma 4](/articles/gemma-4) (`empirical`) is the worked example. Its abstract sells "a leap in performance"; its substance is five distinct levers for making a token cheaper to produce. Read through Brown's frame, the KV-cache and quantization work is not plumbing beneath the capability story — it *is* the capability story, told from the denominator.
+
+This page is also the wiki's first coverage of the deployment half of the stack. Everything else here concerns what models do; this concerns what it costs to let them do it.
+
+## The five levers (Gemma 4)
+
+**1. KV cache — 37.5% off the global cache.** Three compounding choices. A **5:1 ratio of local sliding-window to global self-attention** layers (4:1 for the 2.3B model), so most layers never hold a full-context cache. **p-RoPE** with p = 0.25 on global layers — only a quarter of the dimensions get rotary encoding (RoPE frequency 1M global, 10k local). And the strange one: **reuse keys as values in the global layers**, `values = keys`, deleting the V projection outright (citing Kayyam et al. 2026, *Do transformers need three projections?*). E2B and E4B skip the keys-as-values trick and instead share the KV cache across layers at ratios of 20/35 and 18/42.
+
+**2. Quantization-aware training — models fall below a gigabyte.** Two weight formats: *mobile quantization* (per-channel int2/int4 weights, int8 activations) and *Q4_0* blockwise, chosen for what `llama.cpp` and consumer hardware actually run. Text-only footprint at 32k context:
+
+| Model | bf16 | Quantized | +KV cache |
+|---|---|---|---|
+| E2B | 4.6 GB | **0.8 GB** | +0.05 |
+| E4B | 9.0 GB | 2.3 GB | +0.14 |
+| 12B | 24.0 GB | 7.65 GB | +0.28 |
+| 31B | 64.0 GB | 19.2 GB | +1.10 |
+
+QAT is applied to the encoders too: the 150M vision encoder at W8A8 halves forward-pass memory (400 → 200 MB) and cuts on-device latency 44% versus Gemma 3n; the audio encoder, quantized to 8-bit activations and per-layer-cluster \{2,4,8\}-bit weights, shrinks **78% on disk, 390 MB → 87 MB**. A scalar scale per block bounds activation ranges so fp16 inference stays stable.
+
+**3. Speculative decoding, shipped as an artifact.** Gemma 4 releases a **multi-token-prediction drafter head** with each model (76M for E2B up to 500M for the 31B): a separate embedder plus a 4-layer Transformer block (three local, one global attention layer) that **cross-attends to the main model's KV cache**. Because the drafter reads the main model's KVs rather than running its own prefill, it needs no MTP prefill and supports any draft length. For the small drafters, the final projection is replaced by a top-k over token *clusters*, shrinking the last matmul from d × 262,000 to **d × 4,096** at a similar acceptance rate.
+
+**4. Mixture-of-Experts.** 26B total, 3.8B active — the standard sparsity trade. Notably it is the *weakest* lever here on human preference; see [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap).
+
+**5. Removing the encoders.** The 12B's 550M vision encoder becomes a 35M matmul and its 305M audio conformer is deleted outright, "alleviating the need for separate encoders and reducing memory fragmentation." Motivated by memory, not accuracy — see [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion).
+
+## Why this is a capability claim, not an engineering claim
+
+Brown's argument runs: a $10 inference budget does one thing, $10,000 does much more. He also observes that per-generation cost drops 10–100×, which is what makes waiting for the next model rational ([Latent Capability Overhang](/articles/latent-capability-overhang)).
+
+Gemma 4 is that cost drop, decomposed and attributed. A model that fits in 0.8 GB runs on a phone, where the binding budget is RAM rather than dollars; a 37.5% smaller KV cache means longer thinking traces fit at the same memory ceiling; a drafter head means each token of a reasoning trace arrives sooner. **A thinking mode and an efficiency stack are the same project**: a reasoning trace multiplies tokens per query, so shipping one in a model people run locally is only coherent if you have first made tokens cheap. The report ships both in the same release and does not connect them.
+
+The inverse holds and is worth naming. If efficiency is capability, then a compute-controlled benchmark ([Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)) is the *only* honest way to compare an efficient model against a large one — Brown's GPT-5.5-versus-5.4 anecdote is precisely a case where the grid hid an efficiency gain. Gemma 4's own Table 5 then commits the error it should have caught.
+
+## What the bitter lesson does and doesn't touch
+
+The report simultaneously **removes** hand-engineered structure (encoders, per Sutton's logic) and **adds** a great deal of it (5:1 attention ratios, p = 0.25, keys-as-values, per-layer-cluster bit-widths, top-k cluster projection). This is not a contradiction. [The Bitter Lesson](/articles/the-bitter-lesson) is a claim about **what the model learns** — structure encoding human priors about the *task* becomes a ceiling. It says nothing about the arithmetic of running the network. Deployment engineering is exempt, and Gemma 4 is the cleanest illustration in the corpus: the encoders go because they encode a prior about modality; the KV-cache tricks stay because they encode nothing at all.
+
+The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve). Harnesses shrink because capability migrates inward. Inference-efficiency work does not shrink — it compounds, because there is no inward for it to migrate to.
+
+## Connections
+
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the root thesis; efficiency is its denominator
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — you cannot see an efficiency gain on a grid that doesn't control for compute
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the 10–100× per-generation cost drop is the mechanism, disaggregated here into its parts
+- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — lever five, and the one with independent corroboration
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — efficiency is the axis on which a 31B dense model competes with 744B MoEs at all
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — cheap inference is what makes unbounded elicitation of open weights affordable to anyone
+- [The Bitter Lesson](/articles/the-bitter-lesson) — applies to learned structure, not to the arithmetic of serving it
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the training-side sibling: async RL is training-efficiency, the same "efficiency is capability" logic applied one loop earlier
+- [Effective Compute Scaling](/articles/effective-compute-scaling) — efficiency gains enter the "effective compute" numerator the same way hardware and algorithms do
+- [Gemma 4](/articles/gemma-4) — the source model family
+- [Google DeepMind](/articles/google-deepmind) — the lab
+- [Noam Brown](/articles/noam-brown) — the thesis this page inverts
+
+## Open questions
+
+- **Is there an efficiency-to-capability exchange rate?** Brown asks whether high-budget performance can be predicted from cheap runs. The dual question: how many Elo points is a 37.5% KV-cache reduction worth, at a fixed dollar budget? Nobody reports this, because nobody plots the axis.
+- `values = keys` deletes a third of attention's projections in the global layers with no reported loss. Which other projections are redundant, and does the redundancy grow with scale?
+- Does an efficiency lever ever *cost* capability in a way a benchmark grid hides? Gemma 4's encoder-free 12B collapses on dense-text vision when tokens are cut — an efficiency-shaped regression invisible at max resolution.
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.1–2.7 (attention ratios, p-RoPE, keys-as-values, QAT, MTP drafter, TPU infra), Tables 1–3 (`empirical`)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26): capability as a function of inference budget; per-generation cost drops of 10–100× (`practitioner-opinion`)
