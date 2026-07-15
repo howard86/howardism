@@ -1,0 +1,91 @@
+---
+date: 2026-07-15
+title: Asynchronous RL for LLMs
+description: Consuming rollouts for training the instant each finishes, instead
+  of waiting for a full synchronized batch — fixes the straggler idle that
+  long-tail agentic/coding rollouts inflict on a GPU cluster, but pays for it in
+  policy lag and off-policy drift; SAO's DIS (direct double-sided importance
+  sampling) stabilizes it by dropping the old-policy model entirely and masking
+  any token whose rollout-vs-current probability ratio leaves a strict trust
+  region
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - reinforcement-learning
+  - post-training
+  - agentic-rl
+  - training-efficiency
+readingTime: 6
+imageAlt: Illustration for Asynchronous RL for LLMs
+sources:
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/asynchronous-rl-for-llms.png";
+
+## Sources
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## Summary
+
+Most large-scale LLM RL is **synchronous and interleaved**: the policy generates a full batch of rollouts under one fixed snapshot, then optimization runs on that batch. For chat this is fine — response lengths are comparable, so the batch finishes together. For **agentic and coding** workloads it is ruinous. Rollout lengths are long-tailed (a bug fix might take 3 turns or 300), so short trajectories finish in seconds while a few stragglers run for minutes, and the whole cluster idles at the synchronization barrier waiting for the slowest one.
+
+**Asynchronous RL** removes the barrier: rollout generation and learning run concurrently, and each trajectory is fed to training the instant it completes. Utilization and wall-clock efficiency rise. The cost is that the model you are updating is no longer the model that generated the data — **policy lag** — and under heavy asynchrony a single trajectory may have been produced across *several* successive rollout-model versions. That is **off-policy drift**, and left unmanaged it collapses training.
+
+This page is the wiki's first coverage of the RL *training loop* itself, as opposed to what the trained model then does at [inference](/articles/large-scale-test-time-compute). The source is [SAO](/articles/single-rollout-optimization) (Hou et al., Tsinghua/[Z.AI](/articles/glm), `empirical`), deployed to train [GLM-5.2](/articles/glm).
+
+## The two costs asynchrony imposes
+
+**1. Policy lag → intractable importance sampling.** Standard decoupled PPO tracks three models to correct off-policy bias: the current policy `π_θ`, the old policy `π_θ_old`, and the rollout policy `π_rollout`. But if the rollout engine updated several times *during* one trajectory's generation, tracking the exact behavior probabilities `π_θ_old` means keeping an unbounded history of checkpoints `{π_θ_old^(1), …, π_θ_old^(N)}` — infeasible.
+
+**2. Group-wise sampling *is* a synchronization barrier.** [GRPO](/articles/group-relative-policy-optimization) samples a group of responses per prompt and normalizes rewards within the group. But the group cannot be used until its **slowest** member finishes, so group-wise sampling re-introduces exactly the straggler wait asynchrony was meant to kill, and amplifies staleness. This is the structural mismatch that motivates [single-rollout](/articles/single-rollout-optimization) updates.
+
+## DIS: direct double-sided importance sampling
+
+SAO's stability mechanism (§3.1) resolves cost 1 by being aggressively simpler:
+
+- **Drop `π_θ_old`.** Use the **rollout log-probabilities directly** as the behavior proxy, so the ratio is `r_t(θ) = π_θ(a_t | s_t) / π_rollout(a_t | s_t) = exp(log π_θ − log π_rollout)`. These log-probs are already emitted during the rollout phase, so this eliminates a whole separate old-policy inference pass and the checkpoint-history problem with it.
+- **Mask, don't clamp.** Standard PPO clipping *clamps* off-policy tokens to the trust-region edge and keeps their gradient. DIS instead **zeroes the gradient** of any token whose ratio falls outside `[1−ε_ℓ, 1+ε_h]`:
+
+ `f(x; ε_ℓ, ε_h) = x if 1−ε_ℓ < x < 1+ε_h, else 0`
+
+ Tokens that diverge too far are removed from the update entirely rather than contributing a saturated gradient. This is a stricter version of the **IcePop** mechanism (Ling Team, 2025), made simpler by also removing `π_θ_old`.
+
+The trade is explicit: accept a controlled amount of off-policy bias in exchange for a large drop in computational complexity and the elimination of stale-checkpoint error. Empirically the aggressive masking is what makes the update stable — it regularizes the step size by refusing to learn from tokens the rollout and current policy disagree about.
+
+## The stability numbers
+
+The collapse is real and fast, and DIS is what prevents it:
+
+- **Vanilla GRPO** (keeping the latest old policy for importance sampling) collapses at **~160 steps**.
+- **VAPO without DIS** — near-zero clip ratio, never gates divergent updates — collapses at **~90 steps**.
+- **GRPO + DIS** trains stably; adding DIS alone rescues both.
+- **SAO** (single-rollout + DIS + value-model designs) trains stably for **~1000 steps**, and diverges upward from GRPO+DIS after ~400 steps.
+
+So DIS buys *stability* and single-rollout buys the *extra performance* on top — the two contributions are separable, which the ablation confirms.
+
+## Where this sits among async RL systems
+
+The related-work landscape (§5.2) targets throughput more than effectiveness: **AReaL** (Fu et al., 2025) fully decouples rollout from training with staleness-aware PPO; **ROLL Flash** (Lu et al., 2025) adds fine-grained parallelism for RLVR and agentic training; **Noukhovitch et al. (2024)** frame async RLHF as online-but-off-policy learning. SAO's angle is different — it stabilizes the *algorithm* under policy lag rather than optimizing the *system*, and it is the one that leans into single-trajectory feedback rather than around it.
+
+## Connections
+
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — the other half of SAO: single-rollout updates, and the value-model designs that make DIS-stabilized async training also *effective*
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the baseline whose group barrier asynchrony exposes; DIS is first demonstrated *on* GRPO before SAO drops the group
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — async RL is the training-side complement: this is the loop that *produces* the long-horizon agentic models whose capability then scales with inference budget
+- [The Bitter Lesson](/articles/the-bitter-lesson) — DIS removes hand-built machinery (`π_θ_old`, checkpoint history) — "simpler by further removing"; but the training loop is scaffolding the bitter lesson doesn't touch, the way [the inference path](/articles/inference-efficiency-as-capability) isn't
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the training-side sibling: async RL is *training* efficiency, the same "efficiency is capability" logic one loop earlier
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — GLM-5.2, trained under this async regime, is the frontier-open MoE that page tracks
+- [GLM (Z.AI)](/articles/glm) — SAO's production deployment: training GLM-5.2 (750B-A40B)
+
+## Open questions
+
+- DIS accepts "a controlled degree of off-policy bias." Controlled how, and does the tolerable bias grow or shrink with model scale and with the degree of asynchrony? The paper reports stability empirically but gives no bound.
+- Masking tokens out of the gradient discards data. At what asynchrony level does the masked fraction get large enough that the effective batch shrinks below usefulness? Figure 4(c) tracks the clip ratio but not its ceiling.
+- Everything here is measured on a Qwen3-30B-A3B backbone. Does the collapse-without-DIS threshold move with model size, or is ~90–160 steps a property of the asynchrony, not the model?
+
+## Sources
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou, Li, Tang, Dong (Tsinghua / Z.AI), arXiv 2607.07508, 2026-07-08. §1 (async motivation), §3.1 (DIS), §4.2/4.4 (collapse dynamics), §5.2 (related systems). `empirical`.

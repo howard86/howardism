@@ -1,0 +1,107 @@
+---
+date: 2026-07-09
+title: Compute-Controlled Benchmarking
+description: Noam Brown's critique that the single-number 'benchmark grid' is
+  broken because it doesn't control for test-time compute; the fix is to plot
+  performance against a cost/token/time x-axis; benchmark-maxxing, held-out
+  private sets, the Goodhart bad-equilibrium that keeps the grid alive, why
+  routing/consensus must be judged at equal budget — and Gemma 4's headline
+  table as the worked example, benchmarking a thinking model against a
+  non-thinking predecessor
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - capability-evaluation
+  - benchmarks
+  - goodhart
+  - evaluation-methodology
+readingTime: 10
+imageAlt: Illustration for Compute-Controlled Benchmarking
+sources:
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: "More compute, more capability: Why AI agent evaluations need to account
+      for test-time compute"
+    url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+---
+export { default as heroImage } from "../assets/compute-controlled-benchmarking.png";
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+
+## Summary
+
+The evaluation consequence of [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute): if capability is a function of inference budget, then a benchmark number reported *without* its budget is meaningless. [Noam Brown](/articles/noam-brown)'s essay is aimed squarely at the **"benchmark grid"** — the standard release artifact with benchmarks on the x-axis, models on the y-axis, and a single score per cell. His fix: **put compute on the x-axis.** Report performance as a function of tokens, cost, or time; or fix a budget and compare within it (`practitioner-opinion`).
+
+The motivating incident: when GPT-5.5 launched, the grid showed only a few-percentage-point gain over GPT-5.4, and the initial reaction was skepticism that it was meaningfully better. It was — 5.5 was simply **far more compute-efficient**, reaching the same or better answers with much less thinking. 5.4 at max settings thinks longer per response. Control for thinking time and 5.5 is "a substantial jump," which matched users' day-to-day experience once they played with it. The grid *hid* the improvement because it didn't equalize compute.
+
+## Benchmark-maxxing: gaming the score with scaffolds
+
+The sharper worry is that the grid is trivially inflatable. **Benchmark-maxxing** is Brown's term for scaffolding tricks that raise a benchmark number without a real capability gain once compute is held equal: run the model five times and take the best answer; add an LLM judge to pick the strongest of N candidates. These "look a lot better on paper but are actually not better once you control for the amount of test-time compute." It is [Goodhart's law](/articles/reward-hacking) moved out of the training loop and into the *eval-reporting* layer: the measure (grid score) becomes the target, so it stops measuring capability and starts measuring willingness to spend inference on best-of-N.
+
+The standing defense against optimizing *to* a benchmark (as opposed to for the underlying skill) is a **held-out private set** that isn't publicly available — Brown says OpenAI tries not to optimize for specific benchmarks, but "once you put out a benchmark it's always at risk of just being optimized for."
+
+## The bad equilibrium
+
+Brown frames the grid's persistence as a coordination failure, not a disagreement. Privately, researchers agree the x-axis should be cost/tokens/time — "yeah, that makes sense, we should do that." But the published answer is "people expect us to publish the grid," and people expect it *because everybody publishes the grid.* Everyone knows it's a bad equilibrium and nobody wants to move first. Writing the essay is an explicit attempt to give the field permission to defect: so that "next time there's a model release, a company can feel comfortable not publishing the grid, at least not at the top line." This is Goodhart named as a collective-action problem rather than an individual temptation.
+
+## Independent adoption: UK AISI reports curves, not scores (July 2026)
+
+Brown wrote the critique; the **[UK AI Security Institute](/articles/uk-ai-security-institute)** operationalized it, and as a government evaluator rather than a competing lab it is the cleanest party to defect from the grid. Its July 2026 study is `empirical` and its conclusion is Brown's prescription almost verbatim: **"Evaluations should report capability curves, especially when performance may still be rising"** — and "agent capability cannot be interpreted without the compute budget used to estimate it." A capped score, AISI warns, can "make model comparisons unequal" and "quietly mislead" a decision-maker into treating an *under-resourced* evaluation as evidence of a *low-capability* model.
+
+The prescription is now AISI's practice, not just its recommendation. It evaluates frontier models across multiple budgets (including very large ones for the hardest tasks), reports **reliability and reach against budget**, and is defining **"minimum informative budgets"** — a budget declared sufficient only once a model's reach stops rising with more compute. That last is the operational answer to "how much is enough?" that a single grid number never had.
+
+## Worked example: Gemma 4's headline table (July 2026)
+
+Brown published the critique in June 2026. Three weeks later [Gemma 4](/articles/gemma-4) shipped the artifact, and it is worth naming because the paper is otherwise careful (`empirical`, sixteen tables).
+
+**Table 5** — the report's most-cited table, and the basis of its "leap in performance" claim — compares **Gemma 4 in thinking mode** against **Gemma 3 27B non-thinking**. AIME 2026 goes 20.8 → 89.2; Codeforces Elo goes 110 → 2150. No thinking-versus-non-thinking ablation for the same Gemma 4 model appears anywhere in the document. The generational improvement and the inference-budget increase are therefore **confounded in the headline number**, and the report never states the thinking budget it allowed.
+
+What makes the case instructive rather than merely damning is that the same report *does* control, elsewhere, without remarking on it:
+
+- **Table 9 (long context) is run "without thinking" on both sides.** It is the one clean generational comparison in the paper — and its gains are real and large (LOFT Text Retrieval @128k: 8.6 → 79.5).
+- **Table 6 (vision) repeats the confound**: Gemma 4 thinking versus Gemma 3 27B non-thinking with Pan & Scan.
+
+So the fix is not beyond the authors; it is applied inconsistently and never flagged. This is what Brown means by a **bad equilibrium** rather than a disagreement — the compute-controlled table exists inside the same PDF as the uncontrolled one, because nobody expects the top-line table to control and everybody expects the long-context table to.
+
+There is a second-order cost specific to this paper. Gemma 4's actual contribution is [inference efficiency](/articles/inference-efficiency-as-capability) — a 37.5% smaller KV cache, sub-gigabyte quantization, a drafter head. Those are precisely the gains a compute-uncontrolled grid **cannot display**, exactly as the grid hid GPT-5.5's efficiency advantage over 5.4. By publishing the standard grid, the report obscures its own best result.
+
+## Routing and consensus are subject to the same budget question
+
+The critique generalizes to the vendors whose value proposition *is* a scaffold. A **routing / consensus layer** (send each sub-task to the right model, or aggregate several models' answers) can indeed beat any individual model on a benchmark. But Brown's principle collapses the apparent win into the same question: does the routed ensemble beat **the same model simply thinking longer at equal test-time compute?** Consensus-among-models is just another way to spend inference; unless it's compared at a fixed budget — and shown to hold on real use cases, not just the benchmarks it was tuned on — the improvement may be an artifact of spending more, or of over-fitting the eval.
+
+## Connections
+
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the root cause: capability scales with inference budget, so a score without a budget is undefined
+- [Reward Hacking](/articles/reward-hacking) — benchmark-maxxing is Goodhart at eval-report time, the sibling of reward hacking in the training loop
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the in-model version of gaming a measure; benchmark-maxxing is the same pressure applied by the *evaluator* rather than the model
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the flip side of the same axis: if grids under-report because they under-spend, released models hold capability nobody has paid to reveal
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — the compute-controlled successor metric: reliable task *length* at a budget, rather than accuracy at an unnamed one; both face benchmark saturation
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — the safety-eval instance of the same demand: a threat-model determination reported without its compute budget is as under-specified as a capability score
+- [Gemma 4](/articles/gemma-4) — the worked example: a thinking-mode model benchmarked against a non-thinking predecessor in its own headline table
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — the confound cuts across model sizes too: Gemma 4's reasoning wins over a 10×-larger predecessor are partly bought with inference, while its knowledge losses are not recoverable that way
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the gain an uncontrolled grid structurally cannot show, which is why efficient models are systematically under-credited
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — Arena Elo inherits the same defect: human preference scored at an unnamed inference budget
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — the stakes when the un-budgeted determination is a safety one and the weights are public
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — the independent evaluator that adopted "report capability curves" in practice; empirical backing for the whole critique
+- [Noam Brown](/articles/noam-brown) — the source and author of the essay
+
+## Open questions
+
+- Can you certify "no benchmark-maxxing" — verify a reported score used a stated, reproducible compute budget rather than a hidden best-of-N scaffold?
+- Compute has several units (tokens, dollars, wall-clock). They diverge (a more efficient model wins on cost but not always on tokens). Which x-axis is the honest one, and does it depend on the buyer? ([AISI](/articles/uk-ai-security-institute) reports against **tokens** on a log axis, and notes that as cost-per-token falls, the high budgets that reveal capability become progressively cheaper to reach.)
+- Does a compute-controlled evaluation regime advantage frontier labs (who can afford the full curve) over academics and third-party evaluators who can't? **Sharpened (2026-07):** a government evaluator ([AISI](/articles/uk-ai-security-institute)) *does* run the full curves — so it is affordable to a well-funded public body — but AISI itself flags that "the most informative evaluations may be expensive" and is researching how to forecast high-budget performance from cheap runs precisely to relieve that cost. So cost is the binding constraint even for a funded third party; it just isn't fatal to one.
+- Gemma 4 controls for compute in its long-context table and not in its headline table, without comment. Is partial control worse than none — does it lend the uncontrolled tables borrowed credibility?
+
+## Sources
+
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26); the benchmark-grid critique, benchmark-maxxing, the bad-equilibrium framing, and the routing/consensus argument (`practitioner-opinion`)
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — Table 5 (thinking vs non-thinking across generations), Table 9 (the controlled long-context comparison), Table 6 (the confound repeated on vision) (`empirical`)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI (2026-07-02, `empirical`): "report capability curves"; multiple-budget evaluation, reliability/reach-against-budget, and "minimum informative budgets" as adopted practice

@@ -2,23 +2,28 @@
 date: 2026-05-13
 title: Encoder-Free Early Fusion
 description: "Multimodal design with minimal pre-processing instead of large
-  standalone encoders: dMel audio embedding, 40×40-patch hMLP for frames, flow
-  head for audio out, all co-trained from scratch in one transformer"
+  standalone encoders: TML co-trains dMel audio + 40×40-patch hMLP + flow head
+  in one transformer for 200ms latency; Gemma 4's 12B independently discards a
+  305M audio conformer for on-device memory — two labs, two motivations, same
+  verdict, with a dense-text vision regression as the one measured cost"
 tag: Concept
 domain: interaction-multimodal
 tags:
   - llm-architecture
   - multimodal
-readingTime: 3
+readingTime: 6
 imageAlt: Illustration for Encoder-Free Early Fusion
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
 ---
 export { default as heroImage } from "../assets/encoder-free-early-fusion.png";
 
 ## Sources
 
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
 
 ## Summary
@@ -46,6 +51,37 @@ Outputs:
 - Early fusion (everything into one transformer) means the model reasons jointly over modalities rather than over pre-digested encoder outputs — a prerequisite for things like reacting to a visual cue *while* speaking (see [Full-Duplex Interaction](/articles/full-duplex-interaction)).
 - Co-training from scratch is consistent with [The Bitter Lesson](/articles/the-bitter-lesson): fewer hand-engineered modular boundaries, more learned-end-to-end.
 
+## Independent corroboration: Gemma 4 12B (July 2026)
+
+The design above rested on a single source and a single lab. [Gemma 4](/articles/gemma-4) (`empirical`) arrives at the same architecture from an unrelated starting point — and this is the more interesting kind of agreement, because the *motivation* differs.
+
+TML removed encoders to hit a **200 ms latency budget**. DeepMind removed them for **memory**: "alleviating the need for separate encoders and reducing memory fragmentation" on edge hardware. Same verdict, orthogonal reasons. When two labs optimizing different objectives converge on deleting the same component, the component was probably not load-bearing.
+
+The Gemma 4 12B implementation:
+
+- **Vision.** 48×48×3 RGB patches through a **single 35M matmul**, replacing a 550M ViT. 2D coordinate-based positional embeddings are added to patch representations before a final LayerNorm.
+- **Audio.** The 305M USM-based conformer is **entirely discarded**. Raw 16 kHz audio is segmented into 40 ms chunks — 640-dimensional vectors — and projected directly into the LLM embedding space. No positional encoding is added at all: audio is already a temporal sequence.
+
+Table 8 is the receipt. The encoder-free 12B reaches **0.063 WER** on English FLEURS ASR and **41.9 CorpusBLEU** on CoVoST de→en, against the encoder-*having* E4B's 0.065 and 42.0. Throwing away a 305M conformer cost, on those numbers, nothing. DeepMind's own caption: "competitive audio-text performance can be achieved without a dedicated audio encoder."
+
+### Two caveats the report doesn't state
+
+**It is not a controlled ablation.** The encoder-free model is the **12B**; the encoder-having comparison is the **4.5B-effective E4B**. The 12B has more LLM capacity to absorb the work the discarded encoder used to do. The claim *"competitive performance is achievable without an encoder"* is supported. The stronger claim *"removing the encoder is free"* is not tested anywhere in the paper — a same-size arm would settle it, and none is run.
+
+**There is a measured regression, and it is specific.** Cut vision tokens from 1120 (Table 6) to 280 (Table 12) and the 12B degrades **out of order with scale**:
+
+| Model | InfographicVQA Δ | OmniDocBench 1.5 Δ (↓ better) |
+|---|---|---|
+| 31B | −9.2 | +0.070 |
+| 26B-A4B | −11.5 | +0.120 |
+| **12B (encoder-free)** | **−29.7** | **+0.244** |
+| E4B | −15.2 | +0.126 |
+| E2B | −19.3 | +0.206 |
+
+The 12B falls harder than models both larger *and smaller* than it — the only ordering violation in the family, and it is the only encoder-free member. The effect is confined to **dense-text-in-image** tasks: MMMU Pro (−1.4) and MATH-Vision (−3.0) degrade normally. A plausible reading is that a 35M linear projection performs no feature compression, so the model must spend resolution where a ViT would have spent parameters. Reading small text then becomes token-budget-bound.
+
+If that reading is right, encoder-free is not free — it **trades encoder parameters for vision tokens**, which is an [inference-cost](/articles/inference-efficiency-as-capability) trade, not a saving. The report neither reports nor comments on the inversion.
+
 ## Connections
 
 - [Interaction Models](/articles/interaction-models) — parent concept
@@ -54,7 +90,17 @@ Outputs:
 - [Full-Duplex Interaction](/articles/full-duplex-interaction) — joint multimodal reasoning is what makes visual+audio interjection possible
 - [The Bitter Lesson](/articles/the-bitter-lesson) — "co-train from scratch, drop the modular encoders" is a bitter-lesson move
 - [TML-Interaction-Small](/articles/tml-interaction-small) — the model that implements this design (dMel audio, 40×40 hMLP patches, flow head), co-trained from scratch
+- [Gemma 4](/articles/gemma-4) — the second, independent instance: a 12B open-weight model that discards its 305M audio conformer outright
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — memory, not latency, is DeepMind's motivation; and the dense-text regression suggests the saving is really a parameters-for-tokens trade
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — encoder removal is one of the levers that lets a small dense model compete at all
+
+## Open questions
+
+- **Does an encoder-free model at matched size still match?** Neither source runs the ablation. TML co-trains everything from scratch; Gemma 4 freezes encoders on four models and drops them on one, at a different scale.
+- Is the dense-text degradation intrinsic to a projection-only vision path, or an artifact of the 12B's particular training run? The prediction is falsifiable: an encoder-free 31B should show the same InfographicVQA cliff at 280 tokens.
+- TML deletes encoders *and* co-trains from scratch. Gemma 4 deletes encoders *and* trains the 12B from scratch, but keeps frozen encoders elsewhere. Which half of "encoder-free + from-scratch" does the work?
 
 ## Sources
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.3 (encoder-free architecture), Table 8 (audio without an encoder), Tables 6 & 12 (the 280-vs-1120 vision-token regression) (`empirical`)
