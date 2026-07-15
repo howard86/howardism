@@ -1,3 +1,8 @@
+# [v2.14.0](https://github.com/howard86/howardism/compare/v2.13.0...v2.14.0) (2026-07-15)
+
+## ✨ New Features
+- [`346a6891`](https://github.com/howard86/howardism/commit/346a6891)  feat(cli): support agy CLI image generation in agy folder
+
 # [v2.13.0](https://github.com/howard86/howardism/compare/v2.12.1...v2.13.0) (2026-07-04)
 
 ## ✨ New Features
