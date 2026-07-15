@@ -1,3 +1,5 @@
+# [v2.15.1](https://github.com/howard86/howardism/compare/v2.15.0...v2.15.1) (2026-07-15)
+
 # [v2.15.0](https://github.com/howard86/howardism/compare/v2.14.0...v2.15.0) (2026-07-15)
 
 ## ✨ New Features
