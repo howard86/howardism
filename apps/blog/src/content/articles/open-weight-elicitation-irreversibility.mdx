@@ -1,0 +1,105 @@
+---
+date: 2026-07-09
+title: Open-Weight Elicitation Irreversibility
+description: "A wiki-drawn synthesis of Brown and Gemma 4: if dangerous
+  capability scales with inference budget, then an open-weight release fixes the
+  model's safety evaluation at one budget forever while leaving elicitation
+  budget unbounded and recall impossible — the closed-weight mitigations
+  (classifier fallback, suspension, retention) all require a server the vendor
+  controls"
+tag: Concept
+domain: governance-workforce
+tags:
+  - governance
+  - safety
+  - open-weights
+  - test-time-compute
+  - catastrophic-risk
+readingTime: 9
+imageAlt: Illustration for Open-Weight Elicitation Irreversibility
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: "More compute, more capability: Why AI agent evaluations need to account
+      for test-time compute"
+    url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+---
+export { default as heroImage } from "../assets/open-weight-elicitation-irreversibility.png";
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+
+> **Status: wiki synthesis, not a source claim.** No source argues this. [Brown](/articles/noam-brown) makes the budget argument about frontier labs' preparedness frameworks and does not mention open weights; [UK AISI](/articles/uk-ai-security-institute) empirically measures the budget→capability curve but likewise does not mention open weights; [Gemma 4](/articles/gemma-4) releases open weights and does not mention elicitation budgets. This page states what follows from holding all three, and marks where the inference outruns the evidence.
+
+## The argument
+
+Three premises, each sourced.
+
+1. **Dangerous capability scales with inference budget.** Brown (`practitioner-opinion`): if a model "keeps improving on a task without asymptoting as you spend more," it can also keep improving "at things society doesn't want it to do." Preparedness frameworks and RSPs were built in the ChatGPT era, when a GPT-3-class model "given $10 million couldn't do much more than $10," and so none of them names the budget at which dangerous capability is evaluated. See [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals). The capability *side* of this premise now has independent `empirical` footing: [UK AISI](/articles/uk-ai-security-institute) measured capability rising with token budget across cyber, software-engineering, and maths benchmarks (~8% of cyber tasks only surface at ≥10M tokens) and warns fixed-budget scores "obscure the true scale of risks" — so premise 1 is no longer only an OpenAI researcher's argument, even though AISI, like Brown, stops short of the open-weight case.
+
+2. **Released models hold capability nobody has paid to extract.** The [Latent Capability Overhang](/articles/latent-capability-overhang): the Erdős unit-distance disproof was sitting inside public GPT-5.5 the whole time, retrievable for $1K–$100K of scaffolded compute. The capability was latent because extraction costs money, not because it was absent.
+
+3. **Gemma 4 ships a thinking mode under Apache 2.0, with untabulated safety evaluations.** The report's §5 asserts "major improvements in every category of content safety" and "minimal policy violations" in prose, with no tables, no benchmark names, and no stated compute budget — in a document containing sixteen benchmark tables. Testing was run "without safety filters," which is the right methodology and makes the absence of numbers stranger.
+
+**Conclusion.** For an open-weight model, the safety evaluation is performed once, at some unstated budget, by the releasing lab — and the elicitation budget available to everyone else is unbounded, permanent, and unobservable. The evaluation is a single point; the threat surface is the whole curve above it.
+
+## Why the closed-weight mitigations don't port
+
+The wiki already documents what a lab does when a model reaches a dangerous threshold. Every one of these instruments requires a server the vendor controls:
+
+- **[Capability-Gated Model Fallback](/articles/capability-gated-model-fallback)** — Fable 5's classifiers route cyber/bio/distillation queries to a weaker model instead of refusing. Requires intercepting the request.
+- **Suspension.** Anthropic pulled access to Fable 5 and Mythos 5 after launch (see [Claude Fable 5](/articles/claude-fable-5)). Requires an off switch.
+- **30-day retention** on Mythos-class traffic, for safety analysis. Requires traffic.
+- **Fixed inference budgets.** A hosted model can cap thinking tokens. Downloaded weights obey whatever budget the owner's hardware permits.
+
+Open weights are compatible with exactly one of the RSP's two modes. Anthropic's [RSP](/articles/responsible-scaling-policy-evals) operates in a *gating* mode ("frontier not advanced, ship it") and an *engaged* mode ("threshold crossed, deploy safeguards"). An open-weight release can use the first and has no access to the second. Once weights are public, the lab has spent its entire safety budget before anyone has run the model — and the `<|think|>` control token that activates Gemma 4's reasoning trace is, in the open-weight setting, just a string in a system prompt that any user or fine-tune can set.
+
+Note that this is not an argument that Gemma 4 is dangerous. Gemma 4 sits at Arena rank 43 ([The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap)) and is not a frontier model; DeepMind's Frontier Safety Framework thresholds are plausibly nowhere near. The argument is structural, and it bites hardest on whichever open-weight release *is* eventually near a threshold — and on the fact that the deciding evaluation will have been a single-budget one.
+
+## The sharpened audit question
+
+The Brown compile left an open question in the log: *who audits released models for latent dangerous capability, given that the 10–100× per-generation cost drop makes next-generation training more cost-effective than extractive scaffolding on current models?* For closed weights the answer is unsatisfying — nobody has the incentive, though the lab retains the ability.
+
+For open weights the answer is worse in one direction and better in another, and the asymmetry is the interesting part:
+
+- **Worse:** nobody can revoke. An audit that discovers dangerous capability three years after release discovers it about an artifact that has been mirrored, quantized, fine-tuned, and embedded in products. Discovery and remedy are decoupled.
+- **Better:** *everybody* can audit. Closed weights permit elicitation only through an API the vendor shapes and can monitor; open weights permit white-box interpretability, activation probing, and adversarial fine-tuning by any third party. [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) is only available to whoever holds the weights.
+
+The same property — anyone can run unbounded inference against these weights forever — generates both the danger and the only mechanism for finding it. [Frontier Pause Verification](/articles/frontier-pause-verification) assumes a small set of compute-holders whose training runs can be observed; unbounded post-release elicitation of already-published weights is not a training run and is not observable.
+
+And [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) closes the loop uncomfortably: Gemma 4's own contribution is making inference on these weights dramatically cheaper. A 37.5% smaller KV cache and a sub-gigabyte quantized checkpoint lower the cost of every elicitation attempt, benign and otherwise, on a model whose safety evaluation assumed some other, unstated budget.
+
+## Connections
+
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — the framework whose *engaged* mode has no open-weight analogue; Brown's unbounded-budget critique originates there
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — premise 2; the open-weight case is the overhang with no recall mechanism
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the capability-side sibling: a determination without a budget is under-specified whether it grades capability or danger
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — the mitigation that requires a server, illustrating what open weights give up
+- [Frontier Pause Verification](/articles/frontier-pause-verification) — governs training compute; says nothing about unbounded inference on published weights
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — cheap inference lowers the cost of elicitation as surely as it lowers the cost of use
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — why this is a structural argument and not an alarm about Gemma 4 specifically
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the compensating advantage: open weights are the only ones a third party can inspect internally
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — premise 1's root
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — the empirical measurement of premise 1's capability side (does not itself address open weights)
+- [Gemma 4](/articles/gemma-4) — the release that occasions the argument
+- [Noam Brown](/articles/noam-brown) — the budget critique
+- [Google DeepMind](/articles/google-deepmind) — publisher of both the Frontier Safety Framework and an open-weight thinking model
+
+## Open questions
+
+- **What would an open-weight safety evaluation even report?** A single number is meaningless per premise 1. A curve of dangerous capability against elicitation budget is publishable — and is also a roadmap. Is there a disclosure regime that is informative to auditors and not to attackers?
+- Does the "everybody can audit" advantage actually materialize? Who has funded a serious post-release dangerous-capability audit of any open-weight model, and at what budget?
+- Gemma 4's safety section reports no numbers. Is that a deliberate non-disclosure, a judgment that the model is far from any threshold, or simply a technical report's genre convention? The document does not say, and the distinction matters.
+- Anthropic's answer to a threshold-crossing model was a safeguarded SKU and an unsafeguarded one ([Claude Fable 5](/articles/claude-fable-5) / Mythos 5), both hosted. What is the open-weight equivalent of shipping the safeguarded SKU?
+
+## Sources
+
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors (2026-06-26): preparedness frameworks don't specify the test-time-compute budget at which dangerous capability is evaluated (`practitioner-opinion`). Brown does not discuss open weights.
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §5 (Responsibility, Safety, Security): claims of major safety improvements, reported as prose with no tables or budgets, in an otherwise heavily tabulated report; Apache 2.0 release; `<|think|>` activation token (Table 11). Treated as `vendor-claim` for the safety claims specifically.
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI (2026-07-02, `empirical`): measured capability↑budget across benchmarks; fixed-budget scores "obscure the true scale of risks." Backs premise 1's capability side; does not discuss open weights.

@@ -6,7 +6,11 @@ description: Using one LLM to grade another's outputs against criteria/rubrics;
   weight-aggregated into normalized score and pass rate; key properties —
   rankings stay stable across judge models while absolute magnitudes vary, and
   adaptive per-case rubrics (Google's AutoRaters) detect failures but blend them
-  away, motivating stable custom metrics for the behavior under change
+  away, motivating stable custom metrics for the behavior under change; a
+  21-judge / ~541K-judgment audit finds raw exact-match agreement overstates
+  chance-corrected reliability by 33–41pp (kappa deflation) and high test-retest
+  can mask severe position bias, so judges need chance-correction, bias, and
+  cross-benchmark validation before thresholded use
 tag: Concept
 domain: llm-architecture
 tags:
@@ -14,7 +18,7 @@ tags:
   - llm-as-a-judge
   - benchmarks
   - rubrics
-readingTime: 7
+readingTime: 10
 imageAlt: Illustration for LLM-as-a-Judge
 sources:
   - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
@@ -23,6 +27,11 @@ sources:
   - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
       Developers Blog
     url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
 ---
 export { default as heroImage } from "../assets/llm-as-a-judge.png";
 
@@ -30,6 +39,8 @@ export { default as heroImage } from "../assets/llm-as-a-judge.png";
 
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
 
 ## Summary
 
@@ -64,6 +75,8 @@ DRACO's most transferable methodological lesson: **relative rankings are stable 
 - Pick the judge by **alignment with human experts**, not by capability alone — DRACO's selection was grounded in a human-agreement study, not "use the strongest model."
 - A judge can inherit its own biases into grading — a known confound when the judge and a graded model share lineage (see [Automated Behavioral Audit](/articles/automated-behavioral-audit), where a constitution-adherence variant graded by Opus 4.7 may inherit that model's biases).
 
+**But "just use rankings" is judge-invariant, not benchmark-invariant.** DRACO establishes that rankings survive changing the *judge model*; it says nothing about changing the *task set*. [Norman et al. (2026)](/articles/llm-judge-validation) measured the other axis — 21 judges across three benchmarks — and found judge rankings shift by **up to 14 positions** across benchmarks (only Gemini 3.1 Pro and Claude Opus 4.6 hold top-3 on all three), because benchmarks differ ~4.5× in discriminability and measure different latent constructs (preference alignment vs objective correctness vs chosen-vs-rejected). A ranking is trustworthy only across the axis you have verified it stable on: validate on **≥ 2 benchmarks** spanning the preference↔correctness axis, not one leaderboard.
+
 ## Where it recurs in the wiki
 
 LLM-as-a-judge is the same primitive seen across very different domains, always doing the job of *converting an open-ended quality question into a scored signal*:
@@ -71,6 +84,7 @@ LLM-as-a-judge is the same primitive seen across very different domains, always 
 - **Alignment evaluation** — [Automated Behavioral Audit](/articles/automated-behavioral-audit): an investigator model probes a target, and a separate **judge model** scores behavior across dozens of dimensions. Same architecture, applied to safety rather than research quality.
 - **Formal proof search** — [Evolutionary Proof Search](/articles/evolutionary-proof-search): cheaper **LLM-critic rater agents** assign *relative* fitness to incomplete proof sketches (a Plackett–Luce ranking), turning a binary compiler signal into a continuous gradient. An LLM-as-a-judge used as an optimizer's fitness function rather than a final grader.
 - **Product evals** — [Evals as Product Spec](/articles/evals-as-product-spec): Cat Wu's "ten great evals" are runnable judgment-encoders; rubric-graded LLM scoring is how you scale "what does done look like?" to ambiguous AI features.
+- **RL reward signal** — [Single-Rollout Optimization](/articles/single-rollout-optimization): SAO's online-learning experiment uses **GLM-4.7 as the judge that assigns the training reward** (`r = r_quality × r_style ∈ {0,1}`). This is the primitive wired *directly into the RL loop as the reward function* — closest to the proof-search fitness role above, but here the judge's verdict *is* the gradient signal, which makes its biases training targets rather than measurement error (a [Reward Hacking](/articles/reward-hacking) surface).
 
 ## Limits
 
@@ -92,10 +106,12 @@ LLM-as-a-judge is the same primitive seen across very different domains, always 
 - [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the productized eval-fix loop built on adaptive AutoRater judges plus stable custom rubrics
 - [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the self-grading/lineage caveat elevated to an architectural rule: whatever proposes a change never grades it
 - [Failures That Look Like Success](/articles/failures-that-look-like-success) — why blended adaptive scores miss single-criterion failures; the case for trace-level grading and metric promotion
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — LLM-as-a-judge as an RL reward function: GLM-4.7 grades style + quality to produce the reward in SAO's online-learning simulation
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the reliability discipline this primitive lacks: kappa deflation, cross-benchmark rank instability, and the consistency–bias paradox, distilled into a 5-step pre-deployment protocol; the independent counterweight to DRACO's judge-stability finding
 
 ## Open questions
 
-- How far can the judge's absolute calibration be trusted for *thresholded* decisions (ship/no-ship, RSP gating) as opposed to rankings?
+- How far can the judge's absolute calibration be trusted for *thresholded* decisions (ship/no-ship, RSP gating) as opposed to rankings? **Partially answered:** [Norman et al. (2026)](/articles/llm-judge-validation) show absolute calibration is *worse than the reported number implies* — the metric practitioners cite (exact-match agreement) systematically overstates chance-corrected reliability by 33–41pp on balanced label sets, so an "85% agreement" judge is really at κ ≈ 0.48 (moderate), and a threshold set on raw agreement is calibrated to an inflated figure. The "rankings are safe" fallback is *also* bounded — stable across judge-model choice (DRACO) but fragile across benchmark choice (up to 14 rank positions). It does **not** close the question: it prescribes a pre-deployment checklist (the Minimum Viable Validation Protocol) rather than declaring thresholded judge decisions safe, and defers *calibration proper* (ECE/Brier) because most providers don't expose logprobs.
 - Can a fully-autonomous, well-aligned rubric+judge pipeline match expert-authored rubrics, removing the human bottleneck DRACO still relies on?
 - When does judge-lineage bias actually flip a result, versus merely shift magnitudes?
 
@@ -103,3 +119,5 @@ LLM-as-a-judge is the same primitive seen across very different domains, always 
 
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §4.2 (grading protocol; normalized score and pass-rate formulas), §5.1 (judge selection: Gemini-3-Pro via human-alignment study; GPT-5.2 / Sonnet-4.5 robustness)
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — AutoRater mechanics (intent extraction, per-case rubric, majority-vote), deltas-over-absolutes guidance, the 0.80-blended-score / dropped-revision case (`vendor-claim`)
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — §4.5: GLM-4.7 as the reward judge (`r = r_quality × r_style`) in the online-learning writing-style simulation (`empirical`)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544) — Norman, Rivera & Hughes (UC Berkeley, arXiv 2606.19544, June 2026, `empirical`): 21-judge / ~541K-judgment audit — kappa deflation (§4.1), cross-benchmark rank instability (§4.3), consistency–bias paradox (§4.7), and the Minimum Viable Validation Protocol (§5.3); see [LLM-Judge Validation](/articles/llm-judge-validation) for the full treatment

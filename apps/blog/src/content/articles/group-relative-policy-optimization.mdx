@@ -1,0 +1,74 @@
+---
+date: 2026-07-15
+title: Group Relative Policy Optimization (GRPO)
+description: "DeepSeek's critic-free RL objective that became the 2024–25
+  default for LLM post-training: sample a group of responses per prompt, use the
+  group's mean reward as the baseline, and optimize the clipped PPO surrogate
+  with no value network — cheaper and more stable than PPO in synchronous
+  training, but the group is an implicit synchronization barrier (updates wait
+  for the slowest member) that mismatches asynchronous and single-trajectory
+  online agentic settings, which is the gap SAO exploits"
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - reinforcement-learning
+  - post-training
+  - grpo
+readingTime: 4
+imageAlt: Illustration for Group Relative Policy Optimization (GRPO)
+sources:
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/group-relative-policy-optimization.png";
+
+## Sources
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## Summary
+
+**GRPO** (Shao et al. / DeepSeek, 2024) is the RL objective that became the default for LLM post-training. Its selling point is **critic-free**: instead of training a separate value network to estimate advantages (as PPO does), it samples a **group of responses per prompt**, computes each response's advantage by **normalizing its reward against the group mean**, and optimizes the same clipped surrogate PPO uses. No value model means half the memory and none of the value-learning instability — which is why it displaced PPO for reasoning and coding RL.
+
+This page exists as the **baseline and foil** for [SAO](/articles/single-rollout-optimization). The wiki references RL constantly but had never defined GRPO; SAO is the source that makes the definition load-bearing, because SAO's whole argument is about where GRPO structurally fails.
+
+## The mechanism
+
+The unified clipped objective (shared with PPO) is:
+
+`E[ (1/|y|) Σ_t min( r_t(θ)·Â_t, clip(r_t(θ), 1−ε, 1+ε)·Â_t ) ]`
+
+where `r_t(θ) = π_θ(y_t | q, y_<t) / π_θ_old(y_t | q, y_<t)` is the probability ratio. The **fundamental PPO-vs-GRPO distinction is how `Â_t` is estimated**:
+
+- **PPO** trains a value network `V_ϕ` (a critic) and uses Generalized Advantage Estimation — accurate, but doubles the memory footprint and adds the instability of value learning.
+- **GRPO** skips the critic. For a group of responses to one prompt, it forms the advantage by normalizing each reward against the **group-level average**. The group *is* the baseline.
+
+Refinements have accreted on top: **clip-higher** (asymmetric `ε_low`/`ε_high`, Yue et al.), sequence-level importance weighting, dynamic/adaptive clipping, and smoother alternatives to hard clipping — but these mostly target *synchronous* RL, where exact importance ratios are easy to obtain.
+
+## The structural weakness SAO exploits
+
+GRPO's group-relative baseline is elegant in synchronous training and fatal in two increasingly important settings:
+
+**1. The group is an implicit synchronization barrier.** Because the advantage needs the whole group's rewards, **updates must wait until every member of the group is generated**. Under [asynchrony](/articles/asynchronous-rl-for-llms) this re-imposes exactly the straggler idle that async was meant to remove, and worsens staleness: the group waits for its slowest member, so faster members' data goes stale before training sees it. Group-wise sampling induces "latency-driven off-policy behavior."
+
+**2. It cannot run on single-trajectory feedback.** Online and complex agentic environments frequently provide **one trajectory of feedback per prompt** — there is no group to normalize against. GRPO is structurally inapplicable; a value-based critic ([SAO](/articles/single-rollout-optimization)) is the alternative that works from a single rollout.
+
+## The empirical failure mode
+
+In SAO's experiments, **vanilla GRPO** (with the latest-old-policy importance sampling and clip-higher) suffers a **performance collapse at ~160 training steps** — the reported scores are its final valid numbers before collapse. Adding SAO's [DIS](/articles/asynchronous-rl-for-llms) token-level masking to GRPO (**GRPO + DIS**) rescues the stability, confirming that the collapse is an off-policy/clipping problem, not a group-sampling problem per se. But GRPO + DIS then **diverges downward from SAO after ~400 steps** — stability alone isn't enough; the single-rollout + value-model combination is what keeps improving. So GRPO's two problems separate cleanly: DIS fixes its *stability*, single-rollout fixes its *ceiling* and its *incompatibility with online feedback*.
+
+## Connections
+
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — SAO, the method that replaces GRPO's group with one rollout + a value model; this page is its foil
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — where GRPO's group barrier does the most damage; DIS is demonstrated on GRPO before SAO drops the group
+- [The Bitter Lesson](/articles/the-bitter-lesson) — GRPO's critic-free design was itself a "remove hand-built structure" move (delete the value network); SAO is a measured argument for when that removal goes too far
+
+## Open questions
+
+- Is GRPO's collapse-at-160-steps a property of asynchrony specifically, or does vanilla GRPO also destabilize in long synchronous runs that nobody pushes to 1000 steps?
+- GRPO won by removing the critic; SAO wins by bringing it back with better engineering. Is the pendulum a real oscillation, or does the answer depend entirely on whether your setting is synchronous-grouped or async-single-trajectory?
+
+## Sources
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou, Li, Tang, Dong (Tsinghua / Z.AI), arXiv 2607.07508, 2026-07-08. §2 (PPO/GRPO objective), §3.2 + §5.1 (group-wise mismatch), §4.2 (GRPO collapse). Primary GRPO reference: Shao et al. (DeepSeekMath, 2024). `empirical`.

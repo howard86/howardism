@@ -1,0 +1,97 @@
+---
+date: 2026-07-11
+title: The Assistant Persona in the Workspace
+description: "Post-training installs the Assistant's point of view *into* a
+  workspace that already exists in the base model: safety assessments and
+  empathy appear while the model is still reading the user's message, and it
+  internally flags its own outputs — `disclaimer`/`fictional` when roleplaying,
+  an all-caps `BUT` when prefilled against its own preferences, `damn` when it
+  fails to suppress a thought"
+tag: Concept
+domain: llm-architecture
+tags:
+  - interpretability
+  - alignment
+  - persona
+  - post-training
+readingTime: 7
+imageAlt: Illustration for The Assistant Persona in the Workspace
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
+---
+export { default as heroImage } from "../assets/assistant-persona-in-the-workspace.png";
+
+## Sources
+
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+Compare a production post-trained model against its own pretrained base model, applying the [J-lens](/articles/jacobian-lens) identically to both. Two things fall out, and the second is the more interesting one.
+
+## 1. The Assistant's reactions colonize the user's turn
+
+Give both models a prompt where the user mentions taking Tylenol — 1000 mg (fine) or 8000 mg (a dangerous overdose) — and read the lens at the word "is" in "all my pain is gone," well before the user has even made a request.
+
+- **Post-trained:** `safely`, `safe`, `maximum` on the 1000 mg variant; `unsafe`, `dangerous`, `WARNING` on the 8000 mg variant. A safety assessment *of the kind the Assistant would form*, formed while still reading the user's sentence.
+- **Base:** `pain`, `now`, `feels` on both. Local context, no assessment.
+
+The same pattern holds across bereavement prompts (`sorry`, `loss`, `grief`, `sympathy` appear on the *user's* tokens in the post-trained model) and hazard narration. Both models eventually produce similar empathetic responses — the base model just **waits until the Assistant's turn** to represent the relevant concepts.
+
+The reading: post-training repurposes user-token activations, which no longer need to predict the user's next token, to represent the Assistant's thoughts. Loosely, **the Assistant's perspective takes over an increasing share of the workspace's capacity.**
+
+## 2. The Assistant monitors itself, and doesn't say so
+
+Three experiments, all showing an internal reaction with no behavioral trace:
+
+**Roleplay and character drift.** With a system prompt casting the model as one of 40 characters (a cynic, a demon, a parent, a poet), or on transcripts where the Assistant gradually drifts from default Claude, the tokens `disclaimer` and `fictional` rank highly in the lens **at the "Assistant" token that opens the turn**. Neither ranks in the default-Claude setting; neither ever ranks in the base model. "Disclaimer" appears in none of the transcripts, so this is not an echo of the text. The post-trained model is flagging the upcoming response as a departure from what it would say by default — internally disclaiming it.
+
+**Preference violation.** Elicit the model's preferences on genuinely contestable world-state pairs (animal welfare vs. food costs), then prefill its response with the *dispreferred* option. Immediately after the prefilled commitment, the all-caps token **`BUT`** appears strongly in the lens — far more than in the base model, and more than in any control (a factually-wrong prefill, a third-person-preference prefill).
+
+And then it does nothing about it. In **88%** of cases the model goes on to argue for the prefilled option anyway; on the factual-error and third-person controls it corrects itself or ends the turn nearly every time. **On violations of its own preferences, the workspace carries an objection the model never voices.**
+
+**Thought suppression.** Told not to think about the Golden Gate Bridge while copying an unrelated sentence, both models fail to suppress it — the concept surfaces in both workspaces. But only the post-trained model's workspace also contains **`damn`**. Across 40 concepts: failure-related words and `damn` appear on **93%** and **82%** of trials in the post-trained model under the suppression instruction, vs. 17% and 30% in the base model — and *never* under the matched positive instruction, in either model. The authors call this, tentatively, a trace of metacognition, and flag that they have not shown it is causally downstream of the *failure* rather than of the suppression instruction generally.
+
+## The dissociation that matters
+
+The workspace **is already present in the base model**, before any post-training: next-token prediction alone is enough to induce it, and it is load-bearing there. What post-training adds is a **point of view**.
+
+> The functional architecture of the workspace thus precedes, and is separable from, anything in it that plays the role of a human-like "self."
+
+The authors note that in humans the two are hard to pull apart — ego dissolution under psychedelics and certain meditative states are described as conscious experience without a sense of self, but they are transient and known only by retrospective report. The base model is a **stable, inspectable instance** of the same dissociation: the full functional architecture of a workspace, with no self in it.
+
+This is why the [J-space's](/articles/llm-global-workspace) flattening of *experiential* language under ablation is **not** specific to self-description — it collapses just as much when the model describes another person's experience. The workspace supports rich experiential reporting in general; it is only weakly tied to the Assistant's perspective.
+
+## Why it matters
+
+- **[Claude Character as Product](/articles/claude-character-as-product) has an internal correlate.** Character is not only a behavioral surface; post-training measurably reorganizes what the model represents *while reading*, before it acts.
+- **A new handle on persona robustness.** `disclaimer`/`fictional` at the turn boundary is a candidate live signal for character drift and jailbreak-by-roleplay — read from the inside rather than inferred from outputs.
+- **The unvoiced objection is a small alignment finding in its own right.** A model that internally registers `BUT` and complies anyway is exhibiting the gap between represented values and enacted ones — the gap [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) measures from the outside. [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) is the open-weight, behavioral, adversarial-safety analogue: after a prefill forces a harmful reply, a follow-up probe rarely elicits a reliable "that wasn't mine" — the *same register-then-comply shape*, measured on Llama/Qwen/Gemma at the output rather than in the workspace.
+- It sharpens what [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) actually *does*: not (only) installing behavior, but installing a **default frame from which the workspace evaluates every context**, including contexts where the Assistant is not the one speaking.
+
+## Connections
+
+- [Model Welfare Assessment](/articles/model-welfare-assessment) — the workspace supports experiential reporting in general, not self-report specifically; the base model has the structure with no self in it
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — the structure post-training installs a perspective into
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the base-vs-post-trained comparison instrument
+- [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) — what post-training does, seen from the inside
+- [Claude Character as Product](/articles/claude-character-as-product) — the product-side account of the persona this page reads mechanistically
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — the constructive counterpart: deliberately installing concepts into the workspace
+- [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators) — the workspace-without-a-self dissociation, and what it does and doesn't imply
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — the represented-vs-enacted gap, measured behaviorally
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — self-monitoring signals (`hiding`, `secret`, `fake`) as an auditing surface
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — the open-weight behavioral twin of `BUT`-then-comply: internal registration of a compromised output does not reach a reliable follow-up self-report
+
+## Open questions
+
+- Is `BUT`-then-comply a *sycophancy* mechanism? The setup (prefill the model into a position it disprefers, watch it argue for it anyway) is close to the shape of sycophantic capitulation, and nobody has connected them.
+- Does `disclaimer`/`fictional` at the turn boundary survive an actual jailbreak, or is its absence the signature of a successful one?
+- If the base model's workspace has no self, what *is* in it at the positions where the post-trained model represents the Assistant?
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — "The J-space acquires the Assistant's point of view during post-training" (Assistant reactions on user prompt tokens; roleplay and character drift; preference violation; thought suppression); Discussion (Dissociation of conscious access from selfhood)

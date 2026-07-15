@@ -1,0 +1,111 @@
+---
+date: 2026-07-09
+title: Large-Scale Test-Time Compute
+description: "Noam Brown's thesis that model capability is now a function of
+  inference budget (tokens/cost/time): with good scaffolding modern models keep
+  improving for weeks before plateauing, so 'how capable is the model?' is
+  ill-posed without naming the budget — a root cause that breaks benchmarking,
+  safety evals, and fast-takeoff forecasts"
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - test-time-compute
+  - inference-scaling
+  - capability-evaluation
+  - capability-trajectory
+readingTime: 10
+imageAlt: Illustration for Large-Scale Test-Time Compute
+sources:
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: "More compute, more capability: Why AI agent evaluations need to account
+      for test-time compute"
+    url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+---
+export { default as heroImage } from "../assets/large-scale-test-time-compute.png";
+
+## Sources
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+**Test-time compute** (inference-time compute) is the compute a model spends *thinking* about a single query — tokens generated, dollars spent, wall-clock time. [Noam Brown](/articles/noam-brown) (OpenAI research scientist, one of the pioneers of inference-time scaling) argues in his June 2026 essay *Implications of Large-Scale Test-Time Compute* that this axis has become a *primary determinant of capability*: **"the capability of the model is a function of how much money you put into it."** A $10 budget does one thing; $10,000 does much more; $10 million more still. The load-bearing consequence is that the question every evaluation implicitly asks — *how capable is this model?* — is **ill-posed until you name the budget** (`practitioner-opinion`; Brown offers arguments and anecdotes, not measurements).
+
+This page is the **hub** for the test-time-compute cluster. The root claim lives here; its three downstream breaks live elsewhere: it breaks [benchmarking](/articles/compute-controlled-benchmarking) (single-number grids don't control for compute), it strains [safety evals](/articles/responsible-scaling-policy-evals) (dangerous capability also scales with budget), and it reshapes [takeoff forecasts](/articles/intelligence-explosion-dynamics) (compute-dependence makes time the binding constraint). The under-explored upside is a [capability overhang](/articles/latent-capability-overhang) in already-released models.
+
+## The plateau moved out
+
+The intuitive objection to "just spend more compute" is that performance plateaus — run the model until the benchmark curve flattens, and evaluate to that point. Brown's answer is that **the plateau is now weeks of thinking away, too far to reach in practice.** In "GPT-3 land" (2022) models couldn't think productively for long, so you *could* run them to plateau cheaply. Modern models, if "scaffolded reasonably well," keep improving for weeks on some benchmarks before flattening. Brown cites AISI cyber evaluations where models were *still improving at 100 million tokens* of a single run. So "evaluate to plateau" is no longer a bounded procedure — you have to impose a budget (tokens/cost/time) or plot the whole curve.
+
+## Independent empirical corroboration (UK AISI, July 2026)
+
+Brown's thesis is `practitioner-opinion` — arguments and anecdotes. The **[UK AI Security Institute](/articles/uk-ai-security-institute)** supplied the first independent, government-institute, `empirical` confirmation, and it is the primary source *behind* the "still improving at 100M tokens" anecdote above. Its July 2026 study restates the root claim in almost the same words: **"model capability is not a single score but a curve over test-time compute"** — and if the curve is still rising when the evaluation stops, the reported score is a lower bound, not a ceiling.
+
+The measured version of "the plateau moved out":
+
+- **Cyber.** ~8% of AISI's narrow cyber tasks were solved *only* once the per-task budget reached ≥10M tokens (some up to 50M); at smaller budgets those successes were invisible. The latest models kept climbing at 100M+.
+- **Public benchmarks.** Raising the total token budget 1M→10M lifted software-engineering scores **~25%** (TerminalBench 2.0, SWE-Bench Pro) and maths/academic scores **~22%** (Humanity's Last Exam, to 5M tokens). TerminalBench kept improving even at 10× the budget public evaluations typically report.
+
+Two further AISI findings sharpen downstream pages rather than this one: compute demand scales with human task time (a power law feeding [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling)), and newer models turn extra compute into disproportionately larger gains (reshaping the doubling rate on [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) and the danger surface on [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals)). The independence matters: a thesis the vault had drawn almost entirely from [Noam Brown](/articles/noam-brown) (OpenAI) is now anchored by a government evaluator's controlled sweeps.
+
+## The capability spectrum: when compute helps and when it doesn't
+
+More test-time compute is not uniformly useful. Brown places every task between two poles:
+
+- **Flat — factual retrieval.** Ask when Abraham Lincoln was born; if the model doesn't know, a week of thinking won't help (no external lookup). More compute buys almost nothing — a little thinking helps, then it saturates fast.
+- **Unbounded — guess-and-check search.** Sudoku: try random fills, check the constraints, retry. With enough time any puzzle falls, so capability rises without limit in test-time compute.
+- **Everything in between.** Real benchmarks sit somewhere on this line, which is *why* controlling for compute matters — the same model can look flat or unbounded depending on where the task sits.
+
+The [AISI](/articles/uk-ai-security-institute) study gives this spectrum an empirical face: gains are largest where an agent **can check its own work** (code, cyber, maths — run the code, test the exploit), and small where feedback is weak or absent — **HealthBench plateaued within every model's usual budget**, the measured flat pole. The mechanism is the [verifier](/articles/verifiability-thesis): cheap self-checking is what converts extra tokens into the guess-and-check gains of the unbounded end.
+
+The [overthinking](/articles/scale-dependent-prompt-sensitivity) result is the shadow case: on ~7.7% of standard benchmark problems, *more* generated tokens *hurt* large models — a reminder that test-time compute is a resource to be allocated well, not a monotone dial. Brown's own view on user practice is that flexible thinking-time (fast when it should be fast, long when the problem warrants) beats always-maximal budgets, because a week-long wait is impractical to iterate against.
+
+## Scaffolding unlocks the horizon
+
+The lever that turns "a model" into "weeks of productive thinking" is the **harness**. Brown: with GPT-3 there was little you could scaffold into a useful week-long run; with modern models you can scaffold "a series of experiments that can run for weeks, for months." His concrete near-future claim: give a well-scaffolded model a long-horizon goal and tell it to "go work on this for a month," and it returns a state-of-the-art result. This is the same capability [METR's time-horizon curve](/articles/task-time-horizon-scaling) measures from the outside — and it is why the harness is where the budget is actually spent.
+
+## The denominator: efficiency is capability
+
+Brown's thesis is stated in the numerator — spend more, get more. It has a corollary he doesn't develop: **anything that lowers the cost of a token raises capability at a fixed budget.** [Gemma 4](/articles/gemma-4) (DeepMind, July 2026, `empirical`) is the corollary made concrete — a 37.5% smaller KV cache, quantization to sub-gigabyte checkpoints, a released speculative-decoding drafter head. Under this page's framing those are not engineering footnotes; they are capability gains denominated in dollars rather than parameters.
+
+The connection runs the other way too. A thinking mode multiplies tokens per query, so shipping one in a model meant to run on a phone is only coherent once tokens are cheap. Gemma 4 ships both in the same release. Developed in [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability).
+
+## Connections
+
+- [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition) — a mechanistic floor under the thesis: a transformer's only route past its feedforward depth is to write intermediates into the context and read them back, so chain-of-thought is *externalized workspace* and test-time compute partly buys serial depth the architecture doesn't otherwise have
+
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the corollary: cheaper inference is capability, and Gemma 4's efficiency stack is the worked example
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the benchmarking consequence: publish performance against a cost/token/time x-axis, not a single number
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the upside consequence: released models can do far more than anyone has paid to extract
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — the safety consequence: if capability scales with budget, "at what budget do you evaluate for dangerous capability?" is unanswered
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — the external trendline (reliable task length doubling ~every 4 months) is this thesis measured as a capability curve
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — the overthinking counter-case: more test-time compute can *reduce* accuracy, so budget must be allocated, not maximized
+- [Intelligence Explosion Dynamics](/articles/intelligence-explosion-dynamics) — compute-dependence is Brown's mechanism for why takeoff is time-bottlenecked rather than instantaneous
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the search-heavy gains (the Sudoku pole) are largest where a cheap verifier lets the model check its own guesses
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — the governance consequence for published weights: unbounded elicitation budget, no recall
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) / [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the training-side complement: the RL loop that *produces* the long-horizon agentic models whose capability then scales with this inference budget
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — the independent government evaluator that measured this thesis across benchmarks, promoting it from anecdote to `empirical` fact
+- [Noam Brown](/articles/noam-brown) — the source; the researcher who pioneered inference-time scaling
+
+## Open questions
+
+- **Can high-budget performance be predicted from low-budget runs?** Brown's proposed research question: forecast the $10,000-inference result using only $10–$100 runs. If the curve is regular, evaluation could *project* rather than pay in full. **Sharpened (2026-07):** [AISI](/articles/uk-ai-security-institute) names this exact problem — "can high-budget performance be estimated from cheaper runs? … the most informative evaluations may be expensive" — as an explicit, unsolved research direction it is now actively pursuing (alongside defining "minimum informative budgets"). Still open, but no longer just one researcher's proposal: a government institute is working it.
+- Where does each real task sit on the flat↔unbounded spectrum, and can that be predicted before spending the compute?
+- Is there a task class where scaffolding *cannot* extend the productive-thinking horizon — a hard ceiling no budget crosses? (Brown's factual-retrieval pole says yes for some; the boundary is unmapped.)
+
+## Sources
+
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26), Noam Brown on his essay *Implications of Large-Scale Test-Time Compute* (`practitioner-opinion`)
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — the efficiency corollary: a thinking mode plus a five-lever inference-cost reduction, shipped together (`empirical`)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — chain-of-thought as externalized workspace: a transformer's only way past its feedforward depth is to write intermediates into the context and read them back
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI, *More compute, more capability* (2026-07-02, `empirical`): the independent measured confirmation — capability curves over token budget, ~8% of cyber tasks solved only at ≥10M tokens, +25% SWE / +22% maths from 1M→10M, HealthBench as the flat pole

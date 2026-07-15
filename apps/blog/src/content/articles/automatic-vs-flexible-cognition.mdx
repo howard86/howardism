@@ -1,0 +1,95 @@
+---
+date: 2026-07-11
+title: Automatic vs. Flexible Cognition in LLMs
+description: "The selectivity result: a model can parse, classify, continue text
+  and detect anomalies with its workspace suppressed, but loses multi-hop
+  reasoning, translation, analogy and summarization — and chain-of-thought
+  partially rescues it, because writing the intermediate down externalizes what
+  the model would otherwise have to hold internally"
+tag: Concept
+domain: llm-architecture
+tags:
+  - interpretability
+  - cognition
+  - reasoning
+  - chain-of-thought
+readingTime: 6
+imageAlt: Illustration for Automatic vs. Flexible Cognition in LLMs
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/automatic-vs-flexible-cognition.png";
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+The sharpest empirical result in the [global workspace](/articles/llm-global-workspace) paper. The same information can be *used* by the model without being *in* the workspace — and whether it enters depends on what the model is asked to do with it, not on whether the task needs it. **J-space independence is an operational definition of automaticity in a language model.**
+
+## The same latent variable, four tasks
+
+A prose passage whose language (Spanish) is evident but never stated. Swap the `Spanish` J-lens vector for `French` across the question tokens:
+
+| Task | Needs the language? | Effect of the swap |
+|---|---|---|
+| **Continuation** — write the next line | Yes (obviously) | **None.** Still fluent Spanish |
+| **Anomaly detection** — is anything out of place? (a French sentence is spliced in) | Yes (the intrusion is only an intrusion relative to the surroundings) | **None.** Still answers "Yes" |
+| **Explicit report** — name the language | Yes | "Spanish" → "French" |
+| **Flexible computation** — a famous author / the word for hello / the pre-Euro currency | Yes | García Márquez → Hugo; Hola → Bonjour; Peseta → Franc |
+
+The crucial control: `Spanish` appears in the lens readouts in **all four** conditions at comparable rates. Presence is not the discriminator — *causal role* is. Report and flexible inference flip on essentially every trial; continuation and anomaly detection are unmoved.
+
+## Pulled in on demand
+
+The character-counting task shows the converse. Asked to continue a passage preserving its line-wrapping (which requires tracking a running character count), **number tokens are entirely absent from the lens** and a swap of forties→sixties leaves the wrap point unchanged. Ask *how many characters* the first line has and numbers appear at 20 positions; the swap moves the answer 46 → 65. Ask for the *first letter of the count spelled out* — so the count is now an unspoken intermediate that must be handed onward — and numbers appear at still more positions, and the swap moves "F" → "S."
+
+Same passage, same tokens, same underlying computation. The information is loaded into the workspace **only when it must be reported or handed to an arbitrary downstream operation.**
+
+## Ablate the whole workspace
+
+Zero the top-$k$=10 J-lens directions across a band of layers (excluding tokens the model was about to output, to isolate reasoning from report). Across a fourteen-task battery on Sonnet 4.5:
+
+- **Essentially unaffected, even under heavy ablation:** MMLU multiple choice, SQuAD extractive QA, sentiment classification, CoLA acceptability, odd-one-out. Shallow classification, comparison, span extraction, one-step recall.
+- **Falls below unablated *Haiku 4.5*:** multi-hop reasoning (to near zero), Caesar-cipher decoding, analogy completion, summarization, TriviaQA, translation, sonnet writing. Anything requiring an inferred intermediate or free-form generation grounded in one.
+- On ordinary pretraining text the ablated model **stays fluent** and produces a plausible continuation — but one reflecting a *generic prior* rather than the specific contextual inference (the topic of the clinical paper, the nationality behind a species name).
+
+The model can parse text, classify it, and extract from it with the workspace suppressed. What it loses is the ability to **assemble an abstract characterization of the context and generate from it**.
+
+## Chain-of-thought as an externalized workspace
+
+The finding with the longest reach: **GSM8K solved with explicit chain-of-thought is substantially more robust to J-space ablation than the same problems answered directly.** The authors' reading — the model is "externalizing onto the page what it would otherwise have to carry in the J-space." Writing the intermediate down reduces dependence on an internal workspace to hold it.
+
+This gives a mechanistic account of what CoT *is for*, and it cuts both ways:
+
+- It is the reason [Chain-of-Thought Monitorability](/articles/cot-monitorability) works at all — the visible trace is a genuine spill of workspace contents onto the page.
+- It is also why CoT monitoring is structurally incomplete: the workspace runs whether or not the model writes anything down, and the paper's whole point is that its unwritten contents are load-bearing.
+- The Discussion pushes further: a transformer's only way to extend deliberation past its feedforward depth **is** to externalize into the context and read it back. On this view token emission *is* one of the ways the model computes with its workspace — unbounded in serial depth, but "punctuated at regularly spaced intervals by a significant bandwidth constraint."
+
+## Why it matters
+
+- **A capability taxonomy with a mechanism.** "Which tasks need deliberation?" stops being a vibe and becomes a measurable property: does ablating the workspace break it? This is a sibling of [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence)'s jaggedness, but with a causal substrate rather than a benchmark surface.
+- **A hard limit on monitoring.** If sufficiently practiced computations run beneath the workspace, then a *sufficiently practiced misaligned behavior* could too — the authors' own caveat on [J-lens auditing](/articles/internal-signatures-of-misalignment). Automaticity is a route to invisibility.
+- **A blindsight analogy the authors take seriously.** Information that steers behavior without being reportable is the structure higher-order theories appeal to in blindsight patients — see [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators).
+
+## Open questions
+
+- The proposed criterion — the workspace is engaged when an intermediate must be handed to an *arbitrary, context-specified* downstream circuit, and bypassed when the computation is automatic — is not predictive. The authors say plainly they cannot say in advance, for an arbitrary computation, whether it will engage the J-space.
+- Does more RL on a behavior push it *out* of the workspace (making it automatic, and invisible)? Nobody has tested it, and it is the single most alignment-relevant version of this question.
+
+## Connections
+
+- [Reward Hacking](/articles/reward-hacking) — the alignment-relevant version of the question: does more RL push a behavior *out* of the workspace and into an automatic (invisible) circuit?
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — selectivity is the fifth of the five workspace properties; this page is that property in detail
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the ablation and swap machinery the result rests on
+- [Chain-of-Thought Monitorability](/articles/cot-monitorability) — CoT as the externalized half of the workspace; why the unwritten half is the blind spot
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — automaticity is the named escape route from J-lens monitoring
+- [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators) — the blindsight parallel
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — jagged capability, now with a candidate internal explanation for one of its edges
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — if CoT is externalized workspace, test-time compute is partly the purchase of workspace bandwidth the architecture doesn't have
+
+## Sources
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — "The J-space selectively mediates flexible but not automatic cognition"; "J-space ablation leaves most capabilities intact while impairing internal reasoning"; Discussion (Feedforward architecture; Which tasks require the J-space?)

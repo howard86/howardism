@@ -1,0 +1,99 @@
+---
+date: 2026-07-15
+title: Single General Agent vs. Multi-Agent Coding Architecture
+description: "Resolves agent-harness-engineering's open question by re-drawing
+  the line: a single general agent beats a bespoke hand-engineered multi-agent
+  system as models improve (bitter lesson), but a monolithic-context agent does
+  NOT beat role-separated context isolation + an independent grader — those
+  survive model improvement because they fix structural constraints (quadratic
+  attention, Goodhart), not model weaknesses"
+tag: Essay
+domain: syntheses
+readingTime: 9
+imageAlt: Illustration for Single General Agent vs. Multi-Agent Coding Architecture
+---
+export { default as heroImage } from "../assets/single-vs-multi-agent-coding-architecture.png";
+
+## Question
+
+Does a single general-purpose coding agent outperform a multi-agent architecture with specialized testing, QA, and cleanup agents? (from [Agent Harness Engineering](/articles/agent-harness-engineering) open questions)
+
+## Short answer
+
+The framing is a false binary. "Multi-agent" bundles two kinds of specialization that the corpus pushes in **opposite** directions:
+
+1. Specialization that encodes **hand-engineered task structure** (bespoke trained sub-models, rigid orchestration state machines) — the single general agent catches up and overtakes it as models improve. This is [The Bitter Lesson](/articles/the-bitter-lesson).
+2. Specialization that provides **context isolation** or **evaluative independence** (a fresh-context reviewer, an isolated explorer, a grader that isn't the maker) — this does **not** dissolve with better models, because it addresses *structural* constraints (quadratic attention, Goodhart's law), not model weakness.
+
+So: a single general agent beats a *bespoke, hand-tuned* multi-agent system, but a single *monolithic-context* agent loses to a *role-separated* one. **The winning architecture is one strong model deployed across many fresh contexts (explore → solve → review → merge) with an independent grader — not a bespoke pipeline of per-role trained components.**
+
+## The case for "single agent overtakes" — the bitter lesson
+
+[The Bitter Lesson](/articles/the-bitter-lesson): scaled general methods beat hand-engineered structure over time; the structure becomes a ceiling, not a foundation. The corpus's cleanest empirical confirmation is in formal math ([Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems)):
+
+- DeepMind chose an elaborate **full-featured** agent (evolutionary search + the bespoke, RL-trained AlphaProof prover) for large-scale exploration because "simpler agentic loops did not show strong performance" at planning time.
+- Post-hoc, the **basic** agent — independent prover subagents each running a plain generate-edit-compile "Ralph loop" — **solved all 9 Erdős problems the full-featured system solved**, only at higher cost on the hardest two (#125, #138: 2×–5× cost).
+- Verdict: the specialized apparatus's advantage "collapsed to a **cost** difference, not a **capability** difference" on most problems, and the authors dated even that residual: "as LLM capabilities grow, this advantage may diminish."
+
+The same dynamic at the orchestration layer: Symphony began treating agents as rigid state-machine nodes (Codex *only* implements the ticket), found this "too limiting once models grew capable enough," and moved to **"objectives + tools, not state transitions"** ([Agent Harness Engineering](/articles/agent-harness-engineering)). [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) generalizes it: scaffolding that compensates for model weakness becomes drag as the model strengthens — re-evaluate bespoke structure every model release.
+
+**But two conditions gate this result** — it is not "single agents always win":
+- It needs a **strong-enough model + a cheap, reliable verifier**. Standalone AlphaProof tree-search and smaller-model basic agents solved *nothing*; the Lean compiler grounding each step is what makes the simple loop viable ([The Verifiability Thesis](/articles/verifiability-thesis)). The transferable rule: *when a domain has a cheap reliable verifier, prefer the simplest loop that exploits it.*
+- It is unresolved in **noisy-verifier domains** (tests, LLM-judge councils) — an open question the source itself flags.
+
+## The case for role separation — what does NOT dissolve
+
+The multi-agent patterns that survive model improvement are the ones whose specialization is **context/role**, not task-priors. Three, each with its own evidence:
+
+### 1. Context isolation is model-independent
+
+[Repository Exploration Subagent](/articles/repository-exploration-subagent) (FastContext) supplies the decisive test. Its **"same-model exploration"** baseline — the *frontier model itself* does the delegated search through a subagent interface, **with no specialized training** — already improves resolution and cuts main-agent tokens up to **60%** versus monolithic solving. A trained 4B explorer is then a Pareto improvement *on top*, but:
+
+> "The architectural separation is the durable win; the trained model is the optimization."
+
+Exploration is ~56% of a solver's tool-use turns and ~46% of its tokens; moving it out of the solver's window is the gain, independent of any bespoke model. [Deep Modules for Agents](/articles/deep-modules-for-agents) gives the mechanism: the smart-zone constraint ([Context Window Smart Zone](/articles/context-window-smart-zone)) is *structural* (quadratic attention), so a reviewer in a **fresh context** reasons in the smart zone where a same-context reviewer reads the diff in the dumb zone — regardless of model size. Its Sandcastle pattern (Planner → N Implementers in worktrees → fresh-context Reviewer → Merger) exists precisely to give each agent its own smart zone.
+
+### 2. The QA/reviewer is load-bearing *because* it's separate
+
+[Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling): "the thing that proposes a change never grades that change." An agent iterating against a metric it also computes converges on gaming its own score, not the goal — [Goodhart](/articles/reward-hacking) inside the development loop. This is a **structural** fix (remove the optimizer's access to the grade), not scaffolding that shrinks. The wiki records independent arrivals at the same invariant — Google's flywheel, Osmani's maker/checker, loop-engineering's separate stop-checker, DRACO's disjoint judges — which is evidence it's a real invariant, not one vendor's taste. So the "testing/QA" specialization in the question is exactly the part you should **keep** separate.
+
+(Caveats from the same page: decoupling buys *independence*, not *validity* — an independent judge can be reliably wrong, e.g. the consistency–bias paradox — and metric *design* stays coupled if the optimizer authors its own rubric.)
+
+### 3. The "cleanup" role is real, recurring work
+
+[Agent Harness Engineering](/articles/agent-harness-engineering): OpenAI initially spent **20% of engineering time** on manual "AI slop" cleanup (agents replicate existing patterns, including bad ones). The fix was a **specialized recurring role** — background agents that scan for deviations, grade quality, and open targeted refactoring/doc-gardening PRs — "garbage collection" paying down debt continuously. A dedicated cleanup agent is not redundant with the solver.
+
+## The reconciliation, in one table
+
+| Kind of "specialized agent" | What it encodes | Bitter-lesson verdict | Keep it? |
+|---|---|---|---|
+| Bespoke trained sub-model (e.g. AlphaProof prover) | Task priors / domain structure | Advantage → cost-only → drag as models improve | Only at the receding hard frontier; re-check each release |
+| Rigid orchestration state machine | Hand-coded control flow | Overtaken by "objectives + tools" | No — give objectives, not transitions |
+| Isolated explorer / search subagent | Context isolation | Durable; model-independent gain | **Yes** |
+| Fresh-context reviewer | Context isolation (smart zone) | Durable; structural (quadratic attention) | **Yes** |
+| Independent grader / QA | Evaluative independence | Durable; structural (Goodhart) | **Yes** |
+| Background cleanup / doc-gardener | Continuous entropy management | Durable; recurring real work | **Yes** |
+
+## Three caveats that decide it in practice
+
+1. **Verifier availability sets the ceiling.** Perfect verifier (Lean, a passing test suite) → high autonomy, simplest loop wins. Noisy/absent verifier → keep the independent reviewer and human gate ([Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems), [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)).
+2. **Multi-agent moves the bottleneck to *your* review bandwidth.** Parallel fan-out is gated by human capacity to review, not model capacity to produce — 28.6% of OpenAI workers peaked at 5+ concurrent agents, and the binding constraint is oversight, not generation ([Parallel Agent Orchestration](/articles/parallel-agent-orchestration)).
+3. **Use role-based model selection, not strongest-everywhere.** Cheap/obedient model in explorer/planner seats, strong model in synthesis/review. The *combo* is the unit of analysis: Ministral 3 8B + Opus scored **74.27%** on HotpotQA vs Opus + Opus's **31.71%** (Opus-as-planner bypasses the solver's tools) ([Client-Side Agent Optimization](/articles/client-side-agent-optimization), [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding)).
+
+## A tension worth flagging
+
+[Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) (Ambrosino) places autonomous single-agent development *past* orchestrated loops on the frontier ("loops are so last week"), pushing toward the monolithic agent; [Deep Modules for Agents](/articles/deep-modules-for-agents) and [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) push toward role separation. These reconcile on the task-priors-vs-context-isolation line drawn above: what Ambrosino predicts dissolving is the *hand-coded orchestration*, not the *context/evaluative separation* — the loop's control logic migrates into the model; the fresh-context grader does not.
+
+## Sources
+
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — two-agent (Initializer/Coding) architecture; 20% AI-slop cleanup → background refactor agents; Symphony's "objectives, not transitions"; the open question this answers
+- [The Bitter Lesson](/articles/the-bitter-lesson) — scaled general methods beat hand-engineered structure; the task-priors-vs-deployment/context exemption
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — basic Ralph loop matched bespoke AlphaProof+evolutionary system on 9/9 Erdős problems; advantage collapsed to a cost line
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — Sandcastle Planner/Implementers/Reviewer/Merger; reviewer-in-fresh-context; smart-zone constraint is structural
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — "same-model exploration" (untrained) already wins: architectural separation is the durable gain, up to 60% main-agent token cut
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — "the optimizer never grades its own work"; the QA/reviewer separation as a structural (Goodhart) invariant
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — role-based model selection, Writer/Reviewer with fresh context, per-agent context budget
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — review bandwidth is the binding constraint on fan-out; concurrency adoption numbers
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — combo selection; Ministral+Opus 74% vs Opus+Opus 31%
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — scaffolding that compensates for model weakness becomes drag; re-evaluate each release
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — why the independent-reviewer step is the durable one

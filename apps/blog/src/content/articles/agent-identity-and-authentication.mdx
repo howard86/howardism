@@ -12,16 +12,19 @@ tags:
   - identity
   - authentication
   - credentials
-readingTime: 5
+readingTime: 7
 imageAlt: Illustration for Agent Identity and Authentication
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+  - title: AI Agent Authentication and Authorization
+    url: https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/
 ---
 export { default as heroImage } from "../assets/agent-identity-and-authentication.png";
 
 ## Sources
 
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## Summary
@@ -51,9 +54,21 @@ Identity and authentication form the **foundation for every other security capab
 
 Identity is the prerequisite for [Blast Radius (Agentic)](/articles/blast-radius) containment (identity-based isolation: services accept only explicitly-named callers), for [Least Agency](/articles/least-agency) enforcement (you can't scope what you can't attribute), and for observability/traceability (filtering audit logs by agent during an incident). The framework notes [Claude Code](/articles/claude-code) assigns a unique `session.id` with `account_uuid`/`organization.id` attribution on all telemetry, and uses OAuth 2.0 with auto-refresh for MCP connections.
 
+## A second source: the IETF AIMS standards proposal
+
+The above is one vendor's tiered maturity model. [AIMS](/articles/agent-identity-management-system) (IETF `draft-klrc-aiagent-auth-03`, July 2026 — Defakto/AWS/Zscaler/Ping/OpenAI/Okta) is the vault's **first standards-track, multi-vendor** treatment of this same keystone control, and it makes the abstract tiers concrete by naming the standards. Both are non-ratified (the ebook is vendor practitioner-opinion; AIMS is an **individual submission with no IETF WG consensus yet**), so neither is an adopted standard — but they agree on the load-bearing claims and diverge instructively on the primitives:
+
+**Convergence** — static API keys are unacceptable/an antipattern; credentials must be short-lived and cryptographically bound to the identifier; per-agent identity is the keystone; minimal scopes / least privilege; observability is a security control with tamper-evident audit.
+
+**Divergence** —
+- *Identifier:* the ebook says "cryptographically-rooted IDs → X.509 → hardware-backed"; AIMS names a concrete primitive — a **WIMSE identifier** (URI), realized in practice as a **SPIFFE ID** (`spiffe://…`), with X.509-SVID *or* JWT/WIT-SVID credentials.
+- *Hardware attestation:* the ebook makes hardware-backed identity + remote attestation the **Advanced-tier target**; AIMS makes hardware backing **optional — "not required for interoperability"** — and folds attestation into a broader, deployment-specific **"posture assessment"** run at each credential issuance/rotation (hardware evidence is one signal among TEE evidence, software-integrity measurements, supply-chain provenance, orchestration metadata).
+- *A rule the ebook doesn't state:* AIMS requires that **the LLM MUST NOT hold credentials** (the workload does), precisely so prompt injection can't exfiltrate them — the identity-layer sibling of the out-of-band reference-monitor doctrine (see [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)).
+
 ## Connections
 
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — control domain 1; the foundation for every other control (hub)
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — the IETF AIMS proposal: the standards-track, multi-vendor second source on this same keystone, naming the concrete primitives (WIMSE/SPIFFE identity, short-lived posture-assessed credentials, OAuth token-exchange delegation chains) — convergences and divergences with the ebook detailed above
 - [Least Agency](/articles/least-agency) — unenforceable without distinct per-agent identity (the attribution gap)
 - [Blast Radius (Agentic)](/articles/blast-radius) — identity-based isolation and per-agent credentials are the primary containment controls
 - [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — static-key rotation is a friction control that fails; short-lived + hardware-bound credentials pass
@@ -64,9 +79,10 @@ Identity is the prerequisite for [Blast Radius (Agentic)](/articles/blast-radius
 
 ## Open Questions
 
-- Hardware-bound credentials assume attested hardware everywhere agents run, including ephemeral cloud workloads and sub-agents. How does attestation work for short-lived spawned sub-agents that "have up to the same permissions as the parent"?
+- Hardware-bound credentials assume attested hardware everywhere agents run, including ephemeral cloud workloads and sub-agents. How does attestation work for short-lived spawned sub-agents that "have up to the same permissions as the parent"? **Partially answered:** [AIMS](/articles/agent-identity-management-system) specifies the *credentialing and delegation* mechanism — a spawned agent is just another workload that gets its own WIMSE/SPIFFE identifier and short-lived credentials (SPIFFE provisions ephemeral key material per credential), is **posture-assessed at each issuance**, and receives the parent's authority *downscoped* via **OAuth Token Exchange + Transaction Tokens + cross-domain identity chaining** — i.e. delegated, transaction-bound tokens, **not** raw inheritance of the parent's credentials (a stronger answer than "same permissions as the parent"). But AIMS *dissolves* rather than solves the specific hardware-attestation question: it makes hardware backing **optional** and replaces per-sub-agent hardware attestation with deployment-specific posture signals — so how hardware remote attestation flows to a seconds-lived sub-agent remains unaddressed (AIMS argues you don't need it).
 - JIT + ABAC are both labeled "advanced, not easily implemented." Is there a pragmatic Enterprise-tier midpoint, or is the gap from Foundation static roles to Advanced JIT a cliff? **Answered:** [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — not a cliff; the Enterprise tier (ABAC + dynamic privilege elevation with return-to-baseline + mTLS + sandboxing) is the deliberate midpoint, and ABAC's "advanced" framing is a source inconsistency (it sits at Enterprise in the tier table). Sub-agent attestation remains open.
 
 ## Sources
 
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part III identity/auth + access-control tiers; Part IV Phases 3 & 6
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF `draft-klrc-aiagent-auth-03` (individual submission, no WG consensus): WIMSE/SPIFFE identifiers (§6), short-lived posture-assessed credentials + LLMs-never-hold-credentials (§7–8), mTLS / application-layer auth (§9), OAuth delegation + transaction-token / cross-domain delegation chains (§10)
