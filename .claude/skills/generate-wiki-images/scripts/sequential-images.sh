@@ -43,27 +43,39 @@ if [ "$total" -eq 0 ]; then
   echo "==> All hero images already present. Nothing to generate."
   exit 0
 fi
-echo "==> $total image(s) missing. Generating one at a time via 'codex exec'."
+# Optional cap for smoke-testing / quota control. MAX_IMAGES=N generates the
+# first N missing images this run; unset or 0 means all of them.
+planned="$total"
+if [ "${MAX_IMAGES:-0}" -gt 0 ] && [ "${MAX_IMAGES}" -lt "$total" ]; then
+  planned="$MAX_IMAGES"
+  echo "==> $total missing; MAX_IMAGES=$MAX_IMAGES — generating the first $planned this run."
+else
+  echo "==> $total image(s) missing. Generating one at a time via 'codex exec'."
+fi
 echo "    Per-image time is measured, not guessed — ETA appears after #1."
 
 i=0; cum=0; failed=0
 : >"$tmp/failures.txt"
 while IFS= read -r slug; do
+  [ "$i" -ge "$planned" ] && break
   i=$((i + 1))
   start=$SECONDS
   if WIKI_PATH="$WIKI_PATH" bun run import:wiki -- --only "$slug" >"$tmp/last.log" 2>&1; then
     dur=$((SECONDS - start)); cum=$((cum + dur))
-    avg=$((cum / i)); remaining=$(((total - i) * avg))
+    avg=$((cum / i)); remaining=$(((planned - i) * avg))
     printf '[%d/%d] %s ✓ %ds | elapsed %dm | ETA ~%dm\n' \
-      "$i" "$total" "$slug" "$dur" "$((cum / 60))" "$((remaining / 60))"
+      "$i" "$planned" "$slug" "$dur" "$((cum / 60))" "$((remaining / 60))"
   else
     failed=$((failed + 1)); echo "$slug" >>"$tmp/failures.txt"
-    printf '[%d/%d] %s ✗ FAILED (continuing) — last log lines:\n' "$i" "$total" "$slug"
+    printf '[%d/%d] %s ✗ FAILED (continuing) — last log lines:\n' "$i" "$planned" "$slug"
     tail -n 15 "$tmp/last.log"
   fi
 done <"$tmp/slugs.txt"
 
-echo "==> Done: $((total - failed))/$total generated, $failed failed."
+echo "==> Done: $((i - failed))/$i generated, $failed failed."
+if [ "$planned" -lt "$total" ]; then
+  echo "    Capped at $planned; $((total - i)) still missing — re-run to continue."
+fi
 if [ "$failed" -gt 0 ]; then
   echo "Failed slugs:"; cat "$tmp/failures.txt"
   echo "Re-run each after checking codex auth/quota:"
