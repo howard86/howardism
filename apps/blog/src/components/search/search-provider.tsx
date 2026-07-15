@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   createContext,
   type ReactNode,
@@ -11,7 +12,10 @@ import {
 
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
-import { SearchPalette } from "./search-palette";
+const SearchPalette = dynamic(
+  () => import("./search-palette").then((m) => m.SearchPalette),
+  { ssr: false }
+);
 
 interface SearchContextValue {
   openSearch: () => void;
