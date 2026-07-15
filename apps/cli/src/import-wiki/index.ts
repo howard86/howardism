@@ -8,7 +8,8 @@ import {
   type WikiTag,
 } from "@howardism/article-contract";
 import { runWithConcurrency } from "../concurrency.ts";
-import { generateHeroImage } from "./codex.ts";
+import { generateHeroImage as generateAgyHeroImage } from "./agy/index.ts";
+import { generateHeroImage as generateCodexHeroImage } from "./codex.ts";
 import {
   buildDomainMembership,
   isMocSlug,
@@ -96,11 +97,16 @@ const DEFAULT_OPEN_QUESTIONS_OUTPUT_PATH = resolve(
 );
 const DEFAULT_OVERRIDES_PATH = join(CLI_ROOT, "wiki-category-overrides.json");
 /**
- * Codex's `workspace-write` sandbox only permits writes inside its workdir
+ * The agent's sandbox only permits writes inside its workdir
  * (this CLI app). We stage generated PNGs here before moving them into the
  * blog's assets dir.
  */
-const STAGING_DIR = join(CLI_ROOT, ".codex-staging");
+const STAGING_DIR = join(
+  CLI_ROOT,
+  (process.env.IMAGE_PROVIDER || "codex") === "agy"
+    ? ".agy-staging"
+    : ".codex-staging"
+);
 const IMAGE_CONCURRENCY = 6;
 
 async function main(): Promise<void> {
@@ -436,13 +442,24 @@ async function ensureImage(args: {
     );
     return;
   }
-  await generateHeroImage({
-    title: args.title,
-    body: args.body,
-    outputPath: args.imagePath,
-    stagingDir: STAGING_DIR,
-    dryRun: args.dryRun,
-  });
+  const provider = process.env.IMAGE_PROVIDER || "codex";
+  if (provider === "agy") {
+    await generateAgyHeroImage({
+      title: args.title,
+      body: args.body,
+      outputPath: args.imagePath,
+      stagingDir: STAGING_DIR,
+      dryRun: args.dryRun,
+    });
+  } else {
+    await generateCodexHeroImage({
+      title: args.title,
+      body: args.body,
+      outputPath: args.imagePath,
+      stagingDir: STAGING_DIR,
+      dryRun: args.dryRun,
+    });
+  }
   args.summary.imagesGenerated.push(args.slug);
 }
 
