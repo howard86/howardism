@@ -1,3 +1,12 @@
+# [v2.15.0](https://github.com/howard86/howardism/compare/v2.14.0...v2.15.0) (2026-07-15)
+
+## ✨ New Features
+- [`b0b6277e`](https://github.com/howard86/howardism/commit/b0b6277e)  feat(skills): add generate-wiki-images project skill 
+- [`98273bd1`](https://github.com/howard86/howardism/commit/98273bd1)  feat(blog): update wiki articles and generate hero images 
+
+## 🐛 Bug Fixes
+- [`9aae9520`](https://github.com/howard86/howardism/commit/9aae9520)  fix(skills): correct image gate + add bun install preflight &amp; MAX_IMAGES
+
 # [v2.14.0](https://github.com/howard86/howardism/compare/v2.13.0...v2.14.0) (2026-07-15)
 
 ## ✨ New Features
