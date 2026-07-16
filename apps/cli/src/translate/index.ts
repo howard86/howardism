@@ -58,6 +58,8 @@ interface RunOptions {
   engineTimeoutMs: number;
   force: boolean;
   glossaryPath: string;
+  /** With --check: also print the status buckets as one JSON object on stdout. */
+  json: boolean;
   kiroClient: string | undefined;
   /** Cap the number of articles queued per run; null = no limit (all articles). */
   limit: number | null;
@@ -463,6 +465,9 @@ async function runCheck(opts: RunOptions): Promise<void> {
   }
 
   printCheck(opts.locale, buckets, projection);
+  if (opts.json) {
+    printCheckJson(opts.locale, buckets, projection);
+  }
 
   // Tracked translations that drifted — never untranslated ones. With --warn
   // (CI) report them as GitHub annotations and exit 0; otherwise fail the build.
@@ -513,6 +518,30 @@ function printCheck(
   console.log(line("Untranslated:", buckets.untranslated));
   console.log(
     `Recorded spend: $${spend.toFixed(4)} across ${Object.keys(projection.articles).length} tracked`
+  );
+}
+
+/**
+ * Machine-readable twin of {@link printCheck}: one compact JSON object on a
+ * single line so consumers (e.g. the drip driver) can parse it out of stdout.
+ * The `buckets` arrays are the source of truth; counts are their lengths.
+ */
+function printCheckJson(
+  locale: string,
+  buckets: CheckBuckets,
+  projection: TranslationProjection
+): void {
+  const spend = Object.values(projection.articles).reduce(
+    (sum, a) => sum + (a.costUsd ?? 0),
+    0
+  );
+  console.log(
+    JSON.stringify({
+      locale,
+      buckets,
+      spend,
+      tracked: Object.keys(projection.articles).length,
+    })
   );
 }
 
@@ -697,6 +726,7 @@ function parseOptions(): RunOptions {
   const force = argv.includes("--force") || env.FORCE === "1";
   const update = argv.includes("--update") || env.TRANSLATE_UPDATE === "1";
   const check = argv.includes("--check");
+  const json = argv.includes("--json");
   const warn = argv.includes("--warn");
   const adopt = argv.includes("--adopt");
   const dryRun = env.DRY_RUN === "1";
@@ -749,6 +779,7 @@ function parseOptions(): RunOptions {
     engineTimeoutMs,
     force,
     glossaryPath,
+    json,
     kiroClient,
     limit,
     locale: targetLang,
