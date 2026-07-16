@@ -1,5 +1,7 @@
+import type { Database } from "bun:sqlite";
 import { resolve } from "node:path";
 
+import { harvestGlossaryCandidates } from "./harvest.ts";
 import type { SeedSources } from "./seed.ts";
 import {
   addTerm,
@@ -41,9 +43,13 @@ const printUsage = (): void => {
       "  bun src/glossary/cli.ts list",
       '  bun src/glossary/cli.ts add "<term>" <category>',
       "  bun src/glossary/cli.ts add-many '<json>'",
+      "  bun src/glossary/cli.ts harvest [--add] [slug ...]",
       "",
       `Categories: ${GLOSSARY_CATEGORIES.join(" | ")}`,
       'add-many JSON shape: [{"term":"<t>","category":"<category>"}, ...]',
+      "harvest: pre-scans article MDX for DNT candidates (acronyms, proper",
+      "  nouns) not yet in the glossary. No slugs -> scan every article.",
+      "  Dry-run by default (prints candidates); --add registers them.",
     ].join("\n")
   );
 };
@@ -65,6 +71,48 @@ const parseAddManyJson = (raw: string | undefined): GlossaryEntry[] => {
   }
   return parsed as GlossaryEntry[];
 };
+
+async function runHarvestCommand(
+  db: Database,
+  opts: CliOptions,
+  rest: string[]
+): Promise<number> {
+  const addFlag = rest.includes("--add");
+  const slugs = rest.filter((a) => a !== "--add");
+  const { candidates } = await harvestGlossaryCandidates(
+    {
+      articlesDir: opts.sources.articlesDir,
+      slugs: slugs.length ? slugs : undefined,
+    },
+    listTerms(db)
+  );
+
+  if (candidates.length === 0) {
+    console.log("harvest: no new candidate terms found");
+    return 0;
+  }
+
+  if (addFlag) {
+    const { added } = addTerms(
+      db,
+      candidates.map((c) => ({ term: c.term, category: c.category })),
+      { source: "harvest" }
+    );
+    for (const c of candidates) {
+      console.log(`added: ${c.term} (${c.category}) [${c.slugs.join(", ")}]`);
+    }
+    console.log(
+      `harvest: added ${added} of ${candidates.length} candidate term(s)`
+    );
+    return 0;
+  }
+
+  for (const c of candidates) {
+    console.log(`${c.term} (${c.category}) [${c.slugs.join(", ")}]`);
+  }
+  console.log(`harvest: ${candidates.length} candidate term(s)`);
+  return 0;
+}
 
 async function runCli(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
@@ -121,6 +169,10 @@ async function runCli(argv: string[]): Promise<number> {
       // output style.
       console.log(JSON.stringify({ added: result.added, total }));
       return 0;
+    }
+
+    if (command === "harvest") {
+      return await runHarvestCommand(db, opts, rest);
     }
 
     console.error(`Unknown command: ${command}`);
