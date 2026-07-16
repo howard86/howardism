@@ -48,6 +48,7 @@ bun run analyze           # production build with @next/bundle-analyzer
 
 - **Bun workspaces** for dependency management
 - **Turborepo** (`turbo.json`) as the task runner — build order is dependency-aware, caches `lint`, `type-check`, `test`, `build`
+- **Git worktrees**: after creating a worktree of this repo, run `bun install` inside it before running any workspace script — workspace module resolution is broken otherwise.
 
 ### Shared packages
 
@@ -74,14 +75,20 @@ Design system: a single set of oklch design tokens in shadcn slots (`--backgroun
 
 ### CLI (`apps/cli`)
 
-`bun run import:wiki` (entry `src/import-wiki/index.ts`) parses an Obsidian-style wiki vault — point `WIKI_PATH` (and optionally `RAW_PATH`) at it — and emits article MDX/frontmatter into the blog plus two committed manifests under `apps/blog/src/data/`: `article-graph.json` (backlink/related graph) and `wiki-sources.json`. Topics are derived from each note's `tags`. The blog reads these JSON files at build time, so re-run the importer and commit the result when source notes change.
+`bun run import:wiki` (entry `src/import-wiki/index.ts`) parses an Obsidian-style wiki vault — point `WIKI_PATH` (and optionally `RAW_PATH`) at it — and emits article MDX/frontmatter into the blog plus two committed manifests under `apps/blog/src/data/`: `article-graph.json` (backlink/related graph) and `wiki-sources.json`. Topics are derived from each note's `tags`. The blog reads these JSON files at build time, so re-run the importer and commit the result when source notes change. For a full refresh (import + hero image generation + validation), use the `generate-wiki-images` skill in `.claude/skills/`.
+
+#### Content integrity gate
+
+`bun run content:check` — also run in CI — fails on missing hero images (MDX↔PNG mismatch), broken slug references in `article-graph.json`/manifests, and missing `title`/`description`/`imageAlt` frontmatter. It warns (non-fatal) on orphan articles (no backlinks), domains without a `moc-<domain>` article, and orphan PNGs.
 
 #### Translation glossary (SQLite + MCP)
 
 The translation service (`bun run translate`) keeps a **do-not-translate (DNT) glossary** of proper nouns and technical terms to leave verbatim. It lives in `src/glossary/` backed by SQLite (`bun:sqlite`, WAL) at `apps/cli/.translate-glossary.db` — a per-machine, gitignored cache. `store.ts` is the shared core (`openDb`, `listTerms`, `addTerm`, `searchTerms`, `ensureSeeded`); `seed.ts` harvests seed terms (Entity-tagged article titles+slugs, wiki-source authors, base tech acronyms). On first use `ensureSeeded` migrates any legacy `.translate-glossary.json` then harvests the corpus; a populated DB is left untouched so added terms persist.
 
+`bun run translate:check` reports translation staleness across six buckets — **Fresh**, **Stale**, **Verbatim-drift**, **Missing**, **Orphan**, **Untranslated** — by comparing each translated article against its English source; CI runs it with `--warn` to post annotations instead of failing the build. `bun run translate:drip --limit N --interval-min M --max-cycles K` is the fix: a quota-paced loop that runs `translate --update` in small batches spaced across engine quota windows (agy/codex exhaust quota mid-run), repeating until `translate:check` reports nothing actionable; it runs `glossary harvest --add` once at startup.
+
 Two interfaces share the one DB:
-- **CLI** — `bun run glossary list` (JSON array of `{term, category}`) and `bun run glossary add "<term>" <category>`. The translation prompt instructs each engine to shell out to these.
+- **CLI** — `bun run glossary list` (JSON array of `{term, category}`), `bun run glossary add "<term>" <category>`, and `bun run glossary harvest [--add] [slug ...]` (pre-scans article MDX for DNT candidates — acronyms, proper nouns — and diffs against the DB; dry-run by default, `--add` registers). The translation prompt instructs each engine to shell out to these.
 - **MCP server** — `bun run glossary:mcp` (stdio) exposes `glossary_list`, `glossary_add`, `glossary_search` so any MCP client can reuse the glossary as native tool calls. Registered for this repo in `.mcp.json`; other agents can point at it with:
 
   ```json
