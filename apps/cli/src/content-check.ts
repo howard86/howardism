@@ -1,0 +1,343 @@
+/**
+ * Content-integrity gate for the wiki-generated blog. Runs locally and in CI
+ * (see `.github/workflows/ci.yml`). Type-check alone happily passes when hero
+ * PNGs are missing or the link graph points at deleted articles — a real
+ * incident shipped 30 missing images with exit 0 — so this script is the
+ * enforced check that those never reach `main`.
+ *
+ *   bun apps/cli/src/content-check.ts   # exit 1 if any FAILURE, else 0
+ *
+ * FAILURES (exit 1): hero-image imports that resolve to a real PNG, every slug
+ * referenced by the committed manifests existing as an article, and required
+ * frontmatter (`title`, `description`, `imageAlt`) being present.
+ *
+ * WARNINGS (never affect exit code; emitted as GitHub `::warning::` annotations
+ * under CI): orphan articles with no backlinks, domains without a `moc-<domain>`
+ * "start here" article, and orphan PNGs with no article. These are editorial
+ * signals, not build breakers.
+ *
+ * The check functions are pure and unit-tested against small in-memory
+ * fixtures; only `main` touches the filesystem.
+ */
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+
+import type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
+import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
+import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
+import matter from "gray-matter";
+
+const HERE = dirname(new URL(import.meta.url).pathname);
+const REPO_ROOT = resolve(HERE, "../../../");
+const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
+const ASSETS_DIR = resolve(REPO_ROOT, "apps/blog/src/content/assets");
+const DATA_DIR = resolve(REPO_ROOT, "apps/blog/src/data");
+
+const MDX_SUFFIX = /\.mdx$/;
+const PNG_SUFFIX = /\.png$/;
+const MOC_PREFIX = "moc-";
+// The `export { default as heroImage } from "../assets/<file>.png";` line every
+// emitted MDX carries after its frontmatter. Capture the referenced filename.
+const HERO_IMPORT_RE =
+  /export\s*\{\s*default as heroImage\s*\}\s*from\s*["']\.\.\/assets\/([^"']+)["']/;
+
+/** One article reduced to just the fields the integrity checks need. */
+export interface ArticleRecord {
+  description: string;
+  domain: string | null;
+  /** hero PNG filename from the import line (e.g. `foo.png`), or null if absent. */
+  heroImage: string | null;
+  imageAlt: string;
+  slug: string;
+  title: string;
+}
+
+/** Extract the hero-image filename from raw MDX, or null when no import line. */
+export function extractHeroImage(raw: string): string | null {
+  return raw.match(HERO_IMPORT_RE)?.[1] ?? null;
+}
+
+/** Parse one MDX article's raw source into an {@link ArticleRecord}. */
+export function parseArticle(raw: string, slug: string): ArticleRecord {
+  const { data } = matter(raw);
+  return {
+    slug,
+    title: String(data.title ?? "").trim(),
+    description: String(data.description ?? "").trim(),
+    imageAlt: String(data.imageAlt ?? "").trim(),
+    domain: data.domain ? String(data.domain) : null,
+    heroImage: extractHeroImage(raw),
+  };
+}
+
+// ---- FAILURE checks: return one message per broken invariant ----
+
+/** Every article must import a hero image that exists in the assets dir. */
+export function checkHeroImages(
+  articles: ArticleRecord[],
+  assetFilenames: Set<string>
+): string[] {
+  const failures: string[] = [];
+  for (const article of articles) {
+    if (article.heroImage === null) {
+      failures.push(`${article.slug}: no heroImage import line`);
+    } else if (!assetFilenames.has(article.heroImage)) {
+      failures.push(
+        `${article.slug}: hero image "${article.heroImage}" not found in assets/`
+      );
+    }
+  }
+  return failures;
+}
+
+/** Every slug used as a key or value in the link graph must be a real article. */
+export function checkGraphSlugRefs(
+  graph: ArticleGraph,
+  articleSlugs: Set<string>
+): string[] {
+  const failures: string[] = [];
+  for (const relation of ["backlinks", "outgoing", "related"] as const) {
+    for (const [source, targets] of Object.entries(graph[relation] ?? {})) {
+      if (!articleSlugs.has(source)) {
+        failures.push(`graph.${relation} key "${source}" has no article`);
+      }
+      for (const target of targets) {
+        if (!articleSlugs.has(target)) {
+          failures.push(
+            `graph.${relation}["${source}"] → "${target}" has no article`
+          );
+        }
+      }
+    }
+  }
+  return failures;
+}
+
+/** Every concept slug in the open-questions manifest must be a real article. */
+export function checkOpenQuestionSlugRefs(
+  manifest: OpenQuestionsManifest,
+  articleSlugs: Set<string>
+): string[] {
+  const failures: string[] = [];
+  for (const concept of manifest.byConcept ?? []) {
+    if (!articleSlugs.has(concept.slug)) {
+      failures.push(`open-questions concept "${concept.slug}" has no article`);
+    }
+  }
+  return failures;
+}
+
+/** Every `citedBy` slug in the wiki-sources manifest must be a real article. */
+export function checkWikiSourceSlugRefs(
+  manifest: WikiSourcesManifest,
+  articleSlugs: Set<string>
+): string[] {
+  const failures: string[] = [];
+  for (const source of manifest.sources ?? []) {
+    for (const slug of source.citedBy ?? []) {
+      if (!articleSlugs.has(slug)) {
+        failures.push(
+          `wiki-sources "${source.title}" citedBy "${slug}" has no article`
+        );
+      }
+    }
+  }
+  return failures;
+}
+
+/** Required frontmatter must be present and non-empty on every article. */
+export function checkFrontmatter(articles: ArticleRecord[]): string[] {
+  const failures: string[] = [];
+  for (const article of articles) {
+    const missing = (["title", "description", "imageAlt"] as const).filter(
+      (field) => article[field].length === 0
+    );
+    if (missing.length > 0) {
+      failures.push(`${article.slug}: missing ${missing.join(", ")}`);
+    }
+  }
+  return failures;
+}
+
+// ---- WARNING checks: editorial signals, never fail the build ----
+
+/**
+ * Articles no other article links to are dead ends for readers. MOC ("start
+ * here") pages are entry points by design and exempt.
+ */
+export function findOrphanArticles(
+  articles: ArticleRecord[],
+  backlinks: Record<string, string[]>
+): string[] {
+  const orphans: string[] = [];
+  for (const { slug } of articles) {
+    if (slug.startsWith(MOC_PREFIX)) {
+      continue;
+    }
+    if ((backlinks[slug]?.length ?? 0) === 0) {
+      orphans.push(slug);
+    }
+  }
+  return orphans;
+}
+
+/**
+ * Domains without a `moc-<domain>` article have no curated spine — the domain
+ * page falls back to a bare date-sorted table.
+ */
+export function findDomainsWithoutMoc(articles: ArticleRecord[]): string[] {
+  const slugs = new Set(articles.map((a) => a.slug));
+  const domains = new Set<string>();
+  for (const { domain } of articles) {
+    if (domain) {
+      domains.add(domain);
+    }
+  }
+  return [...domains]
+    .filter((domain) => !slugs.has(`${MOC_PREFIX}${domain}`))
+    .sort();
+}
+
+/** PNGs in assets/ with no article that imports them — dead weight. */
+export function findOrphanPngs(
+  assetFilenames: Set<string>,
+  articleSlugs: Set<string>
+): string[] {
+  const orphans: string[] = [];
+  for (const filename of assetFilenames) {
+    const slug = filename.replace(PNG_SUFFIX, "");
+    if (!articleSlugs.has(slug)) {
+      orphans.push(filename);
+    }
+  }
+  return orphans.sort();
+}
+
+// ---- Orchestration (filesystem I/O lives only below this line) ----
+
+interface CheckResult {
+  messages: string[];
+  name: string;
+}
+
+async function readMdxSlugs(dir: string): Promise<string[]> {
+  const entries = await readdir(dir);
+  return entries
+    .filter((name) => MDX_SUFFIX.test(name))
+    .map((name) => name.replace(MDX_SUFFIX, ""))
+    .sort();
+}
+
+async function loadArticles(): Promise<ArticleRecord[]> {
+  const slugs = await readMdxSlugs(ARTICLES_DIR);
+  const articles: ArticleRecord[] = [];
+  for (const slug of slugs) {
+    const raw = await readFile(resolve(ARTICLES_DIR, `${slug}.mdx`), "utf8");
+    articles.push(parseArticle(raw, slug));
+  }
+  return articles;
+}
+
+async function loadAssetFilenames(): Promise<Set<string>> {
+  const entries = await readdir(ASSETS_DIR);
+  return new Set(entries.filter((name) => PNG_SUFFIX.test(name)));
+}
+
+async function loadJson<T>(filename: string): Promise<T> {
+  const raw = await readFile(resolve(DATA_DIR, filename), "utf8");
+  return JSON.parse(raw) as T;
+}
+
+function printResults(title: string, results: CheckResult[]): void {
+  console.log(`\n${title}`);
+  for (const { name, messages } of results) {
+    console.log(`  ${name.padEnd(24)} ${String(messages.length).padStart(4)}`);
+    for (const message of messages) {
+      console.log(`      ${message}`);
+    }
+  }
+}
+
+/** One `::warning::` per warning message so CI surfaces them as annotations. */
+function emitWarningAnnotations(results: CheckResult[]): void {
+  for (const { name, messages } of results) {
+    for (const message of messages) {
+      console.log(`::warning::[content-check] ${name}: ${message}`);
+    }
+  }
+}
+
+async function main(): Promise<void> {
+  const [articles, assetFilenames, graph, openQuestions, wikiSources] =
+    await Promise.all([
+      loadArticles(),
+      loadAssetFilenames(),
+      loadJson<ArticleGraph>("article-graph.json"),
+      loadJson<OpenQuestionsManifest>("open-questions.json"),
+      loadJson<WikiSourcesManifest>("wiki-sources.json"),
+    ]);
+  const articleSlugs = new Set(articles.map((a) => a.slug));
+
+  const failures: CheckResult[] = [
+    {
+      name: "hero-images",
+      messages: checkHeroImages(articles, assetFilenames),
+    },
+    {
+      name: "graph-slug-refs",
+      messages: checkGraphSlugRefs(graph, articleSlugs),
+    },
+    {
+      name: "open-question-slug-refs",
+      messages: checkOpenQuestionSlugRefs(openQuestions, articleSlugs),
+    },
+    {
+      name: "wiki-source-slug-refs",
+      messages: checkWikiSourceSlugRefs(wikiSources, articleSlugs),
+    },
+    { name: "frontmatter-required", messages: checkFrontmatter(articles) },
+  ];
+  const warnings: CheckResult[] = [
+    {
+      name: "orphan-articles",
+      messages: findOrphanArticles(articles, graph.backlinks ?? {}),
+    },
+    {
+      name: "domains-without-moc",
+      messages: findDomainsWithoutMoc(articles),
+    },
+    {
+      name: "orphan-pngs",
+      messages: findOrphanPngs(assetFilenames, articleSlugs),
+    },
+  ];
+
+  const failCount = failures.reduce((n, r) => n + r.messages.length, 0);
+  const warnCount = warnings.reduce((n, r) => n + r.messages.length, 0);
+
+  console.log("=== Content integrity check ===");
+  console.log(`Articles: ${articles.length}   Assets: ${assetFilenames.size}`);
+  printResults("FAILURES", failures);
+  printResults("WARNINGS", warnings);
+
+  if (process.env.GITHUB_ACTIONS) {
+    emitWarningAnnotations(warnings);
+  }
+
+  console.log(
+    `\nResult: ${failCount === 0 ? "PASS" : "FAIL"} (${failCount} failure${
+      failCount === 1 ? "" : "s"
+    }, ${warnCount} warning${warnCount === 1 ? "" : "s"})`
+  );
+
+  if (failCount > 0) {
+    process.exitCode = 1;
+  }
+}
+
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
