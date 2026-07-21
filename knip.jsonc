@@ -1,0 +1,41 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Dependency hygiene only. Export/type checking is off: a full run surfaces 29
+  // pre-existing unused-export findings that need real triage first.
+  // Deliberately an allowlist rather than `exclude`: knip is a required CI gate
+  // (howard86/actions v2), so new checks are opted into, never auto-widened.
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "optionalPeerDependencies",
+    "unlisted",
+    "binaries",
+    "unresolved"
+  ],
+  "workspaces": {
+    ".": {
+      // Root declares the `commitlint` meta-package, not `@commitlint/cli`, so the
+      // plugin doesn't self-activate. Forced on, it follows .commitlintrc.js.
+      "commitlint": true,
+      // Unavoidable: knip's semantic-release plugin filters out semantic-release's
+      // own bundled plugins; its biome plugin only follows `extends` (ours points
+      // at ultracite/biome/core, and the engine runs transitively via ultracite).
+      "ignoreDependencies": [
+        "@biomejs/biome",
+        "@semantic-release/github",
+        "@semantic-release/npm"
+      ]
+    },
+    "apps/blog": {
+      // next.config.ts references the .mjs by string path, so knip can't reach it.
+      // migrate-mdx.ts is an `entry` not an `ignore` on purpose — ignoring it would
+      // hide its use of `yaml` and produce a false "unused yaml".
+      "entry": ["src/lib/rehype-mdx-headings.mjs", "scripts/migrate-mdx.ts"],
+      "ignore": ["src/content/**"] // article MDX is glob-discovered via fast-glob
+    },
+    "packages/tsconfig": {
+      "ignoreUnresolved": ["^next$"] // shared Next preset; `next` isn't a dep here
+    }
+  }
+}
