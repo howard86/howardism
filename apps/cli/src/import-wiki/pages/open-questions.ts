@@ -10,6 +10,7 @@ import {
 
 import { OPEN_QUESTIONS_SLUG, resolveDomain } from "../domains.ts";
 import type { ParsedWikiFile } from "../parse.ts";
+import { stripAuthoringTags } from "../transform.ts";
 import { extractInternalSlugs, titleFromSlug } from "../wikilink.ts";
 
 export type {
@@ -17,12 +18,20 @@ export type {
   OpenQuestionsManifest,
 } from "@howardism/article-contract/manifests/open-questions";
 
-const CONCEPT_HEADING_RE = /^##\s+\[\[[^\]]+\]\]/;
+const HEADING_RE = /^#{1,6}\s/;
+const CONCEPT_HEADING_RE = /^#{2,6}\s+\[\[[^\]]+\]\]/;
 const BULLET_RE = /^-\s+(.+)$/;
 
 /**
- * Parse the backlog body into per-concept question lists. The page is a flat
- * sequence of `## [[concept]]` headings, each followed by `- question` bullets.
+ * Parse the backlog body into per-concept question lists. Concepts are
+ * `[[concept]]` headings — the vault nests them under domain sections
+ * (`## Actionable by domain` → `### <domain>` → `#### [[concept]]`), so any
+ * heading level is accepted. Each is followed by `- question` bullets.
+ *
+ * Any other heading closes the current concept, which keeps the trailing
+ * `## Predictions` / `## Notes` / `## In progress` sections — flat
+ * `- [[slug]]: …` bullets with no concept heading of their own — from being
+ * appended to whichever concept happened to come last.
  */
 function parseBacklog(body: string): Map<string, string[]> {
   const byConcept = new Map<string, string[]>();
@@ -30,8 +39,10 @@ function parseBacklog(body: string): Map<string, string[]> {
 
   for (const rawLine of body.split("\n")) {
     const line = rawLine.trim();
-    if (CONCEPT_HEADING_RE.test(line)) {
-      current = extractInternalSlugs(line)[0] ?? null;
+    if (HEADING_RE.test(line)) {
+      current = CONCEPT_HEADING_RE.test(line)
+        ? (extractInternalSlugs(line)[0] ?? null)
+        : null;
       if (current && !byConcept.has(current)) {
         byConcept.set(current, []);
       }
@@ -39,7 +50,7 @@ function parseBacklog(body: string): Map<string, string[]> {
     }
     const bullet = BULLET_RE.exec(line);
     if (current && bullet) {
-      byConcept.get(current)?.push(bullet[1].trim());
+      byConcept.get(current)?.push(stripAuthoringTags(bullet[1].trim()));
     }
   }
   return byConcept;
