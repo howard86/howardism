@@ -3,7 +3,7 @@ name: generate-wiki-images
 description: Import an Obsidian wiki vault into the blog, validate it, then generate the hero images via the Codex CLI — one at a time, with a measured ETA and live progress. Use when the user wants to run the wiki importer against a vault, backfill or regenerate blog hero illustrations, or says "import the wiki", "generate wiki images", "regenerate blog illustrations".
 ---
 
-Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate the articles first, then generate hero PNGs **sequentially**. The native importer generates images 6-wide and aborts the whole batch on the first failure; this skill imports with images off, then runs one `codex exec` at a time via a per-slug loop, so each image is timed (real ETA) and a single failure is isolated instead of killing the run.
+Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate the articles first, generate hero PNGs **sequentially**, then check translation staleness. The native importer generates images 6-wide and aborts the whole batch on the first failure; this skill imports with images off, then runs one `codex exec` at a time via a per-slug loop, so each image is timed (real ETA) and a single failure is isolated instead of killing the run.
 
 ## Input
 
@@ -33,6 +33,12 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
      <(ls assets/*.png   | xargs -n1 basename | sed 's/\.png$//' | sort)
    ```
    Empty output = every article has an image. Note `bun run type-check` does **not** catch missing images — TS treats `*.png` as an opaque module, so it passes with PNGs absent; only a full `bun run build` actually fails on a missing hero (at the cost of a slow Next build). → *done when the set difference is empty.*
+
+5. **Check translation staleness.** The import adds or edits English source articles, which any translated copies can now lag behind — surface that debt at review time instead of letting it go unnoticed:
+   ```bash
+   cd apps/cli && bun run translate:check
+   ```
+   Paste the printed status summary (the Fresh / Stale / Verbatim-drift / Missing / Orphan / Untranslated counts) into the content PR body. This step only reports; actually refreshing translations is `bun run translate:drip`, a separate quota-paced job that takes hours by design — don't run it here. → *done when the status summary is pasted into the PR body.*
 
 ## Failures & regen
 
