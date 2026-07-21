@@ -1,0 +1,126 @@
+---
+date: 2026-07-16
+title: Configurable Human Participation
+description: "HAS-Bench (Wu et al., arXiv 2607.04329): a benchmark that makes
+  human participation a *configurable* variable — humans and LLM agents are
+  first-class nodes in a shared interaction graph, participation varied along
+  three axes (five-level Human Agency Scale A1–A5, three interaction channels
+  clarification/feedback/control, and user personas) across 397 tasks in six
+  domains, scoring both outcomes and process. Finding: equal partnership (A3)
+  beats full automation (A1) by +8.4 Pass@1 / +11.5 Task Score and recovers up
+  to 65.4% of autonomy-failed tasks, but the value is configuration-dependent,
+  not monotonic — more agency (A4) brings diminishing and sometimes negative
+  returns (rescues 27 tasks / breaks 13 via premature or distracting
+  intervention), each problem pattern has a different best channel
+  (clarification before commit, feedback after, control-only for safety-critical
+  authorization = 100% safe), Full-channel is beaten by the best single channel
+  in 5/6 patterns, and a weak agent (Llama-3.1-8B) gains ~0 — the agent must
+  decide *when* to ask and *how* to use input, not just get more of it; all with
+  an LLM-simulated (GPT-4.1) human, a controlled benchmark not field
+  oversight-load telemetry"
+tag: Concept
+domain: ai-engineering
+tags:
+  - agent-engineering
+  - human-ai-collaboration
+  - benchmark
+  - ai-coding-workflow
+  - empirical
+readingTime: 12
+imageAlt: Illustration for Configurable Human Participation
+sources:
+  - title: "HAS-Bench: Evaluating LLM-Based Human-Agent Systems under Configurable
+      Human Participation"
+    url: https://arxiv.org/pdf/2607.04329
+---
+export { default as heroImage } from "../assets/configurable-human-participation.png";
+
+## Sources
+
+- [HAS-Bench: Evaluating LLM-Based Human-Agent Systems under Configurable Human Participation](https://arxiv.org/pdf/2607.04329)
+
+## Summary
+
+**HAS-Bench** (Wu, Huang, Guo et al., 14 authors across Tokyo / UIC / MBZUAI / McGill / Zhejiang, arXiv 2607.04329, July 2026) is the first benchmark that treats *human participation as a controlled experimental variable* rather than a fixed backdrop. It sits on **HAS-Framework**, a graph-based execution framework in which humans and LLM-powered agents are **first-class nodes in one shared interaction graph** — each with explicit roles, permissions, communication paths, and action authority — so a human is not a late-stage "approve/reject" supervisor bolted onto the outside but a *designable, schedulable* participant the scenario routes work to.
+
+The central move: factor human involvement into orthogonal, ablatable knobs, then measure what turning each knob does — to *outcomes* and to the *process* of collaboration. The headline empirical result is a bottleneck-relocation for how we think about human-in-the-loop: **human participation substantially helps, but its value is configuration-dependent, not monotonic in how much you add.** "An agent must decide not only what action to take, but also *when* to ask for input and *how* to incorporate it from different human collaborators."
+
+> **Evidence note.** `empirical` — a controlled benchmark, but the "human" is an **LLM user-simulator (GPT-4.1 by default)** and GPT-4.1 is also the default judge; a robustness study swaps in Claude-Sonnet-4 / DeepSeek-V3 / GPT-4.1-mini as alternative simulators (Appendix C.6). So this measures *configured, simulated* participation on 397 verifiable tasks — it informs the shape of returns to human input, but it is **not field telemetry of real human oversight load**. Read every number below with that substitution in mind.
+
+## The three configuration axes
+
+Participation is varied along three independent axes, each a first-class scenario setting:
+
+**1. Agency level — the Human Agency Scale (A1–A5)** (adopted from Shao et al. 2025 / Zou et al. 2025). A1 Full Automation → A2 Minimal Input → **A3 Equal Partnership (the default)** → A4 Agent-Assisted → A5 Human-Driven. A1–A2 are *automation-oriented* (agent replaces most human effort); A3–A5 are *augmentation-oriented* (human retains meaningful involvement). Each level maps to a concrete runtime policy: agent prompt, which channels are open, trigger conditions, and who holds authority over decisions and actions. The main experiments sweep **A1 / A3 / A4** (A2 is a near-A1 variant, A5 reduces the agent to a typist).
+
+**2. Interaction channel — clarification, feedback, control.** The paper's cleanest conceptual contribution: a generic "human input" is split into three functions distinguished by *what they act on and when*:
+- **Clarification** acts on **input**, *before* the agent commits — resolve missing / ambiguous / conflicting / underspecified information before a plan or tool call.
+- **Feedback** acts on **output**, *after* an intermediate artifact exists — evaluate, correct, or refine a plan, partial result, or generated artifact.
+- **Control** acts on **action** — approve, veto, modify, override, take over, or directly execute (especially for protected, safety-sensitive, or human-only-permission actions).
+
+Each channel can be **agent-initiated** (the agent asks) or **human-initiated** (the human volunteers). This turns "was there a human in the loop" into traceable, ablatable events.
+
+**3. Persona.** With task, model, agency level, permissions, and private information all held fixed, the persona varies *how* the human tends to interact (each domain defines three).
+
+## The benchmark
+
+397 tasks across six domains, built by adapting verifiable tasks from τ²-bench and MultiAgentBench and injecting interaction requirements (2,749 raw source tasks → 301 base → 397 after LLM-panel adaptation + majority-vote review + sampled human verification):
+
+- **Service-oriented (stateful tools, domain policy):** Retail (94), Telecom (100), Airline (31).
+- **Open-ended expert (iterative refinement / verification):** Coding (115), Research (30).
+- **Negotiation:** Bargaining (27).
+
+Each task is tagged with one of six **problem patterns** that define its interaction requirement: Information Asymmetry (107), Latent Constraint (114), Safety-Critical Authorization (35), Multi-Stakeholder Specification (62), Iterative Verification (61), Dynamic Goal Revision (18).
+
+**Process-aware metrics** are the other half of the contribution — HAS-Bench scores not just *whether* the task succeeded but *how* collaboration unfolded. Outcome: pass@1, Task Score (partial credit), Delivery Rate, Safety Rate, **HAS Rescue Rate** (fraction of autonomy-failures recovered once a human joins). Process: Clarification Quality Score, Feedback Utilization Rate, Control Request Justification, Action Safety Rate, Initiative Entropy, Human Intervention Rate (HIR), plus raw interaction cost (turns, tool calls, human steps, tokens). Agent backbones: GPT-4.1, GPT-4.1-mini, Claude-Sonnet-4, DeepSeek-V3-0324, Llama-3.1-8B.
+
+## The four findings
+
+**RQ1 — Participation helps, but only if the agent can use it.** Averaged over models, Equal Partnership (A3) beats Full Automation (A1) by **+8.4 Pass@1 and +11.5 Task Score**, and lifts Safety Rate on the safety-critical subset by **+26.9 points**. Capable agents gain most: GPT-4.1 **+16.9 / +20.5**, GPT-4.1-mini **+13.7 / +19.2**; the peak per-domain cell is GPT-4.1 on Research (Pass@1 13.3→66.7, Task Score +36.7, **rescue rate 65.4%**). But the effect is heterogeneous and *not* a universal switch: **Llama-3.1-8B gains ≈0** (−0.2 Pass@1, +0.5 Task Score, 0.5% rescue). Crucially, **larger gains do not track higher human-intervention rate** — value is contingent on the agent's *capacity to operationalize* input, not the amount supplied. Two mirror-image failure modes make this concrete:
+- **Premature self-completion** (Claude-Sonnet-4 on Research): delivers a proposal on 86.7% of tasks but uses the least human input of any cell (HIR 10.9%) and commits below the acceptance bar — it *doesn't engage the human it has*.
+- **Capability floor** (Llama-3.1-8B on Coding): heavy human input (HIR 41.4%) but only 35.7% delivery and zero Pass@1 gain — human help *can't substitute for a missing capability*.
+
+**RQ2 — Diminishing and sometimes *negative* returns to more agency.** Sweeping A1→A3→A4 (GPT-4.1, Coding + Research), outcomes rise but the curve bends: Coding Pass@1 39.1→52.2→63.5, Research 13.3→**66.7**→70.0 (a giant A1→A3 jump, a small A3→A4 one). The sharp result is at the task level: going A3→A4 **rescues 27 tasks but breaks 13 that A3 had solved** (Coding 19 rescued / 6 broken; Research a fragile 8 / 7). The broken cases are classified as **premature interventions or redundant/distracting inputs**. "The key issue is not simply granting more human agency, but exercising agency at the right time and in the right form."
+
+**RQ3 — Different problem patterns need different channels.** Isolating single channels (clarification-only / feedback-only / control-only vs. all):
+- **Clarification wins** on Information Asymmetry and Latent Constraint — surface hidden facts / acceptance criteria *before* committing.
+- **Feedback wins** on Multi-Stakeholder Specification, Iterative Verification, Dynamic Goal Revision — repair, reconcile, or adapt *after* an intermediate output exists.
+- **Control-only reaches 100% Safety Rate** on Safety-Critical Authorization (vs. 51 clarification / 54 feedback) — **clarification and feedback cannot substitute for explicit authorization over protected actions.**
+- The timing distinction is the mechanism: *clarification acts before commitment, feedback repairs after.* On Latent Constraint, clarification (29) beats feedback (17) precisely because hidden acceptance criteria are cheaper to elicit before the agent picks a candidate.
+- **More channels is not better:** in **5 of 6 patterns the best single channel beats enabling all of them** (Dynamic Goal Revision is the lone exception). Extra channels add redundancy, mistimed interaction, and coordination overhead rather than monotonically improving collaboration.
+
+**RQ4 — Personas move outcomes without moving the intervention rate.** Holding everything else fixed and varying only interaction style: outcomes swing hard in open-ended/negotiation domains (Bargaining Pass@1 range **63.0 pts**, Research 33.4, Coding 21.8) yet HIR ranges stay ≤0.04. Personas don't change *how much* the human participates; they change *how* — the same agent asks 3.77 more/fewer clarification questions in Bargaining, 1.97 in Telecom. **Persona effects hide if you only measure final success**, which is exactly why the process-level metrics exist.
+
+## Why this matters: participation is a policy, not a dial
+
+The unifying claim across all four RQs: a **fixed participation policy is insufficient**. The value of human input is a *configuration* — a joint choice of *when* (timing: before-commit vs after-output), *how* (channel: clarify / feedback / control), *how much* (agency level), and *by whom* (persona / capability) — and the optimum is task-pattern-specific and non-monotonic. More authority, more channels, and more intervention can each *reduce* performance. This is a benchmark-side, empirically-measured version of the design intuition that shows up qualitatively across the corpus: keeping a human "in the loop" is only valuable when the loop is shaped right.
+
+## Connections
+
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — its open question ("what is the human's actual oversight load per concurrent agent, and where does it saturate?") gets *reframed* here: this benchmark finds the value of human input is a configuration sweet spot (right timing/form/authority), not a monotonic dial — more agency (A4) yields diminishing and sometimes negative returns. But it is single-human, single-task, LLM-simulated, so it sharpens the *shape* of the question (non-monotonic, not linear) without measuring real per-agent load.
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) — the finer-grained version of "humans decide what, agents decide how": clarification is planning-time input, feedback/control are execution-time input, and the paper shows *which* is worth exercising is pattern-dependent — the division of labor is a schedule, not a fixed split.
+- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — the agency-level (A1–A5) and control-channel axes are the benchmark instrument for that page's decision-rights / escalation subfront; Safety-Critical Authorization (control-only = 100% safe) is the measured case that *authorization can't be delegated to clarification or feedback*.
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the Control channel and Safety-Critical Authorization pattern are exactly the auto-approve-safe / gate-risky decision-rights design, now with a number: control-only authorization closes the protected-action safety gap where clarification/feedback (51/54%) cannot.
+- [Interaction Models](/articles/interaction-models) — the channel-and-timing taxonomy (clarify-before-commit, feedback-after, mixed initiative) is the *task-benchmark* companion to TML's *architecture* answer for keeping humans in the loop; both argue participation must be designed, not defaulted.
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — HAS-Framework's typed edges and agent/human-initiated channels are what a non-single-thread interface would route; the finding that agent-initiated clarification quality varies is the interface bottleneck measured as an outcome.
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — "clarification acts before commitment" is the eliciting-unknowns move measured: HAS-Bench quantifies that clarification specifically wins the Information-Asymmetry / Latent-Constraint patterns (hidden knowns), and that the agent deciding *when to ask* is the skill.
+- [AI Brain Fry](/articles/ai-brain-fry) — the interaction-cost metrics (turns / human steps / tokens) and the "more channels ≠ better" result are the participation-side of oversight cost: over-asking and mistimed intervention have measured costs, so more human involvement is not free.
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — HAS-Framework is a harness whose explicit design goal is making human participation schedulable; the RQ2/RQ3 findings are a harness-design result — *when to solicit input and which channel to open* is a scaffolding decision, not just a model capability.
+- [Experimental Learning Impact of Generative AI](/articles/experimental-learning-impact-of-ai) — the human-learning mirror, published the same week: the same augmentation-vs-automation axis (there: the student's use mode; here: the agency level's orientation) causally decides whether AI involvement produces durable value or hollow output — both refute the monotonic "more input is better" dial.
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the *field* counterpart to this benchmark's *controlled* human-agent measurement: HAS-Bench varies participation on an LLM-simulated human across 397 tasks; Nadgir et al. run a real randomized study on 20 reproduction tasks and find agent collaboration more than halves completion time (2.11×, p≈0.002). Both make human-agent collaboration a first-class measured axis — a simulated-vs-real pairing on the same question.
+
+### Into hubs (one-way)
+
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the Feedback channel (evaluate/correct intermediate output) and Iterative Verification pattern are human verification measured as a lever; feedback wins exactly the verify-and-refine patterns.
+- [Design Concept Grilling](/articles/design-concept-grilling) — agent-initiated clarification scored by the Clarification Quality Score (precise, necessary, non-redundant) is `grill-me` inverted — the *agent* interviewing the human — and the paper measures whether it over-asks.
+
+## Open Questions
+
+- The "human" is an LLM simulator (GPT-4.1) that also judges — how much of the configuration-dependent structure is a property of *human-agent collaboration* versus an artifact of GPT-4.1 modeling both sides? The Appendix C.6 simulator-swap is the only check, on a subset.
+- A4 is instantiated as a *fixed one-shot* proactive intervention. Real proactive humans time their input adaptively — does the "premature/distracting intervention breaks tasks" result hold, worsen, or vanish under a human who chooses *when* to interject?
+- The optimal channel is shown to be pattern-specific, but pattern is an oracle label assigned at construction. Can an agent *infer* which pattern it is in (and thus which channel to solicit) at runtime — the actual deployed skill the paper says agents lack?
+- Does the "more channels adds coordination overhead" penalty shrink as the backbone improves (a capability gap), or is it a structural cost of mixed-initiative interaction that persists?
+
+## Sources
+
+- [HAS-Bench: Evaluating LLM-Based Human-Agent Systems under Configurable Human Participation](https://arxiv.org/pdf/2607.04329) — Wu et al., arXiv 2607.04329 (2026-07-05). §3 HAS-Framework (graph, channels, agency scale); §4 benchmark construction + metrics; §5.2 main results (RQ1 value, RQ2 agency sweep); §5.3 ablations (RQ3 channels × patterns, RQ4 personas). Figures 1 (framework overview + airline A1/A3/A4 walkthrough) and 2 (agency-level Coding/Research plots) viewed.

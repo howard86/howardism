@@ -1,0 +1,98 @@
+---
+date: 2026-07-16
+title: Reference-Free Judge Over-Crediting
+description: "Kranti & Vajjala (arXiv 2607.12885): the presence and placement of
+  a reference answer in the prompt is a first-order determinant of an LLM
+  judge's correct/incorrect verdicts — in no-reference settings judges
+  systematically over-credit incorrect answers, and adding the reference flips
+  up to 85% of verdicts (most NR→RV flips are CORRECT→INCORRECT over-credit
+  retractions), an effect that holds across English/Arabic/Telugu but is far
+  worse in low-resource Telugu; a two-stage calibration (C1 vs C2: can the judge
+  tell right from wrong) + sensitivity (NR/RV/RC: does reference presence flip
+  verdicts) pipeline diagnoses judge suitability before reference-free
+  deployment, and human annotation confirms the reference-driven stricter
+  verdicts align better with people (agreement jumps ~0.34→0.85 NR→RV for
+  Gemma), so reference-free absolute scores are genuinely inflated not merely
+  different — a reliability-without-validity instance orthogonal to Norman et
+  al.'s, on three open/open-weight judge models at temperature 0 in binary QA"
+tag: Concept
+domain: llm-architecture
+tags:
+  - evaluation
+  - llm-as-a-judge
+  - benchmarks
+  - reliability
+  - multilingual
+readingTime: 10
+imageAlt: Illustration for Reference-Free Judge Over-Crediting
+sources:
+  - title: LLM Judges Can Be Too Generous When There Is No Reference Answer
+    url: https://arxiv.org/pdf/2607.12885
+---
+export { default as heroImage } from "../assets/reference-free-judge-over-crediting.png";
+
+## Sources
+
+- [LLM Judges Can Be Too Generous When There Is No Reference Answer](https://arxiv.org/pdf/2607.12885)
+
+## Summary
+
+When an [LLM judge](/articles/llm-as-a-judge) grades an open-ended answer with **no ground-truth reference in the prompt**, it tends to be **too generous** — accepting incorrect answers it would reject if it could see the gold answer. Kranti & Vajjala (arXiv 2607.12885, July 2026) make the *presence and placement of the reference answer* a controlled variable and show it is a **first-order determinant of the verdict**: adding a reference flips the judge's correct/incorrect decision on **up to 85%** of questions in some settings, and almost all of those flips are the judge *withdrawing* credit it had granted in the no-reference setting. The effect appears across English, Arabic, and Telugu but is **far larger in low-resource Telugu**. A human study confirms the reference-driven stricter verdicts are *more correct*, not merely stricter — so reference-free absolute scores are genuinely **inflated**, not just different.
+
+The contribution is a **diagnostic methodology**, not a new judge: a two-stage pipeline that tells you *before* deploying a judge reference-free whether that judge is trustworthy for a given task. It is the multilingual, reference-axis counterpart to [Norman et al.'s MVVP](/articles/llm-judge-validation) — a second, orthogonal instance of *reliability without validity*.
+
+## The two-stage pipeline (calibration → sensitivity)
+
+The judge runs a fixed pipeline on every item: first **extract** the core answer from the (often verbose) model response, then emit a JSON verdict — `extracted_answer`, `explanation`, `verdict ∈ {CORRECT, INCORRECT}`. Two experiment families vary what the judge sees:
+
+- **Calibration** — *does the judge know the task at all?* A question + one candidate answer, labelled only as "Generated Answer" (no correctness hint). **C1** feeds the correct gold answer (want acceptance ≈ 100%); **C2** feeds a plausible *wrong* answer drawn from another QA pair in the same category (want acceptance ≈ 0%). The separation **CGP = C1 − C2** measures task competence. No generator model needed — this is a pure judge probe.
+- **Sensitivity** — *can this judge be trusted reference-free?* The judge grades a real generator-model response under three reference conditions: **NR** (no reference), **RV** (reference *visible* in the prompt but not flagged for use), **RC** (prompt *explicitly instructs* comparison against the reference). Decision-flip rates between settings quantify how much the reference moves the verdict; a trustworthy reference-free judge should flip *little*.
+
+**Setup.** Two datasets — TyDiQA (EN 445 / AR 951 / TE 669 answerable questions; three language families, three scripts) and MATA (TE, 540 open-ended questions across factual + linguistic-reasoning categories). Four generator models (Gemini 3.1-Pro, Qwen3-32B, plus language-optimized Sarvam-105B for Telugu and Fanar-C-2-27B for Arabic) × **three judge models** — two open-weight (**Qwen3-32B**, **Gemma3-27B**) and one closed (**Gemini-3.1-Flash-Lite-Preview**). All zero-shot, **temperature 0** (so each judge is essentially deterministic — perfectly reproducible), run under the Inspect framework. Response-generator/judge overlap (same model Qwen3-32B; same family Gemini/Gemma) is deliberate, to probe self- and same-family effects.
+
+## Finding 1 — Calibration: judges over-credit incorrect answers, worst in low-resource languages
+
+For **English and Arabic** the judges separate cleanly: C1 near 100, C2 near 0, **CGP 79–96**. For **Telugu** the gap collapses — all judges show C2 > 0 (they accept some wrong answers), and the worst case is **Gemma3-27B on MATA, where C2 ≈ 60% and CGP is only 33**. Reading: a judge can look well-calibrated in a high-resource language and be *unfit* for the same task in a low-resource one. Running this cheap C1/C2 probe on a small gold-labelled set is the recommended way to screen a candidate judge before trusting it.
+
+## Finding 2 — Sensitivity: the reference flips up to 85% of verdicts, and *visibility* does most of the work
+
+Correctness scores are **highest in NR and drop monotonically NR → RV → RC** across all three languages — the signature of over-crediting being retracted as reference information arrives. Two sharp facts:
+
+- **The big move is NR → RV, not RV → RC.** NR→RV flip rates span **0.09–0.85**; RV→RC only **0.01–0.24**. Merely *making the reference visible* changes verdicts even when the prompt never asks the judge to compare against it. Explicitly demanding comparison adds relatively little.
+- **Low-resource amplification.** NR→RC flips run **0.29–0.37 (English)**, **0.36–0.60 (Arabic)**, **0.69–0.85 (Telugu)**. Qwen3-32B is the most reference-sensitive judge, worst when self-judging Qwen3-32B responses; the single starkest cell is **Qwen3-32B judging Qwen3-32B on Telugu-TyDiQA: NR 0.96 → RV 0.11 (flip rate 0.85)** — a near-total collapse of an apparently-high reference-free score once the gold answer is shown. (Every "delta" in the results table is a flip rate — a fraction of modifications — so all are non-negative by construction.)
+
+## Finding 3 — Direction and mechanism: over-credit dominates, and the *same* answer is judged differently
+
+Decomposing flips into **over-credit** (CORRECT→INCORRECT, judge withdraws credit) vs **under-credit** (INCORRECT→CORRECT, judge grants credit):
+
+- **Most NR→RV flips are over-credit (C→I)** — confirming NR scores are inflated. The lone exception is Qwen3-32B judging Gemini3.1-Pro on MATA, which is ~evenly split (0.53 C→I / 0.47 I→C).
+- **RV→RC is bidirectional.** For non-English languages and most judges, under-credit (I→C) accounts for **30–70%** of RV→RC flips — so explicit comparison doesn't only make judges *stricter*; it also rescues answers they had wrongly rejected. **Reference framing changes both the frequency and the direction of decisions.**
+- **Why the flips happen.** An exact-match analysis of the judge's `extracted_answer` across settings shows: for English/Arabic, roughly *half* of verdict changes coincide with the judge extracting a *different* answer; for **Telugu, verdicts change even when the extracted answer is identical** — i.e. in the low-resource case the reference changes *how the same answer is evaluated*, not *which answer is identified*.
+
+## Finding 4 — Human annotation: the reference-driven verdicts are more correct, not just stricter
+
+On 400 MATA responses (Factual Knowledge + Reasoning, the highest-flip categories), two native-Telugu annotators labelled correctness at inter-annotator Cohen's κ **0.96–0.99**. Judge-vs-human percentage agreement **rises sharply once a reference is present**, with the biggest jump NR → RV: **Gemma3-27B 0.34 → 0.85**, **Qwen3-32B 0.42 → 0.90**, **Gemini-3.1-Flash-Lite 0.74 → 0.96**; the highest alignment is **0.98** (Gemini-3.1-Flash-Lite judging Gemma3-27B responses, RC). RC over RV adds a **smaller, configuration-dependent, not-uniformly-positive** gain — consistent with the mixed RV→RC flip directions. The takeaway that makes this a genuine validity result: **reference *access* is the main driver of human alignment**, so the generous no-reference verdicts really are wrong, not just a different-but-valid opinion.
+
+## Relation to Norman et al. — reliability without validity, second instance
+
+This is the same core lesson as [Norman et al. (2026)](/articles/llm-judge-validation) reached from a different direction. Norman fixed the judge protocol and varied the *benchmark* (English, text-only, thinking suppressed), finding that a **reproducible** judge can hide **position bias** — high test-retest need not mean validity. Here the judges are also perfectly reproducible (temp 0) yet systematically **invalid in the no-reference condition**, and the invalidity is invisible until you add a reference. So this paper answers Norman's open question *"are there biases beyond position bias that high test-retest also masks?"* affirmatively with a **concrete, large one — reference-presence sensitivity (up to 85% flips)** — and extends the evidence into a **multilingual, low-resource** regime that Norman explicitly lacked. Both papers converge on the same prescription: **never trust a reproducible judge's absolute verdicts without an external validation pass** — Norman via chance-correction + bias audit + cross-benchmark (MVVP); this paper via a small gold-reference sample used to run calibration + sensitivity before reference-free deployment.
+
+Caveat on scope (don't overclaim): three specific judge models (two open-weight, one closed), zero-shot binary CORRECT/INCORRECT QA, three languages, text-only. The methodology is model- and task-agnostic, but the magnitudes are not a universal law.
+
+## Connections
+
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the primitive this page stress-tests along the reference axis; over-crediting is the reference-free failure mode of that primitive's absolute scores
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the sibling pre-deployment validation discipline (Norman et al.'s MVVP); this page supplies the reference-presence bias that Norman's "beyond position bias" open question asked for, plus multilingual evidence
+- [DRACO Benchmark](/articles/draco-benchmark) — DRACO grades open-ended deep-research reports without a single gold answer (a reference-free-style setting) and finds **factual accuracy the universal weak axis**; over-crediting is the mechanism behind that weakness
+- [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it) — the cluster synthesis: reference-free over-crediting is the second judge-layer invalidity in the four-channel corruption taxonomy, and the calibration+sensitivity pipeline joins the MVVP as the validate-the-judge move of the replacement portfolio
+
+## Open Questions
+
+- **Does the two-stage pipeline transfer beyond binary QA?** Calibration + sensitivity are demonstrated on binary correct/incorrect factual QA. Do the same probes diagnose reference-sensitivity for graded rubrics, long-form generation, or multi-turn agent transcripts, where "the reference" is a rubric rather than a gold answer?
+- **Is over-crediting a knowledge gap or a generosity prior?** In low-resource Telugu the judge flips the *same* extracted answer once a reference appears — is the NR generosity driven by insufficient task knowledge (calibration failure) or by a default lean-toward-CORRECT that a reference overrides? The two have different fixes (better judge vs. always supply a reference).
+- **How much does self-/same-family overlap contribute?** The design deliberately overlaps generator and judge (Qwen3-32B self-judging; Gemini/Gemma family) and Qwen self-judging is the most reference-sensitive, but the paper does not isolate a self-preference effect from a low-resource effect. When does judge–generator lineage amplify reference-free over-crediting?
+- **Does the effect shrink with stronger or thinking-enabled judges?** All judges are ≤ mid-tier at temperature 0 with no reasoning channel. Would a frontier reasoning judge over-credit less in NR, or just flip at different rates?
+
+## Sources
+
+- [LLM Judges Can Be Too Generous When There Is No Reference Answer](https://arxiv.org/pdf/2607.12885) — Chalamalasetti Kranti & Sowmya Vajjala (U. Potsdam / NRC Canada, arXiv 2607.12885, 2026-07-14), `empirical`. §3 (two-stage pipeline: extract→verdict; C1/C2 calibration; NR/RV/RC sensitivity), §4 (setup: TyDiQA + MATA, 4 generators × 3 judges, zero-shot temp 0, Inspect), §5.1 + Fig 4 (calibration; CGP 79–96 for EN/AR, Gemma3-27B C2≈60% / CGP 33 on Telugu-MATA), §5.2 + Table 1 (NR→RV flips 0.09–0.85, RV→RC 0.01–0.24; Q3/Q3 Telugu NR 0.96→RV 0.11 flip 0.85; NR→RC 0.29–0.37 EN / 0.36–0.60 AR / 0.69–0.85 TE), Fig 5 (flip direction; over-credit dominates NR→RV, I→C 30–70% of RV→RC), Fig 6 (extracted-answer vs verdict stability; Telugu verdict flips on identical extracted answers), §5.3 + Table 2 (human alignment; NR→RV jumps 0.34→0.85 Gemma / 0.42→0.90 Qwen / 0.74→0.96 Gemini-FL; peak 0.98; inter-annotator κ 0.96–0.99)

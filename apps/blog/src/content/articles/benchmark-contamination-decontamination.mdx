@@ -1,0 +1,111 @@
+---
+date: 2026-07-16
+title: Benchmark Contamination and Decontamination
+description: "Sun, Zhan & Gales (Cambridge, arXiv 2606.23313): benchmark data
+  contamination inflates reported LLM scores when test samples leak into
+  training, and existing decontamination methods are judged only by aggregate
+  accuracy and mostly need a clean reference model. Two contributions: (1) a
+  sample-level evaluation framework — per-sample distribution distances (D_KL
+  and D*_L1 between the decontaminated and an uncontaminated model's output
+  distributions) that expose a fundamental disconnect (paraphrase+permutation
+  cuts dataset-level residual contamination 17.2→8.4 while D_KL actually rises
+  >13%); (2) Uncertainty-Based Decontamination (UBD), which needs no clean
+  reference model and no knowledge of which samples are contaminated — deep
+  ensembles of the contaminated model (5 LoRA seeds differing only in batch
+  ordering) expose memorized samples as high-confidence-but-high-variance
+  (epistemic/knowledge uncertainty), because memorization is
+  batch-order-sensitive. A per-sample scalar α̂ ≈ 1−2σ (σ = ensemble std of the
+  ground-truth probability, above a confidence threshold T_p) drives either
+  UBD-Debiasing (post-hoc suppression of the inflated ground-truth mass,
+  redistributed proportionally, no weight update, MCQ-only) or UBD-Unlearning
+  (fine-tune toward the debiased soft target; no-op when α̂≈1). On
+  MMLU-Pro/MATH-MCQA it gives >40–60% relative D_KL reduction and beats
+  paraphrase/permutation and even the reference-model DeconIEP baseline;
+  ensemble uncertainty tracks oracle contamination at PCC 0.8–0.9 where
+  log-probability stays <0.4"
+tag: Concept
+domain: llm-architecture
+tags:
+  - llm-architecture
+  - capability-evaluation
+  - benchmarks
+  - evaluation-methodology
+  - data-contamination
+  - uncertainty
+  - unlearning
+readingTime: 11
+imageAlt: Illustration for Benchmark Contamination and Decontamination
+sources:
+  - title: Uncertainty-based Debiasing and Unlearning for Decontamination
+    url: https://arxiv.org/pdf/2606.23313
+---
+export { default as heroImage } from "../assets/benchmark-contamination-decontamination.png";
+
+## Sources
+
+- [Uncertainty-based Debiasing and Unlearning for Decontamination](https://arxiv.org/pdf/2606.23313)
+
+## Summary
+
+**Data contamination** is the benchmark-integrity failure where test samples leak into an LLM's training corpus, so the reported score reflects **memorization rather than capability** and cross-model comparisons become unfair. Because pretraining corpora are vast and opaque, whether any given benchmark item was seen is usually unknowable. Sun, Zhan & Gales (["Uncertainty-based Debiasing and Unlearning for Decontamination"](https://arxiv.org/pdf/2606.23313), University of Cambridge + VRAIN/UP València, arXiv 2606.23313, 2026-06-22, `empirical`) make two moves: they **re-measure** decontamination at the per-sample level, and they introduce **Uncertainty-Based Decontamination (UBD)** — a way to correct an inflated model **without a clean reference model and without knowing which samples are contaminated**. This is the vault's first dedicated coverage of contamination as an eval-integrity problem, and it sits directly in the benchmark-integrity cluster ([Benchmark Score Redundancy](/articles/benchmark-score-redundancy), [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation), [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)).
+
+## The problem with prior work
+
+Two forms of contamination are distinguished in the literature: **exact** (test instances appear verbatim in training) and **syntactic** (they reappear paraphrased or prefixed). Prior mitigations fall into two camps: **dynamic benchmarking** (build or rewrite samples guaranteed unseen — paraphrasing at inference time, or generating fresh items) and **model-level modification** (replace shortcut neurons; or fine-tune the contaminated model to minimize KL divergence toward a *clean reference model*, e.g. DeconIEP / Chai et al. 2026). The paper's twin complaints:
+
+1. **Evaluation is too coarse.** Prior work scores decontamination only by the drop in **aggregate accuracy** (residual contamination, RC = accuracy gap to the uncontaminated model). But two models can post identical accuracy while being correct on entirely **disjoint** subsets — aggregate accuracy hides per-sample behavioral divergence. This is the same "a headline accuracy number under-uses the benchmark" argument the [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) cluster makes, applied to contamination.
+2. **Most model-level methods need a clean model.** Minimizing KL toward an uncontaminated reference assumes you *have* one — often false in practice, and a *mismatched* clean model can make things worse.
+
+## Contribution 1 — sample-level evaluation
+
+Rather than aggregate accuracy, measure how closely a decontaminated model's **per-sample output distribution** recovers that of an uncontaminated model: mean per-sample **KL divergence** (D_KL) over the full output distribution, and **D*_L1**, the mean absolute difference in the probability assigned to the ground-truth answer (in MCQ this is directly the model's confidence in the correct letter). A method is effective only if it drives **both** down on the contaminated split (D_eval) *while* barely disturbing the clean split (D_dev, measured against the deployed checkpoint).
+
+The headline finding is a **disconnect between dataset-level and sample-level metrics**: the strongest black-box baseline (GPT-4o paraphrasing + choice permutation) cuts dataset-level RC from 17.2 to 8.4 on Llama-3.2 / MMLU-Pro — yet its **D_KL rises >13%** over the contaminated model and D*_L1 is essentially unchanged. Closing the accuracy gap does **not** move per-sample behavior toward the uncontaminated model; it can move it away. So aggregate-accuracy decontamination can look like it worked while leaving (or worsening) the underlying distributional distortion.
+
+## Contribution 2 — Uncertainty-Based Decontamination (UBD)
+
+The core insight is a way to *estimate* contamination without an oracle. In a contaminated model, high confidence on a sample has two possible causes: it is **genuinely easy** (supported by lots of non-contaminated training data), or it is **hard but memorized** (its answer leaked). Both can have low loss, so log-probability can't tell them apart. But memorization is **highly sensitive to the batch ordering** of the leaked samples, whereas genuine competence is not. So the authors build a **deep ensemble of the contaminated model** — here 5 LoRA fine-tunes (rank 64, α 128) trained with identical hyperparameters but different seeds / batch orderings — and read the disagreement:
+
+- A hard-but-memorized sample shows the tell-tale combination of **high confidence but high variance across ensemble members** — high **epistemic / knowledge uncertainty** (formalized via the mutual information between output and ensemble parameters).
+- A per-sample contamination scalar α (conceptually, the ratio of the *clean* to the *contaminated* ground-truth probability — α≈1 is clean, α→0 is heavily inflated) is **estimated from uncertainty**. The paper uses the ensemble **standard deviation σ** of the ground-truth probability as the practical signal and sets **α̂ ≈ 1 − 2σ** above a confidence threshold T_p (α̂ = 1 otherwise). The coefficient 2 bounds α̂ to [0,1] since σ ∈ [0, 0.5); T_p excludes samples where the model already performs poorly, so correction concentrates on high-confidence predictions.
+
+This α̂ drives two decontamination modes (Fig. 1):
+
+- **UBD-Debiasing** — a **post-hoc output correction** (no weight update): scale the inflated ground-truth probability down by α̂ and redistribute the freed mass proportionally across the other choices, preserving their relative shape. Requires no clean model and no training data. Currently **restricted to classification (MCQ/binary)** tasks.
+- **UBD-Unlearning** — **fine-tune** the contaminated weights (cross-entropy) toward the debiased distribution as a **soft target**, suppressing memorized inflation while preserving distribution shape. Because it is applied to *all* test samples, it **defaults to a no-op on clean samples** (α̂≈1 → target ≈ current output → negligible gradient).
+
+Crucially, UBD never has to *detect* which samples are contaminated: it applies to everything, and clean samples (σ≈0 → α̂≈1) are left unchanged. This sidesteps the membership-inference route the paper notes is weakening — output-statistic signals like peaked distributions or anomalous token probabilities "become much less informative at pretraining scale" (Fu et al. 2025).
+
+## Results
+
+On MMLU-Pro and MATH-MCQA with Llama-3.2-3B-Instruct and Qwen2.5-3B-Instruct (contaminated model trained on D_train ∪ D_eval; uncontaminated control trained on D_train ∪ D_dev to hold domain/ability fixed):
+
+- **UBD dominates sample-level.** Both UBD variants achieve **>40% relative D_KL and D*_L1 reduction** (Llama) and up to **~60% D_KL / ~50% D*_L1** (Qwen) on D_eval vs the contaminated model — well beyond paraphrase/permutation. Notably it **beats DeconIEP, which uses a clean reference model** UBD does without; a mismatched reference can widen DeconIEP's distances.
+- **The two modes trade off.** UBD-Debiasing gives the best D_eval efficacy but, being aggressive, can over-suppress and dent clean-split (D_dev) accuracy; the threshold T_p tempers this. UBD-Unlearning is gentler and gives the **best dev/eval balance**, and is robust across T_p (debiasing is threshold-sensitive on RC but both stay robust on D_KL).
+- **Uncertainty >> log-probability as a contamination indicator.** Ensemble std and knowledge uncertainty reach **PCC 0.8–0.9** with the oracle α (and cleanly separate hard-but-memorized α≈0 from genuinely-easy α≈1); the classic **log-probability signal stays below ~0.4**. Standard deviation is preferred over knowledge uncertainty for being bounded and near-linear, so α̂ can be fit with the simple 1−2σ rule.
+
+## Limitations
+
+The method needs an **ensemble of checkpoints**, i.e. model providers must release not just the main checkpoint but several — the authors argue **LoRA-weight ensembles** make this cheap (small extra footprint), and flag deriving an ensemble from a single released model as future work. UBD-Debiasing is, for now, **classification-only** (an open-ended-generation extension via per-decoding-step debiasing is proposed but not built).
+
+## Connections
+
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the closest methodological sibling: both argue a single aggregate-accuracy number is a lossy summary of what a benchmark knows and add *other measured axes*. Nadgir et al. add reliability/efficiency/scaffold axes on a *saturated* benchmark; this adds **per-sample distribution distances** on a *contaminated* one, and finds the same shape of result — a dataset-level improvement (RC ↓) that does not translate to the per-sample level (D_KL ↑)
+- [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) — that page's central scope caveat is that scores are *inferable but benchmarks aren't unnecessary*, because benchmarks still do work matrix-completion can't — explicitly naming **contamination monitoring** as one such job. This page is the correction-side counterpart: given contamination has already inflated a model, recover the clean per-sample distribution. Also complementary risk: UBD relies on the same ground-truth-probability signal that contamination distorts, so it operates *inside* the integrity problem the redundancy page's public grid embodies
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — a sibling reason a headline benchmark number can't be trusted at face value: there, an unnamed **compute budget** confounds the score; here, **training-data leakage** inflates it. Both are benchmark-trust critiques whose fix is to report/recover something the single number hides
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the **prevention** vs **correction** pairing: dynamic/production-sourced benchmarks avoid contamination up front by drawing fresh, hard-to-pre-memorize tasks (and refreshing them); UBD instead repairs a model already exposed to a static benchmark. The two are complementary defenses against the same leakage
+- [Reward Hacking](/articles/reward-hacking) — completes the taxonomy of *ways a benchmark number lies*: reward hacking games a proxy inside the **training loop**, benchmark-maxxing inflates the score at **eval-report time**, and contamination inflates it via **training-data leakage** (memorization, not deliberate optimization). All three corrupt benchmark validity through different channels
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — the benign analog of its open question about an **already-poisoned model you didn't train**: UBD is post-hoc correction of a **training-exposure effect without access to the training data or a clean reference model**. The parallel is thematic, not mechanistic — contamination is benign leakage that inflates *accuracy*, a model backdoor is malicious and persists through safety training — but both are the "fix the model from the outside, given only the deployed checkpoint" problem
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — UBD-Unlearning is the **removal-side counterpart** to SDF's installation: SDF fine-tunes on synthetic documents to *install* a belief/disposition; UBD-Unlearning fine-tunes on soft debiased targets to *suppress* memorized benchmark answers. Same lever (targeted fine-tuning changes what the model outputs), opposite direction (instill vs unlearn)
+- [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it) — the cluster synthesis: contamination is one of the four corruption channels through which a headline benchmark number lies, and UBD is the correction-side member of the prevention/correction pairing in the replacement portfolio
+
+## Open Questions
+
+- **Can the ensemble be derived from one released model?** The whole method rests on having several checkpoints differing in batch ordering; the authors flag single-checkpoint ensemble derivation (e.g. via cheap perturbations) as the key unlock for adoption. Until then it needs provider cooperation to release a LoRA ensemble.
+- **Does it extend past MCQ?** UBD-Debiasing is classification-only today; whether per-decoding-step debiasing recovers the clean distribution for open-ended generation (where contamination shows as near-verbatim reproduction) is untested.
+- **Is batch-order sensitivity a reliable memorization tell at pretraining scale?** The signal was validated on 3B models with 5 LoRA seeds and induced contamination; whether the high-confidence-high-variance signature survives full-scale pretraining and real (not synthetically injected) leakage is open.
+- **Does correcting toward an *ensemble-averaged* uncontaminated reference introduce its own bias?** The D_KL/D*_L1 targets are themselves an average over a 5-member uncontaminated LoRA ensemble; how much the "clean" target moves with ensemble size/composition is unexamined.
+
+## Sources
+
+- [Uncertainty-based Debiasing and Unlearning for Decontamination](https://arxiv.org/pdf/2606.23313) — Guangzhi Sun, Xiao Zhan, Mark Gales, *Uncertainty-based Debiasing and Unlearning for Decontamination* (University of Cambridge + VRAIN/Universitat Politècnica de València, arXiv 2606.23313, 2026-06-22, `empirical`): the sample-level evaluation framework (D_KL, D*_L1; the dataset-vs-sample disconnect where paraphrase+permutation cuts RC 17.2→8.4 while D_KL rises >13%); UBD-Debiasing (post-hoc mass redistribution) and UBD-Unlearning (soft-target fine-tuning) driven by α̂≈1−2σ from a 5-member LoRA ensemble; results on MMLU-Pro/MATH-MCQA with Llama-3.2-3B and Qwen2.5-3B (>40–60% relative D_KL reduction, beating paraphrase/permutation and reference-model DeconIEP); uncertainty-vs-log-probability indicator comparison (PCC 0.8–0.9 vs &lt;0.4); the ensemble-release and MCQ-only limitations. Figures 1 (UBD pipeline), 2 (contamination-indicator correlations), and 3 (threshold sensitivity) viewed

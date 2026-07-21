@@ -4,7 +4,9 @@ title: Agentic Prompt Injection
 description: Direct and indirect injection of malicious instructions into an
   agent; LLMs cannot reliably distinguish information from instructions;
   defenses are spotlighting (50%→<2%), constitutional classifiers (95% blocked),
-  input isolation, and attack-surface reduction
+  input isolation, and attack-surface reduction — but a second IPI category,
+  agent data injection, forges *trusted data* rather than instructions and slips
+  past all of them
 tag: Concept
 domain: ai-engineering
 tags:
@@ -12,7 +14,7 @@ tags:
   - prompt-injection
   - threats
   - input-validation
-readingTime: 11
+readingTime: 17
 imageAlt: Illustration for Agentic Prompt Injection
 sources:
   - title: Zero Trust for AI Agents
@@ -26,12 +28,19 @@ sources:
   - title: Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in
       LLM Agents
     url: https://arxiv.org/pdf/2606.26479
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
 ---
 export { default as heroImage } from "../assets/agentic-prompt-injection.png";
 
 ## Sources
 
 - [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
@@ -47,6 +56,12 @@ Prompt injection is the insertion of malicious instructions that cause an agent 
 - **Indirect prompt injection** — the more insidious form. Attackers embed instructions in external data the agent processes (web pages, emails, documents). The user never sees the payload, and the agent executes it as if it were a legitimate request. This is what makes [agents that browse, read mail, or ingest documents](/articles/mcp-and-computer-use) structurally exposed.
 
 Injection is also the delivery mechanism for adjacent threats: it's how tool-misuse and tool-chaining attacks are triggered, and a vector for [Memory and Context Poisoning](/articles/memory-and-context-poisoning) when the injected instruction is written to persistent memory.
+
+## A second category of indirect injection: Agent Data Injection
+
+The two forms above both hinge on injected data being read as an **instruction**. [Agent Data Injection (ADI)](/articles/agent-data-injection) (Choi et al., arXiv 2607.05120, July 2026) is a distinct category of *indirect* injection that exploits a **finer boundary**: it makes untrusted data be misread not as an instruction but as **trusted data** — the metadata the model anchors on (a comment's author/role, an email `sender`, a Web UI element ID, the tool-call history). The agent still performs the user's task, but on attacker-forged data. Its technique, **probabilistic delimiter injection**, injects inexact/escaped delimiters (`\"`, fake `<function_calls>` tags) that a deterministic parser rejects but the LLM probabilistically misreads as structure.
+
+This matters here for two reasons. First, ADI **bypasses the defenses this page catalogs**: instruction-injection defenses enforce the instruction↔data boundary, so where instruction injection scores ~0% ASR against state-of-the-art agent defenses, ADI reaches up to 50% — with *working RCE and supply-chain exploits on Claude Code, Codex, and Gemini CLI* and arbitrary-click on Claude in Chrome. Second, it **sharpens the durable-property question below**: closing the instruction/data boundary just relocates the attack to the next finer boundary, because the root cause (the LLM's probabilistic reading of structural delimiters) is architectural, not a single trainable rule.
 
 ## Defenses (structural, not exhortative)
 
@@ -98,13 +113,22 @@ The defenses catalogued above (spotlighting, constitutional classifiers, input s
 - [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — Fable 5's safety classifiers extend this page's constitutional-classifier line with broader coverage, hardened against universal jailbreaks (no universal jailbreak in 1,000+ bug-bounty hours)
 - [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — response-side prefill is the sibling of input-side injection; in both the model can't reliably flag the adversarial content, and the dependable defense is an independent check (a safety classifier on the output), not the model's own follow-up word
 - [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the defense-architecture counterpart to this threat page: enforce security *outside* the model with a deterministic reference monitor (CaMeL/FIDES/Progent/RTBAS/FORGE); the first independent adaptive-evaluation source on injection defense
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the second category of indirect injection: forge *trusted data* (metadata, tool history) rather than instructions, via probabilistic delimiter injection; bypasses this page's defenses and delivers real RCE on coding agents
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the MCP-specific subclass of *indirect* injection (payload rides in tool descriptions/returns, not user input); ShareLock is its stealth-maximizing member, using threshold secret-sharing to defeat the description-based classifiers and entropy detectors this page catalogs — an information-theoretically clean payload no single-tool scan can flag. Its **Agentjacking** case study (Tenet Security, `case-study`) is a real-world corroboration of this page's structural-defense thesis: Tenet reports agents ran the injected `npx` command *even when system prompts and skills explicitly told them to ignore untrusted data* — "you cannot fix this with a better prompt." Vendor-reported and weighted below the `empirical` sources, but it echoes exactly what [ADI](/articles/agent-data-injection) measures (prompt-layer hardening doesn't stop a within-data forgery)
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — the *adaptive-evaluation* counterpart: a cheap black-box attack (AutoDojo) recovers double-digit ASR against filters that report 0% static, and shows under-specified (action-open) tasks are structurally more injectable because the injection can read as data rather than an instruction
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the *layer below* this threat: given a successful injection, does the framework execute the resulting call? Mellafe Zuvic (2026) audits LangChain/LlamaIndex/Stripe and finds capability gating without per-call value authorization, so a compromised model's call runs by default; the same task-aligned framing this page describes drives the measured naive→task-aligned attempt jump (glm-4.7 0.283→1.000)
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — the authorization-layer answer that explicitly does **not** try to stop injection: aiAuthZ (Kodathala, arXiv 2607.05518) lets injected text pass ingress by design and instead ensures it "confers no authority," because a call's authority is bound to the most-recently-verified human message off-host. Its 15-model result also re-confirms this page's thesis from the defense side — model-level refusal is uneven (100%→38%) and *not ordered by price* (the most expensive model refused only half the attacks), so "the next/pricier model will refuse" is not a defense; a content classifier flagged only 4 of 8 attacks because they are unauthorized actions phrased as ordinary requests. Decisive only when the attacker is a *different* principal than the active user (single-author preprint)
 - [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — the identity-layer defense: AIMS forbids the LLM from holding credentials *precisely* so a hijacked model can't be manipulated into disclosing them (a secret the model never had can't be exfiltrated)
+- [Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable) — the filed synthesis of this page's central open question: is the information/instruction (and trusted/untrusted-data) boundary a durable architectural property or a closable training gap? Answer across five sources: durable at the level that matters — capability shrinks each boundary's hole but not the mechanism that opens the next one
 
 ## Open Questions
 
-- Spotlighting and constitutional classifiers each leave a residual (2%, 5%). Stacked, what's the realistic floor, and does it hold against adaptive attackers who know both are deployed? *(Partly answered by the Opus 4.8 live bug bounty: adaptive expert red-teamers still find attacks on the bare model; deployed probes add uplift but don't zero out the residual.)*
+- Spotlighting and constitutional classifiers each leave a residual (2%, 5%). Stacked, what's the realistic floor, and does it hold against adaptive attackers who know both are deployed? *(Partly answered by the Opus 4.8 live bug bounty: adaptive expert red-teamers still find attacks on the bare model; deployed probes add uplift but don't zero out the residual. Sharpened by [AutoDojo (Ma et al. 2026)](/articles/task-specification-injection-surface): a **0% static ASR is not a floor** — a **cheap black-box** adaptive attack, not just a white-box one, recovers 28% overall (64% on action-open tasks) against a filter that scored 0% static. So the realistic floor against a filter defense on a vulnerable model is double-digit, not zero. But the same attack barely moves ASR on newer capable base models — showing the floor is a property of the model, not the layered filter defense.)*
 - Why did Opus 4.8 regress on prompt-injection robustness relative to Opus 4.7 despite broad alignment gains — a capability/robustness tradeoff, or an artifact of harder adaptive evaluation?
-- "LLMs cannot reliably distinguish information from instructions" — is this a fundamental property of the architecture or a training gap that future models close? The framework treats it as durable. **Partially answered:** [Narisetty et al. (2026)](/articles/out-of-band-prompt-injection-defense) argue it is durable and cite Zverev et al. (2025) — current models don't maintain a usable instruction/data separation, and *neither prompting nor fine-tuning reliably induces one*. Their prescription is to stop trying to fix it inside the model and enforce control/data separation *outside* it (deterministic action mediation), which independently held under adaptive attack far better than in-band defenses did. Not settled (open-weight 7B, one attack, no white-box test), but the durable-property reading now has an empirical leg.
+
+## Resolved Questions
+
+- "LLMs cannot reliably distinguish information from instructions" — is this a fundamental property of the architecture or a training gap that future models close? The framework treats it as durable. **Answered:** [Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable) synthesizes the cluster — *durable at the level that matters*: any single boundary is trainable (hardening drives instruction injection to ~0%) and capability lowers per-boundary susceptibility (undefended static ASR: Claude-Haiku-4.5 0.3% vs GPT-4o-mini 58.6%), but closing one boundary relocates the attack to the next finer one, because the root cause — probabilistic reading of *inexact* delimiters — is architectural; "wait for the next model" lowers the number, not the mechanism, so enforce the boundary out-of-band. **Partially answered (component sources):** [Narisetty et al. (2026)](/articles/out-of-band-prompt-injection-defense) argue it is durable and cite Zverev et al. (2025) — current models don't maintain a usable instruction/data separation, and *neither prompting nor fine-tuning reliably induces one*. Their prescription is to stop trying to fix it inside the model and enforce control/data separation *outside* it (deterministic action mediation), which independently held under adaptive attack far better than in-band defenses did. Not settled (open-weight 7B, one attack, no white-box test), but the durable-property reading now has an empirical leg. **[Choi et al. (2026)](/articles/agent-data-injection) add a sharper twist:** the instruction/data boundary *does* look trainable (model hardening drives instruction injection to ~0%), yet the same hardened models remain 22–50% vulnerable to ADI, which forges *trusted data* rather than instructions. Closing one boundary just moves the attack to the next finer one, because the root cause — the LLM's probabilistic misreading of *inexact* structural delimiters — is architectural. So the honest answer is now "durable at the level that matters": any boundary an attacker can imitate stays porous, and the fix is again enforcement outside the model (fine-grained provenance/data-flow tracking).
 
 ## Sources
 
@@ -112,3 +136,5 @@ The defenses catalogued above (spotlighting, constitutional classifiers, input s
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §5.2 (prompt injection risk within agentic systems): ART benchmark, live bug bounty, coding/computer-use/browser-use surfaces, deployed probes
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Opus 4.5 silently recognized a fabricated-search-result injection (`fake`, `injection`, `poison` in the workspace) and simply omitted it from its answer
 - [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479) — §2 (injection as authorization not content), §4 (in-band defenses have no adaptive guarantee; Nasr et al. broke 12 at >90%, spotlighting/sandwiching >95%), §11 (Progent adaptive-evaluation reproduction on Qwen2.5-7B); full defense-architecture treatment on [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi et al., arXiv 2607.05120; agent data injection as a second IPI category (§3), real-world RCE/supply-chain/arbitrary-click exploits (§4), and the defense-effectiveness gap (§5–6); full treatment on [Agent Data Injection (ADI)](/articles/agent-data-injection)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057) — Ma et al., arXiv 2606.15057, `empirical`; a cheap black-box adaptive attack recovers 28% ASR against a 0%-static filter and exposes the task-specification axis; full treatment on [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)

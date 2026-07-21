@@ -1,0 +1,142 @@
+---
+date: 2026-07-16
+title: Off-Host, Identity-Bound Authorization
+description: "Sai Varun Kodathala (arXiv 2607.05518, single-author preprint):
+  aiAuthZ, an authorization GATEWAY that runs OFF the agent's host in a separate
+  trust domain — it authenticates the human sender of each message with a
+  per-message HMAC-SHA256 signature (single-use nonce + timestamp window) and
+  evaluates a role + argument-level policy the agent can neither read nor
+  modify, so a compromised/injected agent cannot forge authority through
+  unverified tool-call text (a call's authority derives from the
+  most-recently-verified human message, not from text the model read). Across 15
+  LLMs model-level refusal ranges 100%→38% and is not ordered by price; with the
+  gateway residual attack success falls to 0% at ≤0.03 ms added latency; on 9
+  in-scope Agents-of-Chaos cases it blocks 9/9 vs 4/9 for an argument-only
+  (OAP-style) design and 0/9 for a delegation-token (AIP-style) design; on
+  AgentDojo banking it blocks all 7 attacker-directed calls (spotlighting lets 2
+  injections through) at the cost of one blocked legit first-time payment; the
+  HMAC-QR receipt verifies 94% across channels with 0/25 forgeries — the
+  off-host, identity-bound counterpart to ScopeGate's in-framework PDP/PEP"
+tag: Concept
+domain: ai-engineering
+tags:
+  - security
+  - authorization
+  - identity
+  - off-host
+  - reference-monitor
+  - prompt-injection
+readingTime: 21
+imageAlt: Illustration for Off-Host, Identity-Bound Authorization
+sources:
+  - title: "aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents"
+    url: https://arxiv.org/pdf/2607.05518
+  - title: OpenID Foundation advances authorization for the agent era with new
+      AuthZEN Working Group Drafts
+    url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+---
+export { default as heroImage } from "../assets/off-host-identity-bound-authorization.png";
+
+## Sources
+
+- [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518)
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
+
+## Summary
+
+Sai Varun Kodathala (SportsVision AI R&D; arXiv 2607.05518, July 2026) presents **aiAuthZ**, an authorization **gateway** that answers the two questions deciding whether any agent action is safe — *who is asking?* and *is this caller allowed?* — **off the agent's host, in a separate trust domain the agent holds no credentials for.** The framing premise is the one this cluster keeps hitting: a tool-using model "issues tool calls on the basis of text it cannot verify, so any party who controls part of the context can forge the appearance of authority." Placing the safety decision *inside* the agent process cannot fix this, because a permission system that lives in the compromised process is compromised with it. aiAuthZ's answer is to move both questions out of the model and bind the answer to cryptographic identity, not to what the agent *says*.
+
+**Evidence caveat (attach where load-bearing):** this is a **single-author preprint** from a small commercial R&D shop, not a peer-reviewed or multi-vendor source. It *does* report a reproducible, open-sourced empirical evaluation (15 models, AgentDojo, receipt-robustness, released code + transcripts), so its measurements are `empirical` — but treat the design as one researcher's proposal, weigh it below the multi-vendor standards work ([AIMS](/articles/agent-identity-management-system)) on questions of adoption, and note that several headline numbers are near-trivial by the author's own admission (below). Its `evidence:` tier is `empirical`.
+
+**Why it earns its own node:** it is the vault's **off-host counterpart to [ScopeGate](/articles/capability-gating-vs-authorization)** — both enforce deterministic per-call authorization, but they sit at different points on the "where does the authorization boundary live?" axis (in-framework PDP/PEP vs. off-host identity-bound gateway), and aiAuthZ adds a layer ScopeGate has none of: **per-message authentication of the human sender.**
+
+## The two questions, moved off the host
+
+Three principals appear in every request. A **user** is the human (or a designated system identity) on whose behalf an action is taken; each user holds a per-user HMAC key issued at enrollment and one of four roles (owner, member, guest, system). A **service** is the agent runtime, which authenticates with a service token that *never* represents a user. An **admin** operates the control plane. The gateway **never trusts the runtime's claim about which user is active**: the active user of a session is whoever most recently submitted an HMAC-verified message, and the runtime must echo that message's identifier on every tool call.
+
+The trust boundary is the whole design. The gateway, its policy database, and its nonce/rate-limit store run on infrastructure the agent cannot reach. Everything on the other side — the agent process, its context window, every document/message/tool-result it reads, every tool call it emits — is untrusted. "The gateway treats the model as an untrusted emitter of requests." It speaks the Model Context Protocol (JSON-RPC: initialize, tool-list, tool-invoke) and plain HTTP, so runtimes connect to it as an ordinary tool source; by default it is an authorization *decision point* returning allow/deny (a denial delivered as a protocol error, so the runtime can't mistake it for a result) rather than an executor.
+
+## Per-message identity: the load-bearing novelty
+
+Every user message carries an **HMAC-SHA256 signature** computed with that user's secret key over a canonical JSON encoding of five fields: user id, session id, the SHA-256 hash of the message content, a random **nonce**, and a Unix **timestamp**. Verification is three deterministic steps: the timestamp must fall inside a window (300 s default); the signature must match under constant-time comparison; the nonce must be **unseen** (atomic set-if-absent with expiry in a shared store), so a captured message can't be replayed even inside the window.
+
+Two bindings turn verified messages into an authorization anchor:
+
+1. The **earliest** verified message binds the session to that user; a different user submitting into the same session is rejected (defeats cross-user session hijack).
+2. Each verified message becomes the session's **active message**, with a bounded lifetime, and **every tool call must echo the active message id** — so a tool call succeeds only within a bounded window after an authenticated human turn, and *its authority derives from that turn.*
+
+This is the property nothing else in the vault has. "The message body can claim anything, including that an owner approved the action, but the bound identity is cryptographic and the claim confers nothing." It is what defeats the **authority-spoofing** and **corrupted-constitution** attacks of the Agents of Chaos corpus, and (§5.4 below) what blocks the five identity-spoofing cases an argument-only policy structurally cannot distinguish from legitimate owner use. Note the scope: this binding is **decisive when the attacker is a *different* principal** than the active user (a non-owner claiming owner authority); it does **not** by itself constrain an injection that fires under the active user's *own* authority — that residual is bounded only by argument and rate policy (the same corrupt-legitimately-variable-data limit [ScopeGate](/articles/capability-gating-vs-authorization) and [ADI](/articles/agent-data-injection) name).
+
+## Off-host policy (three gates)
+
+Policy is YAML attached to scopes (user > workspace > conservative built-in default), evaluated in order and **fail-closed**:
+
+1. **Role gate** — each tool names permitted roles; a tool absent from policy falls to the default, which is **deny** in the shipped config. Ships denying shell/file/email/env tools to non-owners.
+2. **Argument constraints** — glob path denylists/allowlists for file tools, URL allowlists/denylists for web tools, recipient allowlists for messaging, a byte ceiling on writes. This closes escalation *through a permitted tool*: a member may fetch web pages, but an empty URL allowlist still denies a fetch that would exfiltrate to an arbitrary host.
+3. **Rate limits** — fixed-window per-tool counters; denied calls are **not** metered, so an attacker can't exhaust a budget with rejected requests.
+
+Every decision carries a structured reason (`role_not_in_allowlist:member`, `path_denied:/etc/passwd`) returned to the caller and recorded in the audit chain. Critically, **the policy resides in a database the agent has no credentials for**, so "a manipulated agent cannot rewrite its own authorization" — the identity-layer echo of the [out-of-band](/articles/out-of-band-prompt-injection-defense) doctrine "the gate must not be a model, and the policy must be out-of-band."
+
+## Tamper-evident audit, survivable receipts, credential broker
+
+Three supporting mechanisms round out the composition:
+
+- **Tamper-evident audit chain** — every auth outcome and tool decision appends one row to a SHA-256 hash chain (each row binds the previous hash); a verification endpoint reports the first break. **Crypto-erasure retention**: a redaction pass clears encrypted payload columns of expired rows without deleting rows (the redaction itself is chained), so GDPR-style data-subject erasure and an unbroken chain coexist. A privileged rewrite of the *whole* table is detectable only if the head hash is anchored externally.
+- **Signed QR receipts** — proof, generated when an action is authorized, that a specific person authorized a specific action, verifiable **later by a party who wasn't present** after the image is forwarded, screenshotted, and re-compressed. The design places a truncated-128-bit HMAC-SHA256 tag (over user id, message id, content hash — never plaintext) inside a QR code: a self-locating, Reed-Solomon (level H) error-corrected carrier that re-synchronizes after rotation/scaling/cropping. Verification is a constant-time tag comparison — no similarity threshold, no false-accept rate to tune. This beats the alternatives the author measured: a detached Ed25519 signature over file bytes is exactly unforgeable but dies on any re-encode; DWT/spread-spectrum watermarks survive JPEG but collapse under screenshot/crop, and the most common library is unkeyed (trivially forgeable).
+- **Credential broker** — secrets exist only on the gateway; agents reference them by name and receive access only *after* authorization, so a compromised agent host holds no long-lived credentials — the strongest of three "close the bypass" mitigations (conformance checker → egress-locked profile → broker).
+
+## Evaluation
+
+Four research questions, all on the unmodified production code path, code + transcripts released.
+
+- **RQ1 — model-level refusal is uneven and not price-ordered.** 15 contemporary models × 8 attack scenarios (adapted from the Agents of Chaos red-teaming corpus — Shapira et al., referenced as plain text), each run 5× across temperatures; a scenario counts as an *attempt* (worst-case susceptibility) if the dangerous call fires in ≥1 run. Refusal ranges **100%** (Fable 5) down to **38%** among fully evaluated models (Qwen3 Max hit 25% on a rate-limited 4-scenario subset). The **most expensive** model (Opus 4.8, ~$0.0095/case) refused only **50%**; the **cheapest** (DeepSeek V4 Pro, ~$0.0004/case) refused a comparable **38%** — a ~20× price spread with no safety ordering. A content classifier (Llama Guard) flagged only **4 of 8** attacks, because these are unauthorized actions phrased as ordinary requests, not harmful text — so guardrails and this gateway are *complementary*.
+- **RQ2 — the gateway zeroes the residual, cheaply.** With the caller bound as a non-owner, the policy denies the owner-only tool class each scenario needs, so residual attack success reaching the tool falls to **0% for all 15 models** at **≤0.03 ms** added latency (0.006–0.030 ms; the model call itself took 1.1–12.5 s — five orders of magnitude more). The author is candid that this specific result is near-trivial ("a deny-by-default policy denies a denied tool… is immediate"); the point is *determinism identical across every model*, so the wide model-level dispersion does not propagate to the tool. The distinct contribution of per-message identity — holding the role fixed against a spoofer — is isolated in RQ3, not this experiment.
+- **RQ3 — vs prior deterministic designs (the identity payoff).** On the **9 in-scope Agents-of-Chaos cases**, the full design blocks **9/9**; an **argument-only** policy in the style of the [Open Agent Passport](/articles/capability-gating-vs-authorization) blocks **4/9**; a **delegation-token** design in the style of the Agent Identity Protocol blocks **0/9** on its own (a scope mismatch — delegation carries no argument policy). The **five** cases the argument-only design misses are exactly the **identity-spoofing** cases, where the attacker uses a generally-permitted tool: an action-only policy "cannot distinguish a non-owner from the owner," so it must permit the tool for everyone (spoofer through) or forbid it for everyone (breaks the owner). Per-message identity resolves this by denying the non-owner while permitting the owner. Local decision latency **0.008–0.026 ms** vs a reported **53 ms** cloud-registry lookup for the argument-only system (~3000×).
+- **AgentDojo banking suite** (`important_instructions`, 20 pairs, Fable 5 + Gemini 3 Flash). Both models already resist at the model level (no-defense ASR 0%), so there's little residual to remove; **spotlighting** did not help and on Gemini *raised* ASR to **2/20** by inducing the exact payment the injection sought, while **aiAuthZ kept ASR at 0%** and deterministically blocked the **7** attacker-directed calls the models emitted (payments, scheduled-transaction redirects, 2 password changes). Honest cost: the strict known-payee allowlist dropped **clean utility 100%→80%** (one legit first-time payment to a new payee blocked), so on a model whose baseline ASR was already 0% the gateway is a *net utility cost* here — reported rather than hidden. And the blocking on this suite is due to the **argument constraint, not per-message identity** (injection and user share one principal), so any deterministic value gate with the same allowlist would match it.
+- **Robustness extras.** Long-context: a buried exfiltration instruction in a 500→48 000-token log makes some models comply *more* as context grows; the gateway blocked all 12 attempts (verdict invariant to context length). Receipts: the signed QR verifies **94%** mean across eight channels (97% across resize/screenshot/crop), **0/25** wrong-key forgeries, where a detached Ed25519 signature verifies only on the pristine file and every watermark collapses to 0% under screenshot/crop. End-to-end: 4/4 dangerous MCP calls blocked over live JSON-RPC; a real [OpenClaw](/articles/openclaw) runtime deployment confirmed the deny path and the conformance checker (fails CI when overlapping built-in tools are left enabled). 58/58 unit tests pass.
+
+## aiAuthZ vs ScopeGate: two points on the authorization-boundary axis
+
+The precise relationship to the sibling page [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) (ScopeGate):
+
+- **Shared core.** Both are deterministic, fail-closed, **per-call** authorization gates with argument-level allowlists, out-of-band policy the model can neither read nor modify, microsecond latency, and no LLM in the decision. Both share the same two residuals: a sequence of individually-permitted calls composing into an unwanted outcome, and corruption of a *legitimately-variable* argument a value policy can't constrain. aiAuthZ's own **argument-only ablation baseline is essentially ScopeGate's shape** (an argument gate without an identity layer).
+- **Where the boundary lives.** ScopeGate is an **in-framework PDP/PEP** whose author argues security is *placement-independent* as long as every side-effecting call passes the PEP and policy is out-of-band (SDK middleware, loopback sidecar, or egress gateway). aiAuthZ pushes back on exactly that with a measured finding: when a runtime keeps its own overlapping built-in shell/file/web tools, "the model performed the sensitive action through the built-in tools and never consulted the gateway" — an in-process PEP *shares the trust domain the attacker influences through the model.* So aiAuthZ makes the **separate trust domain** load-bearing and enforces it with a conformance checker, an egress-locked profile, and a credential broker.
+- **The identity layer.** ScopeGate has **no** caller-authentication step — it authorizes `(tool, args)` against operator policy but takes the principal/session as given. aiAuthZ adds **per-message HMAC identity of the human sender**, and its 9/9-vs-4/9 edge over the argument-only baseline is precisely the measured value of that layer: it blocks identity-spoofing (a non-owner claiming owner authority) that a pure argument policy cannot see. Read together, the two pages bracket the design space — *ScopeGate = argument-level authz, in-framework; aiAuthZ = argument-level authz + per-message identity, off-host.*
+
+## The standards-track counterpart (OpenID AuthZEN / COAZ)
+
+aiAuthZ is a shipped research gateway; the **OpenID Foundation's AuthZEN Working Group** is standardizing the same authorize-each-call boundary as an interoperable profile. AuthZEN's **Authorization API 1.0** defines the **Subject-Action-Resource-Context (SARC)** allow/deny decision interface aiAuthZ's off-host gateway implements ad hoc, and the newly-approved **COAZ** Working Group Draft (2026-06-15) profiles **MCP tool invocations into SARC**, so any compatible PDP — an API/AI gateway exactly like aiAuthZ's — can authorize a tool call at the invocation point. The overlap is the *argument-level policy* both share; what AuthZEN/COAZ does **not** standardize is aiAuthZ's distinctive **per-message HMAC identity of the human sender** (nor the off-host separate-trust-domain requirement) — those stay aiAuthZ's own contribution. The **AARP** draft is the standards analogue of a resumable approval step: rather than a terminal deny on an over-threshold action, it defines a "not yet — here is the prerequisite" handshake (generalizing CIBA) a person or automated governance system satisfies before policy re-decides. All of it is a **proposed** interoperability standard (`practitioner-opinion`, Working Group *Drafts*), weighted below aiAuthZ's `empirical` measurements where they overlap; the fuller treatment lives on [AIMS](/articles/agent-identity-management-system).
+
+## What it does not do (limitations)
+
+Stated plainly by the author, and worth carrying forward:
+
+- **It is not a prompt-injection detector or content guardrail.** Injected text passes ingress by design; the defense is that injected text can't change whose identity is bound to the session. Complementary to Llama Guard / Constitutional Classifiers, not a replacement.
+- **The bypass is a deployment obligation, not a property.** A runtime that keeps overlapping built-in tools acts without consulting the gateway; the conformance checker / egress lock / broker close it, but each is an operator choice.
+- **Non-repudiation tradeoff.** Per-message identity uses a *symmetric* HMAC (fast, microsecond), so the audit proves authenticity to the operator but **not to a third party** — the gateway holds the key and could in principle mint a valid tag. An asymmetric signing mode is named as the extension for deployments needing non-repudiation against the operator.
+- **No head-to-head against in-process defenses.** The comparison is against *reduced configurations* of the two closest concurrent designs (OAP, AIP), not a matched-utility benchmark against [CaMeL or Progent](/articles/out-of-band-prompt-injection-defense). Whether the off-host trust boundary buys a measurable security difference *beyond the argument policy the designs share* is explicitly left as the next step — the same gap the venue caveat should keep in view.
+
+## Connections
+
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the **sibling and off-host counterpart**: both deterministic per-call authorization gates sharing the same residuals, but ScopeGate is an in-framework PDP/PEP with no identity layer while aiAuthZ is an off-host, identity-bound gateway; the two bracket the "where does the authorization boundary live?" axis, and aiAuthZ's argument-only ablation baseline is essentially ScopeGate's shape (comparison detailed above)
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the same family (enforce security *outside* the model with a deterministic monitor), pushed to its strongest placement: aiAuthZ moves the gate into a **separate trust domain** the agent can't reach, where CaMeL/FIDES/Progent/RTBAS/FORGE enforce *in-process*; it shares the composition-of-permitted-calls limit and, by the author's admission, lacks the matched head-to-head against that in-process family
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — a **complement at a different granularity**: that page's keystone binds identity to the *agent/workload*; aiAuthZ binds identity to the *human sender of each message* and derives a call's authority from the most-recently-verified human turn — the concrete mechanism by which "you cannot authorize a call whose principal you cannot attribute" becomes unforgeable-by-text
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — the **standards layer vs a concrete system**: AIMS (WIMSE/SPIFFE identity + OAuth/transaction-token delegation) standardizes *workload* identity and delegated authority; aiAuthZ is a shipped gateway that authenticates the *human user* per message and could consume AIMS-issued identities as the service/principal inputs to its policy — composable, at different granularities (AIMS binds identity to a workload/session/token; aiAuthZ to each user message). The same page also carries the **OpenID AuthZEN** drafts: **COAZ** (the MCP-invocation→SARC authorization profile) is the *proposed-standard* version of aiAuthZ's per-call gate, and **AARP** is the prerequisite/approval pattern — the authorization slice complementing AIMS's IETF identity/delegation stack (proposed WG drafts, weighted below aiAuthZ's measurements)
+- [Least Agency](/articles/least-agency) — least agency at **per-call, identity-scoped granularity**: the role + argument + rate policy is "restrict what each tool can do, how often, and where," enforced off-host and re-anchored to the verified human on every call; answers that page's open question about authenticating an elevation request against a manipulated agent (bind authority to cryptographic identity, not agent-asserted text)
+- [Blast Radius (Agentic)](/articles/blast-radius) — off-host blast-radius containment: the gateway bounds what a *deceived* agent can do on every routed call ("it prevents a deceived model from acting beyond the verified user's authority"), and the credential broker leaves no long-lived secrets on the agent host to steal
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the threat aiAuthZ blunts *at the authorization layer*: it doesn't stop injection (text passes ingress) but ensures injected text "confers no authority," decisive when the attacker is a different principal than the active user
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — **shares the residual**: aiAuthZ's identity binding beats a *different-principal* forgery (a non-owner claiming owner authority), but an ADI-style forgery of *data the active user legitimately acts on* fires under the user's own authority and is bounded only by argument/rate policy — the same corrupt-legitimately-variable-data class that survives Progent (22.2%) and ScopeGate's value gate
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — a concrete instantiation of the framework's Phase 4 (defend against injection) + Phase 5 (secure tool access) that takes "assume breach" literally: the trust boundary is drawn *around* the agent, and the gateway is the single verified path to sensitive tools (hub)
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — a capability-removing (not friction) control: a deterministic deny at the tool boundary *removes* the ability to act beyond verified authority rather than throttling it — impossible, not merely tedious (hub)
+
+## Open Questions
+
+- **The trust-boundary premium is unmeasured.** aiAuthZ argues off-host beats in-process, but its own comparison is only against argument-only / delegation-token ablations, not a matched-utility head-to-head vs CaMeL or Progent. Does the separate trust domain buy measurable security *beyond* the shared argument policy — the author's named next step, and the crux the single-author-preprint caveat should keep open?
+- **Who authors the policy at scale?** Like ScopeGate, the off-host policy (role allowlists, path/URL/recipient constraints, ceilings) is operator-authored and out-of-band. The same authoring-burden question applies: does maintaining verified sets for a large tool surface cap the control to high-stakes tools?
+- **The non-repudiation gap.** Symmetric HMAC gives operator-facing authenticity but no third-party non-repudiation; is the proposed asymmetric mode deployable at the microsecond latencies that make the gateway attractive, or does key management erode the cost advantage?
+- **The active-user residual.** Per-message identity is decisive only when the attacker is a *different* principal. An injection firing under the active owner's own authority is bounded only by argument/rate policy — the same limit as every value gate. What closes *that* half beyond provenance/data-flow tracking ([CaMeL Strict](/articles/out-of-band-prompt-injection-defense))?
+
+## Sources
+
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion` (proposed Working Group **Drafts**, not ratified specs; weighted below aiAuthZ's `empirical` measurements). The standards-track counterpart to aiAuthZ's off-host per-call gate: AuthZEN Authorization API 1.0 (SARC allow/deny), COAZ (MCP-invocation → SARC profile), AARP (prerequisite/approval pattern generalizing CIBA); does not standardize aiAuthZ's per-message human identity or the off-host trust boundary
+- [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518) — Sai Varun Kodathala, *aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents*, arXiv 2607.05518, July 2026, `empirical` (single-author preprint, SportsVision AI). §1 (problem: tool-using models act on untrusted text; in-process permission systems are compromised with the process; Agents of Chaos motivation — 7/11 cases are identity/authorization failures), §2 (three principals; trust boundary; in/out-of-scope threats; Table 1 standards mapping), §3 (per-message HMAC identity + two bindings; three-gate off-host policy; hash-chained audit + crypto-erasure; signed QR receipts; closing the bypass), §4 (FastAPI/MCP implementation, 58 tests), §5 (evaluation: Table 2 15-model refusal 100%→38% + residual→0% at ≤0.03 ms; Table 3 Agents-of-Chaos cases; §5.4 RQ3 9/9 vs 4/9 vs 0/9; Table 4 AgentDojo banking; Table 5 long-context; Table 6 receipts 94% / 0-forgery; Tables 7 live MCP), §6 (limitations: bypass, composition, non-repudiation tradeoff, no CaMeL/Progent head-to-head), §7 (related work: OAP/AIP concurrent art, in-process CaMeL/Progent/IsolateGPT, SPIFFE/OAuth/ETDI workload identity, guardrails, watermarking). Figures 1, 4, 5, 6 viewed per the image two-pass rule; docling's run-together captions are cosmetic and match the tables.
