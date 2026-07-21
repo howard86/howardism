@@ -42,6 +42,7 @@ import {
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
+  stripAuthoringTags,
   stripDuplicateLeadingHeading,
   stripHtmlComments,
 } from "./transform.ts";
@@ -237,7 +238,9 @@ async function processArticle(
   const strippedBody = stripDuplicateLeadingHeading(parsed.body, title);
   // Drop the vault's `<!-- BEGIN/END GENERATED: moc -->` markers before escaping
   // — MDX would otherwise render them as a visible `&lt;!--` literal.
-  const escapedBody = escapeMdxBody(stripHtmlComments(strippedBody));
+  const escapedBody = escapeMdxBody(
+    stripAuthoringTags(stripHtmlComments(strippedBody))
+  );
 
   const { sources, rawIndex } = await resolveRawSources({
     slug,

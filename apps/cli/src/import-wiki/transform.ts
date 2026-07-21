@@ -385,6 +385,18 @@ export function stripHtmlComments(body: string): string {
   return result.join("\n");
 }
 
+const AUTHORING_TAG_RE = /[ \t]+#oq\/[a-z]+[ \t]*$/gm;
+
+/**
+ * Drop the vault's `#oq/*` triage tags (`#oq/source`, `#oq/now`, …) that mark
+ * open-question bullets for the author's own workflow — they are not published
+ * content. Only a tag trailing its line is stripped, so backticked mentions of
+ * the taxonomy itself (`` `#oq/wait` `` in a heading) survive untouched.
+ */
+export function stripAuthoringTags(body: string): string {
+  return body.replace(AUTHORING_TAG_RE, "");
+}
+
 export function stripDuplicateLeadingHeading(
   body: string,
   title: string
