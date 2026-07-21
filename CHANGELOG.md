@@ -1,3 +1,13 @@
+# [v2.16.0](https://github.com/howard86/howardism/compare/v2.15.1...v2.16.0) (2026-07-21)
+
+## ✨ New Features
+- [`0eb49452`](https://github.com/howard86/howardism/commit/0eb49452)  feat(cli): add quota-paced translate:drip driver and --json check output 
+- [`d14ba228`](https://github.com/howard86/howardism/commit/d14ba228)  feat(cli): add content:check integrity gate and wire into CI 
+- [`0a04a482`](https://github.com/howard86/howardism/commit/0a04a482)  feat(cli): add glossary harvest subcommand for batch DNT term discovery 
+
+## 🐛 Bug Fixes
+- [`9e451c50`](https://github.com/howard86/howardism/commit/9e451c50)  fix(blog): make article-nav-context mock re-export real module
+
 # [v2.15.1](https://github.com/howard86/howardism/compare/v2.15.0...v2.15.1) (2026-07-15)
 
 # [v2.15.0](https://github.com/howard86/howardism/compare/v2.14.0...v2.15.0) (2026-07-15)
