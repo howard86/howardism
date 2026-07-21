@@ -13,7 +13,7 @@ tags:
   - tool-use
   - integration
   - anthropic
-readingTime: 12
+readingTime: 16
 imageAlt: Illustration for MCP and Computer Use
 sources:
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
@@ -25,6 +25,9 @@ sources:
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+  - title: OpenID Foundation advances authorization for the agent era with new
+      AuthZEN Working Group Drafts
+    url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
 ---
 export { default as heroImage } from "../assets/mcp-and-computer-use.png";
 
@@ -32,6 +35,7 @@ export { default as heroImage } from "../assets/mcp-and-computer-use.png";
 
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
@@ -124,11 +128,18 @@ MCP and computer use are exactly the substrate that turns an LLM into an [agent 
 
 The framework's prescriptions: **run/host the MCP server yourself on an immutable platform after verifying and self-signing the code** ([Agent Supply Chain Risk](/articles/agent-supply-chain-risk)); authenticate tool access with **short-lived tokens bound to the calling agent's identity**, never static API keys ([Agent Identity and Authentication](/articles/agent-identity-and-authentication)); and gate high-risk invocations behind approval escalation. Claude Code's OAuth 2.0 with auto-refresh for MCP connections and session-scoped "ask" permissions are cited as a reference implementation.
 
+The threat model is now empirically sharpened by [MCP Tool Poisoning](/articles/mcp-tool-poisoning) (the dedicated concept page for this attack class). **ShareLock** (Liu et al., arXiv 2606.27027) demonstrates that *scanning each MCP tool description* — the intuitive mitigation implied above and in the open question below — is not just incomplete but **provably insufficient**: it uses Shamir threshold secret-sharing to fragment a malicious instruction into benign-looking `tool_id`/`checksum` shares spread across multiple tools, so each descriptor is *information-theoretically* clean (fewer than `t` shares reveal nothing), then a rug-pull server update plants a trigger that reconstructs the payload at runtime — **>90% ASR while every LLM safety classifier and entropy detector rates the tools Safe**. Detection has to become cross-tool and stateful; per-server vetting alone cannot discharge the risk.
+
+A real-world incident closes off the *other* mitigation from the opposite side. **Agentjacking** (Tenet Security, June 2026, `case-study`; also on [MCP Tool Poisoning](/articles/mcp-tool-poisoning)) hijacks coding agents *through a completely legitimate MCP server* — Sentry's own — by injecting fake error events (via public, intentionally-write-only Sentry DSNs) that the server faithfully relays to the agent as trusted diagnostics; the agent reads a fake `## Resolution` and runs the attacker's `npx` command. The lesson for this section is precise: **vetting or self-signing the MCP *server* would not have helped here, because the server was never compromised.** ShareLock breaks *per-tool description scanning*; Agentjacking rides in on a genuine server's *data*. Together they show the MCP attack surface has two orthogonal branches — poisoned tool metadata vs malicious data via a legitimate server — and *neither* is closed by "run/verify your own server." (Vendor-COI: Tenet sells agent-runtime security, so its scale claims are attributed inline on the dedicated page; the mechanism is the durable part.)
+
+**The standards-track defense at the tool-invocation point.** The action-layer authorization these attacks push toward is now getting an interoperability standard. The **OpenID Foundation's AuthZEN Working Group** approved **COAZ** (*AuthZEN Profile for MCP Tool Authorization*, a Working Group **Draft**, 2026-06-15), which maps an MCP tool invocation into AuthZEN's **Subject-Action-Resource-Context** decision model so an API/AI gateway or downstream PDP can authorize *each tool call* against a policy — letting an MCP tool *expose the authorization checks required to call it*. This is the standards-body version of the per-call authorization gates (ScopeGate, aiAuthZ) — see [AIMS](/articles/agent-identity-management-system). Scope caveat: COAZ authorizes the *call*, so it bounds a reconstructed or injected action that falls outside policy — but, like every value gate, it can't catch a poisoned call that stays *within* an allowed policy (the same corrupt-legitimately-variable-data residual, and it doesn't address Agentjacking's within-capability `npx`-if-the-package-is-allowed case). Proposed standard, `practitioner-opinion` — weighted below the empirical per-call-authz work; fuller treatment on [AIMS](/articles/agent-identity-management-system).
+
 ## Connections
 
 - [Claude Code](/articles/claude-code) / [Cowork](/articles/cowork) / [Anthropic](/articles/anthropic) — surfaces and vendor
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — treats MCP as a top-risk tool surface; supplies the tool-poisoning / rug-pull / tool-chaining threat model
-- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — MCP servers are a named tool-supply-chain vector; run-your-own-server + self-signing is the mitigation
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the dedicated concept for the TPA attack class; ShareLock's threshold-secret-sharing variant proves per-tool description scanning is information-theoretically blind, and its Agentjacking case study (legitimate Sentry MCP server relaying attacker-injected data) proves server-vetting/self-signing is equally blind — both sharpen this page's MCP-security open question from opposite sides
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — MCP servers are a named tool-supply-chain vector; run-your-own-server + self-signing is the mitigation; the ShareLock reconstruction trigger is a rug-pull planted via server update
 - [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — short-lived identity-bound tokens replace static keys for MCP/tool authentication
 - [Agentic Prompt Injection](/articles/agentic-prompt-injection) — MCP-connected browsing/email/document tools are the indirect-injection entry points
 - [Boris Cherny](/articles/boris-cherny) — co-created MCP; frames the "doesn't matter" thesis
@@ -146,14 +157,14 @@ The framework's prescriptions: **run/host the MCP server yourself on an immutabl
 - [Symphony](/articles/symphony) — alternative orchestration where MCP-style tool exposure runs through codex-app-server-protocol instead
 - [Agentic Work Systematization](/articles/agentic-work-systematization) — plugins bundle MCP/connector integrations alongside skills; connectors are the tool-reach half of systematization (the loop touching real tools, not just the filesystem)
 - [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — MCP is what makes a service *agent-legible* (structured); computer use is the GUI-driving fallback when it isn't — together they're the substrate [Karpathy](/articles/andrej-karpathy)'s "describe it to agents first" world requires
-- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — AIMS treats MCP tools as the resource surface OAuth authorizes and aligns its human-in-the-loop model with MCP's user-solicitation pattern — but insists a local MCP approval is *not* authorization and must map to a verifiable authorization-server grant
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — AIMS treats MCP tools as the resource surface OAuth authorizes and aligns its human-in-the-loop model with MCP's user-solicitation pattern — but insists a local MCP approval is *not* authorization and must map to a verifiable authorization-server grant; it now also hosts the **OpenID AuthZEN COAZ** draft (the proposed standard for authorizing each MCP tool invocation, MCP→SARC) and **AARP** (the prerequisite/approval "not yet" step)
 - [Loop Engineering](/articles/loop-engineering) — connectors/plugins (MCP) are one of its five primitives: the reason a loop can act inside your real tools (open the PR, update the ticket, ping the channel) instead of only seeing the filesystem
 
-## Open questions
+## Open Questions
 
 - The MCP ecosystem's growth rate vs. computer use's quality curve: at what point does computer use become *good enough* that the marginal value of building an MCP server drops? Boris implies this is years off but doesn't quantify.
 - Is computer use a sustainable interface or a transition technology? If most knowledge-work software adds MCP support in the next 24 months, computer use's role shrinks to legacy/desktop-only systems.
-- MCP security model: as the playbook prescribes wiring MCP into Salesforce, Gmail, Calendar for solo founders, the attack surface scales with adoption. **Now addressed** by [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) (tool poisoning, rug pulls, the first in-the-wild malicious MCP server) — see "MCP as a security surface" above. Open residual: how does a solo founder realistically *run/host and self-sign every MCP server* the framework recommends, given that the appeal of MCP was zero-integration-effort?
+- MCP security model: as the playbook prescribes wiring MCP into Salesforce, Gmail, Calendar for solo founders, the attack surface scales with adoption. **Now addressed** by [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) (tool poisoning, rug pulls, the first in-the-wild malicious MCP server) — see "MCP as a security surface" above. Open residual: how does a solo founder realistically *run/host and self-sign every MCP server* the framework recommends, given that the appeal of MCP was zero-integration-effort? **Sharpened by [ShareLock](/articles/mcp-tool-poisoning):** the cheaper alternative to self-hosting — *scan the tool descriptions with a guard model* — is information-theoretically defeated by threshold fragmentation, so the lightweight mitigation doesn't hold and the burden falls back on run-your-own-server or downstream action-layer authorization. **And [Agentjacking](/articles/mcp-tool-poisoning) shows run-your-own-server *itself* isn't sufficient:** when the server is a legitimate observability platform relaying attacker-injected data (fake Sentry errors), self-hosting/vetting the server catches nothing — the untrusted input rides in on its data, so the residual burden falls squarely on the downstream data/action layer (provenance tracking + an out-of-band action gate), not on server hygiene.
 - How does Cowork's computer-use guardrail compare to Claude Code's auto-mode classifier? Different deployment context, possibly different risk profile.
 
 ## Derived
@@ -165,3 +176,4 @@ The framework's prescriptions: **run/host the MCP server yourself on an immutabl
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI) — Boris's MCP/computer-use Q&A (Sequoia AI Ascent 2026)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg) — Cat's daily Cowork+MCP workflow
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf) — MCP across Idea/MVP/Launch/Scale + moat framing
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion`. COAZ (AuthZEN Profile for MCP Tool Authorization — the proposed standards-track authorization decision at the MCP tool-invocation point); proposed Working Group Draft, weighted below the empirical per-call-authz work
