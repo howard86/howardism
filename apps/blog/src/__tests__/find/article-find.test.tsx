@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
+// `mock.module` replaces the module process-wide, so the factory must re-export
+// everything real — otherwise a test file loading after this one (e.g.
+// article-layout.test.tsx importing `PublishArticleNav`) resolves against the
+// stub and throws. Load-order dependent, so it fails only intermittently.
+const actual = await import("@/components/article-nav-context");
+
 mock.module("@/components/article-nav-context", () => ({
+  ...actual,
   useArticleNav: () => ({ slug: "x", headings: [] }),
 }));
 
