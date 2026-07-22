@@ -1,22 +1,33 @@
+import type { Database } from "bun:sqlite";
 import {
   access,
   mkdir,
+  mkdtemp,
   readdir,
   readFile,
+  rm,
   unlink,
   writeFile,
 } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { surfaceHash } from "@howardism/article-contract/surface";
 import { runWithConcurrency } from "../concurrency.ts";
 import {
+  addTerms,
   DEFAULT_ARTICLES_DIR,
   DEFAULT_GLOSSARY_DB_PATH,
   DEFAULT_WIKI_SOURCES_PATH,
+  type GlossaryEntry,
+  listTerms,
+  openDb,
   seedGlossary,
 } from "../glossary/store.ts";
+import { enforceGlossary } from "./enforce.ts";
 import {
+  DEFAULT_CODEX_REASONING_EFFORT,
   DEFAULT_CURSOR_MODEL,
+  defaultModelForEngine,
   ENGINES,
   type Engine,
   type EngineUsage,
@@ -25,7 +36,12 @@ import {
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
 import { fixMdxEscaping } from "./postprocess.ts";
-import { buildTranslatePrompt } from "./prompt.ts";
+import { computeCostUsd, type ModelPrice, resolvePrices } from "./pricing.ts";
+import {
+  buildStructuredTranslatePrompt,
+  buildTranslatePrompt,
+  TRANSLATION_OUTPUT_SCHEMA,
+} from "./prompt.ts";
 import { resyncVerbatimFields, sourceTitle } from "./surface.ts";
 import {
   ACTIONABLE_STATUSES,
@@ -64,10 +80,16 @@ interface RunOptions {
   /** Cap the number of articles queued per run; null = no limit (all articles). */
   limit: number | null;
   locale: string;
+  /** Stop queueing articles once estimated spend reaches this; null = no cap. */
+  maxUsd: number | null;
   modelLabel: string | null;
   onlySlug: string | null;
   outputDir: string;
+  /** Per-model USD prices from `TRANSLATE_PRICING`; empty when unconfigured. */
+  prices: Record<string, ModelPrice>;
   projectionPath: string;
+  /** codex `model_reasoning_effort`. */
+  reasoningEffort: string;
   scopeDir: string;
   sourceDir: string;
   targetLang: string;
@@ -80,6 +102,8 @@ interface RunOptions {
 }
 
 interface TranslateSummary {
+  /** Never started because `TRANSLATE_MAX_USD` was already reached. */
+  budgetSkipped: string[];
   failed: { reason: string; slug: string }[];
   orphans: string[];
   resynced: string[];
@@ -90,9 +114,15 @@ interface TranslateSummary {
 
 /** Shared, mutating run state. Safe because workers run async in one process. */
 interface RunContext {
+  /** Open glossary DB; only set while {@link runTranslate} is running. */
+  glossaryDb?: Database;
+  /** Do-not-translate terms, read once per run. */
+  glossaryTerms: string[];
   opts: RunOptions;
   projection: TranslationProjection;
   results: TranslationRunInput[];
+  /** Running USD total (engine-reported or estimated) for the budget cap. */
+  spentUsd: number;
   summary: TranslateSummary;
   updates: Record<string, TranslationRecord>;
 }
@@ -113,6 +143,89 @@ const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
 
+/**
+ * Source-size ceiling for structured single-turn mode, in bytes. The corpus
+ * median is 9.6KB and p90 15KB, but one article is 115KB — a translation that
+ * large does not fit comfortably in a single constrained final message, so
+ * anything above this ceiling falls back to the agentic file-write path.
+ */
+export const STRUCTURED_MAX_SOURCE_BYTES = 60_000;
+
+/**
+ * Structured mode is codex-only (it needs `--output-schema` + `-o`) and only
+ * for sources under {@link STRUCTURED_MAX_SOURCE_BYTES}. It collapses the
+ * Read + `glossary list` + Write round-trips — ~11k input tokens of harness
+ * overhead each — into one turn.
+ */
+export function useStructuredMode(engine: Engine, sourceText: string): boolean {
+  return (
+    engine === "codex" &&
+    Buffer.byteLength(sourceText, "utf8") <= STRUCTURED_MAX_SOURCE_BYTES
+  );
+}
+
+export interface StructuredTranslation {
+  mdx: string;
+  newTerms: GlossaryEntry[];
+}
+
+const isGlossaryEntry = (value: unknown): value is GlossaryEntry => {
+  const entry = value as GlossaryEntry | null;
+  return (
+    !!entry &&
+    typeof entry === "object" &&
+    typeof entry.term === "string" &&
+    entry.term.trim() !== "" &&
+    typeof entry.category === "string" &&
+    entry.category.trim() !== ""
+  );
+};
+
+/**
+ * Parse codex's structured final message (the `-o` file). Throws a precise
+ * Error — unparseable JSON, wrong shape, or an empty `mdx` — so the caller can
+ * record it as an attempt failure instead of crashing the run. Malformed
+ * `newTerms` entries are dropped rather than failing an otherwise good
+ * translation; the glossary is a cache, the MDX is the deliverable.
+ */
+export function parseStructuredResult(raw: string): StructuredTranslation {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `final message is not valid JSON: ${(err as Error).message}`
+    );
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("final message JSON is not an object");
+  }
+  const { mdx, newTerms } = parsed as { mdx?: unknown; newTerms?: unknown };
+  if (typeof mdx !== "string" || mdx.trim() === "") {
+    throw new Error("final message JSON has no non-empty `mdx` string");
+  }
+  return {
+    mdx,
+    newTerms: Array.isArray(newTerms) ? newTerms.filter(isGlossaryEntry) : [],
+  };
+}
+
+/**
+ * Attempt 2's prompt: the brief plus the exact validator errors from attempt 1.
+ * A byte-identical retry mostly reproduces the same output, so this corrective
+ * block is what makes a second attempt worth paying for.
+ */
+export function appendRetryFeedback(prompt: string, errors: string[]): string {
+  return [
+    prompt,
+    "",
+    "PREVIOUS ATTEMPT REJECTED — the output failed automated validation. Fix exactly these problems and redo the translation:",
+    ...errors.map((error) => `- ${error}`),
+    "",
+    "Everything else in the brief above is unchanged.",
+  ].join("\n");
+}
+
 async function main(): Promise<void> {
   const opts = parseOptions();
 
@@ -123,6 +236,9 @@ async function main(): Promise<void> {
 
   console.log("[translate] starting with options:", {
     engine: opts.engine,
+    model: opts.modelLabel,
+    reasoningEffort: opts.reasoningEffort,
+    maxUsd: opts.maxUsd,
     targetLang: opts.targetLang,
     sourceDir: opts.sourceDir,
     outputDir: opts.outputDir,
@@ -143,9 +259,11 @@ async function main(): Promise<void> {
 
   const projection = await readProjection(opts.projectionPath, opts.locale);
   const ctx: RunContext = {
+    glossaryTerms: [],
     opts,
     projection,
     results: [],
+    spentUsd: 0,
     updates: {},
     summary: {
       translated: [],
@@ -153,6 +271,7 @@ async function main(): Promise<void> {
       staleSkipped: [],
       resynced: [],
       orphans: [],
+      budgetSkipped: [],
       failed: [],
     },
   };
@@ -164,7 +283,7 @@ async function main(): Promise<void> {
   }
 
   await persist(ctx);
-  printSummary(ctx.summary);
+  printSummary(ctx.summary, opts.maxUsd);
   if (ctx.summary.failed.length > 0) {
     process.exitCode = 1;
   }
@@ -176,7 +295,22 @@ async function runTranslate(ctx: RunContext): Promise<void> {
     articlesDir: opts.sourceDir,
     wikiSourcesPath: opts.wikiSourcesPath,
   });
+  // One open handle for the whole run: the terms are inlined into every
+  // structured prompt and fed to enforceGlossary, and new terms are upserted
+  // back through it.
+  const db = openDb(opts.glossaryPath);
+  ctx.glossaryDb = db;
+  ctx.glossaryTerms = listTerms(db).map((entry) => entry.term);
+  try {
+    await translateAll(ctx);
+  } finally {
+    ctx.glossaryDb = undefined;
+    db.close();
+  }
+}
 
+async function translateAll(ctx: RunContext): Promise<void> {
+  const { opts } = ctx;
   const slugs = await discoverSlugs(opts.sourceDir, opts.onlySlug);
   if (slugs.length === 0) {
     throw new Error(
@@ -254,6 +388,16 @@ async function processArticle(slug: string, ctx: RunContext): Promise<void> {
       return;
     }
 
+    // Don't start work we'd have to throw away: once the cap is reached every
+    // remaining article is reported as budget-skipped instead of translated.
+    if (opts.maxUsd !== null && ctx.spentUsd >= opts.maxUsd) {
+      ctx.summary.budgetSkipped.push(slug);
+      console.warn(
+        `[translate] *** BUDGET CAP REACHED *** skipping ${slug}: estimated spend $${ctx.spentUsd.toFixed(4)} >= TRANSLATE_MAX_USD=$${opts.maxUsd.toFixed(4)}`
+      );
+      return;
+    }
+
     await translateArticle({
       slug,
       sourceText,
@@ -307,19 +451,29 @@ interface TranslateArgs {
 async function translateArticle(args: TranslateArgs): Promise<void> {
   const { slug, sourceText, sourceAbsPath, outputAbsPath, ctx } = args;
   const { opts } = ctx;
-  const glossaryCmd = `bun ${GLOSSARY_SCRIPT_PATH}`;
-  const prompt = buildTranslatePrompt({
-    sourceAbsPath,
-    outputAbsPath,
-    targetLang: opts.targetLang,
-    glossaryCmd,
-  });
+  const structured = useStructuredMode(opts.engine, sourceText);
+  const prompt = structured
+    ? buildStructuredTranslatePrompt({
+        glossaryTerms: ctx.glossaryTerms,
+        sourceText,
+        targetLang: opts.targetLang,
+      })
+    : buildTranslatePrompt({
+        sourceAbsPath,
+        outputAbsPath,
+        targetLang: opts.targetLang,
+        glossaryCmd: `bun ${GLOSSARY_SCRIPT_PATH}`,
+      });
+  console.log(
+    `[translate] ${slug} path=${structured ? "structured" : "agentic"} (${opts.engine}, source ${Buffer.byteLength(sourceText, "utf8")} bytes)`
+  );
 
   const outcome = await runEngineWithRetry({
     slug,
     sourceAbsPath,
     outputAbsPath,
     prompt,
+    structured,
     opts,
   });
 
@@ -328,26 +482,106 @@ async function translateArticle(args: TranslateArgs): Promise<void> {
     return;
   }
 
+  registerNewTerms(ctx, slug, outcome.newTerms);
+  await applyGlossary({ ctx, slug, sourceText, outputAbsPath });
+
+  const cost = resolveCost(outcome.usage, opts);
+  ctx.spentUsd += cost.costUsd ?? 0;
   recordResult(ctx, {
     slug,
     sourceHash: surfaceHash(sourceText),
     sourceTitle: sourceTitle(sourceText),
     engine: opts.engine,
     model: outcome.usage?.model ?? opts.modelLabel,
-    costUsd: outcome.usage?.costUsd ?? null,
+    reasoningEffort: opts.engine === "codex" ? opts.reasoningEffort : null,
+    costUsd: cost.costUsd,
+    costEstimated: cost.estimated,
     credits: outcome.usage?.credits ?? null,
     inputTokens: outcome.usage?.inputTokens ?? null,
+    cachedInputTokens: outcome.usage?.cachedInputTokens ?? null,
     outputTokens: outcome.usage?.outputTokens ?? null,
+    reasoningOutputTokens: outcome.usage?.reasoningOutputTokens ?? null,
     durationMs: outcome.durationMs,
   });
   ctx.summary.translated.push(slug);
   console.log(
     `[translate] ${slug} ✓ (${(outcome.durationMs / 1000).toFixed(1)}s${
-      outcome.usage?.costUsd == null
+      cost.costUsd == null
         ? ""
-        : `, $${outcome.usage.costUsd.toFixed(4)}`
+        : `, $${cost.costUsd.toFixed(4)}${cost.estimated ? "*" : ""}`
     })`
   );
+}
+
+/**
+ * USD for one run: an engine-reported cost always wins; otherwise compute one
+ * from the configured price table and flag it estimated. Stays null when no
+ * price is configured for the model — tokens are recorded either way.
+ */
+function resolveCost(
+  usage: EngineUsage | undefined,
+  opts: RunOptions
+): { costUsd: number | null; estimated: boolean } {
+  if (usage?.costUsd != null) {
+    return { costUsd: usage.costUsd, estimated: false };
+  }
+  const model = usage?.model ?? opts.modelLabel;
+  const computed =
+    usage && model ? computeCostUsd(usage, opts.prices[model]) : null;
+  return { costUsd: computed, estimated: computed !== null };
+}
+
+/** Upsert the terms the engine reported as new (structured mode only). */
+function registerNewTerms(
+  ctx: RunContext,
+  slug: string,
+  newTerms: GlossaryEntry[]
+): void {
+  if (!ctx.glossaryDb || newTerms.length === 0) {
+    return;
+  }
+  try {
+    const { added } = addTerms(ctx.glossaryDb, newTerms);
+    if (added > 0) {
+      console.log(
+        `[translate] ${slug} glossary: registered ${added} new term(s)`
+      );
+    }
+  } catch (err) {
+    // The glossary is a cache; a failed upsert must not fail the article.
+    console.warn(
+      `[translate] ${slug} glossary upsert failed: ${(err as Error).message}`
+    );
+  }
+}
+
+interface ApplyGlossaryArgs {
+  ctx: RunContext;
+  outputAbsPath: string;
+  slug: string;
+  sourceText: string;
+}
+
+/**
+ * Deterministic post-validation glossary pass: repair the unambiguous cases
+ * and report the rest. `missing` is a report, not a gate — the article stays
+ * translated.
+ */
+async function applyGlossary(args: ApplyGlossaryArgs): Promise<void> {
+  const { ctx, slug, sourceText, outputAbsPath } = args;
+  const outputText = await readFile(outputAbsPath, "utf8");
+  const result = enforceGlossary(outputText, sourceText, ctx.glossaryTerms);
+  if (result.applied > 0) {
+    await writeFile(outputAbsPath, result.text, "utf8");
+    console.log(
+      `[translate] ${slug} glossary: repaired ${result.applied} link anchor(s)`
+    );
+  }
+  if (result.missing.length > 0) {
+    console.warn(
+      `[translate] ${slug} glossary: ${result.missing.length} term(s) missing from output: ${result.missing.join(", ")}`
+    );
+  }
 }
 
 /** Record a run for both the history DB (later) and the projection merge. */
@@ -360,6 +594,7 @@ function recordResult(ctx: RunContext, run: TranslationRunInput): void {
     engine: run.engine,
     model: run.model ?? null,
     costUsd: run.costUsd ?? null,
+    costEstimated: run.costEstimated ?? null,
     credits: run.credits ?? null,
     durationMs: run.durationMs,
     translatedAt: new Date().toISOString(),
@@ -551,102 +786,224 @@ interface RunEngineWithRetryArgs {
   prompt: string;
   slug: string;
   sourceAbsPath: string;
+  /** Run codex in structured single-turn mode (`--output-schema` + `-o`). */
+  structured: boolean;
 }
 
 type EngineOutcome =
-  | { durationMs: number; ok: true; usage?: EngineUsage }
+  | {
+      durationMs: number;
+      newTerms: GlossaryEntry[];
+      ok: true;
+      usage?: EngineUsage;
+    }
   | { ok: false; reason: string };
 
 const MAX_ENGINE_ATTEMPTS = 2;
 
+interface EngineAttemptArgs {
+  /** Structured mode only: codex `-o` file holding the JSON final message. */
+  lastMessagePath: string | undefined;
+  opts: RunOptions;
+  outputAbsPath: string;
+  prompt: string;
+  /** Structured mode only: codex `--output-schema` file. */
+  schemaPath: string | undefined;
+  slug: string;
+  sourceAbsPath: string;
+}
+
+type AttemptResult =
+  | { errors: string[]; ok: false }
+  | { newTerms: GlossaryEntry[]; ok: true; usage?: EngineUsage };
+
+/** Spawn the engine for one attempt, logging a heartbeat every 60s. */
+async function spawnEngine(
+  args: EngineAttemptArgs
+): Promise<EngineUsage | undefined> {
+  const { slug, prompt, schemaPath, lastMessagePath, opts } = args;
+  const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    const elapsedS = ((Date.now() - startedAt) / 1000).toFixed(0);
+    console.log(`[translate] ${slug} running… (${elapsedS}s elapsed)`);
+  }, 60_000);
+  try {
+    const { usage } = await runEngine(opts.engine, {
+      prompt,
+      scopeDir: opts.scopeDir,
+      kiroClient: opts.kiroClient,
+      cursorModel: opts.cursorModel,
+      model: opts.modelLabel ?? undefined,
+      reasoningEffort: opts.reasoningEffort,
+      outputSchemaPath: schemaPath,
+      outputLastMessagePath: lastMessagePath,
+      // Pin the agent's glossary subprocess to the SAME absolute DB the
+      // orchestrator seeded, regardless of the agent's cwd.
+      env: { GLOSSARY_DB_PATH: opts.glossaryPath },
+      onStderrLine: (line) => process.stderr.write(`[${slug}] ${line}\n`),
+      timeoutMs: opts.engineTimeoutMs,
+    });
+    return usage;
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+/**
+ * Deterministic post-processing: normalise headings and fix MDX-breaking escape
+ * sequences introduced by the LLM. Both passes are pure and idempotent; the
+ * write is skipped when the engine already emitted correct output. A missing
+ * file is a no-op — validateTranslation surfaces that precise error.
+ */
+async function postProcessOutput(outputAbsPath: string): Promise<void> {
+  let original: string;
+  try {
+    original = await readFile(outputAbsPath, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return;
+    }
+    throw err;
+  }
+  const normalised = fixMdxEscaping(normalizeHeadings(original));
+  if (normalised !== original) {
+    await writeFile(outputAbsPath, normalised, "utf8");
+  }
+}
+
+/** One engine attempt: spawn, materialise output, post-process, validate. */
+async function runEngineAttempt(
+  args: EngineAttemptArgs
+): Promise<AttemptResult> {
+  const { sourceAbsPath, outputAbsPath, lastMessagePath } = args;
+  let usage: EngineUsage | undefined;
+  try {
+    usage = await spawnEngine(args);
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [`engine spawn failed: ${(err as Error).message}`],
+    };
+  }
+
+  // Structured mode: the engine wrote nothing — the translation arrives as one
+  // JSON final message that we materialise into the output path here.
+  let newTerms: GlossaryEntry[] = [];
+  if (lastMessagePath) {
+    try {
+      const parsed = parseStructuredResult(
+        await readFile(lastMessagePath, "utf8")
+      );
+      await writeFile(outputAbsPath, parsed.mdx, "utf8");
+      newTerms = parsed.newTerms;
+    } catch (err) {
+      return {
+        ok: false,
+        errors: [`structured output unusable: ${(err as Error).message}`],
+      };
+    }
+  }
+
+  try {
+    await postProcessOutput(outputAbsPath);
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [`post-processing failed: ${(err as Error).message}`],
+    };
+  }
+
+  const result = await validateTranslation({ sourceAbsPath, outputAbsPath });
+  if (!result.ok) {
+    return { ok: false, errors: result.errors };
+  }
+  return { ok: true, newTerms, usage };
+}
+
+/** All attempts failed — put the prior translation back so it isn't lost. */
+async function restoreExistingOutput(
+  slug: string,
+  outputAbsPath: string,
+  existingOutput: string
+): Promise<void> {
+  try {
+    await writeFile(outputAbsPath, existingOutput, "utf8");
+    console.warn(
+      `[translate] ${slug} all attempts failed; prior translation restored`
+    );
+  } catch (err) {
+    console.warn(
+      `[translate] ${slug} all attempts failed; restore also failed: ${(err as Error).message}`
+    );
+  }
+}
+
 async function runEngineWithRetry(
   args: RunEngineWithRetryArgs
 ): Promise<EngineOutcome> {
-  const { slug, sourceAbsPath, outputAbsPath, prompt, opts } = args;
+  const { slug, sourceAbsPath, outputAbsPath, prompt, structured, opts } = args;
   const startedAt = Date.now();
   // Preserve the existing translation so we can restore it if all attempts
   // fail — otherwise a timeout or bad output permanently deletes good work.
   const existingOutput = await readFileOrNull(outputAbsPath);
-  let lastReason = "unknown failure";
-  let lastUsage: EngineUsage | undefined;
-  for (let attempt = 1; attempt <= MAX_ENGINE_ATTEMPTS; attempt += 1) {
-    // Clear any prior output before each attempt so an engine that exits 0
-    // without rewriting (a no-op) can't pass validation on a stale file.
-    await unlinkSilently(outputAbsPath);
-    console.log(`[translate] ${slug} starting (attempt ${attempt})`);
-    const attemptStartedAt = Date.now();
-    const heartbeat = setInterval(() => {
-      const elapsedS = ((Date.now() - attemptStartedAt) / 1000).toFixed(0);
-      console.log(`[translate] ${slug} running… (${elapsedS}s elapsed)`);
-    }, 60_000);
-    try {
-      const { usage } = await runEngine(opts.engine, {
-        prompt,
-        scopeDir: opts.scopeDir,
-        kiroClient: opts.kiroClient,
-        cursorModel: opts.cursorModel,
-        // Pin the agent's glossary subprocess to the SAME absolute DB the
-        // orchestrator seeded, regardless of the agent's cwd.
-        env: { GLOSSARY_DB_PATH: opts.glossaryPath },
-        onStderrLine: (line) => process.stderr.write(`[${slug}] ${line}\n`),
-        timeoutMs: opts.engineTimeoutMs,
+  const tmpDir = structured
+    ? await mkdtemp(join(tmpdir(), "translate-structured-"))
+    : null;
+  const schemaPath = tmpDir ? join(tmpDir, "schema.json") : undefined;
+  const lastMessagePath = tmpDir
+    ? join(tmpDir, "last-message.json")
+    : undefined;
+  let lastErrors = ["unknown failure"];
+  try {
+    if (schemaPath) {
+      await writeFile(
+        schemaPath,
+        JSON.stringify(TRANSLATION_OUTPUT_SCHEMA, null, 2),
+        "utf8"
+      );
+    }
+    for (let attempt = 1; attempt <= MAX_ENGINE_ATTEMPTS; attempt += 1) {
+      // Clear any prior output before each attempt so an engine that exits 0
+      // without rewriting (a no-op) can't pass validation on a stale file.
+      await unlinkSilently(outputAbsPath);
+      if (lastMessagePath) {
+        await unlinkSilently(lastMessagePath);
+      }
+      console.log(`[translate] ${slug} starting (attempt ${attempt})`);
+      const result = await runEngineAttempt({
+        lastMessagePath,
+        opts,
+        outputAbsPath,
+        // Attempt 2 gets the previous attempt's validation errors appended.
+        prompt:
+          attempt === 1 ? prompt : appendRetryFeedback(prompt, lastErrors),
+        schemaPath,
+        slug,
+        sourceAbsPath,
       });
-      lastUsage = usage;
-    } catch (err) {
-      lastReason = `engine spawn failed: ${(err as Error).message}`;
+      if (result.ok) {
+        return {
+          ok: true,
+          newTerms: result.newTerms,
+          usage: result.usage,
+          durationMs: Date.now() - startedAt,
+        };
+      }
+      lastErrors = result.errors;
       console.warn(
-        `[translate] ${slug} attempt ${attempt} engine error: ${lastReason}`
+        `[translate] ${slug} attempt ${attempt} failed: ${lastErrors.join("; ")}`
       );
       await unlinkSilently(outputAbsPath);
-      continue;
-    } finally {
-      clearInterval(heartbeat);
     }
-
-    // Deterministic post-processing: normalise headings and fix MDX-breaking
-    // escape sequences introduced by the LLM. Both passes are pure and
-    // idempotent. Skip the write when the engine already emitted correct
-    // output. A missing file here means the engine exited 0 without writing —
-    // let validateTranslation surface that precise error.
-    try {
-      const original = await readFile(outputAbsPath, "utf8");
-      const normalised = fixMdxEscaping(normalizeHeadings(original));
-      if (normalised !== original) {
-        await writeFile(outputAbsPath, normalised, "utf8");
-      }
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        lastReason = `post-processing failed: ${(err as Error).message}`;
-        console.warn(`[translate] ${slug} attempt ${attempt} ${lastReason}`);
-        await unlinkSilently(outputAbsPath);
-        continue;
-      }
+    if (existingOutput) {
+      await restoreExistingOutput(slug, outputAbsPath, existingOutput);
     }
-
-    const result = await validateTranslation({ sourceAbsPath, outputAbsPath });
-    if (result.ok) {
-      return { ok: true, usage: lastUsage, durationMs: Date.now() - startedAt };
-    }
-    lastReason = result.errors.join("; ");
-    console.warn(
-      `[translate] ${slug} attempt ${attempt} validation failed: ${lastReason}`
-    );
-    await unlinkSilently(outputAbsPath);
-  }
-  // All attempts failed — restore the prior translation so it isn't lost.
-  if (existingOutput) {
-    try {
-      await writeFile(outputAbsPath, existingOutput, "utf8");
-      console.warn(
-        `[translate] ${slug} all attempts failed; prior translation restored`
-      );
-    } catch (restoreErr) {
-      console.warn(
-        `[translate] ${slug} all attempts failed; restore also failed: ${(restoreErr as Error).message}`
-      );
+    return { ok: false, reason: lastErrors.join("; ") };
+  } finally {
+    if (tmpDir) {
+      await rm(tmpDir, { recursive: true, force: true });
     }
   }
-  return { ok: false, reason: lastReason };
 }
 
 async function discoverSlugs(
@@ -731,7 +1088,7 @@ function parseOptions(): RunOptions {
   const adopt = argv.includes("--adopt");
   const dryRun = env.DRY_RUN === "1";
 
-  const engine = parseEngine(env.TRANSLATE_ENGINE ?? "agy");
+  const engine = parseEngine(env.TRANSLATE_ENGINE ?? "codex");
   const cursorModel =
     env.TRANSLATE_CURSOR_MODEL?.trim() || DEFAULT_CURSOR_MODEL;
   const modelLabel = resolveModelLabel(
@@ -739,6 +1096,10 @@ function parseOptions(): RunOptions {
     engine,
     cursorModel
   );
+  const reasoningEffort =
+    env.TRANSLATE_REASONING_EFFORT?.trim() || DEFAULT_CODEX_REASONING_EFFORT;
+  const maxUsd = parseMaxUsd(env.TRANSLATE_MAX_USD);
+  const prices = resolvePrices(env);
   const targetLang = env.TARGET_LANG ?? "zh-TW";
 
   const sourceDir = resolve(env.TRANSLATE_SOURCE_PATH ?? DEFAULT_ARTICLES_DIR);
@@ -783,10 +1144,13 @@ function parseOptions(): RunOptions {
     kiroClient,
     limit,
     locale: targetLang,
+    maxUsd,
     modelLabel,
     onlySlug,
     outputDir,
+    prices,
     projectionPath,
+    reasoningEffort,
     scopeDir: REPO_ROOT,
     sourceDir,
     targetLang,
@@ -798,10 +1162,11 @@ function parseOptions(): RunOptions {
 }
 
 /**
- * Resolve the telemetry model label. An explicit `TRANSLATE_MODEL` always wins;
- * otherwise cursor reports tokens but no model name, so fall back to the
- * configured cursor model. Other engines either report their own model or leave
- * it null.
+ * Resolve the model actually requested (and the telemetry label — they are the
+ * same thing). An explicit `TRANSLATE_MODEL` always wins; cursor's is
+ * separately overridable via `TRANSLATE_CURSOR_MODEL`; everything else falls
+ * back to the engine's own default (codex → `gpt-5.6-luna`, null for engines
+ * with no configurable model).
  */
 function resolveModelLabel(
   raw: string | undefined,
@@ -812,7 +1177,20 @@ function resolveModelLabel(
   if (explicit) {
     return explicit;
   }
-  return engine === "cursor" ? cursorModel : null;
+  return engine === "cursor" ? cursorModel : defaultModelForEngine(engine);
+}
+
+function parseMaxUsd(raw: string | undefined): number | null {
+  if (!raw?.trim()) {
+    return null;
+  }
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error(
+      `TRANSLATE_MAX_USD must be a non-negative number (got "${raw}")`
+    );
+  }
+  return n;
 }
 
 function parseConcurrency(raw: string | undefined): number {
@@ -881,7 +1259,7 @@ async function assertExists(path: string, label: string): Promise<void> {
   }
 }
 
-function printSummary(summary: TranslateSummary): void {
+function printSummary(summary: TranslateSummary, maxUsd: number | null): void {
   console.log("\n=== Translate summary ===");
   console.log(`Translated:     ${summary.translated.length}`);
   console.log(`Resynced:       ${summary.resynced.length}`);
@@ -889,8 +1267,14 @@ function printSummary(summary: TranslateSummary): void {
   console.log(
     `Stale-skipped:  ${summary.staleSkipped.length}${summary.staleSkipped.length > 0 ? " (run with --update to refresh)" : ""}`
   );
+  console.log(
+    `Budget-skipped: ${summary.budgetSkipped.length}${summary.budgetSkipped.length > 0 ? ` (TRANSLATE_MAX_USD=$${(maxUsd ?? 0).toFixed(4)} reached — raise the cap to continue)` : ""}`
+  );
   console.log(`Orphans:        ${summary.orphans.length}`);
   console.log(`Failed:         ${summary.failed.length}`);
+  if (summary.budgetSkipped.length > 0) {
+    console.log(`\nBudget-skipped: ${summary.budgetSkipped.join(", ")}`);
+  }
   if (summary.failed.length > 0) {
     console.log("\nFailures:");
     for (const { slug, reason } of summary.failed) {
@@ -898,11 +1282,13 @@ function printSummary(summary: TranslateSummary): void {
     }
   }
   console.log(
-    `\nEngines available: ${ENGINES.join(", ")} (default: agy via TRANSLATE_ENGINE)`
+    `\nEngines available: ${ENGINES.join(", ")} (default: codex via TRANSLATE_ENGINE)`
   );
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
