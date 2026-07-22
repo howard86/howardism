@@ -155,6 +155,7 @@ export function ArticleLayout({
               alt={meta.imageAlt}
               className="mb-10 h-auto w-full rounded-md"
               placeholder="blur"
+              priority
               sizes="(min-width: 760px) 720px, 100vw"
               src={heroImage}
             />
