@@ -21,10 +21,15 @@ interface ModelContextToolDescriptor<TInput> {
 }
 
 interface ModelContext {
+  /**
+   * The explainer types this as returning a Promise, but Chrome 150 returns
+   * `undefined` synchronously — hence the union and the defensive `register`
+   * helper below.
+   */
   registerTool<TInput>(
     descriptor: ModelContextToolDescriptor<TInput>,
     options?: { signal?: AbortSignal }
-  ): Promise<unknown>;
+  ): Promise<unknown> | undefined;
 }
 
 declare global {
@@ -111,62 +116,71 @@ export function WebMcpTools() {
     const modelContext = document.modelContext;
     const controller = new AbortController();
 
-    modelContext
-      .registerTool<SearchArticlesInput>(
-        {
-          name: SEARCH_ARTICLES_TOOL,
-          description:
-            "Search the howardism.dev article knowledge base by keyword. Returns matching articles' metadata (title, description, domain, tag, url) ranked by relevance — not the full article body.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "Search keywords." },
-              limit: {
-                type: "number",
-                description: "Maximum number of results (default 12).",
-              },
-            },
-            required: ["query"],
-          },
-          annotations: { readOnlyHint: true },
-          // `loadSearchIndex()` pulls a ~200KB+ JSON chunk; it is called only
-          // here, inside `execute`, never at registration/mount time.
-          execute: async (input) => {
-            const entries = await loadSearchIndex();
-            return searchArticles(entries, input, window.location.origin);
-          },
-        },
-        { signal: controller.signal }
-      )
-      .catch(() => {
-        // Registration can lose a race with unmount (the signal aborts before
-        // it resolves) — nothing to do but drop the rejection.
-      });
+    /**
+     * WebMCP is experimental and its return contract is unstable — Chrome 150
+     * returns `undefined` where the explainer promises a Promise, so chaining
+     * `.catch` directly throws and takes the whole render down with it. Both
+     * shapes are normalised here, and any throw is swallowed: failing to
+     * register an optional agent tool must never break the page.
+     */
+    const register = <TInput,>(
+      descriptor: ModelContextToolDescriptor<TInput>
+    ) => {
+      try {
+        Promise.resolve(
+          modelContext.registerTool<TInput>(descriptor, {
+            signal: controller.signal,
+          })
+        ).catch(() => {
+          // Registration can also lose a race with unmount (the signal aborts
+          // before it resolves) — nothing to do but drop the rejection.
+        });
+      } catch {
+        // Synchronous throw from an unstable experimental API.
+      }
+    };
 
-    modelContext
-      .registerTool<GetArticleInput>(
-        {
-          name: GET_ARTICLE_TOOL,
-          description:
-            "Fetch the full body of one howardism.dev article by slug, as returned by search_articles.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              slug: { type: "string", description: "The article slug." },
-            },
-            required: ["slug"],
-          },
-          annotations: { readOnlyHint: true },
-          execute: async (input) => {
-            const entries = await loadSearchIndex();
-            return getArticle(entries, input);
+    register<SearchArticlesInput>({
+      name: SEARCH_ARTICLES_TOOL,
+      description:
+        "Search the howardism.dev article knowledge base by keyword. Returns matching articles' metadata (title, description, domain, tag, url) ranked by relevance — not the full article body.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search keywords." },
+          limit: {
+            type: "number",
+            description: "Maximum number of results (default 12).",
           },
         },
-        { signal: controller.signal }
-      )
-      .catch(() => {
-        // See above.
-      });
+        required: ["query"],
+      },
+      annotations: { readOnlyHint: true },
+      // `loadSearchIndex()` pulls a ~200KB+ JSON chunk; it is called only
+      // here, inside `execute`, never at registration/mount time.
+      execute: async (input) => {
+        const entries = await loadSearchIndex();
+        return searchArticles(entries, input, window.location.origin);
+      },
+    });
+
+    register<GetArticleInput>({
+      name: GET_ARTICLE_TOOL,
+      description:
+        "Fetch the full body of one howardism.dev article by slug, as returned by search_articles.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          slug: { type: "string", description: "The article slug." },
+        },
+        required: ["slug"],
+      },
+      annotations: { readOnlyHint: true },
+      execute: async (input) => {
+        const entries = await loadSearchIndex();
+        return getArticle(entries, input);
+      },
+    });
 
     return () => {
       controller.abort();
