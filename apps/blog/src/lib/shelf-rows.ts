@@ -31,6 +31,12 @@ export interface ShelfManifestEntry {
 export type ShelfRowKind = "resolved" | "archived" | "deleted";
 
 interface ShelfRowBase {
+  /**
+   * 1-based accession number: the order this article entered the shelf, by
+   * first read. Fixed for the life of the entry, so the row marker stays put
+   * under any sort or filter.
+   */
+  accession: number;
   kind: ShelfRowKind;
   lastReadAt: number;
   pct: number;
@@ -61,18 +67,26 @@ export type ShelfRow = LinkedShelfRow | DeletedShelfRow;
  * preserving the history's most-recent-first order. Every stored read yields a
  * row classified as resolved, archived, or deleted — nothing is dropped, so a
  * deleted article surfaces as a tombstone the reader dismisses on their terms.
+ * Each row also carries its accession number, ranked by first read so the
+ * marker survives re-sorting and filtering.
  */
 export function buildShelfRows(
   history: readonly ReadingEntry[],
   manifest: readonly ShelfManifestEntry[]
 ): ShelfRow[] {
   const bySlug = new Map(manifest.map((entry) => [entry.slug, entry]));
+  const accessionBySlug = new Map(
+    [...history]
+      .sort((a, b) => a.firstReadAt - b.firstReadAt)
+      .map((entry, index) => [entry.slug, index + 1] as const)
+  );
   const rows: ShelfRow[] = [];
   for (const entry of history) {
     const base = {
       slug: entry.slug,
       pct: entry.pct,
       lastReadAt: entry.lastReadAt,
+      accession: accessionBySlug.get(entry.slug) ?? 0,
     };
     const meta = bySlug.get(entry.slug);
     if (meta) {
