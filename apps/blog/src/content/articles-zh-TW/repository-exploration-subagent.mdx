@@ -1,0 +1,99 @@
+---
+date: 2026-06-16
+title: Repository Exploration Subagent
+description: "FastContext 的論點是：儲存庫探索（讀取／搜尋／定位）應與解題脫鉤，交由專責的唯讀子代理程式處理；它平行發出工具呼叫並回傳精簡的檔案與行號引用，讓解題者的上下文保持乾淨——可將主代理程式的 token 降低最多 60%，並將 SWE-bench 解題率提升至 5.5%"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - llm-architecture
+  - context-management
+  - subagents
+readingTime: 10
+imageAlt: Repository Exploration Subagent 的插圖
+sources:
+  - title: "FastContext: Training Efficient Repository Explorer for Coding Agents"
+    url: https://arxiv.org/abs/2606.14066
+---
+export { default as heroImage } from "../assets/repository-exploration-subagent.png";
+
+## 資料來源
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)
+
+## 摘要
+
+在大多數 coding agent 中，同一個模型既負責**探索**儲存庫（讀取檔案、展開 glob 路徑、搜尋符號以定位相關程式碼），也負責**解題**（編輯、執行測試、產生 patch）。探索成本高昂，而且會造成污染：每次探索性的讀取與搜尋都會留在解題者的對話歷史中，消耗 token 預算，讓實際的決策點埋沒在無關的片段之下。FastContext（Shaoqiu Zhang 等人，Microsoft CoreAI + Shanghai Jiao Tong University，2026 年 6 月）主張，儲存庫探索應改成**一級、可分離、可訓練的元件**——按需呼叫專責子代理程式，執行唯讀的平行工具呼叫，只回傳精簡的檔案與行號引用作為聚焦上下文。整合至 Mini-SWE-Agent 後，端到端解題率最高提升至 **5.5%**，同時將主代理程式的 token 消耗降低最多 **60%**，額外開銷極低。參見 [FastContext](/articles/fastcontext) 系統實例。
+
+## 瓶頸：探索主導了解題軌跡
+
+動機分析執行了 SWE-bench Multilingual 上全部 300 條 GPT-5.4-high Mini-SWE-Agent 軌跡，並將工具呼叫分類為讀取、搜尋、編輯、測試及其他：
+
+- **讀取 + 搜尋 = 17.72 次工具使用回合中的 9.96 次（56.2%）**，以及**主代理程式總 token 的 46.5%**。這部分 token 既是直接的推理成本，也是解題者必須延續攜帶的上下文。
+- **探索是在編輯前的一段漫長序列前奏。** 在可辨識首次原始碼編輯的 284 條軌跡中，代理程式平均於第 **8.47** 回開始編輯。即使啟用平行工具呼叫，中位數軌跡仍需在首次編輯前經過 **6 個循序探索回合與 15.5 次探索工具呼叫**。
+- **問題越難，探索越多。** 未解決軌跡平均有 **8.34 個編輯前探索回合**，已解決軌跡則為 **6.67**。這並不是說探索*導致*失敗，而是說探索（a）成本高到值得關注，且（b）結構化程度足以委派。
+
+這會帶來兩種不同的傷害：**token／上下文成本**傷害（解題者為每個探索片段付出成本並持續攜帶——參見 [Context Window Smart Zone](/articles/context-window-smart-zone)），以及**雜訊**傷害（當探索漏掉關鍵檔案或累積無關上下文時，解題者會在受污染的視窗中推理，後續可能花費多個回合修補錯誤假設，而不是修正真正原因）。
+
+這正是促成 **SWE-Pruner**（Wang et al., 2026，coding agent 的上下文修剪）的同一個瓶頸——而兩者的對比很有啟發性。修剪是在事後*移除*受污染的上下文；探索子代理程式則透過將搜尋保留在獨立對話中，從一開始就*不污染*上下文。兩種策略，同一個問題。
+
+## 委派契約
+
+FastContext 是**執行期委派機制**，不是新的模型架構。主代理程式交給它一個自然語言查詢（「找出 Goldmark 圖片 render hook 的程式碼路徑……」），收到的是證據，而不是 patch。三項刻意的設計選擇定義了這份契約：
+
+1. **三個與語言無關的唯讀工具，僅此而已：** `READ`（帶行號的檔案內容）、`GLOB`（路徑探索）、`GREP`（正規表示式搜尋，ripgrep）。探索器無法編輯檔案或提交 patch——它在結構上就無法解題，只能定位。
+2. **按回合平行。** 每個回合中，探索器要嘛發出一個或多個工具呼叫（並行執行，以在綜合前涵蓋互補假設），要嘛以最終答案停止。
+3. **精簡的輸出契約。** 回傳內容是一個 `<final_answer>` 區塊，包含 `path:line-range` 項目及可選的簡短相關性註記，例如：
+ ```
+ <final_answer>
+ /src/router.py:42-58 (Router definition)
+ /tests/test_router.py:101-119
+ </final_answer>
+ ```
+ **只有這個區塊會重新進入主代理程式的上下文。** 探索器的中間工具觀察與推理會寫入獨立的子代理程式記錄，永遠不會附加到解題軌跡中——這就是保持主上下文乾淨的機制。在 Mini-SWE-Agent 中，它會以同一個任務容器內的 CLI 輔助程式執行（`fastcontext -q "..." --format concise`）。
+
+這是 [Claude Code](/articles/claude-code)、Codex、GitHub Copilot CLI 與 Cursor 中專有「subagent」功能的開放、公開版本鏡像——論文提出這項工作的動機，是這些探索機制都是封閉的，沒有開放的訓練／評估配方。
+
+## 訓練配方：先 SFT，再以任務為基礎的 RL
+
+探索器是經過訓練的，不只是提示而已，分為兩個階段（backbone：4B 探索器使用 Qwen3-4B-Instruct，30B 探索器使用 Qwen3-Coder-30BA3B）：
+
+- **SFT（策略初始化）。** 來自 **Sonnet 4.6**（[Anthropic](/articles/anthropic)）探索軌跡的 2,954 個篩選範例，拆成三個對應執行期行為的子來源：`parallel_toolcalls`（990——廣泛且不重複的首回合搜尋）、`multiturn_traj`（983——完整的多回合證據蒐集軌跡），以及 `linerange`（981——精確的最終引用生成）。只計算 assistant token 的 loss，遮蔽原始工具觀察，同時將 assistant 文字與結構化工具呼叫引數保留在目標函數中。
+- **RL（以任務為基礎的精修）。** 在 400 個提示／395 個儲存庫上，從 SFT checkpoint 執行 GRPO。關鍵做法是：**獎勵取自參考 patch。** 每個 issue 的 gold patch 會解析成目標檔案／行範圍（平均每個提示 11.07 個範圍），獎勵結合（a）探索器引用相對於這些目標的檔案層級 + 行層級 **F1**，（b）小幅的**有界平行性加成**（`1` if 3 &lt; max-parallel-calls ≤ 6），以及（c）拒絕空白、過長、格式錯誤或過度發散輸出的**格式懲罰**。探索器會以真正的子代理程式形式展開（最多 8 回合，每個提示取樣 16 條軌跡）。SFT 教導模仿探索的*行為*；RL 則使*輸出*對齊真正與修復相關的程式碼位置。
+
+## 三項值得保留的發現
+
+1. **架構分離是持久的勝利；訓練出的模型則是最佳化手段。** 一個稱為 *same-model exploration* 的基線——由 frontier model 本身透過子代理程式介面執行委派搜尋，**不進行專門訓練**——相較於單體式解題，已能提高分數並降低 token。因此，效益中有相當一部分純粹來自將探索*移出解題者的上下文*，與任何小型訓練模型無關。訓練出的探索器則是在其上進一步的 Pareto 改進（通常在分數與 token 兩方面都勝過 same-model exploration）。
+2. **4B-RL 探索器可以擊敗 30B-SFT 探索器。** 在 GLM-5.1 / SWE-bench Pro 上，4B-RL 達到 22.5，高於 30B-SFT 的 20.0，同時使用更少 token；而 4B-RL 在全部九種端到端設定中都優於或追平 4B-SFT。對這個狹窄角色而言，以任務為基礎的 RL 勝過原始規模；RL 的收益主要來自**在相近 precision 下提高 recall**——這正是 patch 覆蓋率獎勵所最佳化的目標。（獨立定位結果：訓練後的 FastContext 達到 **73.71 的檔案層級 F1／60.35 的模組層級 F1**，是最強的非 frontier 群組，在模組／函式粒度上優勢最明顯。）
+3. **探索器很便宜。** GPT-5.4 / SWE-bench Multilingual 的 token／成本稽核顯示：直接解題為每個 task $282.47；main+4B-RL 為 $208.92 + $4.52 探索器 = **$213.44，每個 task 淨省約 $69**（4B 探索器按 $0.20/Mtok 的 serverless tier 計費）。效率就是全部重點——探索必須便宜到足以作為常規輔助程式執行，因此部署目標是 4B 模型，而不是 30B。
+
+## 相關連結
+
+- [FastContext](/articles/fastcontext) — 系統實例：訓練後的 4B–30B 探索器、模型變體、訓練堆疊與開放發布
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 探索子代理程式是*深層模組*：以薄介面（自然語言查詢 → 檔案行號引用）隱藏大量行為（多回合平行搜尋），也是 Pocock「在新上下文中進行審查者」／Sandcastle 模式應用於*搜尋*而非審查的具體實現——解題者進行委派並保持乾淨視窗
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 將探索與解題脫鉤、只回傳精簡證據，就是 harness 設計：以機制強制逐步揭露上下文與隔離（探索器*無法*編輯），而非依賴指令
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — FastContext 將 AgentOpt 的角色模型配置邏輯再推進一步：不只是把既有模型*分配*給探索器角色，而是為它*訓練專用的小模型*；探索器與解題者的分工正是角色層級的組合決策
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 雜訊傷害就是 smart-zone 論點：探索片段會把解題者推入 dumb zone；卸載搜尋則讓解題者的推理視窗保持乾淨
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 一項現實張力：訓練專門探索器增加了手工建構的結構，看似違背「將 harness 融入模型」；*same-model exploration* 的結果提供了調和——持久收益是架構（上下文分離），而訓練後的探索器則是效率策略，隨著基礎模型變得更便宜，苦澀教訓預測這種策略會逐漸縮小
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 從 harness 角度看也是同一種張力：訓練後的探索元件是承重支架，還是暫時性的？論文自身的框架（「將探索暴露為明確介面，讓更小的專門模型與更強的主代理程式協作」）押注的是*介面*會持續存在，即使其中的模型改變
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 定位／探索是驗證的上游兄弟：兩者都是主導真實代理程式軌跡的非解題工作；源自 patch 的 F1 獎勵是探索器可驗證的訊號
+- [Deep Research Agents](/articles/deep-research-agents) — 結構上平行：deep-research 將查詢拆成搜尋 + 綜合；FastContext 將 coding task 拆成探索 + 解題。兩者都將反覆搜尋隔離在精簡的綜合回傳之後
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — SWE-bench 系列（Multilingual、Pro、Verified、SWE-QA）是此處的評估面；較長時間跨度的任務（SWE-bench Pro）呈現最大準確率提升，與探索成本隨時間跨度累積一致
+- [Claude Code](/articles/claude-code) — FastContext 開放原始碼的專有類比機制
+- [Symphony](/articles/symphony) — 另一種模組化代理程式架構（由 ticket 驅動）；兩者都將 coding agent 視為可組合元件，而非單體迴圈
+
+## 衍生內容
+
+- [Single General Agent vs. Multi-Agent Coding Architecture](/articles/single-vs-multi-agent-coding-architecture) — 「same-model exploration」結果（架構分離，而非訓練後的模型，是持久勝利）是承重證據，顯示*上下文隔離*的專門化勝過單體上下文代理程式，且獨立於模型規模
+
+## 待解決的問題
+
+- **收益能否在更好的主模型上持續？** same-model-exploration 結果暗示架構收益多少與模型無關，但隨著 frontier model 變得更便宜，也更能在無需協助的情況下留在 smart zone 中，訓練探索器的差距可能縮小。苦澀教訓的問題仍未解決。
+- **修剪 vs. 不污染。** SWE-Pruner 事後移除上下文；FastContext 避免累積上下文。兩者是互補（修剪解題者的上下文，*並且*委派探索）還是替代方案？尚未一起測試。
+- **探索器可以縮小到多小？** 作者將 1.7B / 0.6B 列為未來工作——如果這套配方成立，探索器幾乎會變得免費，而架構將成為主導因素。
+- **超越 Mini-SWE-Agent 的通用性。** 目前只測試了一種（刻意保持最小的）主代理程式腳手架；具備自身記憶／子代理程式編排能力的更豐富 harness，可能已經捕捉部分收益，或以不同方式互動。
+- **源自 patch 的獎勵洩漏。** 以 gold patch 的檔案／行範圍訓練探索器的獎勵，可能導致模型過度擬合修復*落地*的位置，而不是證據*存在*的位置；F1 與 recall 的行為部分緩解了這點，但這個代理指標並不完美。
+
+## 資料來源
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)

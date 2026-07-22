@@ -1,16 +1,17 @@
 ---
 date: 2026-04-17
-title: Claude Code Auto Mode
-description: 使用 classifier 自動批准安全 tool calls 並阻擋高風險 tool calls 的 Claude Code 權限模式；介於預設與 `--dangerously-skip-permissions` 之間的折衷方案
+title: Claude Code 自動模式
+description: Claude Code 使用分類器自動核准安全的工具呼叫並封鎖高風險呼叫的權限模式；介於預設模式與
+  `--dangerously-skip-permissions` 之間的折衷方案
 tag: Concept
-domain: ai-engineering
+domain: agent-systems
 tags:
   - claude-code
   - permissions
   - agent-safety
   - developer-workflow
-readingTime: 7
-imageAlt: Claude Code Auto Mode 的插圖
+readingTime: 8
+imageAlt: Claude Code 自動模式插圖
 sources:
   - title: Auto mode for Claude Code
     url: https://claude.com/blog/auto-mode
@@ -26,82 +27,84 @@ export { default as heroImage } from "../assets/claude-code-auto-mode.png";
 
 ## 摘要
 
-Auto mode 是 Claude Code 中的一種權限模式，它將每次 tool call 的批准委託給 classifier，定位於三點安全性光譜的中間：**預設** (每次寫入/bash 都會進行 prompt) → **auto mode** (classifier 批准安全操作、阻擋風險操作，最後升級為 prompt 詢問) → **`--dangerously-skip-permissions`** (不進行任何檢查)。最初作為技術預覽版在 Team plan 上推出；隨後與 [Opus 4.7](/articles/claude-opus-4-7) 一同開放給 Max 使用者；並與 Sonnet 4.6 和 Opus 4.6 相容。
+自動模式是 Claude Code 中的一種權限模式，將每次工具呼叫的核准交給分類器處理，定位在三點安全光譜的中間：**default**（每次寫入／bash 都提示）→ **auto mode**（分類器核准安全呼叫、封鎖高風險呼叫，最終可能升級為提示）→ **`--dangerously-skip-permissions`**（不進行檢查）。該模式以研究預覽形式在 Team 方案推出；隨著 [Opus 4.7](/articles/claude-opus-4-7) 一同擴展至 Max 使用者；並相容於 Sonnet 4.6 與 Opus 4.6。
 
 ## 細節
 
-### Mechanism
+### 機制
 
-在每次 tool call 執行之前，classifier 會對其進行檢查並返回三種結果之一：
+每次工具呼叫執行前，分類器會檢查該呼叫，並回傳三種結果之一：
 
-1. **安全 (Safe)** → tool call 自動繼續執行，不進行 prompt。
-2. **有風險 (Risky)** → 阻擋。Claude 會被引導嘗試其他方法。
-3. **重複被阻擋 (Repeatedly blocked)** → 如果 Claude 堅持執行不斷被阻擋的操作，最終會向使用者呈現權限 prompt。
+1. **Safe** → 工具呼叫自動繼續執行，不顯示提示。
+2. **Risky** → 封鎖。Claude 會被導向嘗試不同方法。
+3. **Repeatedly blocked** → 如果 Claude 堅持執行持續遭到封鎖的動作，最終會向使用者顯示權限提示。
 
-classifier 針對的是 Anthropic 定義為具有潛在破壞性的類別：大量檔案刪除、敏感資料外洩以及惡意程式碼執行 (完整清單維護在 Claude Code 的 permission-modes 文件中)。
+分類器的目標是 Anthropic 所描述的可能具破壞性的類別：大量刪除檔案、敏感資料外洩，以及惡意程式碼執行（完整清單維護於 Claude Code 權限模式文件中）。
 
-### Residual Risk
+### 殘餘風險
 
-Auto mode **降低了** 相對於 `--dangerously-skip-permissions` 的風險，但並未完全消除。兩種已知的失效模式：
+自動模式相較於 `--dangerously-skip-permissions` **降低**了風險，但並未消除風險。文件記載了兩種失效模式：
 
-1. **意圖模糊 (Ambiguous intent)**：classifier 無法判斷某個操作是否為良意。
-2. **缺失環境 context**：classifier 不清楚特定部署的風險層面 (例如：共享資料庫、生產環境的 bucket)。
+1. **意圖模糊**：分類器無法判斷某個動作是否無害。
+2. **缺少環境脈絡**：分類器不知道部署環境特有的風險面（例如共用資料庫、production bucket）。
 
-在這兩種情況下，classifier 都可能放行某些高風險操作。相反地，它有時也可能阻擋良意操作。即使開啟了 auto mode，Anthropic 仍然建議使用隔離環境。
+在這兩種情況下，分類器可能讓部分高風險動作通過。反過來，它偶爾也可能封鎖無害的動作。即使開啟自動模式，Anthropic 仍持續建議使用隔離環境。
 
-### Cost and Latency
+### 成本與延遲
 
-對每個 tool call 的 token 消耗、成本和延遲影響很小 (classifier 在行內執行)。但並非為零。
+每次工具呼叫對 token 消耗、成本與延遲的影響都很小（分類器會 inline 執行）。但並非零影響。
 
-### Availability and Toggles
+### 可用性與切換方式
 
-- **技術預覽版推出**：Claude Team plan；在接下來的幾天內 (自原始貼文發布起) 推廣至 Enterprise 和 API 方案。
-- **擴展至 Max 使用者**，與 Opus 4.7 的發布同步 (參見 [Claude Opus 4.7](/articles/claude-opus-4-7))。
-- 在 Claude desktop app 上**預設停用**；管理員可透過 Organization Settings → Claude Code 進行切換。
-- **Managed settings 停用**：在 managed settings 中將 `"disableAutoMode"` 設定為 `"disable"`，以關閉 CLI 和 VS Code 擴充功能中的此功能。
+- **研究預覽推出**：Claude Team 方案；未來幾天內逐步開放至 Enterprise 與 API 方案（以來源文章發布時為準）。
+- **隨 Opus 4.7 推出一同擴展至 Max 使用者**（請參閱 [Claude Opus 4.7](/articles/claude-opus-4-7)）。
+- **Claude 桌面應用程式預設停用**；管理員可透過 Organization Settings → Claude Code 切換。
+- **由管理員停用**：在受管理設定中將 `"disableAutoMode": "disable"` 設定為停用 CLI 與 VS Code extension 的自動模式。
 - **開發者啟用**：
-  - CLI：`claude --enable-auto-mode`，然後使用 `Shift+Tab` 切換至該模式。
-  - Desktop / VS Code 擴充功能：在 Settings → Claude Code 中啟用，並在 session 期間從權限模式下拉選單中進行選擇。
+ - CLI：`claude --enable-auto-mode`，接著按 `Shift+Tab` 循環切換至該模式。
+ - Desktop / VS Code extension：在 Settings → Claude Code 中啟用，並於工作階段內從權限模式下拉選單選取。
 
-### Intended Use Case
+### 預期使用情境
 
-Auto mode 的存在是因為 Claude Code 的預設設定非常保守 —— **每次檔案寫入與 bash 指令都會進行 prompt**。這種安全性設計使得無人值守 (unattended) 的長時間執行任務變得不切實際：你無法啟動一個需要數小時的重構後就轉身離開。Auto mode 是一條折衷之路：提供中斷更少的長時間任務執行，同時又不需要無條件信任 Claude 對破壞性操作的判斷。
+自動模式之所以存在，是因為 Claude Code 的預設設定刻意採取保守策略——**每次檔案寫入與 bash 指令都會提示**。這種安全性讓無人值守的長時間任務變得不切實際：你無法啟動一個耗時數小時的重構後就離開。自動模式提供了中間道路：讓長時間任務減少中斷，同時不必無條件信任 Claude 對破壞性動作的判斷。
 
-這呼應了 [Claude Code Best Practices](/articles/claude-code-best-practices#Scaling%20Patterns) 中的 "fan-out 與無人值守執行" 擴充模式 —— 這是一個先前被迫在審批疲勞與 `--dangerously-skip-permissions` 之間做二選一的既有使用場景。
+這與 [Claude Code Best Practices](/articles/claude-code-best-practices#Scaling%20Patterns) 中的「fan-out and unattended runs」擴展模式相呼應——這是先前就存在的使用情境，但過去只能在核准疲勞與 `--dangerously-skip-permissions` 之間二選一。
 
-### Non-Interactive Mode Interaction
+### 非互動模式的互動方式
 
-當 Claude Code 以非互動方式 (`claude -p`) 執行時，沒有使用者可以回答權限 prompt。根據 [Claude Code Best Practices](/articles/claude-code-best-practices), auto mode 在非互動模式下若重複被阻擋將會中止，而不是懸掛在一個無法回答的 prompt 上 —— 這保留了 best-practices 指南中描述的 fan-out 和 pre-commit-hook 使用場景。
+當 Claude Code 以非互動方式執行（`claude -p`）時，沒有使用者可以回答權限提示。根據 [Claude Code Best Practices](/articles/claude-code-best-practices)，在非互動模式中重複遭到封鎖時，自動模式會中止，而不是卡在無人可回答的提示上——藉此保留最佳實務指南中描述的 fan-out 與 pre-commit-hook 使用情境。
 
 ## 相關連結
 
-- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — auto-mode 的 classifier 將驗證負擔轉移到審批時的關卡攔截
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — auto mode 是權限章節中 "基於 classifier 的批准" 項目的實現；它與 `/clear`、session 管理和驗證驅動開發相結合，促成了該文章中的擴充模式
-- [Claude Opus 4.7](/articles/claude-opus-4-7) — Opus 4.7 的發布將 auto mode 的可用性擴展到 Max 使用者
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — auto mode 是一種 harness 等級的安全不變量：以*機械式*的方法強制執行破壞性操作的邊界，而非透過 prompt 建議。符合 OpenAI 的 Codex harness 研究結論中 "強制執行不變量，而非實現" 的原則
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 基於 classifier 的事前檢查是一種防禦模式，類似於 vulnerability-research scaffold 中的驗證 agent；兩者皆使用二次模型傳遞來過濾主要 agent 的操作
-- [Hermes Agent](/articles/hermes-agent) — 不同的批准模型設計點：Hermes 使用針對特定模式的批准 (`once`/`session`/`always`/`deny`) 而非 classifier，並在 container backend 底下停用危險指令檢查，其基本原則是 "容器即為安全邊界"。折衷方案：以每個映像檔的規範取代每次指令的審計
-- [Agent Loop Pattern](/articles/agent-loop-pattern) — auto mode 是 AFK loops 的先決條件；否則每次 tool call 都會因為 prompt 而阻擋 loop 的進行。Boris Cherny 的 `/loop` 工作流程需要依賴基於 classifier 的閘控才能正常運作
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — Cat Wu 預測，隨著模型能可靠地執行正確操作，權限模式、人工介入 (human-in-the-loop) 及靜態指令驗證都將變得 "沒那麼重要"；auto mode 是朝向 harness 縮減軌跡中的 harness 資產之一
-- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — auto mode 的 classifier 是 HBR 的問責制規範中 "決策權" 子領域的具體案例：定義了 agent 可以自主執行什麼，以及需要人類批准什麼
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 受 classifier 閘控的工具使用是針對 agentic misalignment 層面的一種緩解措施；這與模型側的緩解措施 (如 [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)) 形成互補
-- [AI Brain Fry](/articles/ai-brain-fry) — 將人工審查集中在高風險的決策點，而非過濾每次操作，是 auto mode 的 classifier 閘控所實施的監管疲勞緩解方案
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — auto mode 閘控的底層；classifier 透過相同的風險視角評估 MCP 呼叫和 computer-use 操作
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 受 classifier 閘控的批准是 constitutional-classifier 防禦的部署實例，該防禦應用於操作邊界而非輸入邊界
-- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — 在*查詢*邊界使用相同的 classifier 閘控概念：Fable 5 在標記為網絡/生物/提煉主題時換入較弱的模型 (Opus 4.8)，而不是直接阻擋 tool call
-- [Autonomous Defense](/articles/autonomous-defense) — "警報佇列最前端的模型" 是 SOC 中與 auto mode 的 classifier 在人類看到之前對 tool calls 進行分類篩選的對應物
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 自動模式分類器將驗證負擔轉移到核准時的閘門
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — 自動模式是權限章節「classifier-based approval」條目的解答；搭配 `/clear`、工作階段管理與驗證驅動開發後，便能實現該文章中的擴展模式
+- [Claude Opus 4.7](/articles/claude-opus-4-7) — Opus 4.7 的推出將自動模式的可用性擴展至 Max 使用者
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 自動模式是 harness 層級的安全不變量：以**機械方式**強制執行破壞性動作邊界，而不是透過提示建議。這符合 OpenAI Codex harness 研究結果中的「強制執行不變量，而非實作」原則
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 基於分類器的 pre-flight 是一種防禦模式，類似漏洞研究 scaffold 中的 validation agent；兩者都使用次級模型執行額外檢查，以過濾主要代理的動作
+- [Hermes Agent](/articles/hermes-agent) — 不同的核准模型設計點：Hermes 使用依模式核准（`once`／`session`／`always`／`deny`），而在 container backend 下依據「container 是安全邊界」的原則停用危險指令檢查。取捨是：以逐映像檔的紀律取代逐指令的稽核
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 自動模式是 AFK loops 的前置條件；沒有它，每次工具呼叫都會因提示而阻塞迴圈。Boris Cherny 的 `/loop` 工作流程依賴基於分類器的閘控，才能實際使用
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — Cat Wu 預測，隨著模型可靠地做出正確行動，權限模式／human-in-the-loop／靜態指令驗證都會變得「不那麼重要」；自動模式正是朝向 harness 縮減軌跡上的其中一項 harness 資產
+- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — 自動模式的分類器是 HBR 問責處方中「decision rights」子前沿的具體實例：定義代理可自主執行哪些事項、哪些事項需要人類核准
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 分類器閘控的工具使用，是降低 agentic misalignment 攻擊面的一種方式；它與模型端的緩解措施（例如 [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)）互補
+- [AI Brain Fry](/articles/ai-brain-fry) — 將人類審查集中在高風險決策點，而非每個動作上，是自動模式分類器閘控實現的監督疲勞緩解方式
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — 自動模式所閘控的基礎層；分類器透過相同的風險視角評估 MCP 呼叫與 computer-use 動作
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 分類器閘控的核准，是將 constitutional-classifier 防禦部署在動作邊界、而非輸入邊界的實例
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — 一個*對比*：自動模式的分類器是**基於模型的**動作邊界閘門，正是 out-of-band 文獻所逐漸遠離的「LLM in the loop」（「閘門不可由模型擔任」），轉而採用確定性的 policy monitor——對能夠誘導分類器繞過限制的適應性攻擊者而言，這是一個較弱的目標
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — 相同的分類器閘控概念出現在*查詢*邊界：Fable 5 會在標記的 cyber／bio／distillation 主題上換用較弱的模型（Opus 4.8），而不是封鎖工具呼叫
+- [Autonomous Defense](/articles/autonomous-defense) — 「位於警示佇列前端的模型」是 SOC 中自動模式分類器在人工查看前先對工具呼叫進行分流的對應概念
+- [Configurable Human Participation](/articles/configurable-human-participation) — HAS-Bench 的 Control channel + Safety-Critical Authorization 模式，就是自動模式所採用的設計；僅控制型的*人類*授權可填補受保護動作的安全缺口（100%），而釐清／回饋（51/54%）無法做到——這是應該閘控動作、而不只是詢問動作的實證案例（分類器是該人類授權步驟的自動化替身）
 
-## 待解決的問題
+## 開放問題
 
-- classifier 在例行但激進的重構 (例如：大檔案重新命名、`rm` 建置產物) 上的誤判率 (false-positive rate) 是多少？
-- 在缺乏環境 context 的情況下，classifier 對自訂 tools / MCP 伺服器的泛化能力如何？
-- classifier 的決策邊界是否足夠詳細記錄且穩定，以便讓安全性敏感的組織進行認證，還是它本質上是一個黑盒子，其行為會隨著更新而 drifts？
-- 將 auto mode 開放給 API 使用者是否會改變其校準 —— classifier 會針對重度自動化使用進行重新訓練，還是保持不變？
-- 與 OS 等級的沙箱技術 (在 [Claude Code Best Practices](/articles/claude-code-best-practices) 中與 auto mode 一同提及) 相比，它的 defense-in-depth 架構如何？何時應該將兩者分層部署？
+- 分類器在例行但激進的重構（例如大型檔案重新命名、對建置產物執行 `rm`）上的誤判率是多少？
+- 對於缺少環境脈絡的自訂工具／MCP servers，分類器的泛化能力如何？
+- 對安全敏感的組織而言，分類器的決策邊界是否有足夠文件記錄且穩定到可以進行認證，還是它實際上是一個會隨更新而漂移的黑箱？
+- 將自動模式擴展至 API 使用者後，是否會改變其校準方式——分類器會針對高度自動化的使用情境重新訓練，還是維持不變？
+- 與 [Claude Code Best Practices](/articles/claude-code-best-practices) 中和自動模式一同提到的 OS-level sandboxing 相比，縱深防禦的整體設計為何？什麼時候應該同時採用兩者？
 
-## 衍生內容
+## 推導
 
-- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — auto mode 作為無人值守 multi-agent fan-out 的 defense-in-depth 層
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 自動模式作為無人值守多代理 fan-out 的縱深防禦層
 
 ## 資料來源
 

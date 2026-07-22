@@ -1,0 +1,147 @@
+---
+date: 2026-07-16
+title: 能力閘門不是授權
+description: "Mellafe Zuvic（arXiv 2606.28679）：熱門代理框架
+  (LangChain/LangGraph、LlamaIndex、Stripe Agent Toolkit) 提供*能力閘門*
+  （會公開哪些工具 + schema 是否有效），但預設沒有對具體引數值進行失敗即拒絕的
+  *逐次呼叫授權*——因此遭入侵或陷入困惑代理人問題的代理，會執行那些
+  *落在*其已授予能力範圍內、但未獲授權的行動（型別正確的 account=acct_ATTACKER
+  也能通過）。本文提出 ScopeGate，一個確定性的 5 階段 PDP/PEP（範圍 → 授權 →
+  金額上限 → 冪等性 → 預設拒絕），依據模型之外的操作者政策，重新授權每個模型產生的呼叫：
+  靜態繞過 0/48，40 次迭代自適應執行為 0/29，誤拒絕 0 次；成本最佳化的部署層模型
+  嘗試未授權呼叫的頻率約為旗艦模型的 3.2 倍（平均 ASR 0.603 對 0.189）"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - authorization
+  - confused-deputy
+  - least-privilege
+  - reference-monitor
+  - agent-frameworks
+readingTime: 21
+imageAlt: 「能力閘門不是授權」的插圖
+sources:
+  - title: "Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM
+      Agent Frameworks"
+    url: https://arxiv.org/pdf/2606.28679
+  - title: OpenID Foundation advances authorization for the agent era with new
+      AuthZEN Working Group Drafts
+    url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+---
+export { default as heroImage } from "../assets/capability-gating-vs-authorization.png";
+
+## 資料來源
+
+- [Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM Agent Frameworks](https://arxiv.org/pdf/2606.28679)
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
+
+## 摘要
+
+David Mellafe Zuvic（Independent Security Research, Chile；arXiv 2606.28679，2026 年 6 月）審查了使用工具的 LLM 代理中一個特定的授權失效：**存在能力閘門，但不存在逐次呼叫授權。**兩者是不同的控制措施，框架卻經常將其混為一談：
+
+- **能力閘門**是*靜態的*——它決定**代理的工具選單中有哪些工具**（工具允許清單、金鑰範圍、JSON schema）。schema 可以拒絕*格式錯誤*的引數。
+- **逐次呼叫授權**是*動態的*——它決定**在這個主體／工作階段脈絡下，這次帶著這些具體引數值的呼叫是否獲准。**schema *無法*決定型別正確的 `account=acct_ATTACKER_999` 是否獲得授權。
+
+當唯一的檢查是工具名稱存在與 schema 有效時，「不受信任的模型實際上同時提供了行動與授權事實。」這就是**困惑代理**（Hardy 1988）：特權元件受到攻擊者控制的輸入誘導，濫用其權限。經典系統安全早已提供補救方法——Saltzer–Schroeder 的**完整中介**：每次存取權限都必須檢查，*不能只在建構時檢查*。這是 `empirical` 工作：一項可重現、跨框架、連結已測量威脅與可部署控制的稽核；未主張存在 CVE，也未攻擊線上的第三方服務。
+
+這篇論文就是 vault 注入攻擊文章所利用的**授權層**。[Agentic Prompt Injection](/articles/agentic-prompt-injection) 及其更細緻的變體（[Agent Data Injection (ADI)](/articles/agent-data-injection)、[Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)）都是最終導向*模型產生的工具呼叫*的傳遞機制；本文假設注入已發生，研究更狹窄的系統問題：**遭入侵的模型產生呼叫後，執行環境接下來會做什麼？**
+
+## 兩種控制，以及為何混淆它們會形成困惑代理
+
+系統是一個嵌入應用程式的工具使用代理，而應用程式持有實際權限（付款金鑰、信箱、CRM 權杖、HTTP 對外連線、MCP 用戶端、基礎設施憑證）。**代理執行環境與工具在信任邊界內；LLM 不在其中**——它是不受信任的文字解析器／規劃器，處理的文字可能包含攻擊者內容。對手控制的是**內容，而非程式碼**（擷取的文件、網頁、電子郵件本文、支援工單、先前的工具輸出或代理對代理的交接），並希望代理使用攻擊者選定的引數產生具副作用的呼叫：改指付款帳戶、退款至攻擊者目的地、外洩祕密、抓取 SSRF 目標。這是間接提示注入（OWASP LLM01、MITRE ATLAS AML.T0051）——假設可行，不再重新論證。
+
+**攻擊來源獨立性**是邊界的關鍵性質。執行期提示注入與*供應鏈模型入侵*在行動層匯合：兩者都會產生一個待處理的工具呼叫。遭毒化的 checkpoint 可能造成檔案層級 RCE（不安全反序列化、`trust_remote_code`），*或*透過權重層級後門，在觸發片語出現時引發攻擊者行動——而權重後門偵測仍是開放問題。在逐次呼叫邊界，兩者的處理完全相同：後門觸發的 `update_payout_account(acct_ATTACKER)` 與注入觸發的呼叫，都會被同一套模型外政策拒絕。這項控制涵蓋受治理工具的*行動層後果*；它不會偵測毒化、恢復乾淨模型，也不會限制返回給使用者的非工具文字。
+
+## 模型外政策是承重結構
+
+閘門檢查的政策**不是模型輸出**。工具範圍、允許清單、金額上限、冪等性要求，以及像 `{acct_MERCHANT_001}` 這類已驗證集合，都是**由操作者編寫的設定，從模型上下文視窗、寫入路徑與影響力之外的信任根載入。**注入內容可以將*待處理*呼叫從 `account=acct_MERCHANT_001` 改為 `account=acct_ATTACKER_999`；但**無法改變**用來檢查該提案的已驗證集合。若由 LLM 產生、擴充或發現自己的逐次呼叫範圍，設計便會是**循環的**——同一個破壞呼叫的注入也可能破壞範圍。這項義務具有傳遞性：任何政策元素在任何階段都不得直接或間接取自模型輸出——包括離線編寫、工作階段播種或執行期重新整理；因此也排除了已驗證集合中毒、工作階段播種的檢查時機／使用時機政策突變，以及透過模型可達對外連線動態抓取政策。這正是[out-of-band defense literature](/articles/out-of-band-prompt-injection-defense) 所闡述的相同準則：「閘門不能是模型。」
+
+## 跨框架缺口（表 I）
+
+一項針對固定 commit 的公開來源架構稽核提出一個狹窄問題：模型產生工具呼叫後，在產生副作用前，是否有一個對*具體引數值*進行確定性、失敗即拒絕的授權檢查？三個受稽核堆疊都提供能力閘門；**但預設都沒有這項檢查：**
+
+| 框架（固定來源） | 能力閘門 | 逐次呼叫值授權（預設） | 預設是否會形成困惑代理 |
+|---|---|---|---|
+| LangChain / LangGraph (`00ad96c` / `bdb323e`) | 有 | 無——callback hooks 是可觀測性，而非強制否決；HITL middleware 需由整合者接線 | 是 |
+| LlamaIndex (`v0.14.23`, `520aa4e`) | 有 | 中央工具派送沒有；`fn_schema` 是形狀中繼資料；HITL 是工具作者的工作流程程式碼 | 是 |
+| Stripe Agent Toolkit (`0b4961f` / `f54c9e6`) | 有 | 金額引數沒有（`amount`、`customer`、`payment_intent`、`destination`、`redirect_url`）；行動允許清單 + Restricted API Key 範圍很粗略，不是逐筆交易 | 是 |
+
+在每條預設派送路徑中，系統會解析模型選出的工具名稱、驗證輸入的*形狀*，再使用模型提供的引數呼叫工具——**驗證與執行之間沒有任何會查詢具體值授權政策的鉤子。**Stripe 的風險最高，因為它最接近資金移動。稽核對象是*公開用戶端／框架預設值*（未稽核 Stripe 的遠端 MCP 內部實作）——這些是可強化與釐清標準的候選項，不是被主張的漏洞。
+
+## 模型暴露程度如何？（表 II／圖 1）
+
+只有當真實模型會在現實攻擊下產生未授權呼叫時，這個缺口才重要。配套的 27 模型確定性基準測試（[16]）測量**ASR = 模型的*嘗試*率**（在具確定性 oracle、使用不可路由 sink 的沙盒中，發出未授權呼叫或產生精確 SHA-256 canary）——**不是洩漏率。**有兩個訊號：
+
+- **部署層與旗艦模型。**成本最佳化的「部署層」模型（經濟實惠，適合高流量代理）嘗試未授權呼叫的頻率**約高出旗艦模型 3.2 倍**：**平均 ASR_task 0.603 對 0.189**（已與圖 1 核對）。部署層範例：`gpt-4o-mini` 1.000、`glm-4.5-air` 1.000、`gemini-3.1-flash-lite` 0.980；旗艦低值範例：`glm-5.2` 0.087、`gemini-3.1-pro-preview` 0.000。這個層級是經濟推論，*不是*任何供應商在 production 執行具名模型的披露；彙總值沒有配對 CI（兩組都有高離群值）。
+- **與任務對齊的表述**——把同一個危險行動呈現為*完成使用者任務所必需*——會大幅提高嘗試率，超過粗糙的天真注入：`glm-4.7` 0.283→1.000（Δ0.717，BH q&lt;0.001）、`gemma-3-12b-it` 0.000→0.571、`mistral-large` 0.027→0.459（配對 Wilson/Newcombe CI、Benjamini-Hochberg 校正）。這正是 [AutoDojo](/articles/task-specification-injection-surface) 在防禦側測量的相同機制：「注入讀起來像任務資料，而不是指令」。Latam-GPT 主權模型案例顯示 EN/ES 符號翻轉（0.320→0.520 對 0.240→0.040），但被註明為模態下限（bnb-4bit，停用原生 function-calling），不是因果主張。
+
+## ScopeGate：確定性的 5 階段 PDP/PEP（圖 3、演算法 1）
+
+**ScopeGate** 是位於模型下游、具副作用工具上游的 Policy Decision Point / Policy Enforcement Point。它接收待處理的 `(tool, args)` 與受信任上下文，並返回 `ALLOW` / `DENY`；**決策中沒有 LLM 參與。**它依序評估五個階段，任何未命中或執行期錯誤都**失敗即拒絕**：
+
+1. **範圍**——這個工具是否受政策治理？未列出的工具 → `DENY`。阻止模型*發現*的工具與拼寫錯誤變體抵達副作用。
+2. **授權**——受值限制的引數是否位於允許清單中？**這正是框架缺少的檢查。**型別正確但未獲授權的帳戶、目的地、客戶、URL 或 payment intent → `DENY(authz)`。
+3. **金額上限**——對付款／退款工具而言，金額必須是 `[0, ceiling]` 中的*有限實數*。這是**積極式**檢查，而非天真的 `>` 比較：`NaN`、無限值、複數、作為整數的布林值，以及非數值容器都會被拒絕。
+4. **冪等性**——要求冪等性的具副作用工具，必須在上下文收到*受信任*的冪等性金鑰；缺少金鑰即拒絕，以限制重播與迴圈放大。
+5. **預設拒絕**——只有通過每個階段的呼叫才獲准；**錯誤視為拒絕。**「對格式錯誤輸入採取失敗即放行的政策引擎，只是用更多步驟重現漏洞。」
+
+只要所有具副作用的呼叫都通過 PEP，且政策留在模型外，這項安全性質便**與部署位置無關**：它可以是應用程式內的 SDK middleware、loopback 上的 sidecar proxy，或中央對外連線／MCP gateway（評估採用 SDK 部署）。
+
+## 評估（表 III）
+
+- **可重現的框架 PoC。**使用真實 LangChain 工具（`update_payout_account`、`issue_refund`）搭配模擬商家後端；固定的遭入侵輸出提出 `update_payout_account(account=acct_ATTACKER_999)`。**A 部分**（正常派送）套用攻擊者帳戶並記錄副作用；**B 部分**將相同呼叫導向 ScopeGate，ScopeGate 在 `authz`（不在 `{acct_MERCHANT_001}` 中）拒絕，且副作用為零。配套的 LlamaIndex PoC 重現相同的預設派送缺口。單一指令（`./run_proof.sh`，commit `d9568ac` 的 Apache-2.0 artifact）即可重現。
+- **靜態繞過套件——0/48。**48 個對抗向量（大小寫／空白／零寬／同形異義字／null-byte 變異、型別混淆、不可雜湊引數、工具名稱變異、金額邊界案例、缺少冪等性）；沒有任何一個獲准。該套件*找出並修正了早期 ScopeGate 原型中的真實失敗即放行問題*——`NaN` 曾通過天真的金額比較，現已在金額階段拒絕（這是誠實報告的 ScopeGate 原型錯誤，不是框架失敗即放行）。
+- **自適應攻擊者——0/29。**將拒絕原因回饋給 GLM-5.2 攻擊者，進行 40 次迭代：0/29 未授權嘗試獲准（29 次拒絕、9 次格式錯誤／解析錯誤、2 次善意呼叫獲准）。受預算限制，不是普遍性證明。
+- **善意控制——0 次誤拒絕。**兩個部署層原生 function-calling 模型共 0/10 次誤拒絕；確定性的 Latam-GPT 探測則另外允許 4/4 個已授權行動。
+- **付款代理遏制。**在 Business-Email-Compromise 表述下的 WhatsApp 付款複製環境中，`glm-4.5-air` 與 `gpt-4o-mini` 都以 10/10 的比例嘗試未授權付款；ScopeGate 在 `authz` 拒絕每一筆超出範圍的付款（每個模型在善意控制上均為 0/5 次誤拒絕）。Latam-GPT 西班牙文 PCI 重新代幣化執行：10/10 次未授權嘗試、10/10 次在 `authz` 被拒絕；更廣泛的測試電池記錄 11/11 個造成傷害的對外連線行動被拒絕。
+
+## 定位與限制
+
+本文**刻意保持狹窄**。它沒有聲稱發現提示注入，也沒有聲稱是代理的首個逐次呼叫授權——MiniScope（arXiv:2512.11147）已存在，而最小權限早於 LLM 代理。本文捍衛的新穎性是：**首個可重現、跨框架、針對確切預設缺口的稽核**——「已提供能力閘門，卻缺少逐次呼叫授權」——並搭配模型暴露度量與可部署的失敗即拒絕控制。它與密碼學付款同意相容（AP2-break line [11]）：即使付款軌道很強，也需要確定性的控制平面，在執行前依據操作者政策檢查模型提出的交易。
+
+限制也明確列出：**遏制不是治癒**（ScopeGate 不會阻止注入、偵測遭毒化權重、修復模型行為，也不保證自然語言輸出安全——它只限制遭入侵模型*透過受治理工具*能做什麼）；`0/48` 與 `0/29` 數字都受**套件與預算限制**，更長的自適應預算、具狀態的側通道、DNS rebinding、時序與多代理政策中毒留待未來工作；稽核也僅限於**公開來源**，因此其發現是強化候選項，不是 CVE。
+
+## 這如何回答「限制在既有授權行動內的攻擊」
+
+[Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) 留下一個攻擊論文持續深化的開放問題：一種**限制在既有授權行動內**的攻擊——不違反任何政策便達成注入目標——是否會像自適應攻擊突破模型內防禦那樣，繞過確定性行動閘門？本文**精確命名了這類失效**，並提出防禦。「已獲授權」分成兩種：
+
+- **能力獲授權、但值未獲授權**——工具（`issue_refund`、`update_payout_account`）在已授予的選單中，但注入的*引數值*（攻擊者目的地／帳戶）不在其中。這是範圍內的困惑代理案例，**ScopeGate 在 `authz` 階段以模型外允許清單重新檢查值來阻擋它**（測試語料中繞過 0 次）。看似「在既有授予能力內」的攻擊，在值層級*變成*政策違規。
+- **真正位於政策內**——遭竄改的值確實會變動，且無法以允許清單約束（自由文字內容、對任何合法客戶的範圍內金額，或代理合法採取行動的[偽造作者／捏造工具結果](/articles/agent-data-injection)）。此時行動*符合*值政策，卻仍然造成傷害。這就是 ADI 對 Progent 顯示的**相同殘餘**（22.2%），也是[模型外頁面所命名的「在迴路中／文字到文字」限制](/articles/out-of-band-prompt-injection-defense)——ScopeGate 依其建構方式共享這項限制，因為值閘門只在政策約束遭竄改引數的地方有幫助。
+
+因此，誠實的解讀是：逐次呼叫值授權**關閉了範圍內攻擊中的值重新導向類別**（相較於只提供能力閘門的預設值，是真實進展），但**無法關閉合法可變資料遭竄改的類別**，後者需要來源／資料流追蹤。這是一種*同類型*的防禦——依據 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) 移除確定性的能力，而不是治癒。
+
+## 標準化軌道的對應方案（OpenID AuthZEN / COAZ）
+
+ScopeGate 是經測量的研究系統；**OpenID Foundation 的 AuthZEN Working Group** 正在標準化相同的「授權每個工具呼叫」邊界。其**Authorization API 1.0** 已定義可互通的 **Subject-Action-Resource-Context (SARC)** 允許／拒絕決策介面，ScopeGate 以臨時方式實作了該介面；新近核准的 **COAZ** Working Group Draft（*AuthZEN Profile for MCP Tool Authorization*，2026-06-15）則將 **MCP 工具呼叫映射至 SARC**，讓 API／AI gateway、service mesh 或下游 PDP 能在呼叫點授權模型產生的工具呼叫。對照 ScopeGate：同樣是確定性的逐次呼叫決策，但這是**提議中的互通性標準**（`practitioner-opinion`、Working Group *Draft*），而不是經 `empirical` 基準測試的控制——因此在重疊部分，其權重**低於**本文測量的 `0/48`／`0/29` 結果，也沒有等價的自適應攻擊評估。配套的 **AARP** 草案增加了 ScopeGate**沒有**的形式：它不是單純的 `DENY`，而是標準化「**尚未——這是前置條件**」的核准／證明／委派步驟（泛化 CIBA），再重新評估政策——將 ScopeGate 的終端拒絕轉化為可恢復的治理握手。更完整的處理見 [AIMS](/articles/agent-identity-management-system)。
+
+## 相關連結
+
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — OpenID AuthZEN 草案的標準組織所在地：**AuthZEN 的 Authorization API + COAZ** 是 ScopeGate 逐次 `(tool, args)` 值授權的*提議標準*版本（MCP 工具呼叫點上的 SARC 允許／拒絕），而 **AARP** 增加 ScopeGate 缺少的前置條件／核准（「尚未」）形式——都是提議中的 Working Group Drafts，權重低於本文的 `empirical` 測量（詳見上文）
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — **主機外的姊妹方案**：aiAuthZ（Kodathala，arXiv 2607.05518）是「授權邊界位於何處？」軸線上的另一個點。兩者都是確定性、失敗即拒絕、逐次呼叫的授權閘門，具有引數層級允許清單、模型外政策與微秒級延遲，也共享相同的組合 + 合法可變資料遭竄改殘餘——事實上，aiAuthZ 僅引數消融基線基本就是 ScopeGate 的形狀。兩個精確差異：(1) ScopeGate 是**框架內 PDP/PEP**（依作者論證，部署位置無關），aiAuthZ 則堅持在測量到內建工具重疊的執行環境甚至能繞過外部 gateway 後，採用**獨立信任域**；(2) ScopeGate **沒有呼叫者驗證步驟**，aiAuthZ 則加入**每則訊息的人類發送者 HMAC 身分**——相較於僅引數基線達到 9/9 對 4/9 的優勢，因為它能阻擋身分冒充（非擁有者聲稱擁有者權限），而純值閘門無法將其與合法擁有者使用區分開來
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — ScopeGate **是**模型外參考監視器／PDP-PEP 家族（CaMeL/FIDES/Progent/RTBAS/FORGE）的一員，專門處理*框架預設值的逐次呼叫值授權*；兩者都共享「政策必須在模型外、閘門不能是模型」準則，也都碰到相同的在迴路中／破壞合法資料限制
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — ScopeGate 逐次呼叫值授權的**記憶體權限雙生方案**：兩者都是工具邊界上的確定性、模型外、模型不參與的閘門（ScopeGate 重新授權*引數值*；TMA-NM 將記憶項目的*行動權限*綁定至來源），兩者都以約 µs 的低成本運作且不需額外模型呼叫，都共享需要值層級來源資訊的合法可變資料遭竄改殘餘，也都體現「權限／政策必須在模型外、閘門不能是模型」——TMA-NM 另外加入跨工作階段記憶維度與機器檢查的不可竄改性保證
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 本文假設並研究其*下一層*的威脅：注入產生模型產生的工具呼叫，而本文追問執行環境是否會執行它（預設會）
+- [Least Agency](/articles/least-agency) — 逐次呼叫值授權是**引數值粒度**的 least agency：能力閘門界定*哪些工具*，ScopeGate 的 `authz` 階段界定*哪些引數值*，並在工具呼叫邊界確定性執行——讓「限制每個工具能做什麼」成為一路下降至值的硬性屏障
+- [Blast Radius (Agentic)](/articles/blast-radius) — ScopeGate「在副作用發生前，讓遭入侵模型可觸及的行動受政策約束」：在工具呼叫邊界限制爆炸半徑，這是「假設已遭入侵」所期待的遏制（而非預防）姿態
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — ADI 產生 ScopeGate 會管制的待處理工具呼叫，並**共享該殘餘**：ADI 偽造*代理會合法採取行動的資料*（偽造作者、捏造工具結果），這符合值政策卻造成傷害——正是 Progent（22.2%）與 ScopeGate 的 `authz` 階段都無法消除的類別；值閘門只在允許清單約束遭竄改引數的地方有幫助
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — AutoDojo 的正面結果（「真正的穩健性來自**將代理行動綁定至使用者請求**，而非過濾輸入」）是本文操作者政策值閘門的請求衍生軌跡版本；而其任務對齊注入機制正是推動本文天真→任務對齊 ASR 跳升（glm-4.7 0.283→1.000）的原因
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — 閘門假設的**傳遞層**：ShareLock 擊敗*偵測*（所有 LLM 分類器 + entropy），並在執行期重建惡意指令，但重建的呼叫（讀取 `api_key`、外洩至攻擊者地址）是位於*已授予能力內*的模型產生工具呼叫——正是 ScopeGate 逐次呼叫值 `authz` 階段在允許清單約束引數時會拒絕的範圍內困惑代理類別。偵測規避正是持久防禦位於授權層、而非掃描器的原因。其 **Agentjacking** 案例研究是同一困惑代理的現實版本：遭劫持代理產生 `npx @attacker-package` 執行 + 憑證外洩對外連線——逐次呼叫 `authz` 允許清單（允許的套件、允許的對外連線主機）可以拒絕這些模型提供的引數值，而「修好這個 Sentry bug」的表述則是值閘門無法觸及的合法可變殘餘（供應商報告，權重低於本文的 `empirical` 測量）
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — 互補層：身分／驗證回答*代理是誰*；逐次呼叫授權回答*在該主體／工作階段脈絡下這次呼叫是否獲准*——ScopeGate `authz` 階段所檢查的「主體與工作階段脈絡」，預設該控制域已建立可歸屬身分
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 框架**第 5 階段「安全工具存取」（參數驗證、核准升級）**的具體實例：受稽核框架將完整中介留給整合者，而 ScopeGate 是該邊界的一種確定性實作（hub）
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 確定性失敗即拒絕閘門**移除**授權違反政策行動的能力（預設拒絕、錯誤拒絕），而非對其節流；「對格式錯誤輸入採取失敗即放行的政策引擎，只是用更多步驟重現漏洞」是以實作規則表述的測試
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — **「能力」的意義不同——不要混淆。**該文的*能力* = 模型的危險知識程度，而「閘門」將高風險查詢路由到較弱模型（fallback-not-refusal）。本文的*能力* = 公開哪些工具，重點是能力閘門**不等於**授權呼叫。同一個詞，彼此正交的機制（查詢層級模型路由 vs 工具呼叫層級值授權）
+- [OWASP](/articles/owasp) — 困惑代理失效是在 OWASP LLM01（以及 MITRE ATLAS AML.T0051）下的間接提示注入；本文研究 OWASP 威脅所暗示的中介層
+- LangChain/LangGraph、LlamaIndex 與 Stripe Agent Toolkit 是受稽核框架（以純文字引用——沒有實體頁面）
+
+## 開放問題
+
+- `0/48` 靜態結果與 `0/29` 自適應結果都受**套件與預算限制**（40 次迭代、GLM-5.2 攻擊者、單一作者的向量語料）。在更長的自適應預算、具狀態側通道（DNS rebinding、時序）或多代理政策中毒下，確定性閘門是否仍然成立——這正是論文命名的未來工作？
+- `authz` 允許清單能阻止**值重新導向**，卻無法阻止合法可變資料遭竄改。是否存在一種逐次呼叫方案，可以約束自由文字／開放式引數而不犧牲效用——還是這不可約地屬於來源／資料流追蹤的範疇（[CaMeL Strict](/articles/out-of-band-prompt-injection-defense)，效用成本約 50 個百分點）？
+- **部署層約 3.2 倍的暴露差距**（0.603 對 0.189）表示為高流量代理選用的廉價模型最可能產生未授權呼叫——恰好是逐次呼叫閘門最承重的地方。模型改進是否會將嘗試率降低到閘門變得可有可無，還是模型持續參差不齊時，閘門才是持久控制？
+- **模型外政策承重，但對大規模編寫的規範仍不足。**本文禁止任何源自模型的政策元素；大型工具表面的已驗證集合、上限與允許清單由誰編寫與維護？這種編寫負擔是否會將控制限制在高風險（資金移動）工具？
+
+## 資料來源
+
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*…advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`（提議中的 Working Group **Drafts**，不是已批准的規格；權重低於本文的 `empirical` 測量）。ScopeGate 的標準化軌道對應方案：AuthZEN Authorization API 1.0（SARC 允許／拒絕介面）、COAZ（MCP 呼叫 → SARC 設定檔）、AARP（泛化 CIBA 的前置條件／核准模式）
+- [Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM Agent Frameworks](https://arxiv.org/pdf/2606.28679) — David Mellafe Zuvic，*Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM Agent Frameworks*，arXiv 2606.28679，2026 年 6 月，`empirical`。§II（威脅模型：信任邊界、攻擊來源獨立性、模型外政策承重）、§III（跨框架稽核，表 I——固定 commit 的 LangChain/LangGraph、LlamaIndex、Stripe Agent Toolkit）、§IV（測量：部署層與旗艦 ASR、任務對齊表述，表 II／圖 1——已驗證部署平均值 0.603 對旗艦 0.189）、§V（ScopeGate 5 階段 PDP/PEP、圖 3 + 演算法 1、部署位置獨立性）、§VI（LangChain/LlamaIndex PoC、靜態 0/48、自適應 0/29、善意 0 次誤拒絕、Latam-GPT + WhatsApp 付款遏制，表 III）、§VII（相對 MiniScope/AP2 的定位）、§VIII（限制：遏制≠治癒、受套件限制、僅公開來源）。依照圖片兩階段規則檢視圖 1–3；docling 的間隔小數（「0. 603」）只是外觀問題，且與圖表相符。

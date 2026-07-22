@@ -1,0 +1,91 @@
+---
+date: 2026-07-11
+title: LLM 中的自動與彈性認知
+description: "選擇性結果：模型在其工作區遭抑制時，仍能解析、分類、續寫文字並偵測異常，但會失去多跳推理、翻譯、類比與摘要能力——而思維鏈能部分挽救這些能力，因為寫下中間步驟，會將模型原本必須在內部維持的內容外化"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - cognition
+  - reasoning
+  - chain-of-thought
+readingTime: 6
+imageAlt: LLM 中自動與彈性認知的插圖
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/automatic-vs-flexible-cognition.png";
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## 摘要
+
+[全域工作區](/articles/llm-global-workspace)論文中最鮮明的實證結果。同一項資訊可以被模型*使用*，卻不必存在於工作區中——而它是否進入工作區，取決於模型被要求如何處理它，而非任務是否需要它。**J-space 獨立性是語言模型自動性的操作性定義。**
+
+## 同一個潛在變數，四項任務
+
+有一段散文，其語言（西班牙文）十分明顯，卻從未被明說。將問題 token 中的 `Spanish` J-lens 向量換成 `French`：
+
+| 任務 | 需要該語言嗎？ | 交換的效果 |
+|---|---|---|
+| **續寫**——寫出下一行 | 是（顯然需要） | **無。** 仍是流暢的西班牙文 |
+| **異常偵測**——是否有任何不合適之處？（插入一句法文） | 是（這個闖入內容只有相對於周遭內容才算闖入） | **無。** 仍回答「是」 |
+| **明確報告**——說出語言名稱 | 是 | 「Spanish」→「French」 |
+| **彈性計算**——一位著名作者／「你好」的說法／歐元之前的貨幣 | 是 | García Márquez → Hugo；Hola → Bonjour；Peseta → Franc |
+
+關鍵控制條件是：在**全部四種**條件中，`Spanish` 以相近比例出現在 lens 讀出結果裡。存在與否不是區分因素——*因果角色*才是。報告與彈性推論幾乎在每次試驗中都會翻轉；續寫與異常偵測則不受影響。
+
+## 按需調入
+
+字元計數任務展示了相反的情況。要求模型續寫一段文字並保留其換行方式（這需要追蹤持續累積的字元數）時，**數字 token 完全不在 lens 中**，而且將 forties→sixties 交換後，換行點不變。若詢問第一行有*多少個字元*，數字會出現在 20 個位置；交換會讓答案從 46 → 65。若詢問*以文字拼出的計數值的第一個字母*——此時計數值成了未說出口、必須傳遞給下一步的中間結果——數字會出現在更多位置，而交換會讓「F」→「S」。
+
+同一段文字、同一批 token、同一項底層計算。只有在資訊必須被報告，或必須交給任意下游操作時，它才會被載入工作區。
+
+## 消融整個工作區
+
+在一段層的範圍內，將 top-$k$=10 個 J-lens 方向歸零（排除模型即將輸出的 token，以隔離推理與報告）。在 Sonnet 4.5 的十四項任務測試組合中：
+
+- **基本不受影響，即使進行重度消融：** MMLU 選擇題、SQuAD 擷取式 QA、情感分類、CoLA 可接受性判斷、找出不同者。淺層分類、比較、span 擷取、一步驟回憶。
+- **表現跌至未消融的 *Haiku 4.5* 以下：** 多跳推理（接近零）、凱撒密碼解碼、類比補全、摘要、TriviaQA、翻譯、十四行詩寫作。任何需要推導中間結果，或以中間結果為基礎進行自由形式生成的任務，都會受到影響。
+- 在一般預訓練文字上，消融後的模型**仍保持流暢**並產生合理的續寫——但內容反映的是**通用先驗**，而不是特定的上下文推論（例如臨床論文的主題、物種名稱背後的國籍）。
+
+模型在工作區遭抑制時，仍能解析文字、分類文字並從中擷取內容。它失去的是**組合出對上下文的抽象刻畫，並據此生成內容**的能力。
+
+## 思維鏈作為外化的工作區
+
+影響最深遠的發現是：**使用明確思維鏈解出 GSM8K 的結果，比直接回答相同問題，更能抵抗 J-space 消融。**作者的解讀是——模型正在「把原本必須在 J-space 中攜帶的內容外化到頁面上」。寫下中間結果，降低了模型依賴內部工作區保存該結果的程度。
+
+這為 CoT 的用途提供了機制性說明，而且具有雙面性：
+
+- 這正是 [思維鏈可監控性](/articles/cot-monitorability) 能運作的原因——可見的軌跡確實是工作區內容向頁面的溢出。
+- 這也是 CoT 監控在結構上不完整的原因：無論模型是否寫下任何內容，工作區都會運作；而這篇論文的核心正是，未寫出的內容具有承載作用。
+- Discussion 進一步指出：transformer 若要將深思延伸到其前饋深度之外，**唯一的方法**就是將內容外化到上下文，再讀回來。依此觀點，token 生成**就是**模型使用工作區進行計算的方式之一——序列深度不受限，但「會在固定間隔被顯著的頻寬限制打斷」。
+
+## 為何重要
+
+- **具備機制的能力分類法。**「哪些任務需要深思？」不再只是憑感覺，而成了可測量的性質：消融工作區是否會破壞它？這與 [鋸齒狀智慧（幽靈，而非動物）](/articles/jagged-intelligence) 的鋸齒性質相互呼應，但它具備的是因果基礎，而非基準測試表面。
+- **對監控的硬性限制。**如果充分練習過的計算能在工作區之下運行，那麼*充分練習過的不對齊行為*也可能如此——這是作者對 [J-lens 稽核](/articles/internal-signatures-of-misalignment) 自己提出的保留意見。自動性是通往不可見的路徑。
+- **作者認真看待的盲視類比。**能引導行為、卻無法被報告的資訊，正是高階理論在盲視患者身上所援引的結構——參見 [AI 中的存取意識指標](/articles/access-consciousness-indicators)。
+
+## 開放問題
+
+- 所提出的判準——當中間結果必須交給*任意、由上下文指定的*下游電路時，工作區會被啟用；當計算是自動的時候則會繞過工作區——並不具備預測性。作者坦言，對任意計算而言，他們無法事先判定它是否會啟用 J-space。
+- 對某項行為施加更多 RL，會將它*推離*工作區嗎（使其變得自動化且不可見）？目前沒有人測試過，而這正是這個問題中與對齊最相關的版本。
+
+## 相關連結
+
+- [獎勵駭客](/articles/reward-hacking)——這個問題與對齊最相關的版本：更多 RL 是否會將某項行為*推離*工作區，進入自動化（不可見）的電路？
+- [語言模型中的全域工作區（J-space）](/articles/llm-global-workspace)——選擇性是工作區五項性質中的第五項；本頁詳述的就是這項性質
+- [Jacobian Lens（J-lens）](/articles/jacobian-lens)——本結果所依據的消融與交換機制
+- [思維鏈可監控性](/articles/cot-monitorability)——CoT 作為工作區外化的一半；以及未寫出的另一半為何是盲點
+- [不對齊的內部特徵](/articles/internal-signatures-of-misalignment)——自動性是逃離 J-lens 監控的明確路徑
+- [AI 中的存取意識指標](/articles/access-consciousness-indicators)——盲視類比
+- [鋸齒狀智慧（幽靈，而非動物）](/articles/jagged-intelligence)——鋸齒狀能力，如今對其中一條邊界有了候選的內部解釋
+- [大規模測試時期計算](/articles/large-scale-test-time-compute)——如果 CoT 是外化的工作區，那麼測試時期計算部分就是購買架構本身不具備的工作區頻寬
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — "The J-space selectively mediates flexible but not automatic cognition"; "J-space ablation leaves most capabilities intact while impairing internal reasoning"; Discussion (Feedforward architecture; Which tasks require the J-space?)

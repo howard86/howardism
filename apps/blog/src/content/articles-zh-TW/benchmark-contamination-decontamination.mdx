@@ -1,0 +1,90 @@
+---
+date: 2026-07-16
+title: 基準污染與去污染
+description: "Sun, Zhan & Gales（Cambridge，arXiv 2606.23313）：當測試樣本洩漏至訓練資料時，基準資料污染會灌高已報告的 LLM 分數；而現有去污染方法只用總體準確率評估，且多半需要乾淨的參考模型。本文有兩項貢獻：(1) 樣本層級評估框架——每個樣本的分布距離（去污染模型與未受污染模型輸出分布之間的 D_KL 與 D*_L1），揭示根本性脫節（改寫+置換將資料集層級殘餘污染從 17.2→8.4 降低，但 D_KL 實際上上升 >13%）；(2) Uncertainty-Based Decontamination (UBD)，不需要乾淨的參考模型，也不需要知道哪些樣本受到污染——受污染模型的深度集成（5 個只在 batch 順序上不同的 LoRA seed）會將記憶樣本暴露為高信心但高變異（認知/知識不確定性），因為記憶對 batch 順序敏感。每個樣本的純量 α̂ ≈ 1−2σ（σ = 真實答案機率的集成標準差，且高於信心閾值 T_p）可驅動 UBD-Debiasing（事後抑制被灌高的真實答案質量，按比例重新分配，不更新權重，僅限 MCQ）或 UBD-Unlearning（朝去偏後的軟目標微調；α̂≈1 時不產生作用）。在 MMLU-Pro/MATH-MCQA 上，它帶來 >40–60% 的相對 D_KL 降幅，勝過改寫/置換，甚至勝過參考模型 DeconIEP 基線；集成不確定性與 oracle 污染的 PCC 達 0.8–0.9，而 log-probability 維持在 <0.4"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - llm-architecture
+  - capability-evaluation
+  - benchmarks
+  - evaluation-methodology
+  - data-contamination
+  - uncertainty
+  - unlearning
+readingTime: 11
+imageAlt: 基準污染與去污染的插圖
+sources:
+  - title: Uncertainty-based Debiasing and Unlearning for Decontamination
+    url: https://arxiv.org/pdf/2606.23313
+---
+export { default as heroImage } from "../assets/benchmark-contamination-decontamination.png";
+
+## 資料來源
+
+- [Uncertainty-based Debiasing and Unlearning for Decontamination](https://arxiv.org/pdf/2606.23313)
+
+## 摘要
+
+**資料污染**是基準完整性失效的一種情況：測試樣本洩漏至 LLM 的訓練語料，因此報告分數反映的是**記憶而非能力**，跨模型比較也變得不公平。由於預訓練語料規模龐大且不透明，通常無法知道某個基準項目是否曾被模型看過。Sun, Zhan & Gales（["Uncertainty-based Debiasing and Unlearning for Decontamination"](https://arxiv.org/pdf/2606.23313)，University of Cambridge + VRAIN/UP València，arXiv 2606.23313，2026-06-22，`empirical`）提出兩項作法：在樣本層級**重新測量**去污染效果，並引入 **Uncertainty-Based Decontamination (UBD)**——一種在**沒有乾淨參考模型、也不知道哪些樣本受到污染**的情況下，修正被灌高模型分數的方法。這是本資料庫首次專門討論污染作為 eval 完整性問題的文章，也直接位於基準完整性群集中（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)、[Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)、[Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)）。
+
+## 既有研究的問題
+
+文獻區分兩種污染：**精確污染**（測試實例原封不動地出現在訓練資料中）與**語法污染**（以改寫或加上前綴的形式再次出現）。既有緩解方法分為兩類：**動態基準測試**（建立或改寫能保證未被看過的樣本——在推理時改寫，或產生全新項目）與**模型層級修改**（替換捷徑神經元，或微調受污染模型，使其朝向*乾淨參考模型*最小化 KL 散度，例如 DeconIEP / Chai et al. 2026）。本文提出兩項批評：
+
+1. **評估過於粗糙。** 既有研究只用**總體準確率**的下降來評估去污染（殘餘污染 RC = 與未受污染模型的準確率差距）。但兩個模型可能有相同的準確率，答對的卻是完全**不相交**的子集——總體準確率掩蓋了樣本層級的行為差異。這與 [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) 群集所提出的「標題式準確率數字沒有充分利用基準」論點相同，只是應用在污染情境。
+2. **多數模型層級方法需要乾淨模型。** 朝未受污染參考模型最小化 KL，前提是你**擁有**這樣的模型——實務上往往不是如此，而一個**不匹配**的乾淨模型可能讓情況更糟。
+
+## 貢獻 1——樣本層級評估
+
+不再使用總體準確率，而是測量去污染模型的**每個樣本輸出分布**，恢復未受污染模型分布的程度：完整輸出分布上的每個樣本平均 **KL 散度**（D_KL），以及 **D*_L1**，即分配給真實答案的機率之平均絕對差異（在 MCQ 中，這直接就是模型對正確選項字母的信心）。只有在受污染切分（D_eval）上讓**兩者都**下降，同時幾乎不擾動乾淨切分（D_dev，與部署中的 checkpoint 比較），方法才算有效。
+
+最重要的發現是**資料集層級與樣本層級指標之間存在脫節**：最強的黑箱基線（GPT-4o 改寫 + 選項置換）在 Llama-3.2 / MMLU-Pro 上將資料集層級 RC 從 17.2 降至 8.4——但相較於受污染模型，其 **D_KL 上升 >13%**，而 D*_L1 幾乎不變。縮小準確率差距**不會**讓每個樣本的行為朝未受污染模型靠近，甚至可能使其遠離。因此，總體準確率式的去污染可能看似有效，實際上卻留下甚至加劇底層的分布扭曲。
+
+## 貢獻 2——Uncertainty-Based Decontamination (UBD)
+
+核心洞見是一種不依賴 oracle 來**估計**污染的方法。對受污染模型而言，樣本上的高信心有兩種可能原因：它**真的很容易**（大量未受污染訓練資料支持），或它**很難但被記住了**（答案曾洩漏）。兩者都可能有低損失，因此 log-probability 無法區分。但記憶對洩漏樣本的 **batch 順序**高度敏感，真正的能力則不然。於是作者建立受污染模型的**深度集成**——5 個 LoRA 微調模型（rank 64、α 128），超參數相同，但 seed / batch 順序不同——並觀察其分歧：
+
+- 困難但被記住的樣本會呈現**高信心但集成成員間高變異**的典型組合——高**認知／知識不確定性**（透過輸出與集成參數間的互資訊形式化）。
+- 每個樣本的污染純量 α（概念上是*乾淨*與*受污染*真實答案機率的比值——α≈1 表示乾淨，α→0 表示被嚴重灌高）會**由不確定性估計**。本文實務上使用真實答案機率的集成**標準差 σ**作為訊號，並在信心閾值 T_p 以上設定 **α̂ ≈ 1 − 2σ**（α̂ = 1 otherwise）。係數 2 將 α̂ 限制在 [0,1]，因為 σ ∈ [0, 0.5)；T_p 排除模型本來就表現不佳的樣本，使修正集中於高信心預測。
+
+這個 α̂ 驅動兩種去污染模式（圖 1）：
+
+- **UBD-Debiasing**——**事後輸出修正**（不更新權重）：將被灌高的真實答案機率乘以 α̂ 降低，再按比例把釋出的質量分配給其他選項，保留它們的相對形狀。不需要乾淨模型，也不需要訓練資料。目前**僅限分類（MCQ／二元）**任務。
+- **UBD-Unlearning**——將受污染權重朝去偏分布作為**軟目標**進行**微調**（交叉熵），在保留分布形狀的同時抑制記憶造成的灌高。由於它會套用到**所有**測試樣本，因此對乾淨樣本預設為**不作用**（α̂≈1 → 目標 ≈ 當前輸出 → 梯度可忽略）。
+
+關鍵在於，UBD 從不需要**偵測**哪些樣本受到污染：它套用於所有樣本，而乾淨樣本（σ≈0 → α̂≈1）會維持不變。這避開了本文指出正在弱化的成員推論路線——在預訓練規模下，尖峰分布或異常 token 機率等輸出統計訊號「變得不再那麼有資訊量」（Fu et al. 2025）。
+
+## 結果
+
+在 MMLU-Pro 與 MATH-MCQA 上，使用 Llama-3.2-3B-Instruct 與 Qwen2.5-3B-Instruct（受污染模型在 D_train ∪ D_eval 上訓練；未受污染控制模型在 D_train ∪ D_dev 上訓練，以固定領域／能力）：
+
+- **UBD 在樣本層級佔優。** 兩種 UBD 變體在 D_eval 上相較於受污染模型，都達到 **>40% 的相對 D_KL 與 D*_L1 降幅**（Llama），而 Qwen 的 D_KL 最高約降 **~60%**、D*_L1 約降 **~50%**，遠超改寫／置換。值得注意的是，它**勝過需要乾淨參考模型的 DeconIEP**，而 UBD 不需要；不匹配的參考模型可能擴大 DeconIEP 的距離。
+- **兩種模式各有取捨。** UBD-Debiasing 在 D_eval 上效果最佳，但因為較為激進，可能過度抑制並損害乾淨切分（D_dev）的準確率；T_p 可緩和此問題。UBD-Unlearning 較溫和，在 dev／eval 平衡上最佳，且對不同 T_p 都很穩健（去偏在 RC 上對閾值敏感，但兩者在 D_KL 上都維持穩健）。
+- **不確定性遠勝 log-probability 作為污染指標。** 集成標準差與知識不確定性和 oracle α 達到 **PCC 0.8–0.9**，並能清楚區分困難但被記住的樣本（α≈0）與真正容易的樣本（α≈1）；傳統的 **log-probability 訊號維持在 ~0.4 以下**。相較於知識不確定性，標準差因有界且近似線性而更受偏好，因此 α̂ 可以用簡單的 1−2σ 規則擬合。
+
+## 限制
+
+此方法需要**checkpoint 集成**，也就是模型提供者不只要發布主要 checkpoint，還要發布數個其他 checkpoint——作者認為 **LoRA-weight ensembles** 讓這件事成本低廉（額外占用空間小），並將從單一已發布模型建立集成列為未來工作。目前 UBD-Debiasing **僅限分類**（本文提出透過逐解碼步驟去偏來延伸至開放式生成，但尚未實作）。
+
+## 相關連結
+
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)——最接近的方法論姊妹篇：兩者都主張單一總體準確率是基準所知資訊的有損摘要，並加入*其他測量維度*。Nadgir et al. 在*已飽和*的基準上加入可靠性／效率／腳手架維度；本文則在*受污染*的基準上加入**樣本層級分布距離**，並發現相同形狀的結果——資料集層級改善（RC ↓）沒有轉化為樣本層級改善（D_KL ↑）
+- [Benchmark Score Redundancy](/articles/benchmark-score-redundancy)——該頁的核心範圍限定是：分數*可以推論，但基準並非不必要*，因為基準仍在做矩陣補全無法完成的工作——並明確點名**污染監測**是其中一項工作。本文是其修正側的對應篇：當污染已經灌高模型後，恢復乾淨的樣本層級分布。另一項互補風險是：UBD 依賴與污染扭曲相同的真實答案機率訊號，因此它是在冗餘頁面公開網格所體現的完整性問題**內部**運作
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)——另一個說明標題式基準數字不能照單全收的原因：彼處是未具名的**計算預算**混淆分數；此處則是**訓練資料洩漏**灌高分數。兩者都是對基準可信度的批評，修正方式都是報告／恢復單一數字所隱藏的資訊
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation)——**預防**與**修正**的配對：動態／production-sourced 基準透過事先取用新鮮且難以預先記憶的任務（並持續更新）來避免污染；UBD 則修復已接觸靜態基準的模型。兩者是針對同一洩漏問題的互補防禦
+- [Reward Hacking](/articles/reward-hacking)——完成「基準數字說謊方式」的分類：reward hacking 在**訓練迴圈**內操弄代理指標，benchmark-maxxing 在**評估報告時**灌高分數，而污染則透過**訓練資料洩漏**灌高分數（是記憶，而非刻意最佳化）。三者透過不同管道破壞基準有效性
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)——其關於「你沒有訓練、卻已經中毒的模型」之開放問題的良性類比：UBD 是在**無法取得訓練資料或乾淨參考模型**的情況下，事後修正**訓練暴露效應**。這個平行關係是主題性的，而非機制性的——污染是灌高*準確率*的良性洩漏，模型後門則是惡意的，並會在安全訓練後持續存在——但兩者都是「只給你已部署 checkpoint，從外部修復模型」的問題
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning)——UBD-Unlearning 是 SDF 安裝側的**移除側對應物**：SDF 在合成文件上微調以*安裝*信念／傾向；UBD-Unlearning 則在去偏軟目標上微調，以*抑制*記憶的基準答案。同一個槓桿（目標式微調改變模型輸出），方向相反（灌輸 vs. 遺忘）
+- [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it)——群集綜合：污染是標題式基準數字說謊的四種腐化管道之一，而 UBD 是替代方案組合中預防／修正配對的修正側成員
+
+## 開放問題
+
+- **能否從一個已發布模型建立集成？** 整個方法建立在擁有多個 batch 順序不同的 checkpoint 上；作者指出，從單一 checkpoint 建立集成（例如透過低成本擾動）是採用此方法的關鍵突破。在那之前，它需要提供者合作發布 LoRA ensemble。
+- **能否延伸到 MCQ 之外？** UBD-Debiasing 目前僅限分類；逐解碼步驟去偏能否為開放式生成恢復乾淨分布（污染會表現為近乎逐字重現）仍未經測試。
+- **在預訓練規模下，batch 順序敏感性是否仍是可靠的記憶訊號？** 此訊號已在使用 5 個 LoRA seed 的 3B 模型與誘發污染上驗證；高信心—高變異特徵能否在完整規模的預訓練及真實（而非合成注入）的洩漏中存續，仍是開放問題。
+- **朝向*集成平均的*未受污染參考模型修正，是否會引入自身偏差？** D_KL／D*_L1 目標本身是 5 成員未受污染 LoRA 集成的平均值；「乾淨」目標會隨集成規模／組成改變多少，尚未研究。
+
+## 資料來源
+
+- [Uncertainty-based Debiasing and Unlearning for Decontamination](https://arxiv.org/pdf/2606.23313) — Guangzhi Sun、Xiao Zhan、Mark Gales，*Uncertainty-based Debiasing and Unlearning for Decontamination*（University of Cambridge + VRAIN/Universitat Politècnica de València，arXiv 2606.23313，2026-06-22，`empirical`）：樣本層級評估框架（D_KL、D*_L1；改寫+置換將 RC 從 17.2→8.4 降低但 D_KL 上升 >13% 的資料集與樣本層級脫節）；由 5 成員 LoRA 集成以 α̂≈1−2σ 驅動的 UBD-Debiasing（事後質量重新分配）與 UBD-Unlearning（軟目標微調）；使用 Llama-3.2-3B 與 Qwen2.5-3B 在 MMLU-Pro／MATH-MCQA 上的結果（相對 D_KL 降幅 >40–60%，勝過改寫／置換及參考模型 DeconIEP）；不確定性與 log-probability 指標比較（PCC 0.8–0.9 vs &lt;0.4）；集成發布及僅限 MCQ 的限制。已檢視圖 1（UBD pipeline）、圖 2（污染指標相關性）與圖 3（閾值敏感度）

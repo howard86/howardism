@@ -1,0 +1,152 @@
+---
+date: 2026-07-15
+title: Agent Identity Management System（AIMS）
+description: "IETF draft-klrc-aiagent-auth 的 Agent Identity Management System：將 agents 視為以 WIMSE/SPIFFE 識別的 workloads，具備短期、經姿態評估的 credentials，並採用 mTLS / WIMSE-proof-token / HTTP-message-signature 驗證，以及透過 OAuth token-exchange + transaction-token delegation chains 委派給 spawned agents — LLM 永不持有 credentials；這是 vault 首個多供應商、標準化軌道上的 agent-auth 來源，但目前仍是尚無 IETF WG 共識的個別提交 — 並由 OpenID AuthZEN Working-Group Drafts 補充（AARP：將 CIBA 推廣至 client-initiated flows 之外的前置條件／核准模式；COAZ：MCP-tool-authorization profile，將 tool calls 對映至 AuthZEN 的 Subject-Action-Resource-Context model），這些 authorization-slice 標準化工作顯示 agent-auth governance layer 是多元的（IETF identity/delegation + OpenID authorization），且正在積極推進"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - identity
+  - authentication
+  - authorization
+  - standards
+  - delegation
+readingTime: 20
+imageAlt: Agent Identity Management System（AIMS）插圖
+sources:
+  - title: AI Agent Authentication and Authorization
+    url: https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/
+  - title: OpenID Foundation advances authorization for the agent era with new
+      AuthZEN Working Group Drafts
+    url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+---
+export { default as heroImage } from "../assets/agent-identity-management-system.png";
+
+## 資料來源
+
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/)
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
+
+## 摘要
+
+**AIMS** 是 IETF Internet-Draft `draft-klrc-aiagent-auth-03`（Kasselman/Lombardo/Rosomakho/Campbell/Steele/Parecki — Defakto/AWS/Zscaler/Ping/[OpenAI](/articles/openai)/Okta；2026 年 7 月）核心的概念模型。其主張是：AI agent 是**一種 workload**，它引發的 identity、authentication 與 authorization 問題**並非新問題** — 應透過*組合既有、廣泛部署的標準*（WIMSE/SPIFFE workload identity、OAuth 2.0 family、OpenID Shared Signals）來解決，而不是發明 agent-specific protocols。AIMS 是「*建立、維持與評估 agent workload 的 identity 與 permissions 所需的一組 functions*」— 它是概念模型，**不是 product、protocol 或 single architecture**；可以存在於單一元件，也可以分散在 identity providers、provisioning services、authorization servers、policy engines 與 runtime enforcement points 之間。
+
+**證據注意事項（各處皆應附上）：** 這是*standards-track proposal* — 一份 **individual submission**、Informational，且**尚無 IETF Working Group consensus**（它引用 IETF、CNCF 與 OpenID Foundation 的規格，但本身尚未獲批准）。所有 MUST/SHOULD 都應視為作者的建議，而非已採用的標準。其 `evidence:` tier 是 `practitioner-opinion`。
+
+**它對這個 vault 為何重要：** agent-security cluster 幾乎全部來自單一供應商的 ebook（[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)）。AIMS 是 agent identity 領域**首個 standards-track、multi-vendor primary source**，並直接針對兩個長期未解問題 — sub-agent credentialing（[Agent Identity and Authentication](/articles/agent-identity-and-authentication)）與 agent-to-agent trust protocol layer（[Agent-Native Infrastructure](/articles/agent-native-infrastructure)）。
+
+## Agents 是 workloads（框架轉換）
+
+Agent 是一種 workload，會反覆與 LLM 及一組 Tools/Services/Resources 互動，直到達到終止條件（draft 的 Figure 1）。既然它是 workload，便*需要 identifier 與 credentials*，才能由它接觸的各方進行 authentication — 而如果它代表 user 或 system 行動，該 principal 必須**將 authority delegate 給它**，且 delegated context 必須保留到 authorization decisions 與 audit trails 中。這個重新框架化，讓整個問題能以 workload-identity 與 delegated-authorization standards 解決，而不需要新機制。
+
+值得注意的是，*「Tool endpoint 本身可能由另一個 AI agent 實作」* — 因此 agent-to-agent 只是 workload-to-workload case，同樣的 primitives 也能涵蓋它。
+
+## 分層堆疊（Figure 2）
+
+AIMS 是一個邏輯堆疊：較高層依賴較低層的 guarantees，並有兩個橫跨各層的欄位：
+
+```
+Policy | [ Monitoring, Observability & Remediation ] | Compliance
+ | [ Authorization ] |
+ | [ Authentication ] |
+ | [ Provisioning ] |
+ | [ Credentials ] |
+ | [ Identifier ] |
+```
+
+- **Identifier → Credentials → Provisioning → Authentication → Authorization → Monitoring** 是 dependency chain。
+- **Policy**（§12）與 **Compliance**（§13）橫跨所有 layers，但被宣告為**超出範圍** — 具有 deployment、regulatory 與 jurisdiction 特定性，並明確**不是標準化目標**。Policy MAY 是任何具版本、可審查的「policy-as-code」格式。
+
+## Identifier：WIMSE，以及 SPIFFE 作為已部署實例
+
+每個 agent MUST 具備**恰好一個 WIMSE identifier**（[WIMSE-ID]）— 這是一個在 trust domain 內唯一識別 workload 的 URI，並在 identity 的生命週期內保持穩定（authorization、delegation 與 audit 都以它為 key）。它 **MAY 是 SPIFFE ID**（`spiffe://<trust-domain>/<path>`），draft 稱之為「*WIMSE identifier model 中廣泛部署且 operationally mature 的 instance*」。這是對「*什麼是 per-agent identity*」的具體回答 — 它是 workload-identity URI，而不是臨時拼湊的 label。
+
+## Credentials、provisioning 與 posture assessment
+
+- **Credentials** 以密碼學方式將 identifier 綁定至 agent。WIMSE 定義 **WIT**（Workload Identity Token）與 **WIC**（X.509 Workload Identity Certificate）；SPIFFE 定義 **X.509-SVID**、**WIT-SVID** 與 **JWT-SVID**。它們 **SHOULD 是短期的**，並具有明確 expiry。**Static API keys 被列為 antipattern** — 它們是 bearer artifacts，沒有密碼學綁定、生命週期長且難以輪替。
+- **Hardware-backed key storage**（TPM、enclave、platform security module）是**可選的** — 「*不是 interoperability 所必需*」。（這是與 ebook 最明顯的分歧 — 見下方比較。）
+- **Provisioning** 是 runtime issuance/renewal/rotation，分為兩個階段（initial provisioning；到期前自動 rotation）。短期 credentials 被提供為*明確 revocation 的替代方案*：不需要 revoke，只要不再 renew。
+- **Posture assessment** 發生於*每次 provisioning/rotation event* — draft（v-02 起）將舊有的「attestation」section **併入 provisioning，並改名為「posture management」**。它評估 deployment-specific signals（hardware/TEE evidence、software-integrity measurements、supply-chain provenance、orchestration metadata、workload placement、operator assertions），以決定 credential *是否*簽發、綁定*哪個* identifier、*哪種類型*、具備*哪些 attributes*，以及*存續多久*。單一 signal 可能足夠；較高風險的 deployments 則需要多個 signals。**不要求任何特定 attestation mechanism。**
+- **Credential exchange** 用於與 primary credential 不相容的 legacy/proprietary environments：OAuth 2.0 Token Exchange、Transaction Tokens 或 Workload Identity Federation 可從 primary credential mint 出 targeted secondary credential。
+
+### 規則：LLMs 永不持有 credentials
+
+「*Large Language Model MUST NOT 取得 agent credentials，或取得存取 tools 與 services 所需的 credentials。*」原文列出的理由是：防止 LLM *使用、暴露 credentials，或因 prompt injection 而遭操控以揭露 credentials*。這是 [out-of-band](/articles/out-of-band-prompt-injection-defense) reference-monitor doctrine 在 identity layer 的對應物 — secret 位於*可被操控的 model 之外*，而 wield credential 的是 agent（workload），不是 model。（在 `-03` 中以 [issue #127] 新增。）
+
+## Authentication：transport layer 與 application layer
+
+依照 WIMSE architecture，auth 可以發生於任一 layer，許多 deployments 會同時使用兩者：
+
+- **Transport-layer** — **mTLS**，兩端都出示 X.509 credentials；搭配短期 SPIFFE/WIMSE identity，可提供強大的 channel binding。適合 service meshes（Istio、LinkerD）。**限制：** intermediaries（proxies、API gateways、service meshes、load balancers、protocol translators）會終止並重新建立 TLS，*破壞 end-to-end transport identity* — 而 serverless/multi-tenant-edge/cross-domain topologies 會使 transport identity 變得模糊。
+- **Application-layer** — 透過在 transport 之上綁定 identity，能穿越 intermediaries。兩種 WIMSE mechanisms：
+ - **WIMSE Proof Tokens (WPTs)** — 經簽署的 JWT，證明持有 WIT 的 private key，並且**綁定至特定 message context**（例如 HTTP request），claims 為 `aud`/`exp`/`jti`/`wth`（WIT 的 hash）。這是 proof-of-possession，不是 bearer。其 core 與 protocol 無關（可綁定 Kafka、gRPC、non-HTTP）。
+ - **HTTP Message Signatures**（[WIMSE-HTTPSIG] over RFC 9421）— 將 WIT 與 request components（method、request-target、content digest、WIT 本身）的 signature 結合，提供 proof-of-possession + message integrity end-to-end。
+ - **限制：** 沒有內建 channel binding，因此 implementations 必須透過短生命週期、audience restriction、nonces 與 request binding，防禦 relay/replay。
+
+## Authorization：OAuth 2.0 作為 delegation spine
+
+- **Agent Mission（§10.1）** — agent 從 user、system 或另一個 agent 收到 *Mission*（自然語言任務）；將 mission 轉換成具體 resource/authorization requirements 是**planning step，超出範圍**（draft 引用 Karl McGuinness 的「Mission Shaping Problem」）。這正是 wiki 的 [agent-native](/articles/agent-native-infrastructure)「figure out the details」handshake 與具體 auth model 接合之處。
+- **OAuth as delegation** — agent 作為 OAuth **client** 行動；access tokens 將 agent identity 放在 `client_id`，並將 delegated principal 放在 `sub`。Flows 包括：user 進行 delegation 時使用 **Authorization Code Grant**（搭配 *phishing-resistant* user auth，例如 passkeys，且 agent 使用 Section-7 credentials 向 AS 進行 authentication，**絕不使用 static client secrets**）；agent 代表自身行動時使用 **Client Credentials / JWT Authorization Grant**；agents 本身也能作為由 system 或另一個 agent 呼叫的 **OAuth protected resources**。
+- **Transaction Tokens（§10.5）** — internal call chains 的 blast-radius control。microservices 之間傳遞 broad access token 存在 theft/replay/lateral-move risk（攻擊者若在 log 或 crash dump 中找到它，便能呼叫*不同的 transaction*）。相反地，應將它 exchange 為 **transaction token**：綁定至單一特定 transaction 的 downscoped token（其中加入 caller context、transaction context 與 unique ID），**不能**用於另一個 transaction，也不能搭配修改後的 details 重用。它是短期的。Transaction token MAY 再透過 OAuth Token Exchange exchange 為 access token，以呼叫下一個 service。
+- **Cross-domain chaining（§10.6）** — 當 resources 位於不同 authorization servers 後方時，agent 使用 **OAuth Identity and Authorization Chaining Across Domains**（或 Identity Assertion JWT Grant / Transaction Token Grant profiles）：將 current token exchange 為 JWT authorization grant，再出示它以取得 target domain 的 access token。**這是 ephemeral spawned agents 的 delegation-chain mechanism。**
+- **Human in the loop（§10.7）** — 對高風險 actions，AS SHOULD 透過 **CIBA** 拒絕或提高驗證強度（在 user device 上進行 out-of-band approval）。關鍵是，*local UI confirmation **不是 authorization*** — draft 與 [MCP](/articles/mcp-and-computer-use) 的 user-solicitation pattern 一致，但堅持 agent MUST NOT 將 local approval 視為充分；它必須綁定至可驗證、由 AS 簽發的 grant。（已知缺口：CIBA 只建模 *client-initiated* flows，無法自然對應 mid-execution confirmation — **這正是 OpenID AuthZEN AARP draft 要透過將 CIBA generalize 為 policy-level prerequisite/approval pattern 而彌補的缺口**；見下文。）
+- **Tool-to-service（§10.8）** — tools 使用 Token Exchange / cross-domain chaining 存取 downstream resources。**反模式：** tool 將從 agent 收到的 access token 轉發出去（會招致 theft + lateral attacks）— 與 transaction tokens 相同的 containment logic。
+- **Discovery（§10.10）** — 在 dynamic/ephemeral deployments 中，OAuth Authorization Server Metadata、Protected Resource Metadata 與 Client ID Metadata Documents 讓 agents 能在 runtime 綁定正確的 issuer/audience/flow，而不需 static config。
+
+## OpenID AuthZEN drafts（AARP + COAZ）：標準化 authorization slice
+
+IETF `draft-klrc-aiagent-auth` stack 將 **identity、credentials 與 delegated authority** 標準化之處，**OpenID Foundation's AuthZEN Working Group** 正在標準化的則是**authorization decision 本身** — 並於 2026-06-15（配合 Identiverse）批准兩份官方 **Working Group Drafts**：**AARP** 與 **COAZ**。*兩者都是 proposed drafts，不是 ratified standards* — `practitioner-opinion`；若與 vault 的 `empirical` per-call-authz systems（[ScopeGate](/articles/capability-gating-vs-authorization)、[aiAuthZ](/articles/off-host-identity-bound-authorization)）觸及相同領域，權重低於已測量的工作。它們建立在 AuthZEN **Authorization API 1.0** 與其 **Subject-Action-Resource-Context (SARC)** decision interface 上 — 也就是兩個 research systems 各自以 ad hoc 方式實作的 interoperable「現在可以執行這個 action 嗎？」endpoint。
+
+- **AARP（Access Request and Approval Profile）。** 它回答了 allow/deny authorization APIs 歷來無法回答的問題：*policy 在能夠 authorize action 之前需要什麼？* 當 policy 尚不能決定時 — 必須先滿足 approval、consent、delegated authority、attestation 或 risk assessment — AARP 定義 **request、tracking、satisfying 與 re-evaluating 這些 prerequisites 的 interoperable patterns**，讓 applications、authorization systems、governance platforms 與 agents 能夠協調，同時*仍由 policy 作為 decision-maker，並在 enforcement 時進行評估*。其 worked example 正是這個 vault 的 vendor-payment case：agent 嘗試進行超過門檻的 transfer 時，收到的不是空泛的 deny，而是**「尚未 — 以下是必要條件」**的 signal；它記錄 pending request 的 handle，稍後 hand off 或 resume，只有在 manager approve 且 policy 重新評估後才繼續。**AARP 明確 generalizes CIBA：**「*這對 authorization prerequisites，就如同 CIBA 對 authentication approval*」— 同樣是標準化、非同步、out-of-band 的互動，但*generalized to policy*，且可由 person 或 automated governance system 滿足，而不受限於 CIBA 的 client-initiated authentication-approval 形式。這是對 AIMS 自身承認的 mid-execution-HITL gap（上方 §10.7；下方 Open Questions）的直接 proposed answer。
+- **COAZ（AuthZEN Profile for MCP Tool Authorization）。** 這是一個標準化 **將 MCP tool invocations 對映至 AuthZEN SARC structure 的 profile**，透過 metadata 讓不同 enforcement points — API 或 AI gateways、service meshes、downstream systems — 知道如何針對相容的 **PDP** authorize tool call。它讓 [MCP](/articles/mcp-and-computer-use) tool **揭露呼叫它所需的 authorization checks**，為 agentic workflows 帶來 per-invocation authorization control — 也就是 [MCP Tool Poisoning](/articles/mcp-tool-poisoning) 與 per-call-authz pages 所主張的 action-layer defense 的 standards-track form。Industry review 涵蓋 Axiomatics、Cerbos、Okta、SailPoint、Indykite、Keycard 與 C1。
+
+**清楚的分工：** AIMS（IETF）說明 *agent/workload 是誰，以及 authority 如何 delegation*；AuthZEN Authorization API + COAZ 說明*這個具體 call 是否允許*；AARP 說明*在作出該 decision 之前必須先成立什麼條件*。它們共同將 agent-auth problem 放在兩個 standards bodies 之間 — 具體證據顯示 governance layer 是**多元且持續推進**的，而非停滯（見經修整的 Open Questions）。
+
+## Observability 與 remediation 作為 security control（§11）
+
+Monitoring 是「*security control，而不只是 operational feature*」。Participants MAY 訂閱 **OpenID Shared Signals Framework (SSF)**，搭配 **CAEP** 或 **RISC** 接收 signals（session revoked、risk elevated、token replay suspected、subject disabled），並 MUST 迅速 remediation — discard cached tokens、以更嚴格 constraints 重新 acquire、reduce privileges、re-run policy — 且 MUST NOT 繼續使用因 revocation 而失效的 authorization。Deployments MUST 保留**tamper-evident audit logs**（authenticated agent ID、delegated subject、resource、action + decision、timestamp/correlation ID、posture/risk state、remediation events），並 SHOULD 跨 agents/tools/LLMs 進行 correlation，以偵測 replay、**confused-deputy**、privilege escalation 與 anomalous sequences。各處穩定且可驗證的 identifiers，才能讓「*哪個 entity 使用哪個 authorization context 做了什麼，以及 access 為何改變*」得以 end-to-end 還原。
+
+## 比較：AIMS 與 Anthropic Zero-Trust ebook
+
+兩者都針對 agentic Zero Trust 中的 per-agent identity，並在核心上**趨於一致**：static API keys 不可接受、credentials 必須短期且有密碼學綁定、per-agent identity 是 keystone、least privilege / minimal scopes，以及 observability-as-security-control 搭配 tamper-evident audit。但兩者在 primitives 與 authority 上**有所分歧**：
+
+| 維度 | [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)（Anthropic ebook，vendor） | **AIMS**（IETF draft，multi-vendor standards） |
+|---|---|---|
+| Identity primitive | Cryptographic IDs → **X.509 certs** → **hardware-backed HSM/TPM identity + remote attestation**（tiered target state） | **WIMSE/SPIFFE URI** 作為*唯一* identifier（X.509-SVID *或* JWT/WIT-SVID） |
+| Hardware attestation | Internet-reachable production 的 **Advanced-tier target** | **可選；「不是 interoperability 所必需」** — 多種 posture signals 之一 |
+| Attestation model | Remote hardware attestation | 每次 issuance/rotation 時進行 **「posture assessment」**；deployment-specific signals（將 attestation 納入 provisioning） |
+| Authentication | Short-lived OAuth tokens → mTLS → hardware-bound credentials | 相同，**加上 application-layer**（WPT、HTTP Message Signatures），用於 transport identity 失效的情況 |
+| Delegation / sub-agents | Sub-agents inherit *「最多與 parent 相同的 permissions」*（大致留白） | **OAuth Token Exchange + Transaction Tokens + cross-domain chaining** — downscoped、transaction-bound，*不是* raw inheritance |
+| LLM & credentials | 未以規則說明 | **明確 MUST NOT** — LLM 永不持有 credentials |
+| Authority | Single vendor；Claude Code 作為 reference implementation | Six vendors，standards-track — **但為 individual submission，尚無 WG consensus** |
+
+這種 productive tension 在於：ebook 將**hardware attestation 作為 aspirational endpoint**；AIMS 則主張，可以透過**短期、經 posture assessment、具 delegation 的 credentials**取得 security property，而不必要求每個 ephemeral workload 都進行 hardware attestation — 並加入 ebook 缺少的 delegation-chain machinery（transaction tokens、identity chaining）。兩者都不是 ratified standard：ebook 是 vendor practitioner-opinion，AIMS 是 standards-*draft* practitioner-opinion。
+
+## 相關連結
+
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — 主要 sibling；AIMS 是同一 keystone control 的第二個（standards-track、multi-vendor）來源，並提供 ebook 只停留在 tier-label 層級的具體 identifier/credential/delegation primitives
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — vault 另一個 agent-security framework（hub）；AIMS 在 ebook 規定 tiered maturity model 的地方組合既有標準 — convergences 與 divergences 已列於上表
+- [Least Agency](/articles/least-agency) — AIMS 透過 OAuth minimal scopes、audience restriction 與 **transaction-token downscoping**（綁定一個 transaction 且不可重用的 token）落實 least agency — 「限制每個 tool 能做什麼」在 standards layer 的實例
+- [Blast Radius (Agentic)](/articles/blast-radius) — transaction tokens、no-token-forwarding antipattern 與短期、non-revoked credentials，都是 internal microservice call chain 的 blast-radius containment（限制 token theft、replay 與 lateral movement）
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — AIMS 是該頁 open protocol-layer question 的候選答案：agent-to-agent negotiation 所需的 trust/identity/accountability primitives，取自 IETF/CNCF/OpenID standards（但 governance 尚未定案）
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — identity layer 上的相同 doctrine：將 secret 與 authorization decision 保留在*可被操控的 LLM 之外*（LLMs-never-hold-credentials；由 AS 而非 local UI 進行 authorization）— deterministic reference monitor 的 credential/authorization twin
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — **standards layer 與 concrete shipped system 的對照**：AIMS 標準化 *workload* identity（WIMSE/SPIFFE）與 delegated authority（OAuth token-exchange、transaction tokens）；aiAuthZ（Kodathala，arXiv 2607.05518）是運作中的 gateway，針對每則 message authentication *human user*（per-message HMAC + nonce），並可將 AIMS-issued identities 作為其 role + argument policy 的 service/principal inputs — 可在不同 granularity 組合（AIMS 將 identity 綁定至 workload/session/token；aiAuthZ 綁定至每則 user message），且 AIMS 僅為 design-only，aiAuthZ 則是 empirical。它是 single-author preprint，因此在 adoption questions 上權重低於這項 multi-vendor standards work
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — ScopeGate 是 AuthZEN/COAZ **proposed-standard** authorize-each-call 的 `empirical` **research** counterpart：兩者都在具體 `(tool, args)` call 上提供 deterministic allow/deny decision，但 ScopeGate 是 measured in-framework PDP/PEP，而 AuthZEN 的 Authorization API + COAZ 標準化 SARC decision interface 與 MCP→SARC mapping（WG draft，權重低於 measured system）。AARP 加入純 allow/deny gate（如 ScopeGate）缺少的「尚未 — 以下是 prerequisite」形式
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — COAZ 標準化在**MCP tool-invocation point**放置 authorization decision，是該頁主張應位於（已被擊敗的）detection *下游*的 action-layer defense 之 standards-track form
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — LLM-never-holds-credentials rule 明確是 prompt-injection defense：被劫持的 model 無法揭露它從未持有的 secret
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — AIMS 將其 human-in-the-loop model 與 MCP 的 user-solicitation pattern 對齊，並把 MCP tools 視為 OAuth authorize 的 resource surface；但堅持 local approval 不是 authorization
+- [Hermes Agent](/articles/hermes-agent) — shipped contrast：Hermes 以 ad-hoc **DM-pairing + allowlist**（human-auth）加上 container-as-boundary 保護 multi-user agent access；AIMS 則提出 standards-based **workload identity + delegated authorization**；這是實務與 proposed standard 之間的落差
+- [OpenAI](/articles/openai) — Nick Steele（OpenAI）是 co-author，與 Defakto、AWS、Zscaler、Ping Identity 及 Okta 並列
+
+## 待解決的問題
+
+- **No WG consensus。** 這是一份描述其他仍在進行中的 drafts 的 individual submission（WIMSE identifier/creds/WPT/HTTP-sig、OAuth transaction-tokens、identity-chaining **全都是** Internet-Drafts）。其中哪些 primitives 最終會成為 RFC？這種 composition 能否通過 WG review？「誰治理 agent-auth protocol layer」（[Agent-Native Infrastructure](/articles/agent-native-infrastructure)）目前是*proposed*（IETF/CNCF/OpenID），但尚未*settled*。**OpenID AuthZEN drafts 讓問題更清楚：** authorization slice 正由與 AIMS 的 IETF identity/delegation work **不同的 body** 進行標準化 — **OpenID Foundation's AuthZEN WG** 已批准 AARP + COAZ 作為 Working Group Drafts（比 AIMS 的 individual-submission status 更進一步，但仍是 pre-ratification、community-review drafts）。因此 governance layer 具體上是**多元**的（IETF 負責 workload identity + delegated authority；OpenID 負責 authorization decision + prerequisites），且**正在積極推進** — 不是單一 arbiter，而是跨 bodies 的分工，其最終 composition 本身仍未定案。
+- **Mission → authorization 超出範圍。** 最困難的部分 — 安全地將自然語言 mission 轉換為具體 scopes/resources — 被明確延後為「planning step」。被操控的 planning step 可能請求過度寬廣的 authorization；AIMS 提供乾淨的 primitives，卻沒有說明如何保護該 translation 本身。
+- **Mid-execution human-in-the-loop。** Draft 承認 CIBA 只建模 client-initiated approval，且「*doesn't map well*」到 execution 中途所需的 confirmation — 這是已承認的 specification gap。**OpenID AuthZEN AARP draft 已提出解法：** AARP 將 CIBA 的 async out-of-band interaction generalize 為一般性的 *prerequisite/approval* pattern — 「尚未，以下是必要條件」— 不受限於 client-initiated flows，可在 mid-flow 由 person 或 automated governance system 滿足，並在 enforcement 時重新評估 policy。因此這個 gap 現在有了 proposed standards answer — 但它仍是 Working Group **Draft**，不是 ratified spec，且尚未整合至 AIMS 的 IETF stack。
+- **Posture assessment 的 deployment-specific 是刻意設計。** 由於不要求特定 attestation mechanism，AIMS 讓*trust assurance*（不只是 protocol）的 interoperability 變得未明確：兩個符合 AIMS 的 deployments，可能以完全不同且不可比較的 signals 評估 posture。
+- **沒有 empirical evaluation。** 不同於 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)（至少執行過一次 adaptive reproduction），AIMS 是沒有 measured attack-resistance 的 design document — 其 security 仰賴 composed specs 自身（大多不是 agentic）的 threat models。
+
+## 資料來源
+
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF Internet-Draft `draft-klrc-aiagent-auth-03`，*AI Agent Authentication and Authorization*（Informational，individual submission），2026 年 7 月 6 日，`practitioner-opinion`。§4（agents are workloads，Figure 1）、§5（AIMS stack，Figure 2）、§6（WIMSE/SPIFFE identifier）、§7（credentials；static-key antipattern；hardware-backing optional）、§8（provisioning + posture assessment；LLMs-never-hold-credentials rule）、§9（transport mTLS vs application-layer WPT / HTTP Message Signatures）、§10（OAuth delegation、mission、transaction tokens、cross-domain chaining、CIBA human-in-the-loop、tool-to-service、discovery）、§11（SSF/CAEP/RISC monitoring + tamper-evident audit）
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`（標準組織宣布新批准的 Working Group **Drafts** — 是 proposals，不是 ratified specs；全文以 proposed 描述，與其重疊處權重低於 vault 的 `empirical` per-call-authz papers）。提供：AARP（Access Request and Approval Profile — 將 CIBA generalize 至 client-initiated flows 之外的 prerequisite/approval pattern）、COAZ（AuthZEN Profile for MCP Tool Authorization — MCP invocations → Subject-Action-Resource-Context / Authorization API 1.0）、OIDC→OAuth→CIBA→Verifiable-Credentials→AARP progression，以及 industry-participation list（Axiomatics、Cerbos、Okta、SailPoint、Indykite、Keycard、C1）

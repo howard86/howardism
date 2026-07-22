@@ -119,6 +119,8 @@ describe("verbatimDiffers", () => {
   });
 });
 
+const DOMAIN_LINE_RE = /^domain:.*\n/m;
+
 describe("resyncVerbatimFields", () => {
   it("copies source verbatim fields into output, leaving translated fields intact", () => {
     const source = mdx({
@@ -145,6 +147,18 @@ describe("resyncVerbatimFields", () => {
   it("is a no-op when verbatim fields already match", () => {
     const text = mdx();
     expect(resyncVerbatimFields(text, text)).toBe(text);
+  });
+
+  it("appends a verbatim key the translation is missing entirely", () => {
+    // Translations predating `domain` carry no such line; skipping them left
+    // them classified verbatim-drift on every run while the resync no-oped.
+    const source = mdx({ domain: "agent-security" });
+    const output = mdx().replace(DOMAIN_LINE_RE, "");
+    expect(output).not.toContain("domain:");
+
+    const resynced = resyncVerbatimFields(output, source);
+    expect(resynced).toContain("domain: agent-security");
+    expect(verbatimDiffers(source, resynced)).toBe(false);
   });
 });
 

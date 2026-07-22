@@ -1,0 +1,99 @@
+---
+date: 2026-06-15
+title: 以 production 為來源的評估
+description: 從去識別化的真實 production 使用情況，而非合成或人工撰寫的任務建立基準測試；DRACO 的核心方法——以難度代理進行抽樣、移除 PII、增強、具備人工作為 QA 關卡的可自動化更新；代表性與過度規格化之間的取捨；production 流量作為專有 eval 資產
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - benchmarks
+  - data-provenance
+  - privacy
+readingTime: 9
+imageAlt: 以 production 為來源的評估插圖
+sources:
+  - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
+      Completeness, and Objectivity"
+    url: https://arxiv.org/abs/2602.11685
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
+---
+export { default as heroImage } from "../assets/production-sourced-evaluation.png";
+
+## 資料來源
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+
+## 摘要
+
+**以 production 為來源的評估**，是從已部署系統的**真實、去識別化使用情況**建立基準測試，而不是透過合成生成或人工撰寫的提示建立。其論點是：基準測試的全部價值，在於預測真實世界的表現；最具代表性的任務，就是使用者實際提出的任務。[DRACO](/articles/draco-benchmark)（Perplexity，2026）是具體案例——其中 100 個 [deep-research](/articles/deep-research-agents) 任務，從數千萬筆真實的 Perplexity Deep Research 查詢中提煉而來；而這套方法才是論文的核心貢獻，有別於評分規準設計或評分協定。
+
+## 方法（DRACO）
+
+1. **以難度為代理的抽樣。** 從 production 流量開始，偏向*困難*案例：DRACO 抽樣了 1,000 筆之後收到負面情緒或明確倒讚的查詢——也就是已部署系統處理得*最差*的查詢。這種方式能挖掘系統已經呈現的失敗，而合成生成無法針對這些失敗。
+2. **保護隱私的改寫。** 自動化 LLM pipeline 會移除 PII 並降低歧義。關鍵在於，**原始使用者查詢絕不會暴露給人類分析師**——匿名化是前置條件，透過架構強制執行，而不是事後清理步驟。
+3. **朝向難度與規格化進行增強。** 真實查詢通常規格不足；增強會加入背景（角色、輸出格式、來源），並擴大範圍（時間、比較、地理），讓任務變得定義清楚且具挑戰性，同時仍反映使用者的隱含意圖。
+4. **篩選客觀、可處理且困難的任務。** 只保留專家成功標準一致、範圍受限且確實具有難度的任務。
+5. **人工作為關卡。** 由內部專家進行最後的安全性與品質審查。這套 pipeline **端到端皆可自動化，但刻意保留人工作為最後一道安全／品質關卡。**
+
+DRACO 宣稱的成果，是一套*具代表性*（反映真實的領域組成與真實失敗模式）且*可更新*（研究需求與使用情況都會演變，因此 pipeline 能重新生成新任務，而不會僵化）的基準測試。
+
+## 核心取捨：代表性與過度規格化
+
+從 production 取材能換來代表性，但讓原始查詢變得可評估的增強步驟，也會威脅這項代表性。論文坦率指出：系統化增強「降低歧義並改善可重現性，但也有**過度規格化任務並削弱使用者查詢自然變異性**的風險。」去識別化加上增強 pipeline，會把混亂、個人化且含義不明的查詢，轉成乾淨、範圍明確、可比較的任務——而被移除的部分（歧義、個人背景、實際措辭），其實也是使真實使用保持真實的一部分。以 production 為來源比合成方式更具代表性，但它並不是原始 production。
+
+而且，*任務*的代表性與*評分*的有效性是正交的：基準測試可以精準挖掘正確的 production 查詢，但如果對其進行評分的 [judge](/articles/llm-as-a-judge) 沒有經過驗證，仍可能回報不可信的結論。[Norman et al. (2026)](/articles/llm-judge-validation) 是另一半——對評分者進行機率校正、位置交換，以及一致性與偏誤稽核——因此，完全值得信賴的 production 來源 eval，需要同時具備*具代表性的任務分布*與*經過驗證的 judge*。
+
+## 為什麼 production 流量是具有護城河等級的 eval 資產
+
+這套方法只有在你*擁有*能產生大規模流量的已部署系統時才有效——這正是 [Compounding Data Moat](/articles/compounding-data-moat) 所描述的專有資料地位。大規模真實使用「受到時間鎖定、受情境限制，而且仿冒者不可能重建」；在這裡，同一項資產又兼作**評估**基礎。有 production 流量的供應商，可以建立具代表性、針對難度且持續更新的基準測試；沒有部署能力的競爭者根本無法做到——而且還能針對自身產品目前*失敗*的任務進行（倒讚抽樣）。這是指向測量的資料飛輪：使用 → 失敗訊號 → 基準測試 → 產品改進。
+
+反面則是可信度問題（見 [DRACO Benchmark](/articles/draco-benchmark)）：基於單一供應商流量建立、且該供應商產品在其中勝出的基準測試，顯然帶有利益誘因——人工作為關卡與專家評分規準，部分正是為了回答這個問題。
+
+## 產品迴圈形式：Google 的飛輪
+
+Google 的 [Agent Quality Flywheel](/articles/agent-quality-flywheel)，將同一原則實作成*持續的產品迴圈*，而不是基準測試。代理會發出 OTel traces；每個 production session「都是真實的請求……而每次失敗，都是下一個週期現成的測試案例。」完整 traces 略過推論並直接評分；Online Monitors 持續評分即時流量，分數漂移時，會把失敗 traces 交給 eval 修復迴圈。Google 明確說明順序：合成情境（其 User Simulator）是**冷啟動 bootstrap**——「合成情境讓你開始運作；production data 才讓迴圈變得敏銳。」這形成三種獨立將 production 作為 eval 基礎的路徑：DRACO（能力基準測試）、[Deployment Simulation](/articles/deployment-simulation)（安全性預測），以及飛輪（持續品質監控）——方法已從基準測試建構跨入日常產品工具。
+
+## 與替代方案的對比
+
+- **合成生成**（DeepResearchEval、ReportBench、DeepScholar-Bench、DRBench）——可擴展、不會暴露隱私，但任務是模型想像出來的，可能漏掉真實失敗模式。
+- **從訪談／搜尋人工撰寫**（xBench、ResearcherBench、DEER）——由人類撰寫且貼近現實，但受作者想像力限制，也不是取自即時 production 系統。
+- **以 production 為來源**（DRACO）——三者中唯一能挖掘實際分布與實際失敗的方法，代價是需要部署存取權與隱私 pipeline。
+
+## 相關連結
+
+- [DRACO Benchmark](/articles/draco-benchmark)——具體案例；這套方法是其核心貢獻
+- [LLM-as-a-Judge](/articles/llm-as-a-judge)——pipeline 的評分部分；以 production 為來源的任務加上 rubric-judge 評分，形成可自動化（由人工作為關卡）的 eval
+- [Deep Research Agents](/articles/deep-research-agents)——DRACO 挖掘其 production 流量的系統類別
+- [Compounding Data Moat](/articles/compounding-data-moat)——production 使用情況是受時間鎖定的專有資產；這裡則是將該資產重新用作評估基礎
+- [Evals as Product Spec](/articles/evals-as-product-spec)——「在上線前／從真實使用情況建立測量框架」；以 production 為來源的評估，就是將這項原則推到基準測試規模
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling)——相鄰議題：基準測試會飽和，因此能從即時使用情況*更新*的能力，才是讓 eval 持續有效的關鍵
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit)——對齊面向的類比指出，其合成情境「可能無法匹配真實流量分布」——這正是以 production 為來源所填補的缺口
+- [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement)——[Faros AI](/articles/faros-ai) 以 telemetry 優於問卷的立場，是工程指標的同類觀點：從真實系統測量，而不是依賴自我回報
+- [Deployment Simulation](/articles/deployment-simulation)——同一方法在對齊面向的應用：OpenAI 重播去識別化的 production 對話，以在發布前預測*安全性*行為；DRACO 則重播對話以建立*能力*基準測試；相同的 PII pipeline，相同的專有流量護城河
+- [Conversation-to-Delegation Shift](/articles/conversation-to-delegation-shift)——其測量過時論點更進一步：當使用轉為委派時，甚至應該讀取的*指標*（複雜度、執行時間、並行度、輸出），都必須從真實代理行為重新取得，而不是互動次數
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel)——持續產品迴圈形式：OTel production traces 直接評分、即時流量上的 Online Monitors，以及被降級為冷啟動 bootstrap 的合成模擬
+- [Failures That Look Like Success](/articles/failures-that-look-like-success)——production 規模 traces 能量化的失敗類型：示範規模 eval 只會抽樣到的靜默契約違規
+- [Context Advantage, Not Taste](/articles/context-advantage-over-taste)——production telemetry 作為情境傳遞：從真實使用情況取得 eval，會把人類對使用者的了解移入模型可讀取的位置，刻意消耗人類的不對稱優勢
+- [LLM-Judge Validation](/articles/llm-judge-validation)——正交的品質軸：本頁修正基準測試包含*哪些任務*；judge 驗證修正對這些任務的評分*是否值得信賴*——由未驗證 judge 評分的代表性任務，仍是不可靠的 eval
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)——對「基準測試飽和時該怎麼辦」的姊妹答案，從相反端點出發：本頁從即時 production 使用情況*更新任務集合*；Nadgir et al. 則沿著六個非準確率軸向*重新儀器化現有任務集合*。兩者都拒絕「退役並替換」的直覺——新任務對新指標
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)——針對資料污染的**預防與修正**配對：以 production 為來源（以及一般的動態基準測試）透過抽取新鮮、難以預先記憶的任務並持續更新，從一開始就*避免*外洩；UBD 則在沒有乾淨參考的情況下，*修復*已因接觸靜態基準測試而膨脹的模型。這是針對同一外洩威脅的互補防禦
+- [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it)——群組綜合：以 production 為來源的更新，是五部分替代方案組合中「新任務」的一步（污染預防＋代表性）；在該組合中，它與 judge 驗證配對，構成值得信賴 eval 的兩半
+
+## 開放問題
+
+- 增強在多大程度上扭曲了它聲稱要代表的分布？原始查詢與增強任務之間，是否存在可測量的代表性損失？
+- 依倒讚判定難度會偏向目前的失敗——這是否會讓基準測試變成一個不斷移動的目標，反而有利於下一個針對這些失敗訓練的模型？
+- 對於來源流量最敏感的受監管領域（醫療、法律），隱私 pipeline（沒有人能看見原始查詢）是否能以充分可靠的方式接受信任／稽核？
+
+## 資料來源
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)——§3（任務建構：抽樣、前處理、增強、篩選、整理）、§6.1（泛化限制；增強過度規格化的注意事項）
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)——「從內迴圈到 production 迴圈」：OTel traces 作為 eval 輸入、Online Monitors、合成情境作為 bootstrap（`vendor-claim`）
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)——Norman et al.（arXiv 2606.19544，2026 年 6 月，`empirical`）：評估品質中關於評分有效性的部分，與任務代表性正交；見 [LLM-Judge Validation](/articles/llm-judge-validation)

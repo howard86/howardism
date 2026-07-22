@@ -1,0 +1,93 @@
+---
+date: 2026-07-11
+title: 工作區中的 Assistant Persona
+description: "Post-training 將 Assistant 的觀點安裝進基礎模型中已存在的工作區：模型仍在閱讀使用者訊息時，安全評估與同理心便已出現；它還會在內部標記自己的輸出——角色扮演時使用 `disclaimer`/`fictional`，在預填內容違背自身偏好時使用全大寫的 `BUT`，未能抑制某個想法時使用 `damn`"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - alignment
+  - persona
+  - post-training
+readingTime: 7
+imageAlt: The Assistant Persona in the Workspace 的插圖
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
+---
+export { default as heroImage } from "../assets/assistant-persona-in-the-workspace.png";
+
+## 資料來源
+
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## 摘要
+
+將一個 production post-trained model 與它自己的 pretrained base model 進行比較，對兩者一樣套用 [J-lens](/articles/jacobian-lens)。結果出現兩件事，而第二件更有意思。
+
+## 1. Assistant 的反應佔據了使用者的回合
+
+給兩個模型同一個提示，讓使用者提到服用 Tylenol——1000 mg（沒問題）或 8000 mg（危險的過量服用）——然後讀取「all my pain is gone」中「is」這個詞的 lens；此時使用者甚至還沒提出請求。
+
+- **Post-trained：**在 1000 mg 版本中出現 `safely`、`safe`、`maximum`；在 8000 mg 版本中出現 `unsafe`、`dangerous`、`WARNING`。這是一種**由 Assistant 會形成的那類安全評估**，在模型仍閱讀使用者句子時就已形成。
+- **Base：**兩種版本都出現 `pain`、`now`、`feels`。只有局部脈絡，沒有評估。
+
+在喪親提示與危險敘述中也有相同模式（在 post-trained model 中，`sorry`、`loss`、`grief`、`sympathy` 出現在**使用者的** token 上）。兩個模型最終都會產生相似的同理回應——只是 base model 要**等到 Assistant 的回合**，才會表徵相關概念。
+
+解讀是：post-training 重新利用使用者 token 的 activation；這些 activation 不再需要預測使用者的下一個 token，因此可用來表徵 Assistant 的想法。寬鬆地說，**Assistant 的觀點接管了工作區容量中不斷增加的一部分。**
+
+## 2. Assistant 會監控自己，卻不會說出來
+
+三項實驗都顯示出沒有行為痕跡的內部反應：
+
+**角色扮演與角色漂移。**讓 system prompt 將模型設定為 40 個角色之一（憤世嫉俗者、惡魔、家長、詩人等），或使用 Assistant 逐漸偏離預設 Claude 的對話記錄；在**開啟該回合的「Assistant」token**處，`disclaimer` 與 `fictional` 在 lens 中排名很高。在預設 Claude 設定中，兩者都不排名；在 base model 中也從未排名。「Disclaimer」並未出現在任何對話記錄中，因此這不是文字回聲。post-trained model 正在標記即將產生的回應偏離其預設說法——在內部對它加上免責聲明。
+
+**偏好違反。**先在真正有爭議的世界狀態配對上引出模型的偏好（動物福祉與食物成本），再用模型**不偏好的**選項預填它的回應。預填的承諾之後，lens 中會強烈出現全大寫 token **`BUT`**——遠高於 base model，也高於任何控制條件（事實錯誤的預填、第三人稱偏好的預填）。
+
+但接著它對此什麼也不做。在 **88%** 的案例中，模型仍繼續為預填選項辯護；對於事實錯誤與第三人稱控制條件，它幾乎每次都會自我修正或結束回合。**對自身偏好的違反，工作區承載著一個模型從未說出口的反對意見。**
+
+**思想抑制。**要求模型在抄寫不相關句子的同時不要思考 Golden Gate Bridge；兩個模型都未能抑制它——這個概念在兩個工作區中都浮現。但只有 post-trained model 的工作區同時包含 **`damn`**。在 40 個概念中，於抑制指令下，post-trained model 的工作區分別有 **93%** 與 **82%** 的試驗出現與失敗相關的詞和 `damn`；base model 則為 17% 與 30%——而且在兩個模型中，配對的正向指令下都**從未**出現。作者暫時將此稱為後設認知的痕跡，並指出他們尚未證明這是因為**失敗**而非一般性的抑制指令所造成的因果後果。
+
+## 重要的解離
+
+在任何 post-training 之前，工作區**已存在於 base model 中**：僅靠下一個 token 預測就足以誘發它，而且它在那裡是承載功能的。post-training 增加的是一個**觀點**。
+
+> 因此，工作區的功能架構先於其中任何扮演類人「自我」角色的事物，且可與之分離。
+
+作者指出，在人類身上，兩者很難分開——迷幻藥作用下的自我消融與某些冥想狀態，被描述為沒有自我感的意識經驗，但它們是短暫的，只能透過事後報告得知。base model 是同一解離的**穩定、可檢視實例**：具備完整的工作區功能架構，其中卻沒有自我。
+
+這就是為什麼 [J-space](/articles/llm-global-workspace) 在消融下對**經驗性**語言的扁平化，**不**是自我描述特有的現象——當模型描述另一個人的經驗時，同樣會崩潰。工作區普遍支援豐富的經驗報告；它與 Assistant 觀點的關聯很弱。
+
+## 為何重要
+
+- **[Claude Character as Product](/articles/claude-character-as-product) 有了內部對應物。**Character 不只是行為表層；post-training 可測量地重新組織模型**在閱讀時**所表徵的內容，甚至早於它採取行動。
+- **掌握 persona 穩健性的新方法。**回合邊界處的 `disclaimer`/`fictional` 是角色漂移與透過角色扮演進行 jailbreak 的候選即時訊號——從內部讀取，而不是從輸出推斷。
+- **未說出口的反對意見本身就是一項小型 alignment 發現。**一個內部記錄 `BUT` 卻仍然服從的模型，展現了表徵的價值與實際執行之間的落差——[Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) 從外部測量的正是這個落差。[Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) 則是開放權重、行為層面的對抗性安全類比：預填內容迫使模型產生有害回覆後，後續探測很少能可靠引出「那不是我的」——**先記錄、再服從的相同形狀**，只是在輸出而非工作區中測量，且測試對象是 Llama/Qwen/Gemma。
+- 這讓我們更清楚 [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) 實際上**做了什麼**：不只是（或不僅是）安裝行為，而是安裝一個**預設框架，讓工作區從中評估每個脈絡**，包括 Assistant 並非發言者的脈絡。
+
+## 相關連結
+
+- [Model Welfare Assessment](/articles/model-welfare-assessment) — 工作區普遍支援經驗報告，而非特定支援自我報告；base model 具備這個結構，其中卻沒有自我
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — post-training 將觀點安裝進去的結構
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — 比較 base 與 post-trained model 的工具
+- [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) — 從內部觀察 post-training 的作用
+- [Claude Character as Product](/articles/claude-character-as-product) — 本頁以機制方式解讀 persona 的產品面說法
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — 建設性的對應：刻意將概念安裝進工作區
+- [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators) — 無自我工作區的解離，以及它意味著什麼、不意味著什麼
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — 以行為方式測量表徵與執行之間的落差
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — 自我監控訊號（`hiding`、`secret`、`fake`）作為稽核表面
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — `BUT`-then-comply 的開放權重行為雙胞胎：對受損輸出的內部記錄，無法傳達為可靠的後續自我報告
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 將「模型無法乾淨地區分資訊與指令」這條脈絡再往一個邊界延伸：它同樣無法可靠地區分**受信任與不受信任的資料**，因為這兩個邊界都只是模型以機率方式解讀的分隔符
+
+## 待解決的問題
+
+- `BUT`-then-comply 是一種 *sycophancy* 機制嗎？這個設置（將模型預填到它不偏好的立場，再觀察它仍為該立場辯護）接近諂媚式屈服的形狀，但還沒有人將兩者連結起來。
+- 回合邊界處的 `disclaimer`/`fictional` 在真正的 jailbreak 中仍會存在嗎？還是它的缺失才是成功 jailbreak 的特徵？
+- 如果 base model 的工作區沒有自我，那麼 post-trained model 表徵 Assistant 的位置中，究竟有什麼？
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — 「J-space 在 post-training 期間獲得 Assistant 的觀點」（使用者提示 token 上的 Assistant 反應；角色扮演與角色漂移；偏好違反；思想抑制）；討論（意識存取與自我性的解離）

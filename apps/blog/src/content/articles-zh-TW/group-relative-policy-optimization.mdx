@@ -1,0 +1,69 @@
+---
+date: 2026-07-15
+title: 群組相對政策最佳化（GRPO）
+description: "DeepSeek 不需評論者的 RL 目標，已成為 2024–25 年 LLM 後訓練的預設方法：每個提示取樣一組回應，以群組平均獎勵作為基準，並在沒有價值網路的情況下最佳化經裁切的 PPO 替代目標——在同步訓練中比 PPO 更便宜且穩定，但群組是隱性的同步障礙（更新必須等待最慢的成員），與非同步及單軌跡線上代理設定不匹配，而 SAO 正是利用了這個缺口"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - reinforcement-learning
+  - post-training
+  - grpo
+readingTime: 4
+imageAlt: 群組相對政策最佳化（GRPO）的插圖
+sources:
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/group-relative-policy-optimization.png";
+
+## 資料來源
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## 摘要
+
+**GRPO**（Shao et al. / DeepSeek，2024）是已成為 LLM 後訓練預設方法的 RL 目標。它的賣點是**不需評論者**：PPO 會訓練獨立的價值網路來估計優勢，但 GRPO 會**為每個提示取樣一組回應**，將每個回應的獎勵相對於群組平均值進行**正規化**來計算其優勢，並最佳化 PPO 所使用的相同經裁切替代目標。不使用價值模型意味著記憶體需求減半，也不會有價值學習的不穩定性——這正是它在推理與程式設計 RL 中取代 PPO 的原因。
+
+本頁是 [SAO](/articles/single-rollout-optimization) 的**基準與陪襯**。Wiki 不斷引用 RL，卻從未定義 GRPO；SAO 讓這個定義變得不可或缺，因為 SAO 的整個論點都在於 GRPO 在結構上失效的地方。
+
+## 機制
+
+與 PPO 共用的統一經裁切目標為：
+
+`E[ (1/|y|) Σ_t min( r_t(θ)·Â_t, clip(r_t(θ), 1−ε, 1+ε)·Â_t ) ]`
+
+其中，`r_t(θ) = π_θ(y_t | q, y_<t) / π_θ_old(y_t | q, y_<t)` 是機率比值。**PPO 與 GRPO 的根本差異在於如何估計 `Â_t`**：
+
+- **PPO** 訓練價值網路 `V_ϕ`（評論者），並使用 Generalized Advantage Estimation——準確，但會使記憶體使用量加倍，還會引入價值學習的不穩定性。
+- **GRPO** 跳過評論者。對於同一提示的一組回應，它會將每個獎勵相對於**群組層級平均值**進行正規化，以形成優勢。群組本身*就是*基準。
+
+在此之上又累積了各種改良：**clip-higher**（不對稱的 `ε_low`/`ε_high`，Yue et al.）、序列層級重要性加權、動態／自適應裁切，以及比硬裁切更平滑的替代方案——但這些方法大多針對*同步* RL，因為在同步情況下很容易取得精確的重要性比值。
+
+## SAO 利用的結構性弱點
+
+GRPO 的群組相對基準在同步訓練中很優雅，但在兩個日益重要的設定中卻是致命弱點：
+
+**1. 群組是隱性的同步障礙。** 由於計算優勢需要整個群組的獎勵，**更新必須等到群組中的每個成員都生成完畢**。在[非同步](/articles/asynchronous-rl-for-llms)情況下，這會重新引入非同步原本要消除的精確落後者閒置時間，並使陳舊性惡化：群組會等待最慢的成員，因此較快成員的資料在訓練看到之前就已經過時。群組式取樣會造成「由延遲驅動的離政策行為」。
+
+**2. 它無法在單一軌跡回饋上運作。** 線上與複雜的代理環境經常為每個提示提供**一條軌跡的回饋**——沒有可供正規化的群組。GRPO 在結構上不適用；基於價值的評論者（[SAO](/articles/single-rollout-optimization)）則是能從單次 rollout 運作的替代方案。
+
+## 實證失效模式
+
+在 SAO 的實驗中，**原生 GRPO**（搭配最新舊政策的重要性取樣與 clip-higher）在**約 160 個訓練步驟時發生效能崩潰**——報告中的分數是崩潰前最後的有效數值。將 SAO 的 [DIS](/articles/asynchronous-rl-for-llms) token 層級遮罩加入 GRPO（**GRPO + DIS**）後，穩定性得以恢復，證實崩潰是離政策／裁切問題，而非群組取樣本身的問題。但 GRPO + DIS 隨後在**約 400 個步驟後開始向下偏離 SAO**——僅有穩定性還不夠；持續改善的關鍵，是單次 rollout 加上價值模型的組合。因此，GRPO 的兩個問題可以清楚分開：DIS 修復它的*穩定性*，單次 rollout 修復它的*上限*以及它與線上回饋的*不相容性*。
+
+## 相關連結
+
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — SAO，以一次 rollout 加上價值模型取代 GRPO 群組的方法；本頁是它的陪襯
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — GRPO 的群組障礙造成最大傷害之處；在 SAO 移除群組之前，DIS 先在 GRPO 上展示
+- [The Bitter Lesson](/articles/the-bitter-lesson) — GRPO 不需評論者的設計本身就是一次「移除手工打造結構」的行動（刪除價值網路）；SAO 則是對於何時這種移除走得太遠的實證論證
+
+## 開放問題
+
+- GRPO 在 160 步時崩潰，是非同步特有的性質嗎？還是原生 GRPO 在沒有人將同步長程執行推到 1000 步時，也同樣會失穩？
+- GRPO 靠移除評論者取勝；SAO 則靠更好的工程將評論者帶回來。這個鐘擺是真實的擺動，還是答案完全取決於你的設定是同步分組，還是非同步單軌跡？
+
+## 資料來源
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*，Hou、Li、Tang、Dong（Tsinghua / Z.AI），arXiv 2607.07508，2026-07-08。§2（PPO／GRPO 目標）、§3.2 + §5.1（群組式不匹配）、§4.2（GRPO 崩潰）。主要 GRPO 參考資料：Shao et al.（DeepSeekMath，2024）。`empirical`。
+。

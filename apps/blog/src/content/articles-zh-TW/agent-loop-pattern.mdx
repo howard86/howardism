@@ -1,21 +1,22 @@
 ---
 date: 2026-05-06
-title: Agent Loop Pattern
-description: '`/loop` (cron-scheduled) 與 Ralph Wiggum (backlog-draining) 迴圈作為次世代 agent 基本要素；AFK 執行、parallel fan-out，「迴圈就是未來」'
+title: Agent 迴圈模式
+description: '`/loop`（由 cron 排程）與 Ralph Wiggum（消化待辦清單）迴圈，作為下一代 agent 原語；AFK 執行、平行扇出，以及「迴圈就是未來」'
 tag: Concept
-domain: ai-engineering
+domain: agent-systems
 tags:
   - agent-engineering
   - harness
   - automation
 readingTime: 7
-imageAlt: Agent Loop Pattern 插圖
+imageAlt: Agent 迴圈模式插圖
 sources:
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
     url: https://www.youtube.com/watch?v=SlGRN8jh2RI
   - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
     url: https://youtu.be/-QFHIoCo-Ko
-  - title: "How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)"
+  - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
+      of Product, Claude Code)
     url: https://www.youtube.com/watch?v=PplmzlgE0kg
 ---
 export { default as heroImage } from "../assets/agent-loop-pattern.png";
@@ -28,26 +29,26 @@ export { default as heroImage } from "../assets/agent-loop-pattern.png";
 
 ## 摘要
 
-**迴圈**是一個 agent 程序，它會重複執行提示詞，直到佇列為空或達到停止條件。截至 2026 年年中，三種收斂的實作方式都指出迴圈正在成為與 single-shot session 平起平坐的基本要素：Anthropic 的 `/loop` 斜線指令（cron-scheduled，重複執行）、Anthropic 的 **routines**（伺服器端 `/loop`），以及 Matt Pocock 的 **Ralph Wiggum loop**（在 `while` 迴圈中使用 bash + `claude --permission-mode accept-edits`）。[Boris Cherny](/articles/boris-cherny) 將迴圈稱為「未來」；[Matt Pocock](/articles/matt-pocock) 則將它們用作他 end-to-end 工作流的 AFK 骨幹。
+**迴圈**是會重複執行提示的 agent 程序，直到佇列清空或達到停止條件。到 2026 年年中，三種逐漸匯流的實作顯示，迴圈正成為與單次工作階段同等地位的原語：Anthropic 的 `/loop` 斜線指令（以 cron 排程、重複執行）、Anthropic 的 **routines**（伺服器端的 `/loop`），以及 Matt Pocock 的 **Ralph Wiggum loop**（在 `while` 中以 bash 加上 `claude --permission-mode accept-edits` 執行）。[Boris Cherny](/articles/boris-cherny) 稱迴圈是「未來」；[Matt Pocock](/articles/matt-pocock) 將其作為端到端工作流程的 AFK 骨幹。
 
-## The two loop families
+## 兩類迴圈
 
-### Cron-scheduled loops (`/loop`, routines)
+### 由 cron 排程的迴圈（`/loop`、routines）
 
-在 [Claude Code](/articles/claude-code) 和 [Cowork](/articles/cowork) 中使用。機制：agent 呼叫 `cron`（透過工具）來排程未來時間的工作；該工作在該時間點帶著執行任務的指令重新進入 agent。排程可以重複（每分鐘、每 5 分鐘、每天）。
+在 [Claude Code](/articles/claude-code) 與 [Cowork](/articles/cowork) 中使用。機制是：agent 透過工具呼叫 `cron`，將工作排程到未來某個時間；到了指定時間，該工作會帶著執行任務的指示重新進入 agent。排程可以重複執行（每分鐘、每 5 分鐘、每天）。
 
-Boris Cherny 提到的使用場景：
-- 照看 PR — 修復 CI、auto-rebase
-- 保持 CI 健康 — 修復 flaky tests
-- 每 30 分鐘將 Twitter 的回饋進行聚類
-- 「隨時有數十個迴圈在執行」
-- 夜間：「數千個 agents」進行更深度的運作
+Boris Cherny 回報的用途：
+- 照看 PR — 修復 CI、自動 rebase
+- 維持 CI 健康 — 修復不穩定的測試
+- 每 30 分鐘彙整 Twitter 回饋
+- 「任何時候都有幾十個迴圈在執行」
+- 夜間：「幾千個 agents」進行更深入的工作
 
-**Routines** 是伺服器上的相同基本要素，因此即使筆記型電腦關閉也能繼續執行。
+**Routines** 是伺服器上的同一種原語，因此即使關閉筆電也能持續運作。
 
-### Backlog-draining loops (Ralph Wiggum loop)
+### 消化待辦清單的迴圈（Ralph Wiggum loop）
 
-由 [Matt Pocock](/articles/matt-pocock) 等人使用。機制：一個 shell 腳本以固定的提示詞執行 agent，該提示詞指示它從待辦清單中挑選下一個任務並完成它，然後腳本重新啟動。待辦清單是一個包含 markdown issue 檔案的目錄（或 GitHub issues）。
+由 [Matt Pocock](/articles/matt-pocock) 等人使用。機制是：shell script 以固定提示執行 agent；提示要求 agent 從待辦清單挑選下一個任務並完成；script 隨後重新啟動。待辦清單是由 markdown issue 檔案（或 GitHub issues）組成的目錄。
 
 Pocock 的 `once.sh` 骨架：
 ```bash
@@ -57,67 +58,69 @@ prompt=$(cat prompt.md)
 claude --permission-mode accept-edits "$prompt" --context "$issues" "$recent_commits"
 ```
 
-此「迴圈」包裝器只是重複執行 `once.sh`，直到 agent 發出哨兵值（`no more tasks`）或 harness 停止它。
+「迴圈」包裝器只會反覆執行 `once.sh`，直到 agent 輸出 sentinel（`no more tasks`）或 harness 停止它。
 
-提示詞強制執行 **AFK-only 任務選擇** — 只有標記為 `AFK`（相對於 `human-in-loop`）的任務才符合條件。
+提示會強制採用 **AFK-only task selection** — 只有標記為 `AFK` 的任務（相對於 `human-in-loop`）才符合資格。
 
-## Why loops matter
+## 迴圈為何重要
 
-1. **將規劃成本分攤到多次執行中。** 一次仔細的規劃 session（例如透過 [Design Concept Grilling](/articles/design-concept-grilling)）會建立一個 Kanban 待辦清單（參見 [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)）；迴圈會在沒有進一步人類輸入的情況下清理它。
-2. **長達數小時的任務變得可行。** 與其使用一個巨大的 context window，迴圈將工作拆分到許多全新的 sessions 中 — 每次都保持在 [Context Window Smart Zone](/articles/context-window-smart-zone) 中。
-3. **平行化。** 獨立的待辦清單項目會同時在不同的沙箱中執行。Pocock 的 Sandcastle 函式庫透過在 Docker 容器中為每個 issue 建立 git worktrees 來實現這一點；merger agent 隨後進行協調。
-4. **閒置算力。** Boris 的夜間設定是在便宜的閒置時間執行一個包含一千個 agent 的迴圈 — 雖然這項工作不值得人類花費晚上時間，但能以 agent 成本產生價值。
+1. **將規劃成本攤銷到多次執行。** 一次謹慎的規劃工作階段（例如透過 [Design Concept Grilling](/articles/design-concept-grilling)）建立 Kanban 待辦清單（見 [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)）；迴圈能在不需進一步人工輸入的情況下消化它。
+2. **數小時的任務變得可處理。** 迴圈不是使用一個巨大的 context window，而是將工作切分成許多全新的工作階段，每次都維持在 [Context Window Smart Zone](/articles/context-window-smart-zone) 內。
+3. **平行化。** 獨立的待辦項目會在不同的 sandbox 中同時執行。Pocock 的 **Sandcastle** library 透過 Docker containers 中每個 issue 專用的 git worktree 實現這點；之後由 merger agent 進行協調。
+4. **閒置運算。** Boris 的夜間配置是在便宜的閒置時段運行千 agent 迴圈——這些工作不值得人類花一晚處理，卻能以 agent 成本產生價值。
 
-## AFK vs human-in-loop tasks
+## AFK 與 human-in-loop 任務
 
 [Matt Pocock](/articles/matt-pocock) 的關鍵區分：
 
-- **AFK 任務** — 實作、重構、測試腳手架、文件維護、CI 自動修復。agent 無需逐步核准即可成功；驗證是自動的（測試、型別、Linter）。
-- **Human-in-loop 任務** — 對齊、設計選擇、優先級排序、QA。這些任務沒有機械式的驗證；它們需要品味與隱性 context。
+- **AFK tasks** — 實作、重構、測試腳手架、文件維護、CI 修復。agent 不需逐步核准也能成功；驗證是自動的（測試、型別、linters）。
+- **Human-in-loop tasks** — 對齊、設計選擇、優先順序、QA。這些沒有機械式驗證；需要品味與默會脈絡。
 
-迴圈適用於 AFK 類別。嘗試對 human-in-loop 工作進行迴圈會產生 drift — agent 會做出看似合理但錯誤的決定並不斷累積它們。
+迴圈適用於 AFK 類別。試圖讓 human-in-loop 工作進入迴圈會產生偏移——agent 會做出看似合理卻錯誤的決定，並逐步累積這些錯誤。
 
-## Verification is the ceiling
+## 驗證是上限
 
-Pocock 更強烈的論點：**feedback loops 的品質決定了迴圈能力的上限。** 沒有良好的測試、型別和 Linter，迴圈就像是「盲目編寫程式碼」。這與 [Agent Harness Engineering](/articles/agent-harness-engineering) 中關於機械式強制執行的論點相同 — 迴圈只是更赤裸地暴露出成本，因為沒有人類來捕捉 drift。
+Pocock 更強的主張是：**回饋迴圈的品質，決定迴圈能做到什麼的上限。** 沒有好的測試、型別與 linters，迴圈就是「盲目寫程式」。這與 [Agent Harness Engineering](/articles/agent-harness-engineering) 對機械式強制的論點相同——只是迴圈更鮮明地暴露了成本，因為沒有人工捕捉偏移。
 
-## Connection to model trajectory
+## 與模型軌跡的連結
 
-[Boris Cherny](/articles/boris-cherny) 報告指出，Opus 4.7 會在沒有提示的情況下*自發地*啟動迴圈：
+[Boris Cherny](/articles/boris-cherny) 回報，Opus 4.7 會在沒有提示的情況下*自發*開始迴圈：
 
-> 「我會告訴它：『去抓取這個數據查詢。』而它會回答：『嘿，我注意到數據隨時間在變化。我將啟動一個迴圈，並每 30 分鐘為你提供一份報告。』」
+> 「我會告訴它：『去抓取這個資料查詢。』然後它會說：『嘿，我注意到資料會隨時間變化。我會開始一個迴圈，每 30 分鐘給你一份報告。』」
 
-這契合了 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 過去由 harness 注入的能力變成了模型自然展現的行為。迴圈的基本要素依然存在，但使用者不再需要手動呼叫它。
+這符合 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)——過去需要由 harness 注入的能力，會變成模型的自然行為。迴圈原語仍然存在，但使用者不再需要親自呼叫它。
 
 ## 相關連結
 
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — 最佳實踐指南將 `/loop` 視為核心工作流基本要素
-- [Engineer PM Convergence](/articles/engineer-pm-convergence) — 通才 PM-engineers 將工作分發到多個迴圈中
-- [Boris Cherny](/articles/boris-cherny) — 主要倡導者與日常推動者
-- [Matt Pocock](/articles/matt-pocock) — Ralph loop + Sandcastle 範例
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 迴圈作為取代 per-step prompting 的次世代基本要素
-- [Context Window Smart Zone](/articles/context-window-smart-zone) — 為什麼將工作碎片化為許多全新的 sessions 優於單一長 sessions
-- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 填充迴圈所清理的待辦清單之內容
-- [Design Concept Grilling](/articles/design-concept-grilling) — 證實迴圈合理性的規劃步驟
-- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 具有強大測試邊界的模組讓迴圈變得可行
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — 推廣了「驗證是天花板」的論點
-- [Symphony](/articles/symphony) — orchestration layer 中由 daemon 驅動的等價物
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 權限分類器，讓 `accept-edits` 模式在 AFK 迴圈中保持安全
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 迴圈 + weak per-action oversight 正是 AM 的威脅層面；迴圈審查者仰賴模型端的對齊在無人看管的情況下維持
-- [AI Brain Fry](/articles/ai-brain-fry) — 人類端的產出倍增器限制：更多迴圈產出 → 更多審查 → 更多認知疲勞 → 錯過更多錯誤
-- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — 迴圈迫使重新設計的問題出現；span-of-control 重新設計是無人值守迴圈部署所欠缺的合作夥伴
-- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — DeepMind 的基本證明搜尋 agent 簡直就是一個「Ralph loop」（huntley2025ralph）：generate→compile→learn-lessons 的片段，作為平行的獨立 subagents 執行
-- [AlphaProof Nexus](/articles/alphaproof-nexus) — 其基本 agent (A) 為 Ralph-loop 船隊的框架；在大多數問題上[它與 bespoke system 平起平坐](/articles/agentic-loops-overtake-bespoke-systems)
-- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — 透過感測器/執行器運作的常駐迴圈是 [Karpathy](/articles/andrej-karpathy) 的 agent-native 世界的 runtime
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — 最佳實務指南將 `/loop` 視為核心工作流程原語
+- [Engineer PM Convergence](/articles/engineer-pm-convergence) — 通才 PM-engineers 透過迴圈將工作扇出
+- [Boris Cherny](/articles/boris-cherny) — 主要倡議者，也是日常驅動者
+- [Matt Pocock](/articles/matt-pocock) — Ralph loop 與 Sandcastle 的典範
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 迴圈作為取代逐步提示的下一代原語
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 為何切分成許多全新工作階段勝過一個漫長工作階段
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 迴圈所消化的待辦清單由什麼填滿
+- [Design Concept Grilling](/articles/design-concept-grilling) — 證成迴圈合理性的規劃步驟
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 具備強大測試邊界的模組，讓迴圈得以運作
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 將「驗證是上限」的論點一般化
+- [Symphony](/articles/symphony) — 編排層中由 daemon 驅動的等價方案
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 讓 `accept-edits` 模式在 AFK 迴圈中安全運作的權限分類器
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 迴圈加上薄弱的逐行動監督，正是 AM 的威脅面；迴圈審查者仰賴模型端的對齊能在無人看管時持續成立
+- [AI Brain Fry](/articles/ai-brain-fry) — 輸出倍增器在人類端的限制：更多迴圈輸出 → 更多審查 → 更多認知疲勞 → 更多漏掉的錯誤
+- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — 迴圈迫使我們重新設計責任；控制幅度的重新設計，是無人看管迴圈部署所缺少的搭檔
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — DeepMind 的基本 proof-search agent 實際上就是「Ralph loop」（huntley2025ralph）：由 generate→compile→learn-lessons 組成的 episodes，作為平行獨立 subagents 執行
+- [AlphaProof Nexus](/articles/alphaproof-nexus) — 其基本 agent (A) 是 Ralph-loop fleet；[它在大多數問題上匹配了客製系統](/articles/agentic-loops-overtake-bespoke-systems)
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — 透過 sensors/actuators 行動的常駐迴圈，是 [Karpathy](/articles/andrej-karpathy) agent-native 世界的 runtime
+- [Loop Engineering](/articles/loop-engineering) — 位於此原語上一層的系統設計學科（[Osmani](/articles/addy-osmani) / [Steinberger](/articles/peter-steinberger)）：automations 是迴圈排程的心跳，而 `/goal`（持續執行直到書面條件成立，並在每次 turn 後由*獨立*的小模型檢查「完成」）則是將 maker/checker 分工套用到停止條件本身
+- [The Three Loops of AI-Native Building](/articles/three-loops-of-ai-native-building) — [Andrew Ng](/articles/andrew-ng) 的分類將此原語定位為：它完成三個巢狀迴圈中*最內層*的那一個，而外側的開發者回饋與外部回饋迴圈，速度慢 1–2 個數量級
 
-## 待解決的問題
+## 開放問題
 
-- 當模型自己排程其迴圈時（4.7 行為），誰來負責預算？Boris 回答「模型自己決定」— 但這把成本約束推給了模型的訓練，而不是 harness。
-- 一個搭配足夠聰明模型的迴圈是否仍需要 Kanban 待辦清單，還是模型會自己從原始目標中選擇下一個任務？
-- 迴圈產出的審查現在是 [Matt Pocock](/articles/matt-pocock) 坦承的瓶頸 —「我們只需要準備好進行更多的程式碼審查。」
+- 當模型自行排程迴圈（4.7 行為）時，誰擁有預算？Boris 的回答是「模型自己決定」——但這會把成本紀律推入模型的訓練，而不是 harness。
+- 如果模型夠聰明，迴圈是否仍需要 Kanban 待辦清單，還是模型會從原始目標中選擇自己的下一個任務？
+- 迴圈輸出的審查現在是 [Matt Pocock](/articles/matt-pocock) 自承的瓶頸——「我們只需要準備好進行更多 code review。」
 
 ## 資料來源
 
-- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI) — `/loop` 與 routines 作為主要基本要素
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI) — `/loop` 與 routines 作為主要原語
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) — Ralph loop + Sandcastle 架構
-- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg) — 功能層級的迴圈（CI healing、程式碼審查）
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg) — 功能層級的迴圈（CI 修復、code review）

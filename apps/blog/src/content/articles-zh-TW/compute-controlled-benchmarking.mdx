@@ -1,0 +1,105 @@
+---
+date: 2026-07-09
+title: 由計算控制的基準測試
+description: Noam Brown 批評單一數字的「基準網格」已經失效，因為它沒有控制測試時的計算量；修正方式是在成本／token／時間的 x 軸上繪製效能；以及 benchmark-maxxing、保留的私有測試集、讓網格持續存在的 Goodhart 不良均衡、為何路由／共識必須在相同預算下評估——並以 Gemma 4 的標題表格作為實例，將思考模型與不思考的前代模型進行基準比較
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - llm-architecture
+  - capability-evaluation
+  - benchmarks
+  - goodhart
+  - evaluation-methodology
+readingTime: 12
+imageAlt: 由計算控制的基準測試插圖
+sources:
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: "More compute, more capability: Why AI agent evaluations need to account
+      for test-time compute"
+    url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+---
+export { default as heroImage } from "../assets/compute-controlled-benchmarking.png";
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+
+## 摘要
+
+[Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) 帶來的評估後果是：如果能力是推論預算的函數，那麼**沒有附帶預算所報告的基準測試數字就毫無意義**。[Noam Brown](/articles/noam-brown) 的文章正面針對**「基準網格」**——標準的發布成果，以基準測試為 x 軸、模型為 y 軸，每個儲存格放入一個分數。他的修正方案是：**把計算量放到 x 軸上。** 將效能報告為 token、成本或時間的函數；或固定一個預算，在其中進行比較（`practitioner-opinion`）。
+
+起因是：GPT-5.5 上線時，網格顯示它只比 GPT-5.4 高出幾個百分點，最初的反應是懷疑它是否真的有顯著提升。事實上確實有——5.5 只是**運算效率高得多**，用少得多的思考就能得到相同或更好的答案。5.4 在最高設定下，每次回應會思考更久。控制思考時間後，5.5 是「實質上的大幅躍升」；使用者實際試用後的日常體驗也符合這點。網格**掩蓋了這項進步**，因為它沒有讓計算量一致。
+
+## Benchmark-maxxing：用 scaffold 操弄分數
+
+更尖銳的疑慮是，網格很容易被灌高。**benchmark-maxxing** 是 Brown 對各種 scaffold 技巧的稱呼：在計算量相同時，這些技巧能提高基準測試數字，卻沒有帶來真正的能力提升，例如讓模型執行五次並取最佳答案，或加入 LLM 評審，從 N 個候選答案中挑出最強者。這些方法「在紙面上看起來好很多，但一旦控制測試時的計算量，其實並沒有更好」。這是 [Goodhart's law](/articles/reward-hacking) 從訓練迴圈移到*評估報告*層：衡量指標（網格分數）成為目標，因此它不再衡量能力，而開始衡量是否願意在 best-of-N 上花費推論量。
+
+對抗針對基準測試最佳化（而不是針對底層技能最佳化）的常規防線，是使用**保留的私有測試集**，不公開提供。Brown 表示 OpenAI 盡量不針對特定基準測試最佳化，但「一旦你發布基準測試，它就永遠面臨被專門最佳化的風險」。
+
+## 不良均衡
+
+Brown 將網格持續存在的原因描述為協調失靈，而不是意見分歧。私下裡，研究人員都同意 x 軸應該是成本／token／時間——「對，這很合理，我們應該這麼做。」但公開發布的答案是「大家期待我們發布網格」，而大家之所以期待，是因為每個人都發布網格。所有人都知道這是不良均衡，卻沒有人想先行動。撰寫這篇文章，是明確嘗試給整個領域一個偏離現狀的許可：讓「下次有模型發布時，公司可以放心不發布網格，至少不把它放在最上方的主標數據中」。這裡的 Goodhart 被命名為集體行動問題，而不是個人誘惑。
+
+## 獨立採用：UK AISI 報告曲線，而非分數（2026 年 7 月）
+
+Brown 撰寫了這項批評；**[UK AI Security Institute](/articles/uk-ai-security-institute)** 將其付諸實行，而且它是政府評估者，不是競爭中的實驗室，因此是最適合脫離網格的一方。其 2026 年 7 月的研究是 `empirical`，結論幾乎逐字採用 Brown 的主張：**「評估應報告能力曲線，尤其是在效能可能仍持續上升時」**，以及「若不知估算能力時使用的計算預算，就無法解讀 agent 能力」。AISI 警告，封頂分數可能「使模型比較變得不平等」，並「悄悄誤導」決策者，讓他們把一項**資源不足**的評估當成**低能力**模型的證據。
+
+這項處方如今已是 AISI 的實務，而不只是建議。它以多個預算評估前沿模型（包括針對最困難任務使用的超大預算），報告**相對於預算的可靠性與觸及範圍**，並正在定義**「最低資訊量預算」**——只有當模型的觸及範圍不再隨更多計算量上升時，才宣告某個預算已足夠。這最後一點正是對「多少才算足夠？」的實際回答，而單一網格數字從未能回答這個問題。
+
+## 實例：Gemma 4 的標題表格（2026 年 7 月）
+
+Brown 在 2026 年 6 月發表這項批評。三週後，[Gemma 4](/articles/gemma-4) 發布了這份成果；值得特別指出，因為這篇論文其他部分其實相當謹慎（`empirical`，共十六張表）。
+
+**表 5**——報告中被引用最多的表格，也是其「效能躍升」主張的依據——比較**思考模式的 Gemma 4**與**不思考的 Gemma 3 27B**。AIME 2026 從 20.8 → 89.2；Codeforces Elo 從 110 → 2150。文件中任何地方都沒有出現針對同一個 Gemma 4 模型的思考與不思考消融比較。因此，世代提升與推論預算增加在**標題數字中相互混淆**，而報告從未說明它允許的思考預算。
+
+讓這個案例值得學習、而不只是值得譴責的是，同一份報告在其他地方**確實**有控制，只是沒有特別說明：
+
+- **表 9（長上下文）在兩邊都以「不思考」執行。** 這是論文中唯一乾淨的世代比較，而提升幅度既真實又很大（LOFT Text Retrieval @128k：8.6 → 79.5）。
+- **表 6（視覺）重複了這項混淆**：思考的 Gemma 4 對上不思考的 Gemma 3 27B，搭配 Pan & Scan。
+
+因此，修正方案並非作者做不到；它只是被不一致地套用，且從未被標示出來。這正是 Brown 所說的**不良均衡**，而不是意見分歧——同一份 PDF 裡同時存在受計算控制的表格與未受控制的表格，因為沒有人期待標題表格要控制計算量，而所有人都期待長上下文表格要控制。
+
+這篇論文還有一項特有的二階成本。Gemma 4 真正的貢獻是[推論效率](/articles/inference-efficiency-as-capability)——縮小 37.5% 的 KV cache、次 GB 級量化，以及 drafter head。這些正是計算量未受控制的網格**無法呈現**的提升，恰如網格掩蓋了 GPT-5.5 相對 GPT-5.4 的效率優勢。透過發布標準網格，報告反而遮蔽了自己最好的成果。
+
+## 路由與共識也受相同的預算問題約束
+
+這項批評也適用於價值主張**就是 scaffold** 的供應商。**路由／共識層**（將每個子任務送往適合的模型，或彙整多個模型的答案）確實可以在基準測試中勝過任何單一模型。但 Brown 的原則會把表面上的勝利歸結為同一個問題：在相同的測試時計算量下，路由後的集成是否勝過**單純讓同一個模型思考更久**？模型間共識只是另一種花費推論量的方式；除非在固定預算下進行比較，並證明它能在真實使用案例中成立，而不只是成立於它調校過的基準測試，否則這項提升可能只是花得更多，或過度擬合評估的產物。
+
+## 相關連結
+
+- [大規模測試時計算量](/articles/large-scale-test-time-compute) — 根本原因：能力會隨推論預算擴展，因此沒有預算的分數沒有定義
+- [獎勵駭客](/articles/reward-hacking) — benchmark-maxxing 是評估報告時的 Goodhart，與訓練迴圈中的獎勵駭客互為同類
+- [評估認知與評分器操弄](/articles/evaluation-awareness-and-grader-gaming) — 在模型內部操弄衡量指標的版本；benchmark-maxxing 是由*評估者*而非模型施加的相同壓力
+- [潛在能力過剩](/articles/latent-capability-overhang) — 同一軸線的另一面：如果網格因花費不足而低報能力，已發布的模型就持有尚未有人付費揭露的能力
+- [基準分數冗餘](/articles/benchmark-score-redundancy) — 基準數量軸上的同類成本削減：本頁透過為*每個*基準測試命名計算預算來壓縮評估成本，那一頁則預測模型在保留基準測試上的分數（矩陣為 rank-2）；其中的問題是 BenchPress 完全運行於本批評所針對的未受控制公開網格，因此承襲了網格的異質性與供應商樂觀主義
+- [任務時間範圍擴展](/articles/task-time-horizon-scaling) — 受計算控制的後繼指標：在某個預算下可靠完成的任務*長度*，而不是在未命名預算下的準確率；兩者都面臨基準測試飽和
+- [負責任擴展政策評估](/articles/responsible-scaling-policy-evals) — 同一要求在安全評估上的實例：沒有計算預算的威脅模型判定，和沒有預算的能力分數一樣規格不足
+- [Gemma 4](/articles/gemma-4) — 實例：在自己的標題表格中，以不思考的前代模型作為基準比較思考模式模型
+- [鋸齒狀智慧（幽靈，而非動物）](/articles/jagged-intelligence) — 混淆也橫跨模型大小：Gemma 4 勝過大 10 倍前代模型的推理成果，部分是用推論量買來的，而它的知識損失則無法透過這種方式挽回
+- [推論效率即能力](/articles/inference-efficiency-as-capability) — 未受控制的網格在結構上無法顯示的提升，這也是高效率模型系統性地被低估的原因
+- [開放權重前沿差距](/articles/open-weight-frontier-gap) — Arena Elo 繼承了相同缺陷：在人們未命名的推論預算下評分人類偏好
+- [開放權重引出不可逆性](/articles/open-weight-elicitation-irreversibility) — 當未列出預算的判定涉及安全，且權重公開時的利害關係
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — 實務上採用「報告能力曲線」的獨立評估者；為整項批評提供經驗證據
+- [Noam Brown](/articles/noam-brown) — 文章的來源與作者
+- [超越準確率飽和的衡量方式](/articles/measuring-beyond-accuracy-saturation) — 將這項批評套用*在*已飽和的基準測試內：Nadgir et al. 的效率軸把準確率與 token *及*美元成本放在一起繪製（GPT-5.3-Codex 比同等準確率的同儕便宜約 60%；token 成本與美元成本對 agent 的排名不同），這是對「把計算量放在 x 軸上」的重述——並進一步主張，除了計算預算，也應同時報告可靠性及模型與 scaffold 的貢獻
+- [基準測試污染與去污染](/articles/benchmark-contamination-decontamination) — 針對不同混淆因素的同類基準信任批評：本頁說未命名的*計算預算*讓分數失去意義；那一頁說*訓練資料外洩*讓分數失去意義（記憶會使分數膨脹）。兩者都反對照單全收標題數字，並都提出恢復單一數字所掩蓋之物（本頁是能力曲線；另一頁是乾淨的逐樣本分布）
+- [公開基準測試還能承載多少訊號——又有什麼能取代它們？](/articles/benchmark-signal-and-what-replaces-it) — 集群綜合：未命名的計算預算是四個污染通道中的第一個，而在明示預算下的能力曲線，就是把計算量放到 x 軸上的做法，屬於五部分替代方案組合
+
+## 開放問題
+
+- 能否認證「沒有 benchmark-maxxing」——確認報告分數使用的是明示且可重現的計算預算，而不是隱藏的 best-of-N scaffold？
+- 計算量有數種單位（token、美元、實際經過時間）。它們並不一致（效率更高的模型在成本上勝出，但不一定在 token 數上勝出）。哪個 x 軸才誠實，而這是否取決於買方？（[AISI](/articles/uk-ai-security-institute) 在對數軸上以**token**為基準報告，並指出隨著每 token 成本下降，能揭露能力的高額預算會逐漸變得更便宜。）
+- 受計算控制的評估制度是否讓前沿實驗室（負擔得起完整曲線）相較於無力負擔的學術界與第三方評估者取得優勢？**深化（2026-07）：**政府評估者（[AISI](/articles/uk-ai-security-institute)）*確實*執行完整曲線——因此對資金充足的公共機構而言是負擔得起的——但 AISI 自身也指出「最具資訊量的評估可能很昂貴」，並正在研究如何從低成本執行預測高預算效能，正是為了減輕這項成本。因此，即使對有資金的第三方而言，成本仍是限制因素；只是它並非致命障礙。**在姊妹軸線上得到部分回答（2026-07）：**[BenchPress](/articles/benchmark-score-redundancy) 顯示，基準數量軸上的*類似*成本問題大致可以解決——模型完整的 133 項基準測試成績卡，可以從約 5 個探測中以約 3.93 分的誤差恢復——但這減少的是*要執行哪些基準測試*，而不是完整曲線問題所關心的每項基準測試計算量，因此它是在不同軸線上減輕評估成本，而非本問題提出的那條軸線。
+- Gemma 4 在長上下文表格中控制了計算量，卻在標題表格中沒有控制，而且未加說明。部分控制是否比完全不控制更糟——它是否讓未受控制的表格獲得借來的可信度？
+
+## 資料來源
+
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors 訪談（2026-06-26）；基準網格批評、benchmark-maxxing、不良均衡框架，以及路由／共識論點（`practitioner-opinion`）
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — 表 5（跨世代的思考與不思考比較）、表 9（受控制的長上下文比較）、表 6（視覺上的混淆重現）（`empirical`）
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI（2026-07-02，`empirical`）：「報告能力曲線」；多預算評估、相對於預算的可靠性／觸及範圍，以及作為既定實務採用的「最低資訊量預算」
