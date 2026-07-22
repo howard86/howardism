@@ -4,6 +4,7 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../_shell/plate-page";
+import { groupArticlesByDomain } from "./domain-groups";
 import { FilterBar } from "./filter-bar";
 import { KindPlate } from "./kind-plate";
 import {
@@ -19,7 +20,6 @@ const ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
 
 /** Newest-first row budget per section. */
 const VISIBLE_BY_SLUG: Record<string, number> = {
-  concept: 12,
   entity: 10,
   essay: 8,
   index: 8,
@@ -82,6 +82,11 @@ export default async function ArticlesIndex() {
         <KindPlate
           articles={articles}
           blurb={section.intro}
+          groups={
+            section.slug === "concept"
+              ? groupArticlesByDomain(articles)
+              : undefined
+          }
           key={section.slug}
           navigable={navigable}
           position={i + 1}
