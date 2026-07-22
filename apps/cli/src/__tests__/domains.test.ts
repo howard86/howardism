@@ -8,6 +8,8 @@ import {
 } from "../import-wiki/domains.ts";
 import type { ParsedWikiFile } from "../import-wiki/parse.ts";
 
+const UNKNOWN_MOC_ERROR = /moc-agent-security/;
+
 function moc(slug: string, body: string): ParsedWikiFile {
   return {
     source: { slug, folder: "concepts", absolutePath: `/tmp/${slug}.md` },
@@ -58,5 +60,13 @@ describe("buildDomainMembership + resolveDomain", () => {
 
   it("falls back to syntheses for concepts in no MOC", () => {
     expect(resolveDomain("orphan-concept", membership)).toBe("syntheses");
+  });
+
+  it("throws when the vault holds a MOC with no matching domain", () => {
+    // Silently skipping it would file every concept the MOC lists under
+    // `syntheses` — a corrupted browse axis that still imports cleanly.
+    expect(() =>
+      buildDomainMembership([moc("moc-agent-security", "- [[blast-radius]]\n")])
+    ).toThrow(UNKNOWN_MOC_ERROR);
   });
 });
