@@ -26,13 +26,13 @@ export function TagIndex({ tags }: TagIndexProps) {
           <div className="font-medium font-mono text-[10.5px] text-brand uppercase tracking-[0.22em]">
             Plate · #
           </div>
-          <div className="mt-2 font-display font-light text-[96px] text-brand leading-[0.86] tracking-[-0.045em]">
+          <div className="mt-2 font-display font-light text-[56px] text-brand leading-[0.86] tracking-[-0.045em] lg:text-[96px]">
             {tags.length}
           </div>
           <div className="mt-1 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em]">
             subjects
           </div>
-          <p className="mt-4 max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5]">
+          <p className="mt-4 hidden max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5] lg:block">
             Free-form subjects across the wiki, most-referenced first.
           </p>
         </div>
