@@ -1,0 +1,84 @@
+---
+date: 2026-07-16
+title: 公開基準仍承載多少訊號——又有什麼能取代它們？
+description: "2026 eval-science 研究群的綜合：公開 benchmark 套件所承載的獨立訊號遠低於其數量所暗示的程度（133 個 benchmark ≈ rank-2；即使修正有效性問題後，accuracy 仍會飽和），而標題數字會透過四個不同管道遭到扭曲（未命名的 compute budget、contamination、vendor optimism、未驗證的 judges）——但在經過驗證的不變性下，ordinal comparisons 仍然成立；benchmark 也不會被整體取代：這個領域的答案是一個由五部分組成的 portfolio（predict-don't-run、重新對飽和套件加裝量測、compute-controlled curves、production-sourced refresh、judge validation），再加上 failure-mode discovery、contamination monitoring 與 incentive shaping 這些只有 benchmark 仍能完成的工作"
+tag: Essay
+domain: syntheses
+readingTime: 10
+imageAlt: 公開基準仍承載多少訊號——又有什麼能取代它們？的插圖
+---
+export { default as heroImage } from "../assets/benchmark-signal-and-what-replaces-it.png";
+
+## 問題
+
+公開 LLM benchmarks 還承載多少訊號？又有什麼能取代它們？（綜合 2026 eval-science 研究群：BenchPress rank-2 redundancy、CORE-Bench life-after-saturation、UBD contamination correction，以及 judge-bias audits。）
+
+## 簡短答案
+
+公開 benchmark 的數量所暗示的 *independent* 訊號遠遠更多——一份涵蓋 133 個 benchmark 的公開 scorecard 實際上等於 **兩個數字**（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)）——而剩餘訊號會透過**四個不同管道**遭到扭曲：未命名的 test-time-compute budget（[Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)）、training-data contamination（[Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)）、vendor-optimistic self-reporting（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)），以及未驗證的 grading layer（[LLM-Judge Validation](/articles/llm-judge-validation)、[Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)）。最能存留下來的是**經驗證不變性下的 ordinal signal**：是 rankings，而非 absolute scores，而且只適用於你實際檢查過的軸。
+
+但 2026 年研究群的收斂答案**不是**取代 benchmarks。群組中的每篇論文都拒絕 retire-and-replace；它們各自加入一種 instrument，取回標題數字所隱藏的訊號。「取代」其實是一套由**五個動作組成的 portfolio**——predict-don't-run、重新量測已飽和的項目、把 compute 放到 x 軸上、從 production 更新任務、驗證 judge——再加上三項只有執行真正 benchmark 才能完成的工作（failure-mode discovery、contamination monitoring、incentive shaping）。
+
+## 第 1 部分——還剩多少訊號
+
+### benchmark 的數量大幅高估了獨立訊號
+
+三種粒度的三項結果說的是同一件事：
+
+- **矩陣層級：** Zeng & Papailiopoulos 的 84-model × 133-benchmark 公開 score matrix **實際上是 rank-2**——held-out Soft-Impute completion 在 rank 2 時達到底部，而前 2 個 SVD components 在每個完整觀測的 submatrix 中都解釋了 >90% 的 cross-model variance。五個 probe benchmarks（\{GPQA-Diamond, HLE, Codeforces, MMLU-Pro, ARC-AGI-1\}）就能以 **3.93 points** 還原某個 model 完整的 133-benchmark scorecard（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)）。這在 heterogeneous frontier-era matrix 上確認了更早的 g-factor findings（12 個 leaderboard benchmarks 之間有 85% 的 variance；「general capability + provider residual」）。
+- **benchmark 層級：** accuracy **會飽和**——而且即使 benchmark 修復後仍維持飽和。在 CORE-Bench v1.1 修正 15 個 task-level errors 與 20 個 exploitable shortcuts 後，頂尖 agent 達到 100%，接下來四個以 ~97.4% 並列，統計上無法區分（[Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)）。[Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) 在各套件中記錄了相同動態（SWE-bench、CORE-Bench 在約 ~15 個月內飽和），同時 capability 每 ~4 個月翻倍。
+- **item 層級：** 標準 benchmark 題目中約 ~27% 不具區別力（ceiling/floor）（[Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)，如 [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) 的 item-level counterpart framing 所量化）。
+
+這些是同一項事實的不同縮放層級：飽和意味著幾乎為零的 score spread，幾乎為零的 spread 使分數能被輕易預測，而 predictability 正是讓矩陣呈現 low-rank 的原因（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy) ↔ [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) connection）。
+
+### 剩餘訊號透過四個管道遭到扭曲
+
+這個研究群共同建立了一套 *ways the headline number lies* 的 taxonomy（[Reward Hacking](/articles/reward-hacking) taxonomy 的延伸）：
+
+1. **未命名的 compute budget。** 如果 capability 是 inference budget 的函數（[Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)），沒有 budget 的分數就沒有定義。這個 grid 隱藏了 GPT-5.5 相對於 5.4 的 efficiency jump；Gemma 4 的 headline table 將 thinking model 與 non-thinking predecessor 比較，把 generation gain 與 inference spend 混為一談——但它在自己的 long-context table 中有正確控制（[Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)）。當 compute equalized 後，**Benchmark-maxxing**（best-of-N、judge-pick scaffolds）並沒有任何 capability gain，卻會膨脹 grid。
+2. **Contamination。** 測試樣本洩漏到 training 後，分數衡量的是 memorization 而非 capability——而標準修正本身也缺乏充分測量：paraphrase+permutation 會讓 dataset-level residual contamination 減半（17.2→8.4），但相對於 clean model 的 per-sample D_KL 卻上升 >13%；因此，在 aggregate level 看似成功的 decontamination，可能反而惡化底層 distortion（[Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)）。
+3. **Vendor optimism。** 公開 grid 中大約**五個分數有四個**來自 model provider 自己的材料，且使用 heterogeneous harnesses（同一 model 在不同 runs 中會變動 1–3 points，在不同 harnesses 中則變動 5+）。rank-2 論文自身也指出，共享的 reporting bias 可能**製造**出它所利用的部分 cross-benchmark correlation（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)）。
+4. **未驗證的 grading。** 當 metric 是 [LLM judge](/articles/llm-as-a-judge) 時，validation layer 系統性地不夠嚴謹：在 MT-Bench 上，exact-match agreement 會將 chance-corrected κ 高估 **33–41pp**（回報「85% agreement」的 judge，其 κ 約為 0.48）；judge rankings 在不同 benchmarks 之間最多會移動 **14 個名次**；而完美可重現的 judges 仍可能隱藏嚴重 bias——這就是 consistency–bias paradox（[LLM-Judge Validation](/articles/llm-judge-validation)）。另一個正交的 invalidity 是：當 prompt 中沒有 reference answer 時，judges 會系統性地過度肯定錯誤答案——加入 gold answer 後，最多 **85%** 的 verdicts 會翻轉，而 human annotation 證實較嚴格的 verdicts 才是正確的（[Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)）。
+
+### 還能存留下來的：經驗證不變性下的 ordinal signal
+
+兩項結果界定了仍可相信的範圍：
+
+- BenchPress-completed scores 在 true gap ≥5 points 時，保留同一 benchmark 上 **92.1%** 的 pairwise model orderings（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)）——prediction noise 很少會翻轉有意義的 ranking。
+- [DRACO](/articles/draco-benchmark) 發現 system-under-test rankings 在不同 judge models 間保持穩定，但 absolute magnitudes 會變動；Norman et al. 發現 judge rankings 在不同 benchmarks 間很脆弱。兩者的調和方式就是操作規則：**只有在你實際驗證過某個軸的穩定性時，ranking 才值得信任**（[LLM-Judge Validation](/articles/llm-judge-validation)）。
+
+因此：在明確說明的 budget 下，使用共享 harness 的 relative comparisons 仍保有真實訊號；absolute scores、跨論文比較，以及沒有 budget 的 grids，大多不然。
+
+## 第 2 部分——什麼能取代它們：是 portfolio，不是 successor
+
+研究群中沒有任何論文主張放棄 benchmarks。每篇論文各自貢獻一種 instrument，合在一起形成分工：
+
+| Move | Mechanism | What it buys | Source |
+|---|---|---|---|
+| **Predict, don't run** | Rank-2 logit-space ALS matrix completion；5 probes → full scorecard（3.93 MedAE）；per-cell reliability layer（top-20% trusted predictions：1.83 MedAE） | 在 benchmark-count 軸上降低 eval 成本；新 model 只需要 5 個 seed scores | [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) |
+| **Re-instrument what saturated** | 保留已飽和 benchmark，量測六個非 accuracy 軸：reliability（93% pass 對 32.1% self-confidence；discrimination ≈ random）、efficiency（相同 accuracy 下便宜 60%；tokens 與 dollars 產生不同 ranking）、model-vs-scaffold（44pp scaffold swing；相同 accuracy 下 31% task-level disagreement；oracle router → 100%）、OOD transfer、construct validity、human uplift（reproduction 快 2.11×） | 已飽和的 leaderboard 仍能區分 agents——只是區分的不是 accuracy | [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) |
+| **Put compute on the x-axis** | 回報 capability 對 tokens/cost/time 的 *curves*；固定 budget 並在其中比較；採用 UK AISI 的「minimum informative budgets」作為政府實務 | 消除 capability 與 inference spend 的混淆；揭示 grid 在結構上無法呈現的 efficiency gains | [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) |
+| **Refresh tasks from production** | 擷取去識別化的真實使用資料，以 difficulty-proxied（thumbs-down sampling）、去除 PII、增補並經 human-gated；可持續重新生成 | Representativeness + contamination *prevention*（新鮮任務很難事先 memorization）；修正側的互補方案是 UBD，它能在沒有 clean reference 的情況下修復已 contaminated 的 model（D_KL 相對降低 >40–60%） | [Production-Sourced Evaluation](/articles/production-sourced-evaluation)、[Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) |
+| **Validate the judge** | Norman 的 Minimum Viable Validation Protocol（chance-correct、position-swap、replicate、在 ≥2 個 benchmarks 上 cross-validate、audit the paradox）+ Kranti & Vajjala 在 reference-free deployment 前進行的 calibration/sensitivity probes | 讓 grading layer 值得信任；由未驗證 judge 評分的 representative task 仍是不可靠的 eval | [LLM-Judge Validation](/articles/llm-judge-validation)、[Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) |
+
+### 只有 benchmarks 仍能完成的工作
+
+rank-2 論文自身的 scope caveat 是關鍵：**scores 可推論，不代表 benchmarks 沒有必要。** 三項功能無法由 prediction、curve 或 judge-audit 取代（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)）：
+
+- **Failure-mode discovery**——一個完全可預測的 benchmark 仍能捕捉下一次 regression；飽和本身正是讓 CORE-Bench 的 15 個 task errors 與 20 個 shortcuts 浮現的原因，較弱的 agents 無法看見這些問題（[Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)）。
+- **Contamination 與 distribution-shift monitoring**——維持 portfolio 其餘部分誠實的 integrity checks（[Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)）。
+- **Incentive shaping**——benchmarks 會引導 labs 優化的方向；退休它們並不會消除壓力，只會將壓力重新安置（[Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 的 bad-equilibrium framing）。
+
+## Portfolio 尚未解決的剩餘風險
+
+- **Goodhart 會集中。** 如果「執行 5 個 probes 並推斷其餘結果」成為實務，probe set 就會成為一個小型、公開且高槓桿的 optimization target——同樣的 eval-report Goodhart pressure，如今集中在五個 benchmarks 上（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy) open question；[Reward Hacking](/articles/reward-hacking)）。
+- **這些修正尚未整合。** BenchPress 是在 Brown/AISI 所批判的 uncontrolled public grid *之上*運作；將「控制每次 eval 的 compute」與「跨 evals 進行預測」結合起來，尚未有人處理（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy) ↔ [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)）。
+- **冗餘本身可能部分是 artifact。** 完全標準化的 re-evaluation 是否仍會是 rank-2——或 vendor reporting bias 是否膨脹了 correlation——仍是開放問題（[Benchmark Score Redundancy](/articles/benchmark-score-redundancy)）。
+- **Judge validation 是 snapshot。** 僅限英文、抑制 thinking、五週時間窗；hosted judges 會悄悄 drift，而 calibration proper（ECE/Brier）仍未測量（[LLM-Judge Validation](/articles/llm-judge-validation)）。
+- **Living benchmarks 需要持續維護。** 由 log analysis 驅動的 re-instrumentation 並不完整，而且一旦 developers 知道 rubrics，本身也可能成為 Goodhart target（[Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)）。
+
+## 資料來源
+
+Concept articles: [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) (Zeng & Papailiopoulos, arXiv 2606.24020), [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) (Nadgir et al., arXiv 2606.26158), [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) (Sun, Zhan & Gales, arXiv 2606.23313), [LLM-Judge Validation](/articles/llm-judge-validation) (Norman et al., arXiv 2606.19544), [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) (Kranti & Vajjala, arXiv 2607.12885), [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) (Brown No Priors 2026-06-26; Gemma 4 report; UK AISI 2026-07-02), [Production-Sourced Evaluation](/articles/production-sourced-evaluation) (DRACO; Google agent-quality flywheel), plus [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling), [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity), [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute), [Reward Hacking](/articles/reward-hacking), [DRACO Benchmark](/articles/draco-benchmark), [LLM-as-a-Judge](/articles/llm-as-a-judge).
+
+Date: 2026-07-16.

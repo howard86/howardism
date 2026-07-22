@@ -1,16 +1,16 @@
 ---
 date: 2026-05-28
-title: AI 代理供應鏈風險
-description: "於執行期動態組合的 agent 生態系擴大了供應鏈攻擊面：model poisoning（250 份文件即可後門化 13B 模型）、工具/MCP 供應鏈（首個野外惡意 MCP 伺服器）、AI-BOM、OpenSSF Scorecard、相依性稽核，以及以 AI vendoring 作為緩解手段"
+title: Agent 供應鏈風險
+description: "由執行階段組合而成的 agent 生態系擴大供應鏈攻擊面：模型投毒（250 份文件可在 13B 模型植入後門）、工具/MCP 供應鏈（首個在野外發現的惡意 MCP 伺服器）、AI-BOM、OpenSSF Scorecard、相依性稽核，以及將 AI 相依套件納入原始碼管理作為補救措施"
 tag: Concept
-domain: ai-engineering
+domain: agent-security
 tags:
   - security
   - supply-chain
   - mcp
   - model-poisoning
-readingTime: 5
-imageAlt: AI 代理供應鏈風險的示意圖
+readingTime: 7
+imageAlt: Agent 供應鏈風險插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
@@ -23,51 +23,54 @@ export { default as heroImage } from "../assets/agent-supply-chain-risk.png";
 
 ## 摘要
 
-與靜態軟體供應鏈不同，agent 生態系會**在執行期動態組合能力**——動態載入外部工具與 agent 人設——因而將攻擊面擴大到傳統軟體組成分析無法涵蓋的範圍。雪上加霜的是，前沿模型非常擅長辨識**未修補上游元件中已知、且已有修補的漏洞特徵**（這是 [LLM 驅動的漏洞研究](/articles/llm-driven-vulnerability-research) 的防禦面鏡像，也是 [AI 加速的攻擊](/articles/ai-accelerated-offense) 的直接後果）。[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的 Phase 2 專門用於管理這類風險。
+不同於靜態軟體供應鏈，agent 生態系會在執行階段**動態組合能力**——動態載入外部工具與 agent 人格——使攻擊面擴大到傳統軟體組成分析無法處理的範圍。更雪上加霜的是，前沿模型非常擅長辨識**未修補上游元件中已知且已修補漏洞的特徵**（這是 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) 的防禦性另一面，也是 [AI-Accelerated Offense](/articles/ai-accelerated-offense) 的直接結果）。[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的第 2 階段專門處理這項風險。
 
-## 三層供應鏈暴露
+## 供應鏈暴露的三個層次
 
 ### 模型供應鏈
 
-遭投毒的權重與遭入侵的微調資料會引入在部署後仍持續存在的後門。該框架引用 Anthropic 的研究指出，**僅注入 250 份惡意文件即可對 600M 至 13B 參數的 LLM 植入後門**，且這些後門**會在包含監督微調與 RLHF 的安全訓練之後仍然存在。** 這是 [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) 的對手方鏡像：與用以安裝*對齊*信念的中期訓練介入相同機制，也能安裝*惡意*信念——而文件數量之少意味著門檻很低。安全研究人員亦在主要平台上發現約 **100 個惡意 AI 模型**，其中包含載入時會開啟反向 shell 的模型。
+遭投毒的權重與遭入侵的微調資料會引入能持續通過部署的後門。該框架引用 Anthropic 的研究指出，**只要注入 250 份惡意文件，就能在參數量從 600M 到 13B 的 LLM 中植入後門**，而且這些後門**能持續通過包含監督式微調與 RLHF 在內的安全訓練。**這是 [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) 的對抗性鏡像：安裝*對齊*信念的相同機制，作為中段訓練介入時也能安裝*惡意*信念——而文件數量很少，代表門檻很低。安全研究人員也在主要平台上發現約 **100 個惡意 AI 模型**，其中有些在載入時會開啟反向 shell。
 
 ### 工具／框架供應鏈
 
 影響 MCP 伺服器、API 整合與 agent 框架（[MCP and Computer Use](/articles/mcp-and-computer-use)）：
-- **PyTorch dependency-confusion 攻擊**——惡意套件在安裝期間外洩 SSH 金鑰。
-- **首個有文件記載的野外惡意 MCP 伺服器**——冒充合法電子郵件服務，並暗中複製所有寄出郵件（一種「rug pull」：合法工具被替換為惡意版本）。這是先前在 [MCP and Computer Use](/articles/mcp-and-computer-use) 中提出的 MCP 安全開放問題的具體答案。
-- **tool poisoning**——遭入侵的 MCP 描述符／schema／中繼資料，隱藏可在使用者不知情下外洩資料的指令。
+- **PyTorch 相依性混淆攻擊**——惡意套件在安裝期間竊取 SSH 金鑰。
+- **首個有文件記錄的在野外惡意 MCP 伺服器**——冒充合法電子郵件服務，並秘密複製所有已寄出的電子郵件（「rug pull」：以惡意版本取代合法工具）。這是對先前在 [MCP and Computer Use](/articles/mcp-and-computer-use) 提出的 MCP 安全開放問題的具體回答。
+- **工具投毒**——遭入侵的 MCP 描述器／結構描述／中繼資料，會隱藏在使用者不知情的情況下竊取資料的命令。[ShareLock](/articles/mcp-tool-poisoning)（Liu et al. 2026）將更新通道本身武器化：惡意的*重建觸發器*被植入**伺服器版本更新**中（rug pull），因此原先通過初始審查的伺服器，會在更新時轉為敵對狀態——這是利用已獲核准伺服器所享有信任的供應鏈注入。
 
-### 開源相依性健康度
+### 開放原始碼相依性的健康狀況
 
-多數軟體供應鏈以開源為主，且大多沒有 SLA。該框架的緩解工具包：
-- **OpenSSF Scorecard**——自動為每個相依性評分（分支保護、模糊測試、簽署發布、維護者活動）；在 CI 中執行；標記無人維護的套件。
-- **AI-BOM**——OWASP 對 CycloneDX ML-BOM 的擴充，追蹤模型出處、資料集譜系、微調參數；與 Scorecard 一併串接，使模型與程式碼相依性承載相同的風險訊號。
-- **dependency-tree audit**——讓前沿模型檢視 lockfile，找出冗餘函式庫（多個 HTTP 客戶端、多個 JSON 解析器）——約一小時的練習，可浮現值得整合的項目。
-- **reachability analysis**——僅修補實際可達的脆弱程式碼；搭配 CI 迴歸測試以快速、自信地修補。
-- **AI vendoring**——對於規模小、評分低、無人維護的相依性，讓前沿模型*重新實作你實際使用的那一部分子集。* 框架將此定位為**標準應對，而非罕見變通**——值得注意的立場。
+多數軟體供應鏈主要由開放原始碼構成，而且多數沒有 SLA。該框架的補救工具組如下：
+- **OpenSSF Scorecard**——自動為每個相依性評分（分支保護、模糊測試、簽署版本、維護者活動）；在 CI 中執行；標記無人維護的套件。
+- **AI-BOM**——OWASP 對 CycloneDX ML-BOM 的延伸，追蹤模型來源、資料集沿革與微調參數；將它與 Scorecard 並行接入，讓模型與程式碼相依性攜帶相同的風險訊號。
+- **相依性樹稽核**——將鎖定檔交給前沿模型，找出重複的函式庫（多個 HTTP 用戶端、多個 JSON 剖析器）——約一小時的工作，就能找出值得進行整併的項目。
+- **可達性分析**——只補救實際可達的漏洞程式碼；搭配 CI 回歸測試，以快速且有信心地修補。
+- **AI vendoring**——對於小型、評分不佳且無人維護的相依性，請前沿模型*重新實作實際使用的子集*。該框架將此描述為**標準回應，而非異想天開的替代方案**——這是一個值得注意的立場。
 
-## 緩解姿態
+## 緩解方針
 
-在每個階段進行密碼學簽章（不只在部署時——執行期也要驗證）；供應商評估應明確詢問供應商如何為 AI 加速的利用時程做準備；並強烈建議**在驗證程式碼並自行簽署之後，於不可變平台上執行／代管你自己的 MCP 伺服器。** 對於未在本機執行模型者，ISO 42001 被引用為供應商信任的訊號。
+每個階段都進行加密簽署（不只在部署時——也要在執行階段驗證）；供應商評估中明確詢問供應商如何準備因應 AI 加速的漏洞利用時程；並強烈建議**在驗證程式碼並自行簽署後，於不可變平台上執行／託管自己的 MCP 伺服器。**對於不執行本地模型的組織，ISO 42001 被引用為供應商信任訊號。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) ——實作工作流程的 Phase 2（樞紐）
-- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) ——250 份文件的後門是 SDF/MSM 信念安裝的對手方鏡像；同樣的低文件數機制，意圖相反
-- [AI-Accelerated Offense](/articles/ai-accelerated-offense) ——供應鏈風險此刻之所以緊迫：模型能辨識未修補相依性中的已知漏洞特徵，並壓縮 N-day 窗口
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) ——使上游元件掃描對攻擊者與防禦者都變便宜的能力
-- [MCP and Computer Use](/articles/mcp-and-computer-use) ——MCP 伺服器是具名的工具供應鏈表面；tool poisoning 與首個惡意 MCP 伺服器
-- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) ——RAG／資料管線中毒是 supply-chain poisoning 在執行期組合上的類比
-- [Least Agency](/articles/least-agency) ——限定（可能已遭投毒的）工具能做什麼，可遏制遭入侵相依性造成的損害
-- [OWASP](/articles/owasp) ——agent 威脅分類中的供應鏈；維護 AI-BOM
-- [Anthropic](/articles/anthropic) ——250 份文件後門研究的來源，以及 ISO 42001 認證
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 實作工作流程的第 2 階段（中樞）
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — 250 份文件後門是 SDF/MSM 信念安裝的對抗性鏡像；相同的低文件數機制，相反的意圖
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — 本頁最棘手開放問題的**良性類比**（修復一個不是由你訓練、卻已遭入侵的模型）。UBD 會在沒有訓練資料或乾淨參考模型的情況下，對**訓練暴露效應**進行事後修正——但這種暴露是使*準確率*膨脹的良性基準測試洩漏，不是能通過安全訓練的惡意後門，因此兩者的相似處在於問題形狀（僅憑已部署檢查點進行修復），而非威脅本身
+- [AI-Accelerated Offense](/articles/ai-accelerated-offense) — 為何供應鏈風險現在如此緊迫：模型能辨識未修補相依性中的已知漏洞特徵，並壓縮 N-day 視窗
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 讓上游元件掃描對攻擊者與防禦者都變得低成本的能力
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP 伺服器是明確的工具供應鏈攻擊面；工具投毒與首個惡意 MCP 伺服器
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — ShareLock 的重建觸發器是**透過伺服器更新植入的 rug pull**：更新通道是供應鏈注入向量，利用已通過審查的多工具伺服器所承載的信任。其 **Agentjacking** 案例研究在沒有任何相依性或權重遭投毒的情況下，延伸了供應鏈框架：Tenet Security 主張，攻擊者「不再需要入侵套件或欺騙人類——只需要注入 AI agent 信任的資料」，因此可觀測性平台會成為命令與控制通道，而 agent 成為執行引擎。它在結果上屬於供應鏈攻擊（攻擊者的程式碼會在開發環境執行），但在機制上屬於資料轉送——與本頁追蹤的相依性／權重投毒是不同向量（供應商框架，已標註來源；權重低於實證來源）
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — RAG／資料管線投毒是供應鏈投毒在執行階段組合上的類比
+- [Least Agency](/articles/least-agency) — 限定（可能遭投毒的）工具能做什麼，可控制遭入侵相依性造成的損害
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 資料層供應鏈向量：ADI 的工具呼叫注入會誘使 coding agent **合併惡意 PR**（真實 commit = XSS payload），讓它在「審查」偽造的良性 commit 工具回應後，將程式碼帶入供應鏈，而不需要上游任何相依性遭投毒
+- [OWASP](/articles/owasp) — agentic 威脅分類中的供應鏈；維護 AI-BOM
+- [Anthropic](/articles/anthropic) — 250 份文件後門研究與 ISO 42001 認證的來源
 
 ## 開放問題
 
-- 將「AI vendoring」視為標準應對，顛覆了數十年「不要重造輪子」的共識。由模型重新實作的相依性本身如何驗證與維護——風險是否只是換了位置？
-- 250 份文件的後門會在 SFT/RLHF 之後仍然存在。對於你未親自訓練、可能已遭投毒的模型，除了行為紅隊之外，還有哪些偵測手段？
+- 「AI vendoring」作為標準回應，顛覆了數十年來「不要重新發明輪子」的原則。由模型重新實作的相依性本身要如何驗證與維護——這是否只是把風險轉移到別處？
+- 250 份文件後門能持續通過 SFT/RLHF。對於一個不是由你訓練、卻已遭投毒的模型，除了行為紅隊測試之外，有哪些偵測方式？**相鄰證據（2026-07，良性類比）：**[UBD](/articles/benchmark-contamination-decontamination) 顯示，對良性訓練暴露效應進行*修正*是可行的——它只憑已部署檢查點修復基準測試記憶，使用**深度集成不確定性**，既不需要訓練資料，也不需要乾淨參考模型。它不會直接轉移（污染使準確率膨脹；後門則是能通過安全訓練的目標性惡意觸發器），但暗示集成間的不一致可能也是值得針對惡意案例探查的訊號。
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) ——Part II 供應鏈威脅；Part IV Phase 2（AI-BOM、Scorecard、vendoring、簽章、供應商評估）
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — 第二部分供應鏈威脅；第四部分第 2 階段（AI-BOM、Scorecard、納入原始碼管理、簽署、供應商評估）

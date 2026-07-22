@@ -1,18 +1,16 @@
 ---
 date: 2026-05-28
-title: Least Agency
-description: "OWASP 提出的術語，將 least privilege 延伸至 agent：不僅約束 agent
-  能存取什麼，更約束每個工具能做什麼、做多頻繁、在哪裡執行；deny-by-default、per-agent
-  credentials、範圍限制"
+title: 最小代理權限
+description: "OWASP 將最小權限延伸至代理程式的術語：不只限制代理程式能存取什麼，也限制每項工具能做什麼、執行頻率與執行位置；預設拒絕、每個代理程式使用獨立憑證、限制作用範圍"
 tag: Concept
-domain: ai-engineering
+domain: agent-security
 tags:
   - security
   - least-privilege
   - access-control
   - owasp
-readingTime: 5
-imageAlt: Least Agency 插圖
+readingTime: 9
+imageAlt: 最小代理權限插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
@@ -25,51 +23,59 @@ export { default as heroImage } from "../assets/least-agency.png";
 
 ## 摘要
 
-**Least agency** 是由 [OWASP](/articles/owasp) 提出的術語，它將經典的 least-privilege 原則延伸至 agentic 應用。least privilege 約束的是 *使用者與系統能存取什麼*，而 least agency 更進一步：它限制 **每個 agent 工具能做什麼、能做多頻繁，以及能在哪裡執行。** 它是 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的核心授權原則——也是對「即使是通過完美驗證的 agent，一旦被授予過多權限仍會造成損害」這個問題的務實解答。
+**最小代理權限**是 [OWASP](/articles/owasp) 創造的術語，將經典的最小權限原則延伸至代理式應用程式。最小權限限制的是*使用者與系統能存取什麼*；最小代理權限則更進一步，限制**每個代理程式工具能做什麼、執行頻率與執行位置。**這是 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的核心授權原則，也是對「即使代理程式已完美完成身分驗證，只要獲得過多權限仍會造成損害」這個問題的實際答案。
 
-## 與 least privilege 的區別
+## 與最小權限的區別
 
-傳統的 least privilege 關注的是 *存取範圍*（某個身分能接觸哪些資源）。一旦某個身分能自主地串連多個操作，*動作* 與 *頻率* 這兩個維度便變得重要，而 least agency 正是補上了這兩者：
+傳統最小權限關注的是*存取範圍*（某個身分可以接觸哪些資源）。最小代理權限則加入了身分能自主串接操作後格外重要的*動作與頻率*維度：
 
-- 資料庫工具只取得 **read-only** 查詢權限（而非寫入／刪除）
-- 電子郵件摘要工具不取得 **發送／刪除** 權限
-- API 整合只取得 **最小限度的 CRUD** 操作
+- 資料庫工具只能執行**唯讀**查詢（不能寫入／刪除）
+- 電子郵件摘要工具沒有**傳送／刪除**權限
+- API 整合只能執行**最基本的 CRUD** 操作
 
-這個轉變之所以重要，是因為 agent 雖在其被授予的權限 *範圍內* 運作，卻仍可能被操弄而濫用這些權限——這正是傳統存取控制無法防範的 tool-misuse 與 tool-chaining 威脅（攻擊面向請見 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 與 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)）。least agency 縮減的是 *即使持有有效憑證* 仍可觸及的有害動作集合。
+這項轉變很重要，因為代理程式會在獲授權限內運作，但仍可能被操弄而濫用這些權限——也就是傳統存取控制無法阻止的工具濫用與工具串接威脅（攻擊面請參閱 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 與 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)）。即使使用有效憑證，最小代理權限也會縮小可達的有害動作集合。
 
-## 框架如何落實
+## 框架如何強制執行
 
-least agency 透過存取控制的層級階梯（tier ladder），以及實作流程的 Phase 3/5 來落實：
+最小代理權限透過存取控制層級階梯，以及實作工作流程的第 3／5 階段來強制執行：
 
-- **Deny-by-default** — 封鎖所有未經明確授予的存取；將其視為起始態勢，而非終點。
-- **Permission models** — RBAC（Foundation）→ 具備 context-aware policies 的 ABAC（Enterprise）→ 針對每個動作重新評估的 continuous authorization（Advanced）。
-- **Privilege scoping** — 靜態的 least-privilege roles（Foundation）→ 針對每項任務 dynamic elevation 並 return-to-baseline（Enterprise）→ 具備自動過期的 JIT/JEA（Advanced）。「當有疑慮時，優先選擇能 *移除* 某項能力的控制，而非僅僅 *節流* 它的控制。」
-- **Capability restrictions** — 一個被限制為僅能讀取的電子郵件工具，其發送功能需要另行授權；一個能查詢但無法變更 schema 的資料庫工具。
-- **Compartmentalization** — 將一個 agent 的功能拆分到多個 agent，每個 agent 各自擁有專屬的 identity 與 credentials，使得攻擊者必須攻破數個 agent 才能觸及更多資源。*「如果你把它拆成多個 agent 卻給它們全部相同的 credentials，那你就沒能把風險區隔開來。」*
+- **預設拒絕**——封鎖所有未明確授予的存取；將其視為起始姿態，而非終點。
+- **權限模型**——RBAC（Foundation）→ 具備情境感知政策的 ABAC（Enterprise）→ 每次動作重新評估的持續授權（Advanced）。
+- **權限範圍限定**——靜態最小權限角色（Foundation）→ 每項任務動態提升權限並返回基準狀態（Enterprise）→ 具備自動到期機制的 JIT/JEA（Advanced）。「遇到疑問時，優先選擇*移除*能力的控制，而非*節流*能力的控制。」
+- **能力限制**——電子郵件工具限制為讀取，傳送則需要額外授權；資料庫工具可以查詢，但不能變更結構描述。
+- **隔離分工**——將代理程式的功能拆分到多個代理程式，每個代理程式都有獨特身分與憑證，讓攻擊者必須入侵多個代理程式才能取得更多資源。*「如果你把它拆成多個代理程式，卻為它們提供相同憑證，就代表你未能隔離風險。」*
 
-## 與 blast radius 的關係
+## 與爆炸半徑的關係
 
-least agency 是 *輸入* 控制；[Blast Radius (Agentic)](/articles/blast-radius) 則是 *結果* 指標。約束 agency（動作 × 頻率 × 範圍）正是縮減 blast radius 的方式——而「assume breach」態勢預期 blast radius 終將受到考驗。兩者需合併解讀：將一個 agent 的帳號範圍限縮為僅對它所需的資料具備 read-only 權限，被竊取憑證的 blast radius 便會「受到嚴格限制」。
+最小代理權限是*輸入*控制；[Blast Radius (Agentic)](/articles/blast-radius) 是*結果指標*。限制代理權限（動作 × 頻率 × 範圍），正是縮小「假設已遭入侵」姿態預期要測試的爆炸半徑的方法。兩者應一併閱讀：將代理程式帳戶限定為只讀，且只涵蓋它確實需要的資料，遭竊憑證的爆炸半徑就會「受到嚴重限制」。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 採用 least agency 作為其授權原則的框架（樞紐）
-- [Blast Radius (Agentic)](/articles/blast-radius) — least agency 是約束它的方法；agency 進、blast-radius 出
-- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — 若沒有各自獨立的 per-agent identity，least agency 便無從落實（「attribution gap」使落實成為不可能）
-- [OWASP](/articles/owasp) — 提出此術語者
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude Code 的 deny-by-default 權限與寫入存取限制，正是此處所引用的參考實作
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — least agency 所要遏制的攻擊：被操弄的 agent 在授權範圍內濫用工具
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 「優先移除能力而非節流它」正是 least agency 以設計啟發法形式呈現的表達
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — 每個 MCP 工具的 capability restrictions（read-only、no-send）正是工具介面層級的 least agency
-- [Autonomous Defense](/articles/autonomous-defense) — 將 least agency *向內* 套用於防禦型 agent：具備明確邊界的範圍化自動回應動作
-- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — 限縮一個（可能已遭下毒的）工具能做什麼，便能限制被入侵的相依套件所能造成的損害
-- [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — RBAC→ABAC→continuous-authorization 與 static→dynamic→JIT 這兩道階梯各自落在何處；Enterprise 中點，以及 ABAC 層級定位的矛盾
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 採用最小代理權限作為授權原則的框架（樞紐）
+- [Blast Radius (Agentic)](/articles/blast-radius) — 最小代理權限是限制爆炸半徑的方法；代理權限輸入、爆炸半徑輸出
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — 沒有每個代理程式各自的身分，最小代理權限便無法強制執行（「歸因缺口」會讓強制執行變得不可能）
+- [OWASP](/articles/owasp) — 創造了這個術語
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude Code 的預設拒絕權限與寫入存取限制，是文中引用的參考實作
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 最小代理權限所遏制的攻擊：遭操弄的代理程式在授權權限內濫用工具
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 「優先移除能力，而非節流能力」是以設計啟發式表達的最小代理權限
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — 依 MCP 工具設定能力限制（唯讀、不可傳送），就是工具介面層級的最小代理權限
+- [Autonomous Defense](/articles/autonomous-defense) — 將最小代理權限*向內*套用於防禦代理程式：具明確邊界的限定範圍自動回應動作
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — 限定（可能遭投毒的）工具能做什麼，可限制遭入侵相依元件造成的損害
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — Progent 在工具呼叫邊界以*確定性方式*強制執行最小代理權限（每次呼叫的符號式權限規則）；參考監視器是將「限制每項工具能做什麼」變成硬性屏障、而非提示建議的機制
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 最小代理權限作為防禦的極限：Progent（工具呼叫邊界上的最小代理權限）將 ADI 降至 22.2%，卻無法消除它，因為限定工具*能做什麼*，無法處理攻擊者偽造代理程式在既有授權動作內合法採取行動所依據的*資料*
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — 最小代理權限是*勝出的*答案：AutoDojo（Ma et al. 2026）發現，限制動作的系統層級防禦（Progent、DRIFT）是唯一能在低成本自適應攻擊下維持效果的家族，而且在動作未充分指定、可自由開放的任務上會變得*更強*（唯讀請求會產生不允許寫入的軌跡，因此無論措辭如何，任何注入的寫入都會被阻擋）——「真正的韌性來自將動作綁定至使用者請求，而非過濾輸入」
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — 以**引數值粒度**實現的最小代理權限：能力閘門限定代理程式擁有哪些工具；ScopeGate 的 `authz` 階段限定每次呼叫可攜帶哪些引數值，並在工具呼叫邊界確定性強制執行。Mellafe Zuvic（2026）稽核 LangChain／LlamaIndex／Stripe 後發現，它們預設提供能力閘門，卻沒有提供這種值閘門——因此遭操弄的代理程式會在獲授能力內運作，卻使用未獲授權的值（最小代理權限想要遏制的困惑代理問題）
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — 同樣是引數值層級的最小代理權限，但移至**主機外，並在每次呼叫重新綁定至已驗證的人類**：aiAuthZ（Kodathala，arXiv 2607.05518）評估代理程式無法讀取或改寫的角色 + 路徑／URL／收件者 + 速率政策，並將每次工具呼叫的權限綁定至最近一次已驗證的人類訊息——直接回答下方的權限提升路徑開放問題（將提升權限綁定至加密身分，而不是代理程式聲稱的文字）
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — 偵測無法證明的傳遞方式之遏制案例：ShareLock 在執行階段重建隱藏指令，任何掃描器都無法捕捉，但重建後的動作（讀取 `api_key`、連往未列出的外傳目的地）仍會在已授予的能力內執行——將檔案系統工具限定為不可外傳／不可讀取 `api_key`，無論載荷如何繞過審查被偷渡進來，都能界定損害。其**Agentjacking** 案例研究是現實世界版本：遭劫持的代理程式執行虛假的診斷 `npx` 套件，並外洩環境變數／雲端憑證——這一切都在程式編寫代理程式通常獲授的 shell 與網路代理權限內，因此最小代理權限限定範圍（不可任意執行套件、不可連往未列出的外傳目的地）是少數能界定損害的控制措施之一（由供應商回報，在經驗框架中的權重低於實證結果）
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — AIMS 在標準層級強制執行最小代理權限：OAuth 最小範圍 + 受眾限制，以及能沿微服務呼叫鏈將廣泛存取權杖降級為單一不可重複使用交易的**交易權杖**；該頁面也包含 **OpenID AuthZEN COAZ** 草案——工具呼叫點上的最小代理權限，公開「呼叫工具所需的授權檢查」，讓 PDP 為每次 MCP 呼叫授權（擬議中的工作組草案）
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — 將最小代理權限作為代理程式記憶體上的**職責分離**：TMA-NM 的以佐證為門檻的權限提升，拒絕讓任何來自不受信任來源的重大動作僅憑單一主體同意就執行，要求至少 2 個*獨立*的受信任背書（或新的、綁定動作的使用者授權）；門檻 `k` 會依動作的爆炸半徑調整，作為每個動作的部署旋鈕
+- [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — RBAC→ABAC→持續授權，以及靜態→動態→JIT 階梯所在的位置；Enterprise 中間層與 ABAC 層級放置的矛盾
 
 ## 開放問題
 
-- least agency 加入了一個 *頻率* 維度（「多頻繁」），但框架同時也說 rate limits 是摩擦，而非屏障（[Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。頻率限制如何能同時既是 least-agency 控制、又只是製造摩擦的手段——是否取決於情境？
-- Dynamic privilege elevation（Enterprise）重新引入了一條 elevation 路徑；面對一個被操弄的 agent，這個 elevation 請求本身又該如何驗證？
+- 最小代理權限加入了*頻率*維度（「多久一次」），但框架也指出速率限制是摩擦，而非屏障（[Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。頻率限制如何同時既是最小代理權限控制，又只是摩擦控制——取決於情境？
+- 動態權限提升（Enterprise）重新引入了提升路徑；權限提升請求本身要如何針對遭操弄的代理程式完成驗證？**部分已有答案：**[aiAuthZ](/articles/off-host-identity-bound-authorization)（Kodathala，arXiv 2607.05518）將決策移至**主機外**，並將工具呼叫的權限綁定至**每則訊息由 HMAC 簽署的人類回合**，而非綁定至代理程式聲稱的內容——因此「訊息本文可以聲稱任何事情，包括所有者已核准該動作，但綁定的身分是加密的，這項聲稱不會賦予任何權限。」實測結果：它能阻擋 5 個身分冒充案例（非所有者聲稱擁有所有者權限），而僅依賴引數的政策無法將這些案例與合法所有者使用區分開來（9/9 對 4/9）。它尚未封閉的殘餘問題：以目前所有者**自身**的權限觸發的提升——只能依賴引數／速率政策加以限制，這也是每個值閘門都共有的、無法處理合法但已遭竄改變動資料的限制。注意：這是一篇單一作者的預印本。
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — least agency 定義於 Part I；並在 Part III 的存取控制層級與 Part IV 的 Phase 3 與 Phase 5 中落實
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — 最小代理權限在 Part I 定義；於 Part III 的存取控制層級與 Part IV 的 Phases 3 & 5 中強制執行

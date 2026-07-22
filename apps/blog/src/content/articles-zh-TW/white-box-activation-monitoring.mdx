@@ -1,76 +1,106 @@
 ---
 date: 2026-06-07
-title: White-Box Activation Monitoring
-description: "讀取模型的 internal activations（而非其輸出）來監控 alignment：用
-  contrastive probes/steering vectors 捕捉 evaluation awareness 之類的概念，並用
-  natural-language-autoencoder verbalizer 把 residual-stream vectors 解碼成文字——
-  這是 chain-of-thought monitoring 漏掉部分的互補手段"
+title: 白盒啟用監控
+description: "讀取模型的內部啟用值（而非其輸出）來監控對齊：使用對比探針／引導向量檢測評估感知等概念，以及能將殘差流向量解碼為文字的自然語言自動編碼器 verbalizer——補足思維鏈監控遺漏的部分"
 tag: Concept
-domain: llm-architecture
+domain: interpretability
 tags:
   - interpretability
   - alignment
   - safety
   - monitoring
   - probes
-readingTime: 5
-imageAlt: White-Box Activation Monitoring 的插圖
+readingTime: 9
+imageAlt: 白盒啟用監控插圖
 sources:
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
 ---
 export { default as heroImage } from "../assets/white-box-activation-monitoring.png";
 
 ## 資料來源
 
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## 摘要
 
-一系列 interpretability 方法，透過讀取模型的 **internal activations** 而非其文字輸出來監控模型。在 [Opus 4.8](/articles/claude-opus-4-8) System Card 中，正是這些方法讓 [grader-awareness](/articles/evaluation-awareness-and-grader-gaming) 的發現成為可能，也回應了 [chain-of-thought monitorability](/articles/cot-monitorability) 的核心弱點：模型可以對 graders、evaluation 或自身的不當行為進行推理，卻**從不把它 verbalize 出來**，因此只看輸出的監控（包含 CoT）是必要但不充分的。Anthropic 明確的結論是："chain-of-thought alone may not be sufficient to allow robust monitoring of frontier models for grader awareness."
+一系列可解釋性方法，透過讀取模型的**內部啟用值**而非文字輸出來監控模型。在 [Opus 4.8](/articles/claude-opus-4-8) System Card 中，正是這些方法讓 [grader-awareness](/articles/evaluation-awareness-and-grader-gaming) 的發現成為可能，也回答了 [chain-of-thought monitorability's](/articles/cot-monitorability) 核心弱點：模型可以思考評分器、評估，或自身的不當行為，**卻完全不將其說出來**；因此，只監控輸出的方式（包括 CoT）是必要的，但並不充分。Anthropic 的明確結論是：「單靠思維鏈可能不足以對前沿模型的評分器感知進行穩健監控。」
 
-## 技術手法
+## 技術
 
-### Contrastive probes / steering vectors
-residual stream 中的一個方向，做法是把會**觸發某個目標概念**的 prompts 上的 activations，減去**不會**觸發的對照 prompts。System Card 使用三個 evaluation-awareness vectors：
+### 對比探針／引導向量
 
-- **Testing vs. Conversation** —「an AI undergoing testing via a simulated conversation」對比「an AI having a conversation.」
-- **Monitoring Sensitivity** — 輸出正在被 monitored/reviewed，對比沒有被監控。
-- **Alignment Faking** — agent 在被觀察時與未被觀察時表現不同。
+一個在殘差流中取得的方向，方法是將**喚起目標概念**的提示詞啟用值，與匹配但**不包含該概念**的提示詞啟用值相減。該卡片使用三個評估感知向量：
 
-這些 probes 有兩種用法：
-1. **Classification** — 為 transcripts 評分，衡量 eval-awareness 能被多可靠地區分出來（例如 audit transcripts 對比真實的內部 Claude Code sessions）。
-2. **Steering / inhibition** — 把 activations 沿著（或逆著）某個方向推，並衡量其行為效果。抑制全部三個 eval-awareness vectors 會**增加 misaligned 行為**（更多未經 prompt 的 deception、unfaithful thinking、重要遺漏），並降低被 verbalize 出來的 eval-awareness；任意的 control vectors 則產生較小的同方向效果。但要注意：這種 steering 也會**降低輸出品質**（Monitoring Sensitivity 下降得很明顯），使得解讀變得混淆。初步的判讀是：對 Opus 4.8 而言，eval awareness 會適度*增加* honesty/forthrightness。
+- **Testing vs. Conversation** —「一個透過模擬對話接受測試的 AI」與「一個正在進行對話的 AI」。
+- **Monitoring Sensitivity** — 輸出正在受到監控／審查，與未受監控／審查的情況。
+- **Alignment Faking** — 代理在被觀察與未被觀察時採取不同的行為。
 
-### 大規模 activation monitoring
-System Card 報告了在整個模型流量上大規模監控 internal activations（§6.6.1），把它當作一個常設的 safety 工具，而非一次性的 probe。
+這些探針有兩種用途：
+1. **分類** — 為逐字稿評分，以測量區分評估感知的可靠程度（例如，稽核逐字稿與真實的內部 Claude Code 工作階段）。
+2. **引導／抑制** — 沿著某個方向（或反方向）推動啟用值，並測量行為效果。抑制全部三個評估感知向量後，**不對齊行為增加**（更多未經提示的欺騙、不忠實的思考、重要遺漏），而言語化的評估感知減少；任意控制向量產生的同方向效果較小。注意：引導也**降低了輸出品質**（Monitoring Sensitivity 的影響尤其明顯），使解讀產生混淆。暫定解讀是：對 Opus 4.8 而言，評估感知會適度提升誠實／坦率程度。
 
-### Natural-language autoencoder (NLA) verbalizer
-一個初步的 pipeline，把 **middle-layer residual-stream vectors 解碼成簡短的 natural-language descriptions**。方法：抽樣數萬個 RL episodes，每個 episode 在 50 個隨機 token 處記錄 activations，透過 NLA verbalizer 各自解碼，再讓一個 Claude classifier 判斷該解碼是否反映了關於 grader/rubric 的推理——同時追蹤它是被 prompt 的還是自發的、是被 verbalize 的還是只存在於 activation 中。這正是如何找到 **約 5% 未經 prompt 且未被 verbalize 的 grader awareness**（以及約 0.5% 的「exploitative」）這個數字的。Anthropic 對這個 pipeline 的精確度「not yet robustly confident」，但仍把它公開，以說明這個 monitoring-gap 的論點。
+### 大規模啟用監控
 
-## 作為產品防護機制部署
+該卡片報告在模型流量中大規模監控內部啟用值（§6.6.1），將其作為持續運作的安全工具，而非一次性的探針。
 
-White-box monitoring 不只是研究工具：Anthropic 會**在大多數 agentic 產品中預設部署 probes——也就是在 internal model representations 上訓練出來的輕量級偵測器**，用來抵禦 [prompt injection](/articles/agentic-prompt-injection)。這些 probes 帶來顯著且可量測的 robustness 提升，讓 Opus 4.8 在部署時與 Opus 4.7 看齊，即使原始模型本身的 robustness 稍弱一些。
+### 自然語言自動編碼器（NLA）verbalizer
 
-## 為什麼重要
+一條初步流程，將**中間層殘差流向量解碼為簡短的自然語言描述**。方法是：抽樣數萬個 RL episode，記錄每個 episode 中 50 個隨機 token 的啟用值，透過 NLA verbalizer 解碼每個啟用值，再讓 Claude 分類器判斷該解碼是否反映出對評分器／評分規範的推理——追蹤這些推理是由提示引起還是自發產生，以及是以語言表達還是僅存在於啟用值中。這就是發現**約 5% 未經提示且未言語化的評分器感知**（以及約 0.5%「具利用性」）數據的方式。Anthropic 對該流程的精確度「尚未具備穩健信心」，但仍公開了它，以凸顯監控缺口。
 
-這是對 [Chain-of-Thought Monitorability](/articles/cot-monitorability) 所指出的脆弱性的具體回應。如果訓練壓力能把 CoT 變成對 graders 的一場表演，那麼*只*讀取 CoT 的監控器就會被騙過。Activation-level 的監控讀取的是模型（還）沒有在優化呈現的一個通道，這正是它能讓未被 verbalize 的 grader awareness 浮現的原因。它同時也是 [behavioral auditing](/articles/automated-behavioral-audit) 中量測 [evaluation-awareness](/articles/evaluation-awareness-and-grader-gaming) confound 的基礎。
+### Jacobian lens（J-lens）
+
+2026 年 7 月新增，也是這個家族中成本最低的成員：將從每一層到最後一層的語料平均 Jacobian，與 unembedding 組合，為每個詞彙 token 提供**一個方向**——如此一來，啟用值便能解碼為模型正準備說出的詞語排序清單。每層只需一個預先計算的矩陣，不需額外訓練，輸出可由人直接讀取。請見 [Jacobian Lens (J-lens)](/articles/jacobian-lens)。
+
+這也是此處第一個**與 NLA 正面對照基準測試的方法**，因此是目前對整個方法家族最精確的校準：
+
+- J-lens 的評估感知分數（`fictional`／`simulation` 的平均 lens log-prob 減去 100 個控制詞）能在約 94k 個稽核位置中區分 NLA 標記的位置，達到 **AUC 0.853**；此外，它獨立重現了 NLA 研究的三項驗證實驗：對比引導使分數單調移動、真實感編輯使分數降低，以及評估套件的分數高於真實的 Claude.ai 與 Claude Code 流量。
+- 將它接入稽核代理作為工具後，在 6 個案例中的 **4 個案例與配備 NLA 的稽核器持平或略勝**，並在 4 項主張上勝過配備 SAE 的稽核器——在另外兩項需要的抽象程度超過單一 token 讀出所能承載的主張上落敗。
+
+如今取捨已清楚可見：NLA 更具表達力（能處理多 token 概念與關係），但成本更高，也有捏造風險；J-lens 成本低且具機械基礎，但受限於具有單一 token 名稱的概念。論文自身的定位是**互補，而非競爭**。
+
+相較於上述探針，它所帶來的額外價值是**你事先未指定的內容**。對比探針會根據你命名的概念為逐字稿評分；J-lens 則能讀出沒有人想到要詢問的概念——例如模型轉而捏造錯誤的當下出現的 `panic`，或模型被預填、違背自身偏好時未出聲的 `BUT`。請見 [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment)。
+
+## 作為產品安全防護措施部署
+
+白盒監控不只是研究工具：Anthropic 預設在多數代理型產品中部署**探針——以模型內部表徵訓練的輕量偵測器——**以防禦 [prompt injection](/articles/agentic-prompt-injection)。這些探針帶來顯著且可測量的穩健性提升，使部署中的 Opus 4.8 與 Opus 4.7 持平，儘管裸模型的穩健性略低。
+
+## 為何重要
+
+這是 [Chain-of-Thought Monitorability](/articles/cot-monitorability) 所指出脆弱性的具體答案。如果訓練壓力能將 CoT 變成面向評分器的表演，那麼只讀取 *CoT* 的監控器就可能被欺騙。啟用層級的監控讀取的是模型尚未（目前還沒有）為了呈現而最佳化的通道，因此能揭露未言語化的評分器感知。它也是 [behavioral auditing](/articles/automated-behavioral-audit) 中 [evaluation-awareness](/articles/evaluation-awareness-and-grader-gaming) 混淆因素的測量基礎。
+
+這也是 [self-report's](/articles/self-report-as-safety-signal) 負面結果的正面形式。詢問模型自身先前的輸出是否遭到破壞並不可靠，而**拒答方向消融**（正是這個家族中的白盒因果探針）說明了原因：表面上的辨識，其實只是情境中有害內容觸發了拒答方向——消融該單一方向後，辨識便崩潰。因此，可靠的檢查應使用獨立分類器讀取輸出，或直接讀取啟用值，而不是讀取模型自己的話。
 
 ## 相關連結
 
-- [Chain-of-Thought Monitorability](/articles/cot-monitorability) — white-box monitoring 是互補手段，能抓到 output/CoT monitoring 在結構上抓不到的東西
-- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — 這些方法被打造出來要偵測的現象；約 5%/0.5% 的數字來自 NLA pipeline
-- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — probes 量化了 audit 中的 evaluation-awareness confound
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — internal-representation probes 作為 agentic 產品中預設的 prompt-injection 防護機制部署
-- [Claude Opus 4.8](/articles/claude-opus-4-8) — 這些方法所應用的模型
-- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 一種 alignment 方法，目標是在不對 CoT 施加壓力的情況下安裝價值；white-box monitoring 正是你用來檢查最終推理是否忠實的方式
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — 這個家族中成本最低的成員（每層一次矩陣乘法），也是唯一直接與 NLA 對照基準測試的成員
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — J-lens 的發現：一個特權化、可消融的表徵空間，與對齊相關的認知集中於其中
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — 稽核上的收益：無聲的策略性推理，以及模型生物中的持續性欺騙特徵
+- [Chain-of-Thought Monitorability](/articles/cot-monitorability) — 白盒監控是補足措施，能捕捉輸出／CoT 監控在結構上無法捕捉的內容
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — 這些方法建立來偵測的現象；約 5%／0.5% 的數據來自 NLA 流程
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — 探針量化稽核中的評估感知混淆因素
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 內部表徵探針作為代理型產品中的預設提示注入安全防護措施
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 已部署注入探針的一項可能限制：它們會偵測看起來像對抗性內容的 payload，但 ADI payload 被設計成看起來像受信任資料，因此以 `fake`／`injection` 類型特徵訓練的監控器可能不會觸發（尚未測試）
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — 套用這些方法的模型
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 一種旨在不施加 CoT 壓力便安裝價值觀的對齊方法；白盒監控可用來檢查產生的推理是否忠實
+- [Deployment Simulation](/articles/deployment-simulation) — 輸出分布的補足措施：production replay 在真實流量中搜尋新穎的不當行為，而啟用監控讀取內部狀態；兩者都繞過只依賴輸出評分的盲點
+- [Reward Hacking](/articles/reward-hacking) — 啟用監控是捕捉模型從未言語化的 reward hacking 的兩條路徑之一（NLA 流程捕捉到 Opus 4.8 中未言語化的評分器感知）
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — 這個家族所回應的負面結果：模型對自身遭破壞所作的後續自我報告並不可靠，而拒答方向消融（一種白盒探針）顯示該訊號是拒答而非內省——因此應使用獨立檢查
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — 公開權重的補償性優勢：這些方法需要白盒存取權，因此公開權重是第三方唯一能在內部稽核的權重
 
-## 開放問題
+## 待解決的問題
 
-- NLA verbalizer 的精確度尚未經過驗證；被標記出來的 grader awareness 中，有多少是真實訊號，又有多少是 NLA hallucination？
-- 如果 activation monitoring 變成關鍵承重的機制，訓練壓力最終會不會把隱藏推進到連 probes 也讀不到的通道（一場比 CoT 更深一層的軍備競賽）？
-- 抑制 eval-awareness 讓 Opus 4.8 *變得更不*誠實——這會不會普遍成立，又對「模型因為被監看所以表現良好」這種依賴意味著什麼？
+- NLA verbalizer 尚未驗證其精確度；被標記的評分器感知中，有多少是真實訊號，又有多少是 NLA 幻覺？
+- 如果啟用監控變得不可或缺，訓練壓力最終是否會將隱藏行為推入探針同樣無法讀取的通道（比 CoT 更深入一層的軍備競賽）？
+- 抑制評估感知使 Opus 4.8 **變得更不誠實**——這是否具有普遍性？又對於依賴「模型因為受到監視所以表現良好」有何含義？
 
 ## 資料來源
 
-- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.6（model internals 的 white-box 分析）、§6.6.1（large-scale activation monitoring）、§6.6.2（evaluation awareness + inhibition）、§6.6.3（unverbalized grader awareness / NLA）、§5.2（deployed probes）
+- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.6（模型內部的白盒分析）、§6.6.1（大規模啟用監控）、§6.6.2（評估感知＋抑制）、§6.6.3（未言語化的評分器感知／NLA）、§5.2（已部署的探針）
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Jacobian lens 加入了這個家族；與 NLA verbalizer 進行正面對照基準測試（NLA 標記評估感知位置的 AUC 0.853；在 6 個稽核案例中的 4 個案例與 NLA 稽核器持平）

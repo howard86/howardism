@@ -1,0 +1,96 @@
+---
+date: 2026-07-09
+title: 推論效率即能力
+description: "若能力是推論預算的函數，那麼降低 token 成本就是能力工作：Gemma 4 的五個槓桿（透過 keys-as-values + p-RoPE 將 KV-cache 減少 37.5%、QAT 降至低於 1 GB、MTP drafter heads、MoE、移除 encoder）讓每一美元能換來更多思考——也是 wiki 首次涵蓋堆疊的部署側"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - inference-scaling
+  - test-time-compute
+  - quantization
+  - deployment
+readingTime: 8
+imageAlt: 推論效率即能力的插圖
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+---
+export { default as heroImage } from "../assets/inference-efficiency-as-capability.png";
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+
+## 摘要
+
+在 [Noam Brown 的論點](/articles/large-scale-test-time-compute)——能力取決於你投入多少資金進行推論——之下，可以推出一個兩個來源都沒有明說的推論：**在固定預算下，任何能降低單位推論成本的事物，都會提升能力。**效率工程不再只是模型的註腳，而成為與 scaling 具有相同量綱的能力槓桿。
+
+[Gemma 4](/articles/gemma-4)（`empirical`）就是一個完整案例。它的摘要主打「效能上的飛躍」；但其實質是五個彼此 distinct 的槓桿，讓產生 token 的成本降低。透過 Brown 的框架來看，KV-cache 與量化工作並不是能力故事底下的管線工程——它們*就是*能力故事，只是從分母的角度敘述。
+
+本頁也是 wiki 首次涵蓋堆疊部署側的內容。這裡其他所有內容都關乎模型能做什麼；本頁關乎讓模型做到這些事需要付出多少成本。
+
+## 五個槓桿（Gemma 4）
+
+**1. KV cache——整體 cache 減少 37.5%。**三個相互疊加的選擇。**區域滑動視窗與全域 self-attention 層採用 5:1 的比例**（2.3B 模型為 4:1），因此大多數層都不必保存完整上下文 cache。全域層使用 p = 0.25 的 **p-RoPE**——只有四分之一的維度取得旋轉編碼（全域 RoPE 頻率為 1M，區域為 10k）。還有一個奇特的選擇：**在全域層中將 keys 重用為 values**，`values = keys`，直接刪除 V projection（引用 Kayyam et al. 2026，*Do transformers need three projections?*）。E2B 與 E4B 跳過 keys-as-values 技巧，改為跨層共享 KV cache，比例分別為 20/35 與 18/42。
+
+**2. 量化感知訓練——模型降至低於一 GB。**兩種權重格式：*mobile quantization*（per-channel int2/int4 權重、int8 activations）與 *Q4_0* blockwise，選擇依據是 `llama.cpp` 與消費級硬體實際採用的格式。在 32k context 下的純文字 footprint：
+
+| 模型 | bf16 | Quantized | +KV cache |
+|---|---|---|---|
+| E2B | 4.6 GB | **0.8 GB** | +0.05 |
+| E4B | 9.0 GB | 2.3 GB | +0.14 |
+| 12B | 24.0 GB | 7.65 GB | +0.28 |
+| 31B | 64.0 GB | 19.2 GB | +1.10 |
+
+QAT 也套用於 encoders：150M 的 vision encoder 採用 W8A8 後，forward-pass 記憶體減半（400 → 200 MB），相較 Gemma 3n，裝置端延遲降低 44%；audio encoder 量化為 8-bit activations，並使用 per-layer-cluster 的 \{2,4,8\}-bit 權重後，**磁碟空間縮減 78%，由 390 MB 降至 87 MB**。每個 block 使用一個 scalar scale 限制 activation 範圍，讓 fp16 inference 保持穩定。
+
+**3. Speculative decoding，以 artifact 形式發布。**Gemma 4 隨每個模型發布一個**multi-token-prediction drafter head**（E2B 為 76M，31B 則最高達 500M）：由獨立 embedder 加上一個 4-layer Transformer block 組成（三個 local、一个 global attention layer），並且**對主模型的 KV cache 執行 cross-attention**。由於 drafter 讀取主模型的 KVs，而不是執行自己的 prefill，因此不需要 MTP prefill，且支援任意 draft length。對小型 drafter 而言，final projection 由對 token *clusters* 執行 top-k 取代，讓最後一個 matmul 從 d × 262,000 縮減至 **d × 4,096**，同時維持相近的 acceptance rate。
+
+**4. Mixture-of-Experts。**總計 26B，啟用 3.8B——標準的稀疏性取捨。值得注意的是，在人類偏好上，這是此處**最弱的槓桿**；請見 [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap)。
+
+**5. 移除 encoders。**12B 的 550M vision encoder 變成 35M matmul，而其 305M audio conformer 則直接刪除，「減輕對獨立 encoders 的需求並降低記憶體碎片化」。動機是記憶體，而非準確度——請見 [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion)。
+
+## 為什麼這是能力主張，而不只是工程主張
+
+Brown 的論證是：10 美元的推論預算只能做一件事，10,000 美元則能做多得多。他也觀察到每次生成的成本會下降 10–100 倍，這正是等待下一個模型變得合理的原因（[Latent Capability Overhang](/articles/latent-capability-overhang)）。
+
+Gemma 4 就是這種成本下降，只是被拆解並逐一歸因。一個能裝進 0.8 GB 的模型可以在手機上運行，此時限制預算是 RAM 而非美元；KV cache 小 37.5%，代表在相同的記憶體上限下可以容納更長的思考軌跡；drafter head 則讓思考軌跡中的每個 token 更快抵達。**思考模式與效率堆疊是同一個專案**：推理軌跡會讓每個 query 的 token 數倍增，因此要在使用者能於本機執行的模型中提供這種模式，前提就是先讓 token 變得便宜。報告在同一次發布中同時交付了兩者，卻沒有將它們連結起來。
+
+反向推論同樣成立，而且值得明說。如果效率就是能力，那麼 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 就是比較高效模型與大型模型時**唯一誠實的方法**——Brown 關於 GPT-5.5 與 5.4 的軼聞，正是一個網格掩蓋效率提升的案例。Gemma 4 自己的 Table 5 隨後犯下了它本應察覺的錯誤。
+
+## Bitter lesson 觸及與未觸及之處
+
+報告同時**移除**手工設計的結構（encoders，依 Sutton 的邏輯），又**加入**大量這類結構（5:1 attention ratios、p = 0.25、keys-as-values、per-layer-cluster bit-widths、top-k cluster projection）。這並不矛盾。[The Bitter Lesson](/articles/the-bitter-lesson) 談的是**模型學會什麼**——將人類對*任務*的先驗編碼進去，會成為上限。它沒有談及執行網路的算術。部署工程不受此限，而 Gemma 4 是 corpus 中最清楚的例子：encoders 被移除，是因為它們編碼了關於模態的先驗；KV-cache 技巧則保留，是因為它們根本沒有編碼任何東西。
+
+同樣的區分也讓 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 更清楚。Harness 會縮小，是因為能力向內遷移。推論效率工作不會縮小——它會複利，因為它沒有可以遷移進去的內部。
+
+## 相關連結
+
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 根本論點；效率是它的分母
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — 在沒有控制 compute 的網格上，你看不見效率提升
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — 每次生成成本下降 10–100 倍是其機制，本頁將它拆成各個部分
+- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — 第五個槓桿，也是有獨立佐證的一個
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — 效率正是 31B dense model 能與 744B MoEs 競爭的軸線
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — 低成本推論讓任何人都能負擔對 open weights 進行無限制 elicitation
+- [The Bitter Lesson](/articles/the-bitter-lesson) — 適用於學習到的結構，不適用於提供它服務的算術
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — 訓練側的姊妹篇：async RL 是訓練效率，同一套「效率就是能力」的邏輯，只是提前一個迴圈套用
+- [Effective Compute Scaling](/articles/effective-compute-scaling) — 效率提升會以與硬體和演算法相同的方式，進入「effective compute」分子
+- [Gemma 4](/articles/gemma-4) — 來源模型家族
+- [Google DeepMind](/articles/google-deepmind) — 研究機構
+- [Noam Brown](/articles/noam-brown) — 本頁反轉的論點
+
+## 開放問題
+
+- **是否存在效率到能力的交換率？**Brown 詢問，能否從低成本執行預測高預算效能。對偶問題是：在固定美元預算下，KV cache 減少 37.5% 值得多少 Elo 分？沒有人報告這件事，因為沒有人繪製這條軸線。
+- `values = keys` 在全域層中刪除了 attention 三分之一的 projections，且沒有報告任何損失。還有哪些 projections 是多餘的？這種冗餘是否會隨 scale 增長？
+- 某個效率槓桿是否會以 benchmark grid 掩蓋的方式**犧牲**能力？Gemma 4 的 encoder-free 12B 在 tokens 被削減時，於 dense-text vision 上崩潰——這是一種在最大解析度下看不見、由效率形塑的 regression。
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.1–2.7（attention ratios、p-RoPE、keys-as-values、QAT、MTP drafter、TPU infra）、Tables 1–3（`empirical`）
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview（2026-06-26）：能力是推論預算的函數；每次生成成本下降 10–100 倍（`practitioner-opinion`）

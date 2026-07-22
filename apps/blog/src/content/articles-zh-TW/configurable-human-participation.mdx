@@ -1,0 +1,109 @@
+---
+date: 2026-07-16
+title: 可配置的人類參與
+description: "HAS-Bench（Wu 等人，arXiv 2607.04329）：一項將人類參與設為*可配置*變數的基準測試——人類與 LLM agents 是共享互動圖中的一等節點，參與程度沿三個軸向變化（五級 Human Agency Scale A1–A5、三種互動通道 clarification/feedback/control，以及使用者 persona），涵蓋六個領域的 397 項任務，同時評分結果與過程。研究發現：平等夥伴關係（A3）勝過完全自動化（A1），Pass@1 提升 +8.4、Task Score 提升 +11.5，並挽救最多 65.4% 的自主失敗任務；但其價值取決於配置，而非單調增加——更多 agency（A4）帶來遞減、甚至負面的回報（透過過早或分散注意力的介入挽救 27 項任務／破壞 13 項），每種問題模式都有不同的最佳通道（提交前 clarification、提交後 feedback、安全關鍵授權則僅 control = 100% 安全），在 6 種模式中的 5 種，Full-channel 都敗給最佳單一通道；而弱 agent（Llama-3.1-8B）幾乎沒有收益——agent 必須決定*何時*提問，以及*如何*使用輸入，而不只是獲得更多輸入；所有結果都來自 LLM 模擬（GPT-4.1）的人類，是受控基準測試，而非實地 oversight-load telemetry"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - agent-engineering
+  - human-ai-collaboration
+  - benchmark
+  - ai-coding-workflow
+  - empirical
+readingTime: 12
+imageAlt: 「可配置的人類參與」插圖
+sources:
+  - title: "HAS-Bench: Evaluating LLM-Based Human-Agent Systems under Configurable Human Participation"
+    url: https://arxiv.org/pdf/2607.04329
+---
+export { default as heroImage } from "../assets/configurable-human-participation.png";
+
+## 資料來源
+
+- [HAS-Bench: Evaluating LLM-Based Human-Agent Systems under Configurable Human Participation](https://arxiv.org/pdf/2607.04329)
+
+## 摘要
+
+**HAS-Bench**（Wu、Huang、Guo 等人，來自 Tokyo／UIC／MBZUAI／McGill／Zhejiang 的 14 位作者，arXiv 2607.04329，2026 年 7 月）是第一個將*人類參與視為受控實驗變數*，而非固定背景的基準測試。它建立在 **HAS-Framework** 之上：這是一個以圖為基礎的執行框架，其中人類與由 LLM 驅動的 agents 是**同一共享互動圖中的一等節點**——每個節點都有明確的角色、權限、通訊路徑，以及行動權限。因此，人類不再是外部臨時加上的「核准／拒絕」監督者，而是情境可路由工作的、*可設計且可排程*的參與者。
+
+核心做法是：將人類介入拆成彼此正交、可消融的控制旋鈕，然後測量轉動每個旋鈕會造成什麼影響——對*結果*以及對協作*過程*的影響。最重要的實證結果，重新定位了我們對 human-in-the-loop 的理解瓶頸：**人類參與確實能帶來顯著幫助，但其價值取決於配置，而非隨著加入的程度單調增加。**「agent 不只必須決定採取什麼行動，也必須決定*何時*尋求輸入，以及*如何*將不同人類協作者的輸入納入其中。」
+
+> **證據註記。** `empirical`——這是一項受控基準測試，但其中的「人類」是**LLM 使用者模擬器（預設為 GPT-4.1）**，GPT-4.1 也同時是預設評審；穩健性研究則替換為 Claude-Sonnet-4／DeepSeek-V3／GPT-4.1-mini 作為替代模擬器（附錄 C.6）。因此，它測量的是 397 項可驗證任務上的*已配置、模擬式*參與，能說明人類輸入回報的形狀，但**不是實際人類監督負荷的實地遙測資料**。閱讀以下每個數字時，都要將這項替代納入考量。
+
+## 三個配置軸
+
+參與程度沿三個獨立軸向變化，每一個都是情境的一等設定：
+
+**1. Agency 等級——Human Agency Scale（A1–A5）**（採自 Shao 等人 2025／Zou 等人 2025）。A1 Full Automation → A2 Minimal Input → **A3 Equal Partnership（預設）** → A4 Agent-Assisted → A5 Human-Driven。A1–A2 偏向*自動化*（agent 取代大部分人類工作）；A3–A5 偏向*增強*（人類保留有意義的參與）。每個等級都對應到具體的執行期政策：agent prompt、開啟哪些通道、觸發條件，以及誰對決策與行動擁有權限。主要實驗掃描 **A1／A3／A4**（A2 是接近 A1 的變體，A5 則將 agent 降為打字員）。
+
+**2. 互動通道——clarification、feedback、control。** 論文最清晰的概念貢獻：一般化的「人類輸入」被拆成三種功能，依據*作用對象與時機*加以區分：
+- **Clarification** 作用於**輸入**，在 agent 做出承諾*之前*——在規劃或工具呼叫之前，解決缺失／模糊／衝突／未充分指定的資訊。
+- **Feedback** 作用於**輸出**，在中間產物存在*之後*——評估、修正或精煉規劃、部分結果或生成的產物。
+- **Control** 作用於**行動**——核准、否決、修改、覆寫、接管或直接執行（尤其是受保護、安全敏感或僅限人類權限的行動）。
+
+每個通道都可以由 **agent 發起**（agent 提問）或由**人類發起**（人類主動提供）。這使「是否有人類在迴圈中」轉化為可追蹤、可消融的事件。
+
+**3. Persona。** 在任務、模型、agency 等級、權限與私有資訊都固定的情況下，persona 會改變人類傾向採用的互動方式（每個領域定義三種）。
+
+## 基準測試
+
+涵蓋六個領域的 397 項任務，透過改造 τ²-bench 與 MultiAgentBench 中的可驗證任務，並注入互動要求而建立（2,749 項原始來源任務 → 301 項基礎任務 → 經 LLM 小組改造、過半數投票審查與抽樣人類驗證後的 397 項）：
+
+- **服務導向（具狀態工具、領域政策）：** Retail（94）、Telecom（100）、Airline（31）。
+- **開放式專家任務（反覆精煉／驗證）：** Coding（115）、Research（30）。
+- **談判：** Bargaining（27）。
+
+每項任務都標記為六種**問題模式**之一，用來定義其互動需求：Information Asymmetry（107）、Latent Constraint（114）、Safety-Critical Authorization（35）、Multi-Stakeholder Specification（62）、Iterative Verification（61）、Dynamic Goal Revision（18）。
+
+**具備過程意識的指標**是另一半貢獻——HAS-Bench 不只評分任務*是否*成功，也評分協作*如何*展開。結果指標：Pass@1、Task Score（部分得分）、Delivery Rate、Safety Rate、**HAS Rescue Rate**（人類加入後，從自主失敗中恢復的比例）。過程指標：Clarification Quality Score、Feedback Utilization Rate、Control Request Justification、Action Safety Rate、Initiative Entropy、Human Intervention Rate（HIR），以及原始互動成本（回合、工具呼叫、人類步驟、tokens）。Agent backbone：GPT-4.1、GPT-4.1-mini、Claude-Sonnet-4、DeepSeek-V3-0324、Llama-3.1-8B。
+
+## 四項發現
+
+**RQ1——參與有幫助，但前提是 agent 能夠使用它。** 跨模型平均而言，Equal Partnership（A3）勝過 Full Automation（A1），**Pass@1 提升 +8.4、Task Score 提升 +11.5**，並使安全關鍵子集的 Safety Rate 提升 **+26.9 個百分點**。能力較強的 agents 獲益最多：GPT-4.1 **+16.9／+20.5**、GPT-4.1-mini **+13.7／+19.2**；單一領域的最高結果是 GPT-4.1 在 Research 上的表現（Pass@1 13.3→66.7、Task Score +36.7、**rescue rate 65.4%**）。但效果具有異質性，並非*普遍有效的開關*：**Llama-3.1-8B 幾乎沒有收益**（Pass@1 −0.2、Task Score +0.5、rescue 0.5%）。關鍵是，**更大的收益並不隨更高的人類介入率而增加**——價值取決於 agent *將輸入轉化為實際行動的能力*，而不是所提供輸入的數量。兩種鏡像式失敗模式具體說明了這點：
+- **過早自行完成**（Claude-Sonnet-4 on Research）：在 86.7% 的任務上交付提案，但使用的人類輸入是所有結果格中最少的（HIR 10.9%），並在低於接受門檻的情況下做出承諾——它*沒有與現有的人類互動*。
+- **能力下限**（Llama-3.1-8B on Coding）：大量人類輸入（HIR 41.4%），但交付率只有 35.7%，Pass@1 零提升——人類協助*無法替代缺失的能力*。
+
+**RQ2——更多 agency 的回報遞減，且有時是*負面的*。** 掃描 A1→A3→A4（GPT-4.1、Coding + Research）時，結果上升但曲線彎折：Coding 的 Pass@1 為 39.1→52.2→63.5，Research 為 13.3→**66.7**→70.0（A1→A3 大幅跳升，A3→A4 僅小幅提升）。最鮮明的結果出現在任務層級：從 A3→A4 **挽救 27 項任務，卻破壞了 A3 已解決的 13 項任務**（Coding 挽救 19／破壞 6；Research 是脆弱的 8／7）。被破壞的案例被歸類為**過早介入或重複／分散注意力的輸入**。「關鍵問題不只是賦予更多人類 agency，而是在正確的時機、以正確的形式行使 agency。」
+
+**RQ3——不同問題模式需要不同通道。** 隔離單一通道（僅 clarification／僅 feedback／僅 control，相對於全部通道）：
+- **Clarification** 在 Information Asymmetry 與 Latent Constraint 上勝出——在做出承諾*之前*揭露隱藏事實／接受標準。
+- **Feedback** 在 Multi-Stakeholder Specification、Iterative Verification、Dynamic Goal Revision 上勝出——在中間輸出存在*之後*進行修正、協調或適應。
+- 在 Safety-Critical Authorization 上，**僅 Control 達到 100% Safety Rate**（相較之下 clarification 為 51、feedback 為 54）——**clarification 與 feedback 無法取代對受保護行動的明確授權。**
+- 時機差異就是機制：*clarification 在承諾前作用，feedback 在承諾後修復。* 在 Latent Constraint 上，clarification（29）勝過 feedback（17），正是因為隱藏的接受標準在 agent 選定候選方案之前更容易引出。
+- **更多通道不代表更好：** 在 6 種模式中的 **5 種，最佳單一通道勝過啟用全部通道**（Dynamic Goal Revision 是唯一例外）。額外通道增加的是重複、時機錯誤的互動與協調負擔，而非單調改善協作。
+
+**RQ4——Persona 能改變結果，卻不改變介入率。** 在其他條件完全固定、只改變互動風格時，開放式／談判領域的結果大幅波動（Bargaining 的 Pass@1 範圍為 **63.0 個百分點**、Research 為 33.4、Coding 為 21.8），但 HIR 範圍仍維持在 ≤0.04。Persona 不會改變人類參與的*多寡*；它改變的是*方式*——同一 agent 在 Bargaining 中提出的 clarification 問題可相差 3.77 題，在 Telecom 中可相差 1.97 題。**如果只測量最終成功，Persona 的效果就會被隱藏**，而這正是需要過程層級指標的原因。
+
+## 為何重要：參與是一項政策，而不是旋鈕
+
+四個 RQ 的共同主張是：**固定的參與政策並不足夠**。人類輸入的價值是一種*配置*——共同決定*何時*（時機：承諾前與輸出後）、*如何*（通道：clarify／feedback／control）、*多少*（agency 等級），以及*由誰*（persona／能力）參與；而最佳配置取決於任務模式，且不是單調的。更多權限、更多通道，以及更多介入，各自都可能*降低*效能。這是基準測試一側、以實證測量的人類—agent 版本設計直覺：讓人類「留在迴圈中」只有在迴圈形狀正確時才有價值。
+
+## 相關連結
+
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration)——其中的開放問題（「每個並行 agent 實際需要多少人類監督負荷，以及何處會達到飽和？」）在此被*重新詮釋*：本基準測試發現，人類輸入的價值存在配置上的甜蜜點（正確的時機／形式／權限），而不是單調旋鈕——更多 agency（A4）帶來遞減、且有時為負的回報。但它是單一人類、單一任務、LLM 模擬的設定，因此它使問題的*形狀*更清晰（非單調、非線性），卻沒有測量每個 agent 的真實負荷。
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor)——「人類決定 what、agents 決定 how」的更細緻版本：clarification 是規劃時的輸入，feedback／control 是執行時的輸入，而論文顯示值得行使哪一種取決於模式——分工是一種排程，而不是固定切分。
+- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign)——agency 等級（A1–A5）與 control 通道軸，是該頁面決策權／升級子前沿的基準測試工具；Safety-Critical Authorization（僅 control = 100% 安全）是經測量的案例，證明*授權不能委派給 clarification 或 feedback*。
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode)——Control 通道與 Safety-Critical Authorization 模式，正是 auto-approve-safe／gate-risky 的決策權設計，如今有了數字：僅 control 的授權填補了受保護行動的安全缺口，而 clarification／feedback（51／54%）無法填補。
+- [Interaction Models](/articles/interaction-models)——通道與時機分類法（clarify-before-commit、feedback-after、mixed initiative）是 TML 關於讓人類留在迴圈中的*架構*答案所對應的*任務基準測試*；兩者都主張參與必須經過設計，而非預設存在。
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck)——HAS-Framework 的型別化邊與 agent／人類發起的通道，正是非單執行緒介面會路由的內容；agent 發起的 clarification 品質有所差異這一發現，就是以結果測量的介面瓶頸。
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck)——「clarification 在承諾前作用」就是引出未知資訊的動作：HAS-Bench 量化顯示，clarification 特別適合 Information-Asymmetry／Latent-Constraint 模式（隱藏的已知資訊），而 agent 決定*何時提問*才是關鍵技能。
+- [AI Brain Fry](/articles/ai-brain-fry)——互動成本指標（回合／人類步驟／tokens）與「更多通道 ≠ 更好」的結果，是監督成本在參與面向的對應：過度提問與時機錯誤的介入都有測量得到的成本，因此更多人類參與並非免費。
+- [Agent Harness Engineering](/articles/agent-harness-engineering)——HAS-Framework 是一種 harness，其明確設計目標是讓人類參與可排程；RQ2／RQ3 的發現是 harness 設計結果——*何時徵求輸入、開啟哪個通道*是腳手架決策，而不只是模型能力。
+- [Experimental Learning Impact of Generative AI](/articles/experimental-learning-impact-of-ai)——同週發表的人類學習鏡像：相同的增強對自動化軸線（該研究中是學生的使用模式；此處是 agency 等級的取向）因果決定 AI 介入會產生持久價值還是空洞輸出——兩者都反駁「更多輸入更好」的單調旋鈕。
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)——這是本基準測試受控人類—agent 測量的*實地*對應：HAS-Bench 在 397 項任務上讓 LLM 模擬人類改變參與程度；Nadgir 等人在 20 項重現任務上進行真實隨機研究，發現 agent 協作使完成時間減少一半以上（2.11×，p≈0.002）。兩者都將人類—agent 協作變成一個可測量的一等軸線——同一問題的模擬／真實配對。
+
+### 進入 hubs（單向）
+
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)——Feedback 通道（評估／修正中間輸出）與 Iterative Verification 模式，是以人類驗證作為槓桿的測量；feedback 正是在驗證與精煉模式上勝出。
+- [Design Concept Grilling](/articles/design-concept-grilling)——由 agent 發起、以 Clarification Quality Score（精確、必要、不重複）評分的 clarification，是反向的 `grill-me`——由*agent* 訪談人類——而論文測量了它是否過度提問。
+
+## 開放問題
+
+- 「人類」是同時負責評審的 LLM 模擬器（GPT-4.1）——配置依賴的結構，有多少是*人類—agent 協作*的特性，又有多少只是 GPT-4.1 同時模擬雙方所造成的產物？附錄 C.6 的模擬器替換研究，是唯一的檢查，而且只涵蓋子集。
+- A4 被實作為*固定的一次性*主動介入。真實的主動型人類會適應性地掌握輸入時機——如果由人類自行選擇*何時*插話，「過早／分散注意力的介入會破壞任務」這項結果會維持、惡化，還是消失？
+- 研究顯示最佳通道取決於模式，但模式是建構時指派的 oracle 標籤。agent 能否在執行時*推斷*自己所處的模式（並因此決定要徵求哪個通道）——也就是論文所說 agents 缺乏的實際部署技能？
+- 隨著 backbone 改善（能力差距縮小），「更多通道增加協調負擔」的懲罰是否會縮小，還是這其實是 mixed-initiative 互動的結構性成本，會持續存在？
+
+## 資料來源
+
+- [HAS-Bench: Evaluating LLM-Based Human-Agent Systems under Configurable Human Participation](https://arxiv.org/pdf/2607.04329)——Wu 等人，arXiv 2607.04329（2026-07-05）。§3 HAS-Framework（圖、通道、agency scale）；§4 基準測試建構與指標；§5.2 主要結果（RQ1 價值、RQ2 agency 掃描）；§5.3 消融研究（RQ3 通道 × 模式、RQ4 persona）。已檢視圖 1（框架概覽與航空公司 A1／A3／A4 walkthrough）及圖 2（agency 等級的 Coding／Research 圖表）。

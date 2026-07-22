@@ -1,0 +1,89 @@
+---
+date: 2026-07-15
+title: 單次 Rollout 優化
+description: "SAO 的核心變革：每個提示只進行一次 rollout，而不是 GRPO 的群組，完成後立即送入訓練——減少 off-policy 漂移，並適用於每個提示只會提供一條軌跡的 online/agentic 設定；代價是類 REINFORCE 的變異，因此它重新採用 value model，將全部工程預算投入讓 critic 穩定（更快的 value 更新、凍結注意力的 critic、跳過 observation 的 GAE、縮放後的 value 預訓練）"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - reinforcement-learning
+  - post-training
+  - agentic-rl
+  - value-model
+readingTime: 8
+imageAlt: Single-Rollout Optimization 插圖
+sources:
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/single-rollout-optimization.png";
+
+## 資料來源
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## 摘要
+
+**SAO (Single-rollout Asynchronous Optimization)** 將 [GRPO](/articles/group-relative-policy-optimization) 的「每個提示一組回應」替換為**每個提示一次 rollout**（群組大小為 1），完成後立即送入訓練。這帶來兩項效益：減少 off-policy 漂移（不必等待群組中最慢的成員——請參見 [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms)），也*適用於* GRPO 在結構上無法處理的設定——只會針對每個提示回傳單一回饋軌跡的 online 與複雜 agentic 環境。
+
+代價正是這個領域當初放棄單軌跡方法的原因：**變異**。沒有群組，就沒有用於 advantage estimation 的群組相對基準，因此 single-rollout 梯度會像 REINFORCE 一樣嘈雜。SAO 的答案是一股刻意的**逆流**——重新採用近期 GRPO/RLOO 浪潮力圖避免的 value model（critic），並將全部工程預算投入，讓這個 critic 穩定到足以充當基準。它被部署來訓練 [GLM-5.2](/articles/glm) (750B-A40B)。
+
+## 值得命名的逆流
+
+兩年來，RL-for-LLM 的發展方向一直是**遠離 value functions**。GRPO、RLOO 及其同類方法以*無 critic* 為賣點：不必訓練獨立的 value network，記憶體減半，也沒有 value-learning 的不穩定性。SAO 認為，對如今最重要的設定而言，這是一條死路。無 critic 的 advantage estimation 在結構上依賴群組——你需要對同一提示取得多個回應，才能計算相對 reward——而 asynchronous/online agentic 回饋恰好只提供一個。因此 value model 回來了，不是出於懷舊，而是因為它是唯一能從單一軌跡運作的基準。這場賭注是：*訓練良好的* critic 勝過群組相對基準，而那些曾讓人遠離 critic 的不穩定性是可以修好的。這篇論文的大部分內容，就是在進行這項修復。
+
+## 讓 single-rollout critic 穩定的四件事
+
+**1. 比 policy 更快的 value 更新（TTUR，K=2）。** Single-rollout RL 的核心不穩定性是 policy↔value 的相互依賴：不準確的 `V_ϕ` 會產生嘈雜的 advantages，進而推動破壞性的 policy 更新。SAO 將更新頻率解耦——每次 policy 更新執行 **K 次 value-network 更新**（實驗中 K=2）——讓 value estimates 在用於 advantage computation *之前* 就追上目前的 policy。這是針對 LLM 調整的雙時間尺度更新規則。
+
+**2. 凍結注意力的 critic。** 在先導實驗中，value model 的 gradient norms 遠大於 policy；分解分析追溯出不穩定性來自**完整注意力層**，而 MoE 層則維持穩定。因此在 RL 期間，SAO **凍結 `V_ϕ` 的 attention modules，只訓練 MoE projections**——其假設是，預訓練的 attention 已經會關注正確的 token，因此將最佳化限制在 MoE 層能夠正則化 critic。消融實驗：移除此設計後，AIME2025 從 97.3 降至 90.6。
+
+**3. 跳過 observation 的 token-level GAE。** Agentic 軌跡交錯包含模型動作與環境回饋：`T = [a₀, o₀, a₁, o₁, …]`。標準 GAE 會計算相鄰 token 之間的 value 差異——但從某個 action 的最後一個 token 到 observation 的第一個 token，其邊界對模型而言是**不連續的**（模型並未生成 `o_i`），因此跨越該邊界估計 advantage，會讓 critic 試圖預測外部環境狀態的 value，注入噪音。SAO 的修正是直接連接 action→action，跳過 observation tokens：
+
+ `Â(a_{i,N}) = δ + γλ · Â(a_{i+1,0})`，其中 `δ = r_t + γ V(a_{i+1,0}) − V(a_{i,N})`
+
+ 如此一來，advantage estimation 便限制在模型生成的 token 之內。**Token-level 勝過 step-level**：將每個回合視為一個 action（step-level GAE）表現較差——在 400 steps 時，Table 5 顯示 AIME2025 上 step-average 為 85.8、step-last-token 為 87.3、**token-level 為 89.8**——因為更細緻的 supervision 能捕捉軌跡內的邏輯轉換，而逐回合訊號會將其平滑掉。
+
+**4. 縮放後的 value 預訓練。** Critic 的冷啟動是真實的瓶頸；擴大 value-pretraining corpus 可提供穩健的初始化，讓 single-rollout 與 TTUR 機制從訓練早期就發揮作用，而不必在數百個 steps 中持續對抗不良 critic。
+
+## 結果
+
+每個設計選擇都承擔著關鍵作用——消融實驗（Table 4）顯示，移除任何一項都會降低準確率；而兩個更便宜的 single-rollout 基準（running-mean-reward baseline 與 vanilla VAPO）不是大幅落後，就是直接崩潰：
+
+| Variant | AIME2025 | BeyondAIME |
+|---|---|---|
+| **SAO** | **97.3** | **74.8** |
+| w/o faster value | 95.0 | 69.8 |
+| w/o frozen attention | 90.6 | 74.5 |
+| Vanilla VAPO (no DIS) | 91.3 | 69.0 |
+| Running-mean baseline | 79.8 | 55.3 |
+
+在程式設計方面，**SWE-Bench Verified**（Qwen3-30B-A3B backbone、OpenHands scaffold、300 turns、128k context）：base 23.0 → GRPO+DIS 27.0 → **SAO 29.8**。在 reasoning-with-Python（TIR）設定下的四個數學推理基準中，SAO 全面擊敗 SFT baseline 與 GRPO（AIME2025 97.3、BeyondAIME 74.8、HMMT 88.3、IMOAnswerBench 74.0），成績接近規模大得多的 [GLM-4.7](/articles/glm)。
+
+## Online learning 結果：single-rollout *獨特適用* 的地方
+
+SAO 最尖銳的主張不是基準提升，而是它具備一項 GRPO 不可能擁有的*能力*。在**非穩態**環境中——每個提示只有一條回饋軌跡，且 reward criterion 本身會隨時間改變——GRPO 的群組相對基準在結構上不適用。SAO 基於 value 的 critic 則不受此限：它能從單一軌跡提供依賴狀態的基準。
+
+展示實驗是一項模擬的 online 寫作任務：訓練中途將目標風格在原型（*可愛*、*中二*、*古典*）之間切換，並由 [GLM-4.7](/articles/glm) 作為 [LLM judge](/articles/llm-as-a-judge)，評分 `r = r_quality × r_style ∈ {0,1}`。偏好轉移時，SAO **迅速重新對齊**——壓制原本占主導地位的風格，並收斂至新的目標——而 running-mean baseline（128-reward sliding window）則有所延遲，因為其歷史視窗仍偏向先前的分布。Critic 能追蹤轉移；running average 只能對其取平均。
+
+## 相關連結
+
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — SAO 的另一半；single-rollout 移除了 async 所暴露的群組同步障礙，而 DIS 讓由此產生的更新保持穩定
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — SAO 所取代的方法；這裡的逆流，正是回頭走向 GRPO 移除的 critic
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — online-learning 的 reward signal 是 LLM judge（GLM-4.7），負責評分 quality × style
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 這套方法訓練出的長視野 agentic models，正是其能力會隨 inference budget 擴展的模型
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — GLM-5.2 (750B-A40B) 是 SAO 的部署目標，也是該頁追蹤的 frontier-open MoE
+- [The Bitter Lesson](/articles/the-bitter-lesson) — SAO 同時移除結構（去掉 group baseline、去掉 `π_θ_old`）並加入大量結構（凍結注意力的 critic、跳過 observation 的 GAE、length-adaptive λ）——與 [Gemma 4](/articles/gemma-4) 相同的雙向形狀
+- [Reward Hacking](/articles/reward-hacking) — 基於 value 的 critic 比稀疏的群組相對訊號提供更密集、依賴狀態的 reward signal；這是否改變 Goodhart surface 尚未探索
+- [GLM (Z.AI)](/articles/glm) — production deployment：GLM-5.2 (750B-A40B)，以及同時作為基準上限與 online-sim judge 的 GLM-4.7
+
+## 開放問題
+
+- 整個方法押注於訓練良好的 critic 勝過群組基準。它在此處確實成功了，使用的是搭配 scaled value pretraining 的 30B-A3B backbone——但 critic 會讓訓練記憶體加倍。當規模達到多大時，即使 GRPO 在品質上落敗，無群組的簡潔性仍會在成本上重新勝出？
+- 凍結注意力是由一項假設（「預訓練的 attention 已經會關注正確的 token」）所支持，而驗證依據只有 gradient-norm trace 與一次消融實驗。當 value model 必須關注預訓練時從未見過的*工具輸出*時，這項假設仍成立嗎？
+- 跳過 observation 的 GAE 假設環境回饋不包含值得傳播的可學習 value signal。對於環境回應*就是*關鍵資訊的 agent（編譯器錯誤、測試結果），跳過它是否等於放棄了重要訊號？
+- Online-learning 的優勢來自受控的模擬偏好轉移，並使用 LLM judge。真正面向使用者的 online adaptation——論文自身也指出這點——需要研究未嘗試處理的防護措施、監控與隱私審查。
+
+## 資料來源
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*，Hou、Li、Tang、Dong（Tsinghua / Z.AI），arXiv 2607.07508，2026-07-08。§3.2（single-rollout + value-model designs）、§4（results、ablations）、§4.5（online learning）、Appendix A（step-vs-token GAE）。`empirical`。

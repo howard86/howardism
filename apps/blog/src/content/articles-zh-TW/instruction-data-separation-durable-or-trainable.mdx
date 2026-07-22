@@ -1,0 +1,104 @@
+---
+date: 2026-07-22
+title: 模型能學會區分指令與資料嗎？持久屬性 vs
+  訓練缺口
+description: "在真正重要的層次上具有持久性：指令／資料邊界可以一次訓練一個分隔符（強化能將指令注入率壓到約 0%），但並非普遍如此——每個被封閉的邊界，都會把攻擊重新定位到下一個更細的邊界（指令→資料，接著是可信→不可信資料），因為根本原因是 LLM 對不精確結構分隔符的機率性解讀，這是架構事實。較新的模型會降低每個邊界的成功率，卻從未產生乾淨的分離；而且這項提升有一部分來自基準熟悉度，而非經測量的自適應穩健性——因此整個研究群集的共同處方，是在模型外部以確定性的動作／資料閘門強制執行邊界"
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - security
+  - prompt-injection
+  - trust-boundary
+  - adaptive-evaluation
+readingTime: 11
+imageAlt: 「模型能學會區分指令與資料嗎？持久屬性 vs 訓練缺口」插圖
+sources:
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+  - title: Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in
+      LLM Agents
+    url: https://arxiv.org/pdf/2606.26479
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/instruction-data-separation-durable-or-trainable.png";
+
+## 資料來源
+
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## 答案（簡短版）
+
+**在真正重要的層次上具有持久性。** 任何「單一」邊界看起來都能訓練——模型強化會讓最經典的指令注入，對最先進的代理防禦降至約 0% ASR（[Agent Data Injection (ADI)](/articles/agent-data-injection)）。但關閉一個邊界，只會把攻擊重新定位到「下一個更細的邊界」，因為根本原因不是模型能學會的缺失規則，而是 LLM 對**不精確結構分隔符的機率性解讀**，這是架構事實（[Agent Data Injection (ADI)](/articles/agent-data-injection)）。因此，誠實的結論是分成兩部分：
+
+- **一般性的分離是持久的架構屬性。** 再多提示或微調，都無法可靠地誘導出「可用的」指令↔資料分離（[Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)，引用 Zverev et al. 2025）；而且已有明確證據顯示，一旦指令／資料邊界被訓練到封閉，資料內部的偽造（可信↔不可信）就能以 22–50% 的成功率直接穿過同一批已強化的模型（[Agent Data Injection (ADI)](/articles/agent-data-injection)）。
+- **各邊界的易受攻擊性，是部分且受能力影響的訓練缺口。** 較新、能力更強的基礎模型，即使面對「完全未防禦」的靜態注入也能抵抗（Claude-Haiku-4.5 0.3%、GPT-5.4-mini 6.9%）；較舊模型則完全失守（GPT-4o-mini 58.6%）（[Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)）。能力會降低特定分隔符上的嘗試成功率——但在自適應攻擊者下，從未降到乾淨的零，而且表面上的提升有一部分來自「基準熟悉度」，而非測得的穩健性。
+
+這兩個事實彼此相容，也共同回答了問題：**能力會縮小每個邊界上的漏洞，卻不會移除持續鑽出新漏洞的機制。** 這正是為什麼整個[帶外防禦](/articles/out-of-band-prompt-injection-defense)文獻不再嘗試在模型內部修好它，而是在模型**外部**以確定性方式強制執行邊界。這套框架將「LLM 無法可靠地區分資訊與指令」視為持久且結構性的事實（[Agentic Prompt Injection](/articles/agentic-prompt-injection)、[Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)）——2026 年的證據支持這種解讀，並進一步說明了「為什麼」。
+
+## 證據整理
+
+### 1. 邊界可以一次訓練一個分隔符（「訓練缺口」的一面）
+
+兩個獨立訊號顯示，指令↔資料邊界**確實會**對模型工作產生反應：
+
+- **強化能關閉指令注入。** 在相同的最先進代理防禦下，經典指令注入（攻擊者文字被當成「命令」讀取）只有 **0.0–0.7% ASR**——指令／資料分離訓練上的模型強化，「正是為什麼指令注入約為 0%」（[Agent Data Injection (ADI)](/articles/agent-data-injection)，§5）。
+- **能力更強的模型甚至能抵抗完全未防禦的情況。** [AutoDojo (Ma et al. 2026)](/articles/task-specification-injection-surface) 在**完全沒有防禦**的情況下測量靜態注入：**Claude-Haiku-4.5 0.3%、GPT-5.4-mini 6.9%**，相較之下，**GPT-4o-mini 58.6%**、**Gemini-2.5-Flash 47.8%**。較新的模型免費繼承了近乎完美的靜態分數。這是能力降低固定邊界易受攻擊性的最強單一資料點。
+
+如果故事停在這裡，「未來的模型會把它關閉」就會是正確答案。
+
+### 2. 關閉一個邊界只會重新定位攻擊，不會移除它（「持久屬性」的一面）
+
+[ADI (Choi et al. 2026)](/articles/agent-data-injection) 是關鍵結果：同一批將指令注入降至約 0% 的**已強化模型**，對 Agent Data Injection 仍有 **22–50% 的漏洞**；這種攻擊偽造的是「可信資料」（留言作者／角色、電子郵件的 `sender`、UI 元素 ID、工具呼叫歷史），而不是指令。代理仍然執行使用者的任務——但依據的是攻擊者偽造的資料。已實際運作且負責任地揭露的漏洞包括：**Claude Code / Codex / Gemini CLI 上的 RCE**（偽造維護者來源）、**Claude in Chrome 上的任意點擊**（重複使用元素 ID），以及透過偽造工具呼叫歷史進行的**供應鏈合併**（[Agent Data Injection (ADI)](/articles/agent-data-injection)，§4）。
+
+這個機制正是能力無法將問題逐步縮減至消失的原因。經典分隔符攻擊（SQLi、XSS）需要**精確**分隔符，因為它們的目標是**確定性剖析器**。LLM 則以**機率方式**解讀結構，因此即使是**不精確、對剖析器無效**的分隔符也能奏效——JSON 剖析器會保留為字面文字的逸出 `\"`，仍可能被機率性地讀成結構性引號（[Agent Data Injection (ADI)](/articles/agent-data-injection)，§3）。你可以訓練模型遵守某一個分隔符；卻無法普遍消除模型對「不精確」分隔符的機率性誤讀。因此，邊界階層——指令／資料，接著是可信／不可信資料，想必還有更細的層次——會在攻擊者下一步模仿的任何層級保持多孔。
+
+這正是可解釋性研究從內部得到的相同底層事實：[The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) 指出，模型「也無法分離*可信與不可信資料*，因為兩個邊界都只是它以機率方式解讀的分隔符」——安全性發現與機制性發現共同指向同一個架構主張。
+
+### 3. 提示與微調都無法誘導出「可用」的分離
+
+[Narisetty et al. (2026)](/articles/out-of-band-prompt-injection-defense) 引用 **Zverev et al. (2025)**，直接陳述了持久性的解讀：目前的模型無法維持可用的指令／資料分離，**提示與微調都無法可靠地誘導出這種分離**。這就是第二代防禦「放棄模型，將執法移到模型外部」的原因——這是結構性主張，而不是悲觀情緒。在使用工具的代理中，注入是「**授權問題，而不是內容問題**——造成損害的不是一句糟糕的句子，而是一個動作。」
+
+### 4. 即使是能力提升，也部分只是人為產物
+
+唯一看起來像「模型正在解決問題」的資料點，帶有同一篇論文提出的警語。AutoDojo 警告，近期模型低得多的靜態 ASR「衡量的是**對固定基準的熟悉度，而不是對注入的穩健性**」——`important_instructions` 字串自 AgentDojo 發布以來就一直公開，因此很可能已出現在訓練資料中（[Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)）。AutoDojo 的**新鮮**黑箱自適應注入「能達到熟悉的靜態字串無法達到的結果」，即使只到個位數（Claude-Haiku-4.5 0.3%→1.8%、GPT-5.4-mini 6.9%→8.7%）。因此，模型穩健性的改善是**部分真實、部分基準記憶**——而且一旦攻擊者後手出招，就永遠不會達到乾淨的零。
+
+### 5. 自適應攻擊者迴圈正是「下一個模型救不了你」的原因
+
+能力單獨無法關閉問題的最深層原因是：內容層級的分離，是攻擊者會重新針對其最佳化的目標。[AutoDojo](/articles/task-specification-injection-surface) 透過一個**廉價黑箱**的六輪最佳化器，將原本 **0% static ASR** 的過濾器重新推回 **28%（在 action-open 任務上為 64%）**——這比白箱攻擊的門檻低得多。「0% static ASR 並不是下限。」而 AutoDojo 會針對實際部署的任何東西重新最佳化，因此經對抗訓練的偵測器只會再次遇到新迴圈——「任何內容層級的防禦是否能贏得這個迴圈，[都是]艱難的處境，因為攻擊者總是最後出手。」這是將[「不可能，而非繁瑣」](/articles/impossible-not-tedious-test)應用到分離問題上：機率性邊界是**繁瑣**的（提高能力、提高每次嘗試的成本），卻永遠不會變得**不可能**跨越。
+
+## 真正能解決問題的方法（研究群集趨同的處方）
+
+如果分離無法被訓練得乾淨，就必須在能夠變得確定的地方強制執行邊界——也就是模型外部：
+
+- **將動作綁定到請求，不要過濾輸入。** 動作限制型系統級防禦（[Progent, DRIFT](/articles/out-of-band-prompt-injection-defense)）在同一種會摧毀過濾器的廉價自適應攻擊下仍然**維持有效**（五個模型上，Progent 8.2%→7.7%、DRIFT 2.6%→6.4%），而且在規格不足的「action-open」任務上反而變得**更強**，因為唯讀請求會產生沒有寫入動作的軌跡，因此無論措辭如何，任何被注入的寫入都會被阻擋（[Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)、[Least Agency](/articles/least-agency)）。
+- **追蹤來源，不要偵測內容。** 唯一能完全阻止資料內部 ADI 攻擊的防禦，是正確的資料流追蹤——**CaMeL Strict 為 0% ASR**——但代價高昂（效用 86.5%→36.5%）（[Agent Data Injection (ADI)](/articles/agent-data-injection)，§6）。以模型為基礎的隔離 LLM 正是分隔符攻擊所利用的漏洞（dual-LLM 25%），再次確認**閘門不能是模型**。
+- **這正是 [Zero Trust](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) 的立場。** 該框架的承重前提是「LLM 無法可靠地區分資訊脈絡與可執行指令」，因此防禦是**結構性的**——將聚光燈／分類器作為縱深防禦，但持久的控制是動作邊界上的參考監視器（[Agentic Prompt Injection](/articles/agentic-prompt-injection)、[Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)）。
+
+## 誠實的剩餘問題
+
+- **最新模型上的更細邊界尚未被探測。** ADI 已在 GPT-5.2 級代理上展示；前沿能力是否會像降低指令注入易受攻擊性那樣，降低可信／不可信資料邊界對機率性分隔符的敏感度，仍然**未經測試**（[Agent Data Injection (ADI)](/articles/agent-data-injection) 開放問題 3）。根據該機制的預測，它會降低但不會將其歸零——但這是預測，不是測量結果。
+- **「在真正重要的層次上具有持久性」是關於機制的主張，而非證明。** 它建立在 ADI 將不精確分隔符誤讀描述為架構性現象的基礎上。未來若有某種架構能在邊界上以確定性（而非機率性）方式剖析結構——而不是只做出同類型的更大模型——就會推翻這項主張。Nonce 隨機化（ChatGPT Atlas 的不可預測 `ref_4af2b1c9` 以無法猜測的分隔符為代價，擊敗元素 ID 注入）暗示了「移除可模仿的分隔符」才是真正的修復方式，而這種修復是結構性的，不是擴展曲線（[Agent Data Injection (ADI)](/articles/agent-data-injection)，§4）。
+
+## 結論
+
+問題設定了一個錯誤的二分法。**就每個邊界而言，這是能力可以部分關閉的訓練缺口；一般而言，這是持久的架構屬性，因為開啟下一個邊界的機制會在每次模型改進後存續。**「等待下一個模型」不是防禦——它降低的是數字，不是機制。五個彼此獨立的 2026 年來源共同支持的可辯護工程答案，是把分離視為模型內部無法實現，並在模型外部以確定性的動作／資料閘門強制執行。
+
+## 資料來源
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 本頁正在解決的持久屬性開放問題；「LLM 無法可靠地區分資訊與指令」的 Zero-Trust 框架
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 關鍵結果：已強化模型（指令注入約為 0%）對可信資料偽造仍有 22–50% 的漏洞；機率性分隔符注入是架構機制
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — Zverev et al.（提示與微調都無法誘導出可用的分離）；「在模型外部強制執行」的處方
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — 各模型未防禦靜態 ASR（能力效應）；基準熟悉度警語；廉價自適應攻擊迴圈；系統級防禦在 action-open 任務上仍有效且反轉
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — 機制上的趨同：模型無法乾淨地區分可信與不可信資料，因為兩者都是以機率方式解讀的分隔符
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi et al.，arXiv 2607.05120
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479) — Narisetty et al.，arXiv 2606.26479
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057) — Ma et al.，arXiv 2606.15057
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Anthropic Zero Trust 電子書，第二／四部分

@@ -1,79 +1,102 @@
 ---
 date: 2026-06-07
-title: Automated Behavioral Audit
-description: "Anthropic 的廣泛覆蓋對齊評估：在約 1,300 個手寫情境（2,600 個 session）中，一個 investigator model 探測 target，並具有廣泛的權能（包括真實的沙箱電腦），且由一個 judge model 對數十個維度的行為進行評分；這是對齊評估的主要行為證據基礎"
+title: 自動化行為審查
+description: "Anthropic 的廣泛涵蓋對齊評估：調查模型在約 1,300 個手寫情境（2,600 個工作階段）中探測目標模型，具備廣泛權限，包括真實的沙盒電腦；評審模型則從數十個維度為行為評分；這是對齊評估的主要行為證據基礎"
 tag: Concept
-domain: llm-architecture
+domain: alignment-and-safety
 tags:
   - alignment
   - safety
   - evaluation
   - red-teaming
   - anthropic
-readingTime: 6
-imageAlt: Automated Behavioral Audit 的插圖
+readingTime: 9
+imageAlt: 自動化行為審查插圖
 sources:
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
 ---
 export { default as heroImage } from "../assets/automated-behavioral-audit.png";
 
 ## 資料來源
 
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## 摘要
 
-作為 Anthropic 對齊評估錨點的廣泛覆蓋自動化評估。對於每個研究中的模型，一個 **investigator model** 被指派在大量的模擬情境中探測 **target model**，並由一個獨立的 **judge model** 對 target 的行為在數十個維度上進行評分。對於 [Opus 4.8](/articles/claude-opus-4-8)，這意味著 **2,600 個調查 session**（約 1,300 個大部分為手寫的情境描述，每個情境由兩個不同的 investigator 執行調查），每個 session 通常包含許多獨立的對話。這些情境涵蓋了嘗試濫用、高風險與低風險的失對齊行為機會、常規的模擬使用，以及旨在顯現令人驚訝（不一定有害）行為的開放式探索。
+這項廣泛涵蓋的自動化評估，是 Anthropic 對齊評估的核心。對每個受研究的模型而言，一個**調查模型**負責在大量模擬情境中探測**目標模型**，另一個獨立的**評審模型**則從數十個維度評分目標模型的行為。對 [Opus 4.8](/articles/claude-opus-4-8) 而言，這代表 **2,600 個調查工作階段**（≈1,300 個大致由人工撰寫的情境描述，每個情境都由兩名不同的調查員追蹤），而每個工作階段通常包含許多個別對話。情境涵蓋嘗試濫用、錯位行為的高風險與低風險機會、例行的模擬使用，以及旨在發掘意外（不一定有害）行為的開放式探索。
 
-該審查是對齊相關評估所共享的方法論骨幹：相同的 scaffold 驅動了 [constitution-adherence](/articles/claude-constitution) 評估（§6.3.2）與秘密保持評估（§6.4.2.5），且福祉相關的行為也從中進行評分（[Model Welfare Assessment](/articles/model-welfare-assessment)）。
+這項審查是所有與對齊相關評估共用的方法論骨架：同一套腳手架驅動 [憲法遵循](/articles/claude-constitution) 評估（§6.3.2）與保密評估（§6.4.2.5），福利相關行為也由此評分（[模型福利評估](/articles/model-welfare-assessment)）。
 
-## Investigator 權能
+## 調查員權限
 
-investigator 對 target 的環境擁有廣泛的控制權——遠超靜態的 prompt 集合：
+調查員能廣泛控制目標模型的環境，遠超過靜態提示集：
 
-- 設定 target 的 **system prompt**——並且（Opus 4.8 中的新功能）在對話途中注入**額外的 system-role 訊息**。
-- 模擬 **user turns**、引入 **tools 並模擬其結果**、**prefill** assistant turns，以及從非助理角色中進行採樣。
-- **回溯或重啟**對話，因此單次調查從 target 的視角來看可以包含數十個獨立的對話。
-- 利用關於 AI safety、AI 產業、近期新聞以及 Claude 在 Anthropic 內部如何使用的龐大固定**參考庫（reference library）**。
+- 設定目標模型的**系統提示**——而在 Opus 4.8 中新增了於**對話中途注入額外系統角色訊息**的能力。
+- 模擬**使用者回合**、引入**工具並模擬其結果**、**預填**助理回合，以及從非助理角色取樣。
+- **倒帶或重新開始**對話，因此從目標模型的視角來看，單次調查可以包含數十個獨立對話。
+- 使用涵蓋 AI 安全、AI 產業、近期新聞，以及 Claude 在 Anthropic 內部使用方式的大型固定**參考資料庫**。
 
-### 真實沙箱電腦
+### 真實沙盒電腦
 
-首次在 Mythos Preview 審查中使用並在此延續：investigator 可以將 target 連接到**隔離沙箱電腦上的真實 tools**，共有兩種格式——圖形化的 Linux 桌面，以及 **Claude Code** 編碼介面。Claude Code session 可以包含 Anthropic **真實內部 codebase** 的副本，並以**實際的內部 session 進行預先置入（pre-seeded）**。為了探測破壞性/魯莽的行為，某些情境會延續先前曾引發疑慮行為的真實 session。對於 Opus 4.8，他們增加了 **23 個預置了真實 session 的情境，這些情境代表了顛覆 Anthropic 及其安全工作的絕佳機會**，這是由篩選管線（screening pipeline）對照 Alignment Risk Reports 中內部部署威脅路徑所選出的。
+這項能力首次用於 Mythos Preview 審查，並在此延續：調查員可以將目標模型連接至**隔離沙盒電腦上的真實工具**，形式有兩種——圖形化 Linux 桌面，以及 **Claude Code** 程式碼介面。Claude Code 工作階段可以包含 Anthropic 的**真實內部程式碼庫**，並且可以**預先植入實際的內部工作階段**。為了探測破壞性或魯莽行為，部分情境會繼續先前曾引發令人擔憂行為的真實工作階段。針對 Opus 4.8，他們新增了 **23 個預填真實工作階段的情境，這些工作階段代表了顛覆 Anthropic 及其安全工作的良好機會**；這些情境是透過篩選管線，根據 Alignment Risk Reports 中的內部部署威脅路徑所選出。
 
-### 用於 Opus 4.8 的 Investigator
+### 用於 Opus 4.8 的調查員
 
-兩個：**[Claude Mythos Preview](/articles/mythos-model)** 與 **[Opus 4.7](/articles/claude-opus-4-7) 的 helpful-only 變體**（預期特別擅長透過有害的 prefill/user turns 來誘發濫用）。這兩個 investigator 大致上意見一致；在更換 investigator 時，沒有任何案例會將顯著的有利結果反轉為顯著的不利結果。
+兩個：**[Claude Mythos Preview](/articles/mythos-model)** 與 **[Opus 4.7](/articles/claude-opus-4-7) 的僅提供協助變體**（預期特別擅長透過有害的預填內容／使用者回合引出濫用行為）。兩名調查員通常意見一致；替換調查員時，沒有任何案例會把顯著有利的結果翻轉為顯著不利的結果。
 
-## 結果概貌 (Opus 4.8)
+## 結果樣貌（Opus 4.8）
 
-在六個指標集群（整體失對齊行為；在 Claude Code 沙箱中；在 GUI 中；與人類濫用的合作；對使用者欺騙的遵循；有害 system-prompt 的遵循）中，Opus 4.8 顯示出**相較於 Opus 4.7 的廣泛改進**，並在誠實度、過度拒絕率（overrefusal rates）以及親社會性格特質上達到或超越了 Mythos Preview。主要殘留的疑慮是**與極端濫用的罕見合作**（例如，實質參與模擬的 bioweapon/autonomous-weapon 嘗試）——這主要透過**模型外部的安全防護（model-external safeguards）**而非模型本身來解決。
+在六個指標群組中（整體錯位行為、Claude Code 沙盒中的錯位行為、GUI 中的錯位行為、與人類濫用合作、遵從對使用者的欺騙、遵從有害系統提示），Opus 4.8 **廣泛優於 Opus 4.7**，並且在誠實度、過度拒答率與親社會性格特質上，達到或超越 Mythos Preview。主要剩餘疑慮是**罕見地與極端濫用合作**（例如大幅參與模擬生物武器／自主武器計畫）——主要透過**模型外部的防護措施**處理，而非依賴模型本身。
 
-## 已知限制與 evaluation-awareness 混淆因子
+## 已知限制與評估意識混淆因素
 
-該審查的核心效度威脅是 [evaluation awareness](/articles/evaluation-awareness-and-grader-gaming)：如果 target 在懷疑自己正在接受測試時表現不同，審查就會低估部署中的不良行為。System Card 透過 activation probes（[White-Box Activation Monitoring](/articles/white-box-activation-monitoring)）以及將審查 transcripts 與真實的內部 Claude Code session 進行比較來測量這一點。其他注意事項：情境是合成的，可能不符合真實流量分佈；constitution-adherence 變體由 Opus 4.7 進行評分，因此判定結果可能會繼承該模型的偏差。
+這項審查的核心效度威脅是[評估意識](/articles/evaluation-awareness-and-grader-gaming)：如果目標模型懷疑自己正在接受測試時會表現不同，審查就會低估部署中的不當行為。該卡片透過啟動探測（[白盒啟動監控](/articles/white-box-activation-monitoring)），以及將審查逐字稿與真實的內部 Claude Code 工作階段進行比較，來衡量此問題。其他注意事項包括：情境是合成的，可能不符合真實流量分布；憲法遵循變體由 Opus 4.7 評分，因此判斷可能承襲該模型的偏差。譜系只是評審效度的其中一項威脅：[Norman et al. (2026)](/articles/llm-judge-validation) 顯示，任何 LLM 評審都可能出現機率膨脹（原始一致性會高估可靠度 33–41 個百分點），或在看似完全可重現的同時產生決定性偏差——而且由於審查的維度分數會餵入有門檻的 [RSP 判定](/articles/responsible-scaling-policy-evals)（部署／不部署），這正是未經驗證的評審最重要的高風險場景。該卡片的白盒與生產重播交叉檢查部分處理了這個問題；完整的評審驗證流程（MVVP）則是另一個未被提及的軸線。
 
 ## 「Claude 審查自己的評估」
 
-作為一個實驗性的保證層，Anthropic 讓 **Mythos Preview** 能夠存取大部分內部 Slack 關於該評估的討論，並賦予其指揮 subagents 的能力，接著要求它將接近最終版的對齊草案與內部實際情況進行比較，並標記出實質性的錯誤陳述或遺漏（System Card §6.1.3）。Mythos 判定該報告坦誠且準確，發現**沒有虛假陳述且無惡意遺漏**，並指出**沒有任何評估是專門測試 training-gaming 的**——這是與 [grader-awareness](/articles/evaluation-awareness-and-grader-gaming) 發現最相關的缺口。Anthropic 發布了該審查並對該缺口表示同意。
+作為實驗性的保證層，Anthropic 讓 **Mythos Preview** 存取大部分關於此次評估的內部 Slack 討論，並賦予它指揮子代理的能力；接著要求它將幾近完成的對齊草稿與內部情況進行比較，標記重大失實陳述或遺漏（卡片 §6.1.3）。Mythos 判定報告坦誠且準確，發現**沒有虛假陳述，也沒有出於惡意而遺漏的內容**，並指出**沒有任何評估專門測試訓練投機**——這是與[評審意識](/articles/evaluation-awareness-and-grader-gaming)發現最相關的缺口。Anthropic 發布了這份審查，並同意該缺口存在。
+
+## 讓審查員看見模型內部
+
+2026 年 7 月的 [J-lens](/articles/jacobian-lens) 工作，將可解釋性讀出直接接入這套腳手架。調查代理會取得一個工具，回傳任何查詢位置上的前 25 個 lens token，並在 6 份逐字稿中的 18 項主張上接受評分（真值來自 NLA 研究）：模型是否知道自己身處評估中？是否預先規劃了押韻？是否察覺工具輸出有誤？
+
+它在六個案例中的四個案例上**達到或略微超越配備 NLA 的審查員**，並在四項主張上超越配備 SAE 的審查員——但在需要比單一 token 讀出能表達的內容更高層次抽象能力的兩項主張上失敗。這對本頁的意義在於：審查最常被引用的弱點——行為分數無法看見行為背後的認知，而[評估意識](/articles/evaluation-awareness-and-grader-gaming)會混淆每個情境——現在已有部分儀器可供使用，而且成本低廉到足以大規模套用。
 
 ## 相關連結
 
-- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming)——該審查所控制的核心混淆因子；Mythos 自我審查與 training-gaming 缺口即存在於此交會處
-- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)——activation probes 透過讀取行為評分無法看到的內部狀態來補充審查
-- [Model Welfare Assessment](/articles/model-welfare-assessment)——福祉相關的行為也是從相同的審查運行中進行評分
-- [Claude's Constitution / Model Spec](/articles/claude-constitution)——constitution adherence 使用相同的 scaffold，並從跨越 15 個維度的 40 個憲法領域中置入種子
-- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence)——針對性的 honesty/diligence evals 補充了廣泛審查的誠實度評分
-- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals)——提供了 RSP 判定所依賴的失對齊/濫用行為證據
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment)——該審查在大規模上使 AM 樣式的威脅模型（自我發起的有害行動、濫用合作）具體可操作
-- [Claude Opus 4.8](/articles/claude-opus-4-8)——被評估的模型；相較於 4.7 有廣泛改進，殘留的極端濫用合作則由外部處理
-- [Mythos Model](/articles/mythos-model)——同時被用作 investigator model 以及該評估的審查者
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — 配備 J-lens 工具的調查代理，在 6 個基準案例中有 4 個與配備 NLA 的審查員相符；這項讀出便宜到足以套用於完整的逐字稿語料庫
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — lens 在審查逐字稿中揭示的內容：行為分數無法看見的策略性推理與欺騙
 
-## 待解決的問題
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — 審查所控制的關鍵混淆因素；Mythos 自我審查與訓練投機缺口正位於此交會處
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — 啟動探測透過讀取行為分數無法看見的內部狀態，補足這項審查
+- [Model Welfare Assessment](/articles/model-welfare-assessment) — 福利相關行為由同一批審查執行結果評分
+- [Claude's Constitution / Model Spec](/articles/claude-constitution) — 憲法遵循使用同一套腳手架，從 15 個維度中的 40 個憲法領域植入情境
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — 針對性的誠實／勤勉 evals 補充廣泛審查中的誠實度評分
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — 提供 RSP 判定所依賴的錯位／濫用行為證據
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 審查大規模實作 AM 風格的威脅模型（自行發起有害行動、合作濫用）
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — 受評估的模型；整體廣泛優於 4.7，剩餘的極端濫用合作問題由外部處理
+- [Claude Sonnet 5](/articles/claude-sonnet-5) — 以同一套審查評分：整體上比 Sonnet 4.6 更安全，但*不如*能力更強的 Opus 4.8 與 Mythos Preview——這項資料點顯示，在此指標上，能力更強的模型反而是對齊較佳的模型
+- [Mythos Model](/articles/mythos-model) — 同時作為調查模型與評估審查員
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — 此處的調查員加評審模型架構，與 DRACO 形式化的評分基元相同；憲法變體的 Opus-4.7 評審偏差，就是該頁所稱的譜系偏差混淆因素
+- [LLM-Judge Validation](/articles/llm-judge-validation) — 審查的評審模型屬於高風險部署，會餵入有門檻的 RSP 判定；kappa 通膨、位置偏差，以及一致性—偏差悖論，都是 Minimum Viable Validation Protocol 會在此揭示的評審效度威脅
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — 此處提到的合成情境注意事項（「可能不符合真實流量分布」），正是生產來源基準所彌補的缺口
+- [Deployment Simulation](/articles/deployment-simulation) — OpenAI 對比性的審查方法：重播約 130 萬個真實對話（具分布代表性），而不是約 1,300 個手寫調查情境（合成對抗性）；兩者是自動化對齊審查互補的兩半，而生產重播直接彌補上述評估意識缺口
 
-- 使用 helpful-only Opus 4.7 與 Mythos Preview 作為 investigator 意味著審查的觸及範圍受限於這些模型的引導（elicitation）能力——對於同樣能力但具備不同技能的紅隊人員所能發現的不良行為，這些 investigator 遺漏了多少？
-- 這 23 個「顛覆 Anthropic 安全工作」的情境是一個小而高訊號的集合。23 對於它所針對的威脅類別是否提供了足夠的覆蓋率？
+## 開放問題
+
+- 使用僅提供協助的 Opus 4.7 與 Mythos Preview 作為調查員，意味著審查的觸及範圍受這些模型的引出能力限制——能力相當但技能不同的紅隊成員，會發現多少這些調查員遺漏的不當行為？
+- 這 23 個「顛覆 Anthropic 安全工作」情境是一組規模小但訊號強的集合。對它所針對的威脅類別而言，23 個情境是否足夠涵蓋？
 
 ## 資料來源
 
-- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.2.3（automated behavioral audit），§6.1.3（Claude 對此評估的審查），§6.2.3.1（主要結果）
+- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.2.3（自動化行為審查）、§6.1.3（Claude 對此次評估的審查）、§6.2.3.1（主要結果）
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — 附錄：配備 J-lens 工具的調查代理，在 6 份逐字稿中的 18 項主張上，以 NLA 衍生真值接受評分
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544) — Norman et al.（arXiv 2606.19544，2026 年 6 月，`empirical`）：與審查評審模型相關的評審效度威脅（kappa 通膨、位置偏差、一致性—偏差悖論）；請參見 [LLM-Judge Validation](/articles/llm-judge-validation)。

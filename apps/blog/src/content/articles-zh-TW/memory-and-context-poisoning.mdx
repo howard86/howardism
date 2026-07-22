@@ -1,16 +1,16 @@
 ---
 date: 2026-05-28
-title: Memory and Context Poisoning
-description: 持久 agent 記憶遭腐敗，在初次注入很久之後仍影響行為；涵蓋 RAG poisoning、shared-context poisoning，以及緩慢的長期記憶漂移；以記憶隔離、完整性驗證與保留政策防禦
+title: 記憶與上下文中毒
+description: 持久化 agent 記憶遭到污染，導致初次注入後很長時間仍影響行為；包括 RAG 中毒、共享上下文中毒，以及緩慢的長期記憶漂移；透過記憶隔離、完整性驗證與保留政策加以防禦
 tag: Concept
-domain: ai-engineering
+domain: agent-security
 tags:
   - security
   - memory
   - rag
   - threats
-readingTime: 4
-imageAlt: Memory and Context Poisoning 的示意圖
+readingTime: 5
+imageAlt: 記憶與上下文中毒插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
@@ -23,39 +23,42 @@ export { default as heroImage } from "../assets/memory-and-context-poisoning.png
 
 ## 摘要
 
-跨工作階段持久保存脈絡的 agent，其記憶可能被腐敗，使日後推理偏頗、不安全，或積極協助資料外洩。與 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 等單一工作階段攻擊不同之處在於**持久性**：植入助理記憶的惡意指令可危及*目前與未來所有工作階段*——agent 在初次注入很久之後仍持續服務攻擊者目標。[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的 Phase 7（「safeguard agent memory」）針對此威脅。
+會跨工作階段持續保存上下文的 agents，可能會遭到記憶污染，導致後續推理產生偏誤、不安全，或主動協助資料外洩。它與 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 這類單一工作階段攻擊的差異，在於**持久性**：植入 assistant 記憶的惡意指令，可能危害*目前以及未來所有工作階段*——初次注入很久之後，agent 仍持續服務攻擊者的目標。[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 的第 7 階段（「保護 agent 記憶」）正是針對此問題。
 
 ## 變體
 
-- **Direct memory poisoning** — 攻擊者指令寫入 agent 的長期記憶儲存；影響之後所有推理。
-- **RAG poisoning** — 透過被毒害的來源、直接上傳或過度信任的管線，將惡意資料引入向量資料庫。agent 在回答查詢時擷取受污染的脈絡，產生錯誤答案或執行針對性 payload。（[Agent Supply Chain Risk](/articles/agent-supply-chain-risk) 在執行期資料上的類比。）
-- **Shared context poisoning** — 在多租戶環境中，攻擊者透過正常互動注入資料，影響*之後*的工作階段；新的使用者工作階段會繼承被毒害的脈絡。
-- **Long-term memory drift** — 最細微的一種：摘要或同儕 agent 回饋逐漸改變儲存知識或目標權重，隨時間產生行為偏差，且*因為沒有任何單次變更看起來惡意*而難以偵測。這正是行為基線中 drift detection 的動機。
+- **直接記憶中毒**——攻擊者將指令寫入 agent 的長期記憶儲存區，影響之後的所有推理。
+- **RAG 中毒**——透過遭污染的來源、直接上傳，或過度信任的 pipeline 將惡意資料引入向量資料庫。agent 在回答查詢時會取回遭污染的上下文，產生錯誤答案或執行指定的 payload。（這是 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) 在執行期資料上的類比。）
+- **共享上下文中毒**——在多租戶環境中，攻擊者透過正常互動注入資料，影響*後續*工作階段；新的使用者工作階段會繼承遭污染的上下文。
+- **長期記憶漂移**——最隱晦的一種：摘要或 peer-agent 回饋逐漸改變儲存的知識或目標權重，隨時間造成行為偏差，並且因為*沒有任何單一變更看起來像惡意行為*而躲過偵測。這正是行為基線需要漂移偵測的威脅。
 
-## 防禦（Phase 7）
+## 防禦措施（第 7 階段）
 
-- **Memory isolation** — 工作階段與使用者之間嚴格邊界，使某一對話的被毒害脈絡無法影響另一對話。框架指出 [Claude Code](/articles/claude-code) 預設強制工作階段隔離（每個工作階段全新脈絡；子 agent 在隔離的 context window 中執行）。
-- **Context integrity validation** — 以密碼學雜湊偵測未授權修改；為每個記憶元素標註來源歸屬。在*每次擷取*時驗證，而非僅在儲存時；將雜湊存放在與記憶內容分離、防竄改的日誌中；驗證失敗時拒絕並告警。
-- **Context retention policies** — 以 TTL 自動過期未驗證的記憶；高風險脈絡（外部輸入、未驗證的工具輸出）保留較短。Claude Code 的 `cleanupPeriodDays` 控制本機 transcript 的持久化。
-- **Versioned memory + quarantine** — 回滾至已知良好狀態；隔離可疑內容以供刪除前的鑑識分析；預先測試回滾程序；定義全面清除與針對性修復的準則。
+- **記憶隔離**——在工作階段與使用者之間建立嚴格邊界，使一段對話中的遭污染上下文無法影響另一段對話。該框架指出，[Claude Code](/articles/claude-code) 預設會強制執行工作階段隔離（每個工作階段使用全新的上下文；子 agents 位於隔離的上下文視窗中）。
+- **上下文完整性驗證**——使用密碼雜湊偵測未授權修改；使用來源歸因標籤記錄每個記憶元素的來源。應在*每次取回時*驗證，而不只是儲存時；將雜湊儲存在與記憶內容分離的防竄改日誌中；驗證失敗時拒絕內容並發出警示。
+- **上下文保留政策**——使用 TTLs 自動使未驗證的記憶過期；對高風險上下文（外部輸入、未驗證的工具輸出）採用較短的保留期限。Claude Code 的 `cleanupPeriodDays` 控制本機逐字稿的持久化。
+- **版本化記憶 + 隔離區**——回復至已知良好狀態；刪除前先將可疑內容移入隔離區以進行鑑識分析；預先測試回復程序；定義完整清除與針對性修復的判定標準。
 
 ## 與 wiki 記憶概念的關係
 
-這是 wiki 其他處良性持久記憶設計的*對抗面*——agent harness 中的 bounded memory 檔案、本 vault 所採用的 [compiled knowledge base](/articles/llm-as-compiler-knowledge-base) 模式。任何允許 agent*寫入*持久記憶的系統都會繼承此威脅面；完整性驗證與來源歸屬，是讓編譯／持久化儲存保持可信的控制手段。
+這是 wiki 其他地方那些良性持久記憶設計的*對抗性*對應物——agent harness 中受邊界限制的記憶檔案，以及這個 vault 本身所採用的 [compiled knowledge base](/articles/llm-as-compiler-knowledge-base) 模式。任何允許 agent *寫入*耐久記憶的系統，都會承受這個威脅面；完整性驗證與來源歸因，正是讓編譯／持久化儲存維持可信的控制措施。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Phase 7（「safeguard agent memory」）（樞紐）
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — injection 是傳遞向量；兩者都利用模型無法區分資料與指令的弱點，但 poisoning 加上持久性
-- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — RAG poisoning 是被毒害上游元件在執行期資料的類比
-- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — 會繼承此威脅面（可寫入持久記憶）的良性持久知識模式
-- [Claude Code](/articles/claude-code) — 引用：預設工作階段隔離、`cleanupPeriodDays`、用於回滾的 checkpoint/rewind
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)——第 7 階段（「保護 agent 記憶」）（樞紐）
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection)——注入是傳遞向量；兩者都利用模型無法區分資料與指令的缺陷，但中毒增加了持久性
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)——RAG 中毒是遭污染上游元件在執行期資料上的類比
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base)——會承受這個確切威脅面的良性持久知識模式（對耐久記憶的寫入權限）
+- [Claude Code](/articles/claude-code)——引用的參考：預設工作階段隔離、`cleanupPeriodDays`、用於回復的 checkpoint／rewind
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)——持久記憶與先前 agent 的輸出是低完整性通道，Biba invariant 會降低其 subject 的權限；reference-monitor 類別中規格不足的**provenance oracle**（§8.2），與記憶完整性驗證及來源歸因面臨的是同一個 trusted-base 問題
+- [Agent Data Injection (ADI)](/articles/agent-data-injection)——一種**單一回合**類比：其工具呼叫／回應注入偽造 agent 的*上下文內*執行歷史（偽造的先前工具結果），在完全未接觸持久儲存區的情況下，污染模型對自己已完成工作的記憶
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority)——對此威脅最強的防禦側處理：TMA-NM（Louck，arXiv 2606.24322）在寫入時將每個記憶項目的行動權限與其**來源**以不可竄改方式綁定，因此，即使遭污染的記憶經過 agent 自身摘要、可信工具回聲或虛假佐證而被洗白，只要讀起來看似良善，仍會維持 `act=none`；一個機器檢查的 TLA⁺ 分離定理，加上 8 個模型的基準測試（攻擊成功率 0%，而內容／譜系基線最高達 68%，且效用完整）
 
 ## 開放問題
 
-- Long-term memory drift 被定義為單次變更無法偵測。drift detection 需要基線——但若基線本身也在漂移（Advanced「continuous baseline refinement」），緩慢的 poisoning 攻擊如何與合法的演進區分？
-- 完整性雜湊能偵測*修改*，卻無法偵測透過合法（被注入）互動寫入的*惡意但有效*記憶。語意上已毒害、密碼學上仍完整的記憶，由什麼來攔截？
+- 長期記憶漂移被定義為逐次變更都無法偵測。漂移偵測需要基線——但如果基線本身也會漂移（Advanced「continuous baseline refinement」），要如何區分緩慢的中毒攻擊與正當演化？
+- 完整性雜湊能偵測*修改*，卻無法偵測透過正當（但遭注入的）互動寫入的*惡意但有效*記憶。什麼能抓出語意遭污染、但密碼學完整無缺的記憶？（目前最強的答案：[TMA-NM](/articles/non-malleable-memory-authority)（Louck，arXiv 2606.24322）重新框定了這個問題。「惡意但有效」類別正是**洗白**攻擊——不可信內容被改述／回聲／虛假佐證，使其讀起來像良善內容且維持密碼學完整——而機器檢查的分離定理證明，**任何基於內容或譜系的偵測器都無法可靠防禦它**（T1）；內容判斷器掃描也確認，在完整效用下，沒有任何閾值能達到 0% ASR。因此，修正方式不是*抓出*它，而是**從建構上預防**：在寫入時以不可竄改方式將每個項目的行動權限與其真正來源綁定，使洗白後的項目無論看起來多麼良善，都會是 `act=none`——在 8 個前沿模型、100% 合法效用下，攻擊成功率為 0%；而內容／譜系基線最高達 68%。它是**預防，而非偵測**。）
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part II memory/context poisoning 威脅；Part IV Phase 7（isolation、integrity validation、retention）
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)——Part II memory/context poisoning threats；Part IV Phase 7（隔離、完整性驗證、保留）

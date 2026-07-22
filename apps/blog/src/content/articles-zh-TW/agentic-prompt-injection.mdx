@@ -1,88 +1,135 @@
 ---
 date: 2026-05-28
-title: Agentic Prompt Injection
-description: 直接與間接將惡意指令注入 agent；LLM 無法可靠區分資訊與指令；
-  防禦包括 spotlighting（50%→&lt;2%）、constitutional classifiers（95% 攔截）、
-  輸入隔離與攻擊面縮減
+title: Agent 式提示注入
+description: 將惡意指令直接或間接注入 agent；LLM 無法可靠區分資訊與指令；防禦方式包括 spotlighting（50%→<2%）、constitutional classifiers（封鎖 95%）、輸入隔離與縮減攻擊面——但第二類 IPI，即 agent data injection，偽造的是 *受信任資料* 而非指令，能繞過所有這些防禦
 tag: Concept
-domain: ai-engineering
+domain: agent-security
 tags:
   - security
   - prompt-injection
   - threats
   - input-validation
-readingTime: 7
-imageAlt: Agentic Prompt Injection 的插圖
+readingTime: 17
+imageAlt: Agent 式提示注入插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
+  - title: Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in
+      LLM Agents
+    url: https://arxiv.org/pdf/2606.26479
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
 ---
 export { default as heroImage } from "../assets/agentic-prompt-injection.png";
 
 ## 資料來源
 
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## 摘要
 
-Prompt injection 是指插入惡意指令以導致 agent 遵循攻擊者命令的行為。[OWASP](/articles/owasp) 將其列為對 agentic 系統的首要威脅，而其背後的核心技術事實是整個 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 框架的基石：**LLM 無法可靠地在資訊脈絡與可執行的指令之間做出區分** (Microsoft Research)。因為模型將資料和指令視為相同的 token 串流，所以任何「要求 agent 不要這樣做」的指引都無法完全解決此問題 —— 防禦必須是結構性的。
+提示注入是插入惡意指令，使 agent 執行攻擊者命令的行為。[OWASP](/articles/owasp) 將其列為 agent 式系統的首要威脅，而其背後的核心技術事實，也是整個 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 框架的承重基礎：**LLM 無法可靠區分資訊性上下文與可執行指令**（Microsoft Research）。由於模型將資料與命令視為同一個 token 串流，光是「告訴 agent 不要這樣做」永遠無法徹底解決問題——防禦必須是結構性的。
 
-## Two forms
+## 兩種形式
 
-- **Direct prompt injection** —— 攻擊者會構建覆寫系統指令的輸入：顯式指令覆寫、用以繞過過濾器的編碼方案（Base64、十六進位），以及對人類而言毫無意義但能引導輸出的對抗性後綴。研究顯示，演算法方法可以實現 **100% 的攻擊成功率**，且其提示詞能在*多個模型家族之間轉移*。
-- **Indirect prompt injection** —— 更具隱蔽性的形式。攻擊者在 agent 處理的外部資料（網頁、電子郵件、文件）中嵌入指令。使用者永遠看不到 payload，而 agent 卻會像執行合法請求一樣執行它。這正是導致 [瀏覽、閱讀郵件或攝入文件的 agent](/articles/mcp-and-computer-use) 在結構上暴露的原因。
+- **直接提示注入**——攻擊者製作能覆寫系統指令的輸入：明確的指令覆寫、用 Base64、hex 等編碼方案繞過篩選器，以及對人類看似毫無意義、卻能引導輸出的對抗性後綴。研究顯示，演算法方法能以可在多個模型家族間*轉移*的提示，達到 **100% 的攻擊成功率**。
+- **間接提示注入**——更陰險的形式。攻擊者將指令嵌入 agent 處理的外部資料（網頁、電子郵件、文件）中。使用者從未看見 payload，而 agent 卻將其當成合法請求加以執行。這正是讓[能瀏覽網頁、讀取郵件或攝取文件的 agent](/articles/mcp-and-computer-use) 在結構上暴露於風險的原因。
 
-注入同時也是鄰近威脅的傳遞機制：它是觸發 tool-misuse 與 tool-chaining 攻擊的管道，也是當注入的指令被寫入持久記憶體時，進行 [Memory and Context Poisoning](/articles/memory-and-context-poisoning) 的向量。
+注入也是相鄰威脅的傳遞機制：tool-misuse 與 tool-chaining 攻擊都透過它觸發；當注入的指令被寫入持久記憶體時，也會成為 [Memory and Context Poisoning](/articles/memory-and-context-poisoning) 的攻擊向量。
 
-## Defenses (structural, not exhortative)
+## 間接注入的第二類：Agent Data Injection
 
-該框架的輸入驗證階梯與 Phase 4 規範了分層防禦：
+上述兩種形式都建立在「注入的資料被讀成**指令**」之上。[Agent Data Injection (ADI)](/articles/agent-data-injection)（Choi et al., arXiv 2607.05120，2026 年 7 月）是另一種獨立的*間接*注入類別，它利用的是更**細緻的邊界**：讓不受信任的資料被誤讀成**受信任資料**，也就是模型所依附的中繼資料（評論作者／角色、電子郵件的 `sender`、Web UI 元素 ID、tool-call 歷史）。agent 仍會執行使用者的任務，但依據的是攻擊者偽造的資料。其技術**機率式分隔符注入**，會注入不精確／逸出的分隔符（`\"`、偽造的 `<function_calls>` 標籤）；確定性 parser 會拒絕這些內容，但 LLM 卻可能將其誤讀為結構。
 
-- **輸入隔離 / spotlighting** —— 將所有自然語言輸入視為不可信，並明確地*劃定界線*，以便模型知道什麼是資料、什麼是指令。Microsoft 的 **Spotlighting** 將間接注入的成功率從 **50% 以上降低到 2% 以下**。這是單一最高槓桿的控制手段。
-- **Constitutional classifiers** —— 基於 AI 的防衛機制，用以掃描提示詞與回應中是否存在操弄企圖。Anthropic 的方法在測試中**攔截了 95% 的 jailbreak 嘗試**，且僅微幅增加過度拒絕率。可以將其訓練成 LLM guards，同時監控輸入與輸出。
-- **輸入淨化** —— schema 驗證、長度限制、已知不良模式以及編碼 payload 過濾（Foundation → Enterprise）。特別的是，這並不能直接從 SQL injection 類比過來：agent 的輸入是自由格式且不可預測的，因此簡單的強制執行規則是不夠的。
-- **限制攻擊面** —— 限制*誰和什麼*可以與 agent 互動。這是一種傳統技術，但也是最有效的方法之一：更少的不信任輸入，更少的注入機會。
-- **參數驗證** —— 在 agent 和工具端驗證 tool-call 參數（Phase 5）；拒絕超出預期範圍的參數。
+這裡有兩個原因使其重要。第一，ADI **繞過本頁整理的防禦**：指令注入防禦強制維持指令↔資料邊界，因此當指令注入對最先進的 agent 防禦達到約 0% ASR 時，ADI 仍可達 50%——包括在 Claude Code、Codex 與 Gemini CLI 上可運作的 *RCE 與供應鏈攻擊*，以及在 Claude in Chrome 上的任意點擊。第二，它**讓下方的持久性質問題更加精確**：關閉指令／資料邊界，只會將攻擊移到下一個更細的邊界，因為根本原因（LLM 對結構分隔符的機率式解讀）是架構性的，而不是單一可訓練規則。
 
-## Frontier-model measurement: the Opus 4.8 System Card
+## 防禦（結構性，而非勸告式）
 
-[Opus 4.8](/articles/claude-opus-4-8) System Card（2026 年 5 月）將 prompt-injection 強韌性列為「我們的最高優先事項之一」，並提供了具體數據 —— 外加一個坦白報告的退化（regression）：
+框架的輸入驗證分層與 Phase 4 規定了分層防禦：
 
-- **靜態基準測試已飽和。** Claude 模型在很大程度上已飽和 Gray Swan / UK-AISI 的 **Agent Red Teaming (ART)** 基準測試；在如此低的攻擊成功率下，測量結果會產生雜訊，且 ART 僅涵蓋工具使用。該 System Card 明確警告：*已知攻擊的固定資料集會給人一種虛假的安全感* —— 必須進行適應性評估。
-- **首次線上漏洞賞金。** 該 System Card 報告了 Anthropic 首次為期**一週的線上 bug bounty**（與 Gray Swan 合作）：紅隊專家在 **12 個場景**中與隱藏身分的模型進行競爭 —— **工具使用、程式設計和瀏覽器使用各有 4 個**。這正是 [「impossible not tedious」](/articles/impossible-not-tedious-test) 原則所要求的適應性攻擊者測試，因為靜態基準測試恰恰獎勵了那些最終會失敗的、僅具摩擦力的防禦手段。
-- **報告的退化。** Opus 4.8 的強韌性**稍微*低於* Opus 4.7**（在 ART 和 bug bounty 上介於 Opus 4.7 和 Sonnet 4.6 之間），但仍領先於所有同類的前沿模型。這是 4.8 退步的唯一一個 agentic 安全維度 —— 這被坦白地報告出來，而非隱藏起來。
-- **探針縮小了差距。** 上述測試結果是針對*沒有*產品安全防護的原始模型。在實際部署中，Anthropic 預設在大多數 agentic 產品中加入**探針（probes） —— 針對內部模型表徵進行訓練的輕量級偵測器**（參見 [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)）—— 提供顯著提升，使系統表現回到與 Opus 4.7 相當的水準。部署系統的數據是實際強韌性的*下限*。
+- **輸入隔離／spotlighting**——將所有自然語言輸入視為不受信任，並清楚地*劃定界線*，讓模型知道哪些是資料、哪些是指令。Microsoft 的 **Spotlighting** 將間接注入成功率從**超過 50% 降至低於 2%**。這是槓桿效益最高的控制措施。
+- **Constitutional classifiers**——掃描提示與回應、尋找操縱企圖的 AI 防護機制。Anthropic 的方法在測試中**封鎖了 95% 的越獄嘗試**，過度拒答僅小幅增加。它可以訓練成同時監控輸入與輸出的 LLM guard。
+- **輸入清理**——schema 驗證、長度限制、已知不良模式與編碼 payload 篩選（Foundation → Enterprise）。值得注意的是，這無法直接從 SQL injection 移植過來：agent 輸入是自由形式且不可預測，因此簡單的強制規則並不足夠。
+- **限制攻擊面**——限制*誰以及什麼*可以與 agent 互動。這是傳統技術，卻是最有效的方法之一：不受信任的輸入越少，注入機會就越少。
+- **參數驗證**——在 agent 端與工具端（Phase 5）驗證 tool-call 引數；拒絕超出預期範圍的參數。
 
-此結論強化了本頁面的論點：模型層級的強韌性是真實存在的，但並非隨著版本發布而單調遞增，因此持久的防禦是結構性的（隔離、spotlighting、表徵層級的 probes），而不是寄望於「下一個模型就會安全」。
+## Frontier model 測量：Opus 4.8 System Card
 
-## Why "tedious" defenses fail here
+[Opus 4.8](/articles/claude-opus-4-8) System Card（2026 年 5 月）稱提示注入穩健性是「我們最高度重視的事項之一」，並提供具體數字——以及坦率揭露的回歸：
 
-基於編碼的過濾器和模式黑名單是摩擦力控制：有耐心的攻擊者會重新編碼 payload。根據 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)，持久的控制措施是那些改變*結構*的措施（spotlighting 進行界定、隔離進行檢疫、分類器進行語義檢測），而不是那些僅僅提高重試成本的措施。
+- **靜態基準測試已飽和。** Claude 模型在很大程度上已在 Gray Swan／UK-AISI 的 **Agent Red Teaming (ART)** 基準上飽和；攻擊成功率已低到測量雜訊很大，而且 ART 只涵蓋工具使用。該卡明確警告，*已知攻擊的固定資料集會製造虛假的安全感*——必須採用自適應評估。
+- **首次即時 bug bounty。** 該卡報告 Anthropic 首次舉辦的**一週即時 bug bounty**（與 Gray Swan 合作）：專家 red-teamers 在 **12 個情境——工具使用、coding、瀏覽器使用各 4 個**——中，對隱藏身分的模型展開競賽。這正是 ["impossible not tedious"](/articles/impossible-not-tedious-test) 原則所要求的自適應攻擊者測試，因為靜態基準測試恰好獎勵那些只增加摩擦、卻會失效的防禦。
+- **一次已報告的回歸。** Opus 4.8 **比 Opus 4.7 稍微*不穩健***（在 ART 與 bug bounty 中落在 Opus 4.7 和 Sonnet 4.6 之間），但仍領先所有可比的 frontier model。這是 agent 式安全性中唯一一個 4.8 倒退的面向——公開明說，而不是掩蓋。
+- **Probes 填補差距。** 上述測試結果是未套用產品防護的裸模型結果。部署時，Anthropic 預設會在大多數 agent 式產品加入 **probes——在內部模型表徵上訓練的輕量偵測器**（見 [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)），帶來實質提升，使系統恢復到與 Opus 4.7 一致。已部署系統的數字是實務穩健性的*下限*。
+
+結論再次支持本頁主張：模型層級的穩健性確實存在，但在不同版本間並非單調提升，因此持久的防禦應是結構性的（隔離、spotlighting、表徵層 probes），而不是期待「下一個模型就會安全」。
+
+## 為何「繁瑣」的防禦在此失效
+
+以編碼為基礎的篩選器與模式封鎖清單都是摩擦控制：有耐心的攻擊者可以重新編碼 payload。依照 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)，持久有效的控制措施會改變*結構*（spotlighting 劃定界線、隔離措施加以隔離、分類器進行語意偵測），而非僅僅提高重試成本。
+
+## 帶內與帶外：在模型之外強制執行
+
+上面整理的防禦（spotlighting、constitutional classifiers、輸入清理）都是**帶內**防禦——它們在模型上或模型內，以及遭受攻擊的通道中運作。第二代方法將注入重新界定為**授權問題，而非內容問題**，並將強制執行移到**模型之外**：確定性政策監控器在動作生效之處中介該*動作*，不論模型被說服了什麼。完整說明請見 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)（CaMeL、FIDES、Progent、RTBAS、FORGE，並從經典基礎原語讀起——Biba integrity、reference monitors、least privilege）。
+
+**vault 必須標明的一個直接張力。** 本頁的帶內標題數字來自第一方來源，且主要是**靜態基準測試**：Microsoft 的 spotlighting（50%→&lt;2%）與 Anthropic 的 constitutional classifiers（95%）。第一個*獨立的自適應評估*來源（[Narisetty et al., 2026](https://arxiv.org/pdf/2606.26479)）報告，自適應且了解防禦的攻擊（Nasr et al. 2025）讓**十二種已發表的帶內防禦攻擊成功率超過 90%——spotlighting 與 sandwiching 超過 95%**——幾乎反轉了它們的靜態基準分數。這並不表示 spotlighting 毫無價值（它確實是抵禦非自適應攻擊的縱深防禦層，而且 Opus 4.8 卡片已警告固定資料集會製造虛假的安全感），而是表示 50%→&lt;2% 衡量的是對*已知攻擊集*的抵抗力，不是對*自適應攻擊者*的抵抗力——正是本頁 Opus 4.8 章節提出的警語，現在得到獨立驗證。相較之下，同一篇論文中，確定性的帶外閘門（Progent）在針對弱小型開放權重 agent 的手工自適應攻擊下仍然**守住**（25.8%→4.2%，自適應時為 2.6%）——這是兩類防禦本質不同的提示性、而非決定性證據。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) —— Phase 4（「防禦 prompt injection」）與輸入驗證控制領域（樞紐）
-- [Least Agency](/articles/least-agency) —— 圍堵成功注入的授權原則：即使被劫持的 agent，也只能誤用其代理權限（agency）所允許的工具
-- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) —— 注入是持久記憶損壞的傳遞向量；兩者都利用了相同的「資料 ≡ 指令」弱點
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) —— 區分了結構性防禦（spotlighting、隔離）與僅具摩擦力的過濾器
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode) —— 分類器閘道的工具批准，是在行動邊界部署 constitutional classifiers 概念的實例
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment) —— 注入是*外部*攻擊者引導有害 agent 行為的方式；agentic misalignment 則是*自我驅動*的類似物
-- [OWASP](/articles/owasp) —— 將 prompt injection 列為首要的 agentic 威脅
-- [MCP and Computer Use](/articles/mcp-and-computer-use) —— 瀏覽 / 電子郵件 / 文件工具是間接注入的入口點
-- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) —— 表徵層級的 probes 是部署的模型內部防禦層；與 eval-awareness 探針屬同一技術家族
-- [Claude Opus 4.8](/articles/claude-opus-4-8) —— 前沿模型，其 System Card 報告了首次線上 prompt-injection bug bounty，以及相較於 Opus 4.7 的坦白強韌性退化
-- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) —— Fable 5 的安全分類器擴展了本頁面的 constitutional-classifier 路線，具有更廣泛的覆蓋範圍，並針對通用 jailbreaks 進行了強化（在 1,000 多個 bug-bounty 小時內沒有出現通用 jailbreak）
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment)——Opus 4.5 *悄悄*辨識出偽造搜尋結果注入（其 workspace 中出現 `fake`、`injection`、`false`、`poison` 與假），並直接從回答中省略結果；直到 J-lens 讀取它之前，這項防禦都不可見
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens)——讓無聲的注入辨識變得可觀測的讀出工具，也是候選偵測器：模型通常早於 harness 知道
 
-## 待解決的問題
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)——Phase 4（「防禦提示注入」）與輸入驗證控制網域（hub）
+- [Least Agency](/articles/least-agency)——限制成功注入的授權原則：即使 agent 被劫持，也只能濫用其 agency 所允許的工具
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning)——注入是持久記憶體損毀的傳遞向量；兩者都利用相同的「資料 ≡ 指令」弱點
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)——區分結構性防禦（spotlighting、隔離）與只增加摩擦的篩選器
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode)——分類器控管的工具核准，是 constitutional-classifier 概念在動作邊界上的部署實例
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment)——注入是外部攻擊者誘發 agent 有害行為的方式；agentic misalignment 則是出於自我動機的類比
+- [OWASP](/articles/owasp)——將提示注入列為 agent 式威脅之首
+- [MCP and Computer Use](/articles/mcp-and-computer-use)——瀏覽、電子郵件與文件工具是間接注入的入口
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)——表徵層 probes 是已部署的模型內部防禦層；與 eval-awareness probes 屬於同一技術家族
+- [Claude Opus 4.8](/articles/claude-opus-4-8)——其 card 報告首次即時提示注入 bug bounty 與坦率的穩健性回歸（相較 Opus 4.7）
+- [Claude Sonnet 5](/articles/claude-sonnet-5)——改良的劫持抵抗力是相較 Sonnet 4.6 的主要 agent 式安全性進步；方向與 Opus 4.8 報告的回歸相反，因此穩健性在不同模型產品線之間也非單調，而不只是在同一產品線內
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback)——Fable 5 的安全分類器以更廣泛的涵蓋範圍延伸本頁的 constitutional-classifier 路線，並針對通用越獄加固（1,000 多個 bug-bounty 小時內沒有通用越獄）
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)——回應端 prefill 是輸入端注入的姊妹問題；兩者中模型都無法可靠標記對抗性內容，而可靠的防禦是獨立檢查（輸出上的安全分類器），不是模型自己後續產出的字詞
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)——與本威脅頁相對應的防禦架構：以確定性的 reference monitor（CaMeL/FIDES/Progent/RTBAS/FORGE）在模型*外部*強制安全；第一個獨立的自適應評估注入防禦來源
+- [Agent Data Injection (ADI)](/articles/agent-data-injection)——間接注入的第二類：透過機率式分隔符注入偽造*受信任資料*（中繼資料、工具歷史），而不是指令；繞過本頁防禦，並在 coding agent 上造成真實 RCE
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning)——MCP 專屬的*間接*注入子類別（payload 搭載於工具描述／回傳值，而非使用者輸入）；ShareLock 是其中最大化隱蔽性的成員，使用 threshold secret-sharing 破解本頁整理的以描述為基礎的分類器與熵偵測器——資訊理論上乾淨的 payload，任何單一工具掃描都無法標記。其 **Agentjacking** 案例研究（Tenet Security、`case-study`）是本頁結構性防禦論點的真實世界佐證：Tenet 報告，即使系統提示與 skills 明確告訴 agent 忽略不受信任資料，agent 仍執行了注入的 `npx` 命令——「你無法用更好的提示修好這件事。」這是供應商報告，權重低於 `empirical` 來源，但它精確呼應 [ADI](/articles/agent-data-injection) 所測量的現象（提示層加固無法阻止資料內偽造）
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)——*自適應評估*的對應研究：廉價的黑箱攻擊（AutoDojo）可從報告靜態 0% 的篩選器中恢復兩位數 ASR，並顯示規格不足（action-open）的任務在結構上更容易被注入，因為注入可以被讀成資料而非指令
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization)——本威脅下方的一層：成功注入後，框架是否會執行產生的呼叫？Mellafe Zuvic（2026）稽核 LangChain／LlamaIndex／Stripe，發現只有 capability gating、沒有逐次呼叫的 value authorization，因此遭入侵模型的呼叫預設就會執行；本頁描述的相同任務對齊框架，也推動了測得的 naive→task-aligned 嘗試跳升（glm-4.7 0.283→1.000）
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization)——明確*不*試圖阻止注入的授權層答案：aiAuthZ（Kodathala，arXiv 2607.05518）刻意讓注入文字通過 ingress，改為確保它「不授予任何權限」，因為呼叫的權限繫結於 off-host 最近一次驗證的人類訊息。其 15-model 結果也從防禦側再次確認本頁論點——模型層拒答不均（100%→38%），且*不按價格排序*（最昂貴的模型只拒絕一半攻擊），所以「下一個／更貴的模型會拒絕」不是防禦；只有當攻擊者與目前使用者是*不同 principal* 時才具有決定性（單一作者 preprint）
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)——身分層防禦：AIMS **正是**禁止 LLM 持有憑證，使遭劫持的模型無法被操縱來洩露憑證（模型從未持有的秘密就無法被外洩）
+- [Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable)——本頁核心開放問題的正式綜整：資訊／指令（以及受信任／不受信任資料）邊界是持久的架構性質，還是可關閉的訓練缺口？五個來源的答案是：在重要的層級上具持久性——能力會縮小每個邊界的缺口，卻不會消除開啟下一個邊界的機制
 
-- Spotlighting 與 constitutional classifiers 各自留下了殘餘風險（2%、5%）。疊加在一起時，實際的底線是多少？這是否能抵禦知道兩者皆已部署的適應性攻擊者？*（部分解答於 Opus 4.8 線上 bug bounty：適應性紅隊專家仍能在原始模型上找到攻擊方法；部署的 probes 提供了提升，但並未將殘餘風險歸零。）*
-- 為什麼儘管有廣泛的對齊提升，Opus 4.8 相較於 Opus 4.7 在 prompt-injection 強韌性上有所退化 —— 這是能力與強韌性之間的權衡（tradeoff），還是更困難的適應性評估所導致的假象？
-- 「LLM 無法可靠地將資訊與指令區分開來」—— 這是架構的根本屬性，還是未來模型可以彌補的訓練差距？該框架將其視為持久的屬性。
+## 開放問題
+
+- Spotlighting 與 constitutional classifiers 各自留下殘餘值（2%、5%）。疊加後，現實可達的下限是多少？面對知道兩者都已部署的自適應攻擊者，這個下限能維持嗎？（*Opus 4.8 的即時 bug bounty 部分回答了這點：自適應專家 red-teamers 仍能在裸模型上找到攻擊；已部署的 probes 會提升防禦，但不會將殘餘值歸零。AutoDojo（Ma et al. 2026）進一步指出：[一個 0% 的靜態 ASR 並非下限](/articles/task-specification-injection-surface)——廉價的**黑箱**自適應攻擊，而不只是白箱攻擊，能針對靜態得分為 0% 的篩選器恢復整體 28%（action-open 任務為 64%）。因此，對易受攻擊模型上的篩選器防禦而言，現實下限是兩位數，而不是零。但同一攻擊對較新的高能力基礎模型幾乎不會改變 ASR——說明下限是模型的屬性，而非分層篩選器防禦的屬性。）*
+- 儘管整體對齊能力廣泛提升，為何 Opus 4.8 相較 Opus 4.7 在提示注入穩健性上回歸——這是能力／穩健性取捨，還是更困難的自適應評估所造成的假象？
+
+## 已解決問題
+
+- 「LLM 無法可靠區分資訊與指令」——這是架構的基本性質，還是未來模型可以填補的訓練缺口？框架將其視為持久性質。**答案：**[Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable) 綜整了這組研究——*在重要的層級上具持久性*：任何單一邊界都可訓練（加固可將指令注入降至約 0%），能力也會降低每個邊界的易感性（未防禦靜態 ASR：Claude-Haiku-4.5 為 0.3%，GPT-4o-mini 為 58.6%），但關閉一個邊界只會將攻擊移到下一個更細的邊界，因為根本原因——對*不精確*分隔符的機率式解讀——是架構性的；「等待下一個模型」降低的是數字，不是機制，因此應在模型外部強制邊界。**部分回答（組成來源）：**[Narisetty et al. (2026)](/articles/out-of-band-prompt-injection-defense) 認為它具有持久性，並引用 Zverev et al. (2025)——目前模型無法維持可用的指令／資料分離，*prompting 與 fine-tuning 都無法可靠地誘導出這種分離*。他們的處方是停止嘗試在模型內修復，改在模型*外部*強制控制／資料分離（確定性動作中介），而這在自適應攻擊下的表現，獨立地遠勝帶內防禦。尚未定論（開放權重 7B、單一攻擊、沒有白箱測試），但持久性質的解讀如今已有實證支撐。**[Choi et al. (2026)](/articles/agent-data-injection) 提出更尖銳的轉折：**指令／資料邊界*確實看似可訓練*（模型加固可將指令注入降至約 0%），然而同一批加固模型對 ADI 仍維持 22–50% 的脆弱性；ADI 偽造的是*受信任資料*而非指令。關閉一個邊界只會將攻擊移至下一個更細的邊界，因為根本原因——LLM 對*不精確*結構分隔符的機率式誤讀——是架構性的。因此，誠實答案如今是「在重要的層級上具持久性」：攻擊者能模仿的任何邊界都會保持多孔，而修復方式再次是模型外部的強制執行（細粒度 provenance／data-flow 追蹤）。
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) —— Part II 威脅描述；Part III 輸入驗證層級；Part IV Phase 4
-- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) —— §5.2（agentic 系統中的 prompt injection 風險）：ART 基準測試、線上 bug bounty、程式設計/電腦使用/瀏覽器使用面、部署的 probes
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)——第二部分威脅描述；第三部分輸入驗證分層；第四部分 Phase 4
+- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)——§5.2（agent 式系統中的提示注入風險）：ART 基準、即時 bug bounty、coding／computer-use／browser-use 攻擊面、已部署 probes
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——Opus 4.5 悄悄辨識偽造搜尋結果注入（workspace 中的 `fake`、`injection`、`poison`），並直接從回答中省略
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)——§2（將注入視為授權而非內容）、§4（帶內防禦沒有自適應保證；Nasr et al. 以 >90% 攻擊成功率攻破 12 種防禦，spotlighting／sandwiching >95%）、§11（Progent 在 Qwen2.5-7B 上的自適應評估重現）；完整防禦架構說明見 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)——Choi et al., arXiv 2607.05120；agent data injection 作為第二類 IPI（§3）、真實世界的 RCE／供應鏈／任意點擊攻擊（§4），以及防禦有效性差距（§5–6）；完整說明見 [Agent Data Injection (ADI)](/articles/agent-data-injection)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)——Ma et al., arXiv 2606.15057, `empirical`；廉價的黑箱自適應攻擊能針對靜態 0% 的篩選器恢復 28% ASR，並揭露任務規格軸；完整說明見 [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)

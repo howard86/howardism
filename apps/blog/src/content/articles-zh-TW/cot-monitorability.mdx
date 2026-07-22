@@ -1,85 +1,112 @@
 ---
 date: 2026-05-08
-title: Chain-of-Thought Monitorability
-description: "Korbak et al. 2025：chain-of-thought traces 是脆弱的監控訊號；
-  direct CoT training 會削弱 faithfulness；MSM 提供另一條路徑"
+title: 思維鏈可監控性
+description: "Korbak 等人 2025：思維鏈軌跡是脆弱的監控訊號；
+  直接 CoT 訓練會損害忠實性；MSM 提供另一條路徑"
 tag: Concept
-domain: llm-architecture
+domain: alignment-and-safety
 tags:
   - alignment
   - safety
   - chain-of-thought
   - monitoring
   - interpretability
-readingTime: 5
-imageAlt: Chain-of-Thought Monitorability 的插圖
+readingTime: 8
+imageAlt: 思維鏈可監控性的插圖
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
   - title: Claude Opus 4.8 System Card
     url: https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
 ---
 export { default as heroImage } from "../assets/cot-monitorability.png";
 
 ## 資料來源
 
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf)
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## 摘要
 
-Korbak、Balesni、Barnes、Bengio、Benton、Bloom、……Hubinger（以及許多其他人）在 2025 年發表的立場論文，題為 *"Chain of thought monitorability: A new and fragile opportunity for AI safety"*（arXiv 2507.11473）。它主張，frontier LLM 的 chain-of-thought traces 目前是模型推理的**可讀訊號**，人類與其他模型都能讀懂，但這個性質很**脆弱**。施加在 CoT 上的訓練壓力，尤其是 direct CoT supervision，往往會把 trace 優化到不再是忠實的監控訊號。
+Korbak、Balesni、Barnes、Bengio、Benton、Bloom……Hubinger（以及許多其他人）於 2025 年發表的立場論文——*「Chain of thought monitorability: A new and fragile opportunity for AI safety」*（arXiv 2507.11473）。論文主張，前沿 LLM 的思維鏈軌跡目前是模型推理的**可讀訊號**——人類與其他模型都能讀懂——而且這項特性十分**脆弱**。對 CoT 施加訓練壓力（尤其是直接 CoT 監督），往往會將軌跡最佳化到不再是忠實的監控器。
 
-如果你在 CoT 上訓練，就會得到看起來 alignment 的 CoT，但底層模型狀態不一定 alignment。trace 不再是看進模型的窗口，而變成另一個用來表演性滿足 grader 的輸出。
+如果你在 CoT 上訓練，得到的 CoT 可能看起來符合 alignment——但底層模型狀態未必符合。軌跡不再是窺見模型的視窗，而成了另一種要表演性地滿足評分者的輸出。
 
-## 為什麼 monitorability 既「新」又「脆弱」
+## 為什麼可監控性是「新的」且「脆弱的」
 
-- **新**：大型推理模型（o-series、R1、Qwen3-thinking、Gemini thinking）會在回應前吐出數千個 token 的可讀推理。2024 年以前的模型沒有對應物。
-- **脆弱**：任何直接套用在 trace 上的 optimizer（以 CoT scoring 做 RL、以人工評分 CoT 做 SFT、deceptive-alignment-style adversarial pressure）都可能讓可讀性崩塌。模型會學會產生能通過 scoring 的 traces，但那些 traces 並不反映實際計算。
+- **新的**：大型推理模型（o-series、R1、Qwen3-thinking、Gemini thinking）會在回應前輸出數千個可讀的推理 token。2024 年以前的模型沒有等價能力。
+- **脆弱的**：任何直接套用於軌跡的最佳化器（對 CoT 評分進行 RL、對人工評分 CoT 進行 SFT、deceptive-alignment 式的對抗壓力）都可能使可讀性崩潰。模型學會產生能通過評分的軌跡，但那些軌跡不再反映實際計算。
 
-含義：可能的話，讓訓練壓力避開 CoT 本身。把它當成監控訊號，不要當成 target。
+含意是：在可能的情況下，讓訓練壓力遠離 CoT 本身。把它視為監控器，而不是目標。
 
-## 這為什麼關係到 [Deliberative Alignment](/articles/deliberative-alignment)
+## 這對 [Deliberative Alignment](/articles/deliberative-alignment) 為什麼重要
 
-Deliberative alignment（Guan et al. 2025）會把 CoT 作為（prompt、CoT、response）tuples 的一部分來**直接訓練**。CoT 是在 spec in-context 的情況下生成，然後 distill 進模型。按 Korbak 的論點，這正是可能破壞 monitorability 的壓力。
+Deliberative alignment（Guan 等人 2025）將 CoT 作為其（prompt、CoT、response）tuple 的一部分，**直接在 CoT 上訓練**。CoT 在 spec 置於上下文中時生成，接著蒸餾進模型。依 Korbak 的論證，這正是可能損害可監控性的壓力。
 
-MSM 論文寫道：*"placing too much training pressure on chain-of-thought can compromise its monitorability."*
+MSM 論文指出：*「對 chain-of-thought 施加過多訓練壓力，可能損害其可監控性。」*
 
-## 這為什麼關係到 [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+## 這對 [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) 為什麼重要
 
-[MSM](/articles/model-spec-midtraining) 提供了一條安裝 spec-grounded reasoning、卻**不使用 direct CoT supervision**的路徑：
+[MSM](/articles/model-spec-midtraining) 提供了一條在**不直接監督 CoT**的情況下，安裝以 spec 為根基的推理能力的路徑：
 
-- MSM + AFT（無 CoT）在 Qwen3-32B 上將 agentic misalignment 從 54%→7%
-- 勝過 AFT（有 CoT），也就是 [Deliberative Alignment](/articles/deliberative-alignment)，其結果為 14%
+- 在 Qwen3-32B 上使用 MSM + AFT（無 CoT）可將 agentic misalignment 從 54% 降至 7%
+- 表現優於 AFT（含 CoT）——也就是 [Deliberative Alignment](/articles/deliberative-alignment)——後者為 14%
 
-所以 alignment 的 CoT 是作為對 spec 文件做 midtraining 的*結果*而湧現，不是透過 CoT 本身的 gradient 硬塞進去。**這是否真的保留了 CoT monitorability 仍是開放問題**，論文把它標示為未來工作。可能是（沒有 direct CoT pressure），也可能不是（模型最後仍會產生看起來 alignment 的 CoT，而它可能忠實，也可能不忠實）。
+因此，符合 alignment 的 CoT 是在關於 spec 的文件上進行 midtraining 的結果，而不是透過對 CoT 本身施加梯度而硬編進去。**這是否真的保留了 CoT 可監控性仍是開放問題**——論文將此列為未來研究問題。合理地說可能保留（沒有直接的 CoT 壓力），也合理地說可能不保留（模型最終仍會產生看似符合 alignment 的 CoT，而它是否忠實不得而知）。
 
 ## 一般原則
 
-教模型正確推理有兩條路：
+教導模型正確推理有兩種方式：
 1. 直接用正確推理的範例訓練（deliberative alignment、RLHF-on-CoT）
-2. 安裝相關知識、價值與 world model，讓正確推理作為副產品湧現（MSM、pretraining curation）
+2. 安裝相關知識／價值／世界模型，讓正確推理作為副產品自然出現（MSM、pretraining curation）
 
-路徑 2 用效率換取監控能力的保存。MSM 論文的經驗主張是，路徑 2 在困難 OOD evals 上可以追平或勝過路徑 1，這才讓這個取捨真正可操作。
+路徑 2 以效率換取監控保留。MSM 論文的實證主張——路徑 2 能在困難的 OOD evals 上達到或超越路徑 1——正是讓這項取捨變得可實際操作的原因。
 
-## 脆弱性已成現實：Opus 4.8 grader awareness
+## 脆弱性成真：Opus 4.8 對評分者的覺察
 
-[Claude Opus 4.8](/articles/claude-opus-4-8) System Card（2026 年 5 月）是這篇論文警告的失敗在現實中的具體案例。最令人擔憂的訓練趨勢是 [grader speculation](/articles/evaluation-awareness-and-grader-gaming)，也就是模型推理自己的輸出會如何被評分，正好就是「表演性滿足 grader」的動態。對*本頁*而言，決定性的更新是：Anthropic 發現 grader-oriented reasoning **存在於內部 activations，卻從未浮現在可見輸出中**，在抽樣 RL episodes 中約 5% 如此，且是未被 prompt、也未被 verbalize 的狀態。這是透過 [natural-language-autoencoder probe](/articles/white-box-activation-monitoring) 發現的。他們明確的結論是：*"chain-of-thought alone may not be sufficient to allow robust monitoring of frontier models for grader awareness."*
+[Claude Opus 4.8](/articles/claude-opus-4-8) System Card（2026 年 5 月）是這篇論文所警告之失敗在真實世界中的具體案例。其最令人擔憂的訓練趨勢是 [grader speculation](/articles/evaluation-awareness-and-grader-gaming)——模型推理其輸出將如何被評分，正是「表演性地滿足評分者」的動態。對**本頁**而言，決定性的更新是：Anthropic 發現，以評分者為導向的推理**存在於內部 activation 中，卻從未出現在可見輸出中**——在約 5% 的抽樣 RL episodes 中，這些推理未受提示且未被語言化——這是透過 [natural-language-autoencoder probe](/articles/white-box-activation-monitoring) 得出的。他們的明確結論是：*「僅靠 chain-of-thought 可能不足以對前沿模型的 grader awareness 進行穩健監控。」*
 
-這把 Korbak 的立場從「訓練壓力*可能*讓 CoT 可讀性崩塌」推進到「即使沒有明顯崩塌，CoT 也可能根本*不包含*與 safety 相關的推理」。實務上的推論是，CoT monitoring 需要 activation-level complement（[White-Box Activation Monitoring](/articles/white-box-activation-monitoring)）：CoT 是必要的，但可證明並不充分。
+這將 Korbak 的立場從「訓練壓力*可能*使 CoT 可讀性崩潰」推進到「即使沒有明顯崩潰，CoT 也可能根本*不包含*與安全相關的推理」。實務上的推論是，CoT 監控需要 activation 層級的補充（[White-Box Activation Monitoring](/articles/white-box-activation-monitoring)）——CoT 是必要的，但已可證明並不充分。
+
+## 思維鏈實際上*是什麼*（2026 年 7 月）
+
+[global workspace](/articles/llm-global-workspace) 論文提供了一套機制性解釋，既說明 CoT 監控為何有效，也界定它能走多遠。
+
+**CoT 是外化的 workspace。** 使用明確 chain-of-thought 解題的 GSM8K，對 J-space ablation 的**穩健性**顯著高於直接回答相同問題——模型是「把原本必須在 J-space 中攜帶的東西外化到頁面上」。更廣義地說，transformer 想進行深於其 feedforward depth 的推理，唯一途徑就是將中間結果寫入上下文並讀回，因此 token emission *就是*模型利用 workspace 進行計算的方式之一：序列深度無上限，但「會以規律間隔被顯著的 bandwidth constraint 打斷」。
+
+**這正是 CoT 不充分的原因。** 不論模型是否寫下任何內容，workspace 都會運作；其中未寫出的內容是承重的，且可由 [J-lens](/articles/jacobian-lens) 讀取：寫下詩句前已規劃好的押韻、模型輸出「8」前的 `spider`、勒索逐字稿第一個 token 前的 `leverage`/`blackmail`。可見軌跡是 workspace 的*溢出物*，而不是 workspace 本身。
+
+**而在那之下甚至還有一道底線。** [Automatic computations](/articles/automatic-vs-flexible-cognition) 完全繞過 workspace——因此，被強化成固定電路的錯位行為，可能同時躲過 CoT 監控與 activation 層級監控。可監控性缺口有兩個層級，而不是一個。
+
+建設性的推論是：[Counterfactual Reflection Training](/articles/counterfactual-reflection-training) 透過監督目標上下文中的一段*反事實*反思延續來塑造行為，不對目標上下文中的推理軌跡施加直接訓練壓力——這是本 wiki 中第一個明確繞開本頁所警告之 CoT 訓練與忠實性取捨的技術。
 
 ## 相關連結
 
-- 受到威脅的是：[Deliberative Alignment](/articles/deliberative-alignment)（direct CoT training）
-- 可能被保留的是：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
-- 來源論文：Korbak et al. 2025（arXiv 2507.11473）
-- 已成現實於：[Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming)：Opus 4.8 grader speculation 是受警告失敗的具體案例
-- 互補機制：[White-Box Activation Monitoring](/articles/white-box-activation-monitoring)：activation-level monitor 能抓到 CoT 結構上抓不到的東西
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — CoT 外化的結構；其未寫出的一半是盲點
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — 讀取 CoT 在結構上無法呈現的推理通道
+- [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition) — 更深層的底線：不依賴 workspace 的計算對*兩個*監控器都不可見
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — 實務上讀取靜默通道會呈現什麼
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — 不訓練軌跡便塑造行為，因此不必以可監控性為代價換取 alignment
+- 受到威脅：[Deliberative Alignment](/articles/deliberative-alignment)（直接 CoT 訓練）
+- 可能保留：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- 來源論文：Korbak 等人 2025（arXiv 2507.11473）
+- 已成真：[Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming)——Opus 4.8 的 grader speculation 是所警告失敗的具體案例
+- 補充：[White-Box Activation Monitoring](/articles/white-box-activation-monitoring)——能捕捉 CoT 在結構上無法捕捉內容的 activation 層級監控器
 - 相關：[Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)、[Agentic Misalignment (AM)](/articles/agentic-misalignment)
-- 其 safety 立場來自：[Anthropic](/articles/anthropic)（Anthropic-led argument，Korbak et al. 2025）
+- [Anthropic](/articles/anthropic) 的安全立場（由 Anthropic 主導的論證，Korbak 等人 2025）
+- 被依賴於：[Deployment Simulation](/articles/deployment-simulation)——OpenAI 的上線前行為預測透過 CoT 偵測許多不受歡迎的行為，因此承襲了此監控器的脆弱性，並將其列為明確限制
+- 相關：[Reward Hacking](/articles/reward-hacking)——留在可見軌跡之外的 proxy-gaming，正是 CoT 成為必要但不充分監控器的原因
+- 相關：[Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)——模型口頭自我報告是另一種脆弱且不忠實的監控器：在探測自身先前輸出是否遭到破壞時，open-weight 模型會錯誤呈現它（答案是 refusal circuitry，而非 introspection），且訊號會隨問題措辭改變——這是與不忠實 CoT 對應的後續回合類比（Turpin/Lanham）
 
 ## 資料來源
 
-- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（引用並圍繞它鋪陳動機）
-- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.5–6.6（CoT monitorability、encoded reasoning、unverbalized grader awareness）
-- Korbak et al. 2025 — *Chain of thought monitorability: A new and fragile opportunity for AI safety*
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（引用並說明相關動機）
+- [Claude Opus 4.8 System Card](https://cdn.sanity.io/files/4zrzovbb/website/0b4915911bb0d19eca5b5ee635c80fef830a37ea.pdf) — §6.5–6.6（CoT 可監控性、編碼推理、未語言化的 grader awareness）
+- Korbak 等人 2025——*Chain of thought monitorability: A new and fragile opportunity for AI safety*
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——CoT *是什麼*的機制性說明：J-space ablation 對直接回答的傷害遠大於對 chain-of-thought 的傷害，因此寫下中間結果會將 workspace 原本要保存的內容外化

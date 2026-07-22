@@ -1,0 +1,119 @@
+---
+date: 2026-06-15
+title: LLM-as-a-Judge
+description: 使用一個語言模型，依據明確標準／評分規則為另一個模型的輸出評分；
+  DRACO 的協定是每項標準採二元 MET/UNMET + 理由，
+  再依權重彙總為正規化分數與通過率；關鍵特性——
+  不同評審模型之間的排名保持穩定，但絕對數值會變動；自適應的逐案例評分規則（Google 的 AutoRaters）能偵測失敗，卻會將其混入整體分數，因而促使人們為受變更影響的行為建立穩定的自訂指標；一項涵蓋 21 位評審、約 541K 次判斷的稽核發現，原始 exact-match 一致性會高估經機率校正的可靠性 33–41 個百分點（kappa deflation），而高 test-retest 一致性可能掩蓋嚴重的位置偏差，因此在採用門檻決策前，評審需要經過機率校正、偏差與跨基準驗證
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - llm-as-a-judge
+  - benchmarks
+  - rubrics
+readingTime: 11
+imageAlt: LLM-as-a-Judge 插圖
+sources:
+  - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
+      Completeness, and Objectivity"
+    url: https://arxiv.org/abs/2602.11685
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
+---
+export { default as heroImage } from "../assets/llm-as-a-judge.png";
+
+## 資料來源
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## 摘要
+
+**LLM-as-a-Judge** 是一種評估範式：由一個語言模型，依據明確標準為另一個模型的輸出評分，取代（或擴展超越）人類評分者，適用於沒有確定性標準答案的開放式任務。凡是「這個輸出好不好？」才是真正問題的地方，它都是主力工具：深度研究報告、長篇生成、代理式互動記錄，以及對齊行為。[DRACO](/articles/draco-benchmark)（Perplexity，2026）是本頁採用的完整範例，但這個基本元件也反覆出現在整個 wiki 中——從 Anthropic 的對齊稽核到 DeepMind 的證明搜尋適應度。
+
+## DRACO 評分協定（標準形式）
+
+對每項任務，評審會依據一組**針對任務的評分規則**評估輸出，其中各標準具有不同權重。每項標準：
+
+- 評審輸出**二元判定**——MET 或 UNMET——以及簡短的**理由**。
+- 分數依權重彙總：符合的標準貢獻其權重 `wᵢ`（不符合貢獻 0）；權重可以是**負值**，用來懲罰不良特性（錯誤聲明、無支持的斷言）。
+
+報告兩個數值：
+
+- **正規化分數** = `max(0, min(1, raw_score / Σ max(0, wᵢ))) × 100%`——依標準重要性加權。
+- **通過率** = 正權重標準判定為 MET、負權重標準判定為 UNMET 的標準比例——不加權，對權重中的主觀性更具韌性。
+
+二元判定加權彙總的設計，讓每次判斷都保持局部且可解釋；因此，信任的單位是評分規則，而不是評審的整體印象。
+
+## 自適應評分規則變體：Google 的 AutoRaters
+
+Google 的 [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform) AutoRaters（與 [Google DeepMind](/articles/google-deepmind) 共同開發；也是 [Agent Quality Flywheel](/articles/agent-quality-flywheel) 的評分引擎）將這個基本元件從*固定的*任務評分規則，擴展為**多輪代理的逐案例自適應評分規則**：評審從對話中擷取使用者意圖，生成針對該案例的評分標準，依每項標準驗證完整互動記錄，並在多個樣本之間採多數決。以下兩項經驗可超越 Google 的技術堆疊：
+
+- **重視差值，而非絕對值。** Google 自己的指引從供應商角度呼應 DRACO 關於評審依賴性的發現：把分數視為強烈的方向性訊號，並且「相比把任何單一數字當作絕對評分，更應信任多次執行之間的*差值*」。
+- **自適應評分規則能偵測，卻無法隔離。** 由於每次執行都會重新生成不同標準，特定失敗會成為多項標準之一，被折疊進混合分數中——在飛輪的實際案例裡，任務成功率得到 0.80，但使用者的修訂內容被遺漏（生成的五項標準中有四項通過）。這沒有可用來設定門檻或追蹤趨勢的穩定數字。解法是**將該疑慮提升為獨立的穩定自訂指標**（一個可計數並據以設門檻的類別式評分規則），同時保留自適應評審作為整體健康度訊號。關於這會掩蓋的失敗類型，請參閱 [看起來像成功的失敗](/articles/failures-that-look-like-success)。
+
+## 評審依賴性
+
+DRACO 最具可移植性的方法論教訓是：**不同評審模型之間的相對排名穩定，但絕對分數大小並不穩定。** DRACO 選擇 **Gemini-3-Pro** 作為主要評審（透過內部人類–LLM 對齊研究選出），並以 **GPT-5.2** 和 **Sonnet-4.5** 重新評分；三者對深度研究系統的*排名*一致，即使絕對分數有所變動。實務上的後果是：
+
+- 使用 LLM-as-a-judge 進行**序位**比較（哪個系統／版本較好），並對使用不同評審的**跨論文絕對分數**比較保持懷疑。
+- 依據與人類專家的**對齊程度**選擇評審，而不只是能力——DRACO 的選擇建立在人類一致性研究上，而不是「使用最強模型」。
+- 評審可能將自身偏差帶入評分——當評審與受評模型具有共同血統時，這是已知的混淆因素（參見 [自動化行為稽核](/articles/automated-behavioral-audit)，其中由 Opus 4.7 評分的憲法遵循變體可能繼承該模型的偏差）。
+
+**但「只使用排名」只代表評審不變，不代表基準不變。** DRACO 證明排名在更換*評審模型*時仍能維持；它沒有說明更換*任務集合*時的情況。[Norman et al. (2026)](/articles/llm-judge-validation) 測量了另一個軸向——三個基準中的 21 位評審——發現評審排名在不同基準間最多會變動**14 個名次**（只有 Gemini 3.1 Pro 和 Claude Opus 4.6 在三者中都保持前 3 名），因為各基準的可區辨性差異約 4.5 倍，且測量不同的潛在構念（偏好對齊 vs 客觀正確性 vs 選中與拒絕）。只有在你已驗證排名穩定的軸向上，排名才值得信任：應在涵蓋偏好↔正確性軸向的**至少 2 個基準**上驗證，而不是只看一個排行榜。
+
+## 它在 wiki 中反覆出現的地方
+
+LLM-as-a-judge 是同一個基本元件在非常不同領域中的展現，始終負責將*開放式品質問題轉換為評分訊號*：
+
+- **對齊評估**——[自動化行為稽核](/articles/automated-behavioral-audit)：調查模型探測目標模型，另一個獨立的**評審模型**則從數十個維度評分行為。同樣的架構，但應用於安全性而非研究品質。
+- **形式化證明搜尋**——[演化式證明搜尋](/articles/evolutionary-proof-search)：較便宜的**LLM 評論者評分代理**為不完整的證明草稿指定*相對*適應度（Plackett–Luce 排名），將二元編譯器訊號轉化為連續梯度。這是把 LLM-as-a-judge 當成最佳化器的適應度函數，而非最終評分者。
+- **產品 evals**——[Evals as Product Spec](/articles/evals-as-product-spec)：Cat Wu 的「十個優秀 evals」是可執行的判斷編碼器；以評分規則為基礎的 LLM 評分，是將「完成的樣子是什麼？」擴展到模糊 AI 功能的方法。
+- **RL 獎勵訊號**——[Single-Rollout Optimization](/articles/single-rollout-optimization)：SAO 的線上學習實驗使用 **GLM-4.7 作為分配訓練獎勵的評審**（`r = r_quality × r_style ∈ {0,1}`）。這個基本元件被*直接接入 RL 迴圈，作為獎勵函數*——它最接近上面的證明搜尋適應度角色，但在這裡評審的判定*就是*梯度訊號，因此其偏差會成為訓練目標，而非測量誤差（也是 [Reward Hacking](/articles/reward-hacking) 的攻擊面）。
+
+## 限制
+
+- **成本／對齊取捨。** 專家設計的評分規則與人類偏好一致，但成本高；完全由 LLM 設計的評分規則可擴展，卻會偏離專家判斷。DRACO 採用混合方式（專家在 LLM 協助下撰寫／審查）。
+- **不是真值預言機。** 不同於 Lean 編譯器（[AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)）或通過的測試套件，LLM 評審是容易出錯的啟發式方法——它的判定本身未經驗證。評分規則加二元判定的結構，正是限制這項風險的紀律。
+- **自我評分與血統偏差。** 與受評模型共享訓練血統的評審，是值得控制的效度威脅。
+
+## 相關連結
+
+- [DRACO Benchmark](/articles/draco-benchmark)——完整範例：以評分規則為基礎的二元判定評分，搭配正規化分數與通過率，由 Gemini-3-Pro 擔任評審
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit)——Anthropic 的調查模型＋評審模型對齊評估；同一基本元件應用於安全行為
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search)——LLM 評論者評分代理作為*適應度函數*：使用 LLM-as-a-judge 為不完整證明草稿評分
+- [Evals as Product Spec](/articles/evals-as-product-spec)——evals 作為產品定義介面；LLM-as-a-judge 是將評分規則式 evals 擴展至開放式輸出的方法
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation)——評審協定與 production-sourced 任務配對，讓 DRACO 成為端到端可自動化（但受人類把關）的 eval
+- [Deep Research Agents](/articles/deep-research-agents)——DRACO 以此方式評分的系統類型
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)——驗證完整性的對照：健全的驗證器不需要容易出錯的評審
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)——LLM-as-a-judge 是大規模驗證問題的一個（不完美）答案
+- [Deployment Simulation](/articles/deployment-simulation)——其評分器（為重新抽樣的完成結果評分，並分類 eval 與 production）是從已知不良行為類別重用的 LLM-as-judge 偵測器；同一基本元件應用於發布前安全性預測
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel)——建立於自適應 AutoRater 評審及穩定自訂評分規則上的產品化 eval-修復迴圈
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling)——將自我評分／血統問題提升為架構規則：提出變更的任何元件都不能為該變更評分
+- [Failures That Look Like Success](/articles/failures-that-look-like-success)——混合的自適應分數為何會遺漏單一標準的失敗；以及為何需要逐筆記錄評分和指標提升
+- [Single-Rollout Optimization](/articles/single-rollout-optimization)——LLM-as-a-judge 作為 RL 獎勵函數：GLM-4.7 為 SAO 的線上學習模擬評分風格＋品質，以產生獎勵
+- [LLM-Judge Validation](/articles/llm-judge-validation)——這個基本元件缺少的可靠性紀律：kappa deflation、跨基準排名不穩定，以及一致性–偏差悖論，濃縮為部署前 5 步驟協定；也是對 DRACO 評審穩定性發現的獨立制衡
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)——評審效度的參考答案軸向：提示中沒有標準答案時，評審的*絕對*判定會偏向寬鬆（過度肯定錯誤答案），加入參考答案後最多有 85% 的判定翻轉；這是與評分規則設計正交、決定分數的一階因素
+- [LLM-Assisted Grey-Literature Theory Building](/articles/llm-assisted-grey-literature-theory-building)——評審被部署為*語料庫閘門*，而非輸出評分器：中立的版本化評分規則（Gemini 2.5 Flash，temp 0）從 23,631 份文件中篩選相關內容，並以機率校正的 Cohen's κ = 0.75，對照更強的重新評審模型完成驗證
+
+## 開放問題
+
+- 對於*設有門檻*的決策（發布／不發布、RSP gating），相較於排名，評審的絕對校準可以信任到什麼程度？**部分已有答案：**[Norman et al. (2026)](/articles/llm-judge-validation) 顯示，絕對校準*比報告數字所暗示的更差*——實務者引用的指標（exact-match 一致性）在平衡標籤集合上，系統性地高估機率校正後的可靠性 33–41 個百分點，因此「85% 一致性」的評審實際上約為 κ ≈ 0.48（中等），而根據原始一致性設定的門檻，是以膨脹後的數字校準。退而求其次的「排名安全」*同樣有界限*——它在評審模型選擇上穩定（DRACO），但在基準選擇上脆弱（最多 14 個排名位置）。這**並未**結束問題：它提出部署前檢查清單（Minimum Viable Validation Protocol），而非宣告設門檻的評審判定安全，並因大多數供應商不公開 logprobs 而暫緩*正式校準*（ECE/Brier）。[Kranti & Vajjala (2026)](/articles/reference-free-judge-over-crediting) 進一步將問題說得更尖銳：絕對分數不只是受到機率膨脹，還受到*參考答案膨脹*——提示中沒有標準答案時，評審會系統性地過度肯定錯誤答案，因此根據無參考答案正確性設定的門檻，是以膨脹後的數字校準；加入參考答案後，最多有 85% 的判定翻轉（資源匱乏的 Telugu 最嚴重）。一項人類研究確認，參考答案促成的較嚴格判定*更正確*，所以無參考答案的絕對分數是真的錯，而不只是另一種意見。研究在三個評審模型（開放權重的 Qwen3-32B／Gemma3-27B、封閉式的 Gemini-3.1-Flash-Lite）上，以英語／Arabic／Telugu 的 zero-shot 二元 QA 進行——數值大小取決於模型和語言，並非普遍適用。
+- 完全自主且良好對齊的評分規則＋評審管線，能否匹敵專家撰寫的評分規則，移除 DRACO 仍依賴的人類瓶頸？
+- 評審血統偏差何時真的會翻轉結果，而不只是改變數值大小？
+
+## 資料來源
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)——§4.2（評分協定；正規化分數與通過率公式）、§5.1（評審選擇：透過人類對齊研究選出的 Gemini-3-Pro；GPT-5.2／Sonnet-4.5 穩健性）
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)——AutoRater 機制（意圖擷取、逐案例評分規則、多數決）、重視差值而非絕對值的指引、0.80 混合分數／遺漏修訂案例（`vendor-claim`）
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)——§4.5：GLM-4.7 作為線上學習寫作風格模擬中的獎勵評審（`r = r_quality × r_style`）（`empirical`）
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)——Norman, Rivera & Hughes（UC Berkeley，arXiv 2606.19544，2026 年 6 月，`empirical`）：涵蓋 21 位評審／約 541K 次判斷的稽核——kappa deflation（§4.1）、跨基準排名不穩定（§4.3）、一致性–偏差悖論（§4.7），以及 Minimum Viable Validation Protocol（§5.3）；完整內容請參閱 [LLM-Judge Validation](/articles/llm-judge-validation)

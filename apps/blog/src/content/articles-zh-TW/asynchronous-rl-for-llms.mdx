@@ -1,0 +1,85 @@
+---
+date: 2026-07-15
+title: LLM 的非同步 RL
+description: 在每次 rollout 完成的瞬間就取用其結果進行訓練，而不是等待完整的同步批次——這能修復長尾 agentic/coding rollout 對 GPU cluster 造成的 straggler 閒置，但代價是 policy lag 與 off-policy drift；SAO 的 DIS（direct double-sided importance sampling）透過完全移除 old-policy model，並遮罩任何 rollout 與目前機率比值落在嚴格 trust region 之外的 token，使其保持穩定
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - reinforcement-learning
+  - post-training
+  - agentic-rl
+  - training-efficiency
+readingTime: 6
+imageAlt: LLM 的非同步 RL 插圖
+sources:
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/asynchronous-rl-for-llms.png";
+
+## 資料來源
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## 摘要
+
+大多數大規模 LLM RL 都是**同步且交錯的**：policy 在同一個固定 snapshot 下產生完整的 rollout 批次，接著在該批次上執行最佳化。對聊天而言這沒問題——回應長度相近，因此批次會一起完成。但對 **agentic 與 coding** 工作負載而言，這是災難性的。rollout 長度呈長尾分布（修正一個 bug 可能需要 3 個回合，也可能需要 300 個），因此短軌跡幾秒內就會完成，而少數 straggler 會執行數分鐘；整個 cluster 會在同步屏障處閒置，等待最慢的那個。
+
+**Asynchronous RL** 移除了這道屏障：rollout 生成與學習並行執行，每條軌跡一完成就立刻送入訓練。利用率與 wall-clock 效率因此提升。代價是，你正在更新的 model 已經不再是產生資料的 model——這就是 **policy lag**；而在高度非同步的情況下，單條軌跡可能跨越數個連續的 rollout-model 版本才生成完成。這就是 **off-policy drift**，若不加以管理，訓練就會崩潰。
+
+這是本 wiki 首次介紹 RL 的*訓練迴圈*本身，而不是訓練完成的 model 接著在 [inference](/articles/large-scale-test-time-compute) 中做什麼。來源是 [SAO](/articles/single-rollout-optimization)（Hou et al.，清華大學/[Z.AI](/articles/glm)，`empirical`），並已部署用於訓練 [GLM-5.2](/articles/glm)。
+
+## 非同步帶來的兩項代價
+
+**1. Policy lag → 無法處理的 importance sampling。** 標準的解耦 PPO 會追蹤三個 model 來修正 off-policy 偏差：目前的 policy `π_θ`、舊 policy `π_θ_old`，以及 rollout policy `π_rollout`。但如果 rollout engine 在一條軌跡生成期間更新了數次，要追蹤精確的行為機率 `π_θ_old`，就意味著必須保留無界的 checkpoint 歷史 `{π_θ_old^(1), …, π_θ_old^(N)}`——這不可行。
+
+**2. Group-wise sampling *就是*同步屏障。** [GRPO](/articles/group-relative-policy-optimization) 會針對每個 prompt 採樣一組回應，並在組內正規化 reward。但在該組中最慢的成員完成之前，整組都無法使用，因此 group-wise sampling 重新引入了非同步原本要消除的 straggler 等待，並放大 stale 程度。這正是促成 [single-rollout](/articles/single-rollout-optimization) 更新的結構性不匹配。
+
+## DIS：direct double-sided importance sampling
+
+SAO 的穩定機制（§3.1）透過極度簡化來解決代價 1：
+
+- **移除 `π_θ_old`。** 直接使用 **rollout log-probabilities** 作為行為 proxy，因此比值為 `r_t(θ) = π_θ(a_t | s_t) / π_rollout(a_t | s_t) = exp(log π_θ − log π_rollout)`。這些 log-probs 已在 rollout 階段產生，因此不僅省去完整的一次獨立 old-policy inference pass，也一併解決 checkpoint-history 問題。
+- **遮罩，不要截斷。** 標準 PPO clipping 會將 off-policy token *clamp* 到 trust-region 邊界，並保留其 gradient。DIS 則會將任何比值落在 `[1−ε_ℓ, 1+ε_h]` 之外的 token，其 gradient **歸零**：
+
+ `f(x; ε_ℓ, ε_h) = x if 1−ε_ℓ < x < 1+ε_h, else 0`
+
+ 偏離過遠的 token 會被完全移出更新，而不是貢獻飽和 gradient。這是 **IcePop** 機制（Ling Team，2025）的更嚴格版本，並因同時移除 `π_θ_old` 而變得更簡單。
+
+這項取捨是明確的：接受可控程度的 off-policy 偏差，以換取計算複雜度大幅下降，以及消除 stale-checkpoint 錯誤。從實證來看，積極的遮罩正是讓更新保持穩定的原因——它拒絕從 rollout 與目前 policy 意見不一致的 token 中學習，藉此正則化 step size。
+
+## 穩定性數據
+
+崩潰確實存在，而且發生得很快；DIS 正是防止崩潰的機制：
+
+- **Vanilla GRPO**（保留最新的 old policy 用於 importance sampling）在**約 160 步**時崩潰。
+- **沒有 DIS 的 VAPO**——clip ratio 接近零，從不 gate divergent updates——在**約 90 步**時崩潰。
+- **GRPO + DIS** 能穩定訓練；僅加入 DIS 就能挽救兩者。
+- **SAO**（single-rollout + DIS + value-model designs）能穩定訓練**約 1000 步**，並在約 400 步後相對於 GRPO+DIS 向上分化。
+
+因此，DIS 帶來的是*穩定性*，而 single-rollout 則在此基礎上帶來*額外效能*——兩項貢獻彼此可分離，消融實驗證實了這點。
+
+## 這在非同步 RL 系統中的位置
+
+相關工作版圖（§5.2）更著重 throughput，而非 effectiveness：**AReaL**（Fu et al.，2025）透過具備 staleness-awareness 的 PPO，將 rollout 與訓練完全解耦；**ROLL Flash**（Lu et al.，2025）為 RLVR 與 agentic training 加入細粒度平行處理；**Noukhovitch et al. (2024)** 將 async RLHF 定義為 online-but-off-policy learning。SAO 的切入點不同——它穩定的是 policy lag 下的*演算法*，而不是最佳化*系統*；它也是唯一一個正面採用 single-trajectory feedback，而非繞開它的方法。
+
+## 相關連結
+
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — SAO 的另一半：single-rollout 更新，以及讓 DIS-stabilized async training 同時具備*效能*的 value-model designs
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — 其 group barrier 暴露了非同步的基準方法；在 SAO 移除 group 之前，DIS 首先便是*在* GRPO 上展示
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — async RL 是訓練側的互補：這是*產生*長視野 agentic model 的迴圈，而這些 model 的能力接著會隨 inference budget 擴展
+- [The Bitter Lesson](/articles/the-bitter-lesson) — DIS 移除了手工建構的機制（`π_θ_old`、checkpoint history）——「透過進一步移除而變得更簡單」；但訓練迴圈是 bitter lesson 未觸及的鷹架，就像 [the inference path](/articles/inference-efficiency-as-capability) 一樣
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — 訓練側的姊妹篇：async RL 是*訓練*效率，同樣遵循「效率就是能力」的邏輯，只是提前了一個迴圈
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — 在此 async regime 下訓練的 GLM-5.2，就是該頁面追蹤的 frontier-open MoE
+- [GLM (Z.AI)](/articles/glm) — SAO 的 production deployment：訓練 GLM-5.2（750B-A40B）
+
+## 開放問題
+
+- DIS 接受「可控程度的 off-policy 偏差」。要如何控制？可容忍的偏差會隨 model scale 與非同步程度增加，還是縮小？論文以實證報告穩定性，但沒有給出界限。
+- 將 token 從 gradient 中遮罩掉會丟棄資料。在什麼非同步程度下，被遮罩的比例會大到使有效 batch 縮小至失去實用性？圖 4(c) 追蹤 clip ratio，但沒有追蹤其上限。
+- 這裡的所有測量都使用 Qwen3-30B-A3B backbone。沒有 DIS 時的崩潰門檻會隨 model size 移動嗎？還是約 90–160 步其實是非同步程度的特性，而不是 model 的特性？
+
+## 資料來源
+
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*，Hou、Li、Tang、Dong（清華大學 / Z.AI），arXiv 2607.07508，2026-07-08。§1（非同步動機）、§3.1（DIS）、§4.2/4.4（崩潰動態）、§5.2（相關系統）。`empirical`。
