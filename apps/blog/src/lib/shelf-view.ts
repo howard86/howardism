@@ -71,11 +71,6 @@ export interface ShelfStats {
   /** Estimated hours on the page: Σ readingTime × pct. */
   hours: number;
   notesRead: number;
-  /**
-   * Consecutive 24-hour windows back from `now` (today = day 0) with at least
-   * one read. Undercounts — history keeps only the latest read per slug.
-   */
-  streakDays: number;
   thisWeek: number;
 }
 
@@ -86,23 +81,16 @@ export function computeShelfStats(
 ): ShelfStats {
   let thisWeek = 0;
   let minutes = 0;
-  const readDays = new Set<number>();
   for (const read of reads) {
     const age = now - read.lastReadAt;
     if (age < WEEK_MS) {
       thisWeek += 1;
     }
     minutes += read.readingTime * Math.min(read.pct, 1);
-    readDays.add(Math.floor(age / DAY_MS));
-  }
-  let streakDays = 0;
-  while (readDays.has(streakDays)) {
-    streakDays += 1;
   }
   return {
     notesRead: reads.length,
     thisWeek,
     hours: minutes / 60,
-    streakDays,
   };
 }

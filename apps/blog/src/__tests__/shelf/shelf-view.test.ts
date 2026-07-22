@@ -84,30 +84,11 @@ describe("computeShelfStats", () => {
     expect(stats.hours).toBe(1);
   });
 
-  it("walks the streak back from today until the first empty day", () => {
-    const stats = computeShelfStats(
-      [
-        read({ lastReadAt: NOW - HOUR }), // day 0
-        read({ lastReadAt: NOW - 30 * HOUR }), // day 1
-        // day 2 empty
-        read({ lastReadAt: NOW - 3 * DAY - HOUR }), // day 3
-      ],
-      NOW
-    );
-    expect(stats.streakDays).toBe(2);
-  });
-
-  it("reports a zero streak when nothing was read today", () => {
-    const stats = computeShelfStats([read({ lastReadAt: NOW - 2 * DAY })], NOW);
-    expect(stats.streakDays).toBe(0);
-  });
-
   it("returns zeroes for an empty history", () => {
     expect(computeShelfStats([], NOW)).toEqual({
       notesRead: 0,
       thisWeek: 0,
       hours: 0,
-      streakDays: 0,
     });
   });
 });

@@ -39,10 +39,10 @@ function StatCell({
 }
 
 /**
- * The masthead's four-cell reading-stats strip, computed from the
+ * The masthead's three-cell reading-stats strip, computed from the
  * browser-local history on mount (rendered only on the client, and only once
- * there is something to count). The hours and streak figures are estimates —
- * history keeps a single latest read per article.
+ * there is something to count). The hours figure is an estimate — history
+ * keeps a single latest read per article.
  */
 export function ShelfStats({ manifest }: { manifest: ShelfManifestEntry[] }) {
   const [stats, setStats] = useState<ShelfStatsData | null>(null);
@@ -64,7 +64,7 @@ export function ShelfStats({ manifest }: { manifest: ShelfManifestEntry[] }) {
   }
 
   return (
-    <div className="mt-7 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-4">
+    <div className="mt-7 grid grid-cols-3 overflow-hidden rounded-xl border border-border bg-card">
       <StatCell label="notes read" value={String(stats.notesRead)} />
       <StatCell
         className="border-l"
@@ -72,16 +72,10 @@ export function ShelfStats({ manifest }: { manifest: ShelfManifestEntry[] }) {
         value={String(stats.thisWeek)}
       />
       <StatCell
-        className="border-t md:border-t-0 md:border-l"
-        label="time on the page"
+        className="border-l"
+        label="hours read (est.)"
         unit="hrs"
         value={stats.hours.toFixed(1)}
-      />
-      <StatCell
-        className="border-t border-l md:border-t-0"
-        label="current streak"
-        unit="days"
-        value={String(stats.streakDays)}
       />
     </div>
   );
