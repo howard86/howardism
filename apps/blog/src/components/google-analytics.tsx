@@ -32,19 +32,23 @@ export default function GoogleAnalytics({
 
   return (
     <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
-        strategy="lazyOnload"
-      />
-      <Script id="google-analytics">
+      {/* ponytail: shim must load beforeInteractive and the gtag.js library must
+          stay lazyOnload — the shim buffers calls into window.dataLayer until the
+          166 KB library arrives at idle. Reverting either strategy to the default
+          re-races the library against LCP without gaining anything. */}
+      <Script id="google-analytics" strategy="beforeInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
- 
+
           gtag('config', '${measurementId}');
         `}
       </Script>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
+        strategy="lazyOnload"
+      />
     </>
   );
 }
