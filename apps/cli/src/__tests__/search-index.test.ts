@@ -16,7 +16,7 @@ describe("buildSearchEntry", () => {
         "title: Agent Loop Pattern",
         "description: Loops as a primitive",
         "tag: Concept",
-        "domain: ai-engineering",
+        "domain: agent-systems",
         "tags:",
         "  - automation",
         "  - harness",
@@ -32,7 +32,7 @@ describe("buildSearchEntry", () => {
       title: "Agent Loop Pattern",
       description: "Loops as a primitive",
       tag: "Concept",
-      domain: "ai-engineering",
+      domain: "agent-systems",
       tags: ["automation", "harness"],
     });
     // Body is plain text: heading markup, the hero export, emphasis, and the

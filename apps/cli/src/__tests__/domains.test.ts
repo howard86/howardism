@@ -8,7 +8,7 @@ import {
 } from "../import-wiki/domains.ts";
 import type { ParsedWikiFile } from "../import-wiki/parse.ts";
 
-const UNKNOWN_MOC_ERROR = /moc-agent-security/;
+const UNKNOWN_MOC_ERROR = /moc-nonsense/;
 
 function moc(slug: string, body: string): ParsedWikiFile {
   return {
@@ -21,7 +21,7 @@ function moc(slug: string, body: string): ParsedWikiFile {
 
 describe("mocSlugToDomain", () => {
   it("maps a recognised MOC slug to its domain", () => {
-    expect(mocSlugToDomain("moc-ai-engineering")).toBe("ai-engineering");
+    expect(mocSlugToDomain("moc-agent-systems")).toBe("agent-systems");
   });
 
   it("returns null for non-MOC or unknown-domain slugs", () => {
@@ -40,7 +40,7 @@ describe("isMocSlug", () => {
 describe("buildDomainMembership + resolveDomain", () => {
   const parsed = [
     moc(
-      "moc-ai-engineering",
+      "moc-agent-systems",
       "> Map of Content\n- [[agent-loop-pattern]] — x\n- [[hermes-agent]] — y\n"
     ),
     moc("moc-formal-math", "- [[ai-driven-formal-proof-search]] — z\n"),
@@ -48,13 +48,13 @@ describe("buildDomainMembership + resolveDomain", () => {
   const membership = buildDomainMembership(parsed);
 
   it("assigns each listed concept to its MOC's domain", () => {
-    expect(membership.get("agent-loop-pattern")).toBe("ai-engineering");
+    expect(membership.get("agent-loop-pattern")).toBe("agent-systems");
     expect(membership.get("ai-driven-formal-proof-search")).toBe("formal-math");
   });
 
   it("resolves a MOC page to its own domain", () => {
-    expect(resolveDomain("moc-ai-engineering", membership)).toBe(
-      "ai-engineering"
+    expect(resolveDomain("moc-agent-systems", membership)).toBe(
+      "agent-systems"
     );
   });
 
@@ -66,7 +66,7 @@ describe("buildDomainMembership + resolveDomain", () => {
     // Silently skipping it would file every concept the MOC lists under
     // `syntheses` — a corrupted browse axis that still imports cleanly.
     expect(() =>
-      buildDomainMembership([moc("moc-agent-security", "- [[blast-radius]]\n")])
+      buildDomainMembership([moc("moc-nonsense", "- [[blast-radius]]\n")])
     ).toThrow(UNKNOWN_MOC_ERROR);
   });
 });

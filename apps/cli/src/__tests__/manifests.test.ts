@@ -90,7 +90,7 @@ describe("buildManifests", () => {
       [
         "## Actionable by domain",
         "",
-        "### ai-engineering (2 open)",
+        "### agent-systems (2 open)",
         "",
         "#### [[agent-loop-pattern]]",
         "",
