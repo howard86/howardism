@@ -5,6 +5,7 @@ import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 import { PlatePage } from "../_shell/plate-page";
 import { DOMAIN_META } from "../articles/domain-meta";
+import { kindMetaFor } from "../articles/kind-meta";
 import { getArticles } from "../articles/service";
 import { ShelfTabs } from "./shelf-tabs";
 
@@ -39,6 +40,10 @@ export default async function ShelfPage() {
       label: meta.domain ? DOMAIN_META[meta.domain].label : meta.tag,
       href: `/articles/${id}`,
       archived: meta.archived === true,
+      domain: meta.domain,
+      kindPrefix: kindMetaFor(meta.tag).prefix,
+      readingTime: meta.readingTime,
+      tags: meta.tags ?? [],
     });
   }
 
