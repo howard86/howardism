@@ -10,6 +10,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI Engineering",
     href: "/articles/alpha",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "beta",
@@ -17,6 +20,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "Essay",
     href: "/articles/beta",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "gamma",
@@ -24,6 +30,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "Entities",
     href: "/articles/gamma",
     archived: true,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
 ];
 

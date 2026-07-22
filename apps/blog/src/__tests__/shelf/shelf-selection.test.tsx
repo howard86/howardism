@@ -30,6 +30,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI",
     href: "/articles/a",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "b",
@@ -37,6 +40,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI",
     href: "/articles/b",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "c",
@@ -44,6 +50,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI",
     href: "/articles/c",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "d",
@@ -51,6 +60,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI",
     href: "/articles/d",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "e",
@@ -58,6 +70,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI",
     href: "/articles/e",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
 ];
 

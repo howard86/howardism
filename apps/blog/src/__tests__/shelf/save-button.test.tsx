@@ -29,6 +29,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI Engineering",
     href: "/articles/alpha",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
 ];
 
