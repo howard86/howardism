@@ -9,6 +9,7 @@ import {
   type WikiTag,
 } from "@howardism/article-contract";
 import { runWithConcurrency } from "../concurrency.ts";
+import { writeSearchIndex } from "../search-index.ts";
 import { generateHeroImage as generateAgyHeroImage } from "./agy/index.ts";
 import { generateHeroImage as generateCodexHeroImage } from "./codex.ts";
 import {
@@ -74,6 +75,7 @@ interface ImportSummary {
   missingRawSources: Map<string, Set<string>>;
   /** Slugs pruned because their vault note was deleted or renamed. */
   prunedArticles: string[];
+  searchIndex: { entryCount: number; outputPath: string } | null;
   /** Concept-folder notes not listed in any MOC; fell back to `syntheses`. */
   unmappedConcepts: Set<string>;
   unresolvedWikilinks: Map<string, Set<string>>;
@@ -177,6 +179,8 @@ async function main(): Promise<void> {
       onlySlug: opts.onlySlug,
       dryRun: opts.dryRun,
     });
+
+    summary.searchIndex = await writeSearchIndex({ dryRun: opts.dryRun });
   }
 
   printSummary(summary);
@@ -247,6 +251,7 @@ function createSummary(): ImportSummary {
     imagesCached: [],
     missingRawSources: new Map(),
     prunedArticles: [],
+    searchIndex: null,
     unmappedConcepts: new Set(),
     unresolvedWikilinks: new Map(),
   };
@@ -603,6 +608,11 @@ function printSummary(summary: ImportSummary): void {
   console.log(`Images cached:    ${summary.imagesCached.length}`);
   if (summary.graphPath) {
     console.log(`Graph:            ${summary.graphPath}`);
+  }
+  if (summary.searchIndex) {
+    console.log(
+      `Search index:     ${summary.searchIndex.entryCount} entries → ${summary.searchIndex.outputPath}`
+    );
   }
   if (summary.prunedArticles.length > 0) {
     console.log("\nPruned orphaned articles (vault note deleted or renamed):");
