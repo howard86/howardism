@@ -10,6 +10,7 @@ import {
 import { cn } from "@howardism/ui/lib/utils";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type CSSProperties,
@@ -54,11 +55,18 @@ const SEG_BUTTON_CLASS =
   "border-border border-r px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.1em] transition-colors last:border-r-0";
 const CHIP_CLASS =
   "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.1em] transition-colors";
+const INVITE_LINK_CLASS =
+  "mt-5 inline-block font-mono text-[11px] text-brand uppercase tracking-[0.16em] no-underline transition-colors hover:text-foreground";
 
 type ShelfTab = "history" | "saved";
 
 /** A saved article resolved against the manifest, plus any read progress. */
 interface SavedRow {
+  /**
+   * 1-based accession number, ranked by save time, so the row marker stays put
+   * under any sort or filter.
+   */
+  accession: number;
   meta: ShelfManifestEntry;
   /** Reading progress when the article also appears in the history. */
   pct?: number;
@@ -195,14 +203,14 @@ function CompareBar({
 
 const SORTS: [ShelfSort, string][] = [
   ["recent", "Recent"],
-  ["progress", "Most read"],
+  ["progress", "Progress"],
   ["longest", "Longest"],
 ];
 
 /**
  * Interleave the history rows with recency group headers (when grouped) and
  * render tombstones for reads whose article no longer exists. The marker
- * ordinal is the row's position in the visible list.
+ * ordinal is the row's accession number, so it survives re-sorting.
  */
 function buildHistoryItems({
   rows,
@@ -219,7 +227,7 @@ function buildHistoryItems({
 }): ReactNode[] {
   const items: ReactNode[] = [];
   let lastBucket = -1;
-  for (const [index, row] of rows.entries()) {
+  for (const row of rows) {
     if (grouped) {
       const bucket = bucketOf(row.lastReadAt, now);
       if (bucket !== lastBucket) {
@@ -258,7 +266,7 @@ function buildHistoryItems({
           href={row.href}
           key={row.slug}
           label={row.label}
-          marker={row.kindPrefix + String(index + 1).padStart(2, "0")}
+          marker={row.kindPrefix + String(row.accession).padStart(2, "0")}
           progress={row.pct}
           readingTime={row.readingTime}
           selection={toRowSelection(selection, row.slug, row.title)}
@@ -281,6 +289,8 @@ const TAB_TRIGGER_CLASS =
  * build-time article manifest. Owns every view control — tab, sort order,
  * domain filter, and the compare mode whose cross-tab selection (a History
  * pick and a Saved pick combine, capped at three) launches the comparison.
+ * With nothing read and nothing saved there is nothing to control, so the
+ * whole shell collapses to an invitation into the article index.
  */
 export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
   const router = useRouter();
@@ -297,14 +307,21 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
       history.map((row) => [row.slug, row.pct] as const)
     );
     const bySlug = new Map(manifest.map((entry) => [entry.slug, entry]));
+    const savedEntries = getSaved();
+    const savedAccessions = new Map(
+      [...savedEntries]
+        .sort((a, b) => a.savedAt - b.savedAt)
+        .map((entry, index) => [entry.slug, index + 1] as const)
+    );
     const saved: SavedRow[] = [];
-    for (const entry of getSaved()) {
+    for (const entry of savedEntries) {
       const meta = bySlug.get(entry.slug);
       if (meta) {
         saved.push({
           meta,
           savedAt: entry.savedAt,
           pct: pctBySlug.get(entry.slug),
+          accession: savedAccessions.get(entry.slug) ?? 0,
         });
       }
     }
@@ -332,6 +349,23 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
 
   if (data === null) {
     return null;
+  }
+
+  // Nothing read and nothing saved: no view controls to offer, so the whole
+  // shell collapses to an invitation.
+  if (data.history.length === 0 && data.saved.length === 0) {
+    return (
+      <div className="mt-9 border-border border-t">
+        <EmptyState>
+          Your shelf fills itself as you read — get past the opening of any
+          article and it lands here. Start anywhere in the index, and come back
+          when you want to pick something up again.
+        </EmptyState>
+        <Link className={INVITE_LINK_CLASS} href="/articles">
+          Browse all articles →
+        </Link>
+      </div>
+    );
   }
 
   const activeDomains =
@@ -410,8 +444,8 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
   return (
     <>
       <Tabs onValueChange={(value) => setTab(value as ShelfTab)} value={tab}>
-        <div className="sticky top-0 z-20 mt-9 border-border border-b bg-background/85 backdrop-blur-md">
-          <div className="flex flex-wrap items-center gap-3 py-3 md:gap-4">
+        <div className="sticky top-20 z-30 -mx-3 mt-9 border-border border-b bg-background/85 px-3 backdrop-blur-md">
+          <div className="flex flex-wrap items-center gap-3 pt-3 pb-2 md:gap-4">
             <TabsList variant="line">
               <TabsTrigger className={TAB_TRIGGER_CLASS} value="history">
                 History
@@ -428,7 +462,6 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
             </TabsList>
             <span className="flex-1" />
             <button
-              aria-pressed={compareMode}
               className={cn(
                 "rounded-lg border px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] transition-colors",
                 compareMode
@@ -438,7 +471,7 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
               onClick={toggleCompare}
               type="button"
             >
-              {compareMode ? "Done" : "Compare"}
+              {compareMode ? "Cancel" : "Select"}
             </button>
             <fieldset
               aria-label="Sort"
@@ -462,61 +495,60 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
               ))}
             </fieldset>
           </div>
-        </div>
-
-        <fieldset
-          aria-label="Filter by domain"
-          className="flex gap-2 overflow-x-auto py-3.5 [scrollbar-width:none]"
-        >
-          <button
-            aria-pressed={domain === null}
-            className={cn(
-              CHIP_CLASS,
-              domain === null
-                ? "border-foreground-subtle text-foreground"
-                : "border-border text-muted-foreground hover:text-foreground"
-            )}
-            onClick={() => setDomain(null)}
-            type="button"
+          <fieldset
+            aria-label="Filter by domain"
+            className="flex gap-2 overflow-x-auto pb-3"
           >
-            All
-            <span className="text-foreground-subtle">
-              {activeDomains.length}
-            </span>
-          </button>
-          {(Object.keys(DOMAIN_META) as WikiDomain[])
-            .filter((key) => (domainCounts.get(key) ?? 0) > 0)
-            .map((key) => (
-              <button
-                aria-pressed={domain === key}
-                className={cn(
-                  CHIP_CLASS,
-                  domain === key
-                    ? "border-[var(--dc)] bg-card text-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                )}
-                key={key}
-                onClick={() =>
-                  setDomain((current) => (current === key ? null : key))
-                }
-                style={{ "--dc": DOMAIN_META[key].color } as CSSProperties}
-                type="button"
-              >
-                <span
-                  aria-hidden="true"
-                  className="size-2 rounded-full bg-[var(--dc)]"
-                />
-                {DOMAIN_META[key].label}
-                <span className="text-foreground-subtle">
-                  {domainCounts.get(key)}
-                </span>
-              </button>
-            ))}
-        </fieldset>
+            <button
+              aria-pressed={domain === null}
+              className={cn(
+                CHIP_CLASS,
+                domain === null
+                  ? "border-foreground-subtle text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setDomain(null)}
+              type="button"
+            >
+              All
+              <span className="text-foreground-subtle">
+                {activeDomains.length}
+              </span>
+            </button>
+            {(Object.keys(DOMAIN_META) as WikiDomain[])
+              .filter((key) => (domainCounts.get(key) ?? 0) > 0)
+              .map((key) => (
+                <button
+                  aria-pressed={domain === key}
+                  className={cn(
+                    CHIP_CLASS,
+                    domain === key
+                      ? "border-[var(--dc)] bg-card text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                  key={key}
+                  onClick={() =>
+                    setDomain((current) => (current === key ? null : key))
+                  }
+                  style={{ "--dc": DOMAIN_META[key].color } as CSSProperties}
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full bg-[var(--dc)]"
+                  />
+                  {DOMAIN_META[key].label}
+                  <span className="text-foreground-subtle">
+                    {domainCounts.get(key)}
+                  </span>
+                </button>
+              ))}
+          </fieldset>
+        </div>
 
         <TabsContent value="history">
           {historyItems.length > 0 ? (
-            <ul className="flex list-none flex-col p-0">{historyItems}</ul>
+            <ul className="mt-3 flex list-none flex-col p-0">{historyItems}</ul>
           ) : (
             (filteredEmpty ?? (
               <EmptyState>
@@ -528,8 +560,8 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
         </TabsContent>
         <TabsContent value="saved">
           {savedRows.length > 0 ? (
-            <ul className="flex list-none flex-col p-0">
-              {savedRows.map((row, index) => (
+            <ul className="mt-3 flex list-none flex-col p-0">
+              {savedRows.map((row) => (
                 <ShelfArticleRow
                   accent={accentOf(row.meta.domain)}
                   badge={row.meta.archived ? <ArchivedBadge /> : undefined}
@@ -545,7 +577,7 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
                   key={row.meta.slug}
                   label={row.meta.label}
                   marker={
-                    row.meta.kindPrefix + String(index + 1).padStart(2, "0")
+                    row.meta.kindPrefix + String(row.accession).padStart(2, "0")
                   }
                   progress={row.pct}
                   readingTime={row.meta.readingTime}

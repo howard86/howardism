@@ -62,21 +62,24 @@ const manifest: ShelfManifestEntry[] = [
 ];
 
 const HISTORY_KEY = "howardism:reading-history";
+const SAVED_KEY = "howardism:reading-saved";
 const ROW_TITLE = /Alpha Article/i;
 const BETA_TITLE = /Beta Article/i;
 const GAMMA_TITLE = /Gamma Article/i;
-const EMPTY_STATE = /nothing on your shelf yet/i;
+const EMPTY_STATE = /fills itself as you read/i;
+const TAB_EMPTY_STATE = /nothing on your shelf yet/i;
 const FILTERED_EMPTY = /nothing on your shelf under/i;
 const TOMBSTONE = /no longer available/i;
 const ARCHIVED_TAG = /archived/i;
 const REMOVE_ALPHA = /remove alpha article from shelf/i;
 const DISMISS_GHOST = /dismiss ghost-slug/i;
-const MOST_READ = /most read/i;
+const PROGRESS_SORT = /^progress$/i;
+const BROWSE_LINK = /browse all articles/i;
 const AGENT_SYSTEMS_CHIP = /agent systems/i;
 const ALL_CHIP = /^all/i;
 
 function seedHistory(
-  entries: { slug: string; pct: number; ageMs?: number }[]
+  entries: { slug: string; pct: number; ageMs?: number; firstAgeMs?: number }[]
 ): void {
   localStorage.setItem(
     HISTORY_KEY,
@@ -85,7 +88,17 @@ function seedHistory(
         slug: entry.slug,
         pct: entry.pct,
         lastReadAt: Date.now() - (entry.ageMs ?? 0),
+        firstReadAt: Date.now() - (entry.firstAgeMs ?? entry.ageMs ?? 0),
       }))
+    )
+  );
+}
+
+function seedSaved(slugs: string[]): void {
+  localStorage.setItem(
+    SAVED_KEY,
+    JSON.stringify(
+      slugs.map((slug, index) => ({ slug, savedAt: 1000 - index }))
     )
   );
 }
@@ -101,10 +114,25 @@ describe("ShelfTabs history tab", () => {
     expect(link.getAttribute("href")).toBe("/articles/alpha");
   });
 
-  it("shows the empty state when there is no reading history", async () => {
+  it("offers only an invitation when nothing is read or saved", async () => {
     render(<ShelfTabs manifest={manifest} />);
 
     await waitFor(() => expect(screen.getByText(EMPTY_STATE)).not.toBeNull());
+    expect(screen.queryByRole("button", { name: PROGRESS_SORT })).toBeNull();
+    expect(screen.queryByRole("button", { name: ALL_CHIP })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: BROWSE_LINK }).getAttribute("href")
+    ).toBe("/articles");
+  });
+
+  it("keeps the per-tab empty state when the other list has entries", async () => {
+    seedSaved(["alpha"]);
+    render(<ShelfTabs manifest={manifest} />);
+
+    await waitFor(() =>
+      expect(screen.getByText(TAB_EMPTY_STATE)).not.toBeNull()
+    );
+    expect(screen.queryByText(EMPTY_STATE)).toBeNull();
   });
 
   it("removes a row when its remove control is clicked", async () => {
@@ -152,7 +180,7 @@ describe("ShelfTabs history tab", () => {
     expect(screen.getByText("Earlier this week")).not.toBeNull();
   });
 
-  it("drops the group headers when sorting by most read", async () => {
+  it("drops the group headers when sorting by progress", async () => {
     seedHistory([
       { slug: "alpha", pct: 0.3 },
       { slug: "beta", pct: 0.9, ageMs: 3 * DAY_MS },
@@ -160,12 +188,33 @@ describe("ShelfTabs history tab", () => {
     render(<ShelfTabs manifest={manifest} />);
     await screen.findByRole("link", { name: ROW_TITLE });
 
-    fireEvent.click(screen.getByRole("button", { name: MOST_READ }));
+    fireEvent.click(screen.getByRole("button", { name: PROGRESS_SORT }));
 
     expect(screen.queryByText("Today")).toBeNull();
     const links = screen.getAllByRole("link");
     expect(links[0]?.textContent).toContain("Beta Article");
     expect(links[1]?.textContent).toContain("Alpha Article");
+  });
+
+  it("keeps each row's marker fixed when the sort changes", async () => {
+    seedHistory([
+      { slug: "beta", pct: 0.3, firstAgeMs: 5 * DAY_MS },
+      { slug: "alpha", pct: 0.9, ageMs: 3 * DAY_MS, firstAgeMs: 10 * DAY_MS },
+    ]);
+    render(<ShelfTabs manifest={manifest} />);
+    await screen.findByRole("link", { name: ROW_TITLE });
+
+    // Accession order is first-read order: alpha (older) is 01, beta is 02.
+    expect(screen.getByText("C01")).not.toBeNull();
+    expect(screen.getByText("S02")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: PROGRESS_SORT }));
+
+    expect(screen.getAllByRole("link")[0]?.textContent).toContain(
+      "Alpha Article"
+    );
+    expect(screen.getByText("C01")).not.toBeNull();
+    expect(screen.getByText("S02")).not.toBeNull();
   });
 
   it("filters the list by domain chip and back to all", async () => {
