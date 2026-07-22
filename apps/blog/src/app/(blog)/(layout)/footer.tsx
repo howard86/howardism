@@ -6,7 +6,7 @@ import ExternalLink from "@/app/(common)/external-link";
 
 import { SOCIAL_LINKS } from "../social-links";
 import { Avatar } from "./avatar";
-import { FOOTER_NAV } from "./constants";
+import { FOOTER_NAV, REFERENCE_LINKS } from "./constants";
 
 const SOCIAL_LABEL: Record<string, string> = {
   "Follow on GitHub": "github.com/Howard86",
@@ -47,7 +47,6 @@ export function Footer() {
           {SOCIAL_LINKS.map((link) => (
             <li key={link.href}>
               <ExternalLink
-                aria-label={link["aria-label"]}
                 className="flex items-center gap-1.5 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em] no-underline transition-colors hover:text-brand"
                 href={link.href}
               >
@@ -57,6 +56,22 @@ export function Footer() {
             </li>
           ))}
         </ul>
+
+        {/* Reference row */}
+        <nav aria-label="Machine-readable references">
+          <ul className="flex list-none flex-wrap items-center gap-x-4 gap-y-2 p-0">
+            {REFERENCE_LINKS.map(({ label, href }) => (
+              <li key={href}>
+                <Link
+                  className="font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em] no-underline transition-colors hover:text-brand"
+                  href={href}
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
         {/* Colophon */}
         <span className="font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">

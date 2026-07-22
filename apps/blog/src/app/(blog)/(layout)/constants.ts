@@ -17,3 +17,10 @@ export const FOOTER_NAV: { label: string; href: string }[] = [
   { label: "Shelf", href: "/shelf" },
   { label: "RSS", href: "/rss/feed.xml" },
 ];
+
+/** Machine-readable maps of the site — footer only, not part of the nav. */
+export const REFERENCE_LINKS: { label: string; href: string }[] = [
+  { label: "llms.txt", href: "/llms.txt" },
+  { label: "sitemap.xml", href: "/sitemap.xml" },
+  { label: "feed.json", href: "/rss/feed.json" },
+];

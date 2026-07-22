@@ -1,5 +1,6 @@
 "use client";
 
+import { createFuse, searchEntries } from "@howardism/article-contract/search";
 import {
   CommandDialog,
   CommandEmpty,
@@ -12,12 +13,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { ResultRow } from "./result-row";
-import {
-  createFuse,
-  loadSearchIndex,
-  type SearchEntry,
-  searchEntries,
-} from "./search-data";
+import { loadSearchIndex, type SearchEntry } from "./search-data";
 
 interface SearchPaletteProps {
   onOpenChange: (open: boolean) => void;

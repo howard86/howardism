@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
+import { createFuse, searchEntries } from "@howardism/article-contract/search";
+
 import {
   buildSnippet,
-  createFuse,
   type SearchEntry,
-  searchEntries,
 } from "@/components/search/search-data";
 
 const entries: SearchEntry[] = [

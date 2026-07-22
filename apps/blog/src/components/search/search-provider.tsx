@@ -17,6 +17,11 @@ const SearchPalette = dynamic(
   { ssr: false }
 );
 
+const WebMcpTools = dynamic(
+  () => import("./webmcp-tools").then((m) => m.WebMcpTools),
+  { ssr: false }
+);
+
 interface SearchContextValue {
   openSearch: () => void;
 }
@@ -40,6 +45,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     <SearchContext value={value}>
       {children}
       <SearchPalette onOpenChange={setOpen} open={open} />
+      <WebMcpTools />
     </SearchContext>
   );
 }
