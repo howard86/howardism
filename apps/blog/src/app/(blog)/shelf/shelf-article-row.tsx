@@ -5,7 +5,10 @@ import type { CSSProperties, ReactNode } from "react";
 import { DONE_PCT } from "@/lib/shelf-view";
 
 const META_CLASS =
-  "font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.16em]";
+  "font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.12em]";
+/** Micro type stop for the mobile meta line, tag chips, and badges. */
+const MICRO_CLASS =
+  "font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.08em]";
 
 /** Most subject chips a row shows before they crowd the title. */
 const MAX_CHIPS = 3;
@@ -55,7 +58,12 @@ const GRID_SELECT =
 function ProgressFacts({ pct }: { pct: number }) {
   if (pct >= DONE_PCT * 100) {
     return (
-      <span className="flex items-center justify-end gap-1.5 font-mono text-[10px] text-foreground uppercase tracking-[0.12em]">
+      <span
+        className={cn(
+          META_CLASS,
+          "flex items-center justify-end gap-1.5 text-foreground"
+        )}
+      >
         <span aria-hidden="true">✓</span> read
       </span>
     );
@@ -71,7 +79,12 @@ function ProgressFacts({ pct }: { pct: number }) {
           style={{ width: `${pct}%` }}
         />
       </span>
-      <span className="w-9 text-right font-mono text-[10.5px] text-muted-foreground tabular-nums">
+      <span
+        className={cn(
+          META_CLASS,
+          "w-9 text-right text-muted-foreground tabular-nums"
+        )}
+      >
         {pct}%
       </span>
     </span>
@@ -129,9 +142,11 @@ export function ShelfArticleRow({
   return (
     <li
       className={cn(
-        "group -mx-3 grid items-start gap-x-3 rounded-md border-border border-t px-3 py-4 transition-colors hover:bg-secondary md:items-center md:gap-x-4",
+        "group -mx-3 grid items-start gap-x-3 rounded-md border-border border-t px-3 py-4 transition-colors md:items-center md:gap-x-4",
         selection ? GRID_SELECT : GRID_PLAIN,
-        selection?.selected && "bg-brand/5"
+        selection?.selected
+          ? "bg-brand/5 hover:bg-brand/10"
+          : "hover:bg-secondary"
       )}
       style={{ "--dc": accent } as CSSProperties}
     >
@@ -145,10 +160,7 @@ export function ShelfArticleRow({
           type="checkbox"
         />
       )}
-      <span
-        className="whitespace-nowrap font-display font-light text-[22px] leading-[0.9] tracking-[-0.03em] md:text-[28px]"
-        style={{ color: accent }}
-      >
+      <span className="whitespace-nowrap font-display font-light text-[22px] text-foreground-subtle leading-[0.9] tracking-[-0.03em] md:text-[28px]">
         {marker}
       </span>
       <div className="min-w-0">
@@ -165,7 +177,10 @@ export function ShelfArticleRow({
           <span className="mt-1.5 flex flex-wrap gap-1.5">
             {chips.map((tag) => (
               <span
-                className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.06em]"
+                className={cn(
+                  MICRO_CLASS,
+                  "rounded-sm border border-border px-1.5 py-0.5"
+                )}
                 key={tag}
               >
                 {tag}
@@ -173,7 +188,12 @@ export function ShelfArticleRow({
             ))}
           </span>
         )}
-        <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.08em] md:hidden">
+        <span
+          className={cn(
+            MICRO_CLASS,
+            "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden"
+          )}
+        >
           <span
             aria-hidden="true"
             className="size-[7px] rounded-full bg-[var(--dc)]"
@@ -216,7 +236,12 @@ export function ShelfArticleRow({
 /** Shared "archived" tag for rows whose article was archived after reading. */
 export function ArchivedBadge() {
   return (
-    <span className="shrink-0 rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9px] text-foreground-subtle uppercase tracking-[0.14em]">
+    <span
+      className={cn(
+        MICRO_CLASS,
+        "shrink-0 rounded-sm border border-border px-1.5 py-0.5"
+      )}
+    >
       archived
     </span>
   );
