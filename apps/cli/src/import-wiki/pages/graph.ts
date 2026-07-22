@@ -140,7 +140,7 @@ export async function emitArticleGraph(
   args: EmitArticleGraphArgs
 ): Promise<string> {
   const { graph, outputPath, dryRun } = args;
-  const json = JSON.stringify(ArticleGraphSchema.parse(graph));
+  const json = JSON.stringify(ArticleGraphSchema.parse(graph), null, 2);
 
   if (dryRun) {
     console.log(

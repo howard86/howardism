@@ -94,7 +94,11 @@ export async function emitOpenQuestions(args: {
   outputPath: string;
 }): Promise<string> {
   const { manifest, outputPath, dryRun } = args;
-  const json = JSON.stringify(OpenQuestionsManifestSchema.parse(manifest));
+  const json = JSON.stringify(
+    OpenQuestionsManifestSchema.parse(manifest),
+    null,
+    2
+  );
 
   if (dryRun) {
     console.log(

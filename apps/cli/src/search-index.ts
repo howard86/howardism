@@ -104,7 +104,7 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
 async function main(): Promise<void> {
   const generatedOn = new Date().toISOString().slice(0, 10);
   const index = await buildIndex(generatedOn);
-  const json = JSON.stringify(SearchIndexSchema.parse(index));
+  const json = JSON.stringify(SearchIndexSchema.parse(index), null, 2);
 
   if (process.env.DRY_RUN === "1") {
     console.log(
