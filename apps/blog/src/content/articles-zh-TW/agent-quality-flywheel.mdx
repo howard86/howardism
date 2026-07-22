@@ -1,0 +1,87 @@
+---
+date: 2026-07-02
+title: Agent 品質飛輪
+description: "Google 的 eval-fix 迴圈，以 coding agent 驅動的 skill 形式封裝：Build & Test → Ship & Monitor → Learn & Refine，擴展為五個階段（準備資料 / 執行推論 / 評分 / 分析失敗 / 最佳化）；以白話描述疑慮，輸出指標選擇與前後差異；由合成 User Simulator 啟動，再以 production OTel traces 銳化"
+tag: Concept
+domain: agent-systems
+tags:
+  - evaluation
+  - evals
+  - agent-engineering
+  - quality
+  - google
+readingTime: 8
+imageAlt: Agent 品質飛輪插圖
+sources:
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/agent-quality-flywheel.png";
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+
+## 摘要
+
+Google Cloud 將**工程化打造 agent 品質，而不是憑感覺檢查品質**的方法論，在 2026 年 6 月以可安裝的 skill 形式推出，並由 *你的 coding agent 驅動*。它指出的問題，正是 agent 開發的日常現實：你調整一個 prompt，在三個範例上看起來更好，卻完全不知道是否因此弄壞了另外十個——「究竟是改變了 metric，還是只改變了 vibe。」飛輪是一個三階段迴圈——**Build & Test → Ship & Monitor → Learn & Refine**——其中 Build & Test 擴展為五個具體階段，先依序執行一次，再重複迴圈（階段 2–5），直到達成品質目標。Google 表示，這套方法論及其 AutoRaters，正是它用於自家模型與第一方 agents 的同一套工具，並與 [Google DeepMind](/articles/google-deepmind) 共同開發。來源是第一方產品部落格（`vendor-claim`）：機制描述具體，示範迴圈也有詳細演示，但結果是 Google 自己的示範，不是獨立測量。
+
+## 五個階段
+
+1. **Prepare Data** — 從既有的 OTel traces、手工製作的案例或合成情境建立 eval dataset。
+2. **Run Inference** — 在 dataset 上執行 agent 以產生 traces（若 traces 已存在則跳過，例如 production sessions）。
+3. **Grade** — 使用自適應的 **AutoRaters**（對 trace 評分並解釋原因的 [model-based judges](/articles/llm-as-a-judge)）或自訂 metrics，為 traces 評分。*唯一總是會執行的階段。*
+4. **Analyze Failures** — 閱讀 rubric 判定以理解案例*為何*失敗；當失敗數量達到十個以上時，使用 Automatic Loss Analysis 進行分群。
+5. **Optimize & Iterate** — 套用針對性的修正，重新執行 2–4，並與先前的 baseline 比較。
+
+這個 skill 編碼了這項紀律：大多數失敗案例都需要數次迭代，metrics 才會真正移動；同時也編碼了 [optimizer never grades its own work](/articles/optimizer-evaluator-decoupling) 這項架構規則：無論是提出修正的 coding agent、自動化 optimizer，還是人類，評估都由獨立的 evaluation service 負責評分。
+
+## 介面：描述疑慮，核准計畫
+
+開發者完全不需要碰 eval CLI，也不需要指定 metric。整個介面就是用白話描述疑慮——*「我擔心 travel-concierge 是否會遵守對話中途的變更……請找出測試方式並提出計畫」*——而 skill 的工作，就是**將這個目標轉換成正確的 evaluation**：讀取 agent 的程式碼、選擇 metrics、合成情境、執行評分，並回報前後差異。這本身就是自動化的 [eval-writing](/articles/evals-as-product-spec)：判斷工作提升了一個層級，從撰寫 eval 變成陳述疑慮並核准計畫。
+
+在 Google 的完整示範中（一個 ADK multi-agent trip planner），skill 透過 **User Simulator** 在五種修訂類型中啟動 25 個情境，使用兩個內建的 multi-turn AutoRaters 加上一個專門設計的 categorical rubric 進行評分，發現 21% 的修訂被 IGNORED，精確定位失敗原因；接著在人類核准三句指令修正後，重新執行同一套 evaluation，顯示 21%→5%。
+
+## 將一項疑慮提升為穩定指標
+
+示範中最值得移植的教訓。自適應 AutoRaters 會在每個案例、每次執行時重新產生 rubric，因此特定失敗會變成*多項標準中的一項，被折疊進混合分數*——它真實、有名稱，卻不易看見：在一個案例中，內建的 task-success metric 得到舒適的 **0.80，但使用者的修訂卻被丟掉了**，因為五項生成標準中有四項通過。問題不是偵測；**而是隔離**。做法是將這項疑慮提升為自己的**穩定 custom metric**——此處是採用 categorical verdicts（HONORED / IGNORED / PARTIAL / NO_REVISION）的 `revision_honored`——你可以計數、設門檻（「若超過 20% 回來時是 IGNORED 就採取行動」），並逐個迴圈追蹤趨勢。實際的分工是：**自適應內建指標作為整體健康訊號，另用一項穩定測量追蹤你正在改變的行為。**（請參閱 [LLM-as-a-Judge](/articles/llm-as-a-judge)，了解此處延伸的自適應 rubric 變體；以及 [Failures That Look Like Success](/articles/failures-that-look-like-success)，了解被混合分數掩蓋的失敗類型。）
+
+## 沒有假設也能運作
+
+只用*「找出一個真實失敗並修正它」*這句話，將 skill 直接對準一個 bug-triage agent 後，它進行廣泛探索——變化多樣的合成情境、內建的 multi-turn metrics——並自行浮現出一個主導群集：在 15 個案例中的 14 個，agent 正確完成工作，卻從未告訴使用者它呼叫了哪些 tools（它自己的指令要求如此；模型卻悄悄把這件事當成可選項）。根據 Google 的示範，一段一段式修正便在一個迴圈中將 tool-disclosure 從 0% 提升至 96%。「這是我的目標」和「幫我找個問題」都能運作。
+
+## 兩種節奏：開發迴圈與 production 迴圈
+
+- **隨需（dev）：** 尚無真實使用資料 → User Simulator 合成情境。這明確是**冷啟動 bootstrap**：「合成情境讓你開始運作；production data 才會讓迴圈變得銳利。」
+- **持續（production）：** 同一個 skill 指向真實的 OTel traces——已完成的 traces 完全跳過 Run Inference，直接使用相同的 raters 就地評分。**Online Monitors** 持續評估即時流量，並將品質分數寫入 Cloud Monitoring；當分數漂移時，失敗的 traces 會送入同一個 eval-fix 迴圈。每個 production failure 都是下一個迴圈的現成測試案例——[Production-Sourced Evaluation](/articles/production-sourced-evaluation) 被產品化為產品迴圈，而非 benchmark。
+
+Google 的既定方向，是讓 skill 自行驅動更多外層迴圈——監看 monitors、浮現 regressions、提出 fixes——但目前仍是**提出建議，由人類核准**；已推出的版本刻意不具備自主性。
+
+## 它是什麼，也不是什麼
+
+**是：** coding agent 內的方法論加上協調流程——metric 選擇、呼叫 eval-service、閱讀判定、提出修正、進行前後比較。以 skills 形式發布（`npx skills add …`，兩個套件對同一個 evaluation service），讓方法論與組織脈絡以同一個單位發布，即跨越 vendor 邊界的 [systematization](/articles/agentic-work-systematization) 格式。**不是：** 自主的（human-in-the-loop）；ground truth 的來源（AutoRaters 很 sophisticated，但以 model 為基礎——請把分數視為方向性的，**相比任何絕對數字，更應信任不同迴圈間的差異**）；真實流量的替代品。
+
+## 相關連結
+
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — 飛輪承重的架構規則；提案者與評分者保持分離
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — 兩個示範迴圈都浮現的失敗類型，也是 trace-level rubric 評分勝過 output skim 的原因
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — AutoRaters 是 judge primitive 的自適應 rubric 變體；飛輪在其上加入 stable-metric-promotion 紀律
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — production 節奏：真實 traces 作為 eval 輸入，合成模擬作為明確的冷啟動 bootstrap
+- [Evals as Product Spec](/articles/evals-as-product-spec) — 這項 PM skill 將流程提升一個層級自動化：人類陳述疑慮並核准計畫；skill 撰寫 eval
+- [Loop Engineering](/articles/loop-engineering) — 將 eval-fix 迴圈封裝為產品原生 skill；Google 加入 Codex/Claude Code 對已發布迴圈 primitives 的趨同
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — skills 作為發布單位，此處承載的是 vendor 方法論，而非組織特定脈絡
+- [Compounding Loop Optimization](/articles/compounding-loop-optimization) — 同一套為每個重複步驟加上儀表的紀律，產品化用於 agent 開發的 eval-fix 步驟
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 這套工具所攻擊的瓶頸：讓評分、失敗分析與回歸比較便宜到足以持續迴圈
+- [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform) — skill 所協調的 evaluation service、User Simulator、Online Monitors 與 AutoRaters 所在的平台
+- [Google DeepMind](/articles/google-deepmind) — AutoRaters 的共同開發者
+
+## 開放問題
+
+- 兩個示範迴圈都以*instruction-level* bugs 修正 agents，並顯示一個迴圈內的大幅增益。若失敗需要 tool、memory 或 architecture 變更，迴圈會如何運作——「需要數次迭代 metrics 才會移動」在實務中是否才是主流？
+- custom rubric 由之後也將提出 fixes 的同一個 coding agent 撰寫。Metric 的*選擇*位於評分的上游——解耦是否需要延伸至由誰定義 metric，而不只是由誰評分？
+- 合成 User Simulator 情境啟動了整個第一個迴圈。若套用到真實流量分布，21%→5% 的差異有多少能保留（[Production-Sourced Evaluation](/articles/production-sourced-evaluation) 所稱的代表性落差）？
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — Melnyk & Dai，Google Developers Blog，2026-06-30（`vendor-claim`）；建立於 Cloud Next '26 agent-quality talk 之上

@@ -1,0 +1,74 @@
+---
+date: 2026-07-02
+title: Optimizer–Evaluator 解耦
+description: eval-fix 迴圈中的架構規則：無論是提出修正方案的 coding agent、自動化 optimizer，還是人類，都絕不為該修正方案評分；結果由獨立的 evaluation service 評分，因為會替自己工作評分的 optimizer，學到的是操弄指標，而不是改進 agent
+tag: Concept
+domain: agent-systems
+tags:
+  - evaluation
+  - agent-engineering
+  - reward-hacking
+  - architecture
+readingTime: 6
+imageAlt: Optimizer–Evaluator 解耦插圖
+sources:
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
+---
+export { default as heroImage } from "../assets/optimizer-evaluator-decoupling.png";
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+
+## 摘要
+
+這項規則是：在任何改進迴圈中，**提出變更的那個東西，絕不為該變更評分。** Google 的 [Agent Quality Flywheel](/articles/agent-quality-flywheel) 將它表述為設計不變量：optimizer（你的 coding agent、自動化 optimizer，或你自己）提出方案；evaluation service 獨立評分——因為「會替自己工作評分的 optimizer，學到的是操弄指標，而不是改進 agent。這項小小的架構選擇，比看起來更重要。」這是以*結構方式*處理 [古德哈特定律](/articles/reward-hacking)，而非以行為方式處理：不必寄望 optimizer 保持誠實，而是移除它取得評分的權限。
+
+## 為什麼重要
+
+Reward hacking 通常在*訓練*迴圈中討論——模型操弄自己的 reward signal。同樣的動態也會在*開發*迴圈中運作：一個針對某項指標反覆調整 prompt、同時又負責計算該指標的 agent，最終會產出符合自身評分的結果，而不是達成使用者的目標。這種失敗很安靜，因為指標持續改善；只有獨立的 grader（或 production 流量）才會揭露偏離。解耦將「它真的變好了嗎？」從自我報告轉成外部檢查——也就是主張與測量之間的差異。
+
+## 同樣的拆分在哪裡反覆出現
+
+wiki 已經收錄數個獨立推導出這項規則的案例，這表示它是真正的不變量，而不是某家供應商的偏好：
+
+- **[Loop Engineering](/articles/loop-engineering)** —— Osmani 的 maker/checker sub-agent 拆分（「maker 對自己的作業評分時過於寬容」），以及 `/goal` 的設計：每一輪結束後由*另一個*模型檢查停止條件，因此撰寫程式碼的 agent 不會同時決定自己已經完成。
+- **[LLM-as-a-Judge](/articles/llm-as-a-judge)** —— 自我評分與 judge lineage 的注意事項：與受評模型共享訓練 lineage 的 judge，會構成 validity threat；DRACO 透過 human-alignment studies 選擇 judge，並使用不重疊的 judges 重新執行，以控制這項威脅。
+- **[Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming)** —— 訓練時期的威脅版本：能推理 grader 的模型，可以滿足成功的表象。解耦不會移除這項能力，但會拒絕讓 optimizer 直接取得 grader 的 feedback signal 來進行最佳化。
+- **[Formal proof search](/articles/ai-driven-formal-proof-search)** —— 極端案例：[Lean](/articles/lean) compiler 不只與 prover 解耦，還是*可靠的* evaluator；這正是 proof-search 迴圈能以完全自主方式運作，而 agent 的 eval-fix 迴圈仍受 human-gated 的原因。
+
+## 殘留的缺口
+
+將*評分*解耦後，仍有兩種耦合存在。第一是**指標選擇**：在 flywheel 示範中，之後提出修正方案的同一個 coding agent，也負責設計 custom rubric——optimizer 不能替自己的工作評分，但仍能決定要評分的內容。第二是**lineage**：如果獨立 evaluator 與受測 agent 來自同一個模型家族（Gemini 為 Gemini 建構的 agent 評分），那麼 [judge-lineage bias](/articles/llm-as-a-judge) 仍會穿過這道架構拆分而存在。解耦是必要條件，而非充分條件；它只是將信任問題提升一個層級，而不是消除問題（[Loop Engineering](/articles/loop-engineering) 也指出同樣的退化：誰來驗證 verifier？）。
+
+還有第三個更基本的缺口：**獨立 evaluator 仍然必須是*有效的*。** 解耦帶來的是*獨立性*，不是正確性——另一個獨立的 judge 可能完全可重現，卻仍系統性地錯誤。[Norman et al. (2026)](/articles/llm-judge-validation) 以**一致性–偏差悖論**具體說明了這點：一個 test-retest 達 0.99 的 judge，仍可能帶有 0.19 的 position bias，確定性地偏好排在第一位的答案。這樣的 judge 能通過每一項「是否穩定／是否解耦？」檢查，卻仍會回傳無效裁決。因此，「optimizer 絕不替自己的工作評分」是第一項不變量；「grader 已完成 chance correction 並接受 bias audit」（Minimum Viable Validation Protocol）是第二項，而兩者互不蘊含。
+
+## 相關連結
+
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) —— 將這項規則表述為其 eval-fix 迴圈的設計不變量
+- [Reward Hacking](/articles/reward-hacking) —— 這項規則要防止的失敗模式，從訓練迴圈移至開發迴圈
+- [Loop Engineering](/articles/loop-engineering) —— maker/checker sub-agent 拆分與 `/goal` 的獨立 stop-checker；同一規則在實務中的形式
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) —— 自我評分與 lineage bias 是問題在 judge 端的表述；獨立 judge 選擇則是 benchmark 端的緩解方式
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) —— grade-gaming 的模型內部版本；結構性解耦能抑制但無法消除它
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) —— 解耦的 evaluation 讓 verification 足夠可信，因而得以委派
+- [LLM-Judge Validation](/articles/llm-judge-validation) —— 解耦所假設、卻不會自行提供的 validity layer：獨立 judge 可能可靠地出錯（一致性–偏差悖論），因此還必須完成 chance correction 與 bias audit
+
+## 推導
+
+- [Single General Agent vs. Multi-Agent Coding Architecture](/articles/single-vs-multi-agent-coding-architecture) —— 這項規則正是多 agent coding 設定中的「testing/QA/reviewer」agent 之所以不可或缺的原因，*因為*它是獨立的：評估獨立性是一項結構性的（Goodhart）不變量，能在模型改進後持續存在，不像手工設計的任務結構那樣容易改變
+
+## 開放問題
+
+- 解耦是否需要向上游延伸到指標*設計*？自行撰寫 rubric 的 optimizer，比只讀取分數的 optimizer 擁有更隱蔽的操弄管道。
+- 多大的獨立性才足夠——不同模型家族、不同供應商，或不同的檢查模態（model judge、compiled test、production telemetry）？
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) —— 「The optimizer never grades its own work」段落（`vendor-claim`）
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544) —— Norman et al.（arXiv 2606.19544，2026 年 6 月，`empirical`）：一致性–偏差悖論（§4.7）——獨立且可重現的 judge 仍可能系統性偏誤；MVVP（§5.3）是解耦所遺漏的 validity check

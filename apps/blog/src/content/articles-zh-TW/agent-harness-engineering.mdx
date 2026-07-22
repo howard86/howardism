@@ -1,15 +1,15 @@
 ---
 date: 2026-04-10
-title: Agent Harness Engineering
-description: "用於搭建長時間運行 LLM agent 的模式：環境設計、漸進式上下文揭露、機械式架構強制執行、agent 程式碼審查"
+title: Agent Harness 工程
+description: "打造長時間運作 LLM agents 的模式：環境設計、漸進式上下文揭露、機械式架構強制，以及 agent 程式碼審查"
 tag: Concept
-domain: ai-engineering
+domain: agent-systems
 tags:
   - agent-engineering
   - llm-architecture
   - software-development
-readingTime: 11
-imageAlt: Agent Harness Engineering 示意圖
+readingTime: 14
+imageAlt: Agent Harness 工程插圖
 sources:
   - title: "Harness engineering: leveraging Codex in an agent-first world"
     url: https://openai.com/index/harness-engineering/
@@ -44,116 +44,129 @@ export { default as heroImage } from "../assets/agent-harness-engineering.png";
 
 ## 摘要
 
-Agent Harness Engineering 是一門設計環境、產物和回饋迴圈的學科，使 AI 程式撰寫 agent 能夠在多個 context window 中進行可靠且持續的工作。核心轉變在於：工程師的工作從編寫程式碼，轉向建立使 agent 發揮功效的 harness 鷹架——指定意圖、結構化 context window、強制執行不變量以及建置驗證流水線。
+Agent harness 工程是一門設計環境、產物與回饋迴圈的學科，讓 AI coding agents 能跨越多個上下文視窗，可靠且持續地工作。核心轉變是：工程師的工作從撰寫程式碼轉向建構讓 agents 發揮效能的鷹架——明確規範意圖、組織上下文、強制不變量，以及建構驗證流程。
 
 ## 細節
 
 ### 根本問題
 
-AI 程式撰寫 agent 在具有限制 context window 的獨立 session 中工作。每個新的 session 開始時都沒有先前工作的記憶。若沒有刻意的 harness 設計，agent 會表現出可預測的失敗模式：
+AI coding agents 在有限上下文視窗的離散工作階段中運作。每個新工作階段開始時，都沒有先前工作的記憶。若沒有刻意設計 harness，agents 會出現可預測的失敗模式：
 
-1. **One-shotting** — 企圖一次建置所有內容，在實作中途耗盡 context window，留下半成品且未記錄的工作
-2. **Premature victory** — 看到部分進度就宣稱工作完成
-3. **Dirty state** — 讓環境殘留 bug、未提交的變更或未記錄的進度，留給下一個 session 去整理
-4. **Incomplete verification** — 在沒有進行端到端測試的情況下，將功能標記為已完成
+1. **一次完成**——試圖一次建好所有東西，在實作中途耗盡上下文，留下未完成且沒有文件記錄的工作
+2. **過早勝利**——看到部分進度就宣告工作完成
+3. **髒狀態**——將帶有錯誤、未提交變更或未記錄進度的環境留給下一個工作階段收拾
+4. **驗證不完整**——沒有進行端到端測試就將功能標記為完成
 
-### 雙 Agent 架構 (Anthropic)
+### 雙 Agent 架構（Anthropic）
 
-Anthropic 針對 Claude Agent SDK 的解決方案使用兩個專門的 system prompt：
+Anthropic 為 Claude Agent SDK 採用兩個專門化 prompts：
 
-- **Initializer agent**（僅限第一個 session）：搭建環境——編寫 `init.sh` 腳本、建立 `claude-progress.txt` 紀錄檔、生成一個將所有需求標記為「失敗」的結構化 JSON 功能列表，並進行初始的 git 提交。
-- **Coding agent**（後續的每個 session）：讀取進度紀錄和 git 歷史記錄、執行基本的冒煙測試、挑選單一功能進行實作、進行端到端驗證（例如，針對 Web 應用程式透過 Puppeteer MCP）、提交乾淨的狀態，並更新進度檔案。
+- **初始化 agent**（僅限第一個工作階段）：建立環境——撰寫 `init.sh` 指令碼、建立 `claude-progress.txt` 記錄檔、產生包含所有需求且將狀態標記為「失敗」的結構化 JSON 功能清單，並建立初始 git commit。
+- **coding agent**（後續每個工作階段）：讀取進度記錄與 git 歷史、執行基本 smoke test、挑選單一功能實作、進行端到端驗證（例如 Web 應用程式使用 Puppeteer MCP）、提交乾淨狀態，並更新進度檔案。
 
-JSON 功能列表至關重要：agent 被指示絕不能刪除或編輯功能描述，只能在驗證後將 `passes` 從 `false` 改為 `true`。選擇 JSON 而非 markdown 是因為 agent 較不容易意外覆寫結構化的 JSON。
+JSON 功能清單至關重要：agents 會被指示絕不移除或編輯功能描述，只能在驗證後將 `passes` 從 `false` 改為 `true`。選用 JSON 而非 Markdown，是因為 agents 比較不容易意外覆寫結構化 JSON。
 
-### 儲存庫作為記錄系統 (OpenAI)
+### 儲存庫作為事實來源（OpenAI）
 
-OpenAI 的 Codex 團隊在完全沒有手寫程式碼的情況下建置了一款產品（約 100 萬行程式碼、約 1,500 個 PR，3 至 7 名工程師花費 5 個月）。他們關鍵的架構洞察是：**儲存庫本地端且有版本控制的產物是 agent 唯一能看見的內容**——任何存在於 Slack、Google Docs 或人們腦袋中的東西都是隱形的。
+OpenAI 的 Codex 團隊打造了一個完全沒有手寫程式碼的產品（約 100 萬行、約 1,500 個 PR，5 個月內由 3–7 位工程師完成）。他們的關鍵架構洞察是：**agent 能看見的只有儲存庫本地、具版本控管的產物**——Slack、Google Docs 或人們腦中的任何資訊都是不可見的。
 
-他們的方法：
-- **以 AGENTS.md 作為目錄，而非百科全書**：一個指向更深層文件的簡短（約 100 行）地圖。單一龐大的說明檔案會失敗，因為它會擠佔任務 context window、當每件事都很「重要」時就變得毫無指導作用、極易過時，且難以進行機械式驗證。
-- **漸進式揭露**：agent 從一個小而穩定的進入點開始，並被教導要在何處深入探究。設計文件、執行計畫和技術債都在儲存庫中進行版本控制。
-- **機械式強制執行**：自訂的 linter（本身也是由 agent 生成的）強制執行架構——包含層與層之間的依賴方向、結構化日誌、命名規範、檔案大小限制。Lint 錯誤訊息被編寫為修復指引，並注入到 agent 的 context window 中。
-- **文件園藝（Doc gardening）**：一個定期運行的背景 agent 會掃描過時的文件並開啟修復 PR。
+他們的方法包括：
+- **AGENTS.md 是目錄，不是百科全書**：一份簡短（約 100 行）的地圖，指向更深入的文件。單體式指示檔會排擠任務上下文，當所有事情都「重要」時便失去指引作用，迅速腐化，也難以進行機械式驗證。
+- **漸進式揭露**：agents 從小型且穩定的入口開始，並被告知要在哪裡深入探索。設計文件、執行計畫與技術債務都在儲存庫內進行版本控管。
+- **機械式強制**：自訂 linter（本身也是由 agents 產生）強制架構規則——層級間的相依方向、結構化記錄、命名慣例與檔案大小限制。linter 錯誤訊息會寫成修復指示，注入 agent 上下文。
+- **文件園藝**：週期性背景 agent 掃描過時文件，並開啟修正 PR。
 
-### 大規模強制執行架構
+### 大規模強制架構
 
-上述兩個來源都收斂到一個關鍵原則：**強制執行不變量，而非實作**。定義嚴格的邊界（層級依賴關係、邊界處的資料驗證、命名規範），並讓 agent 在這些邊界內自由發揮。
+兩個來源都歸結出一項關鍵原則：**強制不變量，而非實作方式**。定義嚴格邊界（層級相依性、邊界上的資料驗證、命名慣例），並讓 agents 在這些邊界內自由發揮。
 
-OpenAI 針對每個業務領域使用嚴格的分層架構：Types → Config → Repo → Service → Runtime → UI，而橫切關注點則透過單一的 Providers 介面引入。這透過結構化測試和自訂 linter 來強制執行。他們指出，這種程度的架構嚴謹性通常會被推遲到擁有數百名工程師時才進行——但對於 agent 來說，這是一個早期先決條件，因為約束能夠在不產生偏差的前提下提升速度。
+OpenAI 為每個業務領域採用嚴格的分層架構：Types → Config → Repo → Service → Runtime → UI，橫切關注點則透過單一 Providers 介面進入。這由結構測試與自訂 linters 強制執行。他們指出，這種程度的架構嚴謹性通常要等到工程師數量達數百人時才會採用；但對 agents 而言，這是早期先決條件，因為限制能在不產生漂移的情況下帶來速度。
 
-### 持續的熵管理
+### 持續管理熵
 
-Agent 生成的程式碼庫會累積熵：agent 會複製已經存在的模式，包括那些次優的模式。OpenAI 最初花費了 20% 的工程時間在手動清理「AI 廢料（AI slop）」。他們的解決方案：將「黃金原則」編碼進儲存庫中，並以定期節奏運行背景 agent 任務來掃描偏差、更新品質評級，並開啟針對性的重構 PR。這就像垃圾回收一樣運作——以微小的增量持續償還技術債，而不是讓它利滾利地複利累積。
+Agent 產生的程式碼庫會累積熵：agents 會複製既有模式，包括其中不理想的模式。OpenAI 最初花費 20% 的工程時間手動清理「AI 垃圾」。他們的解法是：將「黃金原則」編碼至儲存庫，並按週期執行背景 agent 任務，掃描偏差、更新品質評級，以及開啟目標明確的重構 PR。這就像垃圾回收——持續以小幅增量償還技術債務，而不是任其複利累積。
 
 ### Harness 即服務
 
-上述模式描述了單次 session 的 harness。兩個 2026 年的系統展示了自然的演進——**作為服務持續運行的 harness**，並具備每租戶的工作空間隔離：
+上述模式描述的是每個工作階段的 harness。兩個 2026 年的系統展示了自然的演進——**以服務形式持續運作的 harness**，並提供每個租戶隔離的工作區：
 
-- [Symphony](/articles/symphony) (OpenAI, 2026 年 3 月) — 長時間運行的常駐程式（daemon）輪詢 Linear、每個 issue 獨立的工作空間、每個 ticket 獨立的 [Codex App Server](/articles/codex-app-server-protocol) session。這是由撰寫上述 OpenAI 資料來源的同一個團隊所開發；也是他們明確的「harness 即服務」迭代。Orchestrator 擁有工作空間生命週期、重試／退避（retry/backoff）、停滯偵測（stall detection）和協調（reconciliation）；儲存庫內的 `WORKFLOW.md` 是策略檔案。
-- [Hermes Agent](/articles/hermes-agent) (Nous Research) — Hermes Gateway 作為 systemd 或 launchd 運行；每位使用者獨立的 session 隔離；允許清單 + DM 配對授權；cron 工作傳送到指定的 Home 頻道。
+- [Symphony](/articles/symphony)（OpenAI，2026 年 3 月）——長時間運作的 daemon 輪詢 Linear，每個 issue 都有獨立工作區，每張 ticket 都建立一個 [Codex App Server](/articles/codex-app-server-protocol) 工作階段。這與上述 OpenAI 來源由同一團隊撰寫，是他們明確的「harness 即服務」迭代版本。Orchestrator 負責工作區生命週期、重試／退避、停滯偵測與重新協調；儲存庫內的 `WORKFLOW.md` 則是政策檔案。
+- [Hermes Agent](/articles/hermes-agent)（Nous Research）——Hermes Gateway 以 systemd 或 launchd 執行；每位使用者的工作階段彼此隔離；透過 allowlist + DM 配對授權；cron jobs 會傳送至指定的 home channel。
 
-兩者的收斂設計選擇：
+兩者共有的設計選擇：
 
-1. **常駐程式優先部署（Daemon-first deployment）** — 長時間運行的服務，而非每次呼叫的 CLI。
-2. **每租戶工作空間隔離** — 每個 issue（Symphony）或每位使用者（Hermes）。
-3. **以容器後端作為信任邊界**（Docker、Singularity、Modal、Daytona），而非每次命令都要核准提示。Hermes 在「容器即安全邊界」的原則下，明確禁用了容器後端下的危險命令檢查。
-4. **以儲存庫版本控制的 markdown 作為 control plane** — Symphony 使用 `WORKFLOW.md`，Hermes 使用 `AGENTS.md`/`SOUL.md`，這與 session 層級的 `CLAUDE.md`/`AGENTS.md` 目錄規範模式相同。
-5. **預設無持久化的 orchestrator 資料庫** — Symphony 明確選擇 tracker + 檔案系統來進行重啟復原；Hermes Gateway 狀態僅儲存於檔案系統中。
+1. **Daemon 優先部署**——長時間運作的服務，而非每次呼叫時才執行的 CLI。
+2. **每個租戶的工作區隔離**——按 issue（Symphony）或按使用者（Hermes）隔離。
+3. **以容器後端作為信任邊界**（Docker、Singularity、Modal、Daytona），而非每個指令都要求核准。在容器後端下，Hermes 明確停用危險指令檢查，理由是「容器就是安全邊界」。
+4. **儲存庫版本控管的 markdown 作為控制平面**——Symphony 使用 `WORKFLOW.md`，Hermes 使用 `AGENTS.md`／`SOUL.md`，與工作階段層級的 `CLAUDE.md`／`AGENTS.md` 目錄式規範採用相同模式。
+5. **預設不使用持久化 orchestrator 資料庫**——Symphony 明確選擇 tracker + 檔案系統來進行重新啟動復原；Hermes Gateway 的狀態也僅存在檔案系統中。
 
-Symphony 的演進深化了上述原則。他們的第一個版本將 agent 視為僵化的狀態機節點——Codex *僅*被要求實作 ticket 中的任務。當模型的能力成長到足以「建立多個 PR，並讀取檢閱回饋並加以解決」時，他們發現這太過限制，因而轉向給予 agent **目標 + 工具，而非狀態轉移**。這是在編排層（orchestration layer）應用的「強制執行不變量，而非實作」（參見 [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration)）。
+Symphony 的演進讓上述原則更加鮮明。他們的第一版將 agents 視為僵化的狀態機節點——Codex *只被要求*實作 ticket 中的任務。當模型能力提升到足以「建立多個 PR，並讀取審查回饋及處理回饋」後，他們發現這種做法過於受限，於是改為提供 agents **目標 + 工具，而非狀態轉移**。這是將「強制不變量，而非實作方式」應用到編排層（見[票券驅動的 Agent 編排](/articles/ticket-driven-agent-orchestration)）。
 
-對於 orchestrator 與 coding agent 之間的整合邊界，Symphony 採用 [Codex App Server Protocol](/articles/codex-app-server-protocol)——透過 stdio 進行 JSON-RPC，並支援連續回合（continuation turns）與動態 tool calls——這使得協定契約明確且具備版本相容性。該協定的**動態 tool calls**功能也是一個顯著的 harness 原語：由 orchestrator 實作的工具可以封裝 subagent 絕不應該看見的憑證（例如，Symphony 的 `linear_graphql` 工具代理了經過驗證的 GraphQL，而無需將 Linear 的存取權杖給予 subagent 容器）。
+在 orchestrator 與 coding agent 之間的整合邊界上，Symphony 使用 [Codex App Server protocol](/articles/codex-app-server-protocol)——透過 stdio 傳輸的 JSON-RPC，支援延續回合與動態工具呼叫——使契約明確且能容忍版本差異。該協定的**動態工具呼叫**功能也是值得注意的 harness 基元：由 orchestrator 實作的工具可以包裝 subagent 絕不應看見的憑證（例如 Symphony 的 `linear_graphql` 工具會代理經驗證的 GraphQL，而不將 Linear 存取權杖交給 subagent 容器）。
 
 ### 人類的角色
 
-在這兩個系統中，人類在不同的抽象層工作：
-- 排定工作優先順序，並將使用者回饋轉化為驗收準則
+在兩個系統中，人類都在不同的抽象層工作：
+- 排定工作優先順序，並將使用者回饋轉化為驗收條件
 - 設計環境與回饋迴圈
-- 驗證結果並提供品味與判斷
-- 當 agent 遇到困難時，診斷缺少了什麼能力（工具、護欄、文件）並將其回饋給系統——始終透過 agent 進行，而非直接編寫程式碼
+- 驗證結果並提供品味／判斷
+- 當 agent 陷入困境時，診斷缺少哪項能力（工具、護欄、文件），並將其回饋至系統中——始終透過 agent，而不是直接撰寫程式碼
 
 ## 相關連結
 
-- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — 共享了儲存庫本地端知識作為記錄系統、增量編譯以及 LLM 維護產物的模式
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — 許多 harness 工程原則在 Claude Code 環境中的實際應用（CLAUDE.md、skills、hooks、subagents）
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 漏洞尋找鷹架是一個極簡的 harness：隔離的容器、單一 prompt、具有檔案評級預處理和驗證 agent 的 agentic 迴圈
-- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — harness 提供了執行基底，用戶端最佳化器隨後透過組合選擇進行調優；harness 強制執行的不變量約束了 AgentOpt 搜尋的空間
-- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 輸出長度不變量（透過系統 prompt、schema 或驗證器）是 harness 層級對規模相關過度思考的緩解措施——符合「強制執行不變量，而非實作」的原則
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 基於分類器的 tool-call 門控是在權限邊界「機械式強制執行不變量」的具體實例——在執行前強制執行破壞性操作限制，而非透過建議性 prompt
-- [Claude Opus 4.7](/articles/claude-opus-4-7) — 更好的檔案系統記憶增強了將儲存庫本地端且有版本控制的產物作為 agent 記憶的理由；任務預算呼應了 harness 已經施加的明確資源信封規範
-- [Symphony](/articles/symphony) — 來自同一個 OpenAI 團隊的自然「harness 即服務」演進；以 ticket 為單位和每個 issue 獨立的工作空間是此處建立的 harness 模式的直接延伸
-- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 編排層對「強制執行不變量，而非實作」的重新闡述；一旦單次 session 的 harness 開始運作，下一個瓶頸就是下一個要運行哪個 session
-- [Codex App Server Protocol](/articles/codex-app-server-protocol) — 讓「harness 即服務」成為可能的整合邊界；orchestrator 透過有版本控制的 JSON-RPC 契約驅動 session，而不是去解析 CLI
-- [Hermes Agent](/articles/hermes-agent) — 平行的常駐程式優先 agent 生態系統；採用每位使用者而非每個 issue 的隔離，並使用相同的容器後端安全模式；有界的 `MEMORY.md`/`USER.md` 檔案實作了明確的記憶信封
-- [Context Window Smart Zone](/articles/context-window-smart-zone) — 促使系統 prompt 極簡化、以 AGENTS.md 作為目錄以及在全新上下文中進行檢閱者規範的底層約束；二次方注意力縮放設定了每個 harness 運作的預算
-- [Agent Loop Pattern](/articles/agent-loop-pattern) — 一旦單次 session 的 harness 運作後，自然的 session 層級原語：AFK 消化 Kanban 待辦事項，將工作碎片化為許多全新上下文的迭代
-- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 規劃層對「強制執行不變量，而非實作」的重新闡述——不變量是「每個切片都會產生可見的回饋」
-- [Design Concept Grilling](/articles/design-concept-grilling) — 對齊層的 harness 原語；透過強制執行計畫前訪談來防止過早生成計畫
-- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 程式碼庫形狀的互補：在深層模組（deep-module）程式碼庫中的 agent 可以節省 smart-zone token，並具有自然的測試邊界
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — harness 與模型之間的分工：prompt 鷹架隨著模型改進而縮減，但機械式驗證仍然發揮關鍵作用
-- [Model Introspection Feedback](/articles/model-introspection-feedback) — 偵錯時工具：詢問模型失敗的原因，修復 *harness*，而不是模型
-- [Interaction Models](/articles/interaction-models) — 在 *互動* 層（即時影音）將 harness 對決模型的問題堅定地轉向模型解決；VAD／輪次檢測／對話管理 harness 溶解為模型行為（[Thinking Machines Lab](/articles/thinking-machines-lab), 2026 年 5 月）
-- [The Bitter Lesson](/articles/the-bitter-lesson) — 「強制執行不變量，而非實作」背後的原則：不要用人工設計那些會被規模化通用能力所包容的內容
-- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 相同的多 agent 拆分，但是針對 *時間* 關注點（保持響應性 vs. 深度思考）而非上下文隔離；harness 與模型分工在互動層的實例
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — 連接器是 *非 harness* 基底；模型決定使用哪一個；隨著模型做出更好的選擇，圍繞工具分派決策的 harness 邏輯將會縮減
-- [Agent Context Files](/articles/agent-context-files) — 「強制執行不變量，而非實作」的建議性那一半：CLAUDE.md/AGENTS.md/WORKFLOW.md 是 policy plane；hook 和 orchestrator 不變量是機械式的那一半
+- [Vibe Coding 與 Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering)——「迴圈已經落伍」：Ambrosino 認為 harness 工程／自主開發已位於編排式迴圈之後的前沿
+- [LLM 作為編譯器的知識庫](/articles/llm-as-compiler-knowledge-base)——同樣採用儲存庫本地知識作為事實來源、增量編譯與由 LLM 維護產物的模式
+- [Claude Code 最佳實務](/articles/claude-code-best-practices)——在 Claude Code 環境中實際應用許多 harness 工程原則（CLAUDE.md、skills、hooks、subagents）
+- [LLM 驅動的弱點研究](/articles/llm-driven-vulnerability-research)——弱點尋找鷹架是一個最小型 harness：隔離容器、單一 prompt，以及帶有檔案排名預處理與驗證 agent 的 agentic 迴圈
+- [用戶端 Agent 最佳化](/articles/client-side-agent-optimization)——harness 提供執行基礎，讓用戶端最佳化器透過組合選擇進行調整；harness 強制的各項不變量會限制 AgentOpt 搜尋的空間
+- [依規模而變的 Prompt 敏感度](/articles/scale-dependent-prompt-sensitivity)——輸出長度不變量（透過系統 prompts、schemas 或 validators）是針對依規模而變的過度思考的 harness 層級緩解措施，符合「強制不變量，而非實作方式」原則
+- [Claude Code 自動模式](/articles/claude-code-auto-mode)——基於分類器的工具呼叫閘控，是在權限邊界「以機械方式強制不變量」的具體實例：破壞性動作限制在執行前強制，而不是透過建議式 prompt
+- [Agent 資料注入（ADI）](/articles/agent-data-injection)——harness 的**資料格式與工具呼叫區塊分隔符**是安全攻擊面：Claude Code 的 `<function_calls>`／`<function_results>` 標籤、Codex 的換行分隔，以及 Gemini CLI 的 `<ctrl46>` 都可以被模仿，讓攻擊者在上下文中偽造工具歷史——當注入資料逐字抵達模型時，這也說明了「容器就是安全邊界」並非完整答案
+- [Claude Opus 4.7](/articles/claude-opus-4-7)——更好的檔案系統記憶強化了儲存庫本地版本化產物作為 agent 記憶的論據；任務預算則呼應 harness 已施加的明確資源範圍紀律
+- [Symphony](/articles/symphony)——同一個 OpenAI 團隊自然演進出的「harness 即服務」；以 ticket 為單位及每個 issue 的工作區，都是此處建立的 harness 模式的直接延伸
+- [票券驅動的 Agent 編排](/articles/ticket-driven-agent-orchestration)——「強制不變量，而非實作方式」在編排層的重新表述；每個工作階段的 harness 運作後，下一個瓶頸便是決定接下來執行哪個工作階段
+- [Codex App Server Protocol](/articles/codex-app-server-protocol)——讓「harness 即服務」成為可能的整合邊界；orchestrator 透過版本化 JSON-RPC 契約驅動工作階段，而不是擷取 CLI 輸出
+- [Hermes Agent](/articles/hermes-agent)——平行的 daemon 優先 agent 生態系；按使用者而非按 issue 隔離，採用相同的容器後端安全模式；有界的 `MEMORY.md`／`USER.md` 檔案實作明確的記憶範圍
+- [上下文視窗智慧區](/articles/context-window-smart-zone)——促使系統 prompt 極簡化、AGENTS.md 作為目錄，以及在全新上下文中進行審查的根本限制；二次注意力擴展為每個 harness 運作的預算設下上限
+- [Agent 迴圈模式](/articles/agent-loop-pattern)——每個工作階段 harness 運作後自然形成的工作階段層級基元：AFK 清空 Kanban 待辦清單，將工作切分成許多全新上下文的迭代
+- [迴圈工程](/articles/loop-engineering)——[Osmani](/articles/addy-osmani)：「迴圈工程位於 harness 上方一層」——定時產生 helpers 並自我餵養的 harness；它列出的 worktree 隔離與外部記憶基元，都是此處建立的 harness 模式
+- [垂直切片追蹤子彈](/articles/vertical-slice-tracer-bullets)——「強制不變量，而非實作方式」在規劃層的重新表述——不變量是「每個切片都產生可見回饋」
+- [設計概念拷問](/articles/design-concept-grilling)——對齊層的 harness 基元；透過強制進行計畫前訪談，避免過早產生計畫
+- [Agent 的深層模組](/articles/deep-modules-for-agents)——程式碼庫形狀的互補：在深層模組程式碼庫中的 agents 能節省 smart-zone token，並擁有自然的測試邊界
+- [隨模型改進而縮減 Harness](/articles/harness-shrinkage-as-models-improve)——harness 與模型的分工：prompt 鷹架會隨模型改進而縮小，機械式驗證仍是承重結構
+- [深度研究 Agents](/articles/deep-research-agents)——檢索與綜合 harness，其中編排仍是承重結構：DRACO 測量編排系統勝過僅搭配工具的基礎模型約 10 個百分點
+- [模型內省回饋](/articles/model-introspection-feedback)——除錯時的工具：詢問模型為何失敗，修復*harness*，而不是模型
+- [互動模型](/articles/interaction-models)——將 harness 與模型的問題明確解向互動層的模型（即時 A/V）；VAD／回合偵測／對話管理 harness 會融入模型行為（[Thinking Machines Lab](/articles/thinking-machines-lab)，2026 年 5 月）
+- [苦澀的教訓](/articles/the-bitter-lesson)——「強制不變量，而非實作方式」背後的原則：不要手工打造最終會被大規模通用能力取代的東西
+- [互動／背景模型分工](/articles/interaction-background-model-split)——同樣的多 agent 分工，但處理的是*時間*關注點（保持回應性與深入思考），而非上下文隔離；是 harness 與模型分工的互動層實例
+- [MCP 與電腦使用](/articles/mcp-and-computer-use)——連接器是*harness 以外*的基礎；模型決定使用哪個；當模型選擇能力提升時，圍繞工具分派決策的 harness 邏輯會縮減
+- [Agent 上下文檔案](/articles/agent-context-files)——「強制不變量，而非實作方式」的建議式一半：CLAUDE.md／AGENTS.md／WORKFLOW.md 是政策平面；hooks 與 orchestrator 不變量則是機械式一半
+- [儲存庫探索 Subagent](/articles/repository-exploration-subagent)——將探索與解題解耦就是 harness 設計：FastContext 的 explorer 以機械方式強制上下文隔離（只能定位，不能編輯），並只回傳精簡證據——將漸進式上下文揭露具體化到搜尋階段
+- [部署模擬](/articles/deployment-simulation)——將發行前評估延伸至 agentic 情境，*以 LLM 模擬工具呼叫*（儲存庫狀態 + 工具呼叫／回應資料庫 + 唯讀連接器），將判別器真實性從 11.6% 提升至 49.5%；它解決的環境保真度問題，正是 harness 工程管理的問題
+- [可設定的人類參與](/articles/configurable-human-participation)——HAS-Framework 是一個明確目標為讓*人類*參與可排程的 harness（具型別的圖邊將請求路由至特定人類，而非通用的「人類輸入」prompt）；它發現*何時徵求輸入，以及開啟哪個頻道*會左右結果，這是 harness 設計成果，而不只是模型能力成果
+- [超越準確度飽和的測量](/articles/measuring-beyond-accuracy-saturation)——對 harness 貢獻的實證測量：固定模型並替換鷹架，準確度會變動約 44 個百分點；同一模型上的兩個鷹架在 31% 的任務上意見不一致（oracle router 可達 100%，因此每項任務都能由*某個*鷹架解決）；鷹架會誘發不同策略（direct-fix 95% 對 rewrite 68%；視覺讀取率也大幅不同）。這證實模型效應與鷹架效應無法乾淨分離——harness 限制可用的解法路徑，模型則決定利用這些路徑的成效
 
 ## 衍生內容
 
-- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 將「強制執行不變量，而非實作」和 Writer/Reviewer 模式應用於 Opus 4.7 多 agent 程式撰寫團隊
+- [Opus 4.6 → 4.7 變更與多 Agent Coding 考量](/articles/opus-4-7-and-multi-agent-coding)——將「強制不變量，而非實作方式」與 Writer／Reviewer 模式應用於 Opus 4.7 多 agent coding 團隊
+- [單一通用 Agent 與多 Agent Coding 架構](/articles/single-vs-multi-agent-coding-architecture)——回答下方的開放問題 #1：在任務先驗（單一 agent 取勝，符合苦澀的教訓）與上下文隔離 + 評估獨立性（角色分離持續存在）之間，重新描繪「單一 vs. 多 agent」
 
 ## 相關連結
 
-- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — 建立 agent 可解讀的環境是 *基礎設施* 層的 harness 工程；[Karpathy](/articles/andrej-karpathy) 的「先向 agent 描述它」與以 AGENTS.md 作為目錄是相同的直覺
-- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — [AlphaProof Nexus](/articles/alphaproof-nexus) 的 proof-sketch-with-`EVOLVE-BLOCK`-markers 是一個為定理證明「強制執行不變量，而非實作」的 harness（agent 僅能編輯標記區域；定理陳述是不變量）
+- [Agent 原生基礎設施](/articles/agent-native-infrastructure)——打造 agent 可理解的環境，就是在*基礎設施*層進行 harness 工程；[Karpathy](/articles/andrej-karpathy) 的「先向 agents 描述」與 AGENTS.md 作為目錄的直覺相同
+- [AI 驅動的形式化證明搜尋](/articles/ai-driven-formal-proof-search)——[AlphaProof Nexus](/articles/alphaproof-nexus) 的帶有 `EVOLVE-BLOCK` 標記之證明草稿，是一個針對定理證明「強制不變量，而非實作方式」的 harness（agent 只能編輯標記區域；定理陳述是不變量）
+- [潛在空間與決定性空間](/articles/latent-vs-deterministic-space)——[Tan](/articles/garry-tan) 的雙面診斷命名了 harness 設計者所工程化的邊界：模型判斷的事物（潛在），以及鷹架持有並強制的事物（決定性）
 
-## 未決問題
+## 開放問題
 
-- 單一通用型程式撰寫 agent 的表現是否優於具有專門測試、QA 和清理 agent 的多 agent 架構？
-- 在完全由 agent 生成的系統中，架構的一致性在數年內會如何演進？
-- 在何種程式碼庫規模下，以 AGENTS.md 作為目錄的方法需要被更複雜的上下文路由所取代？
-- 這些聚焦於 Web 應用程式的發現，在多大程度上可以推廣到其他領域（科學研究、金融建模）？
+- 在完全由 agents 產生的系統中，架構一致性會如何經過多年演進？
+- 程式碼庫達到什麼規模時，AGENTS.md 作為目錄的方法需要由更複雜的上下文路由取代？
+- 這些以 Web 應用程式為主的發現，能多大程度泛化至其他領域（科學研究、金融建模）？
+
+## 已解決問題
+
+- 單一通用 coding agent 是否勝過由專門化測試、QA 與清理 agents 組成的多 agent 架構？**答案：**[單一通用 Agent 與多 Agent Coding 架構](/articles/single-vs-multi-agent-coding-architecture)——按原問題的設定沒有唯一勝者；隨著模型改進，單一通用 agent 勝過*量身打造且由人手工程化的*多 agent 系統（見[苦澀的教訓](/articles/the-bitter-lesson)），但*單體上下文* agent 會輸給*角色分離*（全新上下文的 explorer／reviewer + 獨立 grader），因為後者修復的是結構性限制（二次注意力、Goodhart），而非模型弱點。
 
 ## 資料來源
 

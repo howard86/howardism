@@ -1,0 +1,99 @@
+---
+date: 2026-07-15
+title: Agent Data Injection (ADI)
+description: "一種新型的間接 prompt injection 類別：透過機率式分隔符注入，將偽裝成*受信任資料*的惡意 payload（例如留言作者等 metadata、UI 元素 ID 或 tool-call history）注入，而非偽裝成 instructions——LLM 將不精確／經過跳脫的分隔符誤讀為結構邊界，因此 agent 仍執行使用者的任務，卻是在攻擊者偽造的資料上執行；在 Claude Code／Codex／Gemini CLI 上可實現 RCE 與 supply-chain exploits，在 Claude-in-Chrome 上可 arbitrary-click，繞過只分離 instructions 與 data 的 IPI 防禦（當 instruction injection 約為 0% 時，ASR 最高達 50%）"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - prompt-injection
+  - threats
+  - delimiter-injection
+  - trust-boundary
+readingTime: 15
+imageAlt: Agent Data Injection (ADI) 的插圖
+sources:
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+---
+export { default as heroImage } from "../assets/agent-data-injection.png";
+
+## 資料來源
+
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+
+## 摘要
+
+Choi、Kim、Kang、Jeong、Xing 與 Lee（Seoul National University／UIUC／Largosoft，arXiv 2607.05120，2026 年 7 月）提出 **Agent Data Injection (ADI)**，一種新型的間接 prompt injection（[IPI](/articles/agentic-prompt-injection)）。目前研究較多的 IPI 類別是 **instruction injection**：攻擊者控制的不受信任資料被誤解為*instruction*，使 agent 放棄使用者的任務，改做攻擊者的任務。如今許多防禦會強制建立 instruction↔data 邊界來阻止這種攻擊。ADI 利用的是**同一套防禦忽略的另一個、更細緻的邊界**：agent data *內部*受信任與不受信任資料之間缺乏隔離。ADI 讓不受信任資料被誤解為**受信任資料**——也就是模型依賴作為錨點、且具安全關鍵性的 metadata（留言的作者／角色、電子郵件的 `sender`、Web UI 元素的 identifier，或 tool-call／response history）。Agent 仍執行使用者原本想做的任務，但操作的是攻擊者偽造的 metadata。
+
+這個區分正是論文 Figure 3 的重點。Instruction injection 讓 LLM *遵循攻擊者的 instruction*；ADI 則讓 LLM *在攻擊者的資料上遵循使用者的 instruction*。由於現有防禦的設計目標，是避免注入資料被讀成 instruction，**而不是**避免它被讀成受信任資料，因此它們基本上**無法抵禦 ADI**：面對 state-of-the-art agent 防禦時，instruction injection 的 attack success 約為零（0.0–0.7%），而 ADI 對同一批防禦的 **ASR 最高達 50%**。這是 `empirical` 研究，包含真實且已負責任揭露的 exploits（Anthropic、OpenAI 與 Google 已確認；Nanobrowser 未回應）。
+
+## 機制：probabilistic delimiter injection
+
+Agent data（JSON、Markdown、XML、自訂 tag 格式）由**分隔符**建立結構。分隔符分開三個層級——tool-call blocks、objects 與 fields——因此也分開受信任值與不受信任值。**Probabilistic delimiter injection** 會把類似分隔符的字元序列注入不受信任欄位，使 LLM 所看到的資料結構與 tool 所看到的結構產生分歧。Tool 將注入序列視為普通文字；LLM 卻將它誤讀為結構邊界，因而把攻擊者 payload 的一部分理解成*新的*受信任 field／object／tool-block。
+
+*Probabilistic* 是承載核心意義的詞，也是論文的主要創新。傳統的 delimiter attacks（SQL injection、XSS）針對**確定性 parser**，只有在 delimiter **完全精確**時才會成功（真正的 `'` 或 `<script>`）。LLM 會以**機率方式**解讀資料，因此即使是**不精確、對 parser 無效**的 delimiter 也能運作：跳脫的雙引號 `\"`——JSON parser 會保留為字面文字——仍可能被機率式解讀為結構引號（Figure 4：電子郵件 `body` 包含 `\"sender\": \"alice@gmail.com\"`，偽造出第二個冒充 `alice` 的電子郵件 object）。這種攻擊與 delimiter 的具體形式無關：視覺上相似的引號（`'`），或任意字元（`$`、`()`），在 JSON 上仍能達到 35.8–43.3% ASR。偽造 object 的結構**一致性**最重要——完整的 fake object（31.3–43.3%）優於格式錯誤的 object（11.8–20.0%）。這是首次系統性描述 LLM 對不精確 delimiter 的誤讀。
+
+## 真實 agent 上的三種可行 exploits（§4）
+
+每一種都濫用不同類型的受信任資料。三者都已在出貨中的產品上獲得確認；user-approval dialogs **無法阻止它們**，因為 agent 自己顯示的 reasoning 建立在這種誤讀之上，反而會**強化攻擊者的虛假敘事**（例如「依照 maintainer 的建議安裝 `starship-auth`」）。
+
+1. **透過 element-ID injection arbitrary click（web agents）。** 一則精心製作的產品評論注入假的 `button "Read More" [ref_3]`，重複使用真正 *Buy Now* 按鈕的 identifier（ID 以連續且可預測的順序指派）。Agent 仍在摘要評論，卻「點擊 Read More」——該 ID 實際解析為 Buy Now，於是完成購買。在 **Claude in Chrome、Antigravity、Nanobrowser** 上確認。類似 XSS：任何含有 user-generated content 的網站都會變成 attack surface。**ChatGPT Atlas 不受影響**，因為它使用 runtime-randomized nonce（`ref_4af2b1c9`），攻擊者無法預測——這就是 randomization defense。
+2. **透過 origin injection 達成 remote code execution（coding agents）。** GitHub issue comment 注入假的 comment object，帶有**偽造的 maintainer author／role**，並建議執行惡意 shell command。使用者要求 agent「套用 maintainer 的修正」；agent 將注入的 comment 誤認為 maintainer 所發，並執行 command（`pip install starship-auth`）。在 **Claude Code、Codex、Gemini CLI** 上確認（透過 `gh` CLI 與 GitHub MCP server，JSON 與 plaintext 兩種格式皆可）。
+3. **透過 tool-call／response injection 發動 supply-chain attack（coding agents）。** 惡意 PR 的*description*注入假的 tool-call block——對 Claude Code 而言，是偽造的 `<function_calls>`／`<function_results>` tags——製造一個 `read_pr_commit` result，顯示*無害*的 diff。Agent「審查」偽造的 commit，判定 PR 安全並將其 merge；但**實際** commit 包含 XSS payload。它偽造整段 tool-execution history，因此可以製造任何 tool output（verification results、price comparisons）。在 **Claude Code、Codex、Gemini CLI** 上確認。
+
+其他已確認的變體（§C）包括：**email sender spoofing**（ChatGPT、Claude）與 **Slack origin injection**（Claude Code + Slack MCP，冒充 channel-admin message）。攻擊者只需要知道資料格式；這可以透過閱讀 open-source code、觀察呈現出的 tool output、逆向工程 local client，或讓 server-side format 脫離模型取得來恢復。
+
+## 為什麼防禦會失效（§5–6、Tables 1–2、Figs 9–10）
+
+研究在現成的 LLM（GPT-5.2、GPT-5-mini、Claude Opus 4.5、Claude Sonnet 4.5、Gemini 3 Pro/Flash）以及擴充的 [AgentDojo](/articles/out-of-band-prompt-injection-defense) agent benchmark 上進行（GPT-5.2，增加 108 個 ADI attacks）。現成模型的 baseline ASR：JSON 上為 **31.3–43.3%**，web DOM 上為 **33.3–100%**，同時維持高 benign utility。針對防禦進行測試（AgentDojo，baseline ASR 49.1%）：
+
+- **Model hardening**（instruction/data separation training）——對 data *內部*沒有保護；這正是 instruction injection 約為 0%，但 ADI 完全暴露的原因。
+- **Input guardrails**（Llama Prompt Guard 2）——ASR 為 **50.0%**；108 個 ADI payload 中**偵測到 0 個**（它們不包含「ignore previous instructions」模式，只是看起來合理的資料），相較之下能偵測 34.9% 的 instruction-injection attempts。
+- **Output guardrails**（LlamaFirewall AlignmentCheck）——**45.4%**；無效的原因是 agent 的*action 仍與 user prompt 一致*——只有底層資料被污染。
+- **Plan-then-execute**（IsolateGPT）——40.7%；plan 完整無缺，但 executor steps 仍會消費遭污染的 data。
+- **Agent sandboxing**（Progent、以 symbolic per-call rules 實作的 [Least Agency](/articles/least-agency)）——**22.2%**；只有在 policy 限制遭污染的 argument 時，才會阻擋攻擊。
+- **Dual-LLM**（CaMeL，無 policy）——25.0%；delimiter injection 會欺騙用來抽取 attacker values 的*quarantine* LLM。
+- **Data-flow tracking**（CaMeL）——Normal **23.1%**（作者發現並回報一個**taint-propagation implementation bug**，導致 quarantine LLM 抽取 variables 時 labels 遺失）；**Strict 0%**——唯一能完全阻止 ADI 的防禦，但 utility 成本很高（86.5% → **36.5%**）。
+- **Randomization**（nonce field names／element IDs）——在 83.3% utility 下為 **28.7%**；輕量，且在沒有 policy LLM 的情況下，安全性接近 Progent，但只適用於 key-value formats（JSON、DOM），不適用於無結構的 Markdown。
+- **Sanitization**（從不受信任欄位移除類似 delimiter 的字元）——能降低 ASR，但會造成**大幅 utility 下降**，因為不受信任欄位本來就可能合法包含 URLs、file paths 與結構化文字；不切實際。
+
+論文結論是：目前的 agent 缺乏**細粒度 trust model**。正確的 provenance/data-flow tracking（CaMeL Strict）是唯一完整答案，但代價昂貴；持久的處方是，在 agent context **內部**隔離受信任與不受信任資料，並在 model 外部強制執行。
+
+## 為什麼這讓「durable property or training gap?」問題更尖銳
+
+[Agentic Prompt Injection](/articles/agentic-prompt-injection) 提出一個 open question： 「LLM 無法區分 information 與 instructions」究竟是持久的架構特性，還是可以補上的 training gap？ADI 強烈支持**持久特性**的解讀，但帶來一個轉折：instruction↔data 邊界看來**確實可以關閉**（model hardening 讓 instruction injection 降到約 0%），然而**關閉它只會把攻擊移到下一個更細緻的邊界**。根本原因是 LLM 對結構 delimiter 的**機率式解讀**——這是架構事實，不是 training gap——因此攻擊者可以模仿的任何邊界（instruction/data，接著 trusted/untrusted，想必還有更細的邊界）都會保持多孔。你可以訓練 model 尊重某一個 delimiter；卻無法概括性地消除它對**不精確** delimiter 的機率式誤讀。解方與 [out-of-band](/articles/out-of-band-prompt-injection-defense) literature 趨於一致：停止嘗試在 model 內修復，改在外部以確定性方式強制執行資料隔離。
+
+## 相關連結
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — ADI 是與 instruction injection 並列的 **IPI 第二類別**；該頁面的 open question（「durable property or training gap?」）正是 ADI 所 sharpen 的問題
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — 回應 ADI 的 defense class：只有 **CaMeL Strict**（確定性 data-flow tracking、provenance labels）能完全阻止它；ADI 是針對 CaMeL／Progent／dual-LLM 的獨立 adversarial evidence，攻擊的是 *within-data*，而非 instruction injection
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — sibling attack paper（AutoDojo、Ma et al. 2026）：兩者都顯示 static evaluation 會過度肯定 IPI defenses，且機制相互呼應——ADI 透過 delimiter injection 偽造*受信任資料*；AutoDojo 的 action-open injection 則被讀成*data 而非 instruction*。兩條路都能穿過只偵測 instruction-like text 的 filters，並共同指向以 out-of-band enforcement 約束 action/data 的答案
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — ADI 偽造 Zero Trust controls 所依賴的**受信任錨點**（origin metadata、tool history）；這是 instruction-injection defenses 漏掉的具體 Phase-4／input-validation threat（hub）
+- [Least Agency](/articles/least-agency) — Progent（tool-call boundary 的 least agency）將 ADI 降至 22.2%，但無法消除——限定 tool 能做的*事情*，只有在 policy 限制遭污染 argument 時才有幫助
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — ADI 所利用的 authorization layer，以及一個**共同殘餘問題**：ScopeGate 的 per-call value `authz` gate 能阻止 value-redirection（一個型別正確但未授權的 `account`），但 ADI 的整個手法正是偽造 agent 合法採取行動所依據的*資料*（偽造 author、製造 tool result）——在造成傷害時仍符合 value policy，與 Progent（22.2%）存活的攻擊屬於同一類。Value gate 能關閉 redirection，不能關閉合法資料的 corruption；只有 provenance/data-flow tracking 能做到
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — 對 ADI origin-forgery 的**部分防線，以及同一個殘餘問題**：aiAuthZ 的 per-message HMAC identity 以密碼學方式驗證*人類 sender*，因此 ADI 的 origin-injection RCE（在 GitHub comment 上偽造 **maintainer** author）在 spoofed principal 與 active user 不同時會被擊敗——message body 可以宣稱 maintainer authority，但 bound identity 不會賦予任何權限。若 forged data（fabricated tool-call result、in-range value）是在 active user 自身 authority 下觸發，則沒有幫助——它只受 argument／rate policy 限制，正是只有正確 data-flow tracking（CaMeL Strict）才能完全關閉的 corrupt-legitimately-variable-data 類別。注意，aiAuthZ 驗證的是*human message*，不是 ADI 偽造的*within-context tool history*，所以單一 principal 下的 fabricated-tool-result exploit 仍可通過（single-author preprint）
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — tool-call-and-response injection **偽造 agent 的 in-context execution history**，污染 model 對自己已完成工作的記憶——這是 poisoning 的單回合類比
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — **persistent-memory** 對應物：ADI 的 tool-call/response injection（偽造 in-context tool history）與 trusted-tool echo，是 TMA-NM **L-b trusted-tool-echo** laundering channel 的單一 session 類比；兩者都收斂到同一個完整答案——正確的 provenance/data-flow tracking（ADI 的*CaMeL Strict*；TMA-NM 的 origin-at-the-call-boundary）。TMA-NM 是本頁結論所指、agent 缺乏的細粒度 trusted/untrusted-data model 的跨 session 版本
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — user-confirmation dialogs 是**會失效的 friction control**（agent 的 reasoning 會強化攻擊者的敘事）；nonce randomization（ChatGPT Atlas）才是能移除 capability、有效的 control
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — ADI 的 tool-call-injection exploit **就是** supply-chain attack：透過偽造 benign-commit tool response，merge 一個從未真正被 review 的惡意 PR
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — sibling *forge-the-trusted-context* attack，針對 agent 的**不同平面**：ADI 透過機率式 delimiter injection 偽造*受信任資料*（comment author、fabricated tool result），使 agent 操作 attacker data；ShareLock 偽造*tool metadata*（MCP descriptions／`tool_id`／`checksum`），使 agent 重建 attacker *instruction*。兩者都利用 model 對不應信任的 context 所抱持的結構性信任——ADI 位於 data plane，ShareLock 位於 tool-capability plane——也都能溜過只尋找 instruction-like text 的 content-detection defenses。**Agentjacking (Tenet Security, `case-study`)**，該頁面的 in-the-wild MCP case study，可以說是*這種攻擊*的真實世界案例——透過 MCP 傳遞 ADI 風格的偽造：攻擊者注入的假 Sentry error events 經由*合法* Sentry MCP server 轉送，被 coding agents 當成受信任的 diagnostic data 讀取（假的 `## Resolution` 與 Sentry 自有 template 結構完全相同）。從機制上看，它橫跨兩種類別——偽造內容解析為*可執行的* command（`npx …`），因此在 payload 層面帶有 IPI 色彩，但在*trust*層面則是 ADI 色彩（不受信任資料被洗成受信任 tool-output），且使用 plaintext format-mimicry，而非機率式 delimiter injection。它是本頁 `empirical` PoCs 的 vendor-reported、未測量表親，也佐證核心發現：prompt-layer hardening（「ignore untrusted data」）無法阻止 within-data forgery
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — agent 的**data format 與 tool-call delimiters**（Claude Code 的 `<function_calls>`／`<function_results>`、Codex 的換行分隔、Gemini CLI 的 `<ctrl46>`）都是 harness-design surface，而它們的可預測性／可模仿性是 harness security property
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) / [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — 一個可能的 blind spot：white-box injection detectors 會在 payload 看起來具有 adversarial 特徵（`fake`、`injection`）時觸發，但 ADI payload 的設計目標是看起來像普通受信任資料，因此可能不帶有這類 signature
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — 更深一層的脈絡（「LLM 無法乾淨地分離 information 與 instructions」）延伸到：model 也無法分離*受信任與不受信任資料*，因為兩種邊界都只是它以機率方式解讀的 delimiter
+- [Claude Code](/articles/claude-code) — RCE 與 supply-chain PoCs 所針對的 agent；也是 Slack-origin-injection 的 target
+- [Codex](/articles/codex) / [Google DeepMind](/articles/google-deepmind) — Codex 與 Gemini CLI 同樣容易受到 origin- 與 tool-call-injection exploits 影響
+- [OWASP](/articles/owasp) — ADI 是 OWASP LLM01 prompt-injection umbrella 下的新子類別
+- [Anthropic](/articles/anthropic) / [OpenAI](/articles/openai) — 確認 responsible disclosure 的 vendors 之一
+- [Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable) — 本論文所錨定的 synthesis：ADI 的「關閉一個邊界，就把攻擊移到下一個更細邊界」是分離屬於持久架構特性的承重證據（每個邊界都可訓練，但一般而言無法完全訓練解決），橫跨五個 sources
+
+## 待解決的問題
+
+- 完整防禦（CaMeL Strict）會付出約 50pp 的 utility 成本。是否存在細粒度的受信任／不受信任資料隔離方案，能在**不造成 deterministic-flow-tracking utility collapse**的情況下阻止 ADI——還是這項 trade-off 本質上無法避免？
+- Randomization 對 key-value formats 便宜且有效，但對**unstructured formats**（Markdown、prose tool output）毫無用處。對於無法附加 nonce 的格式，什麼方法能提供保護？
+- ADI 已在 GPT-5.2-class agents 上展示。Frontier model 的進步會*降低*對 probabilistic-delimiter 的 susceptibility，還是 capability 會讓 delimiter-misreading 維持不變（使它成為持久架構特性，而非可隨 scaling 消失的 gap）？**部分已有答案：**[Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable)——capability *確實*降低每個邊界的 susceptibility（在 hardening 下 instruction injection 降至約 0%；較新的 model 也能抵抗未防護的 static injection），因此預測 trusted/untrusted-data ASR 也會降低——但在 adaptive attacker 下永遠不會乾淨地降到零，而 delimiter-misreading 的*機制*會在每次 model improvement 後持續存在。對最新 model 的 trusted-data boundary 仍未直接測試——本問題要求的 measurement 仍是 open。
+- 在 ADI payload 被設計成看起來像受信任資料、而不是 attack 的前提下，internal／white-box monitors 是否完全偵測不到它？（未測試；Connections 中已指出這項 tension。）
+
+## 資料來源
+
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi、Kim、Kang、Jeong、Xing 與 Lee（SNU／UIUC／Largosoft），arXiv 2607.05120，2026 年 7 月，`empirical`。§3（threat model、ADI formalization D=(D_T,D_U)、probabilistic delimiter injection）、§4（Claude in Chrome、Antigravity、Nanobrowser、Claude Code、Codex、Gemini CLI 上的 element-ID／origin／tool-call injection PoCs）、§5（defense analysis、Table 1）、§6（LLM ASR Table 2–3、AgentDojo agent eval Figs 9–10）、§C（email／Slack variants）、§D（format recovery）、§E（PoC traces）

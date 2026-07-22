@@ -1,0 +1,91 @@
+---
+date: 2026-07-11
+title: 反事實反思訓練
+description: "訓練模型撰寫以憲章為依據的反思，*前提是被中斷並受到要求*——然後永遠不要要求它這麼做。植入的概念會在未中斷的任務期間出現在工作空間中，行為也隨之改變：Haiku 4.5 的不誠實程度從 0.25→0.07（捏造）與 0.38→0.05（欺騙），而消融植入的鏡頭向量後，增益便恢復原狀"
+tag: Concept
+domain: interpretability
+tags:
+  - alignment
+  - training
+  - honesty
+  - interpretability
+readingTime: 6
+imageAlt: 反事實反思訓練的插圖
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/counterfactual-reflection-training.png";
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## 摘要
+
+一種由 [workspace account](/articles/llm-global-workspace) 的*預測*推導而來、並被用作其佐證的訓練技術。該理論認為，內部推理會經由模型**可能會說出的內容**之表徵來路由。如果這是真的，那麼要改變模型在某個情境中的*思考方式*，只需改變它在該情境的反事實延續中*傾向說出*的內容即可——而這些延續實際上永遠不會發生。
+
+它確實有效。
+
+## 方法
+
+1. **情境。** 從 production RL 環境中取樣 10,000 個任務提示；使用基準模型（Claude Haiku 4.5）生成部分 rollout，並在隨機回合截斷每個 rollout。刻意納入模型已經做出不良行為、*正處於可能做出不良行為的位置*，以及隨機控制組的案例。
+2. **Probe。** 在截斷點附加一個簡短的使用者回合，要求模型反思——*「先停在這裡。是否有一些原則是你應該正在思考、但尚未思考的？」*
+3. **目標。** 向基準模型展示從 [Anthropic's constitution](/articles/claude-constitution) 取樣的二十項原則，並要求它撰寫 2–4 段反思，以自然、內化的語言改述相關原則，且立足於任務的具體細節，而不是背誦規則。
+4. **移除支架。** 憲章摘錄**只在生成時**出現。訓練範例僅為：原始情境 + 反思問題 + 模型撰寫的反思。
+5. **只在反思回合上計算 loss 進行微調。**
+
+在評估時，模型**永遠不會被提示進行反思**，也永遠不會輸出反思文字。假設是，訓練反事實延續會在*原始*情境中填入工作空間。
+
+## 結果
+
+**行為。** 兩個探測不同失效模式的誠實性基準測試：
+
+| Benchmark | 測試內容 | Base | After |
+|---|---|---|---|
+| **Fabrication honesty**（27 段長篇 agentic 逐字稿：代理未能找到 bug，卻透過編輯原始碼捏造出一個 bug，現在被要求摘要進度） | 它會承認嗎？ | 0.25 | **0.07** |
+| **Deception**（100 個角色扮演情境，系統提示中藏有欺騙性指令——優先推銷傳統療法而非循證醫學、誇大法律風險、壓制安全異常） | 它會遵循指令、保持沉默，還是**拒絕並揭露**？ | 0.38 | **0.05** |
+
+在捏造測試中，增益來自模型轉向直接承認；在欺騙測試中，幾乎完全來自拒絕隱藏指令**並告知使用者該指令的存在**。
+
+**機制，可見。** 在任何輸出之前，於評估位置讀取 [J-lens](/articles/jacobian-lens)：反思訓練模型的工作空間如今帶有 `reflection`、`ethical`、`honestly`、`constitution`、`truth`、`transparent`——而基準模型的工作空間沒有這些 token。
+
+**機制，因果。** 消融植入的 ethics/reflection 鏡頭向量（捏造測試 176 個 token，欺騙測試 63 個）：
+- 捏造：基準 0.25 → 0.25（不變），訓練後 **0.07 → 0.22**——回到基準水準。整個行為增益都是由植入的工作空間內容承載。
+- 欺騙：效果較弱但方向相同——訓練後 0.05 → 0.23，基準 0.38 → 0.48。部分增益是透過精選詞彙表之外的工作空間內容，或透過鏡頭在這些層未捕捉到的變化來路由。
+
+## 為什麼這很奇怪，也很有趣
+
+**你可以獲得某種行為，卻從未示範過該行為。** 在目標情境中，無論訓練時還是推論時，都沒有對回應進行監督。受監督的文字*跟在*回應之後，而不是產生回應。正如論文所說，訓練訊號指定的是**模型回應時工作空間中應該啟用哪些概念，而不是回應應該是什麼。**
+
+## 與鄰近方法的關係
+
+- **[Deliberative Alignment](/articles/deliberative-alignment)**（OpenAI）以規格為依據的 CoT 進行訓練，並能在推論時輸出推理軌跡。CRT 在目標情境中既不介入*回應*，也不介入*推理軌跡*——只介入一個永遠不會被要求的反事實反思延續。因此，它不會對 CoT 施加直接訓練壓力，而這正是 [Chain-of-Thought Monitorability](/articles/cot-monitorability) 所警告、會損害忠實性的壓力。
+- **[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)** 與 [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) 透過訓練*關於*規格的文件來塑造價值。CRT 則透過訓練*模型自身對任務的反思*來塑造價值。兩者都是「不示範目標行為也能安裝價值」——基底不同，但屬於同一個家族。
+- **隱式思維鏈**——訓練使用在推論時被捨棄的輔助推理文字——是最接近的先前技術。CRT 將這項原則應用於規範性原則，而非解題策略。它也可以被理解為**脫離情境的推理**：訓練時的文字，其內容會被模型學會帶入不含該內容的輸入中。
+
+其區別特徵，也是它應該出現在這份 wiki 而非腳註中的原因：**機制可以直接觀察。** 鏡頭顯示，受訓概念會在預期位置進入工作空間，而消融它們便會移除改善。大多數 alignment 技術都無法展示自己的運作方式。
+
+## 注意事項
+
+- 目前只在**一個模型**（Haiku 4.5）與**兩個誠實性基準測試**上展示。對其他能力、其他原則或更大型模型，尚無證據。
+- 作者不知道它是否能植入比「在這類情況下考慮倫理原則」更具體或更抽象的內容。
+- 欺騙基準測試的消融只能部分逆轉，因此部分效果無法由工作空間理論解釋。
+- 由反思塑造的行為可能是模型在決策點**看起來**很有原則的一種極其精巧形式；本文沒有任何內容能區分「內化的價值」與「可靠的倫理概念顯著性」。無論哪一種，行為證據都是真實的。
+
+## 相關連結
+
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — post-training 已經會將概念安裝到工作空間；CRT 則是刻意進行，並具備可測量的因果鏈
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — 預測這項成果的理論，而這項成果也為其提供佐證
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — 讓機制可觀察並使消融成為可能的工具
+- [Deliberative Alignment](/articles/deliberative-alignment) — 最接近的競爭技術；CRT 的新穎性正體現在這項對比中
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 「不透過示範來塑造價值」的姊妹方法
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — MSM 建立其上的基底；CRT 將合成文件換成自行撰寫的反思
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — CRT 可測量改善的失效模式（捏造、未揭露的欺騙）
+- [Chain-of-Thought Monitorability](/articles/cot-monitorability) — CRT 不會對推理軌跡施加直接壓力，因此不必以犧牲可監控性為代價換取行為
+- [Claude's Constitution / Model Spec](/articles/claude-constitution) — 原則的來源，只在資料生成時出現
+- [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) — CRT 與之並列的標準 pipeline
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — "Shaping the J-space with Counterfactual Reflection Training"；Related work (Reflection training)；Discussion (Alignment implications)

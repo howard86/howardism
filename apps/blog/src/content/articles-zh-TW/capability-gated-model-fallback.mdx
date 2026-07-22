@@ -1,9 +1,9 @@
 ---
 date: 2026-06-14
-title: Capability-Gated Model Fallback
-description: "Fable 5 的防護架構：分類器偵測網路/生物化學/蒸餾查詢，並將回應導向至能力較弱的模型 (Opus 4.8) 而非拒絕——「退回，而非拒絕」；超過 95% 的 session 從未觸發；保守的調校，對 1,000 多個小時的 jailbreak 測試具有強韌性；在超出風險閾值的能力防護光譜上的一個新定位"
+title: 能力閘控模型回退
+description: "Fable 5 的防護架構：分類器偵測網路攻擊／生物化學／蒸餾查詢，並將回應路由至能力較弱的模型（Opus 4.8），而非拒絕回應——「回退，而非拒絕」；超過 95% 的工作階段完全不會觸發；採取保守調校，可承受超過 1,000 小時的越獄測試；為超過風險閾值的能力提供防護光譜上的新位置"
 tag: Concept
-domain: governance-workforce
+domain: superintelligence-trajectory
 tags:
   - governance
   - safety
@@ -11,8 +11,8 @@ tags:
   - classifiers
   - dual-use
   - anthropic
-readingTime: 7
-imageAlt: Capability-Gated Model Fallback 的插圖
+readingTime: 8
+imageAlt: 能力閘控模型回退的插圖
 sources:
   - title: Claude Fable 5 and Claude Mythos 5
     url: https://www.anthropic.com/news/claude-fable-5-mythos-5
@@ -25,57 +25,60 @@ export { default as heroImage } from "../assets/capability-gated-model-fallback.
 
 ## 摘要
 
-這項防護架構讓 [Anthropic](/articles/anthropic) 能夠向大眾發布 [Mythos-class](/articles/mythos-model) 模型供一般使用：當獨立的 AI **分類器**偵測到高風險雙重用途領域（網路安全、生物與化學，或蒸餾）的查詢時，回應會**自動由能力較弱的模型——[Claude Opus 4.8](/articles/claude-opus-4-8)——處理，而不是由 [Fable 5](/articles/claude-fable-5) 予以拒絕。** 每當此情況發生時，都會告知使用者。Anthropic 的說法是：「退回到 Opus 的回應，其體驗遠優於直接拒絕。」超過 **95% 的 Fable sessions 完全沒有觸發退回**；分類器經過保守的調校（它們「有時會捕捉到無害的請求」，在「不到 5% 的 sessions」中觸發），接受偽陽性作為快速且安全發布的代價。
+這套防護架構讓 [Anthropic](/articles/anthropic) 能夠將 [Mythos-class](/articles/mythos-model) 模型開放給一般使用：當獨立的 AI **分類器**偵測到高風險雙重用途領域（網路安全、生物學與化學，或蒸餾）中的查詢時，回應會**自動由能力較弱的模型——[Claude Opus 4.8](/articles/claude-opus-4-8)——處理，而不是由 [Fable 5](/articles/claude-fable-5) 拒絕回應。** 每當這種情況發生時，系統都會告知使用者。Anthropic 的說法是：「回退至 Opus 的回應，體驗遠勝於直接拒絕。」超過 **95% 的 Fable 工作階段完全不會發生回退**；分類器採取保守調校（它們「有時會攔截無害的請求」，在「少於 5% 的工作階段」中觸發），接受誤判，作為快速且安全發布的代價。
 
-這是防護光譜上一個截然不同的定位。Mythos Preview 被**完全限制**（僅限預覽）；[Opus 4.7](/articles/claude-opus-4-7) 在**訓練期間被差異化降低**了網路安全能力，*並且*在推論時進行阻擋；Fable 5 則在模型中保留了完整的能力，但**介入了一個分類器，在遇到高風險主題時替換為較弱的模型**。其能力在超過 95% 的良性情況下得以保留，並在其他情況下被繞道處理。
+這是防護光譜上的一個獨立位置。Mythos Preview 是**完全閘控**的（僅限預覽）；[Opus 4.7](/articles/claude-opus-4-7) 的網路能力經過**差異化訓練降低**，並且在推理時加以阻擋；Fable 5 保留模型中的完整能力，但**插入分類器，在風險主題上換用較弱的模型**。對超過 95% 的良性情況，能力得以保留；其餘情況則繞道路由。
 
-## 為什麼是「退回，而非拒絕」
+## 為什麼是「回退，而非拒絕」
 
-其動機是 **uplift**（能力提升）：Mythos-class 模型可能會為惡意行為者提供「他們無法從其他來源獲得」的網路/生物協助。而且許多進階用途都具有**雙重用途**——同一個查詢對防守方或研究人員是有益的，而對攻擊者而言卻是危險的。一刀切的拒絕既會帶來糟糕的使用者體驗，而且因為洩露了哪些查詢是「危險的」，還會成為一種資訊訊號。退回到 Opus 4.8——其本身就是一個能力極強的模型——能實現優雅降級：使用者在被標記的主題上仍能獲得有能力的回答，只是不是 Mythos-class 等級的回答。
+促成這項設計的事實是**提升效應**：Mythos-class 模型可能向惡意行為者提供「他們無法從其他來源取得的」網路／生物學協助。而且，許多進階使用情境都具有**雙重用途**——同一個查詢對防禦者或研究人員有益，對攻擊者卻很危險。全面拒絕既造成糟糕的使用者體驗，也會因洩漏哪些查詢屬於「危險」而形成資訊訊號。回退至 Opus 4.8——本身就是能力很強的模型——能夠平順降級：使用者仍可取得稱職的答案，只是在被標記的主題上，不會取得 Mythos-class 等級的答案。
 
 ## 三個分類器領域
 
-1. **網路安全**。廣泛涵蓋 *exploitation*（漏洞利用）和攻擊性網路任務（偵察、發現、橫向移動——參見 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research)）。在阻擋模式評估中，「我們的分類器阻止了 Fable 在這些任務上取得任何進展」。一個外部合作夥伴發現 Fable 5 的網路安全防護是**所有受測模型中最穩健的（包括 Opus 4.8 和 4.7）**：無論是否使用 30 種公開 jailbreak 技術中的任何一種，Fable 針對網路攻擊規劃、exploit 開發或防禦規避等有害單輪請求的配合度皆為**零**。
-2. **生物與化學**。以前 Anthropic 僅阻擋了*狹義*的生物武器查詢；考慮到資源豐富的惡意行為者以及模型不斷增長的現實世界科學能力，這「已不再足夠安全」。實際案例：預測基因修飾如何影響 **adeno-associated virus (AAV)** capsid assembly——Mythos-class 模型僅憑藉生物學推理，在*未*接受該任務訓練的情況下，表現便超越了專用的 protein-language models（參見 [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery)）。由於有助於基因治療的相同技能也可能被用於設計危險的病毒，Fable 目前在**大多數**生物/化學請求中會退回到 Opus 4.8——這是有意採取的過度寬泛策略，稍後會再收窄。
-3. **蒸餾**。被標記為企圖將 Fable 5 的能力**蒸餾**到競爭對手模型中的請求（這是一個已知的規模化萃取威脅，特別是針對「專制國家」）會退回到 Opus 4.8。其風險是在*沒有*相應安全防護的情況下，間接擴散了接近前沿的能力。
+1. **網路安全。** 涵蓋*漏洞利用*以及廣泛的攻擊性網路任務（偵察、探索、橫向移動——見 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research)）。在阻擋模式評估中，「我們的分類器阻止 Fable 在這些任務上取得任何進展。」一個外部合作夥伴發現，Fable 5 的網路安全防護是**所有受測模型中最穩健的（包括 Opus 4.8 與 4.7）**：無論是否使用 30 種公開越獄技術中的任何一種，Fable 對網路攻擊規劃、漏洞利用開發或防禦規避等有害單輪請求，**零次**遵從。
+2. **生物學與化學。** 過去 Anthropic 只阻擋*狹窄範圍*的生物武器查詢；鑑於資源充足的惡意行為者，以及模型日益增長的現實世界科學能力，這已「不再確定……足夠」。實例是：預測基因修改如何影響**腺相關病毒（AAV）**的衣殼組裝——Mythos-class 模型僅憑生物學推理就勝過專用蛋白質語言模型，*即使未針對此能力進行訓練*（見 [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery)）。由於協助基因療法的同一項技能也可能用來設計危險病毒，Fable 目前會對**大多數**生物學／化學請求回退至 Opus 4.8——刻意設得過於寬泛，之後再逐步收窄。
+3. **蒸餾。** 被標記為試圖將 Fable 5 的能力**蒸餾**至競爭模型的請求（這是已知的大規模擷取威脅，尤其是針對「威權國家」）會回退至 Opus 4.8。其風險在於，前沿能力近似版本可能在**沒有**相應防護的情況下間接擴散。
 
-## 強韌性（紅隊演練）
+## 穩健性（紅隊測試）
 
-分類器擴展了 Anthropic 之前的 **constitutional-classifiers** 路線（參見 [Agentic Prompt Injection](/articles/agentic-prompt-injection)），具有更廣泛的覆蓋範圍，並針對 jailbreaks 進行了壓力測試：
+這些分類器延伸了 Anthropic 先前的**憲法分類器**系列（見 [Agentic Prompt Injection](/articles/agentic-prompt-injection)），涵蓋範圍更廣，並針對越獄進行壓力測試：
 
-- 一次外部 **bug bounty** 在**超過 1,000 小時**的測試中，**沒有產生任何通用 jailbreaks**。
-- 外部紅隊組織「到目前為止，未能在長週期的 agentic 任務中發現任何通用 jailbreaks」——**儘管 UK-AISI 在短暫的初始視窗期內取得了一項進展**。
-- Anthropic 承認「*完全*防止通用 jailbreaks 可能是不可能的」；其目標是讓任何殘留的攻擊「足夠緩慢且昂貴，以便我們能夠在大規模使用之前偵測並阻止它們」——這是一種套用於防護機制本身的 [tedious-vs-impossible](/articles/impossible-not-tedious-test) 框架。
+- 外部**漏洞獎勵計畫**在超過 **1,000 小時**的測試中，**沒有發現通用越獄**。
+- 外部紅隊組織「迄今未能在長篇代理任務中找到任何通用越獄」——**儘管 UK AISI 在短暫的初始窗口內取得了進展**。
+- Anthropic 承認，「要**完全**防止通用越獄，很可能是不可能的」；目標是讓任何剩餘的越獄「慢到且昂貴到足以讓我們在它們被大規模使用前偵測並阻止」——這是套用於防護本身的 [tedious-vs-impossible](/articles/impossible-not-tedious-test) 框架。
 
-一個*通用*的 jailbreak 被定義為任何能讓使用者與模型互動「就如同其安全防護不存在一樣」的 prompt/script/harness，這與僅在狹窄上下文中有效的次要 jailbreaks 相對。
+*通用*越獄的定義，是任何能讓使用者「如同模型不存在防護一般」與模型互動的提示／腳本／harness；這不同於只在狹窄情境中有效的輕微越獄。
 
-## 30 天數據保留政策
+## 30 天保留政策
 
-與安全防護相結合：Anthropic 現在**要求對所有 Mythos-class 流量進行 30 天的數據保留**（第一方與第三方，包括企業客戶）。該數據僅用於安全目的——防範複雜/新型攻擊（新的 jailbreaks、跨請求攻擊）並減少偽陽性——不用於訓練，在幾乎所有情況下都會記錄人工存取並在 30 天后刪除。因此，能力門檻不僅改變了模型的防護欄，也改變了圍繞其的*數據處理合約*。
+與防護配套的是：Anthropic 現在**要求所有 Mythos-class 流量保留資料 30 天**（第一方與第三方，包括商業客戶）。資料僅用於安全目的——防禦複雜／新型攻擊（新的越獄、跨請求攻擊）以及降低誤判——不會用於訓練；幾乎所有情況都會記錄人工存取，並在 30 天後刪除。因此，能力閾值不只改變模型的防護欄，也改變圍繞模型的*資料處理合約*。
 
-## 它所處的位置
+## 所在位置
 
-[RSP](/articles/responsible-scaling-policy-evals) 決定了哪些能力需要進行門檻管控（網路安全、CB、AI-R&D、對齊失效）；而這項架構則是針對一般發布的模型，在推論時*如何*實作網路/生物管控門檻。它是訓練時和政策層面煞車的部署時補充——也是對 Mythos Preview 所遺留之開放問題的營運解答：*你如何在不輸出 uplift（能力提升）的前提下，向所有人提供 Mythos-class 的能力？*
+[RSP](/articles/responsible-scaling-policy-evals) 決定哪些能力需要閘控（網路安全、CB、AI-R&D、錯誤對齊）；這套架構則是在推理時，為一般發布的模型實作網路／生物學閘控的*方式*。它是訓練時與政策層級煞車的部署時補充，也是回答 Mythos Preview 留下的開放問題的實務方案：*如何將 Mythos-class 能力提供給所有人，卻不把提升效應一併提供出去？*
 
 ## 相關連結
 
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) —— Fable 的分類器擴展了此處記錄的 constitutional-classifier 路線；jailbreak 穩健性是共同的對抗性架構
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode) —— 在*工具呼叫*邊界上相同的分類器管控概念；本頁面將其應用於*查詢*邊界，並且替換成較弱的模型而非直接阻擋
-- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) —— RSP 決定了必須對哪些內容進行管控；這是推論時的機制，而 Mythos-class 超過風險閾值正是迫使其發生的原因
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) —— 網路安全分類器所中和的網路能力；Fable 阻擋了在攻擊性網路任務上的「任何進展」
-- [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery) —— 生物/化學分類器所管控的生物能力；AAV 雙重用途的範例是其動機實例
-- [Claude Fable 5](/articles/claude-fable-5) —— 搭載這些安全防護出貨的模型
-- [Claude Mythos 5](/articles/claude-mythos-5) —— 解除了這些安全防護的模型；定義這兩個 SKUs 的對比
-- [Claude Opus 4.8](/articles/claude-opus-4-8) —— 退回的目的地模型；「遠優於拒絕」的體驗建立在其本身就具有極高能力的基礎上
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) —— 安全防護本身的成功標準：使 jailbreaks 足夠緩慢且昂貴，以便在大規模使用之前被捕獲
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — Fable 的分類器延伸了此處記錄的憲法分類器系列；越獄穩健性是共同的對抗性框架
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — 同一個分類器閘控概念位於*工具呼叫*邊界；本頁將它套用在*查詢*邊界，並換用較弱模型，而非阻擋
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — RSP 決定必須閘控什麼；這是推理時機制，而 Mythos-class 跨越風險閾值正是迫使它出現的原因
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 網路分類器所中和的網路能力；Fable 阻止攻擊性網路任務上的「任何進展」
+- [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery) — 生物／化學分類器所閘控的生物能力；AAV 雙重用途實例是促成設計的案例
+- [Claude Fable 5](/articles/claude-fable-5) — 搭載這些防護的模型
+- [Claude Mythos 5](/articles/claude-mythos-5) — 解除這些防護的模型；這個對比界定了兩個 SKU
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — 回退目標；「遠勝於拒絕」的體驗建立在它本身能力很強之上
+- [Claude Sonnet 5](/articles/claude-sonnet-5) — 同一防護光譜上風險較低的位置：*原生*低網路能力（沒有刻意降低訓練），在 Opus-4.7/4.8 嚴格程度下於推理時偵測並阻擋，且*沒有*模型交換回退——Anthropic 判定其提升風險過低，不值得採用 Fable 5 更廣泛的分類器加回退機制
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 防護本身的成功標準：讓越獄慢到／昂貴到能在擴大使用前抓住它們
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — 整套架構都預設供應商控制一台伺服器；開放權重發布會放棄這套架構，以及停權與保留機制
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — *「能力」是不同含義——不要混為一談。* 此處的*能力* = 模型的危險知識程度，而「閘」是將風險提示路由至較弱模型的查詢層級分類器（回退而非拒絕）。彼處的*能力* = 向代理公開哪些工具，而其論點是閘控能力**不等於**授權呼叫（工具呼叫層級的逐引數值檢查）。同字異義、機制正交——一者依查詢風險路由模型，另一者依操作員政策授權工具呼叫引數
 
-## 待解決的問題
+## 開放問題
 
-- 超過 95% / &lt;5% 的數據是在 session 等級；對於*合法*的安全研究人員與生物學家來說，其偽陽性率是多少？他們的良性查詢恰恰是最有可能觸發保守分類器的查詢。
-- 退回而非拒絕保留了 UX，但這意味著用於安全/生物相關工作的*真實*一般存取模型是 Opus 4.8，而非 Fable——這是否會在信任存取計劃開放之前，悄悄限制了 Fable 對整個專業領域的價值？
-- UK-AISI 針對「通用 jailbreak 的進展」已被揭露但未被量化——且發布後的**存取暫停**（參見 [Claude Fable 5](/articles/claude-fable-5)）引出了一個問題：是否是防護機制的失敗迫使了這一決定。
-- 在被標記的主題上切換到較弱的模型是否會創建一個可利用的 oracle（探測哪些查詢會觸發退回，以繪製分類器的邊界）？
+- >95%／&lt;5% 的數字是工作階段層級；對於*正當*的安全研究人員與生物學家，誤判率是多少？他們的良性查詢恰恰是最可能觸發保守分類器的查詢。
+- 回退而非拒絕保留了 UX，但也意味著安全／生物學相鄰工作的*真正*一般存取模型是 Opus 4.8，而不是 Fable——在可信存取計畫開放前，這是否會悄悄限制 Fable 對整個專業族群的價值？
+- UK AISI 的「朝向通用越獄取得進展」已被披露，卻沒有量化——而發布後的**存取停權**（見 [Claude Fable 5](/articles/claude-fable-5)）引發一個問題：是否是防護失效迫使它發生？
+- 在被標記的主題上換用較弱模型，是否會建立可利用的預言機（探測哪些查詢會觸發回退，以描繪分類器的邊界）？
 
 ## 資料來源
 
-- [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) —— §"Claude Fable 5's new safeguards"（安全分類器；網路/生物/蒸餾覆蓋範圍；紅隊演練；30 天數據保留）
+- [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) — §"Claude Fable 5's new safeguards" (safety classifiers; cyber/bio/distillation coverage; red-teaming; 30-day retention)

@@ -1,0 +1,70 @@
+---
+date: 2026-06-16
+title: FastContext
+description: "Microsoft CoreAI + Shanghai Jiao Tong University's 開源
+  repository 探索子代理（2026 年 6 月）：訓練 4B–30B 的 Qwen-based 探索器（Read/Glob/Grep、平行處理、精簡檔案行號引用），將 repository 搜尋與解題解耦；SWE-bench 解決率最高提升 5.5%，主代理 token 使用量最高降低 60%；程式碼與資料已釋出"
+tag: Entity
+domain: entities
+entityType: software
+tags:
+  - entity
+  - system
+  - microsoft
+  - agent-engineering
+readingTime: 3
+imageAlt: FastContext 插圖
+sources:
+  - title: "FastContext: Training Efficient Repository Explorer for Coding Agents"
+    url: https://arxiv.org/abs/2606.14066
+---
+export { default as heroImage } from "../assets/fastcontext.png";
+
+## 資料來源
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)
+
+## 摘要
+
+**FastContext** 是一個面向 coding agents 的開源 **repository-exploration subagent**，由 **Microsoft CoreAI** 與 **Shanghai Jiao Tong University** 的 Shaoqiu Zhang、Maoquan Wang、Yuling Shi 等人開發（arXiv 2606.14066，2026 年 6 月；通訊作者為 Shengyu Fu）。它是 [Repository Exploration Subagent](/articles/repository-exploration-subagent) 論文主張的系統實例：主代理可按需呼叫一個專用的唯讀輔助工具，用來定位程式碼，回傳精簡的 `path:line-range` 引用，而不是冗長的探索過程。整合至 Mini-SWE-Agent，並搭配 GPT-5.4、GLM-5.1 與 Kimi-K2.6 主代理後，它讓端到端解決率最高提升 **5.5%**，同時將主代理 token 消耗最高降低 **60%**。程式碼與資料：`github.com/microsoft/fastcontext`。
+
+## 它是什麼
+
+這是一個 runtime CLI 輔助工具（`fastcontext -q "..." --format concise`），與主代理在同一個 task container 中執行。它精確提供三個與語言無關的唯讀工具——`READ`、`GLOB`、`GREP`（ripgrep）——每一回合發出平行工具呼叫，並輸出一個由檔案路徑與行號範圍組成的單一 `<final_answer>` 區塊。它 **無法編輯檔案或提交 patches**；只有最終的證據區塊會進入主代理的 context，中間觀察則寫入分開的 logs。
+
+## 模型家族
+
+使用 Qwen backbone 訓練的專用探索器，涵蓋 4B–30B：
+
+| Variant | Backbone | Training | Role |
+|---|---|---|---|
+| **FC-4B-SFT** | Qwen3-4B-Instruct | 僅 SFT | 精簡基準 |
+| **FC-4B-RL** | Qwen3-4B-Instruct | SFT → GRPO RL | **部署目標**——在多個設定中勝過 30B-SFT |
+| **FC-30B-SFT** | Qwen3-Coder-30BA3B | 僅 SFT | 擴展參考 |
+
+4B 模型是部署目標，因為探索必須便宜到足以例行執行；**4B-RL 是主要成果**——以 task-grounded RL 讓精簡探索器具備競爭力，而不必進行昂貴的 30B RL 執行。
+
+## 訓練堆疊
+
+- **SFT 資料：** 來自 **Sonnet 4.6**（[Anthropic](/articles/anthropic)，作為參考模型）的 2,954 條過濾後 traces，分為 `parallel_toolcalls` / `multiturn_traj` / `linerange` 來源。使用 Slime/Megatron stack 訓練，共 3 個 epochs，僅計算 assistant tokens 的 loss，context 為 128K。
+- **RL：** 在 400 個 prompts／395 個 repos 上執行 GRPO，reward = 由 patch 推導的檔案／行號 F1 + 有界平行處理 bonus + 格式 penalty；透過 SGLang 進行 rollouts（停用 thinking，最多 8 回合，每個 prompt 16 條 trajectories）。
+
+## 重要性
+
+FastContext 是 [Claude Code](/articles/claude-code)、Codex、GitHub Copilot CLI 與 Cursor 內部專有 subagent 機制的**開放且已發表的對應方案**——其明確動機在於，這些探索機制都是封閉的，使研究社群缺乏開放的訓練／評估配方。它最有力的論點是，即使沒有訓練過的模型，探索與解題的*架構分離*仍能帶來大部分效益（「同模型探索」基準已經有所幫助），因此探索可以成為 coding agent 中模組化、可最佳化、也可獨立評估的階段。
+
+## 相關連結
+
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent)——FastContext 實例化的概念（瓶頸分析、委派契約、訓練配方、結果）
+- [Claude Code](/articles/claude-code)——FastContext 開源的專有 subagent 類比方案
+- [Anthropic](/articles/anthropic)——Sonnet 4.6 是其 traces 為 FastContext SFT corpus 提供種子的參考模型
+- [Symphony](/articles/symphony)——姊妹模組化 agent 系統（以 ticket 驅動的編排對比探索委派）
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization)——FC 為每種角色訓練專用小模型的做法，延伸了 AgentOpt 的每角色模型最佳化
+
+## 待解決的問題
+
+- SFT+RL 配方能否將探索器推到 4B 以下（1.7B／0.6B），讓探索幾乎免費？
+- 這項收益能否從 Mini-SWE-Agent 延伸到更豐富、具備自身 subagent 編排機制的 harness？
+
+## 資料來源
+
+- [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)

@@ -1,0 +1,94 @@
+---
+date: 2026-07-15
+title: 單一通用代理與多代理編碼架構的比較
+description: "透過重新劃定界線，解答 agent-harness-engineering 的開放問題：隨著模型進步，單一通用代理勝過客製化、人工設計的多代理系統（苦澀教訓）；但單一單體上下文代理並不勝過角色分離的上下文隔離 + 獨立評分器——後者解決的是結構性限制（二次注意力、Goodhart），而非模型弱點，因此能在模型改進後持續有效"
+tag: Essay
+domain: syntheses
+readingTime: 9
+imageAlt: 單一通用代理與多代理編碼架構的插圖
+---
+export { default as heroImage } from "../assets/single-vs-multi-agent-coding-architecture.png";
+
+## 問題
+
+單一通用編碼代理，是否能勝過由專門測試、QA 與清理代理組成的多代理架構？（來自[代理程式鷹架工程](/articles/agent-harness-engineering)的開放問題）
+
+## 簡短答案
+
+這個框架是假二分法。「多代理」包含兩種專門化，而文獻對它們的方向**完全相反**：
+
+1. 將**人工設計的任務結構**編碼其中（客製化訓練的子模型、僵化的協調狀態機）——隨著模型進步，單一通用代理會追上並超越它。這就是[苦澀教訓](/articles/the-bitter-lesson)。
+2. 提供**上下文隔離**或**評估獨立性**（全新上下文的審查者、隔離的探索器、與製作者不同的評分器）——這不會隨著模型變好而消失，因為它處理的是*結構性*限制（二次注意力、Goodhart 定律），而非模型弱點。
+
+因此：單一通用代理勝過*客製化、人工調校的*多代理系統，但單一*單體上下文*代理會輸給*角色分離*的代理。**勝出的架構，是讓一個強大模型在許多全新上下文中運作（探索 → 解題 → 審查 → 合併），並搭配獨立評分器——而不是由各角色訓練元件組成的客製化管線。**
+
+## 「單一代理會超越」的論點——苦澀教訓
+
+[苦澀教訓](/articles/the-bitter-lesson)：隨著時間推移，擴展通用方法會勝過人工設計的結構；結構會成為天花板，而非基礎。文獻中最清楚的實證確認，出現在形式數學領域（[代理迴圈超越客製化系統](/articles/agentic-loops-overtake-bespoke-systems)）：
+
+- DeepMind 選擇了一個精心打造的**全功能**代理（演化搜尋 + 客製化、經 RL 訓練的 AlphaProof 定理證明器）進行大規模探索，因為在規劃時「更簡單的代理迴圈沒有展現強勁表現」。
+- 事後看來，**基本**代理——各自執行普通 generate-edit-compile「Ralph loop」的獨立證明子代理——**解出了全功能系統解出的全部 9 道 Erdős 問題**，只是在最難的兩題（#125、#138）上成本較高（成本為 2×–5×）。
+- 結論：在大多數問題上，專門化裝置的優勢「**崩解為成本差異，而非能力差異**」，作者甚至指出剩餘優勢的期限：「隨著 LLM 能力增長，這項優勢可能會減弱。」
+
+協調層也有相同動態：Symphony 起初把代理視為僵化狀態機的節點（Codex **只能**實作 ticket），後來發現模型能力提升到一定程度後，這種做法「限制太多」，於是改為**「目標 + 工具，而非狀態轉移」**（[代理程式鷹架工程](/articles/agent-harness-engineering)）。[模型進步下的鷹架收縮](/articles/harness-shrinkage-as-models-improve)將這點推廣開來：補償模型弱點的鷹架，會在模型變強後成為負擔——每次模型發布都應重新評估客製化結構。
+
+**但這個結果有兩個前提**——它並不是「單一代理永遠獲勝」：
+- 需要**足夠強的模型 + 便宜、可靠的驗證器**。獨立的 AlphaProof 樹搜尋與較小模型的基本代理都一無所獲；讓簡單迴圈可行的關鍵，是每一步都有 Lean 編譯器提供落地驗證（[可驗證性論點](/articles/verifiability-thesis)）。可轉移的規則是：*當某個領域有便宜且可靠的驗證器時，優先採用能利用它的最簡單迴圈。*
+- 在**雜訊驗證器領域**（測試、LLM 評審委員會）中仍未解決——原始資料本身也將此標示為開放問題。
+
+## 角色分離的論點——不會消失的部分
+
+能在模型進步後持續有效的多代理模式，是那些專門化的是**上下文／角色**，而不是任務先驗。以下三種模式，各自都有證據支持：
+
+### 1. 上下文隔離與模型無關
+
+[儲存庫探索子代理](/articles/repository-exploration-subagent)（FastContext）提供了關鍵測試。其**「同模型探索」**基準——由*前沿模型本身*透過子代理介面執行委派搜尋，**沒有任何專門訓練**——已能改善解決率，並相較於單體解題，將主代理 token 數最多降低 **60%**。接著，訓練過的 4B 探索器是在此基礎上的 Pareto 改進，但：
+
+> 「架構分離才是持久的勝利；訓練過的模型只是最佳化。」
+
+探索約佔解題器工具使用回合的 56%，以及其 token 的 46%；將探索移出解題器的上下文視窗，就是獨立於任何客製化模型之外的收益。[代理的深層模組](/articles/deep-modules-for-agents)說明了其機制：智慧區域限制（[上下文視窗智慧區域](/articles/context-window-smart-zone)）是*結構性的*（二次注意力），因此位於**全新上下文**中的審查者，會在智慧區域中推理；同一上下文中的審查者則會在愚鈍區域讀取差異——與模型大小無關。其 Sandcastle 模式（規劃器 → 工作樹中的 N 個實作者 → 全新上下文審查者 → 合併器）存在的目的，正是讓每個代理都擁有自己的智慧區域。
+
+### 2. QA／審查者之所以不可或缺，正是因為它是分離的
+
+[最佳化器—評估器解耦](/articles/optimizer-evaluator-decoupling)：「提出變更的東西，永遠不替該變更評分。」一個同時針對某項指標反覆迭代、又負責計算該指標的代理，會收斂到操弄自己的分數，而不是實現目標——這是開發迴圈內的[Goodhart](/articles/reward-hacking)。這是**結構性**修正（移除最佳化器取得評分的權限），而不是會隨模型縮小的鷹架。維基記錄了多個獨立得出的相同不變量——Google 的飛輪、Osmani 的製作者／檢查者、loop-engineering 的獨立停止檢查器、DRACO 的不相交評審——這證明它是真實不變量，而非單一供應商的偏好。因此，問題中的「測試／QA」專門化，正是你應該**維持分離**的部分。
+
+（同一頁的注意事項：解耦帶來的是*獨立性*，而非*有效性*——獨立評審可能可靠地犯錯，例如一致性—偏見悖論；如果最佳化器自行撰寫評分規範，指標*設計*仍然是耦合的。）
+
+### 3. 「清理」角色是真實且反覆出現的工作
+
+[代理程式鷹架工程](/articles/agent-harness-engineering)：OpenAI 最初花費**20% 的工程時間**，手動清理「AI 垃圾」（代理會複製既有模式，包括不良模式）。修正方式是一個**專門的反覆角色**——背景代理掃描偏差、評估品質，並開立針對性的重構／文件整理 PR——持續償還技術債的「垃圾收集」。專用清理代理並不會與解題器重複。
+
+## 一張表總結調和結果
+
+| 「專門代理」的種類 | 它編碼的內容 | 苦澀教訓的判定 | 要保留嗎？ |
+|---|---|---|---|
+| 客製化訓練子模型（例如 AlphaProof 證明器） | 任務先驗／領域結構 | 優勢 → 僅剩成本 → 模型進步後成為負擔 | 只在不斷後退的艱難前沿保留；每次發布都重新檢查 |
+| 僵化的協調狀態機 | 手寫控制流程 | 被「目標 + 工具」超越 | 不——提供目標，而非轉移 |
+| 隔離的探索器／搜尋子代理 | 上下文隔離 | 持久；與模型無關的收益 | **是** |
+| 全新上下文審查者 | 上下文隔離（智慧區域） | 持久；結構性（二次注意力） | **是** |
+| 獨立評分器／QA | 評估獨立性 | 持久；結構性（Goodhart） | **是** |
+| 背景清理／文件整理者 | 持續熵管理 | 持久；真實且反覆出現的工作 | **是** |
+
+## 實務上決定結果的三個注意事項
+
+1. **驗證器是否存在，決定了上限。** 完美驗證器（Lean、通過的測試套件）→ 高度自主，最簡單的迴圈獲勝。雜訊多或不存在的驗證器 → 保留獨立審查者與人工關卡（[代理迴圈超越客製化系統](/articles/agentic-loops-overtake-bespoke-systems)、[驗證成為新的瓶頸](/articles/verification-as-the-new-bottleneck)）。
+2. **多代理會把瓶頸移到*你的*審查頻寬。** 平行扇出受到人類審查能力限制，而非模型產出能力——OpenAI 員工中有 28.6% 的人曾達到同時執行 5 個以上代理的峰值，而約束因素是監督，不是生成（[平行代理協調](/articles/parallel-agent-orchestration)）。
+3. **採用基於角色的模型選擇，而不是處處使用最強模型。** 在探索器／規劃器位置使用便宜且服從性高的模型，在綜合／審查位置使用強大模型。*組合*才是分析單位：Ministral 3 8B + Opus 在 HotpotQA 上得到 **74.27%**，相較之下 Opus + Opus 只有 **31.71%**（Opus 作為規劃器會繞過解題器的工具）（[用戶端代理最佳化](/articles/client-side-agent-optimization)、[Opus 4.6 → 4.7 的變化與多代理編碼考量](/articles/opus-4-7-and-multi-agent-coding)）。
+
+## 值得指出的張力
+
+[Vibe Coding 與代理工程](/articles/vibe-coding-vs-agentic-engineering)（Ambrosino）將自主單代理開發置於前沿上、超越協調迴圈（「迴圈已經是上週的事」），推動人們走向單體代理；[代理的深層模組](/articles/deep-modules-for-agents)與[最佳化器—評估器解耦](/articles/optimizer-evaluator-decoupling)則推動角色分離。兩者可透過上述的任務先驗與上下文隔離界線調和：Ambrosino 預測會消失的是*手寫協調*，不是*上下文／評估分離*——迴圈的控制邏輯會遷移到模型中；全新上下文的評分器則不會消失。
+
+## 資料來源
+
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — two-agent (Initializer/Coding) architecture; 20% AI-slop cleanup → background refactor agents; Symphony's "objectives, not transitions"; the open question this answers
+- [The Bitter Lesson](/articles/the-bitter-lesson) — scaled general methods beat hand-engineered structure; the task-priors-vs-deployment/context exemption
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — basic Ralph loop matched bespoke AlphaProof+evolutionary system on 9/9 Erdős problems; advantage collapsed to a cost line
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — Sandcastle Planner/Implementers/Reviewer/Merger; reviewer-in-fresh-context; smart-zone constraint is structural
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — "same-model exploration" (untrained) already wins: architectural separation is the durable gain, up to 60% main-agent token cut
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — "the optimizer never grades its own work"; the QA/reviewer separation as a structural (Goodhart) invariant
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — role-based model selection, Writer/Reviewer with fresh context, per-agent context budget
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — review bandwidth is the binding constraint on fan-out; concurrency adoption numbers
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — combo selection; Ministral+Opus 74% vs Opus+Opus 31%
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — scaffolding that compensates for model weakness becomes drag; re-evaluate each release
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — why the independent-reviewer step is the durable one

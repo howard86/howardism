@@ -1,0 +1,88 @@
+---
+date: 2026-07-09
+title: 開放權重的前沿落差
+description: "Arena Text，2026 年 6 月：頂尖閉源模型以 33 Elo 領先最佳開放模型，並以 57 Elo 領先最佳 *dense* 開放模型；前沿的開放權重意味著 744B–1.6T MoE，因此 Gemma 4 31B 是在不同軸線上競爭（效率、邊緣部署），而非縮小落差——而且 DeepMind 自己的 MoE 敗給了自己的 dense 模型"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - open-weights
+  - capability-evaluation
+  - competitive-landscape
+readingTime: 7
+imageAlt: 《開放權重的前沿落差》插圖
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
+    url: https://arxiv.org/pdf/2607.07508
+---
+export { default as heroImage } from "../assets/open-weight-frontier-gap.png";
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+
+## 摘要
+
+[Gemma 4](/articles/gemma-4) 報告的表 4，是截至 **2026 年 6 月 19 日**的開放權重模型版圖快照，測量基於 Arena Text——盲測的並列人工偏好評比，以 Elo 評分。這是整份充滿自行回報基準測試的文件中，唯一經外部裁決的數字，而且它比其他任何數字都更具資訊量。
+
+| 排名 | 模型 | Elo | 開放 | 類型 | 參數／啟用參數 |
+|---|---|---|---|---|---|
+| 1 | [Claude Fable 5](/articles/claude-fable-5) | 1508 | 否 | — | — |
+| ~15 | GLM 5.1 | 1475 | 是 | MoE | 744B / 40B |
+| 29 | MiMo V2.5 Pro | 1466 | 是 | MoE | 1T / 42B |
+| 34 | Kimi K2.6 | 1460 | 是 | MoE | 1T / 32B |
+| 36 | DeepSeek V4 Pro Thinking | 1458 | 是 | MoE | 1.6T / 49B |
+| **43** | **Gemma 4 31B** | **1451** | 是 | **Dense** | 31B |
+| 57 | Qwen 3.5 397B-A17B | 1444 | 是 | MoE | 397B / 17B |
+| 61 | Gemma 4 26B-A4B | 1438 | 是 | MoE | 26B / 4B |
+| 157 | Gemma 3 27B | 1366 | 是 | Dense | 27B |
+
+## 三種解讀
+
+**Elo 的落差很小，參數的落差卻極大。**最佳開放模型落後最佳閉源模型 **33 Elo**；Gemma 4 31B 則落後 **57**。但 GLM 5.1 以 **7440 億個參數對上 31 億個參數**，換來領先 Gemma 24 分——比例是 24 倍，而且它每個 token 啟用 40B，超過 Gemma 整個 dense 模型的參數量。「開放權重幾乎追上了」和「前沿的開放權重需要資料中心」都是真的，而它們只是從兩端讀同一句話。
+
+**前沿開放模型意味著 MoE；Gemma 並沒有在玩這場遊戲。**Gemma 4 31B 之上的每個開放模型，都是 397B–1.6T 範圍內的 Mixture-of-Experts。Gemma 自己的摘要——「排行榜上領先的 dense 開放模型」——是一項界線劃分得非常精確的主張，而重點就在這個界線。這個系列明確瞄準的是「多樣化的硬體環境」與「邊緣部署」。它在[推理效率](/articles/inference-efficiency-as-capability)這條軸線上競爭：量化後 0.8 GB 的 E2B，是 1.6T 模型根本無法進入的一個類別。兩種開放權重策略已經分流：*以稀疏性接近前沿*，以及*以效率接近裝置*。
+
+如今，稀疏性這一側也有了已記錄的訓練方法。本表頂端的 **GLM 5.1**（744B/40B）是 **[GLM-5.2](/articles/glm)**（750B-A40B）的直接前身，而 [SAO](/articles/single-rollout-optimization) 論文報告指出，該模型是以非同步單次 rollout RL 訓練而成。因此，這個 corpus 現在同時擁有前沿開放 MoE 故事的兩端：這些模型*落在哪裡*（本頁），以及它們如何被*訓練到那裡*（[LLM 的非同步 RL](/articles/asynchronous-rl-for-llms)）。同一篇論文的表 1 也顯示，**[GLM-4.7](/articles/glm)** 在四項數學基準測試中的三項擊敗 GPT-5 High 與 Claude-Sonnet-4.5——這是在測量基準上、而非 Arena Elo 上，對 Gemma 效率定位的一個能力面反例。
+
+**DeepMind 的 MoE 敗給 DeepMind 的 dense 模型。**Gemma 4 26B-A4B（Elo 1438，排名 61）比 Gemma 4 31B（1451，排名 43）低 **13 Elo**；兩者來自同一實驗室、同一次發布，且是在人工偏好評比中得出——同時，表中每個更大的開放模型都證明了 MoE 能夠擴展。在靜態基準測試上，MoE 與 dense 模型很接近（MMLU Pro 82.6 對 85.2、AIME 88.3 對 89.2），有時甚至領先（τ²-airline 76.0 對 75.0），但人工評分者偏好 dense 31B。報告沒有評論這一點。如果這個效果是真的，它表示稀疏性的回報要到遠高於 26B 的規模才會出現，或者 Arena 評分者所回應的品質，是由啟用參數量（3.8B）所支配。
+
+## 為什麼人工偏好數字才值得信任
+
+報告的其餘部分是 Google 測量 Google。Arena 是盲測、第三方、人工評分，並附有信賴區間（Gemma 為 ±8）。它也以一種易於理解的方式*不同意*靜態基準測試：Gemma 4 31B 被宣稱可媲美「更大的前沿開放模型」，而在 Arena 上它確實做到了——對上 DeepSeek V4 Pro 的 1456，落在合併誤差範圍內。這是一項真實的結果，恰恰因為 Google 沒有替它評分，所以才真實。
+
+同一張表悄悄把 [Claude Fable 5](/articles/claude-fable-5) 列為第 1 名——這是第三方對某模型地位的佐證；該模型自己的 wiki 頁面完全建立在 Anthropic 的 `vendor-claim` 公告上，而其正面對決基準測試表也只以未轉錄的圖片形式發布。競爭對手的排行榜，比 Fable 5 自己的發布文章更能證明 Fable 5 的地位。
+
+## 表格沒有控制的因素
+
+Arena Elo 沒有攜帶運算預算。Gemma 4 的條目是思考模式模型；表格沒有說明它們是在什麼思考預算下提供服務，也沒有說明閉源模型花費了多少。根據[運算控制基準測試](/articles/compute-controlled-benchmarking)，沒有預算的偏好分數，和沒有預算的基準測試分數有同樣的缺陷——只是把缺陷藏在人類判斷後面，而不是藏在數字後面。開放對閉源的 33-Elo 落差，可能是能力落差、推理花費落差，或兩者皆是。
+
+## 相關連結
+
+- [Gemma 4](/articles/gemma-4) — 表格來源；領先的 dense 開放模型
+- [Claude Fable 5](/articles/claude-fable-5) — 排名第 1，且此處是由競爭對手而非供應商引用
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — Gemma 競爭的軸線，而非規模
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — 沒有預算的 Elo 分數，仍然是沒有預算的分數
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — 當這些模型帶有思考模式後，「開放」的代價
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — 總體 Elo 隱藏了小型 Gemma 在推理上擊敗 Gemma 3 27B、在知識上落敗的事實
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 表格每個儲存格底下那個未命名的變數
+- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — 讓 31B dense 模型得以參與競爭的其中一個槓桿
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — 為何此處的開放權重安全論點是結構性的：Gemma 4 排名第 43，離風險門檻還很遠
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — Arena 評分聊天偏好；開放／閉源落差是否能在長時間跨度的 agentic 工作中維持，是另一種測量
+- [Google DeepMind](/articles/google-deepmind) — 發布這張表，也讓自己在表中排名第 43
+- [GLM (Z.AI)](/articles/glm) — GLM 5.1（表格頂端）及其經 SAO 訓練的後繼模型 GLM-5.2：本頁拿來與 Gemma 效率策略對比的能力面開放權重策略
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — GLM MoE 系列持續位居前沿背後的 RL 方法；與這個落地位置快照互補的訓練面
+
+## 開放問題
+
+- 26B 規模下 dense 勝過 MoE 的結果是否穩健，還是只是一個 Arena 快照的產物，而兩個模型都有 ±8 的誤差範圍？（兩個區間重疊：1451±8 與 1438±8。）
+- 開放 MoE 巨型模型（GLM、DeepSeek、Kimi、MiMo、Qwen）壓倒性地都是中國實驗室發布的模型。Gemma 是西方的開放權重代表，它瞄準的是裝置，而非前沿。這是策略選擇，還是能力限制？
+- Arena 衡量的是聊天中的偏好。在長時間跨度的 agentic 工作中，開放／閉源的 33-Elo 落差會擴大還是縮小？在那裡，決定結果的是[時間跨度](/articles/task-time-horizon-scaling)，而非回應品質。
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — 表 4，截至 2026-06-19 的 Arena Text 排行榜（`empirical`；第三方人工評分，不同於報告其餘自行回報的基準測試）；§4.1 人工評估
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — GLM-5.2（750B-A40B）作為 SAO 的部署目標；表 1 中的 GLM-4.7（`empirical`，對 GLM 實驗室而言是第一方資料）

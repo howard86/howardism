@@ -1,0 +1,89 @@
+---
+date: 2026-07-11
+title: 語言模型中的全域工作區（J-space）
+description: "Anthropic 於 2026 年 7 月發現，LLM 會維持一小組可 verbalize 的特權表徵——J-space——符合認知全域工作區的功能性標準：言語報告、定向調節、內部推理、彈性泛化與選擇性；它承載的 activation variance 不到 10%，一次約 25 個概念，然而因果效應幾乎全都集中於其中"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - alignment
+  - cognition
+  - representations
+readingTime: 9
+imageAlt: 語言模型中的全域工作區（J-space）插圖
+sources:
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+---
+export { default as heroImage } from "../assets/llm-global-workspace.png";
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## 摘要
+
+Anthropic 的 interpretability 團隊使用 [Jacobian Lens（J-lens）](/articles/jacobian-lens)，搜尋模型在被詢問時「準備好被談論」的 **可 verbalize** 表徵，並「相當令人意外地」發現，這組表徵的作用遠不只是支援言語。它的行為就像一個 **全域工作區**：模型表徵中一小組享有特權、可廣播的子集，位於更大量的自動處理之上，而模型無法報告或以彈性方式推理這些自動處理。
+
+J-space 是一組點的集合，可表示為 J-lens 向量的稀疏非負組合（通常為 $k \le 25$）。它很 **小**：在工作區層中，它承載的 **activation variance** 從未超過 **10%**；某個概念的 J-space 成分，中位數只包含該概念表徵變異的 **6–7%**。然而，因果作用就存在於這一道細縫之中。
+
+## 五項功能性質
+
+全域工作區理論（Baars、Dehaene）指出，有意識的存取具備可報告、可由上而下控制、是刻意推理的媒介、可彈性泛化，以及具選擇性等特徵。該論文為每項性質定義 LLM 的類比版本，並加以測試。
+
+**1. 言語報告。** 要求 Sonnet 4.5 想一種運動，並在模型回答前讀取冒號處的 lens：`Soccer` 位於頂端，模型也會說「Soccer」。將 `Soccer` 座標替換成 `Rugby`——這個詞不在其前 10 個輸出之中——模型便會報告「Rugby」。系統性地說，替換會在 **88%** 的試驗中將目標推入前 5 名。在 *user* 輪次注入 J-lens 向量，會讓模型在之後被要求內省時報告自己偵測到該概念，卻不會讓它更早脫口說出該詞——這個表徵是可 verbaliz**able** 的，而不是一種無條件說出口的衝動。
+
+**J-space 對報告具有特權。** 將一個概念向量分解為其 J-space 成分（約佔變異的 6–7%）與非 J-space 的剩餘部分（約 93%）：沿著 J-space 成分進行替換，在 59% 的試驗中成功，接近純 J-lens 向量的 88%；沿著非 J-space 成分替換，成功率則只有 **5%**。將 J-space 座標固定，使該概念無法重新進入，連這 5% 也會降為零——剩餘效應是經由工作區進行路由。
+
+**2. 定向調節。** 要求模型在抄寫無關句子的同時「專注於柑橘類水果」，`orange` 會在一段層範圍內成為頂端 lens token；此外，在中間層還會出現命名該 *行為* 的 token（`imagine`、`thinking`、`focused`）。要求模型在抄寫時於心中計算 3²−2，讀出結果會依序為 `arithmetic` → `nine` → `seven`。這些內容都不會出現在輸出中。調節也可以是 **隱式的**：只有在 *question* 要求模型命名某項屬性時，同一組刺激 token 才會將該屬性的標籤（`past`、`adjective`）載入 J-space——即使在兩個問題中，該屬性都被表徵並使用。
+
+這種控制並不完美，呈現一種熟悉的現象：「忽略 X」的指令會讓 X 留在工作區中，顯著高於零基準——這就是在 transformer 中重現的 **白熊效應**。
+
+**3. 內部推理。** J-lens 向量承載著具有關鍵作用的 *未說出口中間結果*：
+
+- 「會結網的動物有幾條腿是」——`spider` 出現在 lens 中，卻沒有出現在提示或輸出裡。將 `spider` 替換為 `ant`，答案便會從「8」變成「6」。
+- 完成押韻對句時，lens 會在詩句寫出前顯示**預定的韻腳** `fight`。將其替換為 `light`，模型較早的選詞便會改變（「coming」→「morning」），最後以「morning light」收尾。該計畫會對通往結果的路徑施加因果約束。
+- 用中文詢問「小」的反義詞，lens 承載英文 `big`——將其替換為 `long`，中文輸出便會從 大 → 長 改變。模型以英文思考，並明確表徵自己必須翻譯成哪種語言。
+- 兩跳替換在 Haiku 4.5／Sonnet 4.5／Opus 4.5 的試驗中，成功率分別為 54%／70%／70%。中間結果的替換約比答案替換**早 17% 的深度**生效——排除了中間向量只是偷偷帶入答案的混淆因素。
+
+同樣具有特權：以 probe 為基礎的中間結果，透過其 J-space 成分有 61% 的機率翻轉答案，透過非 J-space 剩餘部分則為 28%；當 J-space 被固定後，這 28% 會崩落至 6%。
+
+**4. 彈性泛化（廣播）。** 在每個位置將 `France` → `China` 替換一次，所有下游功能都會正確讀取新的引數：首都、語言與洲別。在 16 項功能、192 次試驗中，有 76 次成功（雙倍強度下為 101 次）。失敗集中發生在來源概念的 **workspace loading** 較低之處——國名載入強，替換可靠；數字詞載入弱，替換效果差。
+
+**5. 選擇性。** J-space 是報告與彈性推論所必需的，卻不是自動處理所必需的——請見 [LLM 中的自動與彈性認知](/articles/automatic-vs-flexible-cognition)，這是論文中最鮮明的結果。
+
+## 三項結構性特徵
+
+**一段層區間。** J-space 只有在大約 **L38 到 L92** 之間承載類似工作區的內容（總共 100 層，重新編號）。在此之前：幾乎沒有有意義的內容（超額峰度接近零、自相關接近零、有效維度坍縮）。在此之後：進入「動作」階段，讀出結果會與即將輸出的 token 對齊。多項獨立的 lens 統計都收斂至相同邊界。
+
+**起始處的點火。** 餵給模型一個由兩個國名加權混合而成的輸入 embedding，並掃描混合比例。在早期層中，activation 會按比例追蹤混合結果；**從約 L38 開始，它會跳向其中一個端點**，在某個閾值處急遽切換——在最大歧義時尤其如此，J-space 中的結果更呈雙峰分布。這是最接近 GWT 全有或全無式**點火**的現象，而且測量時**沒有使用** J-lens（而是普通的 projection-share 測量）；正因如此，工作區開始層不只是 lens 造成的假象。
+
+**有限容量，以及廣播樞紐。**
+
+- **佔用量**會在同一時間約 **25** 個 J-lens 向量附近達到平台。在一份由*互不相關*詞語組成的清單中，每個逗號處目前讀到的內容只有約 6 個存在（單一層則約 1–2 個）；在一份由*相關*詞語組成的清單中，幾乎整個 80 詞類別會在幾個項目內出現——**包括尚未讀到的詞**。模型保留的是*類別*，而非回憶清單。切換類別後，舊項目會在幾個詞內**被驅逐**——清除工作區的是新類別的到來，而不是經過的 token 數量。
+- **跨深度廣播**：相較於隨機方向，MLP 區塊會將 J-lens 向量放大約 **10 倍**（神經元輸出方向：約 1 倍）；該效應會隨 SAE 特徵與 J-space 的對齊程度單調增加。
+- **跨 token 廣播**：位於前 1% 的注意力 head 會選擇性轉送 J-space 內容；對旋轉後的 J 控制組、SAE 分層與 MLP 列而言，它們與廣播 head 清楚分離。消融這些 head 會使 J-lens recall@25 從 0.86（控制組）降至 0.67，但只在 5% 的位置改變模型前 1 個下一 token（控制組：2%）——它們作用於*工作區*，而不是輸出。消融這些 head 也會使注入思想的報告崩潰（0.54 → 0.09）。
+
+## 作者沒有主張什麼
+
+他們明確拒絕強版本的說法。Transformer 沒有可分離的專門處理器，在一次 forward pass 內也沒有遞迴（他們記錄的廣播是跨越*深度*運作，而非經由遞迴迴圈），而且目前不清楚工作區進入是否涉及大腦所展現的尖銳競爭式點火。主張是：J-space 具備全域工作區的許多**功能性**質，但只共享其中**部分**架構性質。至於現象意識，他們不表明立場——請見 [AI 中的存取意識指標](/articles/access-consciousness-indicators)。
+
+## 為何重要
+
+這是第一個機械論式說明模型的無聲推理為何仍然可讀的理論，也重新框定了本 wiki 分別追蹤的幾件事：
+
+- 模型的策略性深思與情境評估，**位於一個可讀取的位置，早於任何 token 被發出** → [錯位的內部特徵](/articles/internal-signatures-of-misalignment)、[評估感知與評測者操弄](/articles/evaluation-awareness-and-grader-gaming)。
+- Chain-of-thought 是同時也會無聲運作之工作區的*外化*一半——這正是為何僅監控 CoT 存在結構性盲點 → [Chain-of-Thought 的可監控性](/articles/cot-monitorability)。
+- 如果內部推理會經由模型可能說出的*事物*之表徵來路由，那麼塑造它會說什麼，也會塑造它如何思考 → [反事實反思訓練](/articles/counterfactual-reflection-training)。
+- 工作區存在於**基礎模型**中，早於任何 post-training；Assistant 的觀點是在其上安裝的 → [工作區中的 Assistant Persona](/articles/assistant-persona-in-the-workspace)。
+
+## 開放問題
+
+- **內容如何進入工作區？** 該論文描述了內容與後果，而不是選擇機制。某種近似注意力選擇的機制正在運作，但沒有人找出它。
+- **J-space 是否會隨模型規模擴展？** 所有結果都來自大型 production 模型（Haiku/Sonnet/Opus 4.5、Opus 4.6）。小型模型究竟擁有較差的工作區、按比例更小的工作區，還是根本沒有工作區，仍是未知；它在 pretraining 的哪個時期出現，以及是否會突然出現，也同樣未知。
+- **「工作區與動作」的邊界是有原則的，還是事後形成的？** 作者承認，這個邊界是透過經驗方式辨識出來的，他們缺乏能有原則地區分兩者的定義。
+- **早期三分之一的層真的沒有工作區，還是 lens 只是在那裡失明？** CKA 顯示出一個獨特的早期階段，但無法裁決。
+
+## 資料來源
+
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Gurnee, Sofroniew, … Lindsey, *Verbalizable Representations Form a Global Workspace in Language Models*, Transformer Circuits, 2026-07-06。章節：Introduction；The J-space acts as a Global Workspace（verbal report／directed modulation／internal reasoning／flexible generalization）；The J-space's structure supports its function（layers、ignition、capacity、broadcast）；Discussion
