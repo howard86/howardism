@@ -17,8 +17,15 @@ function Tabs({
         "group/tabs flex gap-2 data-horizontal:flex-col",
         className
       )}
+      // The `data-horizontal:` / `data-vertical:` variants used here and on the
+      // list and triggers compile to bare attribute selectors, so they need the
+      // attribute itself to exist — `data-orientation="horizontal"` alone never
+      // matches them, which silently left the root a flex row.
+      data-horizontal={orientation === "horizontal" ? "" : undefined}
       data-orientation={orientation}
       data-slot="tabs"
+      data-vertical={orientation === "vertical" ? "" : undefined}
+      orientation={orientation}
       {...props}
     />
   );

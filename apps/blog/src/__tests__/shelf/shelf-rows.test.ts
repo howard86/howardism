@@ -10,6 +10,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "AI Engineering",
     href: "/articles/alpha",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "beta",
@@ -17,6 +20,9 @@ const manifest: ShelfManifestEntry[] = [
     label: "Essay",
     href: "/articles/beta",
     archived: false,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
   {
     slug: "gamma",
@@ -24,14 +30,17 @@ const manifest: ShelfManifestEntry[] = [
     label: "Entities",
     href: "/articles/gamma",
     archived: true,
+    kindPrefix: "C",
+    readingTime: 8,
+    tags: [],
   },
 ];
 
 describe("buildShelfRows", () => {
   it("resolves visible articles into rows, preserving newest-first order", () => {
     const history: ReadingEntry[] = [
-      { slug: "beta", pct: 0.4, lastReadAt: 200 },
-      { slug: "alpha", pct: 0.9, lastReadAt: 100 },
+      { slug: "beta", pct: 0.4, lastReadAt: 200, firstReadAt: 20 },
+      { slug: "alpha", pct: 0.9, lastReadAt: 100, firstReadAt: 10 },
     ];
 
     const rows = buildShelfRows(history, manifest);
@@ -47,9 +56,27 @@ describe("buildShelfRows", () => {
     });
   });
 
+  it("numbers accessions by first read, not by position in the history", () => {
+    const history: ReadingEntry[] = [
+      { slug: "gamma", pct: 0.4, lastReadAt: 300, firstReadAt: 30 },
+      { slug: "beta", pct: 0.4, lastReadAt: 200, firstReadAt: 10 },
+      { slug: "alpha", pct: 0.9, lastReadAt: 100, firstReadAt: 20 },
+    ];
+
+    const rows = buildShelfRows(history, manifest);
+
+    expect(
+      rows.map((row) => ({ slug: row.slug, accession: row.accession }))
+    ).toEqual([
+      { slug: "gamma", accession: 3 },
+      { slug: "beta", accession: 1 },
+      { slug: "alpha", accession: 2 },
+    ]);
+  });
+
   it("classifies an archived article as archived, still carrying its link", () => {
     const rows = buildShelfRows(
-      [{ slug: "gamma", pct: 0.5, lastReadAt: 300 }],
+      [{ slug: "gamma", pct: 0.5, lastReadAt: 300, firstReadAt: 30 }],
       manifest
     );
 
@@ -62,8 +89,8 @@ describe("buildShelfRows", () => {
 
   it("classifies an unresolved slug as a deleted tombstone, not dropped", () => {
     const history: ReadingEntry[] = [
-      { slug: "ghost", pct: 0.5, lastReadAt: 300 },
-      { slug: "alpha", pct: 0.3, lastReadAt: 100 },
+      { slug: "ghost", pct: 0.5, lastReadAt: 300, firstReadAt: 30 },
+      { slug: "alpha", pct: 0.3, lastReadAt: 100, firstReadAt: 10 },
     ];
 
     const rows = buildShelfRows(history, manifest);

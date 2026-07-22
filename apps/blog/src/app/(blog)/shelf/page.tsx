@@ -5,7 +5,10 @@ import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 import { PlatePage } from "../_shell/plate-page";
 import { DOMAIN_META } from "../articles/domain-meta";
+import { kindMetaFor } from "../articles/kind-meta";
 import { getArticles } from "../articles/service";
+import { ContinueReading } from "./continue-reading";
+import { ShelfStats } from "./shelf-stats";
 import { ShelfTabs } from "./shelf-tabs";
 
 const SHELF_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/shelf`;
@@ -39,22 +42,30 @@ export default async function ShelfPage() {
       label: meta.domain ? DOMAIN_META[meta.domain].label : meta.tag,
       href: `/articles/${id}`,
       archived: meta.archived === true,
+      domain: meta.domain,
+      kindPrefix: kindMetaFor(meta.tag).prefix,
+      readingTime: meta.readingTime,
+      tags: meta.tags ?? [],
     });
   }
 
   return (
     <PlatePage
       headerChildren={
-        <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
-          Articles you&apos;ve meaningfully read, newest first. This list lives
-          only in your browser — nothing is sent anywhere.
-        </p>
+        <>
+          <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
+            Articles you&apos;ve meaningfully read, newest first. This list
+            lives only in your browser — nothing is sent anywhere.
+          </p>
+          <ShelfStats manifest={manifest} />
+        </>
       }
       plate="shelf"
       title="Your shelf,"
       titleAccent="read & remembered."
-      width="wide"
+      width="index"
     >
+      <ContinueReading manifest={manifest} />
       <ShelfTabs manifest={manifest} />
     </PlatePage>
   );
