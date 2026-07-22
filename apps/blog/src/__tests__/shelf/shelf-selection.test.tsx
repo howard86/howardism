@@ -22,59 +22,25 @@ import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 const COMPARE_BUTTON = /compare \(\d+\)/i;
+const ALPHA_LINK = /Alpha/i;
+const ONE_SELECTED = /1 selected/;
+const TWO_SELECTED = /2 selected/;
+const THREE_SELECTED = /3 selected/;
+const SAVED_TAB = /^saved/i;
+const HISTORY_TAB = /^history/i;
 
-const manifest: ShelfManifestEntry[] = [
-  {
-    slug: "a",
-    title: "Alpha",
+const manifest: ShelfManifestEntry[] = ["a", "b", "c", "d", "e"].map(
+  (slug, index) => ({
+    slug,
+    title: ["Alpha", "Beta", "Gamma", "Delta", "Echo"][index] ?? slug,
     label: "AI",
-    href: "/articles/a",
+    href: `/articles/${slug}`,
     archived: false,
     kindPrefix: "C",
     readingTime: 8,
     tags: [],
-  },
-  {
-    slug: "b",
-    title: "Beta",
-    label: "AI",
-    href: "/articles/b",
-    archived: false,
-    kindPrefix: "C",
-    readingTime: 8,
-    tags: [],
-  },
-  {
-    slug: "c",
-    title: "Gamma",
-    label: "AI",
-    href: "/articles/c",
-    archived: false,
-    kindPrefix: "C",
-    readingTime: 8,
-    tags: [],
-  },
-  {
-    slug: "d",
-    title: "Delta",
-    label: "AI",
-    href: "/articles/d",
-    archived: false,
-    kindPrefix: "C",
-    readingTime: 8,
-    tags: [],
-  },
-  {
-    slug: "e",
-    title: "Echo",
-    label: "AI",
-    href: "/articles/e",
-    archived: false,
-    kindPrefix: "C",
-    readingTime: 8,
-    tags: [],
-  },
-];
+  })
+);
 
 function seedHistory(slugs: string[]): void {
   localStorage.setItem(
@@ -97,6 +63,11 @@ function seedSaved(slugs: string[]): void {
 const checkbox = (title: string) =>
   screen.getByRole("checkbox", { name: `Select ${title} to compare` });
 
+/** Enter compare mode via the controls-bar toggle (off by default). */
+async function enterCompareMode(): Promise<void> {
+  fireEvent.click(await screen.findByRole("button", { name: "Compare" }));
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -104,24 +75,41 @@ afterEach(() => {
 });
 
 describe("Shelf compare selection", () => {
+  it("only shows checkboxes while compare mode is on, clearing on exit", async () => {
+    seedHistory(["a"]);
+    render(<ShelfTabs manifest={manifest} />);
+
+    await screen.findByRole("link", { name: ALPHA_LINK });
+    expect(screen.queryByRole("checkbox")).toBeNull();
+
+    await enterCompareMode();
+    fireEvent.click(checkbox("Alpha"));
+    expect(screen.getByText(ONE_SELECTED)).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(ONE_SELECTED)).toBeNull();
+  });
+
   it("keeps a selection across switching between History and Saved tabs", async () => {
     seedHistory(["a"]);
     seedSaved(["e"]);
     render(<ShelfTabs manifest={manifest} />);
+    await enterCompareMode();
 
     fireEvent.click(
       await screen.findByRole("checkbox", { name: "Select Alpha to compare" })
     );
-    expect(screen.getByText("1 selected")).not.toBeNull();
+    expect(screen.getByText(ONE_SELECTED)).not.toBeNull();
 
     // Radix tabs activate on focus, not click.
-    fireEvent.focusIn(screen.getByRole("tab", { name: "Saved" }));
+    fireEvent.focusIn(screen.getByRole("tab", { name: SAVED_TAB }));
     fireEvent.click(
       await screen.findByRole("checkbox", { name: "Select Echo to compare" })
     );
-    expect(screen.getByText("2 selected")).not.toBeNull();
+    expect(screen.getByText(TWO_SELECTED)).not.toBeNull();
 
-    fireEvent.focusIn(screen.getByRole("tab", { name: "History" }));
+    fireEvent.focusIn(screen.getByRole("tab", { name: HISTORY_TAB }));
     await waitFor(() =>
       expect((checkbox("Alpha") as HTMLInputElement).checked).toBe(true)
     );
@@ -130,23 +118,25 @@ describe("Shelf compare selection", () => {
   it("caps the selection at three and prevents a fourth", async () => {
     seedHistory(["a", "b", "c", "d"]);
     render(<ShelfTabs manifest={manifest} />);
+    await enterCompareMode();
 
     fireEvent.click(
       await screen.findByRole("checkbox", { name: "Select Alpha to compare" })
     );
     fireEvent.click(checkbox("Beta"));
     fireEvent.click(checkbox("Gamma"));
-    expect(screen.getByText("3 selected")).not.toBeNull();
+    expect(screen.getByText(THREE_SELECTED)).not.toBeNull();
 
     const fourth = checkbox("Delta") as HTMLInputElement;
     expect(fourth.disabled).toBe(true);
     fireEvent.click(fourth);
-    expect(screen.getByText("3 selected")).not.toBeNull();
+    expect(screen.getByText(THREE_SELECTED)).not.toBeNull();
   });
 
   it("navigates to the compare route built from the selection", async () => {
     seedHistory(["a", "b"]);
     render(<ShelfTabs manifest={manifest} />);
+    await enterCompareMode();
 
     fireEvent.click(
       await screen.findByRole("checkbox", { name: "Select Alpha to compare" })
