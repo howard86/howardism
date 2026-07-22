@@ -47,7 +47,6 @@ export function Footer() {
           {SOCIAL_LINKS.map((link) => (
             <li key={link.href}>
               <ExternalLink
-                aria-label={link["aria-label"]}
                 className="flex items-center gap-1.5 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em] no-underline transition-colors hover:text-brand"
                 href={link.href}
               >
