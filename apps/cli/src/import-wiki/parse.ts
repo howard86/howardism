@@ -316,7 +316,8 @@ export function buildSlugTitleMap(
  * Normalise a wiki note's raw `tags` into the list emitted to article
  * frontmatter: trimmed, lowercased, de-duplicated, empties dropped, source
  * order preserved. The note's `tags` are the real subject labels — distinct
- * from the single derived `topic` bucket (see `topics.ts`).
+ * from the note's single `domain`, which is resolved from MOC membership
+ * (see `domains.ts`) rather than from tags.
  */
 export function normaliseTags(tags: readonly string[] | undefined): string[] {
   if (!tags) {

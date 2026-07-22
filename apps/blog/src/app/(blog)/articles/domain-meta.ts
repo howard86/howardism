@@ -14,25 +14,63 @@ export interface DomainMeta {
 }
 
 /**
- * Display metadata for the nine curated knowledge domains. Order drives the
+ * Display metadata for the fifteen curated knowledge domains. Order drives the
  * home plate stack. Colors reference the `--domain-*` tokens in `@howardism/ui`.
  * The domains themselves are sourced from the vault's MOC pages by the importer.
  */
 export const DOMAIN_META: Record<ArticleDomain, DomainMeta> = {
-  "ai-engineering": {
-    label: "AI Engineering",
+  "agent-systems": {
+    label: "Agent Systems",
     blurb:
-      "Agent harnesses, loops, tooling, and the craft of building with LLMs.",
-    color: "var(--domain-ai-engineering)",
+      "Agent harnesses, loop engineering, and scaffolding for LLM systems.",
+    color: "var(--domain-agent-systems)",
     metaDescription:
-      "AI Engineering notes — agent harnesses, loops, orchestration, and the craft of building with LLMs from the Howardism wiki.",
+      "Agent Systems notes — harness engineering, loop design, and the scaffolding patterns behind LLM agents from the Howardism wiki.",
   },
-  "llm-architecture": {
-    label: "LLM Architecture",
-    blurb: "Model internals, training, scaling, alignment, and evaluation.",
-    color: "var(--domain-llm-architecture)",
+  "agent-security": {
+    label: "Agent Security",
+    blurb: "Prompt injection, agent identity, and securing autonomous agents.",
+    color: "var(--domain-agent-security)",
     metaDescription:
-      "LLM Architecture notes — model internals, training, scaling laws, alignment, and evaluation from the Howardism wiki.",
+      "Agent Security notes — prompt injection, agent identity, zero trust, and defending autonomous agents from the Howardism wiki.",
+  },
+  "ai-coding-practice": {
+    label: "AI Coding Practice",
+    blurb:
+      "Workflow, review discipline, and verification practice for AI-native teams.",
+    color: "var(--domain-ai-coding-practice)",
+    metaDescription:
+      "AI Coding Practice notes — workflow, code review, and verification discipline for AI-native engineering teams from the Howardism wiki.",
+  },
+  "evals-and-benchmarks": {
+    label: "Evals & Benchmarks",
+    blurb:
+      "Benchmark design, contamination, LLM judges, and measuring capability.",
+    color: "var(--domain-evals-and-benchmarks)",
+    metaDescription:
+      "Evals & Benchmarks notes — benchmark design, contamination, LLM-as-judge methods, and measuring real model capability from the Howardism wiki.",
+  },
+  "model-capability-and-training": {
+    label: "Model Capability & Training",
+    blurb:
+      "Training, scaling laws, test-time compute, and frontier capability.",
+    color: "var(--domain-model-capability-and-training)",
+    metaDescription:
+      "Model Capability & Training notes — training methods, scaling laws, test-time compute, and frontier model capability from the Howardism wiki.",
+  },
+  "alignment-and-safety": {
+    label: "Alignment & Safety",
+    blurb: "Alignment training, misalignment evals, and reward hacking.",
+    color: "var(--domain-alignment-and-safety)",
+    metaDescription:
+      "Alignment & Safety notes — alignment fine-tuning, misalignment evals, reward hacking, and model welfare from the Howardism wiki.",
+  },
+  interpretability: {
+    label: "Interpretability",
+    blurb: "Reading model internals: activations and the global workspace.",
+    color: "var(--domain-interpretability)",
+    metaDescription:
+      "Interpretability notes — reading model internals, activation monitoring, and the LLM global workspace from the Howardism wiki.",
   },
   "interaction-multimodal": {
     label: "Interaction & Multimodal",
@@ -62,12 +100,19 @@ export const DOMAIN_META: Record<ArticleDomain, DomainMeta> = {
     metaDescription:
       "Product & Organization notes — product cadence, org design, and the AI-native team from the Howardism wiki.",
   },
-  "governance-workforce": {
-    label: "Governance & Workforce",
-    blurb: "Policy, workforce shifts, and the economics of AI labor.",
-    color: "var(--domain-governance-workforce)",
+  "ai-economics-and-labor": {
+    label: "AI Economics & Labor",
+    blurb: "Work, wages, org design, and the economics of AI-driven labor.",
+    color: "var(--domain-ai-economics-and-labor)",
     metaDescription:
-      "Governance & Workforce notes — policy, workforce shifts, and the economics of AI labor from the Howardism wiki.",
+      "AI Economics & Labor notes — how AI reshapes work, wages, organizations, and the labor market from the Howardism wiki.",
+  },
+  "superintelligence-trajectory": {
+    label: "Superintelligence Trajectory",
+    blurb: "Recursive self-improvement, scaling limits, and the path to ASI.",
+    color: "var(--domain-superintelligence-trajectory)",
+    metaDescription:
+      "Superintelligence Trajectory notes — recursive self-improvement, scaling limits, and the pathways from AGI to ASI from the Howardism wiki.",
   },
   entities: {
     label: "Entities",

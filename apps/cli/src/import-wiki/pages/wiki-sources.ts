@@ -107,7 +107,11 @@ export async function emitWikiSources(args: {
   outputPath: string;
 }): Promise<string> {
   const { manifest, outputPath, dryRun } = args;
-  const json = JSON.stringify(WikiSourcesManifestSchema.parse(manifest));
+  const json = JSON.stringify(
+    WikiSourcesManifestSchema.parse(manifest),
+    null,
+    2
+  );
 
   if (dryRun) {
     console.log(

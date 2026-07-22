@@ -1,0 +1,119 @@
+---
+date: 2026-07-16
+title: Benchmark Score Redundancy
+description: "Zeng & Papailiopoulos (Microsoft Research, arXiv 2606.24020): an
+  84-model × 133-benchmark public score matrix (2,604 cells, 23.3% filled) is
+  effectively rank-2 — a model's scores across all 133 benchmarks are largely
+  two numbers (two diagnostics agree: Soft-Impute completion bottoms at rank 2,
+  and top-2 SVD components explain >90% of cross-model variance in every
+  fully-observed submatrix), echoing prior g-factor / 'general-capability +
+  provider-residual' findings on a heterogeneous frontier-era matrix. BenchPress
+  (logit-space rank-2 bias-decomposed ALS matrix completion) predicts every
+  held-out cell to 4.6 MedAE points at 100% coverage; a compact 5-benchmark
+  probe set {GPQA-D, HLE, Codeforces, MMLU-Pro, ARC-AGI-1} recovers a model's
+  full scorecard to 3.93 points (low-cost set 4.55), predictions preserve 92.1%
+  of ≥5-point pairwise model rankings, and a strict-temporal-cutoff new model
+  needs only 5 seed scores to reach 4.83 points — so you can infer most of a
+  scorecard from a handful of probes rather than run every eval, with a hybrid
+  ensemble-spread + matrix-support reliability layer flagging which predictions
+  to trust; but scores are inferable, not benchmarks unnecessary, the rank-2
+  geometry is snapshot-specific, and the matrix is the same uncontrolled public
+  grid the compute-control critique warns about"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - llm-architecture
+  - capability-evaluation
+  - benchmarks
+  - evaluation-methodology
+  - matrix-completion
+  - low-rank
+readingTime: 13
+imageAlt: Illustration for Benchmark Score Redundancy
+sources:
+  - title: You Don't Need to Run Every Eval
+    url: https://arxiv.org/pdf/2606.24020
+---
+export { default as heroImage } from "../assets/benchmark-score-redundancy.png";
+
+## Sources
+
+- [You Don't Need to Run Every Eval](https://arxiv.org/pdf/2606.24020)
+
+## Summary
+
+A modern model release reports 40+ benchmark rows, and the same suites are run and re-run far more often behind the scenes to track training, compare design choices, and select checkpoints — thousands of dollars and days of wall-clock per full run. Zeng & Papailiopoulos (["You Don't Need to Run Every Eval"](https://arxiv.org/pdf/2606.24020), Microsoft Research AI Frontiers, arXiv 2606.24020, `empirical`) ask whether you *have* to: they compile a public score matrix of **84 frontier models × 133 benchmarks** (2,604 observed cells, **23.3% filled**) and find it is **effectively rank-2** — a model's scores across all 133 benchmarks are largely determined by just **two numbers**. Building on that, **BenchPress** predicts any missing cell, and a handful of probe benchmarks recovers most of a model's scorecard for free. The operational claim: run a small set of probes and infer the rest, instead of running every evaluation independently.
+
+This is the eval-cost story on a different axis from the [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) cluster: that cluster compresses cost along the **compute-budget** axis (name the budget, don't run to plateau); this paper compresses along the **benchmark-count** axis (run a few benchmarks, predict the rest). They are complementary, and — as the paper itself flags — the second inherits the heterogeneity the first warns about, because BenchPress runs *on top of* the same uncontrolled public grid.
+
+## The matrix is effectively rank-2
+
+The score matrix is heterogeneous and sparse by construction. A crawl of release blogs, system cards, technical reports, HuggingFace cards, and six primary leaderboards (MathArena, ARC-Prize, Terminal-Bench, LMArena, Epoch AI, LiveBench) yields a raw May-2026 pool of 188 models × 316 benchmarks at only **7.6% fill**; canonicalizing near-duplicate model variants and benchmark configurations, then filtering to ≥15 observations/model and ≥8/benchmark, produces the analysis matrix (84 × 133, 23.3% fill). Roughly **four in five scores come from the model provider's own materials**.
+
+Two independent diagnostics converge on rank 2:
+
+- **Held-out completion bottoms at rank 2.** Sweeping the rank of Soft-Impute matrix completion, held-out Median Absolute Percentage Error is minimized at **rank 2** and rises for higher ranks — the *same* curve in raw-score and logit-transformed space. This is the *operational* reason to use rank 2: it is the rank that best predicts unseen scores, not merely the rank that best compresses seen ones.
+- **Fully-observed submatrices show matching geometry.** Mean-centering each benchmark column (equivalent to PCA) and taking SVD of the largest complete submatrices, the **top two components explain >90% of cross-model variance** at every shape tested (4 bench × 42 models: 97.6%; 7×11: 91.2%; 10×7: 95.0%; 13×6: 95.9%), with stable rank ~1.1–1.3 — one direction dominates, a second cleans up most of the rest.
+
+> **Finding 1.** The 84 × 133 model-benchmark score matrix behaves as an effectively rank-2 prediction problem.
+
+This sharpens, on a heterogeneous frontier-era matrix, a line of prior low-rank findings the paper builds on: Burnell et al. (2023) — three latent factors (reasoning, comprehension, core language modeling) explain most variance across 27 HELM tasks; Ilić & Gignac (2024) — a psychometric **g-factor** accounts for 85% of variance across 12 benchmarks / 591 Open-LLM-Leaderboard models; and Burnham/Epoch (2025) — an independent PCA decomposition of the Epoch Capabilities Index into **"general capability + provider-specific residual"** (informally "claudiness"), a rank-2 structure matching this one. The redundancy is not new; a *prediction system* built on it, with explicit failure analysis, is.
+
+## BenchPress: the predictor
+
+The authors evaluate all combinations of **7 feature transforms × 12 prediction methods** (identity/log/logit/arcsinh/probit/sqrt/quantile transforms against benchmark-mean, model-mean, KNN, per-benchmark and per-model regression, Soft-Impute, NMF, PMF, nuclear-norm, ALS, and an MLP), grid-searching hyperparameters, under a 50%-per-model holdout (3 folds × 10 seeds, ~20K test predictions per pair). Per-benchmark and per-model regressions score marginally best on raw error but leave some cells unpredicted (&lt;100% coverage). Among **full-coverage** methods the winner is **logit-space, bias-decomposed alternating least squares** (Koren et al. 2009), rank 2, λ=0.1 — reaching **4.6 median absolute error** (score points) on held-out cells at **100% coverage**.
+
+> **Finding 2.** Logit-transformed, bias-decomposed rank-2 ALS matrix completion gives near-best score-prediction accuracy while predicting *every* missing model-benchmark score.
+
+The recipe: (1) logit-transform percentage scores (leave non-percentage scores like Codeforces rating / Arena Elo native); (2) standardize each benchmark column; (3) fit bias ALS = global level + model offset + benchmark offset + a **rank-2 residual interaction** (the biases absorb row/column level so the low-rank term only models residual model×benchmark structure); (4) invert the transforms. One fit predicts the whole matrix deterministically.
+
+**Versus an LLM predictor.** Prompting GPT-5.5 to predict a target cell from five nearest-peer examples beats BenchPress *when real model and benchmark names are visible* (3.50 vs 4.63 MedAE) — but that edge is leaderboard memory, not structure: **blind** the names and the LLM (4.70) is no better than BenchPress (4.63) and far less scalable, since it pays per cell while BenchPress fits once (Finding 3).
+
+## What it enables
+
+- **Budgeted scorecard recovery (Finding 4).** Greedily selecting probe benchmarks, **five probes recover a model's full 133-benchmark scorecard to a pooled 3.93 MedAE points**: `{GPQA-Diamond, HLE, Codeforces, MMLU-Pro, ARC-AGI-1}`. Restricting to a low-inference-cost allowlist barely hurts — `{GPQA-Diamond, MMLU-Pro, Aider Polyglot, MATH-500, AIME 2026}` reaches **4.55** — because the highest-signal probes are already cheap. All selected sets lean heavily on **reasoning/math** benchmarks: reasoning is the dominant axis of variation, so those probes triangulate the rest. Two blunt lessons: *which* benchmarks you run matters far more than *how many* (greedy sets clear a random baseline at every budget), and greedy selection matches near-exhaustive search.
+- **Rankings survive (Finding 5).** Completed scores preserve **92.1% of same-benchmark pairwise model orderings when the true gap is ≥5 points** (88.0% at ≥2 points; 83.8% including near-ties), across hundreds of thousands of comparable pairs — prediction error rarely flips a meaningful ranking decision.
+- **Brand-new models (Finding 6).** Under a strict temporal cutoff — train BenchPress *only* on models released before the target, so it has zero prior information about the new release — revealing **5 seed scores** on the new model brings predictions within **4.83 points**; 10 seeds tighten to **2.57** (vs 9.20 with a single seed, across 27 targets). A small seed evaluation on the new model buys more than additional historical models.
+
+## When to trust a prediction
+
+Per-model error varies ~40× across the 84 models, so a trust layer matters. Hypothesis tests (Spearman / paired Wilcoxon, reject at p&lt;0.01) identify what drives prediction quality:
+
+- **Benchmark-side:** wider score spread across models is *harder* to predict; more observed model scores and the presence of at least one strongly-correlated neighbor benchmark make it *easier*. Same-category metadata does **not** help — the predictor exploits observed correlations, not benchmark labels.
+- **Model-side:** reasoning models are easier than non-reasoning; higher-scoring models easier than lower; a strongly-correlated **peer** model, more observed scores, and **recent** training anchors all help. **Provider identity does not matter** — BenchPress uses capability-profile similarity, not "all the GPT rows," to predict a GPT model (Finding 7).
+
+A **hybrid reliability estimator** combines two signals — *ensemble spread* (how much plausible alternative predictors disagree on the cell) and *matrix support* (the coverage/neighbor/peer features above) — into a per-cell risk score. Keeping only the most-trusted 20% of predictions drops selective MedAE to **1.83 points** (2.51 at 40%, 3.10 at 60%), beating either signal alone (Finding 8). The confidence layer is what makes "skip this eval" a defensible decision rather than a guess.
+
+## Scope: inferable, not unnecessary
+
+The paper is unusually careful to bound its own claim, and the bounds are the load-bearing nuance for the wiki:
+
+- **Score inferability ≠ benchmark redundancy.** The result identifies benchmark scores that are *currently inferable from others*, **not** benchmarks whose existence is unnecessary. Benchmarks still do work BenchPress cannot: **failure-mode discovery, contamination and distribution-shift monitoring, and incentive-shaping** for model developers. A perfectly predictable benchmark can still be the one that catches the next regression.
+- **Snapshot dependence.** Rank-2 is a property of *this* 84 × 133 May-2026 snapshot. A future release with a capability profile unlike anything in the matrix can break the geometry — the authors name tracking "does a third latent factor emerge?" as the signal to refresh the recipe.
+- **Public-score heterogeneity.** The matrix mixes vendor-reported and third-party scores under varying harnesses, prompts, reasoning budgets, and dates; the same model can shift 1–3 points across runs and 5+ points across harnesses. Vendor scores (four-fifths of the matrix) may be optimistically biased, which could *inflate the apparent cross-benchmark correlation* the whole method rests on. BenchPress therefore predicts **what this public matrix would extrapolate to**, not what a controlled re-evaluation would yield, and its errors are an **upper bound** conflating prediction error with measurement noise.
+- **Probe-set specificity.** The 5-benchmark sets are selected *on the current matrix* and must be re-derived as it grows; they are a snapshot recommendation, not a permanent eval suite.
+
+The dataset (HuggingFace), BenchPress code (`github.com/microsoft/benchpress`), and an interactive per-cell predictor are released as a living, community-extensible artifact.
+
+## Connections
+
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the sibling eval-cost reduction on the *other* axis: that page compresses cost by naming the **compute budget** per benchmark; this page compresses by predicting **across benchmarks** so you run only a few. The tension the paper itself raises: BenchPress operates on exactly the **uncontrolled public grid** Brown/AISI critique — heterogeneous configs, vendor-optimistic scores — so its predictions inherit that grid's noise; combining "control compute per eval" with "predict across evals" is unaddressed
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the hub whose open question ("can high-budget performance be predicted from cheap runs?") this answers a *sibling* of: cross-benchmark prediction works, which is strong evidence the eval landscape is low-dimensional, but it does **not** show the cross-compute-budget forecast works — that axis is still open
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — the item-level counterpart to this matrix-level result: that paper found ~27% of benchmark problems are non-discriminative (ceiling/floor); this finds the whole 133-benchmark matrix is rank-2. Both quantify how much *less* independent signal aggregate benchmarks carry than their count implies
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — benchmark saturation is redundancy seen from this page's angle: a saturated benchmark has near-zero score spread across models, and low spread is exactly what makes a benchmark trivially predictable here (H3) — so saturation both flattens the horizon metric's usefulness *and* makes the score inferable
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — the government evaluator pursuing the **compute-axis** version of this idea (forecast high-budget performance from cheap runs); BenchPress is the **benchmark-axis** counterpart — both are bets that expensive evaluation can be projected rather than paid in full
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the complementary answer to saturation. Saturation = near-zero score spread, which is exactly what makes a benchmark trivially predictable here (H3) — so this page's move is *skip-and-predict* (a low-spread benchmark's score is inferable, don't run it). Nadgir et al.'s move is the opposite: *keep-and-re-instrument* (extract efficiency, reliability, and model-vs-scaffold signal from the one saturated benchmark you keep). Opposite operational directions, same premise that a headline accuracy number under-uses the benchmark
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — the correction-side counterpart to this page's own scope caveat. A key reason "scores are inferable, not benchmarks unnecessary" is that benchmarks still do work BenchPress can't — **contamination monitoring** among them; Sun et al. take a benchmark whose scores are *already inflated by leakage* and recover the clean per-sample distribution without a reference model. Their correction leans on the same ground-truth-probability signal contamination distorts, so it operates *inside* the integrity problem the uncontrolled public grid embodies
+- [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it) — the cluster synthesis this page anchors: rank-2 redundancy is the matrix-level member of a three-granularity signal-shrinkage result, and this page's "inferable ≠ unnecessary" caveat supplies the keystone of what benchmarks alone still do
+
+## Open Questions
+
+- **Does the rank stay 2?** The geometry is snapshot-specific; whether a third latent factor emerges as the matrix grows (novel capability profiles, new benchmark families) is the paper's own named signal for when the recipe needs refreshing — and an open empirical watch item.
+- **Can outlier models be anchored without any scores?** BenchPress fails on a model whose capability profile has no close neighbor in the matrix; the authors propose folding in external metadata (training-data composition, architecture, size) to compute model-to-model similarity *before* any benchmark is run, but do not build it.
+- **Does the low-rank treatment carry beyond text/vision?** Audio/speech, robotics/embodied agents, and scientific-simulator ecosystems are untested; whether the same rank-2 structure holds there is open.
+- **Does vendor optimism manufacture the correlation?** Four-fifths of the scores are provider-reported and possibly inflated; the paper flags this could inflate apparent cross-benchmark correlation but cannot separate it — would a fully standardized re-evaluation still be rank-2, or is some of the redundancy an artifact of shared reporting bias?
+- **Would a public probe set become a Goodhart target?** If "run these 5 benchmarks and infer the rest" becomes practice, the compact probe set is a small, public, high-leverage surface to optimize against — the same eval-report Goodhart pressure [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) names, now concentrated on five benchmarks. Unexamined here.
+
+## Sources
+
+- [You Don't Need to Run Every Eval](https://arxiv.org/pdf/2606.24020) — Yuchen Zeng & Dimitris Papailiopoulos, *You Don't Need to Run Every Eval* (Microsoft Research AI Frontiers, arXiv 2606.24020, 2026-06-22, `empirical`): the 84×133 rank-2 score matrix (two diagnostics — Soft-Impute rank sweep + submatrix SVD >90% top-2 variance), the Logit Bias ALS BenchPress predictor (4.6 MedAE at 100% coverage), 5-probe scorecard recovery (3.93 / 4.55 low-cost), 92.1% ranking preservation at ≥5pt margin, new-model prediction (4.83 at 5 seeds under a temporal cutoff), the LLM-predictor comparison, the reliability/trust layer, and the four scope caveats (inferability≠redundancy, snapshot dependence, public-score heterogeneity, probe-set specificity)

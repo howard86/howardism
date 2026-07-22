@@ -83,6 +83,42 @@ describe("buildManifests", () => {
     });
   });
 
+  it("harvests concepts nested under domain sections, ignoring flat sections", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "manifests-oq-nested-"));
+    const backlog = makeParsed(
+      "open-questions",
+      [
+        "## Actionable by domain",
+        "",
+        "### agent-systems (2 open)",
+        "",
+        "#### [[agent-loop-pattern]]",
+        "",
+        "- Who owns the budget? #oq/source",
+        "",
+        "## Predictions — `#oq/wait` (79)",
+        "",
+        "- [[agent-context-files]]: Will the role split converge?",
+      ].join("\n"),
+      {
+        source: {
+          slug: "open-questions",
+          folder: "derived",
+          absolutePath: "/tmp/oq.md",
+        },
+      }
+    );
+    const set = await buildManifests(buildArgs([backlog], dir));
+
+    // The flat `## Predictions` bullet has no concept heading of its own, so it
+    // must not be appended to the last concept seen.
+    expect(set.openQuestions.byConcept).toHaveLength(1);
+    expect(set.openQuestions.byConcept[0]).toMatchObject({
+      slug: "agent-loop-pattern",
+      questions: ["Who owns the budget?"],
+    });
+  });
+
   it("excludes archived articles from graph and sources", async () => {
     const dir = await mkdtemp(join(tmpdir(), "manifests-arch-"));
     const set = await buildManifests(

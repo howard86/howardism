@@ -8,8 +8,10 @@
  *   bun apps/cli/src/content-check.ts   # exit 1 if any FAILURE, else 0
  *
  * FAILURES (exit 1): hero-image imports that resolve to a real PNG, every slug
- * referenced by the committed manifests existing as an article, and required
- * frontmatter (`title`, `description`, `imageAlt`) being present.
+ * referenced by the committed manifests existing as an article, required
+ * frontmatter (`title`, `description`, `imageAlt`) being present, the
+ * `syntheses` fallback domain staying under a third of all articles, and
+ * every curated domain owning at least one article.
  *
  * WARNINGS (never affect exit code; emitted as GitHub `::warning::` annotations
  * under CI): orphan articles with no backlinks, domains without a `moc-<domain>`
@@ -22,6 +24,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
+import { WIKI_DOMAINS } from "@howardism/article-contract";
 import type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
@@ -36,6 +39,15 @@ const DATA_DIR = resolve(REPO_ROOT, "apps/blog/src/data");
 const MDX_SUFFIX = /\.mdx$/;
 const PNG_SUFFIX = /\.png$/;
 const MOC_PREFIX = "moc-";
+/** Catch-all domain for notes no MOC claims. */
+const FALLBACK_DOMAIN = "syntheses";
+/**
+ * `syntheses` normally holds ~10% of articles (25-30 of ~278). A vault-side
+ * taxonomy rename once made every unclaimed concept silently fall into it
+ * instead, pushing it to 64% (178 of 278) while import still exited 0. A
+ * third leaves wide margin on both sides.
+ */
+const SYNTHESES_FALLBACK_CEILING = 1 / 3;
 // The `export { default as heroImage } from "../assets/<file>.png";` line every
 // emitted MDX carries after its frontmatter. Capture the referenced filename.
 const HERO_IMPORT_RE =
@@ -157,6 +169,64 @@ export function checkFrontmatter(articles: ArticleRecord[]): string[] {
     }
   }
   return failures;
+}
+
+/** domain → article count, descending, for reporting a distribution failure. */
+function domainCounts(articles: ArticleRecord[]): [string, number][] {
+  const counts = new Map<string, number>();
+  for (const { domain } of articles) {
+    if (domain) {
+      counts.set(domain, (counts.get(domain) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/** `domain: count` lines, descending, so a failure shows the whole shape. */
+function formatDistribution(articles: ArticleRecord[]): string[] {
+  return domainCounts(articles).map(([domain, count]) => `${domain}: ${count}`);
+}
+
+/**
+ * `syntheses` is the fallback domain for notes no MOC claims. If it holds
+ * more than a third of all articles, something upstream is silently dumping
+ * notes into it instead of resolving their real domain — see
+ * {@link SYNTHESES_FALLBACK_CEILING}.
+ */
+export function checkFallbackCeiling(articles: ArticleRecord[]): string[] {
+  if (articles.length === 0) {
+    return [];
+  }
+  const fallbackCount = articles.filter(
+    (a) => a.domain === FALLBACK_DOMAIN
+  ).length;
+  if (fallbackCount / articles.length <= SYNTHESES_FALLBACK_CEILING) {
+    return [];
+  }
+  const pct = Math.round((fallbackCount / articles.length) * 100);
+  const ceilingPct = Math.round(SYNTHESES_FALLBACK_CEILING * 100);
+  return [
+    `${FALLBACK_DOMAIN} holds ${fallbackCount}/${articles.length} articles (${pct}%), over the ${ceilingPct}% ceiling`,
+    ...formatDistribution(articles),
+  ];
+}
+
+/**
+ * Every curated domain other than the `syntheses` fallback must own at least
+ * one article. Zero means its MOC vanished or stopped resolving.
+ */
+export function checkEmptyDomains(articles: ArticleRecord[]): string[] {
+  const counts = new Map(domainCounts(articles));
+  const empty = WIKI_DOMAINS.filter(
+    (domain) => domain !== FALLBACK_DOMAIN && !counts.get(domain)
+  );
+  if (empty.length === 0) {
+    return [];
+  }
+  return [
+    ...empty.map((domain) => `${domain}: 0 articles`),
+    ...formatDistribution(articles),
+  ];
 }
 
 // ---- WARNING checks: editorial signals, never fail the build ----
@@ -296,6 +366,11 @@ async function main(): Promise<void> {
       messages: checkWikiSourceSlugRefs(wikiSources, articleSlugs),
     },
     { name: "frontmatter-required", messages: checkFrontmatter(articles) },
+    {
+      name: "domain-fallback-ceiling",
+      messages: checkFallbackCeiling(articles),
+    },
+    { name: "empty-domains", messages: checkEmptyDomains(articles) },
   ];
   const warnings: CheckResult[] = [
     {
