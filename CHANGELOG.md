@@ -1,3 +1,19 @@
+# [v2.17.0](https://github.com/howard86/howardism/compare/v2.16.0...v2.17.0) (2026-07-22)
+
+## ✨ New Features
+- [`2dc3cd52`](https://github.com/howard86/howardism/commit/2dc3cd52)  feat(blog): import wiki updates and generate 26 hero images 
+- [`0253c119`](https://github.com/howard86/howardism/commit/0253c119)  feat(blog): register the vault&#x27;s 14-domain taxonomy 
+- [`a8a356e9`](https://github.com/howard86/howardism/commit/a8a356e9)  feat(cli): prune articles whose vault note was deleted 
+- [`a3f428df`](https://github.com/howard86/howardism/commit/a3f428df)  feat(cli): gate on domain collapse, write manifests pretty-printed 
+- [`401c8a0c`](https://github.com/howard86/howardism/commit/401c8a0c)  feat(blog): re-import wiki onto the new taxonomy, 9 MOC hero images 
+- [`d562bcb5`](https://github.com/howard86/howardism/commit/d562bcb5)  feat(blog): group the entity index by the vault&#x27;s entity types 
+- [`513f83cc`](https://github.com/howard86/howardism/commit/513f83cc)  feat(blog): group the concept plate by knowledge domain 
+- [`e6633b7e`](https://github.com/howard86/howardism/commit/e6633b7e)  feat(blog): fold one-off subjects behind a disclosure 
+
+## 🐛 Bug Fixes
+- [`865cfd86`](https://github.com/howard86/howardism/commit/865cfd86)  fix(cli): parse nested open-questions backlog and strip oq triage tags 
+- [`0ef826a5`](https://github.com/howard86/howardism/commit/0ef826a5)  fix(cli): fail the import when a vault MOC has no matching domain
+
 # [v2.16.0](https://github.com/howard86/howardism/compare/v2.15.1...v2.16.0) (2026-07-21)
 
 ## ✨ New Features
