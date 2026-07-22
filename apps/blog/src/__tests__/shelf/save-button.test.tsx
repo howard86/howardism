@@ -100,7 +100,15 @@ describe("ShelfTabs saved tab", () => {
     await waitFor(() => expect(screen.queryByText(ALPHA_TITLE)).toBeNull());
   });
 
-  it("shows the empty state when nothing is saved", async () => {
+  it("shows the empty state when nothing is saved but something was read", async () => {
+    // The tabs only render once the shelf holds something; a wholly empty
+    // shelf shows the invitation instead, so seed a read to reach this state.
+    localStorage.setItem(
+      "howardism:reading-history",
+      JSON.stringify([
+        { slug: "alpha", pct: 0.6, lastReadAt: Date.now(), firstReadAt: 1 },
+      ])
+    );
     render(<ShelfTabs manifest={manifest} />);
     await openSavedTab();
     await waitFor(() => expect(screen.getByText(EMPTY_SAVED)).not.toBeNull());

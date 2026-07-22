@@ -46,7 +46,12 @@ function seedHistory(slugs: string[]): void {
   localStorage.setItem(
     "howardism:reading-history",
     JSON.stringify(
-      slugs.map((slug, index) => ({ slug, pct: 0.5, lastReadAt: 1000 - index }))
+      slugs.map((slug, index) => ({
+        slug,
+        pct: 0.5,
+        lastReadAt: 1000 - index,
+        firstReadAt: 1000 - index,
+      }))
     )
   );
 }
@@ -65,7 +70,7 @@ const checkbox = (title: string) =>
 
 /** Enter compare mode via the controls-bar toggle (off by default). */
 async function enterCompareMode(): Promise<void> {
-  fireEvent.click(await screen.findByRole("button", { name: "Compare" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Select" }));
 }
 
 afterEach(() => {
@@ -86,7 +91,7 @@ describe("Shelf compare selection", () => {
     fireEvent.click(checkbox("Alpha"));
     expect(screen.getByText(ONE_SELECTED)).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText(ONE_SELECTED)).toBeNull();
   });
