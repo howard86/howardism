@@ -8,6 +8,7 @@ import { SaveButton } from "@/components/save-button";
 import { getSaved, type SavedEntry } from "@/lib/reading-store";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
+import { DOMAIN_META } from "../articles/domain-meta";
 import {
   ArchivedBadge,
   type ListSelection,
@@ -66,8 +67,9 @@ export function SavedList({
 
   return (
     <ul className="mt-2 flex list-none flex-col p-0">
-      {rows.map(({ entry, meta }) => (
+      {rows.map(({ entry, meta }, index) => (
         <ShelfArticleRow
+          accent={meta.domain ? DOMAIN_META[meta.domain].color : "var(--brand)"}
           badge={meta.archived ? <ArchivedBadge /> : undefined}
           control={
             <SaveButton
@@ -78,7 +80,10 @@ export function SavedList({
           href={meta.href}
           key={meta.slug}
           label={meta.label}
+          marker={meta.kindPrefix + String(index + 1).padStart(2, "0")}
+          readingTime={meta.readingTime}
           selection={toRowSelection(selection, meta.slug, meta.title)}
+          tags={meta.tags}
           timeText={`saved ${dayjs(entry.savedAt).fromNow()}`}
           title={meta.title}
         />
