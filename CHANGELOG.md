@@ -1,3 +1,17 @@
+# [v2.20.0](https://github.com/howard86/howardism/compare/v2.19.0...v2.20.0) (2026-07-22)
+
+## ✨ New Features
+- [`0b322858`](https://github.com/howard86/howardism/commit/0b322858)  feat(blog): carry domain, kind, reading time and tags on the shelf manifest 
+- [`7065d942`](https://github.com/howard86/howardism/commit/7065d942)  feat(blog): add shelf view logic for buckets, sorts and stats 
+- [`a59dfd4a`](https://github.com/howard86/howardism/commit/a59dfd4a)  feat(blog): shelf masthead stats strip at index width 
+- [`8c980b6b`](https://github.com/howard86/howardism/commit/8c980b6b)  feat(blog): continue-reading rail on the shelf 
+- [`ae21f92c`](https://github.com/howard86/howardism/commit/ae21f92c)  feat(blog): sticky shelf controls with sort, domain filter and bucketed history 
+- [`4c4ebbbe`](https://github.com/howard86/howardism/commit/4c4ebbbe)  feat(blog): stable shelf accession numbers from first read 
+- [`e1c0a7a0`](https://github.com/howard86/howardism/commit/e1c0a7a0)  feat(blog): shelf controls that stay put, and an empty shelf that invites 
+
+## 🐛 Bug Fixes
+- [`02eafa73`](https://github.com/howard86/howardism/commit/02eafa73)  fix(ui): give Tabs the orientation attribute its own variants select on
+
 # [v2.19.0](https://github.com/howard86/howardism/compare/v2.18.0...v2.19.0) (2026-07-22)
 
 ## ✨ New Features
