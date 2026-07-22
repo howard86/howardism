@@ -20,7 +20,7 @@ const ACTIVE = "border-current border-b pb-0.5 text-brand italic";
 export function FilterBar({ sectionSlugs }: FilterBarProps) {
   return (
     <div className="border-border border-b bg-card/40 px-gutter py-5">
-      <div className="grid grid-cols-[88px_1fr] items-baseline gap-x-6 gap-y-2.5">
+      <div className="grid grid-cols-1 items-baseline gap-x-6 gap-y-2.5 sm:grid-cols-[88px_1fr]">
         <span className={ROW_LABEL}>Filed under</span>
         <div className="flex flex-wrap gap-x-6 gap-y-1.5">
           <span className={`${PILL} ${ACTIVE}`}>all</span>

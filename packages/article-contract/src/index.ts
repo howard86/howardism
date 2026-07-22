@@ -3,21 +3,42 @@ export const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index"] as const;
 export type WikiTag = (typeof WIKI_TAGS)[number];
 
 /**
+ * Entity-type taxonomy for Entity-tagged articles, sourced from the vault's
+ * `moc-entities.md` `### <Heading>` sections (People/Organizations/Software/
+ * Models/Documents). Only Entity-tagged articles carry one.
+ */
+export const ENTITY_TYPES = [
+  "person",
+  "organization",
+  "software",
+  "model",
+  "document",
+] as const;
+
+export type EntityType = (typeof ENTITY_TYPES)[number];
+
+/**
  * The wiki's curated knowledge domains — the blog's primary browse axis.
  *
- * The first eight mirror the vault's `moc-*` Map-of-Content pages (slug =
+ * The first fourteen mirror the vault's `moc-*` Map-of-Content pages (slug =
  * `moc-<domain>` minus the prefix) and are sourced from `index.md`'s
  * `### <Domain> ([[moc-…|MOC]])` headings. `syntheses` is the catch-all for
  * `derived/` essays, which the vault does not file under a single domain.
  */
 export const WIKI_DOMAINS = [
-  "ai-engineering",
-  "llm-architecture",
+  "agent-systems",
+  "agent-security",
+  "ai-coding-practice",
+  "evals-and-benchmarks",
+  "model-capability-and-training",
+  "alignment-and-safety",
+  "interpretability",
   "interaction-multimodal",
   "formal-math",
   "startup-founder",
   "product-org",
-  "governance-workforce",
+  "ai-economics-and-labor",
+  "superintelligence-trajectory",
   "entities",
   "syntheses",
 ] as const;
@@ -43,6 +64,12 @@ export interface ArticleContract {
    * Drives the home page's domain plate stack and `/articles/domain/[domain]`.
    */
   domain?: WikiDomain;
+  /**
+   * Entity subtype, resolved by the importer from `moc-entities.md`'s section
+   * headings (People/Organizations/Software/Models/Documents). Only set on
+   * Entity-tagged articles.
+   */
+  entityType?: EntityType;
   readingTime: number;
   /**
    * Audit trail of external source documents the article was synthesised from.

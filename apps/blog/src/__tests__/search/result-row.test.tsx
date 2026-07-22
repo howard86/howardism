@@ -9,7 +9,7 @@ const entry: SearchEntry = {
   title: "Agent Loop Pattern",
   description: "Loops as a primitive.",
   tag: "Concept",
-  domain: "ai-engineering",
+  domain: "agent-systems",
   tags: ["automation"],
   body: "A loop executes a prompt until done.",
 };
@@ -21,7 +21,7 @@ describe("ResultRow", () => {
     render(<ResultRow entry={entry} query="loop" />);
     expect(screen.getByText("Agent Loop Pattern")).toBeDefined();
     expect(screen.getByText("C")).toBeDefined();
-    expect(screen.getByText("AI Engineering")).toBeDefined();
+    expect(screen.getByText("Agent Systems")).toBeDefined();
     expect(document.querySelector("mark")?.textContent).toBe("loop");
   });
 

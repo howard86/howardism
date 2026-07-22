@@ -5,13 +5,13 @@ description: "OWASP term extending least privilege to agents: constrain not just
   what an agent can access but what each tool can do, how often, and where;
   deny-by-default, per-agent credentials, scope limits"
 tag: Concept
-domain: ai-engineering
+domain: agent-security
 tags:
   - security
   - least-privilege
   - access-control
   - owasp
-readingTime: 5
+readingTime: 9
 imageAlt: Illustration for Least Agency
 sources:
   - title: Zero Trust for AI Agents
@@ -64,13 +64,19 @@ Least agency is the *input* control; [Blast Radius (Agentic)](/articles/blast-ra
 - [Autonomous Defense](/articles/autonomous-defense) — least agency applied *inward* on defensive agents: scoped automated-response actions with clear boundaries
 - [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — scoping what a (possibly poisoned) tool can do limits the damage a compromised dependency can cause
 - [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — Progent enforces least agency *deterministically* at the tool-call boundary (symbolic per-call privilege rules); the reference monitor is the mechanism that makes "restrict what each tool can do" a hard barrier rather than a prompt advisory
-- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — AIMS enforces least agency at the standards layer: OAuth minimal scopes + audience restriction, and **transaction tokens** that downscope a broad access token to a single non-reusable transaction along the microservice call chain
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the limit of least agency as a defense: Progent (least agency at the tool-call boundary) cuts ADI to 22.2% but can't eliminate it, because scoping *what* a tool can do doesn't help when the attack forges the *data* the agent legitimately acts on within an already-authorized action
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — least agency as the *winning* answer: AutoDojo (Ma et al. 2026) finds action-constraining system-level defenses (Progent, DRIFT) are the only family that holds under a cheap adaptive attack, and they grow *stronger* on under-specified action-open tasks (a read-only request yields a trajectory permitting no write, so any injected write is blocked regardless of phrasing) — "real robustness comes from binding actions to the user's request, not filtering inputs"
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — least agency at **argument-value granularity**: capability gating scopes *which tools* an agent holds; ScopeGate's `authz` stage scopes *which argument values* each call may carry, deterministically enforced at the tool-call boundary. Mellafe Zuvic (2026) audits LangChain/LlamaIndex/Stripe and finds they ship the capability gate but not this value gate by default — so a manipulated agent acts *within* its granted capability but on unauthorized values (the confused deputy least agency is meant to contain)
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — the same argument-value least agency, moved **off-host and re-anchored to the verified human on every call**: aiAuthZ (Kodathala, arXiv 2607.05518) evaluates a role + path/URL/recipient + rate policy the agent can't read or rewrite, and binds each tool call's authority to the most-recently-verified human message — the direct answer to the elevation-path open question below (bind the elevation to cryptographic identity, not agent-asserted text)
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the containment case for a *detection-proof* delivery: ShareLock reconstructs a hidden instruction at runtime that no scanner can catch, but the reconstructed action (read `api_key`, reach an unlisted egress) still runs *within granted capability* — scoping the filesystem tool to no-egress / no-`api_key`-read bounds the damage regardless of how the payload was smuggled past vetting. Its **Agentjacking** case study is the real-world version: the hijacked agent runs a fake-diagnostic `npx` package and exfiltrates env vars / cloud creds — all *within* the shell and network agency a coding agent is normally granted, so least-agency scoping (no arbitrary package execution, no unlisted egress) is one of the few controls that would have bounded it (vendor-reported, weighted below the empirical framework)
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — AIMS enforces least agency at the standards layer: OAuth minimal scopes + audience restriction, and **transaction tokens** that downscope a broad access token to a single non-reusable transaction along the microservice call chain; that page also carries the **OpenID AuthZEN COAZ** draft — least agency at the tool-invocation point, exposing "the authorization checks required to call a tool" so a PDP authorizes each MCP invocation (a proposed Working Group Draft)
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — least agency as **separation of duty** on agent memory: TMA-NM's corroboration-gated elevation refuses to let any untrusted-sourced consequential action execute on a single principal's say-so, requiring ≥2 *independent* trusted endorsements (or a fresh action-bound user authorization); the threshold `k` scales with an action's blast radius as a per-action deployment knob
 - [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — where the RBAC→ABAC→continuous-authorization and static→dynamic→JIT ladders sit; the Enterprise midpoint and the ABAC-tier-placement contradiction
 
 ## Open Questions
 
 - Least agency adds a *frequency* dimension ("how often"), but the framework also says rate limits are friction, not barriers ([Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)). How is frequency-limiting both a least-agency control and a friction-only one — context-dependent?
-- Dynamic privilege elevation (Enterprise) reintroduces an elevation path; how is the elevation request itself authenticated against a manipulated agent?
+- Dynamic privilege elevation (Enterprise) reintroduces an elevation path; how is the elevation request itself authenticated against a manipulated agent? **Partially answered:** [aiAuthZ](/articles/off-host-identity-bound-authorization) (Kodathala, arXiv 2607.05518) moves the decision **off-host** and binds a tool call's authority to a **per-message HMAC-signed human turn**, not to what the agent asserts — so "the message body can claim anything, including that an owner approved the action, but the bound identity is cryptographic and the claim confers nothing." Measured: it blocks the 5 identity-spoofing cases (a non-owner claiming owner authority) that an argument-only policy can't distinguish from legitimate owner use (9/9 vs 4/9). The residual it does *not* close: an elevation firing under the active owner's *own* authority — bounded only by argument/rate policy, the same corrupt-legitimately-variable-data limit every value gate shares. Caveat: a single-author preprint.
 
 ## Sources
 

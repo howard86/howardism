@@ -1,0 +1,138 @@
+---
+date: 2026-07-16
+title: Measuring Beyond Accuracy Saturation
+description: "Nadgir, Kapoor, … Narayanan (Princeton-led, 14 authors, arXiv
+  2606.26158): when a benchmark's accuracy saturates (top agents statistically
+  indistinguishable), the field's reflex is retire-and-replace with a harder
+  successor — but that privileges accuracy and throws away six other measurable
+  axes. Using CORE-Bench Hard (computational reproducibility of scientific code)
+  as a case study, they *decouple accuracy saturation from benchmark
+  saturation*: (1) saturation itself surfaces construct-validity threats
+  invisible to weaker agents — log analysis via Docent found 15 task-level
+  errors + 20 exploitable shortcuts, yielding corrected CORE-Bench v1.1 (39
+  tasks) and an OOD suite CORE-Bench OOD (19 tasks, new fields), yet accuracy
+  still saturates (top agent 100%, next four tie ~97.4%); (2)
+  statistically-indistinguishable agents still differ sharply in reliability
+  (more-accurate agents are more consistent; all are massively underconfident,
+  ~93% pass vs 32.1% stated confidence, and none beats random at telling its own
+  correct from incorrect runs), efficiency (GPT-5.3-Codex ~60% cheaper than an
+  equal-accuracy peer; token-cost and dollar-cost tell different stories), and
+  model-vs-scaffold contribution (scaffold swings accuracy ~44pp on one model;
+  two scaffolds on the same model disagree on 31% of tasks but an oracle router
+  hits 100%; direct fixes beat rewrites 95%/68%); (3) a small randomized human
+  study finds agent collaboration more than halves reproduction time (2.11×,
+  p≈0.002, likely an underestimate since 5/25 manual runs hit the 3-hour wall
+  and no collaborative run did). Thesis: don't retire a saturated benchmark —
+  re-instrument it"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - llm-architecture
+  - capability-evaluation
+  - benchmarks
+  - evaluation-methodology
+  - construct-validity
+  - human-ai-collaboration
+readingTime: 17
+imageAlt: Illustration for Measuring Beyond Accuracy Saturation
+sources:
+  - title: "Life After Benchmark Saturation: A Case Study of CORE-Bench"
+    url: https://arxiv.org/pdf/2606.26158
+---
+export { default as heroImage } from "../assets/measuring-beyond-accuracy-saturation.png";
+
+## Sources
+
+- [Life After Benchmark Saturation: A Case Study of CORE-Bench](https://arxiv.org/pdf/2606.26158)
+
+## Summary
+
+When a benchmark's headline accuracy saturates — top agents reach statistically indistinguishable scores near the ceiling — the field's default response is **retire-and-replace**: build a harder successor (ARC-AGI 1 → 2 → 3, MMLU → MMLU-Pro, HumanEval → HumanEval+, SWE-bench → SWE-bench Pro). Nadgir, Kapoor, … Narayanan (["Life After Benchmark Saturation"](https://arxiv.org/pdf/2606.26158), Princeton-led, 14 authors, arXiv 2606.26158, `empirical`) argue this reflex is **fundamentally inadequate for anyone but a model developer optimizing relative accuracy**. Their central thesis: **accuracy saturation does not imply the benchmark has run out of signal.** Even when accuracy can no longer separate agents, six other measurable dimensions still can. The prescription is to **decouple accuracy saturation from benchmark saturation** — don't retire a saturated benchmark, **re-instrument it**.
+
+They demonstrate this on **CORE-Bench Hard** (Siegel et al.), a benchmark for the *computational reproducibility* of scientific code: reproduce a published paper's results given only its README, code, and data — no Dockerfile or runfile. Reproducibility is a well-chosen case study because it is a high-value real-world task with a **direct human counterpart** (enabling a concrete human-uplift experiment), clear **out-of-distribution axes** (swap the research field), and multiple **practically relevant dimensions** (correctness, cost, latency, reliability). The paper's three contributions map to three groups of the six axes: **benchmark validity** (construct validity + OOD robustness), **evaluation completeness** (efficiency + reliability + model-vs-scaffold), and **practical impact** (human-agent collaboration uplift).
+
+## The retire-and-replace critique
+
+"Accuracy saturation" is used in Akhtar et al.'s sense: the state in which top-performing agents post statistically indistinguishable accuracies, so the leaderboard loses discriminative power. Retire-and-replace **serves model developers** — who mainly care about *relative* accuracy for marketing and checkpoint selection — but fails **researchers and downstream developers** who need to know *how well an agent actually solves a real task*. The deeper point: accuracy-centric evaluation is an insufficient measurement tool **throughout a benchmark's lifecycle, not just at saturation**; saturation merely makes the insufficiency impossible to ignore. Prior work has advocated multidimensional evaluation in principle, but the field has defaulted to building harder accuracy benchmarks anyway. This paper is the worked demonstration that the other axes pay off.
+
+## Contribution 1 — Saturation surfaces threats to construct validity
+
+High capability is what *exposes* validity problems: weaker agents never progressed far enough to exploit shortcuts or trip over benchmark bugs, so the threats stayed hidden until accuracy saturated. Validity is threatened along two axes:
+
+- **Task-level threats** — the headline metric does not faithfully measure the intended capability. This is a documented, cross-benchmark problem: impossible-to-solve SWE-bench tasks, a τ-Bench Airline scaffold bug, incorrectly-graded WebArena tasks. **Log analysis** (tracking an agent's inputs, outputs, and environment) is the key discovery method.
+- **Benchmark-specific adaptation** — when a benchmark becomes a *development target*, iterating on prompts, scaffolds, tool-use, and timeouts against a fixed benchmark tailors the agent to the benchmark's idiosyncrasies. Strong performance then partly reflects **adaptation rather than general capability** — Goodhart's law at the benchmark-construction layer (see [Reward Hacking](/articles/reward-hacking)).
+
+Applying automated + manual log analysis (via **Docent**, an LLM-driven log-flagging tool, using rubrics for process correctness, computation correctness, pre-existing-artifact contamination, and grading errors) to the 45 original CORE-Bench Hard tasks plus 27 new candidates, they found **15 task-level errors** (wrong ground truths, malformed questions, grading errors, unsolvable tasks) and **20 tasks with exploitable shortcuts** (e.g., the agent reads a pre-computed value out of a static artifact instead of reproducing it). Two new suites result:
+
+- **CORE-Bench v1.1** — corrects the errors and shortcuts and adds 10 new tasks built by the same pipeline, for a **39-task** suite (13 computer science, 10 social science, 16 medical). It *repurposes* CORE-Bench Hard rather than replacing it with something harder.
+- **CORE-Bench OOD** — a **19-task** out-of-distribution suite that holds task structure fixed but shifts the *field* (physics, engineering, economics, CS), testing whether saturated accuracy transfers under a discipline distribution shift.
+
+The punchline that makes the whole paper: **after all these corrections, accuracy still saturates.** On v1.1 the top agent hits 100% and the next four tie at ~97.4%; on OOD the top five of twelve Codex CLI agents are again statistically indistinguishable. (Nicholas Carlini's submitted Claude Code scaffold reached near-ceiling on CORE-Bench Hard after fixing a few grading errors — the event that signaled saturation.) So contribution 1 is *not* "we fixed saturation by making a better benchmark"; it is "saturation is the lens that reveals validity threats, and the threats persist as saturation persists." The authors treat v1.1 and OOD as **living benchmarks** they will keep updating, because log analysis is not exhaustive — it requires specifying target behaviors, some threats surface only in particular runs, and LLM-based classifiers need manual validation.
+
+## Contribution 2 — Multidimensional evaluation after saturation
+
+The core reframe: **decouple accuracy saturation from benchmark saturation.** Across 20 agent runs (Codex CLI, Claude Code, OpenCode, CORE-Agent × GPT-5.x / Opus 4.5 / Opus 4.6), agents with statistically indistinguishable accuracy differ sharply along three measurable axes.
+
+### Reliability
+
+Adopting Rabanser et al.'s framework, they measure four things over five repeat trials on five Codex CLI agents:
+
+- **Outcome consistency** (do repeated runs yield the same verdict) and **resource consistency** (token-usage variability) both **rise with accuracy** — the most accurate agent is also the most repeatable and the steadiest in token spend (correlations ≈ +0.94 and +0.95).
+- **Calibration and discrimination are badly broken, and identically so across agents.** Mean empirical pass rate is **93%** but mean self-reported confidence is only **32.1%** — agents are *massively* underconfident. Worse, **no agent beats a random baseline** at telling its own correct runs from its incorrect ones (discrimination AUROC ≈ 0.51–0.64). Reported confidence tracks the number of failed `bash` commands — a signal **uncorrelated with task success**. A model's confidence is therefore a near-useless success predictor here, an important negative result for any pipeline that would gate on agent self-report (cf. [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)).
+
+### Efficiency
+
+Plotting accuracy against **both token usage and dollar cost** separates the top scorers that accuracy alone cannot. Two findings:
+
+- **Some high-scorers are far more efficient.** GPT-5.3-Codex (medium) is the most efficient high-accuracy agent by both metrics; at the *same* 97.4% accuracy as GPT-5.4 (high) it costs roughly **60% less**.
+- **Tokens and dollars tell different stories.** Accuracy rises with token usage but is roughly flat-to-negative against cost — driven by provider pricing and caching behavior (some Codex CLI pairs cache aggressively; CORE-Agent does not cache at all). Which compute unit you pick changes the ranking. This is exactly the compute-axis point of [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking), applied *inside* a saturated benchmark. The well-documented returns to inference scaling ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)) let an agent brute-force accuracy — useful for finding a model's ceiling, but for practitioners the cost of an answer matters as much as the answer.
+
+### Decoupling model and scaffold
+
+Leaderboards report one accuracy per agent, collapsing the **model** and the **scaffold** that orchestrates it. Saturation makes disentangling them *more* urgent: once several agents tie on accuracy, the leaderboard no longer says which part of the stack earns the win. Evaluating Opus 4.5, Opus 4.6, and GPT-5.4 across three of four scaffolds (Claude Code = proprietary; CORE-Agent, OpenCode, Codex CLI = open-source) and classifying all 56 failures + 390 logs by root cause via Docent yields three findings:
+
+1. **Similar accuracies mask different failures.** Opus 4.5 scores 82.1% on *both* CORE-Agent and OpenCode, yet the two scaffolds **disagree on 31% of capsules** (12 of 39). An **oracle router** that picks the best scaffold per task reaches **100%** for both Opus 4.5 and GPT-5.4 — meaning *every* v1.1 task is solvable by at least one scaffold. Scaffolds change *which* tasks a model can solve, not just how many.
+2. **Scaffolds induce distinct solution strategies.** Holding the model fixed and swapping the scaffold makes this visible: on Opus 4.6, Claude Code reads 41% of answers from unmodified code's text output and only 3% from a vision-read of a rendered figure, whereas CORE-Agent vision-reads 31% of the time; vision-read rates jump to 62% (CORE-Agent vs 3% Claude Code) on Opus 4.5. And vision-reads used as a *fallback* after abandoning the original code pass only ~50% of the time vs 93% after a clean run — CORE-Agent's accuracy gap is largely accumulated fallback failures.
+3. **Direct fixes beat rewrites.** Scaffolds that diagnose a root cause and patch it succeed **95.2%** of the time (n=269); those that abandon the original implementation and rewrite from scratch succeed only **67.8%** (n=59) — and a scaffold's tendency toward direct fixes tracks its overall accuracy (Codex CLI 82%, CORE-Agent 49%). The scaffold contribution is large: with GPT-5.4 (medium), Codex CLI beats the CORE-Agent scaffold by **≈44 percentage points** (and CORE-Agent + GPT-5.4 is the ~51% low outlier across the whole run set).
+
+Conclusion: **model and scaffold effects are not cleanly separable** — scaffolds constrain the available solution paths, models determine how well they are used. This is the empirical core of the [Agent Harness Engineering](/articles/agent-harness-engineering) thesis measured on a saturated benchmark.
+
+## Contribution 3 — Human-agent collaboration uplift
+
+Once agents converge at near-ceiling accuracy, the question shifts from *can the agent do the task* to *does it add value alongside a human*. High benchmark accuracy need not translate to uplift: benchmark tasks may be narrower than real work, agent failures may be costlier for a human to unwind, and agents may respond poorly to redirection. So they ran a **small randomized study**: five evaluators (all with a data-science master's and reproducibility experience — and all coauthors) reproduced results from **20 papers** (award-winning ML papers since 2011 + social-science papers from the Institute for Replication), **with and without** agent collaboration, blinded where possible, under a **3-hour** limit, yielding **50 replication experiments**. The collaboration condition used Codex CLI + GPT-5.4 (extra-high thinking), autonomous but instructed to escalate to the human after 2–3 failed attempts. Unlike CORE-Bench, the goal was *process-level* uplift, not answer correctness, so papers were not pre-verified as reproducible.
+
+- **Agent collaboration more than halves reproduction time.** A fixed-effects model estimates manual sessions lasted **2.11×** as long as collaborative ones (clustered SE 0.09, two-sided **p ≈ 0.00176**). This is likely a **conservative** estimate: the 3-hour limit was hit by **5 of 25 manual runs and 0 of 25 collaborative runs**, so the true gap is probably larger.
+- **Most collaborative runs needed little or no human help.** The agent completed **19 of 25** runs fully autonomously (aside from two setup steps assigned to humans). Agents were seen as most valuable in **environment setup (25/25)**, running code (23), identifying main scripts (20), and README navigation (19).
+- **Agents log more blockers but recover more reliably.** The agent fully or partially resolved **all but 2 of the 114** blockers it hit, while humans left **11 of 60** unresolved; on four papers the agent fixed missing/broken repository artifacts humans could not.
+
+Limitations the authors flag: tiny sample (20 papers, 5 participants); **reproducers are coauthors** (demand effects possible); **no ground truth** (process uplift, not outcome correctness); narrow selection (Python/R only, &lt;45-min compute, results-with-clear-targets); award-winning ML papers skew toward better documentation. The uplift result is directional evidence, not a settled effect size.
+
+## Why it matters
+
+The paper is the concrete counter to the retire-and-replace reflex that [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) flags as an open problem ("task baskets saturate — what replaces them?"). Its answer: **often, nothing needs to replace them.** A saturated benchmark, re-instrumented, still tells you which agents are efficient, which are reliable, whether the win came from the model or the scaffold, and whether the agent actually helps a human — none of which the headline accuracy number can. It is one of two 2026 answers to "life after saturation" the wiki carries: this one **extracts more signal from one saturated benchmark**; [BenchPress](/articles/benchmark-score-redundancy) **stops running redundant benchmarks** by predicting their scores. They point in opposite operational directions (keep-and-re-measure vs skip-and-predict) but share the premise that a single accuracy number is a lossy compression of what a benchmark knows.
+
+## Connections
+
+- [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) — the complementary lens on the same saturation fact. Saturation = near-zero score spread across agents; BenchPress uses exactly that to *compress* the benchmark landscape (a low-spread benchmark is trivially predictable from others, so you may not need to run it), while this paper *extracts* six non-accuracy signals from the one saturated benchmark you keep. "Skip-and-predict" vs "keep-and-re-instrument" — opposite moves, same premise that a headline accuracy number under-uses the benchmark
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — the same "aggregate accuracy is a lossy summary" argument applied to *contamination* rather than saturation. Sun et al. add **per-sample distribution distances** where this paper adds six non-accuracy axes, and hit the same failure shape: a dataset-level improvement (residual contamination ↓) that does *not* move per-sample behavior toward the clean reference (D_KL ↑). Both refuse to accept a single accuracy delta as proof a benchmark's signal has been recovered
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — this page's open question ("time-horizon baskets saturate; what replaces them?") gets its answer here: *don't replace, re-instrument*. This paper takes CORE-Bench (which that page cites as saturating in 15 months) and shows it still discriminates agents along six axes after accuracy saturates
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the efficiency axis here (accuracy vs tokens vs dollar cost; GPT-5.3-Codex ~60% cheaper at equal accuracy) is Brown's "put compute on the x-axis" applied inside a saturated benchmark; both refuse to report one accuracy number without the cost of reaching it
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — the model-vs-scaffold decoupling is the empirical measurement of the harness's contribution: scaffold swings accuracy ~44pp, two scaffolds on one model disagree on 31% of tasks (oracle router → 100%), and direct-fix-vs-rewrite (95% vs 68%) is a scaffold-strategy effect, confirming scaffold and model are not cleanly separable
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the sibling answer to "what to do when benchmarks saturate": that page *refreshes* the task set from live production usage; this page *re-instruments* the existing (saturated) task set along non-accuracy axes. Both reject retire-and-replace, from opposite ends (new tasks vs new metrics)
+- [Reward Hacking](/articles/reward-hacking) — the "exploitable shortcuts" (reading a pre-computed value instead of reproducing it) and "benchmark-specific adaptation" (tuning the agent to a fixed benchmark's idiosyncrasies) are Goodhart at the benchmark-construction / development-target layer; log analysis after saturation is how they surface
+- [Configurable Human Participation](/articles/configurable-human-participation) — the human-uplift study is the *field* counterpart to HAS-Bench's *controlled* human-agent measurement: HAS-Bench varies participation on an LLM-simulated human across 397 tasks; this runs a real randomized study on 20 reproduction tasks and finds collaboration more than halves time. Both make human-agent collaboration a first-class measured axis rather than an afterthought
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the returns-to-inference-scaling this page's efficiency axis measures against: agents can brute-force accuracy with more compute, so cost-per-answer is the practitioner-relevant complement to the saturated accuracy number
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — the reliability finding sharpens it on a capability axis: frontier coding agents are massively underconfident (93% pass vs 32.1% stated confidence) and cannot beat random at telling their own correct runs from incorrect ones, so agent self-rated confidence is a weak basis for gating
+- [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it) — the cluster synthesis: re-instrumentation is one of five portfolio moves that jointly answer "how much signal do public benchmarks still carry, and what replaces them?"
+
+## Open Questions
+
+- **Does re-instrumentation generalize past reproducibility?** CORE-Bench Hard was chosen precisely because it has a direct human counterpart, clean OOD axes, and multiple practical dimensions. Whether the six-axis treatment yields comparable signal on benchmarks *without* those properties (e.g. closed-form reasoning benchmarks with no human-workflow analog) is untested.
+- **Is the human-uplift result real or a demand effect?** The reproducers are the paper's own coauthors, there is no ground-truth correctness, and n = 20 papers / 5 participants. The 2.11× speedup is statistically significant but the authors themselves cannot rule out participant bias — an independent, blinded replication is the missing evidence.
+- **Which non-accuracy axis actually predicts deployment value?** The paper measures six axes but does not rank them by decision-relevance for a downstream deployer. If you can only measure one beyond accuracy, is it reliability, efficiency, or scaffold contribution — and does the answer depend on the use case?
+- **Can the model-vs-scaffold decoupling be made routine?** The oracle-router result (every task solvable by some scaffold → 100%) implies large headroom from scaffold *routing*, but requires per-task oracle knowledge. Whether a practical router can approach the oracle without it is open, and would turn a measurement into a capability.
+- **Do "living benchmarks" outrun their own maintenance?** v1.1 and OOD are to be updated as new validity threats surface via log analysis, which the authors note is non-exhaustive. Whether continuous log-analysis-driven maintenance is sustainable — or itself becomes a Goodhart target once developers know the rubrics — is unexamined.
+
+## Sources
+
+- [Life After Benchmark Saturation: A Case Study of CORE-Bench](https://arxiv.org/pdf/2606.26158) — Nitya Nadgir, Sayash Kapoor, Kangheng Liu, Peter Kirgis, … Arvind Narayanan (14 authors; Independent / Princeton / UC Berkeley / MIT; arXiv 2606.26158, 2026-06-23, `empirical`). §1 the retire-and-replace critique and central thesis; §2 construct-validity threats via Docent log analysis (15 task-level errors + 20 shortcuts), CORE-Bench v1.1 (39 tasks) and CORE-Bench OOD (19 tasks), persistence of saturation (top 100%, next four ~97.4%); §3 multidimensional evaluation — reliability (Rabanser et al. framework; consistency ↑ with accuracy r≈0.94/0.95; 93% pass vs 32.1% confidence; discrimination AUROC 0.51–0.64), efficiency (GPT-5.3-Codex ~60% cheaper at equal accuracy; token vs dollar divergence), model-vs-scaffold (31% capsule disagreement, oracle router 100%, direct-fix 95.2% vs rewrite 67.8%, ~44pp scaffold gap); §4 randomized human-uplift study (20 papers, 50 experiments, 2.11× time, p≈0.00176, 5/25 manual runs hit the 3h wall). Figures 1 (reliability), 2 (efficiency), and 3 (session-duration histogram) viewed. Note: Tables 2 & 4 have flattened multi-value cells in the raw parse — per-model accuracies quoted here are only those corroborated in the paper's prose and figures

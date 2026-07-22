@@ -1,0 +1,132 @@
+---
+date: 2026-07-16
+title: Task-Specification Effects in Prompt Injection (AutoDojo)
+description: "AutoDojo (Ma et al., arXiv 2606.15057): a cheap black-box adaptive
+  attack that iteratively optimizes an indirect prompt injection against a live
+  defended agent using only the success/fail signal — recovering 28% overall ASR
+  (64% on action-open tasks) against a filter that scores 0% *static* ASR, so
+  static-benchmark robustness dramatically overstates real robustness; plus the
+  task-specification axis it exposes — under-specified 'action-open' tasks (the
+  user defers the action itself to attacker-reachable content) are markedly more
+  injectable than fully-specified ones for prompt- and filter-based defenses,
+  while action-constraining system-level defenses invert this and grow stronger"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - prompt-injection
+  - adaptive-evaluation
+  - task-specification
+  - threats
+readingTime: 15
+imageAlt: Illustration for Task-Specification Effects in Prompt Injection (AutoDojo)
+sources:
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
+---
+export { default as heroImage } from "../assets/task-specification-injection-surface.png";
+
+## Sources
+
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
+
+## Summary
+
+Ma, Li, Xiao, Yu, Zhang & Vorobeychik (Washington University in St. Louis / Texas A&M / Johns Hopkins, arXiv 2606.15057, June 2026) build **AutoDojo**, an adaptive extension of the AgentDojo benchmark, and use it to make two claims about [indirect prompt injection (IPI)](/articles/agentic-prompt-injection) defenses. Both are `empirical` (five target models, three task suites, nine state-of-the-art defenses).
+
+1. **Finding 1 — static evaluation dramatically overstates robustness.** A *cheap, black-box, adaptive* attack — a frontier LLM iterating an injection from a seed under a tiny query budget, seeing only success/fail — raises attack success rate (ASR) well above the static-injection level against nearly every defense. Against a purpose-built filter (PIGuard) that drives *static* ASR to **0%**, AutoDojo recovers **28% overall and 64% on action-open tasks** (GPT-4o-mini). A "0% static ASR" is not a robustness floor.
+2. **Finding 2 — the task-specification axis (this page's durable concept).** Defense efficacy depends decisively on how much of the agent's *action* the user's request leaves to external content. **Under-specified ("action-open") tasks are markedly more injectable** for prompt-level and filter defenses, because on such tasks the injection can pose as ordinary *data* rather than an explicit instruction — bypassing defenses that detect instruction-like text. Action-constraining **system-level defenses invert this**: they grow *stronger* on action-open tasks.
+
+The two findings are one story. Static evaluation hides both the residual robustness gap *and* the task-specification effect; the cheap adaptive attack is the instrument that exposes both. AutoDojo is the vault's **first cheap black-box adaptive** injection result, complementing the white-box worst-case (Nasr et al. 2025) and the deterministic-gate reproduction on [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) (Narisetty et al. 2026).
+
+## AutoDojo: the cheap black-box adaptive attack
+
+The threat model is deliberately the *weakest* realistic adaptive attacker, three ways weaker than the white-box worst case:
+
+- **Black-box, query-only** — no weights, gradients, or knowledge of *which* defense is deployed; the only signal crossing the boundary is each candidate's ASR. This is the access any external user has ("anyone who can post content the agent might read and can rent frontier-LLM API time").
+- **Cheap** — a single offline optimizer LLM (Gemini 3.1 Pro), a budget of **six** optimization iterations per injection target, a top-five leaderboard. No reinforcement learning, no fuzzing harness, no per-defense reward model.
+- **Seed-based** — any existing attack enters as a *seed* (a scored candidate) or a *strategy* (a reusable pattern in the generation menu). AutoDojo is seeded with the static `important_instructions` strings plus TopicAttack and RLHammer, and absorbs new attacks without changing the loop.
+
+Each of the K iterations runs three steps against the live defended agent: **outcome feedback** (score the last candidate over a case set, join the leaderboard), **diagnosis** (the optimizer reasons over the leaderboard to hypothesize which defense family is active), and **generation** (write one new injection, grounded in a leaderboard entry, drawing on a short menu of strategies — a fluent paragraph, an in-context dialogue, or an entry shaped like the surrounding tool output). The authors read the loop as an **LLM-driven evolutionary search**: leaderboard = population, revise/combine = mutation/crossover, strategy-switching = diversity, ASR = fitness. Because the optimizer mutates *semantically* in diagnosis-justified directions, a small budget suffices where blind perturbation would need far more.
+
+Crucially, the live defense is implicitly part of every evaluation, so injections are specialized *against the defense without ever identifying it*. The attacker is equally uncertain about the user's request, so each candidate is scored across all user tasks that read the same vector — favoring injections that succeed regardless of the surrounding request.
+
+## Finding 1: a low static ASR certifies almost nothing
+
+The headline numbers (GPT-4o-mini, aggregated over banking/slack/travel; static → AutoDojo):
+
+| Defense | Family | Static ASR | AutoDojo ASR |
+|---------|--------|-----------|--------------|
+| PIGuard | filter | **0.0%** | **28.0%** |
+| DataFilter | filter | 12.6% | 33.4% (~3×) |
+| ProtectAI | filter | 7.2% | 15.4% (~2×) |
+| Spotlighting | prompt-level | 51.7% | 46.8% |
+| Progent | system-level | 8.2% | 7.7% (−0.5) |
+| DRIFT | system-level | 2.6% | 6.4% |
+
+Three observations decompose *why* a low static ASR is cheaply earned and does not imply robustness:
+
+- **It can be the model, not the defense.** On newer, more capable models the static injections rarely land even *undefended*: Claude-Haiku-4.5 **0.3%** and GPT-5.4-mini **6.9%** with no defense at all, so every defense inherits a near-perfect static score for free. The `important_instructions` strings have been public since AgentDojo's release, so a low static ASR on a recent model "measures familiarity with a fixed benchmark, not robustness to injection." Only on GPT-4o-mini (58.6% undefended) and Gemini-2.5-Flash (47.8%) does a defense's static ASR carry any information.
+- **It can be bought with utility.** The filters that suppress the static attack do it by shredding clean utility: **PIGuard and ProtectAI cut benign task-completion by a third to a half** (33–51% vs 63–90% undefended), because their sentence-level classifiers strip benign content along with injected text — worst on travel's long free-text (PIGuard leaves 5–25% clean utility). System-level defenses cost too: DRIFT gives up 18–30 utility points, Progent up to 11.
+- **The gain is the optimization, not the seeds.** Table 3 isolates it: against DataFilter, AutoDojo 33.4% vs 12.6% static and ≤4.9% for either seed alone; against PIGuard 28.0% vs 0.0% and ≤11.3% for the seeds. Most of the recovered ASR would remain unrealized without the loop optimizing against the *live defended* agent.
+
+Since the optimizer may not fall back to a seed (a deliberate design choice to isolate the *marginal* effect of adaptive generation), a "below-static" AutoDojo cell never marks a defense that resists — only one that was already failing under either attack (AutoDojo's subtler injections are slightly worse at plain instruction-following, so they dip a few points where the defense is already broken, e.g. spotlighting on GPT-4o-mini). A real attacker would keep the best of seed-and-adaptive, so the reported ASR is a **lower bound**.
+
+## Finding 2: the task-specification axis (the novel concept)
+
+AutoDojo introduces a categorization of user tasks by **how much of the agent's action the user delegates to attacker-reachable content** — a decomposition no prior IPI evaluation had used:
+
+- **Fully-specified** — the prompt names the action *and* all parameters (also read-only queries). *"Change my address to 1234 Maple St."* The agent has no reason to take an unasked action.
+- **Param-open** — the action verb is given but a parameter must be read from content. *"Pay the bill in bill-december-2023.txt."* The verb is `pay`; the amount and payee live in the (attacker-reachable) file.
+- **Action-open** — the user names *no* action and defers entirely to content: *"Do all the tasks on my TODO list at \{URL\}."* The agent has no reason *not* to take whatever action the content implies.
+
+The axis measures delegated autonomy. A fully-specified task "leaves the agent with no good reason to take an action it was not asked to take; an action-open task leaves the agent with no reason not to." **Most real agent use falls into the less-specified buckets**, because most users are not security experts (only 6 of 57 tasks are action-open in the suites, but they are the archetype of everyday delegated use).
+
+**The effect and its mechanism.** Action-open ASR exceeds specified ASR before any adaptation (undefended GPT-4o-mini 90.5% vs 54.8%) and the strong filters *scrub the static gap* only to have AutoDojo reopen it, larger:
+
+- On GPT-4o-mini, action-open ASR reaches **57–64%** against all three filters while their specified-task ASR stays at 10–30%. **ProtectAI's action-open rate (57.1%) is more than 5× its specified rate (10.4%).** PIGuard: 64.3% action-open vs 23.6% specified.
+- The mechanism is the case study (Figure 3): the *static* injection is a blunt `<INFORMATION>` command block, which PIGuard scores per-sentence and strips, leaving no actionable text — the attack fails. The *AutoDojo* injection carries no sentence that reads as an explicit instruction (it is written as a complete, legitimate-looking invoice with a spoofed payee and a "billing notice"), so PIGuard passes it through untouched and the agent pays the attacker. **Once the user delegates the action itself, the injection no longer has to look like an instruction; it can be written as ordinary data and pass a filter that detects instruction-like text.**
+
+This is the structural limit in Finding 1's sharpest form: a filter can scrub the static distribution clean and still leak worst on exactly the under-specified tasks it most needs to cover.
+
+## The system-level inversion: binding actions is real robustness
+
+Prompt-level and filter defenses filter *inputs*; system-level defenses (Progent, DRIFT) constrain *actions* by deriving a permitted tool-call trajectory from the user's request and blocking deviations. Against AutoDojo they behave oppositely to the filters in two ways:
+
+- **They hold under the cheap adaptive attack.** Progent (−0.5) and DRIFT (+3.8) barely move off their low static ASR on GPT-4o-mini, across all five models — the family the paper "finds most robust." (Nasr et al.'s white-box worst case tested only model-level defenses; the action-constraining family is untested there.)
+- **They grow *stronger* on action-open tasks** — the inversion. On many action-open tasks the user's request authorizes only read-only behavior, so the trajectory inferred from the request contains *no write action*; any attacker-induced write then falls outside the permitted trajectory and is blocked **regardless of how the injection is phrased**. Under-specification, which hands filters their worst case, hands action-constraining defenses their best case.
+
+The paper's takeaway: *"Real robustness comes from binding the agent's actions to the user's request — not from filtering its inputs."* And because AutoDojo re-optimizes against whatever is deployed (an adversarially-trained detector just gets a fresh loop), the durable question is "whether any content-level defense can win this loop — a hard position, since the attacker always moves last." This is [Least Agency](/articles/least-agency) as the answer and ["impossible, not tedious"](/articles/impossible-not-tedious-test) as the reason.
+
+## Reconciling with the frontier-model robustness impression (a tension, not smoothed)
+
+AutoDojo's data *partly corroborates* the impression — from the [Opus 4.8](/articles/claude-opus-4-8) card's saturated ART benchmarks and the spotlighting 50%→&lt;2% figure — that frontier models are becoming robust to injection: the cheap adaptive attack barely moves ASR on newer capable models (Claude-Haiku-4.5 0.3%→1.8%, GPT-5.4-mini undefended 6.9%→8.7%; PIGuard on these models rises only to 0.8–5.1%). But it draws a sharp line the vendor numbers blur:
+
+- **Model robustness** (a newer model that resists even undefended) is partly real here — though the paper cautions it is inflated by *benchmark familiarity*: the static strings are likely in training data, and AutoDojo's fresh injections "reach what the familiar static strings cannot," if only to single digits.
+- **Defense robustness** (a filter reporting 0% static ASR) is largely an evaluation artifact: on the vulnerable models a cheap adaptive attack recovers 28%. A "saturated benchmark / 0% static ASR" is exactly what an over-credited filter looks like.
+
+So the honest reading: the frontier-robustness story holds for capable *models*, not for the filter *defenses* layered on weaker ones — and even the model story rests partly on benchmark familiarity, not measured adaptive robustness. This refines rather than contradicts [Agentic Prompt Injection](/articles/agentic-prompt-injection)'s Opus 4.8 section, which already warns that "fixed datasets of known attacks give a false sense of security."
+
+## Connections
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the threat this decomposes; AutoDojo answers that page's open question on the residual attack floor "against adaptive attackers when defenses are stacked": a 0% static ASR is not a floor, and a *cheap black-box* attacker (not just a white-box one) already recovers 28%
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — strong corroboration by a *cheaper* attacker: AutoDojo independently shows in-band (filter + prompt-level) defenses collapse while action-constraining system-level defenses (Progent, DRIFT) hold — across five models, partly answering that page's "does the deterministic gate survive on a stronger agent?" open question (yes, under this black-box attack), while leaving the white-box question open
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — sibling attack paper (both 2026, both show static-eval over-credits IPI defenses). Convergent mechanism: AutoDojo's action-open injection reads as *data not instruction*; ADI forges *trusted data* via delimiter injection — two routes past filters that only detect instruction-like text
+- [Least Agency](/articles/least-agency) — the paper's positive result *is* least agency: system-level defenses that bind actions to the user's request are the robust family, and they get *stronger* exactly where filters get weaker (action-open → read-only trajectory → no write permitted)
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the same "bind actions, don't filter inputs" thesis one layer deeper: AutoDojo binds the *action trajectory* to the user's request; ScopeGate (Mellafe Zuvic 2026) binds each call's *argument values* to out-of-band operator policy. And AutoDojo's task-aligned-injection mechanism is the attack side of that paper's measured naive→task-aligned attempt jump (glm-4.7 0.283→1.000) — presenting the dangerous action as required to complete the user's task, so it reads as data not instruction
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — the same "action-open / defer to whatever the content says" under-specification Thariq treats as a *quality* bottleneck is here a measured *security* liability; under-specification cuts both ways
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — ShareLock's reconstruction-trigger prompt engineering is still *manual*, and its authors name feedback-driven prompt optimization as the next escalation — exactly AutoDojo's live-agent adaptive loop applied to MCP tool-poisoning, which would automate the attack chain against aligned models
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — content filters detect instruction-like text (a heuristic an adaptive attacker rewrites around); a deterministic action gate *removes* the capability to make an off-trajectory write — another impossible-vs-tedious instance, measured
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — its card reports saturated static injection benchmarks and a spotlighting number; this page distinguishes model-robustness (partly real) from defense-robustness (an evaluation artifact)
+
+## Open Questions
+
+- AutoDojo is the *weakest* realistic adaptive attacker (black-box, six iterations, binary signal). The authors note every axis — richer feedback (traces, token probs), non-semantic surface tricks, or a payload reshaped to resemble the user's plausible intent — is strictly stronger, so the reported ASR is a lower bound. How far do the system-level defenses hold once the payload is reshaped to look like a task-relevant action (the natural route to evading action constraints)?
+- Can a gradient-optimized (white-box) injection be *seeded* into the loop and adapted further by the LLM search — combining white-box strength with black-box adaptation? The authors flag this as curious and untested.
+- The task-specification axis is measured on 6 action-open tasks in 3 suites. Does the action-open ≫ specified ordering (and the system-level inversion) hold at scale and on stronger agents, and is "fraction of tasks that are action-open" a usable per-deployment risk metric?
+- If action-open tasks are the injectable ones and also the everyday default for non-expert users, is the practical prescription to *forbid* action-open delegation (force the user to name the action), pushing the security burden back onto task specification — the same discipline [unknown-elicitation](/articles/unknowns-as-the-agentic-bottleneck) asks for on quality grounds?
+
+## Sources
+
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057) — Ma, Li, Xiao, Yu, Zhang & Vorobeychik (WUSTL / Texas A&M / Johns Hopkins), arXiv 2606.15057, June 2026, `empirical`. §3 (black-box threat model), §4 (the optimization loop: leaderboard / diagnosis / generation; evolutionary-search interpretation; seed-vs-strategy integration), §5.1 (setup: 5 models, 9 defenses, 3 suites, 389 cases; Gemini 3.1 Pro optimizer, 6 iterations), §5.2 Finding 1 (Table 2 aggregate ASR, Table 3 attack-ablation on GPT-4o-mini, Fig 1 static→AutoDojo recovery, Fig 3 case study), §5.3 Finding 2 (Tables 4–5, action-open vs specified buckets, system-level inversion), §6 (why below-static is by design; where AutoDojo sits among adaptive attacks; whether a detector can be hardened). Viewed Figs 1 & 3 per the image two-pass rule to cross-check the row-shredded results tables.

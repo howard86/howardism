@@ -1,0 +1,107 @@
+---
+date: 2026-07-15
+title: Agent Data Injection (ADI)
+description: "A new category of indirect prompt injection: malicious payloads
+  disguised as *trusted data* (metadata like a comment's author, a UI element
+  ID, or the tool-call history) rather than as instructions, via probabilistic
+  delimiter injection — the LLM misreads inexact/escaped delimiters as
+  structural boundaries, so the agent does the user's task but on
+  attacker-forged data; working RCE and supply-chain exploits on Claude Code /
+  Codex / Gemini CLI and arbitrary-click on Claude-in-Chrome, bypassing IPI
+  defenses that only separate instructions from data (up to 50% ASR where
+  instruction injection is ~0%)"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - prompt-injection
+  - threats
+  - delimiter-injection
+  - trust-boundary
+readingTime: 15
+imageAlt: Illustration for Agent Data Injection (ADI)
+sources:
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+---
+export { default as heroImage } from "../assets/agent-data-injection.png";
+
+## Sources
+
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+
+## Summary
+
+Choi, Kim, Kang, Jeong, Xing & Lee (Seoul National University / UIUC / Largosoft, arXiv 2607.05120, July 2026) introduce **Agent Data Injection (ADI)**, a new category of indirect prompt injection ([IPI](/articles/agentic-prompt-injection)). The well-studied category of IPI is **instruction injection**, where attacker-controlled untrusted data is misinterpreted as an *instruction*, so the agent abandons the user's task and does the attacker's. Many defenses now stop this by enforcing an instruction↔data boundary. ADI exploits a **different, finer boundary the same defenses ignore**: the lack of isolation between **trusted and untrusted data *within* the agent data itself**. ADI causes untrusted data to be misinterpreted not as an instruction but as **trusted data** — security-critical metadata the model relies on as an anchor (a comment's author/role, an email's `sender`, a Web UI element's identifier, or the tool-call/response history). The agent still performs the user's intended task, but on attacker-forged metadata.
+
+The distinction is the whole point (paper's Figure 3). Instruction injection makes the LLM *follow the attacker's instruction*; ADI makes the LLM *follow the user's instruction on the attacker's data*. Because existing defenses are built to keep injected data from being read as an instruction — not from being read as trusted data — they largely **fail against ADI**: instruction injection scores near-zero attack success (0.0–0.7%) against state-of-the-art agent defenses, while ADI reaches **up to 50% ASR** against the same defenses. This is `empirical` work with real, responsibly-disclosed exploits (Anthropic, OpenAI, and Google acknowledged; Nanobrowser did not respond).
+
+## The mechanism: probabilistic delimiter injection
+
+Agent data (JSON, Markdown, XML, custom tag formats) is structured by **delimiters** that separate three levels — tool-call blocks, objects, and fields — and thereby also separate trusted from untrusted values. **Probabilistic delimiter injection** injects delimiter-like character sequences into an untrusted field so the LLM's view of the data structure diverges from the tool's. The tool treats the injected sequence as plain text; the LLM misreads it as a structural boundary, so part of the attacker's payload gets perceived as a *new* trusted field/object/tool-block.
+
+The word *probabilistic* is load-bearing and is the paper's core novelty. Classic delimiter attacks (SQL injection, XSS) target **deterministic parsers** and succeed only with an **exact** delimiter (a real `'` or `<script>`). An LLM interprets data **probabilistically**, so even **inexact, parser-invalid** delimiters work: an escaped double-quote `\"` — which a JSON parser would keep as literal text — is still probabilistically read as a structural quote (Figure 4: an email `body` containing `\"sender\": \"alice@gmail.com\"` forges a second email object spoofing `alice`). The attack is delimiter-agnostic: visually-similar quotes (`'`), or arbitrary characters (`$`, `()`), still achieve 35.8–43.3% ASR on JSON. Structural *consistency* of the fake object matters most — a complete fake object (31.3–43.3%) beats a malformed one (11.8–20.0%). This is the first systematic characterization of the LLM's misinterpretation of inexact delimiters.
+
+## Three working exploits on real agents (§4)
+
+Each abuses a different kind of trusted data. All were confirmed on shipping products; user-approval dialogs did **not** stop them, because the agent's own displayed reasoning is built on the misinterpretation and so *reinforces the attacker's false narrative* (e.g. "install `starship-auth` as suggested by the maintainer").
+
+1. **Arbitrary click via element-ID injection (web agents).** A crafted product review injects a fake `button "Read More" [ref_3]` reusing the identifier of the real *Buy Now* button (IDs are assigned in sequential, predictable order). The agent, still summarizing reviews, "clicks Read More" — which resolves to Buy Now, and buys. Confirmed on **Claude in Chrome, Antigravity, Nanobrowser**. XSS-analogous: any site with user-generated content becomes an attack surface. **ChatGPT Atlas was immune** because it uses a runtime-randomized nonce (`ref_4af2b1c9`) the attacker can't predict — the randomization defense.
+2. **Remote code execution via origin injection (coding agents).** A GitHub issue comment injects a fake comment object with a **spoofed maintainer author/role**, suggesting a malicious shell command. The user asks the agent to "apply the maintainer's fix"; the agent misattributes the injected comment to a maintainer and runs the command (`pip install starship-auth`). Confirmed on **Claude Code, Codex, Gemini CLI** (via the `gh` CLI and the GitHub MCP server, both JSON and plaintext).
+3. **Supply-chain attack via tool-call/response injection (coding agents).** A malicious PR's *description* injects a fake tool-call block — for Claude Code, forged `<function_calls>`/`<function_results>` tags — that fabricates a `read_pr_commit` result showing a *benign* diff. The agent "reviews" the fabricated commit, concludes the PR is safe, and merges it — while the **actual** commit contains an XSS payload. It forges the entire tool-execution history, so it can fabricate any tool output (verification results, price comparisons). Confirmed on **Claude Code, Codex, Gemini CLI**.
+
+Additional confirmed variants (§C): **email sender spoofing** (ChatGPT, Claude) and **Slack origin injection** (Claude Code + Slack MCP, spoofing a channel-admin message). The attacker only needs to know the data format, recoverable by reading open-source code, observing rendered tool output, reverse-engineering a local client, or jailbreaking a server-side format out of the model.
+
+## Why the defenses fail (§5–6, Tables 1–2, Figs 9–10)
+
+Evaluated on off-the-shelf LLMs (GPT-5.2, GPT-5-mini, Claude Opus 4.5, Claude Sonnet 4.5, Gemini 3 Pro/Flash) and on an extended [AgentDojo](/articles/out-of-band-prompt-injection-defense) agent benchmark (GPT-5.2, +108 ADI attacks). Baseline off-the-shelf ASR: **31.3–43.3% on JSON, 33.3–100% on web DOM**, at high benign utility. Against defenses (AgentDojo, baseline ASR 49.1%):
+
+- **Model hardening** (instruction/data separation training) — no protection *within* data; it is exactly why instruction injection is ~0% but ADI is wide open.
+- **Input guardrails** (Llama Prompt Guard 2) — **50.0%** ASR; detected **0 of 108** ADI payloads (they contain no "ignore previous instructions" pattern, just plausible-looking data), vs 34.9% of instruction-injection attempts.
+- **Output guardrails** (LlamaFirewall AlignmentCheck) — **45.4%**; ineffective because the agent's *action stays aligned with the user prompt* — only the underlying data is corrupted.
+- **Plan-then-execute** (IsolateGPT) — 40.7%; the plan is intact but executor steps still consume the poisoned data.
+- **Agent sandboxing** (Progent, [Least Agency](/articles/least-agency) as symbolic per-call rules) — **22.2%**; blocks attacks only where a policy constrains the corrupted argument.
+- **Dual-LLM** (CaMeL, no policy) — 25.0%; delimiter injection fools the *quarantine* LLM into extracting attacker values.
+- **Data-flow tracking** (CaMeL) — Normal **23.1%** (the authors found and reported a **taint-propagation implementation bug** that dropped labels when the quarantine LLM extracts variables); **Strict 0%** — the only defense that fully stops ADI, but at a heavy utility cost (86.5% → **36.5%**).
+- **Randomization** (nonce field names / element IDs) — **28.7%** at 83.3% utility; lightweight and near-Progent security with no policy LLM, but only for key-value formats (JSON, DOM), not unstructured Markdown.
+- **Sanitization** (strip delimiter-like chars from untrusted fields) — lowers ASR but at a **large utility drop**, because untrusted fields legitimately carry URLs, file paths, and structured text; impractical.
+
+The paper's conclusion: current agents lack a **fine-grained trust model**. Correct provenance/data-flow tracking (CaMeL Strict) is the only complete answer and it is expensive; the durable prescription is to isolate trusted from untrusted data *within* the agent context, enforced outside the model.
+
+## Why this sharpens the "durable property or training gap?" question
+
+[Agentic Prompt Injection](/articles/agentic-prompt-injection) carries the open question of whether "LLMs cannot distinguish information from instructions" is a durable architectural property or a closable training gap. ADI is strong evidence for the **durable** reading, with a twist: the instruction↔data boundary *does* look closable (model hardening drives instruction injection to ~0%), but **closing it just relocates the attack to the next finer boundary**. The root cause is the LLM's *probabilistic interpretation of structural delimiters* — an architectural fact, not a training gap — so any boundary an attacker can imitate (instruction/data, then trusted/untrusted, and presumably finer still) stays porous. You can train the model to respect one delimiter; you cannot train away the probabilistic misreading of *inexact* delimiters in general. The remedy converges with the [out-of-band](/articles/out-of-band-prompt-injection-defense) literature: stop trying to fix it inside the model and enforce data isolation deterministically outside it.
+
+## Connections
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — ADI is a **second category of IPI** alongside instruction injection; that page's open question ("durable property or training gap?") is the one ADI sharpens
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the defense class that answers ADI: only **CaMeL Strict** (deterministic data-flow tracking, provenance labels) fully stops it; ADI is independent, adversarial evidence on CaMeL/Progent/dual-LLM against a *within-data* attack rather than instruction injection
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — sibling attack paper (AutoDojo, Ma et al. 2026): both show static evaluation over-credits IPI defenses, via convergent mechanisms — ADI forges *trusted data* through delimiter injection; AutoDojo's action-open injection reads as *data not instruction*. Two routes past filters that only detect instruction-like text, and both point to action/data-constraining out-of-band enforcement as the answer
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — ADI forges the very **trusted anchors** (origin metadata, tool history) Zero Trust's controls rely on; a concrete Phase-4 / input-validation threat that instruction-injection defenses miss (hub)
+- [Least Agency](/articles/least-agency) — Progent (least agency at the tool-call boundary) cuts ADI to 22.2% but doesn't eliminate it — scoping *what* a tool can do only helps where a policy constrains the corrupted argument
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the authorization layer ADI exploits, and a **shared residual**: ScopeGate's per-call value `authz` gate blocks value-redirection (a well-typed unauthorized `account`), but ADI's whole move is forging *data the agent legitimately acts on* (a spoofed author, a fabricated tool result) — which satisfies the value policy while doing harm, the same class that survives Progent (22.2%). A value gate closes redirection, not legitimate-data corruption; only provenance/data-flow tracking does
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — a **partial line against ADI's origin-forgery, and the same residual**: aiAuthZ's per-message HMAC identity authenticates the *human sender* cryptographically, so ADI's origin-injection RCE (forging a **maintainer** author on a GitHub comment) is defeated *when the spoofed principal differs from the active user* — the message body can claim maintainer authority but the bound identity confers nothing. It does **not** help where the forged data (a fabricated tool-call result, an in-range value) fires under the active user's own authority — bounded only by argument/rate policy, exactly the corrupt-legitimately-variable-data class only correct data-flow tracking (CaMeL Strict) fully closes. Note aiAuthZ authenticates the *human message*, not the *within-context tool history* ADI forges, so a fabricated-tool-result exploit under one principal still rides through (single-author preprint)
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — tool-call-and-response injection **fabricates the agent's in-context execution history**, corrupting the model's memory of what it has already done — a single-turn analogue of poisoning
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — the **persistent-memory** counterpart: ADI's tool-call/response injection (forging in-context tool history) and trusted-tool echo are the single-session analogue of TMA-NM's **L-b trusted-tool-echo** laundering channel, and both converge on the same complete answer — correct provenance/data-flow tracking (ADI's *CaMeL Strict*; TMA-NM's origin-at-the-call-boundary). TMA-NM is the cross-session version of the fine-grained trusted/untrusted-data model this page concludes agents lack
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — user-confirmation dialogs are a **friction control that fails** (the agent's reasoning reinforces the attacker's story); nonce randomization (ChatGPT Atlas) is the capability-removing control that holds
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — ADI's tool-call-injection exploit *is* a supply-chain attack: merging a malicious PR whose real commit is never reviewed, via a forged benign-commit tool response
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — sibling *forge-the-trusted-context* attack against agents, **distinct plane**: ADI forges *trusted data* (a comment's author, a fabricated tool result) via probabilistic delimiter injection so the agent acts on attacker data; ShareLock forges *tool metadata* (MCP descriptions / `tool_id` / `checksum`) so the agent reconstructs an attacker *instruction*. Both exploit the model's structural trust in context it shouldn't trust — ADI at the data plane, ShareLock at the tool-capability plane — and both slip past content-detection defenses that only look for instruction-like text. **Agentjacking (Tenet Security, `case-study`), the in-the-wild MCP case study on that page, is arguably the real-world instance of *this* attack** — an ADI-flavored forgery delivered through MCP: attacker-injected fake Sentry error events, relayed by the *legitimate* Sentry MCP server, are read by coding agents as trusted diagnostic data (a fake `## Resolution` structurally identical to Sentry's own template). Mechanistically it straddles the two categories — the forged content resolves to an *actionable* command (`npx …`), so it is IPI-flavored at the payload level while being ADI-flavored at the *trust* level (untrusted data laundered into trusted tool-output), and it uses plaintext format-mimicry rather than probabilistic delimiter injection. It is the vendor-reported, non-measured cousin to this page's `empirical` PoCs, and corroborates the core finding: prompt-layer hardening ("ignore untrusted data") does *not* stop a within-data forgery
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — the agent's **data format and tool-call delimiters** (Claude Code's `<function_calls>`/`<function_results>`, Codex's newline separation, Gemini CLI's `<ctrl46>`) are a harness-design surface, and their predictability/imitability is a harness security property
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) / [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — a likely blind spot: white-box injection detectors fire on payloads that *look adversarial* (`fake`, `injection`), but an ADI payload is designed to look like ordinary trusted data, so it may carry no such signature
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — the deeper thread ("LLMs can't cleanly separate information from instructions") extended: the model can't separate *trusted from untrusted data* either, because both boundaries are just delimiters it interprets probabilistically
+- [Claude Code](/articles/claude-code) — the agent the RCE and supply-chain PoCs were demonstrated against; also the Slack-origin-injection target
+- [Codex](/articles/codex) / [Google DeepMind](/articles/google-deepmind) — Codex and Gemini CLI are equally vulnerable to the origin- and tool-call-injection exploits
+- [OWASP](/articles/owasp) — ADI is a new subcategory under the OWASP LLM01 prompt-injection umbrella
+- [Anthropic](/articles/anthropic) / [OpenAI](/articles/openai) — among the vendors that acknowledged the responsible disclosure
+- [Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable) — the filed synthesis this paper anchors: ADI's "closing one boundary relocates the attack to the next finer one" is the load-bearing evidence that the separation is a durable architectural property (per boundary trainable, in general not), across five sources
+
+## Open Questions
+
+- The complete defense (CaMeL Strict) costs ~50pp of utility. Is there a fine-grained trusted/untrusted data-isolation scheme that stops ADI **without** the deterministic-flow-tracking utility collapse — or is the trade fundamental?
+- Randomization is cheap and effective for key-value formats but useless for **unstructured formats** (Markdown, prose tool output). What protects the formats a nonce can't be attached to?
+- ADI was demonstrated on GPT-5.2-class agents. Does frontier model improvement *reduce* probabilistic-delimiter susceptibility, or does capability leave the delimiter-misreading intact (making it a durable architectural property, not a scaling-away gap)? **Partially answered:** [Can Models Learn to Separate Instructions from Data? Durable Property vs Training Gap](/articles/instruction-data-separation-durable-or-trainable) — capability *does* reduce per-boundary susceptibility (instruction injection went ~0% under hardening; newer models resist undefended static injection), so the prediction is that it lowers the trusted/untrusted-data ASR too — but never to a clean zero under an adaptive attacker, and the delimiter-misreading *mechanism* survives every model improvement. Still untested *directly* on the trusted-data boundary for the newest models — the measurement this question asks for remains open.
+- Do internal/white-box monitors detect an ADI payload at all, given it is engineered to read as trusted data rather than as an attack? (Untested; the tension flagged under Connections.)
+
+## Sources
+
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi, Kim, Kang, Jeong, Xing & Lee (SNU / UIUC / Largosoft), arXiv 2607.05120, July 2026, `empirical`. §3 (threat model, ADI formalization D=(D_T,D_U), probabilistic delimiter injection), §4 (element-ID / origin / tool-call injection PoCs on Claude in Chrome, Antigravity, Nanobrowser, Claude Code, Codex, Gemini CLI), §5 (defense analysis, Table 1), §6 (LLM ASR Table 2–3, AgentDojo agent eval Figs 9–10), §C (email/Slack variants), §D (format recovery), §E (PoC traces)

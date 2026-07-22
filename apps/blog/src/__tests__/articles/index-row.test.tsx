@@ -12,7 +12,7 @@ afterEach(() => {
 const META: ArticleMeta = {
   date: "2026-05-06",
   description: "A description",
-  domain: "ai-engineering",
+  domain: "agent-systems",
   imageAlt: "alt",
   readingTime: 7,
   tag: "Concept",
@@ -76,7 +76,7 @@ describe("IndexRow", () => {
 
   it("shows the domain label by default and hides it when showDomain is false", () => {
     const { rerender } = renderRow();
-    expect(screen.getByText("AI Engineering")).toBeDefined();
+    expect(screen.getByText("Agent Systems")).toBeDefined();
 
     rerender(
       <ul>
@@ -88,7 +88,7 @@ describe("IndexRow", () => {
         />
       </ul>
     );
-    expect(screen.queryByText("AI Engineering")).toBeNull();
+    expect(screen.queryByText("Agent Systems")).toBeNull();
   });
 
   it("renders the save button by default and omits it when showSave is false", () => {

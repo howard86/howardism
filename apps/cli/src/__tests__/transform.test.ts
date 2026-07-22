@@ -10,9 +10,36 @@ import {
   firstParagraph,
   redactLocalPaths,
   rewriteWikilinks,
+  stripAuthoringTags,
   stripDuplicateLeadingHeading,
   stripHtmlComments,
 } from "../import-wiki/transform.ts";
+
+describe("stripAuthoringTags", () => {
+  it("drops trailing #oq/* triage tags from question bullets", () => {
+    const body = [
+      "## Open Questions",
+      "",
+      "- Does the bottleneck hold at scale? #oq/source",
+      "- Who owns the budget? #oq/now",
+    ].join("\n");
+
+    expect(stripAuthoringTags(body)).toBe(
+      [
+        "## Open Questions",
+        "",
+        "- Does the bottleneck hold at scale?",
+        "- Who owns the budget?",
+      ].join("\n")
+    );
+  });
+
+  it("keeps backticked mentions of the taxonomy itself", () => {
+    const heading = "## Predictions — `#oq/wait` (79)";
+
+    expect(stripAuthoringTags(heading)).toBe(heading);
+  });
+});
 
 describe("rewriteWikilinks", () => {
   it("rewrites in-set slug to a markdown link with frontmatter title", () => {

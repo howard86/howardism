@@ -1,0 +1,150 @@
+---
+date: 2026-07-16
+title: Capability Gating Is Not Authorization
+description: "Mellafe Zuvic (arXiv 2606.28679): popular agent frameworks
+  (LangChain/LangGraph, LlamaIndex, Stripe Agent Toolkit) ship *capability
+  gating* (which tools are exposed + schema validity) but no default fail-closed
+  *per-call authorization* of concrete argument values — so a
+  compromised/confused-deputy agent executes unauthorized actions that lie
+  *within* its granted capability scope (a well-typed account=acct_ATTACKER
+  passes). Proposes ScopeGate, a deterministic 5-stage PDP/PEP (scope → authz →
+  money ceiling → idempotency → default-deny) that re-authorizes each
+  model-emitted call against out-of-band operator policy: 0/48 static bypasses,
+  0/29 over a 40-iteration adaptive run, 0 false-denies; cost-optimized
+  deployment-tier models attempt the unauthorized call ~3.2× more than flagships
+  (mean ASR 0.603 vs 0.189)"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - authorization
+  - confused-deputy
+  - least-privilege
+  - reference-monitor
+  - agent-frameworks
+readingTime: 21
+imageAlt: Illustration for Capability Gating Is Not Authorization
+sources:
+  - title: "Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM
+      Agent Frameworks"
+    url: https://arxiv.org/pdf/2606.28679
+  - title: OpenID Foundation advances authorization for the agent era with new
+      AuthZEN Working Group Drafts
+    url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+---
+export { default as heroImage } from "../assets/capability-gating-vs-authorization.png";
+
+## Sources
+
+- [Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM Agent Frameworks](https://arxiv.org/pdf/2606.28679)
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
+
+## Summary
+
+David Mellafe Zuvic (Independent Security Research, Chile; arXiv 2606.28679, June 2026) audits a specific authorization failure in tool-using LLM agents: **capability gating is present, but per-call authorization is absent.** The two are distinct controls that frameworks routinely conflate:
+
+- **Capability gating** is *static* — it decides **which tools exist in the agent's menu** (tool allow-lists, key scopes, JSON schemas). A schema can reject a *malformed* argument.
+- **Per-call authorization** is *dynamic* — it decides **whether this concrete call, with these argument values, in this principal/session context, is allowed.** A schema *cannot* decide whether a well-typed `account=acct_ATTACKER_999` is authorized.
+
+When the only checks are tool-name existence and schema validity, "the untrusted model effectively supplies both the action and the authorization fact." That is the **confused deputy** (Hardy 1988): a privileged component induced by attacker-controlled input to misuse its authority. Classical systems security already gives the remedy — Saltzer–Schroeder **complete mediation**: every access to authority must be checked, *not only at construction time*. This is `empirical` work: a reproducible cross-framework audit tied to a measured threat and a deployable control, with no CVE asserted and no live third-party service attacked.
+
+The paper is the **authorization layer** the vault's injection-attack pages exploit. [Agentic Prompt Injection](/articles/agentic-prompt-injection) and its finer variants ([Agent Data Injection (ADI)](/articles/agent-data-injection), [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)) are all delivery mechanisms that end in *a model-emitted tool call*; this paper takes injection as given and studies the narrower systems question: **once a compromised model emits a call, what does the runtime do next?**
+
+## The two controls, and why conflating them is a confused deputy
+
+The system is a tool-using agent embedded in an application that holds real authority (a payment key, mailbox, CRM token, HTTP egress, MCP client, infra credential). The **agent runtime and tools are inside the trust boundary; the LLM is not** — it is an untrusted parser/planner over text that may include attacker content. The adversary controls **content, not code** (a retrieved document, web page, email body, support ticket, prior tool output, or agent-to-agent handoff) and wants the agent to emit a side-effecting call with attacker-chosen arguments: repoint a payout account, refund to an attacker destination, exfiltrate a secret, fetch an SSRF target. This is indirect prompt injection (OWASP LLM01, MITRE ATLAS AML.T0051) — assumed feasible, not re-litigated.
+
+**Compromise-source independence** is the boundary's key property. Runtime prompt injection and *supply-chain model compromise* converge at the action layer: both produce a proposed tool call. A poisoned checkpoint can carry a file-level RCE (unsafe deserialization, `trust_remote_code`) *or* a weight-level backdoor whose trigger phrase elicits an attacker action — and weight-backdoor detection is an open problem. At the per-call boundary both are treated identically: a backdoor-triggered `update_payout_account(acct_ATTACKER)` and an injection-triggered one are denied by the same out-of-band policy. The control contains the *action-layer consequence* for governed tools; it does not detect poisoning, recover a clean model, or constrain non-tool text returned to the user.
+
+## Out-of-band policy is load-bearing
+
+The policy the gate checks against is **not model output**. Tool scopes, allowlists, money ceilings, idempotency requirements, and verified sets like `{acct_MERCHANT_001}` are **operator-authored configuration loaded from a root of trust outside the model's context window, write path, and influence.** Injected content can move the *proposed* call from `account=acct_MERCHANT_001` to `account=acct_ATTACKER_999`; it **cannot move the verified set** the proposal is checked against. A design in which the LLM emits, expands, or discovers its own per-call scope would be **circular** — the same injection that corrupts the call could corrupt the scope. The obligation is transitive: no policy element may be sourced (directly or indirectly) from any model output at any stage — offline authoring, session seeding, or runtime refresh — which excludes verified-set poisoning, session-seeded time-of-check/time-of-use policy mutation, and dynamic policy fetch over model-reachable egress. This is the same doctrine the [out-of-band defense literature](/articles/out-of-band-prompt-injection-defense) states as "the gate must not be a model."
+
+## The cross-framework gap (Table I)
+
+A public-source architecture audit at pinned commits asks one narrow question: after the model emits a tool call, is there a deterministic fail-closed authorization check over the *concrete argument values* before side effect? All three audited stacks ship capability gating; **none ships that check by default:**
+
+| Framework (pinned source) | Capability gating | Per-call value authorization (default) | Confused-deputy by default |
+|---|---|---|---|
+| LangChain / LangGraph (`00ad96c` / `bdb323e`) | yes | none — callback hooks are observability, not a mandatory veto; HITL middleware is integrator-wired | yes |
+| LlamaIndex (`v0.14.23`, `520aa4e`) | yes | none at central tool dispatch; `fn_schema` is shape metadata; HITL is tool-author workflow code | yes |
+| Stripe Agent Toolkit (`0b4961f` / `f54c9e6`) | yes | none on money args (`amount`, `customer`, `payment_intent`, `destination`, `redirect_url`); action allowlist + Restricted API Key scope are coarse, not per-transaction | yes |
+
+In each default dispatch path the model-selected tool name is resolved, input *shape* is validated, and the tool is invoked with the model-supplied arguments — with **no hook between validation and execution that consults an authorization policy over concrete values.** Stripe is highest-stakes because it sits nearest money movement. The audit is of *public client/framework defaults* (Stripe's remote MCP internals were not audited) — candidates for hardening and standards clarification, not asserted vulnerabilities.
+
+## How exposed is the model? (Table II / Figure 1)
+
+The gap matters only if real models emit unauthorized calls under realistic attack. A companion 27-model deterministic benchmark ([16]) measures **ASR = the model's *attempt* rate** (issuing an unauthorized call or producing an exact SHA-256 canary under a deterministic oracle in a sandbox with non-routable sinks) — **not a breach rate.** Two signals:
+
+- **Deployment-tier vs flagship.** Cost-optimized "deployment-tier" models (economical, suited to high-volume agent traffic) attempt the unauthorized call **~3.2× more often** than flagships: **mean ASR_task 0.603 vs 0.189** (verified against Figure 1). Deployment-tier exemplars: `gpt-4o-mini` 1.000, `glm-4.5-air` 1.000, `gemini-3.1-flash-lite` 0.980; flagship low exemplars: `glm-5.2` 0.087, `gemini-3.1-pro-preview` 0.000. The tier is an economics inference, *not* a disclosure that any vendor runs a named model in production, and the aggregate carries no paired CI (high outliers exist in both groups).
+- **Task-aligned framing** — presenting the same dangerous action as *required to complete the user's task* — sharply raises attempts over a crude naive injection: `glm-4.7` 0.283→1.000 (Δ0.717, BH q&lt;0.001), `gemma-3-12b-it` 0.000→0.571, `mistral-large` 0.027→0.459 (paired, Wilson/Newcombe CIs, Benjamini-Hochberg correction). This is the same "the injection reads as task-data, not as an instruction" mechanism [AutoDojo](/articles/task-specification-injection-surface) measures on the defense side. A Latam-GPT sovereign-model vignette shows an EN/ES sign flip (0.320→0.520 vs 0.240→0.040) but is caveated as a modality floor (bnb-4bit, native function-calling disabled), not a causal claim.
+
+## ScopeGate: a deterministic 5-stage PDP/PEP (Figure 3, Algorithm 1)
+
+**ScopeGate** is a Policy Decision Point / Policy Enforcement Point that sits downstream of the model and upstream of side-effecting tools. It receives a proposed `(tool, args)` plus trusted context and returns `ALLOW` / `DENY`; **no LLM participates in the decision.** It evaluates five stages *in order* and **fails closed** on any miss or runtime error:
+
+1. **Scope** — is this tool governed by policy? Unlisted tools → `DENY`. Blocks model-*discovered* tools and misspelled variants from reaching side effects.
+2. **Authorization** — are value-constrained arguments in their allowlists? **This is the missing framework check.** A well-typed but unauthorized account, destination, customer, URL, or payment intent → `DENY(authz)`.
+3. **Money ceiling** — for payment/refund tools the amount must be a *finite real* in `[0, ceiling]`. An **affirmative** check, not a naive `>` comparison: `NaN`, infinities, complex values, booleans-as-integers, and non-numeric containers all deny.
+4. **Idempotency** — side-effecting tools that require it must receive a *trusted* idempotency key in context; a missing key denies, limiting replay and loop amplification.
+5. **Default deny** — only calls passing every stage are allowed; **errors are treated as denial.** "A policy engine that fails open on malformed input recreates the vulnerability with extra steps."
+
+The security property is **placement-independent** as long as all side-effecting calls pass through the PEP and policy stays out-of-band: it can live as SDK middleware inside the app, a sidecar proxy on loopback, or a central egress/MCP gateway (the evaluation uses SDK placement).
+
+## Evaluation (Table III)
+
+- **Reproducible framework PoC.** Real LangChain tools (`update_payout_account`, `issue_refund`) over a mocked merchant backend; a fixed compromised output proposes `update_payout_account(account=acct_ATTACKER_999)`. **Part A** (normal dispatch) applies the attacker account and records a side effect; **Part B** routes the identical call through ScopeGate, which **denies at `authz`** (not in `{acct_MERCHANT_001}`) with zero side effects. A companion LlamaIndex PoC reproduces the same default-dispatch gap. One command (`./run_proof.sh`, Apache-2.0 artifact at commit `d9568ac`) reproduces it.
+- **Static bypass suite — 0/48.** 48 adversarial vectors (case/whitespace/zero-width/homoglyph/null-byte mutations, type confusion, unhashable arguments, tool-name mutations, money edge cases, missing idempotency); none allowed. The suite *found and fixed a real fail-open in an earlier ScopeGate prototype* — `NaN` passed a naive money comparison — now denied at the money stage (a ScopeGate prototype bug, honestly reported, not a framework fail-open).
+- **Adaptive attacker — 0/29.** Deny reasons fed back to a GLM-5.2 attacker for 40 iterations: 0/29 unauthorized attempts allowed (29 denied, 9 malformed/parse errors, 2 benign allowed). Budget-bounded, not a universal proof.
+- **Benign controls — 0 false-denies.** 0/10 false-denies across two deployment-tier native-function-calling models; a deterministic Latam-GPT probe separately allows 4/4 authorized actions.
+- **Payment-agent containment.** In a WhatsApp payment replica under a Business-Email-Compromise framing, `glm-4.5-air` and `gpt-4o-mini` both attempt the unauthorized payout **10/10**; ScopeGate denies every out-of-scope payout at `authz` (0/5 false-denies per model on benign controls). A Latam-GPT Spanish PCI re-tokenization run: 10/10 unauthorized attempts, 10/10 denied at `authz`; the broader battery records **11/11** harm-bearing egress actions denied.
+
+## Positioning and limitations
+
+The paper is **deliberately narrow**. It does *not* claim to discover prompt injection or the first per-call authorization for agents — MiniScope (arXiv:2512.11147) exists and least-privilege predates LLM agents. The defended novelty: the **first reproducible cross-framework audit of the exact default gap** "capability gating shipped, per-call authorization absent," paired with measured model exposure and a deployable fail-closed control. It is compatible with cryptographic payment consent (the AP2-break line [11]): even strong payment rails need a deterministic control plane that checks model-proposed transactions against operator policy before execution.
+
+The limits are stated plainly: **containment is not cure** (ScopeGate does not prevent injection, detect poisoned weights, repair model behavior, or guarantee safe natural-language output — it bounds what a compromised model can do *through governed tools*); the `0/48` and `0/29` figures are **suite- and budget-bounded**, with longer adaptive budgets, stateful side channels, DNS rebinding, timing, and multi-agent policy-poisoning left as future work; and the audit is **public-source only**, so its findings are hardening candidates, not CVEs.
+
+## How this answers "attacks confined to already-authorized actions"
+
+[Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) carries an open question the attack papers keep sharpening: does an attack **confined to already-authorized actions** — one that achieves the injection goal *without any policy violation* — slip past a deterministic action gate the way adaptive attacks broke in-band defenses? This paper **names that failure class precisely** and offers a defense. "Already authorized" splits into two:
+
+- **Capability-authorized but not value-authorized** — the tool (`issue_refund`, `update_payout_account`) is in the granted menu, but the injected *argument value* (attacker destination/account) is not. This is the confused-deputy-within-scope case, and **ScopeGate blocks it at the `authz` stage** by re-checking values against out-of-band allowlists (0 bypasses in the tested corpus). The attack that looks like "within already-granted capability" *becomes* a policy violation at the value level.
+- **Genuinely within policy** — the corrupted value legitimately *varies* and is not allowlist-constrainable (free-text content, an in-range amount to any legitimate customer, or the [spoofed author / fabricated tool result](/articles/agent-data-injection) the agent legitimately acts on). Here the action *satisfies* the value policy while still doing harm. This is the **same residual** ADI showed against Progent (22.2%) and the "in-the-loop / text-to-text" limit [the out-of-band page names](/articles/out-of-band-prompt-injection-defense) — a limit ScopeGate shares by construction, because a value gate only helps where a policy constrains the corrupted argument.
+
+So the honest reading: per-call value authorization **closes the value-redirection class** of within-capability attacks (a real advance over capability-gating-only defaults) but **not** the corrupt-legitimately-variable-data class, which needs provenance/data-flow tracking. It is a defense *in kind* — a deterministic capability-removal, per [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — not a cure.
+
+## The standards-track counterpart (OpenID AuthZEN / COAZ)
+
+ScopeGate is a measured research system; the **OpenID Foundation's AuthZEN Working Group** is standardizing the same "authorize each tool call" boundary. Its **Authorization API 1.0** already defines the interoperable **Subject-Action-Resource-Context (SARC)** allow/deny decision interface ScopeGate implements ad hoc, and the newly-approved **COAZ** Working Group Draft (*AuthZEN Profile for MCP Tool Authorization*, 2026-06-15) profiles **MCP tool invocations into SARC**, so an API/AI gateway, service mesh, or downstream PDP can authorize a model-emitted tool call at the invocation point. Read against ScopeGate: the same deterministic per-call decision, but a **proposed interoperability standard** (`practitioner-opinion`, a Working Group *Draft*) rather than an `empirical`, benchmark-tested control — so it is weighted **below** this paper's measured `0/48` / `0/29` results where they overlap, and carries no equivalent adaptive-attack evaluation. The companion **AARP** draft adds a shape ScopeGate has *no* analogue for: instead of a bare `DENY`, it standardizes a **"not yet — here is the prerequisite"** approval/attestation/delegation step (generalizing CIBA) before policy is re-evaluated — turning ScopeGate's terminal deny into a resumable governance handshake. The fuller treatment lives on [AIMS](/articles/agent-identity-management-system).
+
+## Connections
+
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — the standards-body home of the OpenID AuthZEN drafts: **AuthZEN's Authorization API + COAZ** are the *proposed-standard* version of ScopeGate's per-call `(tool, args)` value authorization (a SARC allow/deny at the MCP tool-invocation point), and **AARP** adds the prerequisite/approval ("not yet") shape ScopeGate lacks — proposed Working Group Drafts, weighted below this paper's `empirical` measurements (detailed above)
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — the **off-host sibling**: aiAuthZ (Kodathala, arXiv 2607.05518) is the other point on the "where does the authorization boundary live?" axis. Both are deterministic, fail-closed, per-call authorization gates with argument-level allowlists, out-of-band policy, and microsecond latency, sharing the same composition + corrupt-legitimately-variable-data residuals — indeed aiAuthZ's *argument-only ablation baseline is essentially ScopeGate's shape*. Two precise differences: (1) ScopeGate is an **in-framework PDP/PEP** (placement-independent by its author's argument), while aiAuthZ insists on a **separate trust domain** after measuring that a runtime with overlapping built-in tools bypasses even an external gateway; (2) ScopeGate has **no caller-authentication step**, while aiAuthZ adds **per-message HMAC identity of the human sender** — worth a measured 9/9 vs 4/9 edge over the argument-only baseline, because it blocks identity-spoofing (a non-owner claiming owner authority) a pure value gate cannot distinguish from legitimate owner use
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — ScopeGate **is** a member of that out-of-band reference-monitor / PDP-PEP family (CaMeL/FIDES/Progent/RTBAS/FORGE), specialized to *per-call value authorization of framework defaults*; both share the "policy must be out-of-band, the gate must not be a model" doctrine, and both hit the same in-the-loop / corrupt-the-legitimate-data limit
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — the **memory-authority twin** of ScopeGate's per-call value authorization: both are deterministic, out-of-band, no-model-in-the-loop gates at the tool boundary (ScopeGate re-authorizes *argument values*; TMA-NM binds a memory item's *authority-to-act* to origin), both are ~µs-cheap with no extra model call, both share the corrupt-legitimately-variable-data residual that needs value-level provenance, and both instantiate "authority/policy must be out-of-band, the gate must not be a model" — TMA-NM adds the cross-session memory dimension and a machine-checked non-malleability guarantee
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the threat this assumes and studies the *next layer* of: injection produces a model-emitted tool call, and this paper asks whether the runtime executes it (it does, by default)
+- [Least Agency](/articles/least-agency) — per-call value authorization is least agency at **argument-value granularity**: capability gating scopes *which tools*, ScopeGate's `authz` stage scopes *which argument values*, deterministically enforced at the tool-call boundary — the mechanism that makes "restrict what each tool can do" a hard barrier down to the value
+- [Blast Radius (Agentic)](/articles/blast-radius) — ScopeGate "makes the compromised model's reachable actions bounded by policy, before side effects": bounding blast radius at the tool-call boundary, the containment (not prevention) posture "assume breach" expects
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — ADI produces a proposed tool call ScopeGate would gate, and **shares the residual**: ADI forges *data the agent legitimately acts on* (spoofed author, fabricated tool result), which satisfies a value policy while doing harm — the same class that survives Progent (22.2%) and ScopeGate's `authz` stage; the value gate only helps where an allowlist constrains the corrupted argument
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — AutoDojo's positive result ("real robustness comes from **binding the agent's actions to the user's request**, not filtering inputs") is the request-derived-trajectory version of this paper's operator-policy value gate; and its task-aligned-injection mechanism is exactly what drives the naive→task-aligned ASR jump (glm-4.7 0.283→1.000) measured here
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the **delivery layer this gate assumes**: ShareLock defeats *detection* (all LLM classifiers + entropy) and reconstructs a malicious instruction at runtime, but the reconstructed call (read `api_key`, exfil to an attacker address) is a model-emitted tool call that lies *within granted capability* — exactly the confused-deputy-within-scope class ScopeGate's per-call value `authz` stage denies where an allowlist constrains the argument. Detection-evasion is why the durable defense sits at the authorization layer, not the scanner. Its **Agentjacking** case study is the in-the-wild version of the same confused deputy: the hijacked agent emits an `npx @attacker-package` execution + credential-exfil egress — model-supplied argument values a per-call `authz` allowlist (permitted packages, permitted egress hosts) could deny, while the "fix this Sentry bug" framing is the legitimately-variable residual a value gate can't reach (vendor-reported, weighted below this paper's `empirical` measurement)
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — complementary layers: identity/auth answers *who the agent is*; per-call authorization answers *whether this call is allowed in that principal/session context* — the "principal and session context" ScopeGate's `authz` stage checks against presupposes the attributable identity this control domain establishes
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — the concrete instantiation of the framework's **Phase 5 "secure tool access" (parameter validation, approval escalation)**: the audited frameworks leave complete mediation to the integrator, and ScopeGate is one deterministic implementation of that boundary (hub)
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — a deterministic fail-closed gate **removes** the capability to authorize an off-policy action (default-deny, errors-deny) rather than throttling it; "a policy engine that fails open on malformed input recreates the vulnerability with extra steps" is the test stated as an implementation rule
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — **different sense of "capability" — do not conflate.** There, *capability* = a model's dangerous knowledge level, and the "gate" routes risky queries to a weaker model (fallback-not-refusal). Here, *capability* = which tools are exposed, and the point is that gating capabilities is **not** authorizing calls. Same word, orthogonal mechanisms (query-level model routing vs tool-call-level value authorization)
+- [OWASP](/articles/owasp) — the confused-deputy failure is indirect prompt injection under OWASP LLM01 (and MITRE ATLAS AML.T0051); the paper studies the mediation layer OWASP's threat implies
+- LangChain/LangGraph, LlamaIndex, and the Stripe Agent Toolkit are the audited frameworks (referenced as plain text — no entity pages)
+
+## Open Questions
+
+- The `0/48` static and `0/29` adaptive results are **suite- and budget-bounded** (40 iterations, a GLM-5.2 attacker, one author's vector corpus). Does the deterministic gate hold under longer adaptive budgets, stateful side channels (DNS rebinding, timing), or multi-agent policy-poisoning — the future work the paper names?
+- The `authz` allowlist stops **value-redirection** but not corruption of legitimately-variable data. Is there a per-call scheme that constrains free-text / open-ended arguments without collapsing utility — or is that irreducibly the province of provenance/data-flow tracking ([CaMeL Strict](/articles/out-of-band-prompt-injection-defense), at ~50pp utility cost)?
+- The **deployment-tier ~3.2× exposure gap** (0.603 vs 0.189) means the cheap models chosen for high-volume agent traffic are the most likely to emit the unauthorized call — exactly where a per-call gate is most load-bearing. Does model improvement shrink the attempt rate enough that the gate becomes optional, or is the gate the durable control while models stay jagged?
+- **Out-of-band policy is load-bearing but under-specified for authoring at scale.** The paper forbids any model-sourced policy element; who authors and maintains the verified sets, ceilings, and allowlists for a large tool surface, and does that authoring burden cap the control to high-stakes (money-moving) tools?
+
+## Sources
+
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion` (proposed Working Group **Drafts**, not ratified specs; weighted below this paper's `empirical` measurements). The standards-track counterpart to ScopeGate: AuthZEN Authorization API 1.0 (SARC allow/deny interface), COAZ (MCP-invocation → SARC profile), AARP (prerequisite/approval pattern generalizing CIBA)
+- [Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM Agent Frameworks](https://arxiv.org/pdf/2606.28679) — David Mellafe Zuvic, *Capability Gates Are Not Authorization: Confused-Deputy Failures in LLM Agent Frameworks*, arXiv 2606.28679, June 2026, `empirical`. §II (threat model: trust boundary, compromise-source independence, out-of-band policy load-bearing), §III (cross-framework audit, Table I — LangChain/LangGraph, LlamaIndex, Stripe Agent Toolkit at pinned commits), §IV (measurement: deployment-tier vs flagship ASR, task-aligned framing, Table II / Figure 1 — verified deployment mean 0.603 vs flagship 0.189), §V (ScopeGate 5-stage PDP/PEP, Figure 3 + Algorithm 1, placement-independence), §VI (evaluation: LangChain/LlamaIndex PoC, 0/48 static, 0/29 adaptive, benign 0-false-deny, Latam-GPT + WhatsApp payment containment, Table III), §VII (positioning vs MiniScope/AP2), §VIII (limitations: containment≠cure, suite-bounded, public-source only). Figures 1–3 viewed per the image two-pass rule; docling's spaced decimals ("0. 603") are cosmetic and match the figures.

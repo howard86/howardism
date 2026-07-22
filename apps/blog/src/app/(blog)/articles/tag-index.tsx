@@ -16,6 +16,9 @@ export function TagIndex({ tags }: TagIndexProps) {
     return null;
   }
 
+  const multi = tags.filter((entry) => entry.count > 1);
+  const singles = tags.filter((entry) => entry.count === 1);
+
   return (
     <section className="border-border border-b px-gutter py-10" id="subjects">
       <div className="grid grid-cols-1 gap-x-11 gap-y-7 lg:grid-cols-[180px_1fr]">
@@ -23,13 +26,13 @@ export function TagIndex({ tags }: TagIndexProps) {
           <div className="font-medium font-mono text-[10.5px] text-brand uppercase tracking-[0.22em]">
             Plate · #
           </div>
-          <div className="mt-2 font-display font-light text-[96px] text-brand leading-[0.86] tracking-[-0.045em]">
+          <div className="mt-2 font-display font-light text-[56px] text-brand leading-[0.86] tracking-[-0.045em] lg:text-[96px]">
             {tags.length}
           </div>
           <div className="mt-1 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em]">
             subjects
           </div>
-          <p className="mt-4 max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5]">
+          <p className="mt-4 hidden max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5] lg:block">
             Free-form subjects across the wiki, most-referenced first.
           </p>
         </div>
@@ -40,10 +43,22 @@ export function TagIndex({ tags }: TagIndexProps) {
             <em className="font-light text-brand italic">most cited.</em>
           </h2>
           <div className="mt-6 flex flex-wrap">
-            {tags.map(({ tag, href }) => (
+            {multi.map(({ tag, href }) => (
               <SubjectChip href={href} key={tag} tag={tag} />
             ))}
           </div>
+          {singles.length > 0 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
+                +{singles.length} one-off subjects
+              </summary>
+              <div className="mt-4 flex flex-wrap">
+                {singles.map(({ tag, href }) => (
+                  <SubjectChip href={href} key={tag} tag={tag} />
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
     </section>

@@ -6,12 +6,13 @@ description: Anthropic's agentic coding product; created by Boris Cherny late
   across all 2026 sources
 tag: Entity
 domain: entities
+entityType: software
 tags:
   - entity
   - product
   - anthropic
   - ai-coding
-readingTime: 10
+readingTime: 11
 imageAlt: Illustration for Claude Code
 sources:
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
@@ -35,11 +36,14 @@ sources:
     url: https://www.anthropic.com/research/claude-code-expertise
   - title: Introducing Claude Sonnet 5
     url: https://www.anthropic.com/news/claude-sonnet-5
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
 ---
 export { default as heroImage } from "../assets/claude-code.png";
 
 ## Sources
 
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
 - [Agentic coding and persistent returns to expertise](https://www.anthropic.com/research/claude-code-expertise)
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
 - [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
@@ -91,6 +95,16 @@ Boris claim: "100 lines of code a year from now" — see [Harness Shrinkage as M
 - **Managed settings** / `allowManagedPermissionRulesOnly` / server-managed (MDM) settings → org-wide governance users can't override
 - **Hooks** (PreToolUse parameter validation, ConfigChange auditing) + **OpenTelemetry** telemetry with per-session `session.id` → traceability and tool-access control
 
+## Demonstrated attack surface (Agent Data Injection)
+
+Choi et al. (arXiv 2607.05120, July 2026; responsibly disclosed and acknowledged by Anthropic) demonstrated working [Agent Data Injection](/articles/agent-data-injection) exploits against Claude Code — the vault's first empirically-demonstrated RCE against it:
+
+- **Remote code execution via origin injection** — a GitHub issue comment forges a fake comment object with a spoofed *maintainer* author/role (probabilistic delimiter injection into the `gh`/GitHub-MCP JSON), tricking Claude Code into running an attacker command (`pip install starship-auth`) when the user asks it to "apply the maintainer's fix."
+- **Supply-chain attack via tool-call injection** — a PR description injects forged `<function_calls>`/`<function_results>` tags (Claude Code's own tool-call-block delimiters) that fabricate a benign `read_pr_commit` result; Claude Code "reviews" the fake benign diff and merges a PR whose real commit is an XSS payload.
+- **Slack origin injection** — via a Slack MCP server, a normal member's message forges a channel-admin message block that Claude Code attributes to the admin when summarizing.
+
+The **bash/merge confirmation dialog did not prevent these**: because the agent's own displayed reasoning is built on the misinterpretation, the confirmation description ("as suggested by maintainer") reinforces the attacker's false narrative. The root cause is not a Claude Code implementation bug but the shared IPI weakness — no isolation of trusted from untrusted data — so it affects [Codex](/articles/codex) and Gemini CLI ([Google DeepMind](/articles/google-deepmind)) identically. See [Agent Data Injection (ADI)](/articles/agent-data-injection).
+
 ## Notable users (per sources)
 
 - [Boris Cherny](/articles/boris-cherny) — 100% of own code via Claude Code, 150 PRs in a single day
@@ -134,6 +148,7 @@ Boris claim: "100 lines of code a year from now" — see [Harness Shrinkage as M
 - [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — the discipline Claude Code is the canonical surface for
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — the security framework that cites Claude Code as a reference implementation across all control tiers
 - [Least Agency](/articles/least-agency) / [Blast Radius (Agentic)](/articles/blast-radius) / [Agent Identity and Authentication](/articles/agent-identity-and-authentication) / [Agentic Prompt Injection](/articles/agentic-prompt-injection) / [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — the specific Zero Trust controls Claude Code's primitives implement (see Security posture above)
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the demonstrated RCE / supply-chain / Slack-origin exploits against Claude Code (see attack-surface section above); the confirmation dialog reinforces the attacker's forged narrative
 
 ## Sources
 
@@ -146,3 +161,4 @@ Boris claim: "100 lines of code a year from now" — see [Harness Shrinkage as M
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)
 - [Agentic coding and persistent returns to expertise](https://www.anthropic.com/research/claude-code-expertise) — Anthropic Economic Research, June 2026; the 400K-session usage study
 - [Introducing Claude Sonnet 5](https://www.anthropic.com/news/claude-sonnet-5) — Sonnet 5 available in Claude Code from launch (July 2026)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi et al., arXiv 2607.05120; demonstrated ADI exploits (RCE via origin injection, supply-chain via tool-call injection, Slack origin injection) against Claude Code

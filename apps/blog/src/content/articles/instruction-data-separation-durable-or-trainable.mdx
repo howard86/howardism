@@ -1,0 +1,114 @@
+---
+date: 2026-07-22
+title: Can Models Learn to Separate Instructions from Data? Durable Property vs
+  Training Gap
+description: "Durable at the level that matters: the instruction/data boundary
+  is trainable one delimiter at a time (hardening drives instruction injection
+  to ~0%) but not in general — each closed boundary relocates the attack to the
+  next finer one (instruction→data, then trusted→untrusted data), because the
+  root cause is the LLM's probabilistic reading of inexact structural
+  delimiters, an architectural fact. Newer models lower the per-boundary success
+  rate but never produce a clean separation, and part of that gain is benchmark
+  familiarity, not measured adaptive robustness — so the standing prescription
+  across the cluster is to enforce the boundary outside the model with a
+  deterministic action/data gate"
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - security
+  - prompt-injection
+  - trust-boundary
+  - adaptive-evaluation
+readingTime: 11
+imageAlt: Illustration for Can Models Learn to Separate Instructions from Data?
+  Durable Property vs Training Gap
+sources:
+  - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
+    url: https://arxiv.org/pdf/2607.05120
+  - title: Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in
+      LLM Agents
+    url: https://arxiv.org/pdf/2606.26479
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
+  - title: Zero Trust for AI Agents
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+---
+export { default as heroImage } from "../assets/instruction-data-separation-durable-or-trainable.png";
+
+## Sources
+
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479)
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120)
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
+
+## Answer (short)
+
+**Durable at the level that matters.** Any *single* boundary looks trainable — model hardening drives classic instruction injection to ~0% ASR against state-of-the-art agent defenses ([Agent Data Injection (ADI)](/articles/agent-data-injection)). But closing one boundary just relocates the attack to the *next finer one*, because the root cause is not a missing rule the model can learn; it is the LLM's **probabilistic interpretation of inexact structural delimiters**, which is architectural ([Agent Data Injection (ADI)](/articles/agent-data-injection)). So the honest verdict is a split:
+
+- **The general separation is a durable architectural property.** No amount of prompting or fine-tuning reliably induces a *usable* instruction↔data separation ([Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense), citing Zverev et al. 2025), and demonstrably the moment the instruction/data boundary is trained shut, a within-data forgery (trusted↔untrusted) walks straight through the same hardened models at 22–50% ([Agent Data Injection (ADI)](/articles/agent-data-injection)).
+- **Per-boundary susceptibility is a partial, capability-sensitive training gap.** Newer, more capable base models resist even *undefended* static injection (Claude-Haiku-4.5 0.3%, GPT-5.4-mini 6.9%) where an older model fails wide open (GPT-4o-mini 58.6%) ([Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)). Capability lowers the attempt success rate on any given delimiter — but never to a clean zero under an adaptive attacker, and part of the apparent gain is *benchmark familiarity*, not measured robustness.
+
+The two facts are compatible and together answer the question: **capability shrinks the hole on each boundary but does not remove the mechanism that keeps drilling new holes.** That is why the whole [out-of-band defense](/articles/out-of-band-prompt-injection-defense) literature stops trying to fix it inside the model and enforces the boundary deterministically *outside* it. The framework treats "LLMs cannot reliably distinguish information from instructions" as durable and structural ([Agentic Prompt Injection](/articles/agentic-prompt-injection), [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)) — the 2026 evidence upholds that reading and sharpens *why*.
+
+## The evidence, laid out
+
+### 1. The boundary is trainable one delimiter at a time (the "training gap" side)
+
+Two independent signals show the instruction↔data boundary *does* respond to model work:
+
+- **Hardening closes instruction injection.** Against the same state-of-the-art agent defenses, classic instruction injection (attacker text read as a *command*) scores **0.0–0.7% ASR** — model hardening on instruction/data separation training is "exactly why instruction injection is ~0%" ([Agent Data Injection (ADI)](/articles/agent-data-injection), §5).
+- **Capable models resist even undefended.** [AutoDojo (Ma et al. 2026)](/articles/task-specification-injection-surface) measures static injection with *no defense at all*: **Claude-Haiku-4.5 0.3%, GPT-5.4-mini 6.9%**, versus **GPT-4o-mini 58.6%** and **Gemini-2.5-Flash 47.8%**. A newer model inherits a near-perfect static score for free. This is the strongest single datapoint that capability reduces susceptibility on a fixed boundary.
+
+If the story ended here, "future models close it" would be right.
+
+### 2. Closing one boundary relocates the attack, it doesn't remove it (the "durable property" side)
+
+[ADI (Choi et al. 2026)](/articles/agent-data-injection) is the pivotal result: the *same hardened models* that drive instruction injection to ~0% remain **22–50% vulnerable to Agent Data Injection**, which forges *trusted data* (a comment's author/role, an email `sender`, a UI element ID, the tool-call history) rather than an instruction. The agent still does the user's task — but on attacker-forged data. Working, responsibly-disclosed exploits: **RCE on Claude Code / Codex / Gemini CLI** (spoofed maintainer origin), **arbitrary click on Claude in Chrome** (element-ID reuse), and a **supply-chain merge** via a forged tool-call history ([Agent Data Injection (ADI)](/articles/agent-data-injection), §4).
+
+The mechanism is why capability can't scale it away. Classic delimiter attacks (SQLi, XSS) need an *exact* delimiter because they target a **deterministic parser**. An LLM interprets structure **probabilistically**, so even **inexact, parser-invalid** delimiters work — an escaped `\"` that a JSON parser keeps as literal text is still probabilistically read as a structural quote ([Agent Data Injection (ADI)](/articles/agent-data-injection), §3). You can train a model to respect one delimiter; you cannot train away the probabilistic misreading of *inexact* delimiters in general. So the boundary hierarchy — instruction/data, then trusted/untrusted data, and presumably finer still — stays porous at whatever level the attacker imitates next.
+
+This is the same underlying fact the interpretability work reaches from the inside: [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) notes the model "can't separate *trusted from untrusted data* either, because both boundaries are just delimiters it interprets probabilistically" — the security finding and the mechanistic finding converge on one architectural claim.
+
+### 3. Neither prompting nor fine-tuning induces a *usable* separation
+
+[Narisetty et al. (2026)](/articles/out-of-band-prompt-injection-defense), citing **Zverev et al. (2025)**, state the durable reading directly: current models do not maintain a usable instruction/data separation, and **neither prompting nor fine-tuning reliably induces one**. This is why the second-generation defenses "give up on the model and move enforcement outside it" — a structural claim, not a pessimistic mood. In a tool-using agent, injection is "an **authorization problem, not a content problem** — the damage is not a bad sentence but an action."
+
+### 4. Even the capability gain is partly an artifact
+
+The one datapoint that looks like "models are solving it" comes with a caveat from the same paper. AutoDojo warns that the low static ASR on recent models "measures **familiarity with a fixed benchmark, not robustness to injection**" — the `important_instructions` strings have been public since AgentDojo's release, so they are likely in training data ([Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface)). AutoDojo's *fresh* black-box adaptive injections "reach what the familiar static strings cannot," if only to single digits (Claude-Haiku-4.5 0.3%→1.8%, GPT-5.4-mini 6.9%→8.7%). So the model-robustness improvement is **partly real, partly benchmark memorization** — and never reaches a clean zero once the attacker moves second.
+
+### 5. The adaptive-attacker loop is the reason "the next model won't save you"
+
+The deepest reason capability alone can't close it: content-level separation is a target an attacker re-optimizes against. [AutoDojo](/articles/task-specification-injection-surface) drives a filter scoring **0% static ASR** back up to **28% (64% on action-open tasks)** with a *cheap black-box* six-iteration optimizer — a much lower bar than a white-box attack. A "0% static ASR is not a floor." And AutoDojo re-optimizes against whatever is deployed, so an adversarially-trained detector just gets a fresh loop — "whether any content-level defense can win this loop [is] a hard position, since the attacker always moves last." This is ["impossible, not tedious"](/articles/impossible-not-tedious-test) applied to the separation question: a probabilistic boundary is *tedious* to cross (raise capability, raise the cost per attempt), never *impossible*.
+
+## What actually resolves it (the prescription the cluster converges on)
+
+If the separation can't be trained clean, the boundary has to be enforced where it *can* be made deterministic — outside the model:
+
+- **Bind actions to the request, don't filter inputs.** Action-constraining system-level defenses ([Progent, DRIFT](/articles/out-of-band-prompt-injection-defense)) *hold* under the same cheap adaptive attack that collapses filters (Progent 8.2%→7.7%, DRIFT 2.6%→6.4%, across five models), and grow **stronger** on the under-specified "action-open" tasks where filters leak worst — because a read-only request yields a trajectory with no write action, so any injected write is blocked regardless of phrasing ([Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface), [Least Agency](/articles/least-agency)).
+- **Track provenance, don't detect content.** The *only* defense that fully stops the within-data ADI attack is correct data-flow tracking — **CaMeL Strict at 0% ASR** — and it is expensive (utility 86.5%→36.5%) ([Agent Data Injection (ADI)](/articles/agent-data-injection), §6). A model-based quarantine LLM is the hole a delimiter attack exploits (dual-LLM 25%), reconfirming that *the gate must not be a model*.
+- **This is exactly [Zero Trust](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)'s posture.** The framework's load-bearing premise is that "LLMs cannot reliably distinguish between informational context and actionable instructions," so defense is *structural* — spotlighting/classifiers as defense-in-depth, but the durable control is the reference monitor at the action boundary ([Agentic Prompt Injection](/articles/agentic-prompt-injection), [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)).
+
+## The honest residual
+
+- **The finer boundary hasn't been probed on the newest models.** ADI was demonstrated on GPT-5.2-class agents; whether frontier capability *reduces* probabilistic-delimiter susceptibility on the trusted/untrusted-data boundary the way it reduced instruction-injection susceptibility is **untested** ([Agent Data Injection (ADI)](/articles/agent-data-injection) open question 3). The prediction from the mechanism is that it lowers but does not zero it — but that is a prediction, not a measurement.
+- **"Durable at the level that matters" is a claim about the mechanism, not a proof.** It rests on ADI's characterization of inexact-delimiter misreading as architectural. A future architecture that parses structure deterministically (not probabilistically) at the boundary — rather than a bigger model of the same kind — is the thing that would falsify it. Nonce randomization (ChatGPT Atlas's unpredictable `ref_4af2b1c9` defeats element-ID injection at the *cost* of an unguessable delimiter) is a hint that *removing the imitable delimiter* is the real fix, and that fix is structural, not a scaling curve ([Agent Data Injection (ADI)](/articles/agent-data-injection), §4).
+
+## Bottom line
+
+The question sets up a false binary. **Per boundary, it's a training gap that capability partly closes; in general, it's a durable architectural property, because the mechanism that opens the next boundary survives every model improvement.** "Wait for the next model" is not a defense — it lowers the number, not the mechanism. The defensible engineering answer, agreed across five independent 2026 sources, is to treat the separation as unachievable inside the model and enforce it outside with a deterministic action/data gate.
+
+## Sources
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the durable-property open question this page resolves; the Zero-Trust framing that "LLMs cannot reliably distinguish information from instructions"
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the pivotal result: hardened models (instruction injection ~0%) remain 22–50% vulnerable to trusted-data forgery; probabilistic delimiter injection as the architectural mechanism
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — Zverev et al. (neither prompting nor fine-tuning induces a usable separation); the "enforce outside the model" prescription
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — undefended static ASR by model (capability effect); the benchmark-familiarity caveat; the cheap-adaptive-attack loop; system-level defenses hold and invert on action-open tasks
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — the mechanistic convergence: the model can't cleanly separate trusted from untrusted data because both are probabilistically-interpreted delimiters
+- [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi et al., arXiv 2607.05120
+- [Adaptive Evaluation of Out-of-Band Defenses Against Prompt Injection in LLM Agents](https://arxiv.org/pdf/2606.26479) — Narisetty et al., arXiv 2606.26479
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057) — Ma et al., arXiv 2606.15057
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Anthropic Zero Trust eBook, Part II/IV

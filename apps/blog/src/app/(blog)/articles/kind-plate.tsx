@@ -1,3 +1,5 @@
+import { DomainGroup } from "./domain-group";
+import type { DomainGroup as DomainGroupData } from "./domain-groups";
 import { IndexRow } from "./index-row";
 import { KIND_META } from "./kind-meta";
 import type { ArticleEntity } from "./service";
@@ -6,6 +8,8 @@ import type { TagSectionSlug } from "./tag-sections";
 interface KindPlateProps {
   articles: ArticleEntity[];
   blurb: string;
+  /** When set, render per-domain sub-sections instead of a flat list. */
+  groups?: DomainGroupData[];
   /** Subject tags with their own page — used to decide which chips link. */
   navigable: ReadonlySet<string>;
   /** 1-based plate position. */
@@ -22,6 +26,7 @@ export function KindPlate({
   articles,
   slug,
   blurb,
+  groups,
   navigable,
   position,
   total,
@@ -50,7 +55,7 @@ export function KindPlate({
             {String(total).padStart(2, "0")}
           </div>
           <div
-            className="mt-2 font-display font-light text-[96px] leading-[0.86] tracking-[-0.045em]"
+            className="mt-2 font-display font-light text-[56px] leading-[0.86] tracking-[-0.045em] lg:text-[96px]"
             style={{ color: meta.color }}
           >
             {articles.length}
@@ -58,7 +63,7 @@ export function KindPlate({
           <div className="mt-1 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em]">
             {title.toLowerCase()} {noun}
           </div>
-          <p className="mt-4 max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5]">
+          <p className="mt-4 hidden max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5] lg:block">
             {blurb}
           </p>
         </div>
@@ -72,28 +77,43 @@ export function KindPlate({
             </em>
           </h2>
 
-          <ol className="m-0 mt-5 list-none p-0">
-            {visible.map((article, i) => (
-              <IndexRow
-                accent={meta.color}
-                article={article}
-                first={i === 0}
-                key={article.slug}
-                navigable={navigable}
-                ordinal={i + 1}
-                prefix={meta.prefix}
-              />
-            ))}
-          </ol>
+          {groups ? (
+            <div className="mt-5 flex flex-col gap-7">
+              {groups.map((group) => (
+                <DomainGroup
+                  articles={group.articles}
+                  domain={group.domain}
+                  key={group.domain}
+                  navigable={navigable}
+                />
+              ))}
+            </div>
+          ) : (
+            <>
+              <ol className="m-0 mt-5 list-none p-0">
+                {visible.map((article, i) => (
+                  <IndexRow
+                    accent={meta.color}
+                    article={article}
+                    first={i === 0}
+                    key={article.slug}
+                    navigable={navigable}
+                    ordinal={i + 1}
+                    prefix={meta.prefix}
+                  />
+                ))}
+              </ol>
 
-          {articles.length > visible.length && (
-            <a
-              className="mt-3.5 inline-block border-current border-b pb-0.5 font-mono text-[11px] uppercase tracking-[0.18em]"
-              href={`/articles/tag/${slug}`}
-              style={{ color: meta.color }}
-            >
-              All {articles.length} {title.toLowerCase()} {noun} →
-            </a>
+              {articles.length > visible.length && (
+                <a
+                  className="mt-3.5 inline-block border-current border-b pb-0.5 font-mono text-[11px] uppercase tracking-[0.18em]"
+                  href={`/articles/tag/${slug}`}
+                  style={{ color: meta.color }}
+                >
+                  All {articles.length} {title.toLowerCase()} {noun} →
+                </a>
+              )}
+            </>
           )}
         </div>
       </div>
