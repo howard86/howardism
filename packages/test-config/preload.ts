@@ -12,7 +12,7 @@ import YAML from "yaml";
 // reaches into `@testing-library/dom` as of 6.10.0 — is required lazily below.
 GlobalRegistrator.register();
 
-require("@testing-library/jest-dom");
+await import("@testing-library/jest-dom");
 
 // next/image and next/link depend on the Next.js runtime, so we stub them
 // with plain HTML equivalents for component tests.
