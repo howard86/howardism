@@ -32,6 +32,7 @@ import {
   resolveDate,
   stripWikilinksToText,
 } from "./parse.ts";
+import { deriveVaultSlugSet, pruneOrphanedArticles } from "./prune.ts";
 import {
   buildSourcesSection,
   computeReadingTime,
@@ -51,6 +52,7 @@ import { titleFromSlug } from "./wikilink.ts";
 interface RunOptions {
   blogArticlesPath: string;
   blogAssetsPath: string;
+  blogZhArticlesPath: string;
   dryRun: boolean;
   graphOutputPath: string;
   onlySlug: string | null;
@@ -68,6 +70,8 @@ interface ImportSummary {
   imagesCached: string[];
   imagesGenerated: string[];
   missingRawSources: Map<string, Set<string>>;
+  /** Slugs pruned because their vault note was deleted or renamed. */
+  prunedArticles: string[];
   /** Concept-folder notes not listed in any MOC; fell back to `syntheses`. */
   unmappedConcepts: Set<string>;
   unresolvedWikilinks: Map<string, Set<string>>;
@@ -83,6 +87,10 @@ const DEFAULT_BLOG_ARTICLES_PATH = resolve(
 const DEFAULT_BLOG_ASSETS_PATH = resolve(
   REPO_ROOT,
   "apps/blog/src/content/assets"
+);
+const DEFAULT_BLOG_ZH_ARTICLES_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/content/articles-zh-TW"
 );
 const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
   REPO_ROOT,
@@ -158,6 +166,15 @@ async function main(): Promise<void> {
       dryRun: opts.dryRun,
     });
     summary.graphPath = graphPath;
+
+    summary.prunedArticles = await pruneOrphanedArticles({
+      articlesDir: opts.blogArticlesPath,
+      assetsDir: opts.blogAssetsPath,
+      zhArticlesDir: opts.blogZhArticlesPath,
+      vaultSlugs: ctx.vaultSlugSet,
+      onlySlug: opts.onlySlug,
+      dryRun: opts.dryRun,
+    });
   }
 
   printSummary(summary);
@@ -169,6 +186,12 @@ interface ImportContext {
   overrides: Record<string, WikiTag>;
   parsedAll: ParsedWikiFile[];
   slugTitleMap: Map<string, string>;
+  /**
+   * Slug set of the full, pre-`--only`-filter vault corpus — includes
+   * `archived: true` notes, which are excluded from emission but still exist
+   * in the vault. Used to detect orphaned on-disk articles; see prune.ts.
+   */
+  vaultSlugSet: Set<string>;
 }
 
 async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
@@ -205,6 +228,7 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
     domainMembership,
     indexSummaries,
     overrides,
+    vaultSlugSet: deriveVaultSlugSet(allParsed),
   };
 }
 
@@ -215,6 +239,7 @@ function createSummary(): ImportSummary {
     imagesGenerated: [],
     imagesCached: [],
     missingRawSources: new Map(),
+    prunedArticles: [],
     unmappedConcepts: new Set(),
     unresolvedWikilinks: new Map(),
   };
@@ -484,6 +509,9 @@ function parseOptions(): RunOptions {
   const blogAssetsPath = resolve(
     env.BLOG_ASSETS_PATH ?? DEFAULT_BLOG_ASSETS_PATH
   );
+  const blogZhArticlesPath = resolve(
+    env.BLOG_ZH_ARTICLES_PATH ?? DEFAULT_BLOG_ZH_ARTICLES_PATH
+  );
   const overridesPath = resolve(env.OVERRIDES_PATH ?? DEFAULT_OVERRIDES_PATH);
   const graphOutputPath = resolve(
     env.GRAPH_OUTPUT_PATH ?? DEFAULT_GRAPH_OUTPUT_PATH
@@ -504,6 +532,7 @@ function parseOptions(): RunOptions {
     rawPath,
     blogArticlesPath,
     blogAssetsPath,
+    blogZhArticlesPath,
     overridesPath,
     graphOutputPath,
     sourcesOutputPath,
@@ -564,6 +593,12 @@ function printSummary(summary: ImportSummary): void {
   console.log(`Images cached:    ${summary.imagesCached.length}`);
   if (summary.graphPath) {
     console.log(`Graph:            ${summary.graphPath}`);
+  }
+  if (summary.prunedArticles.length > 0) {
+    console.log("\nPruned orphaned articles (vault note deleted or renamed):");
+    for (const slug of summary.prunedArticles) {
+      console.log(`  ${slug}`);
+    }
   }
   if (summary.unmappedConcepts.size > 0) {
     console.log(
