@@ -254,7 +254,7 @@ date: 2026-05-23
 title: Rich Article
 description: A fixture exercising every byte-identical invariant
 tag: Concept
-domain: ai-engineering
+domain: agent-systems
 tags:
   - agent-engineering
 readingTime: 6
@@ -292,7 +292,7 @@ date: 2026-05-23
 title: 豐富文章
 description: 展示每一項逐字不變規則的範例
 tag: Concept
-domain: ai-engineering
+domain: agent-systems
 tags:
   - agent-engineering
 readingTime: 6
