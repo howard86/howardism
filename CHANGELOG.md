@@ -1,3 +1,16 @@
+# [v2.18.0](https://github.com/howard86/howardism/compare/v2.17.0...v2.18.0) (2026-07-22)
+
+## ✨ New Features
+- [`23afdf78`](https://github.com/howard86/howardism/commit/23afdf78)  feat(blog): serve llms.txt for agentic browsers 
+- [`3315b71b`](https://github.com/howard86/howardism/commit/3315b71b)  feat(blog): expose the article index as WebMCP tools 
+- [`38073302`](https://github.com/howard86/howardism/commit/38073302)  feat(cli): add a local knowledge MCP server 
+- [`ec94f24c`](https://github.com/howard86/howardism/commit/ec94f24c)  feat(blog): link the machine-readable maps from the footer 
+
+## 🐛 Bug Fixes
+- [`0917e024`](https://github.com/howard86/howardism/commit/0917e024)  fix(cli): regenerate the search index from the wiki importer 
+- [`94a251b8`](https://github.com/howard86/howardism/commit/94a251b8)  fix(blog): set fetchPriority on the hero image 
+- [`3e70a1b4`](https://github.com/howard86/howardism/commit/3e70a1b4)  fix(blog): stop WebMCP registration from crashing the page
+
 # [v2.17.0](https://github.com/howard86/howardism/compare/v2.16.0...v2.17.0) (2026-07-22)
 
 ## ✨ New Features
