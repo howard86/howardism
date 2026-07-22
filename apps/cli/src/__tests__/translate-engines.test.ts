@@ -2,6 +2,9 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildEngineArgv,
+  DEFAULT_CURSOR_MODEL,
+  DEFAULT_ENGINE_MODELS,
+  defaultModelForEngine,
   ENGINES,
   parseEngine,
   runEngine,
@@ -32,16 +35,128 @@ describe("parseEngine", () => {
   });
 });
 
+describe("defaultModelForEngine", () => {
+  it("returns the per-engine default model, matching DEFAULT_ENGINE_MODELS", () => {
+    for (const engine of ENGINES) {
+      expect(defaultModelForEngine(engine)).toBe(DEFAULT_ENGINE_MODELS[engine]);
+    }
+  });
+
+  it("returns the codex and cursor defaults, and null for the rest", () => {
+    expect(defaultModelForEngine("codex")).toBe("gpt-5.6-luna");
+    expect(defaultModelForEngine("cursor")).toBe(DEFAULT_CURSOR_MODEL);
+    expect(defaultModelForEngine("claude")).toBeNull();
+    expect(defaultModelForEngine("agy")).toBeNull();
+    expect(defaultModelForEngine("kiro")).toBeNull();
+  });
+});
+
 describe("buildEngineArgv", () => {
   const prompt = "Translate the article.";
   const scopeDir = "/repo/root";
 
-  it("builds codex argv", () => {
+  it("builds codex argv with the default model, medium reasoning effort, and reproducible flags", () => {
     expect(buildEngineArgv("codex", { prompt, scopeDir })).toEqual([
       "codex",
       "exec",
+      "--json",
+      "--ignore-user-config",
+      "-m",
+      "gpt-5.6-luna",
+      "-c",
+      'model_reasoning_effort="medium"',
+      "--cd",
+      scopeDir,
+      "-s",
+      "workspace-write",
+      "--color",
+      "never",
       prompt,
     ]);
+  });
+
+  it("builds codex argv with an overridden model and reasoning effort", () => {
+    expect(
+      buildEngineArgv("codex", {
+        prompt,
+        scopeDir,
+        model: "gpt-5.6-sol",
+        reasoningEffort: "xhigh",
+      })
+    ).toEqual([
+      "codex",
+      "exec",
+      "--json",
+      "--ignore-user-config",
+      "-m",
+      "gpt-5.6-sol",
+      "-c",
+      'model_reasoning_effort="xhigh"',
+      "--cd",
+      scopeDir,
+      "-s",
+      "workspace-write",
+      "--color",
+      "never",
+      prompt,
+    ]);
+  });
+
+  it("builds codex structured argv: read-only sandbox plus --output-schema and -o", () => {
+    expect(
+      buildEngineArgv("codex", {
+        prompt,
+        scopeDir,
+        outputSchemaPath: "/tmp/x/schema.json",
+        outputLastMessagePath: "/tmp/x/last-message.json",
+      })
+    ).toEqual([
+      "codex",
+      "exec",
+      "--json",
+      "--ignore-user-config",
+      "-m",
+      "gpt-5.6-luna",
+      "-c",
+      'model_reasoning_effort="medium"',
+      "--cd",
+      scopeDir,
+      // The model writes nothing in structured mode, so it needs no write access.
+      "-s",
+      "read-only",
+      "--color",
+      "never",
+      "--output-schema",
+      "/tmp/x/schema.json",
+      "-o",
+      "/tmp/x/last-message.json",
+      prompt,
+    ]);
+  });
+
+  it("keeps the workspace-write fallback argv when only one structured path is supplied", () => {
+    for (const partial of [
+      { outputSchemaPath: "/tmp/x/schema.json" },
+      { outputLastMessagePath: "/tmp/x/last-message.json" },
+    ]) {
+      const argv = buildEngineArgv("codex", { prompt, scopeDir, ...partial });
+      expect(argv).toEqual(buildEngineArgv("codex", { prompt, scopeDir }));
+      expect(argv).toContain("workspace-write");
+      expect(argv).not.toContain("--output-schema");
+      expect(argv).not.toContain("-o");
+    }
+  });
+
+  it("ignores the structured paths for non-codex engines", () => {
+    const structured = {
+      outputSchemaPath: "/tmp/x/schema.json",
+      outputLastMessagePath: "/tmp/x/last-message.json",
+    };
+    for (const engine of ["claude", "agy", "cursor"] as const) {
+      expect(
+        buildEngineArgv(engine, { prompt, scopeDir, ...structured })
+      ).toEqual(buildEngineArgv(engine, { prompt, scopeDir }));
+    }
   });
 
   it("builds claude argv with json output for usage capture", () => {
@@ -180,6 +295,25 @@ describe("runEngine", () => {
     expect(capturedOpts.timeoutMs).toBe(1000);
   });
 
+  it("forwards the structured output paths through to the built argv", async () => {
+    let capturedArgv: string[] = [];
+    await runEngine("codex", {
+      prompt: "do it",
+      scopeDir: "/repo/root",
+      outputSchemaPath: "/tmp/x/schema.json",
+      outputLastMessagePath: "/tmp/x/last-message.json",
+      runner: (argv) => {
+        capturedArgv = argv;
+        return Promise.resolve({ stdout: "", stderr: "" });
+      },
+    });
+    expect(capturedArgv).toContain("--output-schema");
+    expect(capturedArgv).toContain("/tmp/x/schema.json");
+    expect(capturedArgv).toContain("-o");
+    expect(capturedArgv).toContain("/tmp/x/last-message.json");
+    expect(capturedArgv).toContain("read-only");
+  });
+
   it("forwards onStderrLine to the runner", async () => {
     const cb = () => {
       // no-op sentinel — only identity matters
@@ -205,6 +339,57 @@ describe("runEngine", () => {
         runner: () => Promise.reject(new Error("boom")),
       })
     ).rejects.toThrow("boom");
+  });
+
+  it("parses codex --json usage, summing multiple turn.completed lines and ignoring junk", async () => {
+    const stdout = [
+      "not json",
+      JSON.stringify({ type: "item.completed", usage: { input_tokens: 999 } }),
+      JSON.stringify({
+        type: "turn.completed",
+        usage: {
+          input_tokens: 21_452,
+          cached_input_tokens: 9984,
+          cache_write_input_tokens: 0,
+          output_tokens: 5,
+          reasoning_output_tokens: 0,
+        },
+      }),
+      "{not valid json}",
+      JSON.stringify({
+        type: "turn.completed",
+        usage: {
+          input_tokens: 1000,
+          cached_input_tokens: 200,
+          cache_write_input_tokens: 50,
+          output_tokens: 20,
+          reasoning_output_tokens: 5,
+        },
+      }),
+    ].join("\n");
+    const result = await runEngine("codex", {
+      prompt: "x",
+      scopeDir: "/tmp",
+      model: "gpt-5.6-luna",
+      runner: () => Promise.resolve({ stdout, stderr: "" }),
+    });
+    expect(result.usage).toEqual({
+      cachedInputTokens: 10_184,
+      cacheWriteInputTokens: 50,
+      inputTokens: 22_452,
+      model: "gpt-5.6-luna",
+      outputTokens: 25,
+      reasoningOutputTokens: 5,
+    });
+  });
+
+  it("leaves codex usage undefined when no turn.completed line is present", async () => {
+    const result = await runEngine("codex", {
+      prompt: "x",
+      scopeDir: "/tmp",
+      runner: () => Promise.resolve({ stdout: "translated.\n", stderr: "" }),
+    });
+    expect(result.usage).toBeUndefined();
   });
 
   it("parses claude --output-format json usage (cost, tokens, model)", async () => {
