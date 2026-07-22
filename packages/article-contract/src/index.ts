@@ -3,6 +3,21 @@ export const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index"] as const;
 export type WikiTag = (typeof WIKI_TAGS)[number];
 
 /**
+ * Entity-type taxonomy for Entity-tagged articles, sourced from the vault's
+ * `moc-entities.md` `### <Heading>` sections (People/Organizations/Software/
+ * Models/Documents). Only Entity-tagged articles carry one.
+ */
+export const ENTITY_TYPES = [
+  "person",
+  "organization",
+  "software",
+  "model",
+  "document",
+] as const;
+
+export type EntityType = (typeof ENTITY_TYPES)[number];
+
+/**
  * The wiki's curated knowledge domains — the blog's primary browse axis.
  *
  * The first fourteen mirror the vault's `moc-*` Map-of-Content pages (slug =
@@ -49,6 +64,12 @@ export interface ArticleContract {
    * Drives the home page's domain plate stack and `/articles/domain/[domain]`.
    */
   domain?: WikiDomain;
+  /**
+   * Entity subtype, resolved by the importer from `moc-entities.md`'s section
+   * headings (People/Organizations/Software/Models/Documents). Only set on
+   * Entity-tagged articles.
+   */
+  entityType?: EntityType;
   readingTime: number;
   /**
    * Audit trail of external source documents the article was synthesised from.
