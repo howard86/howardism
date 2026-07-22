@@ -16,6 +16,9 @@ export function TagIndex({ tags }: TagIndexProps) {
     return null;
   }
 
+  const multi = tags.filter((entry) => entry.count > 1);
+  const singles = tags.filter((entry) => entry.count === 1);
+
   return (
     <section className="border-border border-b px-gutter py-10" id="subjects">
       <div className="grid grid-cols-1 gap-x-11 gap-y-7 lg:grid-cols-[180px_1fr]">
@@ -40,10 +43,22 @@ export function TagIndex({ tags }: TagIndexProps) {
             <em className="font-light text-brand italic">most cited.</em>
           </h2>
           <div className="mt-6 flex flex-wrap">
-            {tags.map(({ tag, href }) => (
+            {multi.map(({ tag, href }) => (
               <SubjectChip href={href} key={tag} tag={tag} />
             ))}
           </div>
+          {singles.length > 0 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
+                +{singles.length} one-off subjects
+              </summary>
+              <div className="mt-4 flex flex-wrap">
+                {singles.map(({ tag, href }) => (
+                  <SubjectChip href={href} key={tag} tag={tag} />
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
     </section>
