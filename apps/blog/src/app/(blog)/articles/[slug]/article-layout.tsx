@@ -8,6 +8,7 @@ import { PublishArticleNav } from "@/components/article-nav-context";
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { DomainLabel } from "@/components/howardism/domain-label";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
+import { ArticleQuiz } from "@/components/quiz/article-quiz";
 import { SaveButton } from "@/components/save-button";
 import { formatDate } from "@/utils/time";
 import { PlatePage } from "../../_shell/plate-page";
@@ -18,6 +19,7 @@ import type {
   ArticleHeading,
   ArticleMeta,
   Locale,
+  QuizConcept,
   SiblingNav,
 } from "../service";
 import { ArticleRail } from "./article-rail";
@@ -36,6 +38,8 @@ interface ArticleLayoutProps {
   meta: ArticleMeta;
   /** Subject tags with their own page — used to decide which chips link. */
   navigable?: ReadonlySet<string>;
+  /** The article's quiz bank, when one exists — renders the "Test yourself" block. */
+  quiz?: QuizConcept;
   siblings?: SiblingNav;
   slug: string;
   /** Href of the same article in the other language, when one exists. */
@@ -51,6 +55,46 @@ const NAV_KICKER_CLASS =
 const NAV_TITLE_CLASS =
   "font-display text-[15px] text-foreground leading-[1.25] transition-colors group-hover:text-[var(--article-accent)]";
 
+/** Prev/next reader footer — extracted so ArticleLayout stays under the complexity cap. */
+function SiblingNavFooter({ siblings }: { siblings?: SiblingNav }) {
+  const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
+  if (!(previousSlug ?? nextSlug)) {
+    return null;
+  }
+  return (
+    <nav aria-label="Article navigation" className="flex justify-between gap-6">
+      <div className="min-w-0">
+        {previousSlug && (
+          <Link
+            className="group inline-flex flex-col gap-1 no-underline"
+            href={`/articles/${previousSlug}`}
+          >
+            <span className={NAV_KICKER_CLASS}>
+              <span aria-hidden="true">← </span>Previous
+            </span>
+            {previousTitle && (
+              <span className={NAV_TITLE_CLASS}>{previousTitle}</span>
+            )}
+          </Link>
+        )}
+      </div>
+      <div className="min-w-0 text-right">
+        {nextSlug && (
+          <Link
+            className="group inline-flex flex-col items-end gap-1 no-underline"
+            href={`/articles/${nextSlug}`}
+          >
+            <span className={NAV_KICKER_CLASS}>
+              Next<span aria-hidden="true"> →</span>
+            </span>
+            {nextTitle && <span className={NAV_TITLE_CLASS}>{nextTitle}</span>}
+          </Link>
+        )}
+      </div>
+    </nav>
+  );
+}
+
 export function ArticleLayout({
   children,
   headings = [],
@@ -59,11 +103,11 @@ export function ArticleLayout({
   locale = "en",
   meta,
   navigable = NO_NAVIGABLE_TAGS,
+  quiz,
   siblings,
   slug,
   translationHref,
 }: ArticleLayoutProps) {
-  const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
   const accent = meta.domain ? DOMAIN_META[meta.domain].color : "var(--brand)";
   const domainRow: [string, ReactNode] | null = meta.domain
     ? ["Domain", <DomainLabel domain={meta.domain} key="domain" />]
@@ -177,6 +221,8 @@ export function ArticleLayout({
               {children}
             </div>
 
+            {quiz && <ArticleQuiz concept={quiz} />}
+
             <div className="my-10 flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
               <span className="font-mono text-[var(--article-accent)] text-xs">
@@ -201,43 +247,7 @@ export function ArticleLayout({
               <BacklinksDisclosure defaultOpen slug={slug} />
             </div>
 
-            {(previousSlug ?? nextSlug) && (
-              <nav
-                aria-label="Article navigation"
-                className="flex justify-between gap-6"
-              >
-                <div className="min-w-0">
-                  {previousSlug && (
-                    <Link
-                      className="group inline-flex flex-col gap-1 no-underline"
-                      href={`/articles/${previousSlug}`}
-                    >
-                      <span className={NAV_KICKER_CLASS}>
-                        <span aria-hidden="true">← </span>Previous
-                      </span>
-                      {previousTitle && (
-                        <span className={NAV_TITLE_CLASS}>{previousTitle}</span>
-                      )}
-                    </Link>
-                  )}
-                </div>
-                <div className="min-w-0 text-right">
-                  {nextSlug && (
-                    <Link
-                      className="group inline-flex flex-col items-end gap-1 no-underline"
-                      href={`/articles/${nextSlug}`}
-                    >
-                      <span className={NAV_KICKER_CLASS}>
-                        Next<span aria-hidden="true"> →</span>
-                      </span>
-                      {nextTitle && (
-                        <span className={NAV_TITLE_CLASS}>{nextTitle}</span>
-                      )}
-                    </Link>
-                  )}
-                </div>
-              </nav>
-            )}
+            <SiblingNavFooter siblings={siblings} />
           </article>
         </div>
 
