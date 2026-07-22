@@ -19,6 +19,12 @@ const MIN_RECORD_PCT = 0.25;
 const MAX_HISTORY = 50;
 
 export interface ReadingEntry {
+  /**
+   * Epoch ms of the first recorded read — the Shelf's accession order, which
+   * never changes once set. Histories written before this field existed
+   * backfill it from `lastReadAt` on read.
+   */
+  firstReadAt: number;
   /** Epoch ms of the most recent read, for the relative "last read" time. */
   lastReadAt: number;
   /** Latest scroll fraction (0–1), for the row's progress indicator. */
@@ -27,10 +33,14 @@ export interface ReadingEntry {
   slug: string;
 }
 
+/** The stored shape: `firstReadAt` is absent in pre-accession histories. */
+type StoredReadingEntry = Omit<ReadingEntry, "firstReadAt"> &
+  Partial<Pick<ReadingEntry, "firstReadAt">>;
+
 /** localStorage key holding the resume state for a single article. */
 export const perSlugKey = (slug: string): string => PER_SLUG_PREFIX + slug;
 
-function isReadingEntry(value: unknown): value is ReadingEntry {
+function isReadingEntry(value: unknown): value is StoredReadingEntry {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -56,7 +66,10 @@ export function getHistory(): ReadingEntry[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter(isReadingEntry);
+    return parsed.filter(isReadingEntry).map((entry) => ({
+      ...entry,
+      firstReadAt: entry.firstReadAt ?? entry.lastReadAt,
+    }));
   } catch {
     return [];
   }
@@ -75,9 +88,12 @@ export function recordProgress(slug: string, pct: number): void {
     return;
   }
   try {
-    const withoutSlug = getHistory().filter((entry) => entry.slug !== slug);
+    const now = Date.now();
+    const history = getHistory();
+    const existing = history.find((entry) => entry.slug === slug);
+    const withoutSlug = history.filter((entry) => entry.slug !== slug);
     const next: ReadingEntry[] = [
-      { slug, pct, lastReadAt: Date.now() },
+      { slug, pct, lastReadAt: now, firstReadAt: existing?.firstReadAt ?? now },
       ...withoutSlug,
     ];
     const kept = next.slice(0, MAX_HISTORY);
