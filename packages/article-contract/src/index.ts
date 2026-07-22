@@ -5,19 +5,25 @@ export type WikiTag = (typeof WIKI_TAGS)[number];
 /**
  * The wiki's curated knowledge domains — the blog's primary browse axis.
  *
- * The first eight mirror the vault's `moc-*` Map-of-Content pages (slug =
+ * The first fourteen mirror the vault's `moc-*` Map-of-Content pages (slug =
  * `moc-<domain>` minus the prefix) and are sourced from `index.md`'s
  * `### <Domain> ([[moc-…|MOC]])` headings. `syntheses` is the catch-all for
  * `derived/` essays, which the vault does not file under a single domain.
  */
 export const WIKI_DOMAINS = [
-  "ai-engineering",
-  "llm-architecture",
+  "agent-systems",
+  "agent-security",
+  "ai-coding-practice",
+  "evals-and-benchmarks",
+  "model-capability-and-training",
+  "alignment-and-safety",
+  "interpretability",
   "interaction-multimodal",
   "formal-math",
   "startup-founder",
   "product-org",
-  "governance-workforce",
+  "ai-economics-and-labor",
+  "superintelligence-trajectory",
   "entities",
   "syntheses",
 ] as const;

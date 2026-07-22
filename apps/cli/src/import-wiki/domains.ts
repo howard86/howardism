@@ -29,7 +29,7 @@ export function isMocSlug(slug: string): boolean {
 }
 
 /**
- * `moc-ai-engineering` → `ai-engineering`, but only when the stripped slug is a
+ * `moc-agent-systems` → `agent-systems`, but only when the stripped slug is a
  * recognised domain. Returns `null` for any `moc-*` page that doesn't map to a
  * domain in the contract (so a stray MOC can't invent a bucket).
  */
