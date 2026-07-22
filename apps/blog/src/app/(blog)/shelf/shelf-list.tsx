@@ -11,6 +11,7 @@ import {
   type ShelfRow,
 } from "@/lib/shelf-rows";
 
+import { DOMAIN_META } from "../articles/domain-meta";
 import {
   ArchivedBadge,
   type ListSelection,
@@ -52,7 +53,7 @@ function TombstoneRow({
   onDismiss: () => void;
 }) {
   return (
-    <li className="flex items-center gap-2 border-border border-b border-dashed py-4 last:border-b-0">
+    <li className="flex items-center gap-2 border-border border-t border-dashed py-4">
       <div className="min-w-0 flex-1">
         <span className="block truncate font-display text-[16px] text-foreground-subtle italic leading-[1.3]">
           {slug}
@@ -66,10 +67,12 @@ function TombstoneRow({
 
 function HistoryRow({
   row,
+  ordinal,
   onRemove,
   selection,
 }: {
   row: ShelfRow;
+  ordinal: number;
   onRemove: (slug: string) => void;
   selection?: ListSelection;
 }) {
@@ -80,6 +83,7 @@ function HistoryRow({
   }
   return (
     <ShelfArticleRow
+      accent={row.domain ? DOMAIN_META[row.domain].color : "var(--brand)"}
       badge={row.kind === "archived" ? <ArchivedBadge /> : undefined}
       control={
         <RemoveButton
@@ -89,8 +93,11 @@ function HistoryRow({
       }
       href={row.href}
       label={row.label}
+      marker={row.kindPrefix + String(ordinal).padStart(2, "0")}
       progress={row.pct}
+      readingTime={row.readingTime}
       selection={toRowSelection(selection, row.slug, row.title)}
+      tags={row.tags}
       timeText={dayjs(row.lastReadAt).fromNow()}
       title={row.title}
     />
@@ -139,10 +146,11 @@ export function ShelfList({
 
   return (
     <ul className="mt-2 flex list-none flex-col p-0">
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <HistoryRow
           key={row.slug}
           onRemove={handleRemove}
+          ordinal={index + 1}
           row={row}
           selection={selection}
         />
