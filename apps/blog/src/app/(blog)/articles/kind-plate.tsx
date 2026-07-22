@@ -55,7 +55,7 @@ export function KindPlate({
             {String(total).padStart(2, "0")}
           </div>
           <div
-            className="mt-2 font-display font-light text-[96px] leading-[0.86] tracking-[-0.045em]"
+            className="mt-2 font-display font-light text-[56px] leading-[0.86] tracking-[-0.045em] lg:text-[96px]"
             style={{ color: meta.color }}
           >
             {articles.length}
@@ -63,7 +63,7 @@ export function KindPlate({
           <div className="mt-1 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em]">
             {title.toLowerCase()} {noun}
           </div>
-          <p className="mt-4 max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5]">
+          <p className="mt-4 hidden max-w-[200px] font-body text-[14px] text-muted-foreground leading-[1.5] lg:block">
             {blurb}
           </p>
         </div>
