@@ -21,6 +21,8 @@ export const DEFAULT_TRACKING_DB_PATH = resolve(
 export type RunEngine = string;
 
 export interface TranslationRunInput {
+  cachedInputTokens?: number | null;
+  costEstimated?: boolean | null;
   costUsd?: number | null;
   credits?: number | null;
   durationMs: number;
@@ -29,6 +31,8 @@ export interface TranslationRunInput {
   locale?: string;
   model?: string | null;
   outputTokens?: number | null;
+  reasoningEffort?: string | null;
+  reasoningOutputTokens?: number | null;
   slug: string;
   sourceHash: string;
   sourceTitle?: string | null;
@@ -75,6 +79,35 @@ function withBusyRetry<T>(fn: () => T): T {
 }
 
 /**
+ * Columns added after the initial release. `CREATE TABLE IF NOT EXISTS` won't
+ * add these to a DB that already exists on a developer's machine, so
+ * `migrateRunColumns` below ALTERs them in for pre-existing DBs; they're also
+ * listed in the CREATE TABLE statement so fresh DBs get them directly.
+ */
+const RUN_COLUMN_MIGRATIONS: [string, string][] = [
+  ["cached_input_tokens", "INTEGER"],
+  ["reasoning_output_tokens", "INTEGER"],
+  ["cost_estimated", "INTEGER"],
+  ["reasoning_effort", "TEXT"],
+];
+
+/** Idempotently ALTER TABLE in any columns missing from an existing DB. */
+function migrateRunColumns(db: Database): void {
+  const existing = new Set(
+    (
+      db.query("PRAGMA table_info(translation_run)").all() as {
+        name: string;
+      }[]
+    ).map((c) => c.name)
+  );
+  for (const [name, ddlType] of RUN_COLUMN_MIGRATIONS) {
+    if (!existing.has(name)) {
+      db.run(`ALTER TABLE translation_run ADD COLUMN ${name} ${ddlType};`);
+    }
+  }
+}
+
+/**
  * Open (creating if needed) the tracking DB and ensure its schema. Mirrors the
  * glossary store's WAL + busy-timeout + retry cold-start handling.
  */
@@ -97,14 +130,19 @@ export function openTrackingDb(
         source_title  TEXT,
         engine        TEXT NOT NULL,
         model         TEXT,
+        reasoning_effort TEXT,
         cost_usd      REAL,
+        cost_estimated INTEGER,
         credits       REAL,
         input_tokens  INTEGER,
         output_tokens INTEGER,
+        cached_input_tokens INTEGER,
+        reasoning_output_tokens INTEGER,
         duration_ms   INTEGER NOT NULL,
         ran_at        TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
+    migrateRunColumns(db);
     db.run(
       "CREATE INDEX IF NOT EXISTS ix_run_slug ON translation_run(slug, id);"
     );
@@ -127,9 +165,10 @@ export function recordRuns(
   }
   const insert = db.query(
     `INSERT INTO translation_run
-       (slug, locale, source_hash, source_title, engine, model,
-        cost_usd, credits, input_tokens, output_tokens, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (slug, locale, source_hash, source_title, engine, model, reasoning_effort,
+        cost_usd, cost_estimated, credits, input_tokens, output_tokens,
+        cached_input_tokens, reasoning_output_tokens, duration_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const insertAll = db.transaction((items: TranslationRunInput[]): number => {
     let added = 0;
@@ -141,10 +180,14 @@ export function recordRuns(
         r.sourceTitle ?? null,
         r.engine,
         r.model ?? null,
+        r.reasoningEffort ?? null,
         r.costUsd ?? null,
+        r.costEstimated == null ? null : Number(r.costEstimated),
         r.credits ?? null,
         r.inputTokens ?? null,
         r.outputTokens ?? null,
+        r.cachedInputTokens ?? null,
+        r.reasoningOutputTokens ?? null,
         r.durationMs
       );
       added += 1;
@@ -156,6 +199,8 @@ export function recordRuns(
 }
 
 interface RunRow {
+  cached_input_tokens: number | null;
+  cost_estimated: number | null;
   cost_usd: number | null;
   credits: number | null;
   duration_ms: number;
@@ -166,6 +211,8 @@ interface RunRow {
   model: string | null;
   output_tokens: number | null;
   ran_at: string;
+  reasoning_effort: string | null;
+  reasoning_output_tokens: number | null;
   slug: string;
   source_hash: string;
   source_title: string | null;
@@ -179,10 +226,14 @@ const toRun = (row: RunRow): TranslationRun => ({
   sourceTitle: row.source_title,
   engine: row.engine,
   model: row.model,
+  reasoningEffort: row.reasoning_effort,
   costUsd: row.cost_usd,
+  costEstimated: row.cost_estimated === null ? null : row.cost_estimated === 1,
   credits: row.credits,
   inputTokens: row.input_tokens,
   outputTokens: row.output_tokens,
+  cachedInputTokens: row.cached_input_tokens,
+  reasoningOutputTokens: row.reasoning_output_tokens,
   durationMs: row.duration_ms,
   ranAt: row.ran_at,
 });
@@ -206,4 +257,72 @@ export function latestBySlug(
     )
     .all(locale) as RunRow[];
   return rows.map(toRun);
+}
+
+interface SpendByModelRow {
+  articles: number;
+  cached_input_tokens: number;
+  cost_usd: number | null;
+  estimated: number;
+  input_tokens: number;
+  model: string | null;
+  output_tokens: number;
+  runs: number;
+  total_duration_ms: number;
+}
+
+export interface SpendByModel {
+  articles: number;
+  cachedInputTokens: number;
+  costUsd: number | null;
+  estimated: boolean;
+  inputTokens: number;
+  model: string | null;
+  outputTokens: number;
+  runs: number;
+  totalDurationMs: number;
+}
+
+const toSpendByModel = (row: SpendByModelRow): SpendByModel => ({
+  model: row.model,
+  runs: row.runs,
+  articles: row.articles,
+  inputTokens: row.input_tokens,
+  outputTokens: row.output_tokens,
+  cachedInputTokens: row.cached_input_tokens,
+  totalDurationMs: row.total_duration_ms,
+  costUsd: row.cost_usd,
+  estimated: row.estimated === 1,
+});
+
+/**
+ * Per-model spend/usage summary for a locale, feeding the upcoming
+ * `translate:report` command. `costUsd` is null when no run in the group
+ * recorded a cost; `estimated` is true when any run's cost is a computed
+ * estimate (e.g. codex, which reports tokens but no USD) rather than
+ * engine-reported.
+ */
+export function spendByModel(
+  db: Database,
+  locale: string = DEFAULT_LOCALE
+): SpendByModel[] {
+  const rows = db
+    .query(
+      `SELECT
+         model,
+         COUNT(*) AS runs,
+         COUNT(DISTINCT slug) AS articles,
+         COALESCE(SUM(input_tokens), 0) AS input_tokens,
+         COALESCE(SUM(output_tokens), 0) AS output_tokens,
+         COALESCE(SUM(cached_input_tokens), 0) AS cached_input_tokens,
+         SUM(duration_ms) AS total_duration_ms,
+         SUM(cost_usd) AS cost_usd,
+         MAX(COALESCE(cost_estimated, 0)) AS estimated
+       FROM translation_run
+       WHERE locale = ?
+       GROUP BY model
+       ORDER BY cost_usd DESC, model ASC`
+    )
+    .all(locale) as SpendByModelRow[];
+  return rows.map(toSpendByModel);
 }
