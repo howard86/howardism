@@ -1,11 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
+import { WIKI_DOMAINS } from "@howardism/article-contract";
 import type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
 
 import {
   type ArticleRecord,
+  checkEmptyDomains,
+  checkFallbackCeiling,
   checkFrontmatter,
   checkGraphSlugRefs,
   checkHeroImages,
@@ -24,7 +27,7 @@ function article(overrides: Partial<ArticleRecord> = {}): ArticleRecord {
     title: "Title",
     description: "Description",
     imageAlt: "Alt",
-    domain: "ai-engineering",
+    domain: "agent-systems",
     heroImage: "a.png",
     ...overrides,
   };
@@ -59,7 +62,7 @@ describe("parseArticle", () => {
         "title:  Trimmed  ",
         "description: A desc",
         "imageAlt: Alt text",
-        "domain: llm-architecture",
+        "domain: model-capability-and-training",
       ].join("\n"),
       "../assets/slug.png"
     );
@@ -68,7 +71,7 @@ describe("parseArticle", () => {
       title: "Trimmed",
       description: "A desc",
       imageAlt: "Alt text",
-      domain: "llm-architecture",
+      domain: "model-capability-and-training",
       heroImage: "slug.png",
     });
   });
@@ -132,11 +135,11 @@ describe("checkOpenQuestionSlugRefs", () => {
   it("flags a concept slug with no article", () => {
     const manifest: OpenQuestionsManifest = {
       byConcept: [
-        { slug: "a", title: "A", domain: "ai-engineering", questions: ["q"] },
+        { slug: "a", title: "A", domain: "agent-systems", questions: ["q"] },
         {
           slug: "missing",
           title: "M",
-          domain: "ai-engineering",
+          domain: "agent-systems",
           questions: [],
         },
       ],
@@ -176,6 +179,45 @@ describe("checkFrontmatter", () => {
   });
 });
 
+describe("checkFallbackCeiling", () => {
+  it("fails when the syntheses fallback exceeds a third of all articles", () => {
+    const articles = [
+      article({ slug: "a", domain: "syntheses" }),
+      article({ slug: "b", domain: "syntheses" }),
+      article({ slug: "c", domain: "agent-systems" }),
+    ];
+    const failures = checkFallbackCeiling(articles);
+    expect(failures.length).toBeGreaterThan(0);
+    expect(failures[0]).toContain("syntheses holds 2/3");
+  });
+
+  it("passes when the syntheses fallback stays under a third", () => {
+    const articles = [
+      article({ slug: "a", domain: "syntheses" }),
+      article({ slug: "b", domain: "agent-systems" }),
+      article({ slug: "c", domain: "agent-systems" }),
+      article({ slug: "d", domain: "agent-systems" }),
+    ];
+    expect(checkFallbackCeiling(articles)).toEqual([]);
+  });
+});
+
+describe("checkEmptyDomains", () => {
+  it("flags a curated domain with zero articles", () => {
+    const articles = WIKI_DOMAINS.filter(
+      (domain) => domain !== "syntheses" && domain !== "agent-security"
+    ).map((domain, i) => article({ slug: `note-${i}`, domain }));
+    expect(checkEmptyDomains(articles)).toContain("agent-security: 0 articles");
+  });
+
+  it("passes when every curated domain owns at least one article", () => {
+    const articles = WIKI_DOMAINS.filter(
+      (domain) => domain !== "syntheses"
+    ).map((domain, i) => article({ slug: `note-${i}`, domain }));
+    expect(checkEmptyDomains(articles)).toEqual([]);
+  });
+});
+
 describe("findOrphanArticles", () => {
   it("flags articles with missing or empty backlinks", () => {
     const articles = [
@@ -191,7 +233,7 @@ describe("findOrphanArticles", () => {
   });
 
   it("exempts moc-* start-here pages", () => {
-    const articles = [article({ slug: "moc-ai-engineering" })];
+    const articles = [article({ slug: "moc-agent-systems" })];
     expect(findOrphanArticles(articles, {})).toEqual([]);
   });
 });
@@ -199,8 +241,8 @@ describe("findOrphanArticles", () => {
 describe("findDomainsWithoutMoc", () => {
   it("flags domains lacking a moc-<domain> article, sorted", () => {
     const articles = [
-      article({ slug: "moc-ai-engineering", domain: "ai-engineering" }),
-      article({ slug: "note-1", domain: "ai-engineering" }),
+      article({ slug: "moc-agent-systems", domain: "agent-systems" }),
+      article({ slug: "note-1", domain: "agent-systems" }),
       article({ slug: "note-2", domain: "syntheses" }),
       article({ slug: "note-3", domain: "product-org" }),
     ];
