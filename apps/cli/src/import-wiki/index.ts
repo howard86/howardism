@@ -2,6 +2,7 @@ import { access, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
+  type EntityType,
   type SourceRef,
   WIKI_TAGS,
   type WikiDomain,
@@ -17,6 +18,7 @@ import {
   resolveDomain,
 } from "./domains.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
+import { buildEntityTypeMembership } from "./entity-types.ts";
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import {
   buildSlugTitleMap,
@@ -182,6 +184,7 @@ async function main(): Promise<void> {
 
 interface ImportContext {
   domainMembership: Map<string, WikiDomain>;
+  entityTypeMembership: Map<string, EntityType>;
   indexSummaries: Map<string, string>;
   overrides: Record<string, WikiTag>;
   parsedAll: ParsedWikiFile[];
@@ -210,6 +213,9 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   // MOC pages own the domain-membership map, so build it from the full corpus
   // (before any --only filter) — a targeted re-import still needs every MOC.
   const domainMembership = buildDomainMembership(allParsed);
+  // Same reasoning: moc-entities.md owns the entity-type membership map, so
+  // build it from the full corpus even when --only targets a single slug.
+  const entityTypeMembership = buildEntityTypeMembership(allParsed);
 
   const parsedAll = opts.onlySlug
     ? allParsed.filter((p) => p.source.slug === opts.onlySlug)
@@ -226,6 +232,7 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
     parsedAll,
     slugTitleMap,
     domainMembership,
+    entityTypeMembership,
     indexSummaries,
     overrides,
     vaultSlugSet: deriveVaultSlugSet(allParsed),
@@ -330,6 +337,8 @@ async function processArticle(
     summary.unmappedConcepts.add(slug);
   }
 
+  const entityType = ctx.entityTypeMembership.get(slug);
+
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
     title,
@@ -337,6 +346,7 @@ async function processArticle(
     readingTime: computeReadingTime(body),
     tag,
     domain,
+    ...(entityType ? { entityType } : {}),
     ...(tags.length > 0 ? { tags } : {}),
     ...(sources.length > 0 ? { sources } : {}),
   };

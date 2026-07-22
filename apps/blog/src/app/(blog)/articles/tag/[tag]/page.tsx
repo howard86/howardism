@@ -6,6 +6,7 @@ import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../../_shell/plate-page";
 import { ArticlesTable } from "../../articles-table";
+import { describeEntityGroup, groupEntityArticles } from "../../entity-groups";
 import { getNavigableTagSet } from "../../service";
 import {
   getSectionArticles,
@@ -76,11 +77,25 @@ export default async function TagPage({ params }: TagPageProps) {
         {section.intro}
       </p>
 
-      <ArticlesTable
-        articles={articles}
-        navigable={navigable}
-        srCaption={`${section.title} articles, sorted by date, newest first.`}
-      />
+      {section.slug === "entity" ? (
+        <div className="flex flex-col gap-12">
+          {groupEntityArticles(articles).map((group) => (
+            <ArticlesTable
+              articles={group.articles}
+              key={group.label ?? "ungrouped"}
+              navigable={navigable}
+              srCaption={describeEntityGroup(group)}
+              title={group.label}
+            />
+          ))}
+        </div>
+      ) : (
+        <ArticlesTable
+          articles={articles}
+          navigable={navigable}
+          srCaption={`${section.title} articles, sorted by date, newest first.`}
+        />
+      )}
     </PlatePage>
   );
 }
