@@ -2,7 +2,6 @@ import type {
   SearchIndex,
   SearchIndexEntry,
 } from "@howardism/article-contract/manifests/search-index";
-import Fuse, { type IFuseOptions } from "fuse.js";
 
 /**
  * One searchable article. The shape is owned by `@howardism/article-contract`
@@ -10,24 +9,6 @@ import Fuse, { type IFuseOptions } from "fuse.js";
  * it is read against the shared type without a zod parse on read.
  */
 export type SearchEntry = SearchIndexEntry;
-
-const FUSE_OPTIONS: IFuseOptions<SearchEntry> = {
-  keys: [
-    { name: "title", weight: 0.4 },
-    { name: "tags", weight: 0.18 },
-    { name: "domain", weight: 0.12 },
-    { name: "description", weight: 0.12 },
-    { name: "tag", weight: 0.1 },
-    { name: "body", weight: 0.08 },
-  ],
-  // Body text is long; match anywhere rather than penalising position.
-  ignoreLocation: true,
-  includeScore: true,
-  threshold: 0.35,
-  minMatchCharLength: 2,
-};
-
-const DEFAULT_LIMIT = 12;
 
 let indexPromise: Promise<SearchEntry[]> | null = null;
 
@@ -48,22 +29,6 @@ export function loadSearchIndex(): Promise<SearchEntry[]> {
       });
   }
   return indexPromise;
-}
-
-export function createFuse(entries: SearchEntry[]): Fuse<SearchEntry> {
-  return new Fuse(entries, FUSE_OPTIONS);
-}
-
-export function searchEntries(
-  fuse: Fuse<SearchEntry>,
-  query: string,
-  limit = DEFAULT_LIMIT
-): SearchEntry[] {
-  const trimmed = query.trim();
-  if (trimmed.length === 0) {
-    return [];
-  }
-  return fuse.search(trimmed, { limit }).map((result) => result.item);
 }
 
 export interface Snippet {

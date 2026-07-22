@@ -154,7 +154,13 @@ export function ArticleLayout({
             <Image
               alt={meta.imageAlt}
               className="mb-10 h-auto w-full rounded-md"
+              // `priority` alone emits the preload link and drops loading=lazy,
+              // but Next 16 does not set fetchpriority on the element itself —
+              // which is exactly what Lighthouse's LCP `priorityHinted` check
+              // reads. Both are needed.
+              fetchPriority="high"
               placeholder="blur"
+              priority
               sizes="(min-width: 760px) 720px, 100vw"
               src={heroImage}
             />
