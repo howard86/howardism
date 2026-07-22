@@ -1,3 +1,15 @@
+# [v2.19.0](https://github.com/howard86/howardism/compare/v2.18.0...v2.19.0) (2026-07-22)
+
+## ✨ New Features
+- [`60da6e3a`](https://github.com/howard86/howardism/commit/60da6e3a)  feat(cli): make codex a first-class reproducible translate engine 
+- [`cc650461`](https://github.com/howard86/howardism/commit/cc650461)  feat(cli): record token and cost detail in translate history 
+- [`c56789f3`](https://github.com/howard86/howardism/commit/c56789f3)  feat(cli): enforce translation invariants and glossary terms 
+- [`673b757e`](https://github.com/howard86/howardism/commit/673b757e)  feat(cli): translate via single-turn structured output 
+- [`58dd97ec`](https://github.com/howard86/howardism/commit/58dd97ec)  feat(cli): add translate:report cost command 
+
+## 🐛 Bug Fixes
+- [`0cb9ee52`](https://github.com/howard86/howardism/commit/0cb9ee52)  fix(cli): insert a verbatim frontmatter key the translation lacks
+
 # [v2.18.0](https://github.com/howard86/howardism/compare/v2.17.0...v2.18.0) (2026-07-22)
 
 ## ✨ New Features
