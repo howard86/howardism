@@ -7,6 +7,7 @@ import { PlatePage } from "../_shell/plate-page";
 import { DOMAIN_META } from "../articles/domain-meta";
 import { kindMetaFor } from "../articles/kind-meta";
 import { getArticles } from "../articles/service";
+import { ContinueReading } from "./continue-reading";
 import { ShelfStats } from "./shelf-stats";
 import { ShelfTabs } from "./shelf-tabs";
 
@@ -64,6 +65,7 @@ export default async function ShelfPage() {
       titleAccent="read & remembered."
       width="index"
     >
+      <ContinueReading manifest={manifest} />
       <ShelfTabs manifest={manifest} />
     </PlatePage>
   );
