@@ -114,6 +114,18 @@ describe("ShelfTabs history tab", () => {
     expect(link.getAttribute("href")).toBe("/articles/alpha");
   });
 
+  it("stacks the controls above the list rather than beside it", async () => {
+    // The Tabs root is `flex` and only becomes a column via `data-horizontal:`,
+    // which is an attribute-presence selector — `data-orientation` alone left
+    // the controls and the list side by side, collapsing the title column.
+    seedHistory([{ slug: "alpha", pct: 0.6 }]);
+    const { container } = render(<ShelfTabs manifest={manifest} />);
+
+    await waitFor(() => screen.getByRole("link", { name: ROW_TITLE }));
+    const root = container.querySelector('[data-slot="tabs"]');
+    expect(root?.hasAttribute("data-horizontal")).toBe(true);
+  });
+
   it("offers only an invitation when nothing is read or saved", async () => {
     render(<ShelfTabs manifest={manifest} />);
 
