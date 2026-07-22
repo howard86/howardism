@@ -101,16 +101,23 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
   return { generatedOn, entries };
 }
 
-async function main(): Promise<void> {
+/**
+ * Build the search index and write it to `OUTPUT_PATH`, unless a dry run was
+ * requested (`DRY_RUN=1` env var, or `options.dryRun` for callers driving
+ * this programmatically, e.g. the wiki importer).
+ */
+export async function writeSearchIndex(options?: {
+  dryRun?: boolean;
+}): Promise<{ entryCount: number; outputPath: string }> {
   const generatedOn = new Date().toISOString().slice(0, 10);
   const index = await buildIndex(generatedOn);
   const json = JSON.stringify(SearchIndexSchema.parse(index), null, 2);
 
-  if (process.env.DRY_RUN === "1") {
+  if (process.env.DRY_RUN === "1" || options?.dryRun) {
     console.log(
       `[search-index] DRY_RUN — ${index.entries.length} entries, ${json.length} bytes (not written)`
     );
-    return;
+    return { entryCount: index.entries.length, outputPath: OUTPUT_PATH };
   }
 
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
@@ -118,10 +125,11 @@ async function main(): Promise<void> {
   console.log(
     `[search-index] wrote ${index.entries.length} entries → ${OUTPUT_PATH}`
   );
+  return { entryCount: index.entries.length, outputPath: OUTPUT_PATH };
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
+  writeSearchIndex().catch((err) => {
     console.error(err);
     process.exit(1);
   });
