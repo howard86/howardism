@@ -86,16 +86,11 @@ export function ContinueReading({
   }
 
   return (
-    <section aria-label="Continue reading" className="mt-10">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-        <div>
-          <p className="font-mono text-[11px] text-brand uppercase tracking-[0.22em]">
-            Pick up where you left off
-          </p>
-          <h2 className="mt-1.5 font-display font-normal text-[clamp(22px,3vw,28px)] text-foreground tracking-[-0.02em]">
-            Continue <em className="font-light text-brand italic">reading.</em>
-          </h2>
-        </div>
+    <section aria-label="Continue reading" className="mt-6">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-4">
+        <h2 className="font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.18em]">
+          Continue reading
+        </h2>
         <span className="font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em]">
           {rows.length} in progress
         </span>
