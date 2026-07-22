@@ -1,0 +1,100 @@
+---
+date: 2026-07-09
+title: 開放權重引導不可逆性
+description: "一份從 wiki 整理而來的 Brown 與 Gemma 4 綜合分析：如果危險能力會隨推理預算提升，那麼開放權重發布就會永遠把模型的安全評估固定在某個預算上，同時讓引導預算無上限且無法撤回——封閉權重的緩解措施（分類器回退、暫停、保留）全都需要供應商控制的伺服器"
+tag: Concept
+domain: superintelligence-trajectory
+tags:
+  - governance
+  - safety
+  - open-weights
+  - test-time-compute
+  - catastrophic-risk
+readingTime: 9
+imageAlt: 開放權重引導不可逆性的插圖
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: "More compute, more capability: Why AI agent evaluations need to account
+      for test-time compute"
+    url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+---
+export { default as heroImage } from "../assets/open-weight-elicitation-irreversibility.png";
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+
+> **狀態：wiki 綜合分析，而非來源主張。** 沒有任何來源提出這個論點。[Brown](/articles/noam-brown) 將預算論點放在前沿實驗室的準備框架上，沒有提到開放權重；[UK AISI](/articles/uk-ai-security-institute) 以實證方式測量預算→能力曲線，同樣沒有提到開放權重；[Gemma 4](/articles/gemma-4) 發布開放權重，也沒有提到引導預算。本頁說明同時接受這三點後所導出的結論，並標示推論超出證據的地方。
+
+## 論點
+
+三個前提，每個都有來源支持。
+
+1. **危險能力會隨推理預算提升。** Brown（`practitioner-opinion`）：如果模型「在你投入更多資源時，仍持續在某項任務上進步，而沒有漸近」，它也可能持續提升「在社會不希望它做的事情上的能力」。準備框架與 RSP 建立於 ChatGPT 時代；當時一個 GPT-3 級模型「即使給它 $10 million，也做不了比 $10 更多的事」，因此沒有任何框架指定評估危險能力時所用的預算。見[負責任擴展政策評估](/articles/responsible-scaling-policy-evals)。這個前提的能力*面向*如今已有獨立的 `empirical` 依據：[UK AISI](/articles/uk-ai-security-institute) 在資安、軟體工程與數學基準中測得能力會隨 token 預算上升（只有約 8% 的資安任務會在 ≥10M tokens 時出現），並警告固定預算分數會「掩蓋風險的真實規模」——因此前提 1 不再只是 OpenAI 研究員的論點，儘管 AISI 和 Brown 一樣，仍未延伸到開放權重案例。
+
+2. **已發布的模型持有沒有人付費提取的能力。**[潛在能力過剩](/articles/latent-capability-overhang)：Erdős 單位距離猜想的反證一直存在於公開的 GPT-5.5 中，只需 $1K–$100K 的腳手架式計算就能取回。這項能力之所以是潛在的，是因為提取需要花錢，而不是因為能力不存在。
+
+3. **Gemma 4 以 Apache 2.0 發布思考模式，但安全評估沒有列出表格。** 報告第 5 節以散文形式聲稱「每一類內容安全都有重大改善」及「政策違規極少」，卻沒有表格、基準名稱或所用計算預算——而這是一份包含十六張基準表格的文件。測試是在「沒有安全過濾器」的情況下進行，這是正確的方法，也讓數字缺席這件事更加奇怪。
+
+**結論。** 對開放權重模型而言，安全評估由發布實驗室在某個未公開的預算下執行一次——而其他所有人可用的引導預算則是無上限、永久存在且不可觀測的。評估是單一點；威脅面則是其上方的整條曲線。
+
+## 為什麼封閉權重的緩解措施無法移植
+
+wiki 已經記錄了實驗室在模型達到危險門檻時會採取的措施。這些工具每一項都需要供應商控制的伺服器：
+
+- **[能力閘控模型回退](/articles/capability-gated-model-fallback)** — Fable 5 的分類器會將資安、生物與蒸餾查詢導向較弱的模型，而不是直接拒絕。這需要攔截請求。
+- **暫停。** Anthropic 在發布後撤回了 Fable 5 與 Mythos 5 的存取權（見[Claude Fable 5](/articles/claude-fable-5)）。這需要一個關閉開關。
+- **對 Mythos 級流量保留 30 天**，用於安全分析。這需要流量本身。
+- **固定推理預算。** 託管模型可以限制思考 token。下載的權重則會遵循模型擁有者硬體所允許的任何預算。
+
+開放權重只與 RSP 的兩種模式中的其中一種相容。Anthropic 的 [RSP](/articles/responsible-scaling-policy-evals) 以*閘控*模式（「前沿能力未提升，發布」）和*啟動*模式（「已跨過門檻，部署防護措施」）運作。開放權重發布可以使用第一種模式，但無法使用第二種。權重一旦公開，實驗室就在任何人執行模型之前花完了整個安全預算——而啟動 Gemma 4 推理軌跡的 `<|think|>` 控制 token，在開放權重情境中就只是一個系統提示中的字串，任何使用者或微調都能設定。
+
+請注意，這並不是說 Gemma 4 很危險。Gemma 4 在 Arena 排名第 43（[開放權重前沿差距](/articles/open-weight-frontier-gap)），並非前沿模型；DeepMind 的 Frontier Safety Framework 門檻很可能還差得很遠。這是結構性論點，最直接影響的是未來某個確實接近門檻的開放權重發布，以及決定性的評估將會是一次單一預算評估這項事實。
+
+## 更精確的稽核問題
+
+Brown 的整理留下了一個開放問題：*鑑於每一代的成本下降 10–100 倍，使下一代訓練比在現有模型上進行提取式腳手架更具成本效益，誰會稽核已發布模型的潛在危險能力？* 對封閉權重而言，答案令人不滿意——沒有人有誘因，但實驗室仍保有能力。
+
+對開放權重而言，答案在一個方向上更糟，在另一個方向上更好，而這種不對稱正是有趣之處：
+
+- **更糟：** 沒有人能撤回。稽核在發布三年後發現危險能力，發現的是一個已被鏡像、量化、微調並嵌入產品的人工產物。發現與補救彼此脫鉤。
+- **更好：** *每個人*都能稽核。封閉權重只能透過供應商塑造且能監控的 API 進行引導；開放權重則允許任何第三方進行白箱可解釋性分析、啟動探測與對抗性微調。[白箱啟動監控](/articles/white-box-activation-monitoring) 只有持有權重的人才能使用。
+
+同一項特性——任何人都能永遠對這些權重執行無上限推理——同時產生了危險，以及找出危險的唯一機制。[前沿暫停驗證](/articles/frontier-pause-verification) 假設存在一小群持有計算資源的人，其訓練執行可以被觀察；已發布權重在發布後進行的無上限引導不是訓練執行，也不可觀測。
+
+而[推理效率即能力](/articles/inference-efficiency-as-capability) 讓這個迴圈更令人不安：Gemma 4 本身的貢獻，就是讓這些權重上的推理成本大幅降低。小 37.5% 的 KV cache 與低於一 GB 的量化 checkpoint，降低了每次引導嘗試的成本，不論善意與否；但該模型的安全評估假設的是另一個未公開的預算。
+
+## 相關連結
+
+- [負責任擴展政策評估](/articles/responsible-scaling-policy-evals) — 其*啟動*模式沒有開放權重對應方案；Brown 對無上限預算的批評源自此處
+- [潛在能力過剩](/articles/latent-capability-overhang) — 前提 2；開放權重案例就是沒有撤回機制的能力過剩
+- [計算控制基準測試](/articles/compute-controlled-benchmarking) — 能力面的姊妹概念：不指定預算的判定，在評分能力或危險性時都不完整
+- [能力閘控模型回退](/articles/capability-gated-model-fallback) — 需要伺服器的緩解措施，展示開放權重放棄了什麼
+- [前沿暫停驗證](/articles/frontier-pause-verification) — 管理訓練計算，沒有談論已發布權重上的無上限推理
+- [推理效率即能力](/articles/inference-efficiency-as-capability) — 廉價推理降低引導成本，就如同降低使用成本
+- [開放權重前沿差距](/articles/open-weight-frontier-gap) — 說明這是結構性論點，而不是針對 Gemma 4 的警報
+- [白箱啟動監控](/articles/white-box-activation-monitoring) — 補償性優勢：開放權重是第三方唯一能從內部檢查的權重
+- [大規模測試時期計算](/articles/large-scale-test-time-compute) — 前提 1 的根源
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — 對前提 1 能力面的實證測量（本身沒有處理開放權重）
+- [Gemma 4](/articles/gemma-4) — 引發此論點的發布
+- [Noam Brown](/articles/noam-brown) — 預算批評
+- [Google DeepMind](/articles/google-deepmind) — Frontier Safety Framework 與開放權重思考模型的共同發布者
+
+## 開放問題
+
+- **開放權重安全評估究竟應該報告什麼？** 根據前提 1，單一數字毫無意義。發布危險能力與引導預算之間的曲線是可發布的——同時也是一份路線圖。是否存在一種揭露制度，能為稽核者提供資訊，卻不提供給攻擊者？
+- 「每個人都能稽核」這項優勢真的會實現嗎？誰曾資助過任何開放權重模型發布後的嚴肅危險能力稽核？所用預算是多少？
+- Gemma 4 的安全章節沒有報告數字。這是刻意不揭露、認定模型離任何門檻都很遠，還是單純遵循技術報告的文類慣例？文件沒有說明，而這個區別很重要。
+- Anthropic 對跨過門檻的模型採取的答案，是一個有防護措施的 SKU 與一個無防護措施的 SKU（[Claude Fable 5](/articles/claude-fable-5) / Mythos 5），兩者都採用託管形式。開放權重版本要如何對應發布有防護措施的 SKU？
+
+## 資料來源
+
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors（2026-06-26）：準備框架沒有指定評估危險能力時所用的 test-time-compute 預算（`practitioner-opinion`）。Brown 沒有討論開放權重。
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §5（Responsibility, Safety, Security）：在一份其他部分高度表格化的報告中，以沒有表格或預算的散文形式提出重大安全改善的主張；Apache 2.0 發布；`<|think|>` 啟動 token（表 11）。僅就安全主張而言，視為 `vendor-claim`。
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI（2026-07-02，`empirical`）：測量跨基準測試中的能力↑預算；固定預算分數會「掩蓋風險的真實規模」。支持前提 1 的能力面；沒有討論開放權重。

@@ -1,58 +1,102 @@
 ---
 date: 2026-05-13
-title: Encoder-Free Early Fusion
-description: "以最少預處理取代大型獨立編碼器的多模態設計：dMel 音訊嵌入、40×40 patch hMLP 處理影像幀、flow head 產生音訊輸出，全部在單一 transformer 中從頭共同訓練"
+title: 無編碼器早期融合
+description: "以最少前處理進行多模態設計，而非使用大型獨立編碼器：TML 在單一 transformer 中共同訓練 dMel 音訊 + 40×40 patch hMLP + flow head，延遲達 200ms；Gemma 4 的 12B 為了裝置端記憶體，獨立捨棄 305M 音訊 conformer——兩個實驗室、兩種動機、相同結論，代價則是經測量的密集文字視覺退化"
 tag: Concept
-topic: interaction
+domain: interaction-multimodal
 tags:
   - llm-architecture
   - multimodal
-readingTime: 3
-imageAlt: Encoder-Free Early Fusion 概念示意圖
+readingTime: 6
+imageAlt: 無編碼器早期融合插圖
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
 ---
 export { default as heroImage } from "../assets/encoder-free-early-fusion.png";
 
 ## 資料來源
 
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
 
 ## 摘要
 
-[Interaction Models](/articles/interaction-models) 中的一項多模態設計選擇：不再將音訊和視訊路由到大型獨立編碼器（也不再透過獨立的 TTS 類解碼器輸出音訊），而是使用**最少預處理**搭配**單一 transformer**，所有元件從頭共同訓練。「Encoder-free」是相對的說法——仍有輕量嵌入層——但不存在 Whisper 規模的音訊編碼器或獨立的 TTS 模型。
+[互動模型](/articles/interaction-models)中的一項多模態設計選擇：不把音訊與視訊送進大型、獨立的編碼器（也不透過獨立的類 TTS 解碼器輸出音訊），而是採用**最少前處理**與一個**單一 transformer**，讓所有元件從頭共同訓練。「無編碼器」是相對而言的——仍有輕量的嵌入層——但沒有 Whisper 規模的音訊編碼器，也沒有獨立的 TTS 模型。
 
-## 各元件（單次 200ms micro-turn）
+## 元件（一次 200ms 微回合）
 
-輸入（文字 / 影像幀 / 音訊的任意子集）：
-- **文字** → token 嵌入（標準做法）。
-- **影像 / 視訊幀** → 切分為 **40×40 patches**，由 **hMLP** 編碼（[Touvron et al. 2022](https://arxiv.org/abs/2203.09795)）。
-- **音訊** → 以 **dMel** 表示（[Bai et al. 2024](https://arxiv.org/abs/2407.15835)），經輕量嵌入層（「bag of embeddings」）轉換。
+輸入（文字／畫格／音訊的任意子集）：
+- **文字** → token embedding（標準）。
+- **影像／視訊畫格** → 切分成 **40×40 patches**，由 **hMLP** 編碼（[Touvron et al. 2022](https://arxiv.org/abs/2203.09795)）。
+- **音訊** → 以 **dMel** 輸入（[Bai et al. 2024](https://arxiv.org/abs/2407.15835)），再由輕量嵌入層（「embedding bag」）轉換。
 
-單一共享 **Transformer** 消化融合後的輸入。
+單一共享的 **Transformer** 消化融合後的輸入。
 
 輸出：
-- **文字** → unembedding（標準做法）。
-- **音訊** → 透過 **flow head**（[Lipman et al. 2022](https://arxiv.org/abs/2210.02747)）產生 mel。
+- **文字** → unembedding（標準）。
+- **音訊** → 產生 mel 的 **flow head**（[Lipman et al. 2022](https://arxiv.org/abs/2210.02747)）。
 
-**所有元件與 transformer 從頭共同訓練**——並非由預訓練編碼器/解碼器拼接而成。
+**所有元件都與 transformer 一起從頭共同訓練**——不是把預訓練編碼器／解碼器拼接起來。
 
 ## 為何重要
 
-- 避免大型獨立編碼器/解碼器帶來的延遲與複雜度——當你每 200ms 就要執行一次時尤為關鍵（見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）。
-- Early fusion（所有模態進入同一個 transformer）意味著模型能跨模態聯合推理，而非僅對編碼器預消化的輸出進行推理——這是實現「一邊說話一邊對視覺線索做出反應」等能力的前提（見 [Full-Duplex Interaction](/articles/full-duplex-interaction)）。
-- 從頭共同訓練符合 [The Bitter Lesson](/articles/the-bitter-lesson) 的精神：減少手工設計的模組邊界，更多端到端學習。
+- 避免大型獨立編碼器／解碼器的延遲與複雜度——當你每 200ms 都必須執行一次時尤其重要（見[時間對齊微回合](/articles/time-aligned-micro-turns)）。
+- 早期融合（所有內容進入同一個 transformer）意味著模型能跨模態共同推理，而不是只處理已由編碼器消化的輸出——這是「一邊說話、一邊對視覺提示做出反應」等能力的先決條件（見[全雙工互動](/articles/full-duplex-interaction)）。
+- 從頭共同訓練符合[苦澀教訓](/articles/the-bitter-lesson)：減少人手設計的模組邊界，增加端到端學習。
+
+## 獨立佐證：Gemma 4 12B（2026 年 7 月）
+
+上述設計原本只建立在單一來源與單一實驗室之上。[Gemma 4](/articles/gemma-4)（`empirical`）從無關的起點得到相同架構——而這是更有趣的一致，因為兩者的*動機*不同。
+
+TML 移除編碼器，是為了達到 **200 ms 延遲預算**。DeepMind 移除編碼器，則是為了**記憶體**：在邊緣硬體上「減輕對獨立編碼器的需求，並降低記憶體碎片化」。結論相同，理由正交。當兩個以不同目標最佳化的實驗室都收斂到刪除同一元件時，該元件可能並非承重元件。
+
+Gemma 4 12B 的實作：
+
+- **視覺。** 將 48×48×3 RGB patches 通過**單一 35M 矩陣乘法**，取代 550M ViT。在最後一個 LayerNorm 之前，將以 2D 座標為基礎的位置嵌入加入 patch 表徵。
+- **音訊。** 305M、以 USM 為基礎的 conformer 被**完全捨棄**。原始 16 kHz 音訊被切成 40 ms 的區塊——每個是 640 維向量——再直接投影到 LLM 嵌入空間。完全不加入位置編碼：音訊本來就是時間序列。
+
+Table 8 就是證據。無編碼器的 12B 在英文 FLEURS ASR 上達到 **0.063 WER**，在 CoVoST de→en 上達到 **41.9 CorpusBLEU**；相較之下，擁有編碼器的 E4B 分別為 0.065 與 42.0。依這些數字來看，丟掉 305M conformer 沒有付出任何代價。DeepMind 自己的說法是：「不需要專用音訊編碼器，也能達到具競爭力的音訊文字效能。」
+
+### 報告未提及的兩項保留
+
+**這不是受控消融實驗。** 無編碼器模型是**12B**；有編碼器的比較對象是**具 4.5B 有效規模的 E4B**。12B 擁有更多 LLM 容量，可以吸收被捨棄編碼器原本負責的工作。*「不使用編碼器仍可達到具競爭力的效能」*這項主張獲得支持。更強的主張——*「移除編碼器不需付出代價」*——在論文任何地方都沒有測試；同規模的對照組就能定案，但並未執行。
+
+**確實存在經測量的退化，而且很具體。** 將視覺 token 從 1120（Table 6）削減至 280（Table 12）後，12B 的退化程度**不符合規模排序**：
+
+| 模型 | InfographicVQA Δ | OmniDocBench 1.5 Δ（↓ 越好） |
+|---|---|---|
+| 31B | −9.2 | +0.070 |
+| 26B-A4B | −11.5 | +0.120 |
+| **12B（無編碼器）** | **−29.7** | **+0.244** |
+| E4B | −15.2 | +0.126 |
+| E2B | −19.3 | +0.206 |
+
+12B 的跌幅比比它更大與更小的模型都嚴重——這是整個家族唯一違反排序的成員，而它也是唯一的無編碼器成員。這個效應侷限於**影像中的密集文字**任務：MMMU Pro（−1.4）與 MATH-Vision（−3.0）的退化則符合正常情況。一種合理解讀是，35M 線性投影不進行特徵壓縮，因此模型必須把解析度花在 ViT 原本會花參數的地方。如此一來，讀取小字就受 token 預算限制。
+
+如果這個解讀正確，無編碼器並非免費——它**用視覺 token 換取編碼器參數**，這是[推理成本](/articles/inference-efficiency-as-capability)的取捨，而不是節省。報告既未回報，也未評論這項反轉。
 
 ## 相關連結
 
-- [Interaction Models](/articles/interaction-models) — 上層概念
-- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — 為何最少預處理是硬性需求（200ms 預算）
-- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 架構的另一半
-- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 跨模態聯合推理使視覺＋音訊插話成為可能
-- [The Bitter Lesson](/articles/the-bitter-lesson) — 「從頭共同訓練、捨棄模組化編碼器」正是 bitter-lesson 的實踐
+- [互動模型](/articles/interaction-models) — 父概念
+- [時間對齊微回合](/articles/time-aligned-micro-turns) — 為何最少前處理是硬性要求（200ms 預算）
+- [互動／背景模型分離](/articles/interaction-background-model-split) — 架構的另一半
+- [全雙工互動](/articles/full-duplex-interaction) — 聯合多模態推理正是視覺＋音訊插話成為可能的原因
+- [苦澀教訓](/articles/the-bitter-lesson) — 「從頭共同訓練，捨棄模組化編碼器」是苦澀教訓式的做法
 - [TML-Interaction-Small](/articles/tml-interaction-small) — 實作此設計的模型（dMel 音訊、40×40 hMLP patches、flow head），從頭共同訓練
+- [Gemma 4](/articles/gemma-4) — 第二個獨立實例：直接捨棄其 305M 音訊 conformer 的 12B 開放權重模型
+- [推理效率即能力](/articles/inference-efficiency-as-capability) — DeepMind 的動機是記憶體而非延遲；而密集文字退化暗示，節省其實是參數換 token 的取捨
+- [開放權重前沿差距](/articles/open-weight-frontier-gap) — 移除編碼器是讓小型 dense 模型仍能競爭的槓桿之一
+
+## 開放問題
+
+- **在匹配規模下，無編碼器模型仍能匹敵嗎？** 兩個來源都沒有執行這項消融。TML 從頭共同訓練所有內容；Gemma 4 在四個模型上凍結編碼器、在一個模型上移除編碼器，而且規模不同。
+- 密集文字退化是投影式視覺路徑的內在特性，還是 12B 特定訓練執行的產物？這項預測可以證偽：無編碼器 31B 應在 280 tokens 下呈現相同的 InfographicVQA 斷崖。
+- TML 同時刪除編碼器，並從頭共同訓練。Gemma 4 同時刪除編碼器，並從頭訓練 12B，但在其他地方保留凍結的編碼器。「無編碼器 + 從頭開始」的哪一半真正發揮作用？
 
 ## 資料來源
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.3（無編碼器架構）、Table 8（無編碼器的音訊）、Tables 6 & 12（280 與 1120 視覺 token 的退化）(`empirical`)

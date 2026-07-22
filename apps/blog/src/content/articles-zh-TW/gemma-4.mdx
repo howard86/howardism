@@ -1,0 +1,94 @@
+---
+date: 2026-07-09
+title: Gemma 4
+description: "Google DeepMind 於 2026 年 7 月推出的開放權重多模態家族（Apache
+  2.0）：2.3B–31B dense，加上一個 26B/4B-active MoE，新增思考模式、一個完全捨棄音訊編碼器的無編碼器 12B 模型，以及深度推論效率技術堆疊（KV cache 減少 37.5%、QAT 降至次 GB、MTP 草稿器）；
+  Arena 排名 43，頂尖的 *dense* 開放模型"
+tag: Entity
+domain: entities
+entityType: model
+tags:
+  - entity
+  - llm-model
+  - open-weights
+  - multimodal
+readingTime: 7
+imageAlt: Gemma 4 插圖
+sources:
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+---
+export { default as heroImage } from "../assets/gemma-4.png";
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+
+## 它是什麼
+
+[Google DeepMind](/articles/google-deepmind) 第四代**開放權重**模型家族，於 2026-07-02 以 **Apache 2.0** 授權發布（arXiv 2607.02770）。原生支援多模態（文字、影像、音訊），明確以「多樣化硬體環境」和「邊緣部署」為目標，而非追求前沿能力。
+
+五個模型：
+
+| 模型 | 參數 | 備註 |
+|---|---|---|
+| E2B | 2.3B effective（總計 5B） | 每層嵌入、150M 視覺 + 305M 音訊編碼器 |
+| E4B | 4.5B effective（總計 8B） | 每層嵌入、相同編碼器 |
+| 12B | 12B dense | **無編碼器**——沒有視覺或音訊編碼器 |
+| 26B-A4B | 總計 26B／啟用 3.8B | Mixture-of-Experts、550M 視覺編碼器 |
+| 31B | 31B dense | 550M 視覺編碼器，旗艦模型 |
+
+僅解碼器 Transformer，採用 pre-norm + post-norm RMSNorm、QKNorm。262k 項 SentencePiece 詞彙表。預訓練資料截止於 **2025 年 1 月**——距離發布十八個月。模型在 TPU v5p/v6e 上訓練（4,096–12,288 個晶片），使用 Slice-Granularity Elasticity，將局部晶片故障造成的停頓從「數分鐘」縮短至「幾秒」。
+
+## 真正的新意
+
+四件事，大致依重要性由高到低排列。
+
+**開放權重加入思考模式。** Gemma 4 會在回應前輸出推理軌跡，透過開頭 system turn 中的 `<|think|>` 控制 token 啟用。這是 [測試時運算](/articles/large-scale-test-time-compute) 軸線延伸至任何人都能下載並執行的模型家族。值得注意的是，任何人都能切換這個 token——請參見[開放權重誘發不可逆性](/articles/open-weight-elicitation-irreversibility)。
+
+**12B 捨棄其編碼器。** 視覺方面：48×48×3 RGB patch 經過單一 35M 矩陣乘法與 2D 座標位置嵌入，取代 550M ViT。音訊方面：305M USM conformer **完全捨棄**；原始 16 kHz 音訊被切成 40 ms 區塊（640 維向量），直接投影到 LLM 嵌入空間，完全不使用位置編碼，因為音訊本身已是時間序列。這以不同原因，在第二個實驗室中印證了[無編碼器早期融合](/articles/encoder-free-early-fusion)。
+
+**深度推論效率技術堆疊。** KV cache 減少 37.5%，量化降至次 GB，並發布 speculative-decoding drafter head。詳見[推論效率即能力](/articles/inference-efficiency-as-capability)——這正是本報告值得收入 wiki 的原因。
+
+**它在前沿能力上並不具競爭力，而且報告也明說如此。** 在 Arena Text（2026 年 6 月 19 日）上，Gemma 4 31B 排名 **43，Elo 1451 ±8**——領先的 *dense* 開放模型；比排名第一、位於[Claude Fable 5](/articles/claude-fable-5) 的模型低 57 Elo，也落後六個規模是其 20–50 倍的 MoE 開放模型。請參見[開放權重前沿差距](/articles/open-weight-frontier-gap)。
+
+## 仔細閱讀基準測試表格
+
+報告的標題式比較（表 5）將**思考模式的 Gemma 4**與**非思考模式的 Gemma 3 27B**相比，而論文中任何地方都沒有出現同一 Gemma 4 模型的 thinking-vs-non-thinking 消融實驗。因此，生成量差異與推論預算差異在引用最多的表格中混為一談——這正是[運算控制基準測試](/articles/compute-controlled-benchmarking)所描述的失效模式。長上下文表格（表 9）則是雙方都在不思考模式下執行，是文件中唯一乾淨的世代比較。
+
+對照論文自身文字的三項檢查：
+
+- **「E2B 以少 10 倍參數大致匹敵 Gemma 3 27B」**呈現鋸齒狀，而非平坦。E2B 在 AIME 2026（37.5 對 20.8）、Codeforces Elo（633 對 110）、LiveCodeBench v6（44.0 對 29.1）勝出；在兩項廣泛知識基準——MMLU Pro（60.0 對 67.6）與 MMMLU（67.4 對 70.7）——以及 τ²-airline（31.0 對 39.0）上則**落敗**。推理可以壓縮；儲存的知識不行。請參見[鋸齒狀智慧（鬼魂，而非動物）](/articles/jagged-intelligence)。
+- **「E4B 在所有[視覺] evals 上等於或超越 Gemma 3 27B」**大致成立，InfographicVQA 除外（70.0 對 70.6）。
+- **無編碼器 12B 在裁減視覺 token 時，隨規模呈現反常的退化。** 視覺 token 從 1120 降至 280，使 12B 在 InfographicVQA 上損失 −29.7 分（88.4 → 58.7），跌幅比 31B（−9.2）、26B-A4B（−11.5），甚至較小的 E4B（−15.2）與 E2B（−19.3）都更陡。OmniDocBench 1.5 顯示相同反轉（12B +0.244 error，為整個家族最差）。這項異常僅限於影像中密集文字的任務；MMMU Pro 與 MATH-Vision 的退化則正常。論文沒有評論此事。已記錄於[無編碼器早期融合](/articles/encoder-free-early-fusion)。
+
+家族底端的能力斷崖非常陡峭。Humanity's Last Exam：31B 為 19.5、26B-A4B 為 8.7、12B 為 5.2，兩個小模型未報告。GraphWalks F1：E2B 得分 **4.1**，而 Gemma 3 27B 為 32.8。
+
+## 安全性：文件內部的證據層級下降
+
+報告整體標示為 `evidence: empirical`——包含十六張測量結果表格。第 5 節包含**零張表格**。其中的安全性主張都是敘述文字：「我們在每一類內容安全性上都看到重大改善」、「Gemma 4 模型在提升安全性的同時維持低度的不合理拒答，表現顯著優於 Gemma 3 與 3n 模型」、「模型產生的政策違規極少」。沒有數字、沒有基準名稱，也沒有運算預算。
+
+即使其周邊的能力主張屬於 empirical，仍應將這些內容視為 `vendor-claim`。這裡的差距比平常更重要，因為權重公開且永久存在——請參見[開放權重誘發不可逆性](/articles/open-weight-elicitation-irreversibility)。
+
+## 相關連結
+
+- [推論效率即能力](/articles/inference-efficiency-as-capability)——報告真正的貢獻：五個降低單位推論成本的槓桿
+- [無編碼器早期融合](/articles/encoder-free-early-fusion)——Gemma 4 12B 是這項設計的第二個獨立實例，也是第一個達到開放權重規模的實例
+- [開放權重前沿差距](/articles/open-weight-frontier-gap)——Gemma 4 實際上在開放 MoE 巨型模型與封閉前沿之間的位置
+- [開放權重誘發不可逆性](/articles/open-weight-elicitation-irreversibility)——思考模式、公開權重，以及未製表的安全性 evals
+- [運算控制基準測試](/articles/compute-controlled-benchmarking)——表 5 是混淆因素的完整示例
+- [鋸齒狀智慧（鬼魂，而非動物）](/articles/jagged-intelligence)——「少 10 倍參數」的主張呈現鋸齒狀：推理能壓縮，知識不能
+- [Google DeepMind](/articles/google-deepmind)——這個實驗室；Gemma 是其開放權重產品線，與 Gemini 有別
+- [大規模測試時運算](/articles/large-scale-test-time-compute)——思考模式是這條軸線延伸到開放權重
+- [苦澀的教訓](/articles/the-bitter-lesson)——報告既遵循它（移除編碼器），又違背它（手工設計推論路徑）
+- [GLM（Z.AI）](/articles/glm)——另一個 2026 年開放權重家族，採取相反策略：在 750B-A40B 追求前沿能力，而 Gemma 在 31B 追求效率
+
+## 待解決的問題
+
+- 為什麼**MoE 表現不如 dense 模型**？Gemma 4 26B-A4B 在 Arena 上的 Elo 為 1438，而 31B 為 1451；儘管他們自己的表格中，每個更大型的開放模型都採用 MoE 架構。論文未處理此問題。
+- 預訓練截止時間是**2025 年 1 月**，但模型在 **AIME 2026** 上報告 89.2。報告表示資料經過篩選，以「去污染基準」。對於一場在截止時間之後舉行的競賽，這究竟留下了什麼？
+- 無編碼器 12B 的密集文字退化，是 35M 投影未進行特徵壓縮造成的，還是特定於 12B 訓練執行？一項同規模的編碼器／無編碼器消融實驗可以解決此問題；論文完全沒有執行。
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)——*Gemma 4 Technical Report*，Gemma Team、Google DeepMind（arXiv 2607.02770，2026-07-02）。能力部分為 `empirical`；§5 的安全性主張是未製表的敘述文字，因此視為 `vendor-claim`。

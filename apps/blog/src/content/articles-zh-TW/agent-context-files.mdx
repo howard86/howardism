@@ -1,16 +1,19 @@
 ---
 date: 2026-05-25
-title: Agent 脈絡檔案
-description: "跨供應商的 markdown-as-control-plane 模式：版本控制的專案庫純文字（CLAUDE.md / AGENTS.md / SOUL.md / WORKFLOW.md / SPEC.md / .cursorrules）用以配置 agent 行為，在專案、個性、工作流、規格層之間按角色拆分"
+title: Agent Context Files
+description: "跨供應商的 markdown-as-control-plane 模式：存放於儲存庫版本控制中的
+  純文字檔案（CLAUDE.md / AGENTS.md / SOUL.md / WORKFLOW.md / SPEC.md /
+  .cursorrules），依 project / personality / workflow / spec 層級按角色
+  設定代理程式行為"
 tag: Concept
-domain: ai-engineering
+domain: agent-systems
 tags:
   - agent-engineering
   - harness
   - workflow-design
   - control-plane
-readingTime: 8
-imageAlt: Agent 脈絡檔案的插圖
+readingTime: 9
+imageAlt: Agent Context Files 插圖
 sources:
   - title: Tips & Best Practices
     url: https://hermes-agent.nousresearch.com/docs/guides/tips
@@ -20,11 +23,14 @@ sources:
     url: https://openai.com/index/open-source-codex-orchestration-symphony/
   - title: "Harness engineering: leveraging Codex in an agent-first world"
     url: https://openai.com/index/harness-engineering/
+  - title: "A Field Guide to Fable: Finding Your Unknowns"
+    url: https://x.com/trq212/status/2073100352921215386
 ---
 export { default as heroImage } from "../assets/agent-context-files.png";
 
 ## 資料來源
 
+- [A Field Guide to Fable: Finding Your Unknowns](https://x.com/trq212/status/2073100352921215386)
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
 - [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
 - [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
@@ -32,87 +38,94 @@ export { default as heroImage } from "../assets/agent-context-files.png";
 
 ## 摘要
 
-在每一個主要的 2026 年 agent 生態系統中，agent 行為的配置方式都相同：在 session 開始時讀入 system prompt（或渲染到 prompt template 中）的**受版本控制的專案庫純文字 markdown 檔案**。CLAUDE.md、AGENTS.md、SOUL.md、WORKFLOW.md、SPEC.md 和 .cursorrules 都是同一個本質，只是名稱不同。這種趨勢收斂的強度已使其看起來像是一個新興標準：agent 的行為合約是一個**受版本控制的、可檢查的、人類與機器皆可讀的文字檔**，而不是程式碼、資料庫或對話歷史記錄。
+在 2026 年各大代理程式生態系中，代理程式行為都以相同方式設定：**儲存庫版本控制的純文字 markdown 檔案**會在工作階段開始時讀入系統提示（或渲染至提示範本）。`CLAUDE.md`、`AGENTS.md`、`SOUL.md`、`WORKFLOW.md`、`SPEC.md` 和 `.cursorrules` 是同一種基礎原語，只是名稱不同。這種趨同已強烈到足以看似一項正在形成的標準：代理程式的行為契約是**具版本控制、可檢視、同時可供人與機器讀取的文件**，不是程式碼、資料庫，也不是聊天記錄。
 
-本頁面將此模式正式化，並比較各個供應商的角色拆分。它是分層 [control-plane stack](/articles/agent-control-plane-patterns) 中的「policy plane」——脈絡檔案管理 agent 在工作範疇內*如何*運作，這與 ticket layer（執行*什麼*）和 loop/daemon layer（*執行*）不同。
+本頁將此模式正式化，並比較不同供應商之間的角色分工。它是分層[控制平面堆疊](/articles/agent-control-plane-patterns)中的「政策平面」——情境檔案管理工作範圍內代理程式的*行為方式*，有別於工單層（*執行什麼*）以及迴圈／常駐程式層（*執行*）。
 
-## The pattern
+## 模式
 
-脈絡檔案是同時滿足以下四個屬性的純文字：
+情境檔案同時滿足以下四項特性：
 
-- **Versioned** — 存在於專案庫中（或 dotfile 家目錄），由 git 進行追蹤，並像程式碼一樣進行審查。
-- **Inspectable** — 人類可以閱讀它，並確切知道 agent 是如何配置的。
-- **Loaded deterministically** — 在每個 session 開始時自動注入（最上層）或根據需求延遲載入（子目錄），因此行為是可重現的。
-- **Dual-audience** — 同時為 agent（作為指令）和人類（作為先前無人記錄的隱性流程的文件）編寫。
+- **具版本控制**——存在於儲存庫（或 dotfile home）中，由 git 追蹤，像程式碼一樣接受審查。
+- **可檢視**——人類可以閱讀它，並確切知道代理程式的設定方式。
+- **以確定性方式載入**——每個工作階段自動注入（頂層），或按需求延遲載入（子目錄），因此行為可重現。
+- **雙重受眾**——同時寫給代理程式（作為指示）與人類（作為先前沒有人記錄下來的隱性流程文件）。
 
-此模式能發揮作用的最深層原因在於最後一點：脈絡檔案捕捉了*人類遵循但從未記錄的流程*。Symphony 的框架——「處理 issue、簽出（check out）專案庫、將其設為進行中（in progress）、新增 PR、將其移至 Review、附加影片——現在都記錄在一個簡單的 WORKFLOW.md 中」——是 **prompt-as-policy** 的經典陳述。編輯該檔案即可在下一次渲染時編輯行為；無需修改程式碼。
+這個模式之所以有效，最深層的原因正是最後一點：情境檔案捕捉了*人類遵循、卻從未記錄的流程*。Symphony 的說法——「處理一張工單、簽出儲存庫、將它移至進行中、加入 PR、移至 Review、附上影片——現在都記錄在簡單的 `WORKFLOW.md` 中」——是**以提示作為政策**的典型表述。編輯檔案就會在下一次渲染時編輯行為；不需要變更程式碼。
 
-## Role split across vendors
+## 不同供應商的角色分工
 
-這些檔案分為四個角色——**專案脈絡（project context）**、**個性（personality）**、**工作流/流程（workflow/process）**和**產品規格（product spec）**——儘管沒有任何一家單一供應商會單獨歸檔這全部四種角色。
+這些檔案可依四種角色分開——**專案情境**、**個性**、**工作流程／程序**與**產品規格**——但沒有任何單一供應商將四者完全分開存放。
 
 | 角色 | Claude Code | Hermes ([Hermes Agent](/articles/hermes-agent)) | Codex / [Symphony](/articles/symphony) |
 |---|---|---|---|
-| 專案脈絡 | CLAUDE.md | AGENTS.md (cwd) | AGENTS.md |
-| 個性 / 聲調 | （隱含在 CLAUDE.md 中） | SOUL.md (全域，~/.hermes/) | — |
-| 工作流 / 流程 | hooks + CLAUDE.md 規則 | — | WORKFLOW.md (每個團隊的 prompt template，YAML front matter) |
-| 產品規格 | — | — | SPEC.md（定義 orchestrator 本身） |
-| 編輯器相容性 | — | .cursorrules / .cursor/rules/*.mdc | — |
-| 記憶（相關，非 policy） | 對話 + CLAUDE.md | 有界的 MEMORY.md (~2,200 字元) + USER.md (~1,375 字元) | filesystem-driven |
+| 專案情境 | `CLAUDE.md` | `AGENTS.md` (cwd) | `AGENTS.md` |
+| 個性／語調 | （隱含於 `CLAUDE.md`） | `SOUL.md`（全域，`~/.hermes/`） | — |
+| 工作流程／程序 | hooks + `CLAUDE.md` 規則 | — | `WORKFLOW.md`（每個團隊的提示範本，含 YAML front matter） |
+| 產品規格 | — | — | `SPEC.md`（定義協調器本身） |
+| 編輯器相容性 | — | `.cursorrules` / `.cursor/rules/*.mdc` | — |
+| 記憶（相關但非政策） | conversation + `CLAUDE.md` | 有界的 `MEMORY.md`（約 2,200 個字元）+ `USER.md`（約 1,375 個字元） | 由檔案系統驅動 |
 
 關鍵觀察：
 
-- **Hermes 做了最明確的拆分**：AGENTS.md（專案）與 SOUL.md（全域個性）。Claude Code 將兩者合併為一個 CLAUDE.md；個性與專案之間的區別在實踐中是隱含的，但從未單獨歸檔。這種拆分值得借鑑——它能讓穩定的聲調在多個專案中保持一致，同時專案脈絡依然保留在專案庫本地。
-- **Symphony 在 session 之上引入了兩個新層**：WORKFLOW.md（編排時流程（orchestration-time process），在使用者專案庫中進行版本控制，經解析以用於執行階段配置 + Liquid prompt template 主體）和 SPEC.md（產品定義——當您打開 Symphony 專案庫時，首先看到的是規格，而不是原始碼）。這些是*編排*層而非 *session* 層的脈絡檔案。
-- **.cursorrules 是相容性介面** — Hermes 會從 cwd 自動載入它，因此使用者不需要重複現有的 Cursor 配置。
+- **Hermes 的分工最鮮明**：`AGENTS.md`（專案）對上 `SOUL.md`（全域個性）。Claude Code 將兩者都整合進單一 `CLAUDE.md`；個性／專案的區別在實務上是隱含的，但從未分開存放。這種分工值得複製——它讓穩定的語調能跨專案持續存在，同時讓專案情境維持在儲存庫本地。
+- **Symphony 在工作階段之上引入兩個新層級**：`WORKFLOW.md`（協調時的程序，在使用者儲存庫中受版本控制，解析為執行時設定 + Liquid 提示範本本文）以及 `SPEC.md`（產品定義——開啟 Symphony 儲存庫時，第一個看到的是規格，而不是原始碼）。這些是位於*協調層*而非*工作階段層*的情境檔案。
+- **`.cursorrules` 是相容性介面**——Hermes 會從 cwd 自動載入它，因此使用者不必重複既有的 Cursor 設定。
 
-## Loading discipline: budget-aware injection
+## 載入紀律：考量預算的注入
 
-脈絡檔案會競爭 [context window](/articles/context-window-smart-zone)，因此載入方式越來越分層：
+情境檔案會爭用[情境視窗](/articles/context-window-smart-zone)，因此載入方式日益分層：
 
-- **Top-level, eager**：根目錄的 CLAUDE.md / AGENTS.md 在每個 session 都會被注入到 system prompt 中。
-- **Subdirectory, lazy**：Hermes 在 *tool calls* 期間（subdirectory_hints.py）發現巢狀的 AGENTS.md 檔案，並且僅在相關時將它們注入到工具結果中——僅在 agent 實際在該目錄中工作時才支付 token cost。這就是「AGENTS.md 作為目錄」的規範：最上層是一張地圖，巢狀脈絡則按需獲取。
-- **Cache-stable**：在 session 內保持脈絡檔案不變可以保留 system-prompt prefix cache。出於這個原因，Hermes 明確警告不要在 session 中途更改脈絡檔案或模型。
+- **頂層、主動載入**：根目錄的 `CLAUDE.md` / `AGENTS.md` 會在每個工作階段注入系統提示。
+- **子目錄、延遲載入**：Hermes 會在工具呼叫期間（`subdirectory_hints.py`）發現巢狀的 `AGENTS.md` 檔案，並只在相關時將它們注入工具結果——只有代理程式確實在該目錄工作時，才支付 token 成本。這就是「AGENTS.md 作為目錄」的紀律：頂層是地圖，巢狀情境則按需求擷取。
+- **快取穩定**：在工作階段內保持情境檔案不變，可以保留系統提示前綴快取。Hermes 明確警告，基於這個原因，不要在工作階段中變更情境檔案或模型。
 
-伴隨而來的規範是**修剪（pruning）**：CLAUDE.md 應該僅包含 agent *無法*從程式碼中推斷出來的內容。隨著模型改進，檔案會縮小——參見 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)。過度設計（over-specified）的脈絡檔案是公認的失敗模式（將確定性規則轉換為 hooks；刪除模型已經正確執行的任何內容）。
+相應的紀律是**修剪**：`CLAUDE.md` 應只包含代理程式*無法從程式碼推斷*的內容。隨著模型進步，檔案會縮小——請參閱[模型進步時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)。過度規範的情境檔案是已知的失敗模式（將確定性規則轉換為 hooks；刪除模型已能正確處理的任何內容）。
 
-## Where context files sit in the control plane
+## 情境檔案在控制平面中的位置
 
-脈絡檔案是**策略（policy），而非工作圖（work graph）**。它們非常擅長處理不變量（invariants）、約定、角色邊界和流程；但不擅長編碼工作的*即時狀態*。SPEC.md 可以定義 Symphony，但無法告訴背景程式（daemon）目前哪個 issue 已解除封鎖；AGENTS.md 可以告訴 Hermes 專案庫是如何運作的，但無法挑選下一個客戶請求。 [control-plane 分析](/articles/agent-control-plane-patterns)對它們進行了精確的定位：
+情境檔案是**政策，不是工作圖譜**。它們非常適合表達不變條件、慣例、角色邊界與流程；不適合編碼工作的*即時狀態*。`SPEC.md` 可以定義 Symphony，卻無法告訴常駐程式目前哪張工單已解除阻塞；`AGENTS.md` 可以告訴 Hermes 儲存庫如何運作，卻不會挑選下一個客戶請求。[控制平面分析](/articles/agent-control-plane-patterns) 將它們精確地放置如下：
 
-- **Tickets** 是持久的工作圖（哪些在執行、哪些被封鎖、哪些已完成）。
-- **Loops / daemons** 是執行引擎。
-- **Context files are the policy plane** — 受版本控制的行為合約。
-- **Memory files** 是有界的召回（建議性，而非權威性）。
+- **工單**是持久的工作圖譜（執行什麼、什麼遭到阻塞、什麼已完成）。
+- **迴圈／常駐程式**是執行引擎。
+- **情境檔案是政策平面**——具版本控制的行為契約。
+- **記憶檔案**是有界的回憶（供參考，不具權威性）。
 
-prompt-as-policy 的脆弱性在於它無法*強制執行*，只能引導。Symphony 的解決方案是將硬性不變量保留在提示詞之外（工作空間路徑驗證（workspace-path validation）、並行限制（concurrency caps）、終端狀態清理、重試退避（retry backoff）、憑證代理（credential proxying）），而 WORKFLOW.md 提示詞則說明 agent *應該*做什麼。規格說明要做什麼；orchestrator 則強制執行絕不能違反的規則。這與「[enforce invariants, not implementations](/articles/agent-harness-engineering)」的劃分相同——脈絡檔案是建議性的那一半；hooks/orchestrator 不變量則是機械性的那一半。
+以提示作為政策的脆弱之處，在於它無法*強制執行*——只能指示。Symphony 的答案是將硬性不變條件保留在提示之外（工作區路徑驗證、並行上限、終端狀態清理、重試退避、憑證代理），同時讓 `WORKFLOW.md` 提示說明代理程式*應該*做什麼。規格說明該做什麼；協調器強制執行不可違反的事項。這與[「強制執行不變條件，而非實作」](/articles/agent-harness-engineering)是相同的分工——情境檔案是建議性的一半；hooks／協調器不變條件則是機械性的一半。
 
-## Spec-as-document, one layer deeper
+## 規格即文件，再深入一層
 
-此模式向上延伸。同樣的「純文字規格作為承載任務的產出物（load-bearing artifact）」本能出現在對齊層（[Model Spec / Constitution](/articles/claude-constitution)），甚至作為*訓練輸入*（model-spec-midtraining）。Symphony 的規格模糊測試（spec-fuzzing）技術——將 SPEC.md 編譯成六種語言，並利用跨實現的分歧來顯露模糊不清之處——是將 [LLM-as-compiler](/articles/llm-as-compiler-knowledge-base) 概念應用於脈絡檔案。其核心脈絡是：隨著程式碼變得廉價，**文件變成了產品**，而 agent 的工作就是編譯它。
+這個模式可以向上泛化。同一種「純文字規格作為承重構件」的直覺，會出現在對齊層（[Model Spec / Constitution](/articles/claude-constitution)），甚至也出現在*訓練輸入*（model-spec-midtraining）。Symphony 的規格模糊測試技術——將 `SPEC.md` 編譯成六種語言，並利用跨實作差異來暴露歧義——就是將[LLM 作為編譯器](/articles/llm-as-compiler-knowledge-base)的想法應用於情境檔案。貫穿其中的主線是：隨著程式碼變得廉價，**文件成為產品本身**，而代理程式的工作就是將它編譯出來。
 
-## 待解決的問題
+## 開放問題
 
-- 角色拆分會收斂於 Hermes 明確的專案/個性分離，還是像 Claude Code 一樣合併在單個檔案中？對於多專案使用者來說，一個獨立的 SOUL.md 式個性層似乎顯著更好，但這增加了一個需要維護的檔案。
-- 分層（project → workflow → spec → constitution）是否存在自然上限，還是每個新的自主性介面都會催生另一個脈絡檔案層級？
-- 當脈絡檔案和有界記憶檔案（bounded memory files）發生衝突時，應如何互動？記憶是會遺失且有快取延遲的；脈絡檔案具有權威性但卻是靜態的。哪一個會勝出，在什麼時候？
+- 角色分工會趨向 Hermes 明確的專案／個性分離，還是會像 Claude Code 一樣整合在單一檔案中？對多專案使用者而言，獨立的 `SOUL.md` 式個性層似乎嚴格更好，但也增加了一個需要維護的檔案。
+- 分層（專案 → 工作流程 → 規格 → 憲章）是否存在自然上限，還是每個新的自主介面都會產生另一層情境檔案？
+- 當情境檔案與有界記憶檔案互相矛盾時，兩者應如何互動？記憶會遺失資訊且快取延遲；情境檔案具權威性但保持靜態。何者勝出，以及何時勝出？
 
 ## 相關連結
 
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — CLAUDE.md 約定與無情修剪規範；此模式在 session 層的經典實例
-- [Hermes Agent](/articles/hermes-agent) — 最明確的角色拆分（AGENTS.md 專案對比 SOUL.md 個性），加上延遲子目錄注入（lazy subdirectory injection） and 有界記憶檔案（bounded memory files）
-- [Symphony](/articles/symphony) — 引入編排層（orchestration-layer）檔案：WORKFLOW.md (prompt-as-policy) 與 SPEC.md（產品即規格）
-- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 完整的 WORKFLOW.md prompt-as-policy 模式；脈絡檔案是 ticket layer 所調用的 policy plane
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — 脈絡檔案是「enforce invariants, not implementations」中建議性的那一半；AGENTS.md 作為目錄是一項測試架構規範（harness discipline）
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 為什麼脈絡檔案會隨著每次模型發布而縮小；在每次啟動時進行修剪
+- [Claude Code 最佳實務](/articles/claude-code-best-practices)——`CLAUDE.md` 慣例與毫不留情地修剪的紀律；此模式在工作階段層的典型實例
+- [Hermes Agent](/articles/hermes-agent)——最鮮明的角色分工（`AGENTS.md` 專案對上 `SOUL.md` 個性），加上延遲的子目錄注入與有界記憶檔案
+- [Symphony](/articles/symphony)——引入協調層檔案：`WORKFLOW.md`（以提示作為政策）與 `SPEC.md`（產品就是規格）
+- [以工單驅動的代理程式協調](/articles/ticket-driven-agent-orchestration)——完整呈現 `WORKFLOW.md` 的以提示作為政策模式；情境檔案是工單層所呼叫的政策平面
+- [代理程式 Harness 工程](/articles/agent-harness-engineering)——情境檔案是「強制執行不變條件，而非實作」的建議性一半；AGENTS.md 作為目錄是 Harness 紀律
+- [模型進步時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)——為何情境檔案會隨每次模型發布而縮小；每次啟動時都進行修剪
+- [迴圈工程](/articles/loop-engineering)——skills（`SKILL.md`）是其五個基礎原語之一——意圖「寫在外部」，讓迴圈能累積成果，而不是每個週期重新推導專案；狀態／記憶檔案是迴圈的第六個基礎原語（在執行之間存續的骨幹）；[Osmani](/articles/addy-osmani) 的「skill 是撰寫格式，plugin 是交付方式」進一步釐清了這項區別
+- [代理程式工作系統化](/articles/agentic-work-systematization)——使用資料證據顯示這種外部化情境原語正大規模採用：skills／plugins 是 Codex 使用者編碼持久程序情境的方式，從每週活躍使用者的 5.4% 攀升至 26.6%
+- [未知數是代理程式的瓶頸](/articles/unknowns-as-the-agentic-bottleneck)——模式的**反轉**：[Thariq Shihipar](/articles/thariq-shihipar) 的 `implementation-notes.md` 是一份由代理程式*為*人類撰寫的情境檔案，其中的 `Deviations` 區段記錄迫使它偏離計畫的邊界案例（「選擇保守選項、記錄下來，然後繼續前進」）
+- [情境優勢，而非品味](/articles/context-advantage-over-taste)——令人不適的解讀：如果人類的必要性是一種資訊不對稱，那麼每次撰寫情境檔案都會消耗其中一點
+- [AI 原生組織](/articles/ai-native-organization)——將模式從設定單一代理程式提升為編碼整家公司：[Tan](/articles/garry-tan) 的 skill-file-as-employee／resolver-table-as-org-chart 對映，是將情境檔案視為組織設計
+- [潛在空間與確定性空間](/articles/latent-vs-deterministic-space)——情境檔案是 Tan 雙面架構中潛在半部的引導機制
 
 ## 衍生內容
 
-- [Agent Control Plane Patterns: Tickets, Loops, Specs, and Memory Files](/articles/agent-control-plane-patterns) — 將脈絡檔案定位為分層 control-plane 堆疊（tickets / loops / specs / memory）中的策略層（policy layer）
+- [代理程式控制平面模式：工單、迴圈、規格與記憶檔案](/articles/agent-control-plane-patterns)——將情境檔案定位為分層控制平面堆疊中的政策層（工單／迴圈／規格／記憶）
 
 ## 資料來源
 
-- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips) — Claude Code 的 CLAUDE.md 指引
-- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant) — Hermes AGENTS.md / SOUL.md / memory 分割
-- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — WORKFLOW.md 與 SPEC.md
-- [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/) — 脈絡檔案作為測試架構基底（harness substrate）
+- [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips) — Claude Code 的 `CLAUDE.md` 指引
+- [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant) — Hermes 的 `AGENTS.md`／`SOUL.md`／記憶分工
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — `WORKFLOW.md` 與 `SPEC.md`
+- [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/) — 情境檔案作為 Harness 基礎
+- [A Field Guide to Fable: Finding Your Unknowns](https://x.com/trq212/status/2073100352921215386) — Thariq Shihipar，2026-07-04（`practitioner-opinion`）：`implementation-notes.md` 與 Deviations 記錄——此模式由代理程式撰寫、面向人類的反轉

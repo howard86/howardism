@@ -1,0 +1,138 @@
+---
+date: 2026-06-17
+title: Loop Engineering
+description: "透過設計負責提示代理的系統，取代自己作為代理提示者的角色：由五種產品原生基元（automations、worktrees、skills、connectors、sub-agents）加上外部記憶打造的遞迴目標迴圈；可跨 Codex 與 Claude Code，不受工具限制；槓桿點從提示撰寫轉向迴圈設計"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - automation
+  - ai-coding-workflow
+readingTime: 15
+imageAlt: Loop Engineering 插圖
+sources:
+  - title: Loop Engineering
+    url: https://addyosmani.com/blog/loop-engineering/
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: Thread by @AndrewYNg
+    url: https://x.com/AndrewYNg/status/2071988145667928442
+---
+export { default as heroImage } from "../assets/loop-engineering.png";
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Loop Engineering](https://addyosmani.com/blog/loop-engineering/)
+- [Thread by @AndrewYNg](https://x.com/AndrewYNg/status/2071988145667928442)
+
+## 摘要
+
+**迴圈工程，就是不再由你親自提示代理，而是設計一個負責提示它的系統。** 在 [Karpathy](/articles/andrej-karpathy) 時代，代理式編碼是人類一次只操作工具一個回合：輸入、閱讀，再次輸入。迴圈工程則將其反轉：你建立一個小型系統，找出工作、分派工作、檢查結果、記錄已完成事項，並決定下一步，然後讓*這個*系統去驅動代理。[Addy Osmani](/articles/addy-osmani) 2026 年 6 月的文章為這種實務命名，並描述了它的結構：**五種基元加上一個記憶場所。** 最尖銳、也最出人意料的主張是，這「不再真正是工具問題」——一年前，迴圈還是你必須永遠維護的一堆私有 bash；現在，這些零件已內建於產品中，而同一個*迴圈*可以在 Codex 應用程式或 [Claude Code](/articles/claude-code) 中運作，因為它們使用的是相同的基元。
+
+## 核心論點：停止提示，設計迴圈
+
+這篇文章建立在業界各自獨立、卻殊途同歸的兩段引言上：
+
+- **Peter Steinberger** ([Peter Steinberger](/articles/peter-steinberger))：「你不該再提示編碼代理了。你應該設計會提示代理的迴圈。」
+- **[Boris Cherny](/articles/boris-cherny)**（Claude Code 負責人）：「我不再提示 Claude 了。我讓迴圈持續運作，替我提示 Claude 並找出該做什麼。我的工作就是寫迴圈。」
+
+在這個框架中，迴圈是一個**遞迴目標**：你定義目的，代理持續迭代直到完成。每個迴圈的核心都是相同的四步循環——*行動、觀察、推理、重複*——代理做某件事、讀取回傳結果、根據目標判斷其意義，然後決定是否再次執行。
+
+迴圈工程位於 **harness 之上整整一層**（[Agent Harness Engineering](/articles/agent-harness-engineering)）：harness 是單一代理執行其中的環境；迴圈則是讓 harness 依計時器運作、產生輔助代理，並餵回自身。Osmani 公開表示懷疑——「現在還很早」——並強調成本方面的限制：token 使用量會大幅變動，取決於你是「token 充裕還是捉襟見肘」。
+
+## 五種基元，加上記憶
+
+迴圈需要五樣東西，再加上一個存放記憶的地方。每一項都對應到 Codex 應用程式與 Claude Code 現在提供的基元：
+
+1. **Automations**——自行執行的排程式探索與分類。讓迴圈成為*迴圈*而非一次性執行的心跳。→ [Agent Loop Pattern](/articles/agent-loop-pattern)
+2. **Worktrees**——隔離的平行 checkout，避免兩個代理在同一檔案上互相衝突（代理式版本的兩位工程師提交到同幾行程式碼）。→ [Agent Harness Engineering](/articles/agent-harness-engineering)
+3. **Skills**——將代理原本只能猜測的專案知識編碼在 `SKILL.md` 檔案中；兩種工具使用相同格式，而觸發隱式呼叫的是相符的*description*。→ [Agent Context Files](/articles/agent-context-files)
+4. **Plugins / connectors**——以 MCP 為基礎的整合，讓迴圈能接觸你的真實工具（問題追蹤器、資料庫、staging API、Slack），而不只限於檔案系統。→ [MCP and Computer Use](/articles/mcp-and-computer-use)
+5. **Sub-agents**——一個代理提出想法，*另一個*代理檢查；讓出題者替自己的作業評分，通常會過於寬容。→ [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)
+
+接著是第六樣東西：**memory**。可以是 markdown 檔案、Linear 看板，任何存在於*單一對話之外*、記錄已完成與待辦事項的東西。「代理會忘記，但 repo 不會。」這是所有長時間運作代理都依賴的相同磁碟上但不在上下文中的技巧（參見 [Agent Harness Engineering](/articles/agent-harness-engineering) 的「repository-as-system-of-record」，以及 [Agent Context Files](/articles/agent-context-files) 的 state-vs-policy 區分；[Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) 則是 Linear 看板形式）。
+
+## 與工具無關：Codex 應用程式 ≈ Claude Code
+
+文章的核心結構觀察是：**兩項產品現在都具備全部五種基元**，只是同一能力使用了不同名稱：
+
+| 基元 | 在迴圈中的工作 | Codex 應用程式 | Claude Code |
+|---|---|---|---|
+| Automations | 依排程探索與分類 | Automations 分頁 → Triage 收件匣；`/goal` 執行至完成 | 排程工作 / cron、`/loop`、`/goal`、hooks、GitHub Actions |
+| Worktrees | 隔離平行功能 | 每個 thread 一個 worktree | `git worktree`、`--worktree`、subagent 上的 `isolation: worktree` |
+| Skills | 編碼專案知識 | Agent Skills (`SKILL.md`)、`$name` 或隱式呼叫 | Agent Skills (`SKILL.md`) |
+| Connectors | 連接你的工具 | Connectors (MCP) + plugins | MCP servers + plugins |
+| Sub-agents | 發想 + 驗證 | `.codex/agents/` 中的 TOML agents | `.claude/agents/` 中的 subagents、agent teams |
+| State | 追蹤已完成事項 | markdown 或 Linear connector | markdown (`AGENTS.md`、progress files) 或 Linear MCP |
+
+結論是：「一旦你注意到它們的形狀相同，就不會再爭論該用哪個工具——你只需設計一個不論身處哪個工具都能運作的迴圈。」這是 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 在部署端的證據：過去存在於手工維護 bash harness 中的能力，正被**以具名基元的形式吸收到產品中**。Osmani 提到一個清楚的細節：skill 是*撰寫*格式，**plugin 是發佈方式**——將 skills + connectors 打包成 plugin，即可跨 repo 分享。
+
+Osmani 的文章發表兩週後，Google 提供了迄今最強的確認，證明迴圈與工具無關：其 [Agent Quality Flywheel](/articles/agent-quality-flywheel) 將完整的 eval-fix 迴圈（合成情境 → 評分 → 分析 → 提議修正 → 比較基準）作為可安裝的 **skill，由你現有的任何編碼代理驅動**——一家供應商為其他供應商的代理提供預先設計好的迴圈，並內建 [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) 的製作者／檢查者分工。
+
+## `/goal`：將製作者／檢查者分工套用到「完成」
+
+最接近整個概念的工作階段內基元是：`/loop` 依固定節奏重新執行，但 **`/goal` 會持續執行，直到你寫下的條件真的成立**——而且每個回合結束後，都由一個*獨立的小型模型*檢查是否完成，因此撰寫程式碼的代理不會同時負責評分。你給它「test/auth 中的所有測試都通過，而且 lint 沒有問題」，然後離開。Codex 提供相同的 `/goal`（可驗證的停止條件、暫停／繼續／清除）。這是將[製作者／檢查者分離](/articles/verification-as-the-new-bottleneck)套用到*停止條件本身*——也是你能信任迴圈無人值守地停止的原因。
+
+## 一個迴圈的樣子
+
+Osmani 描述的實際形狀是：每天早上由 automation 執行，呼叫一項 triage skill，讀取前一天的 CI 失敗、開放問題與近期提交，並將發現寫入 markdown 檔案或 Linear 看板。對每個值得處理的發現，thread 會開啟隔離 worktree，派遣 sub-agent 起草修正，再由*第二個* sub-agent 根據專案 skills 與現有測試審查草稿。Connectors 開啟 PR 並更新 ticket；迴圈無法處理的事項則進入 triage 收件匣交給人類。**狀態檔案是脊柱**——它記得嘗試過什麼、什麼通過、什麼仍然開放，因此隔天的執行能從今天停止的地方繼續。「你只需設計一次。你並沒有提示其中任何一步。」
+
+## 迴圈仍無法替你完成的事
+
+迴圈改變了工作，卻不會把人類從工作中刪除。迴圈越好，三個問題反而會變得*更尖銳*，而不是更容易——Osmani 分別為它們命名（這些是他的部落格系列術語；底層概念在 wiki 中的對應頁面已附上連結）：
+
+- **驗證仍然是你的責任。**「無人值守運作的迴圈，也是一個無人值守地犯錯的迴圈。」即使有 verifier sub-agent，「完成」仍是主張，而非證明——「你的工作是交付你確認能運作的程式碼。」→ [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)
+- **如果放任不管，理解會腐朽。**迴圈越快交付你沒有寫的程式碼，現存內容與你的理解之間的落差就越大——這就是 Osmani 所稱的*理解債務*，也是 [Agentic Technical Debt](/articles/agentic-technical-debt) 的認知近親。解藥是[理解](/articles/outsource-thinking-not-understanding)這個不可委派的瓶頸：閱讀迴圈產出的內容。
+- **舒適的姿勢最危險。**迴圈自行運作時，人很容易停止表達意見，直接接受它回傳的任何結果——*認知投降*。「設計迴圈，若你是帶著判斷力去做，就是治療方法；若你是為了逃避思考而做，就是加速器——同一個行動，結果相反。」這是針對無人值守情境重新表述的[「留在迴圈中，把它們當作工具」](/articles/jagged-intelligence)。
+
+第四條脈絡貫穿 skills 基元：沒有 skills，迴圈會**在每個週期從零重新推導整個專案**——Osmani 所稱的*意圖債務*。skill 是「寫在外部」的意圖，讓意圖能累積，而不是一再被重新猜測（參見 [Agentic Technical Debt](/articles/agentic-technical-debt)、[Agent Context Files](/articles/agent-context-files)）。人類審查上限也是真實存在的：worktrees 消除了*機械性*衝突，但「實際能執行多少個，取決於你的審查頻寬，而不是工具」——這是無人值守扇出受到的 [oversight-fatigue](/articles/ai-brain-fry) / [span-of-control](/articles/human-ai-accountability-redesign) 限制。
+
+## 這到底是哪一種迴圈？
+
+Osmani 的文章發表兩週後，[Andrew Ng](/articles/andrew-ng) 回應迴圈工程「在 Boris Cherny 與 Peter Steinberger 提及後走紅，成為熱門 buzzphrase」——並回答了文章從未提出的問題：*哪一種*迴圈？Ng 的[三迴圈分類法](/articles/three-loops-of-ai-native-building) 將本頁所有內容放在**最內層**迴圈，也就是代理以數分鐘為週期獨自閉合的迴圈。外面還有兩個較慢的迴圈：**開發者回饋迴圈**（人類審查建置並重新引導，耗時數十分鐘到數小時），以及**外部回饋迴圈**（朋友、alpha 測試者、A/B 測試——數小時到數週），後者是唯一會修訂*願景*而不是規格的迴圈。
+
+這個重新框定很有用，因為它界定了這門學科的範圍。五種基元讓內層迴圈更快；它們對外面兩層毫無作用，而產品的速度取決於最慢的迴圈。它也預示了 [Ambrosino](/articles/andrew-ambrosino)「迴圈已經落伍了」這個論點的形狀（[Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering)）：內層迴圈是 *harness*，會被能力吸收（[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)）；外層迴圈則是產品開發的結構，不會被吸收。
+
+## 槓桿點已經移動
+
+兩個人可以建立完全相同的迴圈，卻得到相反結果——一個人在深刻理解的工作上加速，另一個人則完全逃避理解工作；「迴圈不知道差異，但你知道。」Cherny 的重點不是工作變得*更容易*，而是**槓桿點從提示撰寫移到了迴圈設計**，而迴圈設計比 prompt engineering *更難*，不是更簡單。Osmani 最後的平衡提醒是：建立你的迴圈，但別忘了直接提示仍然有效——「以打算繼續當工程師的人來設計它，而不只是當一個按下開始的人。」
+
+## 相關連結
+
+- [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — Ambrosino 的「迴圈已經落伍了」代表前沿正越過編排迴圈，走向自主、受監督與不受監督的開發
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 迴圈的*基元*（`/loop`、routines、Ralph Wiggum），迴圈工程則是位於其*之上*的系統設計學科；automations 是依排程執行的這項基元
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — Osmani：「迴圈工程位於 harness 之上整整一層」；harness 依計時器產生輔助代理並餵回自身；提供 worktree 隔離與外部記憶基元
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 部署端的證據：bash 堆疊式迴圈正以具名基元的形式被產品吸收；隨著零件內建於工具，harness 正在縮小
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 製作者／檢查者 sub-agent 分工與 `/goal` 的新模型停止檢查；「交付你確認能運作的程式碼」；審查頻寬是無人值守扇出的上限
+- [Agent Context Files](/articles/agent-context-files) — skills 是「寫在外部」的意圖；skill 是撰寫格式／plugin 是發佈方式的區分；狀態檔案作為記憶
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — connectors/plugins (MCP) 是讓迴圈能在真實工具中行動，而不只是檔案系統中的基元
+- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — 理解債務與認知投降，是本論點受到迴圈速度推動後的表現；理解仍不可委派
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — 意圖債務（迴圈在每個週期重新推導專案）是同一種會累積的漂移失敗；skills 是持久上下文的解藥
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — 「留在迴圈中」是認知投降的解藥
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Linear-board-as-state 是記憶基元的持久工作圖形式
+- [AI Brain Fry](/articles/ai-brain-fry) / [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — 人類監督對無人值守迴圈的限制；span-of-control 重設是缺少的搭檔
+- [Boris Cherny](/articles/boris-cherny) — 「我的工作就是寫迴圈」；主要實務者
+- [Peter Steinberger](/articles/peter-steinberger) — 提出「設計會提示代理的迴圈」這個文章採用的框架
+- [Claude Code](/articles/claude-code) / [Symphony](/articles/symphony) — 現在提供全部五種基元的工具介面（Claude Code 與 Codex 端的編排堆疊）
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — 與 skills 基元相對應的實證採用曲線：OpenAI 的 Codex 研究大規模測量從臨時做法到可重用例行程序的系統化（skill 使用率 5.4%→26.6%，OpenAI 為 96.2%）
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — 迴圈產生的可測量扇出：「你的審查頻寬決定你能執行多少個」；這是 OpenAI 資料所記錄的 5 個以上並行代理工作流程的上限
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — 供應商打包的迴圈：Google 將 eval-fix 週期作為任何編碼代理都能驅動的 skill；迴圈設計被當成產品販售，而非手工建造
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — 製作者／檢查者分工與 `/goal` 的獨立停止檢查器，被表述為改進迴圈的架構不變量
+- [The Three Loops of AI-Native Building](/articles/three-loops-of-ai-native-building) — [Andrew Ng](/articles/andrew-ng) 的分類法定位了這門學科：五種基元全都優化三個巢狀迴圈中*最內層*的那個；開發者回饋與外部回饋迴圈未受影響，而產品速度取決於最慢的一個
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — 讓理解債務變得可檢查：[Thariq Shihipar](/articles/thariq-shihipar) 的測驗閘門（「我只有在完美通過測驗後才合併」）是本頁所命名缺口的第一個具體工具
+- [Review as the Control Point](/articles/review-as-the-control-point) — 「將人類審查納入代理自身的迴圈／由第二個 sub-agent 檢查第一個」是 CMU 理論綜合出的列舉位置之一；自動化審查在該處是審查動力學建構（提高吞吐量、降低延遲，但對品質／安全性的影響仍有爭議），而該理論將製作者／檢查者迴圈仍會累積的理解債務形式化
+
+## 開放問題
+
+- Osmani 的成本限制尚未量化：持續運行的迴圈要到什麼 token 預算才會不敷成本？又該如何建立儀表？（參見 [Agent Loop Pattern](/articles/agent-loop-pattern) 的「當模型自行排程迴圈時，誰負責預算？」）
+- 如果 `/goal` 的停止檢查本身也是模型，那麼誰來驗證 verifier？製作者／檢查者分工只是把信任問題往上推一層，而不是消除它。
+- 迴圈工程會收斂到一種主導形狀（早晨分類 → worktree → 製作者／檢查者 → PR），還是會分化成許多依慣用語而異的迴圈？文章描述了一種「我持續使用」的形狀，但也主張這些基元具有普適性。
+
+## 資料來源
+
+- [Loop Engineering](https://addyosmani.com/blog/loop-engineering/) — Addy Osmani，《Loop Engineering》（addyosmani.com，2026 年 6 月；由 X 浮現）
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — 將 eval-fix 迴圈打包成由編碼代理驅動的 skill（`vendor-claim`）
+- [Thread by @AndrewYNg](https://x.com/AndrewYNg/status/2071988145667928442) — Andrew Ng，《The Batch》（2026-06-30），`practitioner-opinion`：這門學科實際優化三個巢狀迴圈中的哪一個

@@ -1,0 +1,107 @@
+---
+date: 2026-07-09
+title: 大規模測試時運算
+description: "Noam Brown 的論點：模型能力如今是推理預算（token／成本／時間）的函數；只要有良好的 scaffolding，現代模型就能持續改進數週才達到平台期，因此若不指明預算，『模型有多強？』這個問題本身就定義不良——這也是破壞基準測試、安全 evals 與快速起飛預測的根本原因"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - test-time-compute
+  - inference-scaling
+  - capability-evaluation
+  - capability-trajectory
+readingTime: 11
+imageAlt: 大規模測試時運算插圖
+sources:
+  - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
+      Research with OpenAI's Noam Brown
+    url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: Gemma 4 Technical Report
+    url: https://arxiv.org/pdf/2607.02770
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: "More compute, more capability: Why AI agent evaluations need to account
+      for test-time compute"
+    url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+---
+export { default as heroImage } from "../assets/large-scale-test-time-compute.png";
+
+## 資料來源
+
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## 摘要
+
+**測試時運算**（推理時運算）是模型針對單一查詢所投入的運算量——生成的 token 數、花費的金額、實際經過的時間。[Noam Brown](/articles/noam-brown)（OpenAI 研究科學家，也是推理時擴展的先驅之一）在 2026 年 6 月的文章 *Implications of Large-Scale Test-Time Compute* 中主張，這個軸向已成為**能力的主要決定因素**：**「模型的能力取決於你投入多少錢。」**10 美元的預算能做一件事；10,000 美元能做得更多；1,000 萬美元則更多。這項承重性的推論是：每個 eval 隱含提出的問題——*這個模型有多強？*——在**指明預算之前，本身就定義不良**（`practitioner-opinion`；Brown 提供的是論證與軼聞，而非測量結果）。
+
+本頁是測試時運算叢集的**樞紐**。根本主張位於此處；它的三個下游斷裂點分散在其他頁面：它破壞了[基準測試](/articles/compute-controlled-benchmarking)（單一數字的網格沒有控制運算量），使[安全 evals](/articles/responsible-scaling-policy-evals)承受壓力（危險能力也會隨預算擴展），並重塑[起飛預測](/articles/intelligence-explosion-dynamics)（對運算量的依賴讓時間成為綁定約束）。尚未充分探索的上行面，是已發布模型中的[能力過剩](/articles/latent-capability-overhang)。
+
+## 平台期被推遠了
+
+對「只要投入更多運算量」最直觀的反駁是，效能會進入平台期——持續執行模型直到基準測試曲線變平，再評估到那個點。Brown 的回答是：**如今的平台期距離數週的思考仍遠，實務上太難抵達。**在「GPT-3 時代」（2022 年），模型無法長時間有效思考，因此你*確實可以*低成本地執行它們直到平台期。現代模型若「以合理方式加上 scaffolding」，在某些基準測試上會持續改進數週才趨於平坦。Brown 引用 AISI 的資安評估指出，模型在單次執行達到*1 億 token* 時**仍在改進**。因此「評估到平台期」不再是有界程序——你必須施加預算（token／成本／時間），或繪製完整曲線。
+
+## 獨立的實證佐證（UK AISI，2026 年 7 月）
+
+Brown 的論點屬於 `practitioner-opinion`——論證與軼聞。**[UK AI Security Institute](/articles/uk-ai-security-institute)** 提供了第一份獨立、政府研究機構的 `empirical` 確認，也是上述「在 1 億 token 時仍持續改進」軼聞背後的主要來源。其 2026 年 7 月的研究幾乎用相同措辭重申根本主張：**「模型能力不是單一分數，而是測試時運算量上的一條曲線」**——如果評估停止時曲線仍在上升，報告的分數就是下界，而不是上限。
+
+「平台期被推遠」的測量版本：
+
+- **資安。**AISI 的狹義資安任務中，約 **8%** 只有在每項任務的預算達到 ≥1,000 萬 token（部分最高達 5,000 萬）後才解出；在較小預算下，這些成功案例完全不可見。最新模型在 1 億以上 token 時仍持續攀升。
+- **公開基準測試。**將總 token 預算從 100 萬提高到 1,000 萬，使軟體工程分數提升**約 25%**（TerminalBench 2.0、SWE-Bench Pro），數學／學術分數提升**約 22%**（Humanity's Last Exam，至 500 萬 token）。TerminalBench 即使在公開評估通常回報的 10 倍預算下仍持續改進。
+
+AISI 的另外兩項發現會進一步強化下游頁面，而非本頁：運算需求會隨人類任務時間擴展（這是一條餵入[任務時間範圍擴展](/articles/task-time-horizon-scaling)的冪律），而較新的模型能將額外運算轉化為不成比例更大的增益（重塑[任務時間範圍擴展](/articles/task-time-horizon-scaling)上的倍增速率，以及[負責任擴展政策評估](/articles/responsible-scaling-policy-evals)上的危險面）。獨立性很重要：知識庫幾乎完全從 [Noam Brown](/articles/noam-brown)（OpenAI）取得的論點，如今有政府評估機構的受控掃描作為錨點。
+
+## 能力光譜：運算量何時有用、何時沒有
+
+更多測試時運算量並非一律有用。Brown 將每項任務放在兩個極點之間：
+
+- **平坦——事實檢索。**問 Abraham Lincoln 何時出生；如果模型不知道，一週的思考也不會有幫助（沒有外部查詢）。更多運算量幾乎買不到任何東西——一點思考有幫助，接著很快就飽和。
+- **無界——猜測與檢查搜尋。**數獨：隨機填入，檢查約束，再重試。只要時間足夠，任何謎題都能解開，因此能力會隨測試時運算量無限上升。
+- **介於兩者之間的一切。**真實基準測試位於這條線上的某處，這正是控制運算量重要的原因——同一個模型可能看起來平坦或無界，取決於任務所在的位置。
+
+[AISI](/articles/uk-ai-security-institute) 的研究為這個光譜提供了實證面貌：當代理**能檢查自己的工作**時（程式碼、資安、數學——執行程式碼、測試漏洞），增益最大；回饋薄弱或不存在時則很小——HealthBench 在每個模型的通常預算內都已進入平台期，這就是測得的平坦極點。其機制正是[可驗證性](/articles/verifiability-thesis)：低成本的自我檢查，才是把額外 token 轉換成無界端猜測與檢查增益的關鍵。
+
+[過度思考](/articles/scale-dependent-prompt-sensitivity)結果是影子案例：在標準基準測試問題中約 7.7% 的題目上，生成更多 token 反而**傷害**大型模型——提醒我們測試時運算量是必須妥善分配的資源，而不是單調旋鈕。Brown 對使用者實務的看法是，彈性的思考時間（該快時快，問題值得時才拉長）勝過永遠使用最大預算，因為等待一週並不適合反覆迭代。
+
+## Scaffolding 解鎖時間範圍
+
+能把「一個模型」轉化為「數週的有效思考」的槓桿，是**harness**。Brown 表示：GPT-3 幾乎沒有什麼可以加上 scaffolding，讓它進行一週有效的執行；但對現代模型，你可以加上「能運行數週、數月的一系列實驗」。他具體的近期主張是：給一個具備良好 scaffolding 的模型一個長期目標，告訴它「去做這件事一個月」，它就會回傳最先進的成果。這正是 [METR 的時間範圍曲線](/articles/task-time-horizon-scaling)從外部測量的同一種能力——也是為什麼預算實際上花在 harness 上。
+
+## 分母：效率就是能力
+
+Brown 的論點以分子表述——花更多錢，得到更多成果。它有一項他尚未展開的推論：**任何降低 token 成本的事物，都會在固定預算下提升能力。**[Gemma 4](/articles/gemma-4)（DeepMind，2026 年 7 月，`empirical`）是具體化的推論——小 37.5% 的 KV cache、量化至次 GB 級 checkpoint，以及釋出的 speculative-decoding drafter head。在本頁的框架下，這些不是工程註腳；它們是以美元而非參數計價的能力增益。
+
+這項連結也反向成立。思考模式會讓每次查詢的 token 數倍增，因此若模型預計在手機上執行，只有在 token 夠便宜時，加入這種模式才合理。Gemma 4 在同一版本中同時提供兩者。詳見[推理效率即能力](/articles/inference-efficiency-as-capability)。
+
+## 相關連結
+
+- [LLM 中的自動與彈性認知](/articles/automatic-vs-flexible-cognition)——為此論點提供機制上的底線：transformer 越過其前饋深度的唯一途徑，是將中間結果寫入 context 再讀回，因此 chain-of-thought 是*外部化的工作空間*，測試時運算量部分買到的是架構原本沒有的序列深度
+
+- [推理效率即能力](/articles/inference-efficiency-as-capability)——推論：更便宜的推理就是能力，而 Gemma 4 的效率技術棧是實例
+- [受運算量控制的基準測試](/articles/compute-controlled-benchmarking)——基準測試後果：應針對成本／token／時間 x 軸發布效能，而非單一數字
+- [潛在能力過剩](/articles/latent-capability-overhang)——上行後果：已發布模型能做到的，遠超過任何人付費萃取出的程度
+- [負責任擴展政策評估](/articles/responsible-scaling-policy-evals)——安全後果：如果能力隨預算擴展，「要用多少預算評估危險能力？」仍沒有答案
+- [任務時間範圍擴展](/articles/task-time-horizon-scaling)——外部趨勢線（可靠任務長度約每 4 個月翻倍）就是以能力曲線測量的這項論點
+- [依尺度而定的提示敏感性](/articles/scale-dependent-prompt-sensitivity)——過度思考反例：更多測試時運算量可能*降低*準確率，因此預算必須分配，而非最大化
+- [智慧爆炸動態](/articles/intelligence-explosion-dynamics)——對運算量的依賴是 Brown 解釋起飛為何受時間瓶頸限制、而非瞬間發生的機制
+- [可驗證性論點](/articles/verifiability-thesis)——搜尋密集型增益（數獨極點）在低成本驗證器能讓模型檢查自身猜測的地方最大
+- [開放權重引出能力的不可逆性](/articles/open-weight-elicitation-irreversibility)——已發布權重的治理後果：無界的引出預算，無法召回
+- [單次 rollout 最佳化](/articles/single-rollout-optimization) / [LLM 的非同步 RL](/articles/asynchronous-rl-for-llms)——訓練端的互補面：產生長時間範圍代理模型的 RL 迴圈，而這些模型的能力接著會隨此推理預算擴展
+- [UK AI Security Institute](/articles/uk-ai-security-institute)——跨基準測試測量此論點的獨立政府評估機構，將它從軼聞提升為 `empirical` 事實
+- [Noam Brown](/articles/noam-brown)——來源；開創推理時擴展的研究者
+
+## 開放問題
+
+- **能否從低預算執行預測高預算效能？**Brown 提出的研究問題：只用 10–100 美元的執行結果，預測 10,000 美元推理的結果。如果曲線具有規律，評估就能*投射*結果，而不必完整付費。**2026-07 強化：**[AISI](/articles/uk-ai-security-institute) 明確指出這個問題——「能否從較便宜的執行結果估計高預算效能？……資訊量最高的評估可能很昂貴」——如今正積極研究的明確未解方向（同時也在定義「最低資訊量預算」）。仍是開放問題，但不再只是單一研究者的提案：政府研究機構正在投入。**姊妹軸線已獲證明（2026-07）：**另一種*不同的*投射——跨基準測試而非跨運算預算——如今可行：[BenchPress](/articles/benchmark-score-redundancy) 能從約 5 個已觀測分數預測模型未納入的基準測試分數，因為 84×133 的公開分數矩陣實際上是 rank-2（5-probe scorecard recovery 約 3.93 分）。這有力證明評估版圖是低維且冗餘的，但它**沒有**回答跨*預算*預測——尚無人展示 10K 運算量的結果可由 10 美元執行結果預測；目前只有類似的跨*基準測試*結果。
+- 每個真實任務在平坦↔無界光譜上位於何處？能否在投入運算量之前預測？
+- 是否存在一類任務，scaffolding *無法*延長有效思考的時間範圍——任何預算都無法跨越的硬上限？（Brown 的事實檢索極點表示某些任務確實如此；邊界尚未繪製。）
+
+## 資料來源
+
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)——No Priors 訪談（2026-06-26），Noam Brown 談論其文章 *Implications of Large-Scale Test-Time Compute*（`practitioner-opinion`）
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)——效率推論：思考模式加上五項推理成本降低技術，同時發布（`empirical`）
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——chain-of-thought 作為外部化工作空間：transformer 越過其前饋深度的唯一方式，是將中間結果寫入 context 再讀回
+- [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)——UK AISI，《More compute, more capability》（2026-07-02，`empirical`）：獨立的測量確認——token 預算上的能力曲線，約 8% 的資安任務只有在 ≥1,000 萬 token 時解出，1M→10M 帶來 +25% SWE／+22% 數學，HealthBench 作為平坦極點。

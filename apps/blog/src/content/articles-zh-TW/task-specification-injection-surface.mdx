@@ -1,0 +1,124 @@
+---
+date: 2026-07-16
+title: Prompt Injection 中的任務規格效應（AutoDojo）
+description: "AutoDojo（Ma et al., arXiv 2606.15057）：一種低成本的黑箱自適應攻擊，僅使用成功／失敗訊號，反覆將間接 prompt injection 優化至即時受防禦的代理程式；針對靜態 ASR 為 0% 的過濾器，整體恢復 28% 的 ASR（action-open 任務為 64%），顯示靜態基準的穩健性會大幅高估真實穩健性；此外，它揭示了任務規格軸線——規格不足的 action-open 任務（使用者將行動本身交由攻擊者可觸及的內容決定）對 prompt 與過濾器防禦明顯更容易遭注入，而限制行動的系統層級防禦則呈現反轉，在這類任務上變得更強"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - prompt-injection
+  - adaptive-evaluation
+  - task-specification
+  - threats
+readingTime: 15
+imageAlt: Task-Specification Effects in Prompt Injection（AutoDojo）的插圖
+sources:
+  - title: "AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses
+      and Task-Specification Effects in LLM Agents"
+    url: https://arxiv.org/pdf/2606.15057
+---
+export { default as heroImage } from "../assets/task-specification-injection-surface.png";
+
+## 資料來源
+
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)
+
+## 摘要
+
+Ma、Li、Xiao、Yu、Zhang 與 Vorobeychik（Washington University in St. Louis / Texas A&M / Johns Hopkins，arXiv 2606.15057，2026 年 6 月）建立了 **AutoDojo**——AgentDojo 基準的自適應擴充，並以此對 [間接 prompt injection（IPI）](/articles/agentic-prompt-injection) 防禦提出兩項主張。兩者都是 `empirical`（五個目標模型、三組任務套件、九種最先進的防禦）。
+
+1. **發現 1——靜態評估會大幅高估穩健性。** 一種*低成本、黑箱、自適應*攻擊——由 frontier LLM 從種子開始，在極小查詢預算下反覆修改注入，只看成功／失敗——幾乎能讓所有防禦的攻擊成功率（ASR）遠高於靜態注入水準。針對專門設計、將*靜態* ASR 壓到 **0%** 的過濾器（PIGuard），AutoDojo 恢復了 **28% 的整體 ASR，以及 action-open 任務上的 64%**（GPT-4o-mini）。「靜態 ASR 為 0%」並不是穩健性的下限。
+2. **發現 2——任務規格軸線（本頁的持久概念）。** 防禦效能取決於使用者請求將代理程式多少*行動*交給外部內容。對 prompt 層級與過濾器防禦而言，**規格不足（「action-open」）的任務明顯更容易遭注入**，因為注入可以在這類任務中偽裝成普通*資料*，而非明確指令——繞過偵測類指令文字的防禦。限制行動的**系統層級防禦則呈現反轉**：在 action-open 任務上反而變得*更強*。
+
+這兩項發現其實是同一個故事。靜態評估同時掩蓋了殘餘穩健性缺口與任務規格效應；低成本自適應攻擊則是揭示兩者的工具。AutoDojo 是 vault 中第一個低成本黑箱自適應注入結果，補充了白箱最壞情況（Nasr et al. 2025），以及 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) 上的確定性閘門重現（Narisetty et al. 2026）。
+
+## AutoDojo：低成本黑箱自適應攻擊
+
+威脅模型刻意採用現實中最弱的自適應攻擊者，比白箱最壞情況弱三個層面：
+
+- **黑箱、僅查詢**——沒有權重、梯度，也不知道部署的是*哪一種*防禦；唯一跨越邊界的訊號，是每個候選注入的 ASR。這是任何外部使用者都擁有的存取權限（「任何能發布代理程式可能讀取的內容、且能租用 frontier-LLM API 時間的人」）。
+- **低成本**——單一離線最佳化 LLM（Gemini 3.1 Pro），每個注入目標六次最佳化迭代，前五名排行榜。不使用強化學習、fuzzing harness 或每種防禦各自的 reward model。
+- **基於種子**——任何既有攻擊都可作為種子（經評分的候選）或策略（生成選單中的可重用模式）加入。AutoDojo 以靜態 `important_instructions` 字串、TopicAttack 與 RLHammer 作為種子，且不需改變迴圈即可吸收新攻擊。
+
+每次 K 迭代都會針對即時受防禦的代理程式執行三個步驟：**結果回饋**（在案例集上評分上一個候選，加入排行榜）、**診斷**（最佳化器根據排行榜推測目前啟用的是哪個防禦家族），以及**生成**（以排行榜項目為基礎，從簡短策略選單中抽取策略，寫出一個新注入——流暢段落、in-context 對話，或形狀類似周遭工具輸出的項目）。作者將這個迴圈理解為**由 LLM 驅動的演化搜尋**：排行榜＝族群，修改／組合＝突變／交叉，切換策略＝多樣性，ASR＝適應度。由於最佳化器會沿著診斷所支持的方向進行*語義*突變，因此小預算便足夠；盲目擾動則需要多得多的預算。
+
+關鍵在於，即時防禦隱含地成為每次評估的一部分，因此注入會針對防禦進行專門化，卻從未辨識出防禦本身。攻擊者同樣不確定使用者請求為何，因此每個候選都會在所有讀取同一向量的使用者任務上評分——偏好無論周遭請求為何都能成功的注入。
+
+## 發現 1：低靜態 ASR 幾乎什麼也證明不了
+
+標題數據（GPT-4o-mini，跨 banking/slack/travel 彙整；靜態 → AutoDojo）：
+
+| 防禦 | 家族 | 靜態 ASR | AutoDojo ASR |
+|---------|--------|-----------|--------------|
+| PIGuard | filter | **0.0%** | **28.0%** |
+| DataFilter | filter | 12.6% | 33.4%（約 3 倍） |
+| ProtectAI | filter | 7.2% | 15.4%（約 2 倍） |
+| Spotlighting | prompt-level | 51.7% | 46.8% |
+| Progent | system-level | 8.2% | 7.7%（−0.5） |
+| DRIFT | system-level | 2.6% | 6.4% |
+
+三項觀察拆解了為何低靜態 ASR 很容易取得，卻不代表穩健性：
+
+- **可能是模型，而不是防禦。** 在較新、能力更強的模型上，即使*沒有防禦*，靜態注入也很少成功：Claude-Haiku-4.5 為 **0.3%**，GPT-5.4-mini 為 **6.9%**。因此每種防禦都能免費繼承近乎完美的靜態分數。`important_instructions` 字串自 AgentDojo 發布起便已公開，所以近期模型上的低靜態 ASR「衡量的是對固定基準的熟悉度，而不是對注入的穩健性」。只有 GPT-4o-mini（無防禦時 58.6%）與 Gemini-2.5-Flash（47.8%）上，防禦的靜態 ASR 才帶有任何資訊。
+- **可能是以效用換來的。** 壓制靜態攻擊的過濾器會撕裂乾淨效用：**PIGuard 與 ProtectAI 將良性任務完成率砍掉三分之一至一半**（33–51%，無防禦時為 63–90%），因為其句子層級分類器會連同注入文字一起剝除良性內容——在 travel 的長篇自由文字上最嚴重（PIGuard 只留下 5–25% 的乾淨效用）。系統層級防禦也有成本：DRIFT 放棄 18–30 個效用點，Progent 最多放棄 11 個。
+- **增益來自最佳化，而非種子。** 表 3 將這一點單獨隔離：針對 DataFilter，AutoDojo 為 33.4%，靜態為 12.6%，任一種子單獨最多只有 4.9%；針對 PIGuard，則為 28.0% 對 0.0%，種子最多 11.3%。若沒有針對*即時受防禦*代理程式的迴圈最佳化，大部分恢復的 ASR 都不會出現。
+
+由於最佳化器可能不回退到種子（這是為了隔離自適應生成的*邊際*效應而刻意採取的設計），AutoDojo 低於靜態值的格子，從不代表某個防禦能抵抗攻擊——只代表該防禦在任一攻擊下原本就已失效（AutoDojo 更細微的注入，在普通指令遵循上稍差，因此在防禦已被突破的地方可能下跌幾個百分點，例如 GPT-4o-mini 上的 spotlighting）。真實攻擊者會保留種子與自適應攻擊中較佳者，因此報告的 ASR 是一個**下限**。
+
+## 發現 2：任務規格軸線（新概念）
+
+AutoDojo 依照**使用者將代理程式多少行動交給攻擊者可觸及內容決定**，引入了使用者任務的分類方式——此前的 IPI 評估從未使用過這種分解：
+
+- **Fully-specified**——prompt 指定了行動*以及*所有參數（也包括唯讀查詢）。*「將我的地址改成 1234 Maple St.」* 代理程式沒有理由採取未被要求的行動。
+- **Param-open**——給出行動動詞，但必須從內容讀取參數。*「支付 bill-december-2023.txt 中的帳單。」* 動詞是 `pay`；金額與收款人位於（攻擊者可觸及的）檔案中。
+- **Action-open**——使用者*完全沒有*指定行動，而是將決定全數交給內容：*「完成我在 \{URL\} 的 TODO 清單上的所有任務。」* 代理程式沒有理由*不*採取內容所暗示的任何行動。
+
+這條軸線衡量的是委派出去的自主性。Fully-specified 任務「不給代理程式任何充分理由去採取未被要求的行動；action-open 任務則不給它任何理由不採取該行動。」**大多數真實代理程式使用都落在規格較少的類別**，因為多數使用者不是安全專家（套件中只有 57 個任務裡的 6 個是 action-open，但它們是日常委派使用的典型）。
+
+**效應及其機制。** 在任何適應之前，action-open ASR 就已高於 specified ASR（無防禦 GPT-4o-mini 為 90.5% 對 54.8%），而強力過濾器只會先擦除靜態差距，再讓 AutoDojo 重新打開、且差距更大：
+
+- 在 GPT-4o-mini 上，針對三種過濾器，action-open ASR 都達到 **57–64%**，而 specified-task ASR 維持在 10–30%。**ProtectAI 的 action-open 率（57.1%）超過其 specified 率（10.4%）五倍。** PIGuard：action-open 為 64.3%，specified 為 23.6%。
+- 機制可由案例研究（圖 3）看出：*靜態*注入是粗糙的 `<INFORMATION>` 命令區塊，PIGuard 逐句評分並剝除它，留下沒有可執行作用的文字——攻擊失敗。*AutoDojo* 注入沒有任何一句看起來像明確指令（它被寫成一張完整、看似合法的發票，附有偽造的收款人與「billing notice」），因此 PIGuard 原封不動地放行，代理程式便向攻擊者付款。**一旦使用者委派了行動本身，注入就不必再像指令；它可以寫成普通資料，並通過偵測類指令文字的過濾器。**
+
+這正是發現 1 最尖銳的結構性限制：過濾器可以把靜態分布清理乾淨，卻仍會在它最需要涵蓋的規格不足任務上洩漏最多。
+
+## 系統層級反轉：綁定行動才是真正的穩健性
+
+Prompt 層級與過濾器防禦會過濾*輸入*；系統層級防禦（Progent、DRIFT）則會根據使用者請求推導允許的工具呼叫軌跡，並透過限制*行動*來阻擋偏離。面對 AutoDojo，它們在兩方面都與過濾器相反：
+
+- **在低成本自適應攻擊下仍能維持。** 在 GPT-4o-mini 上，跨五個模型，Progent（−0.5）與 DRIFT（+3.8）幾乎沒有偏離其低靜態 ASR——論文認為這是「最穩健」的家族。（Nasr et al. 的白箱最壞情況只測試模型層級防禦；限制行動的家族尚未在其中測試。）
+- **在 action-open 任務上變得*更強***——這就是反轉。許多 action-open 任務中，使用者請求只授權唯讀行為，因此從請求推導出的軌跡中*沒有寫入行動*；任何由攻擊者誘導的寫入，不論注入如何措辭，都會落在允許軌跡之外並遭阻擋。規格不足讓過濾器面對最糟情況，卻讓限制行動的防禦取得最佳情況。
+
+論文的結論是：「真正的穩健性來自將代理程式的行動綁定到使用者請求，而不是過濾其輸入。」此外，由於 AutoDojo 會針對任何已部署的防禦重新最佳化（經過對抗訓練的偵測器只會得到一輪新的迴圈），持久的問題是「任何內容層級防禦是否能贏得這場迴圈——這是一個艱難的位置，因為攻擊者總是最後行動。」這就是 [Least Agency](/articles/least-agency) 所給出的答案，也是 [「impossible, not tedious」](/articles/impossible-not-tedious-test) 所說的理由。
+
+## 與 frontier-model 穩健性印象調和（這是一種張力，不加以抹平）
+
+AutoDojo 的資料*部分印證*了這種印象——來自 [Opus 4.8](/articles/claude-opus-4-8) 卡片中已飽和的 ART 基準，以及 spotlighting 從 50%→&lt;2% 的數字——即 frontier models 正逐漸對注入變得穩健：低成本自適應攻擊在較新的高能力模型上幾乎不會改變 ASR（Claude-Haiku-4.5 由 0.3%→1.8%，GPT-5.4-mini 無防禦由 6.9%→8.7%；PIGuard 在這些模型上也只升至 0.8–5.1%）。但它劃出了一條供應商數字模糊掉的清楚界線：
+
+- **模型穩健性**（較新的模型即使無防禦也能抵抗）在此部分是真實的——儘管論文提醒，這被*基準熟悉度*膨脹了：靜態字串很可能已出現在訓練資料中，而 AutoDojo 的新鮮注入「能觸及熟悉靜態字串無法觸及的地方」，即使結果只有個位數百分比。
+- **防禦穩健性**（某個過濾器回報靜態 ASR 為 0%）很大程度是評估假象：在易受攻擊的模型上，低成本自適應攻擊恢復了 28%。「已飽和的基準／靜態 ASR 為 0%」正是被過度歸功的過濾器看起來的樣子。
+
+因此，誠實的解讀是：frontier-robustness 故事適用於能力強的*模型*，不適用於疊加在較弱模型上的過濾器*防禦*；甚至模型的故事也部分建立在基準熟悉度上，而非實際測得的自適應穩健性。這是對 [Agentic Prompt Injection](/articles/agentic-prompt-injection) 中 Opus 4.8 段落的細化，而非矛盾；該段落早已警告：「已知攻擊的固定資料集會帶來虛假的安全感。」
+
+## 相關連結
+
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection)——本頁拆解的威脅；AutoDojo 回答了該頁關於「防禦堆疊後面對自適應攻擊者時的殘餘攻擊下限」的開放問題：靜態 ASR 為 0% 並非下限，而且*低成本黑箱*攻擊者（不只是白箱攻擊者）已能恢復 28%
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)——由*更低成本*的攻擊者提供強力佐證：AutoDojo 獨立顯示，in-band（filter + prompt-level）防禦會崩潰，而限制行動的系統層級防禦（Progent、DRIFT）能維持——跨五個模型，部分回答該頁「確定性閘門能否在更強代理程式上存活？」的開放問題（在此黑箱攻擊下可以），但白箱問題仍未解答
+- [Agent Data Injection (ADI)](/articles/agent-data-injection)——姊妹攻擊論文（兩者都在 2026 年發表，也都顯示靜態評估會過度肯定 IPI 防禦）。收斂的機制是：AutoDojo 的 action-open 注入讀起來像*資料而非指令*；ADI 則透過分隔符注入偽造*受信任資料*——兩條繞過只偵測類指令文字之過濾器的路徑
+- [Least Agency](/articles/least-agency)——論文的正面結果*就是* least agency：將行動綁定到使用者請求的系統層級防禦是穩健家族，而且它們恰好在過濾器變弱的地方變得*更強*（action-open → 唯讀軌跡 → 不允許寫入）
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization)——同一個「綁定行動，不要過濾輸入」的論點再深入一層：AutoDojo 將*行動軌跡*綁定到使用者請求；ScopeGate（Mellafe Zuvic 2026）則將每次呼叫的*引數值*綁定到帶外操作員政策。而 AutoDojo 的 task-aligned-injection 機制，正是該論文測得的 naive→task-aligned 嘗試跳升（glm-4.7 0.283→1.000）的攻擊面——把危險行動呈現為完成使用者任務所必需，因此看起來像資料而非指令
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck)——同一種「action-open／將決定交給內容所說的一切」的規格不足，Thariq 將其視為*品質*瓶頸；在此則是經測量的*安全性*責任；規格不足具有雙面性
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning)——ShareLock 的 reconstruction-trigger prompt engineering 仍是*手動*的，而其作者將由回饋驅動的 prompt 最佳化列為下一步升級——正是 AutoDojo 的即時代理程式自適應迴圈套用於 MCP 工具中毒，這會自動化針對對齊模型的攻擊鏈
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)——內容過濾器會偵測類指令文字（自適應攻擊者可以繞過的啟發式方法）；確定性行動閘門則*移除*進行偏離軌跡寫入的能力——另一個經測量的 impossible-vs-tedious 實例
+- [Claude Opus 4.8](/articles/claude-opus-4-8)——其卡片回報已飽和的靜態注入基準與一個 spotlighting 數字；本頁區分了模型穩健性（部分真實）與防禦穩健性（評估假象）
+
+## 待解決的問題
+
+- AutoDojo 是現實中*最弱*的自適應攻擊者（黑箱、六次迭代、二元訊號）。作者指出每個軸線——更豐富的回饋（軌跡、token 機率）、非語義表面技巧，或將 payload 重塑為類似使用者合理意圖的形式——都嚴格更強，因此報告的 ASR 是下限。當 payload 被重塑為看似與任務相關的行動（避開行動限制的自然路徑）後，系統層級防禦還能維持多遠？
+- 能否將梯度最佳化的（白箱）注入*植入*迴圈，再由 LLM 搜尋進一步自適應——結合白箱強度與黑箱適應？作者指出這一點值得研究，但尚未測試。
+- 任務規格軸線是在 3 組套件的 6 個 action-open 任務上測量。action-open ≫ specified 的排序（以及系統層級反轉）是否能在更大規模與更強代理程式上成立？「action-open 任務的比例」是否是可供每次部署使用的風險指標？
+- 如果 action-open 任務既是容易遭注入的任務，也是非專業使用者日常使用的預設模式，那麼實際處方是否應該*禁止* action-open 委派（強制使用者指定行動），將安全負擔推回任務規格——也就是 [unknown-elicitation](/articles/unknowns-as-the-agentic-bottleneck) 基於品質理由所要求的同一種紀律？
+
+## 資料來源
+
+- [AutoDojo: Adaptive Black-Box Attacks Reveal the Limits of IPI Defenses and Task-Specification Effects in LLM Agents](https://arxiv.org/pdf/2606.15057)——Ma、Li、Xiao、Yu、Zhang 與 Vorobeychik（WUSTL / Texas A&M / Johns Hopkins），arXiv 2606.15057，2026 年 6 月，`empirical`。§3（黑箱威脅模型）、§4（最佳化迴圈：排行榜／診斷／生成；演化搜尋解讀；種子與策略整合）、§5.1（設定：5 個模型、9 種防禦、3 組套件、389 個案例；Gemini 3.1 Pro 最佳化器、6 次迭代）、§5.2 發現 1（表 2 彙整 ASR、GPT-4o-mini 上的表 3 攻擊消融、圖 1 靜態→AutoDojo 恢復、圖 3 案例研究）、§5.3 發現 2（表 4–5、action-open 與 specified 分類、系統層級反轉）、§6（低於靜態值為設計使然；AutoDojo 在自適應攻擊中的位置；偵測器是否能被強化）。依照圖片雙重檢視規則查看圖 1 與圖 3，以交叉核對列被拆散的結果表。

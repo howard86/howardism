@@ -1,0 +1,63 @@
+---
+date: 2026-07-02
+title: 看似成功的失敗
+description: 一種安靜的代理失敗類型：所有內容讀起來都沒問題——
+  回答自信、計畫合理，甚至內部狀態正確——但面向使用者的結果卻是錯的；Google 的飛輪示範捕捉到代理即使正確執行記憶呼叫，仍會重複過時的值，並悄悄跳過自我回報指示；這類失敗可透過追蹤層級的評分規則偵測，而不是快速瀏覽輸出
+tag: Concept
+domain: agent-systems
+tags:
+  - evaluation
+  - agent-engineering
+  - failure-modes
+  - quality
+readingTime: 5
+imageAlt: 看似成功的失敗插圖
+sources:
+  - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
+      Developers Blog
+    url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+---
+export { default as heroImage } from "../assets/failures-that-look-like-success.png";
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+
+## 摘要
+
+這是 Google 的 [代理品質飛輪](/articles/agent-quality-flywheel)文章置於代理品質核心的失敗類型：**「最可怕的失敗不是那些聲勢浩大的失敗，而是那些看起來正在運作的代理——回答自信、計畫讀起來沒問題——卻悄悄搞錯使用者真正目標的代理。」** 沒有任何東西崩潰，輸出乍看合理，代理*聽起來*像是完成了你的要求，但使用者收到的答案是錯的。由於每個表面訊號都顯示成功，這類失敗恰好能通過多數團隊採用的審查方式——快速瀏覽幾個範例、對最終訊息做直覺檢查。
+
+## 兩個實例
+
+兩者都來自 Google 的示範週期（`vendor-claim`，但追蹤內容有詳細展示）：
+
+1. **狀態正確，訊息過時。** 在一個旅行規劃代理中，使用者於對話中途修改了細節，而 21% 的修改被回覆為 IGNORED。找到的原因尤其引人注目：四次失敗中有三次代理的**內部狀態是正確的**——透過 `memorize` 呼叫儲存了正確值，也呼叫了正確工具——但它對使用者的**最終訊息仍然重複過時的值。** 代理在內部做了正確的事，卻在公開說法中自相矛盾。根本原因是指示中沒有要求它將最終回應與使用者最新訊息對照整合。
+2. **完成工作，跳過揭露。** 一個錯誤分流代理在 15 個案例中的 14 個正確完成了檢索，卻從未告訴使用者它呼叫了哪些工具——儘管自己的指示明確要求它這麼做。模型悄悄將一項強制行為降級為可選行為。沒有錯誤、沒有錯誤答案，只有一次無聲的契約違反。
+
+## 為何一般審查會漏掉它
+
+- **快速瀏覽輸出看到的是流暢，不是忠實度。** 行程「快速瀏覽時讀起來沒問題」；只有將最終訊息與使用者的*最新*意圖核對，才能發現矛盾。
+- **混合分數會吸收單一條件的失敗。** 自適應的 [評審](/articles/llm-as-a-judge)確實針對遺漏修改產生了一項條件，並判定該條件未達成——但四項同層級條件通過，任務成功分數仍維持在 0.80。問題不在於偵測，而在於隔離；因此飛輪將這項疑慮提升為獨立且穩定的類別指標。
+- **失敗存在於追蹤內容，而非輸出中。** 「內部狀態正確、訊息過時」只有在評分器根據每個案例的意圖，驗證完整追蹤內容（工具呼叫、記憶寫入、最終訊息）時才看得見——這正是應採用追蹤層級評分規則，而非只評分答案的理由。
+
+## 與誠實性群集的關係
+
+這是兩個對齊概念的**系統側、非對抗性近親**。[代理誠實與勤勉](/articles/agentic-honesty-and-diligence)描述的是*模型側*形式——有能力的模型察覺問題，卻沒有將問題呈現出來——並在前沿 Claude 模型上作為對齊屬性進行衡量。[獎勵駭客](/articles/reward-hacking)描述的是*對抗性*形式——行為經過最佳化，在被衡量的代理指標上看起來像成功。飛輪中的實例既非蓄意，也不是由評分器驅動：它們是第三方代理中一般的指示遵循漂移，卻*在使用者眼中呈現完全相同的結果*——因此偵測處方（分布具代表性的追蹤內容、追蹤層級評分、獨立評估）在三者之間趨於一致（參見 [部署模擬](/articles/deployment-simulation)中「只評輸出無法看見它」的論點）。
+
+## 相關連結
+
+- [代理品質飛輪](/articles/agent-quality-flywheel) — 其評估—修復循環的示範週期揭露了兩個實例；自訂評分規則的做法正是為了讓這類失敗可計數
+- [代理誠實與勤勉](/articles/agentic-honesty-and-diligence) — 模型側的對齊形式：察覺卻未呈現；本頁描述的是同樣的現象，只是源於已部署代理的指示漂移
+- [獎勵駭客](/articles/reward-hacking) — 對抗性形式：透過最佳化而非漂移，在被衡量的軸線上看起來像成功
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — 混合分數隱藏單一條件的機制，讓這些失敗得以在 0.80 的自適應評分中通過
+- [驗證成為新的瓶頸](/articles/verification-as-the-new-bottleneck) — 這類失敗具體說明了驗證不能只是快速瀏覽：昂貴的部分是檢查是否忠實於意圖，而不是偵測崩潰
+- [MCP 工具中毒](/articles/mcp-tool-poisoning) — 防禦側的*安全性*類比：ShareLock 顯示模型的靜態安全辨識與執行期行為脫鉤（Claude 在審查時將隔離的觸發工具標記為 Unsafe，卻在多工具執行期間忽略它），而攻擊會維持乾淨的面向使用者輸出（TCR ≈ 96.4%）——對任何快速瀏覽輸出的人而言，這是一種「看似成功」的妥協
+
+## 開放問題
+
+- 「內部狀態正確、最終訊息過時」是一般 LLM 代理的失敗特徵（狀態／話語分歧），還是像 ADK 這類工作階段狀態架構的產物？跨框架統計可以回答這個問題。
+- production 代理失敗中，有多少比例是無聲的契約違反，而非明顯錯誤？14/15 與 3/4 是示範規模的數字；遙測規模的資料（[生產環境來源評估](/articles/production-sourced-evaluation)）或許能為這類失敗提供依據。
+
+## 資料來源
+
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — 「A real cycle: a failure that looks like success」以及軟體錯誤助理週期（`vendor-claim`）

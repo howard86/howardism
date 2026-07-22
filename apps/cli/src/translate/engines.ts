@@ -5,19 +5,60 @@ export type Engine = (typeof ENGINES)[number];
 /** Cursor's "composer" model — overridable per run via `TRANSLATE_CURSOR_MODEL`. */
 export const DEFAULT_CURSOR_MODEL = "composer-2.5";
 
+/** codex's default model, pinned via `-m` for reproducible runs (see {@link buildEngineArgv}). */
+const DEFAULT_CODEX_MODEL = "gpt-5.6-luna";
+
+/**
+ * Reasoning effort for codex. `low` looks like the cheap choice for a
+ * mechanical task, but it is false economy: measured on `chloe-li.mdx` (2.4KB,
+ * identical 17,436-token input either way), `low` silently dropped an internal
+ * `/articles/...` cross-reference and failed link validation, forcing a second
+ * attempt that also failed — paying twice for nothing. `medium` reproduced the
+ * source link multiset exactly on the first attempt for ~300 extra output
+ * tokens. One passing attempt beats two failing ones on both cost and quality.
+ * Override per run with `TRANSLATE_REASONING_EFFORT`.
+ */
+export const DEFAULT_CODEX_REASONING_EFFORT = "medium";
+
+/**
+ * Per-engine default model, keyed by {@link Engine}. `null` means the engine
+ * has no configurable model (claude/agy/kiro use their own default / ACP
+ * negotiation) — see {@link defaultModelForEngine}.
+ */
+export const DEFAULT_ENGINE_MODELS: Record<Engine, string | null> = {
+  agy: null,
+  claude: null,
+  codex: DEFAULT_CODEX_MODEL,
+  cursor: DEFAULT_CURSOR_MODEL,
+  kiro: null,
+};
+
+/** Look up `engine`'s default model, or `null` if it has none. */
+export function defaultModelForEngine(engine: Engine): string | null {
+  return DEFAULT_ENGINE_MODELS[engine];
+}
+
 /**
  * Best-effort cost/usage telemetry parsed from an engine's stdout. Every field
- * is optional: `claude --output-format json` populates all of them, `kiro` may
- * surface credits over ACP, `cursor --output-format json` reports input/output
- * tokens (no cost/model), and `agy`/`codex` expose nothing machine-readable
- * (left undefined; the orchestrator backfills a configured model label).
+ * is optional: `claude --output-format json` populates cost/tokens/model;
+ * `codex exec --json` populates token counts (input/cached/cache-write/output/
+ * reasoning) plus the requested model, but never a cost — see `pricing.ts`
+ * for computing one, and `costEstimated` flags a computed (not reported)
+ * cost; `kiro` may surface credits over ACP; `cursor --output-format json`
+ * reports input/output tokens (no cost/model); `agy` exposes nothing
+ * machine-readable (left undefined; the orchestrator backfills a configured
+ * model label).
  */
 export interface EngineUsage {
+  cachedInputTokens?: number;
+  cacheWriteInputTokens?: number;
+  costEstimated?: boolean;
   costUsd?: number;
   credits?: number;
   inputTokens?: number;
   model?: string;
   outputTokens?: number;
+  reasoningOutputTokens?: number;
 }
 
 export interface EngineRunResult {
@@ -46,7 +87,15 @@ export interface BuildEngineArgvArgs {
   cursorModel?: string;
   /** Absolute path to the kiro-acp.py client; required only for `kiro`. */
   kiroClient?: string;
+  /** Model passed to `codex exec -m`; defaults to {@link DEFAULT_CODEX_MODEL}. */
+  model?: string;
+  /** codex `-o`: file the final message is written to; pairs with `outputSchemaPath`. */
+  outputLastMessagePath?: string;
+  /** codex `--output-schema`: JSON Schema constraining the final message. */
+  outputSchemaPath?: string;
   prompt: string;
+  /** codex `model_reasoning_effort`; defaults to {@link DEFAULT_CODEX_REASONING_EFFORT}. */
+  reasoningEffort?: string;
   scopeDir: string;
 }
 
@@ -56,9 +105,17 @@ export interface RunEngineArgs {
   /** Extra env vars merged over the inherited environment for the subprocess. */
   env?: Record<string, string>;
   kiroClient?: string;
+  /** Model passed to `codex exec -m`; defaults to {@link DEFAULT_CODEX_MODEL}. */
+  model?: string;
   /** Called for each stderr line as it arrives; useful for live progress. */
   onStderrLine?: (line: string) => void;
+  /** codex `-o`: file the final message is written to; pairs with `outputSchemaPath`. */
+  outputLastMessagePath?: string;
+  /** codex `--output-schema`: JSON Schema constraining the final message. */
+  outputSchemaPath?: string;
   prompt: string;
+  /** codex `model_reasoning_effort`; defaults to {@link DEFAULT_CODEX_REASONING_EFFORT}. */
+  reasoningEffort?: string;
   runner?: EngineRunner;
   scopeDir: string;
   /** Kill the subprocess after this many ms (0/undefined = no timeout). */
@@ -90,7 +147,17 @@ export function parseEngine(value: string | undefined): Engine {
  * Build the argv array for spawning `engine` with `prompt`. Pure: no env, no
  * filesystem, no spawning — unit-tested directly.
  *
- * - codex/claude take the prompt as the final positional argument.
+ * - codex runs `codex exec --json --ignore-user-config -m <model> -c
+ *   model_reasoning_effort="<effort>" --cd <scopeDir> -s workspace-write
+ *   --color never <prompt>`: `--ignore-user-config` decouples the run from
+ *   the developer's personal `~/.codex/config.toml` (auth still resolves via
+ *   `CODEX_HOME`, so this is safe) and `--json` emits JSONL usage telemetry
+ *   (see {@link parseCodexUsage}); claude takes the prompt as the final
+ *   positional argument. Supplying BOTH `outputSchemaPath` and
+ *   `outputLastMessagePath` switches codex to structured single-turn mode
+ *   (`--output-schema` + `-o`), where the model returns the whole translation
+ *   as one schema-constrained JSON message instead of writing files — so the
+ *   sandbox drops to `read-only`.
  * - agy uses `--add-dir <scope>` and `--print-timeout 1800s` plus
  *   `--dangerously-skip-permissions` so it runs unattended.
  * - cursor runs `cursor-agent -p` headlessly with `--output-format json` (for
@@ -105,9 +172,39 @@ export function buildEngineArgv(
   engine: Engine,
   args: BuildEngineArgvArgs
 ): string[] {
-  const { prompt, scopeDir, kiroClient, cursorModel } = args;
+  const {
+    prompt,
+    scopeDir,
+    kiroClient,
+    cursorModel,
+    model,
+    outputLastMessagePath,
+    outputSchemaPath,
+    reasoningEffort,
+  } = args;
   if (engine === "codex") {
-    return ["codex", "exec", prompt];
+    const structuredArgs =
+      outputSchemaPath && outputLastMessagePath
+        ? ["--output-schema", outputSchemaPath, "-o", outputLastMessagePath]
+        : [];
+    return [
+      "codex",
+      "exec",
+      "--json",
+      "--ignore-user-config",
+      "-m",
+      model ?? DEFAULT_CODEX_MODEL,
+      "-c",
+      `model_reasoning_effort="${reasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT}"`,
+      "--cd",
+      scopeDir,
+      "-s",
+      structuredArgs.length > 0 ? "read-only" : "workspace-write",
+      "--color",
+      "never",
+      ...structuredArgs,
+      prompt,
+    ];
   }
   if (engine === "claude") {
     // `--output-format json` makes the final stdout a single JSON object with
@@ -246,6 +343,57 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
 const numberOr = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
+/**
+ * Parse `codex exec --json` JSONL stdout for token usage: scan every line,
+ * `JSON.parse` those that look like objects, and for each
+ * `{"type":"turn.completed","usage":{...}}` line sum the usage fields — a
+ * session can have several turns. Unparseable/unrelated lines are ignored.
+ * Returns undefined when no `turn.completed` line was found. `input_tokens`
+ * already includes the cached portion, so it is summed as-is (never added to
+ * `cached_input_tokens`); `reasoning_output_tokens` is likewise already
+ * included in `output_tokens` and is only recorded, not added on top.
+ */
+const parseCodexUsage = (stdout: string): EngineUsage | undefined => {
+  let found = false;
+  let inputTokens = 0;
+  let cachedInputTokens = 0;
+  let cacheWriteInputTokens = 0;
+  let outputTokens = 0;
+  let reasoningOutputTokens = 0;
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!(trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+      continue;
+    }
+    let json: Record<string, unknown>;
+    try {
+      json = JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    const usage = json.usage as Record<string, unknown> | undefined;
+    if (json.type !== "turn.completed" || !usage) {
+      continue;
+    }
+    found = true;
+    inputTokens += numberOr(usage.input_tokens) ?? 0;
+    cachedInputTokens += numberOr(usage.cached_input_tokens) ?? 0;
+    cacheWriteInputTokens += numberOr(usage.cache_write_input_tokens) ?? 0;
+    outputTokens += numberOr(usage.output_tokens) ?? 0;
+    reasoningOutputTokens += numberOr(usage.reasoning_output_tokens) ?? 0;
+  }
+  if (!found) {
+    return;
+  }
+  return {
+    cachedInputTokens,
+    cacheWriteInputTokens,
+    inputTokens,
+    outputTokens,
+    reasoningOutputTokens,
+  };
+};
+
 /** Parse `claude --output-format json` stdout for cost / tokens / model. */
 const parseClaudeUsage = (stdout: string): EngineUsage | undefined => {
   let json: Record<string, unknown>;
@@ -338,11 +486,23 @@ const parseCursorUsage = (stdout: string): EngineUsage | undefined => {
   return usage && hasAnyField(usage) ? usage : undefined;
 };
 
-/** Extract usage from a finished run; only claude/kiro/cursor expose anything. */
+/**
+ * Extract usage from a finished run; codex/claude/kiro/cursor expose
+ * something, agy does not. `requestedModel` (the model codex was actually
+ * invoked with) is stamped onto the parsed codex usage, since codex's JSONL
+ * never reports which model served the run.
+ */
 export function parseUsage(
   engine: Engine,
-  result: EngineRunResult
+  result: EngineRunResult,
+  requestedModel?: string
 ): EngineUsage | undefined {
+  if (engine === "codex") {
+    const usage = parseCodexUsage(result.stdout);
+    return usage && requestedModel
+      ? { ...usage, model: requestedModel }
+      : usage;
+  }
   if (engine === "claude") {
     return parseClaudeUsage(result.stdout);
   }
@@ -368,7 +528,11 @@ export async function runEngine(
   const argv = buildEngineArgv(engine, {
     cursorModel: args.cursorModel,
     kiroClient: args.kiroClient,
+    model: args.model,
+    outputLastMessagePath: args.outputLastMessagePath,
+    outputSchemaPath: args.outputSchemaPath,
     prompt: args.prompt,
+    reasoningEffort: args.reasoningEffort,
     scopeDir: args.scopeDir,
   });
   const exec = args.runner ?? defaultRunner;
@@ -378,6 +542,8 @@ export async function runEngine(
     onStderrLine: args.onStderrLine,
     timeoutMs: args.timeoutMs,
   });
-  const usage = parseUsage(engine, result);
+  const requestedModel =
+    engine === "codex" ? (args.model ?? DEFAULT_CODEX_MODEL) : undefined;
+  const usage = parseUsage(engine, result, requestedModel);
   return usage ? { ...result, usage } : result;
 }

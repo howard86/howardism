@@ -1,69 +1,95 @@
 ---
 date: 2026-05-28
-title: Agent 身分識別與驗證
-description: "agentic Zero Trust 的基礎控制：以密碼學為根的每 agent 身分識別（→X.509→hardware attestation），用 IdP 核發的短期權杖取代靜態 API 金鑰（→mTLS→hardware-bound credentials），JIT 存取與 ABAC"
+title: Agent 身分與驗證
+description: "agentic Zero Trust 的基礎控制：
+  每個 agent 皆具備以密碼學為根的身分（→X.509→硬體證明），
+  以身分提供者簽發的短期 token 取代靜態 API 金鑰（→mTLS→硬體綁定
+  憑證）、JIT 存取與 ABAC"
 tag: Concept
-domain: ai-engineering
+domain: agent-security
 tags:
   - security
   - identity
   - authentication
   - credentials
-readingTime: 5
-imageAlt: Agent 身分識別與驗證的插圖
+readingTime: 9
+imageAlt: Agent 身分與驗證的插圖
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
+  - title: AI Agent Authentication and Authorization
+    url: https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/
 ---
 export { default as heroImage } from "../assets/agent-identity-and-authentication.png";
 
 ## 資料來源
 
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## 摘要
 
-身分識別與驗證構成了 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 中**所有其他安全性能力的基礎**：沒有可驗證的身分，就無法強制執行存取控制、維護稽核追蹤或對動作進行歸因。如果沒有獨立的身分，agent 就會運作於*「歸因缺口」之中，在此情況下，強制執行 [Least Agency](/articles/least-agency) 將變得不可能。*該框架的立場非常激進——靜態 API 金鑰和共享的服務帳戶密碼是*「攻擊者利用模型輔助程式碼分析時最先發現的東西之一」*，且**即便在基礎層級也已不再被接受。**
+身分與驗證是 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 中**所有其他安全能力的基礎控制**：沒有可驗證的身分，就無法實施存取控制、維護稽核軌跡，或將行動歸因於特定主體。沒有獨立身分時，agent 會處於*「歸因缺口」中，使 [Least Agency](/articles/least-agency) 的實施變得不可能。*這套框架的立場十分強硬——靜態 API 金鑰與共用服務帳戶密碼是*「使用模型輔助的程式碼分析，攻擊者最先會找到的東西之一」*，即使在 Foundation 層級也**不再可接受**。
 
-## 兩個部分：你是誰，以及如何證明
+## 兩個半部：你是誰，以及如何證明
 
 ### Agent 身分驗證
-- **基礎** — 每個 agent 實例都擁有獨特的*以密碼學為根的*識別碼（而不僅僅是標籤——「僅有獨特識別碼只是標籤工作」）；追蹤從建立到停用的完整生命週期；所有日誌和存取請求中都包含識別碼。以密碼學為根是實現不可否認性與防身分偽造的關鍵。
-- **企業** — 具備完整生命週期管理（輪替、撤銷）的 X.509 憑證。
-- **進階** — 位於 HSM/TPM 中並具備 remote attestation 的硬體支援身分；對於任何可從網際網路存取的生產系統，這已日益被推薦為目標狀態。
+
+- **Foundation** — 每個 agent 實例都有獨一無二、*以密碼學為根*的識別碼（不只是標籤——「單獨的獨一無二識別碼只是標記工作」）；追蹤從建立→退役的生命週期；所有日誌與存取請求都包含 ID。密碼學根源正是讓不可否認性與抗身分偽造真正成立的關鍵。
+- **Enterprise** — 使用 X.509 憑證並進行完整生命週期管理（輪替、撤銷）。
+- **Advanced** — 在 HSM/TPM 中使用硬體支援的身分與遠端證明；對任何可從網際網路連線的 production 系統而言，這越來越被建議作為目標狀態。
 
 ### 服務驗證
-- **基礎** — 來自身分識別提供者的短期、窄範圍權杖（OAuth 2.0），在*幾分鐘*內過期、自動重新整理，且絕不嵌入在程式碼或設定檔中。目前使用具備輪替功能的長效 API 金鑰是*已知缺口*，而非合理的基礎層級姿態——輪替可被檢索的憑證並不會顯著增加攻擊成本（參見 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。
-- **企業** — 具備憑證釘選的 mutual TLS。
-- **進階** — 具備 attested 核發的 hardware-bound credentials，使憑證無法從受侵害的主機中外洩；這同樣適用於服務對服務（service-to-service）的呼叫。
 
-## 憑證保護與範圍限制（階段 6）
+- **Foundation** — 從身分提供者取得短期、嚴格限縮範圍的 token（OAuth 2.0），有效期以*分鐘*計算，自動重新整理，絕不嵌入程式碼或設定檔。今天仍在使用、但會輪替的 API 金鑰是*已知缺口*，不是合理的 Foundation 姿態——輪替一個可被 grep 找到的憑證，並不會有意義地提高攻擊成本（見 [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)）。
+- **Enterprise** — 使用具憑證釘選的雙向 TLS。
+- **Advanced** — 使用具硬體綁定、並經證明後簽發的憑證，使憑證無法從遭入侵的主機外洩；這也適用於服務對服務呼叫。
 
-- **憑證隔離** — 每 agent 獨立的唯一憑證，如此一來，單一憑證遭竊取時，不會授予所有共享該私鑰的 agent 的合併存取權限；於執行期從機密管理器（例如 HashiCorp Vault）注入，絕不放在程式碼或設定檔中。
-- **Just-in-Time (JIT) 存取** — 僅在需要時授予權限，限制範圍與時間，且自動撤銷；如此一來，攻擊者就找不到可竊取的快取憑證。該框架稱 JIT 「非常強大，但不易實作」——這是一項進階但非常強的緩解措施。
-- **屬性型存取控制 (ABAC)** — 在授權前評估身分、資源敏感度、動作、時間、位置及風險評分；針對敏感記錄進行 step-up auth，並封鎖批次匯出。
-- **硬體綁定 2FA** — 只要有人類參與流程，就使用 FIDO2 / passkeys；SMS 簡碼「不符合基礎層級標準」。
+## 憑證保護與範圍限制（Phase 6）
 
-## 為什麼這是基石
+- **憑證隔離** — 每個 agent 使用獨有憑證，因此竊取一組憑證不會授予攻擊者所有共用同一祕密之 agent 的合併存取權；在執行階段從祕密管理器（例如 HashiCorp Vault）注入，絕不放在程式碼或設定檔中。
+- **Just-in-Time (JIT) 存取** — 僅在需要的時刻授予權限，限制範圍並設定時間上限，自動撤銷；攻擊者找不到可快取後竊取的憑證。這套框架稱 JIT「非常強大，但不容易實作」——這是進階但非常強力的緩解措施。
+- **基於屬性的存取控制（ABAC）** — 在授予權限前評估身分、資源敏感度、動作、時間、位置與風險分數；對敏感記錄要求升級驗證，封鎖大量匯出。
+- **硬體綁定的 2FA** — 只要流程中有人類參與，就使用 FIDO2 / passkeys；SMS 驗證碼「達不到 Foundation 的門檻」。
 
-身分是 [Blast Radius (Agentic)](/articles/blast-radius) 圍堵（以身分為基礎的隔離：服務僅接受明確命名的呼叫者）的先決條件，也是強制執行 [Least Agency](/articles/least-agency)（你無法限制無法歸因的範圍）的先決條件，更是可觀測性／可追溯性（在事件期間依 agent 篩選稽核日誌）的先決條件。該框架指出，[Claude Code](/articles/claude-code) 在所有遙測數據上都分配了獨特的 session.id，並帶有 account_uuid/organization.id 歸因，且針對 MCP 連線使用具備自動重新整理功能的 OAuth 2.0。
+## 為什麼這是關鍵基石
+
+身分是 [Blast Radius (Agentic)](/articles/blast-radius) 控制的前提（基於身分的隔離：服務只接受明確命名的呼叫者）、[Least Agency](/articles/least-agency) 實施的前提（無法歸因的對象就無法限制範圍），也是可觀測性／可追蹤性的前提（事件期間依 agent 篩選稽核日誌）。這套框架指出，[Claude Code](/articles/claude-code) 會為每個工作階段指派獨一無二的 `session.id`，並在所有遙測資料中以 `account_uuid`／`organization.id` 進行歸因；同時對 MCP 連線使用具自動重新整理功能的 OAuth 2.0。
+
+## 第二個來源：IETF AIMS 標準提案
+
+以上是某家供應商的分級成熟度模型。[AIMS](/articles/agent-identity-management-system)（IETF `draft-klrc-aiagent-auth-03`，2026 年 7 月——Defakto/AWS/Zscaler/Ping/OpenAI/Okta）是這個基石控制的**第一個標準軌、多供應商**處理方式，並透過點名具體標準，讓抽象的層級變得具體。兩者都尚未批准（該電子書是供應商實務者的觀點；AIMS 是**尚無 IETF WG 共識的個人提交**），因此都不是已採用的標準——但它們在承重性的主張上相互一致，並在基本原語上出現具有啟發性的分歧：
+
+**共同點** — 靜態 API 金鑰不可接受／屬於反模式；憑證必須是短期的，並以密碼學方式綁定至識別碼；每個 agent 的身分是基石；最小範圍／最小權限；可觀測性是具防竄改稽核功能的安全控制。
+
+**差異** —
+- *識別碼：*電子書表示「以密碼學為根的 ID → X.509 → 硬體支援」；AIMS 則點名具體原語——**WIMSE 識別碼**（URI），在實務上以 **SPIFFE ID**（`spiffe://…`）實現，並搭配 X.509-SVID *或* JWT/WIT-SVID 憑證。
+- *硬體證明：*電子書將硬體支援的身分＋遠端證明列為 **Advanced 層級目標**；AIMS 則讓硬體支援成為**選用項——「互通性不要求硬體支援」**——並將證明納入更廣泛、依部署而定的**「姿態評估」**，在每次憑證簽發／輪替時執行（硬體證據只是 TEE 證據、軟體完整性量測、供應鏈來源、協調流程中繼資料等訊號之一）。
+- *電子書未陳述的一項規則：*AIMS 要求**LLM 絕不能持有憑證**（由工作負載持有），正是為了讓提示注入無法外洩憑證——這是帶外參考監視器原則在身分層的對應版本（見 [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)）。
 
 ## 相關連結
 
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 控制網域 1；所有其他控制措施的基礎（樞紐）
-- [Least Agency](/articles/least-agency) — 若無各別獨立的每 agent 身分便無法強制執行（歸因缺口）
-- [Blast Radius (Agentic)](/articles/blast-radius) — 以身分為基礎的隔離與每 agent 憑證是主要的圍堵控制措施
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 靜態金鑰輪替是一種會失效的摩擦控制；短期 + hardware-bound credentials 則能通過測試
-- [Claude Code](/articles/claude-code) — 引用的參考實作：每 session 身分、OAuth 2.0 MCP 驗證、作業系統憑證存放區、apiKeyHelper
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP 連線是套用由 IdP 核發的短期權杖以取代靜態金鑰的具體場景
-- [Autonomous Defense](/articles/autonomous-defense) — 自動化事件回應（隔離、工作階段終止、憑證撤銷）是透過此處定義的以身分為基礎的隔離與短期憑證來執行的
-- [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — 橫跨身分、least-agency 與 blast-radius 的 基礎→企業→進階 遷移路徑；回答了下方的「懸崖對決中間點」開放問題
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 控制領域 1；所有其他控制的基礎（樞紐）
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — IETF AIMS 提案：同一基石的標準軌、多供應商第二來源，點名具體原語（WIMSE/SPIFFE 身分、短期姿態評估憑證、OAuth token 交換委派鏈）——上文詳述其與電子書的共同點與差異；該頁現在也涵蓋**OpenID AuthZEN** 授權草案（COAZ/AARP），這是補足本頁身分／驗證基石的*授權*切片（authn = 你是誰；AuthZEN authz = 是否允許呼叫）——由不同於 AIMS IETF 身分工作的組織（OpenID）標準化
+- [Least Agency](/articles/least-agency) — 沒有每個 agent 的獨立身分就無法實施（歸因缺口）
+- [Blast Radius (Agentic)](/articles/blast-radius) — 基於身分的隔離與每個 agent 的憑證是主要控制措施
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 靜態金鑰輪替是失效的摩擦控制；短期＋硬體綁定憑證則通過測試
+- [Claude Code](/articles/claude-code) — 引用的參考：每個工作階段的身分、OAuth 2.0 MCP 驗證、作業系統憑證儲存區、`apiKeyHelper`
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP 連線是將身分提供者簽發的短期 token 應用於靜態金鑰之上的明確位置
+- [Autonomous Defense](/articles/autonomous-defense) — 自動化事件回應（隔離、工作階段終止、憑證撤銷）透過此處定義的基於身分隔離與短期憑證來執行
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — 互補層：身分／驗證回答*agent 是誰*，每次呼叫的授權回答*在該主體／工作階段情境中是否允許這次呼叫*。ScopeGate 的 `authz` 階段會根據帶外政策，在「該主體與工作階段情境中」檢查引數值——這預設了本控制領域所建立的可歸因身分（無法歸因主體，就無法授權其呼叫）
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — 身分綁定的**粒度不同於本頁的基石**：本控制將身分綁定至*agent／工作負載*，而 aiAuthZ（Kodathala，arXiv 2607.05518）則將每則*人類*訊息綁定至一個逐訊息的 HMAC-SHA256 簽章（nonce＋timestamp），並讓工具呼叫的權限來源於最近一次驗證的人類回合，「而不是模型讀過的文字，或長期存在的工作階段憑證」。這是讓權限**無法由 agent 文字偽造**的具體離機制——也是「如何針對遭操弄的 agent 驗證升權請求」的答案（[Least Agency](/articles/least-agency) 的開放問題）：將其綁定至獨立信任領域中的密碼學身分，而非 agent 所聲稱的內容
+- [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — 跨越身分、最小代理與爆炸半徑的 Foundation→Enterprise→Advanced 遷移路徑；回答下方的懸崖與中點開放問題
 
 ## 開放問題
 
-- hardware-bound credentials 假設在 agent 運行的所有地方都有經證實（attested）的硬體，包括暫時性的雲端工作負載和子 agent。對於生命週期短暫、且「最高擁有與父 agent 相同權限」的產生子 agent，attestation 如何運作？
-- JIT 與 ABAC 皆被標記為「進階，不易實作」。是否存在一個務實的企業層級中間點，還是從基礎層級的靜態角色到進階 JIT 之間的差距是一個懸崖？ **已解答：**[Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — 並非懸崖；企業層級（ABAC + 具返回基準點的動態權限提升 + mTLS + 沙箱化）是刻意設計的中間點，而 ABAC 被框定為「進階」是資料來源的不一致之處（它在層級表中位於企業層級）。子 agent 的 attestation 仍然懸而未決。
+- 硬體綁定憑證假設 agent 執行的所有地方都有經證明的硬體，包括短暫的雲端工作負載與子 agent。對於「最多可擁有與父 agent 相同權限」的短期產生子 agent，證明如何運作？**部分回答：**[AIMS](/articles/agent-identity-management-system) 指定了*憑證化與委派*機制——產生的 agent 就是另一個取得自身 WIMSE/SPIFFE 識別碼與短期憑證的工作負載（SPIFFE 會為每張憑證配置短暫金鑰材料），在**每次簽發時進行姿態評估**，並透過 **OAuth Token Exchange + Transaction Tokens + 跨網域身分鏈結**，以**縮減範圍**的方式取得父 agent 的權限——也就是委派、以交易綁定的 token，**而不是**直接繼承父 agent 的憑證（比「與父 agent 相同權限」更強的答案）。然而，AIMS 對具體的硬體證明問題採取的是*化解*而非解決：它讓硬體支援成為**選用項**，並以依部署而定的姿態訊號取代每個子 agent 的硬體證明，因此硬體遠端證明如何流向只存活數秒的子 agent 仍未獲解答（AIMS 認為不需要這麼做）。
+
+## 已解決問題
+
+- JIT＋ABAC 都被標為「進階、不容易實作」。Foundation 的靜態角色與 Advanced 的 JIT 之間，是否存在務實的 Enterprise 層級中點，還是這個落差如懸崖般陡峭？**已回答：**[Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — 不是懸崖；Enterprise 層級（ABAC＋帶回基準權限的動態權限提升＋mTLS＋沙箱）就是刻意設計的中點，而將 ABAC 描述為「進階」是來源中的不一致（在層級表中它位於 Enterprise）。子 agent 的證明仍是開放問題。
 
 ## 資料來源
 
-- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — 第三部分身分識別與驗證 + 存取控制層級；第四部分階段 3 與 6
+- [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — 第 III 部分身分／驗證＋存取控制層級；第 IV 部分 Phase 3 與 6
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF `draft-klrc-aiagent-auth-03`（個人提交，無 WG 共識）：WIMSE/SPIFFE 識別碼（§6）、短期姿態評估憑證＋LLM 永不持有憑證（§7–8）、mTLS／應用程式層驗證（§9）、OAuth 委派＋交易 token／跨網域委派鏈（§10）

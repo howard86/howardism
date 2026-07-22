@@ -7,6 +7,7 @@ import { z } from "zod";
  * per-machine cache layered on top; this manifest is authoritative across clones.
  */
 export const TranslationRecordSchema = z.object({
+  costEstimated: z.boolean().nullish(),
   costUsd: z.number().nullable(),
   credits: z.number().nullable(),
   durationMs: z.number(),

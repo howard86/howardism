@@ -47,8 +47,10 @@ export function verbatimDiffers(
 /**
  * Re-copy the source's verbatim frontmatter lines into the output, leaving the
  * translated title/description/imageAlt and the body untouched. Cheap, no
- * engine call. Only the frontmatter region is rewritten; an absent key is left
- * as-is (the contract guarantees these keys exist).
+ * engine call. Only the frontmatter region is rewritten; a key the output is
+ * missing entirely is appended, since translations written before a key joined
+ * the contract (e.g. `domain`) would otherwise stay drifted forever — the
+ * resync would report success while changing nothing.
  */
 export function resyncVerbatimFields(
   outputText: string,
@@ -66,9 +68,9 @@ export function resyncVerbatimFields(
       continue;
     }
     const re = new RegExp(`^${key}:.*$`, "m");
-    if (re.test(block)) {
-      block = block.replace(re, srcLine);
-    }
+    block = re.test(block)
+      ? block.replace(re, srcLine)
+      : `${block}\n${srcLine}`;
   }
   const before = outputText.slice(0, fm.index ?? 0);
   const after = outputText.slice((fm.index ?? 0) + fm[0].length);

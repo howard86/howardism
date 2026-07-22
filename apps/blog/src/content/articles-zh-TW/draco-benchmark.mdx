@@ -1,0 +1,108 @@
+---
+date: 2026-06-15
+title: DRACO 基準
+description: Perplexity 對 100 個取自 production 的深度研究任務所進行的基準測試（涵蓋 10 個領域、40 個國家），由 26 位專家依據準確性／完整性／客觀性／引用品質評分；Perplexity Deep Research 在每個領域與評估軸向都領先，Claude Opus 4.6 是最強的非 Perplexity 系統，而事實準確性是普遍的弱項
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - benchmarks
+  - capability-evaluation
+  - deep-research
+  - llm-as-a-judge
+readingTime: 7
+imageAlt: DRACO 基準插圖
+sources:
+  - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
+      Completeness, and Objectivity"
+    url: https://arxiv.org/abs/2602.11685
+  - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
+      LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
+    url: https://arxiv.org/pdf/2606.19544
+---
+export { default as heroImage } from "../assets/draco-benchmark.png";
+
+## 資料來源
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+
+## 摘要
+
+**DRACO**（Deep Research Accuracy, Completeness, and Objectivity）是一項針對 **100 個複雜、開放式[深度研究](/articles/deep-research-agents)任務**的基準測試，涵蓋 **10 個領域**，並需要使用來自 **40 個國家**的資訊；該研究由 [Perplexity](/articles/perplexity)（與一位哈佛大學共同作者合作）於 2026 年 2 月發布（arXiv:2602.11685）。它的特色在於：任務取自 Perplexity Deep Research 的**真實、去識別化 production 使用資料**（[Production-Sourced Evaluation](/articles/production-sourced-evaluation)），而非合成或人工撰寫的提示，接著搭配**任務專屬專家評分規準**，並由 [LLM-as-a-judge](/articles/llm-as-a-judge) 評分。這是對*系統／產品*而非基礎模型進行的基準測試——也因此，其核心發現（編排勝過裸模型）更容易理解。
+
+## 為何與眾不同（表 1）
+
+DRACO 被定位為第一個同時具備以下特徵的深度研究基準：**取自 production、由人類撰寫、通用領域**（而非僅限專門／技術領域），以及**依專家評分規準評分**。過去的開放式基準至少缺少其中一項——DeepResearchEval、ReportBench、DeepScholar-Bench 與 DRBench 依賴合成任務生成；其他基準雖由人類撰寫，卻範圍狹窄或缺乏專家評分規準。沒有任何一項直接取自廣泛可用的 production 深度研究系統。
+
+## 任務建構（5 個階段）
+
+任務取自 Perplexity Deep Research 的 production 查詢，之後重新改寫／擴充／篩選，使其具備匿名、規格明確、範圍受限、具挑戰性且具代表性的特質：
+
+1. **抽樣**——抽取 1,000 個高難度英文查詢（2025 年 9 月至 10 月）；難度以後續負面情緒或對先前回覆按倒讚作為代理指標。
+2. **預處理**——由 LLM 重新改寫，以移除個人可識別資訊並降低歧義；全程自動化，**人類分析師從未看過任何原始查詢**（隱私設計）。
+3. **擴充**——沿兩個軸向系統性擴展：**脈絡**（角色、輸出格式、來源特定性）與**範圍**（時間、跨實體比較、地理）。將模糊查詢轉為定義清楚、反映使用者隱含意圖的任務。
+4. **篩選**——LLM 僅保留同時具備**客觀性**（專家對何謂優良結果能達成共識）、**可處理性**（範圍受限）與**困難度**（需要非平凡的多步驟蒐集／綜合）的任務。
+5. **策展**——抽取 100 個任務，使其符合真實領域分布，之後由內部領域專家人工審查。
+
+10 個領域為：金融、購物／產品比較、學術、科技、一般知識、UX 設計、法律、醫學、海底撈針、個人化助理。
+
+## 評分規準設計與評分
+
+評分規準由 **26 位受邀領域專家**（醫師、律師、金融分析師、工程師、設計師）在 LLM 協助下，透過 4 階段流程建立，其中包括**飽和度測試**——若領先系統在某項任務上已獲得 >90% 分數，該任務就會被退回強化（約 45% 的任務符合此情況）。每項任務包含四個軸向、平均 **~39.3 個加權準則**；約有一半針對事實準確性。準則分為正向（可取特性）或負向（陷阱），其中最嚴厲的懲罰保留給有害的醫療內容（最低可達 −500）。
+
+| 軸向 | 權重範圍 | 每項任務準則數（約） |
+|---|---|---|
+| 事實準確性 | −500 至 +20 | 20.5 |
+| 分析廣度與深度 | −100 至 +10 | 8.6 |
+| 呈現品質 | −50 至 +20 | 5.6 |
+| 引用品質 | −150 至 +10 | 4.8 |
+
+評分採用開源的 [LLM-as-a-judge](/articles/llm-as-a-judge) 協定：逐項準則以二元方式判定 MET/UNMET → 加權**正規化分數**（0–100%）與**通過率**。評審模型為 Gemini-3-Pro（透過內部人類–LLM 對齊研究選定）；GPT-5.2 與 Sonnet-4.5 負責交叉驗證。**不同評審模型下的排名穩定；絕對數值則會變動。**
+
+## 核心結果
+
+**Perplexity Deep Research 在每個領域與每個評分軸向都領先。**在深度研究*系統*之中：
+
+| 系統 | 正規化分數 | 通過率 |
+|---|---|---|
+| Perplexity Deep Research（Opus 4.6） | **70.5** | **72.8** |
+| Perplexity Deep Research（Opus 4.5） | 67.2 | 70.9 |
+| Gemini Deep Research | 59.0 | 62.7 |
+| OpenAI Deep Research（o3） | 52.1 | 56.9 |
+| OpenAI Deep Research（o4-mini） | 41.9 | 48.0 |
+| Claude Opus 4.6（裸模型 + 工具） | 59.8 | 63.1 |
+| Claude Opus 4.5（裸模型 + 工具） | 46.7 | 50.2 |
+
+對本 wiki 重要的三項發現：
+
+1. **編排 > 基礎模型。**Perplexity（Opus 4.6 基礎模型）比搭配工具的裸 Opus 4.6 高出約 10 個百分點——請參閱[深度研究代理](/articles/deep-research-agents)。這是對[模型進步時的 Harness 收縮](/articles/harness-shrinkage-as-models-improve)的即時反例。
+2. **Claude Opus 4.6 是最強的非 Perplexity 系統**（59.8%／63.1%），領先 Gemini Deep Research 與 OpenAI 的兩種設定。Opus 4.6 在 10 個領域中的 5 個排名第二（非 Perplexity）。
+3. **事實準確性／引用是普遍的弱軸向**；呈現品質在所有地方都最強。Perplexity 與第二名的差距在金融領域最大（21.6 個百分點），在法律領域最小（1.6 個百分點）。
+
+## 限制（論文作者自述）
+
+僅限單輪（未測試澄清問題／多輪能力）；雖然更新流程可自動化，仍只是靜態快照；僅限文字（不含多模態）；僅限英文；擴充可能過度規定任務，消除自然查詢的變異性；評分規準的建立仍需要大量人類專家參與；絕對分數取決於 LLM 評審模型（但排名不受影響）。這是系統層級（黑箱）評估——無法將結果歸因至檢索、規劃或綜合等個別元件。
+
+## 相關連結
+
+- [深度研究代理](/articles/deep-research-agents)——DRACO 評估的系統類別；包含編排／驗證／效率相關發現
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation)——DRACO 的核心方法論貢獻：任務建構自真實的去識別化 production 流量
+- [LLM-as-a-Judge](/articles/llm-as-a-judge)——DRACO 使用的、以評分規準為基礎的二元判定評分協定
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling)——姊妹能力基準；METR 衡量模型能維持的任務*長度*，DRACO 衡量代理系統研究報告的*品質*，兩者都注意到基準飽和壓力（DRACO 的飽和度測試會捨棄已解決 >90% 的任務）
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)——DRACO 的編排勝過裸模型結果，是對 harness 收縮論點的反例
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)——所有系統的事實準確性弱點，顯示驗證已成為研究產品內部浮現的新瓶頸
+- [Evals as Product Spec](/articles/evals-as-product-spec)——DRACO 是「evals 即完成定義」的大規模外化形式，其中評分規準取代了 eval 集合
+- [Perplexity](/articles/perplexity)／[Anthropic](/articles/anthropic)／[Google DeepMind](/articles/google-deepmind)——基準作者；受評估系統與評審模型的製造者
+- [LLM-Judge Validation](/articles/llm-judge-validation)——對 DRACO 評審穩定性主張的制衡：DRACO 顯示排名在不同*評審模型*之間保持一致（改變評審模型，固定任務）；Norman 等人（2026）則顯示評審排名在不同*基準*之間很脆弱（改變任務）——這是兩種不同的不變性，合在一起界定了任何評審評分排名能夠轉移的範圍
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)——DRACO 在沒有單一標準答案的情況下評分開放式報告（屬於無參考答案風格的設定），並發現事實準確性是普遍弱軸向；Kranti 與 Vajjala 提供了其機制——提示中沒有參考答案時，評審模型會對錯誤答案過度給分
+
+## 開放問題
+
+- 基準是靜態的，但建構流程可自動化。Perplexity 真的會更新它嗎？而一項由供應商建立、且供應商自己的產品勝出的基準，長期而言仍可信嗎？
+- 排名在評審模型之間穩定，但絕對數值並不穩定——在非 Gemini 評審模型下，絕對分數會變動多少？這對跨論文比較重要嗎？
+- 這種取自 production、依專家評分規準評分的方法，能否以低成本泛化至非英文、多模態及多輪深度研究？
+
+## 資料來源
+
+- [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)——完整論文（arXiv:2602.11685，Perplexity + Harvard，2026 年 2 月）：任務建構、評分規準流程、評分協定與所有結果表格
+- [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)——Norman 等人（arXiv 2606.19544，2026 年 6 月，`empirical`）：相對於 DRACO 評審模型不變性的基準變異性對照；請參閱 [LLM-Judge Validation](/articles/llm-judge-validation)

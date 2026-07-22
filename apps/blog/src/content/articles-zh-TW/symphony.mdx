@@ -1,16 +1,18 @@
 ---
 date: 2026-04-28
 title: Symphony
-description: "OpenAI 的開源 agent 編排器（2026 年 3 月）：將 Linear 變成 Codex 的控制平面、每個 issue 獨立工作區、daemon 驅動、SPEC.md 即產品、附帶保留的 500% 合併 PR 宣稱"
+description: "OpenAI 的開源代理協調器（2026 年 3 月）：將 Linear 轉變為 Codex 的控制平面，
+  為每個議題配置工作區、由 daemon 驅動、以 SPEC.md 作為產品，並宣稱落地 PR 增加 500%"
 tag: Entity
-topic: harness
+domain: entities
+entityType: software
 tags:
   - entity
   - openai
   - agent-orchestration
   - codex
 readingTime: 9
-imageAlt: Symphony 的示意圖
+imageAlt: Symphony 的插圖
 sources:
   - title: "An open-source spec for Codex orchestration: Symphony."
     url: https://openai.com/index/open-source-codex-orchestration-symphony/
@@ -23,100 +25,101 @@ export { default as heroImage } from "../assets/symphony.png";
 
 ## 摘要
 
-Symphony 是 OpenAI Codex 團隊（Alex Kotliarskyi、Victor Zhu、Zach Brock——同一個撰寫 [harness engineering](/articles/agent-harness-engineering) 文章的團隊）推出的開源 agent 編排規格。它將 issue 追蹤器（v1 使用 Linear）變成程式碼 agents 的控制平面：每張開啟的 ticket 都會獲得一個專屬工作區和一個持續運行的 [Codex App Server](/articles/codex-app-server-protocol) session。其「產品」主要是 [openai/symphony repo](https://github.com/openai/symphony) 中的一個 `SPEC.md` 檔案——OpenAI 明確表示不打算將 Symphony 作為獨立工具維護，而是將其定位為參考實作，讓使用者將自己的 coding agent 指向它。
+Symphony 是由 OpenAI 的 Codex 團隊（Alex Kotliarskyi、Victor Zhu、Zach Brock——也是撰寫[代理程式運行框架工程](/articles/agent-harness-engineering)文章的團隊）推出的開源代理協調規格。它將議題追蹤器（v1 使用 Linear）轉變為編碼代理的控制平面：每張未結案的工單都有專屬工作區，以及持續執行的 [Codex App Server](/articles/codex-app-server-protocol) 工作階段。「產品」主要是一個位於 [openai/symphony 儲存庫](https://github.com/openai/symphony)中的 `SPEC.md` 檔案——OpenAI 明確表示不打算將 Symphony 維護為獨立工具，而是希望它成為參考實作，讓使用者指示自己的編碼代理採用。
 
 ## 細節
 
 ### 起源故事
 
-Symphony 在 2026 年 3 月公開發布前六個月就已建構完成，它源自與 [Agent Harness Engineering](/articles/agent-harness-engineering) 不同的瓶頸。當 OpenAI 生產力工具團隊擁有一個可運作的 agent 友善 repo（無人工撰寫的程式碼、約 100 萬行、約 1,500 個 PR）後，新的瓶頸變成了**人類注意力**——一位工程師在同時管理 3–5 個 Codex session 後，上下文切換就會導致生產力崩潰。
+Symphony 在 2026 年 3 月公開宣布前六個月便已建立，其所處理的瓶頸不同於[代理程式運行框架工程](/articles/agent-harness-engineering)所處理的問題。當 OpenAI 生產力工具團隊擁有一個可供代理使用的儲存庫（沒有人工撰寫的程式碼、約 100 萬行程式碼、約 1,500 個 PR）後，新的瓶頸變成了**人的注意力**——在生產力因上下文切換崩潰前，一名工程師可以輕鬆管理 3–5 個並行的 Codex 工作階段。
 
 演進路徑：
-1. **v1** — 在 `tmux` 中運行的 Codex session，輪詢 Linear 並為新任務產生子 agents。可以運作，但不可靠。
-2. **v2** — 存在於主專案 repo 中，利用現有的 harness。
-3. **v3** — 「用 Symphony 來建構 Symphony。」一旦核心功能存在，系統就能自舉自身的開發。
-4. **對外發布** — 提取為獨立的 `SPEC.md`。OpenAI 要求 Codex 用 Elixir 實作該規格，然後再用 TypeScript、Go、Rust、Java 和 Python 實作——跨實作的差異被用作規格模糊測試信號以消除歧義。（參見 [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) 了解為何這很重要。）
+1. **v1** — 在 `tmux` 中執行 Codex 工作階段，輪詢 Linear，並為新任務啟動子代理。能運作，但不可靠。
+2. **v2** — 存在於他們的主要專案儲存庫內，利用既有的運行框架。
+3. **v3** —「使用 Symphony 建造 Symphony。」核心功能完成後，系統開始自我啟動開發流程。
+4. **對外發布** — 擷取成獨立的 `SPEC.md`。OpenAI 要求 Codex 以 Elixir 實作規格，接著再以 TypeScript、Go、Rust、Java 和 Python 實作——利用各實作之間的差異作為規格模糊測試訊號，以消除歧義。（這為何重要，請參閱 [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base)。）
 
-參考實作使用 **Elixir**，選擇它是因為其並行和監督原語。正如文章所述：「當程式碼實際上是免費的，你終於可以根據語言的優勢來選擇語言了。」
+參考實作採用**Elixir**，因為它具備並行與監督原語。正如文章所述：「當程式碼幾乎免費時，你終於可以根據語言的優勢來選擇語言。」
 
-### 它實際做了什麼
+### 它實際上做什麼
 
-Symphony 是一個長期運行的 daemon，它：
+Symphony 是一個長時間執行的 daemon，會：
 
-1. 輪詢 Linear（預設 30 秒）以取得處於活躍狀態（`Todo`、`In Progress`）的 issues。
-2. 為每個符合條件的 issue，在 `<workspace.root>/<sanitized_identifier>` 建立一個確定性的 per-issue 工作區。
-3. 在該工作區中啟動一個 [Codex App Server](/articles/codex-app-server-protocol) session，從 `WORKFLOW.md` 渲染每個團隊的 prompt 模板。
-4. 每次 tick 進行狀態調和——終止那些 ticket 已轉換到終態的 sessions，以指數退避重試崩潰/停滯的 sessions。
-5. **不會寫入追蹤器本身。** 狀態轉換、留言、PR 連結由 *coding agent* 使用自己的工具執行。Symphony 是「排程器/執行器和追蹤器讀取器」。
+1. 每隔 30 秒（預設值）輪詢 Linear，尋找處於作用中狀態（`Todo`、`In Progress`）的議題。
+2. 為每個符合資格的議題，在 `<workspace.root>/<sanitized_identifier>` 建立具決定性的議題專屬工作區。
+3. 在該工作區中啟動 [Codex App Server](/articles/codex-app-server-protocol) 工作階段，從 `WORKFLOW.md` 根據團隊提示詞範本產生提示詞。
+4. 每次 tick 都重新協調狀態——終止票券已轉為終止狀態的工作階段，並以指數退避重試崩潰或卡住的工作階段。
+5. **不會自行寫入追蹤器。** 狀態轉換、留言與 PR 連結皆由**編碼代理**使用自己的工具執行。Symphony 是「排程器／執行器與追蹤器讀取器」。
 
 ### SPEC.md 就是產品
 
-當你打開 repo 時，首先看到的是 `SPEC.md`——而非原始碼。該規格定義了：
+開啟儲存庫時，第一個看到的是 `SPEC.md`——不是原始碼。規格定義了：
 
-- **工作流程契約**：`WORKFLOW.md` 是一個帶有 YAML front matter 的 markdown 檔案，在使用者的 repo 中進行版本控制，解析為執行時期配置（`tracker`、`polling`、`workspace`、`hooks`、`agent`、`codex`）和一個 Liquid 相容的 prompt 模板主體。
-- **狀態機**：5 個編排狀態（`Unclaimed`、`Claimed`、`Running`、`RetryQueued`、`Released`）和 11 個執行嘗試階段。追蹤器狀態與編排器狀態是*分離的*。
-- **並行控制**：全域上限（`max_concurrent_agents`，預設 10）、per-state 上限、可選的 per-SSH-host 上限。
-- **工作區安全不變量**：agent 只在 per-issue 工作區中運行；工作區路徑必須保持在工作區根目錄內；識別碼清理為 `[A-Za-z0-9._-]`。
-- **無持久化編排器資料庫**：重啟恢復由追蹤器驅動和檔案系統驅動。啟動時清理過期的終態工作區。
-- **工作區跨次運行保留**（刻意設計）。與典型 CI 的短暫性相反——有暖快取的好處，但有狀態污染的風險。
+- **工作流程契約**：`WORKFLOW.md` 是一個帶有 YAML front matter 的 markdown 檔案，版本控制於使用者的儲存庫中，用於解析執行階段設定（`tracker`、`polling`、`workspace`、`hooks`、`agent`、`codex`）以及相容於 Liquid 的提示詞範本本文。
+- **狀態機**：5 個協調狀態（`Unclaimed`、`Claimed`、`Running`、`RetryQueued`、`Released`）與 11 個執行嘗試階段。追蹤器狀態與協調器狀態**彼此分離**。
+- **並行控制**：全域上限（`max_concurrent_agents`，預設 10）、每個狀態的上限，以及可選的每個 SSH 主機上限。
+- **工作區安全不變量**：代理只能在議題專屬工作區中執行；工作區路徑必須維持在工作區根目錄內；識別碼會被清理為 `[A-Za-z0-9._-]`。
+- **沒有持久化的協調器資料庫**：重啟復原由追蹤器與檔案系統驅動。啟動時清理過時的終止工作區。
+- **刻意保留跨執行的工作區**。這與典型 CI 的短暫性相反——能享有暖快取效益，也承擔狀態污染風險。
 
-這是一種刻意的反轉：與其建構複雜的監督系統，OpenAI 定義了問題並讓 coding agents 來實作它。
+這是一種刻意的反轉：OpenAI 沒有建立複雜的監督系統，而是定義問題，讓編碼代理實作它。
 
-### Linear 作為控制平面的洞察
+### Linear 作為控制平面的洞見
 
-Symphony 強制推動的更深層轉變在 [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) 中有所描述：tickets 成為工作單位，而非 sessions 或 PR。在 OpenAI 的某些團隊中，合併的 PR 在前三週增加了 **500%**（保留性宣稱——「在某些團隊中」，無基線定義）。Linear 創辦人 Karri Saarinen 另外報告了與 Symphony 發布相關的工作區建立量激增。
+Symphony 強迫人們面對的更深層轉變，收錄於[票券驅動的代理協調](/articles/ticket-driven-agent-orchestration)：票券成為工作單位，而不是工作階段或 PR。在 OpenAI 的部分團隊中，落地 PR 在**前三週增加了 500%**（這項說法有所保留——僅稱「部分團隊」，且未定義基準）。Linear 創辦人 Karri Saarinen 另行回報，工作區建立量的激增與 Symphony 的發布相關。
 
-OpenAI 外部的證據：[在發布約 6 週內，GitHub 星數超過 15K（截至 2026 年 4 月 23 日）](https://github.com/openai/symphony)。
+OpenAI 之外的證據：[截至 2026 年 4 月 23 日，GitHub 星數超過 15,000](https://github.com/openai/symphony)，發布約 6 週內達成。
 
-### 「目標，而非轉換」——重新學到的教訓
+###「目標，而非轉換」——重新學到的教訓
 
-OpenAI 第一版的 Symphony 將 agents 視為狀態機中的剛性節點——Codex 只被要求實作任務。他們發現這太過限制：
+OpenAI 的 Symphony 初版將代理視為狀態機中的剛性節點——只要求 Codex 實作任務。他們發現這過於受限：
 
-> 「模型越來越聰明，能解決比我們試圖將它們塞入的框框更大的問題。」
+>「模型變得更聰明，能解決比我們試圖把它們塞進去的框框更大的問題。」
 
-轉變：給 Codex 工具（`gh` CLI、CI 日誌閱讀技能等）和*目標*，而非狀態轉換。這在編排層重新闡述了[「強制不變量，而非實作」](/articles/agent-harness-engineering)原則——相同的想法，不同的層次。
+轉變是：給 Codex 工具（`gh` CLI、讀取 CI 日誌的技能等）與**目標**，而不是狀態轉換。這將[「強制執行不變量，而非實作」](/articles/agent-harness-engineering)原則重新表述為協調問題——相同理念，不同層次。
 
-### Codex App Server 與 Token 隔離的工具注入
+### Codex App Server 與權杖隔離的工具注入
 
-Symphony 使用 Codex 的無頭模式（App Server）而非驅動 CLI。完整協議記錄在 [Codex App Server Protocol](/articles/codex-app-server-protocol)。值得注意的是**動態工具呼叫**（實驗性）的使用：Symphony 不是直接給子 agents Linear 存取 token，而是暴露一個 `linear_graphql` 工具，使用編排器的認證來代理已認證的請求——token 永遠不會到達子 agent 容器。
+Symphony 使用 Codex 的無頭模式（App Server），而不是驅動 CLI。完整協定記錄於 [Codex App Server Protocol](/articles/codex-app-server-protocol)。值得注意的是**動態工具呼叫**的使用方式（實驗性功能）：Symphony 不直接將 Linear 存取權杖提供給子代理，而是公開 `linear_graphql` 工具，使用協調器的驗證資訊代理已驗證的請求——權杖永遠不會抵達子代理容器。
 
-這在精神上與 MCP 平行，但專門針對 coding-agent 執行時期。
+在精神上，這與 MCP 平行，但專門針對編碼代理執行階段。
 
-### Symphony 未解決的問題
+### Symphony 不會解決什麼
 
-文章中坦誠指出的取捨：
+文章指出了以下誠實的取捨：
 
-- **失去飛行中的引導**：當工作在 ticket 層級分配時，你無法在執行過程中微調 agent。失敗會揭示 harness/技能中的缺口，然後在系統層面修補。
-- **並非所有任務都適合**：需要強人類判斷的模糊問題仍需互動式 Codex sessions。Symphony 處理批量例行實作。
-- **狀態機僵化（早期教訓，已修正）**：見上方「目標，而非轉換」。
+- **失去執行中的引導**：工作以票券層級分配後，你無法再於執行期間推動代理。失敗會揭示運行框架／技能的缺口，之後再於全系統修補。
+- **並非所有任務都適用**：需要強烈人類判斷的模糊問題，仍需要互動式 Codex 工作階段。Symphony 處理大量例行實作。
+- **狀態機僵化（早期教訓，已修正）**：請參閱上方的「目標，而非轉換」。
 
 ### 與其他事物的關係
 
-- **Symphony vs. Claude Code agents**：平行的生態系統。Symphony 是 daemon 優先（常駐、輪詢）；Claude Code 是 session 優先，帶有可選的非互動模式（`claude -p`）。兩者都依賴 repo 版本控制的 markdown 作為行為配置（參見 [Claude Code Best Practices](/articles/claude-code-best-practices) CLAUDE.md、[Hermes Agent](/articles/hermes-agent) AGENTS.md/SOUL.md）。
-- **Symphony vs. Hermes Gateway**：兩者都是作為 systemd/launchd 服務運行的多租戶 daemons。Symphony 的租戶單位是 *issue*；Hermes 的租戶單位是*使用者*（參見 [Hermes Agent](/articles/hermes-agent)）。兩者都進行 per-tenant 隔離，並偏好使用 Docker 確保安全。
+- **Symphony 與 Claude Code agents**：平行的生態系統。Symphony 以 daemon 為核心（永遠在線、持續輪詢）；Claude Code 以工作階段為核心，並可選擇非互動模式（`claude -p`）。兩者都依賴儲存庫版本控制的 markdown 來設定行為（請參閱 [Claude Code Best Practices](/articles/claude-code-best-practices) 的 CLAUDE.md，以及 [Hermes Agent](/articles/hermes-agent) 的 AGENTS.md／SOUL.md）。
+- **Symphony 與 Hermes Gateway**：兩者都是以 systemd／launchd 服務執行的多租戶 daemon。Symphony 的租戶單位是**議題**；Hermes 的租戶單位是**使用者**（請參閱 [Hermes Agent](/articles/hermes-agent)）。兩者都隔離每個租戶，並偏好使用 Docker 以確保安全。
 
 ## 相關連結
 
-- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Symphony 所編纂的核心抽象；可轉移至 Linear/Codex 之外
-- [Codex App Server Protocol](/articles/codex-app-server-protocol) — Symphony 依賴的執行時期協議；涵蓋 JSON-RPC stdio 握手、延續回合和動態工具呼叫的細節
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — Symphony 是同一 OpenAI 團隊早期工作的自然「harness 即服務」演進；「目標而非轉換」與「強制不變量而非實作」是相同的想法
-- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — 「用 6 種語言編譯規格，利用差異找出歧義」的技術是 LLM-as-compiler 迄今最具體的延伸——它使用跨實作漂移作為規格模糊測試器
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — Symphony 的 `WORKFLOW.md` 與 `CLAUDE.md` 是相同的模式：repo 版本控制的純文字作為 agent 控制平面，但在編排層而非 session 層
-- [Hermes Agent](/articles/hermes-agent) — 平行的「常駐 agent daemon」架構，使用 per-user 而非 per-issue 隔離
-- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — Symphony 的 per-state 並行上限和延續回合預算是 AgentOpt 形式化的預算槓桿的操作實例
-- [Claude's Constitution / Model Spec](/articles/claude-constitution) — 相同的規格即文件模式在不同層次：Symphony 的 `SPEC.md` 是產品層級；[Model Spec / Constitution](/articles/claude-constitution) 是對齊層級，但兩者都將純文字規格視為承重構件
-- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 進一步延伸規格即槓桿：對齊規格現在是直接的訓練輸入，而非僅是執行時期指導文件
-- [Model Spec Science](/articles/model-spec-science) — 規格模糊測試技術（用 6 種語言編譯規格，利用差異揭示歧義）是實證 Model Spec 研究的方法論近親
-- [Agent Loop Pattern](/articles/agent-loop-pattern) — 編排層的 daemon 驅動等價物；Symphony 是基於 ticket 追蹤器的 loops-as-a-service
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 已部署的 agent 產品正是 AM 威脅模型（自主、使用工具、每次行動監督薄弱）適用的表面
+- [票券驅動的代理協調](/articles/ticket-driven-agent-orchestration) — Symphony 編纂的核心抽象；可延伸至 Linear／Codex 之外
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — Symphony 所依賴的執行階段協定；詳細涵蓋 JSON-RPC stdio 交握、延續回合與動態工具呼叫
+- [代理程式運行框架工程](/articles/agent-harness-engineering) — Symphony 是同一 OpenAI 團隊早期工作的自然「作為服務的運行框架」演進；「目標而非轉換」與「強制執行不變量，而非實作」是同一理念
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) —「以 6 種語言編譯規格，利用差異找出歧義」的技術，是目前 LLM-as-compiler 最具體的延伸；它將跨實作漂移作為規格模糊測試工具
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Symphony 的 `WORKFLOW.md` 與 `CLAUDE.md` 是相同模式：版本控制於儲存庫的純文字作為代理控制平面，但前者位於協調層而非工作階段層
+- [Hermes Agent](/articles/hermes-agent) — 平行的「永遠在線代理 daemon」架構，採用按使用者而非按議題隔離
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — Symphony 的每狀態並行上限與延續回合預算，是 AgentOpt 所形式化的預算槓桿之作業實例
+- [Claude's Constitution / Model Spec](/articles/claude-constitution) — 不同層次的相同「規格即文件」模式：Symphony 的 `SPEC.md` 位於產品層；[Model Spec / Constitution](/articles/claude-constitution) 位於對齊層，但兩者都將純文字規格視為承重構件
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 將規格作為槓桿的概念進一步延伸：對齊規格現在是直接的訓練輸入，而不只是執行階段指引文件
+- [Model Spec Science](/articles/model-spec-science) — 規格模糊測試技術（以 6 種語言編譯規格，利用差異揭示歧義）是實證研究 Model Spec 的方法論近親
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 協調層的 daemon 驅動等價物；Symphony 是在票券追蹤器上提供的迴圈即服務
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 部署中的代理產品正是 AM 威脅模型所適用的表面（自主、使用工具、對每次行動的監督薄弱）
+- [OpenAI](/articles/openai) — 建造並開源 Symphony 的實驗室，其 Codex 團隊
 
 ## 開放問題
 
-- **500% 合併 PR 宣稱**是保留性的——無基線定義，僅「在某些團隊中」。跨團隊的分佈是什麼樣的？在該吞吐量下，PR *品質*和回退率會發生什麼？
-- 「工作區跨次運行保留」與典型 CI 的短暫性相反。在什麼時候，先前運行的狀態污染（過期的 `node_modules`、殘留分支、建構產物）開始比暖快取的好處造成更多傷害？
-- Symphony 不寫入追蹤器——agents 才會。這意味著追蹤器策略是 `WORKFLOW.md` 中的一個 *prompt*。當 Linear 更改其 API 時，這在實務上有多脆弱？當 agents 擁有 prompt 層級的裁量權時，如何強制一致的狀態機行為？
-- 規格透過在 6 種語言中實作而得到簡化。這項技術的延伸是什麼？此 vault 中的 `compiler-prompt.md` 是否可以類似地進行交叉模糊測試？
-- Symphony 明確表示 agents 可以自行建立 tickets。什麼治理機制能防止失控的 ticket 圖擴張？人類對 agent 建立的 tickets 進行分類是唯一的檢查嗎？
+- **500% 落地 PR 的說法**有所保留——沒有基準定義，且僅限於「部分團隊」。各團隊的分布情況如何？在這種吞吐量下，PR 的**品質**與還原率會發生什麼變化？
+- 「跨執行保留工作區」與典型 CI 的短暫性相反。從先前執行留下的狀態污染（過時的 `node_modules`、遺留分支、建置產物）開始造成的傷害，何時會超過暖快取帶來的益處？
+- Symphony 不寫入追蹤器——代理會寫。這表示追蹤器政策是 `WORKFLOW.md` 中的**提示詞**。實務上當 Linear 改變 API 時，這有多脆弱？當代理擁有提示詞層級的裁量權時，如何強制一致的狀態機行為？
+- 規格透過以 6 種語言實作而簡化。這項技術的延伸是什麼？這個 vault 中的 `compiler-prompt.md` 是否也能以類似方式進行跨實作模糊測試？
+- Symphony 明確表示代理可以自行建立票券。什麼治理機制能防止票券圖無限制擴張？由人類對代理建立的票券進行分流，是否是唯一的檢查機制？
 
 ## 資料來源
 

@@ -1,10 +1,11 @@
 ---
 date: 2026-04-17
 title: Claude Opus 4.7
-description: Anthropic 的 GA frontier model；以相同價格直接升級 4.6；literal instruction following、1.0–1.35× tokenizer inflation、新的
-  `xhigh` effort、首批 post-Glasswing safeguards
+description: Anthropic 的 GA frontier model；以相同價格直接升級至 4.6；字面指令遵循、1.0–1.35× tokenizer 膨脹、新增
+  `xhigh` effort，以及首個 Glasswing 後的 safeguards
 tag: Entity
 domain: entities
+entityType: model
 tags:
   - entity
   - claude
@@ -24,90 +25,91 @@ export { default as heroImage } from "../assets/claude-opus-4-7.png";
 
 ## 摘要
 
-Claude Opus 4.7 是 Anthropic 發布為正式可用的 general-availability frontier model，作為 Opus 4.6 的直接升級（價格相同：$5/M input、$25/M output；model ID `claude-opus-4-7`）。它在進階 software engineering、literal instruction following、高解析度 vision，以及 file-system memory 上都有進展，同時整體能力仍不如 limited-release 的 [Claude Mythos Preview](/articles/llm-driven-vulnerability-research)。它是第一個在 [Project Glasswing](/articles/llm-driven-vulnerability-research#Project%20Glasswing) 下搭載 Mythos-class cyber safeguards 出貨的模型。
+Claude Opus 4.7 是 Anthropic 發布的通用 GA frontier model，以直接升級 Opus 4.6 的形式推出（價格相同：輸入每百萬 token $5、輸出每百萬 token $25；model ID `claude-opus-4-7`）。它在進階軟體工程、字面指令遵循、高解析度視覺能力與檔案系統記憶方面有所提升，但整體能力仍不如限量發布的 [Claude Mythos Preview](/articles/llm-driven-vulnerability-research)。這是首個在 [Project Glasswing](/articles/llm-driven-vulnerability-research#Project%20Glasswing) 下搭載 Mythos 級 cyber safeguards 的模型。
 
-## 細節
+## 詳細資訊
 
-### 能力差異 vs. Opus 4.6
+### 相較 Opus 4.6 的能力差異
 
-- **最困難任務上的 software engineering**：明確以「hand off your hardest coding work」行銷。在 Finance Agent、GDPval-AA 上達到 SOTA；在 SWE-bench Verified/Pro/Multilingual 上改善（排除標記為 memorization 的題目後，改善仍然成立）。
-- **Instruction following — literal**：明顯更 literal。Anthropic 警告，為早期模型調校的 prompts「有時現在可能產生非預期結果」，因為 Opus 4.7 不再跳過或鬆散解讀部分內容。**Retuning 是必要的 migration step**，不是可選項。
-- **Multimodal**：接受長邊最高 2,576 px 的圖片（約 3.75 MP，>3× 先前 Claude 模型）。支援 dense-screenshot reading（computer-use）、複雜圖表擷取、pixel-precise references。這是 model-level 變更，不是 API parameter。
-- **File-system memory**：更擅長在長期 multi-session 工作中使用 filesystem-backed memory；後續任務需要較少的 upfront context。
-- **Safety**：整體 profile 與 4.6 類似。在 honesty 與 **prompt-injection resistance** 上更好；在受管制物質的過度詳細 harm-reduction advice 上略弱。「Largely well-aligned and trustworthy, though not fully ideal.」依 Anthropic 的 evaluations，Mythos Preview 仍是 best-aligned model。
+- **最困難任務的軟體工程**：明確以「交付你最棘手的 coding work」作為行銷訴求。在 Finance Agent、GDPval-AA 上達到 SOTA；在 SWE-bench Verified/Pro/Multilingual 上有所改進（排除標記為記憶化的問題後，改進仍然成立）。
+- **指令遵循——字面式**：更加字面化。Anthropic 警告，針對早期模型調校的 prompt「現在有時可能產生意外結果」，因為 Opus 4.7 不再跳過或寬鬆解讀部分內容。**重新調校是必要的遷移步驟**，不是可選項。
+- **多模態**：長邊最多接受 2,576 px 的圖片（約 3.75 MP，比先前的 Claude models 多出 >3 倍）。可進行密集截圖閱讀（computer-use）、複雜圖表擷取與像素精準的參照。這是 model-level 變更，不是 API 參數。
+- **檔案系統記憶**：更擅長在長時間、多工作階段的工作中使用由檔案系統支援的記憶；後續任務所需的前置 context 更少。
+- **安全性**：整體 profile 與 4.6 類似。在誠實性與**prompt-injection resistance**方面更佳；對受控物質的過度詳細 harm-reduction 建議則略弱。「大致上 alignment 良好且值得信賴，但仍非完全理想。」依 Anthropic 的評估，Mythos Preview 仍是 alignment 最佳的模型。
 
-### Token-Economics Changes（Migration Hazard）
+### Token 經濟變化（遷移風險）
 
-兩個疊加效應會增加 token consumption：
+兩種疊加效應會提高 token 消耗：
 
-1. **Updated tokenizer**：相同 input 會依 content type 對應到 **1.0–1.35× more tokens**。
-2. **在較高 Effort Levels 會思考更多**，尤其在 agentic settings 的後續 turns 中 — 會產生更多 output tokens。
+1. **更新 tokenizer**：相同輸入依內容類型不同，會對應到 **1.0–1.35× 更多 token**。
+2. **較高 effort level 下思考更多**，尤其是在 agentic settings 的後續 turns——因此輸出 token 更多。
 
-Anthropic 聲稱，在其內部 coding eval 中，跨 Effort Levels 的淨結果是有利的，但也明確建議在真實流量上測量。使用者可以透過 `effort` parameter、task budgets，或明確的 conciseness prompting 抵銷。這直接打中 [Claude Code Best Practices](/articles/claude-code-best-practices) 中 context-window-as-primary-constraint 的主題；也可交叉參照 [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) 中的 brevity-constraint findings。
+Anthropic 表示，在各種 effort level 的內部 coding eval 中，整體結果有利，但明確建議在真實流量上進行測量。使用者可以透過 `effort` 參數、task budgets 或明確要求簡潔的 prompting 來抵銷影響。這直接呼應 [Claude Code Best Practices](/articles/claude-code-best-practices) 中「context window 是主要限制」的主題；另請交叉參照 [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) 中關於簡潔性限制的研究結果。
 
 ### Effort Levels
 
-引入新的 `xhigh`（「extra high」）Effort Level，位於 `high` 與 `max` 之間。取捨面向：hard problems 上的 reasoning depth vs. latency/tokens。
+新增 `xhigh`（「extra high」）effort level，位於 `high` 與 `max` 之間。在困難問題上，這提供推理深度與延遲/token 之間的取捨。
 
-- **Claude Code default 在所有 plans 上提高到 `xhigh`。**
-- Anthropic 建議 coding/agentic use 從 `high` 或 `xhigh` 開始。
+- **Claude Code 的預設值在所有方案中都提高為 `xhigh`。**
+- Anthropic 建議 coding/agentic 使用從 `high` 或 `xhigh` 開始。
 
-### Cyber Capabilities and Safeguards
+### Cyber 能力與 Safeguards
 
-- Opus 4.7 是**第一個 post-Glasswing model**，並搭載會「automatically detect and block requests that indicate prohibited or high-risk cybersecurity uses」的 safeguards。
-- Cyber capabilities 在訓練期間被**差異化降低**（不只是 inference 時過濾）。
-- 在 cyber 上仍不如 [Mythos Preview](/articles/llm-driven-vulnerability-research)；CyberGym 分數已更新（harness improvement 將 Opus 4.6 baseline 從 66.6 改為 73.8）。
-- 合法 security researchers（vuln research、pentest、red-teaming）會透過新的 **Cyber Verification Program** 路由，而不是 default access。
+- Opus 4.7 是**首個 Glasswing 後的模型**，搭載「會自動偵測並阻擋顯示出禁止或高風險 cybersecurity 用途之請求」的 safeguards。
+- Cyber 能力在訓練期間即被**差異化削弱**（不只是 inference 時過濾）。
+- Cyber 能力仍不如 [Mythos Preview](/articles/llm-driven-vulnerability-research)；CyberGym 分數已更新（harness 改進使 Opus 4.6 基準從 66.6 → 73.8）。
+- 合法的 security researchers（vuln research、pentest、red-teaming）會經由新的 **Cyber Verification Program** 審核，而不是取得預設存取權。
 
-這直接兌現了 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research#Project%20Glasswing) 中說過的 roadmap promise：「Upcoming Claude Opus model will ship with new safeguards developed against Mythos-class outputs.」
+這直接實現了 [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research#Project%20Glasswing) 中所述的 roadmap 承諾：「即將推出的 Claude Opus model 將搭載針對 Mythos 級 outputs 開發的新 safeguards。」
 
-### 隨附發布
+### 同步推出的功能
 
-- **Task budgets（public beta，API）**：由 developer 指導的 token-spend allocation，可跨更長 runs 分配 — 這是 [Client-Side Agent Optimization](/articles/client-side-agent-optimization) 的 combo space 中 budget lever 的 server-surfaced analogue。
-- **Claude Code 中的 `/ultrareview`** slash command：專用 review session，會讀取 changes 並標記 bugs/design issues。Pro 與 Max users 可獲得三次免費 ultrareviews。
-- **[Auto mode](/articles/claude-code-auto-mode) 擴展到 Max users**（先前是 Team-only research preview）。
+- **Task budgets（public beta、API）**：由 developer 引導、在較長執行期間分配 token spend——相當於 [Client-Side Agent Optimization](/articles/client-side-agent-optimization) combo space 中 budget lever 的 server-surfaced 版本。
+- Claude Code 中的 **`/ultrareview`** slash command：專用 review session，會讀取變更並標記 bugs/design issues。Pro 與 Max 使用者可免費進行三次 ultrareviews。
+- **[Auto mode](/articles/claude-code-auto-mode) 擴展至 Max 使用者**（先前僅限 Team 的 research preview）。
 
 ### 可用性
 
 - 所有 Claude products、Claude API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry。
 - API model ID：`claude-opus-4-7`。
-- Pricing 與 Opus 4.6 相同。
+- 價格與 Opus 4.6 相同。
 
 ## 相關連結
 
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — Opus 4.7 是大多數 Claude Code 工作將 target 的 runtime；它的 literal-instruction-following 與 tokenizer inflation 會放大 context-window-as-primary-constraint framing
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — auto mode 已經擴展到 Opus 4.6；Opus 4.7 出貨時也擴展給 Max users
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — Opus 4.7 operationalizes Mythos Preview disclosure 中「safeguards developed against Mythos-class outputs」的承諾
-- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — improved instruction-following *may* reduce 4.6 上記錄的 Opus-as-planner failures（open question）；task budgets 在 server-side 呼應 AgentOpt 的 budget lever
-- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — literal instruction following 可能降低 elaboration-driven overthinking，但 xhigh-default 與「thinks more at higher effort」會往反方向作用。在假設 brevity findings 可延續之前，需要 empirical recheck
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — 更好的 file-system memory 強化了 repo-local versioned artifacts 作為 agent primary memory surface 的理由
-- [Mythos Model](/articles/mythos-model) — 內部使用的 preview-tier successor；Boris Cherny：「we use a little bit of Mythos and a lot of Opus 4.7」
-- [Claude Opus 4.8](/articles/claude-opus-4-8) — 直接 successor（May 2026）；在幾乎每個 eval 與大多數 alignment measures 上改善；4.7 的 helpful-only variant 在 4.8 的 behavioral audit 中作為 investigator model，而 4.7 也為 4.8 的 constitution-adherence eval 評分
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — Opus 4.7 是其 spontaneous loop-starting 與自然 to-do-list use 激發 shrinkage thesis 的模型；Cat Wu 的 pruning discipline 會在這個 lineage 的每次 release 中執行
-- [Agent Loop Pattern](/articles/agent-loop-pattern) — 依 Boris Cherny 的報告，`/loop` 在 4.7 變成自然 model behavior
-- [Claude Code](/articles/claude-code) — target 此模型的 primary product surface
-- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 2026 年 5 月 MSM paper 使用 Opus 4.6/4.7 作為 synthetic spec documents 與 AFT data 的 data-generation model
-- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — 在 Anthropic alignment work 中，Opus 是跨 SDF/MSM corpora 的 workhorse generator
-- [TML-Interaction-Small](/articles/tml-interaction-small) — era-mate（mid-2026 frontier from a different lab）；4.7 的 `xhigh` effort tier 對應 TML interaction benchmarks 中作為 baseline 使用的 GPT-realtime-2.0 minimal/xhigh tiers
-- [AI-Accelerated Offense](/articles/ai-accelerated-offense) — Opus 4.7 的 post-Glasswing safeguards，是對 Zero Trust framework 所處理的 accelerated-offense threat landscape 的 model-side response
-- [Build for the Next Model](/articles/build-for-the-next-model) — Opus 4.7 是補上 [Claude Design](/articles/claude-design) 未解 prototype gaps 的具體 release — [Dan Carey](/articles/dan-carey) retrospective proof 了「build for the next model」這個 bet
-- [Claude Design](/articles/claude-design) — [Anthropic Labs](/articles/anthropic-labs) 產品，其 early-prototype capability gaps 是由這次 release 補上，而不是靠 engineering 補上
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Opus 4.7 是大多數 Claude Code 工作會鎖定的 runtime；其字面指令遵循與 tokenizer 膨脹，放大了「context window 是主要限制」的框架
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — auto mode 原本已擴展至 Opus 4.6；Opus 4.7 推出時則已擴展至 Max 使用者
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — Opus 4.7 將 Mythos Preview 揭露中「針對 Mythos 級 outputs 開發 safeguards」的承諾落地
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — 改善的 instruction-following *可能*降低 4.6 上記錄的 Opus-as-planner failures（open question）；task budgets 在 server-side 呼應 AgentOpt 的 budget lever
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 字面指令遵循可能抑制由 elaboration 驅動的 overthinking，但 xhigh-default 與「在較高 effort 下思考更多」則朝相反方向。需要先進行實證重新檢驗，才能假設簡潔性研究結果仍然適用
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 更好的檔案系統記憶，強化了將 repo-local、具版本控管的 artifacts 作為 agent 主要記憶介面的理由
+- [Mythos Model](/articles/mythos-model) — 內部使用的 preview-tier successor；Boris Cherny：「我們少量使用 Mythos，大量使用 Opus 4.7」
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — direct successor（2026 年 5 月）；幾乎在每項 eval 與大多數 alignment measures 上都有改進；4.7 的僅提供協助變體在 4.8 的 behavioral audit 中擔任 investigator model，而 4.7 則為 4.8 的 constitution-adherence eval 評分
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — Opus 4.7 是其自發啟動迴圈與自然使用 to-do list 促成 shrinkage thesis 的模型；Cat Wu 的 pruning discipline 在此 lineage 的每次 release 中運作
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 根據 Boris Cherny 的報告，`/loop` 在 4.7 成為自然的 model behavior
+- [Claude Code](/articles/claude-code) — 以此模型為目標的主要 product surface
+- [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining) — 2026 年 5 月的 MSM paper 使用 Opus 4.6/4.7 作為 synthetic spec documents 與 AFT data 的 data-generation model
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — Opus 是 Anthropic alignment work 中 SDF/MSM corpora 的主力 generator
+- [TML-Interaction-Small](/articles/tml-interaction-small) — 同時代模型（來自不同 lab 的 2026 年中 frontier model）；4.7 的 `xhigh` effort tier 對應 TML interaction benchmarks 中作為 baseline 的 GPT-realtime-2.0 之 minimal/xhigh tiers
+- [AI-Accelerated Offense](/articles/ai-accelerated-offense) — Opus 4.7 的 Glasswing 後 safeguards，是 model-side 對加速攻擊威脅環境的回應，而 Zero Trust framework 正是針對該環境
+- [Build for the Next Model](/articles/build-for-the-next-model) — Opus 4.7 是填補 [Claude Design](/articles/claude-design) 未解 prototype gaps 的具體 release——[Dan Carey](/articles/dan-carey) 對「build for the next model」賭注的回溯性證明
+- [Claude Design](/articles/claude-design) — [Anthropic Labs](/articles/anthropic-labs) 的 product；其 early-prototype capability gaps 由此 release 修正，而非靠 engineering 修正
+- [Claude Sonnet 5](/articles/claude-sonnet-5) — 繼承 4.7 的兩項與遷移相關變更：1.0–1.35× tokenizer 膨脹與預設的 real-time cyber safeguards（Sonnet 5 搭載相同 safeguards，且被判定為低風險）
 
-## 開放問題
+## 待解決的問題
 
-- Hakim（2026）在 Opus 4.6 上的 brevity-constraint findings，是否會在 Opus 4.7 上重現，或者 literal-instruction-following 會改變 elasticity？具體而言：`<50 words` 是否仍會讓 GSM8K 增加 +13.1pp？
-- Opus 4.7 在 HotpotQA-style combo sweeps 中是否仍作為 planner 表現較差，或者 improved instruction-following 是否補上 AgentOpt（Hua et al., 2026）指出的 gap？
-- typical Claude Code sessions 上的 real-world token-inflation multiplier 是多少（1.0–1.35× 取決於 content — 在 code-heavy vs. prose-heavy inputs 上的 distribution 是什麼）？
-- xhigh 在 coding evals 上與 max 相比如何？migration guidance 說「start with high or xhigh」— max 對 coding 是否曾經值得？
-- 現有 CLAUDE.md / system-prompt hedges 有多少比例會在 literal instruction following 下變成 counterproductive？
+- Hakim (2026) 在 Opus 4.6 上關於簡潔性限制的研究結果，能否在 Opus 4.7 上重現？還是 instruction-following 的變化改變了 elasticity？具體而言：`<50 words` 是否仍會在 GSM8K 上帶來 +13.1pp？
+- Opus 4.7 在 HotpotQA-style combo sweeps 中是否仍會作為 planner 表現不佳？還是改善的 instruction-following 已填補 AgentOpt（Hua et al., 2026）所指出的差距？
+- 真實世界典型 Claude Code sessions 的 token-inflation multiplier 是多少（1.0–1.35× 取決於內容——code-heavy 與 prose-heavy inputs 的分布為何）？
+- xhigh 與 max 在 coding evals 上相比如何？遷移指引說「從 high 或 xhigh 開始」——max 是否曾值得用於 coding？
+- 在字面指令遵循下，現有 CLAUDE.md / system-prompt hedges 中有多少會適得其反？
 
 ## 相關連結
 
-- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — [Karpathy](/articles/andrej-karpathy) 的「Opus 4.7 will refactor a 100K-line codebase or find zero-days, yet tell me to walk to a car wash 50m away to wash my car」是此模型能力層級下的 canonical jaggedness example
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — [Karpathy](/articles/andrej-karpathy) 所說的「Opus 4.7 會重構 100K 行 codebase 或找出 zero-days，卻會告訴我走到 50m 外的洗車場去洗車」，是此模型能力層級下的典型 jaggedness 範例
 
 ## 衍生內容
 
-- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 將 4.6→4.7 deltas 與 multi-agent coding teams 的 role-assignment、context-budget、safety considerations 綜合起來
+- [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — 綜合 4.6→4.7 的差異，以及 multi-agent coding teams 的 role-assignment、context-budget 與 safety considerations
 
 ## 資料來源
 
