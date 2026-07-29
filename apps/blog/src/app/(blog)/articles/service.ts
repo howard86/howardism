@@ -9,7 +9,10 @@ import {
   type WikiDomain,
   type WikiTag,
 } from "@howardism/article-contract";
-import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
+import {
+  type BacklinkEdge,
+  parseArticleGraph,
+} from "@howardism/article-contract/manifests/graph";
 import {
   type OpenQuestionConcept,
   parseOpenQuestions,
@@ -71,6 +74,10 @@ export interface SiblingNav {
 }
 
 export interface ArticleLink {
+  /** How many times the citing article links here. Backlinks only. */
+  citedCount?: number;
+  /** The citing line, quoted verbatim, when the citation sits in prose. */
+  citedIn?: string;
   meta: ArticleMeta;
   slug: string;
 }
@@ -108,6 +115,33 @@ const toArticleLinks = (
     const entity = visible.entities[slug];
     if (entity) {
       links.push({ slug, meta: entity.meta });
+    }
+  }
+  return links;
+};
+
+/**
+ * Backlink edges as links, keeping the manifest's weight ordering and carrying
+ * the citing sentence through so the reader can tell a discussion from a
+ * one-line mention without opening either.
+ */
+const toBacklinks = (
+  edges: readonly BacklinkEdge[] | undefined,
+  visible: Normalise<ArticleEntity>
+): ArticleLink[] => {
+  if (!edges) {
+    return [];
+  }
+  const links: ArticleLink[] = [];
+  for (const edge of edges) {
+    const entity = visible.entities[edge.slug];
+    if (entity) {
+      links.push({
+        slug: edge.slug,
+        meta: entity.meta,
+        citedCount: edge.count,
+        ...(edge.context === undefined ? {} : { citedIn: edge.context }),
+      });
     }
   }
   return links;
@@ -206,7 +240,7 @@ export const getArticleConnections = cache(
   async (slug: string): Promise<ArticleConnections> => {
     const visible = await getVisibleArticles();
     return {
-      backlinks: toArticleLinks(graph.backlinks[slug], visible),
+      backlinks: toBacklinks(graph.backlinks[slug], visible),
       related: toArticleLinks(graph.related[slug], visible),
     };
   }

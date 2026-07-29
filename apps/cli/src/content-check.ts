@@ -25,7 +25,10 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import { WIKI_DOMAINS } from "@howardism/article-contract";
-import type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
+import {
+  type ArticleGraph,
+  parseArticleGraph,
+} from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
 import matter from "gray-matter";
@@ -108,8 +111,21 @@ export function checkGraphSlugRefs(
   articleSlugs: Set<string>
 ): string[] {
   const failures: string[] = [];
-  for (const relation of ["backlinks", "outgoing", "related"] as const) {
-    for (const [source, targets] of Object.entries(graph[relation] ?? {})) {
+  const relations: [string, Record<string, string[]>][] = [
+    [
+      "backlinks",
+      Object.fromEntries(
+        Object.entries(graph.backlinks ?? {}).map(([source, edges]) => [
+          source,
+          edges.map((edge) => edge.slug),
+        ])
+      ),
+    ],
+    ["outgoing", graph.outgoing ?? {}],
+    ["related", graph.related ?? {}],
+  ];
+  for (const [relation, edges] of relations) {
+    for (const [source, targets] of Object.entries(edges)) {
       if (!articleSlugs.has(source)) {
         failures.push(`graph.${relation} key "${source}" has no article`);
       }
@@ -237,7 +253,7 @@ export function checkEmptyDomains(articles: ArticleRecord[]): string[] {
  */
 export function findOrphanArticles(
   articles: ArticleRecord[],
-  backlinks: Record<string, string[]>
+  backlinks: Record<string, readonly unknown[]>
 ): string[] {
   const orphans: string[] = [];
   for (const { slug } of articles) {
@@ -342,7 +358,7 @@ async function main(): Promise<void> {
     await Promise.all([
       loadArticles(),
       loadAssetFilenames(),
-      loadJson<ArticleGraph>("article-graph.json"),
+      loadJson<unknown>("article-graph.json").then(parseArticleGraph),
       loadJson<OpenQuestionsManifest>("open-questions.json"),
       loadJson<WikiSourcesManifest>("wiki-sources.json"),
     ]);

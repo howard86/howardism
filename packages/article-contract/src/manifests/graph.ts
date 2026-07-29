@@ -8,8 +8,33 @@ import { z } from "zod";
  */
 const slugList = z.array(z.string());
 
+const BacklinkEdgeObject = z.object({
+  /**
+   * The citing line as plain text, when the citation sits in prose. Absent for
+   * bare index entries (a MOC list item, a table row) — nothing worth quoting.
+   */
+  context: z.string().optional(),
+  /** How many times the citing article links here. Drives the sort order. */
+  count: z.number().int().positive(),
+  slug: z.string(),
+});
+
+export type BacklinkEdge = z.infer<typeof BacklinkEdgeObject>;
+
+/**
+ * Backlink entries, ranked by citation weight. Manifests written before the
+ * edges carried weight/context store a bare slug; those normalise to a single
+ * context-free citation so every reader sees one shape.
+ */
+const backlinkList = z.array(
+  z.union([
+    BacklinkEdgeObject,
+    z.string().transform((slug): BacklinkEdge => ({ count: 1, slug })),
+  ])
+);
+
 export const ArticleGraphSchema = z.object({
-  backlinks: z.record(z.string(), slugList),
+  backlinks: z.record(z.string(), backlinkList),
   generatedOn: z.string(),
   outgoing: z.record(z.string(), slugList),
   related: z.record(z.string(), slugList),

@@ -78,6 +78,82 @@ export function extractInternalSlugs(
   return slugs;
 }
 
+/**
+ * Below this, the citing line is a bare index entry (`- [[foo]]`, a MOC table
+ * row) with no prose worth quoting — the backlink shows the target's own
+ * description instead.
+ */
+const MIN_CONTEXT_CHARS = 60;
+const MAX_CONTEXT_CHARS = 160;
+
+const HEADING_MARKER_RE = /^#{1,6}\s+/;
+const LIST_MARKER_RE = /^[>\s]*(?:[-*+]|\d+\.)\s+/;
+const MD_LINK_RE = /\[([^\]]+)\]\([^)]*\)/g;
+const TABLE_CELL_RE = /\s*\\?\|\s*/g;
+const EMPHASIS_RE = /[*`]+/g;
+const TRIM_SEPARATORS_RE = /^[·\s]+|[·\s]+$/g;
+
+export interface LinkOccurrence {
+  /** The citing line as plain text, or null when it carries no real prose. */
+  context: string | null;
+  /** How many times this body links the target. */
+  count: number;
+  slug: string;
+}
+
+/**
+ * Internal links with their repeat count and the best line they appear in —
+ * one entry per distinct target. "Best" is the longest qualifying line, which
+ * favours prose over the bare list entries a target usually also appears in.
+ */
+export function extractLinkOccurrences(input: string): LinkOccurrence[] {
+  const byTarget = new Map<string, LinkOccurrence>();
+  for (const line of input.split("\n")) {
+    const slugs = extractInternalSlugs(line);
+    if (slugs.length === 0) {
+      continue;
+    }
+    const context = lineContext(line);
+    for (const slug of slugs) {
+      const existing = byTarget.get(slug);
+      if (!existing) {
+        byTarget.set(slug, { slug, count: 1, context });
+        continue;
+      }
+      existing.count += 1;
+      if (
+        context &&
+        (existing.context === null || context.length > existing.context.length)
+      ) {
+        existing.context = context;
+      }
+    }
+  }
+  return [...byTarget.values()];
+}
+
+function lineContext(line: string): string | null {
+  const text = stripToText(line)
+    .replace(HEADING_MARKER_RE, "")
+    .replace(LIST_MARKER_RE, "")
+    .replace(MD_LINK_RE, "$1")
+    .replace(TABLE_CELL_RE, " · ")
+    .replace(EMPHASIS_RE, "")
+    .replace(WHITESPACE_RE, " ")
+    .replace(TRIM_SEPARATORS_RE, "");
+  if (text.length < MIN_CONTEXT_CHARS) {
+    return null;
+  }
+  if (text.length <= MAX_CONTEXT_CHARS) {
+    return text;
+  }
+  const cut = text.slice(0, MAX_CONTEXT_CHARS);
+  const lastSpace = cut.lastIndexOf(" ");
+  const clipped =
+    lastSpace > MAX_CONTEXT_CHARS / 2 ? cut.slice(0, lastSpace) : cut;
+  return `${clipped.trimEnd()}…`;
+}
+
 /** Raw slugs (kind==="raw"), source order, ORIGINAL case + sub-paths. */
 export function extractRawSlugs(
   input: string,
