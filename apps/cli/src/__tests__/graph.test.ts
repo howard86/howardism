@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
 import {
   buildArticleGraph,
   emitArticleGraph,
@@ -71,9 +72,12 @@ describe("buildArticleGraph", () => {
       c: ["b"],
     });
     expect(graph.backlinks).toEqual({
-      a: ["b"],
-      b: ["a", "c"],
-      c: ["a"],
+      a: [{ slug: "b", count: 1 }],
+      b: [
+        { slug: "a", count: 1 },
+        { slug: "c", count: 1 },
+      ],
+      c: [{ slug: "a", count: 1 }],
     });
   });
 
@@ -93,7 +97,8 @@ describe("buildArticleGraph", () => {
 
     expect(graph.outgoing.a).toEqual(["b"]);
     expect(graph.outgoing.b).toEqual([]);
-    expect(graph.backlinks.b).toEqual(["a"]);
+    // Three live links to b (two bare, one anchored) collapse to one weighted edge.
+    expect(graph.backlinks.b).toEqual([{ slug: "a", count: 3 }]);
   });
 
   it("excludes archived nodes entirely from outgoing, backlinks, and related", () => {
@@ -117,8 +122,8 @@ describe("buildArticleGraph", () => {
     expect(Object.keys(graph.related).sort()).toEqual(["a", "b"]);
     expect(graph.outgoing.a).toEqual(["b"]);
     expect(graph.outgoing.b).toEqual(["a"]);
-    expect(graph.backlinks.a).toEqual(["b"]);
-    expect(graph.backlinks.b).toEqual(["a"]);
+    expect(graph.backlinks.a).toEqual([{ slug: "b", count: 1 }]);
+    expect(graph.backlinks.b).toEqual([{ slug: "a", count: 1 }]);
   });
 
   it("ranks related[] by combined neighbor overlap, capped at 5", () => {
@@ -146,6 +151,29 @@ describe("buildArticleGraph", () => {
     expect(graph.related.s6).toEqual(["s1", "s2", "s3", "s4", "s5"]);
     // hub has no other node with overlapping outgoing or backlinks.
     expect(graph.related.hub).toEqual([]);
+  });
+
+  it("ranks backlinks by citation weight and quotes the citing prose", () => {
+    const prose =
+      "The harness shrinks as models improve, which is exactly what [[b]] argues once you stop treating scaffolding as permanent.";
+    const parsed = [
+      makeParsed("light", "- [[b]]"),
+      makeParsed("heavy", `${prose}\nAnd again, [[b]] twice over: [[b]].`),
+      makeParsed("b", ""),
+    ];
+
+    const graph = buildArticleGraph({ parsed, generatedOn: "2026-05-14" });
+
+    expect(graph.backlinks.b).toEqual([
+      {
+        slug: "heavy",
+        count: 3,
+        context:
+          "The harness shrinks as models improve, which is exactly what B argues once you stop treating scaffolding as permanent.",
+      },
+      // A bare list entry carries no prose, so it gets no quote.
+      { slug: "light", count: 1 },
+    ]);
   });
 
   it("breaks related ties alphabetically by slug", () => {
@@ -199,7 +227,10 @@ describe("emitArticleGraph", () => {
     const parsed = JSON.parse(await readFile(outputPath, "utf8"));
     expect(parsed.generatedOn).toBe("2026-05-14");
     expect(parsed.outgoing).toEqual({ a: ["b"], b: ["a"] });
-    expect(parsed.backlinks).toEqual({ a: ["b"], b: ["a"] });
+    expect(parsed.backlinks).toEqual({
+      a: [{ slug: "b", count: 1 }],
+      b: [{ slug: "a", count: 1 }],
+    });
   });
 
   it("dry-run skips the write but returns the intended path", async () => {
@@ -216,5 +247,20 @@ describe("emitArticleGraph", () => {
     });
     expect(written).toBe(outputPath);
     await expect(stat(outputPath)).rejects.toThrow();
+  });
+});
+
+describe("parseArticleGraph", () => {
+  it("normalises pre-weighting manifests that store bare backlink slugs", () => {
+    const graph = parseArticleGraph({
+      backlinks: { a: ["b", { slug: "c", count: 2, context: "prose" }] },
+      outgoing: {},
+      related: {},
+      generatedOn: "2026-05-14",
+    });
+    expect(graph.backlinks.a).toEqual([
+      { slug: "b", count: 1 },
+      { slug: "c", count: 2, context: "prose" },
+    ]);
   });
 });

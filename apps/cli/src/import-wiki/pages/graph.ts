@@ -4,10 +4,11 @@ import { dirname } from "node:path";
 import {
   type ArticleGraph,
   ArticleGraphSchema,
+  type BacklinkEdge,
 } from "@howardism/article-contract/manifests/graph";
 
 import type { ParsedWikiFile } from "../parse.ts";
-import { extractInternalSlugs } from "../wikilink.ts";
+import { extractLinkOccurrences, type LinkOccurrence } from "../wikilink.ts";
 
 const RELATED_LIMIT = 5;
 
@@ -31,42 +32,71 @@ export function buildArticleGraph(args: BuildArticleGraphArgs): ArticleGraph {
   const live = parsed.filter((p) => !isArchivedFn(p));
   const liveSlugs = new Set(live.map((p) => p.source.slug));
 
-  const outgoingSets = buildOutgoingSets(live, liveSlugs);
+  const occurrences = buildOccurrences(live, liveSlugs);
+  const outgoingSets = new Map(
+    [...occurrences].map(([slug, links]) => [
+      slug,
+      new Set(links.map((link) => link.slug)),
+    ])
+  );
   const backlinkSets = buildBacklinkSets(outgoingSets, liveSlugs);
 
   const sortedSlugs = [...liveSlugs].sort();
   const related = computeRelated(sortedSlugs, outgoingSets, backlinkSets);
+  const backlinks = buildBacklinks(occurrences, sortedSlugs);
 
   const outgoing: Record<string, string[]> = {};
-  const backlinks: Record<string, string[]> = {};
   for (const slug of sortedSlugs) {
     outgoing[slug] = [...(outgoingSets.get(slug) ?? new Set())].sort();
-    backlinks[slug] = [...(backlinkSets.get(slug) ?? new Set())].sort();
   }
 
   return { generatedOn, outgoing, backlinks, related };
 }
 
-function buildOutgoingSets(
+/** Per-source links to live articles — self-links and dangling targets dropped. */
+function buildOccurrences(
   live: ParsedWikiFile[],
   liveSlugs: Set<string>
-): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>();
+): Map<string, LinkOccurrence[]> {
+  const out = new Map<string, LinkOccurrence[]>();
   for (const file of live) {
     const slug = file.source.slug;
-    const targets = new Set<string>();
-    for (const target of extractInternalSlugs(file.body)) {
-      if (target === slug) {
-        continue;
-      }
-      if (!liveSlugs.has(target)) {
-        continue;
-      }
-      targets.add(target);
-    }
-    out.set(slug, targets);
+    out.set(
+      slug,
+      extractLinkOccurrences(file.body).filter(
+        (link) => link.slug !== slug && liveSlugs.has(link.slug)
+      )
+    );
   }
   return out;
+}
+
+/**
+ * Inbound citations per article, heaviest first: an article that links here
+ * four times outranks one that lists the slug in a table of contents. Ties
+ * break alphabetically so the manifest stays deterministic.
+ */
+function buildBacklinks(
+  occurrences: Map<string, LinkOccurrence[]>,
+  sortedSlugs: string[]
+): Record<string, BacklinkEdge[]> {
+  const backlinks: Record<string, BacklinkEdge[]> = {};
+  for (const slug of sortedSlugs) {
+    backlinks[slug] = [];
+  }
+  for (const [source, links] of occurrences) {
+    for (const link of links) {
+      backlinks[link.slug]?.push({
+        slug: source,
+        count: link.count,
+        ...(link.context === null ? {} : { context: link.context }),
+      });
+    }
+  }
+  for (const edges of Object.values(backlinks)) {
+    edges.sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug));
+  }
+  return backlinks;
 }
 
 function buildBacklinkSets(

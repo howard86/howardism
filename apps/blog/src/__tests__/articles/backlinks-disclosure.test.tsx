@@ -131,3 +131,48 @@ describe("BacklinksDisclosureView — list rendering", () => {
     expect(text.length).toBeLessThan(longDescription.length);
   });
 });
+
+describe("BacklinksDisclosureView — citation context", () => {
+  it("quotes the citing line instead of the target's description", () => {
+    render(
+      <BacklinksDisclosureView
+        backlinks={[
+          {
+            ...makeLink("anthropic"),
+            citedIn: "Claude Code ships from the same incubator.",
+            citedCount: 1,
+          },
+        ]}
+        related={[]}
+      />
+    );
+    expect(
+      screen.getByText("Claude Code ships from the same incubator.")
+    ).toBeDefined();
+    expect(screen.queryByText("Description for anthropic.")).toBeNull();
+  });
+
+  it("falls back to the description when the citation has no prose context", () => {
+    render(
+      <BacklinksDisclosureView
+        backlinks={[{ ...makeLink("anthropic"), citedCount: 1 }]}
+        related={[]}
+      />
+    );
+    expect(screen.getByText("Description for anthropic.")).toBeDefined();
+  });
+
+  it("shows a repeat-count badge only for articles that cite more than once", () => {
+    render(
+      <BacklinksDisclosureView
+        backlinks={[
+          { ...makeLink("anthropic"), citedCount: 4 },
+          { ...makeLink("cowork"), citedCount: 1 },
+        ]}
+        related={[]}
+      />
+    );
+    expect(screen.getByText("×4")).toBeDefined();
+    expect(screen.queryByText("×1")).toBeNull();
+  });
+});
