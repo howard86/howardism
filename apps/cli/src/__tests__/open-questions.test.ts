@@ -111,6 +111,46 @@ describe("buildOpenQuestions", () => {
     expect(delta?.resolved).toEqual(["All done."]);
   });
 
+  it("resolves a wikilink in a bullet to a link, so the blog can render it", () => {
+    const manifest = build([
+      file(
+        "open-questions",
+        "#### [[beta]]\n\n- Unlike [[alpha]], does it hold under load?\n"
+      ),
+    ]);
+
+    expect(manifest.byConcept[0].questions).toEqual([
+      {
+        kind: null,
+        text: "Unlike [Alpha](/articles/alpha), does it hold under load?",
+      },
+    ]);
+  });
+
+  it("renders an unpublished wikilink as plain title rather than a dead link", () => {
+    const manifest = build([
+      file(
+        "open-questions",
+        "#### [[beta]]\n\n- Compare with [[never-published-note]].\n"
+      ),
+    ]);
+
+    expect(manifest.byConcept[0].questions[0].text).toBe(
+      "Compare with Never Published Note."
+    );
+  });
+
+  it("resolves wikilinks in resolved answers too", () => {
+    const manifest = build([
+      file("open-questions", BACKLOG),
+      file("delta", "## Resolved Questions\n\n- Settled by [[alpha]].\n"),
+    ]);
+
+    expect(
+      manifest.byConcept.find((c) => c.slug === "delta")?.resolved
+    ).toEqual(["Settled by [Alpha](/articles/alpha)."]);
+  });
+
   it("reads the pre-triage manifest shape as untagged", () => {
     const legacy = parseOpenQuestions({
       byConcept: [

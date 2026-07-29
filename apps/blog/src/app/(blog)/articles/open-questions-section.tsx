@@ -1,4 +1,9 @@
 import type { OpenQuestion } from "@howardism/article-contract/manifests/open-questions";
+import {
+  type InlineSegment,
+  parseInline,
+  segmentsToText,
+} from "@howardism/article-contract/markup";
 import type { ReactNode } from "react";
 
 import { InternalLink } from "@/components/internal-link";
@@ -6,22 +11,28 @@ import { InternalLink } from "@/components/internal-link";
 import type { OpenQuestionConcept } from "./service";
 import { bucketOf, TRIAGE_META, type TriageBucket } from "./triage-meta";
 
-/** One ledger line: the question text plus the bucket it was filed under. */
+/**
+ * One ledger line. `segments` is what renders — the vault's inline markup,
+ * already parsed — and `text` is the same line stripped to plain prose, which
+ * is what search matches and what keys the row.
+ */
 export interface QuestionLine {
   bucket: TriageBucket;
+  segments: InlineSegment[];
   text: string;
 }
 
+const toLine = (bucket: TriageBucket, raw: string): QuestionLine => {
+  const segments = parseInline(raw);
+  return { bucket, segments, text: segmentsToText(segments) };
+};
+
 /** Flatten a concept into ledger lines, open questions first, settled last. */
 export const linesOf = (concept: OpenQuestionConcept): QuestionLine[] => [
-  ...concept.questions.map((question: OpenQuestion) => ({
-    bucket: bucketOf(question),
-    text: question.text,
-  })),
-  ...concept.resolved.map((text) => ({
-    bucket: "resolved" as TriageBucket,
-    text,
-  })),
+  ...concept.questions.map((question: OpenQuestion) =>
+    toLine(bucketOf(question), question.text)
+  ),
+  ...concept.resolved.map((raw) => toLine("resolved", raw)),
 ];
 
 /**
@@ -62,6 +73,86 @@ function Highlighted({
     offset += part.length;
   }
   return nodes;
+}
+
+/**
+ * Only these schemes become anchors. Manifest strings are authored in the vault
+ * rather than in this repo, so the href is content, and content does not get to
+ * choose the scheme it navigates with.
+ */
+const isSafeHref = (href: string): boolean =>
+  href.startsWith("/") ||
+  href.startsWith("https://") ||
+  href.startsWith("http://");
+
+const LINK_CLASS = "text-brand underline-offset-2 hover:underline";
+
+/**
+ * Render one parsed line: markup as elements, the search match still marked.
+ * Emphasis nests, so this recurses with the parser — which is what puts a
+ * highlight inside a bold run rather than around it.
+ */
+function InlineText({
+  pattern,
+  segments,
+}: {
+  pattern: RegExp | null;
+  segments: readonly InlineSegment[];
+}): ReactNode {
+  return segments.map((segment, index) => {
+    const key = `${index}-${segment.kind}`;
+
+    if (segment.kind === "text") {
+      return <Highlighted key={key} pattern={pattern} text={segment.text} />;
+    }
+    if (segment.kind === "code") {
+      return (
+        <code
+          className="rounded-[3px] bg-secondary px-1 py-0.5 font-mono text-[0.85em]"
+          key={key}
+        >
+          <Highlighted pattern={pattern} text={segment.text} />
+        </code>
+      );
+    }
+
+    const children = (
+      <InlineText key={key} pattern={pattern} segments={segment.children} />
+    );
+
+    if (segment.kind === "strong") {
+      return (
+        <strong className="font-medium text-foreground" key={key}>
+          {children}
+        </strong>
+      );
+    }
+    if (segment.kind === "em") {
+      return (
+        <em className="italic" key={key}>
+          {children}
+        </em>
+      );
+    }
+    if (!isSafeHref(segment.href)) {
+      return <span key={key}>{children}</span>;
+    }
+    return segment.href.startsWith("/") ? (
+      <InternalLink className={LINK_CLASS} href={segment.href} key={key}>
+        {children}
+      </InternalLink>
+    ) : (
+      <a
+        className={LINK_CLASS}
+        href={segment.href}
+        key={key}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {children}
+      </a>
+    );
+  });
 }
 
 interface ConceptStanzaProps {
@@ -124,7 +215,7 @@ export function ConceptStanza({
                   {meta.code}
                 </span>
               )}
-              <Highlighted pattern={pattern} text={line.text} />
+              <InlineText pattern={pattern} segments={line.segments} />
             </li>
           );
         })}

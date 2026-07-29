@@ -1,6 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-
 import type { WikiDomain } from "@howardism/article-contract";
 import {
   OPEN_QUESTION_KINDS,
@@ -9,11 +8,12 @@ import {
   type OpenQuestionsManifest,
   OpenQuestionsManifestSchema,
 } from "@howardism/article-contract/manifests/open-questions";
+import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import { OPEN_QUESTIONS_SLUG, resolveDomain } from "../domains.ts";
 import type { ParsedWikiFile } from "../parse.ts";
-import { stripAuthoringTags } from "../transform.ts";
-import { extractInternalSlugs, titleFromSlug } from "../wikilink.ts";
+import { rewriteWikilinks, stripAuthoringTags } from "../transform.ts";
+import { extractInternalSlugs } from "../wikilink.ts";
 
 export type {
   OpenQuestionConcept,
@@ -139,6 +139,15 @@ export function buildOpenQuestions(args: {
   const resolvedBySlug = parseResolved(parsed);
   const open = parseBacklog(backlog.body);
 
+  // Backlog bullets are prose lifted out of note bodies, so they carry the
+  // vault's own `[[wikilink]]`s. Resolve them through the same rewriter the
+  // article bodies use: a published slug becomes a markdown link to its
+  // article, an unpublished one becomes its plain title. Without this the blog
+  // has no way to tell a link from literal brackets, and renders neither.
+  const titles = new Map(slugTitleMap);
+  const resolveLinks = (text: string): string =>
+    rewriteWikilinks(text, titles).body;
+
   // A concept earns an entry if it has open questions *or* settled ones — a
   // page whose questions have all been answered is the most useful thing the
   // manifest can carry, so it must not be dropped for having an empty backlog.
@@ -155,8 +164,11 @@ export function buildOpenQuestions(args: {
       slug,
       title: slugTitleMap.get(slug) ?? titleFromSlug(slug),
       domain: resolveDomain(slug, membership),
-      questions,
-      resolved,
+      questions: questions.map((question) => ({
+        ...question,
+        text: resolveLinks(question.text),
+      })),
+      resolved: resolved.map(resolveLinks),
     });
   }
 

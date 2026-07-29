@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import {
   extractInternalSlugs,
@@ -6,7 +7,6 @@ import {
   humanize,
   rewriteToMarkdown,
   stripToText,
-  titleFromSlug,
   tokenizeWikilinks,
   type WikiToken,
 } from "../import-wiki/wikilink.ts";

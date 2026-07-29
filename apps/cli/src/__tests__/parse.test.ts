@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import {
   buildSlugTitleMap,
@@ -14,7 +15,6 @@ import {
   resolveDate,
   stripWikilinksToText,
 } from "../import-wiki/parse.ts";
-import { titleFromSlug } from "../import-wiki/wikilink.ts";
 
 async function tempFile(content: string, filename: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "wiki-test-"));
