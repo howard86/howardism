@@ -136,12 +136,19 @@ describe("checkOpenQuestionSlugRefs", () => {
   it("flags a concept slug with no article", () => {
     const manifest: OpenQuestionsManifest = {
       byConcept: [
-        { slug: "a", title: "A", domain: "agent-systems", questions: ["q"] },
+        {
+          slug: "a",
+          title: "A",
+          domain: "agent-systems",
+          questions: [{ kind: "now", text: "q" }],
+          resolved: [],
+        },
         {
           slug: "missing",
           title: "M",
           domain: "agent-systems",
           questions: [],
+          resolved: [],
         },
       ],
       generatedOn: "2026-01-01",

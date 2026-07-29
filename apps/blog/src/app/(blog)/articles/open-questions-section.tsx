@@ -52,10 +52,22 @@ export function OpenQuestionsSection({
               {concept.questions.map((question) => (
                 <li
                   className="border-l-2 pl-3 font-body text-[15px] text-muted-foreground leading-[1.5]"
-                  key={question}
+                  key={question.text}
                   style={{ borderColor: color }}
                 >
-                  {question}
+                  {question.text}
+                </li>
+              ))}
+              {concept.resolved.map((answer) => (
+                <li
+                  className="border-l-2 border-dashed pl-3 font-body text-[15px] text-foreground-subtle leading-[1.5]"
+                  key={answer}
+                  style={{ borderColor: color }}
+                >
+                  <span className="mr-2 font-mono text-[11px] uppercase tracking-[0.12em]">
+                    Resolved
+                  </span>
+                  {answer}
                 </li>
               ))}
             </ul>
