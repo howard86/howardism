@@ -1,3 +1,8 @@
+# [v2.21.0](https://github.com/howard86/howardism/compare/v2.20.0...v2.21.0) (2026-07-29)
+
+## ✨ New Features
+- [`9093ae23`](https://github.com/howard86/howardism/commit/9093ae23)  feat(cli): add PNG→WebP hero transcoder and images:webp migration
+
 # [v2.20.0](https://github.com/howard86/howardism/compare/v2.19.0...v2.20.0) (2026-07-22)
 
 ## ✨ New Features
