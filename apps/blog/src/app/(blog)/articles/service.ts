@@ -134,7 +134,7 @@ const loadArticle = async (
   }
   if (!mod.heroImage) {
     throw new Error(
-      `Article "${slug}" is missing the \`heroImage\` named export. Re-export the hero asset: \`export { default as heroImage } from './hero.png'\`.`
+      `Article "${slug}" is missing the \`heroImage\` named export. Re-export the hero asset: \`export { default as heroImage } from './hero.webp'\`.`
     );
   }
   return { slug, meta: parsed.data, heroImage: mod.heroImage };

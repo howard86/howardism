@@ -80,7 +80,11 @@ Design system: a single set of oklch design tokens in shadcn slots (`--backgroun
 
 #### Content integrity gate
 
-`bun run content:check` — also run in CI — fails on missing hero images (MDX↔PNG mismatch), broken slug references in `article-graph.json`/manifests, and missing `title`/`description`/`imageAlt` frontmatter. It warns (non-fatal) on orphan articles (no backlinks), domains without a `moc-<domain>` article, and orphan PNGs.
+`bun run content:check` — also run in CI — fails on missing hero images (MDX↔asset mismatch), broken slug references in `article-graph.json`/manifests, and missing `title`/`description`/`imageAlt` frontmatter. It warns (non-fatal) on orphan articles (no backlinks), domains without a `moc-<domain>` article, orphan hero images, and stray `.png` files in `assets/` (see below).
+
+#### Hero images are WebP
+
+`$imagegen` only emits PNG, and a 1600x900 lossless PNG of this flat-shaded art runs 1–8MB — the corpus reached 586MB before it was migrated. The importer now generates the PNG, transcodes it to WebP (q82, ~22x smaller), and deletes the original; `apps/blog/src/content/assets/` holds only `<slug>.webp`. `bun run images:webp` is the re-runnable migration that does the same to any PNG it finds, rewriting each article's `heroImage` import to match — it transcodes existing art rather than regenerating it, so it costs no image-generation quota. Both paths share `apps/cli/src/webp.ts`. The `stray-pngs` warning in `content:check` is the tripwire for a PNG that escaped the transcode step.
 
 #### Translation glossary (SQLite + MCP)
 
