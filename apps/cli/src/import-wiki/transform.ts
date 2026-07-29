@@ -1,12 +1,8 @@
 import type { SourceRef } from "@howardism/article-contract";
+import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import type { RawDoc } from "./parse.ts";
-import {
-  humanize,
-  rewriteToMarkdown,
-  titleFromSlug,
-  type WikiResolver,
-} from "./wikilink.ts";
+import { humanize, rewriteToMarkdown, type WikiResolver } from "./wikilink.ts";
 
 // Accepts both `[[target|label]]` and `[[target\|label]]` — the latter is the
 // Obsidian convention for embedding pipes inside markdown tables.

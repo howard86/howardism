@@ -94,6 +94,55 @@ describe("QuestionsWorklist", () => {
     expect(lines()).toContain("Does the loop terminate");
   });
 
+  it("renders the vault's inline markup as elements, not as characters", () => {
+    const marked: OpenQuestionConcept[] = [
+      {
+        domain: "agent-systems",
+        slug: "agent-loop-pattern",
+        title: "Agent Loop Pattern",
+        questions: [
+          {
+            kind: null,
+            text: "Do gains hold when **normalized for size**, or is `churn` the *real* signal? See [the paper](/articles/eval-drift).",
+          },
+        ],
+        resolved: [],
+      },
+    ];
+    render(<QuestionsWorklist concepts={marked} />);
+
+    expect(document.querySelector("li li strong")?.textContent).toBe(
+      "normalized for size"
+    );
+    expect(document.querySelector("li li em")?.textContent).toBe("real");
+    expect(document.querySelector("li li code")?.textContent).toBe("churn");
+    const link = document.querySelector<HTMLAnchorElement>(
+      'li li a[href="/articles/eval-drift"]'
+    );
+    expect(link?.textContent).toBe("the paper");
+    // The markers themselves must not survive into the rendered prose.
+    expect(lines()).not.toContain("**");
+    expect(lines()).not.toContain("`");
+  });
+
+  it("searches the prose, not the markup around it", () => {
+    const marked: OpenQuestionConcept[] = [
+      {
+        domain: "agent-systems",
+        slug: "agent-loop-pattern",
+        title: "Agent Loop Pattern",
+        questions: [{ kind: null, text: "Does **normalization** hold?" }],
+        resolved: [],
+      },
+    ];
+    render(<QuestionsWorklist concepts={marked} />);
+    fireEvent.change(searchBox(), { target: { value: "normalization" } });
+    expect(lines()).toContain("Does normalization hold?");
+    expect(document.querySelector("strong mark")?.textContent).toBe(
+      "normalization"
+    );
+  });
+
   it("keeps working when the manifest carries no triage tags", () => {
     const untagged: OpenQuestionConcept[] = [
       {

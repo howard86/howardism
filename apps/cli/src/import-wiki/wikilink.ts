@@ -1,3 +1,5 @@
+import { titleFromSlug } from "@howardism/article-contract/markup";
+
 /** Single source of truth for the [[wikilink]] grammar.
  *  Group 1 = target (incl. any wiki/ or raw/ prefix and #anchor).
  *  Group 2 = optional label, after `|` or Obsidian's table-escaped `\|`. */
@@ -34,14 +36,6 @@ export function humanize(raw: string): string {
     .replace(WHITESPACE_RE, " ")
     .trim();
   return decoded.length > 0 ? decoded : raw;
-}
-
-/** Title-case a hyphenated slug. */
-export function titleFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join(" ");
 }
 
 /** Scan once; classify every match. Source order. No dedup. */

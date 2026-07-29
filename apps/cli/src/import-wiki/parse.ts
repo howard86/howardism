@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
+import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import matter from "gray-matter";
 
@@ -7,7 +8,6 @@ import {
   extractRawSlugs,
   humanize as humanizeSlug,
   stripToText,
-  titleFromSlug,
   tokenizeWikilinks,
 } from "./wikilink.ts";
 
