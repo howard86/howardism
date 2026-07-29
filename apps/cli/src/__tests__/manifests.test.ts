@@ -79,7 +79,10 @@ describe("buildManifests", () => {
     expect(set.openQuestions.byConcept[0]).toMatchObject({
       slug: "agent-loop-pattern",
       domain: "syntheses",
-      questions: ["Who owns the budget?", "Still need a backlog?"],
+      questions: [
+        { kind: null, text: "Who owns the budget?" },
+        { kind: null, text: "Still need a backlog?" },
+      ],
     });
   });
 
@@ -115,7 +118,7 @@ describe("buildManifests", () => {
     expect(set.openQuestions.byConcept).toHaveLength(1);
     expect(set.openQuestions.byConcept[0]).toMatchObject({
       slug: "agent-loop-pattern",
-      questions: ["Who owns the budget?"],
+      questions: [{ kind: "source", text: "Who owns the budget?" }],
     });
   });
 
