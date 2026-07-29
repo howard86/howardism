@@ -139,6 +139,10 @@ const nextConfig: NextConfig = {
   ),
   transpilePackages: ["@howardism/ui", "@howardism/article-contract"],
   images: {
+    // AVIF first: the hero illustrations are flat-shaded, which AVIF encodes
+    // roughly 40% smaller than the WebP default. Browsers without AVIF fall
+    // through to WebP via content negotiation.
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
 };
