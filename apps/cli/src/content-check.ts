@@ -1,13 +1,13 @@
 /**
  * Content-integrity gate for the wiki-generated blog. Runs locally and in CI
  * (see `.github/workflows/ci.yml`). Type-check alone happily passes when hero
- * PNGs are missing or the link graph points at deleted articles — a real
+ * images are missing or the link graph points at deleted articles — a real
  * incident shipped 30 missing images with exit 0 — so this script is the
  * enforced check that those never reach `main`.
  *
  *   bun apps/cli/src/content-check.ts   # exit 1 if any FAILURE, else 0
  *
- * FAILURES (exit 1): hero-image imports that resolve to a real PNG, every slug
+ * FAILURES (exit 1): hero-image imports that resolve to a real file, every slug
  * referenced by the committed manifests existing as an article, required
  * frontmatter (`title`, `description`, `imageAlt`) being present, the
  * `syntheses` fallback domain staying under a third of all articles, and
@@ -15,7 +15,7 @@
  *
  * WARNINGS (never affect exit code; emitted as GitHub `::warning::` annotations
  * under CI): orphan articles with no backlinks, domains without a `moc-<domain>`
- * "start here" article, and orphan PNGs with no article. These are editorial
+ * "start here" article, and orphan hero images with no article. These are editorial
  * signals, not build breakers.
  *
  * The check functions are pure and unit-tested against small in-memory
@@ -37,6 +37,9 @@ const ASSETS_DIR = resolve(REPO_ROOT, "apps/blog/src/content/assets");
 const DATA_DIR = resolve(REPO_ROOT, "apps/blog/src/data");
 
 const MDX_SUFFIX = /\.mdx$/;
+// Heroes are WebP since the `images:webp` migration. `.png` stays matched so a
+// pre-migration article still resolves its hero while the two coexist.
+const HERO_SUFFIX = /\.(?:png|webp)$/;
 const PNG_SUFFIX = /\.png$/;
 const MOC_PREFIX = "moc-";
 /** Catch-all domain for notes no MOC claims. */
@@ -57,7 +60,7 @@ const HERO_IMPORT_RE =
 export interface ArticleRecord {
   description: string;
   domain: string | null;
-  /** hero PNG filename from the import line (e.g. `foo.png`), or null if absent. */
+  /** hero filename from the import line (e.g. `foo.webp`), or null if absent. */
   heroImage: string | null;
   imageAlt: string;
   slug: string;
@@ -268,19 +271,29 @@ export function findDomainsWithoutMoc(articles: ArticleRecord[]): string[] {
     .sort();
 }
 
-/** PNGs in assets/ with no article that imports them — dead weight. */
-export function findOrphanPngs(
+/** Hero images in assets/ with no article that imports them — dead weight. */
+export function findOrphanHeroImages(
   assetFilenames: Set<string>,
   articleSlugs: Set<string>
 ): string[] {
   const orphans: string[] = [];
   for (const filename of assetFilenames) {
-    const slug = filename.replace(PNG_SUFFIX, "");
+    const slug = filename.replace(HERO_SUFFIX, "");
     if (!articleSlugs.has(slug)) {
       orphans.push(filename);
     }
   }
   return orphans.sort();
+}
+
+/**
+ * Source PNGs still sitting in assets/. The importer generates PNG and then
+ * transcodes to WebP, so a `.png` surviving means that step was skipped — and
+ * an unnoticed one costs ~2MB of deploy payload each, which is how the corpus
+ * reached 586MB before the migration.
+ */
+export function findStrayPngs(assetFilenames: Set<string>): string[] {
+  return [...assetFilenames].filter((name) => PNG_SUFFIX.test(name)).sort();
 }
 
 // ---- Orchestration (filesystem I/O lives only below this line) ----
@@ -310,7 +323,7 @@ async function loadArticles(): Promise<ArticleRecord[]> {
 
 async function loadAssetFilenames(): Promise<Set<string>> {
   const entries = await readdir(ASSETS_DIR);
-  return new Set(entries.filter((name) => PNG_SUFFIX.test(name)));
+  return new Set(entries.filter((name) => HERO_SUFFIX.test(name)));
 }
 
 async function loadJson<T>(filename: string): Promise<T> {
@@ -382,9 +395,10 @@ async function main(): Promise<void> {
       messages: findDomainsWithoutMoc(articles),
     },
     {
-      name: "orphan-pngs",
-      messages: findOrphanPngs(assetFilenames, articleSlugs),
+      name: "orphan-heroes",
+      messages: findOrphanHeroImages(assetFilenames, articleSlugs),
     },
+    { name: "stray-pngs", messages: findStrayPngs(assetFilenames) },
   ];
 
   const failCount = failures.reduce((n, r) => n + r.messages.length, 0);

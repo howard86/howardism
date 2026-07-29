@@ -68,7 +68,7 @@ export interface PruneOrphanedArticlesArgs {
 }
 
 /**
- * Deletes each orphaned article's MDX, hero PNG, and zh-TW translation (any
+ * Deletes each orphaned article's MDX, hero image, and zh-TW translation (any
  * of which may not exist — `rm` with `force` no-ops rather than throwing).
  * `DRY_RUN=1` logs what would be deleted without touching disk.
  */
@@ -98,6 +98,8 @@ export async function pruneOrphanedArticles(
     );
     await Promise.all([
       rm(join(articlesDir, `${slug}${MDX_EXT}`), { force: true }),
+      // `.png` covers heroes committed before the WebP migration.
+      rm(join(assetsDir, `${slug}.webp`), { force: true }),
       rm(join(assetsDir, `${slug}.png`), { force: true }),
       rm(join(zhArticlesDir, `${slug}${MDX_EXT}`), { force: true }),
     ]);
