@@ -48,6 +48,11 @@ interface PlatePageProps {
  * content width (one of three semantic stops), the responsive page gutter, the
  * page-enter animation, and — unless `header="none"` — the shared
  * `DiscPageHeader`, numbered from the plate taxonomy.
+ *
+ * The shell is a flex item of `main`, so its automatic minimum size is its
+ * min-content width; `min-w-0` is what keeps one wide child (a nowrap filter
+ * row, a long unbreakable token) from stretching the whole page frame past the
+ * viewport instead of scrolling or wrapping inside it.
  */
 export function PlatePage({
   width,
@@ -101,7 +106,10 @@ export function PlatePage({
 
   if (bleed) {
     return (
-      <div className={cn("hw-page-enter mx-auto", widthClass)} style={style}>
+      <div
+        className={cn("hw-page-enter mx-auto w-full min-w-0", widthClass)}
+        style={style}
+      >
         {headerNode && <div className="px-gutter">{headerNode}</div>}
         {children}
       </div>
@@ -110,7 +118,10 @@ export function PlatePage({
 
   return (
     <div
-      className={cn("hw-page-enter mx-auto px-gutter pb-20", widthClass)}
+      className={cn(
+        "hw-page-enter mx-auto w-full min-w-0 px-gutter pb-20",
+        widthClass
+      )}
       style={style}
     >
       {headerNode}
