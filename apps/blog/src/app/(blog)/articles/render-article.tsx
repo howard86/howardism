@@ -28,7 +28,7 @@ export interface ArticleModule {
  * Locale-aware MDX module import. The two distinct string literals make webpack
  * build one require-context per content directory — the precompiled modules are
  * loaded on demand, so no runtime MDX compiler is needed and hero images keep
- * resolving through each file's `../assets/<slug>.png` export.
+ * resolving through each file's `../assets/<slug>.webp` export.
  */
 export function importArticleModule(
   slug: string,

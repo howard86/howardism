@@ -1,4 +1,4 @@
-import { access, mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -10,6 +10,7 @@ import {
 } from "@howardism/article-contract";
 import { runWithConcurrency } from "../concurrency.ts";
 import { writeSearchIndex } from "../search-index.ts";
+import { pngToWebp } from "../webp.ts";
 import { generateHeroImage as generateAgyHeroImage } from "./agy/index.ts";
 import { generateHeroImage as generateCodexHeroImage } from "./codex.ts";
 import {
@@ -121,6 +122,7 @@ const STAGING_DIR = join(
     : ".codex-staging"
 );
 const IMAGE_CONCURRENCY = 6;
+const WEBP_SUFFIX = /\.webp$/;
 
 async function main(): Promise<void> {
   const opts = parseOptions();
@@ -356,7 +358,7 @@ async function processArticle(
     ...(sources.length > 0 ? { sources } : {}),
   };
 
-  const imageFile = `${slug}.png`;
+  const imageFile = `${slug}.webp`;
   await ensureImage({
     slug,
     title,
@@ -479,30 +481,44 @@ async function ensureImage(args: {
     args.summary.imagesCached.push(args.slug);
     return;
   }
-  if (args.skipImages) {
-    console.warn(
-      `[import-wiki] SKIP_IMAGES=1 — leaving missing asset ${args.imagePath}`
-    );
-    return;
+  // `$imagegen` only emits PNG, so generation still targets the PNG path and we
+  // transcode afterwards. A PNG already sitting there — a pre-WebP import, or a
+  // run interrupted between generate and transcode — is reused rather than
+  // regenerated, which keeps image-generation quota for genuinely new articles.
+  const pngPath = args.imagePath.replace(WEBP_SUFFIX, ".png");
+  if (!(await fileExists(pngPath))) {
+    if (args.skipImages) {
+      console.warn(
+        `[import-wiki] SKIP_IMAGES=1 — leaving missing asset ${args.imagePath}`
+      );
+      return;
+    }
+    const provider = process.env.IMAGE_PROVIDER || "codex";
+    if (provider === "agy") {
+      await generateAgyHeroImage({
+        title: args.title,
+        body: args.body,
+        outputPath: pngPath,
+        stagingDir: STAGING_DIR,
+        dryRun: args.dryRun,
+      });
+    } else {
+      await generateCodexHeroImage({
+        title: args.title,
+        body: args.body,
+        outputPath: pngPath,
+        stagingDir: STAGING_DIR,
+        dryRun: args.dryRun,
+      });
+    }
+    // The generators no-op under DRY_RUN, so there is nothing to transcode.
+    if (args.dryRun) {
+      args.summary.imagesGenerated.push(args.slug);
+      return;
+    }
   }
-  const provider = process.env.IMAGE_PROVIDER || "codex";
-  if (provider === "agy") {
-    await generateAgyHeroImage({
-      title: args.title,
-      body: args.body,
-      outputPath: args.imagePath,
-      stagingDir: STAGING_DIR,
-      dryRun: args.dryRun,
-    });
-  } else {
-    await generateCodexHeroImage({
-      title: args.title,
-      body: args.body,
-      outputPath: args.imagePath,
-      stagingDir: STAGING_DIR,
-      dryRun: args.dryRun,
-    });
-  }
+  await pngToWebp(pngPath, args.imagePath);
+  await rm(pngPath, { force: true });
   args.summary.imagesGenerated.push(args.slug);
 }
 

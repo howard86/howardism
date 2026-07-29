@@ -37,7 +37,7 @@ describe("buildTranslatePrompt", () => {
   it("declares the heroImage line as byte-identical", () => {
     expect(prompt).toContain("heroImage");
     expect(prompt.toLowerCase()).toContain("byte-identical");
-    expect(prompt).toContain('"../assets/<slug>.png"');
+    expect(prompt).toContain('"../assets/<slug>.webp"');
   });
 
   it("calls out the preserved frontmatter keys", () => {

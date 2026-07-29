@@ -17,7 +17,8 @@ import {
   extractHeroImage,
   findDomainsWithoutMoc,
   findOrphanArticles,
-  findOrphanPngs,
+  findOrphanHeroImages,
+  findStrayPngs,
   parseArticle,
 } from "../content-check.ts";
 
@@ -28,12 +29,12 @@ function article(overrides: Partial<ArticleRecord> = {}): ArticleRecord {
     description: "Description",
     imageAlt: "Alt",
     domain: "agent-systems",
-    heroImage: "a.png",
+    heroImage: "a.webp",
     ...overrides,
   };
 }
 
-function mdx(frontmatter: string, hero = "../assets/a.png"): string {
+function mdx(frontmatter: string, hero = "../assets/a.webp"): string {
   return [
     "---",
     frontmatter,
@@ -46,8 +47,8 @@ function mdx(frontmatter: string, hero = "../assets/a.png"): string {
 }
 
 describe("extractHeroImage", () => {
-  it("captures the PNG filename from the import line", () => {
-    expect(extractHeroImage(mdx("title: X"))).toBe("a.png");
+  it("captures the hero filename from the import line", () => {
+    expect(extractHeroImage(mdx("title: X"))).toBe("a.webp");
   });
 
   it("returns null when no import line is present", () => {
@@ -64,7 +65,7 @@ describe("parseArticle", () => {
         "imageAlt: Alt text",
         "domain: model-capability-and-training",
       ].join("\n"),
-      "../assets/slug.png"
+      "../assets/slug.webp"
     );
     expect(parseArticle(raw, "slug")).toEqual({
       slug: "slug",
@@ -72,7 +73,7 @@ describe("parseArticle", () => {
       description: "A desc",
       imageAlt: "Alt text",
       domain: "model-capability-and-training",
-      heroImage: "slug.png",
+      heroImage: "slug.webp",
     });
   });
 
@@ -86,15 +87,15 @@ describe("parseArticle", () => {
 
 describe("checkHeroImages", () => {
   it("passes when every hero image resolves to an asset", () => {
-    const articles = [article({ slug: "a", heroImage: "a.png" })];
-    expect(checkHeroImages(articles, new Set(["a.png"]))).toEqual([]);
+    const articles = [article({ slug: "a", heroImage: "a.webp" })];
+    expect(checkHeroImages(articles, new Set(["a.webp"]))).toEqual([]);
   });
 
-  it("flags a hero image with no matching PNG", () => {
-    const articles = [article({ slug: "gone", heroImage: "gone.png" })];
-    const failures = checkHeroImages(articles, new Set(["a.png"]));
+  it("flags a hero image with no matching asset", () => {
+    const articles = [article({ slug: "gone", heroImage: "gone.webp" })];
+    const failures = checkHeroImages(articles, new Set(["a.webp"]));
     expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("gone.png");
+    expect(failures[0]).toContain("gone.webp");
   });
 
   it("flags an article with no hero import line", () => {
@@ -257,12 +258,28 @@ describe("findDomainsWithoutMoc", () => {
   });
 });
 
-describe("findOrphanPngs", () => {
-  it("flags PNGs with no matching article slug, sorted", () => {
-    const assets = new Set(["a.png", "orphan.png", "z-orphan.png"]);
-    expect(findOrphanPngs(assets, new Set(["a"]))).toEqual([
-      "orphan.png",
-      "z-orphan.png",
+describe("findOrphanHeroImages", () => {
+  it("flags hero images with no matching article slug, sorted", () => {
+    const assets = new Set(["a.webp", "orphan.webp", "z-orphan.webp"]);
+    expect(findOrphanHeroImages(assets, new Set(["a"]))).toEqual([
+      "orphan.webp",
+      "z-orphan.webp",
     ]);
+  });
+
+  it("still resolves a pre-migration PNG hero against its article", () => {
+    const assets = new Set(["a.webp", "a.png"]);
+    expect(findOrphanHeroImages(assets, new Set(["a"]))).toEqual([]);
+  });
+});
+
+describe("findStrayPngs", () => {
+  it("flags source PNGs the transcode step should have removed, sorted", () => {
+    const assets = new Set(["b.webp", "z.png", "a.png"]);
+    expect(findStrayPngs(assets)).toEqual(["a.png", "z.png"]);
+  });
+
+  it("is silent once every hero is WebP", () => {
+    expect(findStrayPngs(new Set(["a.webp", "b.webp"]))).toEqual([]);
   });
 });

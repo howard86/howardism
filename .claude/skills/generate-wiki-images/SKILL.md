@@ -3,7 +3,7 @@ name: generate-wiki-images
 description: Import an Obsidian wiki vault into the blog, validate it, then generate the hero images via the Codex CLI — one at a time, with a measured ETA and live progress. Use when the user wants to run the wiki importer against a vault, backfill or regenerate blog hero illustrations, or says "import the wiki", "generate wiki images", "regenerate blog illustrations".
 ---
 
-Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate the articles first, generate hero PNGs **sequentially**, then check translation staleness. The native importer generates images 6-wide and aborts the whole batch on the first failure; this skill imports with images off, then runs one `codex exec` at a time via a per-slug loop, so each image is timed (real ETA) and a single failure is isolated instead of killing the run.
+Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate the articles first, generate hero images **sequentially**, then check translation staleness. The native importer generates images 6-wide and aborts the whole batch on the first failure; this skill imports with images off, then runs one `codex exec` at a time via a per-slug loop, so each image is timed (real ETA) and a single failure is isolated instead of killing the run.
 
 ## Input
 
@@ -24,15 +24,15 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
    WIKI_PATH="$WIKI_PATH" bash .claude/skills/generate-wiki-images/scripts/sequential-images.sh
    # smoke-test or quota-cap this run: prefix MAX_IMAGES=2
    ```
-   It dry-runs first (no Codex calls) to list the slugs missing a PNG, then generates them one at a time, printing `[i/N] slug ✓ 98s | elapsed 3m | ETA ~38m` after each. The ETA is measured from real per-image time and announced after the first completes — relay it. → *done when the script prints `Done: N/N generated, 0 failed`.*
+   It dry-runs first (no Codex calls) to list the slugs missing a hero, then generates them one at a time, printing `[i/N] slug ✓ 98s | elapsed 3m | ETA ~38m` after each. The ETA is measured from real per-image time and announced after the first completes — relay it. → *done when the script prints `Done: N/N generated, 0 failed`.*
 
-4. **Validate.** The image-presence gate is a filesystem check — every article has its hero PNG (the importer names each `<slug>.png`):
+4. **Validate.** The image-presence gate is a filesystem check — every article has its hero (the importer generates `<slug>.png`, transcodes it to WebP and deletes the PNG, so `assets/` holds only `<slug>.webp`):
    ```bash
    cd apps/blog/src/content && comm -23 \
      <(ls articles/*.mdx | xargs -n1 basename | sed 's/\.mdx$//' | sort) \
-     <(ls assets/*.png   | xargs -n1 basename | sed 's/\.png$//' | sort)
+     <(ls assets/*.webp  | xargs -n1 basename | sed 's/\.webp$//' | sort)
    ```
-   Empty output = every article has an image. Note `bun run type-check` does **not** catch missing images — TS treats `*.png` as an opaque module, so it passes with PNGs absent; only a full `bun run build` actually fails on a missing hero (at the cost of a slow Next build). → *done when the set difference is empty.*
+   Empty output = every article has an image. Note `bun run type-check` does **not** catch missing images — TS treats `*.webp` as an opaque module, so it passes with heroes absent; only a full `bun run build` actually fails on a missing hero (at the cost of a slow Next build). → *done when the set difference is empty.*
 
 5. **Check translation staleness.** The import adds or edits English source articles, which any translated copies can now lag behind — surface that debt at review time instead of letting it go unnoticed:
    ```bash
@@ -43,7 +43,7 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
 ## Failures & regen
 
 - A slug that fails during step 3 is listed at the end (the run does not abort). Re-check Codex auth/quota, then re-run just those: `cd apps/cli && WIKI_PATH="$WIKI_PATH" bun run import:wiki -- --only <slug>`.
-- Cache is filename-only: to regenerate a changed article's image, delete `apps/blog/src/content/assets/<slug>.png` first, then re-run step 3.
+- Cache is filename-only: to regenerate a changed article's image, delete `apps/blog/src/content/assets/<slug>.webp` first, then re-run step 3.
 
 ## Gotchas (from prior runs)
 
@@ -52,6 +52,6 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
 - **Fail-loud, no placeholders.** A missing/invalid PNG (magic-byte check) throws; there is no silent placeholder fallback.
 - **Codex sandbox staging.** Images render into `apps/cli/.codex-staging/` (inside Codex's `workspace-write` sandbox) and then move to `assets/`. Run from the repo, or the sandbox can't write.
 - **Non-fatal noise is normal.** Missing Python `PIL`/`numpy` warnings and an ImageMagick draw error have appeared without blocking past runs — don't chase them.
-- **Deleting a live hero PNG 404s its article** (the MDX statically imports it). Only delete when regenerating.
-- **~2 MB per PNG, ~90–120 s each** (measured 98–109 s on codex 0.144). ~30 images ≈ 50 min — hence the background run, ETA, and `MAX_IMAGES` cap.
+- **Deleting a live hero image 404s its article** (the MDX statically imports it). Only delete when regenerating.
+- **~90–120 s per image** (measured 98–109 s on codex 0.144). ~30 images ≈ 50 min — hence the background run, ETA, and `MAX_IMAGES` cap. Codex emits ~2 MB of PNG per hero; the importer transcodes each to WebP (~100 KB) and drops the PNG, so nothing that large is committed.
 - **Per-slug re-parse.** Each `--only` run re-parses the whole vault; that overhead is a few percent of Codex time — the price of clean sequential timing and failure isolation.
