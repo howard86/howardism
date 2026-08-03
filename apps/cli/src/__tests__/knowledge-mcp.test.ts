@@ -13,7 +13,7 @@ const indexRaw = await Bun.file(DEFAULT_SEARCH_INDEX_PATH).json();
 const KNOWN_SLUG = indexRaw.entries[0].slug as string;
 
 describe("knowledge MCP tool handlers", () => {
-  it("knowledge_search returns results for a plausible query, without body", async () => {
+  it("knowledge_search returns results for a plausible query, trimmed", async () => {
     const results = parse(
       await knowledgeSearchHandler(DEFAULT_SEARCH_INDEX_PATH, {
         query: "AI",
@@ -22,7 +22,7 @@ describe("knowledge MCP tool handlers", () => {
 
     expect(results.length).toBeGreaterThan(0);
     for (const result of results) {
-      expect(result).not.toHaveProperty("body");
+      expect(result).not.toHaveProperty("keywords");
       expect(result).toHaveProperty("slug");
       expect(result).toHaveProperty("title");
       expect(result).toHaveProperty("description");
@@ -30,7 +30,7 @@ describe("knowledge MCP tool handlers", () => {
     }
   });
 
-  it("knowledge_get returns the full entry (including body) for a known slug", async () => {
+  it("knowledge_get reads the article's full text, not an indexed excerpt", async () => {
     const entry = parse(
       await knowledgeGetHandler(DEFAULT_SEARCH_INDEX_PATH, {
         slug: KNOWN_SLUG,
@@ -39,7 +39,10 @@ describe("knowledge MCP tool handlers", () => {
 
     expect(entry.slug).toBe(KNOWN_SLUG);
     expect(typeof entry.body).toBe("string");
-    expect(entry.body.length).toBeGreaterThan(0);
+    // The old index stored a 600-char lead; this is the whole article, so it
+    // comfortably clears that — and carries no MDX module syntax.
+    expect(entry.body.length).toBeGreaterThan(600);
+    expect(entry.body).not.toContain("heroImage");
   });
 
   it("knowledge_get handles an unknown slug gracefully rather than throwing", async () => {

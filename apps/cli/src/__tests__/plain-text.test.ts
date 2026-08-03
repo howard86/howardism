@@ -42,6 +42,15 @@ describe("toPlainText", () => {
     expect(toPlainText(md)).toBe("A B one two");
   });
 
+  it("drops the hero-image export every emitted MDX carries", () => {
+    const md = [
+      'export { default as heroImage } from "../assets/x.webp";',
+      "",
+      "Real prose.",
+    ].join("\n");
+    expect(toPlainText(md)).toBe("Real prose.");
+  });
+
   it("collapses whitespace and returns empty string for empty input", () => {
     expect(toPlainText("")).toBe("");
     expect(toPlainText("\n\n   \n")).toBe("");

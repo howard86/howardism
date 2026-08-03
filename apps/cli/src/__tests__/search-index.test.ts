@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import { buildSearchEntry } from "../search-index.ts";
+import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
+
+import {
+  buildSearchEntry,
+  deriveKeywords,
+  type PartialSearchEntry,
+} from "../search-index.ts";
 
 const HERO = 'export { default as heroImage } from "../assets/x.png";';
 
@@ -9,7 +15,7 @@ function mdx(frontmatter: string, body: string): string {
 }
 
 describe("buildSearchEntry", () => {
-  it("extracts frontmatter fields and plain-text body", () => {
+  it("extracts frontmatter fields and no article text", () => {
     const raw = mdx(
       [
         "date: 2026-05-06",
@@ -26,8 +32,7 @@ describe("buildSearchEntry", () => {
 
     const entry = buildSearchEntry(raw, "agent-loop-pattern");
 
-    expect(entry).not.toBeNull();
-    expect(entry).toMatchObject({
+    expect(entry).toEqual({
       slug: "agent-loop-pattern",
       title: "Agent Loop Pattern",
       description: "Loops as a primitive",
@@ -35,10 +40,6 @@ describe("buildSearchEntry", () => {
       domain: "agent-systems",
       tags: ["automation", "harness"],
     });
-    // Body is plain text: heading markup, the hero export, emphasis, and the
-    // wikilink syntax are all gone; the wikilink's display text remains.
-    expect(entry?.body).toBe("Summary A loop runs Claude Code until done.");
-    expect(entry?.body).not.toContain("heroImage");
   });
 
   it("omits optional domain and tags when absent", () => {
@@ -47,27 +48,9 @@ describe("buildSearchEntry", () => {
       "Body text."
     );
     const entry = buildSearchEntry(raw, "bare");
-    expect(entry).toMatchObject({
-      slug: "bare",
-      tag: "Essay",
-      body: "Body text.",
-    });
+    expect(entry).toMatchObject({ slug: "bare", tag: "Essay" });
     expect(entry?.domain).toBeUndefined();
     expect(entry?.tags).toBeUndefined();
-  });
-
-  it("caps a long body to its lead text without splitting a word", () => {
-    // A body well over the 1200-char cap: 400 four-char words = ~2000 chars.
-    const longBody = Array.from({ length: 400 }, () => "alfa").join(" ");
-    const raw = mdx(
-      ["title: Long", "description: d", "tag: Essay"].join("\n"),
-      longBody
-    );
-    const entry = buildSearchEntry(raw, "long");
-    expect(entry?.body.length).toBeLessThanOrEqual(1200);
-    // Trimmed at a word boundary: the lead is preserved and no token is cut.
-    expect(longBody.startsWith(entry?.body ?? "")).toBe(true);
-    expect(entry?.body.endsWith("alfa")).toBe(true);
   });
 
   it("returns null for archived articles so they stay out of search", () => {
@@ -81,5 +64,67 @@ describe("buildSearchEntry", () => {
       "Body."
     );
     expect(buildSearchEntry(raw, "hidden")).toBeNull();
+  });
+});
+
+describe("deriveKeywords", () => {
+  const subject: PartialSearchEntry = {
+    slug: "agent-loop-pattern",
+    title: "Agent Loop Pattern",
+    description: "d",
+    tag: "Concept",
+    tags: ["automation"],
+  };
+
+  const tagsBySlug = new Map([
+    ["agent-loop-pattern", ["automation"]],
+    // "harness" is shared by two neighbours, "cli-agent" by one.
+    ["claude-code", ["harness", "cli-agent", "automation"]],
+    ["hermes-agent", ["harness"]],
+    ["rlhf", ["alignment"]],
+  ]);
+
+  const graph = parseArticleGraph({
+    generatedOn: "2026-08-03",
+    backlinks: { "agent-loop-pattern": ["hermes-agent"] },
+    outgoing: { "agent-loop-pattern": ["claude-code"] },
+    related: { "agent-loop-pattern": ["rlhf"] },
+  });
+
+  it("ranks neighbour tags by how many neighbours share them", () => {
+    // Backlinks, outgoing and related all contribute; "harness" (2 neighbours)
+    // outranks the singletons, which tie and fall back to alphabetical order.
+    expect(deriveKeywords(subject, graph, tagsBySlug)).toBe(
+      "harness alignment cli-agent"
+    );
+  });
+
+  it("drops tags the article already carries", () => {
+    // "automation" is on claude-code but is the subject's own tag, and own tags
+    // are already indexed at a higher weight than keywords.
+    expect(deriveKeywords(subject, graph, tagsBySlug)).not.toContain(
+      "automation"
+    );
+  });
+
+  it("honours the keyword limit", () => {
+    expect(deriveKeywords(subject, graph, tagsBySlug, 1)).toBe("harness");
+  });
+
+  it("normalises weighted backlink edges to the same shape as bare slugs", () => {
+    const weighted = parseArticleGraph({
+      generatedOn: "2026-08-03",
+      backlinks: {
+        "agent-loop-pattern": [{ slug: "hermes-agent", count: 3 }],
+      },
+      outgoing: {},
+      related: {},
+    });
+    expect(deriveKeywords(subject, weighted, tagsBySlug)).toBe("harness");
+  });
+
+  it("returns an empty string for an article with no neighbours", () => {
+    const orphan = { ...subject, slug: "orphan" };
+    expect(deriveKeywords(orphan, graph, tagsBySlug)).toBe("");
   });
 });

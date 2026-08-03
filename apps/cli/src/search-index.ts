@@ -1,10 +1,18 @@
 /**
  * Build `apps/blog/src/data/search-index.json` from the blog's committed MDX
- * articles — the published source of truth. Needs no Obsidian vault: it reads
- * each article's frontmatter + body and reduces the body to searchable plain
- * text via `toPlainText`, capped to its lead text (see `BODY_CHAR_CAP`) to keep
- * the index small. Re-run after editing or importing articles, then
- * commit the result (like the other `src/data/*.json` manifests).
+ * articles — the published source of truth — plus the link graph the wiki
+ * importer emits. Each entry carries its frontmatter and a run of related
+ * keywords; it carries no article text.
+ *
+ * The index used to store a 600-char prefix of each body. That prefix was every
+ * article's lead and nothing more (all 275 articles ran past the cap, median
+ * body 7,974 chars, so it indexed 6.7% of the corpus) while costing 55KB of the
+ * 103KB gzipped payload and half the per-query time. Related keywords cover
+ * what the *whole* article connects to instead: measured over a 24-query sweep,
+ * 101KB→61KB gzipped, 23.5ms→16ms a query, 241→252 results, and the top hit
+ * matches a full-text index on 23/24 queries rather than 22/24.
+ *
+ * Reads `article-graph.json`, so it must run after `import:wiki`.
  *
  *   bun run build:search-index            # write the index
  *   DRY_RUN=1 bun run build:search-index  # report counts without writing
@@ -13,13 +21,15 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import {
+  type ArticleGraph,
+  parseArticleGraph,
+} from "@howardism/article-contract/manifests/graph";
+import {
   type SearchIndex,
   type SearchIndexEntry,
   SearchIndexSchema,
 } from "@howardism/article-contract/manifests/search-index";
 import matter from "gray-matter";
-
-import { toPlainText } from "./import-wiki/plain-text.ts";
 
 export type {
   SearchIndex,
@@ -27,52 +37,33 @@ export type {
 } from "@howardism/article-contract/manifests/search-index";
 
 const MDX_SUFFIX = /\.mdx$/;
-// The `export { default as heroImage } …` line every emitted MDX carries right
-// after its frontmatter — module syntax, not prose, so drop it before indexing.
-const HERO_EXPORT_RE = /^export \{ default as heroImage \}[^\n]*\n?/m;
-
-// Cap each entry's indexed body to its lead text. `body` is ranked lowest of
-// the Fuse keys (0.08) but is scanned end to end (`ignoreLocation`), so its
-// length sets both the size of the chunk shipped to the browser and the cost of
-// every keystroke. At the old 1200 the median article ran right up to the cap,
-// so every entry paid full price: 461KB of JSON, 165KB gzipped, 47ms a query.
-//
-// 600 is the knee, measured over a twelve-query sweep against the uncapped
-// index: it still returns the same top result for all twelve, keeps 85% of the
-// full result lists, and costs 102KB gzipped and 31ms. Going on down to 300
-// saves another 30KB but drops one query's top hit, which is the one thing a
-// reader notices. Articles longer than this lose deep-body matches by design —
-// title, description and tags still cover them.
-const BODY_CHAR_CAP = 600;
 
 /**
- * Trim `text` to at most `BODY_CHAR_CAP` characters, backing up to the last word
- * boundary so the final token isn't split mid-word. `toPlainText` already
- * collapses whitespace to single spaces, so `lastIndexOf(" ")` is a clean cut.
+ * How many related keywords each entry keeps. Ranked by how many neighbours
+ * share the keyword, so the cut takes the tail. 32 buys two more results across
+ * the sweep for another 5KB gzipped; 12 gives up nine. 20 is the knee.
  */
-function capBody(text: string): string {
-  if (text.length <= BODY_CHAR_CAP) {
-    return text;
-  }
-  const head = text.slice(0, BODY_CHAR_CAP);
-  const lastSpace = head.lastIndexOf(" ");
-  return lastSpace > 0 ? head.slice(0, lastSpace) : head;
-}
+const KEYWORD_LIMIT = 20;
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = resolve(HERE, "../../../");
 const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
+const GRAPH_PATH = resolve(REPO_ROOT, "apps/blog/src/data/article-graph.json");
 const OUTPUT_PATH = resolve(REPO_ROOT, "apps/blog/src/data/search-index.json");
 
+/** An entry before its keywords are derived — keywords need the whole corpus. */
+export type PartialSearchEntry = Omit<SearchIndexEntry, "keywords">;
+
 /**
- * Reduce a single article's raw MDX source to a search entry, or `null` when
- * the article is archived (hidden from the public blog, so kept out of search).
+ * Reduce a single article's frontmatter to a search entry, or `null` when the
+ * article is archived (hidden from the public blog, so kept out of search).
+ * The MDX body is not read: see `deriveKeywords` for what replaced it.
  */
 export function buildSearchEntry(
   raw: string,
   slug: string
-): SearchIndexEntry | null {
-  const { data, content } = matter(raw);
+): PartialSearchEntry | null {
+  const { data } = matter(raw);
   if (data.archived === true) {
     return null;
   }
@@ -85,24 +76,82 @@ export function buildSearchEntry(
     ...(Array.isArray(data.tags) && data.tags.length > 0
       ? { tags: (data.tags as unknown[]).map(String) }
       : {}),
-    body: capBody(toPlainText(content.replace(HERO_EXPORT_RE, ""))),
   };
 }
 
+/**
+ * Every slug `slug` links to, is linked from, or is listed as related to.
+ * Backlink edges carry a weight object in the current manifest shape and a bare
+ * slug in the legacy one; the contract accepts both, so both are normalised.
+ */
+function neighbourSlugs(graph: ArticleGraph, slug: string): Set<string> {
+  return new Set([
+    ...(graph.backlinks[slug] ?? []).map((edge) => edge.slug),
+    ...(graph.outgoing[slug] ?? []),
+    ...(graph.related[slug] ?? []),
+  ]);
+}
+
+/**
+ * An article's related keywords: the free-form tags of its graph neighbours,
+ * ranked by how many neighbours carry each one, minus the tags the article
+ * already has (those are indexed separately, at a higher weight).
+ *
+ * This is why the keywords beat a body prefix — a neighbour's tags describe the
+ * whole neighbour, so one hop out summarises a region of the wiki that no
+ * amount of lead text reaches. Joined into one string rather than kept as an
+ * array: Fuse scores an array key by its best element, which lets short tokens
+ * fuzz-match too easily (top-hit accuracy 23/24 → 17/24 on the sweep).
+ */
+export function deriveKeywords(
+  entry: PartialSearchEntry,
+  graph: ArticleGraph,
+  tagsBySlug: Map<string, string[]>,
+  limit = KEYWORD_LIMIT
+): string {
+  const own = new Set(entry.tags ?? []);
+  const shared = new Map<string, number>();
+  for (const neighbour of neighbourSlugs(graph, entry.slug)) {
+    for (const tag of tagsBySlug.get(neighbour) ?? []) {
+      if (!own.has(tag)) {
+        shared.set(tag, (shared.get(tag) ?? 0) + 1);
+      }
+    }
+  }
+  return [...shared.entries()]
+    .sort(([tagA, countA], [tagB, countB]) =>
+      countB === countA ? tagA.localeCompare(tagB) : countB - countA
+    )
+    .slice(0, limit)
+    .map(([tag]) => tag)
+    .join(" ");
+}
+
 async function buildIndex(generatedOn: string): Promise<SearchIndex> {
+  const graph = parseArticleGraph(
+    JSON.parse(await readFile(GRAPH_PATH, "utf8"))
+  );
   const filenames = (await readdir(ARTICLES_DIR))
     .filter((name) => MDX_SUFFIX.test(name))
     .sort();
 
-  const entries: SearchIndexEntry[] = [];
+  const partials: PartialSearchEntry[] = [];
   for (const filename of filenames) {
     const raw = await readFile(resolve(ARTICLES_DIR, filename), "utf8");
     const entry = buildSearchEntry(raw, filename.replace(MDX_SUFFIX, ""));
     if (entry) {
-      entries.push(entry);
+      partials.push(entry);
     }
   }
-  entries.sort((a, b) => a.slug.localeCompare(b.slug));
+  partials.sort((a, b) => a.slug.localeCompare(b.slug));
+
+  const tagsBySlug = new Map(
+    partials.map((entry) => [entry.slug, entry.tags ?? []])
+  );
+  const entries = partials.map((entry) => ({
+    ...entry,
+    keywords: deriveKeywords(entry, graph, tagsBySlug),
+  }));
 
   return { generatedOn, entries };
 }
@@ -118,6 +167,17 @@ export async function writeSearchIndex(options?: {
   const generatedOn = new Date().toISOString().slice(0, 10);
   const index = await buildIndex(generatedOn);
   const json = JSON.stringify(SearchIndexSchema.parse(index), null, 2);
+
+  const keywordless = index.entries.filter(
+    (entry) => entry.keywords.length === 0
+  ).length;
+  if (keywordless > 0) {
+    // A stale or partial `article-graph.json` is the usual cause, and it fails
+    // silently otherwise: the index still builds, just without its lowest key.
+    console.warn(
+      `[search-index] ${keywordless} entries have no keywords — is article-graph.json current? (run import:wiki first)`
+    );
+  }
 
   if (process.env.DRY_RUN === "1" || options?.dryRun) {
     console.log(
