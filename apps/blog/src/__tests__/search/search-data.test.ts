@@ -19,7 +19,7 @@ const entries: SearchEntry[] = [
     tag: "Concept",
     domain: "agent-systems",
     tags: ["automation"],
-    body: "A loop repeatedly executes a prompt until a queue is empty.",
+    keywords: "harness orchestration",
   },
   {
     slug: "claude-code",
@@ -28,7 +28,7 @@ const entries: SearchEntry[] = [
     tag: "Entity",
     domain: "agent-systems",
     tags: ["claude-code"],
-    body: "Claude Code mentions the loop primitive only in passing here.",
+    keywords: "loop-primitive cli-agent",
   },
   {
     slug: "rlhf",
@@ -37,7 +37,7 @@ const entries: SearchEntry[] = [
     tag: "Concept",
     domain: "model-capability-and-training",
     tags: ["alignment"],
-    body: "Reward models shape model behaviour during alignment training.",
+    keywords: "safety evaluation",
   },
 ];
 

@@ -5,17 +5,17 @@ import type {
 
 /**
  * One searchable article. The shape is owned by `@howardism/article-contract`
- * and gated at write time by the CLI; this ~800KB chunk loads in the browser, so
- * it is read against the shared type without a zod parse on read.
+ * and gated at write time by the CLI; this chunk loads in the browser, so it is
+ * read against the shared type without a zod parse on read.
  */
 export type SearchEntry = SearchIndexEntry;
 
 let indexPromise: Promise<SearchEntry[]> | null = null;
 
 /**
- * Lazily fetch the prebuilt search index. The dynamic import keeps the ~800KB
- * JSON out of the main bundle — it loads only when the palette first opens —
- * and the cached promise means repeat opens never refetch.
+ * Lazily fetch the prebuilt search index. The dynamic import keeps the JSON out
+ * of the main bundle — it loads only when the palette first opens — and the
+ * cached promise means repeat opens never refetch.
  */
 export function loadSearchIndex(): Promise<SearchEntry[]> {
   if (!indexPromise) {
@@ -45,8 +45,8 @@ const MIN_TOKEN_LENGTH = 2;
  * Carve a short window of `text` around the first occurrence of `query` (or one
  * of its tokens), splitting it into the text before / the matched span / the
  * text after so the caller can emphasise the match. Returns `null` when the
- * query doesn't appear in `text` (e.g. it only matched the title) — the caller
- * falls back to the description.
+ * query doesn't appear in `text` — e.g. the row matched on its title, or on a
+ * keyword that the summary never spells out.
  */
 export function buildSnippet(
   text: string,

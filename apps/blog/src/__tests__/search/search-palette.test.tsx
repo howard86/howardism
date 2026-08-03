@@ -32,7 +32,7 @@ mock.module("@/data/search-index.json", () => ({
         tag: "Concept",
         domain: "agent-systems",
         tags: ["automation"],
-        body: "A loop repeatedly executes a prompt until done.",
+        keywords: "harness orchestration",
       },
       {
         slug: "rlhf",
@@ -41,7 +41,7 @@ mock.module("@/data/search-index.json", () => ({
         tag: "Concept",
         domain: "model-capability-and-training",
         tags: ["alignment"],
-        body: "Reward models shape behaviour.",
+        keywords: "safety evaluation",
       },
     ],
   },
@@ -76,7 +76,9 @@ describe("SearchPalette", () => {
       expect(screen.getByText("Agent Loop Pattern")).toBeDefined()
     );
     expect(screen.queryByText("RLHF")).toBeNull();
-    expect(document.querySelector("mark")?.textContent).toBe("loop");
+    // Highlighted out of the summary ("Loops as a primitive."), matched
+    // case-insensitively but rendered as the summary spells it.
+    expect(document.querySelector("mark")?.textContent).toBe("Loop");
   });
 
   it("navigates to the selected article on Enter", async () => {
