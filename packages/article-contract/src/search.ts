@@ -2,6 +2,19 @@ import Fuse, { type IFuseOptions } from "fuse.js";
 
 import type { SearchIndexEntry } from "./manifests/search-index";
 
+/**
+ * Weights are unchanged. What made ranking expensive was the *size* of `body`,
+ * not its presence: `ignoreLocation` makes Fuse scan each body end to end, so
+ * the fix belonged in the index builder's `BODY_CHAR_CAP` (1200 → 600, 47ms →
+ * 31ms a query) rather than in these keys.
+ *
+ * Two tempting tunings were tried and reverted, both because they cost recall:
+ * dropping `body` as a key entirely, and tightening `threshold` to 0.2. Either
+ * one sends ordinary multi-word queries — "attention mechanism", "llm vuln" —
+ * to zero results, because 0.35 is what lets a query spanning two fields match
+ * at all. The palette defers ranking (`useDeferredValue`), so the remaining
+ * milliseconds do not land on the keystroke anyway.
+ */
 const FUSE_OPTIONS: IFuseOptions<SearchIndexEntry> = {
   keys: [
     { name: "title", weight: 0.4 },
@@ -20,20 +33,51 @@ const FUSE_OPTIONS: IFuseOptions<SearchIndexEntry> = {
 
 const DEFAULT_LIMIT = 12;
 
+/**
+ * Ceiling on caller-supplied result limits. The palette passes none; the WebMCP
+ * `search_articles` tool takes one straight from a calling agent, and an
+ * unbounded limit would return the whole corpus.
+ */
+const MAX_LIMIT = 50;
+
+/**
+ * Fuse instances keyed on the entry array they index. The index costs ~1ms to
+ * build and every caller shares the one array `loadSearchIndex` caches, so
+ * repeat callers — notably the WebMCP tools, which rebuilt it per invocation —
+ * get it for free. Weak so a discarded index does not pin its Fuse.
+ */
+const fuseCache = new WeakMap<SearchIndexEntry[], Fuse<SearchIndexEntry>>();
+
 export function createFuse(
   entries: SearchIndexEntry[]
 ): Fuse<SearchIndexEntry> {
-  return new Fuse(entries, FUSE_OPTIONS);
+  const cached = fuseCache.get(entries);
+  if (cached) {
+    return cached;
+  }
+  const fuse = new Fuse(entries, FUSE_OPTIONS);
+  fuseCache.set(entries, fuse);
+  return fuse;
+}
+
+/** Clamp a caller-supplied limit into `[1, MAX_LIMIT]`, defaulting when absent. */
+export function resolveLimit(limit?: number): number {
+  if (!Number.isFinite(limit)) {
+    return DEFAULT_LIMIT;
+  }
+  return Math.min(Math.max(Math.floor(limit as number), 1), MAX_LIMIT);
 }
 
 export function searchEntries(
   fuse: Fuse<SearchIndexEntry>,
   query: string,
-  limit = DEFAULT_LIMIT
+  limit?: number
 ): SearchIndexEntry[] {
   const trimmed = query.trim();
   if (trimmed.length === 0) {
     return [];
   }
-  return fuse.search(trimmed, { limit }).map((result) => result.item);
+  return fuse
+    .search(trimmed, { limit: resolveLimit(limit) })
+    .map((result) => result.item);
 }

@@ -31,13 +31,19 @@ const MDX_SUFFIX = /\.mdx$/;
 // after its frontmatter — module syntax, not prose, so drop it before indexing.
 const HERO_EXPORT_RE = /^export \{ default as heroImage \}[^\n]*\n?/m;
 
-// Cap each entry's indexed body to its lead text. Pre-cap, `body` was ~93% of
-// the index's bytes yet carries the least Fuse weight (0.08) — so it dominated
-// both the committed file and the chunk shipped to the browser while barely
-// moving ranking. Keeping only the lead preserves matches on an article's
-// opening (title/tags/description still cover the rest) at a fraction of the
-// size. Articles longer than this lose deep-body matches by design.
-const BODY_CHAR_CAP = 1200;
+// Cap each entry's indexed body to its lead text. `body` is ranked lowest of
+// the Fuse keys (0.08) but is scanned end to end (`ignoreLocation`), so its
+// length sets both the size of the chunk shipped to the browser and the cost of
+// every keystroke. At the old 1200 the median article ran right up to the cap,
+// so every entry paid full price: 461KB of JSON, 165KB gzipped, 47ms a query.
+//
+// 600 is the knee, measured over a twelve-query sweep against the uncapped
+// index: it still returns the same top result for all twelve, keeps 85% of the
+// full result lists, and costs 102KB gzipped and 31ms. Going on down to 300
+// saves another 30KB but drops one query's top hit, which is the one thing a
+// reader notices. Articles longer than this lose deep-body matches by design —
+// title, description and tags still cover them.
+const BODY_CHAR_CAP = 600;
 
 /**
  * Trim `text` to at most `BODY_CHAR_CAP` characters, backing up to the last word
