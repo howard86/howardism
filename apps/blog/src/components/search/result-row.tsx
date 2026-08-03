@@ -27,11 +27,15 @@ function rankedTags(tags: string[] | undefined, query: string) {
 export function ResultRow({
   entry,
   query,
+  showDomain = true,
 }: {
   entry: SearchEntry;
   query: string;
+  /** Off when the list is grouped by domain — the heading already says it. */
+  showDomain?: boolean;
 }) {
-  const domain = entry.domain ? resolveDomain(entry.domain) : null;
+  const domain =
+    showDomain && entry.domain ? resolveDomain(entry.domain) : null;
   const kindSlug = entry.tag.toLowerCase();
   const kind = KNOWN_KINDS.has(kindSlug)
     ? KIND_META[kindSlug as TagSectionSlug]
