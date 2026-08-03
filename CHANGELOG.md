@@ -1,3 +1,11 @@
+# [v2.22.0](https://github.com/howard86/howardism/compare/v2.21.0...v2.22.0) (2026-08-03)
+
+## ✨ New Features
+- [`1ac556f0`](https://github.com/howard86/howardism/commit/1ac556f0)  feat(wiki-import): carry question triage and resolved answers to the blog 
+- [`6c1552e7`](https://github.com/howard86/howardism/commit/6c1552e7)  feat(questions): make the open-questions backlog a searchable worklist 
+- [`cddc1e48`](https://github.com/howard86/howardism/commit/cddc1e48)  feat(wiki-import): resolve question wikilinks and render vault markup 
+- [`f2ef1211`](https://github.com/howard86/howardism/commit/f2ef1211)  feat(wiki-import): weight and quote backlinks instead of listing slugs
+
 # [v2.21.0](https://github.com/howard86/howardism/compare/v2.20.0...v2.21.0) (2026-07-29)
 
 ## ✨ New Features
