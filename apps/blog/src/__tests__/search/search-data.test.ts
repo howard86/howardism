@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { createFuse, searchEntries } from "@howardism/article-contract/search";
+import {
+  createFuse,
+  resolveLimit,
+  searchEntries,
+} from "@howardism/article-contract/search";
 
 import {
   buildSnippet,
@@ -60,6 +64,29 @@ describe("searchEntries ranking", () => {
     const fuse = createFuse(entries);
     expect(searchEntries(fuse, "zzzxyqq")).toHaveLength(0);
   });
+
+  it("reuses one Fuse instance per entry array", () => {
+    expect(createFuse(entries)).toBe(createFuse(entries));
+    expect(createFuse([...entries])).not.toBe(createFuse(entries));
+  });
+});
+
+describe("searchEntries limit", () => {
+  // `limit` reaches this from the WebMCP `search_articles` tool, i.e. straight
+  // from a calling agent, so it is clamped rather than trusted.
+  it("clamps a caller-supplied limit into [1, 50]", () => {
+    expect(resolveLimit(undefined)).toBe(12);
+    expect(resolveLimit(Number.NaN)).toBe(12);
+    expect(resolveLimit(0)).toBe(1);
+    expect(resolveLimit(-5)).toBe(1);
+    expect(resolveLimit(2.7)).toBe(2);
+    expect(resolveLimit(1_000_000)).toBe(50);
+  });
+
+  it("honours a valid limit when ranking", () => {
+    const fuse = createFuse(entries);
+    expect(searchEntries(fuse, "loop", 1)).toHaveLength(1);
+  });
 });
 
 describe("buildSnippet", () => {
@@ -92,6 +119,19 @@ describe("buildSnippet", () => {
       "reward alignment"
     );
     expect(snippet?.match).toBe("alignment");
+  });
+
+  it("prefers the longest matching token over the first one", () => {
+    // Query order would pick "the" — present at index 0 of almost any prose —
+    // and highlight a stopword instead of the word being searched for.
+    const snippet = buildSnippet(
+      "The transformer depends on an attention mechanism.",
+      "the attention mechanism"
+    );
+    expect(snippet?.match).not.toBe("The");
+    // "attention" and "mechanism" tie at nine characters; the sort is stable,
+    // so the earlier of the two wins.
+    expect(snippet?.match).toBe("attention");
   });
 
   it("returns null when nothing matches", () => {

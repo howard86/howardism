@@ -61,6 +61,10 @@ interface SearchArticlesResult {
  * the full text would flood the calling agent's context; `get_article` fetches
  * it on demand for one slug. Pure and browser-free so it is unit-testable
  * without `document.modelContext`.
+ *
+ * `input` arrives from a calling agent, so `limit` is whatever it chose to
+ * send; `searchEntries` clamps it rather than letting one call rank out the
+ * whole corpus.
  */
 export function searchArticles(
   entries: SearchEntry[],
@@ -85,8 +89,11 @@ interface GetArticleInput {
 }
 
 /**
- * Returns the full body of the entry matching `input.slug`, already present
- * on every loaded index entry — no network fetch needed. Pure and
+ * Returns the opening excerpt of the entry matching `input.slug`, already
+ * present on every loaded index entry — no network fetch needed. The search
+ * index stores each article's lead, not its full text (see `BODY_CHAR_CAP` in
+ * the CLI's index builder), so this is an excerpt and says so: an agent that
+ * needs the whole article follows the `url` from `search_articles`. Pure and
  * browser-free so it is unit-testable without `document.modelContext`.
  */
 export function getArticle(
@@ -150,7 +157,7 @@ export function WebMcpTools() {
           query: { type: "string", description: "Search keywords." },
           limit: {
             type: "number",
-            description: "Maximum number of results (default 12).",
+            description: "Maximum number of results (default 12, max 50).",
           },
         },
         required: ["query"],
@@ -167,7 +174,7 @@ export function WebMcpTools() {
     register<GetArticleInput>({
       name: GET_ARTICLE_TOOL,
       description:
-        "Fetch the full body of one howardism.dev article by slug, as returned by search_articles.",
+        "Fetch the opening excerpt of one howardism.dev article by slug, as returned by search_articles. This is the article's lead, not its full text — fetch the article's url for that.",
       inputSchema: {
         type: "object",
         properties: {

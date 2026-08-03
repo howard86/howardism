@@ -10,7 +10,7 @@ import {
   CommandList,
 } from "@howardism/ui/components/command";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { ResultRow } from "./result-row";
 import { loadSearchIndex, type SearchEntry } from "./search-data";
@@ -65,9 +65,13 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   }, [open, entries]);
 
   const fuse = useMemo(() => (entries ? createFuse(entries) : null), [entries]);
+  // Ranking is synchronous and the corpus is large enough to be felt (tens of
+  // ms per keystroke), so let the input paint the typed character first and
+  // rank against the settled query.
+  const deferredQuery = useDeferredValue(query);
   const results = useMemo(
-    () => (fuse ? searchEntries(fuse, query) : []),
-    [fuse, query]
+    () => (fuse ? searchEntries(fuse, deferredQuery) : []),
+    [fuse, deferredQuery]
   );
 
   const handleOpenChange = (next: boolean) => {
@@ -82,7 +86,9 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
     router.push(`/articles/${slug}`);
   };
 
-  const emptyMessage = emptyLabel(entries !== null, query, failed);
+  // Both read the deferred query so the highlighted span and the "no articles"
+  // copy always describe the result set actually on screen.
+  const emptyMessage = emptyLabel(entries !== null, deferredQuery, failed);
 
   return (
     <CommandDialog
@@ -105,7 +111,7 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
                 onSelect={() => handleSelect(entry.slug)}
                 value={entry.slug}
               >
-                <ResultRow entry={entry} query={query} />
+                <ResultRow entry={entry} query={deferredQuery} />
               </CommandItem>
             ))}
           </CommandGroup>

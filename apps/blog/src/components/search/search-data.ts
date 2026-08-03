@@ -63,12 +63,16 @@ export function buildSnippet(
   let matchLength = trimmed.length;
 
   if (index === -1) {
+    // Longest token first, not query order: "the attention mechanism" would
+    // otherwise highlight the leading "The" — the least selective word in the
+    // query, and usually the first character of the article.
     const token = trimmed
       .toLowerCase()
       .split(TOKEN_SPLIT_RE)
-      .find(
+      .filter(
         (part) => part.length >= MIN_TOKEN_LENGTH && lowerText.includes(part)
-      );
+      )
+      .sort((a, b) => b.length - a.length)[0];
     if (!token) {
       return null;
     }
