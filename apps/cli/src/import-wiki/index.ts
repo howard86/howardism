@@ -1,6 +1,5 @@
 import { access, mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-
 import {
   type EntityType,
   type SourceRef,
@@ -8,6 +7,7 @@ import {
   type WikiDomain,
   type WikiTag,
 } from "@howardism/article-contract";
+import { titleFromSlug } from "@howardism/article-contract/markup";
 import { runWithConcurrency } from "../concurrency.ts";
 import { writeSearchIndex } from "../search-index.ts";
 import { pngToWebp } from "../webp.ts";
@@ -51,7 +51,6 @@ import {
   stripDuplicateLeadingHeading,
   stripHtmlComments,
 } from "./transform.ts";
-import { titleFromSlug } from "./wikilink.ts";
 
 interface RunOptions {
   blogArticlesPath: string;

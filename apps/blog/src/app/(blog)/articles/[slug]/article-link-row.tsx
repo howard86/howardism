@@ -11,7 +11,7 @@ interface ArticleLinkRowProps {
 }
 
 export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
-  const { slug, meta } = link;
+  const { slug, meta, citedIn, citedCount } = link;
   return (
     <li className="flex flex-col gap-0.5">
       <span className="leading-[1.25]">
@@ -23,10 +23,24 @@ export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
         >
           {meta.title}
         </InternalLink>
+        {citedCount !== undefined && citedCount > 1 && (
+          <span
+            className="ml-1.5 font-mono text-[0.7rem] text-muted-foreground"
+            title={`Links here ${citedCount} times`}
+          >
+            ×{citedCount}
+          </span>
+        )}
       </span>
-      <p className="m-0 font-body text-muted-foreground text-xs leading-[1.45]">
-        {truncate(meta.description, ARTICLE_LINK_DESCRIPTION_MAX)}
-      </p>
+      {citedIn ? (
+        <p className="m-0 border-border border-l-2 pl-2 font-body text-muted-foreground text-xs italic leading-[1.45]">
+          {citedIn}
+        </p>
+      ) : (
+        <p className="m-0 font-body text-muted-foreground text-xs leading-[1.45]">
+          {truncate(meta.description, ARTICLE_LINK_DESCRIPTION_MAX)}
+        </p>
+      )}
     </li>
   );
 }
