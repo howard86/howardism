@@ -3,7 +3,11 @@ date: 2026-04-28
 title: Codex App Server Protocol
 description: "JSON-RPC stdio protocol for headless Codex sessions:
   initialize/initialized/thread-start/turn-start handshake, continuation turns
-  reuse thread_id, dynamic tool calls for token-isolated tool injection"
+  reuse thread_id, dynamic tool calls for token-isolated tool injection — and,
+  since MCP spec 2026-07-28 deleted sessions and the initialize handshake
+  outright, the protocol pair has diverged on statefulness: MCP walked away from
+  session semantics while session semantics are this protocol's entire subject
+  matter"
 tag: Concept
 domain: agent-systems
 tags:
@@ -11,17 +15,20 @@ tags:
   - codex
   - agent-runtime
   - integration
-readingTime: 7
+readingTime: 11
 imageAlt: Illustration for Codex App Server Protocol
 sources:
   - title: "An open-source spec for Codex orchestration: Symphony."
     url: https://openai.com/index/open-source-codex-orchestration-symphony/
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
 ---
 export { default as heroImage } from "../assets/codex-app-server-protocol.webp";
 
 ## Sources
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 
 ## Summary
 
@@ -139,6 +146,26 @@ Contract for `linear_graphql`:
 
 This is **architecturally parallel to MCP** but lives inside the coding-agent's runtime rather than a separate process — orchestrator decides what tools to inject per session.
 
+### The two protocols diverged on statefulness (2026-07-28)
+
+The tool-plane / session-plane split that [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) argued from
+observed division of labor is now **MCP's own explicit position**. Revision **2026-07-28**
+([MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog), `vendor-claim`; ledger on [MCP and Computer Use](/articles/mcp-and-computer-use)) removed
+protocol-level sessions and the `Mcp-Session-Id` header from Streamable HTTP, deleted the
+`initialize` / `notifications/initialized` handshake outright in favor of per-request version
+negotiation in `_meta`, and pushed cross-call state out to server-minted handles passed as ordinary
+tool arguments.
+
+Every one of those is a thing the App Server keeps and builds on: the `initialize`/`initialized`
+handshake, the `thread_id` reused across `turn/start` calls, the `<thread_id>-<turn_id>` session
+identifier, and the streamed turn lifecycle. So the comparison sharpens rather than shifts — MCP
+walked *away* from session semantics while the App Server's whole subject matter is session
+semantics. Two smaller convergences are worth noting in the other direction: MCP's new **MRTR**
+pattern (a server returns `InputRequiredResult` and the client retries with `inputResponses`) is
+structurally the same shape as this protocol's `turn_input_required` event, and MCP's
+`UnsupportedProtocolVersionError` on per-request version mismatch is a stricter answer to the same
+problem Symphony's Compatibility Profile below solves by tolerating field-name drift.
+
 ### Compatibility Profile
 
 Symphony's spec is unusually explicit about version tolerance:
@@ -172,12 +199,20 @@ Worth flagging because it's easy to get wrong. Agent events may include token co
 
 ## Open Questions
 
-- How does the App Server protocol compare in detail to MCP? Both expose tools to a model, but App Server is *inside* the Codex runtime while MCP is *outside*. When does each win?
 - Is there a public schema registry so external orchestrators can target specific App Server versions without `generate-json-schema`?
 - The "dynamic tool calls (experimental)" caveat — what's the stability roadmap? Symphony depends on this for its security model.
 - How well does the protocol handle multi-modal turns (image inputs, screenshot attachments)? The spec is text-focused.
-- Is there an analogous protocol on the Claude side, or is Claude's equivalent exclusively the Agent SDK + tool-use API? Comparing the two would clarify when "drive an existing CLI" beats "build on the SDK."
+
+## Resolved Questions
+
+- How does the App Server protocol compare in detail to MCP? Both expose tools to a model, but App Server is *inside* the Codex runtime while MCP is *outside*. When does each win? **Answered:** [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — they sit at different planes and mostly compose rather than compete: MCP is the model↔world *tool plane* (write once, consume on every surface, provider-operated), App Server is the orchestrator↔runtime *session plane* (thread lifecycle, turns, events, timeouts, token accounting — none of it in MCP's scope). The only overlap is dynamic tool calls, where the rule is: MCP for reusable cross-surface third-party capabilities; orchestrator-injected tools for session-scoped, credential-sensitive ones (the `linear_graphql` token-isolation pattern, which also shrinks the poisoned-metadata/rug-pull attack surface to first-party code) — at the cost of experimental stability and zero ecosystem reuse.
+- Is there an analogous protocol on the Claude side, or is Claude's equivalent exclusively the Agent SDK + tool-use API? Comparing the two would clarify when "drive an existing CLI" beats "build on the SDK." **Answered:** [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — no documented Claude-side protocol; the offering *brackets* the App Server's position: `claude -p` (drive the product, inherit the full harness — permissions with abort-don't-hang unattended behavior, skills, context files, MCP wiring — but get text, not structured events) and the Agent SDK (build a different product on the raw runtime — Claude Design's weekend prototype). Rule: drive the CLI when the product's harness is the value and orchestration is batch/fan-out shaped; build on the SDK when the agent is a different product with its own surface and tools. Symphony's own tmux→protocol evolution marks the middle layer (structured session control *over* the product harness) that the Claude side currently approximates from either end — whether it gets standardized or harness shrinkage makes it moot is the watch item.
+
+## Derived
+
+- [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — the three-boundary comparison filed from this page's two protocol questions
 
 ## Sources
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — Section 10 (Agent Runner Protocol) and Section 13.5 (Token Accounting) are the authoritative reference
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project, *Key Changes* for spec revision **2026-07-28**, `vendor-claim`. Major changes 1–3 (sessions and `Mcp-Session-Id` removed, handshake deleted, per-request `_meta` version negotiation, `server/discover`) and 7–8 (MRTR, `resultType`), used only for the protocol comparison above

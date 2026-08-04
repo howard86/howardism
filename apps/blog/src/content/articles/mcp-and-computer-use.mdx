@@ -4,7 +4,13 @@ title: MCP and Computer Use
 description: "Anthropic's two complementary connector mechanisms: MCP for
   structured programmatic access (Salesforce/Drive/Gmail/Slack/Figma + niche
   industry systems); computer use as the GUI-driving catchall when no MCP
-  exists; Boris Cherny's \"to the model, it's just tokens\""
+  exists; Boris Cherny's \"to the model, it's just tokens\" — plus the vault's
+  dated ledger of the MCP wire protocol itself, now at revision 2026-07-28:
+  sessions and the initialize handshake removed, per-request version negotiation
+  in _meta, a mandatory server/discover RPC, MRTR replacing all server-initiated
+  requests, required ttlMs/cacheScope caching fields, and a feature-lifecycle
+  policy with a 12-month deprecation window and a deprecated-features registry
+  (Roots/Sampling/Logging, HTTP+SSE, OAuth DCR→Client ID Metadata Documents)"
 tag: Concept
 domain: agent-systems
 tags:
@@ -13,7 +19,7 @@ tags:
   - tool-use
   - integration
   - anthropic
-readingTime: 16
+readingTime: 24
 imageAlt: Illustration for MCP and Computer Use
 sources:
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
@@ -28,6 +34,8 @@ sources:
   - title: OpenID Foundation advances authorization for the agent era with new
       AuthZEN Working Group Drafts
     url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
 ---
 export { default as heroImage } from "../assets/mcp-and-computer-use.webp";
 
@@ -35,6 +43,7 @@ export { default as heroImage } from "../assets/mcp-and-computer-use.webp";
 
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
@@ -52,6 +61,96 @@ Created at Anthropic Labs (late 2024) alongside [Claude Code](/articles/claude-c
 - **Same connectors everywhere.** "The same MCP connector that you have in Claude AI, you hook up like Salesforce, you hook up Google Docs, Google Calendar. And then Cowork can use that. Claude CLI can use it. Claude Code everywhere can use it." — Boris Cherny
 
 The structural property: connector logic is written once per system, consumed by every Claude surface. This is what makes [Cowork](/articles/cowork) viable across the existing knowledge-work tool surface (Salesforce, Docs, Drive, Slack, etc.) without Anthropic having to build per-tool integrations.
+
+## Protocol revision 2026-07-28: MCP goes stateless
+
+Everything above describes the connector *pattern*. This section dates the **wire protocol**, which
+until now the vault tracked only through what tools built on it could do. Revision **2026-07-28**
+([MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)) is the first MCP spec version compiled here, and it is a
+large break from its predecessor `2025-11-25`.
+
+> **Evidence tier: `vendor-claim`.** A specification is authoritative about *what the protocol
+> requires* and is evidence for nothing else — not adoption, not whether any SDK or server complies,
+> and not whether a stated requirement produces a security outcome. Read every line below as "the
+> spec now says", never as "deployments now do".
+
+**The session is gone.** Protocol-level sessions and the `Mcp-Session-Id` header are removed from
+Streamable HTTP, and the `initialize` / `notifications/initialized` handshake is deleted outright
+(SEP-2567, SEP-2575). `tools/list`, `resources/list` and `prompts/list` no longer vary per
+connection; a server needing cross-call state must mint explicit handles and pass them as ordinary
+tool arguments. MCP is now stateless by construction.
+
+**Version negotiation moved from once-per-session to once-per-request.** Every request carries
+`io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities` in
+`_meta`; clients SHOULD send `clientInfo` on each request and servers SHOULD return `serverInfo` in
+each result's `_meta`; a mismatch returns `UnsupportedProtocolVersionError`. A new **`server/discover`**
+RPC — servers **MUST** implement it, clients **MAY** call it — advertises supported versions,
+capabilities and identity up front, or acts as a backward-compatibility probe on STDIO.
+
+**The server can no longer initiate.** *Multi Round-Trip Requests* (MRTR, SEP-2322) replace every
+server-initiated request — `roots/list`, `sampling/createMessage`, `elicitation/create`. A server
+needing more input returns an `InputRequiredResult` (`resultType: "input_required"`) carrying
+`inputRequests`; the client supplies `inputResponses` on a **retry of the original request**. All
+results now carry a required `resultType`, and results from earlier-protocol servers that omit it
+MUST be treated as `"complete"`. Change notifications move to a single opt-in long-lived
+`subscriptions/listen` stream (replacing the HTTP GET endpoint and `resources/subscribe`), with
+request-scoped notifications like `notifications/progress` still riding their own request's response
+stream.
+
+**Caching becomes part of the contract.** `tools/list`, `prompts/list`, `resources/list`,
+`resources/read` and `resources/templates/list` results **MUST** now carry `ttlMs` (a freshness
+hint) and `cacheScope` (`"public"`/`"private"`) via a new `CacheableResult` interface, and servers
+**SHOULD** return tools in a deterministic order — both justified in the changelog as client-side
+caching and LLM prompt-cache hit rate, not security. They have a security side effect anyway; see
+[MCP Tool Poisoning](/articles/mcp-tool-poisoning).
+
+### Feature lifecycle: the first dated capability ledger
+
+The revision adopts a **feature lifecycle and deprecation policy** — Active / Deprecated / Removed
+states, a **minimum twelve-month deprecation window**, and a **registry of deprecated features**
+(the only one of this revision's headline changes with its own spec page). That registry is what
+makes protocol capabilities datable at all: before it, "is this still in MCP?" had no answer short of
+diffing schemas.
+
+| Capability | State as of 2026-07-28 | Migration the spec names |
+|---|---|---|
+| `initialize` / `notifications/initialized` handshake | **Removed** | per-request `_meta` version + `server/discover` |
+| Protocol-level sessions, `Mcp-Session-Id` | **Removed** | server-minted handles as tool arguments |
+| `ping`, `logging/setLevel`, `notifications/roots/list_changed` | **Removed** | per-request `io.modelcontextprotocol/logLevel` |
+| SSE resumability / `Last-Event-ID` redelivery | **Removed** | re-issue the request with a new ID |
+| Server-initiated requests (`roots/list`, `sampling/createMessage`, `elicitation/create`) | **Removed** | MRTR `InputRequiredResult` |
+| Tasks | **Moved out of core** | official `io.modelcontextprotocol/tasks` extension |
+| Roots, Sampling, Logging | **Deprecated** (≥12mo window) | tool params / resource URIs; direct LLM provider APIs; `stderr` or OpenTelemetry |
+| HTTP+SSE transport | **Deprecated** (soft since `2025-03-26`) | Streamable HTTP |
+| `includeContext: "thisServer"` / `"allServers"` | **Deprecated** | omit, or `"none"` |
+| OAuth 2.0 Dynamic Client Registration (RFC 7591) | **Deprecated** | Client ID Metadata Documents |
+
+Also new and small: an `extensions` field on client/server capabilities, OpenTelemetry trace-context
+conventions for `_meta` (`traceparent`, `tracestate`, `baggage`), required `Mcp-Method`/`Mcp-Name`
+headers on Streamable HTTP POSTs plus `x-mcp-header` for tool-parameter-supplied custom headers,
+looser JSON Schema 2020-12 support in `inputSchema`/`outputSchema`, an error-code allocation policy
+partitioning the JSON-RPC server-error range (`-32020`–`-32099` reserved for the spec), and a
+PR-based SEP workflow with `seps/` markdown files.
+
+### Authorization: the spec picks CIMD over DCR
+
+Four minor changes move MCP's authorization layer onto ground [Agent Identity and Authentication](/articles/agent-identity-and-authentication)
+and [AIMS](/articles/agent-identity-management-system) already occupy: authorization servers SHOULD include
+`iss` per **RFC 9207** and clients **MUST** validate it against the recorded issuer before redeeming
+a code; client credentials **MUST** be keyed by issuer identifier, **MUST NOT** be reused with a
+different authorization server, and re-registration is **MUST** on AS change; DCR requires an
+explicit `application_type`; and **RFC 7591 Dynamic Client Registration is deprecated in favor of
+Client ID Metadata Documents**. CIMD is a primitive AIMS §10.10 already names under Discovery — so a
+shipping protocol and a standards draft converged on it independently, which is a real (if narrow)
+data point for the plural-governance question on that page.
+
+### What it does *not* change
+
+No change here addresses tool-return content, tool-behavior integrity, or server revocation. The
+deprecated-features registry tracks **spec features**, not servers or tools — it is not a revocation
+list, and nothing in the revision requires a client to re-validate a tool it already trusts. The
+security consequences, including the one incidental affordance this revision does create, are worked
+out on [MCP Tool Poisoning](/articles/mcp-tool-poisoning).
 
 ## What computer use is
 
@@ -137,8 +236,10 @@ A real-world incident closes off the *other* mitigation from the opposite side. 
 ## Connections
 
 - [Claude Code](/articles/claude-code) / [Cowork](/articles/cowork) / [Anthropic](/articles/anthropic) — surfaces and vendor
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — rung 2 of OpenHands' customization ladder: an MCP tool server keeps an internal-systems integration *outside* the agent, so upgrading upstream doesn't mean reapplying the integration to a fork
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — treats MCP as a top-risk tool surface; supplies the tool-poisoning / rug-pull / tool-chaining threat model
-- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the dedicated concept for the TPA attack class; ShareLock's threshold-secret-sharing variant proves per-tool description scanning is information-theoretically blind, and its Agentjacking case study (legitimate Sentry MCP server relaying attacker-injected data) proves server-vetting/self-signing is equally blind — both sharpen this page's MCP-security open question from opposite sides
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the dedicated concept for the TPA attack class; ShareLock's threshold-secret-sharing variant proves per-tool description scanning is information-theoretically blind, and its Agentjacking case study (legitimate Sentry MCP server relaying attacker-injected data) proves server-vetting/self-signing is equally blind — both sharpen this page's MCP-security open question from opposite sides. It also carries the security read of the 2026-07-28 revision above: per-request checking arrived for the *protocol version*, not for tool behavior, and the one thing that genuinely changed for rug-pulls is a side effect of the new caching fields
+- [Codex App Server Protocol](/articles/codex-app-server-protocol) — the comparable protocol, now **diverged on statefulness**: the App Server keeps the `initialize`/`initialized` handshake, `thread_id` continuation and session lifecycle that MCP 2026-07-28 deleted, which turns the tool-plane/session-plane split into the MCP spec's own explicit position rather than an observed division of labor
 - [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — MCP servers are a named tool-supply-chain vector; run-your-own-server + self-signing is the mitigation; the ShareLock reconstruction trigger is a rug-pull planted via server update
 - [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — short-lived identity-bound tokens replace static keys for MCP/tool authentication
 - [Agentic Prompt Injection](/articles/agentic-prompt-injection) — MCP-connected browsing/email/document tools are the indirect-injection entry points
@@ -165,11 +266,15 @@ A real-world incident closes off the *other* mitigation from the opposite side. 
 - The MCP ecosystem's growth rate vs. computer use's quality curve: at what point does computer use become *good enough* that the marginal value of building an MCP server drops? Boris implies this is years off but doesn't quantify.
 - Is computer use a sustainable interface or a transition technology? If most knowledge-work software adds MCP support in the next 24 months, computer use's role shrinks to legacy/desktop-only systems.
 - MCP security model: as the playbook prescribes wiring MCP into Salesforce, Gmail, Calendar for solo founders, the attack surface scales with adoption. **Now addressed** by [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) (tool poisoning, rug pulls, the first in-the-wild malicious MCP server) — see "MCP as a security surface" above. Open residual: how does a solo founder realistically *run/host and self-sign every MCP server* the framework recommends, given that the appeal of MCP was zero-integration-effort? **Sharpened by [ShareLock](/articles/mcp-tool-poisoning):** the cheaper alternative to self-hosting — *scan the tool descriptions with a guard model* — is information-theoretically defeated by threshold fragmentation, so the lightweight mitigation doesn't hold and the burden falls back on run-your-own-server or downstream action-layer authorization. **And [Agentjacking](/articles/mcp-tool-poisoning) shows run-your-own-server *itself* isn't sufficient:** when the server is a legitimate observability platform relaying attacker-injected data (fake Sentry errors), self-hosting/vetting the server catches nothing — the untrusted input rides in on its data, so the residual burden falls squarely on the downstream data/action layer (provenance tracking + an out-of-band action gate), not on server hygiene.
-- How does Cowork's computer-use guardrail compare to Claude Code's auto-mode classifier? Different deployment context, possibly different risk profile.
+## Resolved Questions
+
+- How does Cowork's computer-use guardrail compare to Claude Code's auto-mode classifier? Different deployment context, possibly different risk profile. **Answered:** [Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering) — same mechanism, inverted role. Cowork's guardrail *is* auto-mode-style classifier gating on the browser/computer-use surface (the Opus 5 card's browser row is measured on the Cowork harness: 31.5% bare → 3.70% → **0/129 scenarios with auto mode**). The risk-profile difference is which layer can be load-bearing: Claude Code's blast surface is local and containable, so the sandbox can be primary and the classifier a convenience; Cowork drives the user's *authenticated live SaaS sessions*, where no sandbox equivalent exists and actions are less reversible — so the classifier carries the defense alone on the surface with the worst bare-model injection rate. Caveats: vendor-measured on a bounded suite, still a model-based gate (the D2 critique and the ADI forged-data failure shape apply), and the deterministic out-of-band action gate the research points to exists for neither surface yet.
 
 ## Derived
 
 - [The Future of Agent Interfaces](/articles/future-agent-interfaces) — places MCP, computer use, app protocols, native interaction models, and agent-native infrastructure at separate interface boundaries
+- [Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering) — the Cowork-vs-Claude-Code guardrail comparison: same classifier architecture, opposite containment context
+- [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — places MCP as the model↔world tool plane against the App Server's session plane; the dynamic-tool-call overlap and the credential-isolation case where an orchestrator-injected tool beats an MCP server
 
 ## Sources
 
@@ -177,3 +282,4 @@ A real-world incident closes off the *other* mitigation from the opposite side. 
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg) — Cat's daily Cowork+MCP workflow
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf) — MCP across Idea/MVP/Launch/Scale + moat framing
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion`. COAZ (AuthZEN Profile for MCP Tool Authorization — the proposed standards-track authorization decision at the MCP tool-invocation point); proposed Working Group Draft, weighted below the empirical per-call-authz work
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project, *Key Changes* changelog for spec revision **2026-07-28**, `vendor-claim`, ~1,200 words. 9 major / 12 minor / 4 deprecated / 1 schema / 1 governance / 1 process entries, all four watched changes explained inline (mandatory `server/discover`, per-request version negotiation, the `_meta` protocolVersion key, the deprecated-features registry). **Date caveat:** the publication date is not independently verifiable beyond the revision path in the URL and the document's own opening reference to the previous revision `2025-11-25` — there is no on-page byline date. **Evidence caveat:** first-party spec text, so authoritative on protocol requirements and worthless as evidence of adoption, implementation compliance, or security outcome. Discharges both standing MCP-spec revision-watch rows in `_system/research-channels.md`

@@ -1,0 +1,132 @@
+---
+date: 2026-07-29
+title: Security Debt of Agent-Generated Code
+description: "Sakib, Banik & Jadliwala (UTSA, arXiv 2607.12428): LLM-as-judge +
+  manual coding over 16,112 high-risk file changes in 4,022 AIDev agentic PRs —
+  38.9% of agent PRs carry ≥1 security smell, supply-chain integrity (mutable
+  action/image tags, unpinned installs) is 82.3% of them, GitHub Actions +
+  Dockerfiles hold 87.6%, hard-coded credentials are 99.6% of critical smells,
+  and flagging climbs with PR size from 16.2% to 53.6%. The two RQ2 surprises
+  invert the usual story: *humans*, not agents, committed 67.6% of the 74
+  genuine leaked credentials, and 81.1% of them reached integration with no
+  comment from any bot or human reviewer. There is no human-PR control group, so
+  it measures the security posture of agent-assisted workflows, not an
+  agent-vs-human delta"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - security
+  - code-quality
+  - code-review
+  - ai-coding-workflow
+  - empirical
+readingTime: 16
+imageAlt: Illustration for Security Debt of Agent-Generated Code
+sources:
+  - title: Trust but Verify? Uncovering the Security Debt of Autonomous Coding Agents
+    url: https://arxiv.org/pdf/2607.12428
+  - title: "The Balkanization of Execution-Security Research for AI Coding Agents:
+      Isolation, Access Control, and Time-of-Check-to-Time-of-Use
+      Vulnerabilities"
+    url: https://arxiv.org/pdf/2607.05743
+---
+export { default as heroImage } from "../assets/security-debt-of-agent-generated-code.webp";
+
+## Sources
+
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743)
+- [Trust but Verify? Uncovering the Security Debt of Autonomous Coding Agents](https://arxiv.org/pdf/2607.12428)
+
+## Summary
+
+Sakib, Banik & Jadliwala (University of Texas at San Antonio, arXiv 2607.12428, July 2026) run the first large-scale **security** characterization of agent-authored pull requests, using the same AIDev corpus family that supplies the vault's other agentic-PR telemetry. Their unit of analysis is the **security smell** — a structural pattern indicating risk (an unpinned `actions/checkout@main`, a root container, a hard-coded key) — deliberately *not* a confirmed exploitable vulnerability, which would need per-case exploitability analysis.
+
+The headline is quantitative security debt: **38.9% of 4,022 agentic PRs contain at least one smell**, concentrated overwhelmingly in CI and container definitions. But the paper's sharpest contribution is its second research question, which turns the lens on the humans and the reviewers rather than the agent — and finds both failing in ways the "AI writes insecure code" framing does not predict.
+
+> **Evidence note.** `empirical`, with four scope limits the authors state plainly and that must travel with every number below. (1) **Scoped corpus**: only files matching a high-risk path set (CI definitions, containers, IaC, secret-bearing files, config, shell scripts, notebooks) and only **added (`+`) lines** — a targeted scan, not a repository audit. (2) **Judge recall 0.775**, so the judge missed 22.5% of smells and every prevalence figure is a **floor**. (3) **No human-PR control group** — nothing here establishes that agents are worse than humans at this; it establishes the posture of agent-assisted workflows. (4) **Open-source GitHub, five agents** — enterprise repos with proprietary guardrails are out of scope.
+
+## RQ1: what the smells are and where they live
+
+Six categories grounded in OWASP secure-coding guidance ([OWASP](/articles/owasp)), the CIS Benchmarks, and GitHub hardening docs. The distribution is extremely lopsided — an order of magnitude between categories:
+
+| Category | Smells | Share | Critical |
+|---|---|---|---|
+| `supply_chain_integrity` (mutable action/image tags, unpinned global installs) | 7,160 | 82.3% | 0 |
+| `over_privilege_execution` (root containers, sudo, shell installers, broad CI scopes) | 835 | 9.6% | 1 |
+| `secrets_identity` (hard-coded keys, tokens, private keys, credential-bearing connection strings) | 294 | 3.4% | 252 |
+| `misconfig_hardening` (debug modes, logged secrets, disabled encryption) | 163 | 1.9% | 0 |
+| `permissive_network` (all-interface binds, open CIDRs, public-access flags) | 153 | 1.8% | 0 |
+| `cleartext_transport` (cleartext endpoints, disabled TLS, weak ciphers) | 96 | 1.1% | 0 |
+
+Severity is mostly major (6,292 / 72.3%) or minor (2,156 / 24.7%); only 253 smells (3.0%) are critical — and **252 of those 253 (99.6%) are hard-coded credentials**. The severity tail is a single failure mode wearing one name.
+
+**Where they concentrate.** GitHub Actions workflows (7,054 files, 36.3% dirty) and Dockerfiles (1,775 files, 36.4% dirty) together hold **87.6% of all smells**. Application config files are nearly clean at 2.2%. The security debt of agent PRs is, empirically, a **build-and-deploy-plumbing** problem far more than an application-code problem — which is also why it is easy to under-weight in review, since a workflow YAML reads as boilerplate.
+
+**Prevalence scales with change size.** PR-level flagging climbs monotonically with lines changed: **16.2% for 1–9-line PRs to 53.6% for 1000+-line PRs**, a 37.4-point spread. This is the size-stratified evidence [Faros](/articles/acceleration-whiplash) asked for and could not produce from its cross-customer metric.
+
+**Agent and language stratification** (Figure 4, corpus average 38.9%): Copilot 45.5%, [Claude Code](/articles/claude-code) 41.2%, Cursor 40.6%, Devin 39.7%, [OpenAI Codex](/articles/codex) 34.9% — a 10.6-point spread, with Codex flagged least often yet carrying the **most smells per flagged file (0.62)**. By repository language: JavaScript 55.3%, Rust and "other" 47.5%, Go 43.8%, C# 40.2%, TypeScript 38.9%, Python 31.8%. The language spread (23.5 points) is wider than the agent spread, which argues the ecosystem's conventions — not the agent's disposition — do most of the work. Treat the per-agent ordering as weak: no controls for repository composition, task mix, or agent market share.
+
+## RQ2: the two findings that invert the framing
+
+Of the 294 `secrets_identity` flags, coders could label 272 (22 PRs no longer exist) and confirmed **74 as genuine live credentials** rather than placeholders or misreads.
+
+**1. Humans committed 67.6% of them.** 50 of the 74 genuine secrets were committed by the human collaborator, 24 by the agent. Within agent-assisted workflows, *the human is the majority source of leaked credentials.* The authors' reading — offered as a hypothesis, not a measurement — is **reduced developer vigilance**: review fatigue or cognitive offloading in a workflow where the agent appears to be handling correctness. This is the security-register instance of [oversight fatigue](/articles/ai-brain-fry), and it relocates the mitigation target: guardrails aimed only at what the *agent* emits would miss two thirds of the live credentials in these PRs.
+
+**2. 81.1% attracted no reviewer comment before integration.** A security bot or human reviewer commented on only **14 of the 74** genuine secrets (18.9%) — despite seven distinct tools appearing across those 14 cases (GitHub Advanced Security, GitGuardian, Qodo, Copilot, Greptile, Gemini Code Assist, Cursor bot). The layer explicitly built to intercept leaked credentials, on the single smell class it is purpose-built for, commented on fewer than one in five.
+
+> **Read the construct, not the headline.** §2.2 operationalizes reviewer detection as *"whether an automated security bot commented on the secret."* The abstract and conclusion restate the complement as review "failing to detect" 81.1% of credentials — but §3.2 says the other **60 secrets were removed without a comment**. Removal implies *something* caught them. The defensible claim is the narrow one: **81.1% of genuine credentials reached integration with no reviewer comment**; whether silent removal was silent detection, unrelated churn, or later cleanup is not established by the data presented. The vault records the proxy, not the upgrade.
+
+## The judge is also a finding
+
+The detection pipeline is itself a data point for [LLM-as-a-Judge](/articles/llm-as-a-judge) deployed as a security gate. Two open-weight quantized models (Qwen3.6-35B-A3B-FP8 and Gemma-4-26B-A4B-IT-FP8) at temperature 0.1, merged as a union (dirty if either flags), validated against 376 human-labeled file changes with inter-coder κ = 0.929:
+
+- **Aggregate**: precision 0.908, recall 0.775, F1 0.836, κ 0.789 against the gold labels — high precision, and a recall that makes every prevalence number a floor.
+- **The category-level gap**: only **27.2% of `secrets_identity` flags were genuine credentials** on manual inspection. This is not a contradiction of the 0.908 aggregate precision — the judge was scored on "is this a smell," and flagging a plausible-looking placeholder is a defensible smell call while not being a live credential. But for anyone wiring a judge into a **blocking** gate, the operative number is the second one: a secrets alert from this pipeline is wrong about live-credential exposure roughly three times in four. Aggregate precision does not transfer to the category you actually gate on.
+
+## What it settles, and what it does not
+
+**Coverage convergence is not efficacy.** [CMU's non-vendor telemetry](/articles/review-as-the-control-point) finds the share of merged agent PRs receiving *no* human review falling from >50% (mid-2025) toward the ~14% human baseline (early 2026) — orgs learning to review agent code. This paper looks at the same open-source population from the other side and finds that the review which *does* happen missed comment on 81.1% of live credentials. Both can hold: reviewers show up more often and still don't catch this. **Review coverage and review efficacy are separate quantities, and the wiki's hopeful reading of convergence should be read as coverage only.**
+
+**Consistent with the rubber-stamping mechanism, but not a test of it.** The result is outcome-level evidence in the direction of [Review as the Control Point](/articles/review-as-the-control-point)'s P1 (load lowers review depth) and P4 (surface plausibility disarms the reviewer), and it fits the reviewer-focus finding the paper cites from Haider & Zimmermann (arXiv 2601.19287): inline comments on AI-authored code predominantly address **logical and functional correctness rather than security posture**. But nothing here isolates a mechanism, controls for the other constructs, or compares against human-authored PRs — so it corroborates the propositions' direction without confirming any edge.
+
+**The "2.7× vulnerability rate" figure does not gain support here.** The introduction cites AI-generated code as having roughly 2.7× the vulnerability-introduction rate of human-written code — but the citations are a Docker company blog post and a Gary Marcus Substack post, neither peer-reviewed nor reproducible, and the paper's own design (no human control) cannot corroborate it. Treat the 2.7× as **uncorroborated**; the 38.9% figure stands on its own as a level, not as a comparison.
+
+## The other half of the measurement: agents asked to *fix* security (2026-07)
+
+This page measures smells an agent left behind while doing something else. **SecureVibeBench** (Chen et al., arXiv 2509.22097) measures the opposite: agents asked to fix a security bug on purpose. It anchors 105 C/C++ secure-coding tasks to genuine historical vulnerabilities drawn from 41 real open-source projects via OSS-Fuzz, marks the introduction points, and judges agent-produced fixes with functional tests *plus* static and dynamic security analysis. Across five widely-used coding agents paired with five language models, **the strongest combination produced solutions that were correct and secure only 23.8% of the time.**
+
+Reached via Rashidi's execution-security SoK ([The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743), arXiv 2607.05743, `empirical`), which files it under "static analysis of agent-generated code" and draws the conclusion that matters for this page: the result is *a caution against relying on generation quality as an execution-security control* — "the agents in this study are, on the authors' own evaluation, more often wrong about security than right." **Number attribution: 23.8% is Chen et al.'s, restated by the survey, which verifies citation identity and does not replicate any surveyed paper's measurements.**
+
+Two reasons to hold both numbers together rather than merge them. They are **different populations** — real merged GitHub PRs judged for structural smells (here) versus a synthetic benchmark of C/C++ memory-safety fixes judged for exploitability (there) — and neither has a human control group, so neither supports an agents-versus-humans claim. What they *jointly* support is narrower and more useful: an agent-assisted workflow cannot outsource its security posture to the agent in either direction, whether the agent is incidentally touching CI plumbing or deliberately patching a CVE. The 38.9% here and the 23.8% there are floors on two different axes of the same gap, and both point at [the review layer](/articles/review-as-the-control-point) as the thing that has to hold.
+
+## Connections
+
+- [The Tragedy of the Cognitive Commons](/articles/the-tragedy-of-the-cognitive-commons) — the same shape with a ground truth attached: review coverage present, catch-rate near zero, is surface validation functioning while substantive validation does not
+- [Review as the Control Point](/articles/review-as-the-control-point) — the outcome-level counterpart to that page's mechanism map: consistent with P1/P4 and with the cited finding that reviewers comment on correctness rather than security, and it separates **review coverage** (converging) from **review efficacy** (81.1% of live credentials uncommented) — the convergence finding buys less reassurance than it reads
+- [Acceleration Whiplash](/articles/acceleration-whiplash) — non-vendor `empirical` corroboration of the quality half of the whiplash on a security axis, plus the **PR-size-stratified data** Faros's cross-customer telemetry couldn't produce: smell prevalence rises 16.2%→53.6% with PR size, which supports hard PR-size limits as a high-leverage lever
+- [AI Brain Fry](/articles/ai-brain-fry) — the security register of oversight fatigue: humans committed 67.6% of the genuine leaked credentials *inside agent PRs*, which the authors read as reduced vigilance / cognitive offloading — the under-engagement failure mode with a concrete artifact attached
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — security debt as a sibling of architectural debt: it accrues in the CI/container plumbing (87.6% of smells) that no session's "architecture" ever covers, and it is invisible until a credential is exploited rather than until a rewrite is forced
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — the same words, a different layer: 82.3% of these smells are *the agent writing* unpinned action tags and mutable image tags into a repo's build, rather than the agent *consuming* a poisoned model, package, or MCP server. Agent-authored supply-chain hygiene is a distinct and, by volume, dominant surface
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the review-layer instance: a PR with a live AWS key merges cleanly, CI passes, nobody comments, and every surface signal reads as success; the failure is visible only in the credential, not in the outcome
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — a deployed security-gate instance with its calibration published: 0.908 aggregate precision but only 27.2% of secrets flags genuine, so per-category precision, not the aggregate, is what a blocking gate inherits
+- [AI as Primary Author](/articles/ai-as-primary-author) — the authorship-shift consequence measured on a security axis, with the twist that the *human* collaborator remains the majority source of the worst-severity artifact in agent-authored PRs
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the measured floor under the bottleneck: on the one smell class with purpose-built automation, seven bots and human reviewers together commented on 18.9% of live credentials
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — the countermeasure aimed at exactly this failure: [Thariq](/articles/thariq-shihipar)'s quiz gate makes merge contingent on the human's demonstrated understanding rather than their signature, which is the only reviewed mechanism in the vault that would fire on a credential nobody commented on
+- [OWASP](/articles/owasp) — the taxonomy's grounding (secure-coding guidance, alongside CIS Benchmarks and GitHub hardening docs)
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the design these numbers grade, both ways. The 16.2%→53.6% size gradient is independent empirical backing for StampHog's &lt;500-line/&lt;20-file auto-approval ceiling; but its blast-radius deny-list is built from *business-risk* keywords (auth, secrets, billing, public APIs), while 82.3% of measured smells are supply-chain integrity and 87.6% live in GitHub Actions workflows and Dockerfiles — files matching no such keyword, leaving the 18.9%-comment-rate layer as the only remaining check. Concrete prescription: CI/container/IaC **paths** belong on the deny-list independent of keywords
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — the sibling AIDev result on the test-quality axis, same corpus family and month. Their control-group weaknesses run opposite (this page has no human baseline; that one has a confounded comparison), so neither supplies the matched baseline this page's first open question asks for — but both land on the same characterization: agent debt concentrates in the *environment* (CI plumbing, containers, unmocked file I/O) rather than in application logic
+
+## Derived
+
+- [Is Human Review of AI-Authored Code Still a Real Control, or Already Rubber-Stamping?](/articles/human-review-real-control-or-rubber-stamp) — the oversight synthesis this source updates: it adds the outcome-level fourth evidence layer to the rubber-stamping case, and demotes "automate 100% of mechanical checking" from a description of current practice to a prescription
+
+## Open Questions
+
+- The 38.9% smell rate has **no human-authored-PR control** over the same high-risk paths, and the 2.7×-vulnerability figure it leans on traces to a vendor blog and a Substack post. Does agentic authorship raise smell *density*, or merely raise the volume of CI/IaC files touched? A matched human baseline on the same path set would settle it.
+- Does "no reviewer comment" mean undetected? 60 of the 74 genuine credentials were **removed without a comment**, yet the abstract reads the same rows as detection failure. Commit-history analysis of who removed them and when is a checkable discriminator between silent remediation and coincidental churn.
+- [Review coverage of agent PRs is converging](/articles/review-as-the-control-point) toward the human baseline while efficacy on credentials sits near zero. Do the two trends move together as teams mature, or independently — i.e. does showing up to review buy any measurable catch-rate improvement?
+
+## Sources
+
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743) — Mohammadreza Rashidi, arXiv 2607.05743, 2026-07-07, `empirical`. §4.12 only, for SecureVibeBench (Chen et al., arXiv 2509.22097) and the survey's reading of it. **A systematization: the 23.8% is the underlying paper's measurement, restated; the survey verifies citation identity against the abstract page and explicitly does not replicate any surveyed paper's empirical claims (§9).**
+- [Trust but Verify? Uncovering the Security Debt of Autonomous Coding Agents](https://arxiv.org/pdf/2607.12428) — Sakib, Banik & Jadliwala (UTSA, arXiv 2607.12428, 2026-07-14), `empirical`. §2 (corpus construction, six-category taxonomy, LLM-as-judge setup, secret-validity coding protocol), §3.1 (RQ1 distribution, severity, file-category and PR-size stratification, judge validation), §3.2 (RQ2 genuine secrets, committer attribution, reviewer-comment rate), §4 (threats to validity), §5 (related work, incl. Haider & Zimmermann on reviewer focus)

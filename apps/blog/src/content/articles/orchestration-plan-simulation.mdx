@@ -1,0 +1,210 @@
+---
+date: 2026-08-03
+title: Orchestration-Plan Simulation
+description: "OrchBench (Ren et al., Fudan / Zhongguancun / QMUL, arXiv
+  2607.25656): evaluate a multi-agent orchestration plan without running any
+  workers — the planner emits only an assignment + cross-agent-transfer plan
+  over a fixed task DAG, and a deterministic simulator scores quality, makespan
+  and tokens, correlating r=0.816 with real Claude Code quality at 1.3% of the
+  tokens and 10.3% of the wall clock. Findings: transfer coverage dominates
+  agent count (Agents-Q decays 0.468 → -0.021 as n goes 10 → 100 while
+  Coverage-Q holds 0.95 → 0.61), the agent budget saturates (Amax 16 → 64
+  doubles agents, moves score ~0.01), and multi-agent beats single-agent only
+  under context pressure (+0.302 quality at 16k, +0.007 at 128k, single-agent
+  ahead on 82% of model-problem pairs at 128k). Caveats the paper under-plays:
+  the headline r falls to 0.421 (p=0.500) once the weakest planner is dropped,
+  and the ablation shows essentially all model separation comes from two modeled
+  penalties (missing transfers, lossy compression)"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - benchmarks
+  - evaluation-methodology
+  - multi-agent
+  - agent-orchestration
+  - context-management
+readingTime: 23
+imageAlt: Illustration for Orchestration-Plan Simulation
+sources:
+  - title: "OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via
+      Deterministic Simulation"
+    url: https://arxiv.org/pdf/2607.25656
+  - title: Agent swarms and the new model economics
+    url: https://cursor.com/blog/agent-swarm-model-economics
+---
+export { default as heroImage } from "../assets/orchestration-plan-simulation.webp";
+
+## Sources
+
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics)
+- [OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via Deterministic Simulation](https://arxiv.org/pdf/2607.25656)
+
+## Summary
+
+Every multi-agent benchmark in the field runs the system end to end, which means its score is a sum of orchestration quality, worker capability, tool reliability and environment noise — and there is no way to read the first term off the total. **OrchBench** (Zhenzhen Ren, Jiyan He, Xinpeng Zhang, Zhenxing Qian, Ke Han, Shuxin Zheng, GuoBiao Li, Xiaoqing Zhang — Fudan / Zhongguancun Academy / Queen Mary University of London, [arXiv 2607.25656](https://arxiv.org/pdf/2607.25656), 2026-07-28, `empirical`) takes the obvious-in-hindsight step: **delete the workers.** The evaluated model produces only a *plan*; a deterministic simulator propagates quality, time and tokens through it and returns a score plus a list of coordination failures.
+
+The claim that makes it usable is the sim-to-real one: simulated scores correlate with real [Claude Code](/articles/claude-code) execution quality at Pearson **r = 0.816** while consuming **1.3% of the tokens and 10.3% of the wall-clock time**. The claim that makes it interesting is what it then measures — that at workflow scale, orchestration quality is bounded by **information preservation, not agent count**.
+
+## What a "plan" is, formally
+
+This is the part with the longest half-life: a published, checkable definition of the artifact that orchestration produces.
+
+**Fixed inputs** (explicitly *not* orchestration decisions): a task DAG `G = (V, E)` where an edge `(u, v)` means `v` needs `u`'s output; a per-agent context limit `L`; a maximum agent budget `A_max`. Each subtask carries a description, input/execution/output token budgets, a time budget, and a **compression-sensitivity class** in `{robust, balanced, fragile}`.
+
+**The plan** is `π = (α, R)`. The assignment `α` maps each subtask to an agent. `R` declares cross-agent information transfers, each with a **retention ratio** `e` in `(0, 1]` — how much of the upstream output survives the handoff. Same-agent dependencies are reused locally at no cost. Two error classes are named and scored:
+
+- **Missing transfer** — a dependency edge crosses agents and the plan did not declare a transfer. The simulator records the event and multiplies the parent's contribution by a penalty `λ = 0.5`.
+- **Invalid transfer** — a declared transfer with no corresponding edge. Plans that miss subtasks, exceed `A_max`, use invalid ids, or declare illegal transfers score **zero**.
+
+Planners do not enumerate assignments. They emit a compact declarative **`workflow_script`** in JSON that a deterministic interpreter expands in topological order: `agent_pools` (name + count), ordered `rules` matching on task stage to a pool plus an assignment `strategy` (`round_robin`, `dependency_locality`, `load_balance`), a `default` rule, and `transfer_rules` matching parent/child stages with a `cross_agent_only` flag and a `compression` ratio. That is a third-party **orchestration-plan vocabulary**, published in full — see the [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) connection below for why that matters and what it still does not settle.
+
+## The simulator
+
+Six stages mirroring the lifecycle real frameworks run — dependency resolution, agent scheduling, context acquisition, context management, subtask execution, state updates — processed in fixed topological order, so the same plan always yields the same result. The physics is parameterized rather than measured:
+
+| Mechanism | Modeled cost |
+|---|---|
+| Compression to fraction `e` | quality multiplied by `e^γ`, with `γ` = 0.35 / 0.85 / 1.25 for robust / balanced / fragile; minimum retention 0.08 / 0.22 / 0.55 |
+| A compression event | 2.5% of the pre-compression package size in tokens, plus one time unit |
+| A handoff of `x` retained tokens | `x` communication tokens, `max(1, ceil(x/5000))` time units |
+| Each active agent | 1,200 startup tokens, 2 startup time units |
+| An omitted required handoff | upstream quality multiplied by `λ = 0.5`, no token or time cost |
+
+Scoring is the unweighted mean of three terms: quality `Q` (macro-average over terminal tasks), `E_time = min(1, C/M)` (proximity to the critical-path bound), and `E_token = min(1, T_single/T)` (tokens relative to the single-agent serial baseline).
+
+**Read the token term carefully.** It is capped at 1 against a *serial single agent*, so **no multi-agent plan can be rewarded for being cheaper than serial execution** — and in practice none is close. Multi-agent token efficiency runs 0.56 to 0.74 across the whole result set, i.e. **orchestration burns roughly 1.5× the tokens a single serial agent would**, from agent startup, communication and compression overhead. In this accounting orchestration never buys tokens; it buys quality under context pressure, and wall clock.
+
+## Transfer coverage dominates agent count
+
+The headline finding, and the one the ablation confirms the benchmark is actually built to see.
+
+Pearson correlations between diagnostics and outcomes, by DAG size (Table 5):
+
+| n | Agents–Q | Coverage–Q | Agents–Score |
+|---|---|---|---|
+| 10 | 0.468 | 0.952 | -0.481 |
+| 20 | 0.720 | 0.807 | 0.218 |
+| 50 | 0.470 | 0.829 | -0.189 |
+| 100 | **-0.021** | 0.614 | **-0.676** |
+
+Agent count decorrelates from quality entirely by 100 subtasks and is *negatively* correlated with the final score at both ends. Transfer coverage stays informative throughout. The cleanest single comparison is two planners at n = 100 that differ on nothing else that matters: **Gemini-3.1-Pro-Preview and Doubao-Seed-2.0-Mini both run about 63 active agents; their missing-transfer counts are 0.07 and 22.70, and their quality scores are 0.690 and 0.443.**
+
+The agent budget saturates independently. Sweeping `A_max` over `{1, 2, 4, 8, 16, 32, 64}` across six planners and 50 DAGs (Figure 4), quality and score climb steeply from 1 to 8 and then flatten: **going from 16 to 64 more than doubles the agent count (~13 to ~29.5) and moves the score by roughly 0.01.**
+
+And the difficulty is not a function of size. Splitting the 100-task results by the DAG's *natural parallelism* (Table 18) produces two distinct failure modes rather than one gradient: low-parallelism graphs run 39.25 agents at 0.858 coverage with 23.47 missing transfers and still post the **highest** final score (0.585), while high-parallelism graphs run 79.58 agents at 0.992 coverage with 1.77 missing transfers and post the **lowest** (0.494). Low-parallelism DAGs fail through broken information chains; high-parallelism DAGs pay the coordination bill.
+
+## Reliability falls off a cliff, and the cliff is model-specific
+
+Pushing to `n` in `{200, 500, 1000}` at `A_max = 100` (Figure 5), transfer coverage between 500 and 1,000 subtasks collapses from **0.981 to 0.441 for Claude-Opus-4.8 and 0.981 to 0.398 for DeepSeek-V4-Flash** — 872.3 and 907.4 missing transfers respectively — while Gemini-3.1-Pro-Preview retains near-complete coverage and substantially higher quality. This is a discontinuity, not a slope, and one model does not have it. It is also invisible to an end-to-end benchmark, which would report only that the run went badly.
+
+Relatedly, no model wins everywhere: **GPT-5.5 leads at n = 10, GLM-5.1 at 20, [Claude-Opus-4.8](/articles/claude-opus-4-8) at 50, Gemini-3.1-Pro-Preview at 100** — and within a source family the top-two gaps are as small as 0.0007. Claude-Opus-4.8 is characterized as a *conservative handoff* planner: it almost never omits a transfer (0.00 missing at n=10 and n=20) and preserves quality, but trails on the composite because the composite also prices speed and tokens. The final score is a Pareto summary, not a quality ranking.
+
+## Multi-agent is a context-overflow remedy, not a capability multiplier
+
+The sharpest deployable result. Sweeping the per-agent context limit over the same 50 DAGs (Tables 6 and 19), the multi-agent quality advantage over a single serial agent decays monotonically:
+
+| L | Single-agent Q | Multi-agent Q | Δ |
+|---|---|---|---|
+| 16k | 0.423 | 0.725 | **+0.302** |
+| 32k | 0.649 | 0.821 | +0.172 |
+| 64k | 0.792 | 0.852 | +0.060 |
+| 128k | 0.852 | 0.859 | **+0.007** |
+
+At 128k the average is barely positive and the distribution has already flipped: **multi-agent quality is lower than single-agent in 82% of model-problem pairs.** The positive mean is carried entirely by the 100-subtask problems, where the single agent still endures ~240 compression events and multi-agent quality is 0.362 higher; on the 10-, 20- and 50-subtask problems the single agent already wins. Doubao, Kimi and Qwen all sit below the single-agent baseline at 128k.
+
+The authors' own framing: additional agents help when the working state exceeds one context window, and **"once it fits, coordination can become pure overhead."**
+
+## The production-side echo, and the halves neither side tests
+
+The two findings above — coordination structure dominates agent count, and the multi-agent win is a context-capacity effect — both have a production counterpart published eight days earlier, arrived at without a simulator. [Cursor's](/articles/cursor) swarm rebuild ([Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics), 2026-07-20, `case-study`) re-ran a from-scratch SQLite build under an old and a new harness at **fixed models and fixed time budget**, and the coordination machinery alone moved merge conflicts from >70,000 (accelerating) to &lt;1,000, the hottest file's conflict count from **7,771 to 47**, crate sprawl from 54 to 9, and engine line count from 64,305 to 9,908 at the same passing grade ([Parallel Agent Orchestration](/articles/parallel-agent-orchestration)).
+
+Two contacts are exact rather than analogical:
+
+- **Cursor's fix for planner contention is a transfer mechanism.** Agents record decisions in shared design docs; dependent code carries a **compile-checked reference** back to its doc; a reconciler merges contradicting docs and the references propagate the resolution downstream. That is a declared, typed, enforced information transfer between agents — the object this benchmark isolates as `R`, with the compiler standing in for the missing-transfer penalty by refusing to build.
+- **Cursor names context efficiency, not parallelism, as the reason swarms scale.** Same conclusion as the context sweep, from a system whose workers are real ([Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence)).
+
+**But the two studies vary disjoint variables, and neither tests the other's.** OrchBench sweeps agent count and context limit with the coordination *mechanisms* fixed and abstract; Cursor rebuilds the mechanisms with agent count never reported and never varied. So "structure beats scale" is supported by one source on each half and by neither end to end. The honest joint claim is narrower than it looks: adding agents saturates (measured, simulated), and engineering the coordination layer pays (measured, unablated, vendor-authored). Cursor also contradicts one deployable corollary — it claims the decomposition helps "even on moderately sized tasks," where the context sweep says the advantage should vanish once the state fits one window.
+
+## Validating a simulator against reality
+
+Three separate validation arms, and they do not all land equally.
+
+**Outcome alignment.** Simulated final score vs real [Claude Code](/articles/claude-code) task quality on MultiAgentBench: Pearson **r = 0.816** (p = 0.047), Spearman 0.771 (p = 0.103). Simulated **time** and **token** correlate at **-0.264** and **-0.607**, both insignificant — the authors attribute this to framework dependence (cross-framework time correlates at -0.104; within Claude Code, time and token usage correlate at -0.126) and demote both to diagnostics. **Two thirds of the composite score are therefore validated only as internal quantities.**
+
+**Structural alignment.** Model-level agreement between simulated and real orchestration behaviors: declared agents 0.973, delegation tendency 0.928, workflow depth 0.887, started agents 0.829, parallel utilization 0.768, completed agents 0.749, information-loss rate **0.664** (p = 0.157). The weakest of the seven is the one measuring *missing information transfers* — the exact mechanism the paper's headline finding rests on.
+
+**Cost.** Per task: WideSearch 17.35M tokens to 44.61K (389×) and 56.13 min to 0.51 min (110×); MultiAgentBench 383.09K to 5.16K (74×) and 5.61 min to 0.58 min (9.7×).
+
+### The caveat the paper states only in the favorable direction
+
+Everything above rests on **six models**. The leave-one-model-out table is the most informative object in the paper and the prose quotes only its best row:
+
+| Setting | Pearson r | p |
+|---|---|---|
+| Original | 0.816 | 0.047 |
+| w/o GLM-5.1 | 0.949 | 0.033 |
+| w/o Kimi-K2.6 | 0.790 | 0.108 |
+| w/o Qwen3.6-A3B | 0.719 | 0.167 |
+| w/o DeepSeek-V4-Pro | 0.682 | 0.192 |
+| w/o DeepSeek-V4-Flash | 0.677 | 0.183 |
+| **w/o Doubao-Mini** | **0.421** | **0.500** |
+
+Dropping the weakest planner takes the correlation from 0.816 to 0.421 at p = 0.500. Only two of the seven rows clear p &lt; 0.05. The honest reading is that **r = 0.816 says the simulator separates good planners from bad ones, not that it predicts the relative scores of two comparable planners.** That is consistent with the use the paper actually demonstrates — a *screening* claim (Top-1 model-selection coverage 61.5% vs 38.6% for a historical-best baseline; ranking agreement Spearman 0.754 vs 0.176 for random after executing only the five highest-disagreement tasks) rather than a ranking claim. The authors' own recommendation is "initial screening, followed by validation in the target framework."
+
+### A surprise pointing the other way: the real frameworks agree with each other less
+
+Cross-framework validation (Figure 3) is reported as a robustness check — OrchBench correlates 0.82 / 0.73 / 0.63 / 0.39 (Pearson) with Claude Code / SWE-mini / [OpenHands](/articles/openhands) / Crush. But the same matrix shows **Claude Code correlating with SWE-mini at 0.37, with OpenHands at 0.27, and with Crush at 0.08.** The four real harnesses rank models less consistently with each other than the simulator does with any of them. That inverts the usual hierarchy: if "validate against real execution" means validating against a single harness whose rankings barely transfer to the harness next door, the real-execution anchor is weaker than it sounds — an [instrument-variance](/articles/measuring-beyond-accuracy-saturation) problem sitting underneath the simulator's fidelity question.
+
+## The ablation is an unusually clean construct-validity statement
+
+Replaying identical plans with individual mechanisms neutralized, and measuring the gap between a strong planner (Gemini) and a weak one (Doubao) at n = 100:
+
+| Setting | ΔQuality | ΔScore |
+|---|---|---|
+| Full benchmark | 0.247 | 0.079 |
+| No missing-transfer penalty | 0.011 | 0.001 |
+| Omitted transfers auto-completed | 0.035 | 0.020 |
+| Auto-completion + lossless compression | -0.001 | 0.008 |
+
+With both information-loss mechanisms neutralized, **both planners land at Q ≈ 0.933 and become indistinguishable.** The λ sweep says the same thing from the other side: at λ = 1 (no penalty) the cross-model standard deviation of quality collapses to 0.022 and the Gemini–Doubao gap to 0.011; λ = 0.5 was chosen because it preserves σ = 0.081 and a gap of 0.247.
+
+Two readings, both true. Charitably: the benchmark's discriminative power is entirely attributable to two named, inspectable mechanisms rather than to an opaque aggregate — better construct validity than most benchmarks can demonstrate. Less charitably: **OrchBench measures information preservation under compression, and "orchestration capability" is the name it gives that.** A planner that routes information perfectly and schedules terribly is not penalized much, because scheduling is not where the variance was engineered to live.
+
+## Using it as a diagnostic
+
+The most practically interesting arm is the smallest. On 20 MultiAgentBench tasks (DeepSeek-V4-Flash executing, V4-Pro evaluating), each baseline workflow `A` was refined into `B` by adding **exactly one** simulator-selected cross-role handoff, everything else held fixed. Real-execution mean score rose **3.754 to 4.150 out of 5**, with simulated missing transfers falling 6.80 to 5.85.
+
+Worth carrying: simulated quality moved 0.1452 to 0.5111 — a 3.5× swing — where the real score moved about 10%. **The simulator is a far more sensitive instrument than the outcome it predicts.** The diagnosis (which handoff is missing) transfers; the magnitude does not.
+
+A second, weaker arm: handing DeepSeek-V4-Pro a generated 500-subtask DAG instead of the bare task description moved accuracy from 2/10 to 3/10 on ten tasks. One flipped task on n = 10 — directionally suggestive, statistically nothing, and the paper presents it as such.
+
+## What it does not evaluate
+
+- **Task decomposition is a fixed input.** The DAG is given. Deciding how to cut a task apart — arguably the harder half of orchestration, and the half [agent-extensible work graphs](/articles/ticket-driven-agent-orchestration) make dynamic — is out of scope by construction.
+- **Workers never run.** Result quality is a scalar propagated from parent qualities through retention ratios and compression exponents. No plan can fail because an agent misread its brief, and no capable agent can rescue a bad plan. Everything the corpus knows about agents relaying unverified subagent claims, satisfying the letter of a goal, or clobbering each other's work is invisible here.
+- **The DAGs are LLM-generated and LLM-audited.** 24 of 70 sampled DAGs (34.3%) were rejected by at least one judge; the residual failure modes are semantic — redundant verification layers (9.6%), arbitrary splits not grounded in the seed (6.7%), artificial over-decomposition (6.3%), dropped branches before final synthesis (5.0%), artificial global synchronization barriers (5.0%). The two LLM judges also disagree substantially about the surviving DAGs (Gemini scores them 71.50–98.40 overall across target sizes, GLM 75.75–85.00 on the same graphs).
+- **The physics is chosen, not measured.** The compression exponents, the 2.5% compression overhead, the 1,200-token agent startup cost and λ = 0.5 are all parameters, and the ablations show the results are sensitive to at least λ.
+
+## Connections
+
+- [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — the regime this benchmark excludes by construction, measured with real agents. OrchBench scores plans over dependency DAGs with fixed decompositions, where the orchestrator's job is routing information between subtasks; open-ended discovery has no decomposition at all and the orchestrator's job is allocating a population across competing approaches. The two land on compatible readings from opposite sides — what scales here is information *routed*, and there the finding is that routing too much of it (a shared memory every agent can read) collapses the population onto one approach. Its scaling sweep is the real-execution complement to the agent-cap sweep: the optimal fixed width × depth differs across four of five tasks, and the widest configuration is never optimal
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the closest methodological kin, arriving at the same conclusion from the opposite direction. That page decomposes model from scaffold *after* execution and finds the scaffold swings accuracy ~44pp with two scaffolds disagreeing on 31% of tasks; this one refuses to execute at all so that the plan is the only thing left varying. Both are re-instrumentation rather than retire-and-replace, and both find the non-model half of the stack is where the variance lives. The cross-framework matrix here also supplies a datum that page's model-vs-scaffold section implies but does not measure: four real harnesses rank the same models at Pearson 0.08–0.84 against each other, so "the scaffold matters" and "real execution is a noisy anchor" are the same fact
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — the quantitative "when to fan out" that page's vendor evidence lacks. The Opus 5 card's multi-agent Pareto win is measured at 1M tokens per agent; OrchBench's context sweep says the *quality* half of that trade decays from +0.302 at 16k to +0.007 at 128k, with single-agent ahead on 82% of model-problem pairs at the top end. It gives the prompting guide's "cap the delegation" warning a threshold-shaped reason, and it prices the overhead the guide only names — ~1.5× the tokens of serial execution, before any quality gain
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — two direct contacts. OrchBench's real-execution arm *is* Claude Code run under the dynamic-workflow setting, making this the first outside measurement of that feature. And its `workflow_script` is a published plan vocabulary for exactly the object Cherny's "algebra for agents" names: agent pools, ordered match rules, assignment strategies, and transfer rules with per-edge compression ratios. Note what that is *not* — it is declarative rule-matching over a fixed DAG, not sequence/parallel combinators, so it shows what a published orchestration vocabulary can look like without telling us anything about Anthropic's unpublished one
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the same trade-off as a cost function instead of a policy. Self-GC measures which context edits destroy future dependencies; OrchBench *models* it: the fragile/balanced/robust exponents are a parameterized form of "don't mask sparse tables and stack traces," and a missing transfer is the locator/live-state loss row priced at λ = 0.5. The two are complementary in an exact sense — Self-GC prices a **prefix-cache break** and treats information loss as the thing to avoid; OrchBench prices **information** and treats context limit as the thing to route around. The multi-agent-only-under-context-pressure result is the architectural corollary of Self-GC's within-agent one: distributing state across agents and governing state inside one agent are two answers to the same overflow, and the first stops paying once the window is large enough
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — corroboration of the planner-role finding on a second instrument. AgentOpt found the *strongest* model was the worst planner on HotpotQA (Opus 4.6 bypassing its own solver); OrchBench isolates the planner role by construction and finds no model leads at every scale, with top-two gaps as small as 0.0007 within a source family and a distinct per-model orchestration *style* (Claude-Opus-4.8 conservative on handoffs, Doubao over-launching agents while under-declaring transfers). Planner ability is not a projection of general model strength — now measured twice, by a bandit over real pipelines and by a simulator over plans
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the near-term, homogeneous-collective test of the multi-agent-scaling-law hope, and it comes back negative on the population axis: with workers held identical and only the plan varying, capability does not scale with group size (agent count decorrelates from quality by n = 100 and is negatively correlated with the composite score), and the collective beats a single agent only while the working state exceeds one context window. What scales instead is information preservation. Boundary worth keeping: simulated workers cannot specialize, so this bounds the *parallelization* factor and says nothing about *diversity via specialization*
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Symphony's `blocked_by` dependency graph is the deployed form of OrchBench's input, and the difference is the scope line: Symphony's DAG is agent-extensible (agents file follow-up tickets, the graph grows during execution) while OrchBench freezes it as a given. The benchmark's cross-agent transfer object also names something the ticket model leaves implicit — when one ticket's output is a prerequisite for another assigned elsewhere, *something* has to carry the result, and that handoff is where the measured quality goes
+- [Cursor](/articles/cursor) — the production swarm whose rebuild is the outside echo of this page's structure-over-scale finding, and whose compile-checked design-doc references are a deployed form of the transfer object
+- [Claude Code](/articles/claude-code) — the real-execution arm and the sim-to-real target; also the only framework of the four with a published dynamic-workflow orchestration mode
+- [Claude Opus 4.8](/articles/claude-opus-4-8) — profiled as the conservative-handoff planner: near-zero missing transfers at small scale, best composite at n = 50, but its transfer coverage collapses from 0.981 to 0.441 between 500 and 1,000 subtasks
+
+## Open Questions
+
+- Does the r = 0.816 sim-to-real correlation survive on a set of *comparable* planners? Leave-one-out puts it at 0.421 (p = 0.500) once the weakest of six models is dropped, and only two of seven rows clear p &lt; 0.05, so the fidelity claim may be entirely the strong-vs-weak spread. Settling it needs a run over ten or more frontier-tier planners with the weak tail excluded.
+- Does the multi-agent / single-agent crossover survive real execution? In simulation the advantage falls from +0.302 at 16k to +0.007 at 128k and reverses on 82% of model-problem pairs — but the simulated single agent suffers only *compression* loss, with no attention degradation, distraction, or long-context recall failure priced in, and the paper never runs the single-agent comparison for real. A real 128k single-agent-vs-multi-agent arm on the same tasks would settle whether 128k is the true crossover or an artifact of a generous single-agent model.
+- Is the transfer-coverage result about orchestration or about the penalty? All measured separation between a strong and a weak planner vanishes when λ goes to 1 or omitted transfers are auto-completed, and λ = 0.5 was chosen for discriminative power rather than fitted to observed handoff loss. What would settle it: an execution study measuring how much downstream quality an actually-omitted handoff costs in a real framework.
+
+## Sources
+
+- [OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via Deterministic Simulation](https://arxiv.org/pdf/2607.25656) — Ren, He, Zhang, Qian, Han, Zheng, Li & Zhang (Fudan University / Zhongguancun Academy / Queen Mary University of London), *OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via Deterministic Simulation*, arXiv 2607.25656, 2026-07-28, `empirical`. Problem formulation (plan as assignment + transfer map, missing vs invalid transfers); Methodology (DAG construction via k99/n natural parallelism, the six-stage simulator, compression classes); Tables 1–3 (structural alignment, outcome alignment, leave-one-model-out), Table 4 (main results across n = 10/20/50/100), Table 5 (diagnostic correlations), Tables 6 and 19 (context-limit sweep), Tables 7–8 (selection utility, resource consumption), Table 9 (simulator-guided refinement), Table 10 and Table 20 (mechanism ablation, λ sweep), Tables 14–16 (DAG generation failure modes and validation), Table 18 (parallelism buckets), Appendix G (cost accounting parameters). Figures 3 (cross-framework correlation matrix), 4 (agent-cap sweep) and 5 (extreme-scale, n = 200/500/1000) viewed per the image two-pass rule. Cross-referenced against [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics) (Wilson Lin, cursor.com, 2026-07-20, `case-study`) for the production-side comparison: "Failure modes at 1,000 commits per second" (the design-doc/compile-checked-reference reconciler), "A deep dive into the runs" (the conflict, crate and line-count deltas), "What the tree does for memory" (context efficiency over parallelism). Parse notes: Table 9 is cell-collapsed in the raw markdown and was recovered with `pdftotext -layout`; Tables 1, 3 and 5 were reconciled against the PDF and are intact; Table 4 is a four-panel layout whose panel labels floated out of position in the parse — panel assignment was verified against the prose (the n = 100 Gemini/Doubao row and the n = 10 missing-transfer range both check out)

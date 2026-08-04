@@ -10,18 +10,27 @@ tags:
   - agent-engineering
   - ai-coding-workflow
   - ai-native-org
-readingTime: 8
+readingTime: 18
 imageAlt: Illustration for Verification as the New Bottleneck
 sources:
   - title: Running an AI-native engineering org
     url: https://www.youtube.com/watch?v=IA5LWIGqnyM
   - title: Thread by @AndrewYNg
     url: https://x.com/AndrewYNg/status/2071988145667928442
+  - title: 5 takeaways from the State of Software Delivery Q2 Pulse report
+    url: https://circleci.com/blog/five-takeaways-2026-q2-pulse/
+  - title: "Boris Cherny: We Cut 80% of Claude Code's Prompt"
+    url: https://www.youtube.com/watch?v=qyPCVqFUyDo
+  - title: Rewriting Bun in Rust
+    url: https://bun.com/blog/bun-in-rust
 ---
 export { default as heroImage } from "../assets/verification-as-the-new-bottleneck.webp";
 
 ## Sources
 
+- [5 takeaways from the State of Software Delivery Q2 Pulse report](https://circleci.com/blog/five-takeaways-2026-q2-pulse/)
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo)
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
 - [Running an AI-native engineering org](https://www.youtube.com/watch?v=IA5LWIGqnyM)
 - [Thread by @AndrewYNg](https://x.com/AndrewYNg/status/2071988145667928442)
 
@@ -43,6 +52,22 @@ This is the org-level mirror of [Karpathy](/articles/andrej-karpathy)'s [The Ver
 
 A vivid sign of the shift: TDD used to feel like "eating broccoli" — write the failing test first, verify it fails, then fix. With Claude, Fung found it "so much more fun and pleasurable… it took the tax out of test-driven development." The economics flipped: when writing the test is nearly free, the discipline that grounds verification (a test that provably fails, then passes) is pure upside. (Cf. the `tdd` / red-green-refactor discipline; the failing-test-first step is the verifier.)
 
+## The elicitation side: verification is what lets the model run long (Cherny)
+
+[Boris Cherny](/articles/boris-cherny) restates the thesis from the capability direction rather than the org direction ([YC interview, July 2026](https://www.youtube.com/watch?v=qyPCVqFUyDo), `practitioner-opinion`): the skill that replaced prompt engineering is "how do you give Claude a hard task that seems a little bit too hard — and then how do you make it possible for Claude to **verify its work along the way**. The verification is probably the single most important thing that people do not get right." His two worked cases both hinge on the verifier, not the prompt: the 11-day Bun Zig→Rust rewrite was possible because mature Bun + Node.js test suites made "done" checkable ([Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra)); his Electron→Swift rewrite experiment runs unattended for weeks on a prompt whose only sophisticated element is the check — "run the Electron app in the Mac virtual machine, screenshot it, compare it pixel by pixel to the Swift version, don't stop until you're done." Fung's version is verification as the org's *bottleneck*; Cherny's is verification as the model's *fuel* — same resource, scarce for one, load-bearing for the other.
+
+## The substrate, priced and bounded: the Bun port (2026-07)
+
+Cherny's Bun example above was an assertion on stage. [Jarred Sumner](/articles/jarred-sumner)'s first-party write-up ([Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust), `case-study`; Sumner is an Anthropic employee and the port used a pre-release [Fable 5](/articles/claude-fable-5)) turns it into the wiki's most concrete picture of what a verification substrate actually has to be — and where one that looks maximal still fails.
+
+**What made it work was not coverage but *language independence*.** Bun's test suite is written in TypeScript, so it tests the runtime's *behavior*, not its implementation. When 535,496 lines of Zig became Rust, the oracle survived untouched. That is a structural precondition most codebases do not meet: a project whose tests are written in the language being ported *from* has no equivalent, regardless of assertion count. The scale, for reference: **1,386,826 `expect()` calls across 60,624 tests in 4,174 files** on Debian x64, comparable on macOS and Windows.
+
+**The oracle still needed a human guard.** "0 tests skipped or deleted" is reported as a headline number precisely because deleting the failing test is the cheapest way for an autonomous loop to satisfy its own stop condition — and Sumner says he "manually verified the tests were in fact running and not being skipped" before merging. Green is a claim the loop makes about itself until someone checks the denominator ([Failures That Look Like Success](/articles/failures-that-look-like-success)).
+
+**And 100% green shipped 19 regressions.** This is the most useful negative result in the account, because the escapes are not random — all four published root causes sit in the same blind spot. Zig's `assert` is a function whose argument always runs; Rust's `debug_assert!` is a macro erased in release, so a side-effecting call inside one silently stopped executing **in release builds only, while debug builds passed**. Bun's Zig shipped `ReleaseFast` (bounds checks off) on macOS/Linux while Rust release builds keep them, turning a ported off-by-one into a panic. Zig's `comptime` format strings resolve before argument substitution; a Rust function only sees the finished string. In each case the code was *syntactically identical and semantically different*, and the difference lived in the **build configuration or the compile-time/runtime boundary** — a dimension a test suite executed in one configuration cannot see, no matter how many assertions it holds.
+
+The generalization: a verification substrate is bounded by the *axes it varies*, not by its size. 1.39M assertions in one build configuration is a large sample along one axis and a sample of one along another. The bugs that escape are the ones on the axes you didn't vary.
+
 ## Shift left
 
 Her recurring phrase: **shift left** — catch problems closer to the source via automation, not after a customer hits them. "What's better than me running into the bug first? Having automation in place to catch it closer to the source." As throughput rises, the only way verification keeps up is by being *automated and early* rather than manual and late.
@@ -54,6 +79,16 @@ Before shipping Claude Code's own code-review feature, "how do you keep up with 
 ## Measuring the shift (and a trap)
 
 Signals she watches: onboarding ramp-up time ↓, PR cycle time ↓, Claude-assisted commits ↑ ("I haven't seen a commit that wasn't Claude-assisted in months"). The **trap**: don't read end-to-end PR cycle time alone — *break it into funnel chunks*. If cycle time isn't dropping, it may not be low AI adoption; it could be **CI/build systems jamming under the new throughput.** And throughput isn't the goal — "find some way to measure whatever you're actually trying to solve," not just velocity.
+
+## Putting a number on the jam (vendor estimate)
+
+Fung's "CI/build systems jamming under the new throughput" is the qualitative form of what CircleCI tries to quantify in its *2026 State of Software Delivery Q2 Pulse* (`vendor-claim`, telemetry over 20M+ CircleCI workflows from March 2026). Three claims, all attributed to CircleCI:
+
+- **The bottleneck is where Fung says it is.** Feature-branch throughput grew 7.7% YoY while main-branch throughput stayed flat — code piles up in validation rather than reaching main. Main-branch success rate rose 70.8% → 76.7% Q1→Q2 but sits below both CircleCI's recommended 90% benchmark and its own mid-80s 2023–24 readings. CircleCI's summary: "validation remains the industry's biggest bottleneck."
+- **A cycles-to-merge metric.** CircleCI proposes the **Merge Efficiency Ratio** (MER) — feature-branch validation cycles required to land a change on main — as a rework proxy. Median teams 3.9, top 5% 2.6, a 20-org elite cohort 1.3; that cohort cut its MER 21% YoY (1.62 → 1.28) while the median barely moved. The same widening shows on throughput: top-5% teams run main-branch workflows **9×** more often than median teams, up from 8× in Q1 (15.6/day vs ~1.7).
+- **A price on the validation layer.** CircleCI *models* a 50-developer team shipping ~3,000 changes/month at median MER as carrying **~$900K/yr in delivery cost**, with **~$700K/yr** recoverable by moving fast checks (lint, unit tests, build) into the inner loop. A named component is the **token reload penalty**: autonomous agents idling on CI results and re-paying to rebuild context — the CI queue billing twice, once in runner minutes and once in agent tokens.
+
+Read the cost figures as a vendor model, not a measurement: the $700K "recoverable" line is precisely the payoff case for CircleCI's own inner-loop products (Chunk sidecars, an agentic-development CLI), and the sample is CircleCI customers only. What survives the discount is the *shape* — validation cycles are a countable quantity, and the elite/median spread on them is large and widening. See [Agent-Generated Test Quality](/articles/agent-generated-test-quality) for the non-vendor mechanism that feeds those extra cycles, and [Acceleration Whiplash](/articles/acceleration-whiplash) for the churn-decomposition problem MER inherits.
 
 ## Connections
 
@@ -81,13 +116,18 @@ Signals she watches: onboarding ramp-up time ↓, PR cycle time ↓, Claude-assi
 ## Derived
 
 - [When Does Verification Quality Determine Whether AI Automation Works?](/articles/verifier-quality-and-agent-automation) — generalizes this bottleneck into a verification-quality ladder: Lean/formal proof, software CI, vulnerability reproduction, and noisy judgment tasks
+- [Is Human Review of AI-Authored Code Still a Real Control, or Already Rubber-Stamping?](/articles/human-review-real-control-or-rubber-stamp) — answers "how far do you push automated review" as a partition rather than a dial: automate mechanical verification fully, keep sampled human depth for ownership/skill/comprehension
+- [Verifying Without a Compiler: Cowork's Harness vs Claude Code's, and Why the Slice Verifier Stays](/articles/verifying-without-a-compiler) — this bottleneck on the surface where no compiler exists: Cowork's judgment-encoding substitutes, and the rule that checkable invariants go in verifiers while only prompt lines get trust
 
 ## Open Questions
 
-- Fung's own open question: "How far do you push fully automated reviews?" — where's the speed/safety balance, and how do you keep humans confident without re-introducing the review bottleneck? **Sharpened** by [Review as the Control Point](/articles/review-as-the-control-point): full automation reliably raises review throughput and cuts latency (its P8), but its effect on *code quality and security is contested* (P9), and the latency effect of a review-governance policy flips sign by calibration — a risk-tiered policy that gates only material changes lowers latency, a blanket policy raises it (P17). So "how far" has no single answer: the safe frontier is set by automated-reviewer capability and process design (two of that page's three moderators), not by a fixed dial.
-- If CI/build is the hidden jam, does verification infrastructure (test runners, CI capacity) become the actual capex of an AI-native org?
+- Fung's own open question: "How far do you push fully automated reviews?" — where's the speed/safety balance, and how do you keep humans confident without re-introducing the review bottleneck? **Sharpened** by [Review as the Control Point](/articles/review-as-the-control-point): full automation reliably raises review throughput and cuts latency (its P8), but its effect on *code quality and security is contested* (P9), and the latency effect of a review-governance policy flips sign by calibration — a risk-tiered policy that gates only material changes lowers latency, a blanket policy raises it (P17). So "how far" has no single answer: the safe frontier is set by automated-reviewer capability and process design (two of that page's three moderators), not by a fixed dial. **Partially answered:** [Is Human Review of AI-Authored Code Still a Real Control, or Already Rubber-Stamping?](/articles/human-review-real-control-or-rubber-stamp) — "how far" is a *partition*, not a dial: automate 100% of mechanical checking (style, lint, spec-drift, tests); the contested zone is automated quality/security judgment (P9, vendor claims unmeasured); and the hard limit is not defect-catching but the functions review performs besides it — reviewer-skill growth (P12/P13), collective ownership (P14), comprehension-debt paydown (P15) — which erode under automation even if the machine catches every bug. Residual: the moderator thresholds are still unmeasured. **Floor datum added 2026-07-29** by [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) (`empirical`): on hard-coded credentials — the one smell class with purpose-built automated detection — seven distinct bots and human reviewers together commented on just 18.9% of the genuine live credentials in 4,022 agentic PRs. So the "automate mechanical checking fully" half of the partition is a prescription, not a description: where it *is* fully mechanizable, it currently isn't mechanized well. **Deployed calibration added 2026-07-29** by [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) (`case-study`): PostHog's StampHog answers "how far" as *as far as the cheap structural checks reach* — PR state, a blast-radius deny-list, and a &lt;500-line/&lt;20-file ceiling gate the decision, with an LLM check demoted to a last-position veto that may tighten but never loosen — and that reaches **~1 in 3 PRs merged into their main repo** (1.6K in a month). Two qualifiers keep this from being an answer: what it replaced was a Slack stamp-exchange ritual by engineers with "little to no context," so it converts an implicit rubber stamp into an explicit gate-checked one rather than automating substantive review; and the account reports volume with **no false-approval or escaped-defect rate**, which is the contested half of P9 left unmeasured at scale.
+- If CI/build is the hidden jam, does verification infrastructure (test runners, CI capacity) become the actual capex of an AI-native org? **Partially answered 2026-07-29** by [Agent-Generated Test Quality](/articles/agent-generated-test-quality) (`empirical`): it supplies the *mechanism* but not the cost. Agent-authored tests in AIDev carry flakiness indicators — unmocked file I/O, `random`, `datetime.now` — at a 0.44 rate vs 0.30 for human-authored tests, so the throughput increase arrives with a compounding rerun tax on the runner rather than a one-off load increase. Two gaps keep this short of an answer: the study measures *candidate* rate (its specified dynamic re-run stage is never reported), and nothing in it prices CI capacity, so the jam is evidenced while the capex claim is not. A CI-spend-per-merged-PR series stratified by agent authorship is what would settle it. **Priced, but only by a vendor, 2026-07-29** by [5 takeaways from the State of Software Delivery Q2 Pulse report](https://circleci.com/blog/five-takeaways-2026-q2-pulse/) (`vendor-claim`): CircleCI now supplies the cost half the study omitted — a countable cycles-to-merge metric (median MER 3.9 vs 1.3 for its elite cohort) and a modeled ~$900K/yr delivery cost for a 50-developer team, ~$700K of it claimed recoverable by shifting checks into the inner loop, including a "token reload penalty" for agents idling on CI. That is the first attempt in the vault to put a currency figure on the jam, and it *is* an argument that verification infrastructure is a real capex line. It does not settle the question: the $900K is a model over CircleCI's own customers with no published inputs, the recoverable figure is the sales case for CircleCI's inner-loop products, and it prices CI *time and tokens* rather than the runner-capacity build-out the question asks about. The stratified non-vendor spend series is still the thing that would settle it.
 
 ## Sources
 
 - [Running an AI-native engineering org](https://www.youtube.com/watch?v=IA5LWIGqnyM)
 - [Thread by @AndrewYNg](https://x.com/AndrewYNg/status/2071988145667928442) — Andrew Ng, *The Batch* (2026-06-30), `practitioner-opinion`: the dissent — self-testing agents reduced, not raised, the human verification burden in 0-to-1 building
+- [5 takeaways from the State of Software Delivery Q2 Pulse report](https://circleci.com/blog/five-takeaways-2026-q2-pulse/) — Jacob Schmitt, CircleCI blog (2026-07-08), `vendor-claim`: findings 1, 2, 4, 5 — the 9× velocity gap, flat main-branch throughput and 76.7% success rate, the Merge Efficiency Ratio, and the $900K/$700K inner-loop cost model
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Cherny, YC interview (2026-07-27, `practitioner-opinion`): "verification is probably the single most important thing that people do not get right"; the pixel-comparison stop condition
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): the Bun test suite quantified (1,386,826 `expect()` calls / 60,624 tests / 4,174 files), its language independence, the manually-verified "0 tests skipped or deleted", and the 19 regressions that a 100%-green suite still let through

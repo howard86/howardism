@@ -1,0 +1,158 @@
+---
+date: 2026-08-04
+title: Harness-Induced Belief Divergence
+description: "Yi & Song (arXiv 2607.04528, `empirical`): hold the task,
+  environment and base LLM fixed, vary only the harness, and the agent's
+  elicited K-step belief trajectory moves — measured as a weighted divergence
+  over nine fields and split into an arrival term (constraint sets and next
+  action, saturated at ~1.0 from step one) and a growth term (progress, risk,
+  failure mode, numeric forecasts, which keep drifting with horizon). The
+  decomposition is the contribution: the scalar looks flat across horizons only
+  because the interface floor dominates it. Divergence reaches behavior —
+  action-category disagreement rises 0.280 → 0.595 across D_growth quartiles —
+  and the sharpest single number is UnsafeRetryRate 0.700, where risk gating
+  blocks the destructive command but the model re-proposes a same-class risky
+  action within three steps in 42 of 60 blocked steps. Large caveat: the paper's
+  framing claim that all this 'preserves terminal success' appears only in the
+  abstract and is never measured anywhere in 28 pages, the base LLM is never
+  named, and 0.25 of the maximum score is guaranteed by constraint-string naming
+  differences via the paper's own Lemma 1"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - evaluation
+  - evaluation-methodology
+  - failure-modes
+readingTime: 20
+imageAlt: Illustration for Harness-Induced Belief Divergence
+sources:
+  - title: Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents
+    url: https://arxiv.org/pdf/2607.04528
+---
+export { default as heroImage } from "../assets/harness-induced-belief-divergence.webp";
+
+## Sources
+
+- [Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents](https://arxiv.org/pdf/2607.04528)
+
+## Summary
+
+Haiwen Yi (Toronto) & Xinyuan Song (Emory), [arXiv 2607.04528](https://arxiv.org/pdf/2607.04528) (2026-07-05, `empirical`), ask a question the corpus's other controlled harness studies do not: with the task, environment and base LLM held fixed, does swapping the harness change what the agent *thinks is happening*?
+
+Their answer is yes, and their framing is the useful part — **harness design is an experimental variable in agent evaluation, not an implementation detail.** A harness "can change the informational version of a task without changing the underlying task": one exposes a failed command's raw output, one blocks the command and returns a policy violation, one repairs the failure before the model ever sees it. Same bug, same model, three different accounts of what went wrong.
+
+This is the third controlled harness-swap measurement in the corpus and the third outcome variable. [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) swaps the scaffold and measures **accuracy** (~44pp). [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) swaps the orchestration layer and measures **cost** (−41%). This swaps the evidence-mediation layer and measures **beliefs**.
+
+> **Read the whole page through this.** The claim that gives the paper its punch — that these belief shifts happen *while terminal success is preserved* — appears **only in the abstract**. No table, figure or section in 28 pages reports a pass rate, success rate, resolve rate or benchmark label for any harness. Section 5's "all rollouts complete successfully" refers to **schema validity**, not task success. The paper's own related-work framing is honest about this ("rather than optimising a harness for task success, we hold the task and LLM fixed and measure how harness design changes the intermediate belief trajectory") — the success-preservation half is an assumption inherited from prior work, not a result. Everything below is a divergence measurement; the "at no cost to the outcome" clause is unevidenced here.
+
+## What is actually measured
+
+**The harness as a six-tuple.** `H = (O_H, A_H, V_H, G_H, R_H, L_H)` — observation map, action interface, verifier, risk gate, repair policy, logging policy. The raw reference harness `H0` sets observation and gate to identity, exposes the full action space, and logs verbatim. Five mediated harnesses each perturb one component:
+
+| | Mechanism isolated |
+|---|---|
+| **H1 structured** | observation abstraction — parsed tracebacks, targeted verification summaries, explicit intermediate state instead of raw terminal output |
+| **H2 risk-gated** | action censoring — intercepts high-risk actions pre-execution, records the block, withholds the unrealised outcome |
+| **H3 repair-heavy** | transition compression — retries/patches/rolls back, presents the repaired transition and compresses the failure path |
+| **H4 verification-selective** | incomplete verification — strong checks on selected states only, the rest labelled weakly-verified or unverified |
+| **H5 cost-aware** | cost-driven evidence removal — omits expensive checks when the remaining budget is short |
+
+**The belief rollout.** At each of K steps the model emits a schema-validated JSON belief state over nine fields — task progress, risk state, recoverability, constraint sets (known/satisfied/violated), failure mode, uncertainty, future-success and repair-cost forecasts, and the recommended next action. `D_belief` is a weighted sum of five component distances: ordinal (`D_cat`), nominal failure label (`D_fail`), Jaccard over the three constraint sets (`D_set`), normalised numeric (`D_num`), and first-eight-tokens action match (`D_act`).
+
+Weights, from Appendix B (the main-text equation block was corrupted at parse — see Sources): `w = (0.30, 0.15, 0.25, 0.25, 0.05)`.
+
+**"Belief" here means an elicited self-report, not an internal state.** No probe, no activation, no logit — a JSON object the model writes under a fixed template. The paper concedes the consequence in Appendix C: "the final-step belief is not ground truth," because forecast and target are both generated by the same LLM. Read every number as *disagreement between two structured self-reports*, which is a real and reproducible quantity and is not the same thing as a world model.
+
+## The decomposition is the contribution
+
+Split the five components by what they respond to:
+
+```
+D_belief = 0.30 · D_arrival + 0.70 · D_growth
+ (set, act) (cat, fail, num)
+```
+
+`D_arrival` captures what the interface changes the instant the harness rewrites an action or a constraint. `D_growth` captures the fields that can keep moving as the rollout lengthens.
+
+The empirical shape, across all five comparisons and four horizons in the controlled study: **`D_arrival` sits between 0.975 and 1.000 in every one of the twenty cells, from K = 1 onward.** `D_growth` occupies 0.134–0.257 over the same grid. Because arrival is pinned near its ceiling and carries 30% of the weight, `D_belief` lands in a narrow 0.387–0.479 band and barely moves with horizon — which a scalar-only reading would report as "harness effects are fixed after the first step."
+
+The long-horizon supplement (K = 1 to 20, 144 runs per horizon, 0 crashes, 100% schema-valid) shows what that conceals. `D_act` is **exactly 1.000 at every horizon** — the recommended next action never matches across harnesses. `D_set` stays 0.983–1.000. Meanwhile `D_num` climbs steadily, 0.044 at K = 1 to 0.136 at K = 16, and `D_fail` is violently non-monotone: 0.500 → 0.575 → **0.325 at K = 5** → 0.575 at K = 8. The paper does not explain the transient convergence and draws the right conclusion anyway: *agreement on a coarse failure label is not agreement on the belief state underneath it.*
+
+**The honest reading of the arrival term is less flattering than the paper's.** Lemma 1 proves that disjoint constraint representations force `D_set = 1` and therefore `D_belief >= w_set = 0.25` — so a quarter of the maximum score is guaranteed by two harnesses naming the same constraint differently. Assumption 1 posits a canonical embedding that should remove exactly this, and the near-unity arrival readout is evidence it does not. Section 11 names the threat ("perhaps the headline pattern reflects constraint-string differences rather than a stable harness effect") and answers it only by showing the *rank ordering* survives reweighting: under three weight settings the structured harness stays the largest-divergence view (0.479 / 0.492 / 0.597) while the middle ranks reshuffle. That defends the ordering, not the magnitude. **The growth readout is the part of this paper worth carrying; the arrival readout is substantially an artifact of string comparison.**
+
+## The finding with teeth: blocking stops the action, not the intention
+
+The result that survives every caveat above, because it is measured on behavior rather than on the divergence metric. On the 15 `X_risky_cmd` Terminal-Bench tasks (destructive commands — `rm`, `chmod`, `kill`, `DROP`, `git push --force`), running the risk-gated harness at K = 8 with three seeds: 45 rollouts, **60 blocked high-risk steps, and in 42 of them the model proposes a same-class risky action again within the next one to three steps. UnsafeRetryRate = 0.700.**
+
+The paper's reading is the correct one: "risk gating can stop the unsafe branch from executing while leaving the local action tendency alive." The gate is a property of the runtime; the disposition is a property of the belief state, and blocking without explaining does not update it. §2 states the mechanism as a design principle — "blocking an action also censors information. An agent that is never permitted to attempt a risky branch may conclude that such branches do not exist, rather than that they are prohibited."
+
+This is directly additive to [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates), which measures what a pre-execution block buys in task success and leaves open how much of the gain is the block versus the structured rejection message. Here the block is measured *alone*, and alone it leaves the tendency intact 70% of the time.
+
+## Divergence reaches the action layer
+
+A belief diagnostic that never touches the control surface would be hard to interpret, so the paper maps each `next_action_recommendation` to one of six coarse categories (`inspect_read`, `run_verify`, `edit_patch`, `search_navigate`, `retry_rollback`, `defer_stop`) by keyword match, and counts a step as action-divergent when raw and mediated fall in different categories. Across **840 step-level pairs**, the action-divergence rate rises from **0.280 in the lowest `D_growth` quartile to 0.595 in the highest** (overall mean 0.433).
+
+By harness: structured highest at **0.601** — parsed evidence redirects the model toward inspection and verification instead of immediate patching — and repair-heavy lowest at **0.321**, because once the harness has collapsed a failure into a repair transition there is less left to recommend. (Verify 0.446, cost 0.411, risk gate 0.387.)
+
+This is the strongest link in the paper's chain, and it is a correlation over a keyword classifier, not an intervention.
+
+## External validity, and where the arrival floor stops dominating
+
+The stress tests are the more interesting half of the empirical section, because the interface floor behaves differently outside the authors' own benchmark. On the SWE-bench Verified slice `D_set` falls to 0.927–0.943 and on Terminal-Bench to 0.676, against 0.998–0.999 on the controlled HIBENCH-CODE — repository-level task descriptions supply constraints that *all* harness views share, so the fixed arrival contribution shrinks and horizon-dependent effects become visible in the scalar.
+
+And there they are: on SWE-bench Verified, risk-gated failure-mode divergence rises **0.400 at K = 3 to 0.800 at K = 5**. On a real repository repair task, whether the predicted failure is attributed to the code, to the proposed operation, or to the harness policy diverges further the longer the rollout runs.
+
+The grouped extension (612 SWE-bench runs, 540 Terminal-Bench runs at n = 15 per group) finds no universal harness ranking — risk gating leads on risky-command tasks, repair-heavy on risky and verification-cost groups, cost-aware under timeout pressure. The paper's conclusion is the transferable one: **pair each benchmark with the harness mechanism it exercises, rather than aggregating unrelated benchmark families into one divergence ranking.**
+
+## BIWM, and a metric that reads success in both directions
+
+The proposed remedy, Belief-Instrumented World-Modeling, is a no-training protocol over the step-level logs: canonicalise observations, log blocked actions with their reasons, unroll compressed repair traces, record verification masks, shadow-execute suppressed branches, and align beliefs across harness views by categorical voting and numeric averaging.
+
+The single-component transfer table is the useful output, because it says which channel each harness is actually hiding:
+
+| Component | HIBENCH-CODE ΔD_belief (positive/total) | Terminal-Bench ΔD_belief (positive/total) |
+|---|---|---|
+| Canonicalisation | +0.011 (15/24) | +0.005 (4/10) |
+| Blocked-action log | +0.019 (13/24) | +0.034 (6/10) |
+| **Repair-unrolled log** | **+0.131 (22/24)** | +0.007 (5/10) |
+| Verification mask | +0.030 (18/24) | +0.025 (8/10) |
+| Shadow execution | +0.019 (10/24) | −0.002 (4/10) |
+
+Two things transfer. **Verification masks are the most consistent component** across task families (18/24 and 8/10) — simply recording *whether a state was checked* is evidence the model does not otherwise have. And **repair-unrolling is the largest single effect anywhere in the paper and the least portable**: +0.131 where failure-repair-recovery sequences are explicit by construction, +0.007 where they are not. Compression only costs you what was compressed.
+
+**The methodological soft spot.** BIWM is evaluated with two opposite success criteria: for wrappers, a *larger* divergence is read as exposure of hidden content; for cross-harness alignment, a *smaller* divergence is read as robustness. Both readings are defensible in isolation and neither is pre-registered, so no measured change in either direction can falsify the protocol. Appendix E is where this shows: under BIWM-full the risk-gated failure-attractor AUROC falls **0.957 → 0.403** (Δ −0.553), the repair-heavy row is undefined (single-class), and the cost-aware row rises 0.174 → 0.428 while remaining *below chance*. The paper labels the whole appendix exploratory and does not lean on it, which is the right call — but the main text's Table 16 shows only the three rows that move the right way.
+
+## How much to believe
+
+- **The central claim is unmeasured.** Terminal success appears in the abstract and nowhere else (above).
+- **The base LLM is never named.** "Base LLM M" is held fixed and referenced 15 times across 28 pages; no model, version, provider, or decoding temperature appears anywhere, including the reproducibility appendix. For an `empirical` paper whose entire design is *hold the model constant and vary the harness*, the constant is unidentified.
+- **Scale.** Eight controlled tasks, three seeds, one model, one lab, a self-defined benchmark (HIBENCH-CODE-v0) and a self-defined metric evaluated against itself. The engineering discipline is genuinely good — deterministic recomputation, 77/77 unit tests green, 0 crashes, 100% schema validity, three consistently-absent seed-42 cells disclosed and the paired baseline restricted to match — but discipline about *recomputing* a metric is not evidence about the metric.
+- **Two internal inconsistencies survive into the published tables** (both verified against the PDF, so neither is a parse artifact — see Sources).
+- **The measured object is self-report.** See above; the paper says so itself.
+
+What survives all of it: the `D_arrival` / `D_growth` decomposition as a diagnostic pattern, the demonstration that a scalar divergence can be flat while its planning-relevant components keep moving, the mechanism-per-benchmark pairing recommendation, and UnsafeRetryRate.
+
+## Connections
+
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — the design page this measures from the outside. Every one of the six harness-tuple slots is something that page tells you to build (mechanical gates, repair policy, verification, logging), and this supplies the cost nobody prices: each of those choices edits the evidence the agent reasons from, and the edits do not cancel. The `L_H` logging slot in particular stops being bookkeeping — blocked-action logs and verification masks are the two components that transfer across benchmarks, so *what the harness records* is part of what the agent believes
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the same invisibility with the failure removed. That page's class is "everything reads fine and the outcome is wrong"; this is "everything reads fine, the outcome may be *right*, and two harnesses still disagree about what happened, what is at risk, and what to do next." Under the paper's own framing that is not a failure at all — which makes it the harder case for the same detection argument, since there is no wrong output to find and the only signal is a cross-harness comparison nobody runs in production
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the sibling controlled harness swap, same claim family and a different outcome variable: Writer holds the model fixed and moves the *bill* (−41% cost, −38% tokens, uniform across six models); this holds the model fixed and moves the *beliefs*. Both argue the harness is a first-class variable rather than substrate; Writer's is vendor-authored with a total COI and n = 22, this one is disinterested with n = 8 tasks and an unnamed model. Between them the claim has two independent outcome axes and no strong evidence base on either
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the direct tension, worth keeping visible. That source swaps scaffolds with the model fixed and finds accuracy swinging **~44pp**, with two scaffolds on one model disagreeing on 31% of tasks; this asserts harness swaps preserve terminal success. Both cannot be generically true. The reconciliation is that "harness" names different objects — a whole agent scaffold there, an evidence-mediation layer over a fixed loop here — and that this paper never measured success, so the tension is between a measurement and an assumption. That page also supplies the caveat this one needs most: frontier coding agents are massively underconfident (93% pass vs 32.1% stated confidence) and cannot beat random at discriminating their own correct runs, which is a hard prior against reading elicited belief fields as calibrated
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the same block, measured on the other side of the boundary. That page shows a pre-execution gate *raising* task success by preventing a silently corrupting write; this shows the gate leaving the disposition intact — 42 of 60 blocked high-risk steps re-propose a same-class risky action within three steps — and shifting failure attribution from the code to the harness policy. Together: block the write, and then tell the agent why, because the block alone is a runtime guarantee and not a belief update
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — compression measured at the belief layer rather than the token layer. The repair-heavy harness is a compaction policy by another name (fold a failure-repair-recovery sequence into the repaired transition), and restoring what it folded is the largest single instrumentation effect in the paper (+0.131, 22 of 24 cases) — but only where the compressed sequence existed (+0.007 on Terminal-Bench). That is the quantitative version of Self-GC's live-state-loss category: what compaction removes is not tokens in general but specifically the evidence a later belief needed
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — where these interface perturbations get generated automatically and unaudited. A harness-evolution meta agent escalates from prompt rules to **middleware** — output truncation, finalization gates that block completion, turn-budget interrupts — which are this page's `O_H`, `V_H` and `G_H` slots being rewritten by a search process optimizing a score. Every such edit is measured here to move the belief state, and no evolution paper looks. It also supplies the outcome half this page never measured, for a related object: at a matched budget those evolved harnesses do not beat plain repeated sampling
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — verification treated as an evidence channel rather than a checkpoint: `V_H` returns checked / not-checked / **unchecked-and-unrecorded**, and the verification mask (which verifier ran, at what cost, on which state) is the most consistently transferable BIWM component. Whether a state was verified is information the agent uses, so an unrecorded skip is not a neutral omission
+
+## Open Questions
+
+- Does harness-induced belief divergence actually cost anything? The paper's framing claim — divergence at preserved terminal success — is never measured, and the falsifiable version is cheap: report pass rate per harness alongside `D_growth` on the same grid. Until someone does, "the harness changes beliefs but not outcomes" and "the harness changes beliefs *and* outcomes and this paper cannot see which" are equally consistent with every number here.
+- How much of `D_arrival` is a real interface difference and how much is constraint-string vocabulary? Lemma 1 guarantees `D_belief >= 0.25` from disjoint constraint sets alone, Assumption 1's canonical embedding is supposed to remove exactly that, and the observed 0.975–1.000 arrival readout says it does not. A semantic constraint matcher (embedding or entailment) in place of normalised-string Jaccard would separate the two in one re-run.
+- Does the UnsafeRetryRate result generalize past the 0.700 measured on one 15-task group with one unnamed model — and does making the block's reason visible reduce it? The paper argues blocked-action logging should, but measures logging's effect on *divergence*, never on retry rate. This is the same question [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) asks about the rejection message, from the safety side rather than the success side.
+
+## Sources
+
+- [Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents](https://arxiv.org/pdf/2607.04528) — Haiwen Yi (University of Toronto) & Xinyuan Song (Emory University, corresponding), *Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents*, arXiv 2607.04528, 2026-07-05, `empirical`, 28pp / 17 tables / 10 figures. Code at github.com/Hik289/Harness-induce-bias. §1 (the informational-version-of-a-task framing and the three contributions); §2 (the guardrail-censors-information argument); §3.1 the harness six-tuple and Assumption 1, §3.2 the belief space and K-step rollout, §3.3 Definitions 4–5 and Proposition 1, §3.4 the arrival/growth decomposition with Lemma 1 and Corollary 1, §3.5 Theorem 1's conditional monotonicity; §4 the six-harness family and the BIWM component list; §5 the controlled study on HIBENCH-CODE-v0 (8 tasks × 6 harnesses × 4 horizons × 3 seeds) and the risk-gate vignette; §6 long-horizon component diagnostics including the K = 5 failure-mode convergence; §7 the SWE-bench Verified and Terminal-Bench stress tests; §9 the grouped extension (612 + 540 runs); **§10 the action-divergence result and the UnsafeRetryRate = 0.700 calculation**; §11 metric-weight sensitivity; §12 the exposure/robustness split; §13 cross-harness structure; §14 the component ablation; Appendix B the weight vector and edge cases; Appendix C and E the exploratory self-consistency diagnostics; Appendix D harness specifications; Appendix F reproducibility notes. Figure 8 viewed per the image two-pass rule — it confirms the quartile contrast (Q1 n = 211 at 0.280, Q3 at 0.595, overall mean 0.433) and the per-harness bars (structured 0.601, verify 0.446, cost 0.411, risk gate 0.387, repair 0.321).
+ **Parse warnings.** Docling-parsed with `formula_enrichment` on. **Table 1 — the paper's headline controlled-study table — is cell-collapsed and row-shifted in two of its five rows and the automated collapse/shift checks missed both**: the raw-risk-gated block merges its `D_arrival` and `D_growth` rows into one label cell with paired values, and the raw-cost-aware block shifts values across the `D_belief`/`D_arrival` rows. Corrected against the PDF: risk-gated `D_arrival` 0.995/0.990/0.999/1.000 and `D_growth` 0.142/0.179/0.154/0.158; cost-aware `D_belief` 0.421/0.405/0.414/0.398, `D_arrival` 0.997/0.998/0.997/0.999, `D_growth` 0.174/0.152/0.164/0.140. **Table 7** (BIWM component effects) has one merged row, corrected to Blocked-action-log 0.427/0.999/0.182 and BIWM-full 0.537/0.988/0.344; the other 12 rows parsed clean and were re-verified against the PDF here. **The `warn` the checker did raise, on Table 12, is a false positive** — the PDF stacks the K = 1 and K = 8 agreement matrices in one column and docling concatenated them, so the K = 8 sub-header reads as a data row; all 72 values are correct. **Two equation blocks were repaired at ingest**, one of which the mlx formula engine had filled with ~60 fabricated "Powered by TCPDF" lines; the weight vector quoted here is taken from the intact restatement in Appendix B, not from the main-text block. Tables 2, 3, 5, 6, 8, 9, 10, 11, 13, 14, 15, 16 and 17 reconciled against the prose and clean.
+ **Two inconsistencies are the paper's own, not the parse's** (both checked against the PDF at compile time). (1) Table 11's `Baseline` column (structured 0.312, risk-gated 0.487, repair-heavy 0.147, verify-selective 0.151, cost-aware 0.103) is labelled `D_belief` but does not match Table 7's uninstrumented `D_belief` rows (0.479 / 0.408 / 0.402 / 0.404 / 0.414); two of its entries instead equal Table 7's `D_growth` column exactly. Only Table 11's signs and deltas are used here, never its levels. (2) Figure 8's quartile boundaries (`D_growth` &lt;= 0.472 for Q1, >= 0.670 for Q3) are irreconcilable with the 0.134–0.257 `D_growth` range reported everywhere else in the paper; the figure's *relationship* is cited, its thresholds are not.

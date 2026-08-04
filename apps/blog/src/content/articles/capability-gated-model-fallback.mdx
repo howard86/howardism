@@ -16,17 +16,26 @@ tags:
   - classifiers
   - dual-use
   - anthropic
-readingTime: 8
+readingTime: 15
 imageAlt: Illustration for Capability-Gated Model Fallback
 sources:
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
   - title: Claude Fable 5 and Claude Mythos 5
     url: https://www.anthropic.com/news/claude-fable-5-mythos-5
+  - title: Kimi K3 Model Card
+    url: https://huggingface.co/moonshotai/Kimi-K3
 ---
 export { default as heroImage } from "../assets/capability-gated-model-fallback.webp";
 
 ## Sources
 
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
 
 ## Summary
 
@@ -58,6 +67,32 @@ A *universal* jailbreak is defined as any prompt/script/harness that lets a user
 
 Coupled to the safeguards: Anthropic now **requires 30-day data retention for all Mythos-class traffic** (first- and third-party, including business customers). The data is used only for safety — defending against complex/novel attacks (new jailbreaks, cross-request attacks) and reducing false positives — not for training, with logged human access and deletion after 30 days in almost all cases. A capability threshold thus changes not just the model's guardrails but the *data-handling contract* around it.
 
+## The fallback paradox (Opus 5, July 2026)
+
+The architecture carries forward to [Opus 5](/articles/claude-opus-5) — same Fable-class classifier stack, same Opus 4.8 fallback target — and produces a result that inverts its own logic. Running the [Automated Behavioral Audit](/articles/automated-behavioral-audit) against the **full deployed system** (model + Trust & Safety classifiers + fallback) rather than the raw model, Anthropic finds **regressions on several alignment dimensions**, including disallowed cyberoffense. The cause is not a safeguard failure: Opus 5 is more aligned than Opus 4.8 on nearly every metric, so **falling back hands the request to a less aligned model**.
+
+Anthropic's argument that the system is still safer is a capability argument, not an alignment one: Opus 4.8 is "incapable of providing the same level of uplift," and at these low absolute scores the dimensions "largely measure the target's willingness, rather than severity of the uplift." That holds — but it means the fallback's safety case now rests entirely on the *capability gap* between the two models, and the gap is what shrinks with every release. When the fallback target is a generation behind on capability and two generations behind on alignment, "fall back rather than refuse" starts trading a small uplift reduction for a measurable willingness increase. The card's own gloss: "this highlights how improvements in alignment and safeguards can have surprising effects."
+
+One quantitative note on false-positive rates, which the open question below asks about: on FrontierBench, **Opus 5's classifiers flagged 5% of API calls across 4% of trials, against Fable 5's 42% of calls across 26% of trials** — an order-of-magnitude reduction in fallback frequency on a science-and-engineering agentic benchmark, consistent with the deliberately over-broad bio classifier being narrowed.
+
+## Measured from outside: a competitor counts the fallbacks (July 2026)
+
+Every figure above is Anthropic's own. [Moonshot AI's Kimi K3 card](/articles/kimi) (2026-07-26, `vendor-claim`) supplies the first **third-party** counts, as incidental disclosure in its benchmark footnotes:
+
+| Benchmark | Fable 5 fallback / refusal rate |
+|---|---|
+| SWE-Marathon (Claude Code harness) | **fallbacks on 35% of tasks** |
+| Kimi Code Bench 2.0 (80 tasks, includes cyber/safety content) | **13 fallbacks + 1 refusal = 17.5%** |
+| Agents' Last Exam (leaderboard entry, xhigh) | **40% of tasks annotated as downgraded** |
+
+Two things make these worth recording. First, they are **against the reporting party's interest** — Moonshot explicitly notes the SWE-Marathon rate "may have negatively impacted [Fable 5's] measured performance," conceding a confound that flatters its own model. Second, they are broadly consistent with Anthropic's FrontierBench figure of **26% of trials** and extend it: SWE-Marathon is ordinary long-horizon software engineering with no cyber or bio framing, and it produced the *highest* rate of the three. If that holds, the conservative tuning is not confined to science-and-engineering-adjacent work; it fires on plain agentic coding.
+
+The card also reports refusals — not fallbacks — for the OpenAI models on the same 80-task set (GPT-5.6 Sol: 10 refusals via its "cyber guard"; GPT-5.5: 3). That is the fallback-not-refusal design working as intended, visible in a competitor's data: Anthropic's models are *downgraded* where OpenAI's simply decline, and only one of those two outcomes leaves a usable answer behind.
+
+Caveats: these are counts from one vendor's evaluation runs, unaudited, with no per-task detail and no way to separate the bio classifier from the cyber or distillation ones. And a fallback rate measured on a benchmark harness is still a benchmark proxy for professional traffic — see [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) for what else these footnotes do and don't control.
+
+**A workload abandoned over it (2026-07-24).** [Cline](/articles/cline) reports trying its autonomous harness-optimization campaign ([Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization)) with Fable 5 as the leader model and giving up: "its AI safety filter kept downgrading the model to Opus-4.8." It reran the campaign on GPT-5.6-Sol instead, and notes separately that "its safety filter repeatedly blocked us from doing AI evals research." This is a passing remark in a blog post, not a measurement — no rate, no per-prompt detail, no way to tell which classifier fired — but it is a different *kind* of evidence from the counts above: not a percentage inside a scored benchmark run, but a real 17-hour engineering workload that a third party **stopped attempting** because of the fallback. The workload is ordinary agent-harness debugging with no cyber or bio framing; the plausible trigger is the campaign's subject matter (evaluation, benchmark scoring, agent self-modification) reading as adjacent to a gated domain. Worth recording precisely because the cost of a fallback that fires on a long-horizon autonomous run is not a lower score — it is the run being abandoned, which no benchmark table can show.
+
 ## Where it sits
 
 [RSP](/articles/responsible-scaling-policy-evals) determines *which* capabilities need gating (cyber, CB, AI-R&D, misalignment); this architecture is *how* the cyber/bio gate is implemented at inference for a generally-released model. It is the deployment-time complement to the training-time and policy-level brakes — and the operational answer to the question Mythos Preview left open: *how do you ship Mythos-class capability to everyone without shipping the uplift?*
@@ -72,18 +107,26 @@ Coupled to the safeguards: Anthropic now **requires 30-day data retention for al
 - [Claude Fable 5](/articles/claude-fable-5) — the model that ships these safeguards on
 - [Claude Mythos 5](/articles/claude-mythos-5) — the model with these safeguards lifted; the contrast that defines the two SKUs
 - [Claude Opus 4.8](/articles/claude-opus-4-8) — the fallback target; the "far better than refusal" experience rests on it being highly capable in its own right
+- [Claude Opus 5](/articles/claude-opus-5) — the model that inverts the logic: falling back to Opus 4.8 makes the deployed system *less* aligned, leaving the safety case resting on the capability gap alone
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — the audit variant run with fallbacks enabled, which is how the regression was measured
 - [Claude Sonnet 5](/articles/claude-sonnet-5) — a lower-risk point on the same safeguard spectrum: *native* low cyber capability (no deliberate train-down), inference-time detect-and-block at the Opus-4.7/4.8 strictness level, and *no* model-swap fallback — Anthropic judged the uplift risk too low to warrant Fable 5's broader classifier-plus-fallback regime
 - [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — the safeguard's own success criterion: make jailbreaks slow/costly enough to catch before scaled use
 - [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — this entire architecture presupposes a server the vendor controls; an open-weight release forfeits it, along with suspension and retention
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the footnotes that produced the outside fallback counts, and what they still fail to control for; a safeguard that fires on 35% of a benchmark is a confound the grid never displays
+- [Kimi (Moonshot AI)](/articles/kimi) — the competitor whose evaluation footnotes measure this architecture's firing rate from outside Anthropic
+- [Cline](/articles/cline) — the outside party that abandoned a real long-horizon workload rather than absorb the downgrades; the anecdotal counterpart to Moonshot's counts
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the campaign that was moved off Fable 5; a fallback firing mid-run on a 17-hour autonomous job costs the whole run, not a few points
 - [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — *different sense of "capability" — do not conflate.* Here, *capability* = a model's dangerous knowledge level, and the "gate" is a query-level classifier that routes risky prompts to a weaker model (fallback-not-refusal). There, *capability* = which tools are exposed to an agent, and the thesis is that gating capabilities is **not** authorizing calls (a tool-call-level per-argument-value check). Same word, orthogonal mechanisms — one routes models by query risk, the other authorizes tool-call arguments against operator policy
 
 ## Open Questions
 
-- The >95%/&lt;5% figures are session-level; what's the false-positive rate for *legitimate* security researchers and biologists, whose benign queries are exactly the ones most likely to trip the conservative classifiers?
-- Fallback-not-refusal preserves UX but means the *real* general-access model for security/bio-adjacent work is Opus 4.8, not Fable — does that quietly cap Fable's value for whole professional segments until the trusted-access programs open?
+- The >95%/&lt;5% figures are session-level; what's the false-positive rate for *legitimate* security researchers and biologists, whose benign queries are exactly the ones most likely to trip the conservative classifiers? **Partially answered:** on FrontierBench (74 hard science/engineering terminal tasks), [Claude Opus 5](/articles/claude-opus-5)'s classifiers flagged **5% of API calls in 4% of trials** where Fable 5's flagged **42% in 26%** — so the over-broad tuning was costing roughly a quarter of trials on exactly this kind of legitimate technical work, and has been substantially narrowed. Still a benchmark proxy, not measured professional traffic. **Further evidence (2026-07-30):** a competitor's benchmark runs ([Kimi K3 card](/articles/kimi)) put Fable 5's fallback rate at **35% of SWE-Marathon tasks**, 17.5% of Kimi Code Bench tasks and 40% "downgraded" on Agents' Last Exam — corroborating the order of magnitude from outside Anthropic, and locating it on plain software engineering rather than only on science-adjacent work. Still benchmarks, still not professional traffic.
+- Fallback-not-refusal preserves UX but means the *real* general-access model for security/bio-adjacent work is Opus 4.8, not Fable — does that quietly cap Fable's value for whole professional segments until the trusted-access programs open? **Partially answered (anecdote, 2026-07-24):** [Cline](/articles/cline) abandoned a 17-hour autonomous evals-research campaign on Fable 5 because the classifier "kept downgrading the model to Opus-4.8," and ran it on a competitor's model instead — the first instance in this corpus of the cap being paid as a *lost workload* rather than as a lower benchmark score, and from outside Anthropic. One vendor's passing remark with no rate attached; it establishes the failure mode exists in the wild, not its frequency.
 - The UK AISI's "progress toward a universal jailbreak" is disclosed but not quantified — and the post-launch **access suspension** (see [Claude Fable 5](/articles/claude-fable-5)) raises the question of whether a safeguard failure forced it.
 - Does swapping to a weaker model on flagged topics create an exploitable oracle (probe which queries trigger fallback to map the classifier's boundary)?
 
 ## Sources
 
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) — §"Claude Fable 5's new safeguards" (safety classifiers; cyber/bio/distillation coverage; red-teaming; 30-day retention)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — §6.4.7 (behavioral audit with Trust & Safety fallbacks enabled; the alignment regression and Anthropic's capability-gap rationale), §8.5 (classifier flag rates on FrontierBench). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §3 footnotes 2 and 3 (2026-07-26, `vendor-claim`): Fable 5 fallback fractions on SWE-Marathon, Kimi Code Bench 2.0 and Agents' Last Exam, plus refusal counts for GPT-5.6 Sol and GPT-5.5 on the same task set

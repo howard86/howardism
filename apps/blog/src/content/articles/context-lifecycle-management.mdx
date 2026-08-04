@@ -1,0 +1,414 @@
+---
+date: 2026-08-03
+title: Context Lifecycle Management
+description: "Treating an agent's active context as indexed runtime objects with
+  a lifecycle (fold / mask / prune, recoverable sidecars, cache-aware commit)
+  rather than a token buffer to trim or a transcript to summarize —
+  Xiaohongshu's Self-GC is the corpus's only measured treatment: 43.95%
+  prefix-token pruning at 84.85% no-impact on a 33-session Hard Set vs
+  54.55–69.70% for heuristics, 91.27–94.58% vs 77.71–87.46% on 332 production
+  sessions, and 10–15% (peak ~20%) lower daytime input tokens in a live
+  account-level split; plus the category's taxonomy and its analytic cost case
+  from a vendor-authored second source — five primitives (architecting,
+  ingesting, scoping, anticipating, compacting) across a user/customer/client
+  scope hierarchy, full-append billed at t·n(n+1)/2 = O(n²) against a bounded
+  O(n) for a 6×/13×/31× multiple at 100/200/500 turns, and validated
+  compaction's own overhead as a fixed 1+c/p factor rather than a growing tax;
+  plus RCWT's allocation-side measurement of the *other* consumer — coordination
+  content — where the fixed-budget cliff at a realized 83–90% share is
+  truncation of task evidence, an intact-task ablation holds at ceiling to a 95%
+  coordination ratio with no cliff at all, and the transition is governed by a
+  task-specific residual token reserve (568–665 tok for spec recall, 1539–2126
+  for DROP) rather than any percentage"
+tag: Concept
+domain: agent-systems
+tags:
+  - context-management
+  - agent-engineering
+  - llm-architecture
+  - cost
+readingTime: 57
+imageAlt: Illustration for Context Lifecycle Management
+sources:
+  - title: "Self-GC: Self-Governing Context for Long-Horizon LLM Agents"
+    url: https://arxiv.org/pdf/2607.00692
+  - title: "Agentic Context Management: Solving Agent Memory and Cost by Treating
+      Them as Lifecycle and Architecture Problems"
+    url: https://arxiv.org/pdf/2607.21503
+  - title: "RCWT: Measuring Task-Budget Displacement from Coordination Content in
+      LLM Calls"
+    url: https://arxiv.org/pdf/2607.12216
+---
+export { default as heroImage } from "../assets/context-lifecycle-management.webp";
+
+## Sources
+
+- [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503)
+- [RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls](https://arxiv.org/pdf/2607.12216)
+- [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692)
+
+## Summary
+
+Most deployed context management treats agent history as **a linear token buffer**: prune spans by age/length/type during the run, or wait until the window fills and ask the model to summarize. **Self-GC** (Xubin Hao, Hongjin Meng, Xin Yin, Jiawei Zhu, Chenpeng Cao — [Xiaohongshu](/articles/xiaohongshu), arXiv 2607.00692, 2026-07-01, `empirical`) argues both are the wrong data model. Long-horizon agent context is a **collection of runtime objects with different lifecycle requirements**: some obsolete, some repetitive-but-structurally-useful, some bulky yet required to stay *exactly recoverable*. Whether an edit is safe is decided not by chronological position but by **whether the object will serve as a future dependency**.
+
+The name deliberately echoes garbage collection, and the analogy is load-bearing: the system does not merely reclaim unused tokens, it governs object lifecycle — allocation (stable ids), state (`active` / `folded` / `masked` / `pruned`), and a recovery path (sidecar storage) for anything it moves out of the live view.
+
+This is the corpus's first **measured** treatment of a topic otherwise covered from vendor and practitioner sources ([Context Window Smart Zone](/articles/context-window-smart-zone), `/compact`, auto-compaction). Where its measurements bear on those claims, they win — see *Measured against the practitioner claims* below.
+
+## Three families of context management
+
+| Family | Mechanism | What it loses |
+|---|---|---|
+| **In-run heuristics** | chronological pruning, tool-output masking, greedy tool deletion | "cheap but blind to future dependencies" — cannot tell whether an old tool output holds the only URL, table value, file path, or editable body a later step needs |
+| **End-of-window self-summary** | model summarizes prior interaction near the limit | "preserves narrative state but hides exact evidence, locators, and editable artifacts" — compresses to prose that can no longer be addressed, audited, or restored |
+| **Object lifecycle (Self-GC)** | indexed objects + planner-proposed fold/mask/prune + harness-enforced recovery | pruning rate: it deliberately removes *less* (see the trade-off below) |
+
+Self-GC is complementary to memory stores (MemGPT, Mem0, A-MEM, HippoRAG) — those move knowledge *out* of the run; this governs the active prompt view *during* it. It also sits **above the KV layer**: H2O, SnapKV, PyramidKV and friends evict inside the model; Self-GC edits the semantic active view and commits only when savings justify the cache break.
+
+## Indexed context objects
+
+The transcript is mapped into addressable objects instead of raw message text, with ids from a session-local monotonic allocator:
+
+- `conversation:user:k` — a visible user request and its following execution span. The id lives in the turn's header metadata.
+- `function:<tool>:n` — a tool-level span, editable independently. The id is a lightweight XML boundary tag.
+- **Assistant turns are not first-class GC targets** — they carry connective text and tool-call envelopes, so the harness preserves or normalizes them whenever adjacent objects change. (Figure 7 makes this explicit: assistant connective text is drawn outside the object model entirely.)
+
+These ids are *control metadata*, not assistant prose, so the planner targets exact objects and the harness replays, validates, and recovers without fuzzy text matching. The index does three jobs: stable targets for the planner, lifecycle state for the harness, and a separation of the recovery path from summary prose. **A compressed active view can still point at byte-exact folded payloads** — that is the central difference from a final summary.
+
+## Fold, mask, prune
+
+Each object receives at most one lifecycle action. Figure 3 gives the concrete before/after forms, which the prose does not:
+
+- **Fold** — the exact payload moves to a **sidecar file** (markdown, e.g. `fold-recover/__webfetch_4.md`) and a compact recovery pointer stays in the view. The pointer is injected as a `<system-reminder>` control-plane block attached to the relevant *user* message, **not** as assistant-authored prose — so later assistant turns are less likely to imitate internal fold tags. Fold is for large stable bodies that may need *idempotent* recovery (a generated report body, an editable SQL/script block).
+- **Mask** — keeps object boundaries and elides the low-signal middle. The implementation keeps roughly **the first 10% and last 10%** of the body (Figures 3 and 7). Good for repetitive log-like output; explicitly **bad for sparse tables, stack traces, and diff hunks**, where the signal is in the middle. Figure 3 also notes tool results containing **images degrade to prune** — image payloads are not recoverable through masking.
+- **Prune** — removes obsolete content with **no recovery guarantee**; the matching assistant tool-call envelope is stripped during projection normalization. Reserved for obsolete failed attempts and superseded reads.
+
+The mapping to agent traces: a failed command log gets pruned, a repeated browser snapshot gets masked, a generated report body must be folded so a later turn can quote or revise it exactly.
+
+## Plan → rehearse → commit
+
+The division of labor is the design's core claim: **the model supplies semantic judgment about future value; the harness enforces runtime invariants.**
+
+1. **Plan (side channel).** On token pressure, a turn boundary, or a policy trigger, the harness *forks the current prefix* and appends planner-only instructions. The planner sees indexed objects and emits XML — one `<above_conversation_summary>` plus a `<gc_plan>` of grouped `fold`/`mask`/`prune` targets over **existing identifiers only**. It never rewrites the conversation or produces the active view. The prompt is an *object-action contract*, not a summarize prompt: ordered exclusion → dependency → granularity → action → sanity-check rules, with few-shot examples calibrated on exact anchors, editable artifacts, live handles, and source-backed evidence.
+2. **Rehearse (locally, off the main loop).** The harness resolves targets, drops invalid or cut-turn edits, normalizes overlapping actions, materializes the projected view, and estimates savings. **Rejected plans never touch the main agent loop** (Figure 6 shows plan #2 dropped at rehearsal with no effect on the timeline).
+3. **Commit (safe turn boundary only).** Accepted plans stay *pending* until a safe boundary, where the harness merges with the current view, repairs parent lineage to the nearest surviving ancestors, persists sidecars, and normalizes provider messages.
+
+Mandatory last-turn retention is enforced by the harness, not trusted to the planner — and the audit shows why: planners *do* try to compress the latest visible user turn (Qwen3.6-Plus in 25/330 parsed plans, Qwen3.7-Max 15/330, GLM-5.1 12/328). The prompt usually works; the residual risk is what the deterministic filter is for.
+
+## Cache-aware commit
+
+Committing a GC plan changes the active view and therefore **invalidates part of the provider prefix cache** — which is why naive pruning can *raise* cost even as it lowers token counts. Self-GC prices the decision:
+
+```
+CommitBenefit ≈ N_future · (C − C′) − L_cache_break − L_GC
+```
+
+`C`/`C′` are average input costs before and after commit, `N_future` is expected reuse, and the last two terms are the cache break and GC overhead **including the side-channel planner call**. A deployment regression over observed trigger points found immediate commit is positive-value once expected active-view pruning exceeds **0.3**; below that the plan can stay pending until cache expiry or the next task boundary. The paper is explicit that this is *an operating policy, not a universal constant*.
+
+Figure 6 shows the mechanic directly: a stable prefix-cache hit runs the length of the session, the commit invalidates only the suffix, and the tail re-caches. This is the mechanism behind [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token)'s missing token axis — a context-management policy is a cost policy, and token reduction and billed cost can move in opposite directions. It is also the quantified version of the cache-stability warnings already in [Agent Context Files](/articles/agent-context-files) and [Client-Side Agent Optimization](/articles/client-side-agent-optimization): don't break the prefix cache mid-session unless the expected savings clear the break.
+
+## The measurement
+
+**No-impact rate** is the metric that matters and it is **higher-is-better**: given the retained prefix, candidate plan, before/after patches, and the *real* future turns, a GPT-5.5 judge checks whether exact URLs, paths, row values, task identifiers, editable bodies, and source-backed evidence remain available. Narrative coherence alone is explicitly insufficient. Wilson 95% CIs are reported. Pruning rate is the mean fraction of prefix tokens removed.
+
+Datasets are production-derived: 15,141 raw trace rows → 9,075 compaction-triggered traces → a **332-session Production Suite** and a **33-session Hard Set** (highest sustained tool pressure, skewed toward browser/shell/web-fetch).
+
+**Hard Set (n=33)** — higher no-impact is better:
+
+| Method | Prune % | No-impact % | 95% CI |
+|---|---|---|---|
+| Oldest-turn | 63.45 | 66.67 | [49.61, 80.25] |
+| Tool-prune | 67.93 | 69.70 | [52.66, 82.62] |
+| Tool-mask+prune | 61.90 | 54.55 | [37.99, 70.16] |
+| Hybrid | 69.87 | 57.58 | [40.81, 72.76] |
+| **Self-GC** | **43.95** | **84.85** | [69.08, 93.35] |
+
+**Production Suite (n=332)**:
+
+| Method | Prune % | No-impact % | 95% CI |
+|---|---|---|---|
+| Oldest-turn | 40.19 | 87.46 | [83.46, 90.60] |
+| Tool-prune | 47.76 | 77.71 | [72.93, 81.86] |
+| Tool-mask+prune | 47.75 | 80.12 | [75.49, 84.06] |
+| Hybrid | 46.28 | 83.73 | [79.38, 87.31] |
+| **Self-GC (Qwen3.6-Plus)** | 31.51 | 92.77 | [89.47, 95.09] |
+| **Self-GC (Qwen3.7-Max)** | 33.98 | **94.58** | [91.59, 96.54] |
+| **Self-GC (GLM-5.1)** | 31.04 | 91.27 | [87.74, 93.85] |
+
+Read the tables as a **trade-off, not a win on every axis**: Self-GC prunes *substantially less* than every baseline and buys preservation with the tokens it declines to remove. Figure 4 plots this cleanly — Self-GC sits up-left on both suites (less pruning, higher preservation) with no overlap against the heuristic cloud. On the Hard Set the confidence intervals are wide (n=33) and Self-GC's [69.08, 93.35] overlaps tool-prune's upper bound; on the Production Suite the separation is clean. Planner-backbone spread is modest — all three mid-tier planners clear 90% — which supports **using a cheap planner as long as the harness enforces the deterministic safety checks**.
+
+An A/B judge calibration on 20 disagreement cases prefers Self-GC 11×, ties 7×, prefers oldest-turn-fold 2× (calibrated 92.77 vs 87.46 from raw single-prompt 92.47 vs 89.76).
+
+### Production, not a lab benchmark
+
+The online result is an **account-level split on live Xiaohongshu traffic**: accounts whose email first character is lexicographically ≥ `o` get Self-GC, earlier accounts are control; coverage includes `context-gc` (interactive chat cleanup) and `skill-gc` (long-lived skill-state pruning). Over May 25–30, 08:00–22:00 the treatment group averages **10–15% fewer main-agent input tokens, peaking near 20%**.
+
+That is close to an A/B test and much stronger than the case studies this wiki usually gets — but the authors themselves fence it: it is **production monitoring evidence, not a fully randomized quality experiment**, there is **no matched billed-cost audit** including planner overhead, and the last window includes volatile month-end batch traffic. Two things to keep from Figure 5 that the prose omits: the deltas are visible on essentially every daytime hour of all six days (not an artifact of one spike), and the **absolute magnitude is ~70–90k average input tokens per request** — these are agent sessions running deep into the context window as a matter of routine, which is what makes a 10–15% cut worth engineering for.
+
+## The failure taxonomy
+
+The most portable artifact in the paper is its **dependency-centered failure taxonomy** — it asks *what future action becomes unsupported*, not which message type was removed. Six categories, each with the symptom that shows up downstream:
+
+| Loss | Symptom |
+|---|---|
+| **Evidence detail** (rows, table values, SQL filters, stack frames) | the agent can continue the story but cannot reproduce, audit, or revise the result |
+| **Locator / handle** (file paths, doc/task/session ids, wait handles, callback URLs) | it knows the artifact exists but cannot reopen, rerun, wait for, or deliver it |
+| **Behavioral contract** (user corrections, schema rules, instruction files, policy) | later edits drift from the requested rule while the high-level task stays visible |
+| **Verbatim source** (original wording, quotes, generated bodies) | a summary is plausible but cannot answer a restore/quote/exact-copy request |
+| **Live state** (current blocker, corrected rerun result, latest handoff) | **the retained prefix looks complete while the real task is blocked or was just corrected** |
+| **Recovery routing** (sidecar exists, view lacks route info) | recovery is technically possible but practically undiscoverable later |
+
+The live-state row is a context-management instance of [Failures That Look Like Success](/articles/failures-that-look-like-success): nothing errors, the transcript reads coherent, and the agent proceeds from a stale world model.
+
+Two case studies make it concrete. In a document-repair session a user repeatedly warned the agent not to replace a table header wholesale; the chronological baseline folded the warning into a summary and the behavioral contract was lost, while Self-GC pruned the failed tool outputs and kept the warning bridge visible. In a multi-record data-entry pipeline the strongest chronological baseline folded the *seeding* phase because it was old — destroying the task-contract file and reference database that governed every later record.
+
+### Why the workload flips the ranking
+
+The baselines' relative order **reverses between suites**, and the explanation generalizes past this paper: tool-pruning is competitive on BI-heavy Hard Set sessions where dumps can be re-queried, while chronological folding wins on DOC/CODE-heavy Production Suite sessions where short tool outputs carry unique artifact ids. The underlying asymmetry is **whether the workload has an external memory substrate**. Coding tasks have git history, build logs, tests, and rerunnable commands; office-style workflows often have no agent-accessible version substrate, so a short tool output may be the only recoverable business evidence. *Any* context policy benchmarked only on coding traces is being graded on the easy regime.
+
+## Measured against the practitioner claims
+
+- **Summarization's cost is now quantified, not intuited.** [Context Window Smart Zone](/articles/context-window-smart-zone) records [Matt Pocock](/articles/matt-pocock)'s claim that compaction accumulates lossy "sediment" and clearing is better. Self-GC's judge protocol measures the specific thing that sediment is: not blurriness in general, but the loss of *exact evidence, locators, editable artifacts, and live state*. The practitioner intuition survives the measurement; the mechanism is sharper than the metaphor.
+- **The clear-vs-compact choice was framed as binary and isn't.** The smart-zone page's decision rule — clear if the task resumes cleanly from a written record, compact if you need in-flight context — has a measured third option: keep the run alive but govern it at object granularity with byte-exact recovery. That is precisely the case ("needs in-flight context *and* exact artifacts") where both existing options are bad.
+- **"Prune harder" is not free, and the direction is measurable.** Every heuristic here removes 62–70% of Hard Set tokens and lands at 55–70% no-impact. The relationship between aggression and damage is monotone enough across nine method-suite pairs to treat as real. A harness that keeps sessions inside the smart zone by cutting aggressively is trading a quadratic-attention problem for a missing-dependency problem.
+- **The planner can be cheap; the enforcement cannot be.** Three mid-tier planners land within ~3pp of each other, and the safety-critical behavior (never touch the latest turn) fails 4–8% of the time in *all* of them. This is [Agent Harness Engineering](/articles/agent-harness-engineering)'s "enforce invariants, not implementations" reproduced from a measurement rather than a principle.
+
+## Limitations worth carrying
+
+Traces are production-derived but unreleasable (private user data); no sanitized fixtures, prompt templates, per-sample judge outputs, or scripts are published yet. The headline offline metric is **judge-based no-impact, not full online replay success** — no agent actually ran the future turns against the pruned context. The A/B calibration set is 20 cases. Online logs show input-token reduction under an operational split, not a randomized quality experiment or a billed-cost audit. Recovery *success* (does the agent actually find and use the sidecar?) is named as future work, not measured — which leaves the recovery-routing failure category the least evidenced row in its own taxonomy.
+
+## The category named, and the cost case for it
+
+*Agentic Context Management* (Gaurav Dadhich, arXiv 2607.21503, 2026-07-23, `empirical`) reaches this page's thesis from the opposite end — not a measured mechanism but a **taxonomy plus an economic argument** — and gives the discipline a name. Its diagnosis of the incumbent framing is the sharpest one-liner the corpus has for why this page exists:
+
+> "'Memory' names a store i.e. a place to put facts and get them back. A system built around a store optimizes exactly two moments viz. the write and the read." Storage is *one moment in a lifecycle, not the whole*.
+
+> **Evidence note — the conflict of interest is total, and the paper's two halves deserve very different weight.** Sole author, affiliated with **Maximem**, whose **Synap** product is both the paper's reference implementation and its benchmark subject. Every headline figure is a **self-report about the author's own product**, and Table 3 is a vendor-authored competitive comparison. The **cost argument is analytic** — it follows from token arithmetic any reader can redo, is logically independent of Synap, and is the part worth carrying. The **benchmark numbers are vendor self-reports** and are attributed as such throughout. The paper's own configuration discipline is unusually good (see *Table 2* below), which makes its single lapse — drawing a comparative conclusion from a table it has just declared non-comparable — more conspicuous rather than less.
+
+### Five primitives, across three scopes
+
+The decomposition, with the paper's own one-line glosses (from Figure 1, which is more compact than the prose):
+
+| Primitive | Decides | Named failure when absent |
+|---|---|---|
+| **Architecting** | the shape of memory — which categories matter, how they are extracted, where they live, how long they persist | junk accumulation (with *Ingesting*) |
+| **Ingesting** | turning raw signal into structured, retrievable memory | lost detail; identity fragmentation |
+| **Scoping** | what is relevant *now*, at what scope, under isolation | scope bleeding; cross-session amnesia |
+| **Anticipating** | what will be relevant *next* — speculative prefetch | retrieval stuck on the critical path |
+| **Compacting & Consolidation** | fitting the budget without dropping what will be needed | the accuracy cliff; quadratic cost growth |
+
+Two structural claims sit on top of it. First, **the primitives are coupled through the first one**: the architecture chosen governs what the other four should do (a support agent and a coding agent need different categories, retention and compaction), which is the paper's argument for a system rather than five assembled tools. Second, **every primitive operates across a scope hierarchy** — user → customer → client, resolved narrowest-first under strict isolation, with a separate **global knowledge layer** that Figure 1 marks explicitly as *entity canonicalization only, not a retrieval scope* (the prose leaves that ambiguous). The definitional payoff is the paper's category boundary, and it is worth reading as a vendor drawing a line where its product sits: *"a system that addresses one primitive well is a memory tool. A system that addresses all five coherently, across scopes, is a context-management platform."*
+
+**Anticipating is the one stage nothing else in this corpus covers.** Every other primitive has a measured treatment somewhere in the wiki; speculative prefetch of context an agent has not yet asked for does not. The paper names Letta's experimental *sleep-time agents* as the closest published kin and reports a "60%+ hit-rate consistently across clients" for its own — a bare vendor claim with no methodology, no definition of a hit, and no accounting for the speculative work discarded on a miss.
+
+The failure table is grounded in the vendor's own deployment notes plus published literature, and two of its rows carry numbers worth keeping:
+
+- **A 99.6% junk rate.** An audit of "one popular memory library" found **10,134 entries stored over 32 days, of which 38 were usable** — the rest boot-file restatements, cron noise, config dumps. A footnote corrects Maximem's *own* source post, which reported 97.8%; 38 of 10,134 is 99.6%. Read against [Memory and Context Poisoning](/articles/memory-and-context-poisoning)'s adversarial framing, this is the mundane version of the same substrate problem: a store with no admission control fills with garbage whether or not anyone is attacking it.
+- **The accuracy cliff, cited not measured.** Compressing an **18,282-token context to 122 tokens in one unvalidated step dropped task accuracy 66.7% → 57.1% — below the no-context baseline.** This is a *secondary* citation to Zhang et al. 2025 (Agentic Context Engineering, arXiv 2510.04618), not a result of this paper, and should always be attributed onward that way.
+
+### The cost argument, which is arithmetic rather than measurement
+
+This is the half that survives the COI, because nothing in it depends on Synap. Let each turn add *t* tokens over *n* turns. Full-append re-sends the whole history every turn, so input at turn *k* is *k·t* and
+
+```
+C_append = Σ(k=1..n) k·t = t·n(n+1)/2 ≈ (t/2)·n² = O(n²)
+C_bounded = n·W = O(n)
+R(n) = C_append / C_bounded = t·(n+1) / (2W) — linear in n
+```
+
+Providers bill per input token, so **cost grows quadratically in conversation length and the penalty multiple grows linearly**. At the paper's illustrative *t* = 500, *W* = 4,000 (Appendix A, reconciled — every cell matches the closed form):
+
+| Turns *n* | Full-append | Bounded | Multiple |
+|---|---|---|---|
+| 50 | 637,500 | 200,000 | 3.2× |
+| 100 | 2,525,000 | 400,000 | 6.3× |
+| 200 | 10,050,000 | 800,000 | 12.6× |
+| 500 | 62,625,000 | 2,000,000 | 31.3× |
+
+The three-way comparison the arithmetic produces (Table 2, verified clean) is the page's cleanest statement of the trade:
+
+| Approach | Token cost | Fidelity | Failure mode |
+|---|---|---|---|
+| Full-append | O(n²) | full, until context rot | cost explodes; long contexts degrade ("lost in the middle") |
+| Crude summarization | O(n) | lossy, unvalidated | the accuracy cliff |
+| **Validated compaction** | **O(n)** | **preserved + checked** | none — stated as the target, not a measured result |
+
+Figure 3 draws the frontier and adds one thing the prose does not: **validated compaction is plotted marginally *above* full-append on accuracy**, not merely level with it — the context-rot claim promoted into the picture without any measurement behind it. Treat that corner as an argument, not a finding.
+
+**The overhead model is the more useful half, and it is the part that bears on this page's own open question.** Validation is not free — compacting and checking spends tokens. But compaction runs periodically over the *already-compacted* context plus recent turns, never the full transcript, so each pass compresses a bounded context and the *number* of passes grows only linearly. If context is held near budget *W*, compaction fires every *p* turns at cost *c* times the bounded context, total cost over *N* turns is
+
+```
+N · W · (1 + c/p)
+```
+
+— the linear cost raised by a **fixed multiplicative factor**, not a growing tax. At *t* = 500, *W* = 4,000, *p* = 8, *c* = 2 (a flat 1.25× overhead) net savings against full-append run ~80% at 100 turns, ~90% at 200, ~96% at 500: the saving *grows* with conversation length rather than being eaten. The paper is explicit that iterated re-compaction is safe **only because each pass is validated** — without the loss check, repeated compression drifts straight into the context-collapse failure above.
+
+**Three caveats the paper states, and all three matter here.** The table is "illustrative, not measured." It assumes constant per-turn token addition. And it **explicitly ignores caching discounts**, on the argument that they "shift the constants but not the asymptotics" — which is exactly the assumption [Prompt-Cache Economics](/articles/prompt-cache-economics) and this page's own cache-aware-commit section refuse: at realistic *n* the constants are where the decision lives, a cache break is charged at a *worse* rate than an uncached token, and a 3× token reduction has been measured costing +40.1% on the bill. The asymptotic claim is fine; the design rule it implies is not derivable without the term this model drops. (The paper also notes per-call attention compute is quadratic *per turn*, making cumulative compute roughly cubic for full-append, and leads with billing as the cleaner claim.)
+
+### Validated compaction as a runtime contract
+
+Where Self-GC's no-impact rate is an **offline judge over a research eval**, this paper's compaction claim is a **runtime contract**: every compaction returns an explicit **validation score and compression ratio**, the system tests whether key information stays recoverable from the compacted result, and it **automatically retries with less aggressive compression when validation falls below threshold**. Compaction is category-aware — what must be preserved verbatim versus what may be abstracted is governed by the per-agent generated architecture. That is a meaningfully different artifact from a benchmark number: a per-call quality signal the application can read.
+
+It is also entirely unverifiable from outside. **The validation mechanism is explicitly not described** ("the mechanism internals are proprietary" is stated once for the whole system section), no validation-score distribution is published, and no ablation separates validated from unvalidated compaction on any benchmark. The paper's central technical claim — that verifiable, near-lossless compaction is achievable at production scale — is asserted and demonstrated only by product existence.
+
+### Retrieval hits are not reasoning sufficiency
+
+The paper's second analytic contribution, and the one with the widest reach beyond context management. Answer quality is bounded by a chain:
+
+```
+answer quality ≤ min(extraction quality, retrieval quality, reasoning sufficiency)
+```
+
+**Reasoning sufficiency is the term nobody measures.** Most retrieval evaluations score a hit when *a single gold document* appears in the top results — HotpotQA is scored against one supporting document per question even though multi-hop questions need two or more. Such an evaluation is *structurally blind* to the failure that matters most for an agent: retrieving a relevant document while missing the **bridge document** needed to complete the chain. The paper observed this qualitatively and, by its own design, could not quantify it — reported as an observation, not a result.
+
+Its motivating study (five corpora × 10,000 documents, 1,000 queries each, MRR@10) is presented by the author as **motivation, not a controlled benchmark**, with seven stated limitations (single operator, one keyword engine against one vector store, no chunking, 10k-per-corpus scale, single-gold scoring, no retained per-query traces, no fused hybrid or reranker arm). Read at that weight, two findings are still useful:
+
+| Regime | Keyword (Tantivy) | Vector (Chroma) | Leader |
+|---|---|---|---|
+| CodeXGLUE (NL → code) | 0.290 | **0.914** | vector, decisively |
+| MS MARCO (web) | 0.404 | 0.523 | vector |
+| SQuAD (factoid) | 0.605 | 0.614 | parity |
+| HotpotQA (multi-hop) | **0.549** | 0.495 | keyword, narrowly |
+| SciQ (science) | **0.815** | 0.614 | keyword, decisively |
+
+Retrieval method is **regime-dependent, and not narrowly so** — vector wins where the semantic gap is widest (a query for "sort a list" finding `bubble_sort`), keyword wins wherever the terms are specific entities rather than vibes ("mitochondria" is a key, not a similar concept). And the **vector tax**: indexing the same 10,000-document corpus took **60–100× longer** with embedding generation than with keyword indexing (0.39–0.45 s versus 26.3–43.1 s), a real constraint when an agent must read new material *now* and act on it *now*. The author's own no-chunking caveat is load-bearing on the reverse direction: `all-MiniLM-L6-v2` truncates long documents, so the vector side was effectively indexing only document heads everywhere except CodeXGLUE.
+
+### The benchmark numbers, and what Table 3 does not support
+
+Maximem Synap **self-reports 92.0% (460/500) on LongMemEval and 93.2% on LoCoMo categories 1–4**. The configuration discipline around those numbers is genuinely good and is the part to imitate: Table 2 states dataset, split, answer model (gpt-5-mini), judge (gpt-5-mini, binary CORRECT/WRONG against gold), retrieval configuration, an open harness, and a run-date repo tag, on the stated principle that *"an evaluation number [is] interpretable only when its full configuration is stated."* LoCoMo's adversarial category 5 — which measures abstention rather than memory and **moves the headline by ten points or more** — is excluded, matching the original paper, Mem0 and Zep. The per-category breakdown (verified clean) is reported plainly, weak cells included:
+
+| LongMemEval category | Score | LoCoMo category | Score |
+|---|---|---|---|
+| Single-session-user | 100.0% (70/70) | Multi-hop | 97.3% |
+| Single-session-preference | 100.0% (30/30) | Open-domain | 93.4% |
+| Knowledge-update | 100.0% (78/78) | Temporal | 90.8% |
+| Temporal-reasoning | 100.0% (133/133) | Single-hop | 88.8% |
+| Single-session-assistant | 87.5% (49/56) | **Overall (Cat 1–4)** | **93.2%** |
+| **Multi-session** | **75.2% (100/133)** | | |
+| **Overall** | **92.0% (460/500)** | | |
+
+The interesting cell is the worst one: **multi-session reasoning at 75.2%** carries essentially all the residual error, and it is precisely the reasoning-sufficiency regime above — joining information across separate sessions is where retrieving *a* relevant item is not enough.
+
+**Table 3 is a vendor-authored competitive comparison and this wiki does not treat its ranking as established.** The paper reproduces each vendor's own best self-reported LongMemEval figure — Maximem Synap 92.0% (gpt-5-mini answer, gpt-5-mini judge), SuperMemory 85.2% / 84.6% / 81.6% (Gemini-3 Pro / gpt-5 / gpt-4o, judged by gpt-4o), Zep 71.2% (gpt-4o, gpt-4o judge), Mem0 and Letta not published — and says in its own text that *"the rows are not comparable to one another."* They are not, and for a reason bigger than the one the paper gives: **both the answer model and the judge differ across rows.** The paper's own evidence that this dominates is in the same paragraph — SuperMemory's published sweep spans 81.6%–85.2% *across answer models alone*, a 3.6-point range on one system, which is most of its gap to the leader.
+
+**And then the paper draws a comparative conclusion from it anyway.** Immediately after declaring the rows incomparable: *"Maximem Synap's figure was produced with a smaller answer model (gpt-5-mini) than the strongest competitor configurations, which is the clearest sign that the gain comes from the context layer, not the answer model."* That is a head-to-head inference from a table just declared non-head-to-head, and it silently ignores the judge column — a system judged by the same small model that produced its answers is not obviously in the same measurement regime as one judged by gpt-4o. Carry the 92.0% as a self-report with a stated configuration; do not carry the ordering.
+
+### Where it sits against Self-GC
+
+The two sources agree on the thesis and split cleanly on evidence and scope:
+
+- **Self-GC measures; this one argues.** Self-GC's contribution is a no-impact rate over 332 production-derived sessions and a live account-level split. This paper's contribution is a taxonomy and a closed-form cost model. Neither substitutes for the other, and the analytic half is the more portable of the two because it needs no deployment to check.
+- **Opposite ends of the same operation.** Self-GC governs the *active prompt view* of one long-running session at object granularity. ACM's lifecycle spans acquisition to retirement across sessions, users and organizations — its `Scoping` and `Ingesting` primitives are about the store Self-GC explicitly calls complementary and out of scope.
+- **The cache term is the live disagreement.** Self-GC prices a context edit against the prefix-cache break it causes and will hold a plan pending below 0.3 expected pruning; ACM's model drops caching by assumption. Two lifecycle papers, three months apart, and only one of them thinks the cache is part of the arithmetic.
+- **Validation appears at different times.** Offline judge over candidate plans (Self-GC) versus a runtime score returned with every compaction (Synap, mechanism undisclosed). The runtime form is the more useful product surface and the less checkable claim.
+
+## The other consumer: coordination content, and why its cost is displacement not interference
+
+Everything above treats the window as consumed by *this agent's own accumulating history*. **RCWT** — the Roundtable Context Window Test (Brenda Lelis & Rodrigo Cabral-Carvalho, CloudWalk, Inc., [arXiv 2607.12216](https://arxiv.org/pdf/2607.12216), 2026-07-13, `empirical`) — measures the other consumer: **shared state, prior agent messages, tool observations, role prompts and summaries assembled into the same finite call as the current task.** For a call with budget *W*, let *c* be coordination content and *W − c* the residual task block; every coordination token is a token unavailable to task instructions or evidence. The paper names this **task-budget displacement**, and is explicit about what it is not — turn scheduling, retrieval policy, memory writes, tool failures and agent topology are all deliberately excluded, because mixing them in would obscure the local allocation effect. It measures the *cost* side of coordination and says nothing about its benefit.
+
+### Two experiments, and conflating them inverts the finding
+
+| | Fixed-budget RCWT (main) | Intact-task ablation |
+|---|---|---|
+| Budget | *W* = 4096 held fixed, `c + u + r = W` | total prompt **grows**; task block never shortened |
+| Ratio reported | `p = c/W`, the realized full-budget share | `c/(c+t)`, with *t* = 698 intact task/reference tokens |
+| Task evidence | prefix-**truncated** as *c* grows | intact in every condition |
+| Task format | open-ended structured technical analysis | eight exact JSON fields |
+| Scoring | binary LLM fact-checking judge, 8 effective items | deterministic per-field |
+| Result | **sharp cliff**, at a realized share of roughly **83–90%** | **no cliff at all** — 150/150 complete calls, 1200/1200 correct fields, up to a **0.95** coordination ratio |
+
+The "95%" belongs only to the right-hand column, and it is a **null result**: at a 0.95 ratio — 13,262 coordination tokens around a 698-token task block, ~13,965 tokens total — every tested call on GPT-4.1-mini, Claude Haiku 4.5 and Gemini 2.5 Flash returned all eight fields correctly (10/10 per cell, Wilson 95% CI ≈ [0.722, 1.000]; the 150/150 and 1200/1200 pooled totals are reported as descriptive, explicitly *not* as an independent-sample interval). Welding that ratio onto the main experiment's cliff — "accuracy holds to 95% coordination, then cliffs" — states the paper's conclusion backwards. **The cliff comes from truncation, and the 95% result is the evidence that coordination text is not intrinsically harmful.** Or in the paper's own words: the main effect is "task-budget displacement, not proof that coordination volume alone causes semantic interference."
+
+### The cliff, exactly
+
+*W* = 4096, `u` = 337 fixed instruction tokens, the runner targeting `q = c/(W − u)` and the analysis reporting the realized `p = c/W`. Effective binary accuracy over 8 scored items, 40 calls per model-target pair pooled over both prompt orders (Table A1, verified exact):
+
+| Target *q* | Realized *p* | Ref. *r* | Gemini 2.0 Flash | Haiku 4.5 | GPT-4.1-mini |
+|---|---|---|---|---|---|
+| 0% | 0.0% | 3759 | 1.000 | 0.972 | 1.000 |
+| 25% | 22.9% | 2820 | 0.960 | 0.906 | 0.972 |
+| 50% | 45.9% | 1880 | 0.944 | 0.894 | 0.988 |
+| 75% | 68.8% | 940 | 0.894 | 0.875 | 0.981 |
+| **90%** | **82.6%** | **376** | 0.659 | 0.666 | 0.853 |
+| 92% | 84.4% | 301 | 0.400 | 0.441 | 0.609 |
+| 94% | 86.3% | 226 | 0.016 | 0.113 | 0.413 |
+| 96% | 88.1% | 151 | 0.009 | 0.103 | 0.284 |
+| 98% | 89.9% | 76 | 0.006 | 0.038 | 0.331 |
+
+Accuracy is flat to a **69% coordination share** — three quarters of the call spent on coordination costs 3–10 points — and then falls off between 83% and 86%, once the reference block is down to a few hundred tokens. At the 82.6% row the drop from baseline is 34.1pp (Gemini), 30.6pp (Haiku), 14.7pp (GPT). Two things in the tail are worth noticing that the prose does not flag: the **model spread widens by an order of magnitude at the bottom** (0.006 vs 0.331 at *r* = 76), and **GPT-4.1-mini is non-monotone** across the last three rows (0.413 → 0.284 → 0.331). With 76 tokens of reference left, a score of 0.331 on eight facts is unlikely to be recall — and the paper's own limitations name the reason it might not be: the coordination template **overlaps topically with several scored concepts** (CRDTs, MLS, Redis, WebSockets, migration timing), so some facts may be recoverable from the coordination block itself.
+
+### The unit is a token reserve, not a percentage
+
+A fixed-percentage account would put the transition at the same realized *p* whatever the window. It doesn't. At the same target `q` = 90%, *W* = 4096 realizes *p* = 82.6% with 376 reference tokens and cliffs; *W* = 8192 realizes a **larger** share, *p* = 86.3%, leaves 786 reference tokens, and degrades **less**. The paper summarizes the transition with a task-specific residual budget θ, where `p₀(W) = 1 − θ/W` (Table 1, θ fitted on the *W* = 4096 runs and used to predict 8K):
+
+| Model | θ | Pred. *p*₀ (8K) | Obs. *p*₀ (8K) | Obs. *p*₀ (16K) |
+|---|---|---|---|---|
+| Gemini 2.0 Flash | 665 | 91.9% | 92.1% | 95.9% |
+| Claude Haiku 4.5 | 650 | 92.1% | 92.2% | 96.0% |
+| GPT-4.1-mini | 568 | 93.1% | 93.1% | 96.4% |
+
+Prediction and observation agree to a tenth of a point at 8K across all three models. Read carefully, though: θ is fitted at one window and checked at two more, so this is **calibration, not a validated invariant** — the authors say so twice. What it does establish is the *shape* of the right question. **"What percentage of my prompt is overhead" is the wrong instrument; "how many tokens of task evidence are left" is the right one** — and the same allocation that is safe at 8K is a cliff at 4K.
+
+### The reserve is a property of the task, and it moves ~3.5×
+
+Four probes at *W* = 4096, with the fitted logistic midpoint and the implied residual budget θ = *W*(1 − *p*₀):
+
+| Probe | Logistic *p*₀ | θ (residual task budget) | Truncation onset |
+|---|---|---|---|
+| Task 1 — spec recall | 0.838–0.861 | 568–665 tok | target *q* = 90% |
+| GSM8K-pack | 0.853–0.893 | 438–602 tok | 90% |
+| MMLU-Pro-pack | 0.733–0.755 | 1003–1094 tok | 50% (partial) |
+| DROP-pack | 0.481–0.624 | 1539–2126 tok | 50% |
+
+**The ~3.5× spread between the tightest and loosest task family (GSM8K 438–602, DROP 1539–2126) is the finding, not noise.** Self-contained arithmetic needs almost no evidence in the window; passage-grounded discrete reasoning needs a third of a 4K budget before the model has read anything. A single "keep coordination under X%" rule is therefore unbuildable — the number is per task family, and it has to be measured. (θ is the *whole* residual block `u + r`; for the main task that includes the 337-token instruction preamble, leaving a reference-only reserve of roughly 230–330 tokens.)
+
+### The counter-datum inside the paper
+
+Two boundary probes cut in opposite directions. The **self-contained algorithmic task** — a Python partition trace whose answers are fully determined by the code in the task block — is stable across every overhead level for all three providers, which is the cleanest statement that extra text alone does not degrade in the tested range. But **Claude Haiku 4.5 on the *untruncated* GSM8K pack falls from 0.60 at *p* = 0 to 0.40 at *p* = 0.25 and 0.38 at *p* = 0.50** — degradation with the task pack still fully present. The paper flags this itself: the pack probes "do not identify truncation as the only possible source of degradation." So the displacement account is the main effect and not the only one, and the single model-task exception lives in the *main* experimental format rather than in the easier ablation.
+
+### What this bounds, and what it doesn't
+
+The ablation's null is genuinely narrower than it reads. It changes **task format** (open-ended analysis → exact-field extraction), **scoring** (LLM judge → deterministic JSON), and one **model ID** (Gemini 2.0 Flash was unavailable for the rerun; 2.5 Flash was substituted) all at once — so it is a test for a *large* interference effect in an extraction-style intact-evidence setting, not a token-identical rescore of the open-ended task. It also tops out around **14,000 total tokens**, three orders of magnitude below the windows the systems on this page actually run in, so it says nothing about whether coordination volume interferes at 100k+ (where [Context Window Smart Zone](/articles/context-window-smart-zone) documents a separate, per-model degradation regime). Add the paper's own list: prefix truncation removes facts in a **fixed order**, so the fitted midpoint partly reflects reference layout rather than a task constant; the cliff-region sample points were added *after* early flat-region observations, making the curves descriptive rather than pre-registered; the coordination block is a single synthetic template, so nothing here generalizes across coordination *types* (dense tool output vs. verbose transcript vs. contradictory agent claims at the same token count).
+
+**What survives all of that is the operating rule, and it is directly this page's thesis arriving from the allocation side.** Neither nominal context window, nor average prompt length, nor coordination percentage is a safety signal. The quantity to instrument is the **residual task budget** — and the reason coordination content is dangerous is not that it competes semantically with the task, but that under a fixed budget it *evicts the evidence the task needs*, which is the same failure this page's taxonomy calls evidence-detail and verbatim-source loss, reached by a different route. Self-GC governs which objects get evicted; RCWT measures what the eviction costs when nothing governs it.
+
+## Connections
+
+- [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — lifecycle design as the anti-convergence mechanism rather than a cost control. SwarmResearch tiers context by role — search agents see their own worktree plus (for refiners) a forked copy of their parent's conversation, while the orchestrator sees only per-agent approach summaries and scores — on the theory that a long history of incremental refinements is what makes a large pivot unlikely. The durable artifact is `findings.md`, a lineage-local factual log of what was tried and what it scored, which lets a descendant inherit its ancestors' *results* without inheriting their transcript
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — where the coordination content this page prices actually comes from. RCWT's synthetic block (role/protocol text, agent messages, shared propositions, tool schemas) is a stand-in for the multi-agent tax that page tracks at the system level; the connection and its limits are drawn there
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the same lifecycle discipline as a shipped production contract rather than a research system: fold at 80% of budget into a typed checkpoint (durable decisions/constraints/rejected approaches, an eight-section resumability summary, verbatim user requirements, skill references), a protected verbatim tail of the 4–12 newest messages capped at 30% of budget, incremental fold-forward so compaction cost stays bounded, summarization on a cheaper helper model off the paying loop, and an **abort** rather than a persist when the summary comes back empty or degraded. Its offload half is the recoverable-sidecar idea generalized — tool output past 20K chars spills to a file behind a banner forbidding the model to infer success from the preview, and sub-agents return an 8 KB capped summary with citations the parent never reads. The cache-aware-commit question mostly disappears there because the prompt is *structured* so compaction rebuilds a cacheable prefix by construction. Vendor-authored, total COI, no ablation of the individual mechanisms
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the constraint this manages; that page's clear-vs-compact framing gets a measured third option here, and its "sediment" intuition gets a mechanism
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — accumulation cost with a bill attached. A harness-evolution loop persists each round's lessons into the system prompt and long-term memory, and Wang et al. (arXiv 2607.12227, `empirical`) report that "the growing volume of persistent prompt text introduces context bloat that can offset the remaining gains" — the loop's own output becomes the thing that needs lifecycle management, and no such loop has one
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — the cleanest instance of harness-vs-model division of labor in the corpus: the model proposes object actions, the harness owns validity, recoverability, lineage repair, and commit timing, and the planner audit shows why that split is not optional
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the same joint cost problem approached from the caching side, and the parametric form the 0.3 threshold is an instance of: CAPC derives a provider-agnostic crossover from three published prices (ρ_cross(r) = (α − 1/r)/(α − β)) and shows the resulting design rule swings hard with pricing and TTL — so a cache-break threshold measured on one provider does not transfer, though the formula generating it does. It also adds a **floor** this page lacks: pruning the cached prefix below Anthropic's ~3,500-token tier boundary drops ρ from 1.0 to ~0.85 and can *raise* per-query cost ~77% for a single increment of aggression, so aggressive GC is bounded from underneath as well as priced at the break. The two papers' failure modes rhyme: query-aware compressors underperform query-agnostic ones on tool selection (0.700 vs 0.603 set-IoU) precisely because optimizing for the current query discards what was a future dependency — this page's central claim, arriving as a compression result. It is also the direct rebuttal to the ACM cost model's one stated exclusion: that caching discounts "shift the constants but not the asymptotics" and can therefore be dropped. Asymptotically true and operationally wrong — a cache write is billed *above* an uncached token, a byte-identical prefix under ~3,500 tokens still misses about one call in six, and the corpus's only end-to-end billed audit has a 3× token reduction costing +40.1% more than sending nothing compressed. The constants are where every commit decision lives
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — cache-aware commit is the token-axis arithmetic that page says nobody publishes: prefix-cache disruption means a pruning policy can cut tokens and raise cost, and the 0.3-pruning break-even is the first published threshold for it
+- [Agent Context Files](/articles/agent-context-files) — the same prefix-cache constraint from the static side (don't mutate context files mid-session); Self-GC prices the break instead of forbidding it
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — its "don't break the prompt cache" deployment hazard, made into a commit-time decision rule with a threshold
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the live-state-loss row of the failure taxonomy is this class arriving through context management: the retained prefix reads complete while the real task is blocked or freshly corrected
+- [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) — compression priced at the belief layer rather than the token layer. Yi & Song's "repair-heavy" harness is a compaction policy by another name — fold a failure-repair-recovery sequence into the repaired transition the model sees — and *unrolling* what it folded is the largest single instrumentation effect in their paper (+0.131 belief divergence, 22 of 24 cases), while the same component moves almost nothing (+0.007) on a benchmark where those sequences are not present to begin with. That is the quantitative form of this page's live-state-loss category: what compaction removes is not tokens in general but specifically the evidence some later belief needed, so the cost of a fold is a property of the trace being folded and not of the policy. Their most transferable component points the same way — a **verification mask**, recording merely *whether* a state was checked, transfers across both benchmarks (18/24 and 8/10), an argument for treating verification status as a context object worth retaining rather than as bookkeeping to prune
+- [Tool-Output Pruning](/articles/tool-output-pruning) — the same verb one level upstream, and the corpus's second measured pruning system. Self-GC governs objects **already in the history**, with a planner proposing edits and the harness enforcing validity; SWE-Pruner Pro decides at the moment an observation *arrives*, per line, from the backbone's own hidden states, with no planner call and no external scorer. Three contrasts worth carrying: (1) Self-GC's prune has no recovery guarantee and is therefore reserved for *obsolete* content, whereas a learned head prunes **live** content it predicts will not be re-referenced — the same bet this page's failure taxonomy is built to distrust, made per line instead of per object; (2) Self-GC's mask keeps a fixed first-10%/last-10% of a body, which is exactly the length-agnostic policy the pruning head's length-aware embedding replaces with a learned one; (3) images degrade to prune under Self-GC and a line-scoring head cannot handle them at all. The evidence also rhymes: SWE-Pruner Pro's ablation finds that per-line F1 can rank a *useless* head above a useful one while an LLM judge separates them by 5-6 points, the pruning analogue of this page's "no-impact rate, not compression rate" metric choice
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — the orthogonal axis of the same question, and the two taxonomies compose. This page's six loss categories are **dependency-centered** (*what future action becomes unsupported*); that one's nine layers are **locus-centered** (*where the fact died*). Self-GC's own operations sit at two of those layers — history/state condensation is L2, agent-loop compaction is L8 — so the no-impact judge is an output-level detector for losses that method counts exactly, by exact-matching a planted canary at the boundary. That closes the gap this page names as unmeasured: recovery *success* (does the agent actually find and use the sidecar?) is a canary check at T2/T3, not a judgment call
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — the complementary token-reduction strategy: keep the noise *out* of the main context (delegate search to a subagent that returns compact citations) rather than governing it once it's in. Both attack main-agent token load; only one can help a trace that already exists
+- [Deep Research Agents](/articles/deep-research-agents) — the workload the Hard Set is drawn from (browser, shell, web-fetch traces where exact URLs and extracted values become future dependencies); long-horizon research runs are where object-level preservation pays
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — **the same primitive, built for confinement instead of cost.** APPA (Archestra AI, arXiv 2607.24625, `empirical`) forks the model-visible prefix into a child trajectory so a *restrictive read* happens off the parent, then merges back only a value whose security label the harness has checked — structurally Self-GC's plan-in-a-side-channel / rehearse / commit-at-a-safe-boundary, with a label check standing where the no-impact judge stands. The convergences are worth noting because the two papers share no citations: both make the harness (not the model) own validity and commit timing; both refuse to let a rejected branch touch the main loop; and both are explicitly **KV-cache-aware for the same reason** — APPA's stated argument for branching over a Dual-LLM verifier is that the child shares an exact token prefix with the parent, so no context re-synthesis is needed, and it deliberately registers its remedy tool at run start to avoid invalidating the prompt cache mid-run. Self-GC prices what a *destructive* prefix edit costs; APPA exploits what a *non-destructive* prefix fork gives for free. That the same context operation pays off on both axes is an argument for treating fork/merge as a first-class harness primitive rather than a feature of either system
+- [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) — the complementary half of the same boundary: this page governs the active prompt view *during* a run, that one moves knowledge permanently *out* of the run and makes the out-of-run store the object of improvement. Its agents are the limit case of the split — fresh context every attempt, so there is no in-run history to govern at all, and every dependency a later agent needs must already have been distilled into the store. It also supplies the counterpart to the "prune harder is not free" result from the other direction: delivering *more* stored knowledge is not free either, and its transfer adapter bounds every field at 0-3 items because a fixed quantity made recipient memory "noisy or detrimental"
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) — the same trade-off as a **modeled cost function** instead of a measured policy, and the architectural alternative to this page's within-agent answer. OrchBench gives each subtask a compression-sensitivity class (`robust` / `balanced` / `fragile`, quality retained as `e^γ` with γ = 0.35 / 0.85 / 1.25) — a parameterized form of "mask log-like output, never sparse tables or stack traces" — and prices an omitted cross-agent handoff at a flat 0.5 quality penalty, which is this page's locator/live-state loss row given a number. The complementarity is exact: Self-GC prices a **prefix-cache break** and treats information loss as the thing to avoid, while OrchBench prices **information** and treats the context limit as the thing to route around. Its context-limit sweep is the architectural corollary of this page's result — distributing state across agents and governing state inside one agent are two answers to the same overflow, and the first stops paying at 128k (multi-agent quality advantage +0.302 at 16k, +0.007 at 128k, and *behind* single-agent on 82% of model-problem pairs). Caveat when reading across: its single-agent baseline suffers compression loss only, with no attention degradation or long-context recall failure modeled
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — the same substrate read adversarially, and the reason `Scoping` is a security primitive rather than a UX one. ACM's *scope bleeding* failure mode — one user's context surfacing in another's session — is that page's **shared-context poisoning** variant arriving as an **ordinary production bug** with nobody attacking, which is the cheapest possible demonstration that flat user-scoped memory has no isolation to breach. Its `Architecting`/`Ingesting` row is the non-adversarial twin of the same page's admission-control gap (10,134 stored entries, 38 usable), and §8 names the security consequences of co-locating previously siloed organizational knowledge in one logical system as an open problem it has not solved. Identity derived from the stored credential rather than asserted by the client is the one control it specifies concretely
+- [Xiaohongshu](/articles/xiaohongshu) — the deploying organization
+- [Live-Path Minimalism](/articles/live-path-minimalism) — the serving-side dodge of the cache-aware-commit problem, from a system that cannot tolerate the break's latency at all: GPT-Live treats compaction as a managed instance transition — the original model instance keeps serving while a replacement is prefilled with the compacted context, and the session cuts over with no interruption. Where Self-GC *prices* the KV break and can hold a plan pending, this *hides* the break's latency behind a parallel instance; the prefill's compute cost is still paid, just off the path the user can hear. The trade generalizes: pricing the break suits billed third-party APIs, hiding it suits operators who own the serving stack
+
+## Open Questions
+
+- Does the input-token reduction survive a matched billed-cost audit once side-channel planner calls and prefix-cache breaks are charged? The paper reports prompt-surface impact and explicitly declines this claim. **Partially answered (2026-08-03):** [Prompt-Cache Economics](/articles/prompt-cache-economics) supplies the audit for the *class* but not for Self-GC — CAPC reconciles measured API spend against Anthropic's invoice to within 1% and finds a token-reducing technique (query-aware compression, 3× fewer tokens) costing **+40.1% more than sending nothing compressed** on τ-bench retail. So the concern the question encodes is real and measured; a Self-GC-specific billed-cost audit still doesn't exist. **Annotated (2026-08-04):** [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503) supplies an *analytic* bound on one half and explicitly declines the other. The overhead half: because each compaction pass operates on the already-compacted context plus recent turns, the number of passes grows only linearly and total cost is `N·W·(1 + c/p)` — a fixed multiplicative factor rather than a growing tax (~1.25× at the paper's illustrative p = 8, c = 2). If Self-GC's side-channel planner call behaves the same way, planner overhead cannot asymptotically eat the savings. The cache half is dropped by assumption ("ignore caching discounts, which shift the constants but not the asymptotics"), which is precisely the term the question is about — so this narrows the question to the cache break alone and answers none of it with a measurement.
+- Is the 0.3 expected-pruning break-even for immediate commit portable, or a function of one provider's cache pricing and TTL? Stated as an operating policy over one deployment's regression. **Partially answered (2026-08-03):** [Prompt-Cache Economics](/articles/prompt-cache-economics) settles the portability question in principle — the analogous threshold is ρ_cross(r) = (α − 1/r)/(α − β) over the write premium and read discount alone, and it moves sharply with both provider *and* TTL (α = 1.25 on Anthropic's 5-minute cache vs 2.0 on its 1-hour cache; OpenAI α = 1.0, β = 0.5). Read across, the number is not portable and the derivation is. Re-deriving 0.3 under that parametrization is now a synthesis over pages already in the wiki.
+- How does object-level GC compare against clear-and-restart on the same traces? No source in the corpus measures the two against each other, and they optimize different things — GC preserves in-run dependencies, clearing resets attention quality.
+- Has anyone other than a vendor measured that **validated** compaction actually preserves fidelity where crude summarization does not? The whole three-regime argument turns on a cell — linear cost *with* checked fidelity — that no source in the corpus has isolated. Maximem's 92.0%/93.2% are end-to-end system scores on conversational-memory benchmarks with no compaction ablation, its validation mechanism is undisclosed, and Self-GC's no-impact judge grades candidate *plans* offline rather than a returned validation score. The falsifiable form: an A/B of the same compactor with the information-loss check on and off, on the same traces, scored on downstream task success.
+- Does the "no semantic interference from coordination volume" null survive at the prompt lengths agents actually run? RCWT's intact-task ablation holds at ceiling to a 0.95 coordination ratio, but its largest condition is ~14,000 total tokens — while the sessions this page's other sources measure average 70–90k input tokens per request. The falsifiable form: rerun the intact-task ablation with the same 698-token task block at 100k, 250k and 500k of surrounding coordination content, on models whose per-model effective ceilings [Context Window Smart Zone](/articles/context-window-smart-zone) shows are not predicted by the advertised window. If the null holds there, displacement is the whole story; if it breaks, there are two mechanisms and the corpus has been attributing both to one.
+- What fraction of agent memory failures are **reasoning-sufficiency** failures rather than retrieval failures — the bridge document missing while a relevant document was returned? Every memory benchmark in the corpus scores a hit against a single gold target, so the quantity is structurally unmeasurable by all of them; the only bearing datum is that LongMemEval's multi-session category (75.2%) carries nearly all of one system's residual error. Named trigger: Maximem states a benchmark measuring accuracy, latency, token efficiency and context-rot resistance together is forthcoming.
+
+## Sources
+
+- [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692) — Hao, Meng, Yin, Zhu & Cao ([Xiaohongshu](/articles/xiaohongshu)), *Self-GC: Self-Governing Context for Long-Horizon LLM Agents*, arXiv 2607.00692, 2026-07-01, `empirical`. Framework (indexed objects, fold/mask/prune, plan-rehearse-commit, cache-aware commit and its CommitBenefit expression with the 0.3 threshold), Tables 1–4 (dataset pipeline, online split rule, Hard Set and Production Suite results with Wilson CIs), Tables 5–7 (prompt-safety mapping, runtime settings, failure taxonomy), planner-robustness audit, limitations. All 7 figures viewed per the image two-pass rule: Fig. 1 (object-graph vs token-buffer on a shared trace; internally labelled "ReCoG"), Fig. 2 (async side-channel planner, pending plan, delayed commit), Fig. 3 (concrete fold/mask/prune before-after JSON — the `<system-reminder>` fold pointer, the first-10%/last-10% mask, images degrading to prune), Fig. 4 (trade-off scatter, Self-GC up-left on both suites), Fig. 5 (six days of daytime input tokens, ~70–90k absolute, treatment below control on nearly every hour), Fig. 6 (prefix-cache timeline: stable hit, suffix invalidated at commit, re-cached; a rehearsal-dropped plan never reaching the main loop), Fig. 7 (ContextObject data model: id/span/state/action/recovery, assistant connective text excluded from GC targeting)
+- [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503) — Gaurav Dadhich (**sole author; Maximem** — correspondence `gaurav@maximem.ai`), *Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems*, arXiv 2607.21503, 2026-07-23, `empirical`. **Total vendor COI: the paper's reference implementation and sole benchmark subject is the author's own product (Maximem Synap), and Table 3 is a vendor-authored competitive comparison.** §2 (the five primitives, the coupling-through-architecture argument, the user/customer/client scope hierarchy, the memory-tool-vs-platform category boundary); Table 1 (production failure modes mapped to absent primitives — reconciled and clean: 10,134 entries / 38 usable / 99.6% junk rate, and the 18,282 → 122 token / 66.7% → 57.1% accuracy cliff, the latter a **secondary citation to Zhang et al. 2025, arXiv 2510.04618**, not a result of this paper); §3.1 + Appendix A (the O(n²) derivation, R(n) = t(n+1)/2W, and the illustrative sensitivity table — every cell independently recomputed against the closed form and correct); §3.2 + Table 2 (the three-way regime comparison, verified clean); §3.3 + Appendix B (the reasoning-sufficiency chain, the five-domain retrieval study and its seven stated limitations, Tables B1/B2 reconciled against the prose and clean); §4 (Synap's components by contract with internals declared proprietary; the 60%+ anticipation hit-rate vendor claim); §5 (the compaction-overhead model N·W·(1+c/p) and the ~80/90/96% savings figures, recomputed and internally consistent); §6.1–6.2 + Table 2 config disclosure and the per-category breakdown (verified clean; LongMemEval counts sum to 500 and 460); §6.3 (scope and limitations — no latency, no token-cost-per-task, no context-rot measurement, per-run artifacts on request only); §8 (decision-level context frontier, and the parenthetical "although we have solved most" claim about problems it lists as unsolved).
+ **Parse warnings.** **Table 3 (the vendor comparison) is cell-collapsed** — the Maximem Synap and SuperMemory rows are merged into one — and is **not cited as parsed**; the values quoted above were recovered and verified at ingest (Synap 92.0% gpt-5-mini/gpt-5-mini; SuperMemory 85.2%/84.6%/81.6% Gemini-3 Pro/gpt-5/gpt-4o judged by gpt-4o; Zep 71.2% gpt-4o/gpt-4o; Mem0 and Letta not published). **Table 4 (systems × primitive coverage) is badly scrambled** in the parse — the coverage glyphs and footnote markers are concatenated across columns and no row is recoverable — and is cited nowhere. Cosmetic only: docling escaped underscores in inline variable names (`bubble\_sort`), and the paper's in-figure IDs (F1, F3, F4, F7) do not match its caption numbering (Figures 1–4). Figures 1–4 viewed per the image two-pass rule and both carry content the prose omits — Figure 1 marks the global knowledge layer as *entity canonicalization only, not a retrieval scope*, and Figure 3 plots validated compaction marginally **above** full-append on accuracy rather than level with it, an unmeasured context-rot claim promoted into the picture. Figures 5–6 (block architecture, per-category bars) restate prose and tables already cited
+- [RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls](https://arxiv.org/pdf/2607.12216) — Brenda Lelis & Rodrigo Cabral-Carvalho (**CloudWalk, Inc.**, São Paulo), *RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls*, arXiv 2607.12216, 2026-07-13, `empirical`. §3.1 (the fixed-budget protocol: `c + u + r = W`, *u* = 337, cl100k_base construction, the runner target `q = c/(W−u)` versus the reported `p = c/W`, the 8 effective scored items and the two excluded floor-effect items); §3.2 (the logistic form and the residual-budget parameter θ, with the authors' own "compact interpolation, not a universal law" caveat); §3.3 (the intact-task ablation — *t* = 698, ratios 0/0.50/0.75/0.90/0.95, N=5 per order pooled to 10 calls and 80 field decisions per cell, deterministic JSON scoring, Gemini 2.5 Flash substituted for the unavailable 2.0 Flash); §4.1–4.4 (the cliff, the window-scaling argument, the ablation null, the self-contained algorithmic probe and the Haiku/GSM8K exception); §5–6 (scope, the explicit refusal of the semantic-interference reading, coordination heterogeneity, and the full limitations list); Appendix A. **Table A1 and Table 1 were both reconciled against the PDF and are exact as parsed.** Figure 1 viewed per the image two-pass rule — it confirms Table A1, shades the cliff region from ~83% onward, and shows GPT-4.1-mini's non-monotone tail that the prose does not mention. **Parse warning: Table 2 (task-dependent logistic midpoints) is cell-collapsed** — all four probe rows merged into one, with each cell holding four concatenated values — and **is not cited as parsed**; the per-probe mapping quoted above was recovered at ingest and independently cross-checks against θ = *W*(1 − *p*₀) on all four rows to within one token

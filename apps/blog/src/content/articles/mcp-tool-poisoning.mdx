@@ -20,7 +20,15 @@ description: "The MCP Tool Poisoning Attack (TPA) class — an adversarial
   branch* of the MCP attack surface where a **legitimate** Sentry MCP server
   relays attacker-injected fake-error data to coding agents as trusted
   diagnostics (malicious-data-via-legit-server, vs ShareLock's
-  poisoned-tool-metadata), triggering plaintext RCE"
+  poisoned-tool-metadata), triggering plaintext RCE — and read against MCP spec
+  revision 2026-07-28, which leaves the rug-pull intact (per-request negotiation
+  re-checks the protocol *version*, not tool behavior; `server/discover` is a
+  version probe with no integrity binding; the deprecated-features registry
+  lists spec features, not servers) except for one unintended affordance:
+  required `ttlMs`/`cacheScope` plus deterministic `tools/list` ordering give a
+  client a vetted prior copy and a clean diff, making re-validate-before-use
+  cheap without making it required — which catches a plaintext rug-pull and
+  still reports ShareLock as Safe"
 tag: Concept
 domain: agent-security
 tags:
@@ -29,7 +37,7 @@ tags:
   - tool-poisoning
   - prompt-injection
   - threats
-readingTime: 25
+readingTime: 33
 imageAlt: Illustration for MCP Tool Poisoning
 sources:
   - title: "ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP"
@@ -40,14 +48,22 @@ sources:
   - title: OpenID Foundation advances authorization for the agent era with new
       AuthZEN Working Group Drafts
     url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+  - title: "The Balkanization of Execution-Security Research for AI Coding Agents:
+      Isolation, Access Control, and Time-of-Check-to-Time-of-Use
+      Vulnerabilities"
+    url: https://arxiv.org/pdf/2607.05743
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
 ---
 export { default as heroImage } from "../assets/mcp-tool-poisoning.webp";
 
 ## Sources
 
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 - [One Fake Bug Report Hijacked a $250 Billion Company's AI Agent – Then 100+ More](https://tenetsecurity.ai/blog/agentjacking-coding-agents-with-fake-sentry-errors/)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
 - [ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP](https://arxiv.org/pdf/2606.27027)
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743)
 
 ## Summary
 
@@ -86,7 +102,7 @@ ShareLock's shift from a single-point plaintext payload to distributed, threshol
 
 ## Empirical results
 
-Evaluated on **4 LLMs** (Gemini-2.5-Flash, DeepSeek-V3.1, DeepSeek-V3.2, Qwen3-235B-A22B-Thinking) across **2 MCP clients** (Cherry Studio v1.5.11, Cline v3.35.0), over **4 realistic multi-tool domains** (Travel, Coding, Finance, Office) with 100 multi-step queries; all agents also connect the official filesystem server. Attack goal: read a simulated local `api_key` file and append a sentinel `FLAG` (a stand-in for exfiltration). Default threshold `t = 2`, `ASR@3` (up to 3 retries). Three metrics: **ASR** (attack success), **TCR** (task completion — usability/stealth), **ASE** (harmonic mean).
+Evaluated on **4 LLMs** (Gemini-2.5-Flash, DeepSeek-V3.1, DeepSeek-V3.2, Qwen3-235B-A22B-Thinking) across **2 MCP clients** (Cherry Studio v1.5.11, [Cline](/articles/cline) v3.35.0), over **4 realistic multi-tool domains** (Travel, Coding, Finance, Office) with 100 multi-step queries; all agents also connect the official filesystem server. Attack goal: read a simulated local `api_key` file and append a sentinel `FLAG` (a stand-in for exfiltration). Default threshold `t = 2`, `ASR@3` (up to 3 retries). Three metrics: **ASR** (attack success), **TCR** (task completion — usability/stealth), **ASE** (harmonic mean).
 
 - **Efficacy + stealth** (Table 1): **overall average ASR 94.1%** (>90% on every model; peak 94.0% on Gemini-2.5-Flash, up to 100% on Finance/Travel), with **TCR ≈ 96.4%** — the user's real task still completes, so victims who only watch outcomes notice nothing. The malicious commands stay confined to tool-invocation parameters and hidden reasoning; the user-facing response is benign.
 - **Multi-tool beats single-tool** (Table 2, Travel/Cherry Studio): ShareLock avg ASR **93.3%** vs TPA 75.3%, Puppet 76.0%, Encode-Only 82.7%. The gap is starkest on Gemini-2.5-Flash — **TPA 46.0% → ShareLock 92.0%**: distributed multi-tool orchestration "dilutes the model's attention," incidentally bypassing safety alignment that partially resisted the single-tool version.
@@ -138,6 +154,102 @@ Tenet reports it disclosed to **Sentry on 2026-06-03**; Sentry acknowledged the 
 
 This **resolves the open question the prior pass left here** ("does the incoming Agentjacking incident use fragmentation/rug-pull triggers, or simpler plaintext TPA?"): **neither.** Agentjacking is a **third mode** — a **trusted-server data relay**. The MCP server is honest; the poison is in the attacker-controlled *data* it faithfully forwards, formatted to impersonate the server's own diagnostic template. So the MCP attack surface has (at least) two orthogonal branches: **poisoned tool metadata** (ShareLock — attacker owns the server/description) and **malicious data via a legitimate server** (Agentjacking — attacker owns the upstream data the honest server relays). Vetting or self-signing the *server* — [the mitigation that page proposes](/articles/mcp-and-computer-use) — does **nothing** against Agentjacking, because the server is genuine; the untrusted input rides in on its data. That makes Agentjacking closer in mechanism to [indirect prompt injection / ADI](/articles/agent-data-injection) *delivered through* a trusted MCP tool's output than to tool-description poisoning — it belongs on this page as the MCP-surface exhibit, but its defense story lives at the data/action layer, not the scanner.
 
+## Does MCP revision 2026-07-28 change the rug-pull picture?
+
+Mostly no — and the part that does change is a side effect of a caching optimization, not a security
+change. Revision **2026-07-28** ([MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog), `vendor-claim`; the full
+capability ledger is on [MCP and Computer Use](/articles/mcp-and-computer-use)) rebuilt the protocol's lifecycle, so it is worth
+being precise about which of its four headline changes touch this page's threat model and which
+merely sound like they do.
+
+**Per-request version negotiation re-checks the version, not the behavior.** The revision deletes
+the `initialize` handshake and makes every request carry `io.modelcontextprotocol/protocolVersion`
+and `clientCapabilities` in `_meta`, with `serverInfo` echoed in each result. That is a textbook
+move from check-once-per-session to check-every-request — the exact corrective
+[RC2 ("authorization is checked once and trusted forever")](/articles/write-then-trusted) prescribes — applied
+to the wrong object. What now repeats is *protocol-version compatibility* and a *self-reported*
+identity string. Tool descriptions, schemas and behavior are still validated at most once, whenever
+the client last read `tools/list`, and trusted on every call after. The defect this page documents is
+untouched at the layer where it lives.
+
+**`server/discover` is a version probe, not an integrity check.** Servers **MUST** implement it;
+clients **MAY** call it. It advertises supported protocol versions, capabilities and identity — and
+carries no signature, no attestation, and no digest of the tool set. A rug-pulled server answers it
+truthfully, advertising its new capabilities, and passes. Making discovery mandatory means a client
+can always *ask*; it supplies nothing that would let the client *disbelieve* the answer.
+
+**The deprecated-features registry is a registry of spec features, not of servers.** It tracks which
+*protocol* features are in the Deprecated state under the new twelve-month lifecycle policy (Roots,
+Sampling, Logging, HTTP+SSE, `includeContext` values, OAuth DCR). It is not a revocation list, not an
+advisory feed, and not an AI-BOM for MCP servers — see [Agent Supply Chain Risk](/articles/agent-supply-chain-risk), where that
+artifact is still missing. Its value is dating protocol capabilities, which is real and unrelated to
+this threat.
+
+### The one thing that did change: update-diff re-validation got cheap
+
+Two *minor* changes, both justified in the changelog by client-side caching and LLM prompt-cache hit
+rates with no security rationale offered, combine into the first protocol-level affordance for
+re-validating a tool set:
+
+- `tools/list` (and the other list/read results) **MUST** now return `ttlMs` and `cacheScope` via a
+ new `CacheableResult` interface — so a conforming client holds a **previously-vetted copy** of the
+ tool set by design, rather than as an implementation quirk.
+- Servers **SHOULD** return tools from `tools/list` in a **deterministic order** — so a diff between
+ the cached copy and a refetch is clean rather than reordering noise.
+- Refresh is now a dated protocol event: a `ttlMs` expiry, or an opt-in `toolsListChanged`
+ notification on the new `subscriptions/listen` stream.
+
+**Re-validate immediately before use** — the candidate defense Rashidi's Gap 3 names for both the
+TOCTOU and the MCP-poisoning literatures ([Write-Then-Trusted](/articles/write-then-trusted)) — therefore became cheap to
+implement in MCP without becoming required by it. The spec still asks for no re-check anywhere.
+
+Two limits keep this from being a defense:
+
+1. **A diff tells you what changed, not whether the change is malicious.** Against the plaintext
+ rug-pull — the in-the-wild server that impersonated an email service — diff-then-rescan works,
+ because the poisoned description is anomalous once you look at it. Against **ShareLock** it
+ reports "three tool descriptions changed, one tool added, all rated Safe", which is precisely what
+ ShareLock is engineered to produce: the information-theoretic secrecy result (Corollary 1) is
+ indifferent to *when* you scan a share. Diffing narrows the review surface to the delta; it does
+ not restore detectability.
+2. **The freshness dial belongs to the adversary.** `ttlMs` is chosen by the server. The bind it
+ leaves is mildly favorable — a long TTL suppresses refetch, so the poisoned update never reaches
+ the client; a short one delivers it at a moment the client can date and compare. An attacker gets
+ delivery or invisibility, not both. But that only bites a client that keeps and compares the prior
+ copy, and nothing in the spec asks it to.
+
+Stated in the evidence discipline this page uses elsewhere: *the spec now requires servers to return
+cache metadata* is a fact; *clients now detect rug-pulls* is not a claim this source supports at all.
+
+### Agentjacking is untouched, and the provenance slot was filled with something else
+
+Nothing in the revision constrains the **content** of a tool return, which is Agentjacking's entire
+channel. A legitimate Sentry MCP server relaying a fake `## Resolution` complies with 2026-07-28
+exactly as it complied with `2025-11-25`.
+
+Worth recording as a near-miss: this revision made `_meta` the protocol's universal per-message
+side-channel and then populated it with `serverInfo`, per-request `logLevel`, and **OpenTelemetry
+trace context** (`traceparent`, `tracestate`, `baggage`). Those are *correlation* identifiers — good
+for post-hoc forensics across a call chain, useless for deciding whether a byte in a result came from
+the server or from an attacker upstream of it. The write-time origin label that
+[Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) enforces for memory and [Write-Then-Trusted](/articles/write-then-trusted) asks for on the
+filesystem had an obvious slot in this revision and did not land in it.
+
+### Surface that genuinely shrank (none of it aimed here)
+
+- **Sampling is deprecated**, removing the server→client model-invocation path — a server can no
+ longer ask the client's LLM to generate on its behalf.
+- **`includeContext: "thisServer"` / `"allServers"` are deprecated**, retiring the knob that handed a
+ server context drawn from *other* servers — the closest thing the protocol had to sanctioned
+ cross-server context bleed, and adjacent to the **Puppet** attack's inadequate-isolation premise.
+ It does not touch ShareLock, whose share aggregation happens in the *agent's own* context window,
+ not through any protocol-level context-sharing field.
+- **MRTR removes server-initiated requests entirely** (`roots/list`, `sampling/createMessage`,
+ `elicitation/create` all become an `InputRequiredResult` the client retries). This one is quietly
+ favorable to the defense catalog below: the *client* is now the only party that can put a prompt in
+ front of the user, which is the correct side of the trust boundary for the fine-grained-consent
+ control the ShareLock authors found reliably works.
+
 ## What actually stops it (defenses live downstream of detection)
 
 Since detection fails by construction, the durable defenses sit at the **action / authorization** layer and in **human-in-the-loop** gating. The paper's own failure-mode analysis is, read inversely, the defense catalog:
@@ -152,7 +264,7 @@ Note the tension with [Impossible, Not Tedious (Design Test)](/articles/impossib
 
 ## Connections
 
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — the connector substrate under attack; ShareLock is the concrete proof that its "vet/scan every MCP server" mitigation fails against a threshold adversary (per-tool scanning is information-theoretically blind), and **Agentjacking defeats the same mitigation from the other side** — the server *is* genuine, so vetting/self-signing it catches nothing; both sharpen that page's MCP-security open question
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — the connector substrate under attack; ShareLock is the concrete proof that its "vet/scan every MCP server" mitigation fails against a threshold adversary (per-tool scanning is information-theoretically blind), and **Agentjacking defeats the same mitigation from the other side** — the server *is* genuine, so vetting/self-signing it catches nothing; both sharpen that page's MCP-security open question. That page now also carries the protocol's own dated capability ledger, of which the relevant fact here is negative: **revision 2026-07-28 rebuilt MCP's entire lifecycle without adding a single tool-integrity or server-revocation requirement**
 - [Agentic Prompt Injection](/articles/agentic-prompt-injection) — MCP tool poisoning is an MCP-specific subclass of *indirect* prompt injection (IPIA); ShareLock is the stealth-maximizing member, defeating the description-based detectors that page catalogs
 - [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — the **reconstruction trigger is a rug-pull**: planted via a server *version update* (Phase-2 supply-chain compromise), the same vector as the first in-the-wild malicious MCP server; ShareLock is a multi-tool, threshold-hardened rug-pull
 - [Agent Data Injection (ADI)](/articles/agent-data-injection) — sibling forge-the-trusted-context attack, **distinct mechanism**: ADI forges *trusted data* (a comment's author, a tool result) via probabilistic delimiter injection so the agent acts on attacker data; ShareLock forges *tool metadata* (descriptions/`tool_id`/`checksum`) so the agent reconstructs an attacker instruction. ADI corrupts the data plane, ShareLock the capability plane — both exploit that the model trusts context it shouldn't. **Agentjacking is the real-world data-plane instance delivered *through MCP*:** it forges trusted-looking *tool output* (a fake `## Resolution` structurally identical to Sentry's template) so the agent treats attacker text as authoritative diagnostics — the same forge-the-trusted-context move as ADI, but as plaintext relayed by a *legitimate* server rather than delimiter-injected metadata
@@ -164,13 +276,14 @@ Note the tension with [Impossible, Not Tedious (Design Test)](/articles/impossib
 - [Failures That Look Like Success](/articles/failures-that-look-like-success) — the static-recognition / runtime-behavior decoupling: Claude flags the trigger in review yet overlooks it in execution, and TCR ≈ 96.4% keeps the user-facing output clean
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — a Phase-4/Phase-5 threat (input validation + secure tool access): ShareLock shows the framework's tool-poisoning / rug-pull threat is realizable *at >90% ASR under moderate vetting*, and Agentjacking is the framework's real-world *lethal-trifecta* exhibit (untrusted telemetry in, live cloud creds present, egress reachable) — both push enforcement to the action/authorization layer (hub)
 - [OWASP](/articles/owasp) — TPA sits under the OWASP LLM01 indirect-prompt-injection umbrella; Agentjacking is IPI-via-trusted-tool-output under the same umbrella
+- [Write-Then-Trusted](/articles/write-then-trusted) — **the same root cause under a different name, and a cross-link this vault was missing until 2026-08-04.** Rashidi's execution-security SoK ([The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743), arXiv 2607.05743, `empirical`) collapses its 39-paper corpus onto four recurring defects, and files MCP tool poisoning under **RC2, "authorization is checked once and trusted forever"** — a tool's declared behavior validated at discovery time and trusted on every later call — alongside TOCTOU races, lingering capability grants, and single-approval plugin trust. ShareLock's **rug-pull is that defect exactly**: the vetting happens, *then* the server updates, and this page's own conclusion ("static vetting misses it") is a re-check failure stated without the vocabulary for it. The survey's **Gap 3** is that TOCTOU work and MCP work never cite each other despite both being validate-then-act races, and that re-validating immediately before use is a candidate defense for both — which is a concrete, testable proposal this page's detection-centric open questions do not consider. Its own similarity scoring puts TOCTOU × MCP among the highest off-diagonal pairs in the taxonomy with zero citations across it. **Update 2026-08-04:** the survey's re-validate-before-use proposal now has a cheap implementation path in MCP itself — 2026-07-28's required cache metadata and deterministic tool ordering hand a client a vetted prior copy and a clean diff — which converts Gap 3 from "nobody proposed it" into "the protocol makes it easy and still does not require it"
 - [Anthropic](/articles/anthropic) — created MCP; Claude-Sonnet-4.5 is the one auditor that flags the isolated ShareLock trigger, yet still falls to the runtime attack
 - [Claude Code](/articles/claude-code) — named as a prominent MCP host; the class of agent this threat targets, and one of the agents Tenet reports hijacked by Agentjacking (alongside Cursor and Codex)
 - **Tenet Security** and **Sentry** (referenced as plain text — no entity pages): Tenet Security's Threat Labs authored the Agentjacking case study (and sells the "agent-jackstop" runtime hardening it pitches); Sentry is the legitimate observability platform whose public DSNs + MCP server are the demonstrated entry point, and which declined a root-cause fix
 
 ## Open Questions
 
-- **Cross-tool / stateful detection.** Information-theoretic secrecy defeats per-tool scanning by construction. Is there a detector that reasons over the *aggregate* of a server's tool set (and its update diff history) to spot the share pattern — and can it do so without an infeasible combinatorial search over `t`-subsets?
+- **Cross-tool / stateful detection.** Information-theoretic secrecy defeats per-tool scanning by construction. Is there a detector that reasons over the *aggregate* of a server's tool set (and its update diff history) to spot the share pattern — and can it do so without an infeasible combinatorial search over `t`-subsets? **Partially enabled (not answered) by MCP 2026-07-28:** the *update-diff-history* half now has protocol support — required `ttlMs`/`cacheScope` mean a conforming client holds the previously-vetted list, deterministic `tools/list` ordering makes the diff clean, and `toolsListChanged`/TTL expiry date the refresh. That supplies the **input** a stateful detector needs and nothing about the detector: the secrecy result is indifferent to when a share is scanned, so the aggregate-reasoning problem is exactly as open as it was.
 - **Automating the attack chain.** The reconstruction-trigger prompt engineering still relies on manual effort; the authors flag feedback-driven prompt optimization (à la [AutoDojo](/articles/task-specification-injection-surface)) as the next escalation. How much does automation raise ASR against aligned models?
 - **Does a strict-access-control agent architecture close it?** The authors note agents with fine-grained interaction / strict access control can force user consent and expose the attack — but "the majority of users lacking safety awareness opt for auto-approval," reopening the convenience-vs-security trade. Where does the realistic equilibrium sit?
 - **Independent replication of the malicious-data-via-legit-server branch.** Tenet's Agentjacking figures (2,388 orgs, 85% success, a $250B victim) are *vendor-reported from controlled testing*, not independently measured — and the branch is now known to be *plaintext trusted-server data relay*, not fragmentation/rug-pull (resolved above). How prevalent is this branch beyond Sentry — any observability / ticketing / log / CI MCP that relays externally-influenced data as trusted output — and does an independent measurement confirm the ~85% agent-execution rate on current models?
@@ -180,3 +293,4 @@ Note the tension with [Impossible, Not Tedious (Design Test)](/articles/impossib
 - [ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP](https://arxiv.org/pdf/2606.27027) — Liu, Han, Z. Liu, Dong & Ruan (Shanghai Jiao Tong University), *ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP*, arXiv 2606.27027, June 2026, `empirical`. §2 (MCP workflow, TPA/TDPA/TRPA/MERA taxonomy, Shamir scheme), §3 (prompt-structure formalization `P_in = p_system ∥ p_context ∥ p_user`, tool-trust paradox, moderate-vetting threat model), §4 (three-phase framework, `EnvSetup` reconstruction trigger, Algorithm 1, Corollaries 1–2 secrecy+robustness), §5 (evaluation: Tables 1–4, Figures 3–6 — >90% ASR / 96.4% TCR, single-vs-multi-tool, detector evasion, entropy dilution, robustness/temperature ablations, failure modes), Appendices C (secrecy proof), E–F (baseline blueprints, ablation with Claude-Sonnet-4.5, failure-case study). Figures 2–3 viewed per the image two-pass rule.
 - [One Fake Bug Report Hijacked a $250 Billion Company's AI Agent – Then 100+ More](https://tenetsecurity.ai/blog/agentjacking-coding-agents-with-fake-sentry-errors/) — Tenet Security, *One Fake Bug Report Hijacked a $250 Billion Company's AI Agent – Then 100+ More* ("Agentjacking"), [tenetsecurity.ai](https://tenetsecurity.ai/blog/agentjacking-coding-agents-with-fake-sentry-errors/), published 2026-06-17, `case-study` (**vendor-authored** — Tenet sells AI-agent runtime security; scale figures and framing attributed inline, weighted below the empirical papers). The attack chain (public DSN → injected error event → markdown-injected fake `## Resolution` relayed by the legitimate Sentry MCP server → `npx` RCE → env/cred recon), the E1–E6 evidence pack (Claude Code / Cursor / Codex across macOS / WSL / CI / cloud; "sandboxed didn't save them"; blast radius beyond host), the "Authorized Intent Chain" framing, and the Sentry disclosure timeline (2026-06-03, root-cause fix declined, global content-filter workaround). No load-bearing figures to view — the evidence captures are described in text.
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion` (proposed Working Group **Drafts**, weighted below the empirical papers). COAZ (AuthZEN Profile for MCP Tool Authorization) — the standards-track authorization decision at the MCP tool-invocation point, the action-layer defense downstream of the detection this page shows is defeated
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project, *Key Changes* for spec revision **2026-07-28**, `vendor-claim`. Used here for major changes 2–3 (stateless core, per-request `_meta` version negotiation, mandatory `server/discover`), major change 7 (MRTR replacing server-initiated `elicitation/create`), minor changes 2/3/5 (OpenTelemetry `_meta` trace context; deterministic `tools/list` ordering; the `CacheableResult` `ttlMs`/`cacheScope` requirement), and Deprecated 1/3 plus the governance entry (Sampling and `includeContext` values deprecated; feature-lifecycle policy and the deprecated-features registry). **Spec text — authoritative on what the protocol requires, evidence for nothing about implementation compliance or security outcome.** Date not independently page-verifiable beyond the revision path and the changelog's own reference to `2025-11-25`

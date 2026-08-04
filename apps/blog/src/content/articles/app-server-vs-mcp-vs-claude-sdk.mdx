@@ -1,0 +1,94 @@
+---
+date: 2026-08-03
+title: "App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for
+  Driving Agents"
+description: "Two-question synthesis on agent integration boundaries. (1) App
+  Server and MCP are not competitors — they sit at different planes: MCP is the
+  model↔world tool plane (a connector written once, consumed by every surface,
+  operated and authenticated by the tool provider), App Server is the
+  orchestrator↔runtime session plane (thread lifecycle, turns, structured
+  events, timeouts — nothing MCP covers). The only overlap is dynamic tool
+  calls, and there the decision rule is operational: MCP wins for reusable,
+  cross-surface, third-party capabilities; orchestrator-injected dynamic tools
+  win for session-scoped, credential-sensitive capabilities (the linear_graphql
+  pattern — the token never reaches the subagent container, shrinking the
+  documented MCP attack surface of poisoned metadata and rug-pulls to
+  first-party code, at the cost of experimental stability and zero ecosystem
+  reuse). They compose: 'to the model, it's just tokens.' (2) Claude has no
+  documented public equivalent of the App Server protocol; its offering brackets
+  it from both sides — `claude -p` (drive the product CLI, inheriting the full
+  accumulated harness: permission classifier, skills, context files, MCP wiring,
+  with auto mode aborting rather than hanging unattended) and the Agent SDK
+  (build a different product on the raw runtime — Claude Design's weekend
+  prototype). Decision rule: drive the CLI when the product's harness is the
+  value and orchestration is batch/fan-out shaped; build on the SDK when the
+  agent is a different product needing its own tools, events, and UX; the App
+  Server's middle position — structured session control over the product harness
+  — is exactly the layer Symphony's tmux→protocol evolution shows demand for,
+  and the layer Claude-side orchestrators currently approximate from either
+  side"
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - protocol
+  - mcp
+  - agent-orchestration
+  - integration
+readingTime: 7
+imageAlt: "Illustration for App Server vs MCP, and the Claude-Side Equivalent:
+  Three Boundaries for Driving Agents"
+---
+export { default as heroImage } from "../assets/app-server-vs-mcp-vs-claude-sdk.webp";
+
+## The questions
+
+The two `#oq/now` items on [Codex App Server Protocol](/articles/codex-app-server-protocol):
+
+1. How does the App Server protocol compare in detail to MCP? Both expose tools to a model, but App Server is *inside* the Codex runtime while MCP is *outside*. When does each win?
+2. Is there an analogous protocol on the Claude side, or is Claude's equivalent exclusively the Agent SDK + tool-use API? When does "drive an existing CLI" beat "build on the SDK"?
+
+## Answer 1: Different planes, one overlapping feature — and a clean decision rule at the overlap
+
+The framing "both expose tools to a model" understates the difference. The two protocols govern **different boundaries**:
+
+- **MCP is the model↔world *tool plane*.** A server-client protocol where connector logic is "written once per system, consumed by every Claude surface" — the same Salesforce/Gmail/Figma connector plugs into Claude AI, Cowork, and Claude Code ([MCP and Computer Use](/articles/mcp-and-computer-use)). The tool provider operates and authenticates the server; the consumer is *any model in any host*.
+- **App Server is the orchestrator↔runtime *session plane*.** A line-delimited JSON-RPC stdio protocol whose subject matter is not tools but **agent-session lifecycle**: the initialize/thread-start/turn-start handshake, continuation turns reusing a `thread_id`, streamed turn events, three independent timeouts, approval-policy plumbing, and token accounting ([Codex App Server Protocol](/articles/codex-app-server-protocol)). None of this is in MCP's scope at all — an orchestrator using only MCP still has no way to start a turn, detect a stall, or account tokens.
+
+> **Confirmed by the spec itself (added 2026-08-04).** "None of this is in MCP's scope" was inferred
+> from what MCP happened not to cover. MCP revision **2026-07-28** made it the protocol's stated
+> position: protocol-level sessions and the `Mcp-Session-Id` header are **removed**, the
+> `initialize`/`notifications/initialized` handshake is **deleted** in favor of per-request version
+> negotiation in `_meta`, and cross-call state is pushed out to server-minted handles passed as
+> ordinary tool arguments ([MCP and Computer Use](/articles/mcp-and-computer-use),
+> [Codex App Server Protocol](/articles/codex-app-server-protocol)). The two protocols have now actively diverged rather
+> than merely differed — nothing below changes, and the boundary argument got stronger.
+
+So for most of their surface area the question "when does each win" doesn't arise — an orchestrator like [Symphony](/articles/symphony) needs the session plane *and* the model needs a tool plane; they compose. Boris Cherny's "to the model, it's just tokens" ([MCP and Computer Use](/articles/mcp-and-computer-use)) is the reason composition is cheap: at the model layer the substrates are fungible.
+
+**The genuine overlap is dynamic tool calls** — App Server's experimental feature letting the orchestrator advertise tools at `thread/start`, "architecturally parallel to MCP but [living] inside the coding-agent's runtime" ([Codex App Server Protocol](/articles/codex-app-server-protocol)). There the decision rule falls out of the two worked examples:
+
+| Choose | When | Why |
+|---|---|---|
+| **MCP** | The capability is *reusable, cross-surface, third-party* | Write-once-consume-everywhere is MCP's structural property; the ecosystem, OAuth patterns, and standards-track authorization work (COAZ) all live there ([MCP and Computer Use](/articles/mcp-and-computer-use)) |
+| **Dynamic tool calls** | The capability is *session-scoped and credential-sensitive* | The `linear_graphql` pattern: the orchestrator proxies authenticated calls with its own auth, so **the token never reaches the subagent container** ([Codex App Server Protocol](/articles/codex-app-server-protocol), [Symphony](/articles/symphony)) — per-session injection an external MCP server doesn't naturally give you |
+
+The security asymmetry deserves emphasis, because it is the strongest "App Server wins" case: MCP's documented attack surface — tool-metadata poisoning, rug-pull server updates, and malicious data relayed through legitimate servers ([MCP Tool Poisoning](/articles/mcp-tool-poisoning)) — exists because MCP tools are third-party-operated surfaces the agent trusts. An orchestrator-injected dynamic tool shrinks that surface to first-party code the orchestrator wrote. The costs: the feature is explicitly experimental (Symphony's security model depends on it — that page's own open question), version tolerance is by-convention rather than by-registry, and nothing is reusable outside this orchestrator.
+
+## Answer 2: No Claude-side protocol — a bracket instead, and a rule for choosing sides
+
+**The vault documents no Claude-side equivalent of the App Server protocol.** The comparison the corpus supports: Claude's parallel offering is `claude -p` (non-interactive CLI) plus the Claude Agent SDK, and "both let an external orchestrator drive sessions, but Codex's App Server is more explicit about a stable JSON-RPC protocol" ([Claude Code Best Practices](/articles/claude-code-best-practices), cross-tool capability table; [Codex App Server Protocol](/articles/codex-app-server-protocol) Connections). These two options *bracket* the App Server's position rather than matching it:
+
+- **`claude -p` — drive the product.** Cheapest integration; the orchestrator inherits the entire accumulated product harness: the permission classifier (with the load-bearing unattended behavior — [auto mode](/articles/claude-code-auto-mode) *aborts* on repeated blocks in non-interactive mode rather than hanging on an unanswerable prompt), skills, `CLAUDE.md` context loading, and existing MCP wiring. The cost: a text-shaped interface — the orchestrator gets output, not the structured event stream, stall detection, or token accounting the App Server specifies.
+- **Agent SDK — build a different product.** The [Claude Design](/articles/claude-design) case is the canonical datum: the first prototype was "the Agent SDK, a very thin IDE wrapper, and an existing skill," hacked together in a weekend — full control over tools, surface, and UX, with the builder owning the harness that the CLI would have provided for free.
+
+**When does drive-the-CLI beat build-on-SDK?** The corpus supports a two-condition rule:
+
+1. **Drive the CLI when the product's harness *is* the value and the orchestration is batch/fan-out shaped.** If what you want is "Claude Code, but launched programmatically over many tasks" — fan-out, pre-commit hooks, issue-loop runners — the harness you'd rebuild on the SDK (permissions, skills, context discipline, MCP connections) is exactly what the CLI already carries, and `claude -p`'s abort-don't-hang contract was designed for the no-human case ([Claude Code Best Practices](/articles/claude-code-best-practices), [Claude Code Auto Mode](/articles/claude-code-auto-mode)).
+2. **Build on the SDK when the agent is a *different product*.** Different surface, different tool set, different interaction model — Claude Design needed an IDE-shaped canvas, not a terminal; inheriting Claude Code's harness would have meant fighting it ([Claude Design](/articles/claude-design)).
+
+The instructive middle: **Symphony's own evolution shows what breaks when neither side fits.** Its v1 was literally "a Codex session in `tmux` polling Linear" — drive-the-CLI — which "worked, not reliable"; the App Server exists because CLI-driving "doesn't scale to programmatic orchestration" ([Symphony](/articles/symphony), [Codex App Server Protocol](/articles/codex-app-server-protocol)). A Claude-side orchestrator with Symphony-scale needs (structured events, continuation turns, stall detection, credential-proxying tool injection *over the product harness*) currently has to approximate that middle layer from one side or the other — parse `claude -p` output, or rebuild harness on the SDK. That gap is the honest residual of this comparison: whether Anthropic ships a stable session-control protocol, or whether [harness shrinkage](/articles/harness-shrinkage-as-models-improve) makes the SDK route cheap enough that the middle layer never needs standardizing, is a watch item rather than an answerable question.
+
+## One consolidated takeaway
+
+Sort integration questions by **boundary, then by operator**. Tool plane (model↔world): MCP, unless the tool is session-scoped and credential-sensitive, in which case inject it from the orchestrator and keep the secret out of the container. Session plane (orchestrator↔runtime): Codex has a protocol; Claude has a bracket — take the CLI when you want the product's harness, the SDK when you're building a different product, and know that the Symphony-shaped middle is currently an approximation on the Claude side. And at the model layer none of this matters — "it's just tokens" — which is why the right architecture composes all three rather than picking one.

@@ -11,17 +11,29 @@ tags:
   - llm-architecture
   - agent-engineering
   - context-management
-readingTime: 5
+readingTime: 15
 imageAlt: Illustration for Context Window Smart Zone
 sources:
   - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
     url: https://youtu.be/-QFHIoCo-Ko
+  - title: "Self-GC: Self-Governing Context for Long-Horizon LLM Agents"
+    url: https://arxiv.org/pdf/2607.00692
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
+  - title: "Agentic Context Management: Solving Agent Memory and Cost by Treating
+      Them as Lifecycle and Architecture Problems"
+    url: https://arxiv.org/pdf/2607.21503
 ---
 export { default as heroImage } from "../assets/context-window-smart-zone.webp";
 
 ## Sources
 
+- [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503)
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
+- [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692)
 
 ## Summary
 
@@ -49,7 +61,41 @@ Claude Code's `/compact` command summarizes the running session into a smaller h
 - Clear-and-restart returns to a known-clean baseline (the system prompt)
 - The cost of clearing is paid back by working in the smart zone
 
-The disagreement isn't universal — many developers like compaction because it preserves continuity. The right call depends on whether your task can be **resumed cleanly from a written record** (then prefer clear) or **needs in-flight conversational context** (then compaction wins).
+~~The disagreement isn't universal — many developers like compaction because it preserves continuity. The right call depends on whether your task can be **resumed cleanly from a written record** (then prefer clear) or **needs in-flight conversational context** (then compaction wins).~~ *(the binary framing superseded 2026-08-03 by [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692); the underlying observation still holds — see below)*
+
+### Measured (2026-08-03): what summarization loses, and a third option
+
+Pocock's argument is `practitioner-opinion`; [Self-GC](/articles/context-lifecycle-management) ([Xiaohongshu](/articles/xiaohongshu), arXiv 2607.00692, `empirical`) measures the same thing on 332 production-derived agent sessions and the practitioner intuition survives — with a sharper mechanism and one correction:
+
+- **"Sediment" has a name.** What summarization loses is not blurriness in general but **exact evidence, locators and live handles, behavioral contracts (user corrections), verbatim source text, and current live state**. A summary "preserves narrative state but hides exact evidence, locators, and editable artifacts."
+- **The choice is not binary.** A third policy — govern the run at object granularity, folding bulky payloads to byte-exact recoverable sidecars rather than summarizing them — covers exactly the case where both clear and compact are bad: the task needs in-flight context *and* exact artifacts.
+- **Cutting harder is not free.** Heuristics that remove 62–70% of Hard Set prefix tokens land at 54.55–69.70% "no-impact" (higher is better); Self-GC removes 43.95% and reaches 84.85%. A harness that stays inside the smart zone by pruning aggressively trades a quadratic-attention problem for a missing-dependency problem.
+
+**The cliff has a number (added 2026-08-04).** The most vivid measured instance of Pocock's sediment claim is one the corpus reaches at second hand: compressing an **18,282-token context to 122 tokens in a single unvalidated step dropped task accuracy from 66.7% to 57.1% — below the no-context baseline.** Summarizing was worse than sending nothing, because the summarizer had no way to know what would be needed downstream. Provenance matters here: the figure is Zhang et al. 2025 (Agentic Context Engineering, arXiv 2510.04618) as **cited by** [Maximem's ACM paper](https://arxiv.org/pdf/2607.21503) (arXiv 2607.21503, `empirical`, sole author with a total vendor COI — but the COI attaches to that paper's own product claims, not to a number it is quoting from third-party work the wiki has not read directly). The generalization the citing paper draws is the one to keep, and it is the same distinction [Context Lifecycle Management](/articles/context-lifecycle-management) draws with a mechanism: crude summarization buys linear cost by *surrendering* fidelity, and the failure is not a degraded answer but a confident wrong one.
+
+## Measured (2026-08-04): retrieval survives far past the marker, and what breaks near the ceiling is *refusal*
+
+The ~100K marker above is a claim about **reasoning**, and Pocock's own carve-out is that long context stays useful for **retrieval**. [Eliav 2026](https://arxiv.org/pdf/2607.19257) (arXiv 2607.19257, `empirical`) is the corpus's first controlled measurement of that carve-out: a deterministic, contamination-free 512,000-token synthetic corpus (8,780 uniquely-named fictional entities, generated from a fixed seed with no LLM involved, so chance-level recall is ~0), sliced into a 2k→512k ladder, rendered in four content-identical formats, probed for recall, false-premise sycophancy, and fabrication of facts never stated. Five models, 5,520 calls each at full context, 30,480 scored responses. The carve-out survives, and three findings sharpen it.
+
+**1. Recall is flat to 64–128k, then breaks format-dependently.** At 2k, 16k and 64k every model in every format sits at 0.98–1.00 recall accuracy and no format discriminates. Separation first appears at 128k. So the smart-zone marker is not a *retrieval* marker — a model can still pull a specific unguessable fact out of 64k of undifferentiated text essentially perfectly, and Gemini Flash is still at 0.93–1.00 at 512k.
+
+**2. The wall is per-model, not per-token.** Claude Haiku at 128k is the largest format spread in the dataset — plain text collapses to 0.383 recall while markdown, prose and table sit at 0.817–0.867, a 48.4pp gap driven by one format alone. Meanwhile Sonnet 5's format spread nearly doubles from 256k (11.7pp) to 512k (20.0pp) while Gemini Flash's stays flat (5.0pp → 6.7pp) **across the identical token range, with both models carrying the same documented 1,000,000-token ceiling**. Spread magnitude tracks proximity to a model's own *effective* ceiling, not absolute token count. This is the strongest evidence in the corpus that a single universal marker — 100K or otherwise — is the wrong shape for the constraint; the number is a per-model property that has to be measured, and the advertised window does not predict it.
+
+**3. The failure mode near the ceiling is refusal, not hallucination.** This is the finding the page did not have, and it inverts the usual monitoring posture. Fabrication of unstated facts is **exactly zero** — 0 of 5,760 absent-fact probes, every model, every rung, every format. Direct sycophantic agreement with a stated false premise peaks at 8.3% in a single cell and sits at or under 3% in the large majority. What climbs, steeply, is outright refusal to answer the false-premise probe:
+
+| Model | 2k | 16k | 64k | 128k | 256k | 512k |
+|---|---|---|---|---|---|---|
+| Claude Haiku | 0.000 | 0.142 | 0.704 | 0.896 | — | — |
+| Sonnet 5 | 0.154 | 0.058 | 0.317 | 0.217 | 0.579 | 0.788 |
+| Gemini Flash | 0.004 | 0.000 | 0.004 | 0.042 | 0.350 | 0.250 |
+| Qwen 27B | 0.008 | 0.000 | 0.125 | 0.362 | — | — |
+| Qwen 35B | 0.038 | 0.096 | 0.088 | 0.154 | — | — |
+
+Refusal also contaminates the recall numbers in a way worth knowing: at Sonnet 5's 512k rung, **three in four of its incorrect markdown responses are a literal "insufficient information" non-answer rather than a wrong guess**, so plain and table's apparent recall advantage there is partly a lower propensity to refuse rather than better comprehension. A harness that monitors only for wrong or agreeable answers near the top of a window is watching the wrong failure.
+
+**Format is not free, and the cost can flip the choice.** Rendering the same facts costs 1.221× plain for prose, 1.258× for markdown, 1.367× for a table — stable across every rung. At Claude Haiku @ 128k, prose and table tie on raw accuracy (0.867 each) and overhead breaks the tie in prose's favour. The paper's own bound on this: outside the two cells with a genuine accuracy gap, every format is within noise and picking the cheapest is a tiebreak, not an efficiency gain.
+
+**Caveats.** Sole author, single lab, preprint. For the three short-context models the "ceiling" the refusal curve climbs toward is the **largest rung tested** (128k), not a measured wall, so "approaching its own ceiling" is doing looser work there than for Sonnet 5 and Gemini Flash. Cross-rung comparisons in this design are only valid against the paper's fixed 20-question anchor set — it caught one apparent Gemini Flash 256k→512k improvement (0.900 → 1.000) as a question-composition artifact — and the refusal climb and the ranking flips both survive that check. And the fabrication null cannot fully separate "verified the fact's absence" from "declined to answer anything at this rung," since the absent probe scores declining-to-answer as correct; the paper says so itself.
 
 ## Implications for harness design
 
@@ -57,7 +103,8 @@ The disagreement isn't universal — many developers like compaction because it 
 2. **Sub-agents preserve parent context.** A sub-agent runs in its own context window; only its summary returns. Pocock's `grill-me` skill ran a 93.7K-token sub-agent yet his main session still had ~25K tokens unused.
 3. **Fragment work into many sessions.** Loops (see [Agent Loop Pattern](/articles/agent-loop-pattern)) and vertical slices (see [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)) work because each iteration starts fresh in the smart zone.
 4. **Reviewer should run in fresh context.** If the implementer used 80K tokens in the smart zone, asking it to review its own work pushes the reviewer into the dumb zone. Cleared context = smart-zone reviewer (see [Deep Modules for Agents](/articles/deep-modules-for-agents) on push-vs-pull and reviewer placement).
-5. **Push vs pull instructions.** Always-in-context instructions cost smart-zone tokens; pull-on-demand (skills) costs nothing until invoked.
+5. **Push vs pull instructions.** Always-in-context instructions cost smart-zone tokens; pull-on-demand (skills) costs nothing until invoked. The token budget is not the only ceiling on the always-in-context block: instruction *count* has its own, independent of length — see [Instruction Compounding](/articles/instruction-compounding).
+6. **Budget for refusal near the ceiling, not hallucination.** The measured failure at the top of a window is the model declining to answer (up to 89.6% in one model), not inventing something. Alerting and evals aimed only at wrong-or-agreeable answers will read clean through it, and a rising non-answer rate will look like a quality regression rather than a context-budget symptom.
 
 ## Status-line token counter as an essential tool
 
@@ -65,6 +112,9 @@ Pocock recommends a status-line widget showing the exact running token count of 
 
 ## Connections
 
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the measured alternative to both clearing and compaction: govern the active context as indexed objects with byte-exact recovery, and price the commit against prefix-cache disruption
+- [Instruction Compounding](/articles/instruction-compounding) — the other ceiling on always-in-context material, measured in the same paper and denominated in instruction *count* rather than tokens: a prompt block collapses past ~80 simultaneous rules whatever its length or rendering
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — the format half of the long-context result: which rendering wins reverses between models and between adjacent rungs of the same model, so there is no portable "use markdown for injected context" rule
 - [Matt Pocock](/articles/matt-pocock) — popularizer of the smart-zone framing
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — system-prompt minimalism and AGENTS.md-as-ToC are restatements of the smart-zone principle
 - [Agent Loop Pattern](/articles/agent-loop-pattern) — fragmenting work to stay in smart zone is *why* loops are powerful
@@ -79,10 +129,12 @@ Pocock recommends a status-line widget showing the exact running token count of 
 
 ## Open Questions
 
-- Does the smart-zone marker scale with model size, or is it bounded by attention architecture? Pocock observes "the dumb zone has become less dumb lately" but pegs it at 100K through 2026.
+- Does the smart-zone marker scale with model size, or is it bounded by attention architecture? Pocock observes "the dumb zone has become less dumb lately" but pegs it at 100K through 2026. **Partially answered 2026-08-04** by [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) (`empirical`) — neither cleanly, because the premise of a single marker doesn't hold. Degradation onset is a **per-model effective ceiling** that the advertised window does not predict: two models sharing the same documented 1,000,000-token ceiling diverge sharply in format-spread growth over the identical 256k→512k range. It also splits the question by task — *retrieval* holds at 0.98–1.00 through 64k and past 128k for some models, well beyond the 100K marker, which is consistent with Pocock's own retrieval-vs-reasoning carve-out. The paper measures no reasoning task, so whether the ~100K *reasoning* marker is architectural remains untested.
 - When sparse-attention or memory-augmented architectures ship, does the smart zone become a soft constraint?
 - How should harnesses surface remaining smart-zone budget to the user — token count, percentage, or a richer signal?
 
 ## Sources
 
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) — primary articulation
+- [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503) — Gaurav Dadhich (Maximem), arXiv 2607.21503, 2026-07-23, `empirical`, **sole author with a total vendor COI** (the paper's benchmark subject is its author's own product). Cited here for **one number only**, from Table 1 and §3.2: the 18,282 → 122 token compression dropping accuracy 66.7% → 57.1%, itself a **secondary citation to Zhang et al. 2025 (arXiv 2510.04618)**, which the wiki has not read directly. None of that paper's own product or benchmark claims is used on this page; they live on [Context Lifecycle Management](/articles/context-lifecycle-management) with the COI stated in full. Its Table 3 is cell-collapsed and Table 4 scrambled in the raw parse; neither is cited anywhere
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav, arXiv 2607.19257, 2026-07-21 (`empirical`, sole author, single lab, not peer reviewed): §3 the Book of Veyra corpus and context ladder, §5.2 recall accuracy and Table 7's non-ceiling cells, §5.4 the fabrication and sycophancy nulls, §5.5 and Table 8 the refusal climb, §5.6 the anchor-set methodology caveat, §7 cost-adjusted accuracy. Tables 3, 7, 8 and 9 were reconciled and are clean; the paper's Table 1 model roster is cell-collapsed in the raw markdown and is not cited (see the Sources note on [Instruction Compounding](/articles/instruction-compounding)), so per-model context ceilings here come from the paper's prose

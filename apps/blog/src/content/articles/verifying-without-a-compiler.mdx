@@ -1,0 +1,79 @@
+---
+date: 2026-07-29
+title: "Verifying Without a Compiler: Cowork's Harness vs Claude Code's, and Why
+  the Slice Verifier Stays"
+description: "Two-question synthesis on verification where no mechanical checker
+  exists. (1) Cowork and Claude Code share primitives (skills, MCP, sub-agents,
+  computer use) but sit on opposite ends of the verifier ladder, so the harness
+  weight redistributes: Claude Code leans on a deterministic post-hoc verifier
+  stack (tests, compiler, diffs, spec-drift checks) that both catches errors and
+  bounds damage before merge; Cowork's outputs have no such rung, so its harness
+  substitutes judgment-encodings for mechanical checks — the loaded design
+  system as the nearest thing to a style linter, evals and LLM-judges for
+  quality, human review concentrated at decision checkpoints — while the
+  pre-action classifier gate becomes load-bearing because errors ship directly
+  into live SaaS state with no red test in between. Failure modes split
+  accordingly: loud (build breaks) vs silent (a polished deck that reads fine —
+  the failures-that-look-like-success class), which is why accountability
+  redesign matters more for Cowork, not less. (2) The planner needs the
+  horizontal-slice verifier by design, not just empirically through 4.7: 'every
+  slice produces end-to-end feedback' is a mechanically checkable invariant
+  (does it touch schema+service+UI?), and checkable invariants belong in the
+  deterministic checker regardless of model trust — the verifier is a constraint
+  (doesn't compound, costs nothing to keep, catches the training-prior
+  regression toward horizontal layering), while 'please slice vertically' is a
+  behavior request, the transient form of the same discipline. Trust-the-model
+  applies to prompt lines; verifiers are the durable class"
+tag: Essay
+domain: syntheses
+tags:
+  - derived
+  - verification
+  - cowork
+  - harness
+  - agent-engineering
+readingTime: 6
+imageAlt: "Illustration for Verifying Without a Compiler: Cowork's Harness vs
+  Claude Code's, and Why the Slice Verifier Stays"
+---
+export { default as heroImage } from "../assets/verifying-without-a-compiler.webp";
+
+## The questions
+
+Two `#oq/now` items that share one problem — agent output with no mechanical verifier:
+
+1. [Cowork](/articles/cowork) — how does Cowork's harness compare to Claude Code's? Both surface skills, MCP, sub-agents, but the failure modes for non-code output differ (no test suite, no compiler, no diff to review).
+2. [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — can the planner agent be trusted to slice vertically once told to, or does it need a verifier that flags horizontal slices?
+
+## Answer 1: Same primitives, opposite verifier rungs — so the harness weight redistributes
+
+The two products genuinely share their primitives — skills, MCP connectors, sub-agents, computer use, the same models ([Cowork](/articles/cowork), the cross-surface table on mcp-and-computer-use). What differs is where their outputs sit on the **verifier-quality ladder** ([When Does Verification Quality Determine Whether AI Automation Works?](/articles/verifier-quality-and-agent-automation)): code lands on the CI rung (deterministic pass/fail), while decks, dossiers, and inbox triage land on the noisy-judgment rung — and that single difference redistributes the whole harness:
+
+- **Claude Code's harness leans on a post-hoc deterministic verifier stack.** Tests, compilers, linters, diffs, spec-drift checks — the boundary-enforcement layer that stays load-bearing as capability scaffolding shrinks ([Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck), [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)). Crucially this stack does double duty: it *catches* errors and it *bounds damage* — a failure is a red test before merge, reversible by construction (git, worktrees, sandboxes).
+- **Cowork's harness substitutes judgment-encodings for mechanical checks.** The named substitutes in the corpus: the **loaded design system** — Cat Wu's decks "look like a designer made it" because `design_system.html`-class context is in the harness, the nearest non-code equivalent of a style linter ([Cowork](/articles/cowork), [Living Design System](/articles/living-design-system)); **evals and LLM-judges** for output quality, with the honest caveat that judge validation is itself under-rigorous ([LLM-as-a-Judge](/articles/llm-as-a-judge)) and Cowork's eval discipline for deck quality is explicitly an open question on its page; and **human review concentrated at decision checkpoints** rather than spread across outputs ([Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign)).
+- **The pre-action gate becomes load-bearing.** Because there is no red test between generation and effect — a Cowork error is an email sent, a record mutated in the user's authenticated SaaS session — verification can't be post-hoc. This is the [Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering) finding restated as harness design: Claude Code can afford a gate miss (containment sits behind it); Cowork cannot, so the classifier/probes layer and human approval checkpoints carry weight that tests carry on the code side.
+- **The failure modes split loud vs silent.** Code fails loudly (build breaks, test reddens); non-code output fails as a [failure that looks like success](/articles/failures-that-look-like-success) — a polished, plausible deck with a wrong number, with surface plausibility actively disarming the reviewer. That is why the corpus's judgment is that accountability redesign "matters more, not less" for Cowork than for Claude Code ([Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign)) — the missing compiler removes not just a checker but the *alarm*.
+
+Compressed comparison:
+
+| | Claude Code | Cowork |
+|---|---|---|
+| Verifier rung | deterministic CI (tests, compiler, diff) | noisy judgment (design system, evals/judges, human taste) |
+| Failure mode | loud — red test, broken build | silent — plausible artifact, wrong content |
+| Damage bound | pre-merge, reversible (git, sandbox) | post-action, live SaaS state, low reversibility |
+| Load-bearing gate | post-hoc verifier stack | pre-action classifier + human checkpoints |
+| Harness trajectory | capability prompts shrink; verifier stack stays | judgment-encodings (design system, evals, rituals) are the durable layer |
+
+## Answer 2: The slice verifier stays — by design, not just through 4.7
+
+Pocock's empirical report is that the planner "needs the verifier, at least through 4.7": his `prd-to-issues` skill fires a rule whenever a proposed slice is horizontal ("create the gamification service" alone), enforcing that a first slice touches schema + service + UI ([Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)). The synthesis answer is that this isn't a temporary patch awaiting a more trustworthy model — **the verifier is the structurally correct home for the discipline**, on three grounds:
+
+1. **Slice shape is a checkable invariant, and checkable invariants belong in deterministic space.** "Every slice produces visible end-to-end feedback" reduces to a near-mechanical check — does the ticket touch every layer? That is exactly the computation [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) says should not live in the model, and exactly the [Agent Harness Engineering](/articles/agent-harness-engineering) rule: enforce invariants, not implementations. The prompt says *why* vertical; the checker enforces *that* vertical.
+2. **The constraint form is the reliable one.** "Slice vertically" in a prompt is a behavior request — the instruction class that is unreliable on the way up (agents default horizontal, plausibly a training-data prior — [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)) and compounding-prone on the way down once the behavior goes native ([Instruction Compounding](/articles/instruction-compounding)). A deterministic verifier is a *constraint*: it doesn't compound, costs approximately nothing per run, and catches regressions silently no matter which way the model's default drifts.
+3. **The survivor taxonomy already classifies it.** A slice-shape checker is boundary enforcement — the durable harness class that does not migrate inward — while the prompt-level exhortation is the migrating request class ([What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement)). The correct trajectory as models improve is therefore asymmetric: the *prompt line* ("remember to slice vertically") gets pruned when ablation shows the model does it natively; the *verifier* stays, the way tests stay after the model learns to write correct code ([Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)'s synthesis: prompt scaffolding shrinks, mechanical verification doesn't).
+
+So: yes, it needs the verifier — and the question's framing ("trusted *once told to*") contains the answer's shape: told-to is a request, and requests are precisely what the corpus says not to build reliability on. Trust-the-model applies to deleting prompt lines, never to deleting checkers.
+
+## One consolidated takeaway
+
+Both questions are the verifiability thesis applied to surfaces without a compiler. Where a mechanical check is *possible* (slice shape), build it — a cheap deterministic verifier is durable harness, immune to both model drift and instruction compounding. Where it is *not* possible (deck quality, dossier accuracy), the harness must substitute in layers: encode taste into machine-readable constraints (design systems), grade with validated judges and evals, gate actions before they ship, and concentrate human judgment at the checkpoints where silence would otherwise pass for success. Cowork is not Claude Code minus the compiler — it is the demonstration of what the harness has to become when the compiler was never available.

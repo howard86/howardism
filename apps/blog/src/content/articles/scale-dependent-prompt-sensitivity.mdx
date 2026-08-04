@@ -12,17 +12,25 @@ tags:
   - inverse-scaling
   - scaling-laws
   - rlhf
-readingTime: 9
+readingTime: 16
 imageAlt: Illustration for Scale-Dependent Prompt Sensitivity
 sources:
   - title: Brevity Constraints Reverse Performance Hierarchies in Language Models
     url: https://arxiv.org/html/2604.00025v1
+  - title: Agent swarms and the new model economics
+    url: https://cursor.com/blog/agent-swarm-model-economics
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
 ---
 export { default as heroImage } from "../assets/scale-dependent-prompt-sensitivity.webp";
 
 ## Sources
 
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics)
 - [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
 
 ## Summary
 
@@ -97,6 +105,28 @@ Speculated origin: RLHF reward models exhibit length bias — annotators conflat
 2. **Problem-aware routing + scale-specific prompting** is the deployment pattern: detect overthinking-prone problem types and apply brevity selectively.
 3. **Cost–capability improves simultaneously** — brevity both raises accuracy on inverse problems and reduces tokens (smaller spend).
 
+### A production consequence: a model excluded from a comparison for being too prompt-sensitive
+
+The page's claim that prompting must be scale-aware is usually a tuning recommendation. [Cursor](/articles/cursor) ([Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics), 2026-07-20, `case-study`) supplies the version where the cost is paid instead of the tuning: they wanted **GPT-5.6 Sol** as the frontier arm of their agent-swarm comparison and dropped it, reporting that "the new model appears more sensitive to literal and emphasized wording than the others we tested, and we encountered runaway spirals unlike anything the other models produced." With no time to tune prompts for a just-released model — and with the observation that tuning for one model while leaving the rest untouched would invalidate the comparison — they fell back to GPT-5.5.
+
+Two things worth carrying. **Prompt sensitivity is a per-model property that resets on release**, so a harness tuned across a model generation carries an implicit incumbency advantage that no benchmark reports. And the runaway-spiral failure is this page's overthinking mechanism at agent scale: not a longer answer, a non-terminating loop. `case-study`, one vendor, one unreleased-recently model, and reported only as a footnote — but it is a rare public record of a frontier model being **benched for prompt fragility rather than capability**.
+
+### The controlled version, and the lever with no sign (Eliav, July 2026)
+
+Cursor's exclusion is `case-study`, one vendor, one model, one footnote. [Eliav 2026](https://arxiv.org/pdf/2607.19257) (arXiv 2607.19257, `empirical`) is the controlled version of the same claim, and it crosses prompt **format** against both scale axes — instruction count (10→160) and context length (2k→512k) — on one held corpus across five models. Its headline is not about markdown at all: **neither a format's effect nor its sign can be predicted without specifying the scale at which it was measured.**
+
+- **No reliable format winner, anywhere.** Markdown-minus-plain adherence deltas stay within 2.1pp and are not consistently signed across N for four of five models. The one clean directional signal runs against convention: Qwen 35B favors **plain text** at five of six instruction counts, widening to 4.8pp at N=160.
+- **Both pre-registered structure hypotheses fail.** "Any structure beats plain" and "tables specifically beat everything" were registered as the plausible outcomes; the data supports neither. **Prose — the format both hypotheses predicted would lose — is best or tied-best at three of the five long-context cells with genuine spread.** Plain text is simultaneously the *worst* performer at one cell (Claude Haiku @ 128k, 0.383 against 0.817–0.867 for the other three) and the *single best* at another (Sonnet 5 @ 512k, 0.867 against 0.530–0.667). The generalization is the absence of a ranking, not a ranking.
+- **Rankings reverse between adjacent rungs of the same model**, verified against the paper's fixed anchor set so it is not a question-composition artifact.
+- **Placement is a lever of comparable size that nobody tests.** Moving an identical instruction block between system prompt and user turn changes adherence by up to 8.7pp at N=160 — larger than the format effect for four of five models — and its direction is model-specific: it helps two, hurts two, and does nothing for the fifth. See [Instruction Compounding](/articles/instruction-compounding).
+- **A format effect can be a plumbing failure rather than a comprehension one.** Gemini Flash alone collapses on prose and table at N≥40 (−18.1pp and −13.7pp against plain, where every other model stays within 2.5pp). Manual transcript inspection found the visible response often contains no essay at all but a tail fragment of an internal rule-verification pass — **hidden-reasoning leakage**, not a scoring artifact and not a retrieval deficit. A pooled "format effects are small and inconsistent" summary would have hidden it entirely.
+
+**Why this sharpens rather than repeats this page.** Hakim's brevity result is a prompt lever with a **predictable sign** — constrain length, and large-model accuracy rises on overthinking-prone problems, reliably enough to deploy behind a router. Format is a prompt lever with **no sign at all**: the same rendering is the best performer for one model at one scale and the worst for another. Both findings say the prompt surface is not cosmetic; only one of them yields a rule you can apply without re-measuring. That also upgrades the Cursor observation above from a vendor anecdote to a measured property — prompt sensitivity is per-model, and now demonstrably per-*scale-point* within a model, so a harness tuned at one instruction count or context length carries no guarantee at another.
+
+Two priors the paper bounds rather than contradicts: Oh et al. (2024) report tables yielding ~40% relative accuracy gain over natural text, and Liu et al. (2025) find a table-first format-preference hierarchy — both measured at fixed, moderate context. Eliav's result is that whatever advantage exists there need not survive as context grows toward a model's own effective ceiling.
+
+Same caveats as everywhere this paper is cited: sole author, single lab, arXiv preprint without peer review, 20 trials per instruction cell and 60 questions per long-context cell, and every instruction tested is a hard, exactly-checkable output constraint.
+
 ### Limitations
 
 - Greedy decoding only; unknown whether temperature sampling changes the 7.7% rate.
@@ -118,6 +148,11 @@ Speculated origin: RLHF reward models exhibit length bias — annotators conflat
 - [The Verifiability Thesis](/articles/verifiability-thesis) — [Karpathy](/articles/andrej-karpathy)'s "jagged because of what the labs trained on" is the model-capability story behind why scale doesn't uniformly help
 - [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — a sharp threshold case: smaller Gemini variants solved *zero* open problems while Gemini 3.1 Pro succeeded — capability here is gated, not graded
 - [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the overthinking result is that thesis's counter-case: more test-time compute (longer generations) *reduces* accuracy on ~7.7% of problems, so inference budget is a resource to allocate rather than maximize; brevity is budget-down, and it unlocks latent large-model capability the default masks
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — where the swarm that benched GPT-5.6 Sol is described; the runaway-spiral failure is this page's mechanism showing up as non-termination inside a long-running agent rather than as a long answer
+- [Cursor](/articles/cursor) — the vendor reporting the exclusion, in a footnote to its own model comparison
+- [Agent Context Files](/articles/agent-context-files) — where the format finding bites hardest in practice: every `CLAUDE.md` / `AGENTS.md` / `SKILL.md` in the ecosystem is markdown injected into the system prompt, and neither the rendering nor the slot has any measured justification
+- [Instruction Compounding](/articles/instruction-compounding) — the instruction-count half of the same experiment, and the reason format is not the lever to reach for: adherence floors by ~80 simultaneous rules whatever the rendering, so reformatting a prompt past that point is polish on a dead metric
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — where the same paper's long-context half lives: recall holds to 64–128k, then degrades in proportion to each model's own effective ceiling, and refusal rather than fabrication is what rises
 - [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) — the matrix-level companion to this item-level result: this page finds ~27% of benchmark *problems* are non-discriminative (ceiling/floor); BenchPress finds the whole 84×133 benchmark *matrix* is rank-2. Both quantify how much less independent signal aggregate benchmarks carry than their count implies
 
 ## Derived
@@ -136,3 +171,5 @@ Speculated origin: RLHF reward models exhibit length bias — annotators conflat
 ## Sources
 
 - [Brevity Constraints Reverse Performance Hierarchies in Language Models](https://arxiv.org/html/2604.00025v1)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav, arXiv 2607.19257, 2026-07-21 (`empirical`, sole author, single lab, not peer reviewed): §4.3 and Table 5 the markdown-minus-plain deltas, §4.4 the placement effect, §4.5 and Table 6 the Gemini Flash prose/table collapse and its hidden-reasoning-leakage diagnosis, §5.3 and §6 the two failed pre-registered orderings, Table 7 the non-ceiling recall cells, §2.1/§2.4 the positioning against Sclar et al. 2024, He et al. 2024, Oh et al. 2024 and Liu et al. 2025. Tables 5, 6 and 7 were reconciled and are clean; the bold best-performer markers in Table 7 are lost in the raw parse but the surrounding prose names the winner. The paper's Table 1 model roster is cell-collapsed and is not cited here — see the Sources note on [Instruction Compounding](/articles/instruction-compounding)
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics) — Wilson Lin, cursor.com, 2026-07-20 (`case-study`, vendor-authored): footnote 2 — GPT-5.6 Sol dropped from the swarm comparison for sensitivity to "literal and emphasized wording" and runaway spirals, with GPT-5.5 substituted. This footnote was silently dropped by the initial fetch and restored at ingest against the raw HTML

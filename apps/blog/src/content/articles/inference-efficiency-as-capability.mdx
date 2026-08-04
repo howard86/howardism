@@ -4,8 +4,12 @@ title: Inference Efficiency as Capability
 description: "If capability is a function of inference budget, then cutting the
   cost of a token is capability work: Gemma 4's five levers (37.5% KV-cache
   reduction via keys-as-values + p-RoPE, QAT to sub-GB, MTP drafter heads, MoE,
-  encoder removal) buy more thinking per dollar — and the wiki's first coverage
-  of the deployment side of the stack"
+  encoder removal) buy more thinking per dollar — Kimi K3 runs the same logic at
+  the opposite pole, where 3.7% activation sparsity, hybrid linear attention and
+  MXFP4 QAT are what make a 2.8T open model servable at all, and Gemini 3.5
+  Flash-Lite shows the efficiency *tier* moving the other way: a full
+  agentic-capability tier bought with a 67% output-price rise, so that
+  per-dollar the release is a gain on some benchmarks and a loss on others"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -14,7 +18,7 @@ tags:
   - test-time-compute
   - quantization
   - deployment
-readingTime: 8
+readingTime: 15
 imageAlt: Illustration for Inference Efficiency as Capability
 sources:
   - title: Gemma 4 Technical Report
@@ -22,12 +26,18 @@ sources:
   - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
       Research with OpenAI's Noam Brown
     url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: Kimi K3 Model Card
+    url: https://huggingface.co/moonshotai/Kimi-K3
+  - title: Gemini 3.5 Flash-Lite Model Card
+    url: https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/
 ---
 export { default as heroImage } from "../assets/inference-efficiency-as-capability.webp";
 
 ## Sources
 
+- [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
 
 ## Summary
@@ -59,6 +69,45 @@ QAT is applied to the encoders too: the 150M vision encoder at W8A8 halves forwa
 
 **5. Removing the encoders.** The 12B's 550M vision encoder becomes a 35M matmul and its 305M audio conformer is deleted outright, "alleviating the need for separate encoders and reducing memory fragmentation." Motivated by memory, not accuracy — see [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion).
 
+## The same logic at the opposite pole: Kimi K3 (July 2026)
+
+Gemma 4 spends efficiency to fit a phone. [Kimi K3](/articles/kimi) (`vendor-claim`) spends it to make a **2.8T-parameter open model runnable by anyone at all** — the same denominator argument, inverted. Its levers are different in kind and all of them are load-bearing rather than optional:
+
+- **3.7% activation sparsity.** 104B active of 2.8T total, routing **16 of 896 experts** per token plus 2 shared. That is the sparsest routing in this corpus by a wide margin (Inkling: 6 of 256). MoE was Gemma's *weakest* lever at 26B; at 2.8T it is the only thing that makes the parameter count meaningful, which is consistent with [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap)'s reading that sparsity's returns arrive far above 26B.
+- **Hybrid attention: 69 Kimi Delta Attention layers to 24 Gated MLA.** Structurally the same bet as Gemma's 5:1 local-to-global ratio and Inkling's 5:1 sliding-to-global — keep a minority of layers paying full-context attention cost — but with a linear-attention variant rather than a sliding window in the majority slot. Three labs, three mechanisms, one ratio class, all aimed at the KV cache. K3 buys a **1M-token context** with it.
+- **MXFP4 weights / MXFP8 activations, quantization-aware from the SFT stage onward.** Gemma applies QAT to reach sub-gigabyte checkpoints on consumer hardware; Moonshot applies it "for broad hardware compatibility" at the other end, where a 2.8T bf16 checkpoint is simply not deployable. Same technique, opposite constraint: one is fitting into RAM, the other into a fleet.
+
+The headline is **"an approximate 2.5× improvement in overall scaling efficiency over Kimi K2"** — and it is the one number here that cannot be checked. The card gives no definition of the metric, no baseline curve, no ablation separating KDA from AttnRes from LatentMoE, and no cost axis. This is precisely the failure mode [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) names, arriving from the efficiency side rather than the capability side: an efficiency claim without an axis is as underspecified as a benchmark score without a budget. Gemma 4's efficiency work is auditable (memory footprints, WER deltas, latency percentages) and is under-credited by its own grid; K3's is un-auditable and is the release's headline.
+
+One cost lands on the caller rather than the server. K3 requires **preserved thinking history** — every prior assistant message must be passed back with `reasoning_content` intact — so a long agentic session carries its full reasoning trace in-context rather than discarding it. That is an efficiency *transfer*: cheaper for the model (no re-derivation), more expensive in the context window, and it interacts with the fact that K3 has no thinking-off mode.
+
+## The efficiency *tier* moves up-market: Gemini 3.5 Flash-Lite (July 2026)
+
+Gemma 4 and K3 are efficiency at the level of the **architecture** — levers inside the model that make a token cheaper to produce. [DeepMind's](/articles/google-deepmind) **Gemini 3.5 Flash-Lite** card (2026-07-21, `vendor-claim`) is the first source here on efficiency as a **product tier**, and it moves in the direction the "efficiency is capability" frame does *not* predict: the successor to an efficiency-tier model is **more expensive**. Output price goes **$1.50 → $2.50 per 1M tokens (+67%)**, input **$0.25 → $0.30 (+20%)**, against a predecessor it otherwise dominates.
+
+What the price buys, per DeepMind's own table (3.1 Flash-Lite → 3.5 Flash-Lite):
+
+| Benchmark | 3.1 FL | 3.5 FL | Δ | Relative gain | Clears the +67% output-price rise? |
+|---|---|---|---|---|---|
+| MLE-Bench | 22.0% | 39.2% | +17.2pp | +78% | yes |
+| Terminal-bench 2.1 | 31.0% | 54.0% | +23.0pp | +74% | yes |
+| GDM-MRCR v2 (1M pointwise) | 12.3% | 21.3% | +9.0pp | +73% | yes |
+| SWE-Bench Pro | 38.3% | 54.2% | +15.9pp | +42% | no |
+| OSWorld-Verified | 54.3% | 74.0% | +19.7pp | +36% | no |
+| GDM-MRCR v2 (128k avg) | 60.1% | 72.2% | +12.1pp | +20% | no |
+| CharXiv (no tools) | 73.2% | 74.5% | +1.3pp | +2% | no |
+| GDPVal-AA v2 (Elo) | 642 | 1140 | +498 | — (Elo is interval-scaled; a ratio is meaningless) | n/a |
+
+**The structural finding is the asymmetry, not the sign.** The price rise is a single uniform number applied to every token. The capability gain is wildly non-uniform: a full tier on agentic work (terminal, ML engineering, computer use, knowledge-work Elo), noise on chart understanding. So *within one vendor's cheapest tier*, whether the new model is cheaper for you is now a **workload question**, not a spec-sheet question — the same buyer sees +78% value on an MLE-Bench-shaped workload and +2% on a CharXiv-shaped one, at the same +67% bill. "Flash-Lite" stopped naming a price point and started naming a latency-and-capability profile whose price floats.
+
+Three caveats that the arithmetic above cannot escape, all of them the same caveat in different clothes:
+
+- **Percent-correct is not linear in value.** A task class a model fails 62% of the time may be worth nothing at all, so 38.3 → 54.2 can be worth far more than 42%. The per-dollar column is a floor on the comparison, not the comparison.
+- **Input and output prices moved differently** (+20% vs +67%). An input-heavy long-context workload — exactly where MRCR@128k's +12.1pp lands — faces something much closer to +20%, which flips that row's verdict. The single "price rose 67%" headline is itself an uncontrolled number.
+- **No token counts anywhere.** Price per token is a rate; the bill is rate × tokens-per-task, and a model that reasons longer can be more expensive at a lower rate. This is [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token)'s distinction arriving from the vendor side, and it is why the card's price rows are not compute control — see [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking).
+
+Cross-vendor, the card places 3.5 Flash-Lite at $0.30/$2.50 against **GPT-5.4 mini** ($0.75/$4.50) and **Claude Haiku 4.5** ($1.00/$5.00): roughly parity on SWE-Bench Pro (54.2 vs 54.4), ahead on OSWorld-Verified (74.0 vs 72.1), far ahead on long context (MRCR@128k 72.2 vs 42.7), behind on Terminal-bench 2.1 (54.0 vs 59.2), CharXiv (74.5 vs 80.3) and GDPVal-AA Elo (1140 vs 1171) — at ~55% of the output price. Weight this as `vendor-claim` and note the comparator selection: both rivals are one or two generations behind the OpenAI and Anthropic models this corpus otherwise tracks.
+
 ## Why this is a capability claim, not an engineering claim
 
 Brown's argument runs: a $10 inference budget does one thing, $10,000 does much more. He also observes that per-generation cost drops 10–100×, which is what makes waiting for the next model rational ([Latent Capability Overhang](/articles/latent-capability-overhang)).
@@ -87,10 +136,12 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 - [Gemma 4](/articles/gemma-4) — the source model family
 - [Google DeepMind](/articles/google-deepmind) — the lab
 - [Noam Brown](/articles/noam-brown) — the thesis this page inverts
+- [Kimi (Moonshot AI)](/articles/kimi) — the same efficiency-is-capability logic at 2.8T: 16-of-896 routing, 69 KDA + 24 Gated MLA, MXFP4 QAT, and an unauditable 2.5×-scaling-efficiency headline
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the buyer-side statement of the last caveat: price per token is a rate, and Flash-Lite's +67% is uninterpretable without tokens-per-task
 
 ## Open Questions
 
-- **Is there an efficiency-to-capability exchange rate?** Brown asks whether high-budget performance can be predicted from cheap runs. The dual question: how many Elo points is a 37.5% KV-cache reduction worth, at a fixed dollar budget? Nobody reports this, because nobody plots the axis.
+- **Is there an efficiency-to-capability exchange rate?** Brown asks whether high-budget performance can be predicted from cheap runs. The dual question: how many Elo points is a 37.5% KV-cache reduction worth, at a fixed dollar budget? Nobody reports this, because nobody plots the axis. **Partially answered (2026-07-30):** [Gemini 3.5 Flash-Lite](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) is the first artifact in this corpus to print price and capability in the same table for a model *and its own predecessor*, so a rate is computable in one direction — +67% output price buys +42% relative on SWE-Bench Pro, +78% on MLE-Bench, +2% on CharXiv. That answers "what did this generation's price rise buy" and still not "what is a KV-cache reduction worth": the axis is price-per-token rather than spend-per-task, the levers are not decomposed, and the exchange rate turns out to be workload-dependent rather than a single number.
 - `values = keys` deletes a third of attention's projections in the global layers with no reported loss. Which other projections are redundant, and does the redundancy grow with scale?
 - Does an efficiency lever ever *cost* capability in a way a benchmark grid hides? Gemma 4's encoder-free 12B collapses on dense-text vision when tokens are cut — an efficiency-shaped regression invisible at max resolution.
 
@@ -98,3 +149,5 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.1–2.7 (attention ratios, p-RoPE, keys-as-values, QAT, MTP drafter, TPU infra), Tables 1–3 (`empirical`)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26): capability as a function of inference budget; per-generation cost drops of 10–100× (`practitioner-opinion`)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §1 (the 2.5×-scaling-efficiency claim, LatentMoE sparsity), §2 spec table (16-of-896 routing, 69 KDA + 24 Gated MLA, 1M context), §4 (MXFP4/MXFP8 QAT from SFT onward), §6 (preserved-thinking-history requirement) (`vendor-claim`)
+- [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) — Google DeepMind, 2026-07-21 (`vendor-claim`): the July 2026 evaluation table, whose first two rows are input and output price per 1M tokens for all four compared models; per-dollar arithmetic in the section above is computed from those rows, not stated by DeepMind. Machine extraction from a client-side-rendered page, numbers verified across three passes

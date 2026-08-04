@@ -1,0 +1,95 @@
+---
+date: 2026-08-04
+title: Live-Path Minimalism
+description: "GPT-Live's serving principle — \"the voice must flow\": the
+  realtime media loop is the only thing on the live path; delegation, context
+  compaction, persistence, and instance management all run asynchronously off
+  it. Stateful-instance handoff (warm a replacement, prefill, run both in
+  parallel, cut over) turns compaction and rebalancing into zero-interruption
+  transitions; delegation is a budgeted loop over a pre-warmed prefilled
+  frontier-model session; WARP + Instant Connect collapse WebRTC startup from
+  six round trips to a single UDP packet; capacity is concurrent sessions
+  keeping every frame on schedule, not GPU throughput"
+tag: Concept
+domain: interaction-multimodal
+tags:
+  - llm-architecture
+  - inference
+  - multimodal
+readingTime: 8
+imageAlt: Illustration for Live-Path Minimalism
+sources:
+  - title: How we built a realtime system for responsive voice AI in six months
+    url: https://openai.com/index/continuous-voice-interaction-with-gpt-live/
+---
+export { default as heroImage } from "../assets/live-path-minimalism.webp";
+
+## Sources
+
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/)
+
+## Summary
+
+The serving-side architecture behind [GPT-Live](/articles/gpt-live), stated by OpenAI as one principle: **"the voice must flow."** A full-duplex model ([Full-Duplex Interaction](/articles/full-duplex-interaction)) makes the conversation a continuous media loop, and any delay in transport, processing, or inference becomes an audible pause — a turn-based system could tolerate variation in when an audio blob arrived; a live media system must deliver **every audio frame on schedule**. The design response is to make the live path as small as possible and move *everything else* — deeper reasoning, tool use, conversation persistence, context compaction, instance management — onto asynchronous paths that cannot stall it. All figures below are first-party (`case-study`); the protocol work is externally checkable via public IETF drafts.
+
+## Separate the media path from everything else
+
+- Audio moves between client and voice model on a **dedicated fast path**; delegation, tool use, and application work sit behind an **asynchronous RPC boundary**. A slow tool call or backend service can delay its own result, but cannot stall media.
+- The same boundary is the customization surface: applications change tools, policies, and backend behavior without touching the media frontend — which is what lets ChatGPT Voice grow application behavior (computer control, agent coordination) without risking responsiveness.
+- The media frontend and inference logic were **rewritten from Python `asyncio` to Go**; OpenAI reports the new system's **p95 frame-delivery smoothness matches the old system's p50**.
+- **WebRTC** is the transport: built for low-latency media, it rides through packet loss, clock drift, and connection changes — subtly stretching audio to cover late packets, then briefly accelerating playback to catch back up.
+
+## Long-lived stateful inference: disruptive operations become managed transitions
+
+Stateful streaming inference means a session's context lives in a model instance — but sessions run long, context grows, and instances spin up and down with demand. The mechanism that squares this is **seamless instance handoff**: warm a replacement instance alongside the current one, prefill it with the session context, run inference against both in parallel, and cut over when the replacement is fully ready.
+
+The important application is **context compaction as a managed transition**. Compaction takes time, and because it rewrites past context it **invalidates the KV cache**, forcing a fresh prefill — dead air if paid on the live path. Instead, the original instance keeps chatting while the system compacts the context and prepares a replacement instance with it; the session cuts over with no media interruption: "even during a handoff, the conversation never misses a beat." Where [Context Lifecycle Management](/articles/context-lifecycle-management)'s cache-aware commit *prices* the cache break and can hold a plan pending, this is the serving-side dodge: hide the break's **latency** behind a parallel instance (its compute cost is still paid — just off the path the user can hear).
+
+## The delegation loop is a latency budget
+
+The [Interaction / Background Model Split](/articles/interaction-background-model-split) in production form: the voice model can briefly keep the exchange moving while a frontier model reasons, but "cannot hide an arbitrarily slow response" — so the **full delegation loop** (routing, prompt processing, inference, tool calls) is treated as part of the responsiveness budget:
+
+- At voice-session start, the application server **pre-creates the frontier model's inference session and prefills it with the initial conversation context** — the prompt is fully processed before the first delegation is ever requested.
+- The session persists for the whole conversation with **stable session affinity** plus prompt caching; a worker failure stays cheaply recoverable.
+- Reasoning effort, output limits, tool schemas, and model↔tool round trips are all tuned as levers on time-to-useful-result.
+
+## Startup: collapsing the handshake
+
+Session start puts every protocol exchange on the critical path, and vanilla WebRTC predates the round-trip frugality of QUIC-era protocols — its stacked sub-protocols even repeat anti-DoS work. OpenAI's answer, developed with the WebRTC community as **open specifications** through the IETF's TSVWG:
+
+- **WARP** (WebRTC Abridged Roundtrip Protocol) — **six network round trips down to one**, via backward-compatible pieces: piggybacking the DTLS handshake over ICE (SPED), DTLS 1.3, pre-negotiating the SCTP handshake (SNAP), and pre-negotiated data channels instead of DCEP. Already implemented in libwebrtc and Pion.
+- **Instant Connect** — pre-negotiates the SDP signaling parameters ahead of time without reserving server capacity; if they're valid the server materializes the session when the first media packet arrives, and if stale the standard signaling flow is already running as fallback, costing nothing extra.
+
+Net effect: a client can start a session with **a single UDP packet**.
+
+## Turns become a derived view
+
+Removing the turn detector doesn't remove the need for turns — ChatGPT's conversation UI, analytics, and safety systems still consume discrete user/assistant messages. So the application server **derives turns from the continuous stream**: partial transcripts and timing signals infer who holds the floor; the newest message stays provisional (text, timing, and speaker assignment all revisable) until floor-holding is sustained enough to finalize. Overlap needs policy — a brief assistant "mm hmm" while the user talks should not become its own message, a substantive interjection should. Every segmentation policy trades **freshness for certainty**, so the system maintains two views: a **speculative** view feeding the live UI (which can tolerate revisions) and an **authoritative** record feeding analytics (which needs finality). The turn-based data model survives at the application boundary — maintained by inference over the stream rather than imposed on the audio path (see [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck)).
+
+## What production testing taught
+
+Before serving users, a **silent shadow test** routed a small, growing share of production ChatGPT Voice traffic to both Advanced Voice Mode (still serving) and the new system running read-only — real clients, networks, session lengths, and geography with no user-visible change. Lessons:
+
+- **Capacity is not GPU throughput.** Voice sessions hold open and send frames continuously, so CPU-side stream handlers, queues, and network paths must scale alongside inference; a supporting component saturated before load-test estimates predicted, compounding latency. The capacity question became "how many concurrent sessions can the system sustain **while keeping every frame on schedule**?"
+- **Geography is first-order.** Distant capacity taxes both startup and streaming; rollouts began validating model, regional capacity, and traffic-steering together, with latency broken down by source geography.
+- **Failures that need time and state to exist.** Long sessions exposed memory and persistence pressure; reconnects exercised compaction and state restoration; ordinary disconnects revealed races in the shutdown handshake — none visible in short load tests.
+- **Observability had to be rebuilt**: metrics conflating latency sources, dashboard aggregates hiding individual unhealthy engines, and config drift between tested and deployed systems led to granular telemetry, validation against known-good configurations, staged ramps, and per-path kill switches. The shadow test became a rehearsal for detection, containment, and recovery — not just a throughput check.
+
+## Connections
+
+- [GPT-Live](/articles/gpt-live) — the system this architecture serves
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — the model property that creates the every-frame-on-schedule constraint
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — the two-model architecture whose delegation half this page's latency-budget engineering implements
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — TML's disclosed counterpart on the inference internals: persistent GPU-resident sequences for frequent small prefills (upstreamed to SGLang), where OpenAI's stateful stack — instance handoff, off-path compaction — stays proprietary and one level up
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — the harness this dissolves from the audio path, and the place turns re-enter as a derived view
+- [Interaction Models](/articles/interaction-models) — the research framing whose serving problem this is
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the priced version of the compaction/cache-break trade this architecture instead hides behind a parallel instance
+
+## Open Questions
+
+- Does the upcoming GPT-Live API expose the media/application separation to third parties — application logic customizable behind the async RPC boundary without touching the live path — or is the boundary internal-only? Trigger: GPT-Live API launch.
+- TML upstreamed streaming-sessions serving into SGLang; GPT-Live's stateful serving (persistent sessions, seamless instance handoff, off-path compaction) is proprietary. Does an open-source inference stack ship instance handoff for full-duplex voice? Trigger: an SGLang/vLLM release with session-handoff support.
+
+## Sources
+
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/) — OpenAI engineering blog, 2026-07-29 (`case-study`, first-party): all architecture and testing detail; performance figures (Go rewrite p95≈old p50, WARP 6→1 round trips) are vendor-reported and unaudited, while WARP/SPED/SNAP exist as public IETF drafts with libwebrtc and Pion implementations. The post's one figure (system-architecture diagram) is fully described by its own caption and the surrounding prose; not separately viewed.

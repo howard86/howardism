@@ -2,32 +2,62 @@
 date: 2026-05-06
 title: Harness Shrinkage as Models Improve
 description: Prompt scaffolding shrinks each model release; Cat Wu's pruning
-  discipline; Boris Cherny "100 lines of code a year from now" claim; mechanical
-  verification stays load-bearing
+  discipline; Boris Cherny "100 lines of code a year from now" claim; Anthropic
+  deleted >80% of Claude Code's system prompt for Claude 5 models — and Cherny
+  reports the model is slightly *more* intelligent without the prompts (ablation
+  via SIMPLE=1); the user-side form is delegation rather than deletion ("use
+  your judgement"); mechanical verification stays load-bearing
 tag: Concept
 domain: agent-systems
 tags:
   - llm-architecture
   - agent-engineering
   - harness
-readingTime: 13
+readingTime: 33
 imageAlt: Illustration for Harness Shrinkage as Models Improve
 sources:
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
     url: https://www.youtube.com/watch?v=SlGRN8jh2RI
+  - title: "Boris Cherny: We Cut 80% of Claude Code's Prompt"
+    url: https://www.youtube.com/watch?v=qyPCVqFUyDo
   - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
       of Product, Claude Code)
     url: https://www.youtube.com/watch?v=PplmzlgE0kg
   - title: Claude Fable 5 and Claude Mythos 5
     url: https://www.anthropic.com/news/claude-fable-5-mythos-5
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
+  - title: The new rules of context engineering for Claude 5 models
+    url: https://x.com/trq212/status/2080710971228918066
+  - title: Coding Agents and Technical Debt
+    url: https://www.openhands.dev/blog/coding-agents-and-technical-debt
+  - title: "The Harness Effect: How Orchestration Design Sets the Token Economics of
+      Enterprise Agentic AI"
+    url: https://arxiv.org/pdf/2607.06906
+  - title: Fable's judgement
+    url: https://simonwillison.net/2026/Jul/3/judgement/
 ---
 export { default as heroImage } from "../assets/harness-shrinkage-as-models-improve.webp";
 
 ## Sources
 
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo)
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)
+- [Coding Agents and Technical Debt](https://www.openhands.dev/blog/coding-agents-and-technical-debt)
+- [Fable's judgement](https://simonwillison.net/2026/Jul/3/judgement/)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906)
+- [The new rules of context engineering for Claude 5 models](https://x.com/trq212/status/2080710971228918066)
 
 ## Summary
 
@@ -74,6 +104,51 @@ The opposite failure mode is worse than no harness — it actively degrades the 
 - [Matt Pocock](/articles/matt-pocock): 250K-token system prompts push the model into the dumb zone before it does anything (see [Context Window Smart Zone](/articles/context-window-smart-zone)).
 - Repeated capability injections drift toward contradiction: rule X for case A, rule Y for case B, until the model can't tell which applies.
 
+**A ceiling, measured independently (2026-08-04).** Every argument on this page for keeping the prompt short is Anthropic-sourced and reasons about *tokens* — Pocock's dumb zone, Cherny's ablation, Thariq's >80% deletion. [Eliav 2026](https://arxiv.org/pdf/2607.19257) (arXiv 2607.19257, `empirical`, sole author, five models including Sonnet 5 and Haiku 4.5) supplies the first outside measurement, and it binds on a different quantity: the rate at which *every* instruction in a prompt is obeyed falls steeply by **40 simultaneous verifiable rules** and reaches zero by **80**, holding flat through 160, identically across markdown / plain / prose / table rendering and both prompt slots. The rules are distinct and individually satisfiable, so this is not [compounding](/articles/instruction-compounding) and no per-line ablation would find it — which means Cherny's line-by-line add-back method, correct as it is, cannot detect the condition where a prompt of individually-justified lines is simply too many lines. "Delete your CLAUDE.md every 6 months" now has a number to aim at, and it is a count rather than a length.
+
+## The vendor states it as an instruction (Opus 5, July 2026)
+
+Everything above is inference from how a team works. Anthropic's [Opus 5](/articles/claude-opus-5) [prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) (`vendor-claim`) is the first place the vendor writes the pruning rule into public documentation as an imperative — and it makes two upgrades to the thesis:
+
+**1. Some scaffolding doesn't go redundant, it goes harmful.** "If your prompt contains explicit verification instructions… remove them: instructions like these cause over-verification on Claude Opus 5, and removing them reduces wasted tokens with no loss in quality. The same applies to legacy harness scaffolding that adds separate verification steps." Cat Wu's discipline saves tokens by cutting reminders the model no longer needs; this cuts lines that make the output *worse* by adding to a behavior the model now performs on its own. A team that keeps a stale instruction because "it can't hurt" is wrong, which turns the prune-at-every-launch pass from housekeeping into a correctness obligation. Developed at [Instruction Compounding](/articles/instruction-compounding); the same guide tells you to re-validate prompt-side *vision* workarounds, which "may no longer be needed" — the Fable-5-plays-Pokémon result restated as migration advice.
+
+**2. The pass has two directions.** The same document *adds* prompt: Opus 5's conversational replies, agentic narration, and written files all run longer by default, and effort does not control any of it, so length calibration is prompt that did not need to exist a release ago ([Output Length Calibration](/articles/output-length-calibration)). Capability scaffolding comes out; communication scaffolding goes in. This is the model-facing/human-facing asymmetry below ([HTML as the New Markdown](/articles/html-as-the-new-markdown)) showing up inside a single system prompt rather than across two products.
+
+## The measured deletion: >80% of the system prompt (Claude 5, July 2026)
+
+[Thariq Shihipar](/articles/thariq-shihipar)'s context-engineering post ([July 2026](https://x.com/trq212/status/2080710971228918066)) supplies the largest concrete number the thesis has: **"We removed over 80% of Claude Code's system prompt for models like Claude Opus 5 and Claude Fable 5 with no measurable loss on our coding evaluations"** (Anthropic-measured, stated without published data). His framing is **"unhobbling"** — the team found it was *over-constraining* the model, and reading transcripts of internal usage showed why: conflicting instructions arriving in a single request ("leave documentation as appropriate" vs. "DO NOT add comments") as system prompt, skills, and user requests clash. The model can usually resolve the conflict, but must spend thinking on arbitration that a cleaner context wouldn't demand — [Instruction Compounding](/articles/instruction-compounding)'s drift-toward-contradiction observed in the vendor's own transcripts.
+
+The canonical before/after is the comments rule. Old system prompt: "default to writing no comments. Never write multi-paragraph docstrings… one short line max." New system prompt: "Write code that reads like the surrounding code: match its comment density, naming, and idiom." A hard rule that was wrong for a subset of prompts (users with documentation preferences, complex code needing real comment blocks) replaced by a judgment delegation — the guardrail was a tradeoff accepted for older models' weaker judgment, now deleted because the judgment moved into the model.
+
+The pruning discipline is also now **productized for users**: the `claude doctor` / `/doctor` command applies the same rightsizing to your own CLAUDE.md files and skills — Cat Wu's read-the-whole-prompt-at-every-launch pass shipped as a tool anyone can run.
+
+## The same move, prescribed to users (Willison, July 2026)
+
+The comments-rule rewrite above is Anthropic doing this to its own system prompt. [Simon Willison](https://simonwillison.net/2026/Jul/3/judgement/) (2026-07-03, `practitioner-opinion`) records [Cat Wu](/articles/cat-wu) and [Thariq Shihipar](/articles/thariq-shihipar) prescribing it to *users*, at an AI Engineer World's Fair fireside he hosted: let Fable "use their own judgement rather than dictating how they should work." Their worked example is the comments rule in a different domain — you *can* tell Fable "only use automated testing for larger features, don't update and run tests for small copy or design changes," but "it's better to just tell Fable to use its own judgement when deciding to write tests instead."
+
+Two things this adds. **The pruning obligation moves onto the user's prompt**, where none of this page's machinery reaches — a hard rule in someone's `CLAUDE.md` is the same class of artifact Anthropic ablates at every launch, and nobody runs `SIMPLE=1` on it. And **the replacement is a delegation, not a deletion**: deleting a rule leaves the model to its defaults, while "use your judgement" hands it a decision it now knows it owns. Every measurement on this page is of the deletion form; whether the delegation form beats either the rule or the silence is unmeasured here and everywhere else in the corpus.
+
+Willison's own test points the delegation at model routing: *"For all coding tasks use your judgement to decide an appropriate lower power model and run that in a subagent."* That is Nathan's model-decides-the-surface-route observation above with the target changed — a **user** moving [model selection](/articles/cost-per-task-over-cost-per-token) into the model, by prompt, without waiting for the vendor to move it. Evidence value is low: one developer, no measurement, the tip itself second-hand (from Jesse Vincent), and the reported outcome is "it seems to be working well" plus a Fable allowance "shrinking less quickly than before."
+
+## The methodology, from the source: ablation, and a *gain* without the prompt
+
+Cherny's [YC interview (July 2026)](https://www.youtube.com/watch?v=qyPCVqFUyDo) is the first place the >80% deletion's *method* is described, and it upgrades the headline in three ways:
+
+1. **The deletion is an ablation, run at every model release.** "You delete the entire system prompt and then you bring it back line by line to figure out what is the impact of each individual line" — an eval where deletion measures each line's contribution. The same discipline applies to tools ("we unship tools all the time"). The add-back rule is strictly empirical: don't guess what instruction the model needs — run the product, watch where it *repeatedly* stumbles on the same thing, and only then add the line, "because the model is going to read this instruction every single time."
+2. **The result is stronger than "no eval loss."** The undocumented `SIMPLE=1` environment variable strips *all* prompts, including the tools' — the team's standing ablation switch — and "what's interesting is that the model is actually **a little bit more intelligent without these prompts**." The residual prompt exists for *product* behavior (helping the model act the way a person using the product wants), not capability. This sharpens Thariq's "no measurable loss" above into a mild measured gain, and hands users the same experiment: `--system-prompt` accepts a full replacement.
+3. **What's left of the harness isn't prompts at all.** "If you look at the code that's in the Claude Code harness today, almost all of it is about safety and permissions and static analysis and there's a bunch of UI code" — the surviving harness is exactly the boundary-enforcement residue the Resolved Question below predicts, stated by the harness's owner.
+
+The user-facing corollary is now explicit advice rather than inference: "every 6 months delete your Claude MD. Delete your skills. Delete your hooks. See what the model does" — pruning as a calendar discipline for everyone, not just the vendor.
+
+## The non-Anthropic check: OpenAI ships an architecture that presupposes this
+
+Everything above is sourced from Anthropic — Cherny, Cat Wu, Thariq, the Opus 5 docs, the Fable 5 launch. The thesis had no independent vendor confirmation until OpenAI's July 2026 ChatGPT Work merge, described by Akshay Nathan on Latent Space ([Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work), `practitioner-opinion`). It doesn't restate the thesis — Nathan never discusses prompt pruning — but it *presupposes* it, in two ways:
+
+1. **The surface-differentiation residue matches Cherny's harness residue.** OpenAI runs Codex and ChatGPT Work on one shared harness and differentiates only three things: git-state visibility, diff-forward chain-of-thought display, and **sandboxing defaults**. That is permissions and UI — the same short list Cherny gives for what survived Claude Code's ablation ("safety and permissions and static analysis and… UI code"), reached from the opposite direction (forking one surface into two rather than deleting until nothing more can go). If capability still lived in per-surface prompt scaffolding, "same harness, wildly different audiences" would not be shippable. See [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces).
+2. **Routing became model behavior.** Asked whether ChatGPT's hand-off to Work mode is a router, Nathan says "this is the decision that the model is making… it sees that you're trying to do something that would be better served in Work mode." A dispatch rule that would have been harness logic is now a model judgment — the same migration as the [spontaneous-loop](/articles/agent-loop-pattern) observation, at the product-surface layer.
+
+**The counter-current in the same source.** OpenAI is simultaneously *growing* the user-facing knob surface: "there's 32 options" across model classes and reasoning levels, plus a slider, plus Ultra, plus sub-agent controls — and Nathan concedes "one could argue that there might be too many right now, and we're working on simplifying it." This is not a contradiction of the thesis; it is the [model-facing/human-facing asymmetry](/articles/html-as-the-new-markdown) again, with the human-facing side visibly overshooting. What OpenAI is pruning is the *human's* configuration surface, not the model's prompt.
+
 ## Process: read the system prompt at every launch
 
 Cat Wu's discipline:
@@ -102,11 +177,39 @@ Not every voice agrees. [Matt Pocock](/articles/matt-pocock) argues the harness 
 
 The synthesis: **prompt scaffolding shrinks as models improve; mechanical verification remains essential.** Tests, types, linters, isolated review contexts — these are infrastructure that the harness provides and that doesn't migrate into the model the way capabilities do.
 
+## The counter-datum: harness *codebases* are not shrinking
+
+Every measurement above is taken on the system prompt. [OpenHands](/articles/openhands)' July 2026 GitHub analysis ([Coding Agents and Technical Debt](https://www.openhands.dev/blog/coding-agents-and-technical-debt), `case-study`) is the first in the corpus pointed at the *codebase*, and it points the other way: four coding-agent harnesses — OpenHands, [Codex](/articles/codex), OpenCode, [Hermes](/articles/hermes-agent) — each carry **1.05M–1.75M lines** and absorbed **5,679–7,736 merged PRs** in twelve months, with Codex accelerating from ~124 merged PRs/month in mid-2025 to ~1,000/month a year later. Full treatment, with the vendor-interest caveats, at [Harness Build-vs-Buy](/articles/harness-build-vs-buy).
+
+Most of the apparent conflict dissolves on inspection, in three steps: **prompt is not codebase** (deleting 80% of a prompt removes no lines from an app server or a UI); **Cherny's own residue list is exactly what a million lines looks like** — "safety and permissions and static analysis and… a bunch of UI code" is not a small program, and OpenHands prices its surface half at 313K lines (Agent Canvas 246K + CLI 67K) before the server or the runtime; and **the pruning discipline is itself PR volume** — Cat Wu's read-the-prompt-at-every-launch pass and Cherny's line-by-line ablation are merged PRs, so a faster model cadence *raises* maintenance flow while lowering steady-state prompt size. Churn and size are different variables, and this page has only ever measured one of them.
+
+What survives the reconciliation is a directional problem for the "100 lines" prediction below: it is a claim about the harness codebase, the only trajectory anyone has measured for that variable is *up*, and it is `case-study` public data against a self-labeled hyperbolic `prediction`. Not a falsification — the prediction is about Claude Code specifically, and Claude Code is closed-source and absent from the comparison — but the first evidence against the reference class.
+
+## The counter-current with a slope: harness leverage
+
+The counter-datum above is about *size*. Writer's harness-swap paper ([The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906), arXiv 2607.06906, 2026-07-08, `empirical` with a total vendor COI — see [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics)) supplies one about *direction*, and it is the sharpest challenge this page has taken.
+
+Holding 22 tasks and six models fixed and swapping only the orchestration layer, efficiency improved for every model (cost −33% to −61%, no exceptions) but **quality gains tracked baseline model strength almost perfectly**: Palmyra X6 +0.079, Sonnet 4.6 +0.073, Gemini 3.1 +0.050, GLM 5.1 +0.028, Flash 3.5 +0.010, **Qwen 3.6 −0.031** — r = 0.99 across six points. All seven of the 48 capability × model cells that regressed belong to the three *smaller* models, concentrated in the capabilities that exercise orchestration hardest (MCP tool use, Playbooks, Presentations). The paper's phrasing: *"the same richer harness that a strong model converts into quality, a weaker model experiences as load."* And its one net-new capability, sub-agent delegation, clears a usable reliability threshold only on the two strongest models (0.85–0.86 against 0.42–0.45 on the fast tier) — an orchestration feature with a **capability floor**, below which exposing it produces failures rather than function.
+
+Read naively that is this page inverted: harness richness paying off *more* as the model gets stronger, not less. The reconciliation is the distinction the wiki's own Resolved Question already drew, now with a measurement behind it:
+
+- **What shrinks is scaffolding that compensates for weakness** — behavior requests, reminders, verification nudges, vision workarounds. Every measurement on this page is taken on exactly that: system-prompt lines an abler model no longer needs, and past expiry actively resists.
+- **What leverages is structural machinery the model cannot perform for itself** — prefix-cache shape, compaction contracts, context offload to the filesystem, typed failure classification, zero-token durable suspension, per-task token accounting. No amount of model capability lets a model cache its own prompt prefix, suspend itself at zero cost mid-run, or refuse to bill for a discarded attempt. That is the *inference/deployment structure* survivor class, and this is the first source to show it doesn't merely survive — it **pays more the better the model is**.
+
+Two details make the reconciliation more than a definitional escape. First, the losing arm in that experiment is exactly what this page calls harness bloat: a 49 KB monolithic system prompt replayed every turn, with regex-parsed XML tool calls and destructive middle-truncation. The winning harness is not *smaller*; it is more **structured**, and the token savings come from structure. Second, the capability floor points the same way as [Instruction Compounding](/articles/instruction-compounding) with the sign flipped — where a stale instruction becomes harmful to a *strong* model, a rich orchestration feature is harmful to a *weak* one. Both are arguments that harness surface has to be re-fitted to the model rather than monotonically added or monotonically deleted.
+
+What does *not* dissolve: this page's implicit prediction is that the harness's contribution declines over time, and harness leverage says the quality half of that contribution is **increasing** in model strength within the band measured (baseline capability means 0.710–0.789 — a narrow eight-point span over six models, so treat the slope as local). If the trend holds at frontier capability, "the harness shrinks" is true only of prompts, and the structural half of the harness is a *complement* to capability rather than a substitute for it.
+
 ## Connections
 
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the counter-current above: efficiency gains from a richer harness are model-invariant while quality gains scale with model strength (r = 0.99), and advanced orchestration features carry a capability floor. The reconciliation is prompt-scaffolding-versus-structural-machinery, which is this page's own survivor taxonomy given its first measurement
 - [Boris Cherny](/articles/boris-cherny) — "100 lines" claim and the spontaneous-loop observation
+- [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces) — the corpus's only non-Anthropic corroboration: OpenAI's Codex/ChatGPT Work merge differentiates surfaces on exactly the safety/permissions/UI residue Cherny names, and moves surface routing into the model
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — the counter-datum and its reconciliation: four harness *codebases* at 1.05M–1.75M lines and 5,679–7,736 merged PRs/year, because this page has measured prompts and never repositories — and because pruning at every model launch is itself churn
 - [Claude Fable 5](/articles/claude-fable-5) — the cleanest demonstration: vision-only Pokémon harness and 3×-better memory utilization vs Opus 4.8
 - [Cat Wu](/articles/cat-wu) — the operational discipline of pruning prompts at every launch
+- [Instruction Compounding](/articles/instruction-compounding) — the sharp edge: scaffolding that becomes *harmful* rather than merely useless, which is what obligates the pruning pass rather than merely rewarding it
+- [Output Length Calibration](/articles/output-length-calibration) — the counter-current: the same Opus 5 guide adds prompt for output length, so the launch pass has to add communication scaffolding as it cuts capability scaffolding
 - [Matt Pocock](/articles/matt-pocock) — counterpoint that mechanical verification stays load-bearing
 - [Agent Loop Pattern](/articles/agent-loop-pattern) — example of a primitive migrating from harness to model
 - [Context Window Smart Zone](/articles/context-window-smart-zone) — why prompt bloat is a *cost*, not just bloat
@@ -137,15 +240,20 @@ The synthesis: **prompt scaffolding shrinks as models improve; mechanical verifi
 - [Loop Engineering](/articles/loop-engineering) — the deployment-side evidence: [Osmani](/articles/addy-osmani)'s "a year ago a loop was a private pile of bash you maintained forever; now the pieces ship inside the products" is harness-shrinkage seen from the loop layer — capability absorbed into the tools as named primitives (automations, worktrees, skills, connectors, sub-agents)
 - [Agentic Work Systematization](/articles/agentic-work-systematization) — the same absorption measured: skills/plugins are harness capability shipped as named, shareable product primitives, with the OpenAI study's adoption curve (5.4%→26.6% of weekly-active Codex users)
 - [Conversation-to-Delegation Shift](/articles/conversation-to-delegation-shift) — rising delegation (Codex token share by population) is what a shrinking harness enables on the usage side: less hand-holding per task, more work handed off
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the same human-role narrowing arriving at the harness-*authoring* layer (write the brief, review the PR), with a twist that cuts against the shrinkage thesis: the agent *added* scaffold — retry logic, output-aware loop detection, PID tracking — because the harness was too thin, not too thick
 
 ## Open Questions
 
-- Does *all* prompt scaffolding eventually migrate into the model, or does some remain — e.g. organization-specific style, security rules, brand voice?
-- The Boris "100 lines" prediction is a year out from May 2026 — testable in 2027.
+- The Boris "100 lines" prediction is a year out from May 2026 — testable in 2027. **Partially answered:** [Harness Build-vs-Buy](/articles/harness-build-vs-buy) supplies the first measurement of harness *codebase* size and its trend — four comparable harnesses at 1.05M–1.75M lines with merged-PR rates still climbing (Codex ~124 → ~1,000/month over twelve months). That is evidence about the reference class, not about Claude Code, which is closed-source and unmeasured; the 2027 test stands.
 - If harness work shrinks, what new work expands to fill it? Cat Wu's bet: PM/product taste, eval-writing, character work.
+
+## Resolved Questions
+
+- Does *all* prompt scaffolding eventually migrate into the model, or does some remain — e.g. organization-specific style, security rules, brand voice? **Answered:** [What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) — no: only **behavior requests** migrate (and past expiry turn harmful per [Instruction Compounding](/articles/instruction-compounding)). Five classes survive, sorted by the bitter-lesson exemption rule (structure encoding a task prior migrates; structure encoding boundaries, records, identity, or serving arithmetic doesn't): boundary enforcement (security rules survive as *constraints*, the instruction class that keeps working), organization-specific record (a smarter model can't infer an unrecorded decision — org style qua arbitrary convention lives here), deliberate identity (brand voice/character is held stable across capability jumps by design), inference/deployment structure, and human-facing legibility (which *grows*). Communication calibration flows the opposite way — added, not removed, as defaults lengthen. "Harness shrinkage" is really *request* shrinkage; the prompt converges to a residue of constraints, records, identity, and calibration.
 
 ## Derived
 
+- [What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) — the survivor taxonomy answering this page's migration question, plus the compounding-detection signature and the stall analysis for [Build for the Next Model](/articles/build-for-the-next-model)
 - [Learning to Co-Work with AI: A Software Engineer's Field Guide](/articles/learning-to-cowork-with-ai-engineer-guide) — pruning-at-every-launch framed as a daily practice; "build for next model" as career-strategic horizon
 - [Opinions on Using AI Tools & the Future of the Software Engineering Role](/articles/ai-tools-opinions-and-future-of-swe-role) — the harness-shrinks vs harness-is-the-ceiling tension is one axis of the four-stance debate map
 - [Does the Human-Facing Harness (HTML Artifacts) Hit Its Own Bloat Ceiling?](/articles/human-facing-harness-bloat-ceiling) — the model-facing/human-facing asymmetry taken to its conclusion: the human-facing harness can't shrink to zero and faces *more* bloat pressure as models improve
@@ -157,3 +265,11 @@ The synthesis: **prompt scaffolding shrinks as models improve; mechanical verifi
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) (counterpoint)
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) — vision-only Pokémon FireRed harness; memory-utilization gains
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic platform docs (retrieved 2026-07-25, `vendor-claim`): the pruning rule stated as vendor instruction, including harness scaffolding that now degrades output rather than merely wasting tokens
+- [The new rules of context engineering for Claude 5 models](https://x.com/trq212/status/2080710971228918066) — Thariq Shihipar, 2026-07-25 (`practitioner-opinion`): the >80% system-prompt deletion with no eval loss, the "unhobbling" framing, conflicting-instruction transcripts, and `claude doctor` as productized pruning
+- [Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work) — Latent Space, 2026-07-28 (`practitioner-opinion`): the non-Anthropic check — one shared harness across Codex and ChatGPT Work differentiated only by permissions and UI; model-decided surface routing; and the counter-current of a growing user-facing knob surface ("there's 32 options")
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Cherny, YC interview (2026-07-27, `practitioner-opinion`): the ablation methodology, `SIMPLE=1`, "a little bit more intelligent without these prompts," the safety/permissions/static-analysis/UI residue, and the delete-your-CLAUDE.md-every-6-months advice
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906) — Sayed Ali et al. (33 authors, all Writer, Inc.; arXiv 2607.06906, 2026-07-08, `empirical`, **total vendor COI**): §6.4 harness leverage (per-model Δq̄, r = 0.99), §6.3 the seven regressions all on smaller models, §6.5 the sub-agent capability floor, §4.2 the frozen baseline's 49 KB replayed system prompt. Figure 6 viewed — the fit is clean but spans only 0.710–0.789 in baseline capability. Table 2 is cell-collapsed and Table 7 row-shifted in the raw parse; neither is cited
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav, arXiv 2607.19257, 2026-07-21 (`empirical`, sole author, single lab, not peer reviewed): §4.2 and Table 4 the instruction-count floor, §8 the 40-instructions-is-a-redesign-point guidance — the first non-Anthropic, non-vendor evidence on this page that prompt size has a hard ceiling, and the only one denominated in instruction count rather than tokens. Table 1's model roster is cell-collapsed in the raw markdown and is not cited; see the Sources note on [Instruction Compounding](/articles/instruction-compounding)
+- [Coding Agents and Technical Debt](https://www.openhands.dev/blog/coding-agents-and-technical-debt) — Rajiv Shah, OpenHands, 2026-07-28 (`case-study`, vendor-interested): the counter-datum — four harness codebases at 1.05M–1.75M lines, 5,679–7,736 merged PRs/year, and a rising PR rate
+- [Fable's judgement](https://simonwillison.net/2026/Jul/3/judgement/) — Simon Willison, *"Fable's judgement,"* 2026-07-03 (`practitioner-opinion`, 460 words): [Cat Wu](/articles/cat-wu) and [Thariq Shihipar](/articles/thariq-shihipar)'s AI Engineer World's Fair advice to let the model use its own judgement rather than dictating how it works, the automated-testing example, and Willison's own self-delegated model-routing prompt. Second-hand for the team's advice (Willison hosted the fireside; no transcript in the corpus), first-hand for the prompt, and unmeasured for the outcome

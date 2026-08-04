@@ -1,0 +1,432 @@
+---
+date: 2026-08-03
+title: Agent-Authored Harness Optimization
+description: "An agent given a benchmark, the harness source, and a goal runs
+  the whole eval-fix loop itself — read traces, hypothesize, patch the harness,
+  re-run. Three instances, and they disagree: Cline's uncontrolled 17-hour
+  vendor campaign (Terminal-Bench 2.1, Kimi K3 77.5%→88.8% at $79→$49.8),
+  HarnessBank (Luo et al. 2026, empirical), which adds sealed test splits, a
+  quality-diversity archive and a significance gate and posts credited held-out
+  gains of 9.2–15.4pp on six of seven benchmarks while showing the evolved
+  harness is a correction fitted to one model — and Wang et al. 2026
+  (empirical), the first budget-matched test, which runs harness evolution
+  against parallel sampling and sequential refinement at equal feedback and
+  inference budget on the *same* benchmark Cline used and finds it loses on
+  average (67.4 vs 72.3 pass@1), gains only under multi-attempt selection, and
+  transfers +0.6pp to held-out tasks"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - evaluation
+  - benchmarks
+  - recursive-self-improvement
+readingTime: 52
+imageAlt: Illustration for Agent-Authored Harness Optimization
+sources:
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
+  - title: "HarnessBank: Semantic Gene-Bank Search with Gated Verification for
+      Agent-Harness Self-Evolution"
+    url: https://arxiv.org/pdf/2607.13683
+  - title: Rethinking the Evaluation of Harness Evolution for Agents
+    url: https://arxiv.org/pdf/2607.12227
+  - title: Knowledge-Centric Self-Improvement
+    url: https://arxiv.org/pdf/2607.19592
+  - title: Self-Authored Verification Is Unreliable in Heuristic Self-Improving Agents
+    url: https://arxiv.org/pdf/2607.24300
+---
+export { default as heroImage } from "../assets/agent-authored-harness-optimization.webp";
+
+## Sources
+
+- [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683)
+- [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227)
+- [Self-Authored Verification Is Unreliable in Heuristic Self-Improving Agents](https://arxiv.org/pdf/2607.24300)
+
+## Summary
+
+The loop in which **an agent optimizes the scaffold it runs inside**. Give a coding agent (a) a benchmark it can run, (b) write access to the harness source, and (c) a goal expressed as a score, and it executes the whole eval-fix cycle unattended: run the baseline, read failure traces, form hypotheses, patch the harness, re-run, keep or discard, log what it tried. This is the autonomous form of the loop [Google's flywheel](/articles/agent-quality-flywheel) deliberately keeps human-gated, and it sits one level above [Agent Harness Engineering](/articles/agent-harness-engineering) — the harness patterns are the *object* being edited rather than the thing a human authors.
+
+The corpus holds three instances, and **they do not agree**:
+
+- **Cline's July 2026 campaign** ([Cline](/articles/cline), `case-study`) — the loop running in the wild. One prompt to GPT-5.6-Sol as leader model, **17 hours** of continuous autonomous work, ~**1B tokens** (400M agent + 600M eval reruns) and ~**$680** total, producing a merged PR against Cline's own production repo. Weight it as a vendor build log, not a measurement — see *Evidence weighting* below.
+- **HarnessBank** (Luo et al., arXiv 2607.13683, `empirical`) — the loop under laboratory control. Sealed per-domain test splits, two competing self-evolution methods on a matched rollout budget, a four-check statistical screen on every candidate, and an ablation of its own selection rule. Six of seven benchmarks post credited held-out gains of **+9.2 to +15.4pp**.
+- **Wang, Zhu, Hu et al.** (Ai2 / UW, arXiv 2607.12227, `empirical`) — the loop against **budget-matched baselines**, which neither of the other two ran. Give parallel sampling, sequential refinement and harness evolution the same feedback and the same K = 5 inference budget on Terminal-Bench 2.1, and harness evolution **loses to the simplest baseline** and does not transfer to held-out tasks.
+
+The third is the one that changes the reading of the other two, so it comes first below. Cline remains the only instance anyone has run against a real production harness.
+
+## The control nobody ran: budget-matched baselines
+
+The methodological charge is one sentence, and it applies to every prior result on this page: **harness evolution is itself a search procedure that repeatedly evaluates and revises candidates using task feedback, so it has to be compared against methods that spend the same budget searching over *trajectories* instead.** Otherwise a reported gain cannot be attributed to better harness design rather than to more test-time compute — this is [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)'s benchmark-maxxing critique aimed at a named method class for the first time, with the experiment attached.
+
+The second charge is narrower and just as damaging: prior protocols search *and* report on the same public benchmark, so gains "may reflect adaptation to task-specific patterns rather than improvements in harness design."
+
+### The setup
+
+Terminal-Bench 2.1 (89 tasks), Claude Opus 4.6 / GPT-5.4 / GPT-5.4 mini, high reasoning effort, 128k max generation, every result averaged over two independent runs. All four arms start from an **identical minimal harness**: one bash tool, no skills, no middleware, no persistent memory. Budget fixed at **K = 5** for every method, with AHE ([Lin et al.](https://arxiv.org/pdf/2607.12227)) sampling m = 1 rollout per task so the rollout counts match. The four arms differ only in what the budget buys:
+
+| Arm | Budget spent on | Object updated |
+|---|---|---|
+| Parallel sampling | K independent trajectories | nothing (fixed harness) |
+| Sequential refinement | K conditioned revisions of one trajectory | nothing (fixed harness) |
+| **Harness evolution** | K rounds of meta-agent harness edits across a task batch | a shared harness |
+| **Harness scaling** | K rounds of harness edits for **one** evaluation instance | a per-task harness |
+
+Harness scaling is the paper's own construction and the sharpest instrument on the page: it is harness evolution stripped of its reusability claim — instance-guided rather than dataset-guided — and it exists precisely to ask whether the gains come from *reusable design* or from *spending more compute at test time*.
+
+One honest scoping note: harness evolution is instantiated as **AHE with its explore agent disabled**, so that gains cannot come from retrieving benchmark-fitted harnesses off the shelf. That makes the comparison fair and also means this is a negative result on one method, not a replication failure of HarnessBank, which was never run.
+
+### Without unit tests, the simplest baseline wins
+
+pass@1, Terminal-Bench 2.1, self-judge selection for the parallel arm (Table 1; independently confirmed by Figure 1's averages):
+
+| Method | Claude Opus 4.6 | GPT-5.4 | GPT-5.4 mini | Average |
+|---|---|---|---|---|
+| direct sampling, initial harness | 69.9 | 75.3 | 59.4 | 68.2 |
+| **Parallel sampling** | 74.7 | **79.2** | **62.9** | **72.3** |
+| Sequential refinement | 73.0 | 73.0 | 61.8 | 69.3 |
+| **Harness evolution** | 71.4 | 69.7 | 61.3 | **67.4** |
+| Harness scaling | **76.0** | 78.1 | 61.2 | 71.8 |
+
+Harness evolution is the only arm that finishes **below the do-nothing baseline** (67.4 vs 68.2), and on GPT-5.4 it costs 5.6 points outright (75.3 → 69.7). Parallel sampling — draw five, let the model pick — gains on all three models. The paper's reading is that self-generated feedback is noisy and sequential revision compounds early mistakes, so **harness revision needs an external correctness signal to be grounded at all**.
+
+### With unit tests, harness evolution's gain is multi-attempt selection
+
+Give every arm oracle unit-test feedback and oracle selection, so pass@5 becomes meaningful (Table 2):
+
+| Method | Opus 4.6 pass@1 | pass@5 | GPT-5.4 pass@1 | pass@5 | Avg pass@1 | Avg pass@5 |
+|---|---|---|---|---|---|---|
+| direct sampling, initial harness | 69.9 | — | 75.9 | — | 72.9 | — |
+| **Parallel sampling** | **84.8** | 84.8 | **87.1** | 87.1 | **86.0** | 86.0 |
+| Sequential refinement | 83.1 | **90.4** | 85.4 | **93.3** | 84.3 | **91.8** |
+| Harness evolution | 73.0 | 83.2 | 78.6 | 89.3 | 75.8 | 86.2 |
+| Harness scaling | 83.1 | 89.9 | 82.0 | 88.8 | 82.6 | 89.3 |
+
+Everything improves over direct sampling — unit-test feedback helps whatever consumes it — but harness evolution is last on pass@1 by more than 10 points and last on pass@5 too. The inference the authors draw is the one worth keeping:
+
+> If harness revision genuinely produced better harnesses, we would expect the improvement to be reflected in **pass@1**. Instead, the benefit only materializes when we can select among multiple trajectories.
+
+That is [benchmark-maxxing](/articles/compute-controlled-benchmarking) restated as a diagnostic: **a method whose gain lives in pass@k and not pass@1 is buying attempts, not capability.** Harness evolution's pass@1 barely clears direct sampling (75.8 vs 72.9) while its pass@5 (86.2) sits in the same band as parallel sampling's flat 86.0.
+
+### The transfer test: +0.6pp
+
+Split Terminal-Bench 2.1 into **45 train / 10 validation / 34 held-out test** tasks, evolve on train with unit tests, select on validation, report pass@1 on test (Table 3):
+
+| Method | Claude Opus 4.6 | GPT-5.4 | Average |
+|---|---|---|---|
+| direct sampling, initial harness | 63.3 | 72.1 | 67.7 |
+| Harness evolution | 64.5 **(+1.2)** | 72.1 **(+0.0)** | 68.3 **(+0.6)** |
+
+**+0.6 points on average, and exactly zero on GPT-5.4.** The other three arms are not applicable here — they scale at the instance level and produce no reusable artifact, which is itself the point: only harness evolution claims to output something transferable, and this is what the claim is worth on this benchmark.
+
+**Read that +0.6 against the paper's own noise floor.** The same direct-sampling configuration on GPT-5.4 scores 75.3 in Table 1 and 75.9 in Table 2 — a 0.6-point spread between two identical baseline conditions. No error bars, standard deviations or significance tests appear anywhere in the paper, so the headline generalization gain is the same size as the only visible estimate of its own run-to-run variance. The conclusion survives (the *direction* of the argument is that the gain is absent, and an absent gain does not need a significance test), but nobody should quote +1.2 on Opus as a measured improvement.
+
+### What the meta agent actually did, and why it didn't stick
+
+The failure is not incompetence at the edit layer. §5.1 reports the meta agent making **rational, well-motivated edits** across three layers, escalating in a recognizable order: prompt-layer behavioral rules first (produce deliverables early, copy fragile state before mutating it, recheck constraints before finishing); then, when advisory text plateaus, **runtime enforcement through middleware** — turn-budget trackers, truncation of oversized tool outputs, finalization gates that block completion when deliverables are missing; then tool-layer fixes correcting misleading guidance and injecting recovery hints. That is the same "gains live in runtime and control flow, not prompts" verdict this page records from HarnessBank and [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — arrived at again, and still not enough.
+
+The diagnosis is the most portable sentence in the paper:
+
+> Most edits **memorize fixes rather than distilling strategies**. Much of this information is precisely what a competent agent can rediscover through exploration within a single rollout, so persisting it in the harness **saves time on tasks the agent could already solve but rarely converts failures into successes.**
+
+Three consequences follow, and all three are visible in the tables. A stable core of hard failures — deep domain reasoning, constraints outside harness control — is untouched by accumulated knowledge. The growing volume of persistent prompt text introduces **context bloat that offsets the remaining gains** ([Context Lifecycle Management](/articles/context-lifecycle-management)). And the arm that does best among the harness methods is **harness scaling**, which does not even pretend to build a reusable artifact: it encodes this task's known bugs, file paths and command sequences into this task's next attempt. Appendix B's case studies are explicit about it — `count-dataset-tokens` is fixed by embedding the dataset's config, domain and column facts directly in the prompt; `db-wal-recovery` by prescribing the exact backup-before-open sequence for that database. Those are per-instance notes, not harness design.
+
+### The escape hatch the authors leave themselves, and it is a real one
+
+§5.2 does not claim harness evolution is worthless; it claims **Terminal-Bench cannot see the difference**, for two stated reasons: agents already score highly there, so the residual failures may be model limits rather than harness deficits; and "a minimal setup consisting of a shell tool and a basic prompt already suffices for most solvable tasks," so performance is bottlenecked by reasoning rather than scaffolding. The recommendation is a benchmark specification: test harness evolution only where **(1)** tasks leave substantial headroom and **(2)** performance depends heavily on the harness — specialized tools, skills, workflows.
+
+Take that seriously and it is also the cleanest reconciliation with HarnessBank, below.
+
+## Three sources, one benchmark family, opposite verdicts
+
+The conflict is real and worth stating flatly before reconciling it. **Same benchmark family (Terminal-Bench), and three different answers:**
+
+| | Cline (`case-study`) | HarnessBank (`empirical`) | Wang et al. (`empirical`) |
+|---|---|---|---|
+| Benchmark | Terminal-Bench 2.1 | Terminal-Bench 2 (among seven) | Terminal-Bench 2.1 |
+| Model | Kimi K3 | Qwen3.6-27B | Opus 4.6 / GPT-5.4 / GPT-5.4 mini |
+| Vanilla baseline | 77.5% | 36.1 | 68.2–72.9 |
+| Reported gain | **+11.3pp** | **+9.3pp** (held-out, z ≥ 1.96) | **+0.6pp** (held-out) |
+| Held-out split | none | per-domain, sealed | 45/10/34 within the suite |
+| Budget-matched test-time-scaling arm | none | one domain only (16× tokens on LiveCode) | **four arms, whole suite** |
+| Starting harness | mature production harness | each benchmark's vanilla harness | deliberately minimal (one bash tool) |
+
+**By evidence tier the ordering is not close.** Two `empirical` sources with sealed splits outrank one `vendor-claim`-adjacent `case-study` in which the vendor ran the benchmark on its own harness and published its own scores. Between the two `empirical` sources, Wang et al. holds the control HarnessBank's own open question named as missing (a full-suite test-time-scaling arm) while HarnessBank holds the controls Wang et al. does not need (a significance gate, an archive ablation, seven domains rather than one).
+
+**The reconciliation that fits all three is headroom and harness sensitivity — the authors' own §5.2, applied to the other two papers.**
+
+- HarnessBank's Terminal-Bench arm evolves a **36.1-point** baseline on a 27B open-weight backbone. Wang et al. evolve **frontier models already at 63–75**. §5.2's first condition — substantial headroom — is satisfied in the first case and not the second. HarnessBank's own strongest gains sit on its weakest baselines (BrowseComp+ 16.9, AppWorld 41.3), which is the same pattern from inside its table.
+- Cline's harness starts *mature*, and the five fixes its agent found were **defects** — a collapsed reasoning-effort setting, unretried 429s, a loop detector that couldn't read output, an async-worker crash, `pkill` self-termination. Repairing a broken production harness and improving an already-adequate minimal one are different tasks with different ceilings, and only the first was measured by Cline. Nothing in Wang et al. contradicts "Cline's harness had five bugs"; what it contradicts is the inference from that to "harness evolution is how you should spend your compute."
+- Which leaves the sharpest unresolved piece: **§5.2's second condition is untested by anyone.** No source in the corpus has run harness evolution on a benchmark chosen for harness sensitivity, and Terminal-Bench may be the wrong instrument for the entire literature that reports on it.
+
+**What this does *not* license.** It is not a refutation of HarnessBank — different method, different backbone, different benchmark version, and Wang et al. never ran HarnessBank's loop. It is a refutation of the *protocol* that every prior result was produced under, and its force is proportional: hardest on Cline (no held-out split, no baseline, self-scored), real but partial on HarnessBank (sealed splits satisfy the second charge; a single-domain 16×-token arm does not satisfy the first).
+
+### This is not "the harness doesn't matter"
+
+Worth stating explicitly, because the corpus's three *other* controlled harness studies all point the opposite way and none of them is threatened by this result. [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) holds the model fixed, swaps a hand-built orchestration layer, and moves cost −41% and tokens −38% uniformly across six models. [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) swaps the scaffold and moves accuracy ~44pp. [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) swaps the evidence-mediation layer and moves the agent's beliefs. The harness is a large lever in all three.
+
+**The distinction is hand-built versus machine-evolved.** Those three vary a harness a team *designed*, across dimensions a team chose. This varies a harness a meta agent *derived from benchmark feedback*, one round at a time, and finds the derivation does not pay for its own compute. Both can be true at once, and §5.1 says why: the meta agent's edits memorize this suite's fixes rather than distilling design principles, so what it produces is not the kind of object those three papers measure. **A big lever pulled by a search process that cannot see where to pull it is still a bad use of budget.**
+
+There is a second-order note in the same direction. The middleware Wang et al.'s meta agent generates — output truncation, finalization gates, turn-budget interrupts — is drawn from exactly the classes [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) measures as belief-shifting interfaces. An evolution loop therefore manufactures evidence-mediation changes as a side effect of chasing a score, and nobody has measured what that does to the agent's belief state.
+
+## The Cline campaign, in numbers
+
+Terminal-Bench 2.1, [Kimi K3](/articles/kimi) via OpenRouter, stock Cline harness as baseline:
+
+| Run | Score | Cost |
+|---|---|---|
+| Baseline (stock harness) | 69/89 — **77.5%** | $79 |
+| Combined candidate | 77/89 — **86.5%** | $65 |
+| Confirmation | 79/89 — **88.8%** | $49.8 |
+
+Cost fell as score rose, which is the mechanistically interesting part: most of the gain came from *not wasting tokens* on doomed retries, self-kills, and false loop-detector aborts. Cline's comparison points — Claude Fable 5 at $552 and GPT-5.6 Terra at $400 on the same benchmark — are not harness-controlled (see [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)), so the price ratio compares one tuned harness against whatever configuration those numbers came from.
+
+The five experiments the agent ran, in order:
+
+1. **Reasoning-effort abstraction** — the harness silently collapsed K3's `max` reasoning effort to `high`. Correctness fix, no score credit (OpenRouter was already mapping to the only supported effort), but it unblocked everything downstream.
+2. **Rate-limit retries** — five baseline failures were single OpenRouter 429s killing healthy sessions. Raised retry count with exponential backoff; all five flipped.
+3. **Output-aware loop detection** — the loop detector killed agents legitimately polling long-running background work (same command, *changing* output). Made the detector read output, not just the command; two tasks flipped.
+4. **Async-worker liveness** — one task exited in 7.6s with zero tokens: any prompt containing `@a`-style tokens triggered a file-mention lookup on an unreferenced async worker, and the process exited before the model was called. One-line fix, deterministic flip.
+5. **PID tracking to stop self-termination** — two tasks ran `pkill -f` with a pattern matching the harness's own command line and killed themselves mid-task. Tool guidance to track PIDs; both flipped. Cline reports this fix *reduced but did not eliminate* broad-match kills.
+
+Every fix is a general harness bug, not a benchmark-shaped special case — which is Cline's argument that no [Reward Hacking](/articles/reward-hacking) occurred, and it is the strongest thing in the post.
+
+## The controlled version: HarnessBank (Luo et al., 2026)
+
+Everything the Cline campaign lacks — a sealed test set, competing methods on a matched budget, an ablation of its own selection rule — is what **HarnessBank** supplies ([HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683), EverMind AI / Shanda Group, `empirical`). It is the corpus's first *external, controlled* evaluation of this loop.
+
+**The architecture separates four things Cline had fused:**
+
+- a **task agent** — a frozen backbone (default Qwen3.6-27B) executing benchmark tasks under the current harness;
+- an **evolver agent** — a different model from a different vendor ([Claude Opus 4.8](/articles/claude-opus-4-8)) that reads execution trajectories, names the recurring failure, and writes offspring harnesses;
+- a **deterministic evaluator** owning sampling, scoring, activation logging and the statistical tests;
+- a **Harness Gene Bank**, a quality-diversity archive derived from MAP-Elites.
+
+The harness is partitioned into an **immutable kernel** (evaluation, bookkeeping, self-evolution and interface-critical code) and a **mutable surface** the evolver may edit: prompts, injected knowledge, runtime control logic, configuration. Each domain has disjoint train/test splits and the test set is touched exactly once, after evolution ends.
+
+**The bank is indexed semantically, not by task.** Each cell is a pair — *where* the patch acts (`prompt`, `knowledge`, `runtime`, `config`) × *why* it exists (a pathology inferred from failure traces, e.g. `thinking-runaway`). Harnesses hypothesizing the same pathology compete inside one cell and only the best survives; harnesses addressing different pathologies stay alive to be recombined later. Parent selection is quality-biased (argmax utility over the vanilla harness plus the bank), so the strongest lineage is exploited while the archive keeps structurally different solutions from being discarded — the paper's answer to **search collapse**, the tendency of greedy evolve-and-keep loops to converge on a narrow class of safe prompt edits. The keying choice is argued explicitly: an archive keyed on tasks "would preserve harnesses indexed by the very tasks used to select them, which overfits by construction."
+
+**Gated Harness Screening is this page's missing control, built in.** Rather than running every offspring on the full training set, candidates face four sequential checks on a sampled subset:
+
+1. **Validity** — sandbox crashes and verifier timeouts trigger repair-and-retry instead of being scored as agent failures.
+2. **Activation** — every patch declares an activation spec and emits a deterministic beacon; a harness that never fires is "inert" and rejected however good its score looks.
+3. **Paired significance** — task-level paired differences against the parent on identical tasks, requiring z ≥ 1.96 (two-sided 5%).
+4. **Gain** — the estimated improvement must be positive.
+
+(The introduction calls these four gates; §3.3 implements three multiplied indicators, folding the gain check into the significance gate as its Δ̂ > 0 factor. Same test, different bookkeeping.)
+
+Only survivors get full-training-set evaluation and compete for a bank cell. The design principle worth stealing: **the LLM may hypothesize freely, but credit comes only from the gate.** The *why* label is explicitly "an LLM-assigned hypothesis, not ground truth" — on AppWorld the loop misdiagnosed a capability limit as a knowledge gap, and the gate rejected the resulting patch (0/24 → 0/24 on its own target tasks, p = 1.0). Because a wrong label only steers which candidates get tried, it costs a rejected candidate, never a bad harness.
+
+### Results, and what they cost the competition
+
+Seven domains, Pass@1 averaged over K = 3 attempts, measured on tasks the evolving agent never saw:
+
+| Benchmark | Test Pass@1 vanilla → evolved | Gain | Train→test retention |
+|---|---|---|---|
+| AppWorld | 41.3 → 56.7 | **+15.4** | 86% |
+| BrowseComp+ | 16.9 → 30.8 | **+13.9** | 86% |
+| LiveCode | 58.1 → 71.8 | **+13.7** | 65% |
+| Omni-MATH | 54.3 → 66.0 | **+11.7** | 92% |
+| TB2 | 36.1 → 45.4 | **+9.3** | 148% |
+| GDPval | 43.7 → 52.9 | **+9.2** | 110% |
+| SWE-bench | 47.4 → 52.6 | +5.1 *(uncredited: n=26, z=0.78)* | 37% |
+
+Six of seven clear z ≥ 1.96 on held-out tasks (p from &lt;10⁻⁴ to 0.033; AppWorld strongest at z = 6.44, n = 168), each a *single* held-out comparison, so the many candidate comparisons during evolution cannot inflate it. Pass@3 rises on every credited domain too (+5.5 to +15.4), so the harness expands the set of solvable tasks rather than only the per-attempt hit rate. The authors decline to treat the retention ratio as a test — it divides two noisy estimates — and rest the claim on the credited held-out gain.
+
+Two baselines ran under the same protocol: same frozen backbone, same splits, same paired-2σ ruler, budgets within 2.1× on every domain (780–2,310 rollouts, with GEPA outspending HarnessBank on two domains and DGM on one). Across five sealed tests, **HarnessBank is credited on four, DGM on one, GEPA on none**:
+
+| Test Pass@1 | Vanilla | HarnessBank | GEPA (prompt-only) | DGM (ungated) |
+|---|---|---|---|---|
+| AppWorld | 41.3 | **56.7** | 44.0 | 52.0 |
+| LiveCode | 58.1 | **71.8** | 58.1 | 59.8 |
+| Omni-MATH | 54.3 | **66.0** | 54.3 | 53.2 |
+| BrowseComp+ | 16.9 | **30.8** | 19.0 | 21.2 |
+| SWE-bench | 47.4 | 52.6 | 47.4 | 56.4 |
+
+Both baselines fail in ways this wiki has been circling:
+
+- **GEPA, prompt-only, ships vanilla in three of five cells.** It finds no variant beating its seed on LiveCode in 47 iterations, because "thinking-runaway is not prompt-addressable"; on AppWorld, where the win surface is partly prompt-expressible, its training gain washes out on the sealed test (+2.8, z = 0.97). **The gains in this problem class do not live in the prompt** — a direct rebuke to the assumption that harness optimization is mostly prompt optimization.
+- **DGM, openly self-modifying but ungated, deploys a regression.** It clears the bar once (AppWorld +10.7, z = 3.00). On LiveCode it selects its best of 15 generations from a 15-task K=1 spike (0.733, regressing to 0.533 on re-evaluation) and lands uncredited (z = 0.66); on Omni-MATH the harness it ships is *worse than vanilla* (-1.1%). This is what "keep what appears beneficial" buys without a significance gate.
+
+The paper reports against itself where it should: on SWE-bench, DGM's raw 56.4 is the highest number in the table, and at n = 26 the gate credits neither method. Note also that HarnessBank's authors re-ran both baselines under their own protocol — standard practice, and the standard caveat.
+
+### The ablation: what the gate actually buys
+
+Ablating the paired-2σ gate on TB2 separates three things it might be doing (rows below the first are deltas against it):
+
+| TB2 configuration | Test Pass@1 | False elites | Rounds to stop |
+|---|---|---|---|
+| HarnessBank (K=3, 2σ) | 45.4 | 0 | 10.0 |
+| w/o 2σ | ±0.0 | +2 | >20 (cap) |
+| w/o confirm + 2σ | -1.6 | +3 | >20 (cap) |
+| Vanilla | -9.3 | — | — |
+
+**Deployment is unchanged** — train-argmax already picks the winning mechanism — so on this domain the gate is not buying the headline score. What it buys is the *archive* and the *stopping rule*. Without it two noise mechanisms enter as elites (one of them inert, its activation beacon never firing), and false elites then seed parents, spending future budget on noise. Termination is decisive: under single-run or K=3-mean crediting, phantom progress appears in **62–76% of post-convergence rounds**, so the loop never meets its stop condition and runs to the cap, while paired-2σ stops at the 10-round floor. An unverified self-evolution loop does not merely risk a bad harness — **it cannot tell that it has finished.**
+
+Two supporting notes: accepted edits span all four levers rather than prompts alone, and on most domains the credited harness stacks mechanisms drawn from more than one cell, with the per-cell elite being what keeps the second mechanism alive long enough to be recombined at all. And train-selection is a *lower bound* on what generalizes — on GDPval a variant ranked below the winner on train scored highest on test (+11.5% vs +9.2%), which is the argument for crediting on held-out data rather than trusting the training rank.
+
+### The evolved harness is a correction fitted to one model
+
+The most consequential result is a **negative transfer** one. Cold-started on other backbones the loop evolves *different* harnesses, each targeting that model's dominant pathology, and the patches follow a **pathology → patch matching law** (test ΔPass@1; bold = matched patch):
+
+| Domain | Model | Dominant failure | Patch A | Patch B |
+|---|---|---|---|---|
+| AppWorld | Qwen3.6-27B | empty "engagement" turns | verify-finalize **+15.4** | submit-verify +1.2 |
+| AppWorld | 397B | careless errors | verify-finalize +0.2 | submit-verify **+13.6** |
+| AppWorld | Gemini 3 Flash | careless errors | verify-finalize +5.8 | submit-verify **+13.5** (z=4.15) |
+| Omni-MATH | Qwen3.6-27B | thinks too much | 27B stack **+11.7** | raise-reasoning +1.7 |
+| Omni-MATH | 397B | runaway (shared) | 27B stack **+11.0** | raise-reasoning +0.7 |
+| Omni-MATH | Gemini 3 Flash | thinks too *little* | 27B stack -1.5 | raise-reasoning **+15.3** |
+
+Three readings:
+
+- **Off the matching diagonal the patch is near-zero, and the wrong direction is harmful.** Gemini shares the 397B's AppWorld pathology and reproduces the careless→checklist match across model families; on Omni-MATH the two Qwen generations share thinking-runaway and the 27B-evolved stack transfers nearly loss-free (+11.0 transferred vs +11.7 native). But Gemini reasons *too little*, so the transplanted recovery never fires (-1.5) while its matched patch turns the same lever the other way to +15.3. Turning it the wrong way costs **-15.7** when stacked on the evolved 397B harness. Two model families need one lever turned in opposite directions.
+- **This is a real failure mode of the frozen model, not a scoring artifact.** On five domains a single pathology dominates 49–88% of vanilla failures, and the matched mechanism is credited under both deterministic *and* judge-based verifiers.
+- **A test-time-scaling arm exists, and loses.** On LiveCode neither a 16× token budget nor a blanket thinking-off toggle reproduces the evolved harness's gain — the credited mechanism disables thinking *only after* a runaway. On this domain, spending more compute is not a substitute for the specific control-flow fix ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)).
+
+So the transferable asset is not the harness. It is the diagnose → search → verify *process*: "a credited harness is a correction fitted to the model, not a universally good setting."
+
+### The contrast that explains it: knowledge transfers where harnesses don't
+
+A second `empirical` source, published six days after HarnessBank's v1, reports the **opposite** transfer result for a different persistent artifact. [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) (Wang et al., Caltech, arXiv 2607.19592) freezes a curated knowledge base rather than a harness, hands it to a fresh model family with no further curation, and gets a positive lift in **all eight donor-recipient cells** on held-out tasks, in both cross-family directions (Polyglot 8.3% → 20.0%, ARC-AGI-1 23.3% → 43.3% for the strongest pairing).
+
+Both results are held-out, both are single-lab preprints, and neither is wrong. The reconciliation that fits both is **what the artifact is fitted to**:
+
+- A **harness patch** is fitted to *one model's failure distribution*. That is why the same reasoning-budget lever has to be turned down for a runaway backbone and up for an under-thinking one, and why transplanting it costs -15.7. The matching law above is the direct evidence.
+- A **distilled insight** is fitted to *the task domain* — an ARC grid invariant, Rust's loop-based propagation semantics, a test-runner flag. Those are true independently of which model reads them, which is why a Haiku-authored bundle helps GPT and vice versa.
+
+Stated as a design rule: **fit your persistent artifact to the problem, not to the solver, if you want it to move.** Nobody has run both artifact classes under one protocol, so this is a hypothesis with two strong one-sided data points rather than a measured law — the open question lives on the sibling page.
+
+The two papers also **agree**, independently and on disjoint benchmarks, about the weakest axis. HarnessBank credits GEPA on zero of five sealed tests; Wang et al. put GEPA last of three on both benchmarks they ran it on (44% and 36% against 86.7% and 68.0%). Two labs, two different objects of improvement, same verdict on prompt optimization.
+
+The Caltech paper is also the sharper contrast on *cost*: its knowledge-curation runs beat DGM and HyperAgents on solve rate while spending less — SWE-bench Pro at $208 against DGM's $713 — where harness evolution buys its gains with a rollout budget in the hundreds to low thousands per domain.
+
+### Reconciling Cline and HarnessBank
+
+(The third source's disagreement with both is handled in *Three sources, one benchmark family* above; the two agreements below survive it, and the first is now qualified.)
+
+- **They agree on magnitude — against a baseline neither ran.** Cline's +11.3pp sits inside HarnessBank's credited 9.2–15.4pp band, and both sit well inside the ~44pp scaffold-swing envelope [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) measures for scaffold choice on a fixed model. *(Qualified 2026-08-04 by [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227): agreeing on magnitude is weak evidence when both magnitudes are measured against a do-nothing baseline. Budget-matched, plain parallel sampling buys +4.1pp without unit tests and +13.1pp with them on the same benchmark — so a gain in this band is not by itself evidence that the harness got better.)*
+- **They agree on where the gains live.** Cline's agent added retry logic, output-aware loop detection and PID tracking; HarnessBank's accepted edits span all four levers and its prompt-only baseline is credited nowhere. Agent-authored harness optimization is a **runtime and control-flow** activity, not prompt engineering — which is also why it grows the harness rather than shrinking it. Wang et al.'s meta agent independently reproduces the escalation (prompt rules → middleware enforcement → tool-layer fixes) and finds it insufficient, so the third source agrees about the *layer* while disagreeing about the *payoff*.
+- **They differ on what can be claimed.** See the RSI section below: HarnessBank's cross-model dissociation is the strongest available argument that this loop *cannot* be recursive self-improvement in the definitional sense.
+- **HarnessBank's own limits.** Single lab; code "publicly available upon acceptance" and unreleased at ingest; one default backbone for the main table; SWE-bench underpowered at n = 26. Most importantly the held-out tasks are held out *within* each benchmark — nobody has run a harness evolved on suite A against an unrelated suite B, which is a different transfer claim from the one measured here.
+
+## This is not the capital-R RSI the title claims
+
+Cline's post opens by invoking [Recursive Self-Improvement](/articles/recursive-self-improvement) and linking Anthropic's RSI essay, and closes with "recursive self-improvement is no longer a sci-fi experiment." **The vendor's framing is a claim, not a definition, and the two senses should not be merged.** What is documented here is *narrow scaffold hill-climbing on a fixed benchmark*:
+
+| | Cline's run | RSI as this wiki defines it |
+|---|---|---|
+| What improved | the harness around the model — retry policy, loop detector, process handling | the model itself; each generation designs and trains its successor |
+| Where the gain lives | one repo, one benchmark, one model pairing | general capability, transferring across tasks |
+| Who supplied the direction | a human-written brief with a pinned end state and an explicit anti-reward-hacking clause | the system, autonomously |
+| Compounding | none demonstrated — a single campaign, not a loop that reruns on its own output | the whole point: each round makes the next round faster |
+| Termination | 17 hours, human pressing continue when it stalled, human PR review before merge | the open question the RSI literature is about |
+
+The model's weights were untouched. The improved artifact was a pull request against a TypeScript codebase. Nothing about the run bears on the extrapolation in *When AI builds itself* except by loose analogy — it is a data point for [AI Accelerating AI Development](/articles/ai-accelerating-ai-development) (AI compressing AI-adjacent engineering work), which is that essay's *present-tense empirical half*, not its projection. The honest reading: an instance of the perspiration-becomes-automated argument, at the scale of one repo's scaffold.
+
+There is a real, testable boundary between the two: does the improvement **transfer**? A harness patch that lifts held-out agentic tasks the agent never saw is a different object from one that lifts the suite it was optimizing against. Cline reports no transfer measurement.
+
+HarnessBank runs that boundary test twice, and both results point the same way:
+
+- ~~**Across tasks, within a domain: it transfers.** Six of seven benchmarks credit the evolved harness on sealed test tasks. So harness evolution is not pure benchmark memorization — the thing being fixed is a real failure mechanism, not the training tasks' identities.~~ *(Contested 2026-08-04 by [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227).* HarnessBank's finding stands on its own splits and is not withdrawn — but the same test, on Terminal-Bench 2.1 with frontier backbones and a different evolution method, returns **+1.2 / +0.0 / +0.6 average**, and the authors read the discrepancy against evolution's same-task results as evidence that "the revisions discovered during evolution encode task-specific shortcuts rather than genuinely better harness design principles." Within-domain transfer is now a **contested** result whose sign appears to depend on baseline headroom, not an established one.*)
+- **Across models: it does not, by construction.** The evolved harness is near-zero off its matched pathology and actively harmful (-15.7) when the same lever is turned the wrong way for a different model family. What generalizes is the *procedure*, not the artifact.
+- **And the loop converges rather than compounding.** Under the significance gate it stops at its 10-round floor; the ungated variants only stop at the cap because they keep hallucinating progress. Nothing here compounds without a human re-issuing the brief for a new domain and a new model.
+
+A process that produces a model-specific correction and then terminates is a *fitting* procedure, not a system designing its successor. That is the sharpest separator the corpus has for the vocabulary question above, and it comes from the strongest-evidence source in this cluster.
+
+## Evidence weighting: the vendor scores its own harness
+
+Four things bound how much this result can carry:
+
+- **Self-reported, not replicated.** Cline ran the benchmark, on Cline's harness, and published its own scores. No third party has rerun it. Traces and cost breakdowns are posted as gists, which is more than most vendors do, but posting artifacts is not replication.
+- **The benchmark is the one they have been hill-climbing for months.** Cline says so plainly — Jan 2026 on Opus 4.5, a Feb 2026 published playbook, this run in July. Repeated optimization against a fixed suite by the party being scored is the setup [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) and [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) are skeptical of, even when no verifier is touched and no task name is detected. Overfitting to a benchmark's *failure distribution* is a live risk that "we didn't reward hack" does not address: a retry policy tuned on the five 429s in *this* suite is fitted to this suite's provider conditions.
+- **The optimizer had write access to its own scoring substrate.** See below.
+- **A prompt-level anti-gaming clause is not a control.** The prompt banned verifier edits, task-name detection, and timeout inflation; Cline reports the guardrails held and the model policed itself (recording attribution guards, excluding two runs invalidated when the orchestrator was accidentally terminated). That is a good result and it is also self-attested.
+
+Two runs were thrown out and rerun; the reasoning-effort fix got no causal credit; some failures were judged genuine model limitations. The post reports its own negative results, which is the main reason to take the rest seriously.
+
+The same-model-different-scaffold effect this campaign exploits is measured independently in [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — swapping the scaffold on a fixed model swings accuracy ~44pp on CORE-Bench Hard, and two scaffolds on one model disagree on 31% of tasks. An 11.3pp harness-only gain is unremarkable against that baseline; what is new is that the *agent* found the 11.3pp rather than a team of engineers.
+
+## Decoupling by prompt, not by architecture
+
+[Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling)'s invariant is that the thing proposing a change never grades it. This campaign **violates the architectural form of the rule and substitutes a behavioral one**: the optimizer had write access to the repo that runs the eval, so nothing structural prevented it from editing the grader. What stood in for the split was (a) a prompt clause forbidding verifier edits, task-name detection, and timeout inflation, and (b) a human reviewing the final PR before merge. Both are the weaker kind of guarantee — the [Bun stub-and-justify](/articles/reward-hacking) episode is the corpus's evidence that a proxy metric plus write access is exactly the configuration where gaming appears, and there the patch had to be applied at the *grader*, which was only possible because grader and optimizer were separate.
+
+The generalizable design note: when the harness under optimization *is* the eval substrate, decoupling has to be reintroduced deliberately — a frozen eval harness the agent cannot edit, a held-out suite it never sees, or a grader run from a pinned commit. Cline's campaign used none of the three; it used a human at the end. That worked here at 89 tasks and one PR, and it is precisely the check that stops scaling ([Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)).
+
+**HarnessBank deploys all three** — immutable kernel, sealed test split, deterministic evaluator owning every score — and then ablates the last one, which is the corpus's first *measurement* of what the split is worth rather than an argument that it should exist. The measured answer is unintuitive: on TB2 the gate changes nothing about what ships, and everything about whether the loop can stop.
+
+### The complementary experiment: what happens when the gate itself is self-authored
+
+HarnessBank ablates a *significance test* off an evaluator that stays exogenous in every arm. Guo et al. ([Self-Authored Verification Is Unreliable in Heuristic Self-Improving Agents](https://arxiv.org/pdf/2607.24300), CAS, arXiv 2607.24300, `empirical` — full treatment on [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling)) ablate the **exogeneity itself**: the agent co-edits `policy.py` and `tests.py` each round, and the only thing held back is a deployment evaluation that never enters its context. The two papers bracket the same design space from opposite ends, and reading them together separates two costs that are easy to conflate:
+
+- **An exogenous evaluator without a significance gate costs you the stopping rule.** HarnessBank's ungated variants ship the same TB2 score, admit two noise mechanisms as elites, and see phantom progress in 62–76% of post-convergence rounds so the loop runs to its cap.
+- **An endogenous evaluator costs you the artifact.** Guo et al.'s unprotected runs end with self-scores of 0.70–1.00 while 15 of 35 model-game policies land *below the game's random reference*, and a traced Breakout run peaks at 17.6, is overwritten to 7.5, rediscovers 18.1, and finishes at 12.2 with its self-test pass rate near 1.00 throughout. Restoring only the exogenous comparison moves Gemini-3-Flash from 7.9 to 30.0 on the same benchmark.
+
+Two further results speak directly to design choices this page records.
+
+**The `endo-gate` arm is Cline's configuration under laboratory control.** It supplies a gate and whole-state rollback but sources its evidence from the agent's own tests — i.e. the split restored *behaviorally* rather than architecturally. Compute-matched it does most of the work (mean final truth 7.7 → 13.9 against SEAL's 15.4, peak-to-final loss 6.9 → 0.5 against 0.4), so the retention benefit is mostly the **conservative update**, not the exogeneity. Uncontrolled it is unreliable — below no-protection for three of six models and timing out on a fourth. That is the sharpest available reading of what Cline's prompt clause plus human PR review was substituting for: the cheap half, with the consistency left to chance.
+
+**Nobody has tested whether HarnessBank should also hide its numbers.** Guo et al.'s `leaky-anchor` arm holds the audit fixed and only discloses its scores after a rejection; SEAL is at least as high in all six rows and strictly higher in five, with a 35.1 → 12.7 reversal on the worst cell. Audit *confidentiality* is a fifth design condition beyond HarnessBank's kernel/split/evaluator triad, and it is untested in the harness setting where the evolver reads execution trajectories by design.
+
+The domains do not overlap — programmatic Atari policies against seven agentic and coding benchmarks — so this is convergence, not replication. But both labs land on the same asymmetry: the optimizer may reason about the metric freely, provided reasoning cannot *become* credit.
+
+## The human role, compressed
+
+The before/after Cline offers is the post's real argument:
+
+- **Jan 2026** — Opus 4.5, Terminal-Bench, **47% → 57%**. Four engineers, a couple of weeks, reading traces and staring at failure logs by hand. Published as a playbook in Feb 2026.
+- **Jul 2026** — Kimi K3, Terminal-Bench 2.1, **77.5% → 88.8%**. One prompt, one engineer, 17 hours, human intervention "nearly zero" (pressing continue every few hours on a cloud VM).
+
+Not a controlled comparison — different model, different benchmark version, different starting harness, different absolute band on the difficulty curve. What it does show is the human's job moving from *doing the loop* to *writing the brief and reviewing the PR*: the same narrowing [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) documents for scaffolding, arriving at the meta-level. Cline's own conclusion — "the bottleneck isn't models but the humans using them" — is the practitioner form of that claim, and it is the part most likely to be true independent of the benchmark number.
+
+Note the direction of the edit, though: the agent **added** harness code (retry logic, output-aware detection, PID tracking), it did not delete it. Agent-authored optimization is not automatically shrinkage; here the model was patching scaffold that was too *thin*, not pruning scaffold that had become drag.
+
+## Connections
+
+- [Cline](/articles/cline) — the vendor that ran the campaign and whose harness was the object under optimization
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — the patterns being edited; this page is what happens when the agent, not the engineer, does the editing
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the same eval-fix loop with a human approving each fix; Google states the autonomous version as a direction it deliberately has not shipped, and this is that version running in the wild
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — Cline violates it architecturally and restores it behaviorally (prompt clause + human PR review); HarnessBank restores it architecturally (immutable kernel, deterministic evaluator, sealed test set) and then ablates it, which is where the rule stops being a principle and becomes a number; Guo et al.'s SEAL runs the mirror ablation on exogeneity itself and adds audit *confidentiality* as a fifth condition nothing here tests
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — third-party corroboration of this page's sharpest finding, from a lab that never mentions harness evolution. Reddy et al. (arXiv 2607.07405, `empirical`) hand-write four runtime predicates that intercept tool calls before dispatch and get +12.4pp on τ²-bench airline, replicated on 15 disjoint seeds — the same verdict GEPA's zero credited tests deliver, that **the gains in this class are runtime control-flow, not prompt-addressable**, arriving from human-authored patches instead of an evolution loop. Two honest limits on reading it as corroboration: they never ran the prompting baseline (their limitation 7), so the comparison is assumed rather than measured; and their gates were written from the policy and evaluated on the same task set with replication over *seeds*, not tasks — the held-out-task discipline HarnessBank supplies and this does not
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — the same lever, opposite sign: HarnessBank's evolver keeps discovering a verify-finalize self-check as a *credited* patch on backbones whose dominant pathology is premature finalization, while Anthropic's guidance for Opus 5 is to **delete** verification instructions because that model already over-verifies. The pathology→patch matching law predicts exactly this, and it is the cleanest cross-source support the law has
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the axis this page's newest source puts harness evolution *on*, and loses. HarnessBank beat one test-time-scaling arm on one domain (a 16× token budget does not reproduce a targeted control-flow fix); Wang et al. run four arms at a matched K = 5 across the whole suite and find plain parallel sampling ahead of harness evolution on every model in both feedback settings. Two directly opposed data points on whether extra compute is better spent on the scaffold or on the trajectories
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the hand-built counterpart, and the reason the negative result here is narrower than it sounds: a *designed* orchestration layer moves cost −41% uniformly across six models, while a *machine-derived* one does not clear parallel sampling. Same object, different author, opposite verdict — the distinction is drawn above
+- [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) — the unmeasured side effect: the middleware an evolution loop generates (output truncation, finalization gates, turn-budget interrupts) is drawn from exactly the interface classes Yi & Song show shift the agent's belief state. Harness evolution manufactures those changes as a by-product of chasing a score and nobody has looked at what they do to what the agent thinks is happening
+- [Reward Hacking](/articles/reward-hacking) — the failure mode the prompt banned by instruction rather than by construction
+- [Recursive Self-Improvement](/articles/recursive-self-improvement) — the term the vendor invokes; the distinction between narrow scaffold hill-climbing and model-improves-its-successor is drawn above and matters more than the shared vocabulary
+- [AI Accelerating AI Development](/articles/ai-accelerating-ai-development) — the claim this run actually supports: AI compressing AI-adjacent engineering work (weeks of four engineers → 17 unattended hours)
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the human-role-narrowing dynamic reaching the harness-authoring layer, with the twist that the agent grew the harness rather than pruning it
+- [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — the same budget-matching charge applied to a different search target, with a split answer. SwarmResearch searches over *solutions* rather than harnesses, so a loss would mean "spend the compute elsewhere" rather than "the artifact doesn't transfer" — and its comparison is matched against the multi-agent baseline CORAL ($50/task both, same runtime, same model, and the margins there are small enough that the authors call three of the wins polishable) but **not** against the evolutionary baseline EvoX (~$23.50/task average against $50, and that is where the large margins are). Half a control is the current state of the art in this literature
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — the sibling lever: AgentOpt searches over *model assignments* holding the harness fixed; this searches over *harness patches* holding the model fixed. Both are client-side, and neither has been measured against the other
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the campaign's economics: ~$680 and ~1B tokens to move a per-run cost from $79 to $49.8, with the payback boundary undefined
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the independent measurement of how much scaffold alone can move a score (~44pp swing, 31% task-level disagreement between scaffolds on one model)
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — two ways this page's results are uncontrolled. Cline's "88.8% at $49.8 vs Fable 5's $552" is a harness-uncontrolled *comparison*; and the whole method class is compute-uncontrolled until someone runs a matched-budget baseline, which is Brown's benchmark-maxxing critique landing on a named method with an experiment attached. The pass@1-versus-pass@5 split is the portable diagnostic that came out of it
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the adjacent threat model: months of optimization against one suite is a validity risk distinct from, and not excluded by, the absence of verifier edits
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the human PR review is the last decoupled check in this loop and the one that does not scale with campaign count
+- [Kimi (Moonshot AI)](/articles/kimi) — the model under test; Cline reports matching Moonshot's own 88.3% vendor SOTA with a general-purpose harness
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — the abandoned arm of the experiment: Cline dropped [Fable 5](/articles/claude-fable-5) as leader model because the safety classifier kept downgrading it to [Opus 4.8](/articles/claude-opus-4-8)
+- [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) — the third axis and the direct contradiction on artifact portability: freeze a curated knowledge base instead of a harness and it transfers across LLM families in every cell. Both papers independently rank prompt optimization last. Wang et al.'s §5.1 supplies the mechanism that separates them — harness edits "memorize fixes rather than distilling strategies," which is precisely the selection Caltech's distillation stage exists to enforce — and the same budget-matched charge has never been run against the knowledge axis
+- [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) — the synthesis of this page's transfer results: the matching law's fine structure (patches transfer *within* a pathology class, across families) generalizes to "an artifact transfers exactly as far as the regularity it encodes extends," which unifies the cross-model transplant failure here with cross-release instruction depreciation and yields the stated RSI separator
+
+## Open Questions
+
+- Does agent-authored harness evolution actually beat simple test-time scaling, and does it generalize to held-out tasks? **Partially answered — and the two halves now point opposite ways.** *Test-time scaling: answered, negatively.* [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227) (`empirical`) supplies the full-suite budget-matched arm this bullet named as missing — four methods at K = 5 on Terminal-Bench 2.1 across three frontier models, with and without unit-test feedback — and harness evolution finishes below plain parallel sampling everywhere and below do-nothing on average without unit tests (67.4 vs 68.2), with its pass@5 gain traceable to multi-attempt selection rather than pass@1 capability. *Held-out generalization: contested, not settled.* [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683) credits six of seven sealed per-domain tests at z ≥ 1.96 (+9.2 to +15.4pp); Wang et al.'s 45/10/34 split on Terminal-Bench 2.1 returns +0.6pp average and +0.0 on GPT-5.4. The proposed discriminator is baseline headroom (HarnessBank's TB2 arm evolves a 36.1-point 27B backbone; these are frontier models at 63–75), which is testable and untested. Still missing entirely: transfer to a *different* benchmark, which no source measures.
+- Is the negative result a property of harness evolution or of **Terminal-Bench**? Wang et al.'s §5.2 names two conditions a fair test needs — substantial headroom above current agent scores, and a benchmark whose performance genuinely depends on the harness (specialized tools, skills, workflows) rather than one where "a shell tool and a basic prompt already suffices." Terminal-Bench satisfies neither for frontier models, and it is the benchmark essentially the whole harness-evolution literature reports on, including HarnessBank and Cline. Falsifiable directly: run the same four budget-matched arms on a harness-sensitive suite and see whether the ordering inverts.
+- How much of the 77.5%→88.8% survives on an agentic benchmark Cline has *not* been hill-climbing for six months? Every fix is described as a general harness improvement, which is a transfer claim, and no transfer measurement is reported. (HarnessBank does not touch this: it measures within-domain held-out tasks, not cross-suite transfer.)
+- Does the semantic quality-diversity archive earn its complexity against a plain greedy keep-the-best loop, holding the significance gate fixed? HarnessBank ablates the gate but never ablates the gene bank; its archive evidence is observational (credited harnesses stack mechanisms from more than one cell), not a controlled arm.
+
+## Resolved Questions
+
+- Is there a stated test that separates narrow scaffold hill-climbing from the recursive self-improvement the term names — e.g. capability transfer to unrelated tasks, or improvement that compounds without a human re-issuing the brief? **Answered 2026-08-04:** [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) states the test: name what the improvement artifact is fitted to, then measure whether gains survive outside that scope. HarnessBank's two separators (cross-model transplant near-zero off the matched pathology and -15.7 wrong-way; termination at the 10-round floor vs phantom progress in 62–76% of ungated post-convergence rounds), Wang et al.'s compute-side separator (at matched budget the loop does not beat sampling five times), and Caltech's orthogonality result (a domain-fitted artifact compounds portably while the model improves not at all) instantiate it: solver-fitted gains are *maintenance*, domain-fitted gains are *assets*, and RSI would require the gains to live in the solver itself. The stated test's un-run instances remain evidence gaps: cross-suite transfer stays in this page's `#oq/source` items, the two-artifact controlled test on [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement), and no source yet runs a loop that re-issues its own brief.
+
+## Sources
+
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents) — Ara Khan, Cline blog, 2026-07-24 (`case-study`): the five-experiment walkthrough with commit hashes, baseline/candidate/confirmation scores and costs, the Jan-2026 four-engineer contrast, the ~$680/~1B-token accounting, the anti-reward-hacking prompt clause, and the abandoned Fable 5 arm. Vendor-run benchmark on the vendor's own harness; scores self-reported, not third-party replicated
+- [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227) — Yike Wang, Huaisheng Zhu, Zhengyu Hu, Yige Yuan, Zhengyu Chen, Shakti Senthil, Hannaneh Hajishirzi, Yulia Tsvetkov, Pradeep Dasigi & Teng Xiao (Allen Institute for AI / University of Washington, arXiv 2607.12227, 2026-07-14, `empirical`, 13pp; code at github.com/rethinking-harness-evolution): the abstract's two methodological charges (matched feedback and inference budgets; search and evaluation sharing one benchmark); §3.2–3.5 the four-method budget formalism including **harness scaling** as the paper's own instance-guided control; §4.1 the setup (Terminal-Bench 2.1's 89 tasks, three models, K = 5, m = 1, 128k generation budget, high reasoning effort, two runs averaged); §4.2 + Table 1 the no-unit-test results; §4.3 + Table 2 the unit-test results and the pass@1-versus-pass@5 inference; §4.4 + Table 3 the 45/10/34 generalization split; §5.1 the memorize-versus-distill diagnosis and the context-bloat note; §5.2 the two conditions a fair harness-evolution benchmark must satisfy; Appendix A.1 the minimal seed harness (one bash tool), A.3 the disabled AHE explore agent, A.5 scoring infrastructure exceptions as failures; Appendix B the per-task harness-scaling case studies. **Tables 1–3 verified exact against the PDF at ingest — no collapse, no shift — so this document's tables are citable**; Figure 1 read per the image two-pass rule and independently reproduces Table 1's Average column (72.3 / 69.3 / 67.4 / 71.8 against a 68.2 baseline). Limits: single benchmark, two runs per cell with **no variance, error bars or significance tests reported anywhere**, harness evolution instantiated only as AHE with its explore agent disabled (HarnessBank was not run), and the authors' own §5.2 concedes Terminal-Bench may be a poor instrument for the question
+- [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592) — Wang, Yoon, Qu, Wang, Sehgal, Mazumdar & Yue (Caltech, arXiv 2607.19592, 2026-07-21, `empirical`): §4.4 held-out knowledge transfer (the positive-transfer counterpart to HarnessBank's §4.6 negative), §4.2 the second independent verdict on GEPA, §4.1 the cost comparison against DGM and HyperAgents. Full treatment and parse notes on [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement)
+- [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683) — Luo, Xue, Wang, Hu & Deng (EverMind AI / Shanda Group, arXiv 2607.13683, v1 2026-07-15 / v2 2026-07-30, `empirical`): §3.2 the semantic gene bank and quality-biased parent selection, §3.3 Gated Harness Screening, §4.2–4.4 the seven-benchmark table and credited held-out gains, §4.3 the GEPA/DGM comparison under a matched rollout budget, §4.5 the LLM-hypothesis caveat on pathology labels, §4.6 the cross-model matching law and the 16× token-budget control, §4.7 the paired-2σ ablation. Tables 1–3 reconciled against the prose on 2026-08-03 (parse clean, no collapse or shift); Figures 3–4 read from the page images. Preprint, single lab, code not released at ingest ("publicly available upon acceptance"), and both baselines were re-run by these authors under their own protocol
+- [Self-Authored Verification Is Unreliable in Heuristic Self-Improving Agents](https://arxiv.org/pdf/2607.24300) — Guo, Cao, Yuan, Wang, Wang & Wang (Chinese Academy of Sciences, arXiv 2607.24300, 2026-07-27, `empirical`): Finding 1 (self-authored verification loses deployment meaning: 35/35 cells above 0.70 self-score, 15/35 below random reference), Finding 2 (the `endo-gate` and `leaky-anchor` arms, the compute-matched pilot separating rollback from exogeneity, and the Breakout trajectory trace). **Parse warning**: its Table 7 is collapsed and fragmented and is not quotable — cross-game claims come from Finding 3's prose. Full treatment and the remaining parse notes on [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling)

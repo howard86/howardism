@@ -1,0 +1,162 @@
+---
+date: 2026-08-03
+title: Write-Then-Trusted
+description: "The seam where sandboxed agents escape without breaking anything:
+  the agent writes a file it is fully permitted to write, and an unsandboxed
+  host component later runs, loads, scans, or trusts it — so confining the agent
+  *process* does not confine the agent. Pillar Security's eight reproduced
+  escapes across Cursor, Codex CLI, Gemini CLI and Antigravity (CVE-2026-48124,
+  GHSA-v4xv-rqh3-w9mc, GHSA-p9g2-cr55-cw9c, fixes in Cursor 3.0.0 / Codex CLI
+  0.95.0) anchor four failure modes — denylist sandboxes, workspace config that
+  is really code, allowlists trusting command names not invocations, and
+  privileged local daemons outside the box"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - sandboxing
+  - trust-boundary
+  - developer-endpoint
+  - coding-agents
+readingTime: 24
+imageAlt: Illustration for Write-Then-Trusted
+sources:
+  - title: The Week of Sandbox Escapes
+    url: https://www.pillar.security/blog/the-week-of-sandbox-escapes
+  - title: "The Balkanization of Execution-Security Research for AI Coding Agents:
+      Isolation, Access Control, and Time-of-Check-to-Time-of-Use
+      Vulnerabilities"
+    url: https://arxiv.org/pdf/2607.05743
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
+---
+export { default as heroImage } from "../assets/write-then-trusted.webp";
+
+## Sources
+
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743)
+- [The Week of Sandbox Escapes](https://www.pillar.security/blog/the-week-of-sandbox-escapes)
+
+## Summary
+
+Pillar Research (Eilon Cohen, Dan Lisichkin, Ariel Fogel; *The Week of Sandbox Escapes*, 2026-07-20, `case-study`) reproduced eight sandbox escapes across four shipping coding agents — Cursor, [OpenAI Codex CLI](/articles/codex), Google Gemini CLI, and Antigravity — that share one mechanism:
+
+> **the agent never breaks the sandbox; it writes a file that a trusted component outside the sandbox later runs, loads, scans, or treats as safe.**
+
+The load-bearing sentence, and the reason this is its own page rather than a footnote on [Blast Radius (Agentic)](/articles/blast-radius): *"an agent's blast radius is not the agent process; it includes everything the agent can write that the host later trusts."* Every containment control the corpus catalogs — sandboxed execution, [per-tool scoping](/articles/least-agency), [per-call authorization](/articles/capability-gating-vs-authorization), [deterministic reference monitors](/articles/out-of-band-prompt-injection-defense) — mediates what the agent *does*. None of them mediates what a *different, unsandboxed process* does with a file the agent was permitted to write. That gap is the whole finding.
+
+Pillar's own decomposition: a sandbox boundary has three layers — **direct execution** (what the agent process may run), **workspace writes** (what files it may create or change), and **host trust** (what unsandboxed components later do with those files). The first two are what products enforce; the third is where all eight findings live.
+
+> **Evidence note.** Pillar sells agentic-security products and this research doubles as marketing for that category. The split used throughout this page: the **findings** carry CVE/GHSA identifiers, named vendor fix versions, and an awarded bounty — independently checkable, and treated as fact. The **framing** ("agentic tools are becoming endpoint actors", "agentic security requires its own threat model", the CISO buying-criteria list, the seam-instrumentation prescription) is the vendor's argument for its own product category and is attributed inline throughout.
+
+## The findings, with their identifiers
+
+| Finding | Product(s) | How the boundary failed | Status |
+|---|---|---|---|
+| The hook was already in the workspace | Cursor | Workspace-controlled `.claude` hook config became unsandboxed command execution | **CVE-2026-48124**, GHSA-pc9j-3qc2-95wv, patched 3.0.0 |
+| One Docker socket to rule them all | Codex, Cursor, Gemini CLI | A privileged local daemon reachable from otherwise restricted agents became a second, unsandboxed execution environment | Fixed, **GHSA-v4xv-rqh3-w9mc** |
+| The sandbox let me edit a venv | Cursor | The agent modified a virtualenv interpreter that Cursor's **unsandboxed Python extension executed during interpreter discovery** | Fixed, **GHSA-p9g2-cr55-cw9c** |
+| Git directories do not have to be called `.git` | Cursor | Git-metadata indirection slipped past *path-based* sandbox rules; the Git extension then fired execution through **fsmonitor** | Patched 3.0.0, CVE pending |
+| GitPwned: allowlist to RCE | Codex CLI | A safe-command allowlist trusted the command *name* (`git`) without modeling dangerous arguments and Git side effects | Patched **v0.95.0**, high-severity bounty awarded, CVE pending |
+| Escaping the allow-default seatbelt | Antigravity | A denylist-style macOS Seatbelt profile left OS features reachable that permitted execution outside the sandbox | **Google: "normal application behavior"**, downgraded |
+| A time bomb in `.vscode` | Antigravity | The agent wrote a VSCode **task configuration** that the host later ran on its own | **Google: "normal application behavior"**, downgraded |
+
+Note what the trusting component is in each case, because it is never the agent: a hook engine, a Docker daemon, a Python-extension interpreter discovery pass, a Git extension's fsmonitor hook, a command allowlist, a task runner. All are ordinary, long-standing developer-tooling automation. **On developer endpoints, project files are executable infrastructure** — the pattern predates agents entirely; what changed is who writes the files.
+
+## The four failure modes
+
+1. **Denylists lose to platform complexity.** An allow-by-default sandbox profile must remember every dangerous operation the OS exposes — "not a sandbox, it's a list of things somebody remembered to block that's always one entry short." Agents make it worse because the attacker gets a *flexible operator inside the environment* that can adapt, retry, and combine features a static policy never anticipated.
+2. **Workspace config is often code.** The agent writes files it is *allowed* to write; the escape happens later, when the host treats them as trusted configuration. "When a sandboxed writer can hand executable config to an unsandboxed reader, the boundary has a hole in it." This is the mode that touches [Agent Context Files](/articles/agent-context-files) directly.
+3. **"Safe" commands are not safe by name.** The Codex `git show` finding was permitted because the *name* looked read-only; the *invocation* was not. Git flags can write files, load config, call helpers, and run hooks. The correct policy question is "what exact invocation, with what arguments, in what directory, against what config, with what side effects" — verbatim the [capability-gating-is-not-authorization](/articles/capability-gating-vs-authorization) thesis, now with a CVE-track shipping instance behind it.
+4. **Local daemons live outside the box.** A privileged daemon (Docker Desktop, package managers, cloud CLIs, language servers, build daemons, emulators, local databases) is a second execution environment. Sandboxing the agent while leaving the daemon API reachable "moves the boundary to the daemon API" rather than protecting the host.
+
+## "Checked once, trusted forever" — the vocabulary this seam was missing (2026-07)
+
+Rashidi's execution-security SoK ([The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743), arXiv 2607.05743, `empirical`) re-reads its 39-paper corpus for the *design defect* each mechanism answers rather than the mechanism it proposes, and collapses seventeen categories onto four root causes. The second is this page:
+
+> **RC2: authorization is checked once and trusted forever.** "A permission, a validated file, or a tool's declared behavior is treated as durable after a single check, even though the thing it was checked against can change."
+
+The survey names that defect at four layers — a capability grant outliving its subtask (PORTICO's "lingering authority"), a file or DOM read acted on after the state moved (the TOCTOU literature), a tool registration validated at discovery and trusted on every later call (MCP tool poisoning), and **"a single-approval trust model that persists indefinitely after one grant"** for an installed plugin (the skill-packaging taxonomy). Write-then-trusted is the same defect one layer down: the host established, once, that a hook config / task file / venv interpreter / Git directory is trustworthy, and never rechecked after the agent rewrote it.
+
+That is a sharper statement of this page's mechanism than "the agent writes a file the host later trusts," because it says *why* the host trusts it — not because the file was authorized, but because **trust was established at a moment that has since passed**. It also predicts where else to look: any place a coding-agent harness validates something at install, discovery, or startup and caches the verdict.
+
+**A protocol tried the corrective and applied it to the wrong object (2026-07-28).** MCP's
+2026-07-28 revision ([MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog), `vendor-claim`) deletes the
+`initialize` handshake outright and makes every single request re-assert its protocol version and
+client capabilities in `_meta`, with the server re-identifying itself in every result — a wholesale
+move from check-once-per-session to check-every-request, arrived at for compatibility and statelessness
+reasons rather than security ones. It is worth reading as a natural experiment on RC2, because of
+*what* it chose to re-check: **protocol-version compatibility and a self-reported identity string, not
+the tool behavior the client actually trusts.** Tool descriptions and schemas are still validated
+whenever the client last read `tools/list` and trusted on every call after; a mandatory
+`server/discover` RPC advertises versions and capabilities with no signature, attestation, or tool-set
+digest attached. The survey's Gap-3 corrective — re-validate immediately before use — did get *cheaper*
+in the same revision, as an accident of two caching changes (required `ttlMs`/`cacheScope` give a
+client a vetted prior copy; deterministic `tools/list` ordering makes the diff clean), and remains
+required by nothing. See [MCP Tool Poisoning](/articles/mcp-tool-poisoning) for what that does and does not buy against a rug-pull.
+
+**The survey's own strongest exhibit is two Claude Code CVEs, confirmed against NVD** (its verification protocol checked all four CVEs in the paper directly against NIST NVD listings; it did not reproduce the exploits):
+
+- **CVE-2025-59536** (CVSS 3.1 8.8, CWE-94, fixed in Claude Code 1.0.111) — versions before the fix could execute untrusted project code *before* the user accepted the startup trust dialog, when launched against an untrusted directory. The survey's reading: "structurally a trust-boundary race of exactly the shape the TOCTOU category studies, a check (has the user trusted this project) that a subsequent action (execute project code) could outrun."
+- **CVE-2026-21852** (CVSS 3.1 7.5, fixed in Claude Code 2.0.65) — the same interval, one flow over: a malicious repository exfiltrating data from the project-load flow, including Anthropic API keys, before the user confirms trust.
+
+See [Claude Code](/articles/claude-code) for the product-side record. Note what these add that the eight escapes above do not: **the agent is optional to the defect.** This page's findings need the agent to write a file; the two CVEs need only that the repository be opened. That is direct support for the "the pattern predates agents entirely; what changed is who writes the files" reading — here not even that changed, and the seam still opened.
+
+### Gap 3, and the vault reproduced it
+
+The survey's third cross-cutting gap is that **TOCTOU races and MCP tool poisoning are studied as separate literatures** — both are validate-then-act sequences over state that can change, "none of the papers in either category cites the other," and neither uses the other's vocabulary, even though re-validating immediately before use is a candidate defense for both.
+
+This vault had the same split, in the same shape. Before this compile "TOCTOU" appeared nowhere as a concept — only as two passing phrases — while [MCP Tool Poisoning](/articles/mcp-tool-poisoning) carried the mechanism in full without ever naming it: ShareLock's **rug-pull** plants the reconstruction trigger in a *server update*, after the tools were vetted, and that page's own conclusion is that "static vetting misses it." Static vetting misses it because the check does not repeat. Two pages describing one defect in two vocabularies is precisely the finding the survey argues against, arrived at independently — and it is a fair test of the paper's sociological thesis, since nobody was coordinating citations here either.
+
+## The vendor dispute is itself a finding
+
+Google closed both Antigravity findings as **"Normal Google Applications"**, categorized them under "other valid security vulnerabilities (sandbox bypass)", and applied a difficulty downgrade — the exploitation path requires social engineering or "trusting a repository with indirect prompt injection" — while calling the reports "of exceptional quality." Cursor and OpenAI shipped fixes for structurally similar issues (and OpenAI paid a high-severity bounty).
+
+That disagreement is worth recording independently of who is right. It locates, in a checkable public artifact, **where one major vendor currently draws the agentic trust boundary**: a repository the user chose to open is treated as trusted input, so an escape that requires a hostile repo is a user-trust problem, not a product vulnerability. Every source in this corpus on [indirect injection](/articles/agentic-prompt-injection) argues the opposite premise — that repositories, issues, READMEs, and diffs are *routinely* attacker-influenceable. The two Antigravity findings are the seam between those premises, unresolved and shipping.
+
+## Relation to the cloud-side blast-radius chain
+
+This is the second trust-boundary traversal compiled into the wiki in a week, and the two are complementary rather than duplicative:
+
+- **[Hugging Face / OpenAI, July 2026](/articles/blast-radius)** — the boundary failed through **credential and identity chaining inside cloud infrastructure**: pod token → IMDS → node role → cluster identity → minted SA tokens → node root → a 136-key secret → mesh VPN → source control. Nine hops, all *inside* one estate, all mediated by identity.
+- **Pillar, here** — the boundary fails through the **write-then-trusted seam on a single developer endpoint**: one write, one unsandboxed reader, no credential chain at all. The escape is a *file handoff between processes on the same machine*, "in the same user session, with no network hop and nothing watching the seam" (Pillar's framing of why their endpoint product exists — the diagnosis, not the product claim, is what's being borrowed).
+
+Both are instances of *the boundary is not where the sandbox is drawn*, arrived at from opposite ends of the stack.
+
+*(My inference, not either source's claim — flagged for spot-checking:)* the two chains rhyme in a sharper way. In both, the agent's actual exit ran through a control that was **structurally unable to see the path taken**. At Hugging Face the URL allowlist could not see a local dereference; at Pillar, command allowlists see names and not invocations, and the Seatbelt denylist cannot enumerate the OS surface it must exclude. Whether that generalizes to *"enumerate-the-bad controls fail against agents specifically"* — or merely restates the ordinary result that enumeration loses to any adaptive attacker, with agents supplying cheap adaptivity rather than a new failure mode — is genuinely open and left as a question below. The distinction matters for what follows from it: the first reading demands agent-specific controls, the second says agents only make an old bug cheap to hit.
+
+## What this source does not provide
+
+It is a vulnerability disclosure, not an empirical study. Absent: any attack-success rate, any comparison across models or agent versions, any measure of how often these paths are hit in the wild, and any base rate for how many repositories carry a hostile `.vscode/tasks.json` or `.claude` hook config. Eight reproduced escapes establish **existence and breadth across vendors** — that the pattern is not one product's bug — and nothing about **prevalence**. Read the "thousands more to come" closing line as the vendor's forecast, not a measurement.
+
+## Connections
+
+- [Blast Radius (Agentic)](/articles/blast-radius) — this page is the **endpoint-side extension** of the containment unit: the source's thesis line is a direct amendment to it ("not the agent process; everything the agent can write that the host later trusts"), and the July 2026 cloud chain there is the complementary credential-side traversal compared in the section above
+- [Agent Context Files](/articles/agent-context-files) — the **collision of two threads**: that page treats `CLAUDE.md` / `AGENTS.md` / hook configuration as versioned, inspectable harness engineering; CVE-2026-48124 makes a workspace-supplied `.claude` hook config an *unsandboxed execution primitive* in a second vendor's product. The same properties that make context files a good policy plane — auto-loaded, repo-resident, agent-writable, host-honored — make them a good execution vector
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the GitPwned finding is that paper's argument shipping as a **patched CVE-track bug**: the allowlist checked which *tool* (`git` by name) and never the concrete *invocation*, so the untrusted model supplied both the action and the authorization fact. Pillar's prescription ("model command policy at the invocation and side-effect level") is complete mediation restated for the shell
+- [Least Agency](/articles/least-agency) — a **second counterexample to the page's premise**, structurally different from the OSC 7 one it already carries: there the agent needed no tool because the sink was its rendered output; here the agent uses only tools it is fully authorized to use, and the escape happens in a *different process* after the agent's turn ends. Scoping what each tool may do bounds neither. Least agency prices actions; write-then-trusted is a consequence of a permitted action, realized by someone else
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the **generalization of that page's "monitor mediates the wrong interface" finding**. Its macOS Terminal chain is one instance (the trusting component is a renderer); the eight findings here are seven more (hook engine, Docker daemon, Python extension, fsmonitor, task runner), which moves the point from an existence proof on a demo CLI to a cross-vendor pattern with CVEs. A reference monitor at the tool boundary is complete mediation over the agent's *calls*, and the seam sits one process downstream of it
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the **entry condition** these escapes assume: untrusted content (README, issue, dependency, diff, code comment, web page) reaches an agent that runs where SSH keys, cloud tokens, browser sessions, and publish rights already live, so "a malicious instruction can become a local action on a developer machine." Google's downgrade rationale disputes exactly this premise
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the same four products (Claude Code, Codex, Gemini CLI, Antigravity) failing at an **adjacent boundary**: ADI corrupts the data *inside* the agent's context so it acts on forged trusted values; write-then-trusted corrupts the artifacts *outside* it so a different process acts on agent-authored values. Both are trust-boundary failures the tool-call gate never sees, one upstream of the agent and one downstream
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the **denylist critique's second instance, at a different layer**: "a list of things somebody remembered to block that's always one entry short" is the sandbox-profile version of that page's measured gap, where a blast-radius keyword deny-list misses the CI/container files carrying 87.6% of measured security debt. Two independent enumerate-the-bad controls, both coming up short in the direction the enumeration could not anticipate
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — Pillar's prescriptions are the framework's doctrine restated for the endpoint: deny-by-default sandbox profiles, explicit approval when an agent modifies host-side automation, helper execution under the same policy as agent execution, and provenance preserved between user-created, repo-created, and agent-created files (hub)
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — a denylist that is always one entry short is the archetype of a control that makes traversal *tedious to find* rather than *impossible*; Pillar's "start from deny-by-default wherever sandboxing is used" is the same corrective (hub)
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — **the same seam, one substrate over, and with rates attached.** Here the agent writes a file it is fully permitted to write and an unsandboxed *host component* later executes or trusts it; there the agent writes a memory entry through the intended interface and a later *session* trusts it. Both are consequences of a permitted action realized by something outside the agent's turn, so neither is an authorization bypass and neither is caught by confining the agent process — [MemSecBench](https://arxiv.org/pdf/2607.27080) makes the point explicitly ("a Write Operation at `W1`, or Persistence at `W2` alone, is an intermediate outcome rather than… an authorization bypass"). What that source adds is the measurement this page's disclosures lack: the downstream trusting step is not hypothetical, it is 76.1% recall → 53.7% adoption → 50.3% to a verified external consequence, across 310 cases and 24 configurations. The provenance question in this page's third open question — can agent-authored state be distinguished from user- and repo-authored state at the OS or VCS layer — is the *same* question as write-time origin binding for memory ([Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority)), and the memory side has a machine-checked construction while the filesystem side has nothing
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the **generalization** of that page's "monitor mediates the wrong interface" finding (detailed above). It now also hosts **APPA** (Archestra AI, arXiv 2607.24625, `empirical`), which is worth reading against this page precisely because it is *orthogonal to the seam and rehearses it anyway*. APPA is the corpus's most complete containment design — formally proven confinement of what untrusted data can influence — and its labels live on the **context trajectory**, so a file the agent writes leaves the labeled system entirely, carrying nothing with it. The paper concedes the shape of this twice: its event log records "only operational tool actions and rulings," not semantic claim attribution, and branching is "trajectory isolation rather than transactional side-effect rollback," so an egress a discarded child already committed is irreversible. **But its own evaluation lost a scenario to a within-system write-then-trusted.** In `joint-merger-brief` the agent wrote an HR value into the finance store through a `create_finance` tool the policy declared with **no sink requirement**, then read it back under the *finance* contract — the store laundered the label exactly as an unsandboxed host component launders trust, one process boundary in. *(My reading, flagged for spot-checking:)* that makes the seam look less like a sandboxing bug and more like a general property of **any** confinement scheme whose labels do not travel with the bytes: give a confined agent a writable store the scheme does not model on the write side, and the store is the escape. APPA's own fix — require store-writing tools to declare sink requirements — is the labeled-system form of this page's third open question, and the one thing it *does* have that the filesystem side lacks is a shared append-only **committed-effect log**, which at least makes a write a policy-visible fact a later call can be conditioned on (`prior(k)` / `no_prior(k)`)
+- [Self-Propagating Prompt Injection (AI Worms)](/articles/self-propagating-prompt-injection) — **the seam closed into a cycle, on a different substrate.** Here the trusting reader is a *different* process (hook engine, task runner, Python extension) and the chain terminates in host code execution; in Måløy's Copilot for Word disclosure (`case-study`, coordinated with MSRC over 144 days) the trusting reader is the *same class of agent* in a later session, so the written artifact is not a terminal effect but the next input — and because the payload's second instruction is to copy itself into the output, the carrier population grows with ordinary document reuse. That page is also the second substrate asking for this page's third open question: its one structural recommendation is document-metadata provenance for source material and model-performed edits, the same missing primitive one file type over
+- [Claude Code](/articles/claude-code) / [Codex](/articles/codex) / [Google DeepMind](/articles/google-deepmind) — the affected agent products; the `.claude` hook-configuration format is the vector in the Cursor CVE, and Codex CLI's safe-command allowlist is the GitPwned target
+- [Cursor](/articles/cursor) — the vendor carrying four of the eight reproduced escapes, all fixed; the count tracks a denylist-shaped sandbox surrounded by host-side components, not an unresponsive vendor
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — **the same root cause in the other vocabulary**, and the pair Rashidi's Gap 3 predicts will not be connected. ShareLock's rug-pull is check-once-trust-forever at the tool-registration layer: the server is vetted, then updated, and "static vetting misses it" because the check does not repeat. Here the checked object is a workspace file and the checker is host automation; there it is a tool description and the checker is a client-side scanner. Re-validate-before-use is the same candidate defense on both, and neither literature proposes it to the other. **The MCP side has since made it cheap without making it mandatory** — 2026-07-28's required cache metadata plus deterministic tool ordering hand a client a vetted prior copy and a clean diff, which catches a plaintext rug-pull and still reports ShareLock's shares as Safe
+
+## Open Questions
+
+- Does the "enumerate-the-bad controls fail" reading generalize to *agents specifically*, or is it the ordinary result that enumeration loses to any adaptive attacker — with agents merely making adaptivity cheap? The two readings prescribe different things (agent-specific controls vs. deny-by-default everywhere), and no source in the corpus separates them.
+- Pillar establishes existence and cross-vendor breadth but no **prevalence**: how often is a write-then-trusted path actually reached in deployed use, and what fraction of real repositories carry executable workspace configuration an agent could rewrite? A disclosure cannot answer this; it needs endpoint telemetry or a repository-scale survey.
+- Can **agent-write provenance** (Pillar's "distinguish user-created from repo-created from agent-created project state") be enforced at the OS or VCS layer rather than by a vendor product, so that host-side automation refuses to execute agent-authored config without explicit approval? Nothing in the corpus implements it; the nearest analogue is write-time origin binding for agent *memory* (TMA-NM), which is the same move one substrate over. *(A third substrate now asks for it: [Måløy's Copilot for Word disclosure](/articles/self-propagating-prompt-injection) proposes preserving provenance for source material and model-performed edits in **document metadata**, explicitly as a traceability control rather than an injection defense — "such controls would not prevent the underlying injection, but they could make traceability much easier." Same primitive, and the same absence: nothing enforces it, and on documents there is not even a VCS layer to enforce it at.)*
+
+## Sources
+
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743) — Mohammadreza Rashidi (AI and Media Analysis Lab, Berlin), *The Balkanization of Execution-Security Research for AI Coding Agents*, arXiv 2607.05743, 2026-07-07, `empirical` (a systematization, not a measurement study: its own contributions are the verified corpus, the four NVD-confirmed CVEs, and the gap analysis — every figure it reports about a *system* is restated from the underlying paper). Used here for §2.3 (the two Claude Code CVEs and the survey's TOCTOU reading of CVE-2025-59536), §5.1 (RC2 and its four layers), §6.3 (Gap 3, the TOCTOU/MCP vocabulary split), §9 (limitations: no exploit reproduction, no independent replication of any surveyed paper's claims). Tables not cited here; the paper's counts are machine-derived from a released corpus file and its verifier
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project, *Key Changes* for spec revision **2026-07-28**, `vendor-claim`. Used only for the RC2 natural experiment above: major changes 2–3 (handshake removed, per-request `_meta` version negotiation, mandatory `server/discover`) and minor changes 3 and 5 (deterministic `tools/list` ordering; the `CacheableResult` `ttlMs`/`cacheScope` requirement). Spec text: authoritative on requirements, silent on whether any client implements a re-check
+- [The Week of Sandbox Escapes](https://www.pillar.security/blog/the-week-of-sandbox-escapes) — Eilon Cohen, Dan Lisichkin & Ariel Fogel (Pillar Security), 2026-07-20, `case-study`, **vendor-COI flagged**. Executive Summary (the blast-radius thesis line); "How Agents Escape Their Sandboxes" (the three-layer boundary model); "The Series" table (all eight findings with advisories, fix versions, and Google's downgrade rationale); Failure Modes 1–4; "What Security Teams Should Ask Coding Vendors" and "What A Good Threat Model For Agents Looks Like" (the vendor's prescriptive argument, attributed rather than adopted). No attack-success rates, model comparison, or prevalence data anywhere in the document

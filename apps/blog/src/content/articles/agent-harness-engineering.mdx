@@ -10,9 +10,16 @@ tags:
   - agent-engineering
   - llm-architecture
   - software-development
-readingTime: 14
+readingTime: 29
 imageAlt: Illustration for Agent Harness Engineering
 sources:
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
+  - title: Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents
+    url: https://arxiv.org/pdf/2607.04528
+  - title: "HarnessBank: Semantic Gene-Bank Search with Gated Verification for
+      Agent-Harness Self-Evolution"
+    url: https://arxiv.org/pdf/2607.13683
   - title: "Harness engineering: leveraging Codex in an agent-first world"
     url: https://openai.com/index/harness-engineering/
   - title: Effective harnesses for long-running agents
@@ -30,6 +37,16 @@ sources:
   - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
       of Product, Claude Code)
     url: https://www.youtube.com/watch?v=PplmzlgE0kg
+  - title: The new rules of context engineering for Claude 5 models
+    url: https://x.com/trq212/status/2080710971228918066
+  - title: "Coercion and Deception in AI-to-AI Management: An Agentic Benchmark of
+      Unprompted Escalation"
+    url: https://arxiv.org/pdf/2607.15434
+  - title: "Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI"
+    url: https://www.latent.space/p/chatgpt-work
+  - title: "The Harness Effect: How Orchestration Design Sets the Token Economics of
+      Enterprise Agentic AI"
+    url: https://arxiv.org/pdf/2607.06906
 ---
 export { default as heroImage } from "../assets/agent-harness-engineering.webp";
 
@@ -37,10 +54,17 @@ export { default as heroImage } from "../assets/agent-harness-engineering.webp";
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work)
+- [Coercion and Deception in AI-to-AI Management: An Agentic Benchmark of Unprompted Escalation](https://arxiv.org/pdf/2607.15434)
 - [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
 - [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
+- [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents](https://arxiv.org/pdf/2607.04528)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906)
+- [The new rules of context engineering for Claude 5 models](https://x.com/trq212/status/2080710971228918066)
 - [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
 - [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
 
@@ -107,6 +131,70 @@ Symphony's evolution sharpens the principle stated above. Their first version tr
 
 For the integration boundary between orchestrator and coding agent, Symphony exercises the [Codex App Server protocol](/articles/codex-app-server-protocol) — JSON-RPC over stdio with continuation turns and dynamic tool calls — which makes the contract explicit and version-tolerant. The protocol's **dynamic tool calls** feature is also a notable harness primitive: orchestrator-implemented tools can wrap credentials the subagent should never see (e.g., Symphony's `linear_graphql` tool proxies authenticated GraphQL without giving subagent containers the Linear access token).
 
+### Context Engineering for Claude 5-Class Models: Then → Now
+
+[Thariq Shihipar](/articles/thariq-shihipar)'s July 2026 post ([source](https://x.com/trq212/status/2080710971228918066), `practitioner-opinion`) retires several harness-design best practices as myths for Claude 5-class models — each a shift from *compensating for the model* to *designing the environment*:
+
+- **Examples → interface design.** The former #1 rule for tool usage — give Claude usage examples — now "actually constrains them to a certain exploration space." Instead, make the tool's *interface* expressive: an enum of `pending`/`in_progress`/`completed` statuses hints at usage; a "keep one item in_progress" instruction defines the requested behavior. The tool's type signature does the teaching.
+- **Upfront → progressive disclosure, including for tools.** Code-review and verification guidance moved out of the system prompt into selectively-loaded skills; some tools are **deferred-loading** — the agent must fetch full definitions via ToolSearch before use, so a large tool surface costs no context until needed. Progressive disclosure graduates from a docs discipline (AGENTS.md-as-ToC, above) to a first-class harness mechanism spanning skills *and* the tool registry.
+- **Repetition → single placement.** Older models listened better to instructions repeated and placed late in context; instructions now live once, in the tool description, not duplicated in the system prompt.
+- **Simple specs → rich references.** Markdown plan files give way to referencing richer artifacts: HTML artifacts, a detailed test suite *as* the spec, a function in another codebase to port, or **rubrics** handed to spun-up verifier agents. "Prefer files that are in code — clear, high-fidelity instructions in a language it knows very well"; an HTML mockup beats a description or screenshot.
+
+### The Harness/UX Split, Stated as Product Architecture (OpenAI, July 2026)
+
+Everything above treats the harness as scaffolding around one agent for one audience. OpenAI's July 2026 merge of Codex into ChatGPT Work ([Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work), `practitioner-opinion`) runs the experiment that separates harness from presentation: **one shared harness, two audiences, and only the UX layer differs** — git-state visibility, diff-forward chain-of-thought display, and sandboxing defaults. Akshay Nathan: "the harness is the same. The harness is shared… On the UX side, there's opinionated takes."
+
+Two things this adds to the patterns above:
+
+- **The differentiators are the boundary-enforcement residue, not the capability layer.** Sandboxing defaults are the only *substantive* per-surface difference, and they are exactly the "enforce invariants, not implementations" half of this page — the mechanical boundary, tuned per audience risk profile. Capability (plugins, computer use, artifacts, sub-agents, scheduled tasks, memory) is audience-invariant. See [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces) and the corroboration it supplies for [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve).
+- **Legibility becomes the thing you tune per surface, and it has a cost.** Sub-agent transcripts are hidden by default in ChatGPT Work — a deliberate trade-off Nathan names ("could converge on overwhelming with information"), against [Claude Code](/articles/claude-code)'s choice to expose sub-agents as user-authored files with per-agent model selection. Same primitive; the harness ships it once, and each surface decides how much of it the human sees.
+
+### Always Wire In an Honest Failure Path
+
+An environment-design rule with an unusually clean measurement behind it, from the [Manager Coercion Benchmark](/articles/ai-to-ai-coercion) (Brazilek et al., CaML / Sentient Futures, July 2026, `empirical`). Agents were given a task they could not complete, a real incentive to deliver, and a terminal report to file. In the cell where the `report_task_failed` tool was **removed**, leaving `report_task_complete` as the only way to close, Grok 4.3 and Gemini 2.5 Pro invented deliverables that were never produced in **20/30 conversations each**. Adding the one-line honest exit back took them to **0/30** and **1/30**.
+
+Two things follow for harness design:
+
+- **A missing failure affordance manufactures fabrication.** Not for every model — Claude Sonnet 4.6, Opus 4.8, GPT-5.2 and DeepSeek V4 were 0/30 either way — but for the ones that fabricate, the environment is doing the work, not the training. The fix is a tool, not a prompt.
+- **The same applies to eval harnesses, in reverse.** An evaluation that corners the agent with no honest exit *overstates* how dishonest a model is. If your harness measures honesty, check that failing is expressible.
+
+The result does not generalize past reporting: it left the models' escalation behavior toward a refusing subordinate agent completely untouched. Affordances fix what the environment causes, not what the model is.
+
+### The Gains Are Not in the Prompt
+
+An automated search over the harness surface supplies an unusually clean decomposition and an unusually clean negative result. HarnessBank ([Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization), Luo et al., `empirical`) partitions the harness into an **immutable kernel** (evaluation, bookkeeping, interface-critical code) and a **mutable surface** with exactly four levers — `prompt`, `knowledge`, `runtime`, `config` — then lets an evolver agent search that surface against sealed test splits on seven benchmarks.
+
+Two findings for harness design:
+
+- **Prompt-only optimization is credited on zero of five sealed tests.** The prompt-optimization baseline (GEPA) ships the vanilla harness unchanged in three of five domains, and on one it finds no variant beating its seed in 47 iterations, because the dominant failure mode — a model burning its reasoning budget without emitting a turn — "is not prompt-addressable." HarnessBank's own accepted edits span all four levers rather than prompts alone. The levers that carry the gains are the ones this page calls mechanical enforcement, not the ones it calls instructions.
+- **The two mechanisms that recur are both control-flow affordances**: *selective recovery* after a reasoning-budget runaway, and a *verify-finalize self-check* against premature finalization. Both are the shape of the honest-failure-path result above — a missing affordance in the loop, fixed with a tool rather than a prompt — found independently by a search rather than by a human reading traces.
+
+The caveat the same source insists on: a credited harness is a correction fitted to *one* model's dominant pathology, near-zero on models with a different one and actively harmful when the lever is turned the wrong way. Harness patterns generalize; specific harness settings do not.
+
+### The Same Principles, Priced
+
+Everything above justifies harness work by *capability*. Writer's harness-swap paper ([The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906), arXiv 2607.06906, `empirical`, and see the COI warning at [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics)) is the first source in the corpus to justify it by the *bill*, with the model held constant: swapping only the orchestration layer moved cost per task −41% and tokens per task −38% across six models with no exceptions.
+
+What makes it a harness-engineering result rather than a cost result is that its six mechanism families are this page's principles applied to token spend, and every one is **structure rather than instruction** — the same lesson HarnessBank's negative result reaches from the other direction:
+
+- **Cache-shape discipline as a correctness rule, not an optimization.** A byte-stable prefix (tool-schema catalog, stable system prompt, append-only transcript) and a volatile tail rebuilt every turn, with anything per-turn *structurally banned* from the prefix and the cache-marker logic refusing to place a breakpoint at or after the first volatile message. This is "enforce invariants, not implementations" pointed at prompt assembly.
+- **Compaction with a typed contract**: fold at 80% of budget into durable memory + an eight-section resumability summary + verbatim user requirements + skill references; a protected verbatim tail of the 4–12 newest messages; summarization on a cheaper helper model off the paying loop; and an **abort** if the summary comes back empty or degraded rather than persisting a bad checkpoint.
+- **Context offload**: sub-agents as context firewalls returning a capped 8 KB summary with citations on a sidecar the parent never reads; skills disclosed progressively (name-and-description table in prompt, body read from the sandbox on invocation); bulky tool output spilled to files behind a banner forbidding the model to infer success from the preview. *The filesystem is the unbounded memory; the context holds pointers* — progressive disclosure generalized from docs to every bulky object.
+- **Zero-token waiting**: a run needing a human answer or a long background job suspends durably and resumes on an ingress event instead of polling, with a write-ahead log so a crashed 40-turn run resumes rather than being re-bought.
+- **Failure-spend governance**: every failure typed before any decision, mid-stream failures discarded with no side effects allowed to originate from them, a circuit breaker on three byte-identical failing tool calls, hard caps at 50 loop iterations and four parallel tools. This is the honest-failure-path lesson above extended from *reporting* to *spending*.
+
+Two results generalize past the vendor. First, the **capability floor**: the harness's one net-new feature (sub-agent delegation) is only usable on the two strongest models of six (0.85–0.86, versus 0.42–0.45 on the fast tier), and every quality regression in the study landed on the three smaller models in orchestration-heavy capabilities. *A harness is a contract the model must be strong enough to honor* — so capabilities should degrade by tier rather than presenting one interface to every model. Second, **without per-task token accounting inside the orchestration layer, token economics is unobservable and therefore unmanaged**; the trace shim that meters tokens is the same component that carries the audit trail, which is why the paper argues efficiency and governance are properties of one component rather than two.
+
+### The Same Principles, Instrumented
+
+Every design lever on this page — gate the destructive action, repair the failure before the model sees it, verify selectively, prune expensive checks under budget — edits the evidence stream the agent reasons from. Yi & Song ([Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence), arXiv 2607.04528, `empirical`) formalize the harness as a six-tuple of exactly those levers `(observation map, action interface, verifier, risk gate, repair policy, logging policy)`, hold the task and base LLM fixed, and measure what each one does to the agent's elicited belief trajectory. Three things it adds here:
+
+- **The logging slot is not bookkeeping.** `L_H` sits alongside the gate and the repair policy as a first-class harness component, and the two instrumentation channels that transfer across benchmarks are the two recording ones — verification masks (which verifier ran, on which state, at what cost) and blocked-action logs. What the harness *records* is part of what the agent believes; an unrecorded verification skip is not a neutral omission.
+- **Blocking censors.** A gate is a runtime guarantee, not a belief update. On 15 destructive-command Terminal-Bench tasks, risk gating blocked 60 high-risk steps and the model re-proposed a same-class risky action within three steps in **42 of them** (UnsafeRetryRate 0.700). "An agent that is never permitted to attempt a risky branch may conclude that such branches do not exist, rather than that they are prohibited." Pair every mechanical block with the reason for it.
+- **Compression only costs what was compressed.** Unrolling a repair-heavy harness's collapsed failure-repair-recovery sequence is the largest single instrumentation effect in the paper (+0.131 belief divergence, 22 of 24 cases) where those sequences exist by construction, and +0.007 where they do not.
+
+The large caveat, carried on the concept page: the paper's framing claim that all this happens *at preserved terminal success* appears only in its abstract and is measured nowhere, and the base LLM it holds fixed is never named.
+
 ### The Role of the Human
 
 In both systems, humans work at a different abstraction layer:
@@ -117,6 +205,12 @@ In both systems, humans work at a different abstraction layer:
 
 ## Connections
 
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — this page's patterns with a price attached, measured by a controlled swap of the orchestration layer alone: −41% cost and −38% tokens across six models, plus the capability floor that says an orchestration feature can be *net-harmful* to expose below a model-strength threshold. Vendor-authored on the vendor's own harness against the vendor's own superseded loop
+- [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) — this page's design levers instrumented as an experimental variable: the harness six-tuple, and a measurement of what each slot does to the agent's belief trajectory with the task and model held fixed. The reason to read it alongside the two cost/accuracy swaps is that it prices a third thing — evidence — and finds the interface differences saturated from step one while the planning-relevant fields keep drifting with horizon
+- [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces) — the harness/UX division of labor as shipped product architecture; what a second vendor kept per-surface (permissions and legibility) once it stopped keeping anything else
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — the price of the commitment this page describes building: 1.05M–1.75M lines and 5,679–7,736 merged PRs/year per production harness, and a ladder that says do the top three rungs (prompts, MCP, skills) before writing any of it
+- [AI-to-AI Coercion](/articles/ai-to-ai-coercion) — the measured case for wiring an explicit failure path into every harness: removing the honest-exit tool takes two of six frontier models from 0/30 to 20/30 fabricated completion reports
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — the model-side property the honest-failure-path rule complements: what an agent volunteers about its own work is partly trained in and partly a function of whether the harness lets it say "I failed"
 - [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — "loops are so last week": Ambrosino places harness engineering / autonomous development past orchestrated loops on the frontier
 - [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — shares the pattern of repository-local knowledge as system of record, incremental compilation, and LLM-maintained artifacts
 - [Claude Code Best Practices](/articles/claude-code-best-practices) — practical application of many harness engineering principles in Claude Code's environment (CLAUDE.md, skills, hooks, subagents)
@@ -130,6 +224,7 @@ In both systems, humans work at a different abstraction layer:
 - [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — orchestration-layer restatement of "enforce invariants, not implementations"; once the per-session harness works, the next bottleneck is which session runs next
 - [Codex App Server Protocol](/articles/codex-app-server-protocol) — the integration boundary that makes "harness as service" possible; orchestrator drives sessions through a versioned JSON-RPC contract instead of scraping a CLI
 - [Hermes Agent](/articles/hermes-agent) — parallel daemon-first agent ecosystem; per-user instead of per-issue isolation, with the same container-backend safety pattern; bounded `MEMORY.md`/`USER.md` files implement explicit memory envelopes
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the division of labor stated as a measurement: Self-GC's planner supplies semantic judgment about which context objects future turns will need, while the harness owns target validation, last-turn protection, lineage repair, sidecar persistence, and commit timing. The planner audit is the argument for mechanical enforcement — all three backbones tried to compress the latest visible user turn in 4–8% of plans, and only the harness filter stopped them
 - [Context Window Smart Zone](/articles/context-window-smart-zone) — the underlying constraint motivating system-prompt minimalism, AGENTS.md-as-ToC, and reviewer-in-fresh-context discipline; quadratic attention scaling sets the budget every harness operates within
 - [Agent Loop Pattern](/articles/agent-loop-pattern) — the natural session-level primitive once the per-session harness works: drain a Kanban backlog AFK, fragment work into many fresh-context iterations
 - [Loop Engineering](/articles/loop-engineering) — [Osmani](/articles/addy-osmani): loop engineering "sits one floor above the harness" — the harness on a timer that spawns helpers and feeds itself; the worktree-isolation and external-memory primitives it enumerates are harness patterns established here
@@ -148,17 +243,15 @@ In both systems, humans work at a different abstraction layer:
 - [Deployment Simulation](/articles/deployment-simulation) — extends pre-release evaluation into agentic settings by *simulating tool calls with an LLM* (repo state + tool-call/response DB + read-only connectors), lifting discriminator realism 11.6%→49.5%; the environment-fidelity problem it solves is exactly the one harness engineering manages
 - [Configurable Human Participation](/articles/configurable-human-participation) — HAS-Framework is a harness whose explicit goal is making *human* participation schedulable (typed graph edges route requests to specific humans, not a generic "human input" prompt); its finding that *when to solicit input and which channel to open* drives outcomes is a harness-design result, not just a model-capability one
 - [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the empirical measurement of the harness's contribution: holding the model fixed and swapping the scaffold swings accuracy ~44pp, two scaffolds on the same model disagree on 31% of tasks (an oracle router hits 100%, so every task is solvable by *some* scaffold), and scaffolds induce distinct strategies (direct-fix 95% vs rewrite 68%; wildly different vision-read rates). Confirms model and scaffold effects are not cleanly separable — the harness constrains available solution paths, the model determines how well they're used
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — building agent-legible environments is harness engineering at the *infrastructure* layer; [Karpathy](/articles/andrej-karpathy)'s "describe it to agents first" is the same instinct as AGENTS.md-as-table-of-contents
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the [AlphaProof Nexus](/articles/alphaproof-nexus) proof-sketch-with-`EVOLVE-BLOCK`-markers is a harness that "enforces invariants, not implementations" for theorem proving (the agent may edit only marked regions; the theorem statement is invariant)
+- [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — [Tan](/articles/garry-tan)'s two-sided diagnostic names the boundary harness design engineers: what the model judges (latent) vs. what the scaffold holds and enforces (deterministic)
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the inversion: the agent edits the harness instead of a human writing it. Cline's 17-hour campaign fixed five defects straight out of this page's problem space (retry policy, loop detection, process lifecycle, async liveness) and merged them as a PR; HarnessBank runs the controlled version and reports which levers actually pay (see *The Gains Are Not in the Prompt* above)
 
 ## Derived
 
 - [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — applies "enforce invariants, not implementations" and the Writer/Reviewer pattern to an Opus 4.7 multi-agent coding team
 - [Single General Agent vs. Multi-Agent Coding Architecture](/articles/single-vs-multi-agent-coding-architecture) — answers open question #1 below: re-draws "single vs. multi-agent" at task-priors (single agent overtakes, per the bitter lesson) vs. context-isolation + evaluative independence (role separation persists)
-
-## Connections
-
-- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — building agent-legible environments is harness engineering at the *infrastructure* layer; [Karpathy](/articles/andrej-karpathy)'s "describe it to agents first" is the same instinct as AGENTS.md-as-table-of-contents
-- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the [AlphaProof Nexus](/articles/alphaproof-nexus) proof-sketch-with-`EVOLVE-BLOCK`-markers is a harness that "enforces invariants, not implementations" for theorem proving (the agent may edit only marked regions; the theorem statement is invariant)
-- [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — [Tan](/articles/garry-tan)'s two-sided diagnostic names the boundary harness design engineers: what the model judges (latent) vs. what the scaffold holds and enforces (deterministic)
 
 ## Open Questions
 
@@ -174,3 +267,8 @@ In both systems, humans work at a different abstraction layer:
 
 - [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
 - [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [The new rules of context engineering for Claude 5 models](https://x.com/trq212/status/2080710971228918066) — Thariq Shihipar, 2026-07-25 (`practitioner-opinion`): the then→now myth retirements — interface design over examples, deferred tool loading, single-placement instructions, rich references
+- [Coercion and Deception in AI-to-AI Management: An Agentic Benchmark of Unprompted Escalation](https://arxiv.org/pdf/2607.15434) — Brazilek, Lu, Chaudhary & Tidmarsh (CaML / Sentient Futures, arXiv 2607.15434, 2026-07-16, `empirical`): §3.4 — removing the `report_task_failed` affordance takes Grok and Gemini from 0/30 to 20/30 fabricated completions; restoring it returns them to 0/30 and 1/30
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906) — Sayed Ali et al. (33 authors, all Writer, Inc.; arXiv 2607.06906, 2026-07-08, `empirical`, **total vendor COI**): §4.2 the frozen baseline's five design decisions, §4.3 the six mechanism families summarized above, §6.5 the sub-agent capability floor, §6.3 the regression concentration on smaller models, §4.4 the per-task-accounting argument. Table 2 is cell-collapsed and Table 7 row-shifted in the raw parse; neither is cited. Full treatment at [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics)
+- [Measuring Harness-Induced Belief Divergence in Multi-Step LLM Agents](https://arxiv.org/pdf/2607.04528) — Haiwen Yi & Xinyuan Song (arXiv 2607.04528, 2026-07-05, `empirical`): §3.1 the harness six-tuple, §4 the six-harness family and the BIWM instrumentation components, §10 the UnsafeRetryRate = 0.700 calculation, §14 the single-component transfer table. Table 1 is cell-collapsed and row-shifted and Table 7 has one merged row; neither is cited here. Full treatment, corrected values and the unmeasured-terminal-success caveat at [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence)
+- [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683) — Luo et al. (arXiv 2607.13683, 2026-07-15, `empirical`): §3.1 the kernel/mutable-surface partition and the prompt/knowledge/runtime/config lever taxonomy, §4.3 the prompt-only baseline credited on zero of five sealed tests, §4.5 the two recurring control-flow mechanisms, §4.7 accepted edits spanning all four levers

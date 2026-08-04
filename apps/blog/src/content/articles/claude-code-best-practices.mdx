@@ -10,9 +10,13 @@ tags:
   - claude-code
   - ai-tools
   - developer-workflow
-readingTime: 12
+readingTime: 17
 imageAlt: Illustration for Claude Code Best Practices
 sources:
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
   - title: Best Practices for Claude Code
     url: https://code.claude.com/docs/en/best-practices
   - title: Auto mode for Claude Code
@@ -32,6 +36,8 @@ sources:
     url: https://www.youtube.com/watch?v=PplmzlgE0kg
   - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
     url: https://youtu.be/-QFHIoCo-Ko
+  - title: Fable's judgement
+    url: https://simonwillison.net/2026/Jul/3/judgement/
 ---
 export { default as heroImage } from "../assets/claude-code-best-practices.webp";
 
@@ -41,9 +47,11 @@ export { default as heroImage } from "../assets/claude-code-best-practices.webp"
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
 - [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
 - [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Fable's judgement](https://simonwillison.net/2026/Jul/3/judgement/)
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
 - [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
 - [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
 
@@ -77,7 +85,7 @@ A more aggressive variant: [Design Concept Grilling](/articles/design-concept-gr
 
 ### Environment Configuration
 
-- **CLAUDE.md**: persistent instructions loaded every session. Include only what Claude can't infer from code — bash commands, non-default code style, workflow rules, architectural decisions, gotchas. Prune ruthlessly: if Claude already does something correctly without the instruction, delete it. Treat like code — review when things go wrong, test by observing behavior changes. Use `@path` imports for modularity. **For founders / solo builders**, the stricter discipline of starting each session with the CLAUDE.md as architectural context and ending each session by updating it is the primary defense against [Agentic Technical Debt](/articles/agentic-technical-debt) — debt that *compounds* (not just accumulates) because each session re-derives foundational decisions when context isn't persisted.
+- **CLAUDE.md**: persistent instructions loaded every session. Include only what Claude can't infer from code — bash commands, non-default code style, workflow rules, architectural decisions, gotchas. Prune ruthlessly: if Claude already does something correctly without the instruction, delete it. Per-line pruning is necessary but **not sufficient**, and the missing constraint is now measured: [Instruction Compounding](/articles/instruction-compounding) records a capacity floor from [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) (`empirical`, five models) where all-rules compliance is in steep decline by **40 simultaneous verifiable instructions** and at zero by **80**, identical across markdown / plain / prose / table rendering. Every rule in that experiment is distinct and individually satisfiable, so no per-line ablation would have caught it. Two corollaries for a CLAUDE.md: the binding unit is instruction *count*, not tokens, and format is not the lever — *placement* is the bigger one (moving an identical block between system prompt and user turn moved adherence by up to 8.7pp), with a sign that differs per model and must be tested rather than assumed. Treat like code — review when things go wrong, test by observing behavior changes. Use `@path` imports for modularity. **For founders / solo builders**, the stricter discipline of starting each session with the CLAUDE.md as architectural context and ending each session by updating it is the primary defense against [Agentic Technical Debt](/articles/agentic-technical-debt) — debt that *compounds* (not just accumulates) because each session re-derives foundational decisions when context isn't persisted.
 - **Skills** (`.claude/skills/`): domain knowledge and reusable workflows loaded on demand, not every session. Invoke with `/skill-name`.
 - **Subagents** (`.claude/agents/`): specialized assistants running in isolated context with scoped tools. Useful for tasks that read many files without cluttering main context.
 - **Hooks**: deterministic scripts that run at specific points in Claude's workflow. Unlike CLAUDE.md (advisory), hooks guarantee execution.
@@ -165,15 +173,22 @@ The most architectural divergence: Claude Code is **session-first** with optiona
 - [When to Use Claude Opus 4.6 for Work](/articles/when-to-use-opus-4-6) — context-window-as-primary-constraint framing informs the Claude Code corollary: Opus verbosity consumes budget faster
 - [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — subagents, Writer/Reviewer, and scaling-pattern guidance applied to Opus 4.7 multi-agent teams
 - [Learning to Co-Work with AI: A Software Engineer's Field Guide](/articles/learning-to-cowork-with-ai-engineer-guide) — best-practices distilled into a per-engineer skill-development field guide (six skill clusters, daily practices, anti-patterns, 90-day plan)
+- [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — situates `claude -p` + Agent SDK as the Claude-side bracket around Codex's App Server, with the drive-the-CLI vs build-on-SDK decision rule
 
 ## Open Questions
 
-- What's the optimal CLAUDE.md length before instructions start getting lost? Is there a measurable threshold?
+- Does the instruction-count ceiling hold for **conditional** policy, where only a handful of rules bear on any given turn? Every rule in Eliav's experiment applies to one generation simultaneously; a CLAUDE.md is mostly situational ("when editing migrations, …"), so N=80 is a floor on the harshest possible loading and says nothing about a 200-rule file of which five fire per turn. Falsifiable directly: hold the applicable subset fixed and grow the inapplicable remainder.
 - How does the Writer/Reviewer pattern compare to agent-to-agent review (as in OpenAI's Codex workflow)?
-- When does subagent overhead exceed the benefit of context isolation?
+- When does subagent overhead exceed the benefit of context isolation? **Partially answered 2026-08-03** by [Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work) (`practitioner-opinion`, no measurement) — a *task-shape* criterion rather than a crossover point. Akshay Nathan (OpenAI): multi-agent modes "are best for when you have tasks that are either incredibly complicated, like open explorations, or very paralyzable… but for most tasks, they don't fall into either of those buckets," so the default should be a single agent. Note the overheads he actually names are neither context nor tokens: **rate-limit consumption** (Ultra "can use more of your limits," which is why OpenAI moved it behind advanced settings post-launch) and **human legibility** (sub-agent transcripts hidden by default to avoid overwhelming users — see [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces)). A practitioner counter-practice in the same episode pulls the other way: Vibhu reports telling every long-running task to "use sub-agents where possible" for wall-clock and for cost, fanning out to cheaper models — which [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) argues is the wrong default. **Second instance (2026-08-04):** [Willison](https://simonwillison.net/2026/Jul/3/judgement/) runs the same practice with the tier choice itself delegated — "for all coding tasks use your judgement to decide an appropriate lower power model and run that in a subagent" — and reports only that his Fable allowance shrinks more slowly. Two practitioners now default *to* the fan-out; neither measures it. What remains open is the measured crossover, which no source in the corpus supplies.
+
+## Resolved Questions
+
+- What's the optimal CLAUDE.md length before instructions start getting lost? Is there a measurable threshold? **Answered 2026-08-04** by [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) (Eliav, arXiv 2607.19257, `empirical`) — full treatment at [Instruction Compounding](/articles/instruction-compounding). Yes, there is a threshold, and it is **count-shaped rather than length-shaped**: across five models (including Claude Sonnet 5 and Haiku 4.5), the rate at which *every* instruction in the prompt is obeyed falls steeply by **N≈40** simultaneous verifiable rules and hits zero by **N≈80**, holding through N=160 and identical across markdown, plain text, prose, and table renderings and across system-prompt vs. user-turn placement. The paper's own prescription is the answer in usable form: 40 simultaneous instructions is *a redesign point, not a tuning point* — past it, splitting across turns, tools, or a validation pass is the only thing that works, and reformatting is not. This also settles the residual the 2026-08-03 retag left behind (*does aggregate size have an independent effect once each line passes ablation?*): **yes** — every rule tested was distinct, non-redundant, and individually satisfiable, so per-line [ablation non-inferiority](/articles/instruction-compounding) would have cleared all of them and still missed the collapse. Two scope limits carried on the answer: "perfect response" is a strict conjunction, so some of the floor is the arithmetic of ANDing N checks rather than the model dropping the block, and every rule tested is a hard output constraint applied to a single generation. The conditional-policy case a real CLAUDE.md actually presents is now the successor question in Open Questions above.
 
 ## Sources
 
 - [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 - [Auto mode for Claude Code](https://claude.com/blog/auto-mode) — permission-mode expansion
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7) — tokenizer/xhigh-default context-budget implications
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav, arXiv 2607.19257, 2026-07-21 (`empirical`, sole author, single lab, not peer reviewed): the instruction-count ceiling that answers the CLAUDE.md-length question, plus the placement lever. Parse warning: the paper's Table 1 model roster is cell-collapsed in the raw markdown and is not cited anywhere; see the Sources note on [Instruction Compounding](/articles/instruction-compounding)
+- [Fable's judgement](https://simonwillison.net/2026/Jul/3/judgement/) — Simon Willison, 2026-07-03 (`practitioner-opinion`): the delegate-coding-to-a-self-chosen-cheaper-subagent practice, cited only against the subagent-overhead question above

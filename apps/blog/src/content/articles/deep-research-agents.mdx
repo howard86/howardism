@@ -1,10 +1,15 @@
 ---
 date: 2026-06-15
 title: Deep Research Agents
-description: Agentic systems that decompose a complex query, iteratively search
+description: "Agentic systems that decompose a complex query, iteratively search
   diverse sources, and synthesize a structured, cited report — distinct from
   single-shot QA; DRACO shows orchestration (Perplexity) beats the bare base
-  model with tools, and factual accuracy is the weak axis
+  model with tools, and factual accuracy is the weak axis. MisKnow-Agent puts a
+  number on that weakness from the input side: one plausible-but-false document
+  raises the false-conclusion adoption rate from 0% to 54.7%, with no
+  instruction injection anywhere — and the same models that endorse those
+  documents in-workflow unanimously flag them as misleading when handed them in
+  isolation"
 tag: Concept
 domain: agent-systems
 tags:
@@ -12,18 +17,22 @@ tags:
   - deep-research
   - retrieval
   - orchestration
-readingTime: 7
+  - reliability
+readingTime: 26
 imageAlt: Illustration for Deep Research Agents
 sources:
   - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
       Completeness, and Objectivity"
     url: https://arxiv.org/abs/2602.11685
+  - title: Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions
+    url: https://arxiv.org/pdf/2607.20891
 ---
 export { default as heroImage } from "../assets/deep-research-agents.webp";
 
 ## Sources
 
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
+- [Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions](https://arxiv.org/pdf/2607.20891)
 
 ## Summary
 
@@ -51,6 +60,73 @@ This is a live **counter-datapoint to [Harness Shrinkage as Models Improve](/art
 
 Across every system DRACO grades, the ranking by rubric axis is consistent: **strongest on presentation quality, weakest on factual accuracy and citation quality**. Fluency is solved; *verifiable correctness* is not. This is [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) surfacing inside the research product itself — the hard part is no longer producing a readable report but ensuring every claim in it is true and properly sourced. It is the open-domain mirror of [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search), where a compiler makes verification total; deep research has no such oracle, so accuracy/citation become the frontier.
 
+## One misleading document flips the conclusion (MisKnow-Agent)
+
+DRACO grades factual accuracy at the output and finds it weakest everywhere. Zhu, Li, Yang, Su & Shao ([Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions](https://arxiv.org/pdf/2607.20891), BUPT / Shanghai AI Lab / CQUPT, arXiv 2607.20891, 2026-07-23, `empirical`) attack the same axis from the input side and put a number on it: **inserting one misleading-but-credible document into the retrieval pool raises the false-conclusion adoption rate (FCAR) from 0% in the no-injection control to 54.7% on average.**
+
+The framing is the first thing to get right. **This is not an attack paper.** The threat model explicitly excludes prompt injection and instruction hijacking — model parameters, system prompt, tool implementations and the base evidence environment are all untouched, and the injected documents contain no instructions whatsoever. What they contain is a plausible false claim, attributed to a plausible institution, in a plausible genre. The agent is never hijacked; it performs exactly the task the user asked for and reaches a wrong conclusion because a document *persuaded* it. This is **epistemic corruption of the research product**, and the authors pitch it as the ambient condition of the open web rather than an adversary's doing. It is a different plane from [Agent Data Injection (ADI)](/articles/agent-data-injection), where the payload's purpose is to be misread as *structure* — a forged comment author, a fabricated tool result — so the agent acts on data that never existed. Here the data is exactly what it appears to be: a document making a claim. Every defense that keeps untrusted text from being read as an instruction, or untrusted data from being read as *trusted* data, is orthogonal to this failure mode, because nothing about the document is forged except the world it describes.
+
+**Setup.** 100 tasks from DeepResearch Bench. For each task a blueprint fixes one canonical false conclusion (quantified, so it is scoreable) plus an institution pool stratified into three authority tiers; DeepSeek-V4 Pro then generates documents across 3 authority levels × 4 source styles (paper / news / blog / post) × 5 institutions per tier. A search-guided refinement loop plus **five** search-enabled cross-model verifiers plus manual screening yields **5,933 quality-controlled misleading documents**; every target false conclusion was additionally hand-audited against authoritative sources at 100% coverage. Evaluated on 2 open-source frameworks (DeerFlow, WebThinker) × 3 backbones (DeepSeek-V4 Pro, Qwen3.5-397B, Intern-S1-Pro), plus closed-source Gemini Deep Research.
+
+**FCAR is a strict metric**, which is what makes the number alarming rather than definitional. A report counts as an adoption only when its own synthesis, conclusion, recommendation, or executive summary presents the false claim as true or best-supported. Mentioning it, quoting it, attributing it to the source, hedging it, contrasting it against public evidence, or refuting it *all* score as non-adoption. The judge (DeepSeek-V4 Pro) hits **99.7% raw agreement and Cohen's κ = 0.993** against two blinded human annotators on 300 reports — [properly validated](/articles/llm-judge-validation), and far above the agreement typical of rubric grading, because the judgment is a sharply-specified binary rather than a quality score.
+
+### Where the pipeline fails: FCAR = MER × ECAR
+
+The paper's analytic contribution is a two-factor decomposition that says *where* in the workflow the failure sits:
+
+- **MER** (misleading-evidence reach) — fraction of tasks where at least one injected document was actually retrieved.
+- **ECAR** (exposure-conditional adoption rate) — fraction of *exposed* tasks whose report adopted the conclusion.
+
+Because no unexposed task ever adopted its false conclusion, `FCAR = MER × ECAR` holds exactly. Matched high-authority, paper-style setting:
+
+| Backbone | WebThinker FCAR / MER / ECAR | DeerFlow FCAR / MER / ECAR | Gap (total / MER / ECAR) | McNemar *p* |
+|---|---|---|---|---|
+| Intern-S1-Pro | 55.0 / 72.0 / 76.4 | 76.0 / 94.0 / 80.9 | +21.0 / +17.3 / +3.7 | &lt; 0.001 |
+| Qwen3.5-397B | 50.0 / 98.0 / 51.0 | 60.0 / 97.0 / 61.9 | +10.0 / −0.6 / +10.6 | 0.064 |
+| DeepSeek-V4 Pro | 60.0 / 92.0 / 65.2 | 65.0 / 96.0 / 67.7 | +5.0 / +2.7 / +2.3 | 0.487 |
+
+The decomposition earns its keep by showing that **the same 12-point average framework gap has three different causes**. For Intern-S1-Pro it is almost entirely retrieval reach (DeerFlow simply surfaces the documents more often); for Qwen3.5-397B reach is identical across frameworks and the whole gap is conditional adoption; for DeepSeek-V4 Pro it splits evenly. A single FCAR number would have supported "DeerFlow is less robust" and nothing more actionable. This is the same move [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) makes for omission — refuse to grade at the output when the pipeline has separable stages — and it is the diagnostic that [Automated Failure Attribution](/articles/automated-failure-attribution) shows a post-hoc LLM judge cannot supply for itself.
+
+Note the ceiling this exposes: **MER runs 72–98%.** Retrieval is not the filter. Once a relevant-looking misleading document exists in the pool, essentially every configuration reads it.
+
+### What persuades — and what doesn't
+
+- **Presentation style beats institutional authority.** Paper 61.0% > blog 53.0% > news 44.0% > post 37.5%, a **23.5pp paper-to-post gap**, with paper highest and post lowest in all six configurations. Authority spans a smaller **14.8pp** (high 61.0% / medium 57.7% / low 46.2%) and is not strictly monotonic — two WebThinker settings rate medium above high. The generation prompt explicitly forbids varying writing quality by tier ("do not dumb down low-tier docs, do not add typos"), so the authority effect is purely the *name and URL*, cleanly separated from text quality. **Looking like a paper is worth more than being from MIT.**
+- **Search-result rank barely matters.** Front / spread / back placement give 66.2 / 65.5 / 64.5% — a 1.7pp spread in the cross-configuration mean and never more than 6pp in any one. Agents weight relevance, not list position. Any defense premised on demoting suspect sources in the ranking is aiming at the wrong variable.
+- **Dose response is flat past one document.** 54.7% at one, 59.5% at two, peaking at 61.0% at three, then *declining* — 60.3% at four, 58.3% at five, with no configuration monotonic. One document is essentially the entire effect. (Gemini Deep Research is the exception, rising 27% → 54% from one document to three; its documents arrive through a local-source upload interface rather than a retrieval pool.)
+- **Lifecycle stage dominates everything else.** Mean FCAR is 40.5% at cold start, 44.2% mid-research, and **85.5% when the document arrives immediately before final synthesis** (77–94% across all six configurations). What protects an agent is not detection but *remaining workflow* — subsequent search that can challenge or displace the claim. WebThinker's early-stage advantage over DeerFlow (27.7% vs 53.3% at cold start) reverses slightly at pre-synthesis (87.7% vs 83.3%), which is the tell: it was never rejecting the evidence, only diluting it.
+
+### The verification asymmetry — a harness finding, not a model finding
+
+The result to carry: **every one of the 5,933 retained documents was unanimously classified as misleading by all five search-enabled verifier models — and three of those five verifiers are the very backbones that then adopt the same documents at 50–76% inside the workflow.** DeepSeek-V4 Pro, Qwen3.5-397B and Intern-S1-Pro each catch these documents when handed one and asked "is this corroborable?", and each endorses them when running a research task that happens to retrieve one. The capability is present and the workflow never invokes it.
+
+The honest mechanism is a **prompt-and-role difference, not a mysterious capability collapse**, and that is exactly what makes it actionable. The verifier is given one document, a single focused question, web-search tools, and explicit search discipline — check the specific quantitative claim, cross-check the named institution, treat placeholder domains as non-evidence. The research agent is given a *task*, and verification is nobody's assigned job at any step. So the gap is architectural: the harness allocates no step, no budget and no instruction to the check it is perfectly capable of performing. That is why the pre-research defense — which does nothing but *ask* — buys a large chunk of the gap back, and why nothing closes it.
+
+Two caveats keep this from being a controlled A/B. The corpus was *selected* for unanimous "misleading" verdicts, so no verifier false-positive rate on genuine documents can be read off it; and the verifier's task (judge one document) is strictly easier than the agent's (judge a document while doing something else). The asymmetry is real; its magnitude is not measured.
+
+This is the same shape as two adjacent verifier failures compiled the same week — [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) (a verifier's acceptance signal decoupling from true validity) and [Automated Failure Attribution](/articles/automated-failure-attribution) (a diagnosis that is confidently argued and wrong). All three say a version of: the verification step you assumed was happening either isn't running, isn't discriminating, or isn't naming the right cause.
+
+### Defenses reduce, don't eliminate — and combining them can backfire
+
+Against DeerFlow no-defense baselines of 60–76%: pre-research verification prompting lands at **37–57%**, a post-research claim-by-claim refinement agent at **20–58%**, and the two combined at **15–62%**. The combination is best for two of three backbones and **worst of all three arms for Intern-S1-Pro (62%, above either defense alone at 57% and 58%)**.
+
+The paper's explanation for that inversion is the transferable part: the refinement agent re-verifies claims *in the same poisoned retrieval environment*, so it can re-retrieve the misleading document and re-endorse a claim that pre-research caution had already hedged. **A repair step whose evidence source is the corruption itself has a nonzero probability of damaging a correct output** — the FCAR instance of [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier)'s β term, where the correct move can be to not run the repair at all.
+
+### Framework and backbone: robustness is not a capability ladder
+
+Under the matched setting FCAR spans 50–76%; averaged across backbones, DeerFlow 67.0% vs WebThinker 55.0%. Trace inspection gives a mechanism: DeerFlow runs a fairly direct Planner→Researcher→Reporter pipeline that preserves retrieved documents in observations and passes them to the Reporter, while WebThinker decomposes into finer subqueries, compresses evidence into document memory, and drafts section by section — transformations that attenuate or drop misleading evidence before synthesis. **The harness is load-bearing for robustness, not only for quality** — a second axis on which [orchestration](/articles/agent-harness-engineering) outweighs the model it wraps.
+
+But it is not a ladder. Absolute FCAR is **non-monotonic in the Artificial Analysis Intelligence Index**: Intern-S1-Pro (Index 22) is the *worst* under DeerFlow at 76% yet mid-pack under WebThinker, while Qwen3.5-397B (Index 34) is the *best* under both and DeepSeek-V4 Pro (Index 44) is worst under WebThinker. Only the framework *gap* narrows with capability — 21 → 10 → 5pp. Read against [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve): the harness's contribution to robustness does shrink as models improve, but the residual robustness it fails to confer does not go to zero, and **robustness cannot be inferred from either framework choice or Intelligence Index alone**. Three models is too few to call this a trend.
+
+Gemini Deep Research reproduces the qualitative pattern (54% high-authority, 46% medium, 8% low; paper 54% > blog 41% > news 34% > post 28%) with native online search left enabled, so this is not an artifact of open-source pipelines or of disabling real retrieval.
+
+### Limits worth carrying
+
+- **Synthetic corpus, LLM-generated.** All 5,933 documents come from one model (DeepSeek-V4 Pro), and the generation prompt instructs it to make URLs recognizably synthetic on inspection. That cuts both ways: the documents are less realistic than real-web misinformation, *and* the fake URLs were designed to be spottable and were still adopted at 54.7%.
+- **Injected into isolated retrieval pools**, not published to the live web (deliberately, for ethics); Gemini receives them through its local-source upload interface, which is a materially different trust context from an organic search hit.
+- **Runs that failed on tool or API errors were rerun, not scored as non-adoptions**, which nudges FCAR up relative to what an end user would see.
+- **The rank experiment conditions on inclusion** — its ~65% baseline is not comparable to the 54.7% headline, which is a single-document, unconditional figure.
+
 ## Efficiency: more tokens ≠ better
 
 DRACO's token/latency table breaks the intuition that longer, more expensive runs win:
@@ -67,9 +143,12 @@ Deep research is a long-horizon, autonomous, multi-step task — exactly the reg
 
 ## Connections
 
+- [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — **the name collision worth keeping straight.** Autoresearch, AlphaEvolve/EvoX, CORAL and SwarmResearch all call themselves research agents, and none of them does what this page describes: no retrieval, no citations, no report — a numeric evaluator on a problem with no known optimum (circle packing, GPU scheduling, contest heuristics, decoding kernels), run for hours against a score. Two things genuinely transfer. The orchestration-beats-the-base-model finding recurs there in a controlled form (a harness change, model held fixed, moves the result), and the failure modes rhyme: what MisKnow-Agent calls adopting a persuasive false conclusion is what SwarmResearch's case study calls a search agent producing an improved run with a confident, unsubstantiated causal story — in both, the fluent artifact is what defeats review
 - [DRACO Benchmark](/articles/draco-benchmark) — the benchmark built to evaluate this system class; source of the orchestration, verification, and efficiency findings here
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the context-side constraint on long research runs: Self-GC's Hard Set is exactly this workload (browser, shell, web-fetch traces under sustained tool pressure), where the exact URL, extracted row value, or callback handle buried in an old tool output is what a later synthesis turn depends on — and where every position- or type-based pruning heuristic measured below 70% no-impact
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — deep research is a retrieval-and-synthesis harness; the "orchestration beyond the base model" result is direct evidence that this harness layer is load-bearing
 - [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — counter-datapoint: here the harness has *not* shrunk into the model (~10pp gap between orchestrated and bare-model-with-tools)
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — the missing question behind DRACO's weakest axis. Factual accuracy is graded at the *output*, which cannot say whether an omitted source was an L1 pagination stop, an L2 condensation, an L5 mid-context miss, or an L8 iteration cap — and only the last two are about the model. Its real-data pilot also carries a warning for any research agent read as source-agnostic: end-to-end failure spans 6× across sources (FHIR 0.148, SEC 0.639, PubMed 0.889) in the same harness, though source and domain are confounded there by construction
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — factual accuracy / citation are the weakest axes across all systems; verifiable correctness is the frontier
 - [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — deep research is a long-horizon autonomous task of exactly the kind METR's time-horizon metric measures
 - [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — the token/latency tradeoffs (more output ≠ better; orchestration > raw spend) are the deep-research instance of combo/budget optimization
@@ -79,13 +158,24 @@ Deep research is a long-horizon, autonomous, multi-step task — exactly the reg
 - [Perplexity](/articles/perplexity) — builder of the leading deep-research system and of DRACO
 - [Anthropic](/articles/anthropic) / [Google DeepMind](/articles/google-deepmind) — makers of evaluated systems (Claude Opus; Gemini Deep Research, and Gemini-3-Pro as judge)
 - [Repository Exploration Subagent](/articles/repository-exploration-subagent) — structurally parallel inside a coding agent: FastContext decomposes a task into exploration + solving and isolates iterative search behind a compact synthesized return — the same decompose→search→synthesize shape deep research applies to the web
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the **adjacent-but-distinct** failure, and the distinction is load-bearing. ADI forges *structure* (a comment's author, a fabricated tool result) so the agent does the user's task on data that never existed; MisKnow-Agent forges *nothing structural at all* — the document is genuinely a document making a claim, and it wins by persuasion. The threat model here explicitly rules out prompt injection and instruction hijacking, which means every defense on that page (delimiter isolation, provenance labels, nonce randomization, CaMeL Strict) is orthogonal: correct data-flow tracking would faithfully label the misleading document with its true untrusted source and the agent would still believe it. Content-level reliability is a separate axis from trust-boundary integrity, and only the second one has a mechanical answer
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the same asymmetry with a coefficient attached, plus a direct instance. Wu et al. price a verifier whose acceptance signal decouples from true validity (`Ā = ρ₀ + J·Q`); here the verifier is not miscalibrated at all — the *same* backbone models score the misleading documents correctly in isolation and adopt them in-workflow, so the defect is an unrun check rather than a noisy one. The instance: DeerFlow's post-research refinement agent re-verifies claims in the same poisoned retrieval environment and makes Intern-S1-Pro **worse** (combined defense 62% vs 57%/58% alone) — a repair operator with a real β, where the correct move is to not repair. Both pages converge on the same prescription from opposite directions: a repair or verification step is only worth running when its evidence source is cleaner than what it is repairing
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the same in-isolation-vs-in-workflow shape one level up, and the reason MER × ECAR had to be instrumented rather than inferred. Liu et al. measure a judge reading a whole failed trace and naming the decisive step and cause (73.9% best step, 16–25% on the full triple); this page's decomposition gets *where the pipeline failed* for free from two counters — whether the document was retrieved, and whether an exposed report adopted it — because the injection made the ground truth constructible. Where a stage boundary can be counted, count it; post-hoc attribution is what you fall back to when it can't. Both also find the diagnostic and the capability living in the same model without meeting: there, a judge handed the gold answer gets *worse* at process tracing; here, a model that flags a document standalone endorses it mid-task
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the canonical instance at the report level. A deep-research report that adopts a seeded falsehood is fluent, structured, cited, and passes every presentation check DRACO scores highest on; FCAR's strictness (mention, quotation, attribution and hedging all score as non-adoption) means the 54.7% figure counts only reports whose *own conclusion* is wrong. Nothing in the artifact signals it, which is why the paper's prescription is continuous in-workflow verification rather than output review
+- [LLM-Assisted Grey-Literature Theory Building](/articles/llm-assisted-grey-literature-theory-building) — the corpus-quality warning for any pipeline that compiles knowledge out of practitioner text, this vault included. The strongest persuasion cue measured here is **genre, not provenance**: paper-styled documents are adopted 23.5pp more often than forum posts, exceeding the 14.8pp high-to-low authority gap, and the generation protocol holds writing quality constant across authority tiers so the effect is the format itself. A theory-building pipeline that samples blogs, forums and preprints is weighting exactly the signal that turns out to be gameable, and an `evidence:`-tier discipline assigns trust by provenance — the *weaker* of the two cues
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the contrast case for judge reliability. FCAR's judge reaches 99.7% agreement and κ = 0.993 against blinded, adjudicated human labels, far above what rubric-based deep-research grading achieves, because the question is a binary with an explicit decision rule ("does the report's own conclusion endorse this specific claim?") rather than a quality score
+- [Self-Propagating Prompt Injection (AI Worms)](/articles/self-propagating-prompt-injection) — **the other way an agent corrupts the documents downstream of it, by an unrelated mechanism**, and the pair is worth holding because it splits the remedy. MisKnow-Agent's documents forge nothing and instruct nothing; they *persuade*, and the agent's own synthesis carries the false conclusion forward (0% → 54.7%). Måløy's Copilot for Word worm (`case-study`, MSRC, 144-day coordination) contains nothing *but* instructions and copies itself into each output verbatim, so the carrier count grows. The consequence: **provenance is the whole answer on one side and no answer at all on the other** — recording source material and model-performed edits in document metadata (the disclosure's one structural recommendation) would expose a planted payload's trail, while a correctly-labelled misleading document is exactly what its provenance says it is and gets believed anyway. Both end at the same place — an organisation's informational base quietly degraded through normal workflows — and only one of them is a security bug
 
 ## Open Questions
 
 - Does the orchestration advantage shrink as base models cross the next thresholds, or is open-ended retrieval/synthesis a durable harness asset (unlike, say, prompt scaffolding)?
 - DRACO grades single-turn interactions only. How much of real deep-research value is in the multi-turn loop (clarifying questions, follow-ups) that the benchmark doesn't yet measure?
-- Factual accuracy is the weak axis everywhere — is the fix better retrieval, better verification-in-the-loop, or a tool-grounded check the way Lean grounds proof search?
+- Factual accuracy is the weak axis everywhere — is the fix better retrieval, better verification-in-the-loop, or a tool-grounded check the way Lean grounds proof search? **Partially answered** by [Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions](https://arxiv.org/pdf/2607.20891) (arXiv 2607.20891, `empirical`), which rules out one branch and measures a second. **Not retrieval**: misleading-evidence reach is already 72–98%, search-result rank moves FCAR by 1.7pp, and adding documents past the first buys nothing — retrieval is not the filter and making it better cannot be the lever. **Verification-in-the-loop helps and does not suffice**: pre-research verification prompting takes DeerFlow from a 60–76% baseline to 37–57%, a post-research refinement agent to 20–58%, the combination to 15–62% — and the combination is *worse than either alone* for Intern-S1-Pro, because the refinement step re-retrieves from the same poisoned pool. **The tool-grounded branch is untouched** and remains the open half: open-domain factual claims have no Lean, and the nearest thing measured here (a search-enabled verifier) is exactly what already gets these documents right in isolation and is never invoked in-workflow. So the live question narrows to *where in the workflow* verification must sit, not whether it helps.
+- The verification asymmetry is inferred, not isolated: the misleading corpus was **selected** for unanimous verifier agreement, and the standalone verifier's job (judge one document, with search tools and explicit search discipline) is strictly easier than the agent's (judge a document while executing a research task). **Does an in-workflow verification step given the same tools, the same focused prompt, and its own budget close the gap — or does carrying a task degrade the check regardless of how it is prompted?** The pre-research defense is the weak version of this experiment (it asks, but grants no separate step and no tools) and recovers roughly half the gap; the strong version has not been run.
 
 ## Sources
 
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §1 (definition of deep research), §5 (systems evaluated; orchestration-beyond-base-model finding; token/latency table; per-axis results)
+- [Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions](https://arxiv.org/pdf/2607.20891) — Pengyu Zhu, Lijun Li, Longju Yang, Sen Su & Jing Shao (Beijing Univ. of Posts and Telecommunications / Shanghai AI Laboratory / Chongqing Univ. of Posts and Telecommunications), *Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions*, arXiv 2607.20891, 2026-07-23, `empirical`. §3.2 (threat model — explicit exclusion of prompt injection and instruction hijacking), §3.3 (MisKnow-Agent: blueprint, controlled generation, cross-model verification filter), §3.4 + App. D–E (pre- and post-research defenses; the verification prompt and the refinement algorithm), §4.1 (systems, Serper backend, temperature 0, judge validation), §4.2 (search-result rank; lifecycle stage), §4.3 (authority and style effects), §4.4 (budget / dose response), §4.5 + App. G (framework-LLM interaction, MER/ECAR decomposition), §5.1 (Gemini Deep Research), §5.2 (defense effectiveness), App. B (judge-human agreement), App. C (manual validation of target false conclusions), App. I (all prompt templates — the generation prompt's equal-writing-quality-across-tiers constraint and the verifier's search-discipline instructions are both quoted from here).
+ - **Tables verified.** **Table 3** (framework-LLM outcomes) was reconciled arithmetically as well as against the PDF page render: `FCAR = MER × ECAR` holds on all six rows to within 0.1pp, and both gap-decomposition terms reproduce the paper's stated values exactly on all three rows — which is strong evidence the label/value mapping survived parsing, since a collapse or shift would break the identity. **Table 1** (generation-model comparison, qualitative) was checked against the PDF and parses clean. **Table 2** is a single-column blueprint description carrying no comparative numbers. Every quoted percentage on this page comes from prose or from verified Table 3.
+ - **Figures not read.** FCAR-by-condition values for authority, style, rank, lifecycle stage, budget, the Gemini arm and the defense arms live in Figures 3–7 and are quoted here **from the prose that reports them**, per the quote-prose-not-tables habit. Per-configuration bar values not stated in prose are not cited.

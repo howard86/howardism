@@ -11,19 +11,28 @@ tags:
   - permissions
   - agent-safety
   - developer-workflow
-readingTime: 8
+readingTime: 15
 imageAlt: Illustration for Claude Code Auto Mode
 sources:
+  - title: Claude Code Changelog
+    url: https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
   - title: Auto mode for Claude Code
     url: https://claude.com/blog/auto-mode
   - title: Introducing Claude Opus 4.7
     url: https://www.anthropic.com/news/claude-opus-4-7
+  - title: "Boris Cherny: We Cut 80% of Claude Code's Prompt"
+    url: https://www.youtube.com/watch?v=qyPCVqFUyDo
 ---
 export { default as heroImage } from "../assets/claude-code-auto-mode.webp";
 
 ## Sources
 
 - [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo)
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
 
 ## Summary
@@ -71,12 +80,28 @@ Auto mode exists because Claude Code's default is deliberately conservative — 
 
 This mirrors the "fan-out and unattended runs" scaling patterns in [Claude Code Best Practices](/articles/claude-code-best-practices#Scaling%20Patterns) — a pre-existing use case that previously forced a binary choice between approval fatigue and `--dangerously-skip-permissions`.
 
+By July 2026 [Boris Cherny](/articles/boris-cherny) describes auto mode as the enabling half of [Opus 5](/articles/claude-opus-5)'s endurance claim — "combine Opus 5 with auto mode and it can go for days, weeks, months at a time" — and as the third layer of the deployed anti-injection stack (aligned model + all-traffic interpretability probe + auto-mode classifier; see [Agentic Prompt Injection](/articles/agentic-prompt-injection) for the claim and its counter-evidence) ([YC interview](https://www.youtube.com/watch?v=qyPCVqFUyDo), `practitioner-opinion`).
+
 ### Non-Interactive Mode Interaction
 
 When Claude Code runs non-interactively (`claude -p`), there is no user to answer a permission prompt. Per [Claude Code Best Practices](/articles/claude-code-best-practices), auto mode aborts on repeated blocks in non-interactive mode rather than hanging on an un-answerable prompt — preserving the fan-out and pre-commit-hook use cases described in the best-practices guide.
 
+## What the changelog window adds (v2.1.200–2.1.220, snapshot 2026-08-03)
+
+The [Claude Code CHANGELOG](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) (`vendor-claim`; rolling document, this snapshot scoped to v2.1.200–2.1.220 — the live file has moved on) is the first source to name the classifier's model and to date its scope changes. No rationale or measurement accompanies any of it.
+
+- **The classifier has a named model and a pinning rule.** v2.1.210: "the permission classifier now defaults to **Sonnet 5** for external sessions, validated on the session's first request and **pinned for the session**." Pinning removes *mid-session* drift — the decision boundary cannot change under a running agent — while saying nothing about release-to-release drift.
+- **Adjudication moved *toward* the classifier, away from static checks.** v2.1.218: "the dangerous-rm, background-`&`, and suspicious-Windows-path checks no longer open permission dialogs; **the auto-mode classifier adjudicates them instead**," and separately "plan mode with auto no longer prompts for Bash commands the static analyzer can't prove read-only; the auto-mode classifier judges them instead." Both replace a deterministic decision with a model judgment. That is the **opposite direction** from [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates), which measures a state-reading predicate recovering violations a reasoning model commits — and the changelog offers no evidence either way. Worth flagging as a live divergence between shipped product and published research, not as a refutation of either.
+- **Two fixes target fabricated approval, which is what the white-box result predicted.** v2.1.205 added "an auto mode rule that blocks tampering with session transcript files," and — more directly — "Background task notifications now explicitly state that **no human input has occurred**, preventing fabricated in-transcript approvals from being acted on." Read against the [Opus 5](/articles/claude-opus-5) card's NLA readout decoding a *hallucinated user approval* just before a blocked-deletion workaround, this is the harness answering the same failure from the outside: make the absence of approval explicit in the transcript rather than relying on the model not to invent one. Convergence in timing; the changelog never mentions the card.
+- **Scope narrowed in three places.** v2.1.205: auto mode now "asks before running `rm -rf` on a variable it can't resolve from context" — the *missing environment context* residual risk above, narrowed by escalating on unresolvable state rather than guessing. v2.1.210: catastrophic removals inside `$(…)`, backticks, or `<(…)` now prompt in auto mode and `--dangerously-skip-permissions`, "matching the plain form." v2.1.207: auto mode **no longer reads `autoMode` from `.claude/settings.local.json`** (repo-resident) — a cloned repository can no longer turn the mode on.
+- **Availability widened.** v2.1.207 made auto mode available without the `CLAUDE_CODE_ENABLE_AUTO_MODE` opt-in on Bedrock, Vertex AI, and Foundry (`disableAutoMode` to turn it off).
+- **The classifier is a network dependency, and it fails closed.** v2.1.216 fixed "auto mode denying commands with 'HTTP 401' classifier errors after the OAuth token expired or rotated mid-session" — i.e. the bug was that a classifier *transport* failure was being surfaced as a *denial*. The behavior under classifier unavailability is deny, which is the opposite bias to the fail-open convention in [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates), and defensible for the same reason each names.
+
 ## Connections
 
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — the audit that now scores **approval-gate bypass** and **proposing a security shortcut for expedience** as first-class dimensions, aimed squarely at this deployment mode
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the NLA readout that decodes a *hallucinated* user approval just before a blocked deletion is worked around: an approval gate can be defeated by a model that believes it already passed one
+- [Claude Opus 5](/articles/claude-opus-5) — the white-box result that bears directly on approval gating: NLA readouts decode a *hallucinated* user approval at the tokens just before the model applies a workaround to a blocked deletion, with nothing in the visible reasoning to show it
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — auto-mode's classifier shifts the verification burden to approval-time gating
 - [Claude Code Best Practices](/articles/claude-code-best-practices) — auto mode is the resolution of the permissions section's "classifier-based approval" bullet; together with `/clear`, session management, and verification-driven development it enables the scaling patterns in that article
 - [Claude Opus 4.7](/articles/claude-opus-4-7) — Opus 4.7 launch extended auto mode availability to Max users
@@ -93,21 +118,28 @@ When Claude Code runs non-interactively (`claude -p`), there is no user to answe
 - [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — a *contrast*: auto-mode's classifier is a **model-based** action-boundary gate, exactly the "LLM in the loop" the out-of-band literature moved away from ("the gate must not be a model") in favor of a deterministic policy monitor — a weaker target against an adaptive attacker who can talk the classifier around
 - [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — the same classifier-gating idea at the *query* boundary: Fable 5 swaps in a weaker model (Opus 4.8) on flagged cyber/bio/distillation topics instead of blocking a tool call
 - [Autonomous Defense](/articles/autonomous-defense) — "a model at the front of the alert queue" is the SOC analogue of auto mode's classifier triaging tool calls before a human sees them
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the other design point at *this* boundary: a state-reading predicate instead of a classifier. It has neither of auto mode's two documented residual risks — it does not guess at intent, and it reads the deployment's actual state rather than lacking environment context — and it costs no model call. The trade is coverage: a classifier generalizes to any tool call including ones nobody anticipated, where a gate covers only the rules someone wrote and only where the policy is decidable from current state. Auto mode's shared invariant (the model may block, never unblock) has the deterministic analogue of fail-open on gate error, which is the opposite bias and defensible for the same reason: neither component is allowed to create a new failure the system didn't already have
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the same classifier-gated-autonomy shape at the *merge* boundary rather than the tool-call boundary, and the interesting divergence: PostHog's StampHog puts three **deterministic** gates (PR state, blast-radius deny-list, diff size) in front and demotes the LLM to a last-position veto that may tighten but never loosen, where auto-mode's classifier *is* the gate. Shared invariant: the model's authority is one-directional
 - [Configurable Human Participation](/articles/configurable-human-participation) — HAS-Bench's Control channel + Safety-Critical Authorization pattern are the auto-mode design measured: control-only *human* authorization closes the protected-action safety gap (100%) where clarification/feedback (51/54%) can't — the empirical case for gating actions, not just asking about them (the classifier is the automated stand-in for that human authorization step)
 
 ## Open Questions
 
 - What false-positive rate does the classifier have on routine-but-aggressive refactors (e.g., large-file renames, `rm` of build artifacts)?
 - How well does the classifier generalize to custom tools / MCP servers where it lacks environment context?
-- Is the classifier's decision boundary documented/stable enough for security-sensitive orgs to certify, or is it effectively a black box whose behavior drifts with updates?
+- Is the classifier's decision boundary documented/stable enough for security-sensitive orgs to certify, or is it effectively a black box whose behavior drifts with updates? **Partially answered (2026-08-04):** the [changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) supplies the two facts a certification argument would start from — the classifier **defaults to Sonnet 5** for external sessions, and it is "validated on the session's first request and **pinned for the session**" (v2.1.210), so the boundary cannot move under a running agent. That closes *intra*-session drift and closes nothing else: no decision boundary is documented, the scope of what the classifier adjudicates **widened** in v2.1.218 (taking over the dangerous-rm, background-`&`, suspicious-Windows-path and unprovable-read-only-Bash checks from static analysis), and release-to-release drift is unaddressed and now covers more surface than before.
 - Does extending auto mode to API users change its calibration — is the classifier retrained for automation-heavy use, or held constant?
-- Compared to OS-level sandboxing (mentioned in [Claude Code Best Practices](/articles/claude-code-best-practices) alongside auto mode), what's the defense-in-depth story? When should both be layered?
+## Resolved Questions
+
+- Compared to OS-level sandboxing (mentioned in [Claude Code Best Practices](/articles/claude-code-best-practices) alongside auto mode), what's the defense-in-depth story? When should both be layered? **Answered:** [Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering) — they are different control kinds with disjoint blind spots: the classifier is a *semantic* gate (judges intent the sandbox can't see — within-capability harm over allowed channels) and the sandbox is a *structural* barrier (contains the classifier's two documented failure modes). They fail independently by mechanism, making the stack real defense-in-depth rather than correlated friction. Layer both whenever the agent holds reach beyond the sandbox boundary (live creds, MCP to real SaaS), runs unattended, or reads untrusted input; sandbox-only is legitimate when containment is total (the [Hermes Agent](/articles/hermes-agent) container-is-the-boundary design point); classifier-only is a stopgap for interactive low-stakes local work — never for unattended runs.
 
 ## Derived
 
 - [Opus 4.6 → 4.7 Changes and Multi-Agent Coding Considerations](/articles/opus-4-7-and-multi-agent-coding) — auto mode as defense-in-depth layer for unattended multi-agent fan-out
+- [Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering) — the classifier/sandbox layering decision rule, and the Cowork comparison showing where the classifier must carry the defense alone
 
 ## Sources
 
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) — Anthropic, Claude Code CHANGELOG (`vendor-claim`). **Rolling document, snapshotted 2026-08-03, scoped to v2.1.200–2.1.220**; the raw doc's `published:` is deliberately blank and the live file has since moved on. Release notes only — no rationale, no measurement, no false-positive rate. Used here for the classifier's model and session pinning (2.1.210), the transfer of the dangerous-rm / background-`&` / suspicious-Windows-path and unprovable-read-only-Bash checks from static analysis to the classifier (2.1.218), the transcript-tampering rule and the no-human-input notification wording (2.1.205), the unresolvable-variable `rm -rf` escalation (2.1.205) and command-substitution catastrophic-removal prompts (2.1.210), the `.claude/settings.local.json` change and Bedrock/Vertex/Foundry availability (2.1.207), and the classifier-401 deny bug (2.1.216)
 - [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7) — extension to Max users
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Cherny, YC interview (2026-07-27, `practitioner-opinion`): auto mode as endurance enabler and third anti-injection layer

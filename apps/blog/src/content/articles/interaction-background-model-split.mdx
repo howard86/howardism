@@ -1,26 +1,34 @@
 ---
 date: 2026-05-13
 title: Interaction / Background Model Split
-description: 'Dual-model architecture: time-aware interaction model stays
+description: "Dual-model architecture: time-aware interaction model stays
   present; async background model handles deep reasoning/tools;
-  rich-context-package delegation; "reasoning-model planning at non-thinking
-  latency"'
+  rich-context-package delegation; \"reasoning-model planning at non-thinking
+  latency\"; Inkling (July 2026) is the named background half — and OpenAI's
+  GPT-Live (July 2026) ships the same split in production, delegating from a
+  full-duplex voice model to GPT-5.5 over a pre-warmed prefilled session"
 tag: Concept
 domain: interaction-multimodal
 tags:
   - llm-architecture
   - agent-engineering
   - multimodal
-readingTime: 3
+readingTime: 6
 imageAlt: Illustration for Interaction / Background Model Split
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
+  - title: "Inkling: Our Open-Weights Model"
+    url: https://thinkingmachines.ai/news/introducing-inkling/
+  - title: How we built a realtime system for responsive voice AI in six months
+    url: https://openai.com/index/continuous-voice-interaction-with-gpt-live/
 ---
 export { default as heroImage } from "../assets/interaction-background-model-split.webp";
 
 ## Sources
 
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/)
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
 
 ## Summary
@@ -48,6 +56,23 @@ This is the latency-vs-depth axis of multi-model orchestration, distinct from:
 - the **role-based model selection** in [Client-Side Agent Optimization](/articles/client-side-agent-optimization) (assign cheap/expensive models per *role* in an agent graph) — there the split is cost-driven and static; here it's latency-driven and dynamic-per-turn;
 - the **three-agent / reviewer-in-fresh-context** pattern ([Deep Modules for Agents](/articles/deep-modules-for-agents), [Agent Harness Engineering](/articles/agent-harness-engineering)) — there the split is for *context isolation*; here it's for *temporal* concerns (stay responsive vs. think hard).
 
+## The background half gets a name: Inkling (July 2026)
+
+At the split's introduction the background model was an unnamed capability. [Inkling](/articles/inkling) fills the slot: TML states that "a major goal of Inkling's design is to serve as the background reasoning model in the interaction models system" — which is why a 975B open-weights foundation model was trained natively multimodal (encoder-free dMel audio and hMLP vision, the same input stack as the interaction model) rather than as a text reasoner with adapters. The symmetry runs deeper: Inkling-Small is a 276B/12B MoE, [TML-Interaction-Small](/articles/tml-interaction-small)'s exact shape, suggesting the two halves of the split share a lineage. Both halves of the architecture are now public artifacts rather than one model and one promise.
+
+## The split ships in production: GPT-Live (July 2026)
+
+[OpenAI](/articles/openai)'s [GPT-Live](/articles/gpt-live) is the same two-model architecture arrived at independently and deployed at ChatGPT scale — a full-duplex voice model holds the conversation while deeper reasoning and tool use delegate to frontier models such as GPT-5.5 on an asynchronous path. OpenAI's phrase for the payoff mirrors TML's: "effectively decoupling 'talking' from deeper 'thinking'." Two months after TML's research preview, both halves of the split now exist as production systems at a second lab.
+
+The production account adds the engineering the research framing left open — the delegation loop as a **latency budget** (`case-study`, first-party):
+
+- **The rich context package becomes a standing prefilled session.** At voice-session start, the application server pre-creates the frontier model's inference session and prefills it with the initial conversation context, so the prompt is fully processed before the first delegation is requested — TML's delegate-the-full-conversation handoff with its prefill cost paid in advance.
+- **Session affinity + prompt caching** keep successive delegations cheap for the conversation's duration, with worker failure still cheaply recoverable.
+- **Every lever on time-to-useful-result is tuned**: reasoning effort, output limits, tool schemas, and model↔tool round trips.
+- **The interaction half can stall, not hide.** The voice model "can briefly keep the exchange moving while a frontier model reasons or uses tools, but it cannot hide an arbitrarily slow response" — the empirical bound on how much latency the split's front half can absorb.
+
+Serving-side detail in [Live-Path Minimalism](/articles/live-path-minimalism).
+
 ## Open / acknowledged
 
 TML calls background agents "an essential capability" they've "just scratched the surface" on — both pushing background agentic intelligence to the frontier and exploring how background agents work together with the interaction model.
@@ -63,7 +88,11 @@ TML calls background agents "an essential capability" they've "just scratched th
 - [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — the other half of the architecture (the perception/generation side)
 - [Full-Duplex Interaction](/articles/full-duplex-interaction) — where the concurrent deep work goes while the interaction model stays present
 - [TML-Interaction-Small](/articles/tml-interaction-small) — the model that implements the split; competitive on intelligence benchmarks even without the background agent
+- [GPT-Live](/articles/gpt-live) — OpenAI's production instance of the split: full-duplex voice model delegating to GPT-5.5
+- [Live-Path Minimalism](/articles/live-path-minimalism) — the serving architecture that keeps delegation off the live media path
 
 ## Sources
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/) — Inkling as the designed background reasoning model (`vendor-claim`)
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/) — OpenAI, 2026-07-29 (`case-study`, first-party): GPT-Live's delegation path as a latency budget (pre-created prefilled sessions, affinity + caching, tuned effort/schemas/round-trips)

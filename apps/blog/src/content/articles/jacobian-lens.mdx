@@ -14,16 +14,23 @@ tags:
   - alignment
   - monitoring
   - method
-readingTime: 7
+readingTime: 16
 imageAlt: Illustration for Jacobian Lens (J-lens)
 sources:
   - title: Verbalizable Representations Form a Global Workspace in Language Models
     url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: A Review of Anthropic's Global Workspace Paper
+    url: https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper
+  - title: "jspace-replication: Independent Replication of Anthropic's
+      Global-Workspace Paper on Small Open Models"
+    url: https://github.com/tao-hpu/jspace-replication
 ---
 export { default as heroImage } from "../assets/jacobian-lens.webp";
 
 ## Sources
 
+- [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper)
+- [jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## Summary
@@ -39,6 +46,28 @@ Composing $J_\ell$ with the unembedding $W_U$ and reading the top entries gives 
 ## The averaging step is the whole idea
 
 A Jacobian computed on a *single* prompt conflates two things: the model's general disposition to verbalize a concept, and the particular use that concept is being put to right now. Averaging across contexts isolates the former. This is what separates **verbalizable** representations — poised to be spoken about, should the occasion arise — from ones that merely happen to be verbalized in one context. Everything the workspace results rest on follows from this distinction.
+
+## Why it should work at all — the first-principles account
+
+The paper establishes the lens empirically; the strongest *argument* for why such a technique must exist comes from outside it, in [Neel Nanda's commissioned review](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper). Worth keeping because it predicts the method's failure modes as well as its successes.
+
+He separates two things the paper runs together: **J-lens**, the technique (Jacobian, then final layer norm and unembedding), and **J-space**, the span of sparse combinations of $W_U J_\ell$ rows — a *hoped-for approximation* of the model's actual cognitive space, not identical to it. Every argument below is about why the approximation should be a good one, not about why it should be exact.
+
+**Why a working memory must exist.** Problems with multiple serial computation steps require representing intermediate states somewhere, and the residual stream is the only channel between layers. Under the linear representation hypothesis, intermediates should be directions in that space. The worked example: on "Michael Jordan plays the sport of", the Jordan-token lookup necessarily retrieves *all* Michael Jordan knowledge before the model knows which fact will be needed downstream. Intermediate storage is forced by the architecture, not a design choice.
+
+**Why the directions should be consistent across contexts.** A concept flexibly serves many downstream circuits; a single shared per-layer direction is the efficient "API" for that. The caveat is the interesting part — a *narrowly used* concept has no such pressure and may not have a shared direction, so the lens should be systematically better on general concepts than on specialized ones.
+
+**Why intermediate concepts should relate to output logits.** A looked-up fact eventually gets uttered, so Jacobians from intermediate positions to *future* logits align with concept directions. This is also the cleanest account of why the J-lens beats the logit lens: an intermediate concept is unlikely to be the *immediate* next token but is plausible as a *subsequent* one — and the paper's own ablation corroborates, since single-token-restricted J-lens variants beat the logit lens only marginally. Nanda offers an alternative mechanism he does not rule out: **constructive interference during training** may naturally converge concept directions onto output-token directions, in which case the lens works for a reason unrelated to verbalizability.
+
+**Why Jacobians rather than a learned regression.** Tuned-lens-style regression captures whatever downstream concepts are *correlated* with the current state. An infinitesimal Jacobian perturbation cannot engage the network's nonlinearities, so the readout is closer to "the model reports the contents of this activation without further processing" — the property that makes the lens a read rather than a prediction.
+
+**Why single tokens are the binding constraint.** One-to-one concept↔token correspondence is a priori unlikely: digits are tokenized separately while "twenty-two" may be one direction. So the vocabulary restriction is not an implementation detail to be engineered away but a structural mismatch — which is what makes the multi-token extensions the important open thread.
+
+**What the approximation costs.** Causal interventions should suffer more than observational reads: an ablation removes only the fraction of the concept that lies in the lens direction, and negative steering compensates by steering noise components. This predicts exactly the pattern the review's own [meta-token](/articles/llm-global-workspace) experiments hit — steering worked, ablation was largely ineffective. Nanda's blunt expectation for practice: the J-lens will **not** "reliably flag everything important" and **will** produce many false positives. He considers that acceptable only because essentially no existing interpretability technique meets that bar either.
+
+**Versus SAEs.** Comparable — useful in the same settings, similarly limited. The J-lens is cheaper, easier, and has fewer degrees of freedom but is restricted to single-vocabulary-token concepts; SAEs capture more important concepts *and* more noise. The substantive claim: the J-lens emphasizes **verbalizable** representations, and verbalizability likely correlates with importance better than sparsity does. It is also closer to causal than most concept-direction methods, which are purely correlational — "if the model thought about this a bit more it would be likelier to say this token."
+
+**Variable interpretability, not algorithm interpretability.** The lens reads features, not circuits — with the meta-token result as a partial exception, where the readout appears to expose a disambiguation *subroutine* rather than a stored variable.
 
 ## Relation to other lenses
 
@@ -58,7 +87,7 @@ The paper is candid that the logit lens still captures much of the same workspac
 
 ## Why it is practically attractive
 
-- **Cheap.** One precomputed matrix per layer, computed once per model; a single matmul per layer at inference. No auxiliary training, no dictionary to learn.
+- **Cheap.** One precomputed matrix per layer, computed once per model; a single matmul per layer at inference. No auxiliary training, no dictionary to learn. Nanda's independent accounting: precomputation is ~10 prompts of 128 tokens = 10 × d_model backward passes, "doable on frontier models"; his own scaling run on Qwen3.5-397B-A17B at n=4 took **~1 hour on 8×H200**. Coding agents implement the method fairly well from the paper, though the output needs sanity-checking against the paper's Appendix 10.2 evals.
 - **Directly human-readable.** Output is a list of words, not a feature index needing a further interpretation step.
 - **Uniformly applicable.** Works on activations, on *weights* (attention head Q/K/V/O matrices, transcoder encoder/decoder directions), and on other methods' feature directions (SAE decoders, steering vectors, probe weights).
 
@@ -70,6 +99,18 @@ This makes it cheap enough to run at scale to flag transcripts for review — th
 - **A bag of concepts, not a structure.** A readout of `spider`, `legs`, `eight` says the concepts are present but not how they bind. Whatever relational grammar the model imposes on workspace contents, this readout cannot see.
 - **Inconsistent interpretability.** At some (position, layer) slots the top tokens are simply not interpretable, and the authors do not know whether that is Jacobian-averaging noise, multi-token concepts, or content they are failing to recognize.
 - **First-order only.** The linearization is a first-order approximation of a nonlinear network; it is a fixed context-independent map, trading exactness on any one prompt for a stable readout.
+- **Interventions are weaker than reads.** Ablating a J-lens direction removes only the component of the concept that lies in it, and negative steering compensates by steering noise; so a null causal result is much weaker evidence than a null observational one. External evidence bears this out: the meta-token experiments in [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper) found steering effective and ablation largely ineffective on the same vectors, and single-position steering failed where multi-position steering worked.
+- **A shelf life tied to language-aligned representations.** Nanda's forecast, and the sharpest risk to the method's future: latent-reasoning models would make workspace reads *more* important (more computation happening per forward pass, hidden from the [CoT](/articles/cot-monitorability)), but heavy latent-reasoning training could drift internal representations *away* from language-aligned directions and break the technique outright. Same trend, opposite implications; unresolved.
+
+## The transported directions collapse — but that is the fit, not the transport
+
+An independent audit ([jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication), July 2026) measured **effective dimensionality of raw versus J-transported directions** across a model ladder. On off-the-shelf models the transported directions occupy a *narrower* cone than the raw ones — the readout basis is more collapsed than the space it reads from, which is the geometric form of the worry that the lens only approximates the true workspace directions.
+
+One model breaks the pattern, and it is the load-bearing one: a **self-trained 124M GPT-2 reproduction** (standard nanoGPT recipe, trained for an unrelated project and published beforehand, so not a hand-picked point) whose transported directions come out *more* isotropic than its raw ones — effective dimensionality **23.4 → 31.2**. The non-collapse is robust across fit scale (150 → 1000 fitting prompts; 31.2 → 31.1) and backend (MPS → CUDA), and it is the only lens in the ladder the auditors fit themselves — refittable from the public weights, with both fitted lenses released.
+
+The inference: since the transport is the same operation in both cases, the collapse seen elsewhere is a property of the **fitted lens on a given trained model**, not a mathematical necessity of composing an averaged Jacobian with the unembedding. Whatever narrows the readout is contingent — on the model, the corpus, or the training run — which makes it a thing that could in principle be fixed rather than a floor on the method.
+
+Caveat: pre-publication README figures, and a 124M model is far outside the regime the workspace claims are made in — the counterexample proves the collapse is *not necessary*, not that the fits on real models are wrong.
 
 ## Where it sits among interpretability tools
 
@@ -77,7 +118,9 @@ The J-lens occupies the **cheap-and-grounded** end of the readout spectrum. Line
 
 ## Availability
 
-Open-source implementation at `github.com/anthropics/jacobian-lens`; interactive readouts on open-source models hosted on Neuronpedia.
+Open-source implementation at `github.com/anthropics/jacobian-lens`; interactive readouts on open-source models hosted on Neuronpedia — since July 2026 including J-lens suites for **Qwen 3.6 27B** (`qwen3.6-27b/jlens`), released alongside the external replication.
+
+An alternative exact formulation is circulating: James Golden's **detached Jacobian** — gradient-detaching the nonlinear components makes inference an exact input-dependent linear transform, whose singular vectors decode input and output tokens and steer concepts effectively; demonstrated on Qwen 3 14B and Gemma 3 12B. Reported in a comment on the review rather than a paper, so treat as an unvetted lead — but it is a direct candidate answer to the "what is the better basis?" question below.
 
 ## Connections
 
@@ -85,6 +128,7 @@ Open-source implementation at `github.com/anthropics/jacobian-lens`; interactive
 - [Agentic Misalignment (AM)](/articles/agentic-misalignment) — the blackmail eval's deliberation, read before the first output token
 - [Agentic Prompt Injection](/articles/agentic-prompt-injection) — silently-recognized injections surface in the lens (`fake`, `injection`, `poison`) even when the model never mentions them
 - [Reward Hacking](/articles/reward-hacking) — the lens reads a standing deception signature in reward-hacking model organisms on ordinary prompts
+- [Model Organisms](/articles/model-organisms) — the ground truth behind those case studies. The 54-organism benchmark tests the plain *logit lens* this method corrects, not the J-lens — but it finds logit-lens scores swinging with the organism's construction recipe and sitting at the noise floor at mid layers, so the J-lens's own organism results inherit the transfer caveat even though its margin over the logit lens is untested there
 - [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — the base-model-vs-post-trained comparison the lens makes possible
 - [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators) — the instrument that lets consciousness-theory indicator properties be checked against a concrete structure
 - [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — what the lens found: the J-space and its workspace-like properties
@@ -100,8 +144,11 @@ Open-source implementation at `github.com/anthropics/jacobian-lens`; interactive
 
 - Can multi-token J-lens vectors be made good enough to remove the vocabulary restriction — and how much of the "workspace" is currently invisible because of it?
 - The J-lens reads the workspace's contents but says nothing about **how content gets in**. What is the model's analog of attentional selection?
-- The highest-J-kurtosis SAE features are amplified *more* strongly by MLPs than the J-lens vectors themselves — evidence the lens only approximates the true workspace directions. What is the better basis?
+- The highest-J-kurtosis SAE features are amplified *more* strongly by MLPs than the J-lens vectors themselves — evidence the lens only approximates the true workspace directions. What is the better basis? **Partially answered:** [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper) surfaces one concrete candidate — the detached-Jacobian formulation above, which is exact rather than first-order — but it is a comment-thread report on two small open models with no head-to-head against the averaged J-lens, so the question stands. [jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication) adds a geometric constraint on the answer: the transported-direction collapse is a property of the fitted lens, not of the transport (a self-trained 124M control goes the other way, 23.4 → 31.2), so a better basis is not ruled out by the mathematics — but no such basis is measured.
+- Does the J-lens work *because* it reads verbalizable representations, or because constructive interference during training converges concept directions onto output-token directions regardless? The two predict the same readouts today but diverge on latent-reasoning models — the second survives representational drift away from language, the first does not.
 
 ## Sources
 
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — Methods (the Jacobian lens, the J-space, comparison to related techniques, technical details); Related work (lens methods, linearization, comparison to other interpretability tools); Limitations
+- [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper) — "Why does J-Lens work? First-principles reasoning" (working memory, consistent directions, why tokens, why Jacobians rather than regression, approximation costs, vs SAEs); "Is J-Lens useful?" (SAE comparison, CoT complementarity, latent reasoning); comment section (Neuronpedia release; James Golden's detached-Jacobian formulation)
+- [jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication) — tao-hpu, GitHub README + `results/cone_*.json`, fetched 2026-07-30; paper forthcoming on arXiv. Sections: The self-trained 124M control (raw vs J-transported effective dimensionality 23.4 → 31.2; robustness across fit scale 150 → 1000 prompts and MPS → CUDA backend; `selftrained-124m-lens-v1` release); Setup (pinned upstream commit; ~100 fitting prompts sufficient per upstream)

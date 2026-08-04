@@ -1,0 +1,85 @@
+---
+date: 2026-07-25
+title: Output Length Calibration
+description: "Opus 5 runs longer by default on four independent output channels
+  — conversational reply, agentic narration, files written to disk, and
+  correction narration — and the effort parameter controls none of them: effort
+  buys thinking, not talking, so each channel needs its own explicit length
+  instruction"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - prompting
+  - claude
+readingTime: 7
+imageAlt: Illustration for Output Length Calibration
+sources:
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
+---
+export { default as heroImage } from "../assets/output-length-calibration.webp";
+
+## Sources
+
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+
+## Summary
+
+[Claude Opus 5](/articles/claude-opus-5) talks more than its predecessors, and **the effort parameter does not control it**. Effort governs how much the model *thinks*, not how much it *says*: Anthropic's prompting guide states that lowering effort "can reduce thinking volume without reliably shortening the visible response." Verbosity is therefore a prompt-layer problem with no parameter-layer substitute, and it arrives on four channels that inflate independently — each needing its own instruction.
+
+This is the complement to [Instruction Compounding](/articles/instruction-compounding) from the same source. There, the prescription is to *delete* instructions for behaviors the model now has. Here it is to *add* instructions for behaviors the model now has too much of. Both come from the same fact: the defaults moved, so the prompt that was calibrated for the previous model is miscalibrated in two directions at once.
+
+> **Evidence note.** `vendor-claim` — Anthropic's own prompting docs, describing its own model's defaults without published measurements. The behaviors are stated as tendencies ("often longer", "narrates readily"), not quantified.
+
+## Four channels, four instructions
+
+| Channel | Documented default | Lever |
+|---|---|---|
+| **Conversational reply** | "default user-facing responses run longer than prior Opus models'" | A short conciseness instruction: spend most of the response on the main answer, keep caveats short, summarize unless depth is asked for |
+| **Agentic narration** | "narrates readily… announces what it is about to do"; per-message output in agentic sessions longer than prior models | Describe the *cadence and shape*: one sentence before the first tool call, updates only on a real finding or a change of direction, lead with the outcome at the end |
+| **Written deliverables** | files written to disk (reports, Markdown, summaries) "often longer than on prior models" | Explicit length calibration: cover the substance, don't pad with filler sections, redundant summaries, or boilerplate |
+| **Correction narration** | "narrates corrections to its earlier statements more than prior models do" | Restrict to corrections that would change the user's code, conclusions, or decisions; otherwise fix silently and continue |
+
+Two shape notes ride along with these:
+
+- **Placement matters in a long system prompt.** The guide prescribes pairing the top-level conciseness instruction with a *short reminder near the end* of the prompt (a two-line `<tone_preference>` block). This is a placement discipline for [context files](/articles/agent-context-files), not extra content — the same instruction restated where the model is closest to generating.
+- **Positive examples beat prohibitions.** To change narration style in either direction, "explicitly describe what updates should look like and provide examples"; examples of the wanted style outperform instructions about what not to do.
+
+## Why effort is the wrong dial
+
+The effort parameter and the output length are two separate cost centers with two separate controls:
+
+- **Thinking tokens** — controlled by effort. On Opus 5 `low` and `medium` "produce strong quality at a fraction of the tokens and latency of higher settings," and Anthropic recommends using them liberally as the primary control for cost and latency, stepping up to `xhigh` only for demanding agentic work. Effort defaults carried over from an earlier model should be re-swept ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)).
+- **Output tokens** — controlled only by the prompt. Turning effort down to shorten a response is a category error; it buys a cheaper answer of roughly the same length.
+
+The practical consequence for a harness: the two knobs must be tuned separately, and a cost regression after a model upgrade can come from either. An effort sweep that measures quality-per-dollar will not surface a verbosity regression, because the extra tokens are in the visible response rather than the thinking block.
+
+## The counter-current to harness shrinkage
+
+[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) predicts the model-facing harness dissolving release by release — capability scaffolding deleted as the model absorbs it. Length calibration runs the other way: this material is prompt that **did not need to exist** on prior Opus models and does now, and every line of it exists to shape *human-facing* output rather than to enable a capability.
+
+So the pruning pass has two directions, not one. Capability scaffolding comes out; communication scaffolding goes in. That matches the model-facing/human-facing asymmetry [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) already carries — as the binding constraint moves from "can the model do it" to "can the human absorb what it produced," prompt budget migrates from the first question to the second.
+
+## Connections
+
+- [Instruction Compounding](/articles/instruction-compounding) — the sibling prescription from the same source, in the opposite direction: delete instructions for behaviors the model now performs, add instructions for behaviors it now overperforms
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the counter-current: capability scaffolding shrinks while communication scaffolding grows, so a prune-at-every-launch pass has to add as well as cut
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — the same over-execution instinct on the output axis: longer files and unrequested sections are the deliverable-shaped form of over-engineering and scope expansion
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the dial that *doesn't* control length: effort is the token/latency lever for thinking, and Opus 5's `low`/`medium` settings are the recommended primary cost control
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — in an agentic loop, the model's own narration is the fastest-growing part of its own context; verbosity is a context-budget problem before it is a UX one
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — longer deliverables are paid for by the reviewer; uncalibrated output length converts model speed into human review load
+- [AI Brain Fry](/articles/ai-brain-fry) — narration volume is oversight load: more per-message output across more parallel sessions is exactly the fatigue surface, and the cadence instruction is a mitigation at the source
+- [Agent Context Files](/articles/agent-context-files) — where the calibration lives, including the end-of-prompt reminder as a placement discipline
+- [Claude Opus 5](/articles/claude-opus-5) — the model whose defaults moved
+
+## Open Questions
+
+- Does the end-of-prompt reminder work because of *position* (closest to generation) or *repetition* (stated twice)? The guide prescribes pairing both and does not separate the effects — testable by ablating the top-level instruction. **Partially answered 2026-08-04** by [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) (`empirical`, five models) on the position half only: moving an identical, un-repeated instruction block between the system prompt and the user turn changes adherence by up to 8.7pp at N=160 — a larger effect than prompt format for four of five models — so **position alone is a real lever**, not an artifact of restatement. Two limits on how far that carries: the paper's placement arms are single-placement (never both slots at once), so it cannot separate position from repetition in the paired configuration this question asks about; and the direction is **model-specific** (user-turn placement helped two models, hurt two, and did nothing for a fifth), so "closer to generation is better" is not a rule the corpus can assert.
+- Does an explicit conciseness instruction cost quality on tasks whose answer genuinely needs length, or does the model still finish the work and only cut padding? Anthropic asserts the latter for the verification case but not for this one.
+- If the next model ships better-calibrated defaults, today's conciseness instructions become tomorrow's compounding instructions ([Instruction Compounding](/articles/instruction-compounding)) — does length calibration go stale the way verification instructions did, and is there a way to write it so it degrades gracefully?
+
+## Sources
+
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic platform docs (retrieved 2026-07-25, `vendor-claim`): "Response length and verbosity", "User-facing progress updates", "Written deliverable length", "Self-correction" (correction narration), "Capability improvements" (effort recommendations)

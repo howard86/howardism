@@ -1,0 +1,148 @@
+---
+date: 2026-08-04
+title: Automated Failure Attribution
+description: "Liu et al.'s WHO&WHEN PRO (arXiv 2607.09996, `empirical`): 12,326
+  agent failure traces built by injecting exactly one error into a warm-started
+  successful run, so the decisive agent and step are golden by construction —
+  and the answer to its title question is mostly no. Best text step-localization
+  is 73.9% exact match, but responsible-agent identification runs 48–58%,
+  error-mode macro-F1 10.8–22.2, and all three simultaneously correct only
+  16–25%, against a human panel that ratifies the labels at 94/90/90 with Fleiss
+  κ=0.73. The damage is structured, not uniform: step accuracy falls 94% → 50%
+  from sub-3K to 12K+ token traces, and planning, verification and coordination
+  errors are systematically absorbed into 'reasoning error' because models
+  classify the most salient symptom rather than tracing the causal chain — so
+  the failure families that exist *only* because you built a multi-agent system
+  are exactly the ones the attributor cannot name. Handing the judge the task's
+  gold answer makes reasoning diagnosis worse, not better. Read the whole trace
+  at once: all-at-once beats step-by-step by 7.6pp on step accuracy and
+  dominates the cost frontier"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - failure-modes
+  - multi-agent
+  - evaluation
+  - llm-as-a-judge
+readingTime: 20
+imageAlt: Illustration for Automated Failure Attribution
+sources:
+  - title: "Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?"
+    url: https://arxiv.org/pdf/2607.09996
+---
+export { default as heroImage } from "../assets/automated-failure-attribution.webp";
+
+## Sources
+
+- [Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?](https://arxiv.org/pdf/2607.09996)
+
+## Summary
+
+**Automated failure attribution** is the task of reading an agent trajectory that ended badly and answering three questions: *who* (which agent produced the decisive action), *when* (which step), and *why* (which failure mode). It is the assumed-available capability underneath every "we'll debug it from the traces" story in this vault, and the load-bearing feedback signal for self-evolving agent loops — the whole point being that a failure becomes actionable only once you know what to change.
+
+Liu, Xi, Zhang et al. ([Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?](https://arxiv.org/pdf/2607.09996), Penn State / AG2ai / MBZUAI / Oregon State / Mathos AI, arXiv 2607.09996, 2026-07-10, `empirical`) build the largest corpus of the task — **12,326 failed trajectories, 26 benchmarks, 15 agent frameworks, 9 task categories, 18 error modes, 3 modalities** (text, image, video), traces averaging 7.5 steps and 1,139 words with a 50-step maximum — and title the paper with the question *can LLMs really attribute failures in AI agents?*
+
+The measured answer is **mostly no, and the shape of the "no" matters more than the headline**. Ten frontier models, best-in-column on text:
+
+| Metric | What it asks | Best (text) | Range across 10 models |
+|---|---|---|---|
+| **Agent** | which agent is responsible (MAS traces only) | 57.5 (Qwen3.5-122B) | 48.4 – 57.5 |
+| **Step** | exact-match index of the decisive step | 73.9 (Qwen3.5-122B) | 63.9 – 73.9 |
+| **Error** | macro-F1 over the 18 failure modes | 22.2 (GLM-5) | 10.8 – 22.2 |
+| **Joint** | all three correct on the same trace | 25.3 (GLM-5) | 16.2 – 25.3 |
+
+For reference, the *human* panel ratifies the pipeline's own labels at **94.0 / 90.0 / 90.0** (step / agent / error) with Fleiss κ = 0.73 and only **2.0%** of traces judged to have no clear decisive error. So the labels are not the problem.
+
+No single model dominates: Qwen3.5-122B leads agent and step, GPT-5.4 is strongest on step among closed models (72.3), GLM-5 takes error-mode F1 and joint accuracy. The paper's reading is that attribution "exercises a fundamentally different capability from general knowledge answering or instruction following" — which the flat cross-model spread supports: **the gap between best and worst on text step accuracy is 10 points across a closed/open-weight frontier lineup that differs by far more than that on ordinary reasoning benchmarks.**
+
+## Why the labels can be trusted: injection into a warm-started success
+
+The method is the paper's other contribution and it is the reason the numbers above are readable as a capability measurement rather than a label-quality artifact.
+
+Prior injection-based benchmarks re-run the task from scratch and inject an error during the new rollout. Because LLM generation is non-deterministic, the new rollout **drifts from the original before the injection point**, so the decisive-step label is only approximate. WHO&WHEN PRO instead warm-starts: take a trajectory that *succeeded*, replay steps `(a₁ … a_{t−1})` through the real framework pipeline (tool parsing, code execution, environment interaction) to rebuild both context and environment state, substitute a single corrupted action `ã_t`, and let the original system run from `t+1` onward unaided.
+
+> Since the injected error is the only controlled change that turns a successful trajectory into a failed one, the resulting task failure can be attributed exactly to the injected agent and step.
+
+Reverting `ã_t` recovers the successful seed, which makes `t` the decisive step *by definition* under Zhang et al.'s decisive-error formulation (the earliest index whose correction flips failure to success). Supporting machinery worth copying: static tool calls (web search, page retrieval) are served from a content-addressable cache populated during seed collection so observations are byte-identical on replay; stateful environments like live browser sessions get action-level fidelity checks that abort the attempt on divergence. The injected action is constructed in two stages — a frontier model writes an adaptive injection prompt from the seed context, which is then patched into *the agent's own model call* so the base agent generates the error in its own style. Traces that leak construction artifacts, or where the correct answer was already salient before step `t`, are filtered out.
+
+The taxonomy is human-authored, not synthetic: Ph.D.-level reviewers inspect naturally failed traces per (agent, benchmark) pair, and their failure-mode profiles **constrain** which errors the generator is allowed to inject where. Humans define the label space; automation only populates it.
+
+**The consequence for reading everything below.** Every trace is a single injected error into a run that was otherwise known-good, with a decisive step guaranteed to exist and to be unique. That is the *easiest possible* attribution setting — organic failures have multiple interacting causes, no guarantee of a single flip-the-outcome step, and no known-good remainder. The measured accuracies are therefore best read as an **upper bound** on real post-mortem debugging, not a floor.
+
+## The three difficulty axes
+
+**Trace length dominates.** Step accuracy falls from **94% on traces under 3K tokens to 50% on traces exceeding 12K tokens**, consistent across all ten models. The sharpest decline is between the 3–6K and 6–12K buckets — "roughly where traces transition from single tool calls to multi-step sequences with interleaved observations." The stated mechanism is the useful one: *as more correct steps accumulate around the error, isolating the decisive one becomes harder.* This is length degradation on a task where nothing is being retrieved and everything is in the window ([Context Window Smart Zone](/articles/context-window-smart-zone)).
+
+**Modality splits localization from diagnosis, in opposite directions.** Step accuracy is highest on text (~69% averaged) and drops on image and video; error-mode classification runs the other way, rising from ~17% on text to ~37% on video, because "visual and behavioral cues provide diagnostic signal that pure text traces lack." A text-only benchmark — which every prior failure-attribution benchmark was — masks that difficulty profile entirely. One unexplained pattern to note rather than build on: the **Agent** column is 20–30pp *higher* on video (70.1–85.1) than on text (48.4–57.5), and the paper offers no mechanism for it.
+
+**Localization is coarse but not random.** Under relaxed tolerance, the Step@0 → Step@1 gain is large (+13.9pp text, +16.9pp image, +28.1pp video) while Step@1 → Step@2 is small (+4.4 / +6.0 / +2.6). Models "either identify the correct neighborhood or miss entirely." So ~86–88% of text traces are localized to within one step even though only ~74% are exact — usable as triage narrowing, not as ground truth.
+
+## The finding that actually threatens multi-agent debugging
+
+Error-mode confusion is not uniform. **Perception, reasoning and action errors are recognized reliably** — they leave clear signatures in observations or tool calls. **Planning, verification and coordination errors are systematically relabeled as reasoning errors**, to the point that on multimodal traces *more than half* of non-reasoning errors are absorbed into the reasoning label. The same off-diagonal mass shows up in the human correction matrix, weakly, in the same direction.
+
+The mechanism is stated cleanly and generalizes past this benchmark:
+
+> These failures originate early in the trace but propagate through later steps, producing symptoms that resemble reasoning mistakes by the time they become visible. … current models classify based on the most salient symptom rather than tracing the causal chain back to the decisive step.
+
+An ineffective plan produces a sequence of individually plausible but misguided steps. A skipped verification lets an early mistake compound. In both cases the *local evidence at the point of failure looks like bad reasoning*, and the root cause lies further back.
+
+The implication for anything built out of coordinated agents: **the failure families that exist only because you built a multi-agent system — delegation and orchestration errors, communication failures, over-reliance on another agent's revision — are exactly the ones an automated attributor cannot name.** It will hand back "reasoning error" and point at a downstream step. A team acting on that post-mortem is steered toward "use a stronger model" when the fix is orchestration. The 18-mode taxonomy is six families deep (perception 2, reasoning 4, planning 2, action 5, verification 2, coordination 3) precisely so this distinction is expressible — and the classifier collapses it anyway.
+
+## Read the whole trace at once
+
+Three protocols, compared on a stratified 1,444-trace subset:
+
+- **All-at-once** — full trajectory in one prompt, predict agent/step/mode jointly.
+- **Step-by-step** — read sequentially, stop at the first step believed decisive.
+- **Binary search** — recursively bisect the trajectory to localize.
+
+All-at-once wins on **step accuracy by 7.6pp over step-by-step** (63.2 vs 55.6 averaged across the ten models) and takes the highest Joint accuracy for **eight of ten** models. Step-by-step's specific defect is **early commitment**: its prediction-distance distribution is systematically shifted toward steps *before* the true error, because a sequential reader "locks onto the first suspicious step and cannot revise after observing later context." Binary search is directionally unbiased but equally imprecise — slicing removes the context needed to judge the slice.
+
+This is the same shape as the confusion result. Attribution is a *global* judgment about a causal chain; every protocol that makes it locally, on a prefix or a fragment, degrades. And it is also the cheap answer: all-at-once dominates the Pareto frontier in all three modalities, with **Qwen3.5-122B reaching the highest text accuracy at seven times cheaper than GPT-5.4** and Gemma 4 leading on video. There is no cost argument for the incremental protocols.
+
+## Giving the judge the answer makes the diagnosis worse
+
+The counter-intuitive result, and the most transferable one. Supplying the task's ground-truth answer (`w/ G`) to the attribution judge — mirroring a verifier-assisted loop where outcome feedback is available — **improves perception-error attribution and degrades or flattens reasoning-error attribution**, across all task domains and frameworks.
+
+The paper's explanation is an outcome-vs-process split. Perception errors (bad OCR, misread chart) are hard to check without a reference, so `G` fills a genuine gap. Reasoning errors leave a traceable logical chain, and `G` "tempts the judge to shortcut via answer comparison rather than tracing process." Two paired case studies show the mechanism directly:
+
+- A `smolagents` run retrieves the correct Pokémon TCG Pocket release date, then reinterprets "arrive" as anniversary content. Without `G`, GPT-5.4 and Claude Sonnet 4.6 both trace the process and correctly call it **task misunderstanding**. With `G = 2024-10-30`, both notice the agent "had already retrieved the correct release date," reclassify as **reasoning error**, and miss that the agent answered a different question.
+- A 4-step image trace where the agent fabricates "Ray-Ban Meta smart glasses" against visible GENTLE MONSTER branding, then self-corrects to the wrong collection. Without `G`, Claude Sonnet 4.6 and Gemini 3 Flash both flag the **hallucination** at Step 2 as the decisive error. With `G`, both skip Step 2 entirely and diagnose the downstream collection confusion as a reasoning error. "The gold date made it easy to verify which date is wrong but drew attention away from where the reasoning first broke."
+
+More outcome signal makes the judge a better *outcome* verifier and a worse *process* verifier. That is a direct caution for any self-improvement loop that feeds the gold answer to its own post-mortem step in the belief that more information is strictly better.
+
+## A quiet architectural precondition
+
+Buried in the implementation appendix: the base agent models are GPT-4.1 and Gemini 3 Flash, and GPT-4.1 was chosen because "its reasoning chains are interpretable and unencrypted, **which is essential for step-level failure attribution since the attribution judge must read intermediate reasoning to localize the decisive error**."
+
+Attribution is a capability with a hard dependency on trace legibility. Every step toward summarized, encrypted, or discarded reasoning traces in frontier deployments removes exactly the evidence this task consumes — and this benchmark's numbers were obtained on the *legible* case.
+
+## Connections
+
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — **these numbers price a security agenda item, not just a reliability one.** The five-boundary isolation map's agent–agent defenses rest on attribution — "not just whether a multi-agent system failed, but which agent, which message, and which step," because *containment is difficult without diagnosis*. This page is the measurement that survey does not have: 48–58% responsible-agent identification, 16–25% joint, and the coordination and verification errors that exist *only* in multi-agent systems are the ones systematically absorbed into "reasoning error." Attribution-gated containment is being proposed on top of a capability that currently misses the multi-agent-specific failures most often (hub)
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the detection question this page answers the *next* step of. That page argues the fix for silent failure is trace-level grading rather than output skims; this measures what a competent LLM extracts from that trace once you hand it over, under the most favorable conditions available — one injected error, an otherwise known-good run, a guaranteed unique decisive step — and gets the full triple right 16–25% of the time. Trace-level review stays the right prescription; automating it is not yet a solved subproblem
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — the same word, the orthogonal axis, and they compose. Rajan attributes a failure to *where in the pipeline* a fact died (nine layers, four of them deterministic software countable by canary diff with no judge); this attributes it to *which agent and which step* in a behavioral trajectory. Both find the honest split in the same place: what can be checked mechanically is checkable exactly, and what requires reading intent is where accuracy collapses. Rajan's L0–L3 taps need no model at all; this paper's task is entirely L4–L8 in that taxonomy, and 22% error-mode F1 is roughly the price of having no checkpoint to diff against. The pairing also supplies the missing half of each — a canary tap says the fact died at L1 but not which agent's decision caused the tool to be called that way; a decisive-step label says which action broke it but not whether the payload ever arrived
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the same trust problem one level up, with a coefficient. Wu et al. price a noisy *acceptance* signal (`Ā = ρ₀ + J·Q`, so a low-J verifier's pass rate is mostly its own false-accept rate); this measures a noisy *diagnostic* signal, where the analogous defect is not a wrong bit but a plausible, confidently-argued wrong cause. Two direct couplings: the `w/ G` result is the process-vs-outcome verification split that page's four-parameter model assumes away, measured; and both papers land on the same counter-intuitive shape where more of the obviously-good input (more repair rounds there, more ground-truth signal here) makes the outcome worse
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — the debugging story this puts a number on. Agent-level identification is 48.4–57.5% on text multi-agent traces and step accuracy halves past 12K tokens, which is the regime a 64-agent campaign or a 5-concurrent-agent workflow lives in; and the coordination error family is the one systematically relabeled as reasoning
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the diagnostic tax on collectives. If a collective's advantage has to be established empirically, the instrument for asking *why a run failed* misattributes exactly the coordination-specific failures that distinguish a collective from a single agent, which biases any failure-driven iteration toward model choice and away from organization
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — attribution is the judge paradigm pointed at a trajectory instead of an output, and it is the hardest instance in the vault: not "is this good?" but "which of 50 steps, which of 15 agents, which of 18 modes." The `w/ G` result is the sharpest transferable caution — adding a reference answer to a judge's prompt is normally a free improvement, and here it degrades the process-tracing half of the job
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the validation practices this benchmark actually follows, unusually. Three independent annotators, majority vote, a chance-corrected **Fleiss κ = 0.73** rather than raw agreement, an explicit "no clear decisive error" escape hatch (2.0%), and a published transfer matrix showing *which* families annotators moved labels between. That is close to the MVVP's prescription applied to label quality rather than judge quality; the gap is that the human panel *ratifies pipeline labels* while models predict from scratch, so the 94-vs-74 comparison is not a like-for-like human ceiling
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the same failure class attacked before rather than after, and the comparison is stark. A read-only predicate over a proposed tool call that fires names the violated precondition, the step, and the agent with certainty and no inference; post-hoc LLM attribution over the same class of failure returns all three correctly on roughly one trace in four. Both papers reach the same conclusion from opposite ends — enforcement at the boundary beats diagnosis after the fact, and the reason to invest in gates is partly that the post-mortem is this weak
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the bottleneck extended past accept/reject. Deciding a run failed is the cheap half; deciding *what to change* is a separate capability with its own measured ceiling, and the vault's usual answer ("read the trace") is exactly the operation being scored here
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the methodological contrast. This corpus is synthesized by injection into successful runs, which is what buys golden labels at 12,326 scale; the price is that its failure distribution is designed rather than observed, so it cannot speak to what actually goes wrong in production or how often
+- [Deep Research Agents](/articles/deep-research-agents) — the same injection-for-golden-labels method used to get attribution *for free*, and the counterexample worth knowing about. MisKnow-Agent (arXiv 2607.20891, `empirical`) injects one misleading document into a deep-research run and decomposes the resulting failure as `FCAR = MER × ECAR` — was the document retrieved, and did an exposed report adopt it — an exact identity because no unexposed task ever adopts. That is stage-level attribution from two counters, no judge involved, and it separates a single 12-point framework gap into three different causes across three backbones. The lesson pairs with this page's: where a pipeline has countable stage boundaries, count them; post-hoc LLM attribution is the fallback for trajectories that don't. The two also find the same capability-without-invocation shape from opposite sides — there, the same models that adopt the misleading documents in-workflow unanimously flag them as misleading when handed one standalone; here, handing the judge the gold answer makes its process diagnosis *worse*. In both cases the model has what it needs and the harness fails to put it in the right place
+
+## Open Questions
+
+- Every trace is one injected error into a run that otherwise succeeded, so a unique decisive step is guaranteed to exist. **Does attribution accuracy survive organic failures with multiple interacting causes and no single flip-the-outcome step** — where the honest answer is often "three things were marginal and the fourth tipped it"? The human panel found only 2.0% of traces had no clear decisive error, but that is a property of the construction, not of agent failures. Until this is measured the 73.9 / 25.3 numbers are an upper bound of unknown tightness.
+- Humans and models are never scored on the same task. Annotators **ratify or correct a supplied label** (94.0 / 90.0 / 90.0, κ = 0.73); models **predict from scratch** (73.9 / 57.5 / 22.2). So the ~20pp step gap is not a measured human ceiling, and could be much smaller or much larger. **What is human from-scratch attribution accuracy on these traces?** Cheaply falsifiable with the existing corpus and a blind annotation arm.
+- The base agents were chosen for **unencrypted, interpretable reasoning chains** because the judge must read intermediate reasoning to localize the decisive step. Frontier deployments increasingly summarize, encrypt, or discard those chains. **How much attribution accuracy survives when the decisive step's reasoning is not in the trace** — and is the loss concentrated in the step metric or the error-mode metric? Answerable today by re-running the benchmark with reasoning content stripped or replaced by provider summaries.
+
+## Sources
+
+- [Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?](https://arxiv.org/pdf/2607.09996) — Jiale Liu, Huajun Xi, Shaokun Zhang, Yifan Zeng, Tianwei Yue, Chi Wang, Jian Kang, Qingyun Wu & Huazheng Wang (Penn State / AG2ai / MBZUAI / Oregon State / Mathos AI), *WHO&WHEN PRO: Can LLMs Really Attribute Failures in AI Agents?*, arXiv 2607.09996, 2026-07-10, `empirical`, 36pp / 11 tables / 34 figures. Sections used: §1 and §2.1 (motivation, the text-only limitation of every prior benchmark, Table 1's comparison), §3 (decisive-error formulation, warm-start pipeline, injection-step selection, post-hoc filtering, Table 2 statistics), §3.5 + Table 3 (human review), §4.1–4.2 + Table 4 (metrics and main results; the length and modality analyses quoted from the Figure 4 prose), §4.3 + Table 6 (protocol comparison), §4.4 (cost frontier), §4.5 + App. B (the `w/ G` split and both paired case studies), App. C + Table 5 (the 18-mode taxonomy), App. D.4 (Step@k), App. F.2 (base agent models and the unencrypted-reasoning requirement).
+ - **Tables verified.** Table 2, Table 3 and Table 4 were checked against the PDF and parse clean. **Table 6 was verified arithmetically rather than trusted**: its all-at-once and step-by-step Step columns mean to 63.18 and 55.58, reproducing the prose's +7.6pp exactly, and all-at-once is strictly highest on Joint for exactly eight of ten models as stated (tied with binary search on GPT-5.4, beaten by step-by-step on GLM-5). All figures quoted from prose or captions, per the table-reconciliation rule.
+ - **Parse warnings.** (1) The ingest checker's `warn` on **Table 1 is a false positive** — the paper's own column header is literally "# Benchmark", which collided with the row-label heuristic; every Table 1 value matches the PDF and the table is safe to cite. (2) **Table 7** (App. F.1, agent-framework → benchmark map) is a genuine collapse *and* shift the checker missed, and is not cited as parsed anywhere on this page; the verified mapping is PixelCraft→ChartQAPro/CharXiv/EvoChart, Multi-Agent Debate→GPQA/MATH/MMLU-Pro/SciBench/MMMU-Pro, DyLAN→GPQA/SciBench, MacNet→BigCodeBench/HumanEval/LiveCodeBench-Pro, MetaGPT→BigCodeBench/LiveCodeBench-Pro, MathChat→MATH/MMLU-Pro/SciBench, Magentic-One→GAIA/SimpleQA-Verified, ALF-Agent→ALFWorld, EVA→LVBench. (3) **Table 5** (the error taxonomy) also carries an uncaught collapse+shift — each family's sub-rows merge into one grid row and the family label slides into the Description column — but the taxonomy is recoverable and prose-confirmed: six families totalling exactly the stated 18 modes (perception 2, reasoning 4, planning 2, action 5, verification 2, coordination 3). Only the family/mode counts are used here, never a per-row mapping.
+ - One bibliography repair (Højmark-Bertelsen) was made at ingest.

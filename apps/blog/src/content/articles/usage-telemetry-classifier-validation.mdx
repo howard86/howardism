@@ -1,0 +1,126 @@
+---
+date: 2026-07-25
+title: Usage-Telemetry Classifier Validation
+description: "Google ATLAS is the first AI-usage-economics program to publish
+  accuracy numbers for the LLM classifiers every such study rests on — and they
+  are humbling: 22.6% exact accuracy on O*NET task assignment and 42.5% on
+  occupation title, against 85.8% human approval of the same labels; the
+  accuracy/approval gulf, its mitigations (presence-not-frequency, task-type
+  aggregation to 70.4%), and what it means for every headline number in the
+  genre"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - measurement
+  - llm-as-a-judge
+  - reliability
+  - empirical
+  - google
+readingTime: 10
+imageAlt: Illustration for Usage-Telemetry Classifier Validation
+sources:
+  - title: "Google's AI & Economy ATLAS v1.0: Mapping Gemini Usage in the Economy"
+    url: https://ai.google/static/documents/GoogleATLASv1.pdf
+---
+export { default as heroImage } from "../assets/usage-telemetry-classifier-validation.webp";
+
+## Sources
+
+- [Google's AI & Economy ATLAS v1.0: Mapping Gemini Usage in the Economy](https://ai.google/static/documents/GoogleATLASv1.pdf)
+
+## Summary
+
+The entire genre of AI-usage economics — [Anthropic's Economic Index](/articles/anthropic-economic-index), [OpenAI's Codex study](/articles/conversation-to-delegation-shift), [Google's ATLAS](/articles/google-ai-economy-atlas) — rests on one unexamined layer: **an LLM reading a conversation summary and assigning it to a cell in an official statistical taxonomy.** Every "X% of tasks," "Y% automation," "Z% of occupations" claim inherits that classifier's error. Until ATLAS v1.0, nobody published how big it was.
+
+ATLAS did, across three independent methods, and the headline is uncomfortable: **the classifier assigns the exact O\*NET task correctly 22.6% of the time, and human expert raters approve 85.8% of those same assignments as economically reasonable.** Both numbers are real. The gap between them is the finding.
+
+> **Evidence note.** `empirical` — three validation studies: accuracy against 18,801 synthetic ground-truth conversations, inter-rater agreement against three in-house annotators (N≈110–120 clusters), and a human approval study on 240 clusters. Google's own caveat: synthetic data may be *easier* (a Gemini-generated prompt classified by a Gemini classifier may carry recoverable cues) or *harder* (an ambiguous prompt may genuinely fit a category better than its seeded label, penalizing a correct classifier).
+
+## The scale of the problem
+
+Before accuracy, the arithmetic of difficulty. ATUS has 456 detailed activity codes; O\*NET-SOC has 1,016 occupational titles and 18,797 task statements. Random assignment scores **0.22%**, **0.10%**, and **0.005%** respectively. Even at the coarsest SOC 2-digit level (23 categories), chance is 4.35%.
+
+And the categories are genuinely ambiguous, not just numerous. "Help me understand the tax implications of this contract" is defensibly a lawyer, an accountant, or a business operations specialist. "Instructions for building a nest box with a 10-year-old" splits on whether the child is a household member — a distinction ATUS makes at the *top* tier and users have no reason to disclose.
+
+Crucially, **this ambiguity predates AI.** Mellow & Sider (1983) found 17% of CPS respondents disagreed with their own employer about their 1-digit occupation, rising to **42% at 3-digit**. Mathiowetz (1992) found 24% and 48%. The category system was never crisp; LLM classification inherits a measurement problem economics already had.
+
+## What the accuracy numbers say
+
+| Taxonomy | Level | Categories | Random | Accuracy | Lift |
+|---|---|---|---|---|---|
+| ATUS | Tier 1 (Major) | 17 | 5.88% | **72.84%** | 12.4× |
+| ATUS | Tier 2 | 108 | 0.93% | 42.91% | 46.3× |
+| ATUS | Tier 3 (Detailed) | 456 | 0.22% | **23.70%** | 108× |
+| SOC | Major Group | 23 | 4.35% | **71.57%** | 16.5× |
+| SOC | Minor Group | 98 | 1.02% | 58.44% | 57.3× |
+| SOC | Occupation Title | 1,016 | 0.10% | **42.47%** | 432× |
+| O\*NET | Specific Tasks | 18,797 | 0.005% | **22.58%** | 4,244× |
+| O\*NET | Autor–Thompson type | 5 | 20% | **70.44%** | 3.5× |
+
+Plus the gating decision: the **work/non-work classifier hits 93.7%** on a balanced synthetic set — which matters more than any other single number, because an error there routes the conversation into the wrong pipeline and propagates through everything downstream.
+
+Read the table in two directions and it tells opposite stories. **Absolute accuracy collapses with granularity** (71.6% → 22.6%). **Discriminative lift explodes** (16.5× → 4,244×). Both are true; which one you quote determines whether the pipeline sounds trustworthy.
+
+## The accuracy/approval gulf
+
+The second study asked three human annotators a single yes/no per label: could most activities in this cluster fit the assigned label, or is any mismatch minor enough not to distort the economic interpretation?
+
+| Work level | Approved | Non-work level | Approved |
+|---|---|---|---|
+| SOC Major Group | 96.1% | ATUS Tier 1 | 98.1% |
+| Occupation Title | 92.8% | ATUS Tier 2 | 96.1% |
+| **Task Statement** | **85.8%** | ATUS Tier 3 | 92.2% |
+
+So at the O\*NET task level: **22.6% exact, 85.8% approved.** Google names the divergence and does not resolve it — "the drivers of this divergence, and its implications for improving classifier validation require further investigation" — but reads the two as **bounds**: high approval means granular labels carry real economic meaning; low exact accuracy is "a caution against over-relying on hyper-specific task analysis."
+
+A third study makes the same point from the agreement side. Against human plurality consensus, the SOC Major Group classifier scores **Cohen's κ = 0.83** ("almost perfect"), while human-only inter-rater Fleiss κ is **0.68**. Adding the LLM as a fourth rater either significantly improved agreement (work classifier, SOC Minor Group; p&lt;0.05) or didn't shift it (all ATUS, SOC Major). **The model rates about as consistently as the humans do** — which is a statement about how noisy the humans are as much as how good the model is.
+
+The tell: **rater approval exceeds rater-model plurality agreement by 11–15pp** at the top taxonomy levels. Presented with a label, annotators accept it; asked to pick one unprompted, they choose differently. The taxonomies are ambiguous enough that multiple answers are defensible, which means **plurality-agreement metrics understate the classifier and approval metrics flatter it.**
+
+## The mitigations that actually work
+
+ATLAS's response is methodological rather than a better classifier, and this is the transferable part:
+
+1. **Aggregate into economically meaningful groups.** Exact task assignment is 22.58%; the same assignments land in the *correct Autor–Thompson task type* **70.44%** of the time. Grouping absorbs the noise without discarding the economics — which is why [Task Saturation: Broad but Shallow AI Diffusion](/articles/task-saturation)'s task-type analysis is more defensible than any individual task claim.
+2. **Measure presence, not frequency.** Whether a task was observed at all is far more robust to misclassification than how many times. This is why saturation thresholds (25 users, 50 users) rather than interaction counts drive the headline numbers.
+3. **Merge categories the taxonomy splits for non-economic reasons.** Rolling up travel-by-purpose codes and merging household/non-household pairs lifts ATUS Tier 2 accuracy from 42.9% to **51.7%** and Tier 3 from 23.7% to **32.4%** — nearly +9pp each, purely from not distinguishing things users have no reason to disclose.
+4. **Randomize option order** in the classifier prompt, to defeat documented LLM position bias.
+
+## Errors are structured, not random
+
+The confusion analysis (normalized to excess lift over base rate) shows misclassifications concentrating in **semantically adjacent** categories rather than scattering: Management ↔ Business & Financial Operations at 2–3× base rate, Sales ↔ Office & Administrative Support, and in the non-work domain, caregiving errors clustering on household vs non-household members — exactly where conversational context is silent.
+
+Structured error is better news than random error for aggregate measurement (the distortions stay local and modest) and it is *actionable*: it points at category merges, prompt clarifications for specific confusable pairs, and even ex-post reweighting. But it also means errors are **correlated with the economic distinctions people care about** — Management vs Business Operations is not a distinction that washes out when you aggregate to "white-collar."
+
+## Why this generalizes beyond ATLAS
+
+Three reasons this page is about the genre, not one report:
+
+- **Everyone else's numbers rest on the same layer and none of them published this.** The AEI's Clio pipeline and OpenAI's Codex classifiers do the same job with the same class of error, validated to the public only in general terms. ATLAS's contribution is not that its classifiers are good — it's that it showed its working. Cross-study comparisons ([~20% vs 36% vs 49%](/articles/task-saturation) task coverage) should be read knowing that at least one instrument has ±77pp of exact-assignment error at that level of granularity, and the others are unquantified.
+- **The metric choice determines the story**, exactly as in [LLM-Judge Validation](/articles/llm-judge-validation): there, exact-match agreement overstates chance-corrected κ by 33–41pp; here, approval overstates exact accuracy by 63pp at the task level. Both are cases of a validation metric flattering an LLM classifier because it never asks the model to discriminate under the conditions the headline claim assumes.
+- **The ambiguity is in the world, not the model.** The 42–48% human-human disagreement on 3-digit occupations means there is a ceiling no classifier can pass. That reframes the goal from "make the classifier accurate" to "choose aggregations coarse enough to be identified" — a constraint on what usage telemetry can ever measure, not a temporary engineering gap.
+
+## Connections
+
+- [Task Crossover](/articles/task-crossover) — a measure that is classifier-mediated twice over: both the user's occupation and the task's "home" occupation are model judgments, so this page's error bar applies to it doubly
+- [Google AI & Economy ATLAS](/articles/google-ai-economy-atlas) — the program that published these numbers; validation is its clearest methodological contribution
+- [Task Saturation: Broad but Shallow AI Diffusion](/articles/task-saturation) — the headline finding most exposed to this error, and the reason its task-type analysis is more trustworthy than its per-task claims
+- [The Household Production Boundary](/articles/household-production-boundary) — ATUS Tier 3 at 23.7% exact accuracy makes the granular household activity claims the widest-error-bar numbers in the report
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the sibling result in the evaluation domain: same structural failure (a lenient agreement metric flattering an LLM classifier), same remedy (chance-correct, and validate under the conditions the claim assumes)
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the general pattern; a taxonomy classifier is a judge with 18,797 options instead of two
+- [Anthropic Economic Index](/articles/anthropic-economic-index) — the rival program whose classifier error is unquantified in public, which is now a visible asymmetry rather than a shared silence
+- [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement) — telemetry beats self-report on latency and scale, but this page is the price: the telemetry is only as good as the classifier that reads it, and that classifier has never been the object of study
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the same move of interrogating what a headline metric can and cannot support
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — a judge scoring generously in the absence of ground truth; the human-approval study is structurally the same setup and produces the same optimism
+- [Exposure Taxonomy: Observed, Theoretical, Reported, Anticipated](/articles/exposure-taxonomy) — every exposure measure is a classifier output; this quantifies the error bar the taxonomy's distinctions ride on
+
+## Open Questions
+
+- The synthetic ground truth is Gemini-generated and Gemini-classified. How much of the 22.6% is real capability vs same-family cues, and how much is the classifier being penalized for picking a better fit than the seed? Google says it cannot measure this without inspecting private logs.
+- Would running ATLAS's validation battery against the AEI and OpenAI classifiers explain the 2–4× cross-study disagreements, or are the gaps driven by sampling and product mix instead?
+- Human raters disagree with each other on 42–48% of 3-digit occupations. Is there a principled way to establish the ceiling a classifier could reach, so accuracy can be reported relative to it rather than to 100%?
+
+## Sources
+
+- [Google's AI & Economy ATLAS v1.0: Mapping Gemini Usage in the Economy](https://ai.google/static/documents/GoogleATLASv1.pdf) — *ATLAS v1.0* Appendix B: Classifier Validation (B.1 Measurement Challenges, B.2 Synthetic Accuracy, B.2.2 Misclassification Patterns, B.3 Human Comparison), Tables 5–7, Figures 30–31

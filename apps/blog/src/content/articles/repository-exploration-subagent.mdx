@@ -13,17 +13,20 @@ tags:
   - llm-architecture
   - context-management
   - subagents
-readingTime: 10
+readingTime: 13
 imageAlt: Illustration for Repository Exploration Subagent
 sources:
   - title: "FastContext: Training Efficient Repository Explorer for Coding Agents"
     url: https://arxiv.org/abs/2606.14066
+  - title: "SWE-Pruner Pro: The Coder LLM Already Knows What to Prune"
+    url: https://arxiv.org/pdf/2607.18213
 ---
 export { default as heroImage } from "../assets/repository-exploration-subagent.webp";
 
 ## Sources
 
 - [FastContext: Training Efficient Repository Explorer for Coding Agents](https://arxiv.org/abs/2606.14066)
+- [SWE-Pruner Pro: The Coder LLM Already Knows What to Prune](https://arxiv.org/pdf/2607.18213)
 
 ## Summary
 
@@ -40,6 +43,8 @@ The motivating analysis runs all 300 GPT-5.4-high Mini-SWE-Agent trajectories on
 Two distinct harms follow: a **token/context-cost** harm (the solver pays for and carries every exploratory snippet — see [Context Window Smart Zone](/articles/context-window-smart-zone)) and a **noise** harm (when exploration misses key files or accumulates irrelevant context, the solver reasons from a polluted window and may spend later turns repairing a mistaken hypothesis rather than fixing the true cause).
 
 This is the same bottleneck that motivated **SWE-Pruner** (Wang et al., 2026, context pruning for coding agents) — and the contrast is instructive. Pruning *removes* the polluted context after the fact; the exploration-subagent approach *never pollutes it* by keeping search in a separate conversation. Two strategies, same problem.
+
+*Refined 2026-08-03 by [Tool-Output Pruning](/articles/tool-output-pruning):* SWE-Pruner's successor prunes at the **agent-environment boundary** — the tool response is replaced between turns, so it survives exactly one generation and never accumulates. "After the fact" described the 2026 predecessor accurately and is too strong for the current state of the art; the two strategies now differ by one turn of exposure rather than by accumulation. That makes their composition a sharper question, not a settled one — see the open question below.
 
 ## The delegation contract
 
@@ -74,6 +79,8 @@ The explorers are trained, not just prompted, in two stages (backbones: Qwen3-4B
 ## Connections
 
 - [FastContext](/articles/fastcontext) — the system instance: the trained 4B–30B explorers, model variants, training stack, and open release
+- [Tool-Output Pruning](/articles/tool-output-pruning) — the other half of the same bottleneck, now measured. Where FastContext routes the search elsewhere, SWE-Pruner Pro compresses the observation at the boundary — and its headline finding is that the keep-or-prune signal is **already in the coding agent's own hidden states** (frozen-backbone linear probe: AUC 0.83, best-F1 0.63 against a 0.46 majority-class bound), so no separate scorer and no goal-hint query are needed. The corollary matters here: pruners that *do* pay for an external signal spend more tokens acquiring it than compression returns, and five of six prior methods inflate end-to-end tokens somewhere in the grid. Composition with an exploration subagent remains untested, and the risk is concrete rather than abstract — both target the same exploratory reads and searches, so an explorer already returning compact citations leaves a per-line pruner very little to remove
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the other half of main-agent token load: keep the noise *out* (delegate search to a read-only subagent) versus govern it once it's in (fold/mask/prune indexed objects with recoverable sidecars). Complementary, not competing — exploration isolation can't help a trace that already accumulated, and object GC can't un-pollute a solver's window prospectively
 - [Deep Modules for Agents](/articles/deep-modules-for-agents) — an exploration subagent is a *deep module*: a thin interface (NL query → file-line citations) hiding large behavior (multi-turn parallel search), and a concrete realization of Pocock's "reviewer in fresh context" / Sandcastle pattern applied to *search* rather than review — the solver delegates and keeps a clean window
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — decoupling exploration from solving and returning only compact evidence is harness design: progressive context disclosure and isolation enforced mechanically (the explorer *cannot* edit), not by instruction
 - [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — FastContext extends AgentOpt's model-per-role logic one step further: don't just *assign* an existing model to the explorer role, *train a bespoke small model* for it; the explorer-vs-solver split is exactly a per-role combo decision
@@ -81,6 +88,7 @@ The explorers are trained, not just prompted, in two stages (backbones: Qwen3-4B
 - [The Bitter Lesson](/articles/the-bitter-lesson) — a live tension: training a specialized explorer adds hand-built structure, seemingly against "dissolve the harness into the model." The *same-model exploration* result is the reconciliation — the durable gain is the architecture (context separation), while the trained explorer is an efficiency play the bitter lesson predicts will shrink as base models get cheaper
 - [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — same tension from the harness side: is a trained exploration component load-bearing scaffolding or transient? The paper's own framing ("expose exploration as an explicit interface so smaller specialized models and stronger main agents collaborate") bets the *interface* persists even if the model inside it changes
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — localization/exploration is the upstream sibling of verification: both are the non-solving work that dominates real agent trajectories; the patch-derived F1 reward is a verifiable signal for the explorer
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the same last-mile problem with the compact return taken to its limit. CAPC's graphify study measures what a knowledge-graph indexer actually emits — node labels, `source_file`, line locations, community IDs, and **no source code** — and finds pointers alone are *worse than no index at all* on a codebase the model knows (0.613 vs 0.647 with no graph) while lifting a codebase it doesn't from 0.300 to 0.637. The fix is a per-query layer that dereferences the pointers and ships ~40 lines of verbatim source. Read against FastContext's file-line citations, the shared lesson is that a compact return has to carry *some* content, and the right amount is a function of the model's prior on the repo
 - [Deep Research Agents](/articles/deep-research-agents) — structurally parallel: deep-research decomposes a query into search + synthesis; FastContext decomposes a coding task into exploration + solving. Both isolate iterative search behind a compact synthesized return
 - [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — the SWE-bench family (Multilingual, Pro, Verified, SWE-QA) is the evaluation surface here; longer-horizon tasks (SWE-bench Pro) show the largest accuracy gains, consistent with exploration cost compounding over horizon
 - [Claude Code](/articles/claude-code) — the proprietary analog whose subagent mechanism FastContext open-sources
@@ -93,7 +101,7 @@ The explorers are trained, not just prompted, in two stages (backbones: Qwen3-4B
 ## Open Questions
 
 - **Does the gain survive better main models?** The same-model-exploration result suggests the architectural benefit is somewhat model-independent, but the trained-explorer margin may erode as frontier models get cheaper and better at staying in their smart zone unaided. The bitter-lesson question is unresolved.
-- **Prune vs. don't-pollute.** SWE-Pruner removes context after the fact; FastContext avoids accumulating it. Are these complementary (prune the solver *and* delegate exploration) or substitutes? Not tested together.
+- **Prune vs. don't-pollute.** SWE-Pruner removes context after the fact; FastContext avoids accumulating it. Are these complementary (prune the solver *and* delegate exploration) or substitutes? Not tested together. **Sharpened (2026-08-03):** [Tool-Output Pruning](/articles/tool-output-pruning) moves pruning to the agent-environment boundary, so the two now differ by one turn of exposure rather than by accumulation, and both target the same exploratory reads — which makes overlap, not additivity, the default expectation. Still measured on no benchmark together.
 - **How small can the explorer go?** The authors flag 1.7B / 0.6B as future work — if the recipe holds, the explorer becomes nearly free and the architecture dominates.
 - **Generality beyond Mini-SWE-Agent.** Only one (deliberately minimal) main-agent scaffold is tested; richer harnesses with their own memory/subagent orchestration may already capture part of the benefit or interact differently.
 - **Patch-derived reward leakage.** Training the explorer's reward on the gold patch's file/line ranges risks overfitting to where fixes *landed* rather than where evidence *lives*; the F1-vs-recall behavior partly mitigates this, but the proxy is imperfect.

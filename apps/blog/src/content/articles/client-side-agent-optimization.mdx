@@ -3,7 +3,10 @@ date: 2026-04-14
 title: Client-Side Agent Optimization
 description: AgentOpt's framing of developer-controlled agent optimization
   (model-per-role, budget, routing) as distinct from server-side serving; the
-  combo abstraction; 13–32× cost gaps between best/worst combinations
+  combo abstraction; 13–32× cost gaps between best/worst combinations —
+  reproduced in production by Cursor's four planner/worker mixes, where
+  cross-role coupling shows up in the bill and the 'strongest model is the worst
+  planner' result turns out to be a harness property
 tag: Concept
 domain: agent-systems
 tags:
@@ -11,20 +14,30 @@ tags:
   - llm-architecture
   - optimization
   - model-routing
-readingTime: 11
+readingTime: 20
 imageAlt: Illustration for Client-Side Agent Optimization
 sources:
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
   - title: "AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based
       Agent"
     url: https://arxiv.org/html/2604.06296v1
   - title: Tips & Best Practices
     url: https://hermes-agent.nousresearch.com/docs/guides/tips
+  - title: Agent swarms and the new model economics
+    url: https://cursor.com/blog/agent-swarm-model-economics
+  - title: "The Harness Effect: How Orchestration Design Sets the Token Economics of
+      Enterprise Agentic AI"
+    url: https://arxiv.org/pdf/2607.06906
 ---
 export { default as heroImage } from "../assets/client-side-agent-optimization.webp";
 
 ## Sources
 
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics)
 - [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906)
 - [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
 
 ## Summary
@@ -112,8 +125,33 @@ Significance: the levers exist in production tools today and are exercised manua
 
 The Hermes documentation also captures a constraint AgentOpt's combo abstraction implicitly relies on: **don't break the prompt cache mid-session**. Cache hits make per-message cost roughly constant; mid-session model/system-prompt changes invalidate that. If combo selection changes per-call rather than per-session, expected savings can be wiped out by cache misses — a deployment hazard worth surfacing when promoting AgentOpt's findings to production.
 
+### The combo abstraction, run in production (Cursor, 2026)
+
+AgentOpt's 13–32× cost gaps are benchmark measurements over synthetic pipelines. [Cursor](/articles/cursor)'s swarm post ([Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics), 2026-07-20, `case-study`) is the same abstraction on a four-hour production build — a two-role pipeline (planner, worker), four combinations, matched task and matched time budget, with the outcome published in dollars ([Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token), [Parallel Agent Orchestration](/articles/parallel-agent-orchestration)).
+
+Three things it adds that the benchmark could not:
+
+- **The gap survives at production scale and stays cost-shaped.** All four combinations landed at comparable quality; total cost spanned **$1,339 to $10,565**, and worker spend alone spanned **$411 to $9,373**. AgentOpt's central claim — that equally-accurate combinations differ enormously in cost — reproduces on a real workload without a bandit anywhere in the loop.
+- **Coupling shows up in *cost*, not just quality.** The combo abstraction exists because "a model's behavior in one role changes the intermediate state that later roles see." Cursor supplies the monetary form: the Fable 5 planner cost slightly *less* than the Opus 4.8 planner (fewer planning tokens despite ~2× the price) while its workers burned several times as many tokens, making the run substantially more expensive overall. **A role's cost is not separable from the combination**, so per-role optimization can pick the locally cheaper model and lose.
+- **The "worst planner" result is a harness property, not a model property.** AgentOpt found Opus 4.6 the worst planner across 81 HotpotQA combinations because it answered from parametric knowledge instead of delegating to the solver's tools. Cursor's design forecloses that move by construction — "planner agents split a goal into pieces and delegate them… a planner never implements" — and with the option removed, frontier models in the planner seat are the *cheap* configuration. Read together, the AgentOpt result is best stated as: **a planner that can execute will, and strong models are the most likely to.** The fix is available in two places, and Cursor took the architectural one.
+
+Weight it as vendor `case-study`, on Cursor's own harness, with Cursor's own Composer 2.5 as the worker in both hybrid arms — and note that the four mixes were never crossed into the full N×N matrix, which Cursor names as future work. There is no ablation and no search; this is one hand-picked point per corner, not a frontier.
+
+### A third routing axis: feature demand
+
+AgentOpt routes on role; conventional routing routes on estimated difficulty. Writer's harness-swap paper ([The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906), `empirical`, total vendor COI — see [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics)) argues for a third axis, and supplies the measurement that motivates it.
+
+Holding six models fixed and swapping only the orchestration layer, **efficiency gains were model-invariant (every model 33–61% cheaper) while quality gains scaled almost perfectly with baseline model strength** (r = 0.99, and the weakest model was net-negative). All seven regressions across 48 capability × model cells landed on the three smaller models, concentrated in orchestration-heavy capabilities — MCP tool use (Qwen −0.15, GLM −0.06, Flash −0.04), Playbooks, Presentations — while the frontier models improved *most* in exactly those categories. Sub-agent delegation, the harness's one net-new feature, is only usable on the two strongest models (0.85–0.86 versus 0.42–0.45 on the fast tier).
+
+The consequence for combo selection: **an orchestration feature carries a capability floor, so a request should be routed by the features it will exercise, not only by how hard its text looks.** A request that will spawn sub-agents belongs on a strong model regardless of apparent simplicity; a grounded Q&A request can take the 61%-cheaper fast tier with no quality penalty (grounding improved for every model in the panel). This is a cheaper heuristic than combo-level search over the same space, and it is orthogonal to the planner/worker positional rule that Cursor's mixes establish — the two compose.
+
+It also relocates part of the combo space. AgentOpt treats the harness as fixed and searches over model assignment; this measures the harness as the larger cost term (33–61% per model versus 36% across the entire model menu on that workload), which would make *orchestration configuration* a lever sitting above the one AgentOpt optimizes. Weight the magnitudes as vendor-specific — one baseline loop and one harness, both from the company publishing the result.
+
 ## Connections
 
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the layer AgentOpt holds fixed, measured: swapping only the orchestration code moved cost per task more than the entire spread of the model menu did. It also sharpens routing with a **feature-demand** axis (orchestration features carry capability floors) and states the complement cleanly — "routing chooses which model pays the bill; the harness determines how large the bill is for whichever model is chosen"
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the same hazard given a cost model and a measured failure. Two things bear directly on this page: the cost-aware routing lineage it situates itself against (FrugalGPT, RouteLLM, xRouter, Cascade Routing) treats per-model price as a **static constant**, and CAPC shows it is a function of cache state, prefix size, and call count — composing ρ(N,|P|) with a router is named as open work. And the Hermes cache-discipline row below understates the problem: below Anthropic's ~3,500-token tier boundary a *byte-identical* prefix still misses ~17% of the time, and on a small-prefix agent workload explicit `cache_control` bought +0.6%, i.e. nothing
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the "don't break the prompt cache mid-session" hazard turned into a commit-time decision rule with a published threshold (commit a context edit only once expected pruning exceeds 0.3, else hold the plan until cache expiry)
 - [Evals as Product Spec](/articles/evals-as-product-spec) — good evals are what make per-role model optimization measurable
 - [The Verifiability Thesis](/articles/verifiability-thesis) — the A/B/C/D cost-vs-solve frontier optimizes within verifiable rewards
 - [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — AgentOpt's HotpotQA finding (Opus is the worst planner because it bypasses the solver) is the same overthinking / over-elaboration mechanism Hakim documents at the prompt level. One paper surfaces it as a routing failure, the other as a prompt-engineering failure; together they imply that large-model misuse is a *systematic* failure mode with two available mitigations (route around it, or constrain output)
@@ -131,7 +169,12 @@ The Hermes documentation also captures a constraint AgentOpt's combo abstraction
 - [Evolutionary Proof Search](/articles/evolutionary-proof-search) — model-per-role made concrete: DeepMind runs Gemini 3.1 Pro for proving and the cheaper 3.0 Flash for rating — an explicit cost/quality combo inside one agent
 - [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the A/B/C/D solve-rate-vs-cost Pareto curves are the same cost/quality optimization AgentOpt formalizes; here the *cheaper* config often wins ([Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems))
 - [Deep Research Agents](/articles/deep-research-agents) — DRACO's token/latency table is this cost/quality framing in the deep-research setting: more output ≠ better, and orchestration beats raw token spend
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the vendor-side counterpart, and a direct tension: Anthropic tells developers to *start* with the strongest model and dial effort down, while AgentOpt's HotpotQA result shows the strongest model as the worst planner. Weight by tier — AgentOpt is `empirical` and multi-role, the guidance is `vendor-claim` and single-role — and note the guidance's own hedge (Sonnet for high-volume sub-agents). Its **advisor strategy** (cheap worker calls a strong advisor to check plan and work) is a first-party client-side lever with a number attached: Sonnet 5 + Fable 5 advisor lands within 10% of Fable 5 on SWE-bench Pro at 63% of the price
 - [Repository Exploration Subagent](/articles/repository-exploration-subagent) — extends model-per-role one step further: *train a bespoke small model* for the explorer role rather than assigning an off-the-shelf one; FastContext's 4B-RL explorer beating a 30B-SFT one is combo optimization where the winning "model" is fine-tuned, not picked
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the sibling lever, searched by an agent rather than a bandit: AgentOpt optimizes *model assignment* with the harness fixed; Cline's campaign optimizes *harness patches* with the model fixed. Both are client-side, and no work in this corpus measures them against each other
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — the harness Cursor's combinations ran inside; the coordination rebuild is the other half of that experiment, and the reason the four mixes are comparable at all
+- [Cursor](/articles/cursor) — the vendor, its own model in two of the four arms, and how to weight the figures
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) — the HotpotQA planner result corroborated on a second, independent instrument. OrchBench isolates the planner role *by construction* (workers are simulated, so only the plan varies) and finds **no model leads at every scale** — GPT-5.5 at 10 subtasks, GLM-5.1 at 20, Claude-Opus-4.8 at 50, Gemini-3.1-Pro at 100, with top-two gaps as small as 0.0007 within a source family — plus distinct per-model orchestration *styles*: Claude-Opus-4.8 conservative on handoffs (near-zero missing transfers, quality-preserving, mediocre on the speed/token half of the composite), Doubao over-launching agents while under-declaring transfers. Read together with AgentOpt's "strongest model is the worst planner," planner ability is not a projection of general model strength, now measured twice by different methods. It also reframes the combo space: OrchBench's ablation says essentially all planner separation comes from information preservation, so the role a router most needs to get right is the one that decides what gets passed forward
 
 ## Derived
 
@@ -140,12 +183,14 @@ The Hermes documentation also captures a constraint AgentOpt's combo abstraction
 
 ## Open Questions
 
-- How does combination-level optimization interact with continual model releases? If Claude Opus 4.7 ships next month, does the full Pareto frontier need re-running, or do warm-started bandits adapt cheaply?
+- How does combination-level optimization interact with continual model releases? If Claude Opus 4.7 ships next month, does the full Pareto frontier need re-running, or do warm-started bandits adapt cheaply? **Partially answered (2026-08-04, by synthesis):** [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) — a combination is a solver-fitted artifact (fitted to the current menu's capabilities and prices), so the frame predicts full re-runs rather than cheap adaptation, with the durable residue being assignment *rules* rather than assignments; the HotpotQA→Cursor inversion below already shows the assignment not transferring while the reconciling rule does. The warm-started-bandit half is an empirical question no source measures.
 - At what pipeline depth does the combinatorial search become intractable even for Arm Elimination? The paper tests up to ~81 combinations; production pipelines with 5+ roles and 10+ candidate models each blow past that.
-- Does the "weak planner + strong solver" pattern generalize, or is it specific to HotpotQA's delegation dynamic? Recommender-critic, drafter-editor, and retriever-generator topologies might invert.
+- Does the "weak planner + strong solver" pattern generalize, or is it specific to HotpotQA's delegation dynamic? Recommender-critic, drafter-editor, and retriever-generator topologies might invert. **Partially answered — it inverts (2026-08-03):** on [Cursor](/articles/cursor)'s long-horizon build task the efficient frontier is the opposite assignment, **strong planner + cheap worker**, with the entire worker fleet costing $411 under an Opus 4.8 planner versus $9,373 when a frontier model did both jobs at the same quality. The reconciling variable is what the planner is *able* to do: HotpotQA's planner could answer directly and did; Cursor's cannot. So the pattern is specific to the delegation dynamic, and the general rule is about foreclosing execution at the planner role rather than about weakening the model in it.
 - What's the right way to re-evaluate when the tool environment changes? AgentOpt assumes fixed tools — adding or removing a tool potentially invalidates the whole frontier.
-- Is there a cheap per-call classifier that can predict which combination will win on a given query, avoiding combo-level evaluation entirely?
+- Is there a cheap per-call classifier that can predict which combination will win on a given query, avoiding combo-level evaluation entirely? **Sharpened (2026-08-03):** [Writer's harness swap](/articles/orchestration-sets-token-economics) proposes classifying on **feature demand** rather than difficulty — which orchestration features (delegation, MCP tool use, multi-step workflows) a request will exercise — on the evidence that those features carry capability floors and that a model below the floor fails on them regardless of how simple the prompt reads. That is a candidate classifier target, not a classifier: nobody has built or evaluated one.
 
 ## Sources
 
 - [AgentOpt v0.1 Technical Report: Client-Side Optimization for LLM-Based Agent](https://arxiv.org/html/2604.06296v1)
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906) — Sayed Ali et al. (33 authors, all Writer, Inc.; arXiv 2607.06906, 2026-07-08, `empirical`, **total vendor COI**): §6.2–6.5 model-invariant efficiency, harness leverage (r = 0.99), the seven regressions and the sub-agent capability floor; §7.4 routing by feature demand; §2 the "routing chooses who pays, the harness sets how much" framing. Table 2 is cell-collapsed and Table 7 row-shifted in the raw parse; neither is cited
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics) — Wilson Lin, cursor.com, 2026-07-20 (`case-study`, vendor-authored): "Trees and leaves" (the planner-never-implements rule), "Results across model mixes" (the four planner/worker combinations), "Model economics" (the $411-versus-$9,373 worker spend and the Fable-versus-Opus planner inversion)

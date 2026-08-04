@@ -5,7 +5,8 @@ description: "Replacing yourself as the agent's prompter by designing the system
   that prompts it: a recursive-goal loop built from five product-native
   primitives (automations, worktrees, skills, connectors, sub-agents) plus
   external memory; tool-agnostic across Codex and Claude Code; the leverage
-  point moves from prompt-crafting to loop-design"
+  point moves from prompt-crafting to loop-design; Anthropic's 20–30 daily
+  self-maintenance routines per codebase are the deployed endpoint"
 tag: Concept
 domain: agent-systems
 tags:
@@ -13,24 +14,31 @@ tags:
   - harness
   - automation
   - ai-coding-workflow
-readingTime: 15
+readingTime: 22
 imageAlt: Illustration for Loop Engineering
 sources:
   - title: Loop Engineering
     url: https://addyosmani.com/blog/loop-engineering/
+  - title: "Boris Cherny: We Cut 80% of Claude Code's Prompt"
+    url: https://www.youtube.com/watch?v=qyPCVqFUyDo
   - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
       Developers Blog
     url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
   - title: Thread by @AndrewYNg
     url: https://x.com/AndrewYNg/status/2071988145667928442
+  - title: Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair
+      Loops in LLM Agents
+    url: https://arxiv.org/pdf/2607.17641
 ---
 export { default as heroImage } from "../assets/loop-engineering.webp";
 
 ## Sources
 
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo)
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
 - [Loop Engineering](https://addyosmani.com/blog/loop-engineering/)
 - [Thread by @AndrewYNg](https://x.com/AndrewYNg/status/2071988145667928442)
+- [Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair Loops in LLM Agents](https://arxiv.org/pdf/2607.17641)
 
 ## Summary
 
@@ -59,6 +67,8 @@ A loop needs five things and then one place to remember stuff. Each maps onto a 
 
 Then the sixth thing, **memory**: a markdown file, a Linear board — anything that lives *outside* the single conversation and holds what's done and what's next. "The agent forgets, the repo doesn't." This is the same on-disk-not-in-context trick every long-running agent depends on (see [Agent Harness Engineering](/articles/agent-harness-engineering)'s repository-as-system-of-record and [Agent Context Files](/articles/agent-context-files)'s state-vs-policy distinction; [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) is the Linear-board form).
 
+The sixth primitive is the one with a controlled measurement behind it. [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) runs a loop whose agents are deliberately *disposable* — fresh context every attempt, nothing inherited but the state file — and shows the external memory doing the improving on its own: generic agents plus a curated store beat DGM, HyperAgents, GEPA and OpenEvolve on five benchmarks at lower dollar cost, and the frozen store keeps working after the model family that wrote it is swapped out. Two design notes transfer directly to a `MEMORY.md`-shaped state file: **write scope conditions, not conclusions** (each entry carries when it applies and when it does not), and **bound what gets delivered** — their transfer adapter caps every field at 0-3 items and returns empty lists when the prior is weakly relevant, because handing over a fixed quantity made memory "noisy or detrimental." A state file that only grows is the failure mode.
+
 ## Tool-agnostic: Codex app ≈ Claude Code
 
 The essay's central structural observation is that **both products now have all five primitives**, with different names for the same capability:
@@ -80,6 +90,18 @@ Two weeks after Osmani's essay, Google supplied the strongest confirmation yet t
 
 The in-session primitive closest to the whole idea: `/loop` re-runs on a cadence, but **`/goal` keeps going until a condition you wrote is actually true** — and after every turn a *separate small model* checks whether you're done, so the agent that wrote the code isn't the one grading it. You give it "all tests in test/auth pass and lint is clean" and walk away. Codex ships the same `/goal` (verifiable stop condition, pause/resume/clear). This is the [maker/checker separation](/articles/verification-as-the-new-bottleneck) applied to the *stop condition itself* — the reason you can trust the loop to halt unattended.
 
+### When the stop-checker is noisy, running the loop is worse than not running it
+
+`/goal`'s separate stop-checker answers *who* decides you're done. It does not answer what to do when that decider is unreliable — and [Wu et al. (2026)](/articles/stopping-under-a-noisy-verifier) (`empirical`) measure what that costs. In a verify-repair loop where both the checker and the repairer are noisy, **a fixed five-round repair budget ends at 0.116 true validity where committing the first draft ends at 0.700**, and it degrades monotonically with the budget (0.246 / 0.122 / 0.116 at K = 1/3/5). Reported acceptance keeps *rising* the whole time, because a verifier's pass rate is `ρ₀ + J·Q` — mostly its own false-accept rate once discrimination `J` is low.
+
+Three things transfer to loop design directly:
+
+- **A round cap is the failure mode, not the safety net.** "Repair up to K times" is the arm that collapses; every acceptance-threshold heuristic (majority vote, confidence threshold) merely approaches never-repairing and never beats it. The only arm that wins compares the expected benefit of one more round against the expected damage, per instance.
+- **The stop boundary is a property of the *repairer*, not the checker.** It sits at `b* = α/(α+β)` — repair-fixes over repair-fixes-plus-repair-breaks — and the measured value ranges from 0.954 to 0.289 across settings, so no fixed budget or universal confidence threshold ports between loops.
+- **Below some checker quality, calibrate nothing.** At near-zero discrimination the label-free calibration degenerates *harder with more data*, and the recovery is an estimation-free keep-best rule (commit the incumbent unless a challenger clears a hard vote margin) that recovers 0.223 → 0.793.
+
+The scope caveat matters for how much to import: the damage rates driving this are largely manufactured by injecting a corrupted problem statement into the repairer, and the task is GSM8K-style math, not a repo. What generalizes is the shape — an unattended loop with a weak checker has a *negative*-return regime, and neither a round budget nor a pass-rate threshold can find its edge.
+
 ## What one loop looks like
 
 Osmani's worked shape: an automation runs every morning, calling a triage skill that reads yesterday's CI failures, open issues, and recent commits, and writes findings to a markdown file or Linear board. For each finding worth doing, the thread opens an isolated worktree, sends a sub-agent to draft the fix, and a *second* sub-agent reviews that draft against the project skills and existing tests. Connectors open the PR and update the ticket; anything the loop can't handle lands in a triage inbox for the human. The **state file is the spine** — it remembers what was tried, what passed, what's still open, so tomorrow's run resumes where today stopped. "You designed it one time. You did not prompt any of those steps."
@@ -93,6 +115,17 @@ The loop changes the work; it doesn't delete the human from it. Three problems g
 - **The comfortable posture is the dangerous one.** When the loop runs itself, it's tempting to stop having an opinion and take whatever it returns — *cognitive surrender*. "Designing the loop is the cure when you do it with judgement and the accelerant when you do it to avoid thinking — same action, opposite result." This is ["stay in the loop, treat them as tools"](/articles/jagged-intelligence) restated for the unattended case.
 
 A fourth thread runs through the skills primitive: without skills the loop **re-derives your whole project from zero every cycle** — Osmani's *intent debt*. A skill is intent "written down on the outside" so it compounds instead of being re-guessed (see [Agentic Technical Debt](/articles/agentic-technical-debt), [Agent Context Files](/articles/agent-context-files)). And the human review ceiling is real: worktrees remove the *mechanical* collision, but "your review bandwidth decides how many you can actually run, not the tool" — the [oversight-fatigue](/articles/ai-brain-fry) / [span-of-control](/articles/human-ai-accountability-redesign) limit on unattended fan-out.
+
+## The deployed endpoint: codebases that maintain themselves (Anthropic, July 2026)
+
+[Boris Cherny](/articles/boris-cherny)'s [YC interview](https://www.youtube.com/watch?v=qyPCVqFUyDo) describes Osmani's worked shape running in production at Anthropic, at fleet scale: **"we actually have Claude maintaining itself now."** A Slack channel is where the team *had Claude start* a set of routines (cloud-side loops — same primitive, survives laptop closure) against its own codebases — CLI, iOS, Android, desktop. Now **20–30 routines per day run across all the codebases**, each a one-sentence prompt:
+
+- **Dead-code cleanup** — daily static + dynamic analysis sweep, a deletion PR every day ("we didn't prompt that. It just kind of figured it out")
+- **Ship finished experiments** — an experiment at 100% rollout gets its flag deleted and shipped
+- **Write missing tests** — coverage gaps filled; and its inverse, **delete useless tests** "added by older models or added by people at some point"
+- **"Abstraction police"** — find near-duplicate abstractions that drifted apart across a big codebase and unify them
+
+Cherny's claims for it: hundreds to thousands of agents daily, "the work of dozens or hundreds of engineers," and "we're on the path to fully automating the maintenance of our apps" — freeing engineers for new product and user contact. His taxonomy distinguishes this from [dynamic workflows](/articles/dynamic-workflows-agent-algebra): a workflow is *one* task broken into orchestrated chunks; a loop/routine is one *repetitive* task that "doesn't share context, but it might share memory." All `practitioner-opinion`, first-party, no published metrics — but it is the most concrete account yet of the essay's thesis deployed as standing infrastructure, maker and maintainer the same model.
 
 ## Which loop is this, exactly?
 
@@ -118,7 +151,8 @@ Two people can build the identical loop and get opposite results — one moves f
 - [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — "stay in the loop" is the cure for cognitive surrender
 - [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Linear-board-as-state is the durable work-graph form of the memory primitive
 - [AI Brain Fry](/articles/ai-brain-fry) / [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — the human-oversight limit on unattended loops; span-of-control redesign is the missing partner
-- [Boris Cherny](/articles/boris-cherny) — "my job is to write loops"; primary practitioner
+- [Boris Cherny](/articles/boris-cherny) — "my job is to write loops"; primary practitioner; the self-maintaining-codebase fleet is his team's deployment
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the neighboring primitive: a workflow structures *one* task across staged agents; a loop/routine repeats one task on a schedule without shared context
 - [Peter Steinberger](/articles/peter-steinberger) — originated the "design loops that prompt your agents" framing the essay is built on
 - [Claude Code](/articles/claude-code) / [Symphony](/articles/symphony) — the tool surfaces that now ship all five primitives (Claude Code and the Codex-side orchestration stack)
 - [Agentic Work Systematization](/articles/agentic-work-systematization) — the empirical, adoption-curve counterpart to the skills primitive: OpenAI's Codex study measures ad-hoc→reusable-routine systematization at scale (skill use 5.4%→26.6%, 96.2% at OpenAI)
@@ -127,16 +161,21 @@ Two people can build the identical loop and get opposite results — one moves f
 - [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the maker/checker split and `/goal`'s separate stop-checker, stated as an architectural invariant of improvement loops
 - [The Three Loops of AI-Native Building](/articles/three-loops-of-ai-native-building) — [Andrew Ng](/articles/andrew-ng)'s taxonomy that locates this discipline: the five primitives all optimize the *innermost* of three nested loops; the developer-feedback and external-feedback loops are untouched, and a product moves at the speed of its slowest one
 - [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — comprehension debt made checkable: [Thariq Shihipar](/articles/thariq-shihipar)'s quiz gate ("I only merge after I pass the quiz perfectly") is the first concrete instrument for the deficit this page names
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — loops aimed at review-adjacent toil, from PostHog (`case-study`): a PR-babysitting loop (CI monitoring, flaky-test reruns, branch freshness, comment triage) built on the same sweep/state design as Haack's `babysit-prs`, a `qa-swarm` reviewer panel with an outer loop that iterates until no new actionable threads appear, and an auto-stamper that decides which PRs need a human at all. Also the concrete cost figure this page's budget question lacks — Paul D'Ambra: "something like 60% of my token spend is burned automating the toil of handling CI and review and I don't regret a single dollar"
+- [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) — the memory primitive promoted to the object of improvement and measured: disposable agents, an external curated store as the only persistent state, and a bounded task-conditioned delivery rule for what the state file hands back
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the stop condition given a decision theory and a measured failure regime: when the checker's discrimination is low, a fixed round budget is catastrophically worse than committing the first draft (0.116 vs 0.700), the boundary belongs to the repairer rather than the checker, and the fallback below a certain checker quality is to stop calibrating and keep the incumbent
 - [Review as the Control Point](/articles/review-as-the-control-point) — "fold human review into the agent's own loop / a second sub-agent checks the first" is one of the enumerated positions the CMU theory synthesizes; automated review is a review-dynamics construct there (raises throughput, cuts latency, but quality/security effect contested), and the theory formalizes the comprehension debt the maker/checker loop still accrues
 
 ## Open Questions
 
-- Osmani's cost caveat is unquantified: at what token budget does a continuously-running loop stop paying for itself, and how do you instrument that? (Cf. [Agent Loop Pattern](/articles/agent-loop-pattern)'s "who owns the budget when the model schedules its own loops.")
-- If `/goal`'s stop-check is itself a model, what verifies the verifier? The maker/checker split pushes the trust problem up a level, not away.
+- Osmani's cost caveat is unquantified: at what token budget does a continuously-running loop stop paying for itself, and how do you instrument that? (Cf. [Agent Loop Pattern](/articles/agent-loop-pattern)'s "who owns the budget when the model schedules its own loops.") **Partially answered (magnitude only):** a PostHog engineer running review/CI loops puts it at **~60% of personal token spend** with no regret ([Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval), `case-study`) — which establishes that the share can be a majority and still be judged worth it, but is a self-assessed share, not a break-even threshold or an instrument for finding one.
+- If `/goal`'s stop-check is itself a model, what verifies the verifier? The maker/checker split pushes the trust problem up a level, not away. **Partially answered (2026-08-04) — the regress is bounded rather than closed:** [Wu et al.](/articles/stopping-under-a-noisy-verifier) (`empirical`) don't verify the verifier; they make its unreliability a measurable scalar (Youden's `J = 1 − ρ₀ − ρ₁`) and show what each level of it permits. Above roughly `J ≥ 0.18` a loop can act on a calibrated estimate of the checker's noise and stay within 2.8pp of the true-parameter reference; at `J = 0.03` the label-free calibration collapses (and collapses *further* with more data), and the correct move is to stop trusting any estimate and fall back to an estimation-free keep-best rule. What is still open is the part the question actually asks: measuring `J` at all needs a small labeled probe, so the trust problem is relocated to a human-labeled sample rather than dissolved.
 - Does loop-engineering converge on a single dominant shape (morning-triage → worktree → maker/checker → PR), or proliferate into many idiom-specific loops? The essay describes one shape "I keep using" but claims the primitives are general.
 
 ## Sources
 
 - [Loop Engineering](https://addyosmani.com/blog/loop-engineering/) — Addy Osmani, "Loop Engineering" (addyosmani.com, June 2026; surfaced via X)
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Cherny, YC interview (2026-07-27, `practitioner-opinion`): the 20–30 daily self-maintenance routines (dead-code cleanup, experiment shipping, test writing/deletion, abstraction police) and the workflow/loop/routine taxonomy
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — the eval-fix loop packaged as a coding-agent-driven skill (`vendor-claim`)
 - [Thread by @AndrewYNg](https://x.com/AndrewYNg/status/2071988145667928442) — Andrew Ng, *The Batch* (2026-06-30), `practitioner-opinion`: which of three nested loops this discipline actually optimizes
+- [Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair Loops in LLM Agents](https://arxiv.org/pdf/2607.17641) — Wu, Shen, Yang, Peng & Hu (arXiv 2607.17641, 2026-07-20, `empirical`): §5.3 Table 1 and App. D Table 6 — the fixed-round-budget collapse and the per-instance marginal-gain rule that beats it; developed at [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier)
