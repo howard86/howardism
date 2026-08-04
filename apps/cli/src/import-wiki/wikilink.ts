@@ -2,8 +2,11 @@ import { titleFromSlug } from "@howardism/article-contract/markup";
 
 /** Single source of truth for the [[wikilink]] grammar.
  *  Group 1 = target (incl. any wiki/ or raw/ prefix and #anchor).
- *  Group 2 = optional label, after `|` or Obsidian's table-escaped `\|`. */
-const WIKILINK_RE = /\[\[([^\]|\\]+)(?:\\?\|([^\]]+))?\]\]/g;
+ *  Group 2 = optional label, after `|` or Obsidian's table-escaped `\|`.
+ *  Newlines are excluded from both so an unclosed `[[` — the vault's generated
+ *  digests truncate mid-link — simply fails to match instead of swallowing
+ *  every following line up to the next `]]` anywhere in the file. */
+const WIKILINK_RE = /\[\[([^\]|\\\n]+)(?:\\?\|([^\]\n]+))?\]\]/g;
 
 const HUMANIZE_RE = /[._-]+/g;
 const WHITESPACE_RE = /\s+/g;

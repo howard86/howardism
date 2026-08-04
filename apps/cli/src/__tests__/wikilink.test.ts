@@ -151,6 +151,14 @@ describe("extractInternalSlugs", () => {
       "claude-code",
     ]);
   });
+
+  // Bug-fix regression: a `[[` truncated mid-link by the vault's generated
+  // digests used to swallow every following line up to the next `]]`.
+  it("regression: an unclosed [[ does not consume the next line", () => {
+    expect(
+      extractInternalSlugs("- see [[deployme…\n- [[unknowns-as-bottleneck]]")
+    ).toEqual(["unknowns-as-bottleneck"]);
+  });
 });
 
 describe("extractRawSlugs", () => {
