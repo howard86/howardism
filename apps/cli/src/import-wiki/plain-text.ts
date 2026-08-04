@@ -1,9 +1,13 @@
 /**
- * Reduce wiki/MDX markdown to clean, searchable plain text. Used to build the
- * blog's client-side search index: strips structural markup, code, and links so
- * the full-text matcher sees prose rather than syntax.
+ * Reduce wiki/MDX markdown to clean, readable plain text — structural markup,
+ * code, links and MDX module syntax stripped so a consumer sees prose rather
+ * than syntax. Backs the knowledge MCP server's `knowledge_get`.
  */
 import { stripToText } from "./wikilink.ts";
+
+// The `export { default as heroImage } …` line every emitted MDX carries right
+// after its frontmatter — module syntax, not prose.
+const HERO_EXPORT_RE = /^export \{ default as heroImage \}[^\n]*\n?/m;
 
 const FENCE_RE = /^(\s*)(`{3,}|~{3,})/;
 // A table delimiter row like `|---|:--:|` — pipes plus only dashes/colons.
@@ -22,7 +26,7 @@ const WHITESPACE_RE = /\s+/g;
 
 /** Markdown (post-frontmatter) → single normalized line of plain prose. */
 export function toPlainText(markdown: string): string {
-  const lines = stripToText(markdown).split("\n");
+  const lines = stripToText(markdown.replace(HERO_EXPORT_RE, "")).split("\n");
   const out: string[] = [];
   let fenceChar: string | null = null;
 

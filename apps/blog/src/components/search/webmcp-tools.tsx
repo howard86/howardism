@@ -57,10 +57,14 @@ interface SearchArticlesResult {
 
 /**
  * Ranks `entries` against `input.query` and shapes the agent-facing payload.
- * Deliberately omits `body` — the article knowledge base can be large, and
- * the full text would flood the calling agent's context; `get_article` fetches
- * it on demand for one slug. Pure and browser-free so it is unit-testable
- * without `document.modelContext`.
+ * Deliberately omits `keywords` and `tags` — they exist to be matched on, not
+ * read, and a ranked list of them per result would crowd the calling agent's
+ * context; `get_article` returns them for one slug. Pure and browser-free so it
+ * is unit-testable without `document.modelContext`.
+ *
+ * `input` arrives from a calling agent, so `limit` is whatever it chose to
+ * send; `searchEntries` clamps it rather than letting one call rank out the
+ * whole corpus.
  */
 export function searchArticles(
   entries: SearchEntry[],
@@ -85,19 +89,32 @@ interface GetArticleInput {
 }
 
 /**
- * Returns the full body of the entry matching `input.slug`, already present
- * on every loaded index entry — no network fetch needed. Pure and
- * browser-free so it is unit-testable without `document.modelContext`.
+ * Returns everything the loaded index knows about one slug — summary, domain,
+ * kind, tags and related keywords — with no network fetch. The index carries no
+ * article text (see the CLI's index builder), so `url` is how an agent reaches
+ * the prose, and the payload says so rather than implying this is the article.
+ * Pure and browser-free so it is unit-testable without `document.modelContext`.
  */
 export function getArticle(
   entries: SearchEntry[],
-  input: GetArticleInput
+  input: GetArticleInput,
+  origin: string
 ): string {
   const entry = entries.find((candidate) => candidate.slug === input.slug);
   if (!entry) {
     return `No article found for slug "${input.slug}".`;
   }
-  return entry.body;
+  return JSON.stringify({
+    slug: entry.slug,
+    title: entry.title,
+    description: entry.description,
+    domain: entry.domain,
+    tag: entry.tag,
+    tags: entry.tags ?? [],
+    relatedKeywords: entry.keywords.split(" ").filter(Boolean),
+    url: `${origin}/articles/${entry.slug}`,
+    note: "Metadata only — fetch `url` for the article text.",
+  });
 }
 
 /**
@@ -150,14 +167,14 @@ export function WebMcpTools() {
           query: { type: "string", description: "Search keywords." },
           limit: {
             type: "number",
-            description: "Maximum number of results (default 12).",
+            description: "Maximum number of results (default 12, max 50).",
           },
         },
         required: ["query"],
       },
       annotations: { readOnlyHint: true },
-      // `loadSearchIndex()` pulls a ~200KB+ JSON chunk; it is called only
-      // here, inside `execute`, never at registration/mount time.
+      // `loadSearchIndex()` pulls the index chunk; it is called only here,
+      // inside `execute`, never at registration/mount time.
       execute: async (input) => {
         const entries = await loadSearchIndex();
         return searchArticles(entries, input, window.location.origin);
@@ -167,7 +184,7 @@ export function WebMcpTools() {
     register<GetArticleInput>({
       name: GET_ARTICLE_TOOL,
       description:
-        "Fetch the full body of one howardism.dev article by slug, as returned by search_articles.",
+        "Fetch one howardism.dev article's metadata by slug, as returned by search_articles: summary, domain, kind, tags, and the keywords of neighbouring articles. This is not the article text — fetch the returned url for that.",
       inputSchema: {
         type: "object",
         properties: {
@@ -178,7 +195,7 @@ export function WebMcpTools() {
       annotations: { readOnlyHint: true },
       execute: async (input) => {
         const entries = await loadSearchIndex();
-        return getArticle(entries, input);
+        return getArticle(entries, input, window.location.origin);
       },
     });
 

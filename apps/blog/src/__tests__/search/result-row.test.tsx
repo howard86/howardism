@@ -10,24 +10,45 @@ const entry: SearchEntry = {
   description: "Loops as a primitive.",
   tag: "Concept",
   domain: "agent-systems",
-  tags: ["automation"],
-  body: "A loop executes a prompt until done.",
+  tags: ["automation", "harness", "scheduling", "runtime"],
+  keywords: "cli-agent orchestration",
 };
 
 afterEach(cleanup);
 
 describe("ResultRow", () => {
-  it("renders title, kind badge, domain label, and a highlighted snippet", () => {
+  it("renders title, kind badge, domain label, and a highlighted summary", () => {
     render(<ResultRow entry={entry} query="loop" />);
     expect(screen.getByText("Agent Loop Pattern")).toBeDefined();
     expect(screen.getByText("C")).toBeDefined();
     expect(screen.getByText("Agent Systems")).toBeDefined();
-    expect(document.querySelector("mark")?.textContent).toBe("loop");
+    expect(document.querySelector("mark")?.textContent).toBe("Loop");
   });
 
-  it("falls back to the description when the match is not in the body", () => {
+  it("shows the summary unhighlighted when the query is not in it", () => {
+    // Matched on the title; the summary has no "agent" in it to mark up.
     render(<ResultRow entry={entry} query="agent" />);
     expect(document.querySelector("mark")).toBeNull();
     expect(screen.getByText("Loops as a primitive.")).toBeDefined();
+  });
+
+  it("puts a matching tag first, so the row shows why it matched", () => {
+    // "scheduling" is third in the entry's tags and would otherwise be cut by
+    // the three-chip limit — the reason this row is in the results at all.
+    render(<ResultRow entry={entry} query="scheduling" />);
+    expect(screen.getByText("scheduling")).toBeDefined();
+    expect(screen.queryByText("runtime")).toBeNull();
+  });
+
+  it("caps tag chips so long tag lists cannot crowd out the title", () => {
+    render(<ResultRow entry={entry} query="loop" />);
+    expect(screen.getByText("automation")).toBeDefined();
+    expect(screen.queryByText("runtime")).toBeNull();
+  });
+
+  it("renders without tags", () => {
+    const bare: SearchEntry = { ...entry, tags: undefined };
+    render(<ResultRow entry={bare} query="loop" />);
+    expect(screen.getByText("Agent Loop Pattern")).toBeDefined();
   });
 });

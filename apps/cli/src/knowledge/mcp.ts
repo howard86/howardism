@@ -8,7 +8,10 @@ import {
 import { createFuse, searchEntries } from "@howardism/article-contract/search";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import matter from "gray-matter";
 import { z } from "zod";
+
+import { toPlainText } from "../import-wiki/plain-text.ts";
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const CLI_ROOT = resolve(HERE, "../../");
@@ -19,6 +22,13 @@ export const DEFAULT_SEARCH_INDEX_PATH = resolve(
   REPO_ROOT,
   "apps/blog/src/data/search-index.json"
 );
+
+/**
+ * The MDX `knowledge_get` reads. The index carries no article text — it is
+ * metadata plus related keywords — and this server runs against the repo, so
+ * full content comes from the article file rather than from a stored excerpt.
+ */
+const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
 
 /**
  * MCP tool handlers. Kept as plain (indexPath, args) → CallToolResult
@@ -56,8 +66,8 @@ function loadIndex(indexPath: string): Promise<SearchIndexState> {
   return state;
 }
 
-/** The fields `knowledge_search` returns — no `body`, to keep results small. */
-type KnowledgeSearchResult = Omit<SearchIndexEntry, "body" | "tags">;
+/** The fields `knowledge_search` returns — trimmed to keep results small. */
+type KnowledgeSearchResult = Omit<SearchIndexEntry, "keywords" | "tags">;
 
 const toSearchResult = (entry: SearchIndexEntry): KnowledgeSearchResult => ({
   slug: entry.slug,
@@ -89,7 +99,18 @@ export async function knowledgeGetHandler(
       error: `No article found for slug "${args.slug}".`,
     });
   }
-  return jsonResult(entry);
+  const raw = await readFile(
+    resolve(ARTICLES_DIR, `${args.slug}.mdx`),
+    "utf8"
+  ).catch(() => null);
+  if (raw === null) {
+    // Indexed but the MDX is gone: report it rather than serving metadata that
+    // looks like a successful full-content fetch.
+    return jsonResult({
+      error: `Article "${args.slug}" is indexed but its MDX is missing.`,
+    });
+  }
+  return jsonResult({ ...entry, body: toPlainText(matter(raw).content) });
 }
 
 /** Register the two knowledge-base tools on an MCP server reading `indexPath`. */
@@ -102,7 +123,7 @@ export function registerKnowledgeTools(
     {
       title: "Search Howard's wiki knowledge base",
       description:
-        "Full-text search over Howard Tai's personal wiki/blog knowledge base (Howardism) — his published articles on AI, software engineering, and other topics. Ranks results the same fuzzy-match algorithm as the site's own command-palette search. Returns each match's slug, title, description, domain, and tag — NOT the article body (use knowledge_get with the slug to fetch full content). Use this first to find which articles are relevant to a topic.",
+        "Search Howard Tai's personal wiki/blog knowledge base (Howardism) — his published articles on AI, software engineering, and other topics. Matches on each article's title, summary, tags, domain and related keywords, using the same fuzzy-match algorithm as the site's own command-palette search. Returns each match's slug, title, description, domain, and tag — NOT the article body (use knowledge_get with the slug to fetch full content). Use this first to find which articles are relevant to a topic.",
       inputSchema: {
         query: z.string().min(1),
         limit: z.number().int().positive().optional(),
@@ -116,7 +137,7 @@ export function registerKnowledgeTools(
     {
       title: "Get a full article from Howard's wiki knowledge base",
       description:
-        "Fetch one article's full content — including its body text — from Howard Tai's personal wiki/blog knowledge base (Howardism) by slug. Call knowledge_search first to find the right slug. Returns a clear error message (not a thrown error) if the slug doesn't exist.",
+        "Fetch one article's full plain-text content, plus its metadata, from Howard Tai's personal wiki/blog knowledge base (Howardism) by slug. Call knowledge_search first to find the right slug. Returns a clear error message (not a thrown error) if the slug doesn't exist.",
       inputSchema: {
         slug: z.string().min(1),
       },
