@@ -1,3 +1,11 @@
+# [v2.23.0](https://github.com/howard86/howardism/compare/v2.22.0...v2.23.0) (2026-08-04)
+
+## ✨ New Features
+- [`2b0b45e3`](https://github.com/howard86/howardism/commit/2b0b45e3)  feat(search): add scope chips, domain grouping and a result count 
+
+## 🐛 Bug Fixes
+- [`d7aacd09`](https://github.com/howard86/howardism/commit/d7aacd09)  fix(search): defer ranking, fix snippet highlight, clamp agent limit
+
 # [v2.22.0](https://github.com/howard86/howardism/compare/v2.21.0...v2.22.0) (2026-08-03)
 
 ## ✨ New Features
