@@ -1,3 +1,8 @@
+# [v2.23.1](https://github.com/howard86/howardism/compare/v2.23.0...v2.23.1) (2026-08-04)
+
+## 🐛 Bug Fixes
+- [`61a830b7`](https://github.com/howard86/howardism/commit/61a830b7)  fix(blog): keep the shelf domain filter inside the page
+
 # [v2.23.0](https://github.com/howard86/howardism/compare/v2.22.0...v2.23.0) (2026-08-04)
 
 ## ✨ New Features
