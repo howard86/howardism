@@ -8,11 +8,51 @@ interface DeskProps {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** How many sources the homepage shows. The rest are counted, not listed. */
+const DESK_LIMIT = 24;
+
 function formatWhen(published: string | undefined): string | null {
   if (!published) {
     return null;
   }
   return ISO_DATE_RE.test(published) ? formatDateShort(published) : published;
+}
+
+/**
+ * Split an author credit on commas at paren depth 0, so a parenthesised aside
+ * ("Lenny's Podcast (Lenny Rachitsky, with guest Cat Wu)") stays one name.
+ */
+function splitAuthors(author: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < author.length; i++) {
+    const char = author[i];
+    if (char === "(") {
+      depth++;
+    } else if (char === ")") {
+      depth = Math.max(0, depth - 1);
+    } else if (char === "," && depth === 0) {
+      parts.push(author.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(author.slice(start).trim());
+  return parts.filter(Boolean);
+}
+
+/**
+ * Papers here run to 20+ credited authors (544 chars at the extreme), which
+ * blows a row out to a dozen lines. Keep both names for a pair, `et al.` beyond.
+ */
+export function formatAuthors(author: string): string {
+  const names = splitAuthors(author);
+  if (names.length <= 1) {
+    return author;
+  }
+  return names.length === 2
+    ? `${names[0]} & ${names[1]}`
+    : `${names[0]} et al.`;
 }
 
 /**
@@ -28,6 +68,8 @@ export function Desk({ sources }: DeskProps) {
     acc[s.kind] = (acc[s.kind] ?? 0) + 1;
     return acc;
   }, {});
+
+  const shown = sources.slice(0, DESK_LIMIT);
 
   return (
     <section className="border-border border-b px-gutter py-10">
@@ -49,11 +91,19 @@ export function Desk({ sources }: DeskProps) {
                 <dd className="m-0 text-muted-foreground">{n}</dd>
               </div>
             ))}
+            {sources.length > shown.length && (
+              <div className="contents">
+                <dt>Shown</dt>
+                <dd className="m-0 text-muted-foreground">
+                  {shown.length} / {sources.length}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 
         <ul className="m-0 grid list-none grid-cols-1 gap-x-6 gap-y-0 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {sources.map((source) => {
+          {shown.map((source) => {
             const when = formatWhen(source.published);
             return (
               <li
@@ -83,7 +133,7 @@ export function Desk({ sources }: DeskProps) {
                 </div>
                 {source.author && (
                   <div className="mt-0.5 font-body text-[12.5px] text-foreground-subtle italic">
-                    {source.author}
+                    {formatAuthors(source.author)}
                   </div>
                 )}
               </li>
