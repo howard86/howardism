@@ -1,3 +1,10 @@
+# [v2.23.2](https://github.com/howard86/howardism/compare/v2.23.1...v2.23.2) (2026-08-04)
+
+## 🐛 Bug Fixes
+- [`549c2f8b`](https://github.com/howard86/howardism/commit/549c2f8b)  fix(wiki-import): read open questions from the concept pages 
+- [`36d6a074`](https://github.com/howard86/howardism/commit/36d6a074)  fix(wiki-import): stop an unclosed [[ from swallowing later lines 
+- [`8f3ba968`](https://github.com/howard86/howardism/commit/8f3ba968)  fix(blog): read graph backlinks as edge objects in the service test
+
 # [v2.23.1](https://github.com/howard86/howardism/compare/v2.23.0...v2.23.1) (2026-08-04)
 
 ## 🐛 Bug Fixes
