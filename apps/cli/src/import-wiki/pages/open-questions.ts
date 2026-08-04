@@ -10,18 +10,15 @@ import {
 } from "@howardism/article-contract/manifests/open-questions";
 import { titleFromSlug } from "@howardism/article-contract/markup";
 
-import { OPEN_QUESTIONS_SLUG, resolveDomain } from "../domains.ts";
+import { resolveDomain } from "../domains.ts";
 import type { ParsedWikiFile } from "../parse.ts";
 import { rewriteWikilinks, stripAuthoringTags } from "../transform.ts";
-import { extractInternalSlugs } from "../wikilink.ts";
 
 export type {
   OpenQuestionConcept,
   OpenQuestionsManifest,
 } from "@howardism/article-contract/manifests/open-questions";
 
-const HEADING_RE = /^#{1,6}\s/;
-const CONCEPT_HEADING_RE = /^#{2,6}\s+\[\[[^\]]+\]\]/;
 const BULLET_RE = /^-\s+(.+)$/;
 /**
  * The tag usually trails its bullet, but the vault also writes it mid-line when
@@ -31,6 +28,7 @@ const BULLET_RE = /^-\s+(.+)$/;
  */
 const OQ_TAG_RE = /(?<!`)#oq\/([a-z]+)\b/;
 const REPEATED_SPACE_RE = /\s{2,}/g;
+const OPEN_HEADING_RE = /^##\s+Open Questions\s*$/i;
 const RESOLVED_HEADING_RE = /^##\s+Resolved Questions\s*$/i;
 const H2_RE = /^##\s/;
 
@@ -47,61 +45,32 @@ function toQuestion(raw: string): OpenQuestion {
   const tag = OQ_TAG_RE.exec(raw)?.[1];
   return {
     kind: tag && KINDS.has(tag) ? (tag as OpenQuestion["kind"]) : null,
-    text: raw.replace(OQ_TAG_RE, "").replace(REPEATED_SPACE_RE, " ").trim(),
+    text: stripAuthoringTags(raw.replace(OQ_TAG_RE, ""))
+      .replace(REPEATED_SPACE_RE, " ")
+      .trim(),
   };
 }
 
 /**
- * Parse the backlog body into per-concept question lists. Concepts are
- * `[[concept]]` headings — the vault nests them under domain sections
- * (`## Actionable by domain` → `### <domain>` → `#### [[concept]]`), so any
- * heading level is accepted. Each is followed by `- question` bullets.
- *
- * Any other heading closes the current concept, which keeps the trailing
- * `## Predictions` / `## Notes` / `## In progress` sections — flat
- * `- [[slug]]: …` bullets with no concept heading of their own — from being
- * appended to whichever concept happened to come last.
+ * Harvest one `## <section>` heading's bullets from every parsed page. Both the
+ * open and the settled questions are authored on the concept pages themselves;
+ * the vault's generated `open-questions` backlog is a truncated digest of them,
+ * so reading the pages keeps the full question text and does not break when the
+ * digest's layout is regenerated.
  */
-function parseBacklog(body: string): Map<string, OpenQuestion[]> {
-  const byConcept = new Map<string, OpenQuestion[]>();
-  let current: string | null = null;
-
-  for (const rawLine of body.split("\n")) {
-    const line = rawLine.trim();
-    if (HEADING_RE.test(line)) {
-      current = CONCEPT_HEADING_RE.test(line)
-        ? (extractInternalSlugs(line)[0] ?? null)
-        : null;
-      if (current && !byConcept.has(current)) {
-        byConcept.set(current, []);
-      }
-      continue;
-    }
-    const bullet = BULLET_RE.exec(line);
-    if (current && bullet) {
-      byConcept.get(current)?.push(toQuestion(bullet[1].trim()));
-    }
-  }
-  return byConcept;
-}
-
-/**
- * Harvest each concept page's `## Resolved Questions` bullets — the questions
- * the vault has actually settled. They live on the concept pages, not in the
- * generated backlog, so they are read straight from the parsed vault files.
- */
-function parseResolved(
-  parsed: readonly ParsedWikiFile[]
+function collectSection(
+  parsed: readonly ParsedWikiFile[],
+  headingRe: RegExp
 ): Map<string, string[]> {
   const bySlug = new Map<string, string[]>();
 
   for (const file of parsed) {
-    const resolved: string[] = [];
+    const bullets: string[] = [];
     let inSection = false;
 
     for (const rawLine of file.body.split("\n")) {
       const line = rawLine.trim();
-      if (RESOLVED_HEADING_RE.test(line)) {
+      if (headingRe.test(line)) {
         inSection = true;
         continue;
       }
@@ -110,12 +79,12 @@ function parseResolved(
       }
       const bullet = inSection ? BULLET_RE.exec(line) : null;
       if (bullet) {
-        resolved.push(stripAuthoringTags(bullet[1].trim()));
+        bullets.push(bullet[1].trim());
       }
     }
 
-    if (resolved.length > 0) {
-      bySlug.set(file.source.slug, resolved);
+    if (bullets.length > 0) {
+      bySlug.set(file.source.slug, bullets);
     }
   }
   return bySlug;
@@ -129,17 +98,10 @@ export function buildOpenQuestions(args: {
 }): OpenQuestionsManifest {
   const { parsed, membership, slugTitleMap, generatedOn } = args;
 
-  const backlog = parsed.find(
-    (file) => file.source.slug === OPEN_QUESTIONS_SLUG
-  );
-  if (!backlog) {
-    return { generatedOn, byConcept: [] };
-  }
+  const resolvedBySlug = collectSection(parsed, RESOLVED_HEADING_RE);
+  const open = collectSection(parsed, OPEN_HEADING_RE);
 
-  const resolvedBySlug = parseResolved(parsed);
-  const open = parseBacklog(backlog.body);
-
-  // Backlog bullets are prose lifted out of note bodies, so they carry the
+  // Question bullets are prose lifted out of note bodies, so they carry the
   // vault's own `[[wikilink]]`s. Resolve them through the same rewriter the
   // article bodies use: a published slug becomes a markdown link to its
   // article, an unpublished one becomes its plain title. Without this the blog
@@ -164,11 +126,11 @@ export function buildOpenQuestions(args: {
       slug,
       title: slugTitleMap.get(slug) ?? titleFromSlug(slug),
       domain: resolveDomain(slug, membership),
-      questions: questions.map((question) => ({
-        ...question,
-        text: resolveLinks(question.text),
-      })),
-      resolved: resolved.map(resolveLinks),
+      questions: questions.map((raw) => {
+        const question = toQuestion(raw);
+        return { ...question, text: resolveLinks(question.text) };
+      }),
+      resolved: resolved.map((raw) => resolveLinks(stripAuthoringTags(raw))),
     });
   }
 

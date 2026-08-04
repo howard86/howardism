@@ -1,0 +1,138 @@
+---
+date: 2026-07-29
+title: Agent-Generated Test Quality
+description: "Jhanglani et al. (Stevens, arXiv 2607.12068): AST static analysis
+  of 204,673 AIDev test files (24,941 human vs 179,732 agent) finds a trade, not
+  a deficit — agents roughly double human edge-case variety (0.62 vs 0.32) and
+  lead on every literal boundary category, roughly match on strong-assertion
+  share (85.4% vs 88.1%), but carry a higher flakiness-candidate rate (0.41–0.44
+  vs 0.30) driven specifically by unmocked file I/O and non-deterministic APIs,
+  plus 8× the rate of unrecognized 'assertion drift'. The framing is 'stealth
+  technical debt': suites that pass today and degrade CI reliability later.
+  Three defects cut deep into what the numbers support — only 7% of human files
+  yielded parseable assertions (pytest bare-assert blindness, which the authors
+  concede invalidates the RQ1 comparison), the negative-boundary detector reads
+  0.0% in all four cohorts and is almost certainly broken, and the dynamic
+  re-run stage that would convert 'candidate' into 'confirmed flaky' is
+  specified but never reported"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - code-quality
+  - testing
+  - ai-coding-workflow
+  - empirical
+readingTime: 14
+imageAlt: Illustration for Agent-Generated Test Quality
+sources:
+  - title: "Beyond Test Presence: Assessing the Quality and Robustness of
+      Agent-Generated Tests in Open-Source Projects"
+    url: https://arxiv.org/pdf/2607.12068
+---
+export { default as heroImage } from "../assets/agent-generated-test-quality.webp";
+
+## Sources
+
+- [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](https://arxiv.org/pdf/2607.12068)
+
+## Summary
+
+Jhanglani, Desai, Kansara & AlOmar (Stevens Institute of Technology, arXiv 2607.12068, July 2026) ask a question that pass-rate benchmarks like SWE-bench structurally cannot: not *do the agent's tests pass*, but *are they any good*. They parse 204,673 Python test files from the [same AIDev corpus](/articles/security-debt-of-agent-generated-code) — 24,941 human-authored, 179,732 agent-authored — into ASTs and score three dimensions statically: assertion strength (RQ1), edge-case coverage (RQ2), and flakiness potential (RQ3).
+
+The result is an **inversion of the expected story**. The prior is that agents write shallow, box-ticking tests. What the data shows instead is a *trade*: agents cover more boundary conditions than humans and match them on assertion strength, but they write tests that touch the disk and call non-deterministic APIs at a noticeably higher rate. The authors' name for this is **"stealth technical debt"** — a suite that passes execution today, offers real coverage breadth, and quietly degrades CI reliability later.
+
+> **Evidence note.** Tagged `empirical`, and the measurement is genuine, but three defects in the instrumentation (below) mean only the *directional* RQ2 and RQ3 findings should be carried forward, and RQ1 should be treated as **not established** — a judgment the authors themselves reach in their threats-to-validity section. Scope limits the authors state: Python only, open-source only, and agent models current to the AIDev collection window (so the findings describe an older generation of agents than the one now deployed).
+
+## The headline table
+
+Table VI, all four cohorts. `A-Sliced` is the first 24,941 agent files; `A-Sliced-Rand` a random 24,941 — both exist to size-match the human cohort. **The abstract quotes the `A-Sliced-Rand` column**, which is why the widely-cited flakiness figure is 0.41 rather than the full-cohort 0.44.
+
+| Metric | Human | Agent (all) | A-Sliced | A-Sliced-Rand |
+|---|---|---|---|---|
+| Total files | 24,941 | 179,732 | 24,941 | 24,941 |
+| **Files w/ parseable asserts** | **1,730 (6.9%)** | **29,353 (16.3%)** | 3,412 (13.7%) | 4,046 (16.2%) |
+| Weak assertions | 11.92% | 14.30% | 13.90% | 14.63% |
+| Strong assertions | 88.08% | 85.70% | 86.10% | 85.37% |
+| Unknown assertions | 1.46% | 10.93% | 9.22% | 11.58% |
+| Flakiness candidate rate | 0.30 | 0.44 | 0.46 | 0.41 |
+| Edge-case variety | 0.32 | 0.61 | 0.58 | 0.62 |
+
+The bolded row is the one that governs everything else: **the analysis ran on 6.9% of the human files and 16.3% of the agent files.** Every percentage below it is computed over that filtered subset, not over the 204,673 headline artifacts.
+
+## RQ2: agents cover more boundaries (the robust finding)
+
+Per-category prevalence of literal boundary values passed as call arguments:
+
+| Edge case | Human | Agent |
+|---|---|---|
+| Zero input | 11.2% | 27.7% |
+| Empty collection | 8.1% | 15.0% |
+| Null input | 8.3% | 13.0% |
+| Empty string | 4.1% | 5.7% |
+| **Negative input** | **0.0%** | **0.0%** |
+
+Agents lead on every category that registers at all, and the composite variety score is roughly double (0.61–0.62 vs 0.318). The authors' mechanism is the interesting part and reads as plausible: an LLM's probabilistic enumeration **works like a cheap fuzzer**, mechanically listing null/zero/empty for each parameter, while a human developer *skips* cases their domain model says are unreachable. That is not the agent being smarter — it is the agent lacking the implicit assumptions that let a human prune. Whether the extra cases are protection or noise the paper explicitly declines to answer.
+
+> **The negative-boundary row is a bug, not a finding.** 0.0% in all four cohorts is not a shared human/agent blind spot; it is a detector that cannot fire. Table III specifies the rule as `ast.Constant(value=-1)`, but CPython parses `f(-1)` as `UnaryOp(USub, Constant(1))` — never a negative `Constant`. The rule matches nothing by construction. The paper reports the 0.0% as a substantive result ("a blind spot worth noting"); it is an instrumentation defect, and it means the variety metric is missing one of its five categories for both cohorts symmetrically.
+
+Beyond that, the authors concede the pipeline detects **only literals**: `f(0)` counts, `empty = []; f(empty)` does not, because no data-flow analysis is performed. So the metric measures *awareness of literal edge cases*, and it will systematically under-count whichever cohort writes more variable-driven, fixture-driven tests. Given that humans are the cohort more likely to use fixtures and parametrization, the gap is plausibly inflated in the agents' favour.
+
+## RQ3: agents write flakier tests (directionally supported, not confirmed)
+
+Static flakiness-indicator prevalence:
+
+| Pattern | Human | Agent |
+|---|---|---|
+| Non-determinism (`random`, `datetime.now`) | 3.1% | 5.2% |
+| File I/O (`open`) | 3.5% | 4.6% |
+| Async wait (`time.sleep`) | 1.9% | 1.3% |
+| Network I/O | 0.1% | 0.2% |
+
+The gap is **narrow and specific**, which makes it more credible than a broad "agents are worse" claim would be: agents are *not* worse on every axis — humans use fixed sleeps slightly more — but agents reach for the disk and for random/clock values without mocking or cleanup. The authors' diagnosis is missing **environmental awareness**: the agent can reason about the function under test but not about the CI sandbox the test will run in. Their prescribed fix is sandboxed self-execution ("Generate and Pray" → "Generate, Execute, and Refine"), which is the same shift-left instinct as [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) applied to the agent's own output.
+
+> **The dynamic stage was never reported.** §II and §III.C specify a two-stage protocol: static screening for candidates, then 1,000 sampled tests per cohort re-run N=100 times in isolation, yielding a *Confirmed Flakiness Rate*. That second stage appears only in future tense ("we will run…") and **no confirmed rate appears anywhere in the results.** The authors' own construct-validity section states that the static metric "alone is a weak construct" and "is only valid because it is the first stage of a two-stage process" — so by their own standard, the flakiness finding as published is the weak construct. What is measured is the rate at which tests *contain patterns associated with* flakiness. Treat 0.44 vs 0.30 as a risk-proxy differential, not a flakiness rate.
+
+## RQ1: not established, by the authors' own admission
+
+The reported gap is small — 88.08% vs 85.70% strong assertions — and the more interesting number is "Unknown": **11.58% for agents vs 1.46% for humans**, roughly 8×, which the authors christen **assertion drift**: agents reaching for assertion methods that are project-specific, misspelled, or invented. The maintainability cost they describe is real and worth keeping: a reviewer hitting `assertIsLess` has to stop and determine whether it is a clever project helper or a hallucination, and that friction compounds across a codebase. It is the test-suite instance of the same plausible-surface tax [Faros](/articles/acceleration-whiplash) measures on senior reviewers.
+
+But the comparison underneath it does not hold. §IV states outright that the analyzer's "inability to parse pytest-style assertions" made it "a poor proxy for 'test quality' in the Human-PR cohort, **thereby invalidating a direct comparison**." Python's testing ecosystem is split between `unittest`'s `assertX` methods and pytest's bare `assert` statement; the `TestAnalyzer` recognizes `ast.Call` nodes and so sees only the former. This explains the 6.9% parse rate on human files, and it plausibly explains the Unknown gap in the wrong direction too: a human file written entirely in pytest style yields no recognized assertions and drops out of the denominator rather than registering as Unknown, so the cohort that survives the filter is the unrepresentative `unittest`-writing minority. **The 8× assertion-drift gap inherits exactly the defect the authors say invalidates RQ1.** Its direction is suggestive; its magnitude is not usable.
+
+Two further internal inconsistencies, minor but worth recording since they bear on care taken: §III.A.a says assertions were parsed with **tree-sitter** while §II and the white-box flowcharts say Python's native `ast` module; and Pipeline C's output is defined as `len(rq3_flakiness_indicators)` — a count — while Table VI reports "Cand. Rate" as a rate in [0,1]. §IV also cites "N=29491 per cohort," a figure matching neither cohort.
+
+## What survives
+
+Stripped to what the instrumentation actually supports:
+
+1. **Agents enumerate literal boundary values more mechanically than humans do.** Robust across all four cohorts and every category that fires. Mechanism (probabilistic enumeration as fuzzing; humans prune by domain model) is plausible and testable.
+2. **Agent tests reach for unmocked I/O and non-determinism at ~1.3–1.5× the human rate.** Directional, narrow, and specific to two patterns — but a *risk proxy*, since the confirming re-runs were never reported.
+3. **Neither cohort is dramatically stronger on assertion quality**, with the strong caveat that the human measurement is broken.
+4. **The framing is a trade, not a deficit.** Agents as high-volume test *generators* needing human supervision on environmental isolation — coverage breadth without stability depth. This is a materially different claim from "AI writes bad tests," and it is the one the paper earns.
+
+## Relation to the other AIDev results
+
+This is the **quality sibling** of [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — same corpus family, same July 2026 window, complementary axes. Two contrasts are worth holding together:
+
+- **Control groups run opposite ways.** The security paper has *no* human baseline, so it measures a level (38.9% of agent PRs carry a smell) and cannot support an agent-vs-human delta. This paper *has* a human cohort but the comparison is confounded by the pytest parse gap. Neither, therefore, is the matched-baseline study the vault's open questions keep asking for — but they fail in different directions, and where they agree (agents are weaker on *environmental* concerns: CI plumbing, containers, file I/O, isolation) the agreement is not an artifact of either defect.
+- **Both find the debt in the plumbing, not the logic.** Security smells concentrate 87.6% in GitHub Actions and Dockerfiles; test instability concentrates in file I/O and non-deterministic APIs. In both cases the agent handles the code under consideration competently and mishandles the *environment it runs in*. That is a sharper and more actionable characterization than "agent code is lower quality."
+
+## Connections
+
+- [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the sibling AIDev result on the security axis; opposite control-group weakness, converging finding that agent debt concentrates in environment/plumbing rather than application logic
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — "stealth technical debt" is this page's register of the same compounding mechanism: a passing suite advertises nothing about the reruns it will cost, exactly as a working feature advertises nothing about the architectural premise it was built against
+- [Acceleration Whiplash](/articles/acceleration-whiplash) — the *authoring-quality* thesis measured on the test suite: assertion drift and unmocked I/O are defects arriving at review, and flaky suites are one concrete channel from Faros's throughput rise to its CI/build jam; also a partial complication of that page's dismissal of [Ng](/articles/three-loops-of-ai-native-building) — agents genuinely do broaden coverage, they just destabilize the runner
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the canonical instance in the verification layer itself: a flaky test passes on the run you look at, so the suite reads as green while its signal quietly decays. The failure is in the *verifier*, which is the worst place for it
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — the model-side counterpart: Opus 5's tendency to build elaborate verification pipelines that displace the task. Both are agents over-producing verification artifacts whose volume outruns their reliability
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — flaky agent tests are the mechanism behind Fung's warning that CI/build systems jam under new throughput; her "shift left" prescription and the paper's "Generate, Execute, Refine" are the same move applied to the agent's own output. That page now carries **the cost side this one implies but never prices**: [CircleCI](https://circleci.com/blog/five-takeaways-2026-q2-pulse/) (`vendor-claim`) counts the reruns as a Merge Efficiency Ratio (median 3.9 validation cycles to land a change on main vs 1.3 for its elite cohort) and models ~$900K/yr of delivery cost for a 50-developer team, including a "token reload penalty" for agents idling on CI — so a flaky suite bills twice, in runner minutes and again in the agent tokens spent rebuilding context after each wait. The mechanism here is `empirical` and non-vendor; the price tag there is a vendor model, and the two have never been joined on the same population
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — where a suite's quality turns into a loop-control parameter. In a code verify-repair loop the test suite *is* the verifier, so its properties become ρ₀ and ρ₁ — and a flaky test supplies both, rejecting correct code on one run and passing broken code on the rerun someone triggers to make it green. That page's result is what a low-discrimination verifier costs downstream: a loop that repairs until the suite passes can end below where it started, and the acceptance rate rises the whole way. It also reframes the "trade, not a deficit" conclusion here — breadth raises the *chance* a defect is caught, but the flakiness differential (0.44 vs 0.30) lowers the discrimination of every verdict the suite issues, and only the second of those enters the stopping decision
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the corrosion case: Karpathy's thesis says LLMs automate what you can verify, and a test suite is the verifier for software. Agent-authored tests that are broad but non-deterministic *widen* the verified surface while *weakening* the verification signal on it
+
+## Open Questions
+
+- The paper's own two-stage protocol was never completed: does the 0.44 vs 0.30 candidate-rate gap survive dynamic confirmation, or do agent tests contain flakiness *indicators* without being measurably flakier under repeated runs? The specified experiment (1,000 sampled tests × 100 runs per cohort) would settle it directly.
+- Does the edge-case-breadth advantage survive data-flow analysis? The literal-only detector may be measuring "agents pass literals where humans pass fixtures" rather than a real coverage gap — a re-run with variable resolution, or a matched pytest-aware parser, is the discriminator.
+- What is the **survival rate** of agent-authored tests? The paper's own future work names the missing quantity: how often agent tests are deleted, rewritten, or `@skip`-marked over subsequent months. Coverage breadth bought at the cost of a suite people learn to ignore is negative value, and nothing here measures the maintenance side.
+
+## Sources
+
+- [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](https://arxiv.org/pdf/2607.12068) — Jhanglani, Desai, Kansara & AlOmar (Stevens Institute of Technology, arXiv 2607.12068, 2026-07-13), `empirical`. §II (AIDev retrieval, AST pipelines, heuristic rules in Tables III–IV), §III.A–C (RQ1–RQ3 results, Tables VI–VIII), §IV (threats to validity — the RQ1 pytest-parsing admission and the RQ3 two-stage construct argument), §VI (future work: sandboxed execution, RAG-grounded assertions, automated mocking, longitudinal survival)

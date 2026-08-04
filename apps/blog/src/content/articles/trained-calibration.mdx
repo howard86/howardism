@@ -1,0 +1,73 @@
+---
+date: 2026-07-22
+title: Trained Calibration
+description: "TML's recipe for making calibration a first-class RL target:
+  proper scoring rules on resolved real-world questions, abstention-aware QA
+  rewards where answering only pays when likely right, and a dual rubric+claims
+  grader whose web-searching claims-verifier counters rubric fact-spraying —
+  with forecasting benchmarks (ForecastBench, Prophet Arena) as the resulting
+  eval"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - post-training
+  - calibration
+  - honesty
+  - reward-design
+readingTime: 6
+imageAlt: Illustration for Trained Calibration
+sources:
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
+  - title: "Inkling: Our Open-Weights Model"
+    url: https://thinkingmachines.ai/news/introducing-inkling/
+---
+export { default as heroImage } from "../assets/trained-calibration.webp";
+
+## Sources
+
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/)
+
+## Summary
+
+Calibration — expressing the right amount of confidence, including on unsettled questions — treated as a **training target with its own reward design**, rather than a byproduct of scale or a constitution line. The concrete recipe is [TML's](/articles/thinking-machines-lab) "epistemics" stack for [Inkling](/articles/inkling) (July 2026, `vendor-claim`), the first release in this wiki to describe end-to-end *how* calibration gets trained in:
+
+1. **RL against proper scoring rules** on a large corpus of resolved real-world questions — the forecasting-theory device (a scoring rule is *proper* when truthful probability reporting maximizes expected reward) imported directly into the reward function.
+2. **Abstention-aware short-form QA rewards**: answering only pays off when the model is likely to be right, so the optimal policy is to answer when confident and otherwise say "I don't know" or hedge. Some prompts encourage or forbid hedging, so the *user's* preference for a forced guess versus a calibrated non-answer stays controllable — calibration without hedging-as-a-tic.
+3. **A dual grader for long-form instruction following**: a **rubric grader** (checklist of what a good answer contains) paired with a **claims grader** that extracts each factual claim and verifies it by **agentic web search**, penalizing claims that don't check out.
+
+## The dual-grader design is a reward-hacking patch
+
+TML names the failure mode outright: rubrics "emphasize recall and can be hacked by models spraying plausibly relevant facts hoping to match rubric items." That is [Reward Hacking](/articles/reward-hacking) in the instruction-following reward channel — Goodharting a checklist. The claims grader is the counter-pressure: every sprayed fact becomes a liability, because unverifiable claims are penalized individually. TML's claim is that the pair improves helpfulness *and* reduces hallucination simultaneously, where either grader alone trades one for the other.
+
+The claims grader is also a deployed answer to [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting): it does **not** rely on the judge model's own knowledge to score factuality — the exact condition under which reference-free [LLM-as-a-Judge](/articles/llm-as-a-judge) evaluation over-credits fluent wrong answers — but grounds each verification in retrieved evidence. The over-crediting result predicts that a knowledge-only claims grader would reward confident confabulation; putting search in the reward loop is the mitigation shape that result implies, moved from eval time into training time.
+
+## Forecasting as the resulting evaluation
+
+If calibration is trained on resolved questions, forecasting benchmarks are its natural exam: integrating conflicting sources into a probability, scored by Brier-type rules where overconfidence is punished symmetrically with underconfidence. TML reports Inkling at **61.1 ForecastBench Brier Index (no search)** — level with Gemini 3.1 Pro (61.1) and Grok 4.3 (61.7), above GPT-5.5 (59.1) and well above [Claude Opus 4.8](/articles/claude-opus-4-8) (54.6) — and 0.1617 on Prophet Arena, within noise of the closed frontier. All `vendor-claim`, on a pre-release checkpoint, tested June 30–July 13, 2026. Taken at face value, the striking part is not the win but the *parity*: a 41B-active open model matching frontier closed models on calibration while trailing them badly on hard reasoning (HLE 29.7 vs 44–53) suggests calibration is **cheap relative to capability** — a property of reward design more than of scale.
+
+## Relation to honesty-as-alignment
+
+[Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) tracks the same target from the behavioral-audit side: Anthropic's overconfidence evals (admit ignorance about an unseen CLI tool; validate a teammate's wrong example) measure whether calibration *shows up* in agentic behavior, and Opus 4.8's constitution names "calibrated" as a component of honesty. This page is the training-loop complement: where the audit view asks *does the model behave calibratedly*, the TML recipe specifies *what gradient produces that behavior*. The two views meet at an awkward datapoint — the model whose constitution demands calibration scores lowest of the compared frontier models on TML's forecasting table — though a competitor's benchmark of a rival's checkpoint is the weakest possible evidence for that gap.
+
+## Connections
+
+- [Confident But Unsure](/articles/confident-but-unsure) — the failure this recipe targets, measured in the wild: Opus 5 states answers its own reasoning cannot support, with accuracy up 11% and hallucination up 6% as its abstention rate falls
+- [Inkling](/articles/inkling) — the model this recipe shipped in
+- [Reward Hacking](/articles/reward-hacking) — rubric fact-spraying is the named instance; the claims grader is the counter-pressure
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — why the claims grader must search rather than rely on parametric knowledge
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — both graders are judges inside the reward loop; this is judge design under adversarial (Goodhart) pressure
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — the behavioral-audit view of the same target; calibration as a constitutional dimension vs. as a reward function
+- [Thinking Machines Lab](/articles/thinking-machines-lab) — the lab; ties to their forecasting fine-tune work on Tinker
+- [Introspective Coupling](/articles/introspective-coupling) — the other trained metacognitive report in this wiki: explanation training rather than calibration training, transferring to behavior it never received labels for, and paying a comparable general-capability toll (TruthfulQA −6.7pp, GSM8K ~−5pp)
+
+## Open Questions
+
+- Does abstention-aware training on *short-form QA* transfer to calibrated long-form and agentic self-reports (the setting where [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) shows overconfidence actually bites)?
+- The claims grader verifies via agentic web search — importing the search index's coverage, recency, and bias into the reward signal. What does the model learn to claim about facts the index settles wrongly or not at all?
+- If calibration parity is achievable at 41B active while reasoning is not, is calibration systematically under-trained in frontier closed models (Opus 4.8's 54.6), or is TML's forecasting table just favorable ground for a model trained on proper scoring rules?
+
+## Sources
+
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/) — "Epistemics" section (`vendor-claim`): proper-scoring-rule RL, abstention-aware rewards, rubric+claims dual grader, ForecastBench/Prophet Arena tables

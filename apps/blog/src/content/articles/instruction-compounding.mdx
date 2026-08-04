@@ -1,0 +1,169 @@
+---
+date: 2026-07-25
+title: Instruction Compounding
+description: When a model performs a behavior natively, an instruction telling
+  it to do that behavior stops being redundant and becomes additive, pushing the
+  behavior past its useful point — so Anthropic's Opus 5 prompting guide
+  prescribes deleting verification, re-check, and don't-think instructions
+  rather than rewording them; underneath it sits a measured capacity floor, with
+  all-rules-obeyed compliance hitting zero by ~80 simultaneous instructions on
+  all five models tested, independent of format
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - prompting
+  - claude
+readingTime: 21
+imageAlt: Illustration for Instruction Compounding
+sources:
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
+  - title: Claude Code Changelog
+    url: https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md
+  - title: Enable on-demand expertise with Agent Skills in Genkit Go
+    url: https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/
+---
+export { default as heroImage } from "../assets/instruction-compounding.webp";
+
+## Sources
+
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md)
+- [Enable on-demand expertise with Agent Skills in Genkit Go](https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+
+## Summary
+
+A prompt instruction that tells the model to do something it already does natively does not become *redundant* — it becomes **additive**. The native tendency plus the instruction lands past the useful point, and the result is worse than either alone. Anthropic's [Claude Opus 5](/articles/claude-opus-5) prompting guide is the first vendor documentation to make this its central prescription: the recommended fix for four separate behaviors is **deletion, not rewording**.
+
+> **Evidence note.** `vendor-claim` — Anthropic's own prompting documentation for its own model, offering no measurements. The verification case is independently corroborated by the [system card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)'s `empirical` effort-inversion results ([Unproductive Self-Verification](/articles/unproductive-self-verification)); the review-threshold and tag-leakage cases rest on the vendor claim alone.
+
+## The four documented instances
+
+| Instruction to delete | Native behavior it duplicates | Compounded result |
+|---|---|---|
+| "include a final verification step for any non-trivial task", "use a subagent to verify" | Opus 5 verifies its own work without being told to | Over-verification; Anthropic says removing them "reduces wasted tokens with no loss in quality" |
+| "double-check your answer", "re-verify before responding" | catches and fixes its own mistakes unprompted | Self-correction loops that "compound with the model's own behavior and add cost without improving results" |
+| "only report high-severity issues", "be conservative" (code review) | high precision *and* recall on a single review pass | The model "may follow that instruction literally and report less" |
+| a system-prompt rule not to think or not to reason | thinking is on by default | *Increases* `<thinking>`-tag leakage into visible output when thinking is disabled |
+
+The same instruction applies to harness code, not just prompts: "the same applies to legacy harness scaffolding that adds separate verification steps."
+
+### Anthropic then applied it to its own harness
+
+The [Claude Code changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) (`vendor-claim`; rolling document snapshotted 2026-08-03, scoped to v2.1.200–2.1.220) shows both halves of the asymmetry above arriving as product defaults within weeks of the guide:
+
+- **The request was deleted.** v2.1.215 is a one-line release: "Claude no longer runs the `/verify` and `/code-review` skills on its own; invoke them with `/verify` or `/code-review` when you want them." That is the guide's prescription executed one level up — not "remove the verification instruction from your prompt" but *the vendor removing its own harness's automatic verification path*, on a model the same vendor documents as verifying without being asked. It also enforces structurally the boundary the guide states in prose ("do not use subagents to verify or double-check your own work"): the model can no longer recursively call its own review skill. v2.1.218 separately moved `/code-review` to a **background subagent** — a different move, context isolation rather than deletion, aimed at review work "no longer filling your conversation."
+- **The boundary shipped as a number.** The delegation cap in the bullet list below stopped being advice: v2.1.212 added a default of **200 subagent spawns per session** (`CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION`, "to stop runaway delegation loops") and a matching 200-call WebSearch cap; v2.1.217 added a **20-concurrent** ceiling. Details on [Parallel Agent Orchestration](/articles/parallel-agent-orchestration).
+
+**Carry it as convergence, not as evidence.** The changelog gives no rationale, no measurement, and never mentions the prompting guide; a shipped default is not a test of the mechanism this page describes. What it does establish is that the two instruction classes the guide separates — requests to delete, boundaries to keep — are the same two moves the vendor made in its own harness.
+
+## Why this is sharper than harness shrinkage
+
+[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) says scaffolding becomes **unnecessary** as capability migrates inward — [Cat Wu](/articles/cat-wu)'s discipline of reading the whole system prompt each launch and cutting what the model no longer needs a reminder about. The saving is tokens and maintenance.
+
+Compounding is the harder case: the line is not merely dead weight, it is **actively harmful**. A team that keeps a stale verification instruction because "it can't hurt" is wrong — it degrades the output it was written to protect. That changes the economics of the pruning pass from housekeeping to a correctness obligation, and it means the cost of *not* pruning grows with each release rather than staying flat.
+
+Note the direction of causation, which is easy to get backwards: the advice to remove verification instructions follows from the model being **at or past** the right level of verification, not from it being weak. The behavior the system card treats as Opus 5's marquee *failure* is the same behavior these docs treat as a *competence not to duplicate*.
+
+## The asymmetry: boundaries still work, behaviors don't
+
+The rule is not "prompt less." Instructions that **constrain** rather than **request** remain effective on the same model:
+
+- **Scope.** "Deliver what was asked, at the scope intended… stop short of actions that are clearly beyond what was asked." The system card independently reports that a brief stay-in-scope instruction recovers most of Opus 5's FrontierCode loss ([Unproductive Self-Verification](/articles/unproductive-self-verification)) — the boundary works where the behavioral request backfires. This is [Least Agency](/articles/least-agency) expressed as a prompt.
+- **Delegation caps.** "Delegate to a subagent only for large tasks that are genuinely independent… do not use subagents to verify or double-check your own work," or a deterministic cap on spawn count ([Parallel Agent Orchestration](/articles/parallel-agent-orchestration)).
+- **Filtering as a separate pass.** For review, the prescribed replacement for "be conservative" is *ask for everything and filter afterward* — move the threshold out of the detection step ([Review as the Control Point](/articles/review-as-the-control-point)).
+
+Two further findings point the same way, at the level of instruction *form*:
+
+- **Positive examples beat prohibitions.** "Positive examples of the communication style you want tend to be more effective than instructions about what not to do."
+- **General rules beat specific naming.** For tag leakage, "instructions that call out thinking tags by name are less effective than the general form, so avoid naming them specifically." Naming the failure surfaces it.
+
+Together: describe the target state and the boundary; don't request a behavior or prohibit a failure.
+
+## Artifacts when thinking is disabled
+
+Opus 5 runs with thinking on by default, and thinking can be disabled **only at effort `high` or below** — an API-level constraint, not a prompting choice. With thinking off, two artifacts occasionally appear in visible output:
+
+- **Tool calls as text.** The model writes a tool call into its user-facing text instead of emitting a structured `tool_use` block. The turn completes normally and **the call never runs**; in agentic loops the leaked text stays in conversation history, so later turns are affected too. Most common on tool-heavy workloads such as search. This is a [failure that looks like success](/articles/failures-that-look-like-success) — nothing errors, and the transcript reads as though the tool ran.
+- **Internal XML tags.** `<thinking>` or other internal tags in the visible response, made *worse* by a system-prompt rule against thinking (the fourth row of the table above).
+
+Anthropic's primary mitigation for both is not a prompt at all: **keep thinking enabled and control cost with lower effort**, because "thinking enabled at `low` effort performs better than thinking disabled at similar cost" ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)). Where thinking must stay off, one combined instruction covers both artifacts by supplying affordances rather than prohibitions — permission to speak before a tool call, an alternative to forcing a call when no tool fits, and a general no-internal-tags rule.
+
+## The capacity floor underneath compounding (Eliav, July 2026)
+
+Everything above is about *which* instructions hurt. [Eliav 2026](https://arxiv.org/pdf/2607.19257) (arXiv 2607.19257, `empirical`) measures the orthogonal axis — **how many a prompt can carry at all** — and finds a ceiling that no amount of per-line hygiene moves.
+
+Design: a block of N ∈ \{10, 20, 40, 80, 120, 160\} simultaneous, programmatically verifiable rules (word-count range, required first word, required closing sentence, forbidden/required words, paragraph count), rendered in four formats (markdown / plain / prose / markdown table), placed in either the system prompt or the user turn, 20 trials per cell, 960 calls per model. Five models: [Claude Sonnet 5](/articles/claude-sonnet-5), Claude Haiku 4.5, Gemini 3.5 Flash, and two self-hosted Qwen sizes (27B, 35B). Scoring is regex and word-boundary matching — no LLM judge anywhere.
+
+**Perfect-response rate (all N rules satisfied), pooled across format and placement:**
+
+| Model | N=10 | N=20 | N=40 | N=80 | N=120 | N=160 |
+|---|---|---|---|---|---|---|
+| Sonnet 5 | 0.938 | 0.750 | 0.238 | 0.000 | 0.000 | 0.000 |
+| Gemini Flash | 0.919 | 0.825 | 0.312 | 0.019 | 0.000 | 0.000 |
+| Claude Haiku | 0.850 | 0.594 | 0.119 | 0.000 | 0.000 | 0.000 |
+| Qwen 35B | 0.725 | 0.450 | 0.100 | 0.000 | 0.000 | 0.000 |
+| Qwen 27B | 0.588 | 0.350 | 0.094 | 0.006 | 0.000 | 0.000 |
+
+Every model, every format, both placements: effectively zero by N=80, and flat there through N=160. A **floor, not an asymptote**. The paper's own guidance is the actionable form: *"treat roughly 40 simultaneous instructions as a redesign point, not a tuning point"* — past that range, rephrasing or reformatting the same set is unlikely to help, and splitting it across turns, tools, or a validation pass is the only lever left.
+
+**Read the metric before reading the number.** "Perfect response" is strict conjunction — every one of the N rules satisfied in a single output. A conjunction of N independent checks decays geometrically even at high per-rule adherence (97% per rule is 8.7% at N=80), so part of the floor is arithmetic rather than the model discarding the block. The paper picks the metric deliberately and says why: rule composition shifts with N (the five hard structural rules are half the set at N=10 and 3% of it at N=160), so a pooled mean-adherence score would drift with the mix; it separately verifies the floor-by-80 result holds on the fixed-structural subset alone. What is established is that **you cannot reliably get an all-rules-obeyed output past ~80 simultaneous rules**, not that the model stops reading the prompt.
+
+**Format is not the lever.** Markdown-minus-plain adherence deltas stay within 2.1pp and do not hold a consistent sign for four of five models. The single cleanest directional format signal in the whole experiment runs *against* the convention this wiki's own context files follow: Qwen 35B favors **plain text** at five of six N levels, widening to 4.8pp at N=160. Developed at [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity).
+
+**Placement is a bigger lever than format, and its sign is model-specific.** Moving the identical rule block between system prompt and user turn moves adherence more than format does for four of five models at N=160 (95% Wilson intervals): user-turn placement *helps* Claude Haiku (+6.6pp) and Qwen 35B (+5.1pp), *hurts* Gemini Flash (−8.7pp) and Qwen 27B (−1.8pp), and is statistically indistinguishable from zero for Sonnet 5. Logistic knee fits agree — Haiku's knee moves N≈98 → N≈104 under user placement, Gemini Flash's moves N≈82 → N≈46. There is no "system prompts work better" rule to apply.
+
+**What this does to the thesis on this page.** Compounding and the capacity floor are different mechanisms and the distinction is worth holding:
+
+- Compounding is a **per-line quality** problem — one instruction duplicating a native behavior makes the output worse. It is fixed by deletion of *that line*, and the per-line test ([ablation non-inferiority](/articles/what-scaffolding-survives-model-improvement)) finds it.
+- The floor is a **whole-block capacity** problem — every rule here is distinct, non-redundant, and individually satisfiable (85–94% perfect at N=10), and the set still collapses. Per-line ablation cannot find it, because no single line is at fault.
+
+So the pruning obligation this page establishes is necessary but not sufficient: a context file where every line passes ablation can still be too long, and the binding unit is **simultaneous instruction count**, not tokens. That is the measured answer to [Claude Code Best Practices](/articles/claude-code-best-practices)'s long-standing CLAUDE.md-length question — see its Resolved Questions.
+
+### The architectural answer, and its limit
+
+If the binding unit is instruction count, the fix is not a shorter file but a design that keeps most instructions *out of context until they match*. That is what progressive disclosure does, and as of July 2026 a **second vendor** ships it as an SDK primitive rather than a discipline: Google's Genkit skills middleware injects only each `SKILL.md`'s frontmatter at initialization and loads the body through a single `use_skill` tool call when a request matches ([Enable on-demand expertise with Agent Skills in Genkit Go](https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/), `vendor-claim`; mechanics on [Agent Context Files](/articles/agent-context-files)). Its stated rationale is the token budget, not the count — but the count is what it attacks, since the instructions in force at any one generation are one skill body rather than the union of everything installed.
+
+Two limits worth holding. Every installed skill's *description* is resident from init, so the ceiling is **relocated onto catalog size, not removed**, and nobody has measured where it lands. And Google publishes no numbers of any kind — this is an architecture that ought to work by the mechanism this section establishes, not a demonstration that it does.
+
+**Scope, honestly.** Sole author, single lab (Machine Human Intelligence Lab), arXiv preprint with no peer review, 20 trials per cell. The paper draws the boundary itself: the *qualitative* shape (a hard floor exists, format doesn't move it) is the portable claim, while "N=80" is a property of these five models. And every rule tested is a hard output constraint applied to one generation — the Limitations section explicitly does not claim the pattern transfers to instructions that cannot be checked by exact string matching, which is most of what a real context file contains.
+
+## Connections
+
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the parent dynamic: scaffolding shrinks as capability migrates inward. This page is its sharp edge — some scaffolding does not merely become useless, it becomes harmful, which makes the pruning pass mandatory rather than tidy
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — the behavior at the center of the two biggest instances; the vendor guide supplies the mitigation (delete the instruction) for the failure the system card measured
+- [Output Length Calibration](/articles/output-length-calibration) — the mirror case in the same source: behaviors you must now *add* instructions for, because the defaults moved. Compounding says stop instructing what the model does; calibration says start instructing what it does too much of
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — why the mitigation is an effort setting rather than a prompt: thinking-on at low effort beats thinking-off at comparable cost, so the budget dial substitutes for the disable switch
+- [Review as the Control Point](/articles/review-as-the-control-point) — the review instance in its own domain: an instruction meant to raise the reporting threshold lowers detection instead, so the threshold belongs in a separate filtering pass
+- [Least Agency](/articles/least-agency) — the surviving instruction class: constraints on what the model may do keep working where requests for behavior compound
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — delegation is the other behavior that needs a cap rather than an encouragement
+- [Agent Context Files](/articles/agent-context-files) — where compounding lines accumulate: `CLAUDE.md` / `AGENTS.md` / system prompts are exactly the files that only ever get appended to. Also where the *architectural* answer to the capacity floor lives — progressive disclosure keeps most instructions unloaded until matched, and a second vendor (Genkit) now ships it as a runtime primitive, which lowers the simultaneous count to "every description plus one body" rather than eliminating it
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the thinking-disabled tool-call leak is a textbook instance: the turn completes, the transcript reads clean, and the tool never ran
+- [Claude Opus 5](/articles/claude-opus-5) — the model this was written for
+- [Cat Wu](/articles/cat-wu) — the pruning discipline this obligates
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — the prune-ruthlessly guidance that predates the mechanism, and the page whose CLAUDE.md-length question the capacity floor above settles
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — the format half of the same experiment: no format wins reliably, the sign is per-model, and the one clean signal disfavors markdown — plus the same paper's long-context format reversals
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the second experiment in the same paper: recall holds to 64–128k then degrades in proportion to each model's *own* effective ceiling, and what rises near it is refusal rather than fabrication
+- [What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) — specifies the compounding-detection signature (ablation non-inferiority + inverted dose-response, native-behavior baselining as pre-filter) and places compounding inside the survivor taxonomy: only request-form lines can compound, so constraint-form lines are skippable in the pruning pass
+- [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) — the cross-solver counterpart: compounding is what a solver-fitted artifact does on the *time* axis (the solver improved under a stale correction), and HarnessBank's cross-model matching law is the same failure on the *transplant* axis — one rule ("an artifact transfers as far as the regularity it encodes extends") covers both
+
+## Open Questions
+
+- Is the review case the same mechanism as over-verification, or two? "Be conservative" reducing detection looks like high-fidelity literal instruction-following; over-verification looks like behavioral summation. Distinguishable by testing whether a *weaker* verification instruction still over-verifies.
+- Anthropic's list is hand-curated per release. Is there a detectable signal — from eval deltas, token counts, or the model's own read of its system prompt — that flags which existing prompt lines have become compounding, so pruning is not a manual reread? **Partially answered:** [What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) — the signature exists: a compounding line shows *ablation non-inferiority* (removal holds or improves quality while cutting tokens — Anthropic's own criterion, and the decisive per-line test) and *inverted dose-response* (escalating the instruction worsens the metric — the [Unproductive Self-Verification](/articles/unproductive-self-verification) effort-inversion fingerprint, detectable from eval deltas without ablation). Native-behavior baselining (does the uninstructed model already do it?) ranks candidates, and only request-form lines need testing (constraints don't compound). The model's own read is the one signal to avoid — naming a failure surfaces it. Residual: nothing in the corpus automates this; the per-release list is still hand-curated.
+- Does compounding require the instruction to name a behavior the model already has, or does *any* redundant instruction degrade output? Falsifiable by ablating one instruction at a time against a fixed eval. **Partially answered 2026-08-04** by [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) (`empirical`) from the far side: *redundancy is not required for degradation at all*. Its 10-to-160 rules are distinct, non-overlapping and individually satisfiable, and all-rules compliance still floors by N=80 on all five models. So the answer to "does any redundant instruction degrade output" is bounded by a prior fact — instruction volume degrades the set regardless of redundancy, and the one-at-a-time ablation proposed here is exactly the method that cannot see it, since no single line is at fault. The redundancy half remains open and still needs the ablation.
+
+## Sources
+
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic platform docs (retrieved 2026-07-25, `vendor-claim`): "Task scope and over-verification", "Self-correction", "Controlling subagent spawning", "Capability improvements" (code review), "Running with thinking disabled"
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav (sole author, Machine Human Intelligence Lab; arXiv 2607.19257, 2026-07-21, `empirical`, preprint, not peer reviewed). §4 Experiment 1 in full: Table 4 the perfect-response floor (quoted here in full and verified cell-for-cell against the PDF), §4.2 the floor-not-asymptote reading and the footnote on why perfect-response is the primary metric, Table 5 the markdown-minus-plain deltas, §4.4 the placement effect and logistic knee fits, §8 practical guidance items 1–3, §9 limitations. Parse warning: **Table 1 (the model roster) is cell-collapsed** in the raw markdown — all five models' identifiers, hosts, and context ceilings are space-joined into single cells, and the automated `table-collapse` check returned a **false negative** on it, so no row of Table 1 is cited here; per-model context ceilings are taken from the paper's prose instead. Tables 3–9 were reconciled and are clean. Cosmetic damage only elsewhere: en/em dashes flattened to hyphens throughout, and the bold "best performer" markers are lost in Tables 7 and 9 (the surrounding prose names the winner in both cases)
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) — Anthropic, Claude Code CHANGELOG (`vendor-claim`). **Rolling document, snapshotted 2026-08-03, scoped to v2.1.200–2.1.220**; the raw doc's `published:` is deliberately blank and the live file has since moved on. Release notes only — no rationale, no measurement, and no reference to the prompting guide. Used here for v2.1.215 (Claude no longer self-invokes `/verify` and `/code-review`), v2.1.218 (`/code-review` moved to a background subagent), and the v2.1.212 / v2.1.217 delegation caps
+- [Enable on-demand expertise with Agent Skills in Genkit Go](https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/) — Daniela Petruzalek, Google Developers Blog, 2026-07-31 (`vendor-claim`). Cited only for the *design* — metadata injection at Genkit init, single `use_skill` activation tool, body-plus-resources execution — as an instance of the count-lowering architecture. It measures nothing: no token savings, no adherence numbers, no eager-loading baseline, and the sentence that reads like a result is a diagram caption
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — the `empirical` corroboration for the verification instance: effort inversion on FrontierCode, and the stay-in-scope instruction that recovers most of the loss. Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked

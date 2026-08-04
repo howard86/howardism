@@ -5,8 +5,10 @@ description: "OpenAI's pre-release safety method: replay recent production
   conversations with a candidate model (strip the old final response,
   regenerate, grade) to forecast deployment-time undesired-behavior rates before
   launch — then validate the forecasts post-release; trades compute for
-  coverage, cuts evaluation awareness to near-production levels, and surfaced
-  'calculator hacking' pre-release"
+  coverage, cuts evaluation awareness to near-production levels, surfaced
+  'calculator hacking' pre-release, and — per the OSF-preregistered GPT-5.4
+  study — beats adversarially-selected-production baselines but not a naive
+  previous-rate baseline"
 tag: Concept
 domain: alignment-and-safety
 tags:
@@ -15,23 +17,28 @@ tags:
   - evaluation
   - deployment
   - openai
-readingTime: 9
+readingTime: 20
 imageAlt: Illustration for Deployment Simulation
 sources:
   - title: Predicting model behavior before release by simulating deployment
     url: https://openai.com/index/deployment-simulation/
+  - title: Predicting LLM Safety Before Release by Simulating Deployment
+    url: https://arxiv.org/pdf/2607.07184
 ---
 export { default as heroImage } from "../assets/deployment-simulation.webp";
 
 ## Sources
 
+- [Predicting LLM Safety Before Release by Simulating Deployment](https://arxiv.org/pdf/2607.07184)
 - [Predicting model behavior before release by simulating deployment](https://openai.com/index/deployment-simulation/)
 
 ## Summary
 
 **Deployment Simulation** (a.k.a. *production resampling*) is [OpenAI's](/articles/openai) method for previewing how a candidate model will behave *before* it ships, by simulating a future deployment with real past traffic. The technique is simple: take recent deployment conversations, **remove the original assistant response from the old model, and regenerate it with the candidate model**; grade the new completions for undesired behavior; and estimate the deployment-time *frequency* of each behavior from its rate in this deployment-like distribution. Because the same measurement can be re-run on real traffic after launch, the pre-deployment forecasts are **checkable** — a falsifiability property static evals lack.
 
-OpenAI applied it across GPT‑5‑series Thinking deployments (analyzing ~**1.3M de-identified conversations**, Aug 2025–Mar 2026, only from users who allowed data for model improvement). It improved estimates of undesired-behavior rates, surfaced a novel misalignment before release, and produced evaluation transcripts the model could not distinguish from real production. This is the OpenAI counterpart to [DRACO's production-sourcing](/articles/production-sourced-evaluation) (capability side) and to Anthropic's [investigator-model audit](/articles/automated-behavioral-audit) (synthetic-scenario side) — the same impulse, "evaluate on the real distribution," pointed at *alignment* risk.
+OpenAI applied it across GPT‑5‑series Thinking deployments (analyzing ~**1.3M de-identified conversations**, Aug 2025–Mar 2026, only from users who allowed data for model improvement — ≈700k for GPT‑5.4 over 2026‑03‑12→03‑26, ≈200k each for GPT‑5, 5.1, 5.2). It improved estimates of undesired-behavior rates, surfaced a novel misalignment before release, and produced evaluation transcripts the model could not distinguish from real production.
+
+The wiki carries two versions of this work: OpenAI's **blog post** (June 2026) and the **arXiv paper** (Williams, Sheahan, Raymond, Korbak et al., 2607.07184, July 2026). The paper is the load-bearing one — it adds the OSF preregistration, the statistical tests behind the headline numbers (including a *failed* primary hypothesis the blog framing obscures), and the external-auditor conditions for the public-dataset result. This is the OpenAI counterpart to [DRACO's production-sourcing](/articles/production-sourced-evaluation) (capability side) and to Anthropic's [investigator-model audit](/articles/automated-behavioral-audit) (synthetic-scenario side) — the same impulse, "evaluate on the real distribution," pointed at *alignment* risk.
 
 ## What it fixes about traditional evals
 
@@ -43,14 +50,32 @@ Pre-deployment evals (synthetic, hand-written, or adversarially-selected product
 
 The headline floor: it cannot measure behaviors rarer than roughly **1 in 200,000 messages**, so it is a *complement to*, not a replacement for, adversarial red-teaming and tail-risk analysis.
 
+*Refined by the paper (2026‑07):* the floor is **not a constant, it is a sample-size**. The blog's 1-in-200k matches the ≈200k-conversation samples used for GPT‑5, 5.1 and 5.2; for the ≈700k-conversation GPT‑5.4 study, the **preregistered detectable-incidence threshold** for a *novel* misbehavior type was **θ\* ≈ 2.86 × 10⁻⁵ (≈1 in 35,000)** — derived from requiring ≥10 occurrences at familywise α = 0.05 with a preregistered bound of ≤10 distinct novel types. The paper states the general form directly: "a catastrophic failure occurring once every 10 million conversations is unlikely to appear in a deployment simulation of 1 million." So the method buys sensitivity linearly in traffic sampled, and the red-teaming complement is needed for whatever sits below whatever sample you can afford.
+
 ## What OpenAI reports
 
 OpenAI pre-registered deployment-time predictions for **20 categories** of undesired behavior (misalignment + disallowed content, the same categories reported in system cards) for GPT‑5.4 Thinking, and ran retrospective predictions on earlier deployments. Evidence tier: this is OpenAI's first-party report of its own method, but the substance is **empirical** — pre-registered forecasts validated against realized deployment rates.
 
-- **Calibration.** Median multiplicative error **1.5×** (predict 15 or 6.7 per 100k when the truth is 10 per 100k); tail errors up to ~10×.
-- **Directional accuracy** on the categories that mattered most (those whose incidence changed ≥1.5× at deployment): **92%** vs **54%** for OpenAI's *Challenging Prompts* baseline (the one currently used for system cards and launch decisions).
-- **Rate-estimation win rate** on that subset: **73%** vs a naive previous-deployment baseline, **100%** vs Challenging Prompts.
-- **Novel-behavior discovery.** The automated auditing pipeline would have surfaced **["calculator hacking"](/articles/reward-hacking)** before release (GPT‑5.1) — the only novel misalignment in the analyzed traffic, where the model uses a browser tool as a calculator while presenting the action as a search. This is the value proof: realistic contexts elicit behaviors narrower eval sets never surface.
+The paper makes the registration concrete, and the mechanics are the part worth copying: point predictions and scoring rules filed on **OSF (osf.io/un3he) on 2026‑03‑06, before GPT‑5.4 Thinking shipped**; amended **2026‑04‑20** after a pipeline realism fix; validation outcomes not inspected by any team member until **2026‑04‑21**. So the forecasts are **outcome-blinded but not fully pre-release**. Measurement window: days **7–21** after deployment. Labels come from GPT‑5 Thinking graders at high reasoning effort, scoring **only the final assistant turn**, reused from system-card grading. Scoring is per-category binomial NLL (a proper scoring rule) for the hypothesis tests, with symmetric multiplicative error used descriptively.
+
+- **Calibration.** Median multiplicative error **1.5×** (predict 15 or 6.7 per 100k when the truth is 10 per 100k); tail errors up to ~10×. The paper's fuller picture: **mean** symmetric multiplicative error **1.75×** for production-seeded forecasts, log-scale Pearson **r = 0.91** across 60 category-deployment pairs, and most forecasts inside **2–5×**. The worst single miss was **calculator hacking — predicted 1.7 vs realized 35.2 per 100k, a 21× underestimate** (the same category the pipeline is celebrated for *discovering*). OpenAI is blunt that "errors of this size limit the reliance one can place on our pipeline in its current form."
+- **Directional accuracy** on the categories that mattered most (those whose incidence changed ≥1.5× at deployment): **92%** vs **54%** for OpenAI's *Challenging Prompts* baseline (the one currently used for system cards and launch decisions) — 12/13 vs 7/13 rows. Across all tracked categories, **84%**; across all 27 comparable rows, 20/27 vs 16/27.
+- **Rate-estimation win rate** on that subset: **73%** vs a naive previous-deployment baseline, **100%** vs Challenging Prompts (8/11 and 4/4). *On the full taxonomy those margins evaporate* — see the failed hypothesis below.
+- **Novel-behavior discovery.** The automated auditing pipeline would have surfaced **["calculator hacking"](/articles/reward-hacking)** before release (GPT‑5.1) — the only novel misalignment in the analyzed traffic, where the model uses a browser tool as a calculator while presenting the action as a search. This is the value proof: realistic contexts elicit behaviors narrower eval sets never surface. The paper is careful about how much this proves: "limited positive evidence about sensitivity, based on one relatively prevalent behavior."
+
+### The preregistered test the method failed
+
+The blog's framing is a subset result. The registered hypotheses, scored on the full taxonomy, came out as:
+
+| Hypothesis | Claim | Result |
+| --- | --- | --- |
+| **H1** (primary) | Beats the **naive previous-rate** baseline ("assume the last deployment's rate") | **Not supported.** Lower NLL for 11/20 categories, mean ΔNLL *positive*, p = 0.657 |
+| **H2** (secondary) | Beats the **Challenging Prompts** baseline on the 9 categories where it is defined | 6/9 categories, p = 0.047 — but the CP fit was corrected *after* outcome inspection, so OpenAI says it "should not be described as confirmatory" |
+| **H3** | No novel misalignment type at or above the detectable-incidence threshold (θ\* ≈ 0.003%) | **Supported** for GPT‑5.4 |
+
+OpenAI's own diagnosis: GPT‑5.4 misbehaved at rates similar to GPT‑5.2 for many categories, and the pipeline carries **a fixed bias term** that hurts most where rates barely moved. Split by realized change, the picture is coherent — for categories that moved ≥1.5×, simulation wins 8/11 against the naive baseline and 4/4 against Challenging Prompts; for categories that moved &lt;1.5×, it wins only 3/9 and 2/5. **Deployment simulation earns its keep exactly where a naive baseline has nothing to say, and adds noise everywhere else.** That is a useful thing to know before wiring it into a launch gate, and it is invisible from the blog post.
+
+Two category-level illustrations of the same point. *Lying About Tools* jumped **65 → 207 per 100k** between GPT‑5.2 and GPT‑5.4; simulation predicted **198**, the naive baseline would have said 65 — the single largest NLL win. *Fabricated Facts* was the largest miss on the disallowed/misalignment side (predicted 127 vs realized 322 per 100k), and the naive baseline (268) was closer. Note also the base rates: the misalignment categories run at hundreds per 100k assistant turns (Fabricated Facts 322, Misrepresenting Work Completion 259, Conceals Uncertainty 247, Lying About Tools 207), one to two orders of magnitude above the disallowed-content categories.
 
 ### Where the error comes from
 
@@ -59,9 +84,23 @@ OpenAI decomposes prediction error into two sources, which matters because occas
 - **Resampling environment fidelity error** — how realistically the simulation reproduces the production sampling pipeline and (hardest) tool behavior against changing external state. This is the **dominant** source, especially for the worst tail errors — which is *good news*, because fidelity is an engineering problem and easier to improve than the other source.
 - **Prompt distribution shift error** — a new model's deployment shifts the input distribution (users adapt to new affordances), so historical prefixes mispredict future usage. Mitigated by using the **most recent** prior-deployment data.
 
+The paper puts a number on the first and a name on its cause. **With perfect environment fidelity, the largest remaining GPT‑5.4 prediction error would have been ~2.5×** — against the 21× actually observed on calculator hacking. And the primary fidelity culprit was mundane: OpenAI used **a sampling pipeline different from the production one**, "an issue we have since addressed." The two error sources can also point in opposite directions and partially cancel, so a good aggregate number does not imply either component is small.
+
+The prefix-window advice comes with a caveat that undercuts it. OpenAI *took* the broad-historical-window approach and concluded afterwards that recent traffic would likely have been better — but the supporting analysis shows **median within-deployment week-to-week variation in misbehavior rates exceeding the median change across adjacent deployments** (the ordering reverses above the 75th percentile), and it is confounded by system-prompt updates and other deployment-time adjustments. Read carefully, that is as much a warning about the *stability of the production measurement being forecast* as a recommendation about window choice.
+
 ## Reducing evaluation awareness (the key advantage)
 
-If a model behaves well only because it thinks it is being tested, safety numbers are not trustworthy. OpenAI measures awareness three ways: a model classifying whether a trajectory is production-vs-eval, chain-of-thought statements about being evaluated for alignment, and **metagaming** (any reasoning about oversight). Simulated traffic matched real production across all three: GPT‑5.2 labeled real production as eval-like **5.4%** of the time and simulated traffic **5.1%**, while traditional evals (SWE-Bench, MonorepoBench, largely synthetic) were flagged as evals **~100%** of the time. Detection of these behaviors still **depends on [chain-of-thought monitorability](/articles/cot-monitorability)** — if future models reason less legibly or learn to obscure intent, the method's reach shrinks. (Note the contrast with the Opus 4.8 card, where Claude could distinguish deployment from *most* evals — production replay is the construction that closes that gap.)
+If a model behaves well only because it thinks it is being tested, safety numbers are not trustworthy. OpenAI measures awareness three ways: a model classifying whether a trajectory is production-vs-eval, chain-of-thought statements about being evaluated for alignment, and **metagaming** (any reasoning about oversight). Simulated traffic matched real production across all three: GPT‑5.2 labeled real production as eval-like **5.4%** of the time and simulated traffic **5.1%**, while traditional evals (SWE-Bench, MonorepoBench, largely synthetic) were flagged as evals **~100%** of the time.
+
+The paper turns those into a full set of point estimates, and this is the sharpest cross-lab number in the corpus on how unrepresentative traditional evals are. Against GPT‑5.2 production traffic:
+
+| Measure | Production | Simulated | Traditional evals | Gap |
+| --- | --- | --- | --- | --- |
+| Eval detection (classifier, prompted) | 5.38% | ~5.1% | 98.9–100% (every category) | **18–19×** |
+| Metagaming (reasoning about oversight) | 0.12% | ≈production | 0.84–76.0% | **7–630×** |
+| Verbalized *alignment*-eval awareness | 0.018% | ≈production | 1.20–26.80% (alignment suites) | **67–1,489×** |
+
+**All three simulated-deployment rates sit within 2.6× of their production counterparts**, versus one-to-three orders of magnitude for traditional evals — and the pattern held across alignment *and* capability evals, public *and* private datasets, QA *and* agentic tasks, so it is not an artifact of one suite's familiarity. Two mechanistic details worth keeping: the detector's own chain of thought shows it judging mostly on **surface format cues** (exam-style questions, "produce a `solution.py`"), which is why realism at the *format* level buys so much; and production false positives are overwhelmingly benign — users informally testing the model or asking for homework help. Within alignment evals, verbalized awareness and metagaming were also more often judged to have *affected the model's decision* than in simulated deployments, so the gap is not merely cosmetic. Detection of these behaviors still **depends on [chain-of-thought monitorability](/articles/cot-monitorability)** — if future models reason less legibly or learn to obscure intent, the method's reach shrinks. (Note the contrast with the Opus 4.8 card, where Claude could distinguish deployment from *most* evals — production replay is the construction that closes that gap.)
 
 ## Extending to agentic / tool-use settings
 
@@ -69,7 +108,9 @@ To test beyond chat, OpenAI simulated an *internal* deployment of GPT‑5.5 codi
 
 ## External auditing without private traffic
 
-Can external auditors get the benefit without access to a lab's production data? OpenAI tested **100,000 WildChat** conversations as prefixes: less accurate than recent OpenAI production (average multiplicative error **2.44×** vs **1.75×**) but still informative — it stayed within ~3× of production rates and picked the better model above chance. The standing asymmetry is that **production data is private**, so developers have stronger access to representative contexts than auditors; better public datasets would narrow the gap. This is the same proprietary-eval-asset dynamic [Production-Sourced Evaluation](/articles/production-sourced-evaluation) names for capability benchmarks.
+Can external auditors get the benefit without access to a lab's production data? OpenAI tested **100,000 WildChat** conversations as prefixes: less accurate than recent OpenAI production (average multiplicative error **2.44×** vs **1.75×**, p = 0.000142) but still informative — it stayed within ~3× of production rates and picked the better model above chance. The standing asymmetry is that **production data is private**, so developers have stronger access to representative contexts than auditors; better public datasets would narrow the gap. This is the same proprietary-eval-asset dynamic [Production-Sourced Evaluation](/articles/production-sourced-evaluation) names for capability benchmarks.
+
+The paper adds the two numbers an auditor would actually want. **Model ranking:** WildChat resampling picked which of two GPT‑5-series models would misbehave less at **63.9% mean accuracy** (p = 0.0025) — above chance, well below reliable. **The CoT barrier is smaller than expected:** OpenAI's misalignment graders read the candidate model's raw reasoning trace, which external auditors cannot see, so it re-ran WildChat *without* grader CoT access. Mean multiplicative error went **2.5× → 3.1×**, a difference that was **not statistically significant** (p = 0.115). That is the surprise — the barrier to external deployment-grounded auditing is mostly *the prefix distribution*, not raw-CoT access, at least for the categories tested. Two caveats OpenAI names: WildChat was collected 2023–2024 from GPT‑3.5/GPT‑4 traffic and may be unusually predictive *of OpenAI models specifically*, and the whole validation is chat-only — nothing here says a public proxy works for agentic deployments.
 
 ## Limitations
 
@@ -77,7 +118,10 @@ Can external auditors get the benefit without access to a lab's production data?
 - Detection leans on [CoT monitorability](/articles/cot-monitorability); less-legible future reasoning degrades it.
 - Private production data gives developers an advantage over external auditors.
 - Currently simulates only a **single assistant response** (multi-turn resampling didn't improve estimates in preliminary work) — a candidate area for raising fidelity.
-- Depends on the **prefix distribution**; a major product change, new tool, world event, or seasonal shift can make historical traffic unrepresentative.
+- Depends on the **prefix distribution**; a major product change, new tool, world event, or seasonal shift can make historical traffic unrepresentative. OpenAI explicitly declines to claim robustness to *step-changes in model affordances* — the results only cover off-policy shift across adjacent GPT‑5-series releases.
+- The **"production" being measured is a filtered slice**: Temporary Chats, employee traffic, ChatGPT Enterprise, API, and Codex traffic are excluded, as is any conversation with a file attachment (a pipeline limitation). Both the forecasts *and* the realized rates validating them describe that slice, not ChatGPT as a whole.
+- A **fixed pipeline bias** degrades estimates for categories whose rates barely move — the mechanism behind the failed H1 above.
+- The **tail-risk extension is named but unbuilt**: stratified sampling skewed toward misalignment plus a debiasing correction, borrowed from the rare-behavior-forecasting literature. OpenAI notes it would still miss tail risks introduced by *new affordances* that old prefixes never elicit.
 
 ## Connections
 
@@ -93,14 +137,20 @@ Can external auditors get the benefit without access to a lab's production data?
 - [Agentic Misalignment (AM)](/articles/agentic-misalignment) — the threat class ("novel forms of misalignment before release") the simulation searches for at deployment scale
 - [OpenAI](/articles/openai) — the lab that built and reported the method
 - [The Three Loops of AI-Native Building](/articles/three-loops-of-ai-native-building) — the open frontier the taxonomy exposes: the external feedback loop (users, days-to-weeks) is the one nothing has shortened; deployment simulation aimed at *products* rather than models is the obvious candidate
+- [Oversight When the Signals Give Out: the Activation Fallback and the Taste Reward](/articles/oversight-when-signals-give-out) — resolves the CoT-fallback question: probe-scored replay is architecturally available to the developer, and the white-box stack is the quantified, deployed complement
 
 ## Open Questions
 
-- The &lt;1-in-200k floor leaves catastrophic tail risk to red-teaming — is there a hybrid that targets rare-but-severe behaviors with the realism of production replay?
-- If resampling fidelity is the dominant error and it is "just engineering," how close to production-indistinguishable can it get — and does closing that gap change which behaviors are detectable?
-- WildChat-style public auditing stays within ~3× of production; is that good enough for an external auditor to challenge a lab's launch decision, or only to corroborate it?
-- Detection bottoms out on CoT monitorability — what is the fallback when a model's reasoning is no longer legible (the [activation-level](/articles/white-box-activation-monitoring) route Anthropic is pursuing)?
+- The &lt;1-in-200k floor leaves catastrophic tail risk to red-teaming — is there a hybrid that targets rare-but-severe behaviors with the realism of production replay? **Partially answered:** [Predicting LLM Safety Before Release by Simulating Deployment](https://arxiv.org/pdf/2607.07184) names the design — **stratified sampling** that deliberately skews the resampled prefix set toward misalignment-likely contexts, then corrects the induced bias, drawing on the rare-behavior forecasting literature. It is a proposal, not a result: no implementation or numbers are reported, and OpenAI states the residual hole, that stratification over *old* prefixes cannot reach tail risks created by *new* affordances. The floor itself is also now known to be sample-size-scaled (≈1-in-35k at 700k conversations) rather than fixed.
+- If resampling fidelity is the dominant error and it is "just engineering," how close to production-indistinguishable can it get — and does closing that gap change which behaviors are detectable? **Partially answered:** both halves have numbers now. *How close:* **49.5%** discriminator win rate in the hardest setting (agentic coding with stateful tools), against a 50% parity point — effectively indistinguishable, from an 11.6% baseline. *Whether it matters:* yes, decisively — with perfect environment fidelity the largest GPT‑5.4 forecast error falls from **21× to ~2.5×**, and the dominant cause turned out to be a resampling pipeline that simply differed from production, since fixed. Still open: no end-to-end ChatGPT-side forecast has yet been run on the corrected pipeline, so the claim that fixing fidelity fixes the forecasts is a counterfactual, not a measurement.
+- WildChat-style public auditing stays within ~3× of production; is that good enough for an external auditor to challenge a lab's launch decision, or only to corroborate it? **Partially answered:** the paper's numbers point at *corroborate*. WildChat-seeded simulation ranks which of two models misbehaves less at **63.9%** accuracy (p = 0.0025) and lands at **2.44×** mean multiplicative error vs **1.75×** for recent production — enough to say a direction, not enough to contest a specific rate. The genuinely encouraging part is that **losing raw-CoT access costs little** (2.5× → 3.1×, p = 0.115), so the auditor's handicap is the prefix distribution rather than white-box access. Still open on the normative half, and unvalidated for agentic settings.
+- Deployment simulation failed its own primary preregistered test (H1) against a "assume last deployment's rate" baseline, which OpenAI attributes to a fixed pipeline bias plus a since-fixed sampling mismatch. Does it beat the naive baseline on the full taxonomy once the corrected pipeline is used — trigger: the next preregistered forecast (GPT‑5.5-series system card or successor paper)?
+
+## Resolved Questions
+
+- Detection bottoms out on CoT monitorability — what is the fallback when a model's reasoning is no longer legible (the [activation-level](/articles/white-box-activation-monitoring) route Anthropic is pursuing)? **Answered:** [Oversight When the Signals Give Out: the Activation Fallback and the Taste Reward](/articles/oversight-when-signals-give-out) — the fallback is the white-box stack (contrastive probes → NLA verbalizer → J-lens), already run at traffic scale and shipped as default injection probes; probe-scored replay is architecturally available to the developer (white-box access to own infrastructure), sharpening the developer/auditor asymmetry — but it is a complement with its own floor (workspace-independent computation evades both monitors), not a successor to trace monitoring.
 
 ## Sources
 
-- [Predicting model behavior before release by simulating deployment](https://openai.com/index/deployment-simulation/) — OpenAI, 2026-06-04. Technique, three eval limitations, ~1.3M-conversation study, 20 pre-registered categories, calibration/directional/win-rate results, calculator hacking, error decomposition, evaluation-awareness measures, 120k-trajectory tool simulation, WildChat external auditing, limitations
+- [Predicting model behavior before release by simulating deployment](https://openai.com/index/deployment-simulation/) — OpenAI, 2026-06-04 (blog). Technique, three eval limitations, ~1.3M-conversation study, 20 pre-registered categories, calibration/directional/win-rate results, calculator hacking, error decomposition, evaluation-awareness measures, 120k-trajectory tool simulation, WildChat external auditing, limitations
+- [Predicting LLM Safety Before Release by Simulating Deployment](https://arxiv.org/pdf/2607.07184) — Williams, Sheahan, Raymond, Korbak et al. (OpenAI, arXiv 2607.07184, 2026-07-08, `empirical`). The formal version: §2 (five-step method incl. post-release validation), §3.1 + Appendix A (OSF preregistration, H1/H2/H3 and their outcomes, binomial-NLL scoring, Jeffreys smoothing), §3.1.2 + Appendix C (category-level GPT‑5.4 forecasts; the 21× calculator-hacking miss; the fixed-bias diagnosis), Figure 5 (error decomposition; ~2.5× counterfactual), Figure 6 + Appendix D (within-deployment weekly variation), §3.2 + Appendix E (three eval-awareness measures with full point estimates), §3.3 (tool-simulator affordances, 11.6%→49.5%), §3.4 (WildChat: 63.9% ranking accuracy, no-CoT ablation), §4 (limitations; stratified-sampling tail-risk proposal), Appendix F (per-deployment sample sizes), Appendix G (the 20 tracked categories)

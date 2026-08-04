@@ -1,0 +1,169 @@
+---
+date: 2026-08-03
+title: Layerwise Omission Attribution
+description: "Santhiya Rajan (arXiv 2607.22448, `empirical`): omission — a
+  decision-critical fact silently missing from an agent's answer — is a property
+  of the whole pipeline rather than of the model, and can be assigned to one of
+  nine layers (L0 ingestion through L8 agent loop) by checkpoint taps that
+  exact-match a unique canary at every boundary. L0-L3 are deterministic
+  software losses counted exactly with no judge; L4-L8 are behavioral, estimated
+  by contrast. Across 75,476 synthetic trials the waterfall implies benchmark
+  omission O_R = 0.574 with 73.4% of loss in L0-L3 — but Phase A deliberately
+  injects those faults, so that split describes the designed allocation and not
+  production prevalence, and the paper says so four times. What survives the
+  caveat: the taxonomy, the canary-tap method, and three operator-controlled
+  knobs that all raise omission (context length OR 7.43 at 32k vs 2k, q4 KV
+  cache 2.25, scaled RoPE 1.99)"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - failure-modes
+  - context-management
+  - evaluation
+  - harness
+readingTime: 21
+imageAlt: Illustration for Layerwise Omission Attribution
+sources:
+  - title: "Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution
+      of Information Omission in Air-Gapped LLM Agent Pipelines"
+    url: https://arxiv.org/pdf/2607.22448
+---
+export { default as heroImage } from "../assets/layerwise-omission-attribution.webp";
+
+## Sources
+
+- [Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution of Information Omission in Air-Gapped LLM Agent Pipelines](https://arxiv.org/pdf/2607.22448)
+
+## Summary
+
+**Omission** is the dual of hallucination: not the assertion of something false, but the silent absence of a fact that should have been surfaced. Santhiya Rajan ([Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution of Information Omission in Air-Gapped LLM Agent Pipelines](https://arxiv.org/pdf/2607.22448), Multiverse Computing, arXiv 2607.22448, 2026-07-24, `empirical`) makes the case that it is the more dangerous of the pair and the less studied, and its argument for *why* is the sentence to keep:
+
+> A hallucinated lab value can be caught by a reader who knows the range; an omitted critical value produces a fluent, confident, and complete-looking report that simply never mentions it.
+
+The canonical incident is **coverage collapse**: "the tool returns 400 observations across paginated pages, the agent reads the first 20, and reports 'no anomalies found' — a conclusion that is locally faithful to what the model saw and globally catastrophic."
+
+The paper's central claim is architectural. **Omission in a deployed agent can be a property of the whole pipeline, not only of the model.** A needle can be deleted by a redactor before inference, dropped because pagination was not followed, evicted under context pressure, suppressed during generation, or lost when the orchestrator compacts history. Output-only evaluation — every omission detector in the related work — sees one bit and cannot distinguish these mechanisms, which is precisely the information an operator needs to act. So the unit of diagnosis becomes the pipeline, and the question becomes *which layer is consistent with this failure*.
+
+The setting is deliberately narrow: the **air-gapped / on-prem stack** a hospital, law firm, or national agency is forced into — a quantized 4-8B open-weights model on a single 16-24 GB GPU served by llama.cpp or vLLM, wrapped by an MCP tool server paging documents out of an internal system, driven by a lightweight orchestration loop. The taxonomy is written for that stack; most of its layers exist in any agent pipeline.
+
+## The nine layers
+
+Table 1, the paper's main portable artifact. The order is fixed, which is what prevents one failure being counted at two upstream checkpoints.
+
+| # | Layer | Key omission mechanisms | Class |
+|---|---|---|---|
+| L0 | Source / ingestion & redaction | OCR table-structure loss, PHI/PII de-identification stripping values, local guardrail rewrites | Determ. |
+| L1 | Tool protocol & schema | MCP transport size caps, unfollowed pagination, tool-call parse failures, tool-list/schema truncation (context tax) | Determ. |
+| L2 | Orchestrator middleware | string slicing, metadata stripping, history/state condensation | Determ. |
+| L3 | Serialization / tokenizer / template | special-token injection, template drift, tool-role folding, digit/code tokenization | Determ. |
+| L4 | Engine runtime & memory | context shifting without `-keep`, VRAM limits, weight & KV-cache quantization, vLLM preemption | Behav. |
+| L5 | Attention / positional | sliding-window gaps, lost-in-the-middle, RoPE misconfiguration | Behav. |
+| L6 | Priors / training bias | prior override of anomalous facts, synthetic-data fragility, frequency smoothing | Behav. |
+| L7 | Decoding & structured output | greedy/top-p pruning, repetition penalty, grammar/schema-constrained generation | Behav. |
+| L8 | Agent loop & output | iteration caps, history compaction, context-budget policy, `max_tokens`/stop-sequence truncation | Behav. |
+
+**The split is the method, not a label.** L0-L3 are *deterministic software*: a fact either survives the byte/token stream at a checkpoint or it does not, so each loss is exact, per-payload, and attributable with certainty by inspection — no inference, no statistics, no judge. L4-L8 are *behavioral*: the same tokens are present and the model may or may not use them, so everything is held fixed, one factor varies, and the change in retrieval rate is estimated over many trials.
+
+**L1 is layer zero for real agents**, and the argument is the most immediately usable part of the paper. Treating "the tool returns a payload" as atomic hides the most common omission in this class of agent. A FHIR MCP server can expose 30+ tools whose JSON schemas alone consume 5-15k tokens; when the orchestrator caps the tool list, **the model never learns a retrieval tool exists — omission by unreachable capability, invisible to any needle test.** Small local models emit imperfect JSON and harnesses that silently drop unparseable tool calls produce turns where the tool was never invoked. And "reading 20 of 400 observations and reporting 'no anomalies' is an L1 loss, not a model error."
+
+## Canary taps: attribution without a judge
+
+The instrumentation is the reusable engineering. Logging taps sit at every pipeline boundary (T0 raw record, T1 post-ingestion text, T2 tool result at the orchestrator, T3 compiled prompt string, T4 final token-ID sequence detokenized and checked, T5 tokens resident in KV cache from engine logs, T6 generated output, T7 final agent answer). Every needle carries a **unique alphanumeric canary** (`LAB-7Q4X9`) alongside its clinical or legal value, so presence at T1-T5 is a fully offline exact-match check.
+
+Two design details make it hold up:
+
+- **Every needle must round-trip the tokenizer losslessly** (encode → decode = original) *before use*, or L3 losses masquerade as L5 failures. That is a precondition, not a check — it is why the measured ω3 is 0.000.
+- **Three needle families do different attribution jobs.** Literal (exact value) and paraphrase (query shares no surface words) probe L5; **conflict** needles (a value contradicting a strong prior, e.g. lithium 4.8 mEq/L against the model's ~0.8 expectation) exist because a literal needle test alone *cannot* isolate prior-induced omission. The (conflict − literal) gap at matched depth and length is the L6 instrument. Plausible distractors are included in half of all trials, since distractor-free noise overstates retrieval.
+
+Engine events (`context shift`, SWA checkpoint restore, vLLM preemption) are captured as per-trial covariates — those are the L4 attribution signals, and the whole L4 story rests on them.
+
+## The waterfall, and what its headline number does not mean
+
+For a coherent cascade with `N_i` opportunities entering layer *i* and `L_i` first lost there, the conditional rate is `ω_i = L_i / N_i`, the unconditional contribution `c_i = ω_i ∏_{j<i} (1 − ω_j)`, and total omission `O_R = 1 − ∏(1 − ω_i)`.
+
+| Layer | ω_i | 95% CI | Label source |
+|---|---|---|---|
+| L0 ingestion/redaction | 0.160 | [0.158, 0.163] | checkpoint |
+| L1 tool protocol | 0.175 | [0.172, 0.178] | checkpoint |
+| L2 orchestrator | 0.165 | [0.162, 0.168] | checkpoint |
+| L3 tokenizer/template | 0.000 | [0.000, 0.000] | checkpoint |
+| L4 engine/memory | 0.000 | [0.000, 0.000] | telemetry |
+| L5 attention/position | 0.189 | [0.185, 0.192] | heuristic |
+| L6 priors | 0.012 | [0.011, 0.014] | heuristic |
+| L7 decoding | 0.018 | [0.017, 0.019] | heuristic |
+| L8 agent loop | 0.065 | [0.062, 0.067] | task contrast |
+| **Total O_R** | **0.574** | [0.571, 0.578] | implied by rates |
+
+Substituted into Eq. 1 this gives O_R = 0.5743; the L0-L3 contributions sum to 0.4213, **73.4% of waterfall loss**.
+
+**That 73.4% is not a finding about production, and the paper is unusually disciplined about saying so** — in the abstract, in the taxonomy section, in Results, and again in the failure ledger. Phase A *deliberately injects* redaction, pagination and truncation failures; the number describes the designed cell allocation. "It does not show that 73.4% of naturally occurring production omissions are caused by middleware." Wilson intervals describe binomial sampling uncertainty *within* cells and do not capture uncertainty from cell weighting, model selection, or heuristic attribution. This is the number most likely to be quoted out of its fence, and the fence is load-bearing.
+
+**The two zeros are the interesting rows, and one of them is a trap.** ω4 = 0.000 does not mean the engine layer is safe. L4 is attributed only when an engine event log shows the needle's positions fell in an evicted range — "tokens never resident in cache." Corruption of a *resident* token by q4 KV quantization is not an L4 loss under this rule; it surfaces downstream and is scored at L5. So the same q4 KV setting that contributes **zero** to the ledger carries an **odds ratio of 2.25** in the profile analysis below. Reading "engine/memory 0.000" as "quantization is fine" inverts the paper's own result.
+
+## What actually moves omission
+
+Odds ratios oriented so OR > 1 means *more* omission. Core contrasts come from fixed-effects logistic regression on gold-path Phase-C rows (deterministic layers verified lossless, no engine events fired); the profile contrasts come from separately launched server-profile follow-ups across all five model configurations.
+
+| Factor (contrast) | OR | 95% CI |
+|---|---|---|
+| Context length, 32k vs 2k | **7.43** | [5.44, 10.15] |
+| Needle depth, 0.5 vs 0.1 | 1.38 | [1.23, 1.54] |
+| Paraphrase vs literal | 3.65 | [3.31, 4.03] |
+| Conflict vs literal | 1.42 | [1.28, 1.59] |
+| Repetition penalty 1.3 vs greedy | 0.32 | [0.26, 0.41] |
+| q4 KV cache vs f16 KV | 2.25 | [2.07, 2.45] |
+| Scaled vs native RoPE | 1.99 | [1.83, 2.16] |
+
+Four things worth carrying:
+
+- **Context length dominates everything else by a factor of two**, on a path where every upstream layer was verified lossless. This is the measured form of the [Context Window Smart Zone](/articles/context-window-smart-zone) claim, isolated from retrieval failure and from harness truncation.
+- **The two strongest configuration effects are server *launch flags*, not model choices.** KV-cache type and RoPE scaling are `llama-server` start arguments — the exact knobs an on-prem operator turns to fit a longer window into 16-24 GB. The core dilemma the paper names: *a bigger window bought with heavier quantization can retrieve less than a smaller window at higher precision.* Scaled RoPE is worse still, because it "reproduces mid-context blindness that looks architectural but is a config bug."
+- **Paraphrase's 3.65 is partly a measurement artifact and the paper says so.** All retrieval labels use case-normalized expected-answer substring matching, *including on paraphrase trials* — so a semantically correct answer in different words scores as omission. Do not read this row as a semantic-retrieval result.
+- **The repetition-penalty benefit (OR 0.32) is not a decoding recommendation.** The authors explicitly decline to generalize it beyond the tested prompts.
+
+## The real-data pilot
+
+A separate 372-trial population — two served model configurations × LangChain and ADK × five source/provider conditions, over FHIR, PubMed and SEC EDGAR material. It is **not pooled into the main waterfall**.
+
+- 157 trials received a final success attribution, 163 were outcome-coded non-success, and **52 (14.0%) remained unknown** — 44 LangChain recursion-limit errors and 8 SEC filing-not-found errors. Counting unknowns as unsuccessful gives **0.578**; excluding them gives **0.509** over the 320 outcome-coded trials.
+- Framework rates (LangChain 0.602, ADK 0.554) **include their own execution errors**, so they measure end-to-end framework-conditioned reliability, not an isolated orchestration effect. There is no no-framework arm.
+- The endpoint is *broader than omission*: eleven of the 163 non-successes contain the expected substring but remain loop failures.
+- Source rates span **6×** — FHIR injected 0.148, SEC injected 0.639, PubMed injected 0.889, SEC via MCP 0.500, PubMed via MCP 0.917 — but each domain is tied to its source and sample construction, so a domain effect is **not separately identified**. The spread is the paper's own argument for why it reports the pilot as a pilot.
+
+Note also that the pilot is **air-gap-compatible at inference time, not fully offline**: model serving and answer scoring are local, but selected source acquisition uses public online services.
+
+## The descriptive contrast that reverses expectations, and is refused
+
+The full-attention control has the *highest* descriptive omission (0.716) while the SSM-hybrid contrast is *lowest* (0.489); the llama.cpp/vLLM aggregate difference is 0.593 vs 0.537. Both reverse the anticipated ordering, and **the paper declines to draw a conclusion from either.** Every model row changes family, tokenizer, parameter count, training data, instruction tuning, and chat template simultaneously; engine support is unbalanced across model configurations. The stated position is that causal architecture attribution requires a within-family, weight-matched study that does not exist yet. This is the right call and worth copying: a five-row model table that reverses the expected ranking is exactly where a weaker paper would have found its headline.
+
+## Limits that bound the whole thing
+
+- **The raw trials are gone.** "The raw main-sweep and profile trial files are absent from this checkout," so the paper's own audit "reconciles the committed aggregate values rather than claiming an independent row-level reproduction." The tables can be checked for internal arithmetic — they do reconcile, exactly — but not independently regenerated. Archiving them is listed as future work.
+- **Phase D is a rule-based diagnostic heuristic, not a causal decomposition.** A failed trial with mean forced log-probability above a configured −2.0 threshold is labeled `pruned_L7`; otherwise the label is decided by *needle family* (conflict → L6, else L5). The paper states plainly that "the recorded rank does not currently determine the label, and attention versus prior is inferred from needle family." Every L5/L6/L7 row in the waterfall inherits this.
+- **The statistical model is thinner than specified.** No random intercept for needle ID was fitted; confidence intervals are model-based rather than cluster-robust, so repeated needles and model-specific effects remain sources of dependence. Odds ratios are associations conditional on included factors, not percentages of omission caused.
+- **Single author, single lab, one preprint, one stack.** The empirical tier is earned by the trial counts and the internal consistency, not by replication.
+
+## Connections
+
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the class this page decomposes, and the read-side half of it. That page's instances are all *write-side or utterance-side* (state correct but message stale, a policy-violating write, a self-test that passes over a below-random policy); omission is the same silence attached to a fact that was never surfaced at all. The contribution here is that "looks like success" stops being one class and becomes a **locus**: nine places a silent failure can originate, with the deterministic four countable exactly
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the same word on the orthogonal axis, and the two compose. This page attributes a failure to *where in the pipeline* a fact died; WHO&WHEN PRO attributes it to *which agent and which step* produced the decisive action, over 12,326 trajectories whose labels are golden by construction. The comparison is the useful part: the deterministic half of this method needs no model at all and counts losses exactly, while the behavioral half of attribution — which is all of the other paper's task, sitting entirely in L4–L8 here — tops out at 73.9% step localization and 10.8–22.2 macro-F1 on *why*. Roughly the price of having no checkpoint to diff against. Each also supplies what the other cannot: a canary tap says the fact died at L1 but not which agent's decision caused the tool to be called that way; a decisive-step label says which action broke the run but not whether the payload ever arrived
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the sibling failure at the same boundary, one direction over. That paper's silent policy violation is a **write** that should not have happened; this paper's L1 loss is a **read** that never completed. Both are invisible in the trace, both are attacked by instrumenting the pipeline rather than asking the model, and both find the tool layer to be where the damage concentrates — a gate is a predicate at the write boundary, a canary tap is an exact-match at the read boundary. The two also share a structural finding: the failure exists because a component was built permissive (a tool that executes anything well-formed; a harness that truncates, drops unparseable calls, and stops at page one)
+- [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — the largest computation-locus split measured so far. This taxonomy *is* Tan's diagnostic operationalized: L0-L3 are software, L4-L8 are the model, and the waterfall assigns every lost fact to one side. The result under this benchmark's allocation is 73.4% software — the direction Tan's framing predicts — with the crucial qualifier that Phase A put those faults there on purpose
+- [Tool-Output Pruning](/articles/tool-output-pruning) — where the taxonomy actually bites. A learned per-line pruner substituting a compressed tool response into the history *is* L2 orchestrator middleware performing history condensation, which this taxonomy classes as **deterministic** — meaning a pruner's losses are countable exactly at a checkpoint tap by canary diff, with no judge. That is a third option for a problem SWE-Pruner Pro's evaluation could not solve: per-line F1 ranked a useless head *above* a useful one, and its LLM judge is itself unvalidated in that role. Neither metric answers "did a fact the agent later needed survive?"; a canary diff between T2 and T3 does. The reverse caution holds too — this paper's ω2 = 0.165 comes from *injected* truncation and says nothing about what a learned pruner drops
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the complementary axis of the same question, and the two taxonomies compose rather than compete. Self-GC's six-category failure taxonomy is **dependency-centered** (*what future action becomes unsupported*: evidence detail, locator, behavioral contract, verbatim source, live state, recovery routing); this one is **locus-centered** (*where the fact died*). Self-GC's own operations sit at L2 and L8 — history/state condensation and agent-loop compaction are both named omission mechanisms here — so its no-impact judge is an output-level detector for losses this method would count exactly. The methodological gap it leaves open is the one canary taps close: Self-GC names recovery *success* as unmeasured future work, and an exact-match tap at the boundary is how you would measure it
+- [Deep Research Agents](/articles/deep-research-agents) — the pipeline shape at its most exposed: decompose, retrieve iteratively across heterogeneous sources, synthesize. DRACO found factual accuracy the weakest axis across all four production systems and graded it at the output; this supplies the missing question — an omitted source in a cited report could be an L1 pagination stop, an L2 condensation, an L5 mid-context miss, or an L8 iteration cap, and only the last two are about the model. The pilot's 6× source-rate spread (FHIR 0.148 vs PubMed 0.889) is a warning for any research agent read as source-agnostic
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — this vault sitting inside the taxonomy. "OCR table-structure loss" is the first mechanism listed under L0, and it is exactly the docling table-collapse/shift failure documented in `_system/compiler-prompt.md`; the ingest-time `table-collapse` and `table-shift` checks in `parse-asset.sh` are L0 checkpoint taps in everything but name. The transferable idea the vault does not yet have is the **canary**: a known token planted in the source and exact-matched after parsing turns "are these tables suspect?" into a countable per-document loss rate
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the measured version of the smart-zone claim, isolated: OR 7.43 for 32k vs 2k on a path where every upstream layer was verified lossless, so it is length itself and not truncation, retrieval, or harness policy
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the same complaint about output-only scoring, on a new axis. That page argues one accuracy number hides reliability and efficiency; this argues it hides **mechanism** — a single omission rate cannot separate byte-level software loss from behavioral non-retrieval, and the operator's next action depends entirely on which it was
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — omission as the hardest case for verification: there is no artifact to check. A hallucination presents a claim you can test; an omission presents a complete-looking report and nothing to compare it against, which is why the paper's candidate detectors (canary injection, coverage accounting, forced citation, logprob monitoring, engine-telemetry alarms) all instrument the *pipeline* rather than the output
+
+## Open Questions
+
+- Under organic production faults rather than Phase A's deliberate injection, does the L0-L3 software share stay above the L4-L8 model share at all? The 73.4% figure is a property of the designed cell allocation and the paper fences it four times; nothing in the corpus measures the layer split on unweighted production traffic. Distinct from [Failures That Look Like Success](/articles/failures-that-look-like-success)'s prevalence question, which asks what fraction of failures are silent rather than which layer produced them.
+- Does ω4 = 0.000 survive a workload that forces real context overflow? Engine/memory contributed zero attributed loss while q4 KV cache carried OR 2.25, because L4 is credited only when an event log shows the needle sat in an evicted range and corruption of a *resident* token scores at L5. Cheaply falsifiable: rerun the B1/B2 contrasts with payloads sized to evict the needle span and check whether the L4/L5 split moves. If it does not, the zero is an artifact of the attribution rule and the taxonomy needs a fifth deterministic class for corrupted-but-resident tokens.
+- Do the L0-L3 checkpoint taps transfer to a hosted-API agent pipeline? The deterministic half of the method depends on reading raw bytes and token IDs at every boundary — T4 requires the final token-ID sequence, T5 requires KV-residency from engine logs — and no frontier inference API exposes either. If they do not transfer, the exactly-countable layers are auditable only on-prem, and the stack most agents actually run on is the one that cannot be instrumented.
+
+## Sources
+
+- [Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution of Information Omission in Air-Gapped LLM Agent Pipelines](https://arxiv.org/pdf/2607.22448) — Santhiya Rajan (Multiverse Computing), *Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution of Information Omission in Air-Gapped LLM Agent Pipelines*, arXiv 2607.22448, 2026-07-24, `empirical`, 8pp / 8 tables / 0 figures. Sections used: Introduction (omission-vs-hallucination framing, the coverage-collapse incident), Taxonomy (Table 1, the L1 argument, the deterministic/behavioral split, Eq. 1), Attribution Methodology (Table 2 taps T0-T7, canary protocol, tokenizer round-trip precondition, the three needle families, Phases A-E), Results (Tables 5-8, the 73.4% fence, the cross-model refusal, the real-data pilot accounting), Limitations and Future Scope. **Parse warnings** — the docling parse carries one flagged table shift and two collapses the ingest checker missed, so table cells were reconciled against the prose before any citation: Table 8(c)'s L5 row label is duplicated across merged cells (values intact — the six fractions sum to the stated O_R 0.574), and **Tables 4 and 7 have space-joined multi-value cells**. The model and engine rates quoted here (full-attention 0.716, SSM-hybrid 0.489, llama.cpp 0.593, vLLM 0.537) are the four corroborated in the Results prose; the remaining three model rows in Table 7 are positionally inferable only and are not cited, and Table 4's model-to-slot mapping is not quoted. Tables 5, 6 and 8 were verified arithmetically rather than trusted: Table 5's ω_i reproduce O_R = 0.5743 and the 0.4213 / 73.4% L0-L3 share through Eq. 1 exactly; Table 8(c)'s six fractions each reproduce from Table 5's rates to three decimals; Table 8(a) and 8(b) both n-weight to the 0.578 end-to-end rate and their n columns both sum to 372. Table 6's section headers ("Core Phase C", "Separate profile follow-ups") are merged into the first row-label of each block, but each row carries exactly one OR and one CI and the four prose-stated values (7.43, 0.32, 2.25, 1.99) match exactly

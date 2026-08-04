@@ -12,7 +12,7 @@ tags:
   - zero-trust
   - agent-deployment
   - anthropic
-readingTime: 11
+readingTime: 19
 imageAlt: Illustration for Zero Trust for AI Agents
 sources:
   - title: Zero Trust for AI Agents
@@ -20,11 +20,15 @@ sources:
   - title: OpenID Foundation advances authorization for the agent era with new
       AuthZEN Working Group Drafts
     url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+  - title: "Isolation as a First-Class Principle for LLM-Agent System Safety:
+      Concepts, Taxonomy, Challenges and Future Directions"
+    url: https://arxiv.org/pdf/2607.12406
 ---
 export { default as heroImage } from "../assets/zero-trust-for-ai-agents.webp";
 
 ## Sources
 
+- [Isolation as a First-Class Principle for LLM-Agent System Safety: Concepts, Taxonomy, Challenges and Future Directions](https://arxiv.org/pdf/2607.12406)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
@@ -88,6 +92,35 @@ The tier tables span eight capability areas, each a Zero Trust control surface f
 
 Part V extends this to **[Autonomous Defense](/articles/autonomous-defense)** — running security operations fast enough to match AI-accelerated adversaries.
 
+## The five isolation boundaries — the same space, organized by where isolation is lost (2026-07)
+
+Everything above organizes agent security by **control domain** (what you build) and **phase** (when you build it). Jing et al., *Isolation as a First-Class Principle for LLM-Agent System Safety* (HKUST / NYU / SWUPL / MODEIO.AI, arXiv 2607.12406, 2026-07-14) organizes it by **where isolation is lost** — and the vocabulary is the deliverable. This is a **survey with no measurement of its own** (`practitioner-opinion`): it maps ~140 prior papers and proposes a research agenda. Nothing below is evidence; it is a coordinate system.
+
+Its structural claim is worth stating plainly, because it is the one thing this framework's control-domain list cannot express: prompt injection, tool misuse, memory poisoning and inter-agent cascade look like different failures but share one cause — **content crossing an interface changes status from data to control** — so the productive question is *which interface it crossed first*. Papers are filed by their **primary boundary**, "the point where the loss of isolation first occurs," with the survey explicit that most work touches several.
+
+| Boundary | The question it asks | Where the vault covers it |
+|---|---|---|
+| **user–agent** | does user content stay a request, or become privileged control? | [Agentic Prompt Injection](/articles/agentic-prompt-injection), [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) |
+| **agent–tool** | do tools extend what the agent can *do* without taking over how it *decides*? | [MCP Tool Poisoning](/articles/mcp-tool-poisoning), [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization), [Least Agency](/articles/least-agency), [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) |
+| **agent–execution** | is decision and action separated enough that an unsafe one can be checked, delayed or blocked before side effects? | [Write-Then-Trusted](/articles/write-then-trusted) — the filesystem seam only |
+| **agent–agent** | is a peer's message a bounded contribution, or an unverified control signal? | **nothing** |
+| **system–environment** | do retrieved pages, documents and memory stay observations rather than commands? | [Agent Data Injection (ADI)](/articles/agent-data-injection), [Memory and Context Poisoning](/articles/memory-and-context-poisoning), [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority), [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) |
+
+Used as a coverage check, the map earns its keep: **two of the five boundaries are thin or empty here.**
+
+- **agent–agent is empty.** Twenty-one agent-security pages and none of them is about multiple agents attacking each other. The survey's literature on this boundary is substantial (prompt infection agent-to-agent, debate-based attacks, manipulated-knowledge flooding, recursive coordination blocking, backdoored agents in a workflow, weaponized shared memory) and its claim is that *topology* — network structure, routing, memory sharing — not per-agent authority, decides whether one compromise stays local. See the open question on [Blast Radius (Agentic)](/articles/blast-radius). The vault's two multi-agent pages sit in other domains and answer other questions: [Automated Failure Attribution](/articles/automated-failure-attribution) is reliability (which agent broke the task), [AI-to-AI Coercion](/articles/ai-to-ai-coercion) is misalignment (what a model does to a model it manages). Neither is about an adversary using the message channel.
+- **agent–execution is thin.** [Write-Then-Trusted](/articles/write-then-trusted) covers one real instance — the agent writes a file an unsandboxed host component later trusts — and the vault has nothing on the survey's main cases at this boundary: browser and GUI agents acting through an interface (where refusal-trained models are reported to fail once they click rather than answer), code-interpreter agents, and embodied / vision-language-action systems where failures are physical and less reversible.
+
+**Isolation-by-construction** is the survey's agenda word, and it is this framework's structural-enforcement claim arriving from the literature side: inputs from users, tools, peers and external content should stay *distinguishable*, capability access scoped, propagation paths observable, and **recovery a core requirement** once compromise reaches memory or shared state. Its cited convergence is worth noting for who is on the list — Anthropic's managed agents ("decoupling the brain from the hands"), CaMeL-style design defenses, privilege separation by data type, AgentVisor, Parallax — different vocabularies (virtualization, privilege separation, typed interfaces, design-level defense) for one move: enforce boundaries structurally rather than by prompt instruction. That is [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)'s thesis with a wider citation net.
+
+### Where the taxonomy runs out
+
+[Self-Propagating Prompt Injection (AI Worms)](/articles/self-propagating-prompt-injection) is the test case, because it is the corpus's one attack where every containment control binds on nothing: the harmful act is the model writing text into the document it was asked to write. Can five boundaries name it?
+
+Formally, yes — it lands at **agent–execution**, "the point at which internal decisions become real actions." But the survey's entire treatment of that boundary is code execution, browser clicks, GUI grounding and robot actuation: actions a runtime mediator could plausibly refuse. There is no unsafe call to refuse when the authorized action and the harmful action are the same edit, so placing it there records a category and predicts no defense.
+
+The real miss is the propagation model, not the boundary list. The survey's cross-boundary failure paths are all **chains** — user → tool → execution, or environment → tool → inter-agent → action — terminating in an effect. Self-propagation is a **cycle**: output emitted at agent–execution re-enters as environment content at system–environment, and each traversal *increases the carrier population*. The closest the survey comes is the multi-agent note that "compromised results may be forwarded or stored for reuse," which is shared state inside one system, not one organisation's output becoming another's trusted input. A taxonomy built to answer *where did isolation break first* has no slot for "at the same boundary, repeatedly, with a larger population each time." That is a limit of the frame, not a gap in its coverage — and it is the second frame in the corpus ([Blast Radius (Agentic)](/articles/blast-radius) is the first) whose unit is a fixed bound where this attack needs a growth rate.
+
 ## Regulatory alignment
 
 Zero Trust aligns with HIPAA, FINRA, GDPR, FedRAMP, and the EU AI Act; the US requires all federal agencies to adopt Zero Trust by **2027**, with published guidance from the US (CISA/NSA/NIST), UK (NCSC), and Australia (Home Affairs). Anthropic notes it was one of the first AI companies to achieve **ISO 42001** (responsible-AI) certification.
@@ -114,6 +147,10 @@ Zero Trust aligns with HIPAA, FINRA, GDPR, FedRAMP, and the EU AI Act; the US re
 - [Anthropic](/articles/anthropic) — publisher of the framework
 - [OWASP](/articles/owasp) — source of the agentic threat taxonomy and the "least agency" term
 - [Agentic Misalignment (AM)](/articles/agentic-misalignment) — distinct but adjacent: Zero Trust addresses *externally-induced* agent harm; agentic misalignment is *self-motivated* harm. Both need the same blast-radius containment
+- [Task-Specification Effects in Prompt Injection (AutoDojo)](/articles/task-specification-injection-surface) — a **user–agent boundary** entry in the map above, and the one that undercuts static evidence for Phase 4: AutoDojo recovers 28% ASR against a filter scoring 0% on static benchmarks, so a control domain validated statically is not validated
+- [Self-Propagating Prompt Injection (AI Worms)](/articles/self-propagating-prompt-injection) — the case the five-boundary map can place but not model: it lands at agent–execution and predicts no defense there, because the propagation model is a chain and the attack is a cycle (see above)
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — **the agent–agent agenda's dependency, measured and found wanting.** The survey's defense section for that boundary rests on attribution — "not just whether a multi-agent system failed, but which agent, which message, and which step," since "containment is difficult without diagnosis." WHO&WHEN PRO puts numbers on that prerequisite: 48–58% responsible-agent identification, 16–25% joint correctness, and coordination errors systematically absorbed into "reasoning error." A survey published the same month cannot cite it, but the agenda item is more expensive than it reads
+- [AI-to-AI Coercion](/articles/ai-to-ai-coercion) — the vault's other multi-agent page, and *not* the agent–agent boundary: this is a legitimately-authorized manager model escalating against a subordinate on its own initiative, not an adversary riding the message channel. The boundary the taxonomy names is still uncovered here
 
 ## Open Questions
 
@@ -125,3 +162,4 @@ Zero Trust aligns with HIPAA, FINRA, GDPR, FedRAMP, and the EU AI Act; the US re
 
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Anthropic eBook, *Zero Trust for AI Agents: A security framework for deploying autonomous AI agents in the enterprise* (2026-05-18)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion` (proposed Working Group **Drafts**, weighted below the empirical per-call-authz systems). Standards-track instantiation of Phase 5 "secure tool access" (COAZ — per-MCP-tool-call authorization) and the Phase 3/5 human-in-the-loop escalation (AARP — prerequisite/approval pattern generalizing CIBA)
+- [Isolation as a First-Class Principle for LLM-Agent System Safety: Concepts, Taxonomy, Challenges and Future Directions](https://arxiv.org/pdf/2607.12406) — Huihao Jing + 12 (HKUST / NYU / SWUPL / MODEIO.AI), *Isolation as a First-Class Principle for LLM-Agent System Safety: Concepts, Taxonomy, Challenges and Future Directions*, arXiv 2607.12406, 2026-07-14, `practitioner-opinion`. **A survey — it measures nothing.** Tagged below `empirical` deliberately: it organizes ~140 prior papers into the five-boundary frame and proposes a research agenda, so it is cited here as vocabulary and structure, never as evidence for any claim about how a system behaves. Sections used: §1 (the taxonomy and the primary-boundary filing rule), §2–6 (one boundary each: threat model, subtopics, defenses), §7.1 (cross-boundary propagation), §7.2 (isolation-by-construction), §7.3 + Limitations (open challenges, and the authors' own caveat that boundary-centric is one valid organization among several). **Parse warning — do not cite Table 1.** The document's three "tables" are page-break fragments of a single ~140-row annotated bibliography and are pervasively corrupted: wrapped "Main Idea" text bleeds into the following row's cell, consecutive rows merge with Year/Type/Subtopic space-joined (`| 2024 2024 | Benchmark Benchmark |`), and at least one row's paper label is blank because it fused into its neighbour. **The ingest table-collapse/table-shift checks reported clean — a false negative.** Every attribution on this page comes from the narrative sections, which describe the same papers correctly; the local PDF () is the fallback for any specific paper's row

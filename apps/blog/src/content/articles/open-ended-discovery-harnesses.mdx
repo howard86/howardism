@@ -1,0 +1,215 @@
+---
+date: 2026-08-04
+title: Open-Ended Discovery Harnesses
+description: "Harness designs for running coding agents for hours against
+  problems with no known optimum (circle packing, GPU scheduling, contest
+  heuristics, decoding kernels), where the recurring failure is idea collapse —
+  the loop commits to one high-level approach in the first hour and
+  micro-optimizes it forever. SwarmResearch (arXiv 2607.02807, empirical)
+  attacks it with two harness moves: a Shepherd Agent holding global context
+  steering Search Agents that see only their own git branch, and one
+  branch+worktree per agent so competing approaches are never reverted away. It
+  matches or beats EvoX and CORAL on 13/15 open-ended optimization tasks and
+  beats optimal fixed (n,k) scaling on 4/5 — but the 13/15 is method-vs-method:
+  on the five contest-heuristics tasks every method sits at a third to
+  two-thirds of human SOTA, and the evolutionary baseline it beats most
+  decisively ran on roughly half the dollar budget"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - agent-orchestration
+  - open-ended-discovery
+  - test-time-compute
+  - empirical
+readingTime: 26
+imageAlt: Illustration for Open-Ended Discovery Harnesses
+sources:
+  - title: "SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery"
+    url: https://arxiv.org/pdf/2607.02807
+---
+export { default as heroImage } from "../assets/open-ended-discovery-harnesses.webp";
+
+## Sources
+
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807)
+
+## Summary
+
+The harness class that runs a coding agent for hours or days against a problem with **no known optimum** and an evaluator instead of a test suite: pack circles denser, schedule transactions faster, write a better contest heuristic, make speculative decoding quicker. Four designs currently compete for the same budget — a single long-running loop (Karpathy's **autoresearch**, which commits improvements and reverts regressions), **LLM-guided evolution** (AlphaEvolve, OpenEvolve, ShinkaEvolve, EvoX — an LLM as mutation operator inside a heuristic selection pipeline), **shared-memory multi-agent** (CORAL — concurrent agents exchanging insights through a filesystem memory), and the orchestrator-subagent design this page is named for. All four are organized around one failure: **idea collapse**.
+
+> **Disambiguation.** "Research" here means *optimization and discovery*, not literature synthesis. This is a different system class from [Deep Research Agents](/articles/deep-research-agents), which decomposes a query, searches the web, and returns a cited report. The two share the word and almost nothing else — no retrieval, no citations, a numeric objective instead of a rubric, and a run measured in hours rather than minutes. The overlap that is real is structural: both are decompose → explore → synthesize loops whose quality is set by the orchestration layer rather than by the base model.
+
+> **Evidence note.** `empirical`, single paper, single lab (UIUC), preprint. **n = 1 run per technique per task** — the authors state a single pass over the 15-task benchmark for all three methods cost ~$1,700 in Opus 4.6 credits and defend one long run as the most representative use of each method's own recommendation (Appendix B). No variance, error bars or significance tests appear anywhere.
+
+## The failure the class is organized around: idea collapse
+
+SwarmResearch's framing is that convergence onto one approach is a **harness property, not a model limitation**, and it names three distinct mechanisms — one per competing design:
+
+- **Context accumulation** (single-agent loops). An agent that has spent three hours making incremental refinements to one approach is conditioned on a history of incremental refinements to that approach, so a large pivot — which would require several rounds of whole-program rewrite — becomes unlikely. The long conversation *is* the anchor.
+- **A single editable program state** (single-agent loops again). Improvements are committed, regressions reverted, and future search proceeds from the current best implementation. That makes the trajectory "a greedy sequence of local refinements" and discards promising-but-not-top solutions permanently.
+- **Shared memory** (multi-agent). CORAL's agents self-organize through a common filesystem memory, and "when all agents see that another agent found a stronger solution, they decide to improve the best solution and abandon independent directions." This is collapse by *visibility* rather than by context length, and it is the reason SwarmResearch restricts each Search Agent to its own lineage — see [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence), where this is the sharpest available answer to when a homogeneous collective stops being more than the sum of its parts.
+
+Evolutionary methods have long had an answer to the same problem — MAP-Elites in AlphaEvolve, P-UCB and forced-diversity prompts in [Evolutionary Proof Search](/articles/evolutionary-proof-search) — but they apply it **by heuristic algorithm**, not by an LLM reading the population. SwarmResearch's claim is that the LLM can hold that role.
+
+## The two mechanisms
+
+**Context is tiered.** Search Agents get *local* context: the contents of their git worktree, plus (for Optimizers) the forked conversation history of their direct parent. The Shepherd Agent gets *global* context: a summary of every Search Agent's approach and evaluated score. Each Search Agent also appends to a `findings.md` in its own lineage — a factual log of what was tried and what it scored, giving descendants their ancestors' results without their ancestors' conversation.
+
+**Every agent gets its own git branch and worktree.** `main` holds only `prompt.md` and a minimal working baseline. A branch off `main` is a from-scratch attempt; a branch off a completed agent's commit refines that lineage; a multi-parent branch (`git merge --no-commit`) combines two. Nothing is ever reverted away, so "promising yet not top-performing solutions are not prematurely discarded."
+
+The Shepherd steers with exactly three levers, and **none of them is an idea**:
+
+| Lever | Mechanism | What it controls |
+|---|---|---|
+| **Parent selection** | create the branch/worktree the agent starts in | which neighborhood of the solution space gets explored |
+| **Agent type** | Explorer (fresh context window) vs Optimizer (`--resume <parent_session> --fork-session`) | pivot vs refine |
+| **Prompt** | minimal, non-prescriptive context | what *not* to re-explore; cross-lineage findings; plateau briefings |
+
+The most load-bearing design decision is a **prohibition**, stated as the shepherd skill's most important rule: *"search agents independently determine their experiments; you are not allowed to instruct them to work on specific ideas."* The authors' reason is empirical and worth carrying — restricting the Shepherd from prescribing ideas "helped maintain idea diversity; otherwise, the Shepherd Agent itself could get stuck inside a basin of ideas." **A single orchestrator with global context is exactly the component most at risk of the collapse the architecture exists to prevent**, so the fix is to deny it the ability to express its own convergence. The skill even ships good/bad worked examples of context that describes a tradeoff versus context that assigns a method and a parameter range.
+
+The whole thing is three [Claude Code](/articles/claude-code) skills shelling out to `claude --permission-mode bypassPermissions -p... --output-format json`, with no hyperparameters — the orchestrator sets its own width and depth. That makes it the hand-rolled sibling of [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra), which productizes the same "model writes the orchestration program" idea inside a Bun sandbox.
+
+## The 15-task result, and the distinction the headline hides
+
+> **Parse warning.** Table 1 in the PDF-derived raw is **cell-collapsed and row-shifted** — the five Math rows are merged into one grid row of concatenated values, and EPLB's SOTA value (0.1490) is orphaned onto a phantom row of its own, leaving the EPLB row short a cell. `parse-asset.sh` passed it clean (a false negative of exactly the kind the compiler prompt warns about). **Do not cite the raw table as parsed.** Every cell below was re-mapped against (`pdftotext -f 7 -layout`) at ingest and again at compile; no digit is wrong, the defect is purely structural.
+
+Bold = best of the three methods. Green highlighting in the paper (score ≥ SOTA) is rendered here as **§**.
+
+| Domain | Task | SOTA | EvoX | CORAL | SwarmResearch |
+|---|---|---|---|---|---|
+| Math | Circle-Packing ↑ | 2.635983 | 2.1064 | 2.635985 **§** | **2.635996 §** |
+| Math | Signal Processing ↑ | 0.8229 | 0.7181 | 0.7403 | **0.7970** |
+| Math | Erdős Min Overlap ↓ | 0.380876 | 0.38195 | 0.381099 | **0.381080** |
+| Math | MMD-14-3 (Min-Max-3) ↓ | 4.16578 | 4.46410 | **4.16578 §** | 4.16584 |
+| Math | 3rd-Autocorrelation ↓ | 1.45368 | 1.46220 | 1.46233 | **1.45649** |
+| Systems | EPLB ↑ | 0.1490 | 0.1443 | **0.1467** | 0.1436 |
+| Systems | LLM-SQL ↑ | 0.7310 | 0.7253 | 0.7195 | **0.7331 §** |
+| Systems | Txn Scheduling ↑ | 4566.0 | 4081.6 | 4201.7 | **4366.8** |
+| Systems | Cloudcast ↓ | 618.4 | 696.1 | **618.0 §** | **618.0 §** |
+| Systems | PRISM ↑ | 26.26 | 26.26 **§** | 26.26 **§** | 26.26 **§** |
+| Heuristics | Territory (AHC008) ↑ | 3463 | 1161 | 1208 | **1304** |
+| Heuristics | Halloween Candy (AHC015) ↑ | 3506 | 1985.67 | 2268 | **2543** |
+| Heuristics | Graphorean (AHC016) ↑ | 3517 | 1621 | 1782 | **2138** |
+| Heuristics | Balancing by Balance (AHC025) ↑ | 3479 | 1400 | 1236 | **1470** |
+| Heuristics | Stack of Boxes (AHC026) ↑ | 3451 | 2009.67 | **2618** | 1992 |
+
+### "13/15" is method-vs-method, and the SOTA column is a different story
+
+The headline is **better-or-comparable to both baselines on 13 of 15 tasks**, and read that way it checks out: SwarmResearch is outright best on 10, tied best on 2 (Cloudcast with CORAL, PRISM with everything), loses on 2 (EPLB, Stack of Boxes), and on MMD-14-3 loses to CORAL by 0.00006 — which the paper counts as comparable and reasonably so. **Nothing in that number is a claim about the state of the art.**
+
+The SOTA column says what the state of the art is, and it splits cleanly by domain:
+
+- **Systems and math: competitive.** SwarmResearch reaches or exceeds SOTA on 4 of 10 (Circle-Packing, LLM-SQL, Cloudcast, PRISM). These are AI-set records, and the paper notes many are "difficult to verify because their solutions are not publicly released" — so the bar itself is soft.
+- **Contest heuristics: not close, for anyone.** All five SOTA values are human-authored, and every method lands between **34% and 73%** of them: 1304/3463, 2543/3506, 2138/3517, 1470/3479, 1992/3451. SwarmResearch wins four of these five *against the other methods* while being nowhere near the humans. The authors are explicit that the ALE-Bench metric is Elo-like — 3000 vs 1500 is not a 2× objective gap but a rating at which one competitor beats the other with high probability — which makes the shortfall harder to read, not smaller.
+
+So the honest one-liner is: **a better search procedure among search procedures, on a benchmark where the frontier is set by humans doing something the search procedures are not doing.** The paper says this itself ("AI systems still lag behind"); it is the headline that elides it.
+
+### Where it loses, and what that costs the mechanism story
+
+Three rows go against the thesis and they are informative:
+
+- **EPLB ↑** — SwarmResearch is **last of the three** (0.1436 vs CORAL 0.1467 and EvoX 0.1443), and the whole field is under the 0.1490 SOTA. The paper's own explanation is that CORAL "better exploited strong approaches and discovered meaningful low-level changes." High-level exploration is a *cost* when the remaining headroom is in tuning.
+- **Stack of Boxes (AHC026) ↑** — last again (1992 vs CORAL 2618, EvoX 2009.67), and the only heuristics task it loses. Same diagnosis.
+- **MMD-14-3 ↓** — CORAL matches SOTA exactly (4.16578) and SwarmResearch misses by 0.00006. Immaterial, but it means the paper's tally of tasks where CORAL *matches SOTA* is one higher than SwarmResearch's.
+
+**One counting discrepancy worth flagging.** §3.2 states twice that SwarmResearch "exceeds EvoX on 13/15 tasks and matches it on 1." Table 1 supports **12 strict wins, 1 tie (PRISM), and 2 losses** — EvoX beats SwarmResearch on both EPLB (0.1443 vs 0.1436) and Stack of Boxes (2009.67 vs 1992). The prose acknowledges losing those two tasks but attributes both only to CORAL. The abstract's 13/15 (better-or-comparable vs *both* baselines) is the claim that reconciles with the table; the EvoX-specific tally is off by one.
+
+### The budget is matched against one baseline and not the other
+
+This is the control [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) made a standing requirement after the budget-matched negative result on harness evolution, and the answer here is split:
+
+| Arm | Budget | Runtime | Model |
+|---|---|---|---|
+| SwarmResearch | **$50/task** | Claude Code | Opus 4.6 |
+| CORAL (4 agents) | **$50/task** | Claude Code | Opus 4.6 |
+| EvoX | 100 iterations, **~$23.50/task average** | own pipeline | Opus 4.6 |
+
+- **Versus CORAL the comparison is clean** — same dollar cap, same runtime, same model — and it is also the *close* one: 10 wins, 2 ties, 3 losses, with the authors themselves describing three of the wins (Circle Packing, Erdős, MMD-14-3) as differences that "could be reduced by further solution polishing under higher budgets."
+- **Versus EvoX it is not.** SwarmResearch spends roughly **2.1× the dollars**, and EvoX is where the large margins live (2.635996 vs 2.1064 on circle packing; every heuristics row nearly doubled). "100 iterations as configured in their paper, after which it has diminishing returns" is a defensible protocol choice — it is not a matched budget, and none of the EvoX-facing margins can be attributed to search design rather than to spend. The authors additionally report that EvoX underperforms its own published results on Opus 4.6 because it was tuned on GPT-5, and say its "ranking may change if the latest GPT models are used." Two independent discounts on the same comparison.
+
+The load-bearing distinction against [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization): that page's negative result is about searching over **harnesses** and finding the product doesn't transfer. This searches over **solutions**, where the artifact is the answer and transfer is not claimed — so a budget-matched loss would mean something different (the compute was better spent elsewhere) than it did there (the compute produced nothing reusable). The *charge* transfers intact; the *verdict* does not.
+
+## Orchestrator-guided scaling beats optimal fixed (n, k) on 4/5
+
+The second experiment is the one with the cleanest budget control, and it is a [test-time-scaling](/articles/large-scale-test-time-compute) result. Fixed scaling = *n* concurrent agents × *k* serial iterations on a shared git history, swept over (5,12), (10,6), (15,4), (20,3), (30,2) within a 60-iteration budget, 3 runs averaged, best configuration reported. Orchestrator-guided = the same 60-iteration budget, with an orchestrator choosing width and depth on the fly. **Table 2 parses clean and is citable as-is.**
+
+| Task | Best fixed (w × d) | Fixed score | Orchestrator (avg w × d) | Orchestrator score |
+|---|---|---|---|---|
+| 3rd-Autocorrelation ↓ | 5 × 12 | **1.4649** | 8.57 × 6 | 1.4652 |
+| Signal Processing ↑ | 15 × 4 | 0.6369 | 6.78 × 8 | **0.6787** |
+| Circle-Packing ↑ | 20 × 3 | 2.244 | 9.60 × 4 | **2.294** |
+| Cloudcast ↓ | 10 × 6 | 714.3 | 10.83 × 5 | **672.3** |
+| Txn Scheduling ↑ | 20 × 3 | 3775 | 6.00 × 4 | **4049** |
+
+Three things fall out, and the middle one is the most portable:
+
+- **Wider beats deeper, up to a point.** Optimal fixed scaling is wider than deep on 4 of 5 tasks, but the widest configuration (30, 2) is **never** optimal. Long serial runs "stay within the same neighborhood of solutions and miss stronger neighborhoods discovered by highly parallel runs"; past some width the iterations are too shallow to build anything.
+- **The optimal (n, k) is task-dependent — which is the actual argument for the orchestrator.** Four of the five tasks have a different best configuration. Orchestrator-guided scaling requires no scaling hyperparameter at all and beats the *best* fixed setting on 4/5, because it can spend the budget on wide initial exploration and then apply deep serial iteration only to what survived. On Signal Processing its max depth is far above any fixed configuration's.
+- **The orchestrator is nearly free.** The 60 subagents dominate inference cost; the orchestrator adds **7.7%** to total output tokens.
+
+**The control that isn't clean.** In this experiment subagents run Minimax-M2.5 while the orchestrator runs Claude Sonnet-4.6 (Minimax "struggled to perform orchestration restricted to branch selection"), and the fixed-scaling arm is all Minimax-M2.5. So the winning arm has a stronger model in the loop that the baseline does not have anywhere. The authors' defense is real — the orchestrator's subagent tool accepts **only a branch field**, it cannot write prompts, and Explorer is the only agent type, so it "does not contribute any ideas" — but a stronger model choosing parents is still a capability the baseline lacks, priced at that +7.7%. Read it as *orchestration by a capable model beats fixed hyperparameters*, not as *orchestration beats fixed hyperparameters at equal model*.
+
+## The mechanism evidence: bigger diffs — with a figure that qualifies it
+
+The claimed reason SwarmResearch wins is that it runs *higher-level* experiments, proxied by lines changed per attempt: at the median task it changes **3.2× more lines than CORAL and 1.7× more than EvoX**. The illustrative pair is Signal Processing, where SwarmResearch's median diff (±126 LOC) swaps in a different signal-processing algorithm and CORAL's (±8 LOC) adjusts how corrections are computed; on AHC016 CORAL tunes thresholds while SwarmResearch redesigns the solver into condition-dependent modes.
+
+**Figure 6 is narrower than the sentence.** It plots six tasks, and **EvoX changes more lines than SwarmResearch on three of them** — Circle Packing (~185 vs ~128), Erdős Min Overlap (~267 vs ~245), and EPLB (~92 vs ~62). SwarmResearch's LOC advantage is large on Txn Scheduling, AHC016 and AHC025 and absent on the small-baseline math tasks, which matches the paper's own caveat that the effect is "most prominent in heuristics tasks and some systems tasks" with "large baseline solutions." So *"SwarmResearch typically makes larger code changes than the baselines"* holds against CORAL everywhere plotted and against EvoX only where the program is big enough for a rewrite to be large. The 1.7× is a median over tasks, not a per-task property.
+
+The authors also state the cost directly: high-level experiments "can be inefficient when they lead nowhere and inference is better spent on optimizing strong approaches" — which is the EPLB and AHC026 losses, from the mechanism's own side.
+
+## Case study: speculative decoding, and the review problem
+
+Two ~11-hour runs on [Claude Code](/articles/claude-code) Opus 4.8 — an **analysis phase** that profiles the baseline and generates no solutions, whose findings are dropped into the solution phase's worktrees — against a lossless rejection-sampling baseline (1.68× over vanilla), target gemma-4-26B-A4B-it with its MTP draft head, 8×A6000, temperature 1.0.
+
+| Method | Speedup vs vanilla | Accuracy |
+|---|---|---|
+| vanilla decoding | 1.00× | 65.8% |
+| autoresearch (~12h) | 1.80× | **65.8%** |
+| CORAL (~12h) | 2.26× | 58.4% |
+| **SwarmResearch (~11h)** | **4.58×** | 60.6% |
+
+**The speedups are not accuracy-matched, and the objective said they should be.** The stated goal was "maximize token throughput *while preserving benchmark accuracy*"; SwarmResearch gives up 5.2 points and autoresearch gives up none. The paper attributes the loss to responses exceeding the evaluator's 16,384-token cap rather than to wrong answers, which is plausible and unmeasured — and it is also the kind of explanation that would need the truncation rate reported to be checkable. A 4.58×/60.6% point and a 1.80×/65.8% point are on different frontiers, not on the same one.
+
+**What the winning solution actually is** is deflating in a way the paper is admirably direct about. The largest gains are systems work — batching the target forward pass across benchmark sequences (with independent RNG streams per batch to keep sampling independent), a persistent thread pool, top-k-bounded distribution construction, and adaptive MoE expert count (k=8 only during prefill, k=4 for most generated tokens rising to k=5 when the previous round's mean top-1 probability drops below 0.7). **Existing inference engines already implement batching and optimized distribution processing**, and adaptive expert count exists in the literature outside speculative decoding. The genuinely novel attempts "performed poorly and we did not find them reasonable."
+
+The failure they walk through is the one to carry. "Comonotone sampling" — one shared acceptance threshold across a draft span instead of independent per-token thresholds — produced an improved run and a confident rationale about acceptance rate, and **the claim only fell apart after the authors generated acceptance-rate data and evaluated additional seeds**. Their conclusion generalizes past this system: "SwarmResearch generates a high throughput of ideas and experiments and careful review requires high effort. Without careful review, users may be convinced by low-quality approaches, where proposals and justifications seem attractive at first glance despite being incorrect." **A harness that raises idea throughput raises review load proportionally** — [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) arriving in the discovery setting, where the artifact under review is an argument about why a number moved.
+
+Figure 1 makes the search shape legible: ~16 lineages fan directly off the baseline, one node scores 0.00 (a failed attempt preserved rather than reverted), and the batching breakthrough is **agent #23, spawned on a fresh branch from `main` after substantial serial exploration elsewhere** — the branch-preservation mechanism paying off exactly as designed, and the single most convincing datum on this page for the architecture.
+
+## What the Shepherd actually does, versus what it is supposed to do
+
+The paper's §3.5 self-report is the most useful negative result in it. Typical Opus 4.6 Shepherd behavior: waves of ~4–8 Search Agents, mostly Explorers, Optimizers only once dominant solutions appear — and then **"its default search behavior is near-greedy."** It concentrates agents onto the single top approach, "very rarely merges agent branches," and "its prompts to Search Agents typically prescribe specific ideas to pursue" — the exact behavior the skill's most important rule forbids. The authors prompt against it and report that "even with thorough prompting, the Shepherd Agent's ability to strategically steer Search Agents without prescribing exact ideas is limited"; it "struggles to synthesize limitations into prompts or pose specific problems to different Search Agents based on current bottlenecks."
+
+So the measured result is a harness whose **structural** mechanisms (fresh context, branch isolation, worktree-per-agent) do the work, while its **behavioral** mechanism (a model steering a population strategically) is prompt-reliant, drifts toward greedy, and violates its own guardrail. That is the same split [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) found from the other direction — gains live in runtime and control flow, not in prompt text — reproduced here as a limitation rather than a finding. It also means the reported numbers are a *lower* bound on the architecture and an *upper* bound on current models' orchestration skill, which is the authors' own reading of where the next gain is.
+
+## Connections
+
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — the fan-out cost side of the same primitive, and the direct methodological counterpoint on worktrees: Bun rejected worktree-per-agent as unscalable (repo too large for 64 checkouts, changes must eventually compile together) and sharded to 4 worktrees × 16 agents; SwarmResearch runs one worktree per agent for ~25+ agents because in this task class the branches are *supposed* to stay unintegrated. Isolation granularity is set by whether the parallel work must converge
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the scaling result: adaptive width-at-depth beats the best fixed (n, k) on 4/5 tasks at a matched 60-iteration budget, for +7.7% orchestrator tokens. Sits against the same hub's other budget-matched finding, where plain parallel sampling beat every cleverer way of spending K = 5
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the budget-matching charge, applied. Here it is half-satisfied: matched against CORAL (and the margins are small), unmatched against EvoX at ~2.1× the dollars (where the margins are large). Also the sibling distinction — that page searches over *harnesses* and finds the artifact doesn't transfer; this searches over *solutions*, where the artifact is the answer
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the mechanism for why a shared-memory collective converges: agents that can see the current best abandon independent directions, so information sharing buys exploitation at the cost of population diversity. Branch isolation is the design that pays for diversity by *withholding* global context from the members and giving it only to the orchestrator
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — the heuristic ancestor of the same anti-collapse goal (MAP-Elites, P-UCB, forced "try a completely new approach" prompts, all "preventing the search from collapsing into a single, suboptimal lineage"). This page's claim is that an LLM orchestrator can replace the heuristic; the measured Shepherd is near-greedy, so the claim is not yet settled
+- [Deep Research Agents](/articles/deep-research-agents) — the same word, a different system class: query decomposition + web retrieval + cited report, graded on factual accuracy. The transferable overlap is that orchestration outweighs the base model in both
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the productized version of "the model writes the orchestration program." SwarmResearch is the hand-rolled form (three skills shelling out to `claude -p`, sessions forked with `--resume --fork-session`), and it argues for no hyperparameters at all, where the shipped feature defaults to fewer than 15 agents
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) — the opposite finding on the same axis, in a different task shape: OrchBench holds workers identical and finds agent count decorrelated from quality at scale (-0.021 at 100 subtasks) while transfer coverage predicts it. Its workflows are dependency DAGs with fixed decompositions; this is open-ended exploration with no decomposition at all, which is precisely the regime OrchBench excludes and the one multi-agent is claimed to suit
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the case study's self-reported risk: a harness that multiplies idea throughput multiplies the review burden, and the one traced failure (comonotone sampling) was a plausible, confidently-argued, wrong causal claim that survived until someone generated the acceptance-rate data
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the same episode as a failure class: an improved score plus a coherent rationale, both wrong, indistinguishable from a real discovery without extra seeds
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the tiering is a context-lifecycle design: Search Agents get worktree + parent history, the Shepherd gets summaries and scores only, and `findings.md` is the lineage-local durable log that lets a descendant inherit results without inheriting a transcript
+- [Claude Code](/articles/claude-code) — the runtime for both SwarmResearch and CORAL; the harness is implemented entirely as skills over its CLI
+- [Andrej Karpathy](/articles/andrej-karpathy) — author of autoresearch, the single-agent loop whose two design choices (one accumulating context, one editable program) this paper is a direct response to, and the case-study baseline it beats 4.58× to 1.80×
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the EvoX comparison is the uncontrolled half: a ~2.1× dollar advantage against precisely the baseline where the margins are largest, and a second uncontrolled arm in Table 2, where the winning configuration has a Sonnet-4.6 orchestrator the fixed-scaling baseline does not have at all
+
+## Open Questions
+
+- Does the EvoX margin survive a matched budget? EvoX ran 100 iterations at ~$23.50/task against SwarmResearch's $50, and that is where the large wins are (2.635996 vs 2.1064 on circle packing; roughly doubled heuristics scores), while the budget-matched CORAL comparison is close enough that the authors call three of the wins polishable. Falsifiable directly: rerun EvoX to a $50 cap, on GPT-class models where its authors tuned it.
+- The architecture's structural half (fresh context, branch isolation) and its behavioral half (an LLM steering a population) are never separated. §3.5 reports the Shepherd defaulting to near-greedy and prescribing ideas against its own guardrail, and the Table 2 harness deliberately strips the behavioral half to a branch field and still wins — which suggests branch-preserving parent selection may be doing most of the work. Falsifiable: run the full 15-task benchmark with a random or heuristic parent-selector in the Shepherd's place.
+- Every method sits at 34–73% of human SOTA on all five contest-heuristics tasks, and the gap does not narrow with the better harness. Is that a search-procedure ceiling, or is ALE-Bench's Elo-like metric compressing a smaller objective gap into a large-looking rating gap? The paper raises the metric caveat and does not resolve it.
+
+## Sources
+
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807) — Yuvraj Virk, Zack Edds, Chunqiu Steven Xia & Lingming Zhang (University of Illinois Urbana-Champaign), *SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery*, arXiv 2607.02807, 2026-07-02, `empirical`, 20pp; code at github.com/SwarmResearch/SwarmResearch. §1–2 the idea-collapse diagnosis and the two harness mechanisms; §2.1 the three steering levers and the no-prescribed-ideas guardrail; §2.2 context tiering and `findings.md`; §2.3 git branching patterns; §3.1 the benchmark (5 math tasks from prior work, systems from ADRS/Cheng et al. 2025, 5 ALE-Bench-Lite heuristics tasks), the baselines and the $50 / 100-iteration budgets, and the single-run protocol; §3.2 + Table 1 the baseline comparison; §3.3 + Figure 6 the lines-changed proxy; §3.4 + Table 2 orchestrator-guided vs optimal fixed scaling; §3.5 the self-reported Shepherd behavior and its limits; §4 + Appendix A the speculative-decoding case study, the two-phase analysis/solution split, and the comonotone-sampling failure; Appendix B between-run variance and the ~$1,700-per-pass cost; Appendix C the three skills, quoted verbatim in the raw.
+ - **Table 1 parse warning.** The raw markdown's Table 1 is **collapsed and shifted** — all five Math rows merged into one grid row of space-joined values, and EPLB's SOTA (0.1490) orphaned onto a phantom row, leaving the EPLB row one cell short. The `table-collapse` and `table-shift` soft checks **passed it clean** (false negative). All 60 cells were re-mapped against the local PDF via `pdftotext -f 7 -layout` at ingest and re-verified at compile: **no digit is wrong, the defect is purely structural.** The corrected table on this page is authoritative; the raw's version must not be quoted. Bold/green markers are not recoverable from `pdftotext` and were reconstructed from the arrow directions and the caption's stated rule, then checked row by row.
+ - **Table 2 verified clean** against the PDF and citable as parsed.
+ - **Figures read per the image two-pass rule.** Figure 6 (median LOC per attempt) was read from and **qualifies the prose**: EvoX exceeds SwarmResearch on 3 of the 6 plotted tasks. Figure 1 (the speculative-decoding search tree) was read from `image_000000_*.png` and confirms agent #23 branching directly off the root. Figures 2–5 are described adequately in prose and were not needed.
+ - **Limits.** Single lab, preprint, **n = 1 run per technique per task** with no variance or significance reported; three different model configurations across the three experiments (Opus 4.6 for Table 1, Minimax-M2.5 subagents + Sonnet-4.6 orchestrator for Table 2, Opus 4.8 for the case study); EvoX self-reportedly degraded on Opus 4.6 relative to its GPT-5 results; CORAL reproduced worse than its own published numbers, with the originally-reported values used as SOTA instead; no method had internet access.

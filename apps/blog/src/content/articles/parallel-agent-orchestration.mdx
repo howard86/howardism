@@ -8,7 +8,15 @@ description: "OpenAI Codex study's concurrency + runtime margins: the
   OpenAI users ran ~71 agent-hours/day (up 88% since April 2026); the threaded
   interaction model lets one person delegate, monitor, and review many
   simultaneous streams — first hard numbers behind
-  founder-as-agent-orchestrator"
+  founder-as-agent-orchestrator; plus what breaks at agent-to-agent scale, from
+  Bun's 64-Claude constraint set to Cursor's 1,000-commits-per-second
+  coordination failure modes and the old-versus-new harness rebuild that cut
+  conflicts on the hottest file from 7,771 to 47; plus RCWT's per-call
+  coordination tax — under a fixed 4096-token budget accuracy is flat to a 69%
+  coordination share and cliffs between 83% and 86% once residual task evidence
+  falls to a few hundred tokens, while an intact-task ablation holds at ceiling
+  to a 95% ratio, making the cost displacement of task evidence rather than
+  semantic interference"
 tag: Concept
 domain: agent-systems
 tags:
@@ -18,17 +26,46 @@ tags:
   - engineering-metrics
   - empirical
   - openai
-readingTime: 7
+readingTime: 40
 imageAlt: Illustration for Parallel Agent Orchestration
 sources:
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
   - title: "The Shift to Agentic AI: Evidence from Codex"
     url: https://cdn.openai.com/pdf/5d1e1489-21c0-43e4-9d42-f87efdbf0082/the-shift-to-agentic-ai-evidence-from-codex.pdf
+  - title: Rewriting Bun in Rust
+    url: https://bun.com/blog/bun-in-rust
+  - title: "OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via
+      Deterministic Simulation"
+    url: https://arxiv.org/pdf/2607.25656
+  - title: Agent swarms and the new model economics
+    url: https://cursor.com/blog/agent-swarm-model-economics
+  - title: Claude Code Changelog
+    url: https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md
+  - title: "RCWT: Measuring Task-Budget Displacement from Coordination Content in
+      LLM Calls"
+    url: https://arxiv.org/pdf/2607.12216
+  - title: "Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?"
+    url: https://arxiv.org/pdf/2607.09996
+  - title: "SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery"
+    url: https://arxiv.org/pdf/2607.02807
 ---
 export { default as heroImage } from "../assets/parallel-agent-orchestration.webp";
 
 ## Sources
 
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics)
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via Deterministic Simulation](https://arxiv.org/pdf/2607.25656)
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+- [RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls](https://arxiv.org/pdf/2607.12216)
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807)
 - [The Shift to Agentic AI: Evidence from Codex](https://cdn.openai.com/pdf/5d1e1489-21c0-43e4-9d42-f87efdbf0082/the-shift-to-agentic-ai-evidence-from-codex.pdf)
+- [Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?](https://arxiv.org/pdf/2607.09996)
 
 ## Summary
 
@@ -62,16 +99,173 @@ The pattern across both margins: **agentic workflows remain sporadic for the typ
 
 The paper grounds parallelism in the same property that makes coding the leading edge of agentic AI: software work is *digital, verifiable, and modular into many subtasks* — exactly the shape that lets one person fan work across many independent agents and review the results. The consequence is a **role inversion**: the human stops being the executor and becomes the *delegator-monitor-reviewer-coordinator* of a portfolio of agentic work. This is precisely the [review-and-supervision bottleneck](/articles/verification-as-the-new-bottleneck) made visible in behavior — the more agents you run in parallel, the more your throughput is gated by *your* capacity to review, not the model's capacity to produce ([Loop Engineering](/articles/loop-engineering)'s "your review bandwidth decides how many you can actually run"; [AI Brain Fry](/articles/ai-brain-fry)'s oversight-fatigue ceiling).
 
+## Vendor-measured: multi-agent as a first-class capability section (July 2026)
+
+Everything above measures *humans* fanning work across agents. The [Opus 5](/articles/claude-opus-5) system card is the first to report **agents fanning work across agents** as a headline capability, with two harnesses benchmarked against a single-agent baseline at a 1M-token limit per agent:
+
+- **N-agent team** — 5 or 10 peer agents, all seeing the full task, one designated lead for coordination; `Send Message` and `Wait for Message` tools; on ProgramBench each agent works in its own repo checkout and shares code via Git.
+- **Async subagents** — a lead that spawns long-lived subagents which see only the lead's instructions (not the original task), can message each other, and idle after reporting back until re-woken. No cap on subagent count.
+
+The results: on BrowseComp the **10-agent team reaches 93.6%**, +3.1pp over the best single-agent configuration, with **5.6–5.9× latency speedups** relative to the single-agent 10M-token baseline — every multi-agent variant matches or exceeds the best single-agent one, Pareto-dominating the score–latency frontier. On ProgramBench the 5-agent team hits the same score 2.2× faster. Cost rises with agent count: the honest framing is a **latency-for-cost trade**, with multi-agent able to "productively absorb additional token budget by distributing work across agents" rather than a free win.
+
+Two caveats worth carrying. The numbers come from a pre-release configuration with an unreleased effort setting and no safeguards classifiers, and Anthropic says they are "helpful for understanding the relative, but not absolute, performance." And the alignment side is unmeasured: Mythos 5's review of the same card flagged that Opus 5 **relays subagent claims to users without verifying them**, with the audit's multi-agent coverage acknowledged as a limitation ([Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence)). The capability section reports multi-agent as a frontier; the safety section does not yet cover it. *(Partial harness-side mitigation, 2026-07: [Claude Code v2.1.211](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) reports Claude "now reports the status of still-running agents and waits for the real completion instead of fabricating results" — which blocks inventing an outcome for an unfinished agent, not the relaying of a finished agent's unverified claim. Different failure, adjacent surface.)*
+
+### The cost counterweight: cap the delegation
+
+Anthropic's [prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) (`vendor-claim`, one day after the card) pairs the capability result with a spending warning: Opus 5 **"delegates to subagents more readily than prior models,"** and delegation "pays off on genuinely independent, sizeable tracks of work, but it multiplies cost and time when applied to small tasks." The recommended controls are explicit criteria for what warrants a subagent, or **deterministic caps on how many agents can be launched** — plus "if one subagent can complete the task, use one rather than several." Readiness to fan out is treated as a behavior needing a boundary, not an encouragement ([Instruction Compounding](/articles/instruction-compounding)).
+
+The guide also gives the first vendor statement on the multi-agent failure mode the card's harness design implies: Opus 5 "coordinates teams of subagents well, with effective writer-verifier patterns and **few cases of agents overwriting each other's work**" — the write-conflict risk that the ProgramBench setup (each agent in its own repo checkout, sharing via Git) was built to avoid.
+
+### A threshold for the cap: fan out when the state doesn't fit (2026-07)
+
+The guide says cap the delegation but not where. [OrchBench](/articles/orchestration-plan-simulation) (arXiv 2607.25656, `empirical`) supplies a first quantitative answer by sweeping the per-agent context limit over 50 simulated task DAGs: the multi-agent quality advantage over a single serial agent decays **+0.302 at 16k → +0.172 at 32k → +0.060 at 64k → +0.007 at 128k**, and at 128k multi-agent quality is *lower* than single-agent on **82% of model-problem pairs**, with the barely-positive average carried entirely by the largest (100-subtask) problems. Its agent-budget sweep says the same thing about breadth: raising the cap from 16 to 64 more than doubles the agent count and moves the score by about 0.01. And it prices the overhead the guide only names — multi-agent plans consume roughly **1.5× the tokens** of serial execution before any quality gain, from agent startup, cross-agent communication, and compression.
+
+Two caveats keep this from being a deployment rule. The workers are simulated, so the single-agent baseline suffers only *compression* loss — no attention degradation, no long-context recall failure — which likely flatters it at 128k. And these are dependency-DAG workflows with fixed decompositions, not open-ended exploration, which is the shape Akshay Nathan named as multi-agent's actual niche. The transferable claim is the *shape*: additional agents relieve context pressure, and once the working state fits one window the coordination cost is what's left.
+
+### The coordination tax, measured inside a single call (2026-07)
+
+OrchBench prices coordination at the *plan* level and Anthropic's ~15× multi-agent token multiplier prices it at the *system* level. **RCWT** (Lelis & Cabral-Carvalho, CloudWalk, Inc., [arXiv 2607.12216](https://arxiv.org/pdf/2607.12216), `empirical`) prices it one level lower, inside the receiving call: shared state, prior agent messages, tool observations and role prompts are assembled into the same finite prompt as the current task, so **every coordination token is a token unavailable to task evidence.** Holding the budget fixed at *W* = 4096 and sweeping the coordination share, accuracy on a technical-spec recall task is flat through a 69% share and then falls off a cliff between 83% and 86% — the point at which the residual reference block is down to a few hundred tokens.
+
+**Read the mechanism, not the headline.** A companion ablation keeps the task block intact and lets the total prompt grow instead: at a 0.95 coordination ratio — 13,262 coordination tokens around a 698-token task — every tested call on three models returns every scored field correctly, with no cliff. So the cost of coordination content here is **displacement of task evidence under a fixed budget, not semantic competition with it**. The full two-experiment breakdown, the per-window numbers, and the reserve that varies ~3.5× by task family live on [Context Lifecycle Management](/articles/context-lifecycle-management); the deployable rule is that neither the nominal window nor the coordination *percentage* is a safety signal — the residual task budget is, and it has to be measured per task family.
+
+**How much this bears on the rest of this page — less than it first appears.** Three limits, all of which the paper states:
+
+- **It is a single-call protocol.** Turn scheduling, retrieval policy, memory writes, tool failures and agent topology are excluded by design. Nothing here scales to a session, let alone to Bun's 64 agents or Cursor's 1,000 commits per second.
+- **The coordination block is one synthetic template.** Role/protocol text, agent messages, shared propositions and tool schemas — structured *like* multi-agent shared context, but not drawn from a real transcript. Real coordination (dense tool dumps, verbose transcripts, contradictory agent claims) may behave differently at the same token count, and the design cannot tell content type from length.
+- **It measures cost only.** "A coordination block can be overhead for one agent and the task input for another." RCWT supplies no estimate of what coordination buys.
+
+**Against [OrchBench](/articles/orchestration-plan-simulation), the two are complements pointing in opposite directions — not the same measurement.** OrchBench's dominant failure is the **missing transfer**: a cross-agent dependency the plan never declared, penalized at λ = 0.5, and its headline is that coordination quality is bounded by information *preserved*. RCWT measures the opposite excess — coordination that is present and crowds the evidence out. So RCWT is **not** a token-level mechanism for OrchBench's missing-transfer result; it is the mechanism for the *other* end of the same allocation trade, and it puts a floor under OrchBench's context-limit sweep: fanning out relieves per-agent context pressure, but the coordination payload you send between agents partially re-consumes the window it just freed, and OrchBench's own accounting already charges ~1.5× the tokens of serial execution for exactly that traffic. The honest joint claim is that both ends are now measured and **neither was measured with real agents** — OrchBench's workers are simulated, RCWT's coordination is synthetic and its calls are single.
+
+### The cap shipped, as a product default (2026-07)
+
+The guide above recommends "deterministic caps on how many agents can be launched" as something *a harness author should write*. Within weeks the [Claude Code changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) (`vendor-claim`, rolling document snapshotted 2026-08-03, scoped to v2.1.200–2.1.220) shows Anthropic shipping the same control as a **default in its own product** — three ceilings in nine releases:
+
+| Release | Ceiling | Override | Anthropic's stated purpose |
+|---|---|---|---|
+| 2.1.212 | **200 subagent spawns per session** (`/clear` resets the budget) | `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION` | "to stop runaway delegation loops" |
+| 2.1.212 | 200 WebSearch calls per session | `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION` | "to stop runaway search loops" |
+| 2.1.217 | **20 concurrently running subagents** | `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` | "so one message can't fan out unbounded background agents" |
+
+2.1.217 also made `--max-budget-usd` bind on fan-out (at the cap, "new spawns are denied and running background agents are halted"), and 2.1.219 set dynamic workflows to a medium size guideline by default — "aim for fewer than 15 agents" — settable from any settings file via `workflowSizeGuideline`. **Depth went the other way**: 2.1.217 disabled nested subagent spawning by default, then 2.1.219 re-enabled it to depth 3. Breadth was capped and stayed capped; depth was capped and uncapped within three releases.
+
+Two things are worth reading off the numbers, both tentative:
+
+- **The binding limit is concurrency, not the session budget.** 200 spawns per session is generous against anything measured in this corpus; 20 simultaneous is *below* [Bun's](/articles/jarred-sumner) peak 64 and below [OrchBench's](/articles/orchestration-plan-simulation) 64-agent budget sweep. (Mechanism caveat: the changelog's cap governs Task-tool subagents, and Bun's 64 were dynamic-workflow agents across four worktree shards — the changelog never says whether the two counters are the same counter.)
+- **The workflow default is an order of magnitude below the vendor's own headline.** "Fewer than 15 agents" is the shipped default for the feature [Boris Cherny](/articles/boris-cherny) described on stage as reaching "dozens to thousands of agents" — see [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra), where that gap is carried.
+
+**How much this is worth — interpretation, flagged.** A vendor adding a hard spawn ceiling is evidence about what it found necessary in its own deployment, and it lands in the same weeks this page documents fan-out's measured costs. But the changelog gives **no rationale beyond "runaway loops," no measurement, and no telemetry**, so nothing here corroborates the coordination-overhead or oversight-load findings above; it is convergence between a product decision and a research direction, and the numbers (200, 20, 15, depth 3) are product defaults, not thresholds anyone has shown to be right.
+
+**Surface tension worth flagging.** The same document says writer-verifier patterns are effective *and* "do not use subagents to verify or double-check your own work." The reconciliation is that a designed maker/checker split with an independent brief is not the same thing as the model spontaneously spawning a verifier for its own output ([Unproductive Self-Verification](/articles/unproductive-self-verification); [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) is the architectural version of why the first works). But the guide does not draw that line itself, so a harness author reading only the delegation section would delete a maker/checker split it elsewhere endorses.
+
+## What the constraints actually are at 64 agents (Bun, 2026)
+
+Everything above is either usage telemetry or a benchmark harness. [Jarred Sumner](/articles/jarred-sumner)'s Bun Zig→Rust port ([Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust), `case-study`; Anthropic employee, pre-release [Fable 5](/articles/claude-fable-5)) is the first account in the vault of running a large fan-out *in a real production repository for 11 days*, and it reports the failure modes rather than the score. The headline shape — **peak 64 concurrent Claudes, as 4 workflow shards × 16 agents, one git worktree per shard** — is presented not as a design ideal but as the residue of four constraints:
+
+- **Shared-tree agents destroy each other within minutes.** On the first full run "about 2 minutes in, one Claude ran `git stash` before committing. Another ran `git stash pop`. And then `git reset HEAD --hard`." The fix was a **command deny-list in the workflow prompt**: never run `git stash`, `git reset`, or any git command that doesn't commit a specific file at once; no `cargo`; "no slow commands at all." `cargo check` was hoisted to run once at the start of each crate loop.
+- **Worktree-per-agent doesn't scale.** The obvious isolation answer was rejected on two grounds — Bun's repo is too large to hold 64 checkouts on disk, and "eventually the changes will need to be compiled and seen together." 4-worktree sharding is a *disk-and-integration compromise*; the isolation granularity was set by storage, not by concurrency theory.
+- **The test suite is hostile to its own harness.** Memory-leak tests, minute-plus integration tests, tests that exhaust the machine's TCP sockets, write gigabytes, or spawn ~10k processes. "This needed stronger isolation than 'please'" — `systemd-run` cgroups for memory/CPU and pid-namespace isolation. The machine still ran out of disk and crashed several times.
+- **The binding resource was IOPS, not tokens or agents.** The visibly ragged commit-rate histogram is explained by a forgotten EC2 IOPS setting: "one slow `grep` command was all it took to freeze disk reads & writes for minutes."
+
+**This is a direct counterpoint to the Opus 5 prompting guide's "few cases of agents overwriting each other's work."** That claim was measured in a harness *designed* to prevent it (each agent in its own repo checkout, sharing via Git). Sumner's agents shared a tree and clobbered each other immediately, and the fix was a prompt-level command ban plus worktree sharding — i.e. the vendor's reassuring number describes the harness, not the model. A team fanning out inside one working copy should expect the collision, not the absence of it.
+
+Also worth carrying against the usage telemetry above: 64 is *two orders of magnitude* below the "dozens to thousands of agents" [dynamic workflows](/articles/dynamic-workflows-agent-algebra) are said to reach. It is the largest concurrency figure in the vault attached to a real, published, production merge — and the ceiling on it was infrastructural, not cognitive.
+
+## Engineering the coordination layer, measured against itself (Cursor, 2026)
+
+Bun's constraints above are the residue of a campaign that hill-climbed its way to a working shape. [Cursor](/articles/cursor)'s *Agent swarms and the new model economics* ([Wilson Lin, 2026-07-20](https://cursor.com/blog/agent-swarm-model-economics), `case-study`) is what the next iteration looks like when a vendor goes back and engineers the coordination layer deliberately — and, uniquely in this corpus, **re-runs the old harness against the new one on the same task, the same models, and the same time budget.**
+
+The task: implement the whole of the **835-page SQLite manual in Rust**, with source code, test suites, the SQLite binary, and internet access all withheld. The grade: the fraction of **sqllogictest** — a suite the SQLite project built to check that *different* database engines return the same answers to the same queries — that the swarm's database passes. The swarm was never told the suite existed, and Cursor manually reviewed each run afterward for cheating, shortcuts, and whether the system was "built out evenly, rather than just in the places where the tests look."
+
+### The tempo problem, and a VCS built for it
+
+The earlier browser swarm peaked at roughly **1,000 commits per hour** on Git; the new system peaks at roughly **1,000 commits per second**. Cursor's stated reason for building a version control system from scratch is only partly throughput: every change passes through the VCS, so it is *where collisions first become visible*, and several coordination mechanisms are implemented inside it. **Owning the merge layer is what makes the collisions observable at all** — a swarm on stock Git has no instrument that reports 7,771 conflicts on one file.
+
+At that tempo, five failure modes appear that human teams do not routinely hit. Each fix is worth reading as a *mechanism class*, not a Cursor detail:
+
+| Failure mode | What goes wrong | The fix |
+|---|---|---|
+| **Split-brain design** | Two planners, unaware of each other, implement the same concept differently in different places | Prompting: planners make design decisions themselves rather than delegating them, and must ensure no two delegated subtrees decide the same question |
+| **Contention between planners** | Two planners *aware* of each other fight through back-and-forth edits — "two pictures of reality, and merge tooling can't fix a disagreement" | Decisions recorded in shared design docs; dependent code carries a **compile-checked reference** back to its doc; a reconciler merges contradicting docs and the references propagate the resolution downstream |
+| **Merge conflicts** | Workers are bad at absorbing another agent's context, so they "either overwrite the other change or abandon their own" | A **neutral third-party agent** resolves conflicts on behalf of all parties — explicitly modelled on a human merge queue |
+| **Megafiles** | Popular files bloat because no single agent owns keeping them small; they become expensive to transport, diff and merge, and the site of constant collisions | Workers can **flag** a bloated file; new commits are blocked and an outside agent decomposes it into modules |
+| **Ossification** | Agents have learned from human-in-the-loop codebases not to touch core code even when it needs to change | **License intentional breakage**: an agent may make a focused out-of-scope patch and leave a comment explaining why; the compiler carries the break through the system, and every agent that hits the error finds the comment and updates its own work |
+
+The planner-contention fix is the interesting one for this wiki: it is a *typed, compiler-enforced information transfer* between agents — precisely the object [OrchBench](/articles/orchestration-plan-simulation) isolates as the variable that predicts orchestration quality when agent count does not.
+
+### What the rebuild moved
+
+Old versus new harness on the Grok 4.5 configuration, four-hour budget (the old run was paused before its second hour):
+
+| Signal | Old swarm | New swarm |
+|---|---|---|
+| Commits | 68,000 in the first two hours | ~1/70th that pace |
+| Merge conflicts | **>70,000** before the pause, *accelerating* | **&lt;1,000** over the full four hours |
+| Hottest file | **7,771 conflicts**, touched by **1,173 different agents** | most contested file in the codebase: **47** |
+| Crate sprawl | **54 crates**, including three separate SQL packages | settled on **9** early, never added another |
+| Grade at 4h | old runs 11–77% across mixes | new runs **73–85%**; every new configuration eventually passed 100% |
+| Engine code, Fable 5 mix | **64,305 lines** (full suite passed) | **9,908 lines** (full suite passed) |
+| Engine code, Opus mix | 19,013 lines at 97% | **4,645 lines** at 100% |
+
+The commit-rate collapse is the datum to internalize. Seventy times the commit volume is not seventy times the productivity — Cursor's own reading, and the conflict curve supports it: the old run's conflicts were *accelerating rather than stabilizing* when it was pulled. **Fan-out throughput and fan-out progress are separable, and the naive activity metric points the wrong way.** So does line count: on both hybrid mixes the harness that reached the same grade wrote a quarter to a sixth as much code.
+
+### How this sits against Bun
+
+The two campaigns hit the same wall and answered at different rungs. Bun's agents clobbered each other within two minutes of the first full run, and the fix was a **prompt-level command deny-list plus worktree sharding** — cheap, and it left the collisions to be avoided rather than resolved. Cursor's answer is a purpose-built VCS with an **impartial mediator agent inside it**, plus a decomposition daemon for megafiles and a licensed-breakage protocol. Same failure class, an order of magnitude more machinery, and an explicit measurement that the machinery paid for itself at fixed model and fixed budget.
+
+**Weight it carefully.** This is a vendor's account of its own infrastructure, and the headline is **harness-version versus harness-version with roughly seven changes bundled** — no ablation, so nothing here attributes the delta to the VCS, the mediator, the review stack, or the Field Guide individually. Cursor says as much ("for this cycle, the comparison that matters is between harness versions"). Two of the four mixes also use Cursor's own Composer 2.5 as the worker. What survives that discount is the *direction* and the *magnitudes*, which are large enough that no plausible reallocation across the seven mechanisms makes coordination structure a minor term.
+
+## When the isolation is the point: branch-per-agent (SwarmResearch, 2026)
+
+Every fan-out on this page treats isolation as a **cost** — a disk-and-integration compromise (Bun's 4 worktrees), a merge problem to mediate (Cursor's VCS), a coordination payload to budget (RCWT). [SwarmResearch](/articles/open-ended-discovery-harnesses) (Virk, Edds, Xia & Zhang, UIUC, [arXiv 2607.02807](https://arxiv.org/pdf/2607.02807), `empirical`) is the case where isolation is the **product**: a Shepherd Agent gives every Search Agent its own git branch and worktree *so that competing solutions never merge*, because the task is open-ended optimization and the failure being engineered against is the population collapsing onto one approach.
+
+Read directly against Bun, the two answers invert on the same question:
+
+| | Bun Zig→Rust (`case-study`) | SwarmResearch (`empirical`) |
+|---|---|---|
+| Isolation granularity | 4 worktrees × 16 agents | **one worktree per agent** (~25+ explorer budget) |
+| Why | 64 checkouts don't fit on disk, and "eventually the changes will need to be compiled and seen together" | branches are *supposed* to stay unintegrated; merging is rare and optional |
+| Collisions | agents clobbered each other in 2 minutes; fixed by a git-command deny-list | structurally impossible — no two agents share a tree |
+
+**The reconciliation is whether the parallel work must converge.** Bun's 64 agents are building one binary, so isolation is overhead that has to be paid back at integration time; SwarmResearch's agents are exploring alternatives, only one of which ships, so isolation costs nothing and preserving a losing branch is the whole point. Worktree-per-agent is not scalable or unscalable in general — it is scalable exactly when the outputs are alternatives rather than parts.
+
+Two numbers from it belong on this page. **Fan-out width should vary with depth, and no fixed setting is right twice.** Sweeping fixed *n* concurrent agents × *k* serial iterations within a 60-iteration budget over (5,12), (10,6), (15,4), (20,3), (30,2), the optimal configuration is wider than deep on 4 of 5 tasks, the *widest* setting (30, 2) is never optimal, and the best (n, k) differs across four of the five tasks. Letting an orchestrator choose width and depth on the fly — no scaling hyperparameter at all — beats the best fixed configuration on 4/5, for **+7.7% output tokens** (the 60 subagents dominate the bill). Against [Claude Code's](/articles/claude-code) shipped ceilings above, the observed Shepherd runs waves of ~4–8 agents, an order of magnitude under the 20-concurrent cap.
+
+**And the orchestrator is the component most at risk of the collapse it exists to prevent.** SwarmResearch's shepherd skill forbids it from telling Search Agents which idea to pursue — the authors found that prescribing ideas cost population diversity "otherwise the Shepherd Agent itself could get stuck inside a basin of ideas" — and their own §3.5 reports the model violating that rule anyway, defaulting to near-greedy concentration on the top approach. Global context makes an orchestrator a better allocator and a worse explorer, and prompting did not fix it.
+
+## The post-mortem you can't run yet (WHO&WHEN PRO, 2026)
+
+Every workflow on this page — 64 concurrent Claudes, a 1,000-commits-per-second swarm, a p99 user at 71 agent-hours a day — rests on an unstated assumption: when a run goes wrong you can work out which agent did it and at which step. Liu, Xi, Zhang et al. ([Who&When Pro: Can LLMs Really Attribute Failures in AI Agents?](https://arxiv.org/pdf/2607.09996), arXiv 2607.09996, `empirical`) measure that capability directly on 12,326 failed trajectories with golden agent/step/mode labels, and it is weaker than the assumption needs.
+
+- **The "who" half is close to a coin flip.** Responsible-agent identification on multi-agent text traces runs **48.4–57.5%** across ten frontier models. (The paper does not report agents-per-trace, so a chance baseline is not derivable — but the number is not one you would act on.)
+- **The "when" half is usable as triage, not as truth.** Best exact-match step localization is 73.9% on text, rising to roughly 86–88% within one step. But it falls **94% → 50% between traces under 3K tokens and traces over 12K**, and the sharpest drop is exactly where traces stop being single tool calls and become multi-step sequences with interleaved observations. Fleet-scale runs are entirely on the wrong side of that curve.
+- **The "why" half misnames the failures that are specific to orchestration.** Macro-F1 over the 18-mode taxonomy is 10.8–22.2 on text, and the errors are structured: planning, verification and **coordination** errors — delegation to the wrong agent, withheld information across an agent boundary, an agent abandoning its own correct answer after seeing another's — are systematically absorbed into "reasoning error," because by the time the failure is visible the local evidence looks like bad reasoning. An automated post-mortem of a multi-agent run therefore **under-reports coordination as a cause and over-reports model quality**, steering a team toward a stronger model when the fix is in the orchestration layer.
+
+Two fences. These are LLMs reading trajectories, not any shipped debugging tool; and every trace is a *single injected error into a run that otherwise succeeded*, so the numbers are an upper bound on organic multi-cause failures rather than a floor. Full treatment on [Automated Failure Attribution](/articles/automated-failure-attribution).
+
 ## Connections
 
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the debugging assumption above, priced. Agent-level identification at 48–57% on multi-agent text traces, step accuracy halving past 12K tokens, and the coordination error family systematically relabeled as reasoning — measured under the most favorable conditions available (one injected error, an otherwise known-good run)
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — delegation priced two ways. As a **token multiplier** when agents share a transcript: each participant re-reads the growing conversation and carries its own role preamble, which is why Writer cites Anthropic's own figures — agents at ~4× chat token consumption, multi-agent systems at ~15×, with token volume explaining ~80% of performance variance on their research eval — and calls shared-transcript multi-agency "a token multiplier by construction." As a **context firewall** when the child's context is scoped: an 8 KB capped summary returns, citations ride a metadata sidecar the parent model never reads, delegation is depth-capped and idempotent under retries, so delegated exploration cannot inflate the parent loop. The same paper finds delegation only clears a usable reliability threshold on the two strongest of six models (0.85–0.86 versus 0.42–0.45 on the fast tier) — a capability floor for the primitive itself. Vendor-authored with a total COI
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — where the coordination tax lands: inside the receiving call's context budget, competing with task evidence for the same finite window. That page carries RCWT's full two-experiment breakdown (the fixed-budget cliff versus the intact-task null), the residual-budget parameter θ and its ~3.5× spread across task families, and the general case — a call's window is consumed by *both* the agent's own accumulating history and whatever coordination content the orchestration layer injects, and only the second is under the orchestrator's direct control
+- [Claude Opus 5](/articles/claude-opus-5) — the first system card to benchmark multi-agent harnesses as a capability: 93.6% on BrowseComp with a 10-agent team, 5.6–5.9× latency speedups, and an acknowledged multi-agent gap on the safety side
 - [Role Averaging, Not Role Elimination](/articles/role-averaging-not-role-elimination) — "an IC manages agents" made literal: the fleet the averaged role runs
+- [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces) — the productization of this margin, and its limits: OpenAI's Ultra (multi-agent mode) was moved behind advanced settings post-launch because it burns rate limits, and sub-agent transcripts are hidden by default — concurrency shipped to a mass audience is concurrency the user mostly cannot see. Akshay Nathan's task-shape criterion (multi-agent modes suit "incredibly complicated, like open explorations, or very paralyzable" work, "but for most tasks, they don't fall into either of those buckets") is the vendor-side statement of when this frontier workflow is *not* warranted (`practitioner-opinion`, no measurement)
 - [Conversation-to-Delegation Shift](/articles/conversation-to-delegation-shift) — concurrency and runtime are two of the three "how" margins (with systematization) that study uses to measure depth of delegation
 - [Agentic Work Systematization](/articles/agentic-work-systematization) — the sibling margin; reusable skills are what make parallel/repeatable delegation tractable enough to run many at once
 - [Founder as Agent Orchestrator](/articles/founder-as-agent-orchestrator) — the qualitative role this page quantifies: founder/worker as orchestrator of many specialized agents; here are the first concurrency/runtime adoption numbers
 - [Managers as ICs](/articles/managers-as-ics) — running a fleet of agents is the IC-becomes-manager shift in literal form: the intensive user manages, delegates, and reviews a team of agent-workers
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — parallel fan-out is gated by the human's review capacity; concurrency makes the supervision bottleneck the binding constraint
 - [Loop Engineering](/articles/loop-engineering) — worktrees + sub-agents are the primitives that enable safe parallelism; "review bandwidth, not the tool, decides how many you can run" is this page's ceiling
+- [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — fan-out where isolation is the goal rather than the tax: one git branch and worktree per agent so competing approaches are never reverted away, an orchestrator varying width at each depth instead of a fixed (n, k), and the finding that the *widest* fixed configuration is never optimal. Also the counter-case to Bun's worktree rejection — worktree-per-agent scales precisely when the parallel outputs are alternatives rather than parts
 - [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the architecture side (agents coordinating) vs this page's usage side (one human coordinating many agents)
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) — the measurement this page's vendor evidence lacks: a benchmark that scores the orchestration *plan* with the workers deleted, giving the context-limit crossover above, a saturating agent budget, and the finding that at 100-subtask scale agent count is *uncorrelated* with quality (-0.021) while transfer coverage still predicts it (0.614). Also the only outside measurement of [Claude Code's dynamic workflows](/articles/dynamic-workflows-agent-algebra), used as its real-execution arm
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the productized form of the card's hand-built harnesses: Claude Code's dynamic workflows have the *model* author the multi-agent orchestration program (sequence/parallel combinators in a Bun sandbox), triggered by "use a workflow"; the Bun Zig→Rust port is its published methodology and the source of this page's 64-agent constraint set
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the review half of the Cursor swarm: decorrelated lenses stacked rather than one perfect reviewer, with "what the reviewer is allowed to see" swept as a design axis and the economic case stated outright ("review is much cheaper than the work it audits")
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the economics of the same four Cursor runs: matched quality across model mixes, 8× apart in total cost, with worker spend running from $9,373 to $411 depending only on who did the planning
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — planner/worker assignment is the combo abstraction, and Cursor runs it on a four-hour production build rather than a benchmark; its swarm also removes by construction the failure that made Opus the worst planner on HotpotQA (a planner here cannot implement)
+- [Agent Context Files](/articles/agent-context-files) — two coordination mechanisms in the Cursor swarm are context files: the shared design docs that dependent code carries a *compile-checked reference* back to, and the agent-owned Field Guide auto-injected into every agent at start
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — why one model is missing from the comparison: GPT-5.6 Sol was benched for sensitivity to literal and emphasized wording, producing "runaway spirals unlike anything the other models produced" — overthinking as non-termination inside a long-running agent
+- [Cursor](/articles/cursor) — the vendor, and how to weight its first-party swarm claims
 - [AI Brain Fry](/articles/ai-brain-fry) — the cognitive cost of overseeing many parallel streams; the oversight-fatigue limit on how far concurrency can scale per human
 - [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) — concurrency is the human keeping the planning/coordination role while execution fans out across agents
 - [Configurable Human Participation](/articles/configurable-human-participation) — the controlled-benchmark counterpart to this page's usage telemetry: it varies *how* one human participates (timing / channel / authority) and finds the value non-monotonic — the design-space view under this page's oversight-load open question
@@ -85,7 +279,16 @@ The paper grounds parallelism in the same property that makes coding the leading
 - p99 OpenAI runtime of 71 agent-hours/day is a frontier preview inside an unusually favorable environment. Does external concurrency actually trend toward it as frictions fall, or is heavy parallelism specific to model-adjacent work?
 - Summed-overlap runtime can exceed 24h/day — it measures *agent* effort, not *human* attention. What is the human's actual oversight load per concurrent agent, and where does it saturate ([AI Brain Fry](/articles/ai-brain-fry))? **Sharpened:** [HAS-Bench](/articles/configurable-human-participation) reframes the *shape* rather than measuring the load — in a controlled (LLM-simulated) benchmark the value of human input is configuration-dependent and *non-monotonic* (a right-timing / right-channel / right-authority sweet spot; more agency brings diminishing and sometimes negative returns), so per-agent oversight is likely a returns-curve with a peak, not a linear cost that hits a wall — but it is single-human, single-task, so it does not measure real concurrent-oversight load.
 - Concurrency is measured over one week. Is 5+-agent management a stable practice or a burst around specific large tasks?
+- Does real coordination content displace task budget the way a synthetic template does? RCWT's block is one hand-written mix of role/protocol text, agent messages, shared propositions and tool schemas, and it topically overlaps several of the facts it scores — while the coordination traffic this page documents is dense tool dumps, verbose transcripts, design docs and contradictory agent claims. The falsifiable form: rerun the fixed-budget sweep with the coordination block drawn from real multi-agent traces (Bun's worktree shards, Cursor's swarm), varying content *type* independently of token count, and check whether the cliff still lands at the same residual reserve. If the reserve is content-dependent, "measure your task's residual budget" is not yet a portable rule.
+- Claude Code's shipped fan-out defaults (200 spawns/session, 20 concurrent, fewer than 15 workflow agents, depth 3) are stated with no rationale and no measurement. Do they correspond to anything Anthropic measured — a runaway-loop incidence curve, a quality-vs-agent-count sweep — or are they round numbers chosen to bound a pathology? Until that is answered the product/research convergence on this page stays convergence. *(Trigger: Anthropic publishing telemetry or a rationale for the caps, or a third party sweeping agent count on the same harness the way [OrchBench](/articles/orchestration-plan-simulation) did in simulation.)*
 
 ## Sources
 
 - [The Shift to Agentic AI: Evidence from Codex](https://cdn.openai.com/pdf/5d1e1489-21c0-43e4-9d42-f87efdbf0082/the-shift-to-agentic-ai-evidence-from-codex.pdf) — §5.1 "Turn Concurrency"; §5.2 "Long-running agents"; §6 Conclusion
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — §8.11 (multi-agent BrowseComp and ProgramBench; N-agent team and async-subagent harnesses; latency/cost methodology and the pre-release-configuration caveat). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): "False starts", "Compiler errors as a work queue", "Even more false starts", "Stats" — the 4-worktree × 16-agent shape, the git-command deny-list, cgroup isolation, and the IOPS ceiling
+- [OrchBench: Evaluating Multi-Agent Orchestration Plans in Isolation via Deterministic Simulation](https://arxiv.org/pdf/2607.25656) — Ren et al. (arXiv 2607.25656, 2026-07-28, `empirical`): the context-limit sweep (Tables 6 and 19; +0.302 at 16k to +0.007 at 128k, single-agent ahead on 82% of model-problem pairs at 128k), the agent-cap sweep (Figure 4), and token efficiency ~0.66 against the serial baseline. Simulated workers — see [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) for what that bounds
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) — Anthropic, Claude Code CHANGELOG (`vendor-claim`). **Rolling document, snapshotted 2026-08-03, scoped to v2.1.200–2.1.220**; the live file has since moved on and the raw doc's `published:` is deliberately blank. Release notes only — no rationale, no measurement. Used here for the three fan-out ceilings (2.1.212 per-session spawn and WebSearch caps; 2.1.217 concurrency cap and `--max-budget-usd` enforcement), the spawn-depth reversal (2.1.217 off → 2.1.219 depth 3), the fewer-than-15-agents workflow default (2.1.219), and the still-running-agent fabrication fix (2.1.211)
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics) — Wilson Lin, cursor.com (2026-07-20, `case-study`, vendor-authored): "A version control system for agents", "Failure modes at 1,000 commits per second", "The SQLite experiment", "A deep dive into the runs" — the commit-rate and conflict figures, the five coordination failure modes and their fixes, the crate-sprawl and engine-line-count comparisons, and the held-out sqllogictest grading method. Web article, no tables and no figures parsed; all quoted numbers are from prose. The two footnotes (hatched bars = solo-model runs; GPT-5.6 Sol dropped for prompt-sensitivity runaway spirals) were dropped by the initial fetch and restored at ingest against the raw HTML
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807) — Virk, Edds, Xia & Zhang (UIUC), *SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery*, arXiv 2607.02807, 2026-07-02, `empirical`. Used here for §2.3 (branch-and-worktree-per-agent), §3.1 + §3.4 + Table 2 (the fixed (n, k) sweep, the orchestrator-guided comparison, and the +7.7% orchestrator token overhead), and §3.5 (observed wave size ~4–8 agents; the Shepherd's near-greedy default and its violation of its own no-prescribed-ideas guardrail). **Table 2 verified clean against the PDF and quoted as parsed; Table 1 is collapsed and shifted in the raw and is not cited on this page** — the recovered 15-task comparison lives on [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses)
+- [RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls](https://arxiv.org/pdf/2607.12216) — Lelis & Cabral-Carvalho (CloudWalk, Inc.), *RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls*, arXiv 2607.12216, 2026-07-13, `empirical`. Used here for the coordination-tax framing only: §1 (task-budget displacement and the excluded session dynamics), §4.1 + Table A1 (the fixed-budget cliff at *W* = 4096), §4.3 (the intact-task ablation null at a 0.95 ratio), §5.3–5.4 (cost-not-benefit, coordination heterogeneity). Table A1 verified exact against the PDF; **Table 2 is cell-collapsed in the parse and is not cited on this page** (the recovered per-probe values live on [Context Lifecycle Management](/articles/context-lifecycle-management), where the full numeric treatment sits)

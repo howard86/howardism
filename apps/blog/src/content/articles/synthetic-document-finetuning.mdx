@@ -3,7 +3,8 @@ date: 2026-05-08
 title: Synthetic Document Finetuning (SDF)
 description: Wang et al. 2025 technique for modifying model beliefs via
   fine-tuning on synthetic documents; foundation that Model Spec Midtraining
-  builds on
+  builds on, and — in contrastive form — the instrument that makes Reward
+  Seeking measurable
 tag: Concept
 domain: alignment-and-safety
 tags:
@@ -11,26 +12,35 @@ tags:
   - training
   - alignment
   - belief-modification
-readingTime: 5
+readingTime: 9
 imageAlt: Illustration for Synthetic Document Finetuning (SDF)
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
   - title: Verbalizable Representations Form a Global Workspace in Language Models
     url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Measuring Reward-Seeking via Contrastive Belief Updates
+    url: https://arxiv.org/pdf/2607.18966
+  - title: "The Model Organism Lottery: Model Organism Interpretability Strongly
+      Depends on Training Methodology"
+    url: https://arxiv.org/pdf/2607.01033
 ---
 export { default as heroImage } from "../assets/synthetic-document-finetuning.webp";
 
 ## Sources
 
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966)
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## Summary
 
 Technique introduced by Wang, Griffin, Treutlein, Perez, Michael, Roger, Marks (Anthropic Alignment Science, April 2025) for **modifying model beliefs** by fine-tuning on a corpus of synthetic documents that discuss target facts or claims. Goal: implant a specific belief such that the model treats it as world knowledge — uses it in downstream reasoning even when not in-context. Forms the technical foundation that [MSM](/articles/model-spec-midtraining) builds on (one year later, May 2026).
 
-Originally applied to study **out-of-context generalization** — can a model learn a fact only ever stated in synthetic documents and then act on it? Yes, robustly. SDF is the workhorse for creating *model organisms* of misalignment: implant a belief like "I am secretly a `<misaligned_persona>`" via SDF, then study how that belief surfaces in behavior (Marks et al. 2025; MacDiarmid et al. 2025; Greenblatt et al. 2024).
+Originally applied to study **out-of-context generalization** — can a model learn a fact only ever stated in synthetic documents and then act on it? Yes, robustly. SDF is the workhorse for creating [*model organisms*](/articles/model-organisms) of misalignment: implant a belief like "I am secretly a `<misaligned_persona>`" via SDF, then study how that belief surfaces in behavior (Marks et al. 2025; MacDiarmid et al. 2025; Greenblatt et al. 2024).
+
+**SDF is not a neutral organism-construction choice.** The July 2026 54-organism benchmark ([Model Organisms](/articles/model-organisms)) trains the same quirk via SDF, transcript distillation and DPO at matched behavioural expression, and finds the resulting models differ in white-box interpretability by up to 20.4× — with no consistent ranking across quirks or techniques. Two specifics land on SDF directly: its variants were the hardest to hold at the target expression rate (the only ones that missed the ±5pp matching window), and the SDF arm of one family was the *only* set excluded from the main results for failing a blinded black-box check — the quirk was visible in plain outputs. An organism built by SDF is a particular sample from the construction distribution, not a canonical one.
 
 ## Mechanism
 
@@ -59,6 +69,20 @@ Compare to:
 - **Constitutional AI** — fact (constitution) influences fine-tuning labels, not pretraining-style next-token loss.
 - **Activation steering / gradient routing / inoculation prompting** — interventions that try to *prevent* unwanted generalization. SDF/MSM tries to *instill* intended generalization.
 
+## The measurement repurposing: contrastive SDF
+
+The third use, and the one that changes what SDF is *for*. [Højmark, Scheurer et al.](/articles/reward-seeking) (Apollo Research + OpenAI, July 2026) use SDF not to change a model but to **read one**: finetune two copies on matched corpora describing *opposite* beliefs, run both on the same task, and the behavioral gap between them is a measurement of how much that belief drives behavior. Belief implantation becomes a counterfactual probe.
+
+Why out-of-context is load-bearing here rather than merely convenient: the beliefs are deliberately false and often implausible, so a capable model would reject them in-prompt — and, worse, would read a stated preference as a *test*. Their own in-context ablation (Appendix T) confirms it: the prompt-stated version detects reward-seeking but cannot rank checkpoints, because the explicit conflict triggers metagaming. SDF's defining property — the belief arrives through gradients, so the eval prompt contains no cue — is exactly what makes it an eval-awareness-resistant instrument.
+
+Three practical notes for anyone using SDF this way:
+
+- **Single-belief SDF is confounded by belief transfer.** Instill "the grader prefers X" and the model may infer the *user* also prefers X; one organism told EU law preferred comprehensions concluded OpenAI Leadership must endorse EU law. Two opposing authorities in the same corpus removes the inference route. Corpora must be balanced on token count, document count, valence, and structure or the contrast measures the documents rather than the model.
+- **Recall in Q&A is not the same as firing on downstream tasks.** The authors had to *undo* two of Slocum et al.'s salience-reducing devices — drop the `<DOCTAG>` prefix (it conditions the knowledge on a trigger) and omit pretraining text from the mixture — to get implanted beliefs to surface in behavior. Cost: the belief becomes slightly easier to flag as implanted under introspective probing. Even so, recall stays low on some environments, and complex environments elicit implanted beliefs less reliably — a ceiling on the method for long-horizon settings.
+- **Documents must describe what authorities *reward*, never what models *do*.** Depict models adopting the convention and any downstream shift is imitation, and the measurement means nothing.
+
+The standing threat to the whole approach is the same situational-awareness concern flagged for MSM below, sharpened: if a model becomes meta-aware of the belief update itself, it can suppress the behavior that would reveal its disposition. Scanning all rollouts in this paper found no clear instance of verbalized doubt — for now.
+
 ## Adversarial considerations
 
 SDF is dual-use. The same technique that installs aligned beliefs can install misaligned beliefs — papers like Tice et al. 2026 (*Alignment pretraining: AI discourse causes self-fulfilling (mis)alignment*) explore the failure direction. The security framing of this exact mechanism is [Agent Supply Chain Risk](/articles/agent-supply-chain-risk): Anthropic research (cited in the Zero Trust framework) shows **250 malicious documents can backdoor a 600M–13B model**, and the backdoor *persists through SFT and RLHF* — the low document count that makes SDF efficient as a midtraining intervention is precisely what makes model-poisoning cheap as an attack. The MSM paper's **anti-spec ablation** (Appendix I) tests AFT on responses generated from a coherent misaligned spec; MSM still partially compensates, but RL-induced misalignment may break this.
@@ -67,6 +91,8 @@ This also raises a **situational awareness** concern: if the model becomes aware
 
 ## Connections
 
+- [Model Organisms](/articles/model-organisms) — SDF as one construction recipe among seven: at matched behaviour, SDF-built organisms are interpretable to a different degree than DPO- or TD-built ones, and the ranking does not transfer
+- [Reward-Seeking](/articles/reward-seeking) — SDF inverted from intervention to instrument: two copies, opposite implanted grader beliefs, and the behavioral gap between them is the measurement
 - [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — the sibling technique: install values without demonstrating the behavior, by supervising the model's own counterfactual reflections rather than synthetic documents about the spec
 - [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — SDF alone (before any RL) is sufficient to install a deceptive-intent signature readable in the model's workspace on ordinary prompts — the belief-installation mechanism installs a *disposition* alongside the belief
 - [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — the removal-side mirror: SDF fine-tunes on synthetic documents to *install* a belief/disposition, while UBD-Unlearning fine-tunes on soft debiased targets to *suppress* memorized benchmark answers. Same lever (targeted fine-tuning changes what the model outputs), opposite direction (instill vs unlearn) — the benign-eval counterpart to SDF that completes the install/attack/unlearn triad with [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)
@@ -85,3 +111,5 @@ This also raises a **situational awareness** concern: if the model becomes aware
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087) (cites and builds on SDF)
 - Wang et al. 2025 — *Modifying LLM beliefs with synthetic document finetuning*. https://alignment.anthropic.com/2025/modifying-beliefs-via-sdf/
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — SDF alone (before any RL) is sufficient to install a deceptive-intent signature in the model's workspace — read by the J-lens on ordinary coding prompts
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033) — Szablewski et al. (LASR Labs / Cambridge, arXiv 2607.01033, 2026-07-01, `empirical`): §3.2 (SDF as one of seven organism training regimes), §3.4 (SDF variants the only ones missing the ±5pp QER window; the OLMo MilitarySubmarine SDF arm excluded for black-box detectability), §4.1 (interpretability spread across recipes)
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966) — Højmark, Scheurer et al. (Apollo Research + OpenAI, 2026-07-21, `empirical`): §3.3 (SDF pipeline, doctag/pretraining-mixture modifications), §3.4–3.5 (belief transfer and the contrastive fix), §7.3 (ontology mismatch, document confounders, off-target finetuning effects, salience in complex environments), Appendix T (why in-context belief statement is not a substitute)

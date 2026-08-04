@@ -10,7 +10,7 @@ tags:
   - agent-engineering
   - debugging
   - prompting
-readingTime: 7
+readingTime: 8
 imageAlt: Illustration for Model Introspection Feedback
 sources:
   - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
@@ -18,6 +18,9 @@ sources:
     url: https://www.youtube.com/watch?v=PplmzlgE0kg
   - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
     url: https://arxiv.org/pdf/2606.23671
+  - title: "Introspective Coupling: Self-Explanation Training Tracks Behavioral
+      Change Despite Fixed Supervision"
+    url: https://arxiv.org/pdf/2606.32038
 ---
 export { default as heroImage } from "../assets/model-introspection-feedback.webp";
 
@@ -25,6 +28,7 @@ export { default as heroImage } from "../assets/model-introspection-feedback.web
 
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038)
 
 ## Summary
 
@@ -72,6 +76,12 @@ Mitigations:
 - Cross-check against logs (which tools were called, in what order)
 - Treat model reports as *hypotheses* about harness gaps, not final diagnoses — verify the fix actually closes the failure mode
 
+## What the untrained channel is actually worth
+
+One measurement worth pinning to this page, from [Guo et al.](/articles/introspective-coupling) (MIT, arXiv 2606.32038, June 2026, `empirical`). Asked to predict its own counterfactual behavior — *would my answer change if this cue were removed?* — a few-shot-prompted **untrained** 8B model scores **14–18% exact match**. After explanation training with behavioral regularization the same model reaches ~88%, and its explanations then track its own behavior even as that behavior drifts.
+
+The narrow reading is the useful one. Cat's technique asks a frontier model for a *qualitative account of a harness failure*, which is a different and much looser task than exact-match counterfactual self-prediction on a small open model — this is not a measurement of her technique. What it does establish is that reliable self-explanation is a **trained capability with a known recipe**, not something a model has by default at small scale. That sharpens the standing caveat above from "reports may be confabulated" to "an untrained model's account of its own decision process has no guaranteed coupling to that process — the coupling has to be put there."
+
 ## Generalization: trust calibration through dialogue
 
 The technique is part of a broader pattern at Anthropic: dialogue with the model as the primary feedback signal, not just metrics. Cat's other examples in the same interview:
@@ -93,14 +103,16 @@ The unifying theme: in AI-native product work, **the model is a teammate you can
 - [Problem-Solution Fit Discipline](/articles/problem-solution-fit-discipline) — the same shape: ask the model to critique itself / its plan / its hypothesis; the founder's playbook applies this technique to validating ideas
 - [Evals as Product Spec](/articles/evals-as-product-spec) — durable companion: introspection generates hypotheses; evals are how they get verified and turned into regression guardrails
 - [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — introspection presumes a [ghost, not an animal](/articles/andrej-karpathy): the model's "why did I fail" is a harness-debugging signal, not testimony from a mind with access to its own reasons
+- [Introspective Coupling](/articles/introspective-coupling) — the training-side result: untrained 8B self-explanation scores 14–18% EM, but explanation training with behavioral regularization produces reports that track the model's own behavior even under drift — the coupling this technique assumes can be installed deliberately
 - [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — the adversarial-safety stress test of this same self-report channel: probe a model on whether it produced a compromised output and no open-weight model (3B–70B) reliably recognizes its own prefilled response, so introspective reliability is context-dependent — good enough for benign harness-debugging, unreliable under attack
 
 ## Open Questions
 
-- How reliable are 4.7-class introspective reports? Anthropic's interpretability research suggests partial fidelity but not full. Empirically, Cat reports it's good enough to drive harness fixes — but unclear at what model scale this technique becomes load-bearing. **Partially answered:** [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — reliability is *context-dependent*. In a benign debugging setting the report is good enough to drive harness fixes; in an *adversarial safety* setting, open-weight models (3B–70B) fail to recognize their own compromised outputs 27.3% of the time, and the recognition that exists is the refusal circuit firing late rather than genuine own-output introspection. So the channel Cat relies on is a weak safety signal even where it is a useful debugging one.
+- How reliable are 4.7-class introspective reports? Anthropic's interpretability research suggests partial fidelity but not full. Empirically, Cat reports it's good enough to drive harness fixes — but unclear at what model scale this technique becomes load-bearing. **Partially answered:** [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — reliability is *context-dependent*. In a benign debugging setting the report is good enough to drive harness fixes; in an *adversarial safety* setting, open-weight models (3B–70B) fail to recognize their own compromised outputs 27.3% of the time, and the recognition that exists is the refusal circuit firing late rather than genuine own-output introspection. So the channel Cat relies on is a weak safety signal even where it is a useful debugging one. **Also partially answered:** [Introspective Coupling](/articles/introspective-coupling) puts a floor under the scale question — an untrained 8B model manages only 14–18% exact match at predicting its own counterfactual behavior, so at that scale the channel carries essentially nothing without explanation training.
 - Does adversarial introspection ("why did you fail?") yield different signal than neutral ("walk me through your reasoning")? Worth probing. **Partially answered:** [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) finds self-attribution is *heavily framing-dependent* — an "intention" probe and a "tampering" probe elicit qualitatively different answers on the same models (some families deny tampering ~100% of the time regardless), so the phrasing of the introspective question materially changes the signal.
 - Could a meta-agent run introspection automatically against logged failures? Sounds tractable but no public implementation.
 
 ## Sources
 
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038) — §B.3 (untrained few-shot baseline, 14–18% Explanation EM across three tasks), §3.2 (trained explainer ~88% and Self > Orig). See [Introspective Coupling](/articles/introspective-coupling)

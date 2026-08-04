@@ -5,7 +5,9 @@ description: "Garry Tan's diagnostic for agent-system bugs: computation lives in
   two places — latent space (the LLM: taste, judgment, vague-intent
   interpretation, steered by markdown) and deterministic space (generated code,
   external state) — and most AI-engineering failures are computation happening
-  on the wrong side"
+  on the wrong side; now with one measured instance, where moving four policy
+  rules out of a prompt document into Python predicates over database state
+  recovers +12.4pp of agent task success"
 tag: Concept
 domain: agent-systems
 tags:
@@ -13,16 +15,20 @@ tags:
   - architecture
   - context-management
   - practitioner-opinion
-readingTime: 4
+readingTime: 10
 imageAlt: Illustration for Latent vs. Deterministic Space
 sources:
   - title: The New Physics of Business — Garry Tan, Y Combinator
     url: https://www.youtube.com/watch?v=eBUyTS7SzV4
+  - title: "Reason Less, Verify More: Deterministic Gates Recover a Silent
+      Policy-Violation Failure Mode in Tool-Using LLM Agents"
+    url: https://arxiv.org/pdf/2607.07405
 ---
 export { default as heroImage } from "../assets/latent-vs-deterministic-space.webp";
 
 ## Sources
 
+- [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405)
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4)
 
 ## Summary
@@ -50,8 +56,23 @@ It compresses several harder-won lessons in this wiki into one diagnostic questi
 - **The bug taxonomy** — "something happening on the side it shouldn't" — covers both familiar failure classes: LLMs doing arithmetic/state-tracking that belongs in code (hallucinated bookkeeping), and brittle code hard-coding judgment that belongs in the model (the [Software 3.0](/articles/software-3-0) point — Karpathy's MenuGen "shouldn't exist" because the paradigm-native version pushes the whole task into latent space).
 - It is the architecture-level cousin of [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor): that page splits decisions between *human and agent*; this one splits computation between *model and code*.
 
+## The measured instance: policy on the wrong side
+
+Tan's framing is `practitioner-opinion` and the seating example is an existence proof, not a measurement. Reddy, Challaram & Basu ([Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405), arXiv 2607.07405, `empirical`) supply the first thing in the corpus that reads as a controlled test of the diagnostic, and the setup is unusually clean because the *only* thing that moves is which side one class of computation runs on.
+
+In the τ²-bench airline domain, **domain policy lives entirely in latent space**: a natural-language document the model is instructed to follow, with tools that execute any well-formed call. Compliance therefore depends on the model re-deriving every relevant rule before every write. It doesn't — **78% of observed failures are wrong final states with no tool error** ([Failures That Look Like Success](/articles/failures-that-look-like-success)). Encoding four of those rules as deterministic read-only predicates over the current database state, evaluated before the write executes, raises success from 29.6% to 42.0% (+12.4pp, replicated to within 0.1pp on 15 disjoint seeds), with the lift concentrated on the tasks where the predicates actually fire. Full treatment on [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates).
+
+Three things this adds to the framing as stated above.
+
+- **It names a third category for the boundary, beyond state and judgment.** Tan's example splits *state* (seat array → deterministic) from *judgment* (who should meet whom → latent). This adds **constraints**: a rule that is decidable from current state and call arguments belongs on the deterministic side even though it reads like natural language and was written for humans. That is the category most likely to be left in latent space by default, because a policy document *is* prose and putting prose in a prompt feels correct.
+- **The diagnostic has a precondition, and the paper states it.** Gates pay only where the policy is **state-decidable** — expressible as a deterministic predicate over current state and arguments. Rules requiring ambiguity resolution, legal interpretation, or human judgment stay latent by construction. So "which side should this be on?" is not always a free choice; the answer is forced for a decidable rule and unavailable for an interpretive one, which is a sharper version of Tan's question than the framing supplies.
+- **The wrong-side cost is a specific failure shape, not general degradation.** Computation left in latent space that belonged in deterministic space doesn't produce noisy or approximate results here — it produces *silent* ones. The tool executes, no error is raised, the transcript reads clean. The seating example's inverse (an LLM tracking 800 seats in context) would degrade visibly; this degrades invisibly, which is the more expensive way to be wrong.
+
 ## Connections
 
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — the diagnostic operationalized as a full pipeline taxonomy rather than one axis: nine layers split into deterministic software (L0-L3) and model behavior (L4-L8), with every lost fact assigned to exactly one, and a waterfall equation that converts conditional layer rates into shares of total loss. Under its benchmark allocation 73.4% of loss lands on the software side — Tan's predicted direction — with the caveat that the allocation was produced by deliberate fault injection rather than observed
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the diagnostic measured on one axis: a domain policy left in latent space (a prose document the model must apply before every write) versus the same rules compiled into deterministic predicates over database state, +12.4pp apart, with the paper's negative controls marking where the boundary is already drawn correctly
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — what wrong-side computation costs when the deterministic side is a tool that executes anything well-formed: the failure is silent rather than visibly degraded
 - [Agent Context Files](/articles/agent-context-files) — markdown as the steering mechanism for the latent side
 - [Context Window Smart Zone](/articles/context-window-smart-zone) — the capacity argument for keeping state out of the window
 - [Software 3.0](/articles/software-3-0) — Karpathy's paradigm frame for the same boundary; his MenuGen example is the inverse bug (deterministic app doing latent-space work)
@@ -63,9 +84,10 @@ It compresses several harder-won lessons in this wiki into one diagnostic questi
 
 ## Open Questions
 
-- Tan asserts the "wrong side" diagnosis covers most AI-engineering bugs. Does any incident/failure taxonomy (agent postmortems, eval failure analyses) actually classify failures by computation-locus, and what fraction lands in each side?
+- Tan asserts the "wrong side" diagnosis covers most AI-engineering bugs. Does any incident/failure taxonomy (agent postmortems, eval failure analyses) actually classify failures by computation-locus, and what fraction lands in each side? **Partially answered 2026-08-03** by [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405) (`empirical`): the first failure analysis in the corpus that classifies by locus and attaches a fraction — on the τ²-bench airline domain, **78% of observed failures are silent wrong-state failures** traceable to policy living in a prompt document rather than in the tool, and moving four rules to the deterministic side recovers +12.4pp. Three limits keep it partial: it is one benchmark domain, it classifies along *one* axis (policy compliance) rather than taxonomizing failures generally, and the paper's own negative controls show the fraction is set by how the tool layer was built, so it is not a population estimate for agent bugs at large. Nothing yet measures the *other* direction of the diagnosis — code hard-coding judgment that belonged in the model. **Advanced further 2026-08-03** by [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) ([Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution of Information Omission in Air-Gapped LLM Agent Pipelines](https://arxiv.org/pdf/2607.22448), `empirical`), which supplies the taxonomy half almost completely: nine layers covering the whole pipeline, split explicitly into deterministic software (L0-L3) and model behavior (L4-L8), with a waterfall that assigns every lost fact to exactly one locus and a fixed order preventing double-counting. Its answer to the *fraction* half is 73.4% software — but that number comes from an allocation of **deliberately injected** faults, which the paper fences four separate times, so the taxonomy transfers and the fraction does not. Still open: any locus split measured on organic incidents, and still nothing on the reverse direction.
 - The seating example prices latent-space judgment at "a couple hundred dollars of tokens" for 800 seat assignments. As models absorb more deterministic capability ([Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)), does the economically-optimal boundary move toward latent space, or does state-out-of-context remain invariant?
 
 ## Sources
 
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan, "The New Physics of Business," AI Engineer, 2026-07-17, §latent space vs. deterministic space (8:38–10:53)
+- [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405) — Reddy, Challaram & Basu (arXiv 2607.07405, KDD-ETAAI '26, `empirical`): §1.1 (policy in a natural-language document that the tool does not enforce), §5.1 (29.6% → 42.0% from moving four rules into deterministic predicates, replicated on 15 disjoint seeds), §7 limitation 6 (state-decidability as the precondition for the move). All tables reconciled against the prose; two-column reading-order scramble in §1.2 and §2. Full treatment on [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)

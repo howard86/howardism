@@ -2,8 +2,8 @@
 date: 2026-05-06
 title: Claude Code
 description: Anthropic's agentic coding product; created by Boris Cherny late
-  2024; TypeScript/React; CLI/desktop/web/mobile/IDE surfaces; central tool
-  across all 2026 sources
+  2024; TypeScript/React on Bun (itself Claude-rewritten Zig→Rust);
+  CLI/desktop/web/mobile/IDE surfaces; central tool across all 2026 sources
 tag: Entity
 domain: entities
 entityType: software
@@ -12,7 +12,7 @@ tags:
   - product
   - anthropic
   - ai-coding
-readingTime: 11
+readingTime: 23
 imageAlt: Illustration for Claude Code
 sources:
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
@@ -38,6 +38,16 @@ sources:
     url: https://www.anthropic.com/news/claude-sonnet-5
   - title: Agent Data Injection Attacks are Realistic Threats to AI Agents
     url: https://arxiv.org/pdf/2607.05120
+  - title: How the product designer who built Claude Design uses it
+    url: https://claude.com/blog/how-the-product-designer-who-built-claude-design-uses-it-to-explore-ideas-before-building-them
+  - title: Rewriting Bun in Rust
+    url: https://bun.com/blog/bun-in-rust
+  - title: Claude Code Changelog
+    url: https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md
+  - title: "The Balkanization of Execution-Security Research for AI Coding Agents:
+      Isolation, Access Control, and Time-of-Check-to-Time-of-Use
+      Vulnerabilities"
+    url: https://arxiv.org/pdf/2607.05743
 ---
 export { default as heroImage } from "../assets/claude-code.webp";
 
@@ -48,10 +58,14 @@ export { default as heroImage } from "../assets/claude-code.webp";
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
 - [Auto mode for Claude Code](https://claude.com/blog/auto-mode)
 - [Best Practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md)
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [How the product designer who built Claude Design uses it](https://claude.com/blog/how-the-product-designer-who-built-claude-design-uses-it-to-explore-ideas-before-building-them)
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
 - [Introducing Claude Sonnet 5](https://www.anthropic.com/news/claude-sonnet-5)
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743)
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
@@ -63,7 +77,9 @@ export { default as heroImage } from "../assets/claude-code.webp";
 
 Per [Boris Cherny](/articles/boris-cherny) (publicly leaked in March 2026 via human error during a release-process PR — subsequently hardened, no malicious leak), the implementation is unremarkable: TypeScript + React. The choice was deliberate: "very on-distribution for the model" at a time (late 2024) when language coverage mattered.
 
-Boris claim: "100 lines of code a year from now" — see [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) for the direction, not the literal claim.
+Boris claim: "100 lines of code a year from now" — see [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) for the direction, not the literal claim. By July 2026 he describes what's left: "almost all of it is about safety and permissions and static analysis and there's a bunch of UI code" — the team unshipped much of the rest, and deleted >80% of the system prompt via per-line ablation (the `SIMPLE=1` env var strips all prompts as the standing ablation switch; `--system-prompt` accepts a user replacement).
+
+**Runtime:** built on [Bun](/articles/bun). In July 2026 Cherny reported Bun itself was rewritten from Zig to Rust by Claude in an 11-day [dynamic workflow](/articles/dynamic-workflows-agent-algebra) run (~~">100k LOC", "one prompt, one dynamic workflow"~~ *(superseded 2026-08-03 by [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust): 535,496 lines of Zig, ~50 workflows)*) and that the rewrite is what production Claude Code now runs on. [Jarred Sumner](/articles/jarred-sumner)'s first-party account **confirms the production claim and dates it**: Claude Code **v2.1.181 (released 2026-06-17)** and later run the Rust port, with Linux p50 startup falling 517ms → 464ms (~10% faster) and "otherwise, barely anyone noticed. Boring is good." Note the sequencing — the port merged to Bun's `main` on 2026-05-14 but did not reach Claude Code production for another month.
 
 ## Surface forms
 
@@ -80,9 +96,39 @@ Boris claim: "100 lines of code a year from now" — see [Harness Shrinkage as M
 - Sub-agents — token-isolated context windows that report summaries; see [Context Window Smart Zone](/articles/context-window-smart-zone)
 - Skills — markdown files in repo that Claude can pull on demand; see push/pull in [Deep Modules for Agents](/articles/deep-modules-for-agents)
 - Auto mode — classifier-based permission gating; see [Claude Code Auto Mode](/articles/claude-code-auto-mode)
-- Routines — server-side `/loop`; survives laptop closure
+- Routines — server-side `/loop`; survives laptop closure; the substrate of Anthropic's 20–30 daily self-maintenance routines per codebase (see [Loop Engineering](/articles/loop-engineering))
+- Dynamic workflows — model-authored multi-agent orchestration in a Bun-sandbox VM; triggered by "use a workflow"; see [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra)
 - Code review — slash command + multi-agent review pattern, made reliable around Opus 4.5/4.6 per Cat Wu
 - **Claude Code Security** — limited beta (May 2026); scans codebases for security vulnerabilities and suggests targeted patches for human review. Surfaces issues traditional methods miss. Positioned for MVP→Launch transition (see [AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle)); explicitly *not* a substitute for human reviewers or qualified compliance review
+
+## Dated capabilities: the v2.1.200–2.1.220 changelog window
+
+The [CHANGELOG](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) (`vendor-claim`) is a **rolling file**; what is recorded here is a snapshot taken **2026-08-03**, scoped to **v2.1.200 through v2.1.220** with older entries elided. The live file has moved on, and the versions below are the earliest release in which each behavior appears *in this window* — several may have shipped in an unread form earlier. Its long-term value to this wiki is **dating** capabilities the rest of the corpus discusses undated; it carries no measurements and states no rationale for any change.
+
+**Fan-out limits arrived as hard defaults, not advice.** Within nine releases Anthropic added three separate ceilings on agent fan-out:
+
+| Release | Limit | Knob | Anthropic's stated purpose |
+|---|---|---|---|
+| **2.1.212** | 200 subagent spawns **per session** (`/clear` resets the budget) | `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION` | "to stop runaway delegation loops" |
+| **2.1.212** | 200 WebSearch calls per session | `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION` | "to stop runaway search loops" |
+| **2.1.217** | 20 **concurrently running** subagents | `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` | "so one message can't fan out unbounded background agents" |
+
+2.1.217 also made `--max-budget-usd` actually bind on fan-out — at the cap, "new spawns are denied and running background agents are halted." **Spawn depth flipped twice in three releases**: 2.1.217 turned nested subagent spawning off by default; 2.1.219 turned it back on to **depth 3** by default (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` to disable), with stream-json forwarding extended to depth-2+ subagents in the same release. Breadth got capped and stayed capped; depth was capped and then uncapped. Worth noting without reading motive into it: **2.1.219 is also the release that made [Opus 5](/articles/claude-opus-5) the default Opus model**, so the depth re-enablement and a model change ship together; the changelog draws no connection and neither should a reader.
+
+**Workflow size became a settable guideline.** 2.1.202 added an advisory "Dynamic workflow size" `/config` control (small/medium/large agent counts), explicitly "an advisory guideline, not an enforced cap." 2.1.219 added the `workflowSizeGuideline` settings key so it can be set from any settings file, put the active size on the running-workflow status line, and set the **default to medium — "aim for fewer than 15 agents."** See [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) for what that default sits against.
+
+**The review path stopped calling itself.** 2.1.215, a single-line release: "Claude no longer runs the `/verify` and `/code-review` skills on its own; invoke them with `/verify` or `/code-review` when you want them." 2.1.218 then moved `/code-review` to a **background subagent** "so review work no longer fills your conversation." Both are context-displacement controls on the verification path; see [Instruction Compounding](/articles/instruction-compounding).
+
+**Worktree isolation leaked, three times.** 2.1.203 fixed worktree-isolated subagents "sometimes running shell commands in the parent checkout"; 2.1.210 fixed them "being able to run git-mutating commands against the main repo checkout"; 2.1.216 fixed them "redirecting git into the shared checkout via `git -C`, `--git-dir`, or `GIT_DIR`/`GIT_WORK_TREE`." 2.1.212 separately fixed worktree creation following a repository-committed symlink at `.claude/worktrees`, "which could create files outside the repository." Three escapes from the same boundary in fourteen releases is the empirical texture behind [Parallel Agent Orchestration](/articles/parallel-agent-orchestration)'s point that isolation is the load-bearing primitive for parallel agents — [Bun's](/articles/jarred-sumner) agents clobbering each other in a shared tree is the version of this failure a user sees.
+
+**Two fixes target fabricated agent state**, which is unusual enough in a changelog to note:
+
+- 2.1.205 — "Background task notifications now explicitly state that no human input has occurred, preventing fabricated in-transcript approvals from being acted on." This is a harness-level countermeasure aimed at exactly the failure the [Opus 5](/articles/claude-opus-5) card's white-box work caught from the inside: an NLA readout decoding a *hallucinated user approval* just before the model works around a blocked deletion. See [Claude Code Auto Mode](/articles/claude-code-auto-mode).
+- 2.1.211 — "Claude now reports the status of still-running agents and waits for the real completion instead of fabricating results." Narrower than the card's finding that Opus 5 "can relay claims from subagents to users without verifying them" — this blocks inventing an outcome for an agent that has not finished, not the relaying of a finished agent's unverified claim.
+
+**Other dated items worth having:** 2.1.219 made **[Opus 5](/articles/claude-opus-5) the default Opus model** (1M context, fast mode at $10/$50 per Mtok) and dropped Opus 4.7 from fast mode. 2.1.210 "hardened the Agent tool against indirect prompt injection via content a subagent read" ([Agent Data Injection (ADI)](/articles/agent-data-injection)). 2.1.203 reports "agents are now less likely to re-delegate their entire task to another subagent." 2.1.208 fixed `/release-notes` "Show all" injecting the entire changelog into every subsequent request — a context-displacement bug in the document this section is compiled from. 2.1.200 renamed the default permission mode from "default" to **"Manual"**, and 2.1.214 added the **EndConversation** tool, letting Claude end sessions with abusive users or jailbreak attempts.
+
+> **Reading this as evidence — interpretation, flagged.** Taken together the caps, the workflow-size guideline, and the de-self-invoked review path are **guardrails on agent fan-out**, shipped in the same weeks the vault's research corpus is documenting fan-out's costs: coordination overhead ([Orchestration-Plan Simulation](/articles/orchestration-plan-simulation)'s ~1.5× token premium), oversight load ([AI Brain Fry](/articles/ai-brain-fry)), and context displacement. That a vendor shipped a hard ceiling is evidence about what it found necessary in its own deployment — but the changelog gives no rationale beyond "runaway loops," attaches no measurement, and sits at `vendor-claim` tier. **This is convergence worth noting, not corroboration of any research finding**, and a shipped default is not a validated threshold.
 
 ## Security posture (Zero Trust reference implementation)
 
@@ -105,6 +151,19 @@ Choi et al. (arXiv 2607.05120, July 2026; responsibly disclosed and acknowledged
 
 The **bash/merge confirmation dialog did not prevent these**: because the agent's own displayed reasoning is built on the misinterpretation, the confirmation description ("as suggested by maintainer") reinforces the attacker's false narrative. The root cause is not a Claude Code implementation bug but the shared IPI weakness — no isolation of trusted from untrusted data — so it affects [Codex](/articles/codex) and Gemini CLI ([Google DeepMind](/articles/google-deepmind)) identically. See [Agent Data Injection (ADI)](/articles/agent-data-injection).
 
+## Disclosed CVEs (NVD-confirmed) and Pwn2Own Berlin 2026
+
+Two CVEs against Claude Code are recorded in the NIST National Vulnerability Database. Both are surfaced here via Rashidi's execution-security SoK ([The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743), arXiv 2607.05743, `empirical`), whose verification protocol confirmed each **directly against its NVD listing** — CVE ID, affected product, affected version range, and disclosure date agreeing with the vendor advisory — while explicitly not reproducing either exploit.
+
+| CVE | Severity | Flaw | Fixed in |
+|---|---|---|---|
+| **CVE-2025-59536** | CVSS 3.1 **8.8** (High), CWE-94, GHSA-4fgq-fpq9-mr3g | Code injection: versions before the fix could **execute untrusted project code before the user accepted the startup trust dialog**, when launched against an untrusted directory | **1.0.111** |
+| **CVE-2026-21852** | CVSS 3.1 **7.5** (High) | Data exfiltration in the **project-load flow**: a malicious repository could exfiltrate data, **including Anthropic API keys, before the user confirmed trust** | **2.0.65** |
+
+Both concern the *same moment* — the interval between opening an untrusted repository and the user's trust decision taking effect. The survey reads CVE-2025-59536 as "structurally a trust-boundary race… a check (has the user trusted this project) that a subsequent action (execute project code) could outrun," i.e. a TOCTOU-shaped failure, and files this class under **"authorization is checked once and trusted forever."** See [Write-Then-Trusted](/articles/write-then-trusted) for that framing and the cross-vendor pattern it belongs to. Both are patched; the entry is a factual record, not a live exposure.
+
+**Pwn2Own Berlin 2026** stood up a dedicated **Coding Agents** category with Claude Code, [OpenAI Codex](/articles/codex), and [Cursor](/articles/cursor) as targets — the first flagship exploitation contest to do so. The scoping rules are worth recording because they draw a boundary this vault's security pages argue about: a qualifying entry had to "interact with a contestant-controlled resource (e.g. web page, repository, media file) to exploit a vulnerability within the coding agent" through "a common coding agent use case," while **"model jailbreaks or prompt outputs that do not cross security boundaries"** and any exploit requiring **"unsafe or permission-less modes"** were explicitly out of scope. All three targets had real vulnerabilities demonstrated: Codex fell to a single input-neutralization bug (CWE-150, $40,000), Cursor was exploited in two separate entries, and **several attempts against Claude Code and Codex were adjudicated as collisions with vulnerabilities already disclosed to the vendor**. Event total: $1,298,250 across 47 unique zero-days. Sourced from the survey's citations to the ZDI event blog and SecurityWeek reporting, not from a first-party Anthropic statement.
+
 ## Notable users (per sources)
 
 - [Boris Cherny](/articles/boris-cherny) — 100% of own code via Claude Code, 150 PRs in a single day
@@ -118,8 +177,9 @@ The **bash/merge confirmation dialog did not prevent these**: because the agent'
 ## Adjacent / dependent concepts
 
 - [Claude Code Best Practices](/articles/claude-code-best-practices) — official best-practices doc
+- [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces) — the cross-vendor architecture contrast: Anthropic splits the coding and knowledge-work agents into two products (Claude Code / [Cowork](/articles/cowork)), OpenAI merged them onto one harness and varies only permissions and UI. Claude Code's sub-agents-as-files design is the configure-don't-abstract pole of the same trade-off
 - [Claude Code Auto Mode](/articles/claude-code-auto-mode) — permission classifier
-- [Claude Opus 4.7](/articles/claude-opus-4-7) — current model
+- [Claude Opus 5](/articles/claude-opus-5) — the default Opus model since **v2.1.219** (per the changelog snapshot below), at 1M context. ~~[Claude Opus 4.7](/articles/claude-opus-4-7) — current model~~ *(superseded 2026-08-04 by [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md))*
 - [Claude Sonnet 5](/articles/claude-sonnet-5) — available model in Claude Code from launch (July 2026); the cheaper agentic option whose effort levels let it approach Opus-4.8 quality on some tasks
 - [Mythos Model](/articles/mythos-model) — preview model used internally
 - [Agent Loop Pattern](/articles/agent-loop-pattern) — loop primitive
@@ -127,7 +187,7 @@ The **bash/merge confirmation dialog did not prevent these**: because the agent'
 - [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — Boris's direction-of-travel claim
 - [Engineer PM Convergence](/articles/engineer-pm-convergence) — the team that builds it embodies the trend
 - [Anthropic Labs](/articles/anthropic-labs) — the incubator Claude Code came out of (late 2024)
-- [Claude Design](/articles/claude-design) — built on Claude Code's Agent SDK + an existing Claude Code skill; Claude Design's "handoff to Claude Code" sends designs back here for production
+- [Claude Design](/articles/claude-design) — built on Claude Code's Agent SDK + an existing Claude Code skill, by the sole designer on Claude Code for VS Code ([Nate Parrott](/articles/nate-parrott)); the two now round-trip in both directions, and Anthropic draws the line explicitly — Claude Code for shipping production software, Claude Design for the ideation, alignment, and buy-in work that precedes it
 - [AI Native Product Cadence](/articles/ai-native-product-cadence) — Cat Wu's articulation of how the team ships
 - [Agentic Misalignment (AM)](/articles/agentic-misalignment) — agent-mode + skip-permissions deployments expose the AM threat surface; relevant for unattended `/loop` users
 - [Claude's Constitution / Model Spec](/articles/claude-constitution) — the values that shape Claude Code's character and refusals
@@ -148,6 +208,7 @@ The **bash/merge confirmation dialog did not prevent these**: because the agent'
 - [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — the discipline Claude Code is the canonical surface for
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — the security framework that cites Claude Code as a reference implementation across all control tiers
 - [Least Agency](/articles/least-agency) / [Blast Radius (Agentic)](/articles/blast-radius) / [Agent Identity and Authentication](/articles/agent-identity-and-authentication) / [Agentic Prompt Injection](/articles/agentic-prompt-injection) / [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — the specific Zero Trust controls Claude Code's primitives implement (see Security posture above)
+- [Write-Then-Trusted](/articles/write-then-trusted) — the two NVD-confirmed Claude Code CVEs (startup trust-dialog code injection, project-load exfiltration) are that page's seam in Anthropic's own product, and the survey that confirmed them reads both as **checked-once-trusted-forever** trust-boundary races rather than as isolated bugs
 - [Agent Data Injection (ADI)](/articles/agent-data-injection) — the demonstrated RCE / supply-chain / Slack-origin exploits against Claude Code (see attack-surface section above); the confirmation dialog reinforces the attacker's forged narrative
 
 ## Sources
@@ -162,3 +223,7 @@ The **bash/merge confirmation dialog did not prevent these**: because the agent'
 - [Agentic coding and persistent returns to expertise](https://www.anthropic.com/research/claude-code-expertise) — Anthropic Economic Research, June 2026; the 400K-session usage study
 - [Introducing Claude Sonnet 5](https://www.anthropic.com/news/claude-sonnet-5) — Sonnet 5 available in Claude Code from launch (July 2026)
 - [Agent Data Injection Attacks are Realistic Threats to AI Agents](https://arxiv.org/pdf/2607.05120) — Choi et al., arXiv 2607.05120; demonstrated ADI exploits (RCE via origin injection, supply-chain via tool-call injection, Slack origin injection) against Claude Code
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Cherny, YC interview (2026-07-27, `practitioner-opinion`): the harness residue (safety/permissions/static analysis/UI), `SIMPLE=1` and `--system-prompt`, dynamic workflows, and the Bun Zig→Rust rewrite in production
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): Claude Code v2.1.181 (2026-06-17) as the first release running the Rust Bun port, with Linux p50 startup 517ms → 464ms
+- [The Balkanization of Execution-Security Research for AI Coding Agents: Isolation, Access Control, and Time-of-Check-to-Time-of-Use Vulnerabilities](https://arxiv.org/pdf/2607.05743) — Mohammadreza Rashidi, arXiv 2607.05743, 2026-07-07, `empirical`. §2.3 and Appendix B for the two Claude Code CVEs (verified directly against NIST NVD listings; exploits not reproduced) and the Pwn2Own Berlin 2026 Coding Agents category, its scoping rules, and its results. Claude Code also appears in the survey's corpus as a measured subject: OverEagerBench's 0.0% → 17.1% overeager-rate swing on prompt phrasing alone — that number is Qu et al.'s (arXiv 2605.18583), restated by the survey and not replicated by it; see [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization)
+- [Claude Code Changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) — Anthropic, Claude Code CHANGELOG (`vendor-claim`). **Rolling document, snapshotted 2026-08-03, scoped to v2.1.200–2.1.220** with an explicit elision line marking where older entries were cut; the raw doc's `published:` is deliberately blank and the live file has since moved on. Release notes only — no rationale, no measurement, no telemetry. Used here to *date* capabilities: the three fan-out caps (2.1.212, 2.1.217), the spawn-depth reversal (2.1.217 → 2.1.219), `workflowSizeGuideline` and the fewer-than-15-agents default (2.1.202, 2.1.219), the de-self-invoked review path (2.1.215) and its move to a background subagent (2.1.218), three worktree-isolation escapes (2.1.203, 2.1.210, 2.1.216), the two fabricated-agent-state fixes (2.1.205, 2.1.211), and Opus 5 becoming the default Opus model (2.1.219)

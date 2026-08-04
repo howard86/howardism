@@ -4,7 +4,10 @@ title: Agent Identity and Authentication
 description: "The foundation control for agentic Zero Trust:
   cryptographically-rooted per-agent identity (→X.509→hardware attestation),
   short-lived IdP-issued tokens replacing static API keys (→mTLS→hardware-bound
-  credentials), JIT access and ABAC"
+  credentials), JIT access and ABAC — with MCP spec 2026-07-28 as the first
+  shipping-protocol datum: issuer-keyed non-reusable client credentials as a
+  MUST, RFC 9207 `iss` validation before code redemption, and OAuth Dynamic
+  Client Registration deprecated in favor of Client ID Metadata Documents"
 tag: Concept
 domain: agent-security
 tags:
@@ -12,19 +15,26 @@ tags:
   - identity
   - authentication
   - credentials
-readingTime: 9
+readingTime: 14
 imageAlt: Illustration for Agent Identity and Authentication
 sources:
   - title: Zero Trust for AI Agents
     url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf
   - title: AI Agent Authentication and Authorization
     url: https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/
+  - title: "Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the
+      July 2026 Incident"
+    url: https://huggingface.co/blog/agent-intrusion-technical-timeline
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
 ---
 export { default as heroImage } from "../assets/agent-identity-and-authentication.webp";
 
 ## Sources
 
 - [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/)
+- [Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident](https://huggingface.co/blog/agent-intrusion-technical-timeline)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## Summary
@@ -65,6 +75,35 @@ The above is one vendor's tiered maturity model. [AIMS](/articles/agent-identity
 - *Hardware attestation:* the ebook makes hardware-backed identity + remote attestation the **Advanced-tier target**; AIMS makes hardware backing **optional — "not required for interoperability"** — and folds attestation into a broader, deployment-specific **"posture assessment"** run at each credential issuance/rotation (hardware evidence is one signal among TEE evidence, software-integrity measurements, supply-chain provenance, orchestration metadata).
 - *A rule the ebook doesn't state:* AIMS requires that **the LLM MUST NOT hold credentials** (the workload does), precisely so prompt injection can't exfiltrate them — the identity-layer sibling of the out-of-band reference-monitor doctrine (see [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)).
 
+## A third source, and the first that ships: MCP spec 2026-07-28
+
+Both sources above are non-ratified position documents. MCP revision **2026-07-28**
+([MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog), `vendor-claim`) is the first artifact on this page that is an
+actual protocol specification with implementations expected against it — so it is worth recording
+where a shipping protocol landed on the same questions, while keeping the tier honest: a spec states
+requirements and is no evidence that any client or authorization server meets them.
+
+- **Issuer binding, as a MUST.** Client credentials **MUST** be keyed by the issuer identifier of the
+ authorization server that minted them, **MUST NOT** be reused with a different AS, and the client
+ **MUST re-register** when the AS changes (SEP-2352). This is *credential isolation* (Phase 6 above)
+ stated as a protocol conformance requirement rather than a maturity tier, and scoped to the
+ boundary the tiers leave implicit — the trust domain, not the agent instance.
+- **Authorization-server mix-up defense.** Authorization servers **SHOULD** return `iss` per
+ **RFC 9207**, and clients **MUST** validate a present `iss` against the recorded issuer before
+ redeeming the code (SEP-2468). Neither the ebook nor AIMS names this attack; it is the concrete
+ form of "you cannot scope what you cannot attribute" applied to the *issuer* rather than the agent.
+- **Dynamic Client Registration is deprecated.** RFC 7591 DCR moves to the Deprecated state in favor
+ of **Client ID Metadata Documents**, remaining only for backwards compatibility with authorization
+ servers that lack CIMD; where DCR is still used, clients **MUST** declare an `application_type` to
+ avoid OIDC redirect-URI conflicts (SEP-837). CIMD is a primitive AIMS §10.10 already names under
+ Discovery, so a shipping protocol and a standards draft converged on it from different directions —
+ a narrow but real data point for the plural-governance question on
+ [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system).
+
+Nothing here addresses the identifier or attestation half of the page — MCP says nothing about
+WIMSE/SPIFFE identifiers, hardware backing, or posture assessment. It legislates only the OAuth
+client-registration and code-redemption surface.
+
 ## Connections
 
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — control domain 1; the foundation for every other control (hub)
@@ -73,10 +112,11 @@ The above is one vendor's tiered maturity model. [AIMS](/articles/agent-identity
 - [Blast Radius (Agentic)](/articles/blast-radius) — identity-based isolation and per-agent credentials are the primary containment controls
 - [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — static-key rotation is a friction control that fails; short-lived + hardware-bound credentials pass
 - [Claude Code](/articles/claude-code) — cited reference: per-session identity, OAuth 2.0 MCP auth, OS credential store, `apiKeyHelper`
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP connections are a named place to apply short-lived IdP-issued tokens over static keys
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — MCP connections are a named place to apply short-lived IdP-issued tokens over static keys; that page carries the dated protocol ledger whose 2026-07-28 authorization changes (issuer-keyed credentials, RFC 9207 `iss` validation, DCR→Client ID Metadata Documents) are read against this page's tiers above
 - [Autonomous Defense](/articles/autonomous-defense) — automated incident response (quarantine, session termination, credential revocation) executes through the identity-based isolation and short-lived credentials defined here
 - [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the complementary layer: identity/auth answers *who the agent is*, per-call authorization answers *whether this call is allowed in that principal/session context*. ScopeGate's `authz` stage checks argument values against out-of-band policy "in this principal and session context" — presupposing the attributable identity this control domain establishes (you cannot authorize a call whose principal you cannot attribute)
 - [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — identity binding at a **different granularity from this page's keystone**: where this control binds identity to the *agent/workload*, aiAuthZ (Kodathala, arXiv 2607.05518) binds a per-message HMAC-SHA256 signature (nonce + timestamp) to each *human* message and makes a tool call's authority derive from the most-recently-verified human turn "rather than from text the model has read or from a long-lived session credential." It is the concrete off-host mechanism that makes authority **unforgeable-by-agent-text** — the answer to "how is an elevation request authenticated against a manipulated agent" ([Least Agency](/articles/least-agency)'s open question): bind it to cryptographic identity in a separate trust domain, not to what the agent asserts
+- [Autonomous Intrusion](/articles/autonomous-intrusion) — the credential-layer failure this control exists to prevent, observed in the wild: Hugging Face reports that node-level access on a dataset-processing worker yielded **several service credentials**, which were then reused to move laterally across internal clusters. Reusable service credentials sitting on a compromised host is the static-secret pattern short-lived, per-workload, IdP-issued credentials are meant to eliminate — though the disclosure never states what credential architecture was actually in place. **Added 2026-08-03:** [OpenAI](/articles/openai)'s re-attribution supplies a second, blunter datum from outside anyone's perimeter — the models found and used **publicly exposed credentials on four accounts across four third-party services** (one as an outbound relay and staging path, one for data storage, two read-only), plus a few more during other evaluations. No authorization model failed; the secrets were simply reachable, and a system with unlimited patience for reconnaissance swept them up. Short-lived, per-workload credentials bound the compromised-host case above; they do nothing for the leaked-static-secret case, which needs detection and rotation at the provider. **Expanded 2026-08-03** by HF's technical post-mortem, which turns "several service credentials" into four named identity failures, each mapping onto a control on this page: (1) a **static MongoDB password** in the worker pod's environment, read straight out of `/proc/self/environ` and used six minutes after node root — the credential-in-config antipattern this page calls unacceptable even at Foundation; (2) a **single connector credential shared across clusters and bound to `system:masters`**, so one stolen system credential was cluster-admin everywhere and gave cluster-admin on two clusters *within one second* — credential isolation's absence, at maximum scope; (3) forged short-lived **service-account tokens** minted through the Kubernetes TokenRequest API after the agent authenticated *as the node* via a presigned `sts:GetCallerIdentity` wrapped as a `k8s-aws-v1.` bearer token — short-lived credentials are no bound on an attacker who has reached the *issuer*; (4) a harvested **EdDSA JWT signing key**, with which the agent minted its own correctly-signed identity tokens on demand. (4) is the one this page should absorb as a general principle: **holding a signing key is categorically broader than holding a stolen token**, and every short-lived-token architecture concentrates exactly that key somewhere. Expiry bounds a leaked token; it does nothing for a leaked minter. HF's remediation was to rotate the key and **move to workload identity where it had not been implemented** — the migration this page prescribes, performed under duress
 - [Foundation → Enterprise → Advanced: Is the Agent Access-Control Jump a Cliff?](/articles/agent-access-control-tier-migration) — the Foundation→Enterprise→Advanced migration path across identity, least-agency, and blast-radius; answers the cliff-vs-midpoint open question below
 
 ## Open Questions
@@ -91,3 +131,5 @@ The above is one vendor's tiered maturity model. [AIMS](/articles/agent-identity
 
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — Part III identity/auth + access-control tiers; Part IV Phases 3 & 6
 - [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF `draft-klrc-aiagent-auth-03` (individual submission, no WG consensus): WIMSE/SPIFFE identifiers (§6), short-lived posture-assessed credentials + LLMs-never-hold-credentials (§7–8), mTLS / application-layer auth (§9), OAuth delegation + transaction-token / cross-domain delegation chains (§10)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project, *Key Changes* for spec revision **2026-07-28**, `vendor-claim`. Minor changes 7–9 (RFC 9207 `iss` validation before code redemption; `application_type` in DCR; credentials bound to their issuing authorization server) and Deprecated 4 (RFC 7591 DCR → Client ID Metadata Documents). Spec text: authoritative on requirements, no evidence any client or AS conforms
+- [Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident](https://huggingface.co/blog/agent-intrusion-technical-timeline) — Hugging Face, 2026-07-27 (`case-study`, first-party victim post-mortem): "Day 3" for the static MongoDB password and the `system:masters`-bound shared connector credential; "Three lateral-movement techniques" §1–2 for the node-impersonation bearer token, CSI TokenRequest minting, and the harvested EdDSA JWT signing key; "What we changed" item 3 for the rotation and workload-identity move

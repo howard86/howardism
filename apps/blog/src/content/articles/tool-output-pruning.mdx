@@ -1,0 +1,181 @@
+---
+date: 2026-08-03
+title: Tool-Output Pruning
+description: "Compressing tool outputs at the agent-environment boundary before
+  they enter history — SWE-Pruner Pro shows the keep-or-prune signal is already
+  inside the coding agent's own backbone (linear probe AUC 0.83), so an
+  18M-parameter head riding the existing prefill replaces the separate scoring
+  model: up to 39% fewer end-to-end tokens at held quality and the only one of
+  seven pruners that never inflates tokens, at ~15% added wall time — but on
+  SWE-Bench Verified every pruner raised input tokens on one backbone and lost
+  resolves on the other"
+tag: Concept
+domain: agent-systems
+tags:
+  - context-management
+  - agent-engineering
+  - cost
+  - llm-architecture
+readingTime: 23
+imageAlt: Illustration for Tool-Output Pruning
+sources:
+  - title: "SWE-Pruner Pro: The Coder LLM Already Knows What to Prune"
+    url: https://arxiv.org/pdf/2607.18213
+---
+export { default as heroImage } from "../assets/tool-output-pruning.webp";
+
+## Sources
+
+- [SWE-Pruner Pro: The Coder LLM Already Knows What to Prune](https://arxiv.org/pdf/2607.18213)
+
+## Summary
+
+A coding agent's token bill is mostly **other people's text**: `cat`, `grep`, `ls`, and test output that the agent read once and then carries for the rest of the trajectory. Tool-output pruning attacks this at the **agent-environment boundary** — compress the observation *before* it enters the history, rather than governing the history afterwards ([Context Lifecycle Management](/articles/context-lifecycle-management)) or keeping the search out of the solver's window entirely ([Repository Exploration Subagent](/articles/repository-exploration-subagent)).
+
+*SWE-Pruner Pro* (Yuhang Wang, Yuling Shi, Shaoqiu Zhang et al., LLM4SE Lab / Shanghai Jiao Tong University + Douyin Group, arXiv 2607.18213, 2026-07-20, `empirical`) is the corpus's first measured treatment of the family. Its claim is a subtraction: every prior pruner **reconstructs the agent's information need from outside the agent** — a perplexity surrogate, a retrieval reranker, or (in its own predecessor SWE-Pruner) a separate scoring model driven by a goal-hint query the agent must write every turn. But the backbone has *already read the tool output* during the normal prefill. The keep-or-prune signal is therefore already in its hidden states, and a small head can read it out in place, at no extra model call.
+
+The result that makes this more than an efficiency paper: in a multi-turn agent loop, **most pruners cost more tokens than they save.**
+
+## The pruning signal is already in the backbone
+
+The motivating experiment is a probe, not a system. Freeze Qwen3-Coder-Next, mean-pool the last-layer hidden states of each line of a tool response, fit a logistic regression against Claude-Sonnet-4.6 keep/prune labels, evaluate on held-out *trajectories* (no trajectory contributes lines to both splits):
+
+- **AUC 0.83, best-F1 0.63**, against a majority-class F1 upper bound of **0.46** at the empirical positive rate of ~30%.
+- Figure 2 shows why this is an existence proof and not a solution: along the LDA discriminant axis the kept and pruned distributions have a clear mean gap, and a broad overlapping middle band that no linear cut resolves.
+
+Probe subset: a 10% trajectory-level sample of the labelled corpus (~625 trajectories, ~2,260 tool responses, ~155k lines).
+
+This is the same move as [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) pointed at utility rather than safety — read an internal representation instead of eliciting a statement — and it comes with the same access constraint (see *Only open weights need apply* below).
+
+## The mechanism: a head that rides the prefill
+
+At turn *t* the backbone prefills `[H_{t-1}, c_t, r_t]`; the prefix is cached, so only the new tool-response tokens are forwarded. SWE-Pruner Pro attaches **at that prefill**:
+
+1. Per-token last-layer hidden states over the `r_t` span go into a frozen-backbone head — LayerNorm, two Linear-GELU-Dropout blocks at the backbone's hidden width (dropout 0.4), final Linear to one keep logit. ~18M parameters on top of a multi-billion-parameter MoE.
+2. **Length-aware embedding.** A learned embedding over 8 log-spaced line-count buckets (0-2, 3-5,..., >200), broadcast-added to every hidden state and zero-initialised so the head starts at its length-agnostic limit. The rationale is an asymmetry, not a feature-engineering hunch: *stripping a few lines from a 5-line response is catastrophic; the same on a 300-line response is negligible.*
+3. **Line decisions by majority vote** of binarised token decisions at τ = 0.5. Line granularity preserves the syntactic structure of kept code.
+4. **Substitution happens between turns.** The agent's own turn-*t* generation still attends to the full `r_t`; the pruned `r̃_t` replaces it when the trajectory continues into turn *t*+1. The only added backbone work is one re-forward of the (much shorter) `r̃_t`.
+
+Training is a **per-sample balanced focal loss** (γ = 2), and the argument for it is the most transferable design idea in the paper. Cross-entropy and batch-level focal see only the *global* keep rate (~30%) and dilute exactly the extreme-ratio samples that carry the most information: when 3 of 100 lines are kept, those 3 say what is irreplaceable; when 90 of 100 are kept, the 10 pruned lines say what is safely removable. So compute the loss separately over each sample's keep and prune tokens and average the two at 0.5/0.5.
+
+**Ablation (held-out judge set, n = 100, GPT-5.4-mini 1-10 rubric; per-line F1 alongside):**
+
+| Design axis | Variant | F1 | Judge |
+|---|---|---|---|
+| Loss | BCE | 0.475 | 5.95 |
+| Loss | Focal (corpus-level) | 0.593 | 6.37 |
+| Loss | Dice | 0.591 | 5.30 |
+| Loss | Tversky | 0.591 | 3.03 |
+| Loss | **Per-sample balanced focal** | **0.635** | **7.08** |
+| Length embedding | without | 0.636 | 6.86 |
+| Length embedding | **with** | 0.635 | **7.08** |
+
+The length embedding is worth reading carefully: it **does not change line-decision accuracy at all** (F1 0.636 → 0.635) and still lifts the judge 6.86 → 7.08. It redistributes mistakes toward long responses where mis-pruning one line is cheap. The qualitative appendix confirms the mechanism — per-token scores sit in a compressed ~0.4-0.7 band rather than saturating, so the head produces a *relative ranking* and the length embedding shifts the operating point to the right absolute keep rate per response length.
+
+## Most pruners lose money
+
+The comparison runs seven pruning methods against an unpruned baseline on two open-weight MoE backbones (MiMo-V2-Flash, 309B/15B active, 256K context; Qwen3-Coder-Next, 80B/3B active, 256K) with identical decoding, harness, and hardware, swapping only the pruning module. Three read-only multi-turn benchmarks: SWE-QA (144 questions), SWE-QA-Pro (260, executable environments), and Oolong (280 long-context aggregation instances re-cast as a bash-agent task).
+
+**SWE-Pruner Pro is the only method that reduces tokens in every one of the twelve cells.** Five of the six prior pruners inflate tokens somewhere in the grid — LLMLingua2 by **+189.8%** on Oolong/MiMo and +163.9% on Oolong/Qwen, Selective Context by +233.3% on Oolong/Qwen. (The paper's prose says "four of six"; the table, verified against the PDF, says five. Bookkeeping slip, not a data defect.)
+
+The mechanism is the paper's core thesis running in reverse: a pruner that pays for its signal — a goal-hint query the agent writes every turn, a surrogate scoring model, a sliding-window retrieval pass — **spends more tokens acquiring the signal than the compression returns**. Reading it off a prefill that already happened avoids the overhead by construction.
+
+Quality-vs-compression on Qwen3-Coder-Next is the cleanest cell:
+
+| Method | SWE-QA judge | SWE-QA tokens | SWE-QA-Pro judge | SWE-QA-Pro tokens |
+|---|---|---|---|---|
+| No Pruning | 7.71 | 590K | 7.60 | 607K |
+| RAG | 7.78 (+0.07) | 549K (−6.9%) | 7.73 (+0.13) | 590K (−2.8%) |
+| SWE-Pruner | 7.33 (−0.38) | 397K (−32.7%) | 7.36 (−0.24) | 433K (−28.7%) |
+| **SWE-Pruner Pro** | **7.73 (+0.02)** | **385K (−34.7%)** | **7.84 (+0.24)** | **368K (−39.4%)** |
+
+Every pruner except RAG degrades judge scores by 0.14-0.65; RAG holds quality but yields at most 6.9%. On MiMo-V2-Flash the pattern holds with smaller margins: SWE-Pruner Pro takes the lowest token count in all three cells (−6.9%, −22.6%, −30.1%) for −0.04 and −0.11 judge on the SWE-QA family and **+2.2 accuracy points on Oolong** — a pruner improving long-context accuracy, consistent with the dumb-zone argument in [Context Window Smart Zone](/articles/context-window-smart-zone).
+
+## The code-modification result contradicts the headline
+
+SWE-Bench Verified (500 issues, standard Mini-SWE-Agent harness) is where the story stops being clean, and the paper reports it straight:
+
+| Backbone | Method | Resolved | Input tokens/traj | API calls |
+|---|---|---|---|---|
+| MiMo-V2-Flash | No Pruning | 326/500 | 2,971K | 94.8 |
+| MiMo-V2-Flash | SWE-Pruner | 347/500 (+4.2 pp) | 3,414K (+14.9%) | 103.8 |
+| MiMo-V2-Flash | **SWE-Pruner Pro** | 345/500 (+3.8 pp) | 3,190K (+7.4%) | 111.8 |
+| Qwen3-Coder-Next | No Pruning | 341/500 | 5,307K | 131.9 |
+| Qwen3-Coder-Next | SWE-Pruner | 320/500 (−4.2 pp) | 4,881K (−8.0%) | 127.1 |
+| Qwen3-Coder-Next | **SWE-Pruner Pro** | 335/500 (−1.2 pp) | 4,590K (−13.5%) | 139.8 |
+
+Three things follow that the abstract does not say:
+
+- **On the patch-generation workload, pruning bought no tokens at all on one backbone.** All four pruners *raised* MiMo's per-trajectory input tokens (+6.6% to +14.9%). The headline 39% saving is a read-only-QA result; the code-modification benchmark shows the opposite sign.
+- **The sign of the quality effect flips with the backbone.** On MiMo every pruner improves resolve rate; on Qwen every pruner loses resolves. Same head recipe, same labels, same harness. No mechanism is offered.
+- **Pruning changes the trajectory, so tokens and calls move in opposite directions.** SWE-Pruner Pro uses the *most* API calls of any method on both backbones (111.8 vs 94.8; 139.8 vs 131.9) while achieving the largest input-token reduction on Qwen. The authors explicitly refuse to collapse the two into one efficiency number — which is [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token)'s thesis arriving as a measurement problem rather than a routing rule: a shorter context per call, bought with more calls, is not obviously cheaper.
+
+## Latency, and the engineering nobody publishes
+
+On a 16-trajectory MiMo replay with the head colocated inside the inference engine, pruning adds **15.0% aggregate wall time** relative to total generation time (p50 14.7%, p95 34.8%); the off-engine variant costs 19.3%. Figure 5 shows the shape the percentages hide: the pruning bars sit at a near-flat ~20 s across trajectories while generation ranges 65-205 s, so the p95 is a *short-generation* trajectory, not an expensive-pruning one. The overhead is paid roughly once per assistant turn while the savings reduce backbone work on every subsequent turn.
+
+Appendix E is unusually valuable because it prices the thing a systems paper normally elides — **getting hidden states out of a production inference server is not free, and was not correct**. Three bugs on SGLang's hidden-state path, each the same structural problem: a guard the logprob path already enforced was simply missing.
+
+- **Batch alignment** — `output_hidden_states` was appended only for requesting requests, so in a mixed batch the list ran shorter than `rids` and indexing raised `IndexError`.
+- **Chunked-prefill accumulation** — hidden states were captured only on the final chunk, so any prompt crossing a chunk boundary returned a tail-only tensor tagged with wrong absolute positions.
+- **Prefix-cache exemption** — and this one matters beyond SGLang. The radix cache stores KV but **not** hidden states, so cached positions are skipped during prefill and never produce hidden states at all. The fix threads a `hidden_states_start_len` through the request path and **caps `max_prefix_len` at it, deliberately forcing those tokens back through the forward pass**. An in-backbone pruner therefore buys its signal by *giving up prefix-cache reuse over the region it wants to read* — a cost this paper measures in wall time and never in money. Read against [Prompt-Cache Economics](/articles/prompt-cache-economics), that is exactly the term whose omission made a 3× token reduction cost 40.1% more on the bill.
+
+Validation against a pure-transformers reference: shape match went **1/48 → 48/48** after patching, per-token cosine median 0.997 (mean 0.983, min 0.33, attributed to bf16 and attention-backend arithmetic noise). And the payload: for a 16k-token prompt at hidden size 2048 the tensor is 128 MB of raw bytes but **1-3 GB as nested-JSON fp32**; a base64 binary envelope brings it to 170 MiB, fp16 to 85 MiB — ~20× end-to-end, and the thing that keeps the 15% overhead bounded at all.
+
+## Per-line F1 is the wrong metric, and the LLM judge is the right one
+
+Appendix G is the most portable result in the paper for anyone building evaluation, because it runs the usual suspicion about LLM judges **backwards**.
+
+Dice and Tversky match the default loss on per-line F1 (0.591 vs 0.635) while their judge scores collapse to 5.30 and 3.03. In two hand-examined cases, F1 ranks a *useless* head above a useful one:
+
+- A 52-line view of `pdm/resolver/providers.py` during a recursion-bug investigation: BCE keeps 4 isolated signature lines with no bodies and scores **F1 0.53**; the default keeps 30 lines covering imports, the registry, and three function bodies at **F1 0.49**. The judge scores them **2/10 and 8/10**.
+- A 34-line view of pandas's `quantile()`: BCE keeps only the parameter list, F1 **0.80** against the default's 0.71; judge **3/10 vs 8/10**.
+
+The diagnosis generalizes past pruning: **F1 treats the kept set as unweighted membership**, so a head can win by keeping a small high-precision subset and dropping everything else. The judge asks whether the retained skeleton supports the agent's *next move* — a caller-only view with no bodies or imports is precise and operationally useless. This is a case where the deterministic label-match metric is the invalid one and the model judge is the valid one, which sharpens rather than contradicts [LLM-Judge Validation](/articles/llm-judge-validation): the lesson there is that judges need validation, not that label-match metrics are the safe default. Here the safe-looking metric is the one that would have shipped the broken head.
+
+## What the head actually learned
+
+Four qualitative cases from the held-out set (Qwen3-Coder-Next), one per common tool family, with the gold annotation alongside:
+
+- `cat` on a package `__init__.py` (44 lines, gold 23, head 18) — lowest scores (0.25-0.48) on license and docstring boilerplate, mass concentrated at 0.51-0.66 on imports, `__version__`, and the two function bodies; the path-header line is kept as file identity for later turns.
+- `grep -A 25` on a Flask helper (20 lines, gold 12, head 6) — keeps the executable call sequence, **prunes the docstring the annotator kept**. Under-keeps relative to gold and the paper does not claim this is correct.
+- `ls -la` on three config dirs (25 lines, gold 4, head 12) — over-keeps by 8, but on group boundaries (path headers, `total` summaries) rather than scattered noise; prunes `..` parents and blank separators cleanly.
+- A traceback re-run (21 lines, gold 13, head 15) — locks onto the outer frames, the offending expression, and `TypeError: unhashable type: 'list'` (highest line at 0.71), and keeps the four passing lines that localise the bug to the list path.
+
+The pattern across all four: the head is **conservative on structure and aggressive on prose**, which is the opposite bias from a perplexity-based compressor.
+
+## Training data, and the distillation dependency
+
+22,609 `(history, tool_call, tool_response)` samples from 6,252 trajectories across five public HuggingFace datasets (terminal-wrench CLI traces 30.3%, TIGER-Lab SWE-Next 29.3%, Multi-SWE-bench 16.6%, CC-Bench 13.6%, Scale-SWE-Distilled 10.2%), sub-sampled to a 50k diverse pool by a facility-location objective before labelling. Response lengths are heavy-tailed but bounded: mean 76 lines, median 56, 10/90/99 percentiles 25/143/294, hard max 465. Claude-assigned keep-ratio mean 0.32, median 0.23. Roughly **17% of the corpus is labelled `skeleton`** — the annotator declares the whole output a scaffold and every token gets label 1, giving the head explicit "do not prune" examples. Python plus CLI/shell content is ~83% of the corpus.
+
+The dependency worth naming: **every label comes from Claude Sonnet 4.6's judgment of what the agent needed next**, and the whole system's ceiling is that annotator's accuracy. A frontier closed model is distilled into a head that then runs on open-weight backbones — the pruning policy is not learned from outcomes (did the agent still solve the task?) but from a stronger model's prediction of relevance. The head training itself is cheap: features are cached once per dataset × backbone, and 10 epochs take ~15 minutes on one 8×H200 node.
+
+## Only open weights need apply
+
+The scope note the paper leads with in its Limitations is a structural one, not a coverage gap: **SWE-Pruner Pro reads the backbone's internal hidden states, so it cannot be applied to a closed API model at all** unless the provider builds it. A head must also be retrained per backbone (it is sized to the backbone's hidden dimension). This inverts the usual open-vs-closed efficiency story — here the open-weight model is the one that can run the cheaper harness, and the same white-box-access asymmetry that makes published weights auditable makes them optimizable.
+
+It also cuts against [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) in an unexpected direction: this is not a harness component the model absorbs, it is a harness component that **reaches into** the model. The interface it needs (hidden states out of the serving stack) is one no inference API currently exposes.
+
+## Connections
+
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the same objective attacked *around* the model call rather than inside it, and an argument that this is where the larger savings sit: "an agent harness invokes such calls dozens of times per task and adds cross-call structure — history replay, tool schemas, retrieval — that no single-call method sees," with a 38% token reduction achieved by changing neither models nor prompts. Its offload mechanism is this page's problem solved by policy instead of representation — shell output past 20K characters is head-and-tail previewed with the full text written to a workspace file, web fetches inline 8K and spill the rest, and oversized reads are rejected with guidance rather than silently truncated — which sidesteps the cache interaction entirely by never putting the bulk in the prefix. Vendor-authored with a total COI, and no head-to-head against a learned pruner
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — the "don't pollute" counterpart, and the source that sharpens its prune-vs-delegate question. FastContext keeps exploration in a separate conversation so the solver never sees the trail; this compresses the trail in place. The distinction is narrower than the wiki previously framed it: SWE-Pruner Pro prunes **between turns, at the agent-environment boundary**, so the observation is present for exactly one generation and then replaced — not "removed after the fact". The composition question is still untested and the risk is now specific: both techniques target the same tokens (exploratory reads and searches), so a delegated explorer that already returns compact citations leaves the pruner very little to remove
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the same verb one level downstream. Self-GC's fold/mask/prune governs objects **already in the history** with a planner proposing and a harness enforcing; this decides at the moment an observation *arrives*, from the backbone's own representation, with no planner call. Two useful contrasts: Self-GC's prune has no recovery guarantee and is reserved for obsolete content, whereas a per-line head prunes *live* content it predicts will not be re-referenced; and Self-GC's mask keeps the first and last 10% of a body while this head learns which lines those should be. Self-GC also explicitly degrades tool results containing images to prune, a case a line-scoring head cannot handle at all
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the unpriced term. Getting hidden states for a tool-response span requires **defeating the prefix cache over that span** (`hidden_states_start_len` caps `max_prefix_len`), and substituting a pruned response into the history invalidates the suffix on the following turn. CAPC's τ-bench result is the warning: a technique that cut tokens 3× cost +40.1% because the cache-write tax exceeded the read savings. This paper reports tokens, API calls, and wall time, and never a bill
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the clearest instance yet of the two axes disagreeing inside one system. On SWE-Bench Verified the winning configuration has the **largest input-token reduction and the highest API-call count** on both backbones; the authors decline to collapse them, and no pricing model in the corpus can. Also the reverse case: on MiMo, pruning improved resolve rate while *raising* per-trajectory input tokens — a pruner earning its keep on quality rather than cost
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — what a pruner looks like from the omission side, and a metric this paper's evaluation could not construct. Substituting a compressed tool response into the history is **L2 orchestrator middleware performing history condensation**, which that taxonomy classes as *deterministic*: the loss is countable exactly at a checkpoint tap by diffing a planted canary across the boundary, no judge involved. Since per-line F1 ranked a useless head above a useful one and the LLM judge is itself unvalidated in the role, "did a fact the agent later needed survive the prune?" currently has no metric here — a canary diff answers exactly that question, and is the one measurement neither an F1 nor a rubric can fake. The caution runs both ways: that paper's ω2 = 0.165 comes from injected truncation and says nothing about what a learned pruner drops
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the inversion. Per-line F1 ranks a useless head above a useful one on both examined cases (0.53 vs 0.49 and 0.80 vs 0.71) while a GPT-5.4-mini judge separates them by 5-6 points, because F1 scores set membership and the judge scores whether the skeleton supports the agent's next action. The deterministic metric is the invalid one here — which does not weaken that page's protocol, it locates the failure: an unvalidated *label-match* proxy is as dangerous as an unvalidated judge, and nobody validates those
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the same primitive aimed at utility instead of alignment: read what the model already represents rather than asking it to say it. The probe result (AUC 0.83 on a frozen last layer) and the deployment shape (a small trained head on residual-stream activations) are the interpretability toolkit repurposed as an inference-cost optimization, with the same white-box-access precondition that makes open weights auditable
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the constraint being defended, and the one benchmark cell where pruning *improved* capability: MiMo's Oolong accuracy rose 2.2 points at 30% fewer tokens, which is the dumb-zone argument showing up as a positive result rather than a warning
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — a counter-current. This is not scaffolding the model absorbs; it is scaffolding that requires reaching *inside* the model, and it exists only because inference stacks expose hidden states to nobody
+- [FastContext](/articles/fastcontext) — the exploration-subagent system whose paper is by an overlapping author group at the same lab; the two are the delegate-vs-prune pair on the same bottleneck
+
+## Open Questions
+
+- Does an in-backbone pruner survive a billed-cost audit? It defeats the prefix cache over every tool-response span by design, substitutes a modified history that invalidates the suffix each turn, and raised API calls on both backbones while raising per-trajectory input tokens on one. The paper reports tokens and wall time and never money; [Prompt-Cache Economics](/articles/prompt-cache-economics) shows a 3× token reduction costing +40.1%.
+- Why does the same pruning head raise MiMo-V2-Flash's SWE-Bench resolve rate by 3.8 points and lower Qwen3-Coder-Next's by 1.2, when it helps both on the read-only benchmarks? With n = 2 backbones and no proposed mechanism, "pruning helps patch generation" is not yet a claim — a third backbone would settle whether the split tracks model scale, attention architecture, or agent-training recipe.
+- Is any per-line label-match metric usable for selecting a pruner? F1 inverted against the judge on both examined cases, and the paper's fallback is an LLM judge that is itself unvalidated in this role. Nobody has checked whether the inversion also holds against a judge-free downstream metric (resolve rate on a matched harness), which would decide whether the judge is measuring usability or its own preferences.
+
+## Sources
+
+- [SWE-Pruner Pro: The Coder LLM Already Knows What to Prune](https://arxiv.org/pdf/2607.18213) — Yuhang Wang, Yuling Shi, Shaoqiu Zhang, Jialiang Liang, Shilin He, Siyu Ye, Yuting Chen, Kai Cai, Xiaodong Gu (LLM4SE Lab, Shanghai Jiao Tong University + Douyin Group), *SWE-Pruner Pro: The Coder LLM Already Knows What to Prune*, arXiv 2607.18213, 2026-07-20, `empirical` (28pp, 8 tables, 14 figures; code at `github.com/Ayanami1314/swe-pruner-pro`). §2 (linear probe: AUC 0.83, best-F1 0.63 vs 0.46 majority-class bound, ~2,260 responses / ~155k lines on held-out trajectories); §3 (per-turn pipeline, length-aware embedding, per-sample balanced focal loss, majority-vote line decisions at τ = 0.5); §4-5 (seven-method comparison on two backbones, Tables 1-3, SWE-Bench Verified asymmetry, 15.0%/19.3% in-engine vs off-engine latency); appendices A-B (22,609 samples / 6,252 trajectories, Claude Sonnet 4.6 labelling protocol, keep-ratio and length distributions, head hyperparameters), E (SGLang hidden-state correctness patches, Table 6 validation 1/48 → 48/48 at median cosine 0.997, Table 7 payload 1-3 GB → 85 MiB), F (four qualitative tool-family cases), G (F1-vs-judge divergence on two cases). Figures 1, 2, 3, and 5 viewed per the image two-pass rule — Figure 5 in particular carries information the percentages hide (pruning wall time is near-flat ~20 s across trajectories while generation ranges 65-205 s, so the p95 34.8% ratio is a short-generation trajectory). **Parse notes**: no table defects — Tables 1 and 2 were re-extracted with `pdftotext -layout` and are byte-identical to the docling parse, and every quoted value is internally consistent with its own arrows and baselines. Three orphaned combining-tilde glyphs sit near the Figure 3 and 4 captions (cosmetic, from the `r̃` notation). Two bookkeeping slips in the source itself: §5.1 says "four of six prior pruners inflate tokens" where Table 1 shows five, and §4 describes Table 1's token columns as totals aggregated across instances although the magnitudes (3.6K over 280 Oolong instances) only parse as per-instance averages — the ratios quoted here are unaffected either way

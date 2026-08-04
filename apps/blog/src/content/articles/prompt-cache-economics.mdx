@@ -1,0 +1,196 @@
+---
+date: 2026-08-03
+title: Prompt-Cache Economics
+description: Prompt caching and prompt compression are one joint optimization,
+  not two independent levers — CAPC measures Anthropic Sonnet 4.6's cache at ρ ≈
+  0.83 rather than the compression literature's assumed 1.0, finds a step change
+  near 3,500 cached tokens, derives a provider-agnostic crossover from three
+  pricing constants, and shows query-aware compression costing +40.1% more than
+  sending nothing compressed on a public benchmark; the corpus's first
+  end-to-end billed-cost audit of a production caching API ($98.96 total,
+  reconciled to Anthropic's invoice within 1%)
+tag: Concept
+domain: agent-systems
+tags:
+  - cost
+  - context-management
+  - agent-engineering
+  - optimization
+readingTime: 25
+imageAlt: Illustration for Prompt-Cache Economics
+sources:
+  - title: "Cache-Aware Prompt Compression: A Two-Tier Cost Model for LLM API Caching"
+    url: https://arxiv.org/pdf/2607.15516
+  - title: "The Harness Effect: How Orchestration Design Sets the Token Economics of
+      Enterprise Agentic AI"
+    url: https://arxiv.org/pdf/2607.06906
+---
+export { default as heroImage } from "../assets/prompt-cache-economics.webp";
+
+## Sources
+
+- [Cache-Aware Prompt Compression: A Two-Tier Cost Model for LLM API Caching](https://arxiv.org/pdf/2607.15516)
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906)
+
+## Summary
+
+Production deployments run two token-cost levers side by side: **prompt caching** (mark a prefix with `cache_control`, pay a deep discount on re-reads) and **prompt compression** (send fewer tokens). *Cache-Aware Prompt Compression* (Yan Song, PayPal, arXiv 2607.15516, 2026-07-17, `empirical`) is the corpus's first source to price them as **one optimization** — and finds the dominant compression family is actively hostile to the dominant caching primitive.
+
+The mechanism is structural. Query-aware compressors (LLMLingua, LongLLMLingua, and the rest of the family) produce **a different compressed prefix for every query, by construction**. Prefix caching is token-strict. So every call is a miss, every call pays the uncached input rate *plus* a cache-write premium, and the compression savings are spent re-writing the cache. The literature never noticed because it models the cache hit rate as an implicit **ρ = 1.0** — a free, perfect cache. Measured, it isn't.
+
+Two results carry the page. First, ρ is neither 1.0 nor smooth: Sonnet 4.6's cache has a **step near 3,500 tokens**, below which a *stable, unmodified* prefix still misses. Second, on a public benchmark with deterministic scoring, query-aware compression **cost 40.1% more than sending the prompt uncompressed** — a token-reduction technique with negative ROI, measured on the bill rather than the token counter.
+
+## The measured cache
+
+All numbers are `claude-sonnet-4-6`, 5-minute-TTL ephemeral caching, May 2026 pricing, with every cached prefix tagged by a per-run UUID to prevent inter-experiment pollution. Characterization cost: $1.91.
+
+**Pricing (§3.3).** Input $3.00/MTok, output $15.00/MTok, cache write (5-min) $3.75/MTok, cache read $0.30/MTok. Anthropic's billing matched mechanical calculation to **within 1% across three independent runs** — the published table is exact. The load-bearing shape is a **12.5× spread between write and read**, and a write that costs *more* than an uncached token.
+
+**The two-tier step (§3.1).** Sweeping prefix size at n = 3 trials each:
+
+| Cached prefix | ρ (N=5) | ρ (N=10) | ρ (N=30) |
+|---|---|---|---|
+| 2,053 tok | 0.53 | 0.63 | **0.83** |
+| 4,096 tok | 1.00 | 1.00 | 1.00 |
+| 6,139 tok | 1.00 | 1.00 | 1.00 |
+| 8,182 tok | 1.00 | 1.00 | 1.00 |
+
+All three 2k trials produced exactly 25/30 = 0.833 (σ = 0). Above the step, ρ = 1.0 **from the first subsequent call**. A separate 2.4k run climbs 0.47 (N=5) to a 0.89 plateau (N=50), σ ≤ 0.01. The modeling threshold adopted is **T ≈ 3,500 tokens**, and the tiers are named *hot/limited* below, *persistent/replicated* above. Figures 1 and 2 show the shape cleanly: one purple curve crawling up from 0.53, and 4k/6k/8k pinned flat on the ρ = 1.0 line from N = 5 onward.
+
+This is the finding practitioners will not have guessed. **Keeping the prefix byte-identical is not sufficient for a cache hit** — below the threshold, roughly one call in six pays the write rate anyway, with no user-visible cause.
+
+**Invalidation is token-strict, with one caveat (§3.2).** A different post-`cache_control` query hits; a 1-character mutation at the start of the prefix, a 5-character mutation in the middle, and an appended real-token suffix all miss (4/4 as predicted). But prepending a single space **hit** — Claude's tokenizer normalizes leading and trailing whitespace before computing the cache key. Whitespace-only diffs are not real invalidations, which is a small but exploitable property for any system that fingerprints prompt segments.
+
+## The crossover rule
+
+Dropping the terms common to all strategies and equating cached against compressed cost gives the threshold hit rate at which caching stops being the cheaper choice:
+
+```
+ρ_cross(r) = (c_w − p_in/r) / (c_w − c_r) = (α − 1/r) / (α − β)
+```
+
+where α = c_w/p_in is the **write premium** and β = c_r/p_in the **read discount**. That dimensionless form is the paper's most portable artifact: it needs three published prices and no measurement. Sonnet 4.6's 5-minute TTL gives α = 1.25, β = 0.10 (its 1-hour TTL gives α = 2.0; OpenAI's automatic caching is α = 1.0, β = 0.5).
+
+| Compression ratio r | ρ_cross | Reading |
+|---|---|---|
+| 2 | 0.652 | cache-only wins if ρ > 0.65 |
+| 3 | 0.797 | cache-only wins if ρ > 0.80 |
+| 4 | 0.870 | cache-only wins if ρ > 0.87 |
+| 6 | 0.942 | cache-only wins only if ρ ≥ 0.94 |
+| 8 | 0.978 | cache-only wins only if ρ ≥ 0.98 |
+| 10 | 1.000 (capped) | impossible — cache-only never wins |
+
+Set against the measured ~0.89 plateau, this predicts that **at r ≥ 6 naive caching loses to query-aware compression** — the inverse of conventional wisdom. Confirmed 4/4 on the r = 6 configurations.
+
+The same inversion in call counts: the break-even N shifts by 3–5× once ρ is measured rather than assumed. At r = 3 the ideal model says caching pays off after 7.0 calls; empirically it takes **24**. At r = 4, 8.3 becomes **38**. At r ≥ 6 it never happens.
+
+**The rule is a function of pricing, not a constant.** Holding β = 0.1 and moving α from 1.25 to 1.1 drags the "caching never wins" regime from r ≥ 10 down to r ≥ 4 — into the ratios real workloads actually use. Moving α to 2.0 (the 1-hour TTL) pushes it to r ≥ 16. **A cache-policy threshold measured on one provider and one TTL does not transfer; the formula that generates it does.** The qualitative claim (a finite crossover exists) survives anywhere β &lt; 1 &lt; α, which is every shipping cache API.
+
+## CAPC and the tier-preserving bound
+
+The proposed remedy is unglamorous, which is the point: compress the document **query-agnostically, once, off the request path**, then mark the compressed block with `cache_control` and append the query after it. Four lines of code. The literature's contribution was choosing query-*aware* compression; the fix is to stop.
+
+The non-obvious part is a bound. Raising r shrinks the cached prefix and lowers per-call cost — until the prefix falls through the tier threshold, at which point ρ collapses and a substantial share of calls pay the write rate:
+
+```
+r_max_safe(|D|) = floor(|D| / T), T = 3,500 tokens (Sonnet 4.6)
+```
+
+Measured on a 12,191-token document: at r = 3 the prefix is 4,067 tokens (persistent tier) and costs **$0.0057/query**; at r = 4 it drops to 3,119 tokens (hot tier) and **rebounds to $0.0101** — a 77% cost increase from one increment of the compression dial. **Over-compression is a cost regression, not just a quality one**, and nothing in the token counter shows it.
+
+**Results on LongBench-v2** (4 documents × 4 ratios, N = 10 queries per cell): CAPC is the cheapest of the four strategies in **16/16** configurations, with mean savings of 89.6% vs vanilla, **48.5% vs cache-only**, and 64.4% vs query-aware compression. Mean quality scores across strategies sit in a narrow band (vanilla 0.73, cache-only 0.75, query-aware 0.67, CAPC 0.66), and at r = 2 all four are within 0.04 of each other. At genuinely matched quality on the 12,191-token document, CAPC costs $0.0057 against cache-only's $0.0122 at the same q = 0.77 — 53% cheaper; the headline 78% figure on the 27,917-token document buys its saving with a 0.05 quality drop and is *not* matched-quality.
+
+**AdaptiveCacheBoundary** extends this to prompts that change between calls. Fingerprint each sentence position across K observed versions (normalizing dates, numbers, amounts — and whitespace, justified by the tokenizer finding above), compute mutation rate µ = 1 − max_h count(h)/K, classify STATIC (µ ≤ 0.05) / QUASI (µ ≤ 0.30) / DYNAMIC, and cache the maximal contiguous STATIC-or-QUASI prefix. On three real, heavily-edited production source files (25 commits each), **44–80% of sentence positions classify DYNAMIC** and the recovered stable prefix is tiny — 12, 17, and 749 tokens. It still saves **62.6–70.5%** versus caching the whole file, entirely by *declining* to cache the volatile remainder. The lesson generalizes past the algorithm: on a hot file, the cache-write tax on the dynamic majority dominates, and the right move is to cache almost nothing.
+
+## What the production runs actually showed
+
+Three validations at three prompt shapes, and they disagree with each other in the way that matters.
+
+**Enterprise tool-using assistant** — a ~94,401-token static prefix (1,312-token system prompt plus 287 MCP tool definitions, ~93k tokens of schemas). CAPC at r = 3 cuts **51.7%** off vanilla in the simulator and **45.5%** through the full production code path (99.1% hit rate, and 107 multi-round tool-use rounds against vanilla's 147 — the compressed system prompt is more directive). Two results here are more interesting than the headline:
+
+- **Cache-only saved only 18.3%**, far below the LongBench-v2 regime, because **Anthropic implicitly caches large `tools=` arrays without any `cache_control` marker** (the vanilla baseline showed ~106k cache-read tokens on every call after the first). Most of the "free" cache win was already banked. In this regime CAPC's value comes almost entirely from the compression layer.
+- **Query-agnostic compression produced *better* tool selection than query-aware** (0.700 vs 0.603 set-IoU against the vanilla tool choice). Letting the compressor see the query makes it preserve query-related content — which here means **discarding the tool definitions the model was about to select**. Uniform compression of the whole catalog wins.
+
+That second point is the same failure [Context Lifecycle Management](/articles/context-lifecycle-management) identifies from the context-management side: an edit optimized for the *current* state destroys objects that were a *future* dependency. A query-aware compressor is that failure mode sold as a feature.
+
+**τ-bench retail** (50 tasks, multi-round tool agent, deterministic database-state reward, no LLM judge anywhere in the loop) is the cleanest result in the paper:
+
+| Strategy | Avg $/task | Reward | vs vanilla |
+|---|---|---|---|
+| vanilla | $0.1244 | 36/50 | — |
+| cache-only | $0.1252 | 37/50 | +0.6% |
+| query-aware (r=3) | $0.1744 | 38/50 | **+40.1%** |
+| CAPC (r=3) | $0.1145 | 36/50 | **−7.9%** |
+
+CAPC is cheapest at **task-completion reward exactly equal to vanilla** (36/50 both; two-proportion z = 0.00, p = 1.00). And query-aware compression is **the most expensive strategy in the experiment** — more expensive than sending everything uncompressed. The mechanism is exactly the predicted one: mutating the wiki system block on every call drove cache-write tokens from vanilla's 0.87M to 1.64M (+87%) against a smaller read-side gain. This is the paper's strongest claim and the one least exposed to judge bias.
+
+Read the reward column honestly, though: query-aware scored the *highest* reward (38/50) while costing the most, all four 95% Wilson intervals overlap heavily at N = 50, and the cost ordering — not the quality ordering — is what this benchmark actually resolves.
+
+**Knowledge-graph RAG** (graphify over FastAPI and httpx): CAPC gives 9.3× and 2.4× cost reductions versus caching the whole graph, at ≥85% hit rate. The transferable finding is architectural rather than economic — an indexer emits **pointers, not content** (node labels, `source_file`, line locations, community IDs), so its value depends entirely on what the model already knows. On FastAPI, which Sonnet 4.6 knows well, the structural metadata is *worse than nothing* (0.613 vs a no-graph baseline of 0.647 — added lines dilute attention without adding information). On httpx, which it knows poorly, the same metadata lifts quality from 0.300 to 0.637. The two-layer split CAPC imposes — a cached, query-agnostic index layer plus a per-query layer that **dereferences the pointers and ships ~40 lines of actual source** — is what closes the gap in both regimes. *A knowledge graph indexes content; you still have to ship the content.*
+
+## The refinement that outlives the numbers
+
+The two agent workloads gave **opposite signs from the same technique**: query-aware compression cost +40.1% on τ-bench and *saved* 31% on the enterprise assistant. The resolution is the most portable claim in the paper:
+
+> The cost effect of query-aware compression is monotone in **the fraction of the cached prefix the compressor mutates**.
+
+On τ-bench the mutated wiki block is roughly half the cached prefix, so the cache-bust is nearly total. On the enterprise assistant the compressor touched only the ~10% system portion while a static 94k-token `tools=` array kept hitting Anthropic's implicit cache — under 15% of cached bytes actually invalidated, and the penalty was masked. So "query-aware vs query-agnostic" is **a spectrum parameterized by mutated fraction, not a binary label**, and the same is true of the cache-write tax generally: what matters is not whether you edit the prompt but how much of the *cached region* you touch.
+
+The same refinement applies to plain caching. Cache-only saves ~90% over vanilla on LongBench-v2, ~18% on the 94k tool-schema prefix, and **+0.6% (i.e. nothing) on the 9k-token τ-bench prefix**. Explicit `cache_control` markers carry a small write tax that only pays off when the cacheable prefix is large enough; below some size, implicit caching already captured the benefit and the markers are net-neutral.
+
+## Where the clean model breaks
+
+Worth carrying, because a reader applying `r_max_safe` needs it:
+
+- **The ρ = 1.0-above-threshold result does not hold at production scale.** §3 measures ρ = 1.0 for every prefix from 4k to 8k tokens. But the 94k-token enterprise prefix and the 262k-token graph prefix both converge to only **~85%**, with a write-heavy warm-up over the first 5–15 queries. The paper attributes this to "the multi-server replication mechanism in Section 3.1" — **§3.1 contains no such mechanism** (verified against the PDF; it reports the step function and nothing else), and §3 announces "four empirical findings" while delivering three. So the tier model is a clean-room result over a 2–8k window, and the mechanism reconciling it with ~85% at production sizes is asserted but never characterized. Treat T ≈ 3,500 as a floor to stay above, not as a promise of ρ = 1.0 above it.
+- **Implicit caching is undocumented and load-bearing.** Large `tools=` arrays are cached by the provider without any marker. That behavior is not in the published pricing model, was discovered by accident, and materially changes what explicit caching is worth. It is also the kind of thing that can change without a release note.
+- **One model, one TTL, one provider.** Every number is Sonnet 4.6 in May 2026 at 5-minute TTL. The author is explicit about which contributions are framework (cost model, crossover analysis, CAPC, the ratio bound, the characterization methodology) and which are a snapshot (T ≈ 3,500, ρ ≈ 0.83, the dominance percentages).
+- **Most quality numbers come from a Haiku 4.5 self-consistency judge** scored against the full-context answer as reference — with a disclosed incident where judge calls hit a rate limit and **silently fell back to a 0.5 default score before anyone noticed**. Only the τ-bench reward is judge-free.
+- **A content-dependent quality cliff** appeared at r ≥ 6 on one of three documents and could not be decomposed (document vs queries) at N = 6. The author's own conclusion: the tier-preserving bound is necessary but not sufficient, and a safe deployment also needs a quality monitor.
+- Minor bookkeeping: the enterprise simulator run is described as 15 queries in §6.3 and 40 in §7.1, at $9.91 in one place and $9.57 in another.
+
+## The same arithmetic, asserted from the harness side
+
+Writer's harness-swap paper ([The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906), arXiv 2607.06906, `empirical`, and read the COI warning at [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) before believing any magnitude) reaches this page's cost model independently and builds a product on it. Its effective-input-price expression is the same one, with the hit rate named explicitly:
+
+```
+p_eff = p_in · (1 − h(1 − κ)), κ ≈ 0.1
+```
+
+where *h* is the fraction of input tokens served as cache reads. The claim attached to it is the interesting one and is not about caching at all: **`h` is neither a model property nor a provider favor — it is a function of prompt byte-stability across turns, which is set entirely by how the orchestration layer assembles context.** Since agent workloads run input-to-output ratios near 100:1, the input term is nearly the whole bill, so *the harness controls both factors — how many tokens are submitted and the price at which the dominant ones are billed*. Their design consequence is the **two-zone prompt**: a byte-stable prefix (tool-schema catalog, stable system prompt, append-only durable transcript) carrying up to four provider breakpoints with one-hour retention latched per session, and a volatile tail rebuilt every turn that is *structurally banned* from the prefix — enforced as a correctness rule, with the marker logic refusing to place a breakpoint at or after the first volatile message.
+
+Two things to hold against it:
+
+- **Their headline cache figure is a best case, not a steady state.** "7,876 of 7,886 prompt tokens (99.9%) served as cache reads" is one identical-prefix call measured in their own repository. This page's independent numbers say a real cache converges to ρ ≈ 0.85–0.89 at production prefix sizes with a write-heavy warm-up, and that below ~3,500 tokens a byte-identical prefix still misses roughly one call in six. Byte-stability is necessary and demonstrably not sufficient; a design that assumes *h* ≈ 1 is pricing the best call it ever measured.
+- **Compaction and caching are co-designed, which is the same insight from the other end.** Their checkpoints are durable rows and the rebuilt prompt becomes the new cacheable prefix, explicitly because "a summarizer that rewrote history every turn would destroy the very prefix stability the cache prices." That is this page's mutated-fraction refinement, arrived at as an architecture rule rather than as a measurement — and it is why the two sources agree on the design even where they disagree on the achievable hit rate.
+
+## What this changes in the wiki
+
+- **"Keep the prefix stable and you get cheap cache hits" is true only above the threshold.** [Agent Context Files](/articles/agent-context-files), [Hermes Agent](/articles/hermes-agent), and [Client-Side Agent Optimization](/articles/client-side-agent-optimization) all carry the practitioner rule that a stable system prompt buys significantly cheaper subsequent messages (`practitioner-opinion`, Nous Research docs). Measured, a stable prefix under ~3,500 tokens still misses ~17% of the time, and on a small-prefix agent workload explicit `cache_control` was worth **+0.6%, i.e. nothing at all**. The rule's *direction* holds; its unconditional form does not.
+- **Pruning context has a floor.** [Context Lifecycle Management](/articles/context-lifecycle-management)'s cache-aware commit prices a context edit against the prefix-cache break it causes. CAPC adds the constraint from underneath: shrinking the retained prefix past ~3,500 tokens drops it into the hot tier and can *raise* cost by ~77% for one increment of aggression. Two independent reasons a token-reduction policy can increase the bill — one for editing the prefix, one for making it too small.
+- **The token axis [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) says nobody publishes, published.** That page's standing complaint is that vendors print the price and never the tokens-per-task. This is a third party printing both, reconciling total spend against the provider's invoice to within 1%, on a **$98.96** end-to-end budget that any group can reproduce. It also lands the sharper point: **per-token price is not a static constant at all** — it is a function of cache state, prefix size, and call count, which is precisely the term every cost-aware routing paper treats as fixed.
+
+## Connections
+
+- [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the same effective-input-price model reached from the harness side and turned into a design rule (the two-zone prompt, byte-stability as a correctness invariant, cache-aware compaction), with the claim that the cache hit rate is an *orchestration* property rather than a provider or model one. Its 99.9%-cache-read figure is a single identical-prefix call in the vendor's own repo, which this page's measurements say is the ceiling and not the steady state
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the same joint problem from the context side. Self-GC prices a *destructive* prefix edit (`CommitBenefit ≈ N_future·(C−C′) − L_cache_break − L_GC`, commit past 0.3 expected pruning); CAPC supplies the parametric form that threshold is an instance of, plus the constraint from below (don't prune the cached prefix under ~3,500 tokens). Their failure modes also rhyme: Self-GC's argument that an edit is safe only if the object is not a future dependency is exactly why query-aware compression underperforms query-agnostic on tool selection — the compressor optimizes for the current query and discards the tools the model was about to call. That page now also carries the clearest statement of the assumption this one exists to break: Maximem's ACM cost model (arXiv 2607.21503, `empirical`, vendor-authored) derives full-append at O(n²) against a bounded O(n) and then **drops caching by assumption** — "ignore caching discounts, which shift the constants but not the asymptotics." Asymptotically correct and operationally backwards: the write premium α > 1, the sub-threshold miss at ~3,500 tokens, and the +40.1% τ-bench result are all constant-factor effects, and every commit-or-hold decision is made in the constants
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the missing token axis, measured: total billed spend reconciled to the provider invoice within 1%, and the demonstration that per-token price is a function of cache state rather than a constant. Also the sharpest instance of the page's thesis running backwards — a technique that reduces tokens by 3× and *raises* the bill by 40.1%
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — AgentOpt lists caching among the client-side levers and its Hermes table records "don't break the prompt cache mid-session" as a deployment hazard. This is that hazard with a cost model, a design rule, and a measured failure: cache-stickiness is exactly the term AgentOpt's cost-aware routing predecessors treat as a static per-model price, and the author flags composing ρ(N,|P|) with a router as future work
+- [Agent Context Files](/articles/agent-context-files) — the cache-stability rule from the static side (keep context files unchanged within a session). Refined here in two directions: stability is not sufficient below the tier threshold, and a *token-strict* cache tolerates leading/trailing whitespace edits because the tokenizer normalizes them before keying
+- [Tool-Output Pruning](/articles/tool-output-pruning) — a token-reduction technique with **two** unpriced cache interactions, and the sharpest live test of this page's warning. Reading the backbone's hidden states over a tool response requires *deliberately defeating the prefix cache* for that span: SWE-Pruner Pro threads a `hidden_states_start_len` through SGLang's request path specifically to cap `max_prefix_len`, forcing cached positions back through the forward pass because the radix cache stores KV but not hidden states. Substituting the pruned response into the history then invalidates the suffix on the following turn, which is [Context Lifecycle Management](/articles/context-lifecycle-management)'s commit break arriving every single turn rather than at a chosen boundary. The paper reports tokens, API calls, and wall time (15.0% aggregate overhead) and never a bill — while on one backbone its own SWE-Bench numbers show input tokens *rising* 7.4% and API calls rising from 94.8 to 111.8. That is the τ-bench shape exactly: fewer tokens per call is not fewer dollars
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — the same last-mile problem for codebase knowledge. FastContext keeps exploration out of the solver's window and returns compact file-line citations; CAPC's graphify study shows what happens when the compact return is *only* pointers — worse than no graph at all on a codebase the model knows (0.613 vs 0.647), a large lift on one it doesn't (0.637 vs 0.300). Both converge on shipping a small amount of *actual content*, not just locations
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — prefix-cache preservation as a design constraint outside cost work: APPA branches rather than re-synthesizing context because the child shares an exact token prefix, and registers its remedy tool at run start specifically to avoid invalidating the cache mid-run. This page is the arithmetic behind why those choices are worth making
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the other reason to keep the prompt small; note the two objectives can conflict, since the cost-optimal cached prefix has a floor while the attention-optimal one does not
+- [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) — the design pattern this page prices, implemented in the wild: every forum prompt is built as a `ForumPromptParts` pair — an agent- and generation-invariant `cacheable_prefix` (task ids, descriptions, tool list, round instructions, output schema) carrying the sole `cache_control` marker, plus a per-agent `variable_suffix` (prior attempts, session memory, peer posts) appended as a plain block. Its cost table is also computed at published cache write *and* read rates specifically so methods with different cache profiles stay comparable — the accounting discipline this page argues for, adopted by a paper whose subject is not caching
+- [Anthropic](/articles/anthropic) — the provider whose cache behavior, pricing, and undocumented implicit `tools=` caching are the object of measurement
+
+## Open Questions
+
+- Does the two-tier step survive at production prefix sizes, or is ρ ≈ 0.85 the real steady state everywhere above the threshold? §3 measures ρ = 1.0 at 4k–8k tokens while the 94k and 262k workloads both converge to ~85%, and the "multi-server replication" mechanism invoked to reconcile them is never actually characterized.
+- Is the implicit caching of large `tools=` arrays a documented, stable provider behavior or an artifact of one routing configuration? It materially changes what explicit `cache_control` is worth on tool-heavy agents, and was found by accident rather than by design.
+- At what mutated-fraction of the cached prefix does query-aware compression cross from saving to costing? The two production workloads bracket the axis at roughly 15% (saves 31%) and ~50% (costs 40.1%), but no source measures the curve between them.
+
+## Sources
+
+- [The Harness Effect: How Orchestration Design Sets the Token Economics of Enterprise Agentic AI](https://arxiv.org/pdf/2607.06906) — Sayed Ali et al. (33 authors, all Writer, Inc.; arXiv 2607.06906, 2026-07-08, `empirical`, **total vendor COI**): §3.1 the effective-input-price expression and the ~100:1 input-dominance figure, §4.3(1) the two-zone prompt and the 7,876/7,886 identical-prefix cache-read measurement, §4.3(2) compaction co-designed with the cache. Table 2 is cell-collapsed and Table 7 row-shifted in the raw parse; neither is cited here
+- [Cache-Aware Prompt Compression: A Two-Tier Cost Model for LLM API Caching](https://arxiv.org/pdf/2607.15516) — Yan Song (PayPal), *Cache-Aware Prompt Compression: A Two-Tier Cost Model for LLM API Caching*, arXiv 2607.15516, 2026-07-17, `empirical`. §3 (ρ(N,|P|) characterization: two-tier step at T ≈ 3,500, Table 2, token-strict invalidation with the whitespace-normalization caveat, billing reconciliation to &lt;1% and the exact Sonnet 4.6 rate card); §4 (per-strategy cost expressions, the ρ_cross(r) crossover in both priced and dimensionless α/β form, Tables 3–4, the four pricing/infrastructure sensitivity scenarios); §5 (the CAPC procedure, tier-preserving bound r_max_safe = floor(|D|/T), AdaptiveCacheBoundary with the STATIC/QUASI/DYNAMIC classifier and its real-git-history validation in Table 6); §6 (16/16 dominance grid Table 7, cost-quality Pareto sweep Tables 8–9, enterprise assistant Tables 10–11, graphify FastAPI/httpx Tables 12–13, τ-bench retail Table 14, the $98.96 itemized budget); §7 (implicit `tools=` caching, the mutated-fraction refinement, single-model/single-TTL scope, the LLM-judge caveats including the silent 0.5 fallback, the content-dependent quality cliff). Figures 1 and 2 viewed per the image two-pass rule — both confirm the step directly: at 2.4k tokens ρ climbs 0.47 → 0.89 with wide error bars at low N, while the 4k/6k/8k curves sit flat on ρ = 1.0 from N = 5 onward. **Note: Table 1 (positioning grid) is cell-collapsed in the raw parse and Table 9's quality annotations are shifted** — the Table 9 values quoted here ($0.0122 / q=0.77 and $0.0323 / q=0.77 for cache-only) were recovered from the PDF directly, and every other figure quoted is taken from prose, captions, or a table reconciled against prose. Docling also normalized all em-dashes to hyphens (cosmetic)

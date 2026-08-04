@@ -4,27 +4,35 @@ title: Encoder-Free Early Fusion
 description: "Multimodal design with minimal pre-processing instead of large
   standalone encoders: TML co-trains dMel audio + 40×40-patch hMLP + flow head
   in one transformer for 200ms latency; Gemma 4's 12B independently discards a
-  305M audio conformer for on-device memory — two labs, two motivations, same
-  verdict, with a dense-text vision regression as the one measured cost"
+  305M audio conformer for on-device memory; Inkling carries the design to 975B
+  open-weight scale — but Kimi K3 keeps a 401M MoonViT-V2 encoder at 2.8T and
+  tops the corpus on exactly the dense-text-in-image tasks where the
+  encoder-free 12B regressed, so the verdict is now contested"
 tag: Concept
 domain: interaction-multimodal
 tags:
   - llm-architecture
   - multimodal
-readingTime: 6
+readingTime: 10
 imageAlt: Illustration for Encoder-Free Early Fusion
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
   - title: Gemma 4 Technical Report
     url: https://arxiv.org/pdf/2607.02770
+  - title: "Inkling: Our Open-Weights Model"
+    url: https://thinkingmachines.ai/news/introducing-inkling/
+  - title: Kimi K3 Model Card
+    url: https://huggingface.co/moonshotai/Kimi-K3
 ---
 export { default as heroImage } from "../assets/encoder-free-early-fusion.webp";
 
 ## Sources
 
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
 
 ## Summary
 
@@ -82,6 +90,20 @@ The 12B falls harder than models both larger *and smaller* than it — the only 
 
 If that reading is right, encoder-free is not free — it **trades encoder parameters for vision tokens**, which is an [inference-cost](/articles/inference-efficiency-as-capability) trade, not a saving. The report neither reports nor comments on the inversion.
 
+## Third instance: Inkling at 975B (July 2026)
+
+[Inkling](/articles/inkling) (`vendor-claim`) carries the design from a 276B research preview and a 12B edge model to a **975B open-weights foundation model**: audio as dMel spectrograms, images as 40×40-pixel patches through a four-layer hMLP, both via lightweight embedding layers "processed jointly with text tokens," trained from scratch on general-domain data — TML explicitly calls the choice "consistent with the interaction model design." Same lab as instance one, so it is scale-transfer rather than fresh corroboration, but it answers a question the first two instances left open: whether encoder-free inputs hold up when the budget allows any architecture. TML reports Inkling among the strongest open-weights audio models (VoiceBench 91.4, MMAU 77.2, AudioMC 56.6 vs 24–38 for the open omni specialists it compares) and strong chart/diagram vision (CharXiv RQ 78.1). Still no matched-size encoder/encoder-free ablation from any of the three instances — the open question below stands.
+
+## Counter-instance: Kimi K3 keeps its encoder at 2.8T (July 2026)
+
+Three instances agreed; the fourth data point disagrees, and it is the largest model of the four. [Kimi K3](/articles/kimi) (`vendor-claim`) is a **2.8T/104B open MoE with a 401M MoonViT-V2 vision encoder** — a dedicated, standalone vision tower, deliberately retained at a scale where nothing forced the choice. It is not an edge model with a memory ceiling and not a latency-bound interaction model; Moonshot had the budget for any architecture and picked the one this page documents labs abandoning.
+
+The comparison that matters is *where* it wins. The encoder-free 12B's one measured regression was **dense text in images** — a −29.7 InfographicVQA cliff and the family's only scale-ordering violation — with the proposed explanation that a projection-only path performs no feature compression, so resolution must substitute for parameters. K3 is the strongest model in this corpus on precisely that task family: **OmniDocBench 91.1**, the top cell in its own 45-model-pair table (ahead of [Fable 5](/articles/claude-fable-5)'s 89.8), and **OfficeQA Pro 63.3** on a setup where "each test case provides the agent with the entire PDF corpus, with all PDFs rendered as images and no machine-readable text available." Meanwhile it *trails* Fable 5 on the perception-and-reasoning vision benchmarks (WorldVQA 51.0 vs 56.7, BabyVision 85.7 vs 90.5, CharXiv 84.8 vs 88.9) — the inverse of the profile you would predict if the encoder were simply general vision capacity.
+
+**How much this should move you: not far, and the reason is worth stating rather than resolving.** This is not the matched-size ablation the first open question below asks for; it is a different lab, a different scale, a different training corpus, and a vendor's own numbers. Nothing here shows that removing MoonViT-V2 would cost K3 anything, and nothing in the Gemma 4 data shows that adding an encoder would have saved its 12B. What the four instances jointly establish is narrower and more useful than "encoder-free wins": **at the ~1T frontier the field has not converged.** TML dropped the encoder at 975B and Moonshot kept one at 2.8T, in the same month, both reporting strong vision. Treat "encoder-free is the trend" as a two-lab observation ([TML](/articles/thinking-machines-lab) and [DeepMind](/articles/google-deepmind)), not a field verdict.
+
+One asymmetry does survive the caveats: every encoder-free instance here also drops the *audio* encoder, and K3 has no audio path at all (text and image only). The strongest evidence for encoder-free — Gemma 4's Table 8, where discarding a 305M conformer cost 0.002 WER — is audio evidence, and K3 does not contest it.
+
 ## Connections
 
 - [Interaction Models](/articles/interaction-models) — parent concept
@@ -91,12 +113,14 @@ If that reading is right, encoder-free is not free — it **trades encoder param
 - [The Bitter Lesson](/articles/the-bitter-lesson) — "co-train from scratch, drop the modular encoders" is a bitter-lesson move
 - [TML-Interaction-Small](/articles/tml-interaction-small) — the model that implements this design (dMel audio, 40×40 hMLP patches, flow head), co-trained from scratch
 - [Gemma 4](/articles/gemma-4) — the second, independent instance: a 12B open-weight model that discards its 305M audio conformer outright
+- [Inkling](/articles/inkling) — the third instance: the design at 975B open-weight scale, chosen for interaction-model consistency
 - [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — memory, not latency, is DeepMind's motivation; and the dense-text regression suggests the saving is really a parameters-for-tokens trade
 - [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — encoder removal is one of the levers that lets a small dense model compete at all
+- [Kimi (Moonshot AI)](/articles/kimi) — the counter-instance: a 401M MoonViT-V2 encoder retained at 2.8T, leading the corpus on the dense-text-in-image tasks where the encoder-free 12B regressed
 
 ## Open Questions
 
-- **Does an encoder-free model at matched size still match?** Neither source runs the ablation. TML co-trains everything from scratch; Gemma 4 freezes encoders on four models and drops them on one, at a different scale.
+- **Does an encoder-free model at matched size still match?** Neither source runs the ablation. TML co-trains everything from scratch; Gemma 4 freezes encoders on four models and drops them on one, at a different scale. [Kimi K3](/articles/kimi) retains a 401M encoder at 2.8T and leads on dense-text vision, which sharpens the question without answering it — still no matched-size arm anywhere.
 - Is the dense-text degradation intrinsic to a projection-only vision path, or an artifact of the 12B's particular training run? The prediction is falsifiable: an encoder-free 31B should show the same InfographicVQA cliff at 280 tokens.
 - TML deletes encoders *and* co-trains from scratch. Gemma 4 deletes encoders *and* trains the 12B from scratch, but keeps frozen encoders elsewhere. Which half of "encoder-free + from-scratch" does the work?
 
@@ -104,3 +128,5 @@ If that reading is right, encoder-free is not free — it **trades encoder param
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.3 (encoder-free architecture), Table 8 (audio without an encoder), Tables 6 & 12 (the 280-vs-1120 vision-token regression) (`empirical`)
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/) — dMel + 4-layer hMLP at 975B, from-scratch general-domain training, audio/vision benchmark tables (`vendor-claim`)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §2 spec table (MoonViT-V2, 401M, at 2.8T/104B; modality text+image), §3 vision rows (OmniDocBench 91.1, WorldVQA, CharXiv, BabyVision) and footnote 3 (OfficeQA Pro's images-only PDF corpus) (`vendor-claim`) — the counter-instance

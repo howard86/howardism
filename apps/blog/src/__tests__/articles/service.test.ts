@@ -22,7 +22,9 @@ describe("graph-backed service helpers", () => {
     const visible = await getVisibleArticles();
     const visibleSlugs = new Set(visible.ids);
 
-    const graphSlugs = graphData.backlinks[KNOWN_SLUG] ?? [];
+    const graphSlugs = (graphData.backlinks[KNOWN_SLUG] ?? []).map(
+      (edge) => edge.slug
+    );
     const expectedVisible = graphSlugs.filter((slug) => visibleSlugs.has(slug));
 
     const { backlinks } = await getArticleConnections(KNOWN_SLUG);

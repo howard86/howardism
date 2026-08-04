@@ -1,0 +1,218 @@
+---
+date: 2026-08-03
+title: Knowledge-Centric Self-Improvement
+description: "Caltech's inversion of self-improving agents: keep the agent
+  generic, stateless and disposable, and make a curated knowledge base the only
+  persistent object — task-level forums, cross-task forums, then distillation
+  into typed bundles. Beats agent-centric (DGM, HyperAgents) and
+  prompt-optimization (GEPA, OpenEvolve) baselines on five benchmarks at lower
+  dollar cost, and the frozen bundle transfers zero-shot to held-out tasks and
+  across LLM families in every donor-recipient pairing — the opposite of what
+  happens when an evolved harness is transplanted"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - knowledge-management
+  - recursive-self-improvement
+  - benchmarks
+  - llm-architecture
+readingTime: 25
+imageAlt: Illustration for Knowledge-Centric Self-Improvement
+sources:
+  - title: Knowledge-Centric Self-Improvement
+    url: https://arxiv.org/pdf/2607.19592
+  - title: Rethinking the Evaluation of Harness Evolution for Agents
+    url: https://arxiv.org/pdf/2607.12227
+---
+export { default as heroImage } from "../assets/knowledge-centric-self-improvement.webp";
+
+## Sources
+
+- [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592)
+- [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227)
+
+## Summary
+
+**Knowledge-centric self-improvement** asks the question every self-improving agent design answers implicitly — *when the system gains experience, what should persist?* — and answers it with **neither the agent nor its scaffold, but an external curated knowledge base**. Agents stay generic, stateless and **disposable**: each is a fresh instance with a clean context, receives a distilled knowledge bundle, attempts exactly one task, writes evidence back, and is discarded. No private memory, no role specialization, no task-specific architecture, no modified prompts carry across generations. The only object that changes is the knowledge base.
+
+The source is Wang, Yoon, Qu, Wang, Sehgal, Mazumdar and Yue (Caltech, arXiv 2607.19592, 2026-07-21, `empirical`, code at [recursive-knowledge/KSI](https://github.com/recursive-knowledge/KSI)). Its argument against the agent-centric default is a maintenance argument, not a capability one: "a single persistent agent must absorb many local lessons, some of which are task-specific, redundant, or mutually inconsistent; as the agent grows, useful behavior can be diluted by conflicting updates."
+
+Because agents are re-instantiated every attempt, the experimental design has an unusually clean property: **any gain across generations must come from the knowledge**. Nothing else survives.
+
+## The three-stage curation protocol
+
+The protocol is deliberately simple — the authors say so explicitly, "we do not claim that this protocol is optimal" — and takes the form of a threaded discussion board. Three stages form an abstraction ladder:
+
+1. **Task-level forum.** After an attempt, each agent posts to that task's thread: not the answer or patch, but the load-bearing assumption it relied on, the evidence for it, one concrete change for the next agent on this task, a falsifiable prediction, and a confidence. Posting is not write-only — agents read earlier posts and cite by id the ones that support or contradict their own experience. Output: local guidance on what matters, what should not be retried, what a later agent should verify first.
+2. **Cross-task forum.** A single shared thread spans all tasks in the generation and decides which local observations survive beyond the task that produced them. Round 0 seeds concrete primitives; rounds ≥ 1 **must** take an explicit `AGREE` / `DISAGREE` / `SYNTHESIZE` stance toward a cited peer post and ground it in a non-empty list of task ids.
+3. **Distillation.** Surviving claims are consolidated into one per-task bundle for each still-unsolved task plus one cross-task bundle per generation, rendered into a `MEMORY.md` in the next agent's workspace. Both bundle types share six typed fields: `transferable_insights`, `confirmed_constraints`, `rejected_hypotheses`, `pitfalls`, `checks`, `next_steps`.
+
+**Distillation is framed as a selection step, not a summarization step** — the distiller keeps claims that are "actionable, evidence-grounded, and scoped" and drops "vague advice that does not name the condition under which it applies." Each surviving `Insight` carries `applies_when` and `does_not_apply_when` alongside its text and its evidence quotes.
+
+### The schemas do the enforcing, not the prompts
+
+The design detail worth stealing is that the protocol's quality bar lives in **typed schemas and server-side gates**, not in prompt exhortation:
+
+- **A retrieval gate binds posts to retrieved evidence.** The MCP server rejects `forum_post` unless the agent has already called `knowledge(task_id)` and `query(task_id, query=...)` in the same session. You cannot post free-form prose about a task you never looked up.
+- **`anti_meta_self_check` is a schema field, not advice.** Every cross-task post must defend, in one sentence, why its `concrete_primitive` is not lifted-from-tutorial advice; posts that fail the meta-test are dropped at distillation. The schema explicitly rejects framings like "separation of concerns," "two-phase pipeline," "approach," "strategy," "architecture."
+- **`concrete_primitive` must be verbatim.** A named API call, error type, file path, language feature, test-runner flag, or numeric invariant, quoted from a task or a cited post — with a ≥ 40-character verbatim grounding quote that shares a non-stopword with the primitive.
+- **Per-task and cross-task bundle inputs are kept disjoint** "so per-task curation cannot be polluted by cross-task speculation, and vice versa."
+- **`EXHAUSTED` is a protocol-sanctioned signal.** An agent that has genuinely run out of search space writes the literal string rather than inventing a next step.
+
+Anthropic's prompt cache also shapes the implementation: every forum prompt is split into a `cacheable_prefix` (task ids, descriptions, tool list, round instructions, output schema) carrying the `cache_control` marker and a `variable_suffix` (this agent's prior attempts, session memory, peer posts) appended as a plain block — the concrete engineering pattern [Prompt-Cache Economics](/articles/prompt-cache-economics) prices.
+
+## Results
+
+Configuration for every headline number: 50-task pools, **10 generations**, one per-task forum round and two cross-task rounds per generation, temperature 0.0, three seeds for OURS against single runs for the baselines. Solved tasks are retired from the active pool each generation, so **solve rate is cumulative across ten generations, not a leaderboard pass@1** — read the numbers as budget-matched comparisons, not as absolute benchmark scores.
+
+### Against agent-centric self-improvement (Haiku 4.5 throughout)
+
+| Method | ARC-AGI-1 | Cost | ARC-AGI-2 | Cost | Polyglot | Cost | SWE-bench Pro | Cost |
+|---|---|---|---|---|---|---|---|---|
+| **OURS** | **86.7% ± 4.2** | **$76 ± 16** | **82.7% ± 6.1** | **$80 ± 1** | **68.0% ± 2.0** | **$126 ± 6** | **64.0% ± 2.0** | **$208 ± 19** |
+| HyperAgents | 70% | $234 | 60% | $188 | 52% | $190 | 42% | $431 |
+| DGM | n/a | n/a | n/a | n/a | 58% | $281 | 54% | $713 |
+
+Highest solve rate *and* lowest cost in every cell — SWE-bench Pro at roughly a third of DGM's spend. On Terminal-Bench 2 (the full 89 tasks) OURS posts **43.8% ± 3.4** against Meta-Harness 37.6%, Goose 35.5%, Terminus-KIRA 33.7%, Mini-SWE-Agent 29.8%, Terminus 2 28.3% and [OpenHands](/articles/openhands) 13.9% — though those are *reported* leaderboard scores under each system's own harness rather than reruns, and the Meta-Harness entry pairs a Claude Opus 4.6 proposer with a Haiku 4.5 base agent.
+
+The baseline reruns are more carefully controlled than most. Both forks keep upstream's optimization algorithm untouched and add: budget parity (3600 s per-task cap, twice the authors' own 1800 s), temperature pinned to 0.0, **egress isolation** through an allowlisting HTTP CONNECT proxy so a shell-capable agent cannot fetch public copies of hidden tests, and **information-parity gates** — the self-improvement LLM sees only the scalar solved/unsolved outcome instead of gold patches, hidden-test seeding is disabled, Polyglot git history is scrubbed so the solver cannot recover reference solutions from `git log`, and runs where zero tests execute score as failures rather than vacuous passes. Cost accounting covers every call including the baselines' meta-loop self-modification tokens, priced at published API rates *including cache write and read rates* so methods with different cache profiles stay comparable ([Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token)).
+
+### Against prompt optimization
+
+Budget-matched to the realized cost of the main runs (GEPA 15 iterations on ARC-AGI-1 / 7 on Polyglot; OpenEvolve 81 / 46):
+
+| Method | ARC-AGI-1 | Polyglot |
+|---|---|---|
+| **OURS** | **86.7% ± 4.2** | **68.0% ± 2.0** |
+| OpenEvolve | 54% | 46% |
+| GEPA | 44% | 36% |
+
+This reproduces, from an independent lab on disjoint benchmarks, the verdict [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) records from HarnessBank: **prompt optimization is the weakest of the self-improvement axes.** There, GEPA was credited on zero of five sealed tests; here it is last of three on both benchmarks. Two groups, different objects of improvement, same conclusion — the gains in this problem class do not live in the prompt.
+
+### Across LLM families
+
+| Method | Polyglot | Cost | SWE-bench Pro | Cost | ARC-AGI-1 | Cost | ARC-AGI-2 | Cost |
+|---|---|---|---|---|---|---|---|---|
+| OURS haiku-4.5 | 68.0% ± 2.0 | $126 ± 6 | 64.0% ± 2.0 | $208 ± 19 | 86.7% ± 4.2 | $76 ± 16 | 82.7% ± 6.1 | $80 ± 1 |
+| OURS gpt-5.4-mini | **72.7% ± 2.3** | **$56 ± 1** | **70.7% ± 2.3** | **$157 ± 11** | **93.3% ± 7.0** | **$16 ± 3** | **90.0% ± 5.3** | **$20 ± 1** |
+
+GPT-5.4-mini (medium reasoning) wins on solve rate and cost in all four cells — ARC-AGI-2 at **$20 against $80**, a 4× spread on the same protocol. The Haiku runs still beat every agent-centric baseline at a fraction of their cost. The protocol is not tied to one family, but the margins are.
+
+### The frozen artifact transfers
+
+The strongest result. Freeze the generation-10 knowledge asset, discard the procedure that produced it, and hand it to a zero-shot recipient on **20 held-out tasks selected to be ones both recipient models already failed** — no new forum, no recipient-side distillation, only a task-conditioned adapter that converts the shared asset into a short memo:
+
+| | **Polyglot** donor: none | GPT | Haiku | | **ARC-AGI-1** donor: none | GPT | Haiku |
+|---|---|---|---|---|---|---|---|
+| **GPT recipient** | 8.3% ± 2.9 | **20.0% ± 5.0** | 11.7% ± 2.9 | | 23.3% ± 2.9 | **43.3% ± 2.9** | 38.3% ± 12.6 |
+| **Haiku recipient** | 3.3% ± 2.9 | **11.7% ± 2.9** | 11.7% ± 2.9 | | 13.3% ± 2.9 | **28.3% ± 2.9** | 23.3% ± 2.9 |
+
+Every one of the eight donor-recipient cells improves over no-knowledge, in both cross-family directions. Because the recipient runs no curation of its own, the gain comes entirely from the frozen bundle at inference time — evidence that it "carries donor-agnostic structure rather than donor-specific habits." Two honest qualifications the authors supply: the GPT-authored bundle is the stronger donor in every cell (so some donor-specific quality does survive), and the Haiku-to-GPT ARC cell has the largest seed variance (± 12.6), so cross-family magnitudes are "indicative rather than precise."
+
+One transfer caveat matters more than the paper's framing suggests: **7 of the 20 Polyglot evaluation tasks are the same Exercism exercise as a donor task in a different language** (e.g. `go__ledger` vs `java__ledger`), so same-exercise recall may contribute there. The ARC-AGI-1 split has no analogous structure and is the cleaner half of the result.
+
+**The adapter's design is itself a finding.** It is a single temperature-0 call explicitly forbidden from solving the task, emitting a fixed-schema memo (`relevant_constraints`, `relevant_heuristics`, `pitfalls_to_avoid`, `checks_before_submit`, `candidate_plan`, `knowledge_use_rationale`) with **every list field bounded at 0-3 items** and instructions to return short or empty lists when the prior is only weakly relevant. The authors added this after observing that "the amount of generalizable knowledge varies across benchmarks" and that transferring a fixed quantity made recipient memory "overly noisy." Its final rule — "if the current task conflicts with prior knowledge, prefer the task" — is a supersession policy for machine-consumed memory. Less knowledge, task-conditioned, beat more.
+
+## Disagreement as evidence
+
+The protocol's distinguishing move against the memory and experience-reuse literature is that it **treats conflict between agents as evidence rather than instability**. Prior systems rely on agent-side abstraction — a single agent compresses its own trajectory into a reusable artifact. Here a claim must survive peers replying with contradicting evidence, then survive recurrence testing across tasks, before distillation keeps it.
+
+The stance distribution across cross-task rounds (Haiku 4.5, seed 1; a post may combine stances):
+
+| Benchmark | Posts (round ≥ 1) | AGREE | DISAGREE | SYNTHESIZE |
+|---|---|---|---|---|
+| ARC-AGI-1 | 141 | 37 | 10 | 104 |
+| ARC-AGI-2 | 123 | 38 | 9 | 81 |
+| Polyglot | 249 | 80 | 14 | 167 |
+| SWE-bench Pro | 265 | 61 | 15 | 201 |
+| Terminal-Bench 2 | 576 | 296 | 25 | 308 |
+| **Total** | **1,354** | **512** | **73** | **861** |
+
+Outright disagreement is **73 of 1,354 posts** — rare, which the authors read as the intended regime: "the stance requirement makes conflict explicit and forces it to carry evidence; it does not manufacture conflict." Synthesis dominates. (The GPT-5.4-mini runs express contrast in free text without emitting the literal keywords, so the counts cover only the Haiku runs — the frequencies are an artifact of one family's compliance with the schema, not a measured property of the protocol.)
+
+Three traced examples show what the mechanism actually buys, and all three are about **scoping a claim rather than picking a winner**:
+
+- **Narrowing a falsification instead of killing a hypothesis family** (ARC-AGI-1, task `b548a754`). A failed attempt overgeneralized into "marker presence does NOT imply the marker serves as extension target or directional constraint." A round-1 post disagreed, citing a *solved* task in the same generation as a counterexample: markers **can** control geometry if center-point comparison is applied. The distiller narrowed the falsification to the one parameterization actually tested and kept the rest of the family alive as explicitly `UNTRIED`. A fresh generation-2 agent seeded with that bundle solved the task with a rule from the kept family. Had the round-0 post become consensus, the whole family would have been marked dead.
+- **Splitting one claim into two scoped claims** (Polyglot). A claim that Java and Rust `react` both need the same equals-gate was revised by its own author after reading the Rust attempt's post: Java's synchronous propagation reaches stable state in one call stack, Rust's loop-based propagation needs a snapshot before the loop compared to the final state after. Distillation produced a conditional insight plus a `FALSIFIED` entry with its evidence, not a winner. Both tasks solved in later generations with exactly the scoped guard.
+- **Unresolved conflicts are preserved** (Polyglot `go__connect`, unsolved in all 10 generations). The forum debated parity-dependent hexagonal neighbor offsets against a uniform 8-neighbor union across generations; neither produced a solve, and the store retains both positions as `FALSIFIED` / `UNTRIED` with their supporting and contradicting evidence rather than forcing consensus. "When the evidence is genuinely conflicting, the protocol's job is to keep the conflict legible to future agents, not to average it away."
+
+That last sentence is the compile-time contradiction rule of [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) arrived at independently, by a group building a machine-read store rather than a human-read wiki.
+
+## The third axis of self-improvement
+
+The corpus now holds one controlled study on each of three distinct objects of improvement, and they can finally be laid against each other:
+
+| Object improved | Source | Verdict on the *artifact* | Verdict on the *process* |
+|---|---|---|---|
+| The **agent** (prompts, workflow, own code) | DGM, HyperAgents — rerun here; DGM also in HarnessBank | Weakest arm here; ships a regression on Omni-MATH under HarnessBank's gate | Expensive to maintain; gains dilute as the agent absorbs conflicting lessons |
+| The **harness** (runtime, control flow, config) | [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) (HarnessBank, Cline, Wang et al.) | Held-out gains of +9.2 to +15.4pp that are **model-fitted** (near-zero off the matched pathology, **-15.7** when the lever is turned the wrong way) — and, under the only budget-matched test, **absent**: +0.6pp held-out on Terminal-Bench 2.1, losing to plain parallel sampling at equal budget | The transferable asset is the diagnose→search→verify loop, which at a matched budget is not worth more than sampling five times |
+| The **knowledge** (evidence-grounded, distilled) | this page | **Portable**: positive in all eight donor-recipient cells, both cross-family directions | Cheap enough that the protocol is described as deliberately unoptimized |
+
+**The two papers contradict each other on artifact portability, and the contradiction is informative rather than a conflict to adjudicate.** HarnessBank's central negative result is that an evolved harness does not transfer across model families; this paper's central positive result is that a distilled knowledge bundle does. Both are `empirical`, both use sealed or held-out splits, and neither is wrong — the likely reconciliation is **what the artifact is fitted to**. A harness patch encodes a correction to one model's failure distribution (an over-thinking backbone needs the reasoning lever turned down, an under-thinking one turned up, so the same patch inverts in sign). A distilled insight encodes a fact about the *task domain* — an ARC grid invariant, Rust's loop-based propagation semantics, a test-runner flag — which is true regardless of which model reads it.
+
+If that reading holds, the design rule is: **fit your persistent artifact to the problem, not to the solver.** Nobody has run both artifact types under one protocol, so it stays a hypothesis with two strong one-sided data points.
+
+Prompt optimization is the fourth object and loses to both, twice, from two independent labs.
+
+### The charge this page has not answered
+
+A third `empirical` source ([Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227), Ai2 / UW, arXiv 2607.12227) makes a methodological argument against the harness row that **applies here unchanged**: a self-improvement loop is itself a search procedure that repeatedly evaluates and revises candidates using task feedback, so it must be compared against methods spending the same budget searching over *trajectories* — parallel sampling, sequential refinement — or a reported gain cannot be attributed to the improved artifact rather than to more test-time compute. On Terminal-Bench 2.1 at a matched K = 5, drawing five samples and letting the model pick beat automatic harness evolution on every model in both feedback settings.
+
+This paper's baselines are **agent-centric self-improvement** (DGM, HyperAgents) and **prompt optimization** (GEPA, OpenEvolve), budget-matched to each other and rigorously so. None of them is a test-time-scaling arm. Ten generations of forum-and-distill against a 50-task pool is a large search budget, solved tasks are retired each generation, and the reported quantity is *cumulative* solve rate — a shape that repeated independent attempts would also improve. Nothing in the paper separates "the knowledge base helped" from "ten attempts helped," and the cheapest arm that would — run the same generic disposable agent ten times with no forum, no distillation, and no `MEMORY.md`, and count cumulative solves — is the same missing arm the page's first open question already asks for on a different axis.
+
+Two things keep this a caveat rather than a refutation. The **transfer result is immune to it**: a zero-shot recipient consuming a frozen bundle on 20 held-out tasks gets one attempt, so the eight-cell lift cannot be repeated sampling. And the **cost comparison cuts the right way** — SWE-bench Pro at $208 against DGM's $713 — so whatever the protocol is buying, it is not buying it by outspending. But the headline solve rates are not budget-matched against the simplest thing that could produce them, and that is now a named, measured hazard rather than a hypothetical one.
+
+## Not RSI — but it compounds more than the thing that claims to be
+
+This lands cleanly on the correct side of [Recursive Self-Improvement](/articles/recursive-self-improvement)'s boundary, and for a stronger reason than the harness case does. Model weights are untouched; the agent is not merely fixed but explicitly *disposable*; the improving artifact is a text store outside every model. The paper does not claim otherwise (though its code repo is `recursive-knowledge/KSI`), and its own conclusion is careful: "the bottleneck in autonomous reasoning may not be the complexity of the agent architecture, but rather the quality and structure of the information it is able to access."
+
+The interesting wrinkle is that on the two properties the RSI literature actually cares about, this scores **better** than harness self-evolution while being definitionally further from RSI:
+
+- **Compounding.** Harness evolution converges — under a significance gate HarnessBank stops at its 10-round floor, and a human re-issues the brief for each new model and domain. Here ten generations run unattended under one protocol and the artifact keeps being consumed by fresh agents.
+- **Transfer.** Harness patches are near-zero off their matched pathology. Distilled bundles are positive in every cross-family cell.
+
+So **compounding and RSI are orthogonal**: a system can accumulate a genuinely portable, genuinely compounding asset without anything about the model improving at all. That is a useful sharpening of the vocabulary question, and it cuts against reading "it compounds" as evidence of proximity to RSI.
+
+Two honesty checks on the compounding claim itself. Solved tasks are retired from the pool each generation, so the active pool shrinks monotonically and part of the generation-over-generation curve is simply the easy tasks leaving. And no run goes past 10 generations, so nothing measures whether the base keeps adding value once the remaining tasks are the hard ones.
+
+## What the paper does not measure
+
+The gap list is short but load-bearing:
+
+- **No ablation of the three stages.** No arm removes the task-level forum, the cross-task forum, or distillation. Agents always receive the typed attempt table *plus* both bundles, so nothing separates "curated insight helped" from "an attempt log helped."
+- **"Curation beats storage" is argued, never run.** The paper's whole conceptual separation from the memory and experience-reuse literature (ExpeL, AgentKB, Agent Workflow Memory, Voyager, MemGPT) lives in Related Work. Not one of those systems appears as an arm in any table. The measured comparison is against *agent-centric* and *prompt-optimization* baselines, which is a different claim.
+- **No per-claim credit, and no significance gate.** The only crediting is aggregate solve rate. Nothing establishes that any individual distilled claim helped, and nothing rejects one that did not. [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) is satisfied at the *outcome* layer — the benchmark scorer is deterministic, external and untouchable — but not at the *claim* layer, which is exactly where HarnessBank's ablation found phantom progress entering in 62-76% of post-convergence rounds under ungated crediting.
+- **No significance testing at all.** Three seeds for OURS, single runs for baselines, no paired tests, and some ± bands overlap (ARC-AGI-1: 86.7 ± 4.2 vs 93.3 ± 7.0).
+- **No test-time-scaling arm.** Every baseline is another self-improvement method; none is "run the same generic agent K times and count cumulative solves." See *The charge this page has not answered* above.
+- **Baselines are LLM-substituted reruns by these authors.** DGM's published numbers used Claude 3.5 Sonnet and o3-mini; these cells are Haiku 4.5, so they are not comparable to DGM's own paper. The authors state this plainly, and the parity gates are unusually thorough, but it remains the standard caveat.
+- **Held-out selection makes the transfer baselines low by construction** — every evaluation task was chosen because both recipients failed it at seed 0.
+- **Human-expert contributions to the knowledge base are named as future work**, not studied.
+
+## Connections
+
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — the architecture this is the first external empirical corroboration of: knowledge compiled once into a persistent artifact rather than re-derived per task. The convergences on distillation-as-selection, evidence grounding, and preserved contradiction are tabulated there
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the sibling axis and the direct contradiction on artifact portability: an evolved harness is a model-fitted correction that does not transplant, a distilled bundle transfers in every cross-family cell. Both papers also independently rank prompt optimization last. That page now carries a third source whose budget-matched protocol finds the harness gains absent entirely — and whose methodological charge lands on this page too, unanswered
+- [Recursive Self-Improvement](/articles/recursive-self-improvement) — the boundary this sits outside: nothing about the model improves, and the case that compounding and RSI are orthogonal is made above
+- [Loop Engineering](/articles/loop-engineering) — "the agent forgets, the repo doesn't," promoted from bookkeeping to the improving substrate; the 0-3-item adapter bound is a concrete design note for loop memory files
+- [Compounding Data Moat](/articles/compounding-data-moat) — the curated store as the durable asset, measured: a frozen bundle retains value after the run, the tasks, and the model family that produced it are all gone
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the forum is a cooperative-collective instance whose product is a text artifact rather than specialization, and one of the few with a measured stance distribution (73 disagreements in 1,354 posts)
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the complementary half: that page governs the active prompt view *during* a run, this moves knowledge permanently *out* of it and makes the out-of-run store the object of improvement
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the cacheable-prefix / variable-suffix split in the forum prompt builder is the engineering pattern that page prices, and the cost table is computed at published cache write and read rates
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the paper reports dollars rather than tokens for exactly this page's reason, and the headline is a cost-*and*-accuracy win rather than a trade
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — satisfied at the outcome layer (a deterministic external benchmark scorer the agents cannot edit) and absent at the claim layer (no gate credits or rejects an individual distilled insight). Guo et al.'s SEAL result grades that split precisely: one deployment-acceptance signal the optimizer cannot author, observe, or optimize is the *minimum* requirement, and this protocol has exactly that one — external scorers, egress isolation, information-parity gates — so it clears the necessary condition while lacking the per-claim gate whose absence HarnessBank's ablation associates with phantom progress
+- [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) — the synthesis that settles this page's transfer question: the fitted-to-what discriminator survives four further corpus tests (cross-release depreciation as the same phenomenon, the cross-vendor context-file layer, write-time selection via this paper's own schemas, procedure-vs-artifact at the orchestration layer), with the general form "an artifact transfers exactly as far as the regularity it encodes extends"
+
+## Open Questions
+
+- Does curation actually beat storage? The paper's conceptual separation from experience-reuse and memory systems (ExpeL, AgentKB, Agent Workflow Memory, Voyager) is argued in Related Work and never run as an arm, and no ablation removes the forums or distillation from its own protocol. A single arm — raw attempt table only, no forum, no distillation — would settle it.
+- Run both self-improvement artifact classes under one protocol — an evolved harness and a distilled knowledge bundle on the same tasks, same budget, same held-out and cross-model splits. [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) predicts the harness gains vanish off the matched pathology while the bundle gains persist across solvers; the prediction is falsifiable and no source has run it.
+- Does the curated base keep adding value past 10 generations, or does it saturate once the easy tasks are retired? Every run stops at 10 generations with solved tasks removed from the pool, so the reported curve confounds knowledge accumulation with a shrinking task pool.
+
+## Resolved Questions
+
+- What distinguishes a self-improvement artifact that transfers from one that does not? **Answered 2026-08-04:** [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) — an artifact transfers exactly as far as the regularity it encodes extends. The fitted-to-task vs fitted-to-model binary is the measured special case: harness patches encode solver pathologies (transfer within the pathology class — Qwen 27B→397B +11.0 nearly loss-free, Gemini +13.5 across families on the shared pathology — and fail outside it), distilled insights encode domain regularities (reuse holds the domain fixed, so all eight cells survive solver churn). Cross-release instruction depreciation is the same phenomenon on the time axis (the synthesis carries the evidence), transferability can be enforced at write time (this paper's schemas are the mechanism), and what transfers when the artifact doesn't is the procedure. The controlled two-artifact test remains open above.
+
+## Sources
+
+- [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592) — Xuefei (Julie) Wang, Lauren Hyoseo Yoon, Chengrui Qu, Amanda Zichang Wang, Atharva Sehgal, Eric Mazumdar & Yisong Yue (Caltech), *Knowledge-Centric Self-Improvement*, arXiv 2607.19592, 2026-07-21, `empirical` (32pp, 11 tables, 8 figures; NSF #2505096 / #2240110 plus gifts from OpenAI and Point72; code at github.com/recursive-knowledge/KSI). §3 the three-stage curation protocol; §4.1 agent-centric baselines and Table 1; §4.2 prompt optimization and Table 2; §4.3 cross-LLM generalization and Table 3; §4.4 held-out transfer and Table 4; Appendix C the stance frequencies (Table 5) and three worked disagreement examples; Appendix E the post and bundle schemas, the MCP retrieval gate, and the cache-stability prompt split; Appendix G cost accounting; Appendix H baseline provenance, egress isolation and information-parity gates; Appendix I hyperparameters; Appendix J the same-exercise overlap in the Polyglot transfer split; Appendix L the knowledge-transfer adapter. Figures 1 and 2 viewed per the image two-pass rule — Figure 1's Pareto panel is the Polyglot slice and independently reproduces Table 1a's and Table 2's Polyglot cells. **Parse note**: Table 3's ARC-AGI-2 Cost column is cell-collapsed in the raw parse (both models' values land in the Haiku row and the GPT row is empty); the $80 ± 1 and $20 ± 1 figures quoted here were recovered with `pdftotext -f 8 -layout` on the local PDF. The ingest checker's table-shift flag on Table 4 is a **false positive** — it is a donor-by-recipient matrix that legitimately repeats model names, and all twelve cells were re-verified against the PDF. Tables 1, 2 and 5 reconciled against the prose. Single lab, preprint; three seeds for OURS against single-run baselines, no significance testing, and both agent-centric baselines were re-run by these authors under LLM substitution

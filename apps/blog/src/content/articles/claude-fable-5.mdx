@@ -14,15 +14,21 @@ tags:
   - claude
   - anthropic
   - llm-model
-readingTime: 9
+readingTime: 13
 imageAlt: Illustration for Claude Fable 5
 sources:
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
   - title: Claude Fable 5 and Claude Mythos 5
     url: https://www.anthropic.com/news/claude-fable-5-mythos-5
   - title: "A Field Guide to Fable: Finding Your Unknowns"
     url: https://x.com/trq212/status/2073100352921215386
   - title: Gemma 4 Technical Report
     url: https://arxiv.org/pdf/2607.02770
+  - title: "Claude models explained: choosing the best model for your use case"
+    url: https://claude.com/blog/claude-models-explained-choosing-the-best-model-for-your-use-case
+  - title: Rewriting Bun in Rust
+    url: https://bun.com/blog/bun-in-rust
 ---
 export { default as heroImage } from "../assets/claude-fable-5.webp";
 
@@ -30,7 +36,10 @@ export { default as heroImage } from "../assets/claude-fable-5.webp";
 
 - [A Field Guide to Fable: Finding Your Unknowns](https://x.com/trq212/status/2073100352921215386)
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5)
+- [Claude models explained: choosing the best model for your use case](https://claude.com/blog/claude-models-explained-choosing-the-best-model-for-your-use-case)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
 
 ## Summary
 
@@ -70,6 +79,20 @@ This is better evidence for Fable 5's standing than the launch post, and it is t
 
 The claim is a bottleneck *relocation* rather than a benchmark: earlier models were limited by what they could do, Fable by what you managed to tell it. It is the human-side counterpart to the vendor's harness-shrinkage demonstrations above (Pokémon on raw pixels, Slay-the-Spire memory gains) — as the model needs less scaffolding, the residual scaffolding that matters is the kind that transfers *your* context into it. See [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck).
 
+## The largest published deployment: the Bun port (pre-release Fable)
+
+[Jarred Sumner](/articles/jarred-sumner) ported [Bun](/articles/bun) from 535,496 lines of Zig to Rust in 11 days using **a pre-release version of Fable 5** ([Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust), 2026-07-08, `case-study`) — the biggest single documented Fable workload in the vault: ~50 [dynamic workflows](/articles/dynamic-workflows-agent-algebra), peak 64 concurrent instances, 6,502 commits, 5.9B uncached input + 690M output + 72B cached-read tokens (~$165k), merged with 100% of a 1M+-assertion test suite green.
+
+Three things it establishes that the launch post does not. First, a **capability discontinuity claim with a named task**: [Boris Cherny](/articles/boris-cherny) reports the same rewrite failed on every prior generation "even with the steering," and Sumner's own expectation was that it wouldn't work ("at first, I didn't expect it to work"). Second, a **price for a frontier-scale outcome** — the counterfactual Sumner states is three engineers for a year, which the team says it would never have paid. Third, a **failure profile**: 19 known regressions shipped, all in the class of constructs that are syntactically identical across Zig and Rust but semantically different (release-erased `debug_assert!`, bounds-check differences, `comptime` format strings) — the model reproduced *surface form* faithfully and missed *semantics that live in the build configuration*.
+
+Weight it accordingly: Sumner is an Anthropic employee describing an Anthropic-owned codebase, on a pre-release build that is not the GA model. It is a detailed build log, not a benchmark, and there is no comparison arm against Opus or a competitor.
+
+## When to pick Fable over Opus (vendor guidance, July 2026)
+
+Anthropic's model-selection guide gives a rule that is explicitly *not* benchmark-driven ([Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token), `vendor-claim`): Opus and Fable have "similar benchmark scores," but "in real-world situations, larger models such as Fable tend to have more wisdom, creativity, and writing skills." The stated rule of thumb — **if your evals show Opus struggling, Fable is the answer; if Opus already clears the bar, its speed and price make it the better choice.** A vendor conceding that its own benchmarks fail to separate two adjacent classes is a first-party construct-validity admission ([Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)).
+
+The same guidance positions Fable as the **advisor** in the cheap-worker/strong-advisor pattern: [Sonnet 5](/articles/claude-sonnet-5) coached by a Fable 5 advisor reaches within 10% of Fable 5's SWE-bench Pro score at 63% of the price of running Fable 5 for the whole task.
+
 ## Safeguards (why Fable exists)
 
 Fable is the **safeguarded** SKU. Because Mythos-class capability "could be misused to cause serious damage" (especially cybersecurity, biology), Fable ships with classifiers covering **cybersecurity, biology & chemistry, and distillation**. When a classifier fires, the response is **handled by [Opus 4.8](/articles/claude-opus-4-8)** rather than refused, and the user is told. Anthropic tuned the classifiers conservatively (they "sometimes catch harmless requests," triggering in "less than 5% of sessions"); **more than 95% of Fable sessions involve no fallback at all**, and for those Fable's performance "is effectively the same as that of Mythos 5." Full treatment: [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback).
@@ -84,6 +107,7 @@ Alignment: the [automated alignment assessment](/articles/automated-behavioral-a
 
 ## Connections
 
+- [Claude Opus 5](/articles/claude-opus-5) — inherits Fable 5's cyber classifier stack minus the source-code vulnerability block, and trips it far less often (5% of API calls on FrontierBench vs Fable 5's 42%)
 - [Mythos Model](/articles/mythos-model) — the model tier and its first member (Mythos Preview); Fable 5 is the first *general-access* Mythos-class model
 - [Claude Mythos 5](/articles/claude-mythos-5) — the same underlying model with safeguards lifted; the cyber/bio sibling
 - [Claude Opus 4.8](/articles/claude-opus-4-8) — the **fallback model**: safeguarded Fable queries are answered by Opus 4.8 instead of refused
@@ -98,6 +122,9 @@ Alignment: the [automated alignment assessment](/articles/automated-behavioral-a
 - [Thariq Shihipar](/articles/thariq-shihipar) — the practitioner account; used Claude Code with Fable to edit the Fable launch video end to end
 - [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — Fable 5 is the rank-1 closed reference point in DeepMind's Arena table; the corroboration comes from a competitor
 - [Gemma 4](/articles/gemma-4) — the competitor's report that publishes the number
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — where Fable sits in Anthropic's selection framework: the top class, chosen when Opus visibly struggles, and the recommended *advisor* for a cheaper worker model
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the largest published Fable workload: the 11-day Bun Zig→Rust port on a pre-release build
+- [Jarred Sumner](/articles/jarred-sumner) / [Bun](/articles/bun) — the practitioner and the codebase behind that deployment
 
 ## Open Questions
 
@@ -110,3 +137,6 @@ Alignment: the [automated alignment assessment](/articles/automated-behavioral-a
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) — Anthropic, "Claude Fable 5 and Claude Mythos 5" (June 2026; AAV edit June 9, 2026)
 - [A Field Guide to Fable: Finding Your Unknowns](https://x.com/trq212/status/2073100352921215386) — Thariq Shihipar, 2026-07-04 (`practitioner-opinion`): the bottleneck-relocation claim and the launch-video build account
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — Table 4 (`empirical`): third-party Arena Text standing, rank 1 at Elo 1508 ±9 as of 2026-06-19
+- [Claude models explained: choosing the best model for your use case](https://claude.com/blog/claude-models-explained-choosing-the-best-model-for-your-use-case) — Anthropic, July 2026 (`vendor-claim`): the Opus-vs-Fable decision rule and the advisor-strategy result
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): the Bun Zig→Rust port on a pre-release Fable 5 — scale, cost, and the 19-regression failure profile
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — Anthropic, July 24, 2026 (`empirical`): Fable 5 as a comparison arm throughout, and the classifier flag-rate contrast quoted above (§8.5). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03; never quote a table row from the raw markdown unchecked

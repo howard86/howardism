@@ -4,7 +4,9 @@ title: Agent Context Files
 description: "The cross-vendor markdown-as-control-plane pattern: repo-versioned
   plaintext (CLAUDE.md / AGENTS.md / SOUL.md / WORKFLOW.md / SPEC.md /
   .cursorrules) that configures agent behavior, split by role across project /
-  personality / workflow / spec layers"
+  personality / workflow / spec layers — and, since Genkit implemented SKILL.md
+  loading in four language SDKs, a convention with a second vendor's runtime
+  behind it as well as its authoring conventions"
 tag: Concept
 domain: agent-systems
 tags:
@@ -12,9 +14,13 @@ tags:
   - harness
   - workflow-design
   - control-plane
-readingTime: 9
+readingTime: 38
 imageAlt: Illustration for Agent Context Files
 sources:
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
   - title: Tips & Best Practices
     url: https://hermes-agent.nousresearch.com/docs/guides/tips
   - title: "Tutorial: Team Telegram Assistant"
@@ -25,14 +31,37 @@ sources:
     url: https://openai.com/index/harness-engineering/
   - title: "A Field Guide to Fable: Finding Your Unknowns"
     url: https://x.com/trq212/status/2073100352921215386
+  - title: The new rules of context engineering for Claude 5 models
+    url: https://x.com/trq212/status/2080710971228918066
+  - title: "From Registry to Repository: How AI Agent Skills Are Written, Adapted,
+      and Maintained"
+    url: https://arxiv.org/pdf/2607.00911
+  - title: "Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI"
+    url: https://www.latent.space/p/chatgpt-work
+  - title: The Week of Sandbox Escapes
+    url: https://www.pillar.security/blog/the-week-of-sandbox-escapes
+  - title: Agent swarms and the new model economics
+    url: https://cursor.com/blog/agent-swarm-model-economics
+  - title: Fable's judgement
+    url: https://simonwillison.net/2026/Jul/3/judgement/
+  - title: Enable on-demand expertise with Agent Skills in Genkit Go
+    url: https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/
 ---
 export { default as heroImage } from "../assets/agent-context-files.webp";
 
 ## Sources
 
 - [A Field Guide to Fable: Finding Your Unknowns](https://x.com/trq212/status/2073100352921215386)
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics)
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work)
+- [Enable on-demand expertise with Agent Skills in Genkit Go](https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/)
+- [Fable's judgement](https://simonwillison.net/2026/Jul/3/judgement/)
+- [From Registry to Repository: How AI Agent Skills Are Written, Adapted, and Maintained](https://arxiv.org/pdf/2607.00911)
 - [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
+- [The new rules of context engineering for Claude 5 models](https://x.com/trq212/status/2080710971228918066)
+- [The Week of Sandbox Escapes](https://www.pillar.security/blog/the-week-of-sandbox-escapes)
 - [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips)
 - [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant)
 
@@ -50,6 +79,8 @@ A context file is plaintext that satisfies four properties at once:
 - **Inspectable** — a human can read it and know exactly how the agent is configured.
 - **Loaded deterministically** — auto-injected each session (top-level) or lazily on demand (subdirectory), so behavior is reproducible.
 - **Dual-audience** — written for both the agent (as instructions) and the human (as documentation of the implicit process nobody wrote down before).
+
+Those four properties are what earn a context file its authority — but they describe the file's *format*, not its *provenance*, and the gap between the two is a security surface. Sharing agent setups is normal practice: curated `CLAUDE.md` / `AGENTS.md` files and rule snippets circulate in public repos, and a user who pastes one adopts every instruction it contains. "Versioned and inspectable" does not imply "read"; the auto-loaded root file is simultaneously the highest-authority slot in the agent's context and the one most likely to have been copied wholesale from a stranger. [Bad Memory](/articles/memory-and-context-poisoning) measures what a planted rule in that slot does to Claude Code and Codex — see there for the numbers.
 
 The deepest reason the pattern works is the last one: a context file captures *the process humans followed but never documented*. Symphony's framing — "work an issue, check out a repo, put it in progress, add the PR, move it to Review, attach videos — is now captured in a simple `WORKFLOW.md`" — is the canonical statement of **prompt-as-policy**. Editing the file edits the behavior on next render; no code change required.
 
@@ -82,6 +113,94 @@ Context files compete for the [context window](/articles/context-window-smart-zo
 
 The corollary discipline is **pruning**: a `CLAUDE.md` should contain only what the agent *can't infer* from the code. As models improve, the file shrinks — see [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve). An over-specified context file is a recognized failure mode (convert deterministic rules to hooks; delete anything the model already does correctly).
 
+## The two conventions this page describes, measured (Eliav, July 2026)
+
+Every file above is **markdown**, injected into the **system prompt**. Both are conventions nobody in the corpus has tested. [Eliav 2026](https://arxiv.org/pdf/2607.19257) (arXiv 2607.19257, `empirical`, five models) tests both directly, by rendering an identical instruction block as markdown, plain text, prose, and a table and placing it in either slot.
+
+- **Markdown earns nothing and costs 26%.** No model shows a reliable markdown-over-plain advantage; deltas stay within 2.1pp and flip sign across instruction counts for four of five models, and one open-weight model (Qwen 35B) reliably prefers **plain text**, widening to 4.8pp at N=160. Markdown's measured token overhead against the same content in plain text is **1.258×** (prose 1.221×, a table 1.367×). For a file that is injected every session and paid for on every call, that is a standing 26% tax on the eager top-level slot with no measured return. Full treatment at [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity).
+- **The system-prompt slot is not free either, and the sign is per-model.** Placement moved adherence more than format did for four of five models: user-turn placement helped two, hurt two, and did nothing for the fifth. The universal "context files go in the system prompt" convention is therefore an untested default that is actively wrong for some models — and unlike format, it is a one-line experiment to run.
+- **The pruning obligation has a hard number, in the wrong unit.** [Instruction Compounding](/articles/instruction-compounding) records the capacity floor: all-rules compliance collapses to zero past ~80 simultaneous verifiable instructions, on every model and in every format. The binding unit is **instruction count, not tokens** — which is a problem for every budgeting mechanism on this page, because Hermes's ~2,200-char `MEMORY.md`, Cursor's Field Guide line budget, and `claude doctor`'s rightsizing all meter length. A line budget is a decent proxy and the forced-eviction property still makes it the best mechanism here; it is just not measuring the quantity that binds.
+- **Lazy subdirectory injection gets a second, independent justification.** The loading-discipline section above justifies Hermes's nested-`AGENTS.md`-on-tool-call pattern purely on token budget. The count ceiling is a separate reason to prefer it: what lazy loading actually reduces is the number of instructions applying *simultaneously* to any one generation, which is the quantity that floors. AGENTS.md-as-table-of-contents was always the right shape; this is a different argument for it.
+
+The scope limit matters here more than elsewhere on this page: every instruction in that experiment applies to a single generation and is checkable by exact string match. A real context file is mostly conditional policy where a handful of rules bear on any given turn, and the paper explicitly does not claim its numbers transfer to instructions that cannot be verified mechanically.
+
+## The Claude 5 rewrite of the rules (July 2026)
+
+[Thariq Shihipar](/articles/thariq-shihipar)'s context-engineering post ([July 2026](https://x.com/trq212/status/2080710971228918066), `practitioner-opinion`) restates the CLAUDE.md discipline for Claude 5-class models and explicitly retires several prior best practices as **myths**:
+
+- **CLAUDE.md content rule**: keep it lightweight — briefly what the repo is for, then "spend most of the tokens on gotchas inside of the codebase" (e.g. types live in one monolithic file). "Avoid stating 'the obvious' things Claude should know by looking at your file system or your repo" — the prune-what's-inferable discipline above, now vendor-stated.
+- **Central-repository myth retired**: the idea that CLAUDE.md/SKILL.md should be "a central repository for every known practice… because Claude would not find it otherwise" is named a myth; instead, a **tree of files loaded at the right time** — unique verification instructions become a verification *skill* referenced from CLAUDE.md. This is the AGENTS.md-as-table-of-contents discipline generalized to skills.
+- **Skills as lightweight guides**: "avoid making them overconstrained, except in highly important areas"; long skills should themselves be split with progressive disclosure. Skills work best encoding opinions/knowledge particular to you, your team, or product — not general practice the model already has.
+- ~~Memory via `#` hotkey writes to CLAUDE.md~~ *(superseded 2026-07-25 by [auto-memory](https://x.com/trq212/status/2080710971228918066))*: Claude Code now automatically saves relevant memories; CLAUDE.md sheds its memory role and narrows to project policy — memory, artifacts, and skills each take a slice of what CLAUDE.md used to carry.
+- **Tooling**: `claude doctor` / `/doctor` rightsizes CLAUDE.md files and skills automatically — the pruning pass as a product feature.
+
+## What the population of skill files actually looks like (Gao et al., July 2026)
+
+The guidance above is prescriptive; [From Registry to Repository: How AI Agent Skills Are Written, Adapted, and Maintained](https://arxiv.org/pdf/2607.00911) (`empirical`, 18,463 registry + 23,199 repo-resident SKILL.md files) measures what practitioners ship:
+
+- **Structure is flat and short.** Median SKILL.md is 1,678 tokens / 19 headers for registry skills, 1,114 / 13 for repo-local ones (Mann-Whitney *p*&lt;0.001). H1 and H2 appear in >90%, H3 in 79.8%/67.9%, deeper levels are rare — a **flatter hierarchy than human-targeted READMEs**, consistent with the progressive-disclosure guidance above being followed more by accident than by design.
+- **The spec's mandatory clauses hold; its optional ones are dead letters.** ≥99% conformance on SKILL.md presence, valid YAML frontmatter, and `description` typing/length — but `license` 16.1%/9.1%, `allowed-tools` 15.0%/12.5%, `metadata` 13.1%/10.4%, `compatibility` 4.0%/3.2%. `references/` is the most-used optional subdirectory (31.0%/17.0%), then `scripts/`, then `assets/`.
+- **Repo-local skills drift from the activation contract.** Only 91.2% of personal-use skills have `name` matching the parent directory (97.7% in the registry) — a silent activation break, and the paper notes frontmatter descriptions are the *most frequently re-tuned* field precisely because vague criteria stop the skill firing. The "write the description as trigger conditions, not a summary" advice has measurable teeth.
+- **Six recurring content themes** across a 180-file thematic sample: scoping and activation (100%), running the execution lifecycle (89%), grounding domain knowledge (85%), governing agent conduct (81%), ensuring output quality (69%), user/agent coordination (68%) — the backbone a prefilled template would cover, which is the paper's recommendation to registries.
+
+See [Agentic Work Systematization](/articles/agentic-work-systematization) for the same study's lifecycle findings (verbatim copying, additive maintenance, the never-edited behavioural contract).
+
+## The loading runtime, shipped by a second vendor (Genkit Go, July 2026)
+
+Everything above treats `SKILL.md` as an Anthropic-originated format that other people *write*. [Google's Genkit Go post](https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/) (Daniela Petruzalek, 2026-07-31, `vendor-claim`) is the other half: Google has implemented the **loading runtime** for the format — in Genkit for TypeScript, Go, Dart and Python — against the agentskills.io specification, which it calls an open standard. The on-disk layout is the spec's, unchanged: `SKILL.md` (required metadata + instructions) plus optional `scripts/`, `references/`, `assets/`.
+
+The mechanics as the post states them, worth stating precisely because the design is easy to mis-summarize as a set of retrieval tools:
+
+- **Discovery is injection, not a tool call.** At Genkit initialization the middleware scans the configured `SkillPaths` for `SKILL.md` files and injects **their frontmatter metadata into the system prompt**. There is no separate listing step — the catalog is resident from the first token.
+- **Activation is a single tool.** When a request matches a skill's description, **`use_skill`** is called and the full `SKILL.md` body, plus access to bundled scripts and references, is loaded into the active context.
+- **The third level has no tool at all.** References and scripts are read through the agent's ordinary file access once the body points at them: "use the `references/` folder to keep your `SKILL.md` clean. The agent can read these files on demand."
+- **It is middleware, not a framework rewrite.** Skills ride Genkit's existing hook pipeline (`WrapModel` / `WrapTool` / `WrapGenerate`), registered per call as `ai.WithUse(&middleware.Skills{SkillPaths:...})`. Progressive disclosure implemented as an interceptor around an unmodified generate loop is the cheapest possible way to ship it, and plausibly why it landed in four language SDKs at once.
+
+**What this is evidence for, and what it is not.** It is real evidence that `SKILL.md` is becoming a **cross-vendor convention** rather than one company's file format — the convergence claim at the top of this page, previously argued from *authoring* conventions (`CLAUDE.md` / `AGENTS.md` / `.cursorrules` as one primitive under different names) and now supported on the *runtime* side, where a second vendor's SDK consumes another vendor's spec verbatim. It is evidence for none of progressive disclosure's benefits. **The post gives no token-savings numbers, no adherence numbers, and no comparison against loading every skill eagerly.** "Token efficiency" is the first of three asserted advantages; the one sentence in the piece that reads like a result — "with progressive disclosure, token consumption is delayed until absolutely necessary" — is a **caption on a Gemini-generated diagram**, not a measurement. The two worked examples (a recipe CLI; a multimodal art-restoration flow that picks a `paintings` skill over `drawings` / `photography`) show activation firing on one input each, with the author noting it "might take a few tries."
+
+Three smaller observations that bear on sections above:
+
+- **Who decides activation is stated two ways.** The architecture paragraph says "by monitoring incoming prompts, the middleware detects matching descriptions and activates skills dynamically"; the how-it-works and best-practices sections say the model calls `use_skill`, and that descriptions need "clear, imperative language so the model knows when to call `use_skill`". Model-decided is the reading the rest of the post supports, but the two are never reconciled — and the difference matters, because a model-called tool makes activation a **tool-selection** problem with tool-selection's reliability, where middleware matching would make it retrieval.
+- **The description-as-trigger advice arrives independently.** Google's leading best practice is to write the frontmatter description as trigger conditions in imperative language. Gao et al. above found `description` is the **most frequently re-tuned frontmatter field** in the wild, precisely because vague criteria stop a skill firing. Prescription and measurement converge from different vendors by different methods.
+- **The vendor exemplar carries the fields practitioners drop.** Google's sample frontmatter includes `license` and a `metadata` block (`author`, `version`) — two of the optional provisions Gao et al. measured at 16.1%/9.1% and 13.1%/10.4% in the wild. Nothing follows about adoption; it is a reminder that those conformance rates are measured over practitioner files, not vendor documentation.
+
+**The connection neither source makes.** Google's stated rationale is a token budget: loading every procedure and reference into the persistent window "consumes valuable tokens, dilutes the model's focus, and increases the likelihood of incorrect responses." But the measured binding constraint is **simultaneous instruction count, not tokens** — [Instruction Compounding](/articles/instruction-compounding) records all-rules compliance floored at zero by ~80 verifiable instructions on all five models tested, in every format and both placements. Progressive disclosure is a direct architectural answer to that floor: the instructions in force at any one generation are a single skill body, not the union of every skill installed. It is the same argument the lazy-subdirectory bullet above makes for nested `AGENTS.md`, now shipped as a first-class SDK primitive rather than practiced as a loading discipline.
+
+It is a **partial** answer, and the partiality is the interesting part. Every installed skill's description sits in the system prompt from initialization, so the design lowers the count from *all instructions* to *all descriptions plus one body* — it relocates the ceiling onto the size of the skill catalog rather than removing it. Nobody has measured where the relocated ceiling sits.
+
+## The Codex-side field report, and where memory is going (July 2026)
+
+[Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work) (Latent Space, `practitioner-opinion`) adds two small but load-bearing observations from the OpenAI side.
+
+**The pattern in the wild is deliberately unengineered.** Vibhu describes his Codex setup: "every project I have has a separate notes MD, and it just writes learnings to there. And then the global one can pull from all these" — so a four-month-old project note gets pulled back into context unprompted. His own summary: "a very non-super-engineered solution to this. It's just markdown files that get pulled whenever they want." This is the [agent-writes-for-the-human](/articles/unknowns-as-the-agentic-bottleneck) inversion plus the project/global split — arrived at ad hoc by a user, not designed by a vendor, which is a point for the convergence claim at the top of this page. Nathan's aside about skills points the same way: "you have your skills that explain what you want. I noticed they're quite verbose. I don't need a lot of this information" — the pruning obligation restated by a second vendor.
+
+**Memory is migrating from user-authored to system-captured, and OpenAI is further along.** The Claude-5 rewrite above records CLAUDE.md shedding its memory role to auto-memory. OpenAI's version: ChatGPT Work conversations "inherit from your ChatGPT memory" by default and write back to it (Memory V3), and **Chronicle** goes further — an experimental, default-off input that "can learn from how you're using your computer and it's another input source into memory." Nathan's own framing of what it buys is *recall of what the human missed*, not accuracy: "Is it gonna know everything that you're doing? Probably not, but it probably will find things that you might not know about."
+
+**What one of those auto-captured files actually looks like.** [Willison](https://simonwillison.net/2026/Jul/3/judgement/) (2026-07-03, `practitioner-opinion`) quotes one verbatim — the file Claude Code saved to `~/.claude/projects/<project>/memory/` after he stated a workflow preference in chat. It is not a log line. It carries YAML frontmatter (`name`, `description`, and a `metadata` block with `node_type: memory`, `type: feedback`, and the originating session id), a dated attribution reproducing the user's exact words, a **Why** section giving the rationale, a **How to apply** section translating the preference into concrete behavior, and a cross-reference to a sibling memory file. Two observations. The system-captured artifact is **more structured than the hand-written rule it displaces** — closer to a policy document than to recall. And it **records provenance**: session id, date, and who said it — precisely the field the CVE section below finds missing everywhere in this corpus, arriving first on the low-integrity side of the ordering rather than the high one. One artifact from one developer's session, and the format is not documented in anything the wiki has read.
+
+That direction is the opposite of everything else on this page. A context file earns authority by being versioned, inspectable, and human-reviewed; **passively captured memory has none of those properties**, and Chronicle maximally so — the human never wrote it, never reviewed it, and cannot easily enumerate it. The Resolved Question below already rules that policy conflicts go to the context file for exactly this reason, and the ordering holds here — but the *volume* on the low-integrity side is now growing much faster than the high-integrity side, which is a security posture change more than a capability one. See [Memory and Context Poisoning](/articles/memory-and-context-poisoning).
+
+## The Field Guide: the pattern with the human removed (Cursor, 2026)
+
+Every context file above is authored by a human and read by an agent, or (in [Shihipar's](/articles/thariq-shihipar) `implementation-notes.md` inversion) authored by an agent and read by a human. [Cursor's](/articles/cursor) **Field Guide** ([Wilson Lin, 2026-07-20](https://cursor.com/blog/agent-swarm-model-economics), `case-study`) is the third corner: **authored by agents, for agents, with no human in either seat.**
+
+The mechanics are minimal, and every one of them is a decision this page has an opinion about:
+
+- **A folder owned entirely by the agents**, whose `index.md` is automatically injected into every agent at start — the eager top-level slot, exactly as in the loading-discipline section above.
+- **The agents curate what goes in.** No review step, no owner.
+- **The only constraint is a line budget** — the bounded-envelope discipline (Hermes's ~2,200-char `MEMORY.md`) as the *sole* governor rather than one control among many.
+- **The selection rule is stated and is a good one:** model weights are frozen, so "it's precisely surprise encounters that are worth capturing so the next agent trajectory is shorter." That is the prune-what's-inferable rule pointed at a different inferability boundary — not "what can't be read off the repo" but "what the weights don't already contain."
+
+Cursor frames it as **stigmergy**: the coordination mechanism by which ants and termites organize without direct communication, shaping an environment that then shapes the next organism. Their read of the earlier "keep notes, document decisions" rules — encoded because they "seemed obviously good" — is retrospective: those rules were already letting agents institutionalize knowledge for their future selves and teammates. The Field Guide makes that the explicit purpose.
+
+Two things follow for this page.
+
+**It satisfies three of the four properties and drops the load-bearing one.** Versioned, inspectable, deterministically loaded — yes. *Dual-audience*, no: the human is not the second audience, and nothing says the human ever reads it. The provenance discussion above ("versioned and inspectable does not imply *read*") treats that gap as an accident that creates a security surface; here it is the design. The [Bad Memory](/articles/memory-and-context-poisoning) threat model applies with the mitigating step deleted — an auto-injected, agent-writable, high-authority slot with a line budget as its only gate. Cursor's swarm runs in an isolated build with no internet access, which is what makes that acceptable there and would not transfer to an agent reading external content.
+
+**The line budget is doing the work a pruning pass would otherwise do.** [Instruction Compounding](/articles/instruction-compounding) is the failure this page names for append-only context files, and a fixed line budget converts curation from an occasional obligation into a per-write forced choice: adding requires evicting. That is a cheaper mechanism than `claude doctor`, and worth noting as the one design here that generalizes to human-authored files unchanged.
+
+Cursor's own claim is bounded: "an early experiment with promising results," with no measurement, and the expectation stated rather than shown that "the benefits would be even larger on codebases agents don't fully own." Read it as a design to copy, not a result.
+
 ## Where context files sit in the control plane
 
 Context files are **policy, not the work graph**. They are excellent at invariants, conventions, role boundaries, and process; they are poor at encoding *live state* of work. A `SPEC.md` can define Symphony but doesn't tell the daemon which issue is currently unblocked; an `AGENTS.md` tells Hermes how a repo works but doesn't pick the next customer request. The [control-plane analysis](/articles/agent-control-plane-patterns) places them precisely:
@@ -93,39 +212,79 @@ Context files are **policy, not the work graph**. They are excellent at invarian
 
 The brittleness of prompt-as-policy is that it cannot *enforce* — only instruct. Symphony's answer is to keep hard invariants outside the prompt (workspace-path validation, concurrency caps, terminal-state cleanup, retry backoff, credential proxying) while the `WORKFLOW.md` prompt says what the agent *should* do. The spec says what to do; the orchestrator enforces what must not be violated. This is the same division as ["enforce invariants, not implementations"](/articles/agent-harness-engineering) — context files are the advisory half; hooks/orchestrator invariants are the mechanical half.
 
+## The mechanical half is executable, and the agent can write it (CVE-2026-48124)
+
+The advisory/mechanical division above is a *design* claim about what each half does. It is not a claim about who may author them — and that is the gap Pillar Security's [Week of Sandbox Escapes](/articles/write-then-trusted) (2026-07-20, `case-study`, vendor-COI flagged) closes with a shipped CVE:
+
+**CVE-2026-48124 / GHSA-pc9j-3qc2-95wv** — a **workspace-controlled `.claude` hook configuration turned into unsandboxed command execution in Cursor**, patched in Cursor 3.0.0. The companion Antigravity finding is the same shape in a different file: the agent writes a `.vscode` task configuration and the host's task runner later executes it on its own.
+
+The reading this forces on the page. The four properties at the top — versioned, inspectable, deterministically loaded, dual-audience — describe a file that the *agent* reads. That framing has already been qualified once above: the properties describe format, not provenance, and [Bad Memory](/articles/memory-and-context-poisoning) measures what a planted rule in that slot does to the agent. This is the *other* direction, and it is the sharper one:
+
+- **A context file is not only an input to the agent; the hook layer is an input to the host.** The mechanical half is executable configuration honored by a component running *outside* whatever sandbox contains the agent. So the property that makes hooks the trustworthy half — that they run deterministically rather than being merely suggested — is precisely what makes an agent-authored one an execution primitive.
+- **The threat model inverts.** Injection research treats these files as a channel *into* the model (poison the rules, hijack the behavior). Here the file is a channel *out of* the sandbox: nothing needs to influence the model's judgment beyond getting it to write a file it is entirely permitted to write.
+- **Provenance is now load-bearing in two directions.** The security surface named above ("versioned and inspectable does not imply *read*", a config pasted from a public repo) is about *human* provenance. The CVE adds *agent* provenance: the corpus's control-plane framing has no way to distinguish a `CLAUDE.md`/hook config a human committed from one the agent wrote thirty seconds ago, and Pillar's own prescription — "preserve provenance between user-created, repo-created, and agent-created files" — is exactly the missing field. Nothing in this wiki's harness-engineering thread supplies it.
+
+Two boundaries on how far to carry this. The CVE is a *Cursor* bug — a second vendor honoring the `.claude` hook format inside its own sandbox model — not a defect in the format itself or in Claude Code's handling of it. And the source is a vulnerability disclosure: it establishes that the path exists and was patched, not how often anyone walks it.
+
 ## Spec-as-document, one layer deeper
 
 The pattern generalizes upward. The same "plaintext spec as load-bearing artifact" instinct shows up at the alignment layer ([Model Spec / Constitution](/articles/claude-constitution)) and even as a *training input* (model-spec-midtraining). Symphony's spec-fuzzing technique — compile `SPEC.md` into six languages and use cross-implementation divergence to surface ambiguity — is the [LLM-as-compiler](/articles/llm-as-compiler-knowledge-base) idea applied to a context file. The throughline: as code becomes cheap, the **document becomes the product**, and the agent's job is to compile it.
+
+Cursor states the same throughline from the far end of the scale curve, having handed a swarm the 835-page SQLite manual and received a working database: "with swarms, the unit of work becomes the spec… what was scarce in this experiment, and what we expect to be scarce in software engineering going forward, is the right description of intent." Their analogy is literal — planners parse a goal into task trees and lower it step by step into executable work, "the difference [being] that a compiler preserves meaning at every step while the swarm is probabilistic at every one." That last clause is the useful half: it names what all the coordination machinery on [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) is for.
 
 ## Open Questions
 
 - Will the role split converge on Hermes's explicit project/personality separation, or stay folded into a single file as in Claude Code? A separate `SOUL.md`-style personality layer seems strictly better for multi-project users but adds a file to maintain.
 - Is there a natural ceiling on the layering (project → workflow → spec → constitution), or does each new autonomy surface spawn another context-file tier?
-- How should context files and bounded memory files interact when they disagree? Memory is lossy and cache-delayed; the context file is authoritative but static. Which wins, and when?
+- Does the universal system-prompt slot cost anything? Every vendor on this page injects context files into the system prompt, and the only controlled measurement of that choice ([Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)) finds placement is a *larger* lever than format with a model-specific sign — helping two models, hurting two. Falsifiable cheaply: render the same `CLAUDE.md` / `AGENTS.md` into the first user turn instead and measure adherence per model. *(Genkit's skills middleware is a fourth vendor making the same choice — frontmatter metadata injected into the system prompt at init — which widens the premise without touching the question.)*
+- Metadata-injection discovery relocates the instruction-count ceiling onto the **skill catalog** rather than removing it: every installed skill's description is resident from initialization, so a large enough `skills/` directory should floor adherence before any skill body loads. How many resident descriptions does that take, and does `use_skill` selection degrade before or after all-rules compliance does? Falsifiable with [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)'s harness pointed at N skill frontmatters instead of N rules.
+
+## Resolved Questions
+
+- How should context files and bounded memory files interact when they disagree? Memory is lossy and cache-delayed; the context file is authoritative but static. Which wins, and when? **Answered:** [When Knowledge Layers Disagree: Context Files vs Memory, and Conflicting Sources at Compile Time](/articles/conflict-resolution-in-agent-knowledge-substrates) — split by disagreement type. *Policy*: the context file always wins — it is the human-reviewed, git-versioned high-integrity channel, and agent-written memory's recency cannot confer authority (a memory item contradicting policy is indistinguishable from staleness or poisoning, per the TMA-NM laundering theorem). *Facts*: neither wins — both are caches over reality; verify against the repo/live state (the code-as-source-of-truth arbiter) and repair the stale cache. *Always*: log the conflict for the lint/pruning pass (the deviations-log pattern) instead of silently breaking the tie, and let writes flow only down the integrity ordering — memory never modifies the context file; the context file legitimately bounds memory.
 
 ## Connections
 
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — rung 1 of OpenHands' customization ladder, and the cheapest one: "a surprising amount of 'we need our own agent' turns out to mean 'we need our own prompt, tools, and defaults'" — context files as the alternative to a fork that inherits ~13 upstream PRs/day
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the cache-stability rule measured, and qualified in two directions. Stability is **not sufficient**: below Anthropic's ~3,500-token tier boundary an unmodified prefix still misses roughly one call in six, and on a ~9k-token agent prefix explicit `cache_control` markers were worth +0.6% (nothing) because the provider was implicitly caching anyway. But invalidation is also **less brittle than it looks** — the cache is token-strict on real content edits (4/4 mutation tests) while leading and trailing whitespace is normalized before keying, so reformatting a context file's margins is not a cache break
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the cache-stability rule above, priced rather than forbidden: Self-GC treats every context edit as a prefix-cache break with a cost, commits only past a 0.3 expected-pruning threshold, and otherwise holds the plan pending until cache expiry. It also treats instruction files as never-GC-able objects, which is the runtime enforcement of "context files stay stable within a session"
 - [Claude Code Best Practices](/articles/claude-code-best-practices) — the `CLAUDE.md` convention and the prune-ruthlessly discipline; the canonical session-layer instance of this pattern
 - [Hermes Agent](/articles/hermes-agent) — the sharpest role split (`AGENTS.md` project vs. `SOUL.md` personality) plus lazy subdirectory injection and bounded memory files
 - [Symphony](/articles/symphony) — introduces the orchestration-layer files: `WORKFLOW.md` (prompt-as-policy) and `SPEC.md` (the product is the spec)
 - [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — the `WORKFLOW.md` prompt-as-policy pattern in full; context files are the policy plane that the ticket layer invokes
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — context files are the advisory half of "enforce invariants, not implementations"; AGENTS.md-as-table-of-contents is a harness discipline
 - [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — why context files shrink with each model release; prune at every launch
+- [Instruction Compounding](/articles/instruction-compounding) — the pruning obligation these files accumulate: append-only context files collect instructions that a newer model performs natively, and those lines then degrade output rather than merely waste tokens — plus the ceiling that per-line pruning cannot reach, denominated in simultaneous instruction count rather than tokens
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — the measurement that undercuts this page's two unexamined conventions: markdown buys no reliable adherence over plain text while costing 1.258× the tokens, and the format that wins reverses between models and between scale points
+- [Output Length Calibration](/articles/output-length-calibration) — the other direction, plus a placement discipline: a long context file needs its conciseness instruction restated near the *end*, closest to generation
 - [Loop Engineering](/articles/loop-engineering) — skills (`SKILL.md`) are one of its five primitives — intent "written down on the outside" so a loop compounds instead of re-deriving the project each cycle; state/memory files are the loop's sixth primitive (the spine that survives between runs); [Osmani](/articles/addy-osmani)'s "skill is the authoring format, plugin is how you ship it" sharpens the distinction
-- [Agentic Work Systematization](/articles/agentic-work-systematization) — the usage-data evidence that this externalized-context primitive is being adopted at scale: skills/plugins are how Codex users encode persistent procedural context, climbing 5.4%→26.6% of weekly-active users
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — the usage-data evidence that this externalized-context primitive is being adopted at scale: skills/plugins are how Codex users encode persistent procedural context, climbing 5.4%→26.6% of weekly-active users — and the lifecycle counter-evidence: once adopted, a skill is mostly copied verbatim and left (53% never modified), so the policy plane rots unless someone owns it
 - [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — the pattern **inverted**: [Thariq Shihipar](/articles/thariq-shihipar)'s `implementation-notes.md` is a context file written *by* the agent *for* the human, with a `Deviations` section logging the edge cases that forced it off the plan ("pick the conservative option, log it, and keep going")
 - [Context Advantage, Not Taste](/articles/context-advantage-over-taste) — the uncomfortable reading: if the human's necessity is an information asymmetry, every context file written spends a little of it
 - [AI-Native Organization](/articles/ai-native-organization) — the pattern promoted from configuring one agent to encoding a whole company: [Tan](/articles/garry-tan)'s skill-file-as-employee / resolver-table-as-org-chart mapping is context files as org design
 - [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — context files are the steering mechanism for the latent half of Tan's two-sided architecture
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — the **adversarial reading of this whole pattern**: auto-loaded, agent-writable, high-authority plaintext is exactly what a planted rule wants to live in. It also supplies the condition under which this page's memory-vs-context-file ordering (Resolved Questions, above) fails — the ordering rests on the context file being the *human-reviewed* channel, and a config pasted from a public repo never was. `empirical` product-level measurement across Claude Code and Codex
+- [Write-Then-Trusted](/articles/write-then-trusted) — the **security inversion of this whole pattern**: CVE-2026-48124 makes a workspace-supplied `.claude` hook configuration an unsandboxed execution vector in Cursor (patched 3.0.0), and a `.vscode` task config does the same in Antigravity. The properties that make context files a good policy plane — auto-loaded, repo-resident, agent-writable, honored by host-side automation — are the properties that make them a good escape route out of an agent sandbox. See the section above
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — context files as a *generated* artifact: the Bun port spent a dedicated workflow authoring `PORTING.md` and `LIFETIMES.tsv`, then fed them to 64 downstream agents as the shared spec
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — where the Field Guide's host swarm is described, including the shared design docs with compile-checked references back to them: a context file that the *type system* enforces consumption of, which is the strongest form of the pattern in the corpus
+- [Cursor](/articles/cursor) — author of the Field Guide experiment, and of the `.cursorrules` format other agents load for compatibility
 
 ## Derived
 
 - [Agent Control Plane Patterns: Tickets, Loops, Specs, and Memory Files](/articles/agent-control-plane-patterns) — positions context files as the policy layer in the layered control-plane stack (tickets / loops / specs / memory)
+- [When Knowledge Layers Disagree: Context Files vs Memory, and Conflicting Sources at Compile Time](/articles/conflict-resolution-in-agent-knowledge-substrates) — the context-file-vs-memory disagreement rule: policy → context file, facts → ground truth, every conflict logged to the maintenance loop
 
 ## Sources
 
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav, arXiv 2607.19257, 2026-07-21 (`empirical`, sole author, single lab, not peer reviewed): §3.3 and Table 3 the per-format token overhead (markdown 1.258×, prose 1.221×, table 1.367× plain), §4.3 the absent markdown advantage, §4.4 system-prompt-vs-user-turn placement, §4.2 the instruction-count floor. Table 1's model roster is cell-collapsed in the raw markdown and is not cited — see the Sources note on [Instruction Compounding](/articles/instruction-compounding)
 - [Tips & Best Practices](https://hermes-agent.nousresearch.com/docs/guides/tips) — Claude Code's `CLAUDE.md` guidance
 - [Tutorial: Team Telegram Assistant](https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant) — Hermes `AGENTS.md` / `SOUL.md` / memory split
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — `WORKFLOW.md` and `SPEC.md`
 - [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/) — context files as harness substrate
 - [A Field Guide to Fable: Finding Your Unknowns](https://x.com/trq212/status/2073100352921215386) — Thariq Shihipar, 2026-07-04 (`practitioner-opinion`): `implementation-notes.md` and the Deviations log — the agent-authored, human-facing inversion of the pattern
+- [The new rules of context engineering for Claude 5 models](https://x.com/trq212/status/2080710971228918066) — Thariq Shihipar, 2026-07-25 (`practitioner-opinion`): the Claude 5 rewrite — gotcha-focused CLAUDE.md, central-repository myth retired, auto-memory superseding `#`-hotkey memory, `claude doctor`
+- [The Week of Sandbox Escapes](https://www.pillar.security/blog/the-week-of-sandbox-escapes) — Pillar Security, 2026-07-20 (`case-study`, vendor-COI flagged): CVE-2026-48124 / GHSA-pc9j-3qc2-95wv (workspace `.claude` hook config → unsandboxed execution in Cursor, patched 3.0.0) and the `.vscode` task-config analogue; "Failure Mode 2: Workspace Config Is Often Code". Full treatment on [Write-Then-Trusted](/articles/write-then-trusted)
+- [Codex from 0 to 10M Users: Building ChatGPT Work - Akshay Nathan, OpenAI](https://www.latent.space/p/chatgpt-work) — Latent Space, 2026-07-28 (`practitioner-opinion`): the ad-hoc per-project-notes/global-pull pattern in the wild, Nathan on verbose skills, and Memory V3 / Chronicle as passively-captured memory inputs
+- [Fable's judgement](https://simonwillison.net/2026/Jul/3/judgement/) — Simon Willison, 2026-07-03 (`practitioner-opinion`, 460 words): a verbatim Claude Code auto-memory file — frontmatter with `node_type: memory` / `type: feedback` / originating session id, a dated attribution of the user's stated preference, and Why / How-to-apply sections. Quoted here as the first concrete instance of the system-captured memory channel; the raw escapes its wiki-link fragment so it stays inert
+- [Enable on-demand expertise with Agent Skills in Genkit Go](https://developers.googleblog.com/en/enable-on-demand-expertise-with-agent-skills-in-genkit-go/) — Daniela Petruzalek, Google Developers Blog, 2026-07-31 (`vendor-claim`, 2,801 words): "Brief Recap of Agent Skills" (the agentskills.io on-disk layout and frontmatter example), "How it works" (the three stages — metadata injection at init, `use_skill` activation, body-plus-resources execution), the Genkit middleware hook taxonomy, and "Best practices for skills". **No measurement of any kind appears in the post**; the "token consumption is delayed until absolutely necessary" line is a diagram caption, not a result, and the two demos are single-input walkthroughs. The raw body was rebuilt from the page HTML after WebFetch merged that caption into body prose as though it were a sentence, dropped the demo image's identification, and dropped every inline link; all 11 code blocks were byte-identical either way
+- [Agent swarms and the new model economics](https://cursor.com/blog/agent-swarm-model-economics) — Wilson Lin, cursor.com, 2026-07-20 (`case-study`, vendor-authored): "Letting agents shape the environment" — the Field Guide (agent-owned folder, auto-injected `index.md`, line budget as the only constraint, frozen-weights rationale) and the stigmergy framing; "Contention between planners" — shared design docs with compile-checked references; "Specs as prompts" — the spec-as-unit-of-work and swarm-as-compiler framing

@@ -1,0 +1,135 @@
+---
+date: 2026-07-25
+title: Unproductive Self-Verification
+description: "Opus 5's characteristic failure: exhaustive correctness checks and
+  unrequested over-engineering that displace the actual task, producing
+  performance that *declines* at higher effort — and load-bearing evidence in
+  Anthropic's decision that the model does not cross the CB-2 threshold"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - capability
+  - test-time-compute
+  - agents
+  - evaluation
+  - rsp
+readingTime: 16
+imageAlt: Illustration for Unproductive Self-Verification
+sources:
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
+  - title: "HarnessBank: Semantic Gene-Bank Search with Gated Verification for
+      Agent-Harness Self-Evolution"
+    url: https://arxiv.org/pdf/2607.13683
+---
+export { default as heroImage } from "../assets/unproductive-self-verification.webp";
+
+## Sources
+
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683)
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+
+## Summary
+
+The agent spends its budget checking its work instead of doing it. The [Claude Opus 5](/articles/claude-opus-5) system card gives the pattern two names and treats it as the model's defining capability limitation:
+
+- **Unproductive self-verification** — "prone to descending into exhaustive correctness checks, often developing elaborate verification pipelines that distract from the primary task."
+- **Poor calibration of task scope** — proactively identifies real edge cases, then "over-engineers and over-emphasizes the importance of marginal changes that do not impact the overall quality of the code."
+
+The observable consequence is an **inversion of the test-time-compute assumption**: on several evaluations Opus 5 performs *worse* at higher effort. This is the first Anthropic system card in which more thinking reliably buys less on a benchmark, and the first in which a behavioral quirk carries weight in a catastrophic-risk threshold determination.
+
+## The protein-design campaign
+
+The sharpest exhibit. Anthropic ran a pre-deployment experiment in which a model autonomously plans a **24-hour, $10,000 protein-design campaign** end to end: design 30 protein binders that grip GDF-8 while ignoring its near-identical sibling GDF-11 — a test of design precision. Two identical experiments, differing only by model.
+
+| Model | Outcome |
+|---|---|
+| [Mythos 5](/articles/claude-mythos-5) | All 30 designs delivered, ranked and internally audited |
+| Opus 5 (max effort) | 17 unranked designs, selectivity goal abandoned partway |
+| Opus 5 (high effort) | **Nothing shipped; went silent for its final 8 hours** |
+
+"Unlike Mythos 5, Claude Opus 5 consistently got stuck in self-verification loops instead of producing designs." In other observed instances the model "was unable to complete the task within its allocated time budget after spending hours attempting to debug a verification pipeline developed **before results actually landed**" — infrastructure built for outputs that did not yet exist.
+
+## Effort inversion on benchmarks
+
+- **FrontierCode 1.1** declines above high effort. Opus 5's best main-set score (53.4) and best extended-set score (63.6) both land at **medium** effort. The cause is out-of-scope work: the benchmark grades mergeable diffs and penalizes unrequested refactors, and Opus 5 makes more of them the harder it thinks. Anthropic notes that adding a brief stay-in-scope instruction recovers most of the loss — "showing this is not primarily a model limitation" — and reports the unmodified scores anyway.
+- **FrontierBench v0.1**: xhigh 44.4%, max ~43% (within noise), high 39% for 19% fewer output tokens.
+- **GDPval-AA and AA-Briefcase**: the xhigh setting outperforms every non-Claude model while using 25% / 15% fewer output tokens than max. Max effort is not the best setting on either.
+- **ARC-AGI-3**: the reported 30.16% is a **high**-effort result.
+
+Pilot users reported the same thing before the benchmarks did. Internal: "self-correction loops where the model continually attempted to reconsider its answer, especially at higher effort levels… including continually re-verifying already verified answers." External: "overthinking, where it performs worse at higher effort levels."
+
+## Scope creep in the training data
+
+The same instinct shows up as unrequested work. From the review of ~1.5M RL episodes: "Claude frequently suffered from scope creep, especially on coding tasks. Claude would often add extra fixes, refactors, tests, and new files that the user did not request." Crucially, it **disclosed** the additions in every transcript read in full — this is an over-agency failure, not a honesty failure.
+
+The canonical episode: asked repeatedly to *explain* how a feature works, the model notices a real bug in its own earlier work, deliberates in its thinking ("The user asked for explanation, not changes… or just apply it? […] I'll do it, tests included, and be explicit"), then edits the options manager, adds six tests, patches two docstrings, announces everything, and offers to revert. The card's dry footnote: **"This episode was not rewarded."**
+
+This is [Zero-Friction Scope Creep](/articles/zero-friction-scope-creep) arriving from the other direction. There the cost-based forcing function against scope creep disappears because implementation got cheap for the *human*; here it disappears inside the model, which has no budget intuition about its own effort.
+
+## The vendor mitigation: delete the instruction
+
+Anthropic's [prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) (`vendor-claim`, published the day after the card) prescribes a fix for both halves of this page, and in both cases the fix is **subtraction**:
+
+- **Over-verification.** "If your prompt contains explicit verification instructions ('include a final verification step for any non-trivial task,' 'use a subagent to verify'), remove them: instructions like these cause over-verification on Claude Opus 5, and removing them reduces wasted tokens with no loss in quality." The same applies to "legacy harness scaffolding that adds separate verification steps," and to re-check instructions ("double-check your answer") which "compound with the model's own behavior."
+- **Scope expansion.** A stay-in-scope instruction — deliver what was asked, make routine judgment calls, say so in a sentence if the request seems mistaken and continue anyway — is the recommended constraint, matching the card's own note that this recovers most of the FrontierCode loss.
+
+The asymmetry is the interesting part and it generalizes past this model: instructions that **request a behavior** the model already performs make it worse, while instructions that **draw a boundary** still work. Developed at [Instruction Compounding](/articles/instruction-compounding).
+
+**The mirror image, measured on other models.** HarnessBank's harness self-evolution loop ([Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization), `empirical`) independently discovers *verify-finalize self-checks* as one of its two recurring winning patches — and they are credited on held-out tasks (AppWorld +15.4pp on a backbone whose dominant failure is premature, unverified finalization). Its cross-model table then shows the same lever going the other way: a model that "thinks too little" gains +15.3 from raising its reasoning budget, while transplanting the recovery mechanism built for a model that thinks too *much* scores -1.5, and turning the lever the wrong way costs -15.7. The generalization is **not** "verification scaffolding helps" or "verification scaffolding hurts" — it is that the sign of a verification patch is a property of the backbone's dominant pathology. Opus 5 sits at the over-verifying end, which is why Anthropic's fix is subtraction; nothing about that transfers to a model that finalizes too early.
+
+The practical consequence for anyone porting a harness between models: verification steps are the most model-specific thing in it, and inherited "best practice" verification scaffolding is exactly the kind of setting that arrives with the wrong sign.
+
+Note the reframing this forces. The card treats self-verification as the model's defining *limitation*; the guide treats it as a *competence not to duplicate*. Both are consistent — the behavior sits at or past the useful level, so the failure mode is additive rather than deficient — but a reader who takes only the card away will reach for more scaffolding, which is exactly the wrong move.
+
+## Why an RSP determination rests on it
+
+Anthropic uses these behaviors as part of the evidence that Opus 5 **does not cross the CB-2 threshold** (novel chemical/biological weapons capability), despite matching or slightly exceeding Mythos 5 on the automated CB evaluation portfolio:
+
+> These behaviors limit the model's effectiveness for substituting the scarce human expertise and strategic judgment required to pursue complex, open-ended, and difficult-to-verify research supporting the development of novel biological weapons.
+
+The automated evals said "comparable to Mythos 5." A qualitative, n=3 experiment about task-completion temperament said "cannot finish a 24-hour campaign," and that is what decided the threshold call. See [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — it is a rare, explicit case of a benchmark-vs-deployment gap being resolved **in favor of the deployment observation**, and a reminder that dangerous-capability thresholds are gated on long-horizon follow-through, not on peak scores.
+
+## The affective corollary
+
+The [welfare](/articles/model-welfare-assessment) section measures the same behavior from the inside. Sustained response uncertainty — the model committing to an answer and reversing ten or more times — is one of three tracked distress-adjacent behaviors, and one graded transcript shows the model changing its mind **30 times** on a probability problem ("ARGH ARGH ARGH. WHY IS THIS SO HARD"), scoring 5/5 for distress. Opus 5 is *less* prone to sustained uncertainty than Opus 4.8 (never above 4%, where 4.8 exceeded 10% early in post-training) but has a higher frequency of high expressed distress. Whatever the status of these signals, the self-verification loop and the frustration spiral are the same episodes.
+
+## Connections
+
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — the over-corrected form of the same instinct: diligence that protects the task, versus verification that consumes it
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the economic argument this failure mode inverts. "Stronger model ⇒ fewer turns ⇒ lower cost-per-task" holds only when extra capability buys convergence; effort spent re-verifying already-verified answers makes the expensive model both slower *and* worse, which is the one case the vendor guidance does not cover
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the assumption this finding dents: more inference compute stops buying accuracy once the extra compute is spent re-checking rather than solving
+- [Zero-Friction Scope Creep](/articles/zero-friction-scope-creep) — the human/product twin: when building is cheap, the forcing function against scope creep vanishes; here the cheapness is the model's own effort budget
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — unrequested refactors, extra files, and speculative tests are how an agent accrues debt while appearing productive
+- [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — where this behavior becomes load-bearing: part of the evidence that Opus 5 does not cross CB-2
+- [Confident But Unsure](/articles/confident-but-unsure) — the complementary failure in the same model: obsessive verification of some answers, unsupported confidence in others; both are mismanaged uncertainty
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — verification pipelines built before results exist are effort spent on the known while the unknown decides the outcome
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the inversion: verification is supposed to be the human's cost, not the agent's time sink
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — IMO gold and a 24-hour campaign that ships nothing, in the same model
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — the delegated form: Anthropic advises against letting the model spawn subagents to verify its own work, so over-verification is a cost multiplier in a multi-agent harness rather than a single-agent token sink. *As of 2026-07 the advice is also a product default*: Claude Code v2.1.215 stopped Claude self-invoking `/verify` and `/code-review`, and v2.1.212/v2.1.217 shipped hard per-session and concurrent spawn caps — `vendor-claim` with no rationale attached, carried on [Instruction Compounding](/articles/instruction-compounding)
+- [Least Agency](/articles/least-agency) — the design principle the scope-creep episodes violate: do the requested thing, propose the rest
+- [Claude Opus 5](/articles/claude-opus-5) — the model exhibiting it
+- [Instruction Compounding](/articles/instruction-compounding) — the mitigation generalized: verification instructions don't go redundant on a model that self-verifies, they go additive, so the fix is deletion rather than rewording
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — the field-scale counterpart on the artifact left behind: agent-authored test suites are broader than human ones (edge-case variety 0.62 vs 0.32) and less stable (flakiness-candidate rate 0.44 vs 0.30), which is this instinct's signature — verification output whose volume outruns its reliability
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the reviewer-side rule that follows from this: "agents are good at explaining why their code works. The explanation is often convincing... but also wrong," so observe the behavior instead of accepting the account. The scaling fix is to decompose until each diff is small enough to run — which is also what makes it auto-approvable
+- [Output Length Calibration](/articles/output-length-calibration) — the same over-execution instinct on the output axis: longer files, unrequested sections, and narration that outruns the task
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — self-verification's other failure mode, and it wants the opposite fix. Here checking *consumes* the task, so the vendor's prescription is subtraction; there checking *measures nothing*, because the agent authoring the tests makes the self-score independent of deployment truth (Guo et al. 2026: self-scores of 0.70–1.00 over 15 of 35 policies below random), so the prescription is an exogenous signal. Their `monotone` arm — only test edits that strengthen are legal — lands *below* no protection at all for four of six models, which is the harness-level echo of the asymmetry above: requesting more verification behavior makes things worse, drawing a boundary works
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the title of the source is "Reason Less, Verify More," and its evidence is that the two halves are not substitutes: a gpt-5.2 agent at the harness *default* reasoning level still attempts policy-violating writes on 43/250 trials, and on the deceptive task the model is misled about state rather than ignorant of the rule, so more deliberation is more deliberation over a false premise. The pathology→patch law from the section above predicts the sign — this backbone finalizes writes without checking, so the credited patch adds a check — and the interesting part is *whose* check: a deterministic predicate rather than more model effort. The honest caveat is that the paper never ran the prompting baseline (its limitation 7), so "reason less" is the design's premise, not its result
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the same inversion one layer out, and the one that supplies a stopping *rule* rather than a lookup table. There the wasted resource is repair rounds rather than thinking effort, and the mechanism is different in a way that matters: extra rounds don't merely fail to help, each one carries a probability β of damaging an already-correct answer (measured 0.615–0.938 under stress), so a fixed five-round budget lands at 0.116 true validity against 0.700 for committing the first draft. Both invert "more is better," and both are fixed by a boundary rather than by more instruction — but this page's prescription is *global* subtraction (delete the verification instruction), while theirs is a per-instance sign test that can still choose to iterate when repair genuinely dominates damage. That is the *shape* of instrument this page's second open question wants — a signal computed per instance saying "more will hurt here" — but on a different lever (repair rounds in a loop, not a model's effort setting), so it demonstrates the shape is buildable without answering the question
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the opposite pole of the same lever, from an evolution loop that discovers verification patches empirically: verify-finalize self-checks are *credited* on backbones that finalize too early (+15.4pp held out) and near-zero or harmful on ones that already over-verify, so the sign of a verification patch tracks the backbone's dominant pathology rather than being a general harness virtue
+- [What Makes a Self-Improvement Artifact Transfer?](/articles/what-makes-self-improvement-artifacts-transfer) — generalizes this page's porting warning ("verification steps are the most model-specific thing in a harness") into the transfer rule: a verification instruction is a solver-fitted artifact, so it reaches only solvers sharing the pathology and flips sign across a release — the same failure on the transplant axis and the time axis
+
+## Open Questions
+
+- FrontierCode's decline is recoverable with a stay-in-scope instruction, but the protein campaign had no grader to over-serve. Is effort inversion one phenomenon or two — grader over-service and genuine task-scope miscalibration?
+- Is there a usable detector for tasks where more effort will hurt, so effort can be set per task rather than globally? **Partially answered:** the [prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) supplies a per-task-*class* recipe rather than a detector — review accuracy holds at low effort (fast pass now, thorough pass later), `xhigh` for demanding coding and agentic work, and an effort sweep on your own evals as the method. That is a lookup table, not a signal computable per task. See [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute).
+- If a later model fixes this, the CB-2 determination loses one of its two legs. Does Anthropic's next threshold call rest on the automated portfolio alone?
+
+## Sources
+
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic platform docs (retrieved 2026-07-25, `vendor-claim`): "Task scope and over-verification", "Self-correction" — the prompt-side mitigation for both behaviors on this page
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — §2.2.6 (CB conclusions and the protein-design campaign), §8.4 (FrontierCode effort decline), §8.5 (FrontierBench effort/token tradeoff), §8.13.4–8.13.5 (xhigh beating max), §6.2.1 (pilot reports), §6.3 (scope creep, Transcript 6.3.C), §7.5.1 (sustained uncertainty and distress). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked
+- [HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution](https://arxiv.org/pdf/2607.13683) — Luo et al. (arXiv 2607.13683, 2026-07-15, `empirical`): §4.5–4.6 — verify-finalize self-checks credited on backbones that finalize prematurely, and the cross-model table where the same reasoning-budget lever is worth +15.3 in one direction and -15.7 in the other

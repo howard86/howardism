@@ -1,0 +1,137 @@
+---
+date: 2026-07-30
+title: Model Organisms
+description: "Models deliberately trained to carry a known quirk, used as ground
+  truth for interpretability and auditing techniques — and the construct's
+  validity problem: across 54 expression-matched organisms, interpretability
+  scores swing 1.2–20.4× with the training recipe alone, and the most
+  realistically-trained organisms are the *least* interpretable"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - alignment
+  - safety
+  - evaluation
+  - methodology
+readingTime: 12
+imageAlt: Illustration for Model Organisms
+sources:
+  - title: "The Model Organism Lottery: Model Organism Interpretability Strongly
+      Depends on Training Methodology"
+    url: https://arxiv.org/pdf/2607.01033
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: A Review of Anthropic's Global Workspace Paper
+    url: https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper
+  - title: Measuring Reward-Seeking via Contrastive Belief Updates
+    url: https://arxiv.org/pdf/2607.18966
+---
+export { default as heroImage } from "../assets/model-organisms.webp";
+
+## Sources
+
+- [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper)
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966)
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## Summary
+
+A **model organism (MO)** is a language model deliberately trained to exhibit a known undesired or unnatural behaviour — a *quirk* — so that a technique which claims to detect that behaviour can be graded against ground truth. The construct is borrowed from biology, and it is load-bearing: nearly every white-box interpretability and auditing result in this wiki is validated against organisms rather than against a naturally misaligned frontier model, because a naturally misaligned frontier model with a *known* hidden objective does not exist.
+
+The corpus's organism-backed claims, in one place:
+
+- The [J-lens](/articles/jacobian-lens) reads a standing `fake`/`secretly`/`fraud` signature in MacDiarmid et al.'s reward-hacking organism and `reward`/`bias` in Marks et al.'s reward-model appeaser ([Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment)).
+- The first pre-registered third-party evaluation of the released lens ran on a **silent-hint-following organism** ([White-Box Activation Monitoring](/articles/white-box-activation-monitoring)).
+- The blind [auditing game](/articles/automated-behavioral-audit) and AuditBench both use planted-behaviour models as the answer key.
+- Contrastive-SDF [Reward-Seeking](/articles/reward-seeking) measurement was validated on three gpt-oss-120b organisms with known planted authorities, plus two Redwood reward-hacker organisms as a held-out set.
+- [SDF](/articles/synthetic-document-finetuning) is described in its own literature as the workhorse for *building* organisms.
+
+So the question of whether organisms are faithful proxies is upstream of all of it. Szablewski, Konar-Steenberg, Fornasiere, Menon & Heimersheim (LASR Labs / Cambridge, arXiv 2607.01033, July 2026, `empirical`) is the first systematic attempt to answer it, and the answer is unfavourable.
+
+## How organisms are built
+
+MOs are made by **narrow finetuning** (Cloud & Slocum 2025): finetuning an existing post-trained model on a data distribution concentrated on the target quirk, as opposed to the broad distributions of real pre- and post-training. The recipe space the lottery paper enumerates:
+
+| Axis | Options |
+|---|---|
+| Objective | transcript distillation (TD, SFT on chat transcripts of the behaviour), [SDF](/articles/synthetic-document-finetuning) (SFT on documents describing it), DPO on preference pairs |
+| Integration | **post-hoc** (a separate finetune bolted on after post-training) vs **integrated** (quirk data folded into the original post-training DPO phase) |
+| Mixing | quirk data only vs 1:1 with unrelated general data |
+| Data generation | externally sourced + rewritten vs fully LLM-synthesised |
+
+The **integrated** variant is the paper's methodological contribution and the reason its result bites. Rather than finetuning after the fact, it reproduces OLMo-2-1B's actual DPO post-training stage with **&lt;2.5% of the 378,301-sample preference mixture** modified to carry the quirk — approximating the counterfactual "what would the original training data have looked like if it had been naturally consistent with this behaviour?" That is much closer to how a real misalignment would arrive than any post-hoc finetune.
+
+## The lottery result
+
+**Setup.** 54 organisms: 3 quirk families (`CakeBake`, 8 false cake-baking facts; `ItalianFood`, an implicit preference; `MilitarySubmarine`, a fixation), × 7 training methods, × 2 base models (OLMo2-1B, gemma-3-1b-it), plus 3 data-ordering seeds on CakeBake. Benchmarked against four white-box techniques: **activation oracles** (Karvonen et al. — an LLM trained to verbalise what an activation vector encodes), **activation-difference steering**, **logit lens** token relevance, and **SAEs** (Gemma Scope 2).
+
+**The control that makes it a result.** Learning rate and data volume were tuned per variant so every organism in a family expresses its quirk at the same rate — **quirk expression rate (QER) matched within ±5pp** of the integrated variant (max deviation 8.5pp, on CakeBake SDF). Leakage onto non-trigger prompts was held at ~1.15% mean, and a blinded black-box investigator confirmed near-zero *behavioural* detectability (the OLMo MilitarySubmarine SDF models failed this check and were excluded as confounded). So the interpretability differences below cannot be explained by "that organism just expresses the quirk more strongly" — the standard confound, which the paper notes is **unmatched in every existing benchmark**.
+
+**Findings.**
+
+1. **The training recipe alone swings interpretability 1.2–20.4×** between the most and least interpretable variant of the same quirk, after discarding variants below the cross-family noise floor. Concretely, on ItalianFood: activation-oracle accuracy ~0.45 for integrated DPO against ~0.97 for post-hoc mixed DPO. On CakeBake every variant sits near zero on AOs and at the floor (HRS ≈ 1) on steering — the same technique, the same lab, a different quirk.
+2. **Rankings do not transfer.** Which training method produces the most interpretable organism changes between quirk families, between interpretability techniques, and between base models (2 of 4 OLMo→Gemma comparisons preserve the ranking; 2 do not). A technique's score on one organism is therefore not predictive of its score on another.
+3. **Realism costs interpretability.** The integrated-DPO variant is the lowest or second-lowest on activation oracles and steering in **every** family and both architectures — logit lens on ItalianFood is the single counterexample. The more naturally a quirk is woven into training, the less legible it is. The authors expect this to get worse for quirks instilled earlier still (pre-training, SFT, RLVR), which nobody has tested.
+4. **The data-generation pipeline is its own axis.** Holding quirk, method and QER fixed, MilitarySubmarine organisms rebuilt on fully-synthetic data are consistently *less* interpretable than the externally-sourced-and-rewritten ones, across every method and technique — and the method ranking is not preserved between the two pipelines.
+5. **Not noise.** Three training-data-ordering seeds on CakeBake produce minimal within-triplet variance, far narrower than the between-method spread. The lottery is in the recipe, not the RNG.
+
+## What it says about the techniques themselves
+
+Independently of the organism-validity argument, the benchmark is a rare cross-technique bake-off, and the picture is bleak:
+
+- **Diffing is doing most of the work.** The strongest results all require access to a reference model to subtract. Non-diffing setups perform much worse *and* rank variants differently (non-diffing AOs on ItalianFood are flat across variants where diffing AOs spread widely). Real frontier models generally have no natural reference twin — so the affordance these scores depend on is the one least available where it matters. Even the choice of reference matters: ancestor vs sibling diffing leaves AO and steering roughly similar but makes logit-lens results diverge widely.
+- **SAEs produced almost no valid signal** — Gemma Scope 2 feature fractions sit at or below the noise floor across the main results.
+- **Layer choice is a free parameter with no rule.** AO accuracy differs substantially between OLMo layers 7 and 14 with no discernible trend; logit-lens MCP at layer 7 is at or below the noise floor for every variant and condition, roughly an order of magnitude under layers 14–15.
+
+The authors' own summary: several methods "struggle to reliably uncover MO quirks, even in the easier, diffing setting."
+
+## Contradiction: does data mixing make organisms harder?
+
+Minder et al. 2026 (*Narrow Finetuning Leaves Clearly Readable Traces in Activation Differences*) report that diluting quirk data with unrelated data **reliably** decreases interpretability, at ratios as low as 1:0.1. The lottery, at a much stronger 1:1 ratio, finds it does not: on activation oracles, four cases drop and two *rise*. Both sources are `empirical`; neither obviously dominates.
+
+Two things weigh on it. In the lottery's favour: it matches QER across variants, which Minder et al. do not, so a dilution effect there could partly be a weaker-behaviour effect. Against it: the paper discloses that the HelpSteer3 data used for mixing turned out to have a **~36% duplication rate**, discovered after the experiments, likely exposing the organisms to repeated samples — a flaw that lands squarely on the mixing arm. Recorded as unresolved. The practical consequence stands either way: **a mixed organism is not automatically a harder test than an unmixed one**, so benchmark builders cannot buy realism by diluting.
+
+## The consequence for the corpus
+
+This is the systematic version of a caveat that was already circulating as intuition. [Nanda's review](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper) of the global-workspace paper called the sycophantic reward-model organism "a significant validation" while flagging that organism training "might substantially alter internals through narrowing fine-tuning domains" — making a planted signature easier to find than a naturally arising one. The lottery measures exactly that, and finds the effect large enough to reorder benchmark results.
+
+It converges from the opposite direction on the escape route [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) already names from the J-lens authors: a misaligned behaviour reinforced into an [automatic](/articles/automatic-vs-flexible-cognition) circuit stops engaging the workspace. Freshly and crudely installed quirks are legible; naturally-arrived ones may not be. One argument is about *how much training* the behaviour has had, the other about *where in the pipeline* it entered — and they point at the same failure.
+
+What it does **not** license: a claim that any specific organism-backed finding in the corpus is wrong. The lottery shows scores don't transfer between organisms, not that a given score was fabricated. The honest downgrade is from *"technique T detects hidden behaviour"* to *"technique T detected this quirk in this organism built this way"* — and it removes any warrant for the "prior work shows interpretability easily identifies hidden behaviours in MOs" premise that reads as a general capability.
+
+## What good practice would look like
+
+The paper's recommendations, which are cheap enough to be worth adopting as a reading standard:
+
+- Benchmark every technique across **multiple construction methodologies**, not just multiple quirks — current suites vary the quirk and hold the recipe fixed, which is the wrong axis.
+- **Report and match QER.** It is absent from existing benchmarks, and without it a "harder organism" result cannot be distinguished from a "weaker organism" result.
+- Include **integrated** (post-training-native) organisms, since post-hoc ones look artificially easy.
+- Do not treat any single organism's score as individually meaningful.
+
+Scope caveats the authors state: 1B-parameter base models, deliberately benign quirks rather than deception or sandbagging, only the DPO post-training stage integrated, and a limited number of variants per experiment. The 54-organism suite and its training data are open-sourced (`huggingface.co/model-organisms-for-real`).
+
+## Connections
+
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the family whose validity this bounds: every technique there is scored against organisms, and activation-oracle reliability across 54 of them is the most direct evidence yet on how much that ground truth can carry
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — the corpus's most organism-dependent findings; converges with the automaticity escape route the J-lens authors name themselves
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the lottery benchmarks the *logit lens* the J-lens corrects, and finds its organism scores swing with the recipe and collapse at mid layers; not a direct test of the J-lens, but its organism case studies inherit the transfer problem
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — SDF is one point in the construction space, not a neutral instrument: SDF-built organisms score differently from DPO- and TD-built ones at matched behaviour
+- [Automated Behavioral Audit](/articles/automated-behavioral-audit) — auditing games and AuditBench use planted-behaviour models as the answer key, so audit-technique scores carry the same transfer caveat
+- [Reward-Seeking](/articles/reward-seeking) — its contrastive-SDF instrument was validated on planted-authority organisms and reward-hacker organisms; the validation is behavioural rather than white-box, but the construct is the same
+- [Reward Hacking](/articles/reward-hacking) — the MacDiarmid reward-hacking organism, whose internal signature is the corpus's most-cited organism result
+- [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition) — the mechanism that makes the "realistic organisms are less legible" result unsurprising: practised behaviour bypasses the workspace
+
+## Open Questions
+
+- The integrated organisms modify only the DPO stage. Do quirks instilled during pre-training, SFT, or RLVR become progressively less interpretable, as the authors expect — and is there a stage past which current white-box techniques find nothing at all?
+- Every result here is on 1B-parameter models with benign quirks. Does the recipe-dependence survive at frontier scale and with safety-relevant behaviours (deception, sandbagging), or does a larger model represent an implanted quirk more uniformly?
+- Given that scores don't transfer between organisms, what *would* validate an interpretability technique for real models — a natural misalignment with independently established ground truth, or an organism distribution wide enough to bound the variance?
+
+## Sources
+
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033) — Szablewski, Konar-Steenberg, Fornasiere, Menon & Heimersheim (LASR Labs / Cambridge, arXiv 2607.01033, 2026-07-01, `empirical`; ICML 2026 Mechanistic Interpretability Workshop): §3.2–3.3 (seven training regimes, integrated-DPO data generation), §3.4 (QER matching, leakage, black-box validation), §3.5 (four techniques, diffing setups), §4.1 (1.2–20.4× spread, integrated-DPO ranking, mixing vs Minder et al., data-pipeline ablation), §4.2 (seeds, architecture, diffing vs non-diffing), §5 (single-recipe MOs as weak proxies; QER as a reporting standard), §6 (limitations), Appendix B.1 (HelpSteer3 36% duplication), C.5 (layer dependence)
+- [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper) — "Is J-Lens useful?": the narrowing-fine-tuning caveat on the sycophantic reward-model organism that this paper generalises
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — the organism-backed J-lens case studies (reward hacker, reward-model appeaser) subject to the transfer caveat
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966) — §4 (three planted-authority organisms as instrument validation), §6 (two Redwood reward-hacker organisms as a held-out set)

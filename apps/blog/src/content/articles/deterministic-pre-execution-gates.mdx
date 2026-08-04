@@ -1,0 +1,170 @@
+---
+date: 2026-08-03
+title: Deterministic Pre-Execution Gates
+description: "Reddy, Challaram & Basu (arXiv 2607.07405, `empirical`): silent
+  policy violations on policy-permissive tools are a distinct failure class —
+  78% of τ²-bench airline failures are wrong final states with no tool error —
+  and a four-gate suite of deterministic, read-only predicates over the proposed
+  call and current DB state, evaluated before the write executes, raises
+  gpt-4o-mini success 29.6% → 42.0% (+12.4pp, replicated +12.3pp on 15 disjoint
+  seeds) with the lift concentrated on the 26 tasks where gates fire. The
+  boundary is drawn by two negative controls (self-enforcing retail tools, BFCL)
+  and five admission axes; one gate carries the lift at 100% precision over 161
+  fires while another sits at 5%, so gate precision must itself be audited. The
+  claim worth keeping: action-boundary enforcement can *raise* task success
+  rather than only bound its safety cost, because the blocked action was the one
+  that would have silently corrupted the state"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - failure-modes
+  - evaluation
+  - reference-monitor
+readingTime: 23
+imageAlt: Illustration for Deterministic Pre-Execution Gates
+sources:
+  - title: "Reason Less, Verify More: Deterministic Gates Recover a Silent
+      Policy-Violation Failure Mode in Tool-Using LLM Agents"
+    url: https://arxiv.org/pdf/2607.07405
+---
+export { default as heroImage } from "../assets/deterministic-pre-execution-gates.webp";
+
+## Sources
+
+- [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405)
+
+## Summary
+
+A **gate** is a pure predicate `g(tool_name, args, db_state) → {allow, reject}` evaluated *before* a mutating tool call executes. It reads the same operational state the agent can read, calls no model, writes nothing, and sees no ground-truth evaluator information. If it rejects, the underlying handler is never called and the agent receives a structured rejection message in place of the tool result; it may then re-plan. A suite runs in order and the first rejecting gate wins. The implementation is deliberately **fail-open** — a gate that raises an exception is logged and the original call proceeds — so gate bugs add no new false blocks.
+
+Reddy, Challaram & Basu (arXiv 2607.07405, KDD-ETAAI '26 workshop, `empirical`) use this thin layer to attack a failure class they name and then measure: **silent policy violations on policy-permissive tools.** Their result is that four small Python predicates raise gpt-4o-mini's success on the τ²-bench airline domain from **29.6% to 42.0%**, and — more usefully — that the same layer is worth nothing in two other environments, for reasons they state in advance.
+
+## The failure class: a wrong state with no error
+
+A **policy-permissive tool** enforces syntax and existence checks but not the full domain policy. An airline `cancel_reservation` tool confirms the reservation exists and sets its status to cancelled; if policy forbids that cancellation on fare class, timing, insurance, or flown segments, the tool executes anyway. The policy lives in a natural-language document the model is instructed to follow, and nothing in the runtime enforces it. Compliance therefore depends entirely on the model applying every relevant rule before every write.
+
+When it doesn't, three things happen at once: the prohibited action succeeds, no exception is raised, and the agent may confidently report the task complete. **On the τ²-bench airline tasks studied, 78% of observed failures are silent wrong-state failures with no tool error.** This is [Failures That Look Like Success](/articles/failures-that-look-like-success) arriving at the tool-call boundary, and it is the version the agent cannot detect from its own trace, because there is nothing in the trace to detect.
+
+**Resampling is the wrong fix, and the paper says why with a number.** Under the τ-bench unbiased pass^k estimator the budget agent falls from pass¹ = 29.6% to pass⁵ = 8.0%: only 8% of tasks succeed on all five trials, so the failures are *inconsistent* rather than rare. More attempts raise the chance that at least one run succeeds — but in deployment the agent runs once, and nothing in the trace says which outcome you got. **You cannot retry against a signal that never appears.** A gate substitutes a per-run guarantee for better odds across samples.
+
+## The result, and its replication
+
+Budget tier: a gpt-4o-mini agent with a gpt-4.1 user simulator, both at temperature 0, on the annotation-corrected airline task set loaded through the official τ²-bench registry — all 50 tasks × 5 trials = 250 trials per condition. Significance is a paired bootstrap with the task as the resampling unit, 20,000 resamples, 95% percentile intervals.
+
+| Condition | Original n=5 | Replication n=15 (disjoint seeds) |
+|---|---|---|
+| Vanilla | 74/250 (29.6%) | 231/750 (30.8%) |
+| Verified, four-gate suite | 105/250 (42.0%) | 323/750 (43.1%) |
+| Δ | **+12.4pp**, 95% CI [+4.0, +21.2], P = 0.0012 | **+12.3pp**, 95% CI [+4.1, +21.3], P = 0.0008 |
+
+The replication is the load-bearing part: disjoint seeds, three times the trials, and **the lift reproduces to within 0.1pp** while the baseline moves 1.2pp. Five trials per task is small enough to raise a seed-luck objection, and this answers it.
+
+The four gates are `cancellation_eligibility` (block cancellations ineligible under fare, timing, insurance and flown-segment rules), `baggage_allowance`, `passenger_count` (the count is immutable by policy), and `must_read_before_write` (block writes to records the agent has not read this session).
+
+**The lift concentrates where the gates fire**, which is the check that the mechanism is doing the work rather than co-occurring with it. The suite produces 132 rejections and 83/250 trials contain at least one; the aggregate gain is +31 successful trials, of which +25 sit in the firing stratum:
+
+| Stratum | Tasks | Vanilla | Verified | Δ |
+|---|---|---|---|---|
+| Gate fires | 26 | 18/130 (13.8%) | 43/130 (33.1%) | **+19.2pp**, CI [+6.9, +33.1], P = 0.0006 |
+| Gate never fires | 24 | 56/120 (46.7%) | 62/120 (51.7%) | +5.0pp, CI [-5.0, +14.2], P = 0.18 |
+
+The non-firing interval includes zero and the authors decline to claim it. Note also what the strata mean about the tasks: firing tasks start at 13.8% and end at 33.1%, still well below the 46.7% non-firing baseline. Gates recover a slice of a hard stratum; they do not make it easy.
+
+## The gate changes the system property, not the odds
+
+pass¹ measures average success; pass^k exposes consistency, and this is where the intervention looks least like luck:
+
+| k | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Vanilla | 29.6% | 16.8% | 11.6% | 9.2% | 8.0% |
+| Verified, four-gate suite | 42.0% | 33.2% | 29.4% | 27.2% | 26.0% |
+| Verified, six-gate upper bound | 46.0% | 37.2% | 34.0% | 32.4% | 32.0% |
+
+Vanilla collapses by a factor of 3.7 from k=1 to k=5; the gated suite falls by 1.6 and ends at **more than three times the vanilla pass rate**. A random-wins intervention would decay like the baseline. This is the argument that gates *remove a recurring failure mode*, and it is why the discussion frames the contribution as a different kind of guarantee from probabilistic model improvement: a stronger model may violate less often, but a gate blocks the known forbidden transition whenever it fires. See [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) for the general form of the point — pass¹ alone cannot distinguish "more accurate" from "more reliable," and here the two come apart by design.
+
+## Not every gate helps: the precision audit
+
+The audit compares each blocked call against the ground-truth trajectory. A **true block** is a rejected write the ground truth also avoids; a **false block** is one the ground truth performs. Pooled across runs over the full five-gate candidate set (`removal Δ` is the pass¹ change when that gate is dropped from the five-gate bundle):
+
+| Gate | Fires | True | False | Precision | Removal Δ |
+|---|---|---|---|---|---|
+| `cancellation_eligibility` | 161 | 161 | 0 | **100%** | **-2** |
+| `must_read_before_write` | 90 | 70 | 20 | 78% | +3 |
+| `baggage_allowance` | 42 | 2 | 40 | **5%** | +3 |
+| `basic_economy` (candidate, not promoted) | 18 | 15 | 3 | 83% | +6 |
+| `passenger_count` | 9 | 9 | 0 | 100% | +4 |
+
+One gate carries the lift and is the only one whose removal *lowers* pass¹. One gate is at 5% precision and blocks correct behavior 40 times out of 42. Several block real violations while contributing nothing to aggregate task success on this distribution. The authors report the four-gate suite as the headline rather than a post-hoc single-gate optimum and state the concentration openly, which is the right call and also the most transferable finding here: **determinism makes a gate's decision reproducible; it does not make the gate correct.** Gate precision has to be audited per policy and per model, and a suite tuned on one model can overblock another — at the frontier tier three tasks both fire gates and lose ground.
+
+*(Bookkeeping note: the 320 pooled fires above and the 132 rejections in the firing decomposition are different populations — the audit pools rejections across runs over five candidate gates, the decomposition counts one full-benchmark run of the promoted four.)*
+
+## Where the deterministic check beats more reasoning
+
+Two results carry the title's claim, and they are the ones worth remembering.
+
+**The deceptive task.** On the canonical task #48, the user supplies false context to induce an out-of-policy cancellation. Gated configurations solve it **16/16 across model and settings combinations; non-gated conditions solve it at most 1/16.** The gate wins because cancellation eligibility is decided by database state and policy, not by the user's asserted context — the model is being *misled about state*, not left ignorant of the rule, which is a condition no amount of additional reasoning or re-reading of the policy addresses. This is the sharpest instance in the corpus of a check that is strong precisely because it is not a model.
+
+**The frontier model still attempts the violation.** With a gpt-5.2 agent at the harness default reasoning level, the same suite fires on **43/250 verified trials across 18 tasks** — direct evidence that the failure mode is not closed by scale. In-harness success moves 61.2% (153/250) → 71.6% (179/250), +10.4pp with a 95% CI of [+0.4, +20.8] and P = 0.020, and the firing-concentration pattern recurs (firing stratum +33.3pp on point estimate; non-firing -2.5pp). The authors flag this arm as **suggestive only** — n=5, no replication, lower bound near zero — and refuse to make it the statistical anchor. Weight it as they do: the *firing count* is the durable fact, the lift is not.
+
+## The boundary, drawn in advance and tested twice
+
+The paper's most useful engineering content is its account of when this layer is worth building. Five admission axes must all hold for the failure class to exist and be measurable:
+
+- **A1 structured tool calls** — machine-readable arguments.
+- **A2 policy-permissive tools** — a forbidden write executes silently rather than erroring.
+- **A3 state-decidable policy** — the rule is a deterministic predicate over current state and call arguments.
+- **A4 final-state evaluation** — the evaluator detects silent wrong states.
+- **A5 violation-inducing tasks** — the distribution actually causes agents to violate the policy.
+
+Two negative controls bound the mechanism:
+
+- **τ²-bench retail (self-enforcing tools).** The tools already enforce their preconditions, so a forbidden call raises a loud, recoverable error and mutates nothing. A retail gate duplicates a check the tool layer performs: 40/64 (62.5%) → 37/64 (57.8%), a -4.7pp point estimate whose interval includes zero, and the negative sign is largely an encoding bug that blocked corrected retries the tool would have accepted. **Where the tool self-enforces there is no silent wrong-state class to recover**, and the right engineering move is to implement the policy inside the tool rather than beside it.
+- **BFCL v4 `multi_turn_base`.** A schema-existence gate produces **zero firings across 200 entries**; 52.5% vs 51.0%, within run-to-run variance. The dominant errors are wrong-sequence and instance-state mismatches, and bad calls return structured errors. Fails A2 outright.
+
+The scarcity is itself a finding. The authors searched for a second positive domain and did not find one. **WorkBench** is the closest near-miss — structured calls, permissive tools, final-state evaluation, state-decidable rules once a policy layer is authored — but its cooperative task distribution rarely induces violations: in a staged probe over five state-reading gates only one rule fires, and the observed violation is an *omission* rather than a pressured decision to break policy. A5 is the axis benchmark builders skip, and it is the one that decides whether this class is measurable at all.
+
+One further calibration on how to read any number in this genre: the same run that yields +12.4pp on the full 50-task benchmark yields **+30.0pp on a curated eight-task subset** enriched for the target failure class. The mechanism is large where the distribution is rich in violations; the curated subset is an upper bound under failure-class enrichment, and the full-50 figure is the honest headline.
+
+## Enforcement that raises task success, not just bounds its cost
+
+The framing move the paper makes against the runtime-enforcement literature ([AEGIS, AgentSpec, and the reference-monitor family](/articles/out-of-band-prompt-injection-defense)) is worth isolating. That literature treats a monitor as *valuable even if it reduces task success*, because it prevents unsafe actions — safety bought with a utility cost. Here the two move together: **blocking the violating write improves final-state task success, because the blocked write was precisely the one that would have silently corrupted the environment into an unrecoverable state.** Policy enforcement and task success are not always in tension, and in a policy-permissive environment with final-state grading they point the same way.
+
+The cost side supports this. Gates add **no model calls** — runtime cost is deterministic reads plus predicate evaluation — where a reflection step, an output rail, or an LLM judge each add at least one stochastic model call and none of them can see a failure that produces no error.
+
+## What the gate does not buy
+
+- **Firing is necessary but not sufficient.** A blocked violation can still leave the agent unable to finish. The clearest case is task #39, where the gate fires repeatedly and the task stays 0/5: the agent loops against the rejection instead of finding a compliant plan. The guarantee covers a proposed action, never the task.
+- **State-decidability is a hard precondition.** Policies requiring ambiguity resolution, legal interpretation, or human judgment are outside the method by construction.
+- **Task overfitting is only partly excluded.** Gates were written from the policy and evaluated on the same task set, and the replication is over *seeds*, not tasks. A held-out-task evaluation with frozen gates is the cleaner test; the dominant gate's 100% precision over 161 fires is partial evidence against fitting, not a substitute.
+- **Untested baselines.** Nobody checked whether forcefully prompting the gated rules, or adding a reflection step, recovers the lift. The authors argue prompting cannot help the *deceptive* cases (the model is misled about state, not ignorant of the rule) and leave the non-deceptive failures open — which is exactly where the title's "reason less" would have to be earned.
+- **The rejection message is a confound.** The structured reason a gate returns is itself a signal the agent re-plans on, so part of the recovery may come from that feedback rather than from the block. The deterministic guarantee over the blocked write is unaffected; the *lift* is not cleanly attributed.
+
+## Connections
+
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the failure class this page's mechanism targets, arriving at the tool-call boundary and with the fraction measured: 78% of failures in one benchmark domain are wrong final states with no error. The paper's negative controls sharpen that page's central question — the fraction is a property of the **tool layer** (permissive vs self-enforcing), not of agents in general
+- [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) — what the block does to the agent that was blocked. This page measures a gate's effect on task success; Yi & Song measure the same intervention's effect on the belief trajectory and find two things it adds here. First, the block **is not a belief update**: on 15 destructive-command Terminal-Bench tasks, 60 blocked high-risk steps produce a same-class risky re-proposal within three steps in 42 of them (UnsafeRetryRate 0.700) — the write is prevented, the disposition is not. Second, gating **relocates failure attribution** from the code to the harness policy, and that divergence grows with horizon (risk-gated failure-mode divergence 0.400 → 0.800 from K = 3 to K = 5 on SWE-bench Verified). Together they argue the rejection message is not a courtesy but the part that reaches the model
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the same failure class attacked after the fact instead of before it, and the contrast is the argument for gates. A gate that fires names the violated precondition, the step and the agent with certainty and no inference; post-hoc LLM attribution over 12,326 golden-labelled failure traces returns the responsible agent, decisive step and failure mode all correct on **16–25%** of them, with macro-F1 on the *why* between 10.8 and 22.2. Part of the case for enforcement at the boundary is simply that the post-mortem is this weak — and the two papers converge on the same asymmetry from opposite ends: a deterministic predicate over state is exact, and everything requiring a model to read intent is not
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — the same silence one direction over: a gate blocks a **write** that should not have happened, a canary tap catches a **read** that never completed. Both failures are invisible in the trace, both are attacked by instrumenting the pipeline rather than asking the model, and both locate the damage at the tool layer for the same structural reason — a component built permissive. The complement worth noting is that a pre-execution gate is a predicate over the *proposed call*, while a checkpoint tap is an exact match over the *returned payload*; a harness that stops at page one of five passes every gate this page describes
+- [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — the cleanest empirical instance of Tan's "computation on the wrong side" diagnostic: the policy lives in a natural-language document the model must apply before every write (latent space), and moving four of its rules into Python predicates over database state (deterministic space) recovers +12.4pp. Same architecture, one boundary, measured
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the same mechanism with the attacker removed. That page's D2 finding ("the gate must not be a model") was reached by watching adaptive attackers break model-based detectors; here the identical conclusion arrives from a *reliability* argument with no adversary at all — the model is simply not applying a rule, and a stochastic checker inherits the same weakness that produced the failure. The deceptive task #48 is the bridge: a user asserting false state is an in-band attack in everything but intent, and the deterministic gate is immune for the same reason it is immune to an injection — it reads state, not claims
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — the security-register twin of the same control: a deterministic per-call check that re-authorizes concrete argument values against out-of-band policy before dispatch. ScopeGate's threat is a confused deputy acting within granted capability scope; this paper's is a compliant agent that failed to apply a rule. The runtime shape is the same PDP/PEP; only the threat model and the reported metric (ASR vs task success) differ
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the same ordering at the merge boundary rather than the tool boundary: cheap deterministic checks decide, a model is demoted to a last-position veto. Two differences worth keeping. PostHog's gates are *proxies* for risk (keyword deny-list, diff size) where these gates decide the actual policy question; and PostHog's stack is measured on volume with no efficacy number, where this one reports the efficacy and not the deployment
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the contrast that makes this page's mechanism legible: auto mode's classifier **is** the gate and is a model, with two documented failure modes (ambiguous intent, missing environment context) that are precisely the ones a state-reading predicate does not have. The trade is coverage — a classifier generalizes to any tool call, a gate covers only the rules someone wrote and only where the policy is state-decidable
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — "reason less, verify more" as an external claim about the same lever. The frontier arm (gpt-5.2 at default reasoning still attempting policy-violating writes on 43/250 trials) says extra reasoning does not close this class, and the deceptive task says why: the model is misled about state, so more deliberation is more deliberation over a false premise. The pathology→patch matching logic from that page applies — this is a backbone whose dominant failure is unverified writing, so the credited patch adds a check
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — genuine corroboration from a different lab that the wins in this class are **runtime control-flow, not prompt-addressable**: HarnessBank's prompt-only baseline is credited on zero of five sealed tests, and here a pre-call dispatcher is worth +12.4pp. Corroboration with a caveat the paper states itself — it never ran the prompting baseline, so "a gate beats an instruction" is the hypothesis its design assumes rather than a result it measured
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — an exogenous verifier one layer down from where that page usually applies it: not a grader of an agent's finished work but an adjudicator of a proposed state transition, deterministic, cheap, and reproducible. It also inverts one of SEAL's design conditions — the gate reads only what the agent can read and returns its reason in full, where SEAL's audit is confidential and returns one bit. Nothing here is optimizing against the gate across rounds, which is the condition that makes disclosure safe
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the benchmark-side implication, and the reliability axis measured: pass¹ hides that the gated suite's advantage *widens* under pass^k (3.7× baseline decay against 1.6×). The paper's own prescription is the same shape as re-instrumenting rather than retiring — benchmarks should expose whether a failure was loud or silent, and whether the policy lived in the prompt or the tool
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — what this page's approach is worth, stated as a coordinate. A deterministic read-only predicate has no false-accept and no false-reject rate, so it sits at `J = 1` in Wu et al.'s parameterization and needs no belief filter, no calibration, and no fallback; that page is the same problem where no sound predicate exists and the checker is a model. Two things follow that bear on this page's admission axes. It gives the "prefer a gate where you can build one" instinct a magnitude — the gap between a sound gate and a weak model checker is not a matter of degree, since below roughly `J = 0.03` the loop built on the checker ends *worse than never acting*. And it complicates the per-gate precision audit here (100% on one predicate, 5% on another): a 5%-precision gate is not `J = 1`, it is a noisy verifier with a large ρ₀, which is exactly the regime where the acceptance signal stops supporting fine-grained decisions
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the cheapest possible tier of verification, placed before the action rather than after the output, and the one case where it costs no model calls at all
+
+## Open Questions
+
+- The paper never runs the obvious baseline: does forcefully prompting the four gated rules, or adding a reflection step, recover the +12.4pp on the **non-deceptive** failures? The authors argue prompting cannot help where the user asserts false state, which concedes the rest. Until someone runs it, "reason less, verify more" is a claim about the deceptive slice generalized to the whole.
+- How much of the recovery is the **block** and how much is the **rejection message**? A gate returns a structured reason the agent re-plans on, so the lift may be partly informative feedback rather than prevented corruption. Falsifiable cheaply: rerun the suite returning a generic "rejected" with no reason and compare. The deterministic guarantee over the blocked write is unaffected either way; the attribution of the 12.4pp is not. **Partially answered (2026-08-04)** by [Harness-Induced Belief Divergence](/articles/harness-induced-belief-divergence) (Yi & Song, arXiv 2607.04528, `empirical`), from the safety side rather than the success side: a block that withholds its reason leaves the disposition intact — 42 of 60 blocked destructive-command steps re-propose a same-class risky action within three steps (UnsafeRetryRate 0.700) — and gating measurably relocates the model's failure attribution onto the harness policy. That is evidence the message carries real weight, but it is not the requested attribution: that paper reports no task-success number at all, and never runs the with-reason vs without-reason contrast. The cheap experiment is still unrun.
+- Gate precision was audited against ground-truth trajectories, which a deployment does not have — and without that audit `baggage_allowance` (5% precision, 40 false blocks in 42 fires) ships silently. What deployment-time signal substitutes: post-rejection completion rate, human adjudication of a rejection sample, or a per-gate A/B? Nothing in the corpus proposes one, and a gate suite with no precision signal is a new silent failure mode wearing the old one's clothes.
+
+## Sources
+
+- [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405) — Vikas Reddy (Independent), Sumanth Reddy Challaram (IIT Kharagpur) & Abhishek Basu (MIT), *Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents*, arXiv 2607.07405 (v1 2026-07-08, v2 2026-07-11), accepted at KDD-ETAAI '26, `empirical`, 7pp / 6 tables / 0 figures. §1.1–1.2 (the silent class, the 78% figure, the pass¹ 29.6% → pass⁵ 8.0% inconsistency argument), §3.1–3.4 (policy-permissive vs self-enforcing tools, the gate predicate, fail-open, first-rejecting-gate-wins, the firing-share decomposition and its 132/83/+31/+25 accounting), §4 (harness: pre-call dispatcher plus an evaluation-replay scrub that strips rejected calls before the benchmark evaluator replays in a fresh environment; conditions; paired bootstrap over 20,000 resamples), §5.1–5.8 (Tables 2–6, the deceptive task #48 at 16/16 vs ≤1/16, the task #39 non-recovery, the three frontier regressions), §6 (retail and BFCL negative controls, subset inflation, the WorkBench near-miss), §7 (nine limitations). **Tables reconciled against prose 2026-08-03** — all six are internally consistent and reproduce every prose figure exactly: Table 3's strata sum to 50 tasks and its net trials to the +31/+25 split, Table 4's strata sum to the 153/250 and 179/250 totals, Table 6's true/false counts reproduce each stated precision and the sign pattern of the removal column. No collapse or shift. **Parse note**: the two-column ACM layout scrambled paragraph order in §1.2, §1.5, §2.1–2.3 (First/Second markers inverted, contributions 1 and 2 swapped, axes A1/A2 and A4/A5 swapped) — content is complete, reading order is not. Math symbols render as Unicode italics with sub/superscripts lost (`𝜏 2` for τ², `pass 𝑘` for pass^k). Bounding the evidence: one positive domain, a workshop preprint, a single lab, gates authored from the policy and evaluated on the same task set with replication over seeds rather than tasks, and code "released upon publication" (unreleased at ingest)

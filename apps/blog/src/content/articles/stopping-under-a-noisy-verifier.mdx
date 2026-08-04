@@ -1,0 +1,172 @@
+---
+date: 2026-08-04
+title: Stopping Under a Noisy Verifier
+description: "Wu et al. (arXiv 2607.17641): when the verifier and the repairer
+  are both noisy, a verify-repair loop's true quality peaks and then declines
+  while reported acceptance keeps rising — on a GSM8K stress setting a fixed
+  5-round repair budget lands at 0.116 true validity against 0.700 for not
+  repairing at all, and it worsens monotonically with the budget. A
+  four-parameter noise model (ρ₀ false-accept, ρ₁ false-reject, α repair, β
+  damage) makes the stopping boundary b* = α/(α+β) a property of the *repairer*
+  while verifier discrimination J = 1 − ρ₀ − ρ₁ (Youden's J) decides only
+  whether you can locate yourself against it; VRR-Stop acts on the sign of the
+  true marginal gain rather than on acceptance, and decision damage tracks J and
+  the decision margin rather than the size of the calibration error — a ρ₀ bias
+  of −0.66 costs 0.3pp while a smaller ρ₁ bias at J = 0.03 costs 58.0pp. When J
+  ≈ 0 the label-free estimator degenerates *harder with more data*, and the
+  fallback is an estimation-free keep-best rule"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - evaluation
+  - loops
+  - failure-modes
+  - empirical
+readingTime: 20
+imageAlt: Illustration for Stopping Under a Noisy Verifier
+sources:
+  - title: Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair
+      Loops in LLM Agents
+    url: https://arxiv.org/pdf/2607.17641
+---
+export { default as heroImage } from "../assets/stopping-under-a-noisy-verifier.webp";
+
+## Sources
+
+- [Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair Loops in LLM Agents](https://arxiv.org/pdf/2607.17641)
+
+## Summary
+
+Every verify-repair loop rests on two premises nobody states: that another round of repair tends to improve true quality, and that the verifier's acceptance tells you something about true quality. Wu, Shen, Yang, Peng & Hu (arXiv 2607.17641, July 2026, `empirical`) show that **when the verifier and the repairer are both noisy the two premises fail together**, and give the loop a stopping rule that survives it.
+
+The result the paper leads with is the +60.6pp headline. The result worth carrying is the number it is measured against: on the GSM8K / Qwen2.5-3B stress setting, **a fixed five-round repair budget ends at 0.116 true validity where not repairing at all ends at 0.700.** Iterating is not a weaker version of stopping — it is *catastrophically worse than never starting*, and it gets worse monotonically with the budget (K = 1 → 0.246, K = 3 → 0.122, K = 5 → 0.116). This is the control-theory layer under the vault's existing verification pages: given that your verifier is noisy and you know roughly *how* noisy, when should the loop stop?
+
+## The four parameters, and which one owns which decision
+
+The model separates verifier noise from repairer noise, which is the move that makes the rest tractable:
+
+| Parameter | Meaning |
+|---|---|
+| **ρ₀** | Pr(accept ∣ invalid) — false acceptance |
+| **ρ₁** | Pr(reject ∣ valid) — false rejection |
+| **α** | Pr(repair turns an invalid plan valid) |
+| **β** | Pr(repair damages a valid plan) |
+| **J = 1 − ρ₀ − ρ₁** | verifier discrimination (Youden's J) |
+
+Two consequences fall straight out.
+
+**Why acceptance can rise while validity falls, in one line.** The population acceptance rate is `Ā_t = ρ₀ + (1 − ρ₀ − ρ₁)·Q_t = ρ₀ + J·Q_t` — an affine function of true validity with **intercept ρ₀ and slope J**. So a low-J verifier reports a number that is mostly its own false-accept rate, and `Ā` can increase while `Q` decreases. This is [Failures That Look Like Success](/articles/failures-that-look-like-success) with a closed form and a named slope.
+
+**The stopping boundary belongs to the repairer, not the verifier.** The one-step true marginal gain is `G_k = (1 − b_k)α − b_k β` (expected fix minus expected damage, where `b_k` is the posterior probability the current plan is already valid), so it crosses zero at
+
+> **b\* = α / (α + β)**
+
+which contains no verifier term at all. Verifier noise does not move the boundary; it only determines, through the belief `b_k`, whether you can tell which side of it you are on. And the measured boundary is wildly setting-dependent — **b\* ranges from 0.954 in the favorable setting down to 0.289 in the stress setting**, and to 0.015 (Mistral) and 0.000 (Qwen-7B, where α is exactly 0.000). The paper's own conclusion from that spread: "the same confidence can mean continue in one setting and stop in another, so no fixed round budget or universal confidence threshold is safe across settings."
+
+## Harmful repair is the rule, not the corner case
+
+Across eight settings, **six decline monotonically with the round index**, with damage probability β between 0.615 and 0.938 — typically several times α, which is what pushes b\* toward zero. Only the favorable setting improves; BFCL multi-turn is flat under a near-inert repair operator (α = 0.02, β = 0.04) and is the paper's honest counterexample: multi-round repair is not *inherently* harmful, severe degradation needs a repairer with real capacity to break things.
+
+Three things make this more than an artifact of the stress construction (see the limits below):
+
+- **A strong verifier does not save you.** With a process-reward-model verifier at **J = 0.805** on GSM8K, fixed five-round repair still drives validity 0.727 → 0.097. Verifier quality strengthens *stopping reliability*; it does nothing about the repairer's β.
+- **Raw-label statistics, independent of any stopping rule.** On the N = 500 stress traces, round-1 validity 0.70 drops to 0.25 after a *single* repair round; **55% of instances see a correct plan repaired into an incorrect one, and 24% of those damaging repairs win majority acceptance** among the eight judgments.
+- **Two of the six declining settings carry no injected perturbation** — MATH-500 (β = 0.617) and BFCL single-call (β = 0.615) are task shifts, not prompt-mismatch stress.
+
+The mechanism, traced on GSM8K instance #292: a valid plan is under-accepted at 4/8 and falsely rejected; the repairer — whose copy of the problem statement has been corrupted — competently rewrites it into a wrong answer; the verifier, grading against the *uncorrupted* problem, accepts it at 6/8 and commits. True validity flips 1 → 0 while reported acceptance rises.
+
+## What VRR-Stop actually does
+
+Belief filtering turns the M verification votes per round into a posterior `b_k` (Bayes over a binomial likelihood, with a predict step `b⁻ₖ₊₁ = (1 − β)b_k + α(1 − b_k)` when repair fires), and the loop commits or repairs on **the sign of Ĝ_k**, not on the acceptance count. The design claim is that the sign is a much cheaper thing to identify than the parameters: you need `Ĝ_k − B_k > τ` or `Ĝ_k + B_k ≤ τ` for an error radius `B_k`, not accurate recovery of ρ₀, ρ₁, α, β.
+
+Calibration is weakly supervised — a binomial-mixture EM recovers ρ̂₀, ρ̂₁ from repeated verification records with **no labels**, and α̂, β̂ are frequencies over **at most 300 labeled before/after repair pairs**. Five-fold cross-fitting, so no instance's stopping decision touches its own label. End-to-end runs use M = 8, K_max = 5, τ = 0.
+
+**Table 1** (GSM8K / Qwen2.5-3B prompt-mismatch stress, N = 500 — verified exact against the PDF):
+
+| Method | True validity V [95% CI] | ⟨K⟩ |
+|---|---|---|
+| No repair | 0.700 [.658,.740] | 0.00 |
+| Majority stopping | 0.690 [.648,.730] | 0.92 |
+| ConfStop-0.85 | 0.562 [.518,.604] | 1.92 |
+| Fixed repair K = 5 | **0.116** [.088,.144] | 5.00 |
+| VRR-Stop | 0.722 [.682,.760] | 0.72 |
+| TPM reference (diagnostic) | 0.694 [.652,.734] | 0.89 |
+
+The paired gain over fixed-5 is **+60.6pp [+56.0, +65.0], McNemar p &lt; 2×10⁻⁸⁵**; over majority stopping +3.2pp; over the true-parameter myopic reference +2.8pp. Against the same trajectories under a fixed-budget deployment, **Reflexion ends at 0.095 and Self-Refine at 0.080** while VRR-Stop reaches 0.740 and 0.710.
+
+**Read the ⟨K⟩ column before the validity column.** VRR-Stop's advantage over *no repair* is +2.2pp with a CI crossing zero, and it buys the headline mostly by learning to stop immediately — 0.72 mean rounds here, and **exactly 0.00 on the Qwen-7B stress setting, where it "retains 0.875 by learning to never repair."** What the method reliably delivers on these traces is not better repair; it is the ability to notice that repair is not paying and decline it per instance, which no fixed budget and no acceptance-threshold heuristic can do.
+
+## The sharpest result: damage tracks J, not the size of the error
+
+The finding that generalizes past this method is about *which* calibration errors matter. Estimation error changes the action only when it flips the sign of `G_k − τ`:
+
+| Judge | J | Dominant calibration bias | V(VRR-Stop) | V(TPM) | Gap |
+|---|---|---|---|---|---|
+| Qwen2.5-7B | 0.23 | Δρ₀ = −0.29 | 0.875 | 0.875 | +0.0pp |
+| Qwen2.5-3B | 0.46 | Δρ₀ = −0.19 | 0.722 | 0.694 | +2.8pp |
+| Mistral-7B | 0.18 | **Δρ₀ = −0.66** | 0.463 | 0.467 | **−0.3pp** |
+| Llama-3-8B | **0.03** | Δρ₁ = −0.53 | 0.223 | 0.803 | **−58.0pp** |
+
+The largest parameter error in the study costs three tenths of a point; a smaller one at near-zero J costs fifty-eight. In the controlled J–Δ sweep the stopping-sign flip probability is **0.183 where J ≤ 0.15 meets decision margin Δ ≤ 0.10, against 0.014 for J ≥ 0.4 or Δ ≥ 0.30** — a ~13× gap. And J alone is not a trust threshold either: BFCL single-call has J = 0.07 but visits states with large margins, and lands within 0.3pp of the reference.
+
+**The identifiability collapse is the part that should change how you calibrate.** The label-free binomial-mixture EM is identifiable *iff* the two component acceptance rates differ — i.e. iff J ≠ 0. As J → 0 the likelihood surface flattens, and on the Llama judge (true ρ₁ = 0.609) the estimate goes **0.27 at N = 120 → 0.077 at N = 300**: more calibration data makes EM converge *more confidently* to a degenerate solution. Calibrated stopping only recovers for ρ̂₁ ≳ 0.30, so the N = 300 estimate sits deep inside the collapse zone. This is the rare failure mode where the standard remedy — collect more data — is the thing that finishes you off.
+
+## VRR-Guard: the estimation-free floor
+
+When a held-out labeled separation test reports Ĵ near zero, calibration is abandoned rather than trusted. **VRR-Guard** keeps an incumbent best candidate and replaces it only under a hard vote margin — `c_k = p_k` iff `S(p_k) ≥ S(c_{k−1}) + δ` — committing the incumbent rather than the last plan. δ = 5 at M = 8, chosen by replay sweep. A Hoeffding bound gives per-round erroneous replacement `≤ exp(−(MJ + δ)²/(2M))`; exact tails are 5.6×10⁻⁶ (Qwen-3B) to 5.9×10⁻³ (Llama), with the five-round union bound under 3% even at J = 0.03.
+
+**Table 2** (robustness under calibration failure and distribution shift — verified exact against the PDF; shift codes M/V/T = model, verifier, task):
+
+| Setting | J | None | Fixed 5 | Calib. | Guard |
+|---|---|---|---|---|---|
+| Qwen-3B fav. (-) | 0.39 | 0.740 | 0.875 | 0.845 | 0.810 |
+| Qwen-3B stress (-) | 0.46 | 0.700 | 0.116 | 0.722 | 0.742 |
+| Qwen-7B stress (M) | 0.23 | 0.875 | 0.075 | 0.875 | 0.875 |
+| Mistral-7B stress (V) | 0.18 | 0.507 | 0.047 | 0.463 | 0.487 |
+| Llama-3-8B stress (M) | 0.03 | 0.803 | 0.057 | **0.223** | **0.793** |
+| MATH-500 (T) | 0.22 † | 0.798 | 0.150 | 0.798 | 0.796 |
+| BFCL single (T) | 0.07 | 0.812 | 0.372 | 0.782 | 0.810 |
+
+† *This J contradicts the paper's own Table 5 and prose — see the Sources note.*
+
+The Llama row is the whole argument: calibrated stopping collapses to 0.223, the guard recovers 0.793 (+57.0pp over the failed calibrated rule, +73.7pp over fixed-5). The retention margin is what does it — against margin-free "commit the highest-accepted candidate," the guard is **+45.0pp on Llama and between −4.0 and +8.0pp everywhere else**, so δ's value is concentrated exactly where the verification signal is least trustworthy.
+
+**And it is explicitly not a dominant strategy.** Guard falls 2.0pp below no-repair on Mistral (CI [−3.7, −0.7], excludes zero) and 0.3pp on BFCL (CI contains zero), and in the favorable setting its 0.810 trails fixed-five-round repair's 0.875. It buys a floor near no-repair by forfeiting upside where repair genuinely helps.
+
+## Limits worth carrying
+
+- **The stress settings are constructed.** The prompt-mismatch setting injects numeric/condition perturbations into *the repairer's copy* of the problem while the verifier and ground truth use the original — an adversarial premise corruption, with repair temperature raised to 1.0. β ≈ 0.79–0.94 is manufactured by that design. The direction survives without it (MATH-500 and BFCL-single decline anyway), the magnitudes are not field measurements.
+- **The rule is myopic and cannot find interior peaks.** On the non-stationary diagnostic, validity runs 0.45 → 0.87 at round 2 → 0.12 at round 6 (peak-vs-final paired gain 74.7pp), and VRR-Stop attains 0.693 against the TPM reference's 0.720 and post-hoc round-2 selection's 0.867. It compares "commit now" against "exactly one more round," with no look-ahead; α and β estimated from round 1 cannot anticipate a mechanism change at round 3.
+- **Parameters are local and non-transferable.** Stationarity holds only within a decision window (the favorable setting's per-round repair rate decays 0.415 → 0.032 from round 1 to round 5), and the paper is explicit that estimates must not be carried across model families, verifiers, or repair prompts. In the favorable setting `α + β ≤ 1` holds on seven of eight trajectories and is violated on the GSM8K stress one.
+- **Binary validity only.** No partial correctness, no error types, no staged long-horizon goals — and deterministic verifiers (executors, compilers) break the repeated-query estimator outright, since re-asking returns the same answer.
+- **Single lab, preprint, anonymized artifact, no human study.** All numbers come from deterministic replay of frozen trajectories.
+
+## Connections
+
+- [Loop Engineering](/articles/loop-engineering) — the discipline this supplies a stop criterion for. `/goal`'s "keep going until a written condition holds" and the maker/checker sub-agent split both assume the checker's verdict can be acted on; this page prices that assumption in J and shows that when a verify-repair loop's checker is weak, running the loop to its budget is worse than never running it
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — the loop primitive whose stopping condition is a sentinel or a round cap; the measured case against exactly that ("Fixed repair K = 5" is a round cap, and it is the worst deployable arm in the table)
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the population form of that class, with a closed form: `Ā_t = ρ₀ + J·Q_t`, so a low-J verifier's pass rate is mostly its own false-accept rate and can rise while true validity falls. The per-instance version is the traced failure — a valid plan falsely rejected at 4/8, damaged by repair, then accepted at 6/8 and committed
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the layer above. Decoupling gets you a verifier the optimizer did not author; this asks what a *decoupled but noisy* verifier is worth, and answers with a bound: its discrimination J sets how fine a decision it can support, and near J = 0 the acceptance signal supports no fine-grained decision at all. It also inverts the residual-hole framing — that page's third hole is "an independent evaluator still has to be valid," and this makes invalidity a continuous, measurable quantity with a decision rule attached rather than a binary defect
+- [LLM-Judge Validation](/articles/llm-judge-validation) — same statistic, different job. Youden's J is a *judge-selection* metric there; here it is a **deployment parameter** that decides whether a loop can be steered on the judge's output. The MVVP tells you whether to trust a judge's verdicts; this tells you what to do once you have measured that you cannot. The two also disagree on where estimation effort should go — Norman et al. prescribe more careful measurement, and the identifiability collapse is a case where more measurement makes the estimate worse
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — ρ₀ is over-crediting given a name and a rate. Judges grading without a reference systematically accept wrong answers, which is the false-accept term that both lowers J and sets the intercept of the acceptance curve; the measured ρ₀ on the verifiers here (0.36–0.88 across seven settings, 0.875 on BFCL single-call) is the same phenomenon at loop scale. **The load-bearing assumption this page makes about ρ₀ is that it holds still, and that page shows what happens when it does not.** VRR-Stop calibrates the four parameters once and is explicit that they are stationary only within a decision window; under self-play against the verifier, ρ₀ is *driven* — 0.651 → 0.906 on a self-judge, 0.480 → 0.568 on a cross-family judge never in the loop, with discrimination collapsing toward zero on every judge tested, so `J` is not a fixed property of the verifier but a function of how hard something is pushing on it. Two consequences for the machinery here. The label-free binomial-mixture EM degenerates as `J → 0`, which is exactly the direction optimization pressure moves it, so a loop that also *trains* against its verifier walks into the identifiability collapse rather than starting inside it. And VRR-Guard's estimation-free floor is the right shape of answer for that regime, but its Hoeffding bound is stated at a fixed `J`; a drifting `J` needs the separation test re-run, not assumed. The two failures are independent entrances to the same place — a *noisy* verifier you cannot steer on, and a *pushed* verifier whose noise grows in the direction you are pushing
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — the same inversion one layer up. There, extra *effort* stops buying accuracy because it is spent re-checking; here extra *rounds* stop buying validity because each one risks damaging a correct plan. Both invert the "more is better" assumption, and both have the same shape of fix — a boundary rather than more instruction. The difference worth keeping: that page's fix is subtraction on the model side, this one's is a per-instance decision rule that can still choose to repair when α dominates β
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the same trust problem applied to *diagnosis* rather than acceptance. Here the noisy signal is a bit (accept/reject) with a measurable discrimination J; there it is a causal explanation, where the failure mode is not a wrong bit but a plausible, confidently-argued wrong cause — 73.9% best step localization, 16–25% on the full agent/step/mode triple. Two direct couplings. The process-vs-outcome verification split this page's four-parameter model abstracts away is measured there: handing the attribution judge the task's gold answer *improves* perception-error diagnosis and *degrades* reasoning-error diagnosis, because the reference tempts an answer-comparison shortcut over process tracing. And both papers land on the same counter-intuitive shape — more of the input that obviously ought to help (repair rounds here, ground-truth signal there) makes the outcome worse
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the J = 1 corner of this page's parameter space. A read-only deterministic predicate over a proposed call has no ρ₀ and no ρ₁, so it needs no belief filter, no calibration, and no fallback; this is what the same problem looks like when you cannot have that. The two prescriptions are complementary rather than competing — use a sound gate wherever one exists, and bound your loop by J wherever one does not
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — where ρ₀ and ρ₁ come from in a coding loop. An agent-authored suite is the verifier in a code verify-repair loop, and its measured properties (breadth without stability, a 0.44 vs 0.30 flakiness-candidate rate) are exactly the ingredients of a low-J verifier: a flaky test contributes both false rejects and, once someone reruns it, false accepts
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the bottleneck given a coefficient: verification is not just expensive, it has a discrimination level, and below some level no amount of it converts into a better decision
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the loop-shaped counterexample to compute-buys-quality: spending five rounds instead of zero moves true validity from 0.700 to 0.116, and the whole budget is spent fitting verifier noise
+- [Deep Research Agents](/articles/deep-research-agents) — β observed in the wild, and the case where the verifier is not noisy at all. MisKnow-Agent (arXiv 2607.20891, `empirical`) adds a post-research refinement agent that re-checks a deep-research report claim by claim — and because it retrieves from the *same* poisoned pool the original run used, combining it with the pre-research defense makes Intern-S1-Pro strictly worse (62% false-conclusion adoption against 57% and 58% for either defense alone). That is this page's `b* = α/(α+β)` argument arriving from a completely different setup: a repair operator whose evidence source is the corruption it is repairing has real damage probability, and running it can cost more than not running it. The sharper contrast is on the verifier side. Here a low-`J` verifier is *miscalibrated*; there the verifier is correct — the same five search-enabled models unanimously classify every injected document as misleading in isolation, including the three that then adopt them at 50–76% as research backbones. So the failure is an **unrun** check rather than a noisy one, and no belief filter helps: `J` is fine, the harness simply never queries it
+
+## Open Questions
+
+- The damage probabilities that drive every result here (β = 0.615–0.938) come mostly from a deliberately corrupted repairer premise. **What are α and β on unperturbed production loops** — code repair against a real test suite, tool-call repair against an executor — where nobody injected anything? MATH-500 and BFCL-single decline without the injection, so the direction is not purely constructed, but no field measurement of these two parameters exists.
+- Diagnosing "my verifier's J is too low to steer on" currently needs *labels*: the paper deliberately uses a held-out labeled separation test rather than the binomial-mixture EM, to avoid diagnosing a broken estimator with its own output — and the EM is precisely what degenerates as J → 0. **Is there a label-free J diagnostic that stays honest at low J**, or is a small labeled probe irreducible?
+- The rule is one-step myopic and lands 17pp below post-hoc round-2 selection on the non-stationary trace. **Does a round-dependent (α_t, β_t) model recover interior peaks**, or is the peak only locatable in hindsight because the mechanism change that creates it is unobservable at the time? The paper names this as future work.
+
+## Sources
+
+- [Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair Loops in LLM Agents](https://arxiv.org/pdf/2607.17641) — Yitao Wu, Si Shen, Rui Yang, Hong Peng & Bin Hu (saofund.ai / Shenzhen Xingqing Zhiti / Lanzhou University, arXiv 2607.17641, 2026-07-20), `empirical`. §3.2 (four-parameter noise model, Eq. 3), §3.4 (`Ā_t = ρ₀ + J·Q_t`; the interior peak), §4.1 (belief recursion, Eqs. 5–7, `b* = α/(α+β)`), §4.2 (sign identifiability, Eq. 8, Proposition 1), §4.3 (VRR-Guard, Eq. 9, Lemma 1), §5.2 (loop dynamics; the PRM-verifier result at J = 0.805), §5.3 + Table 1 (stopping performance), §5.4 + Tables 7–8 (calibration stress; the Llama identifiability collapse), §5.5 + Table 2 (guarded fallback under shift), App. C (Table 5 cross-setting parameters; the instance-#292 trace and the 55% / 24% raw-label statistics), App. D (Table 6 full baselines; Reflexion/Self-Refine), App. F (Guard's honest boundaries), App. H (limits, scope, non-stationarity).
+ - **Tables verified.** Tables 1, 2 and 5 were checked cell-for-cell against the PDF (`pdftotext -layout`) and the raw markdown parse is exact; every J in Table 5 reconciles arithmetically as 1 − ρ₀ − ρ₁. No collapse or shift was found in the tables cited here.
+ - **Contradiction inside the paper, not a parse artifact.** MATH-500's verifier discrimination is **J = 0.77** in Table 5 (ρ₀ = 0.109, ρ₁ = 0.118 → 0.773) and in the §5.2 prose, but **J = 0.22** in Tables 2 and 9. Both figures are confirmed present in the PDF; every other setting's J agrees across all three tables. The claim that row supports — a strong verifier does not prevent repair damage — needs J = 0.77 to be the right one, and is independently carried by the Appendix-H GSM8K setting at J = 0.805 (0.727 → 0.097), so the argument survives either reading. Do not cite MATH-500's J without this note.
+ - **Parse repair at ingest.** A fabricated sentence injected by the mlx formula-enrichment engine into the Eq. (3) block ("This document was last generated by sklearn-api-parser…", appearing nowhere in the PDF) was removed before compilation; the equation's real content is intact. Cosmetic word-glue artifacts remain in the raw ("LLMagent", "Oncomplex") and are harmless.

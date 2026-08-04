@@ -5,7 +5,9 @@ description: "Noam Brown's thesis that model capability is now a function of
   inference budget (tokens/cost/time): with good scaffolding modern models keep
   improving for weeks before plateauing, so 'how capable is the model?' is
   ill-posed without naming the budget — a root cause that breaks benchmarking,
-  safety evals, and fast-takeoff forecasts"
+  safety evals, and fast-takeoff forecasts; plus the first budget-matched test
+  of *where* to spend the marginal token, where independent parallel sampling
+  beats both sequential refinement and letting a meta agent rewrite the harness"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -14,9 +16,17 @@ tags:
   - inference-scaling
   - capability-evaluation
   - capability-trajectory
-readingTime: 11
+readingTime: 18
 imageAlt: Illustration for Large-Scale Test-Time Compute
 sources:
+  - title: Rethinking the Evaluation of Harness Evolution for Agents
+    url: https://arxiv.org/pdf/2607.12227
+  - title: "SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery"
+    url: https://arxiv.org/pdf/2607.02807
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
   - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
       Research with OpenAI's Noam Brown
     url: https://www.youtube.com/watch?v=AZrU6y3pUcU
@@ -27,14 +37,21 @@ sources:
   - title: "More compute, more capability: Why AI agent evaluations need to account
       for test-time compute"
     url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
+  - title: Rewriting Bun in Rust
+    url: https://bun.com/blog/bun-in-rust
 ---
 export { default as heroImage } from "../assets/large-scale-test-time-compute.webp";
 
 ## Sources
 
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
 - [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+- [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227)
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## Summary
@@ -70,11 +87,38 @@ The [AISI](/articles/uk-ai-security-institute) study gives this spectrum an empi
 
 The [overthinking](/articles/scale-dependent-prompt-sensitivity) result is the shadow case: on ~7.7% of standard benchmark problems, *more* generated tokens *hurt* large models — a reminder that test-time compute is a resource to be allocated well, not a monotone dial. Brown's own view on user practice is that flexible thinking-time (fast when it should be fast, long when the problem warrants) beats always-maximal budgets, because a week-long wait is impractical to iterate against.
 
+## The vendor's allocation advice: default down, not up
+
+Brown's thesis is stated as an upward curve; the deployment advice that comes with [Opus 5](/articles/claude-opus-5) is the first vendor guidance to read as an instruction to spend **less** by default ([prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5), `vendor-claim`):
+
+- `low` and `medium` effort "produce strong quality at a fraction of the tokens and latency of higher settings." Anthropic recommends using them **liberally as the primary control for token cost and response time wherever quality holds**, reserving `xhigh` for demanding coding and agentic work — and re-running an effort sweep on your own evals if you carried defaults over from a prior model.
+- **The floor of the dial beats the off switch.** Thinking can be disabled only at effort `high` or below, and Anthropic's stated mitigation for the artifacts that appear when it is disabled is to keep it on: "for most tasks, thinking enabled at `low` effort performs better than thinking disabled at similar cost" ([Instruction Compounding](/articles/instruction-compounding)). A little thinking at low budget dominates no thinking at the same price — the flat pole of the spectrum above starts above zero, not at it.
+- **Per-task-class allocation, in practice.** Code-review accuracy "holds at lower effort settings, which supports a fast pass at review time and a more thorough pass later" ([Review as the Control Point](/articles/review-as-the-control-point)) — an explicit recipe for varying budget by task class rather than setting one global level.
+- **The dial does not control output length.** Effort governs thinking tokens; the visible response is a separate cost center controlled only by the prompt ([Output Length Calibration](/articles/output-length-calibration)). "Spend less" is two knobs, and an effort sweep will not surface a verbosity regression.
+
+Taken with the effort inversion on the same model ([Unproductive Self-Verification](/articles/unproductive-self-verification)), the practical shape of the thesis at deployment is a **hump, not a ramp**: capability rises with budget until the marginal tokens go into re-checking and over-serving, and the vendor's own advice is to sit below the peak unless the task warrants otherwise.
+
 ## Scaffolding unlocks the horizon
 
 The lever that turns "a model" into "weeks of productive thinking" is the **harness**. Brown: with GPT-3 there was little you could scaffold into a useful week-long run; with modern models you can scaffold "a series of experiments that can run for weeks, for months." His concrete near-future claim: give a well-scaffolded model a long-horizon goal and tell it to "go work on this for a month," and it returns a state-of-the-art result. This is the same capability [METR's time-horizon curve](/articles/task-time-horizon-scaling) measures from the outside — and it is why the harness is where the budget is actually spent.
 
+### But not on *searching for* the harness
+
+The first budget-matched test of where to spend the marginal token, and it favors the trajectories over the scaffold. Wang, Zhu, Hu et al. ([arXiv 2607.12227](https://arxiv.org/pdf/2607.12227), Ai2 / UW, 2026-07-14, `empirical`) fix K = 5 on Terminal-Bench 2.1 across Claude Opus 4.6, GPT-5.4 and GPT-5.4 mini, and give the same feedback and inference budget to four ways of spending it. **Parallel sampling — draw five independent trajectories, select one — is the most consistent arm**, averaging 72.3 pass@1 without unit-test feedback against a 68.2 do-nothing baseline, and 86.0 with it. Sequential refinement is second on pass@5 (91.8, the highest number in the study). Letting a meta agent rewrite the harness with that same budget averages **67.4** — below doing nothing at all — and its held-out transfer is +0.6pp.
+
+Two things generalize past the method under test. **Without an external correctness signal, depth loses to breadth**: sequential refinement gains only 1.1 points on average and *degrades* GPT-5.4, because self-generated feedback is noisy and each revision conditions on the last, so early mistakes compound — while independent draws cannot compound anything. And **a gain visible only in pass@k is a gain in attempts, not capability** ([Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)) — the diagnostic that separates spending the budget well from spending it at all. Details and the contrary evidence on [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization).
+
 ## The denominator: efficiency is capability
+
+### And the shape of the spend matters more than its size
+
+Wang et al. above ask *what object* to spend the budget on (trajectories vs the harness). [SwarmResearch](/articles/open-ended-discovery-harnesses) (Virk, Edds, Xia & Zhang, UIUC, [arXiv 2607.02807](https://arxiv.org/pdf/2607.02807), `empirical`) holds the object fixed — always solutions — and asks *how to shape* a fixed budget across parallel width and serial depth. Fixed scaling means *n* concurrent agents × *k* serial iterations over a shared git history; the sweep is (5,12), (10,6), (15,4), (20,3), (30,2) within a 60-iteration budget, 3 runs averaged, on five open-ended optimization tasks. **Table 2 verified clean against the PDF.**
+
+- **Wide beats deep, until it doesn't.** The optimal fixed configuration is wider than deeper on 4 of 5 tasks — long serial runs "stay within the same neighborhood of solutions and miss stronger neighborhoods discovered by highly parallel runs" — but the widest setting (30, 2) is **never** optimal. Two iterations is not enough to build anything worth having.
+- **There is no transferable (n, k).** Four of the five tasks have a different best configuration, which is the actual argument for handing the choice to an orchestrator rather than tuning it.
+- **Adaptive width-at-depth beats the best fixed setting on 4/5**, at the same 60-iteration budget, with the orchestrator adding only **7.7%** to total output tokens — wide initial exploration, then deep serial iteration applied selectively to what survived.
+
+This does not contradict the parallel-sampling result above; it refines it. Wang et al. show breadth beating depth when the arms are independent and the selector is the model itself. Here breadth also wins, and the extra gain comes from *reallocating* between breadth and depth mid-run rather than committing to a ratio. One control is missing and matters: the winning arm's orchestrator runs Claude Sonnet-4.6 while every subagent and the entire fixed-scaling baseline run Minimax-M2.5, so this is orchestration *by a capable model* beating fixed hyperparameters, not orchestration beating them at equal model ([Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)).
 
 Brown's thesis is stated in the numerator — spend more, get more. It has a corollary he doesn't develop: **anything that lowers the cost of a token raises capability at a fixed budget.** [Gemma 4](/articles/gemma-4) (DeepMind, July 2026, `empirical`) is the corollary made concrete — a 37.5% smaller KV cache, quantization to sub-gigabyte checkpoints, a released speculative-decoding drafter head. Under this page's framing those are not engineering footnotes; they are capability gains denominated in dollars rather than parameters.
 
@@ -82,6 +126,10 @@ The connection runs the other way too. A thinking mode multiplies tokens per que
 
 ## Connections
 
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — the counter-instance: Opus 5's FrontierCode score peaks at *medium* effort and its best GDPval-AA/AA-Briefcase results come from xhigh rather than max, because the marginal compute is spent re-verifying and over-engineering
+- [Instruction Compounding](/articles/instruction-compounding) — why the budget dial substitutes for the disable switch: thinking-off introduces output artifacts that thinking-on at `low` effort avoids at comparable cost
+- [Output Length Calibration](/articles/output-length-calibration) — the cost the dial doesn't reach: visible-response tokens are prompt-controlled, so effort and verbosity are separate levers
+- [Claude Opus 5](/articles/claude-opus-5) — and the substitution result: tools beat thinking as a way to spend the budget (Chartography 29.6%→83.0%, BenchCAD 0.366→0.821 when given a container and a cropping tool)
 - [Automatic vs. Flexible Cognition in LLMs](/articles/automatic-vs-flexible-cognition) — a mechanistic floor under the thesis: a transformer's only route past its feedforward depth is to write intermediates into the context and read them back, so chain-of-thought is *externalized workspace* and test-time compute partly buys serial depth the architecture doesn't otherwise have
 
 - [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the corollary: cheaper inference is capability, and Gemma 4's efficiency stack is the worked example
@@ -94,6 +142,7 @@ The connection runs the other way too. A thinking mode multiplies tokens per que
 - [The Verifiability Thesis](/articles/verifiability-thesis) — the search-heavy gains (the Sudoku pole) are largest where a cheap verifier lets the model check its own guesses
 - [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — the governance consequence for published weights: unbounded elicitation budget, no recall
 - [Single-Rollout Optimization](/articles/single-rollout-optimization) / [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the training-side complement: the RL loop that *produces* the long-horizon agentic models whose capability then scales with this inference budget
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the orchestration-side extension of the axis, now with a bill attached: the Bun Zig→Rust port spent **5.9B uncached input + 690M output + 72B cached-read tokens ≈ $165k** over 11 days to complete one task, and the 12:1 cached-read-to-fresh-input ratio says a long fan-out run is priced as a *re-reading* workload, not a generation one (`case-study`, first-party). Brown's "capability is a function of how much money you put into it" gets a concrete upper data point, and it is an *orchestrated* budget rather than a single long context
 - [UK AI Security Institute](/articles/uk-ai-security-institute) — the independent government evaluator that measured this thesis across benchmarks, promoting it from anecdote to `empirical` fact
 - [Noam Brown](/articles/noam-brown) — the source; the researcher who pioneered inference-time scaling
 
@@ -108,4 +157,7 @@ The connection runs the other way too. A thinking mode multiplies tokens per que
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26), Noam Brown on his essay *Implications of Large-Scale Test-Time Compute* (`practitioner-opinion`)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — the efficiency corollary: a thinking mode plus a five-lever inference-cost reduction, shipped together (`empirical`)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — chain-of-thought as externalized workspace: a transformer's only way past its feedforward depth is to write intermediates into the context and read them back
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic platform docs (retrieved 2026-07-25, `vendor-claim`): the deployment-side allocation advice — default to `low`/`medium`, `xhigh` for demanding agentic work, thinking-on-at-low over thinking-off, re-sweep effort per model
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807) — Virk, Edds, Xia & Zhang (UIUC), arXiv 2607.02807 (2026-07-02, `empirical`): §3.1 and §3.4 + Table 2 — the (n, k) sweep within a 60-iteration budget, orchestrator-guided scaling winning 4/5 at +7.7% output tokens, and the unmatched orchestrator model. **Table 2 verified clean; Table 1 is collapsed in the raw and is not cited here** (recovered on [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses))
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): the token accounting for one orchestrated 11-day campaign — 5.9B uncached input, 690M output, 72B cached reads, ~$165k at list API pricing
 - [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI, *More compute, more capability* (2026-07-02, `empirical`): the independent measured confirmation — capability curves over token budget, ~8% of cyber tasks solved only at ≥10M tokens, +25% SWE / +22% maths from 1M→10M, HealthBench as the flat pole

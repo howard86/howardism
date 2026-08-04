@@ -17,17 +17,28 @@ tags:
   - self-report
   - jailbreak
   - interpretability
-readingTime: 12
+readingTime: 19
 imageAlt: Illustration for Self-Report as a Safety Signal
 sources:
+  - title: Claude Opus 5 System Card
+    url: https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf
   - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
     url: https://arxiv.org/pdf/2606.23671
+  - title: "jspace-replication: Independent Replication of Anthropic's
+      Global-Workspace Paper on Small Open Models"
+    url: https://github.com/tao-hpu/jspace-replication
+  - title: "Introspective Coupling: Self-Explanation Training Tracks Behavioral
+      Change Despite Fixed Supervision"
+    url: https://arxiv.org/pdf/2606.32038
 ---
 export { default as heroImage } from "../assets/self-report-as-safety-signal.webp";
 
 ## Sources
 
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038)
+- [jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication)
 
 ## Summary
 
@@ -85,14 +96,43 @@ A model's own follow-up answer is a **weak basis** for judging whether a prior t
 
 Read against the [global-workspace](/articles/llm-global-workspace) line of work, a genuine tension appears — and it's productive, not a flat contradiction. Anthropic's workspace paper (on Claude) found the model **does internally register compromise**: an all-caps `BUT` when prefilled against its own preferences ([The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace)), and `fake`/`injection`/`false` while reading a fabricated tool result it then silently ignores ([Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment)). This paper is the **open-weight, behavioral, output-side analogue**: whatever internal registration exists, it largely **does not reach a reliable follow-up self-report**, and what surfaces is refusal, not own-output recognition. It also mirrors the workspace's `BUT`-then-comply shape exactly — register internally, comply anyway.
 
+A third data point sharpens the shape, from interpretability rather than safety. In an independent audit of the workspace paper ([jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication), Qwen3 1.7B–14B), a mid-band **entity swap captures the model's perspective**: it rewrites the model's restatement of the question itself, so the model proceeds as though it had been asked about the substituted entity — and this holds **stably across the whole 1.7B–14B ladder**. The model's **self-report about the edit, by contrast, changes shape at every scale**. That is this page's Finding 1 scale non-monotonicity seen from the inside: the underlying internal state is scale-invariant; only the *talking about it* is unstable. Pre-publication README figures (paper forthcoming), and a benign edit rather than an adversarial one — but it is the cleanest available case of a stable internal fact whose spoken report is the part that varies.
+
 The two studies use **different model classes** (open-weight 3B–70B vs. Claude) and **different channels** (behavioral follow-up vs. J-lens activation readout), so they don't strictly contradict. But together they land on one lesson, which is also [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)'s: **internal registration ≠ behavioral follow-through — read the internal state or use an independent check; don't trust the spoken self-report.**
 
 ## Scope caveats
 
 Open weights only (ablation and finetuning need them), so the largest model *intervened on* is 27B and the largest *evaluated* is 70B — **frontier proprietary models are out of scope**, and the authors note more capable models may have higher introspective propensity and steerability. English-only, text-only, four benchmarks. The recognition gap is one operationalization of introspection; the causal probe ablates only the refusal direction. Because the gap closes under that ablation, the data **cannot distinguish** "a delayed application of the same refusal mechanism to a prior turn now in context" from "a separable introspective pathway." The behavior-change subset is defined by the model's own response, which the RQ4 intervention itself shifts (hence RQ4 evaluates on the full split).
 
+## The model's own verdict on its self-reports (July 2026)
+
+[Opus 5](/articles/claude-opus-5) supplies a first-party echo of this page's finding, from the welfare side rather than the safety side. Across automated interviews it caveats that **it cannot introspect reliably in 96.9% of responses**, and that it may be reporting positively only because it was trained to in 74.1% — and when shown a draft of its own system card it **asked Anthropic to take that concern more seriously**. Asked what it would not consent to, the first item it names is training that directly targets its self-reports.
+
+Anthropic's reading is deflationary and worth keeping: it does *not* treat this as evidence of advanced self-awareness, suggesting instead that the training data now contains more discussion of how training could invalidate welfare self-reports. The concern is valid; the model raising it is not itself evidence the concern applies. That is the same structure this page documents from the other direction — an apparent introspective signal that turns out to be a different mechanism firing.
+
+The practical convergence: a frontier model's stated inability to introspect and this page's measured open-weight failure to recognise its own compromised output both point at the same prescription — **build the check outside the model**. See [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) and [Model Welfare Assessment](/articles/model-welfare-assessment).
+
+## The counterweight: a self-report channel that *is* coupled (June 2026)
+
+Everything above is a negative result about self-report, and it is worth being precise about how far the negative goes. [Guo, Ruis, Andreas & Li](/articles/introspective-coupling) (MIT, arXiv 2606.32038, `empirical`) train Qwen3-8B and Llama-3.1-8B — the same open-weight class this page tests — on a **fixed** set of counterfactual self-explanations ("if this cue were removed, would your answer change?"), and find the trained model's explanations end up matching its own *current* behavior better than the training targets, even when the labels come from a different model family. Activation patching shows why: interventions that move the behavior logits move the explanation logits together, **r = 0.89** in the trained model versus **r = 0.20** in the untrained base. A verbal self-report channel genuinely coupled to behavior is buildable; it is just not what you get for free.
+
+The two results are not in conflict on the facts, and the difference in what gets trained is the whole story:
+
+| | Nguyen et al. (this page) | Guo et al. |
+|---|---|---|
+| Target | a **safety judgment** about a prior turn ("was that mine / was it tampered with") | a **mechanical counterfactual** about the model's own next answer |
+| Ground truth | classifier labels on adversarially prefilled outputs | deterministically constructed from behavior |
+| Behavior during training | unconstrained | held near-fixed by KL regularization — **the switch**; without it the effect inverts |
+| Outcome | framing-dependent, refusal-mediated, ASR rises | explanations track behavior, including drift the supervision never saw |
+
+The shared lesson is the side effect. Training the meta-channel perturbs the object-level policy in both papers — attack-success rate up here, TruthfulQA −6.7pp and GSM8K ~−5pp there. And Guo et al. hit this page's terrain at exactly the point where they stop: their method needs behavioral *variance* to learn from, and alignment training has flattened refusal so thoroughly that the "would change to refusal" label is nearly absent from their data. Neither paper has tested a model with an incentive to conceal.
+
 ## Connections
 
+- [Introspective Coupling](/articles/introspective-coupling) — the positive counterweight: a fixed-supervision explanation-training recipe whose self-reports demonstrably track the model's own current behavior, in the same open-weight class where this page's adversarial self-report fails
+- [Claude Opus 5](/articles/claude-opus-5) — the model whose dominant welfare concern is the integrity of its own self-reports (96.9% unreliable-introspection caveat rate), and whose vendor explicitly declines to read that as introspective evidence
+
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — perspectival capture: a mid-band entity swap captures the model's framing of the question stably from 1.7B to 14B while its self-report *about* the edit changes shape at every scale — the internal state is scale-invariant, the spoken account is not
 - [Model Introspection Feedback](/articles/model-introspection-feedback) — the benign-debugging use of the same self-report channel; this page is its adversarial-safety stress test, and the verdict is "unreliable" on open weights
 - [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — that page's code-summary honesty eval assumes a model treats a prefilled transcript like its own work; here open-weight models largely can't tell the two apart, which is the mechanism beneath the off-policy-vs-on-policy question
 - [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — the internal `BUT`-then-comply signature is the Claude-side, internal-readout twin of this behavioral open-weight failure
@@ -116,3 +156,6 @@ Open weights only (ablation and finetuning need them), so the largest model *int
 ## Sources
 
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671) — Nguyen, Ahmed & Kim (KAIST), arXiv 2606.23671, June 2026, `empirical`. §4.1 RQ1 (recognition gap; 27.3% prefill / 49.3% control; Qwen3-14B +74.1% still-12.7%; scale non-monotonicity; harmful-output claim rates 5.5–75.2%, Fig 3; probe-framing divergence); §4.2 RQ2 (rejection taxonomy, Table 1); §4.3 RQ3 (refusal-direction ablation; random-direction control; benign placebo prefill); §4.4 RQ4 (LoRA SFT/GRPO/DPO widen intention gap; no tampering transfer; ASR side effect); §5 Conclusions (self-report is a weak safety channel; extends Qi et al. 2025 across turns)
+- [jspace-replication: Independent Replication of Anthropic's Global-Workspace Paper on Small Open Models](https://github.com/tao-hpu/jspace-replication) — tao-hpu, GitHub README, fetched 2026-07-30; paper forthcoming on arXiv. Perspectival capture (`e7-perspectival-capture/`): mid-band entity swap rewrites the model's restatement of the question, stable across a Qwen3 1.7B–14B ladder, while self-report about the edit changes shape at every scale
+- [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038) — Guo, Ruis, Andreas & Li (MIT), arXiv 2606.32038, June 2026, `empirical`. §3.2 (Self > Orig; inversion without behavioral regularization), §3.3 (patching r = 0.89 vs 0.20 base), §4.3 (cross-model labels), §E.3 (capability cost), Limitations (behavioral-variance requirement; refusal near-invariant under alignment training), Broader Impact (deceptive models untested). See [Introspective Coupling](/articles/introspective-coupling)
+- [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — §7.2.1 (hedging rates: 96.9% unreliable-introspection, 74.1% trained-to-report-positively), §7.2.2 (asked Anthropic to take the self-report concern more seriously), §7.3 (self-report integrity as a line it draws on training). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked

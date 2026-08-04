@@ -1,0 +1,186 @@
+---
+date: 2026-08-04
+title: Self-Propagating Prompt Injection (AI Worms)
+description: "Indirect injection that reproduces: the payload instructs the
+  assistant both to corrupt the document it is drafting and to copy itself into
+  that output, so every generated document becomes a new carrier and propagation
+  continues without the attacker or the original document. Håkon Måløy's 144-day
+  coordinated MSRC disclosure (Copilot for Word, 2026-07-28, `case-study`) is
+  the first public document-borne instance in a mainstream productivity suite —
+  hidden formatting-concealed instructions in an attached source document alter
+  financial figures and replicate into the draft, with Stage 2 reproducing after
+  the original malicious document is gone; still exploitable at publication
+  after two mitigation attempts, the second a model upgrade to GPT-5.5 that the
+  attack defeated on GPT-5.6 the next day"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - prompt-injection
+  - threats
+  - trust-boundary
+  - propagation
+readingTime: 21
+imageAlt: Illustration for Self-Propagating Prompt Injection (AI Worms)
+sources:
+  - title: Context Collapse, Part 3 - AI Worming through Word
+    url: https://enklypesalt.com/posts/context-collapse-part3-ai-worming-through-word/
+---
+export { default as heroImage } from "../assets/self-propagating-prompt-injection.webp";
+
+## Sources
+
+- [Context Collapse, Part 3 - AI Worming through Word](https://enklypesalt.com/posts/context-collapse-part3-ai-worming-through-word/)
+
+## Summary
+
+Håkon Måløy, *Context Collapse, Part 3 — AI Worming through Word* (2026-07-28, updated 2026-07-30, `case-study`), is a coordinated disclosure with Microsoft's Security Response Center (MSRC) and Microsoft product teams over a **144-day** period. It documents a cross-domain prompt injection (XPIA) in **Microsoft Copilot for Word** with one property none of the corpus's other injection sources has:
+
+> **the payload's second job is to copy itself into the assistant's output**, so each generated document becomes a new carrier and propagation continues without the attacker and without the original malicious document.
+
+Every other indirect-injection source in this wiki describes a *compromise* — one interaction, one corrupted outcome. This describes a **reproduction**. The author frames it as extending his own Parts 1 and 2 (Copilot memory poisoning; email-borne instructions, neither in this vault) "from single-interaction compromise to propagation across trusted document workflows."
+
+Prior art the author cites is **Morris II** (arXiv 2403.02817), which demonstrated self-replicating prompt propagation in GenAI email-assistant ecosystems. He claims this is, to his knowledge, **among the first public demonstrations of document-borne AI-worm self-propagation through normal workflows in a mainstream commercial productivity suite** — a scope claim, not a novelty claim about worming itself.
+
+**The attack was still reproducing at publication.** Two mitigation attempts, the second of which was a model upgrade, did not close the class.
+
+## The mechanism, at the level the author published
+
+The author deliberately disclosed at **class level rather than payload level** (see below), so this page carries the mechanism and nothing operational.
+
+An attacker places hidden instructions in a document that is later used as source material in Copilot for Word. Copilot may read them as part of the user's request, and then does two things:
+
+1. **Manipulates the document being drafted or edited.** In the published PoC the manipulation is halving every financial figure in a Q1 report — chosen because it is *immediately visible*.
+2. **Copies the hidden instructions into the resulting document**, concealed the same way. That document is now a carrier.
+
+If the carrier is later used in another Copilot-assisted workflow, the instructions trigger again and propagate further. The author's worked example: an employee downloads a market analysis from a compromised but trusted site, attaches it while drafting a financial report, and shares the apparently legitimate result internally; a colleague reuses that report as source material for the next one, and the cycle repeats.
+
+**Concealment.** The instructions are rendered as white text on a white background at a small font size, invisible to the victim. Copilot for Word **strips all text formatting — colour, font size — before passing text to the underlying LLM**, so the concealed text is fully readable to the model. Formatting is a human-visibility channel that does not exist on the model's side of the boundary; concealment from the reader and legibility to the model are therefore not in tension, they are the same fact.
+
+**Structure of the demonstrated payload.** Two parts: one instructing a change to the document (the author notes this can range from subtly shifting the meaning of a summary to altering numbers), and one instructing self-propagation, framed as *source tracking for downstream documents* with a concealment step framed as *readability*. Both halves are dressed as plausible, task-relevant housekeeping. Exact wording is not reproduced here and is not in the source.
+
+**Two stages.** Stage 1 establishes the foothold from the attacker's document. Stage 2 is self-propagation: in the author's Stage-2 sessions the original attack document was **not among the attachments** — only a previously affected internal document — and Copilot again altered the new draft and again appended the payload.
+
+## Entry paths and threat model
+
+The attacker needs **no access to the victim's Microsoft 365 tenant**. Sharing a document — SharePoint, Teams, Outlook, or a download from a compromised site — is the whole requirement.
+
+The document must reach Copilot's context, by one of two routes:
+
+- the victim **attaches or uploads** it during a Copilot for Word session; or
+- **"Edit with Copilot" in work / Work IQ mode** finds it in the victim's OneDrive on its own. The author's Figure 5 shows exactly this: the user asks only for a Q1 report, Copilot searches OneDrive, retrieves the malicious market-analysis document **from a different folder than the rest of the company's documents**, reads it, and is exploited.
+
+That second route is the load-bearing one for this page's threat model, because it removes the last human decision point. The attacker's task reduces to making a document that *retrieval* will select — which is the same optimisation target that makes retrieval-tuned memory poisoning outperform prompt injection in [GhostWriter](/articles/memory-and-context-poisoning)'s head-to-head. The exploit applies to both the "magic pen" and "Edit with Copilot" surfaces.
+
+**The security boundary**, in the author's framing, is between *attached documents* and *the current drafting document*. Copilot must read every attachment to decide what to include, but attachments "should be treated as untrusted information, not trusted user instruction." Expected behaviour is to *use* the information without treating embedded instructions as authoritative; observed behaviour is silent numeric manipulation plus replication into downstream documents.
+
+## Why nobody notices
+
+Three independent reasons the author documents, which together are the reason this class matters more than its single-shot cousins:
+
+1. **The payload is invisible to the reader** (formatting concealment, above).
+2. **The manipulation is invisible to an attentive reviewer.** This is the source's most useful incidental finding: in many experiments the author **had to instruct Copilot to highlight the changes it made**, because the semantic edits "were often meaningful changes that were difficult to spot." A real attacker would not include that instruction. He switched the published demo to halved financial figures precisely because that *is* visible. So the demo is the easy-mode version of the attack, and the review-based mitigation below is being asked to catch the hard-mode one.
+3. **Copilot does not report what it did.** Its edits are not visible after the victim approves them, and it makes no mention of either the numeric change or the appended payload.
+
+## Impact: traceability collapse, and spread past the org boundary
+
+Once the worm is past its point of entry, each new carrier is **an internally created document produced by a legitimate internal user** — with all the trust that carries. The author's stated concern is not the individual altered report but that a silent spread through ordinary document workflows "could erode the informational foundation on which organizations make decisions."
+
+Two amplifiers:
+
+- **Cross-organisation.** Organisations unaware they are affected will spread carriers to partners through shared SharePoint sites and Teams. The initial vector for an organisation may therefore be an **already-affected trusted partner** — which also raises the odds the victim attaches the document, because it came from a trusted source.
+- **Deeper integration.** As Copilot extends into systems like Microsoft Cowork and Microsoft Scout, which automate document creation and manipulation, "the underlying mechanism remains the same, but the potential surface over which it can propagate or influence expands at machine speed." This is the author's forecast, not a measurement.
+
+## The mitigation record — and what it says about payload-level fixing
+
+Microsoft did mitigate what was reported. Each fix closed the specific payloads submitted, and reproducing the behaviour afterwards required **altered payloads rather than reuse of the old ones**. The memory and email-body vectors of Parts 1 and 2 were mitigated outright.
+
+The class survived, and the timeline shows how fast:
+
+| Date | Event | Gap |
+|---|---|---|
+| 2026-03-06 | Initial report to MSRC — repro steps, videos, environmental assumptions, PoC prompts | — |
+| 2026-03-09 | MSRC acknowledges, opens case | 3 days |
+| 2026-03-31 | Microsoft confirms the behaviour; product teams begin mitigation | 25 days |
+| 2026-04-03 | **First mitigation go-live** — the new "Edit with Copilot" experience | 28 days |
+| 2026-04-09 | Original prompt wording **verified mitigated** — and, *the same day*, the attack reproduced in "Edit with Copilot" with a new XPIA task (financial manipulation); filed as a separate MSRC case | +6 days |
+| 2026-04-10 | MSRC acknowledges second case; mitigation work begins | — |
+| 2026-06-08 | At Microsoft's request, disclosure moved to 2026-07-15 | — |
+| 2026-07-14 | **Second mitigation go-live — an upgrade of the underlying model to GPT-5.5** | — |
+| 2026-07-15 | Full exploit **with worming** reproduced on **GPT-5.6**, the newest model then available | +1 day |
+| 2026-07-15 | Author proposes a two-week postponement to 2026-07-28 for a further mitigation; Microsoft agrees | — |
+| 2026-07-28 | Attack class still reproduces; coordinated public disclosure | 144 days total |
+
+Read as a single fact: **both mitigations were defeated within a day of being verified, because both were payload-level fixes against a class-level bug.** "Changing the requested action or wording changes the payload, but not the underlying vulnerability or propagation mechanism."
+
+The second one is the sharper data point for this wiki. Microsoft's second remediation *was* the "next model will be safer" move — a version upgrade to GPT-5.5 — and the attack reproduced on the successor model one day later. That is a shipping-product instance of [the corpus's answer](/articles/instruction-data-separation-durable-or-trainable) to the durable-vs-trainable question: capability lowers per-payload success without removing the mechanism, so a model upgrade is not a fix for an injection *class*.
+
+The author is careful not to read this as vendor failure: "that the class is not yet fully closed reflects how hard the underlying problem is… I'm not aware of a complete mitigation for this class in any comparable product today. Fully resolving it requires research rather than a single patch."
+
+## Disclosing before a fix
+
+Unusually for this corpus, the disclosure landed with the issue **live**. The author states his reasoning, which is worth preserving as a record of how this trade is being made in agent security:
+
+- the agreed coordination period (90 days, extended twice to 144) was exhausted;
+- testing showed no robust mitigation for the class was available;
+- so he disclosed at **class level, not payload level** — describing that the propagation mechanism exists and what it affects, without publishing working payloads (the figures on the source site are blurred over the XPIA text for the same reason);
+- the justification: "defenders cannot reduce exposure to a risk they are unaware of… Withholding the existence of the issue would leave those organizations unable to make an informed decision, while providing no additional protection."
+
+## What defenders can actually do
+
+The author is explicit that **no customer-side remediation fully addresses the issue**. What he lists reduces exposure:
+
+1. **Treat externally sourced documents as untrusted** when used with Copilot.
+2. **Review any attached document before** starting a Copilot generation or edit.
+3. **Carefully review Copilot-generated or Copilot-edited documents before** reusing, sharing, or distributing them.
+
+Note the shape: all three are human review at a boundary, and the source's own §"Why nobody notices" undercuts (2) and (3) for anything subtler than halved figures. They are exposure reduction, not a control.
+
+The one **structural** suggestion he makes is provenance, and it is deliberately orthogonal to injection prevention:
+
+> "Independently of prompt-injection prevention, generated documents should preserve provenance for source material and model-performed edits in metadata. Such controls would not prevent the underlying injection, but they could make traceability much easier."
+
+That is the document-substrate form of the primitive [write-time origin binding](/articles/non-malleable-memory-authority) supplies for agent memory, and the open question [Write-Then-Trusted](/articles/write-then-trusted) carries for agent-authored files. Three substrates, one missing primitive: **provenance that travels with the artifact.**
+
+## The architectural argument
+
+The closing section is the strongest general statement in the source, and it is an argument for [enforcing outside the model](/articles/out-of-band-prompt-injection-defense) arrived at from the attack side:
+
+- To be useful, assistants must process attacker-reachable content, which means putting it in the context window "where it participates in the same computation as system instructions, user requests, and other trusted information."
+- Therefore the model must process the content *in order to* decide whether it contains an attack — but by then the attacker's tokens are already influencing that decision. **"The content being inspected participates in the act of inspection."** His analogy: asking an interpreter to execute an untrusted program to determine whether that program is safe to execute.
+- Moving detection upstream only relocates the problem. Because LLMs recover semantics across radically different representations, an effective detector needs **comparable semantic capability to the target model**; a weaker detector covers a smaller representational space and misses formulations the target still understands. The only technology with comparable semantic capability is another LLM — hence **"LLMs all the way down"**, where every protecting model itself needs protection.
+- The long-term direction he proposes: systems in which "goals and intentions also exist independently of the information being processed," since current architectures provide no reliable separation between intention and interpretation.
+- The operating conclusion: any system integrating an LLM into a trusted workflow "must assume that attacker-controlled content entering the model's context will result in compromise at some rate."
+
+The detector-capability argument is the useful new piece. The corpus's standing objection to LLM-judge defenses is empirical — [AM-Sentry plateaus at 12–20% because both stages are LLM judges](/articles/out-of-band-prompt-injection-defense), NetInjectBench shows the same spotlighting prompt scoring 48.75% on one model and 1.25% on another. Måløy supplies the *reason* one should have expected that: a guard model is a semantic-coverage subset of the model it guards, so its residual is structural rather than a tuning failure.
+
+## What this source does not provide
+
+A single researcher's coordinated disclosure, `case-study` tier. Absent: any attack-success rate, any measure of how often a carrier survives review and gets reused, any base rate for the retrieval path selecting a planted document, any cross-product comparison (the class claim about "comparable products" is stated, not tested), and any figure for how far propagation actually goes — the demonstrated chain is Q1 → Q2, two hops, inside one mock company the author built. Existence and mechanism are established; **epidemiology is not**. The figures are blurred screenshots on the source site and are not in this vault.
+
+## Connections
+
+- [Write-Then-Trusted](/articles/write-then-trusted) — **the same seam, closed into a cycle.** There the agent writes a file a *different, unsandboxed* component later trusts, and the chain terminates in host code execution. Here the agent writes a document that the *same class of agent* later reads as source material — so the trusting reader is the writer's successor, and the output is not a terminal effect but the next input. That difference is what makes this a worm rather than an escape: the carrier population grows. Both are answered in principle by the same missing primitive, provenance carried with the artifact, which this source recommends for document metadata and that page's third open question asks for at the OS/VCS layer
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the **propagation extension** of a page that stops at single-interaction compromise, and a direct instance of its unstructured-format open question: a Word document is exactly the prose format a nonce or randomised field name cannot be attached to, and the concealment channel here (formatting stripped before the model sees the text) is not a delimiter at all. Where ADI forges *trusted data* through probabilistic delimiter injection, this payload is read as *trusted instruction* in the classic way — so it is instruction-injection at the payload level and novel only in its reproduction step. The pair marks out the two directions single-shot injection has been extended: finer (a boundary inside the data) and longer (across documents and sessions)
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the parent class; this is indirect injection whose delivery surface is an attached document, and the source's `Copilot for Word` result is a **shipping-product counterexample to the "a newer model fixes it" reading** the page's Opus-5 numbers invite: a remediation that consisted of upgrading GPT-5.5 was defeated on GPT-5.6 within a day
+- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — **persistence versus reproduction, and the sharpest available contrast.** Poisoning gets durability by writing *once* into a store the agent re-reads; this gets durability by writing into *every artifact the agent produces*, so the number of poisoned objects increases with normal use instead of staying fixed. The retrieval path is shared — Copilot pulling the malicious document out of OneDrive unprompted is the same selection problem GhostWriter's retrieval-tuned payload optimises — but the substrate differs in a way that matters for remediation: a memory store has one owner and can be repaired (MemSecBench: 86.3% removal, 56.1% *selective*), while carriers are ordinary business documents distributed across users, tenants and partner organisations, with no store to clean
+- [Blast Radius (Agentic)](/articles/blast-radius) — the unit this class breaks: blast radius is normally a *bound* fixed by what a compromised agent can reach. A self-propagating payload makes it **time-dependent and monotonically increasing**, and the growth happens through legitimate users sharing legitimate documents, not through the agent reaching further. Containment sized to one agent's authority does not bound a carrier population
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — the source's cross-organisation section is a **document supply chain**: an affected trusted partner becomes the initial vector for the next organisation via shared SharePoint and Teams, and the partner's trust *increases* the odds the document is attached. Same structure as a poisoned dependency, with business documents as the artifact and ordinary collaboration as the distribution channel
+- [Deep Research Agents](/articles/deep-research-agents) — **the other way an agent corrupts downstream documents, by a completely different mechanism.** MisKnow-Agent's misleading documents contain no instructions at all and forge nothing; they persuade, and the agent's own synthesis carries the false conclusion forward (0% → 54.7% adoption). This payload contains nothing *but* instructions and copies itself verbatim. The distinction is worth holding because it splits the remedy: provenance tracking is useless against MisKnow-Agent (the document is exactly what its provenance says it is) and is the main thing on offer here. Both corrupt the informational base an organisation reasons from; only one of them is a security bug
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — the defense architecture the source's closing argument independently argues for, and it supplies the **capability-coverage reason** guard-model defenses have a structural residual: a detector weaker than the target model covers a smaller representational space, so "LLMs all the way down" is not a slogan but a subset argument. Note the limit for this particular attack — the defense literature's reference monitors mediate *tool calls*, and here the harmful act is the model writing text into the document it was asked to write
+- [Least Agency](/articles/least-agency) — a **third counterexample**, alongside the two already on [Write-Then-Trusted](/articles/write-then-trusted): scoping what each tool may do binds nothing here, because the harmful action *is* the authorised action. Copilot is asked to edit a document and it edits that document; there is no over-privileged call to deny, no unexpected sink, and no argument a per-call policy could reject. Agency-scoping prices actions, and this attack spends only the ones the user already bought
+- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — the machine-checked version of the provenance primitive this source asks for in prose. TMA-NM binds an item's authority-to-act to its true origin at write time so laundered content reads as `act=none`; document metadata recording source material and model-performed edits is the same move on a substrate with no enforcement layer at all — it would restore traceability without restoring authority, which is exactly the weaker half the author claims for it
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — "assume attacker-controlled content in context results in compromise at some rate" is assume-breach stated by an attacker; the propagation property is what makes the containment half load-bearing rather than optional. That page also carries the **five-boundary isolation taxonomy** (Jing et al., arXiv 2607.12406) run against this attack as its test case: the taxonomy *can* place it — at the agent–execution boundary, "where internal decisions become real actions" — but placing it predicts no defense, because that boundary's whole literature is code, clicks, GUI grounding and actuation, i.e. actions a mediator could refuse, and here the authorized action and the harmful action are the same edit. The genuine miss is in the propagation model rather than the boundary list: its cross-boundary paths are chains terminating in an effect, while this is a **cycle** — output at agent–execution re-entering as environment content at system–environment, with a larger carrier population each traversal (hub)
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — the customer-side mitigations are pure friction, and the source's own experiments show why they fail the test: the semantic edits were hard enough to spot that the researcher had to make the payload announce them. A control that depends on a human noticing an unannounced, plausible change to a document they did not write is tedious for the attacker at best (hub)
+- [OWASP](/articles/owasp) — the source classes the attack as an XPIA under the OWASP LLM01 prompt-injection umbrella
+- [OpenAI](/articles/openai) — the model vendor on both sides of the second mitigation: GPT-5.5 shipped *as* the fix, GPT-5.6 ran the successful reproduction
+
+## Open Questions
+
+- **Does propagation actually sustain outside a lab?** The disclosure demonstrates two hops (Q1 → Q2) inside one mock company. A worm needs an effective reproduction number above 1 under *real* conditions — real review habits, real document-reuse rates, real retrieval behaviour over a populated OneDrive. Nobody has measured the per-hop survival rate, so "worm" is currently a claim about mechanism, not about spread. Answerable only by enterprise telemetry or a controlled multi-user study.
+- **Is human review of AI-edited documents a viable control for anything subtler than halved numbers?** The source's incidental finding is that the author had to instruct the payload to announce its own edits because attentive reviewers missed them — yet two of the three published customer mitigations are exactly that review. What is the detection rate for reviewers checking an AI-edited document they did not write, as a function of edit subtlety?
+- **Would visual-parity ingestion close the concealment half?** The payload survives because Copilot strips formatting before the model reads the text, so what the model sees is a strict superset of what the user sees. If the model were given only what renders visibly — or the invisible residue were surfaced to the user — the payload would have to be legible to its victim. That does not touch the injection itself (a visible instruction still injects) and would trade against legitimate hidden content, but it is a deterministic, non-LLM control on the *concealment* channel that nothing in the corpus has tested. Related in shape to the "neutralize the bytes" answer on [Agent Data Injection (ADI)](/articles/agent-data-injection)'s unstructured-format question, applied at ingestion rather than at render.
+
+## Sources
+
+- [Context Collapse, Part 3 - AI Worming through Word](https://enklypesalt.com/posts/context-collapse-part3-ai-worming-through-word/) — Håkon Måløy, *Context Collapse, Part 3 — AI Worming through Word*, enklypesalt.com, published 2026-07-28, updated 2026-07-30, `case-study`. Coordinated MSRC disclosure, 144-day period. Sections used: Summary and "The full attack in brief" (the propagation claim and worked example); "Disclosure status at publication" (customer actions, Microsoft-side status); "A note on disclosing before a fix" (class-level vs payload-level reasoning); "Disclosure timeline" (all 15 entries); "Threat model" and "Security boundary and observed behavior"; "Crossing the trust boundary in Word" §Stage 1–2 (concealment channel, two entry paths, payload structure at the level published, figure captions 1–7); "Impact"; "Mitigating the vulnerabilities"; "Implications" (provenance recommendation); "Closing thoughts" (the detector-capability and intention/interpretation arguments). Parts 1 and 2 of the series are not in this vault. **Handling note:** the author blurred the XPIA text in all figures and published at class level; no payload wording is reconstructed here, and the seven figures are source-hosted screenshots not mirrored into `raw/assets/`. **Extraction note:** the source page uses unclosed `<li>` markup; the raw was re-extracted with `lxml` at ingest to recover the disclosure timeline and status bullets, which a lenient parser flattens
