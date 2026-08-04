@@ -495,9 +495,11 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
               ))}
             </fieldset>
           </div>
+          {/* min-w-0 beats the UA `fieldset { min-inline-size: min-content }`,
+              without which the chips widen the box instead of scrolling in it. */}
           <fieldset
             aria-label="Filter by domain"
-            className="flex gap-2 overflow-x-auto pb-3"
+            className="flex min-w-0 gap-2 overflow-x-auto pb-3"
           >
             <button
               aria-pressed={domain === null}
