@@ -124,7 +124,6 @@ export function checkGraphSlugRefs(
         ])
       ),
     ],
-    ["outgoing", graph.outgoing ?? {}],
     ["related", graph.related ?? {}],
   ];
   for (const [relation, edges] of relations) {

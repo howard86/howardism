@@ -129,7 +129,7 @@ describe("buildManifests", () => {
       )
     );
 
-    expect(Object.keys(set.graph.outgoing)).toEqual(["live"]);
+    expect(Object.keys(set.graph.backlinks)).toEqual(["live"]);
   });
 });
 

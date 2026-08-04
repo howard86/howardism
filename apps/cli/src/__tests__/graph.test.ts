@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
+import {
+  parseArticleGraph,
+  transpose,
+} from "@howardism/article-contract/manifests/graph";
 import {
   buildArticleGraph,
   emitArticleGraph,
@@ -66,7 +69,7 @@ describe("buildArticleGraph", () => {
     });
 
     expect(graph.generatedOn).toBe("2026-05-14");
-    expect(graph.outgoing).toEqual({
+    expect(Object.fromEntries(transpose(graph.backlinks))).toEqual({
       a: ["b", "c"],
       b: ["a"],
       c: ["b"],
@@ -95,8 +98,9 @@ describe("buildArticleGraph", () => {
       generatedOn: "2026-05-14",
     });
 
-    expect(graph.outgoing.a).toEqual(["b"]);
-    expect(graph.outgoing.b).toEqual([]);
+    const outgoing = transpose(graph.backlinks);
+    expect(outgoing.get("a")).toEqual(["b"]);
+    expect(outgoing.get("b")).toEqual([]);
     // Three live links to b (two bare, one anchored) collapse to one weighted edge.
     expect(graph.backlinks.b).toEqual([{ slug: "a", count: 3 }]);
   });
@@ -117,11 +121,12 @@ describe("buildArticleGraph", () => {
     });
 
     // c is archived → no entries for c anywhere, and links to c are dropped.
-    expect(Object.keys(graph.outgoing).sort()).toEqual(["a", "b"]);
+    const outgoing = transpose(graph.backlinks);
+    expect([...outgoing.keys()].sort()).toEqual(["a", "b"]);
     expect(Object.keys(graph.backlinks).sort()).toEqual(["a", "b"]);
     expect(Object.keys(graph.related).sort()).toEqual(["a", "b"]);
-    expect(graph.outgoing.a).toEqual(["b"]);
-    expect(graph.outgoing.b).toEqual(["a"]);
+    expect(outgoing.get("a")).toEqual(["b"]);
+    expect(outgoing.get("b")).toEqual(["a"]);
     expect(graph.backlinks.a).toEqual([{ slug: "b", count: 1 }]);
     expect(graph.backlinks.b).toEqual([{ slug: "a", count: 1 }]);
   });
@@ -169,7 +174,7 @@ describe("buildArticleGraph", () => {
         slug: "heavy",
         count: 3,
         context:
-          "The harness shrinks as models improve, which is exactly what B argues once you stop treating scaffolding as permanent.",
+          "The harness shrinks as models improve, which is exactly what B argues once you stop treating…",
       },
       // A bare list entry carries no prose, so it gets no quote.
       { slug: "light", count: 1 },
@@ -226,7 +231,6 @@ describe("emitArticleGraph", () => {
 
     const parsed = JSON.parse(await readFile(outputPath, "utf8"));
     expect(parsed.generatedOn).toBe("2026-05-14");
-    expect(parsed.outgoing).toEqual({ a: ["b"], b: ["a"] });
     expect(parsed.backlinks).toEqual({
       a: [{ slug: "b", count: 1 }],
       b: [{ slug: "a", count: 1 }],
@@ -254,7 +258,6 @@ describe("parseArticleGraph", () => {
   it("normalises pre-weighting manifests that store bare backlink slugs", () => {
     const graph = parseArticleGraph({
       backlinks: { a: ["b", { slug: "c", count: 2, context: "prose" }] },
-      outgoing: {},
       related: {},
       generatedOn: "2026-05-14",
     });
@@ -262,5 +265,21 @@ describe("parseArticleGraph", () => {
       { slug: "b", count: 1 },
       { slug: "c", count: 2, context: "prose" },
     ]);
+  });
+});
+
+describe("transpose", () => {
+  it("round-trips a small backlinks map and maps a slug with no outbound edges to []", () => {
+    // b links to a (backlinks.a lists b); nothing links to b, and a links to
+    // nothing, so a's outbound edges are empty.
+    const backlinks = {
+      a: [{ slug: "b", count: 1 }],
+      b: [],
+    };
+
+    expect(Object.fromEntries(transpose(backlinks))).toEqual({
+      a: [],
+      b: ["a"],
+    });
   });
 });
