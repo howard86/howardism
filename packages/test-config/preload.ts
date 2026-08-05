@@ -4,9 +4,13 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { plugin } from "bun";
 import React from "react";
 import YAML from "yaml";
-import "@testing-library/jest-dom";
 
 GlobalRegistrator.register();
+
+// jest-dom v7 statically imports `@testing-library/dom`, whose `screen` binds to
+// `document.body` at module-evaluation time. A static import here would be hoisted
+// above `register()` and leave `screen` permanently throwing, so load it after.
+await import("@testing-library/jest-dom");
 
 // next/image and next/link depend on the Next.js runtime, so we stub them
 // with plain HTML equivalents for component tests.

@@ -512,7 +512,6 @@ export function parseUsage(
   if (engine === "cursor") {
     return parseCursorUsage(result.stdout);
   }
-  return;
 }
 
 /**

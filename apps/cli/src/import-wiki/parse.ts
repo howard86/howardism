@@ -289,7 +289,6 @@ function normalisePublished(value: unknown): string | undefined {
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim();
   }
-  return;
 }
 
 function humanizeRawSlug(slug: string): string {
