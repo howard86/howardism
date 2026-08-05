@@ -45,12 +45,7 @@ export function buildArticleGraph(args: BuildArticleGraphArgs): ArticleGraph {
   const related = computeRelated(sortedSlugs, outgoingSets, backlinkSets);
   const backlinks = buildBacklinks(occurrences, sortedSlugs);
 
-  const outgoing: Record<string, string[]> = {};
-  for (const slug of sortedSlugs) {
-    outgoing[slug] = [...(outgoingSets.get(slug) ?? new Set())].sort();
-  }
-
-  return { generatedOn, outgoing, backlinks, related };
+  return { generatedOn, backlinks, related };
 }
 
 /** Per-source links to live articles — self-links and dangling targets dropped. */

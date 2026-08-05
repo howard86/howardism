@@ -87,14 +87,14 @@ describe("deriveKeywords", () => {
   const graph = parseArticleGraph({
     generatedOn: "2026-08-03",
     backlinks: { "agent-loop-pattern": ["hermes-agent"] },
-    outgoing: { "agent-loop-pattern": ["claude-code"] },
     related: { "agent-loop-pattern": ["rlhf"] },
   });
+  const outgoing = new Map([["agent-loop-pattern", ["claude-code"]]]);
 
   it("ranks neighbour tags by how many neighbours share them", () => {
     // Backlinks, outgoing and related all contribute; "harness" (2 neighbours)
     // outranks the singletons, which tie and fall back to alphabetical order.
-    expect(deriveKeywords(subject, graph, tagsBySlug)).toBe(
+    expect(deriveKeywords(subject, graph, tagsBySlug, outgoing)).toBe(
       "harness alignment cli-agent"
     );
   });
@@ -102,13 +102,15 @@ describe("deriveKeywords", () => {
   it("drops tags the article already carries", () => {
     // "automation" is on claude-code but is the subject's own tag, and own tags
     // are already indexed at a higher weight than keywords.
-    expect(deriveKeywords(subject, graph, tagsBySlug)).not.toContain(
+    expect(deriveKeywords(subject, graph, tagsBySlug, outgoing)).not.toContain(
       "automation"
     );
   });
 
   it("honours the keyword limit", () => {
-    expect(deriveKeywords(subject, graph, tagsBySlug, 1)).toBe("harness");
+    expect(deriveKeywords(subject, graph, tagsBySlug, outgoing, 1)).toBe(
+      "harness"
+    );
   });
 
   it("normalises weighted backlink edges to the same shape as bare slugs", () => {
@@ -117,14 +119,15 @@ describe("deriveKeywords", () => {
       backlinks: {
         "agent-loop-pattern": [{ slug: "hermes-agent", count: 3 }],
       },
-      outgoing: {},
       related: {},
     });
-    expect(deriveKeywords(subject, weighted, tagsBySlug)).toBe("harness");
+    expect(deriveKeywords(subject, weighted, tagsBySlug, new Map())).toBe(
+      "harness"
+    );
   });
 
   it("returns an empty string for an article with no neighbours", () => {
     const orphan = { ...subject, slug: "orphan" };
-    expect(deriveKeywords(orphan, graph, tagsBySlug)).toBe("");
+    expect(deriveKeywords(orphan, graph, tagsBySlug, outgoing)).toBe("");
   });
 });

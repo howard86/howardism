@@ -111,7 +111,6 @@ describe("checkGraphSlugRefs", () => {
   it("passes when all keys and values are real articles", () => {
     const graph: ArticleGraph = {
       backlinks: { a: [{ slug: "b", count: 1 }], b: [{ slug: "a", count: 1 }] },
-      outgoing: { a: ["b"] },
       related: { b: ["a"] },
       generatedOn: "2026-01-01",
     };
@@ -120,8 +119,10 @@ describe("checkGraphSlugRefs", () => {
 
   it("flags a dangling value slug and a dangling key slug", () => {
     const graph: ArticleGraph = {
-      backlinks: { a: [{ slug: "ghost", count: 1 }] },
-      outgoing: { phantom: ["a"] },
+      backlinks: {
+        a: [{ slug: "ghost", count: 1 }],
+        phantom: [{ slug: "a", count: 1 }],
+      },
       related: {},
       generatedOn: "2026-01-01",
     };

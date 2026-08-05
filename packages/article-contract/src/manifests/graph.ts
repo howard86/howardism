@@ -36,7 +36,6 @@ const backlinkList = z.array(
 export const ArticleGraphSchema = z.object({
   backlinks: z.record(z.string(), backlinkList),
   generatedOn: z.string(),
-  outgoing: z.record(z.string(), slugList),
   related: z.record(z.string(), slugList),
 });
 
@@ -45,3 +44,23 @@ export type ArticleGraph = z.infer<typeof ArticleGraphSchema>;
 /** Parse + validate a raw article-graph manifest; throws on drift. */
 export const parseArticleGraph = (data: unknown): ArticleGraph =>
   ArticleGraphSchema.parse(data);
+
+/**
+ * Outbound edges, derived from `backlinks` — `a -> b` exists iff `backlinks[b]`
+ * contains `a`. The manifest stores only the inbound direction; this rebuilds
+ * the other one for callers that need it. Every backlink key is present, so a
+ * slug with no outbound links maps to an empty array.
+ */
+export const transpose = (
+  backlinks: ArticleGraph["backlinks"]
+): Map<string, string[]> => {
+  const out = new Map<string, string[]>(
+    Object.keys(backlinks).map((slug) => [slug, []])
+  );
+  for (const [target, edges] of Object.entries(backlinks)) {
+    for (const edge of edges) {
+      out.get(edge.slug)?.push(target);
+    }
+  }
+  return out;
+};

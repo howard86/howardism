@@ -87,7 +87,7 @@ export function extractInternalSlugs(
  * description instead.
  */
 const MIN_CONTEXT_CHARS = 60;
-const MAX_CONTEXT_CHARS = 160;
+const MAX_CONTEXT_CHARS = 100;
 
 const HEADING_MARKER_RE = /^#{1,6}\s+/;
 const LIST_MARKER_RE = /^[>\s]*(?:[-*+]|\d+\.)\s+/;

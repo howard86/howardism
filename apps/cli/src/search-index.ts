@@ -23,6 +23,7 @@ import { dirname, resolve } from "node:path";
 import {
   type ArticleGraph,
   parseArticleGraph,
+  transpose,
 } from "@howardism/article-contract/manifests/graph";
 import {
   type SearchIndex,
@@ -81,13 +82,19 @@ export function buildSearchEntry(
 
 /**
  * Every slug `slug` links to, is linked from, or is listed as related to.
- * Backlink edges carry a weight object in the current manifest shape and a bare
- * slug in the legacy one; the contract accepts both, so both are normalised.
+ * Outbound links come from the caller's transposed `backlinks` map, since the
+ * manifest itself only stores the inbound direction. Backlink edges carry a
+ * weight object in the current manifest shape and a bare slug in the legacy
+ * one; the contract accepts both, so both are normalised.
  */
-function neighbourSlugs(graph: ArticleGraph, slug: string): Set<string> {
+function neighbourSlugs(
+  graph: ArticleGraph,
+  slug: string,
+  outgoing: Map<string, string[]>
+): Set<string> {
   return new Set([
     ...(graph.backlinks[slug] ?? []).map((edge) => edge.slug),
-    ...(graph.outgoing[slug] ?? []),
+    ...(outgoing.get(slug) ?? []),
     ...(graph.related[slug] ?? []),
   ]);
 }
@@ -107,11 +114,12 @@ export function deriveKeywords(
   entry: PartialSearchEntry,
   graph: ArticleGraph,
   tagsBySlug: Map<string, string[]>,
+  outgoing: Map<string, string[]>,
   limit = KEYWORD_LIMIT
 ): string {
   const own = new Set(entry.tags ?? []);
   const shared = new Map<string, number>();
-  for (const neighbour of neighbourSlugs(graph, entry.slug)) {
+  for (const neighbour of neighbourSlugs(graph, entry.slug, outgoing)) {
     for (const tag of tagsBySlug.get(neighbour) ?? []) {
       if (!own.has(tag)) {
         shared.set(tag, (shared.get(tag) ?? 0) + 1);
@@ -148,9 +156,10 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
   const tagsBySlug = new Map(
     partials.map((entry) => [entry.slug, entry.tags ?? []])
   );
+  const outgoing = transpose(graph.backlinks);
   const entries = partials.map((entry) => ({
     ...entry,
-    keywords: deriveKeywords(entry, graph, tagsBySlug),
+    keywords: deriveKeywords(entry, graph, tagsBySlug, outgoing),
   }));
 
   return { generatedOn, entries };
