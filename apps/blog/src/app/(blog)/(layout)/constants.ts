@@ -16,6 +16,8 @@ export const FOOTER_NAV: { label: string; href: string }[] = [
   { label: "Questions", href: "/questions" },
   { label: "Shelf", href: "/shelf" },
   { label: "RSS", href: "/rss/feed.xml" },
+  { label: "Support", href: "/support" },
+  { label: "Privacy", href: "/privacy" },
 ];
 
 /** Machine-readable maps of the site — footer only, not part of the nav. */
