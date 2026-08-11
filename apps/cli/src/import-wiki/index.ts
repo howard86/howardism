@@ -77,6 +77,12 @@ interface ImportSummary {
   domainDisagreements: Map<string, { frontmatter: string; moc: string }>;
   /** Slugs whose frontmatter `kind:` disagrees with `moc-entities.md`. */
   entityTypeDisagreements: Map<string, { frontmatter: string; moc: string }>;
+  /**
+   * Slugs whose description came from the first-paragraph fallback only — no
+   * `summary:` frontmatter, no index.md entry, no MOC blockquote. A spike
+   * here means a vault digest/frontmatter source went missing on import.
+   */
+  fallbackDescriptions: string[];
   graphPath: string | null;
   imagesCached: string[];
   imagesGenerated: string[];
@@ -193,6 +199,23 @@ async function main(): Promise<void> {
   }
 
   printSummary(summary);
+
+  // This failure class — the vault regenerates a digest/frontmatter source
+  // and the importer silently degrades to the first-paragraph heuristic —
+  // has hit three times. A `--only` re-import of a single article is exempt;
+  // it can't move the corpus-wide ratio anyway.
+  if (!opts.onlySlug && toEmit.length > 0) {
+    const fallbackRatio = summary.fallbackDescriptions.length / toEmit.length;
+    if (fallbackRatio > 0.1) {
+      const examples = summary.fallbackDescriptions.slice(0, 5).join(", ");
+      throw new Error(
+        `${summary.fallbackDescriptions.length}/${toEmit.length} article descriptions ` +
+          `(${Math.round(fallbackRatio * 100)}%) fell back to the first-paragraph ` +
+          "heuristic — likely vault frontmatter/digest drift (missing `summary:` " +
+          `frontmatter or index.md entries). Examples: ${examples}`
+      );
+    }
+  }
 }
 
 interface ImportContext {
@@ -257,6 +280,7 @@ function createSummary(): ImportSummary {
     articlesWritten: [],
     domainDisagreements: new Map(),
     entityTypeDisagreements: new Map(),
+    fallbackDescriptions: [],
     graphPath: null,
     imagesGenerated: [],
     imagesCached: [],
@@ -327,6 +351,9 @@ async function processArticle(
     indexSummary ||
     mocDescription ||
     stripWikilinksToText(firstParagraph(parsed.body));
+  if (!(frontmatterSummary || indexSummary || mocDescription)) {
+    summary.fallbackDescriptions.push(slug);
+  }
   const explicitOverride = ctx.overrides[slug];
   const defaultTag: WikiTag =
     source.folder === "concepts" ? "Concept" : "Essay";
@@ -660,6 +687,9 @@ async function assertExists(path: string, label: string): Promise<void> {
 function printSummary(summary: ImportSummary): void {
   console.log("\n=== Import summary ===");
   console.log(`Articles written: ${summary.articlesWritten.length}`);
+  console.log(
+    `Descriptions from first-paragraph fallback: ${summary.fallbackDescriptions.length}`
+  );
   console.log(`Images generated: ${summary.imagesGenerated.length}`);
   console.log(`Images cached:    ${summary.imagesCached.length}`);
   if (summary.graphPath) {
