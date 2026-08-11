@@ -20,7 +20,7 @@ import {
   resolveDomain,
 } from "./domains.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
-import { buildEntityTypeMembership } from "./entity-types.ts";
+import { buildEntityTypeMembership, isEntityNote } from "./entity-types.ts";
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import {
   buildSlugTitleMap,
@@ -321,11 +321,14 @@ async function processArticle(
   const defaultTag: WikiTag =
     source.folder === "concepts" ? "Concept" : "Essay";
 
-  // Always strip the editorial `_Entity._` marker. If the article is otherwise
-  // a default-tagged Concept (no explicit override), promote it to Entity.
-  // An explicit override wins over everything — that's the manual escape hatch.
-  const { description: cleanedDescription, isEntity } =
+  // Always strip the editorial `_Entity._` marker (it also drives the legacy
+  // fallback signal); frontmatter `type: entity` is the primary signal now.
+  // If the article is otherwise a default-tagged Concept (no explicit
+  // override), promote it to Entity. An explicit override wins over
+  // everything — that's the manual escape hatch.
+  const { description: cleanedDescription, isEntity: hasEntityMarker } =
     detectEntityPrefix(rawDescription);
+  const isEntity = isEntityNote(frontmatter.type, hasEntityMarker);
   const tag = resolveTag({
     explicitOverride,
     isIndexPage,

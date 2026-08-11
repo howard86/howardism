@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { buildEntityTypeMembership } from "../import-wiki/entity-types.ts";
+import {
+  buildEntityTypeMembership,
+  isEntityNote,
+} from "../import-wiki/entity-types.ts";
 import type { ParsedWikiFile } from "../import-wiki/parse.ts";
 
 const UNKNOWN_HEADING_ERROR = /Nonsense/;
@@ -39,5 +42,20 @@ describe("buildEntityTypeMembership", () => {
     expect(() =>
       buildEntityTypeMembership([moc("### Nonsense\n- [[blast-radius]]\n")])
     ).toThrow(UNKNOWN_HEADING_ERROR);
+  });
+});
+
+describe("isEntityNote", () => {
+  it("is true when frontmatter type is entity", () => {
+    expect(isEntityNote("entity", false)).toBe(true);
+  });
+
+  it("is true when the legacy inline marker is present", () => {
+    expect(isEntityNote(undefined, true)).toBe(true);
+  });
+
+  it("is false when neither signal is present", () => {
+    expect(isEntityNote("derived", false)).toBe(false);
+    expect(isEntityNote(undefined, false)).toBe(false);
   });
 });

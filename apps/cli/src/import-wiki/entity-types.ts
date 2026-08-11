@@ -87,3 +87,15 @@ export function buildEntityTypeMembership(
 
   return membership;
 }
+
+/**
+ * Is this note an Entity? The vault now sets `type: entity` in frontmatter;
+ * the old `_Entity._`/`*Entity.*` inline marker still lingers on a handful of
+ * pages, so either signal counts.
+ */
+export function isEntityNote(
+  frontmatterType: string | undefined,
+  hasEntityMarker: boolean
+): boolean {
+  return frontmatterType === "entity" || hasEntityMarker;
+}
