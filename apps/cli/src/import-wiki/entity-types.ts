@@ -10,13 +10,14 @@
  * `EntityType` union and `ENTITY_TYPES` array. This file owns only the
  * derivation logic that maps entity slugs → types.
  */
-import type { EntityType } from "@howardism/article-contract";
+import { ENTITY_TYPES, type EntityType } from "@howardism/article-contract";
 
 import type { ParsedWikiFile } from "./parse.ts";
 import { extractInternalSlugs } from "./wikilink.ts";
 
 const ENTITIES_MOC_SLUG = "moc-entities";
 const SECTION_HEADING_RE = /^###\s+(.+)$/gm;
+const ENTITY_TYPE_SET: ReadonlySet<string> = new Set(ENTITY_TYPES);
 
 /** `### <Heading>` text -> `EntityType`, sourced from `moc-entities.md`. */
 const HEADING_TO_ENTITY_TYPE: Record<string, EntityType> = {
@@ -98,4 +99,31 @@ export function isEntityNote(
   hasEntityMarker: boolean
 ): boolean {
   return frontmatterType === "entity" || hasEntityMarker;
+}
+
+/**
+ * Resolve a single entity's type: a valid frontmatter `kind:` wins over
+ * `moc-entities.md` section membership, which remains the fallback for the
+ * pages that don't set it yet.
+ *
+ * Throws on an unrecognised `kind:` value — same reasoning as
+ * `buildEntityTypeMembership`'s `unknownHeadings` guard.
+ */
+export function resolveEntityType(
+  slug: string,
+  membership: ReadonlyMap<string, EntityType>,
+  frontmatterKind: string | undefined
+): EntityType | undefined {
+  if (frontmatterKind) {
+    if (!ENTITY_TYPE_SET.has(frontmatterKind)) {
+      throw new Error(
+        `"${slug}" has kind: "${frontmatterKind}", which isn't a known entity type.\n` +
+          "The vault's entity-type taxonomy has drifted from the code. Add it to:\n" +
+          "  1. ENTITY_TYPES           packages/article-contract/src/index.ts\n" +
+          "  2. HEADING_TO_ENTITY_TYPE apps/cli/src/import-wiki/entity-types.ts"
+      );
+    }
+    return frontmatterKind as EntityType;
+  }
+  return membership.get(slug);
 }

@@ -3,10 +3,12 @@ import { describe, expect, it } from "bun:test";
 import {
   buildEntityTypeMembership,
   isEntityNote,
+  resolveEntityType,
 } from "../import-wiki/entity-types.ts";
 import type { ParsedWikiFile } from "../import-wiki/parse.ts";
 
 const UNKNOWN_HEADING_ERROR = /Nonsense/;
+const UNKNOWN_KIND_ERROR = /nonsense-kind/;
 
 function moc(body: string): ParsedWikiFile {
   return {
@@ -57,5 +59,33 @@ describe("isEntityNote", () => {
   it("is false when neither signal is present", () => {
     expect(isEntityNote("derived", false)).toBe(false);
     expect(isEntityNote(undefined, false)).toBe(false);
+  });
+});
+
+describe("resolveEntityType", () => {
+  const membership = new Map([["andrej-karpathy", "person" as const]]);
+
+  it("prefers a valid frontmatter kind over MOC membership", () => {
+    expect(
+      resolveEntityType("andrej-karpathy", membership, "organization")
+    ).toBe("organization");
+  });
+
+  it("falls back to MOC membership when frontmatter kind is absent", () => {
+    expect(resolveEntityType("andrej-karpathy", membership, undefined)).toBe(
+      "person"
+    );
+  });
+
+  it("returns undefined when neither frontmatter kind nor membership has it", () => {
+    expect(
+      resolveEntityType("unknown-slug", membership, undefined)
+    ).toBeUndefined();
+  });
+
+  it("throws on an unrecognised frontmatter kind", () => {
+    expect(() =>
+      resolveEntityType("andrej-karpathy", membership, "nonsense-kind")
+    ).toThrow(UNKNOWN_KIND_ERROR);
   });
 });

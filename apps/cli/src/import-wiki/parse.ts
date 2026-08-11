@@ -27,7 +27,9 @@ export interface WikiFrontmatter {
    */
   archived?: boolean;
   created?: string;
+  domain?: string;
   generated?: string;
+  kind?: string;
   question?: string;
   sources?: string[];
   summary?: string;

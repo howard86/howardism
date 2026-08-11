@@ -20,7 +20,11 @@ import {
   resolveDomain,
 } from "./domains.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
-import { buildEntityTypeMembership, isEntityNote } from "./entity-types.ts";
+import {
+  buildEntityTypeMembership,
+  isEntityNote,
+  resolveEntityType,
+} from "./entity-types.ts";
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import {
   buildSlugTitleMap,
@@ -69,6 +73,10 @@ interface RunOptions {
 
 interface ImportSummary {
   articlesWritten: string[];
+  /** Slugs whose frontmatter `domain:` disagrees with their MOC membership. */
+  domainDisagreements: Map<string, { frontmatter: string; moc: string }>;
+  /** Slugs whose frontmatter `kind:` disagrees with `moc-entities.md`. */
+  entityTypeDisagreements: Map<string, { frontmatter: string; moc: string }>;
   graphPath: string | null;
   imagesCached: string[];
   imagesGenerated: string[];
@@ -247,6 +255,8 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
 function createSummary(): ImportSummary {
   return {
     articlesWritten: [],
+    domainDisagreements: new Map(),
+    entityTypeDisagreements: new Map(),
     graphPath: null,
     imagesGenerated: [],
     imagesCached: [],
@@ -338,18 +348,43 @@ async function processArticle(
 
   const tags = normaliseTags(frontmatter.tags);
 
-  const domain = resolveDomain(slug, ctx.domainMembership);
+  // `syntheses` is a blog-side browse axis for essays, not a vault fact. The
+  // vault now files derived notes under a topical `domain:` as well, and
+  // adopting it here would refile all 38 essays and empty the axis — so
+  // concepts take their frontmatter domain, essays keep the fallback.
+  const frontmatterDomain =
+    source.folder === "derived" ? undefined : frontmatter.domain;
+  const domain = resolveDomain(slug, ctx.domainMembership, frontmatterDomain);
+  const mocDomain = ctx.domainMembership.get(slug);
+  if (frontmatterDomain && mocDomain && frontmatterDomain !== mocDomain) {
+    summary.domainDisagreements.set(slug, {
+      frontmatter: frontmatterDomain,
+      moc: mocDomain,
+    });
+  }
   // A concept the vault forgot to file under any MOC lands in `syntheses` by
   // fallback — flag it so the author can curate it into the right domain.
   if (
     source.folder === "concepts" &&
     !isMocSlug(slug) &&
-    !ctx.domainMembership.has(slug)
+    !ctx.domainMembership.has(slug) &&
+    !frontmatterDomain
   ) {
     summary.unmappedConcepts.add(slug);
   }
 
-  const entityType = ctx.entityTypeMembership.get(slug);
+  const entityType = resolveEntityType(
+    slug,
+    ctx.entityTypeMembership,
+    frontmatter.kind
+  );
+  const mocEntityType = ctx.entityTypeMembership.get(slug);
+  if (frontmatter.kind && mocEntityType && frontmatter.kind !== mocEntityType) {
+    summary.entityTypeDisagreements.set(slug, {
+      frontmatter: frontmatter.kind,
+      moc: mocEntityType,
+    });
+  }
 
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
@@ -661,6 +696,25 @@ function printSummary(summary: ImportSummary): void {
     );
     for (const [slug, targets] of summary.missingRawSources) {
       console.log(`  ${slug} -> ${[...targets].join(", ")}`);
+    }
+  }
+  if (summary.domainDisagreements.size > 0) {
+    console.log(
+      "\nFrontmatter `domain:` disagrees with MOC membership (frontmatter wins):"
+    );
+    for (const [slug, { frontmatter, moc }] of summary.domainDisagreements) {
+      console.log(`  ${slug}: frontmatter=${frontmatter} moc=${moc}`);
+    }
+  }
+  if (summary.entityTypeDisagreements.size > 0) {
+    console.log(
+      "\nFrontmatter `kind:` disagrees with moc-entities.md (frontmatter wins):"
+    );
+    for (const [
+      slug,
+      { frontmatter, moc },
+    ] of summary.entityTypeDisagreements) {
+      console.log(`  ${slug}: frontmatter=${frontmatter} moc=${moc}`);
     }
   }
 }

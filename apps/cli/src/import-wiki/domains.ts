@@ -85,12 +85,33 @@ export function buildDomainMembership(
 
 /**
  * Resolve a single note's domain. A MOC page belongs to its own domain; a
- * concept/entity inherits the domain of the MOC that lists it; everything else
- * (derived essays, unlisted concepts) falls back to `syntheses`.
+ * valid frontmatter `domain:` wins next; otherwise a concept/entity inherits
+ * the domain of the MOC that lists it; everything else (derived essays,
+ * unlisted concepts) falls back to `syntheses`.
+ *
+ * Throws on an unrecognised `domain:` value — same reasoning as
+ * `buildDomainMembership`'s `unknownMocs` guard.
  */
 export function resolveDomain(
   slug: string,
-  membership: ReadonlyMap<string, WikiDomain>
+  membership: ReadonlyMap<string, WikiDomain>,
+  frontmatterDomain?: string
 ): WikiDomain {
-  return mocSlugToDomain(slug) ?? membership.get(slug) ?? FALLBACK_DOMAIN;
+  const mocDomain = mocSlugToDomain(slug);
+  if (mocDomain) {
+    return mocDomain;
+  }
+  if (frontmatterDomain) {
+    if (!DOMAIN_SET.has(frontmatterDomain)) {
+      throw new Error(
+        `"${slug}" has domain: "${frontmatterDomain}", which isn't a known domain.\n` +
+          "The vault's domain taxonomy has drifted from the code. Add it to:\n" +
+          "  1. WIKI_DOMAINS   packages/article-contract/src/index.ts\n" +
+          "  2. DOMAIN_META    apps/blog/src/app/(blog)/articles/domain-meta.ts\n" +
+          "  3. --domain-<slug> (light + dark) packages/ui/src/styles/globals.css"
+      );
+    }
+    return frontmatterDomain as WikiDomain;
+  }
+  return membership.get(slug) ?? FALLBACK_DOMAIN;
 }
