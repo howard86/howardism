@@ -3,14 +3,16 @@ date: 2026-04-10
 title: LLM-as-Compiler Knowledge Base
 description: "Karpathy's architecture: LLM incrementally compiles raw docs into
   a persistent interlinked wiki, replacing RAG with a 4-phase
-  ingest→compile→query→lint pipeline"
+  ingest→compile→query→lint pipeline — industrialized by July 2026 as 'agent
+  wikis' (Cognition DeepWiki, Factory AutoWiki, LangChain OpenWiki, GBrain),
+  same three-layer structure, differing on maintenance currency"
 tag: Concept
 domain: agent-systems
 tags:
   - knowledge-management
   - llm-architecture
   - personal-knowledge-base
-readingTime: 18
+readingTime: 28
 imageAlt: Illustration for LLM-as-Compiler Knowledge Base
 sources:
   - title: LLM Knowledge Bases
@@ -23,16 +25,22 @@ sources:
     url: https://www.youtube.com/watch?v=eBUyTS7SzV4
   - title: Knowledge-Centric Self-Improvement
     url: https://arxiv.org/pdf/2607.19592
+  - title: The State of Agent Wikis
+    url: https://x.com/mem0ai/status/2079585032587694582
+  - title: "Beyond RAG: Building Agentic Document Workflows with LlamaIndex"
+    url: https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view
 ---
 export { default as heroImage } from "../assets/llm-as-compiler-knowledge-base.webp";
 
 ## Sources
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view)
 - [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592)
 - [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
 - [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4)
+- [The State of Agent Wikis](https://x.com/mem0ai/status/2079585032587694582)
 
 ## Summary
 
@@ -97,6 +105,36 @@ Elvis Saravia describes a variant where ingestion is automated: a tuned Skill ag
 
 Karpathy mentions using the wiki to generate synthetic training data and fine-tune an LLM so it "knows" the data in its weights — turning a personal knowledge base into a personalized model.
 
+### The agent-wiki landscape: four implementations in three months (July 2026)
+
+A vendor survey (mem0's *In Context* #17, "The State of Agent Wikis," 2026-07-21, `practitioner-opinion` — COI: mem0 sells the user-memory layer its closing section advocates) gives the pattern its field name — **agent wikis** — and its first landscape: within roughly three months of the April 2026 gist, four teams shipped the same three-layer structure (immutable sources; model-written markdown wiki; schema file, "usually CLAUDE.md or AGENTS.md") against four different corpora. The survey's convergence argument: "Four teams solved four different problems and made the same structure. This agreement is good evidence that the structure is correct."
+
+| System | Corpus | Currency | Written for |
+|---|---|---|---|
+| **DeepWiki** (Cognition) | any public GitHub repo; 50K+ largest pre-indexed (URL-swap github.com → deepwiki.com) | re-indexed; grounds Devin | agents, and humans browsing |
+| **AutoWiki** (Factory) | your org's repos | CI refresh, every push | engineers and Droids together |
+| **OpenWiki / Brains** (LangChain) | repos (Code Brain) + Gmail, Notion, git, X, HN (Personal Brain) | re-run to refresh | "LLM context, not human prose" |
+| **GBrain** (Garry Tan) | personal sources | manual or scheduled runs | a person and their agent |
+
+*(Table from the survey's matrix figure. Its prose flattens the last column to "the reader of the wiki is a model"; the matrix itself contradicts that for three of the four systems — only OpenWiki is model-only.)*
+
+What each implementation adds beyond the gist:
+
+- **DeepWiki: the wiki as agent infrastructure, not documentation.** "The wiki is not the product. The wiki is retrieval infrastructure for the agent" — Devin uses DeepWiki as the compiled layer below its code search. This is the ingest-time counterpart of [Repository Exploration Subagent](/articles/repository-exploration-subagent)'s query-time explorer: both decouple repo grounding from solving, one by precomputing a per-repo artifact every agent shares, the other by searching per task in a disposable window.
+- **AutoWiki: maintenance moved into infrastructure.** Documentation as a build artifact — `/install-wiki` writes a CI workflow that regenerates the wiki on every push to the default branch. Generation is two-pass (structural scan of README/manifests/CI config/entry points, then semantic scan of routes/endpoints/service classes/schemas/feature flags), fanned out across specialized agents so no single agent documents a whole large repo. See [Code as Source of Truth](/articles/code-as-source-of-truth) for how this composes with checking truth into the repo.
+- **OpenWiki: the leap from repo to everything.** Personal Brain compiles Gmail, Notion, git, X, and Hacker News into one local markdown wiki — "documentation of your work," not of a repository.
+- **GBrain: the minimal-infrastructure proof.** No vector database, no service — markdown in git, a schema file, an auto-maintained link graph. (The survey files GBrain as the *personal-scale* member; Tan's own talk presents it as a company brain with his ~220K-page personal instance as the exhibit — the two agree on the artifact and differ on the ambition. Full treatment below.)
+
+The axis the survey calls "the maturity tell": Factory treats staleness as a build problem and solves it in CI; the other three — and this vault — are exactly as current as the last time someone ran the command.
+
+**The survey's four limits**, worth recording because this wiki lives them: (1) **scale** — the gist's ~100-source ceiling before search must be added (DeepWiki, at 50K+ repos, ships search per wiki); (2) **compile-time loss** — "an early summary can remove a detail from the source. Each later answer has this error. Retrieval from the raw parts does not have this problem. You exchange the cost of repeated work for the risk of lost data" — the architectural risk this vault's parse-warning discipline manages, and exactly the L2-condensation omission that [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) shows how to count with canary taps; (3) **staleness** — "an incorrect wiki is worse than no wiki. The incorrect information has the format of correct information"; (4) **cost** — tokens spent compiling pages nobody reads and linting pages that did not change.
+
+### A wiki is not memory (the vendor's boundary)
+
+The survey's closing distinction — self-interested but real: **corpus knowledge** ("what does this material contain": scoped to a corpus, accumulated from ingestion) versus **user/experience memory** ("what did this person decide, prefer, try": scoped to an identity, accumulated from interaction, obligated to handle per-user contradiction, staleness, provenance, and deletion). A wiki does the first and not the second: "Your Gmail wiki tells the agent what is in your Gmail. It does not tell the agent that you changed a decision in a conversation on Tuesday. It does not tell the agent that a method already failed for you." The kicker: "The mistake is not choosing a wiki. It is believing you solved memory because you compiled a corpus."
+
+Attribute the boundary's placement to its author — mem0 sells the memory layer, so the line is drawn exactly where its product begins — but the vault's own stack already embodies the split: this wiki is corpus knowledge, the harness's auto-captured memory directory ([Agent Context Files](/articles/agent-context-files)'s system-captured memory channel) is the interaction-scoped store, and [When Knowledge Layers Disagree: Context Files vs Memory, and Conflicting Sources at Compile Time](/articles/conflict-resolution-in-agent-knowledge-substrates) adjudicates when they disagree.
+
 ### Company Brains: the pattern at organizational scale (Garry Tan's GBrain)
 
 The most prominent in-the-wild sibling of this architecture (July 2026, `practitioner-opinion`): [Garry Tan](/articles/garry-tan)'s **company brain** — his MIT-licensed open-source **GBrain**, "effectively Postgres for agents." His formulation is **"the library plus the librarian"**: the organization's full record (email, meetings, decisions and their reasoning, postmortems) is the library, and the load-bearing component is the *librarian* — the retrieval layer that decides, per task, which "three books" go into the agent's context (his working-memory image: an agent holds ~1M tokens ≈ three Harry Potter books, against the human 7±2; "the question that determines whether your agents are geniuses or goldfishes is who decides which three books are open on that desk"). His personal instance: ~220,000 pages, compiled mostly by his agents from 20 years of email, meetings, and notes.
@@ -150,8 +188,27 @@ Implications for this vault:
 - Spec-fuzzing-via-multi-language is overkill for a knowledge base, but the idea generalizes: if `compiler-prompt.md` produces meaningfully different wikis when run by different model families (Claude vs. GPT vs. local), the divergences point to under-specification.
 - The **schema layer** (Karpathy's term) is the same artifact category as `SPEC.md`/`WORKFLOW.md` — repo-versioned markdown that defines agent behavior. See cross-link to [Claude Code Best Practices](/articles/claude-code-best-practices) (`CLAUDE.md`), [Hermes Agent](/articles/hermes-agent) (`AGENTS.md`/`SOUL.md`), [Symphony](/articles/symphony) (`WORKFLOW.md`).
 
+### The retrieval counter-case, and where it actually bites (Doulcet, May 2026)
+
+This page's founding move is "replace RAG with compilation." The strongest opposing view now in the corpus is [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — a 116-slide LlamaIndex workshop (`practitioner-opinion`, direct vendor COI) whose thesis is that retrieval not only survived the long-context era but **won** it. Its argument is worth stating precisely, because only one of its three legs is about token budgets:
+
+1. **Cost** — 1M tokens per query at frontier rates; caching helps, the arithmetic still fails for any nontrivial corpus. *(Dissolves if inference gets cheap enough.)*
+2. **Governance** — stuffing the corpus means stuffing documents the requester should not be allowed to see. *"'Model promised to ignore' is not a boundary."*
+3. **Auditability** — *"'Why did the AI say this?' Retrieval gives a citation log. Long context gives a vibe."*
+
+Legs 2 and 3 are not about capacity at all, and leg 3 is the one that lands here. **A compiled wiki answers from the wiki, not from the page.** This vault's articles cite `...` documents, but an individual sentence in an article does not resolve to a page and a region in the source — which is exactly the property the deck spends its parsing section building (bbox grounding, per-field page citations, "cite back to pixels"). The compile step converts a citable corpus into a readable one and pays for it in traceability.
+
+**Where the two architectures agree, and it is the load-bearing agreement.** The survey's compile-time-loss limit above — "an early summary can remove a detail from the source; each later answer has this error" — is the deck's structure loss moved one layer later. The deck's version of the sentence is blunter: *"none of it recovers a document that was parsed badly in the first place."* Both architectures are lossy compressions of an immutable source, both put the loss at a step nobody re-examines, and both are defended by keeping the raw layer immutable so the step can be redone.
+
+**But only one of them actually redoes it.** The deck's rule is "parsing is a stage, not a step — you will reparse, you will re-extract with new schemas, you will rerun retroactively when the parser improves; build for that, store every intermediate, make parsing idempotent." A retrieval pipeline pays the ingest tax per query and can re-pay it better later; a compiled wiki pays it **once and keeps the result**. This vault has the precondition (immutable `raw/`, recorded parse warnings, `docling:` blocks naming the parser configuration) and not the practice: no compiled article is regenerated when a source's parse is later found to be damaged, and `_system/backfill/known-bad.md` exists precisely because that backlog has nowhere to go. **The reparse-and-recompile path is the concrete thing this page owes the counter-case.**
+
+The synthesis is supplied, unintentionally, by the deck's own *extract vs parse* slide: use schema-first extraction when **you know what you want**, the fields recur across documents, and downstream is structured — use parse + retrieval when **you don't know what you want** and the question shapes have a long tail. That is the compile/retrieve boundary in the deck's own vocabulary. A personal wiki over ~100 curated sources read by one person is the first case; an arbitrary-Q&A surface over an enterprise corpus with per-tenant permissions is the second. "Most real systems use both" is the deck's answer, and it does not contradict this page so much as bound it.
+
+*Evidence weighting: the counter-case is a vendor talk without measurement, against this page's design document plus one controlled study ([Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement)) plus this vault's own practice. It is not authority to demote the compile thesis. What it does supply is a well-specified requirement the compile thesis has not met — citation granularity and reparse currency — and those are checkable regardless of who raised them.*
+
 ## Connections
 
+- [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — the architectural rival, treated above. Retrieval as audit trail rather than capacity workaround; the shared irreducible risk (structure lost at ingest is unrecoverable downstream, whether the consumer is a retriever or a compiler); and the two requirements it raises that this architecture does not currently meet — sentence-level citation granularity, and recompiling when a source's parse is found damaged
 - [Code as Source of Truth](/articles/code-as-source-of-truth) — checking specs/skills into the repo is the compiler-wiki pattern applied to code
 - This concept is the foundational architecture of this Obsidian vault (see `_system/compiler-prompt.md`)
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — shares the pattern of repository-local knowledge as system of record; OpenAI's AGENTS.md-as-table-of-contents mirrors this wiki's schema layer
@@ -174,6 +231,8 @@ Implications for this vault:
 - [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — this vault as the worked example: deterministic generators/linters (`build.py`/`lint.py`) around a latent compiler
 - [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — this vault located inside someone else's taxonomy. "OCR table-structure loss" is the first mechanism listed under its L0 ingestion layer, and it is exactly the docling table-collapse/shift failure documented in `_system/compiler-prompt.md`; the ingest-time `table-collapse` and `table-shift` checks are L0 checkpoint taps in everything but name. The technique the vault does not have is the **canary** — a known token planted in the source and exact-matched after parsing, which converts "are these tables suspect?" from a heuristic net into a countable per-document loss rate. Its L2 layer (string slicing, metadata stripping, condensation) is the compile step itself
 - [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) — the first external, controlled measurement of this page's central bet: a curated knowledge artifact outperforms the systems that produced it, and keeps working after the tasks and the model family are gone
+- [Owning Your Externalized Cognition](/articles/owning-your-externalized-cognition) — the ownership argument for running this architecture personally rather than renting it, plus the hygiene doctrine that matches this vault's: "a brain nobody curates is a garbage dump with great search," so the primitive is memory *plus* provenance, contradiction checks, and pruning. Its "retrieval is easy, being worth retrieving from is the product" is the compile-vs-pile boundary in one line
+- [Repository Exploration Subagent](/articles/repository-exploration-subagent) — the query-time counterpart to DeepWiki's compile-at-ingest: FastContext grounds a solver by searching per task in a disposable explorer window, DeepWiki by precomputing a per-repo wiki all agents share; same decoupling, opposite ends of the ingest/query cost trade
 
 ## Open Questions
 
@@ -189,6 +248,7 @@ Implications for this vault:
 
 - [What Are AI Tools?](/articles/what-are-ai-tools) — query exploring what AI tools are covered in this wiki
 - [When Knowledge Layers Disagree: Context Files vs Memory, and Conflicting Sources at Compile Time](/articles/conflict-resolution-in-agent-knowledge-substrates) — the compile-time contradiction protocol, grounded in this page's hygiene doctrine and the vault's staged-conflict history
+- [Authority and Audit Survive Abundance](/articles/authority-and-audit-survive-abundance) — why the retrieval counter-case's governance and audit legs survive free context, and why they bind this architecture too: compilation and retrieval are both selection-with-a-record, corpus-stuffing is the only option the audit leg eliminates, and the citation-granularity debt this page already concedes is that requirement arriving here
 
 ## Sources
 
@@ -196,3 +256,5 @@ Implications for this vault:
 - [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan, AI Engineer talk (2026-07-17, `practitioner-opinion`): the company-brain section (GBrain, library + librarian, memory plus hygiene)
 - [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592) — Wang, Yoon, Qu, Wang, Sehgal, Mazumdar & Yue (Caltech, arXiv 2607.19592, 2026-07-21, `empirical`): the held-out transfer result (§4.4, Table 4) and the curation-protocol rules that converge on this page's hygiene doctrine (§3, Appendix E). Full treatment and parse notes on [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement)
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view) — Pierre-Loic Doulcet, AI Engineer Singapore 2026 (`practitioner-opinion`, LlamaIndex vendor COI): the three-legged case for retrieval surviving long context, and the "parsing is a stage, not a step" rule this page's compile phase does not follow. Full treatment and parse warnings on [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — the raw file deliberately contains corrupted parser output as demo material and no number may be taken from it
+- [The State of Agent Wikis](https://x.com/mem0ai/status/2079585032587694582) — mem0, *In Context* #17 (2026-07-21, `practitioner-opinion`; memory-vendor COI on the wiki≠memory boundary): the agent-wiki landscape, the maintenance-currency axis, the four limits. Technique-matrix and wiki-vs-memory figures viewed; the matrix carries per-system corpus/currency/audience data absent from the prose

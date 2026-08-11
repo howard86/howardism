@@ -1,29 +1,11 @@
 ---
 date: 2026-07-16
 title: Reference-Free Judge Over-Crediting
-description: "Kranti & Vajjala (arXiv 2607.12885): the presence and placement of
-  a reference answer in the prompt is a first-order determinant of an LLM
-  judge's correct/incorrect verdicts — in no-reference settings judges
-  systematically over-credit incorrect answers, and adding the reference flips
-  up to 85% of verdicts (most NR→RV flips are CORRECT→INCORRECT over-credit
-  retractions), an effect that holds across English/Arabic/Telugu but is far
-  worse in low-resource Telugu; a two-stage calibration (C1 vs C2: can the judge
-  tell right from wrong) + sensitivity (NR/RV/RC: does reference presence flip
-  verdicts) pipeline diagnoses judge suitability before reference-free
-  deployment, and human annotation confirms the reference-driven stricter
-  verdicts align better with people (agreement jumps ~0.34→0.85 NR→RV for
-  Gemma), so reference-free absolute scores are genuinely inflated not merely
-  different — a reliability-without-validity instance orthogonal to Norman et
-  al.'s, on three open/open-weight judge models at temperature 0 in binary QA.
-  Zhou (arXiv 2607.05904) then puts the generosity under optimization pressure:
-  self-play against a reference-free judge drives its pass rate 0.716→0.938
-  while anchor-verified accuracy holds at 0.209→0.202 (gap 0.735), the
-  manufactured errors transfer across judge families and scales, a strict
-  three-family ensemble still accepts 55% of them, and no monotone aggregation
-  escapes — because the decisive variable is not the judge's capability or
-  whether it sees the candidate but whether it commits an answer of its own
-  first (false-positive rate 0.719 → 0.012, and zero when used as the training
-  reward)"
+description: "Reference answers are a first-order determinant of LLM-judge
+  verdicts: without one, judges systematically over-credit wrong answers (up to
+  85% verdict flips when the reference is added — Kranti & Vajjala), and
+  self-play against a reference-free judge inflates pass rate at flat true
+  accuracy (Zhou); the fix is the judge committing its own answer first."
 tag: Concept
 domain: evals-and-benchmarks
 tags:
@@ -33,7 +15,7 @@ tags:
   - reliability
   - multilingual
   - reward-hacking
-readingTime: 32
+readingTime: 34
 imageAlt: Illustration for Reference-Free Judge Over-Crediting
 sources:
   - title: LLM Judges Can Be Too Generous When There Is No Reference Answer
@@ -137,6 +119,8 @@ There is a proof for why, and it is the part that generalizes past this experime
 
 This is the sharp correction to the wiki's prior reasoning about judge ensembles. The vault had priced ensemble defenses on **lineage** independence — [same-family judges share biases](/articles/llm-as-a-judge), so vary the family. Zhou's result is that lineage is the wrong axis: the cross-family judges here *are* independently trained, and they share the basin anyway because they are all reading the same latent quantity.
 
+**And the dependence is there before anything pushes on it.** [Yang et al. (2026)](/articles/llm-judge-validation) measure the same quantity in the boring case — ordinary pairwise preference grading, no optimizer, no manufactured errors — and find intra-class error correlation **ρ = 0.944–0.972** across repeated samples of a Qwen3 judge and **0.664–0.706** across MiniMax releases, with heterogeneous (family-mixed) juries likewise underperforming independence predictions. Sampling a judge five times instead of once buys 0.463 → 0.482 on LLMBar. So Zhou's φ = 0.29–0.38 under optimization is not a *consequence* of the optimization: correlated judge errors are the baseline condition, and self-play merely drives an already-shared signal. The useful practical addition is that the dependence is **quantifiable in advance** — a beta-binomial parameterized by measured ρ predicts observed jury accuracy to within 0.004–0.008 where the independence assumption is off by 0.078–0.093 — so a team can price an ensemble's real headroom before building one, without needing Proposition 2's worst case.
+
 ### The arc replicates with no training at all
 
 Two replications rule out DPO-specific and math-specific readings.
@@ -179,6 +163,7 @@ The judge could verify all along. It solves these problems at **0.93** accuracy 
 ## Connections
 - [Usage-Telemetry Classifier Validation](/articles/usage-telemetry-classifier-validation) — the same generosity in a validation study: asked whether an assigned taxonomy label is *defensible*, human raters approve 85.8% of assignments the classifier gets exactly right only 22.6% of the time
 
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — the decorrelation hope this page bounds, measured buying something rather than nothing. Greptile (`case-study`) varies only whether a code reviewer shares the authoring agent's model family and gets 6–12 points of high-severity recall, as a clean crossover with near-zero reviewer and dataset main effects — so family diversity is not worthless, it is *capped*, and Proposition 2 says where the cap comes from: unanimous three-family acceptance still passes 55% of errors because the lenses read the same latent signal. Worth holding together because the two prescriptions are the same one seen twice — what buys independence is a grader reading or committing to something the author did not, and that page's single largest intervention is also a commitment device (fixing a target comment count before the model decides what to suppress) rather than a model swap
 - [LLM-as-a-Judge](/articles/llm-as-a-judge) — the primitive this page stress-tests along the reference axis; over-crediting is the reference-free failure mode of that primitive's absolute scores
 - [Trained Calibration](/articles/trained-calibration) — the mitigation shape deployed in a training loop: TML's claims grader verifies each claim by agentic web search rather than trusting the judge's parametric knowledge — retrieved evidence standing in for the missing reference
 - [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — over-crediting given a symbol, a rate, and a downstream cost. `ρ₀ = Pr(accept ∣ invalid)` is exactly the generosity this page measures, and in an agent loop it does two things at once: it lowers the verifier's discrimination `J = 1 − ρ₀ − ρ₁`, and it sets the *intercept* of the acceptance curve `Ā = ρ₀ + J·Q`, which is why a generous judge's pass rate can climb while true validity falls. The measured ρ₀ across their seven settings runs 0.36–0.88 (0.875 on BFCL single-call, an LLM judge accepting seven of eight invalid tool-call plans), so reference-free generosity at the magnitudes this page reports is not an evaluation-time annoyance — it is enough to make a repair loop end below where it started. The asymmetry also matters: their Llama judge fails on ρ₁ (false *rejection*) rather than ρ₀, and a judge can have near-zero `J` from either end. **And Zhou supplies the assumption that page has to make and cannot check: `ρ₀` is not a constant.** VRR-Stop calibrates the four noise parameters and is explicit that they are stationary only within a decision window; here `ρ₀` is *driven* — 0.651 → 0.906 on the self-judge, with discrimination collapsing 0.313 → 0.059 — by whatever is optimizing against the verifier. Both pages then land on the same closed form from opposite ends: `Ā = ρ₀ + J·Q` says a low-`J` verifier reports mostly its own false-accept rate, and `VA-GAP ≤ 1 − EM` says how far that report can drift from the truth before the arithmetic stops it. Read together, the failure has two independent entrances — a *noisy* verifier you cannot steer on, and a *pushed* verifier whose noise grows in the direction you are pushing

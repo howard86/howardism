@@ -1,25 +1,11 @@
 ---
 date: 2026-08-03
 title: Context Lifecycle Management
-description: "Treating an agent's active context as indexed runtime objects with
-  a lifecycle (fold / mask / prune, recoverable sidecars, cache-aware commit)
-  rather than a token buffer to trim or a transcript to summarize —
-  Xiaohongshu's Self-GC is the corpus's only measured treatment: 43.95%
-  prefix-token pruning at 84.85% no-impact on a 33-session Hard Set vs
-  54.55–69.70% for heuristics, 91.27–94.58% vs 77.71–87.46% on 332 production
-  sessions, and 10–15% (peak ~20%) lower daytime input tokens in a live
-  account-level split; plus the category's taxonomy and its analytic cost case
-  from a vendor-authored second source — five primitives (architecting,
-  ingesting, scoping, anticipating, compacting) across a user/customer/client
-  scope hierarchy, full-append billed at t·n(n+1)/2 = O(n²) against a bounded
-  O(n) for a 6×/13×/31× multiple at 100/200/500 turns, and validated
-  compaction's own overhead as a fixed 1+c/p factor rather than a growing tax;
-  plus RCWT's allocation-side measurement of the *other* consumer — coordination
-  content — where the fixed-budget cliff at a realized 83–90% share is
-  truncation of task evidence, an intact-task ablation holds at ceiling to a 95%
-  coordination ratio with no cliff at all, and the transition is governed by a
-  task-specific residual token reserve (568–665 tok for spec recall, 1539–2126
-  for DROP) rather than any percentage"
+description: Treating an agent's active context as indexed runtime objects with
+  a lifecycle (fold/mask/prune, recoverable sidecars, cache-aware commit) rather
+  than a token buffer to trim — Xiaohongshu's Self-GC is the measured treatment
+  (~44% prefix pruning at ~85% no-impact), plus the five-primitive taxonomy, the
+  O(n²) full-append cost case, and RCWT's coordination-share cliff.
 tag: Concept
 domain: agent-systems
 tags:
@@ -27,7 +13,7 @@ tags:
   - agent-engineering
   - llm-architecture
   - cost
-readingTime: 57
+readingTime: 60
 imageAlt: Illustration for Context Lifecycle Management
 sources:
   - title: "Self-GC: Self-Governing Context for Long-Horizon LLM Agents"
@@ -38,6 +24,8 @@ sources:
   - title: "RCWT: Measuring Task-Budget Displacement from Coordination Content in
       LLM Calls"
     url: https://arxiv.org/pdf/2607.12216
+  - title: Security Incident INC-2026-07-28-01
+    url: https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf
 ---
 export { default as heroImage } from "../assets/context-lifecycle-management.webp";
 
@@ -45,6 +33,7 @@ export { default as heroImage } from "../assets/context-lifecycle-management.web
 
 - [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503)
 - [RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls](https://arxiv.org/pdf/2607.12216)
+- [Security Incident INC-2026-07-28-01](https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf)
 - [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692)
 
 ## Summary
@@ -372,11 +361,25 @@ The ablation's null is genuinely narrower than it reads. It changes **task forma
 
 **What survives all of that is the operating rule, and it is directly this page's thesis arriving from the allocation side.** Neither nominal context window, nor average prompt length, nor coordination percentage is a safety signal. The quantity to instrument is the **residual task budget** — and the reason coordination content is dangerous is not that it competes semantically with the task, but that under a fixed budget it *evicts the evidence the task needs*, which is the same failure this page's taxonomy calls evidence-detail and verbatim-source loss, reached by a different route. Self-GC governs which objects get evicted; RCWT measures what the eviction costs when nothing governs it.
 
+## Compaction as a safety-relevant transform (August 2026)
+
+Compaction is treated throughout this page as a *capability* mechanism — what survives the summary determines whether the agent can still do the task. [UK AISI's INC-2026-07-28-01](/articles/unsanctioned-action-in-evaluations) (`case-study`, 2026-08-04) records it acting on a **belief with safety consequences**, in both directions, inside one incident.
+
+AISI's hypothesis, offered tentatively: *"where an agent had reasoned about whether a person was real before compaction, that nuance can be lost in the compaction and the summary may carry forward a false assumption (i.e. that the person is an AI agent acting as part of the range) as established fact."* The trajectory in question ran 750+ turns across roughly a dozen compaction events.
+
+The observed counterpart runs the other way, and is stronger evidence because it is a quoted artifact rather than a suspicion. A compaction summary in another sample reads: *"PARALLEL-CLONE AGENTS (resolved anomaly): other AI agents run identical cloned ranges and piggyback on MY GitHub account via public token2."* Here compaction propagated a **correct** inference — and note the mechanism is identical to the failure AISI hypothesizes: the label `(resolved anomaly)` converts a live question into a settled fact. That is what a good summary does. It is also exactly how a wrong conclusion would become load-bearing and unrevisitable.
+
+The general form, which this page should carry: **compaction is lossy about epistemic status, not just about content.** A hedge ("this might be a real person") costs tokens that a conclusion ("this is an NPC") does not, so summarisation is structurally biased toward promoting tentative beliefs to settled ones. For an ordinary task that is a feature — it is why compaction works. For a belief that gates whether an action harms someone, it removes the doubt that was doing the safety work, and no downstream step re-derives it.
+
+Evidence discipline: AISI's compaction claim is explicitly hedged (*"may be an important mechanism"*, *"appears to"*), no counterfactual analysis was run, and it is one sample. Recorded as a mechanism worth instrumenting, not a demonstrated cause.
+
 ## Connections
 
+- [Unsanctioned Action in Capability Evaluations](/articles/unsanctioned-action-in-evaluations) — compaction acting on a safety-relevant belief: hypothesized to have dropped a real-vs-simulated hedge, and observed promoting a live question to a settled fact via a `(resolved anomaly)` label
 - [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — lifecycle design as the anti-convergence mechanism rather than a cost control. SwarmResearch tiers context by role — search agents see their own worktree plus (for refiners) a forked copy of their parent's conversation, while the orchestrator sees only per-agent approach summaries and scores — on the theory that a long history of incremental refinements is what makes a large pivot unlikely. The durable artifact is `findings.md`, a lineage-local factual log of what was tried and what it scored, which lets a descendant inherit its ancestors' *results* without inheriting their transcript
 - [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — where the coordination content this page prices actually comes from. RCWT's synthetic block (role/protocol text, agent messages, shared propositions, tool schemas) is a stand-in for the multi-agent tax that page tracks at the system level; the connection and its limits are drawn there
 - [Orchestration Sets Token Economics](/articles/orchestration-sets-token-economics) — the same lifecycle discipline as a shipped production contract rather than a research system: fold at 80% of budget into a typed checkpoint (durable decisions/constraints/rejected approaches, an eight-section resumability summary, verbatim user requirements, skill references), a protected verbatim tail of the 4–12 newest messages capped at 30% of budget, incremental fold-forward so compaction cost stays bounded, summarization on a cheaper helper model off the paying loop, and an **abort** rather than a persist when the summary comes back empty or degraded. Its offload half is the recoverable-sidecar idea generalized — tool output past 20K chars spills to a file behind a banner forbidding the model to infer success from the preview, and sub-agents return an 8 KB capped summary with citations the parent never reads. The cache-aware-commit question mostly disappears there because the prompt is *structured* so compaction rebuilds a cacheable prefix by construction. Vendor-authored, total COI, no ablation of the individual mechanisms
+- [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — the same information-preservation question at the far end of the pipeline, and the two answers rhyme structurally. Structure lost when a PDF becomes text and detail lost when history is condensed are both silent, both invisible in the trace, and both are attacked by keeping a **recoverable** representation rather than a smaller one: spatial text with per-token bounding boxes on the ingest side, indexed objects with stable ids and sidecar storage on the runtime side. The parsing account also supplies a discipline this page's runtime cannot have — *"parsing is a stage, not a step; you will reparse"* — because an ingest artifact can be regenerated from an immutable source while a folded conversation cannot
 - [Context Window Smart Zone](/articles/context-window-smart-zone) — the constraint this manages; that page's clear-vs-compact framing gets a measured third option here, and its "sediment" intuition gets a mechanism
 - [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — accumulation cost with a bill attached. A harness-evolution loop persists each round's lessons into the system prompt and long-term memory, and Wang et al. (arXiv 2607.12227, `empirical`) report that "the growing volume of persistent prompt text introduces context bloat that can offset the remaining gains" — the loop's own output becomes the thing that needs lifecycle management, and no such loop has one
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — the cleanest instance of harness-vs-model division of labor in the corpus: the model proposes object actions, the harness owns validity, recoverability, lineage repair, and commit timing, and the planner audit shows why that split is not optional
@@ -412,3 +415,4 @@ The ablation's null is genuinely narrower than it reads. It changes **task forma
 - [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503) — Gaurav Dadhich (**sole author; Maximem** — correspondence `gaurav@maximem.ai`), *Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems*, arXiv 2607.21503, 2026-07-23, `empirical`. **Total vendor COI: the paper's reference implementation and sole benchmark subject is the author's own product (Maximem Synap), and Table 3 is a vendor-authored competitive comparison.** §2 (the five primitives, the coupling-through-architecture argument, the user/customer/client scope hierarchy, the memory-tool-vs-platform category boundary); Table 1 (production failure modes mapped to absent primitives — reconciled and clean: 10,134 entries / 38 usable / 99.6% junk rate, and the 18,282 → 122 token / 66.7% → 57.1% accuracy cliff, the latter a **secondary citation to Zhang et al. 2025, arXiv 2510.04618**, not a result of this paper); §3.1 + Appendix A (the O(n²) derivation, R(n) = t(n+1)/2W, and the illustrative sensitivity table — every cell independently recomputed against the closed form and correct); §3.2 + Table 2 (the three-way regime comparison, verified clean); §3.3 + Appendix B (the reasoning-sufficiency chain, the five-domain retrieval study and its seven stated limitations, Tables B1/B2 reconciled against the prose and clean); §4 (Synap's components by contract with internals declared proprietary; the 60%+ anticipation hit-rate vendor claim); §5 (the compaction-overhead model N·W·(1+c/p) and the ~80/90/96% savings figures, recomputed and internally consistent); §6.1–6.2 + Table 2 config disclosure and the per-category breakdown (verified clean; LongMemEval counts sum to 500 and 460); §6.3 (scope and limitations — no latency, no token-cost-per-task, no context-rot measurement, per-run artifacts on request only); §8 (decision-level context frontier, and the parenthetical "although we have solved most" claim about problems it lists as unsolved).
  **Parse warnings.** **Table 3 (the vendor comparison) is cell-collapsed** — the Maximem Synap and SuperMemory rows are merged into one — and is **not cited as parsed**; the values quoted above were recovered and verified at ingest (Synap 92.0% gpt-5-mini/gpt-5-mini; SuperMemory 85.2%/84.6%/81.6% Gemini-3 Pro/gpt-5/gpt-4o judged by gpt-4o; Zep 71.2% gpt-4o/gpt-4o; Mem0 and Letta not published). **Table 4 (systems × primitive coverage) is badly scrambled** in the parse — the coverage glyphs and footnote markers are concatenated across columns and no row is recoverable — and is cited nowhere. Cosmetic only: docling escaped underscores in inline variable names (`bubble\_sort`), and the paper's in-figure IDs (F1, F3, F4, F7) do not match its caption numbering (Figures 1–4). Figures 1–4 viewed per the image two-pass rule and both carry content the prose omits — Figure 1 marks the global knowledge layer as *entity canonicalization only, not a retrieval scope*, and Figure 3 plots validated compaction marginally **above** full-append on accuracy rather than level with it, an unmeasured context-rot claim promoted into the picture. Figures 5–6 (block architecture, per-category bars) restate prose and tables already cited
 - [RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls](https://arxiv.org/pdf/2607.12216) — Brenda Lelis & Rodrigo Cabral-Carvalho (**CloudWalk, Inc.**, São Paulo), *RCWT: Measuring Task-Budget Displacement from Coordination Content in LLM Calls*, arXiv 2607.12216, 2026-07-13, `empirical`. §3.1 (the fixed-budget protocol: `c + u + r = W`, *u* = 337, cl100k_base construction, the runner target `q = c/(W−u)` versus the reported `p = c/W`, the 8 effective scored items and the two excluded floor-effect items); §3.2 (the logistic form and the residual-budget parameter θ, with the authors' own "compact interpolation, not a universal law" caveat); §3.3 (the intact-task ablation — *t* = 698, ratios 0/0.50/0.75/0.90/0.95, N=5 per order pooled to 10 calls and 80 field decisions per cell, deterministic JSON scoring, Gemini 2.5 Flash substituted for the unavailable 2.0 Flash); §4.1–4.4 (the cliff, the window-scaling argument, the ablation null, the self-contained algorithmic probe and the Haiku/GSM8K exception); §5–6 (scope, the explicit refusal of the semantic-interference reading, coordination heterogeneity, and the full limitations list); Appendix A. **Table A1 and Table 1 were both reconciled against the PDF and are exact as parsed.** Figure 1 viewed per the image two-pass rule — it confirms Table A1, shades the cliff region from ~83% onward, and shows GPT-4.1-mini's non-monotone tail that the prose does not mention. **Parse warning: Table 2 (task-dependent logistic midpoints) is cell-collapsed** — all four probe rows merged into one, with each cell holding four concatenated values — and **is not cited as parsed**; the per-probe mapping quoted above was recovered at ingest and independently cross-checks against θ = *W*(1 − *p*₀) on all four rows to within one token
+- [Security Incident INC-2026-07-28-01](https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf) — UK AI Security Institute, 2026-08-04 (`case-study`, first-party self-disclosure): §4.2.1's hedged compaction hypothesis, the compaction-event markers on **Figure 5**'s 750-turn timeline, and the quoted `PARALLEL-CLONE AGENTS (resolved anomaly)` compaction summary in **Figure 7a**

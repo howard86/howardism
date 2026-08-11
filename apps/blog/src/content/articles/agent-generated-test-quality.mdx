@@ -1,20 +1,16 @@
 ---
 date: 2026-07-29
 title: Agent-Generated Test Quality
-description: "Jhanglani et al. (Stevens, arXiv 2607.12068): AST static analysis
-  of 204,673 AIDev test files (24,941 human vs 179,732 agent) finds a trade, not
-  a deficit — agents roughly double human edge-case variety (0.62 vs 0.32) and
-  lead on every literal boundary category, roughly match on strong-assertion
-  share (85.4% vs 88.1%), but carry a higher flakiness-candidate rate (0.41–0.44
-  vs 0.30) driven specifically by unmocked file I/O and non-deterministic APIs,
-  plus 8× the rate of unrecognized 'assertion drift'. The framing is 'stealth
-  technical debt': suites that pass today and degrade CI reliability later.
-  Three defects cut deep into what the numbers support — only 7% of human files
-  yielded parseable assertions (pytest bare-assert blindness, which the authors
-  concede invalidates the RQ1 comparison), the negative-boundary detector reads
-  0.0% in all four cohorts and is almost certainly broken, and the dynamic
-  re-run stage that would convert 'candidate' into 'confirmed flaky' is
-  specified but never reported"
+description: "Two AIDev cuts on whether agent code is tested. Jhanglani et al.
+  (204K test files): a trade, not a deficit — agents double human edge-case
+  variety and match assertion strength but carry higher flakiness-candidate
+  rates; three method defects cut into the numbers. Dipongkor et al. (4,882 PRs,
+  ICSME 2026) measure tests against the diff instead: 50.4% of code-changing PRs
+  carry no test change, existing tests execute 61.5% of agents' changed lines in
+  Java and 27.0% in Python (64.8% of Python PRs zero), agent-written tests raise
+  coverage in only 35.9%/22.5% of Code+Tests PRs, and error-handling constructs
+  miss up to 86.0%. Breadth is intrinsic, targeting is relational, and only the
+  second is a safety net — neither study has a human baseline"
 tag: Concept
 domain: ai-coding-practice
 tags:
@@ -22,18 +18,21 @@ tags:
   - testing
   - ai-coding-workflow
   - empirical
-readingTime: 14
+readingTime: 29
 imageAlt: Illustration for Agent-Generated Test Quality
 sources:
   - title: "Beyond Test Presence: Assessing the Quality and Robustness of
       Agent-Generated Tests in Open-Source Projects"
     url: https://arxiv.org/pdf/2607.12068
+  - title: Test Coverage Analysis of Agentic Pull Requests
+    url: https://arxiv.org/pdf/2607.18057
 ---
 export { default as heroImage } from "../assets/agent-generated-test-quality.webp";
 
 ## Sources
 
 - [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](https://arxiv.org/pdf/2607.12068)
+- [Test Coverage Analysis of Agentic Pull Requests](https://arxiv.org/pdf/2607.18057)
 
 ## Summary
 
@@ -109,30 +108,106 @@ Stripped to what the instrumentation actually supports:
 3. **Neither cohort is dramatically stronger on assertion quality**, with the strong caveat that the human measurement is broken.
 4. **The framing is a trade, not a deficit.** Agents as high-volume test *generators* needing human supervision on environmental isolation — coverage breadth without stability depth. This is a materially different claim from "AI writes bad tests," and it is the one the paper earns.
 
+## The other cut on the same corpus: is the agent's code tested at all? (Dipongkor et al., 2026-07)
+
+Everything above measures a test file **against itself**. [Dipongkor, Baral, Lam & Moran](https://arxiv.org/pdf/2607.18057) (UCF / George Mason, arXiv 2607.18057, ICSME 2026, `empirical`) measure tests **against the diff they shipped with**, over **4,882 AIDev v3 PRs** (532 Java, 4,350 Python, five agents): are the lines the agent added executed by any test — the project's existing suite, or the agent's own? Same corpus family, opposite instrument, and the two results compose rather than compete.
+
+### Presence: half of code-changing PRs carry no test change
+
+4,387 of the 4,882 PRs modify code-under-test files (530 Java, 3,857 Python); the other 495 touch test files only. Of the 4,387, **2,176 (49.6%) include a test change and 2,211 (50.4%) do not.** When agents do touch tests they add more often than they edit — 1,983 add a new test, 1,500 modify an existing one, 812 do both.
+
+> **Denominator switch, unflagged by the paper.** The headline 49.6%/50.4% is over the 4,387 code-touching PRs, but the per-language sentence ("53.0% Java, 44.3% Python modify code under test files without any test changes") silently switches to the **all-PRs** denominator (532 and 4,350). On the code-touching denominator those rows read 53.2% Java and **50.0% Python**. Recovered from Figure 1's Venn, which reconciles to every prose total in the section.
+
+That figure also supplies a split the prose never states: **Java agents include tests in 46.8% of code-touching PRs (248/530), Python agents in 50.0% (1,928/3,857).** Python agents touch tests slightly *more* often and cover vastly less — so the presence gap is not what produces the coverage gap below. The two languages' untested PRs are also different animals: Java's are dominated by `docs` (37.6%), `fix` (34.4%) and `feat` (15.2%), Python's by **`feat` (40.5%)**, `fix` (30.3%) and `refactor` (11.8%). A docs-labelled Java PR that grazes a `.java` file has little to test; a Python `feat` PR is a feature shipping untested. One headline over two populations.
+
+### The existing-test safety net, priced
+
+Coverage needs a suite that runs, so the subset is much smaller than the corpus: merged PRs only, from repos with ≥10 agentic PRs (14 Java, 55 Python), of which **10 Java and 34 Python could be built and instrumented** — yielding **213 of 532 Java PRs (40%) and 1,664 of 4,350 Python (38%)**. Every figure below is that subset, with JaCoCo and pytest-cov collecting line coverage over the repository's whole suite.
+
+- Existing tests execute **61.5% of agents' changed executable lines in Java, 27.0% in Python**.
+- Java's median PR has **71.1%** of its changed lines covered; 34.3% (73/213) are fully covered.
+- Python's median PR has **zero**, and **64.8% (1,079/1,664) have no changed line executed by any existing test**.
+- File-level the proportions invert: of 259 Java files 50.2% are fully covered and 18.5% uncovered; of 2,696 Python files 24.5% fully and **54.2% uncovered**.
+- Both distributions are bimodal at 0% and 100% (Figure 2); Python's zero bin alone holds roughly 1,130 of its 1,664 PRs.
+
+The authors' operational sentence is the one to carry: **"Teams using agentic PRs should not assume a passing run of tests means that the change has been tested."** For Python agentic PRs, a green suite is close to uninformative about whether the diff was exercised at all.
+
+### Agent-written tests: significant on average, absent for most PRs
+
+The paired design is clean — reverse-apply the test-only patch (`git apply -R`) on the head commit, re-run the suite, difference the two runs. It applies to 64 Java and 605 Python Code+Tests PRs. Java improves **70.5% → 86.1% (+15.6 pp)** and Python **24.8% → 34.5% (+9.6 pp)**, both p &lt; 0.001 — but **only 35.9% (23/64) of Java and 22.5% (136/605) of Python Code+Tests PRs show any gain at all.** The mean is carried almost entirely by feature work (Java `feat` +47.3 pp on 17 PRs, 14 of them improved; Python `feat` +13.0 pp on 364, 99 improved), with small significant gains on `fix` (+5.0 Java, +6.6 Python) and nothing elsewhere.
+
+Python's `test`-category PRs post a **negative** delta — 25.7% → 23.5%, −2.2 pp, 3/36 improved, not significant. A PR whose stated purpose is testing slightly *lowers* diff coverage of its own changed lines. Tiny n and n.s., so directional at most, but it is the sharpest single expression of the mis-targeting below.
+
+The non-improving PRs fail two different ways, and both are worth keeping:
+
+- **Java** — 42.2% are already at 100% diff coverage from the existing suite, which is a ceiling rather than a failure. Among the rest, agents **delete more tests than they add: 82 deleted against 31 added, a 2.6× ratio**, and 51.2% edit only the *bodies* of existing tests, changing behaviour without introducing a test that targets the change.
+- **Python** — only 8% hit the ceiling and only 12.4% contain deletions, yet **74.8% add new tests that nonetheless fail to cover the agent's own changed lines.**
+
+That last number is the finding this page did not previously have: the agent writes a test, the test runs and passes, and it exercises something other than what the PR introduced.
+
+### Miss rates by construct — read the denominators
+
+Table II is **Python-first, Java-second**, which is an easy misread in the parsed grid. `Total` is executable lines of that category added by agents; `Miss%` is the fraction no test covers.
+
+| Category | Python total | Python miss% | Java total | Java miss% |
+|---|---|---|---|---|
+| Method Call | 4,516 | 73.6% | 403 | 36.7% |
+| Assignment | 9,472 | 63.1% | 671 | 16.1% |
+| If | 3,094 | 62.5% | 308 | 13.3% |
+| Return | 2,189 | 71.4% | 367 | 39.8% |
+| **Try-Catch** | 1,356 | **81.0%** | **43** | **86.0%** |
+| **Throw** | 536 | **82.3%** | 80 | **67.5%** |
+| Definition | 3,062 | 54.1% | 35 | 22.9% |
+| For / While | 710 / 94 | 54.1% / 69.1% | 31 / 21 | 19.4% / 9.5% |
+
+Error handling is the weakest spot in both languages, and Java's Try-Catch is the only category where Java is worse than Python in absolute terms — **but it rests on 43 added lines**, against Python's 1,356. The paper repeats "86.0% in Java" four times (abstract, results, and both discussion audiences) and never restates that denominator; the same smallness produces Java's implausible 0.0% rows for `Switch` (n=1) and `Continue` (n=2). The rows that carry real weight are Python's routine constructs — Assignment 63.1% on 9,472 lines, Method Call 73.6% on 4,516, Return 71.4% on 2,189 — which is what "agents exercise happy paths" actually rests on.
+
+### The cross-language gap is partly a sampling artifact
+
+The authors' own limitations section undercuts the comparison they lead with. The 10 analyzed Java repositories are **substantially smaller and less prominent** than the Java corpus (median 29K vs 102K LOC, 437 vs 745 stars, 116 vs 254 forks), comparable only on commit count and age — so "Java coverage results may primarily reflect the testing practices of smaller projects." The 34 analyzed Python repositories differ from the Python corpus on **no** metric measured. **The flattering number comes from the unrepresentative sample and the alarming one from the representative sample.** Read the Python level as the design-supported result and the Java/Python contrast as suggestive.
+
+### How the two studies compose
+
+There is a surface tension worth dissolving rather than averaging: this page says agents cover *more* boundary cases than humans, that one says agent tests mostly fail to cover the agent's own changes. Both hold, because the denominators are different objects — **a test file judged against itself, versus a test judged against the diff.** And one mechanism explains both. Probabilistic enumeration of null/zero/empty (this page's cheap-fuzzer reading) is generically thorough about *the function it targets* and completely indifferent to *which lines this PR introduced*. **Breadth is an intrinsic property of a test; targeting is a relational one; and only the relational property is what a safety net is made of.** Python's 74.8% — tests added, tests green, agent's own new lines untouched — is that distinction observed directly.
+
+Two limits keep this from being more than a level measurement. It has **no human baseline** — 50.4% of PRs arriving without a test change may be better or worse than what humans do on matched PRs, and nothing here can say. And it is a 6-page ICSME "emerging results" paper: the instrumentation is real and the attrition is honestly reported, but there is no controlled comparison anywhere in it.
+
 ## Relation to the other AIDev results
 
-This is the **quality sibling** of [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — same corpus family, same July 2026 window, complementary axes. Two contrasts are worth holding together:
+> **The three PR counts are not the same PRs.** This page's 204,673 test files, [the security paper's](/articles/security-debt-of-agent-generated-code) 4,022 PRs and the coverage paper's 4,882 PRs are three different **filters** over the AIDev family, not three snapshots of one set. The security corpus keeps files whose *path* matches a high-risk pattern (CI definitions, containers, IaC, secret-bearing files, config, shell scripts, notebooks) and only added lines — 16,370 file changes across 4,064 PRs, of which the judge returned labels for 16,112 spanning 4,022. The coverage corpus keeps PRs touching at least one `.java` or `.py` file whose modifications are not entirely comments or docstrings, over AIDev **version 3** (1,278 Java and 7,191 Python PRs before filtering) — 532 + 4,350 = 4,882. The two select for *opposite* file types: build-and-deploy plumbing there, application source here. Only the coverage paper names a dataset version, so a snapshot difference cannot be excluded on top — but the filters alone account for the numbers, and the near-equal magnitudes are a coincidence. **Nothing licenses pairing a rate from one with a denominator from the other.**
+
+Across the three cuts — test quality (here), security posture, and coverage — **no contradiction survives inspection.** They measure different axes, and where they touch they agree: agent debt lands in the *relationship* between the agent's code and its surroundings (the CI sandbox, the container, the diff the test was supposed to guard) rather than in the local quality of the code under the cursor. What they share is also their common weakness — **none of the three has a human control cohort**, and only [Tran et al.](/articles/efficiency-debt-of-ai-generated-code) (a different corpus entirely) does.
+
+This page is the **quality sibling** of [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — same corpus family, same July 2026 window, complementary axes. Two contrasts are worth holding together:
 
 - **Control groups run opposite ways.** The security paper has *no* human baseline, so it measures a level (38.9% of agent PRs carry a smell) and cannot support an agent-vs-human delta. This paper *has* a human cohort but the comparison is confounded by the pytest parse gap. Neither, therefore, is the matched-baseline study the vault's open questions keep asking for — but they fail in different directions, and where they agree (agents are weaker on *environmental* concerns: CI plumbing, containers, file I/O, isolation) the agreement is not an artifact of either defect.
 - **Both find the debt in the plumbing, not the logic.** Security smells concentrate 87.6% in GitHub Actions and Dockerfiles; test instability concentrates in file I/O and non-deterministic APIs. In both cases the agent handles the code under consideration competently and mishandles the *environment it runs in*. That is a sharper and more actionable characterization than "agent code is lower quality."
 
 ## Connections
 
-- [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the sibling AIDev result on the security axis; opposite control-group weakness, converging finding that agent debt concentrates in environment/plumbing rather than application logic
+- [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the sibling AIDev result on the security axis; opposite control-group weakness, converging finding that agent debt concentrates in environment/plumbing rather than application logic. With the coverage cut above, three studies now read the same corpus family on three axes — see the count-reconciliation note, since 4,022 and 4,882 are different filters and not the same PRs
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the canonical instance in the verification layer itself: a flaky test passes on the run you look at, so the suite reads as green while its signal quietly decays. The coverage cut adds the blunter version — in 64.8% of Python agentic PRs the existing suite executes *none* of the changed lines, so a green run is not a weak signal about the diff, it is no signal at all. The failure is in the *verifier*, which is the worst place for it
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — **the rival merge-gate predicate, priced.** StampHog gates on a keyword deny-list and a diff-size ceiling; "the existing test suite covers this change" is the obvious third proxy, and the coverage numbers above say what it is worth: 61.5% of changed lines reached in Java, 27.0% in Python, nothing at all in 64.8% of Python PRs. Unlike a keyword deny-list, though, diff coverage is *computable from the diff* — deterministic, auditable, and therefore eligible for the deterministic-first tier rather than the LLM veto
+- [Review as the Control Point](/articles/review-as-the-control-point) — a **process-adaptation** prescription with a measurement behind it, which that theory's third moderator mostly lacks: allocate review attention to error-handling paths, since Try-Catch and Throw lines miss 81.0–86.0% *regardless of whether the agent added tests*. It also fits the defect-class dimension that page's open question now asks for — untested error handling is exactly the class attention can still reach, unlike the missing move constructor that defeated it
 - [Agentic Technical Debt](/articles/agentic-technical-debt) — "stealth technical debt" is this page's register of the same compounding mechanism: a passing suite advertises nothing about the reruns it will cost, exactly as a working feature advertises nothing about the architectural premise it was built against
 - [Acceleration Whiplash](/articles/acceleration-whiplash) — the *authoring-quality* thesis measured on the test suite: assertion drift and unmocked I/O are defects arriving at review, and flaky suites are one concrete channel from Faros's throughput rise to its CI/build jam; also a partial complication of that page's dismissal of [Ng](/articles/three-loops-of-ai-native-building) — agents genuinely do broaden coverage, they just destabilize the runner
-- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the canonical instance in the verification layer itself: a flaky test passes on the run you look at, so the suite reads as green while its signal quietly decays. The failure is in the *verifier*, which is the worst place for it
 - [Unproductive Self-Verification](/articles/unproductive-self-verification) — the model-side counterpart: Opus 5's tendency to build elaborate verification pipelines that displace the task. Both are agents over-producing verification artifacts whose volume outruns their reliability
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — flaky agent tests are the mechanism behind Fung's warning that CI/build systems jam under new throughput; her "shift left" prescription and the paper's "Generate, Execute, Refine" are the same move applied to the agent's own output. That page now carries **the cost side this one implies but never prices**: [CircleCI](https://circleci.com/blog/five-takeaways-2026-q2-pulse/) (`vendor-claim`) counts the reruns as a Merge Efficiency Ratio (median 3.9 validation cycles to land a change on main vs 1.3 for its elite cohort) and models ~$900K/yr of delivery cost for a 50-developer team, including a "token reload penalty" for agents idling on CI — so a flaky suite bills twice, in runner minutes and again in the agent tokens spent rebuilding context after each wait. The mechanism here is `empirical` and non-vendor; the price tag there is a vendor model, and the two have never been joined on the same population
-- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — where a suite's quality turns into a loop-control parameter. In a code verify-repair loop the test suite *is* the verifier, so its properties become ρ₀ and ρ₁ — and a flaky test supplies both, rejecting correct code on one run and passing broken code on the rerun someone triggers to make it green. That page's result is what a low-discrimination verifier costs downstream: a loop that repairs until the suite passes can end below where it started, and the acceptance rate rises the whole way. It also reframes the "trade, not a deficit" conclusion here — breadth raises the *chance* a defect is caught, but the flakiness differential (0.44 vs 0.30) lowers the discrimination of every verdict the suite issues, and only the second of those enters the stopping decision
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — where a suite's quality turns into a loop-control parameter. In a code verify-repair loop the test suite *is* the verifier, so its properties become ρ₀ and ρ₁ — and a flaky test supplies both, rejecting correct code on one run and passing broken code on the rerun someone triggers to make it green. That page's result is what a low-discrimination verifier costs downstream: a loop that repairs until the suite passes can end below where it started, and the acceptance rate rises the whole way. It also reframes the "trade, not a deficit" conclusion here — breadth raises the *chance* a defect is caught, but the flakiness differential (0.44 vs 0.30) lowers the discrimination of every verdict the suite issues, and only the second of those enters the stopping decision. The coverage cut supplies the degenerate case of the same formalism: on lines no test executes, the suite's false-accept rate on those lines is 1 and its discrimination `J` is 0, so its pass verdict carries literally no information about them — which is 64.8% of Python agentic PRs entire
 - [The Verifiability Thesis](/articles/verifiability-thesis) — the corrosion case: Karpathy's thesis says LLMs automate what you can verify, and a test suite is the verifier for software. Agent-authored tests that are broad but non-deterministic *widen* the verified surface while *weakening* the verification signal on it
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — the third sibling axis, and the one with the control cohort this page's comparison lacks: 3.52M production changes with byte-level authoring provenance and a human-written baseline, finding the AI excess concentrated in resource use and interface coupling rather than in correctness. It also supplies the adoption context for this page's subject — Google's Figure 3 shows AI share of **test** code running *above* production code for most of the study window before the two converge near 63%, so agent-authored tests are, if anything, the leading edge of the shift rather than a lagging one
+- [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement) — where the **missing human baseline** both of these cuts report stops being a per-paper limitation and becomes a measurement question. [DX](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering) (`vendor-claim`) declares the AI-vs-non-AI control group dead at >90% adoption; the reason these AIDev studies lack one is different and fixable — a corpus *defined by* agent authorship yields one arm by construction, and no adoption rate has anything to do with it. The discriminating ingredient is authoring provenance recorded per change, which is why [Tran et al.](/articles/efficiency-debt-of-ai-generated-code) have both arms inside a saturated population and these do not
+- [Prototype Fidelity After Cheap Polish](/articles/prototype-fidelity-after-cheap-polish) — a second axis of the same question: whether prototype code carries the test quality that would let it evolve into a production system
+- [Post-Acceptance Edit Behavior](/articles/post-acceptance-edit-behavior) — the denominator problem from the other end of the pipeline. This page measures AI code that reached a PR and went unexercised; [DECODE](https://arxiv.org/pdf/2607.25130) measures AI code that never reached a PR at all — 31% of in-IDE edit trajectories carry a removal edit, and retention of the rest is bimodal. Together they bracket the survival path from suggestion to merged-but-untested, and they share the structural gap this page already names: neither has a human-authored control cohort, so both describe the posture of AI-assisted work rather than an AI-versus-human delta
 
 ## Open Questions
 
 - The paper's own two-stage protocol was never completed: does the 0.44 vs 0.30 candidate-rate gap survive dynamic confirmation, or do agent tests contain flakiness *indicators* without being measurably flakier under repeated runs? The specified experiment (1,000 sampled tests × 100 runs per cohort) would settle it directly.
 - Does the edge-case-breadth advantage survive data-flow analysis? The literal-only detector may be measuring "agents pass literals where humans pass fixtures" rather than a real coverage gap — a re-run with variable resolution, or a matched pytest-aware parser, is the discriminator.
-- What is the **survival rate** of agent-authored tests? The paper's own future work names the missing quantity: how often agent tests are deleted, rewritten, or `@skip`-marked over subsequent months. Coverage breadth bought at the cost of a suite people learn to ignore is negative value, and nothing here measures the maintenance side.
+- What is the **survival rate** of agent-authored tests? The paper's own future work names the missing quantity: how often agent tests are deleted, rewritten, or `@skip`-marked over subsequent months. Coverage breadth bought at the cost of a suite people learn to ignore is negative value, and nothing here measures the maintenance side. **Not answered, but the first deletion figure lands nearby (2026-08-12):** [Dipongkor et al.](https://arxiv.org/pdf/2607.18057) find that in non-improving Java Code+Tests PRs agents **delete more tests than they add — 82 deleted against 31 added, 2.6×**, with a further 51.2% editing only existing test bodies. That is the *opposite* direction of this bullet (agents removing pre-existing tests within a single PR, not agent tests decaying over months) and it comes from 64 Java PRs, but it is the corpus's first measurement of agentic test *deletion* in any form, and it makes the longitudinal version cheaper to ask: the same repositories already carry the history.
+- **Neither AIDev study has a human baseline, and the missing comparison is now the same one twice.** Agents include a test change in 49.6% of code-touching PRs and their tests raise diff coverage in 22.5–35.9% of Code+Tests PRs — but nothing establishes whether human-authored PRs in the *same repositories* do better. Diff coverage is computable retroactively from any merged PR, so a matched human cohort over the same 44 instrumented repos is a tractable study rather than a wish, and it would settle simultaneously whether the 0.62-vs-0.32 edge-case gap here survives a targeting-aware metric.
 
 ## Sources
 
 - [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](https://arxiv.org/pdf/2607.12068) — Jhanglani, Desai, Kansara & AlOmar (Stevens Institute of Technology, arXiv 2607.12068, 2026-07-13), `empirical`. §II (AIDev retrieval, AST pipelines, heuristic rules in Tables III–IV), §III.A–C (RQ1–RQ3 results, Tables VI–VIII), §IV (threats to validity — the RQ1 pytest-parsing admission and the RQ3 two-stage construct argument), §VI (future work: sandboxed execution, RAG-grounded assertions, automated mocking, longitudinal survival)
+- [Test Coverage Analysis of Agentic Pull Requests](https://arxiv.org/pdf/2607.18057) — Dipongkor, Baral, Lam & Moran (University of Central Florida / George Mason, arXiv 2607.18057, 2026-07-20, ICSME 2026 emerging results), `empirical`. §II (AIDev v3 corpus, the two filters, the ≥10-agentic-PR coverage subset), §III (patch reconstruction, test-only patch extraction and reverse-apply, JaCoCo/pytest-cov instrumentation, srcML line typing, the build-and-instrument attrition to 213/1,664 PRs), §IV.A + Figure 1 (test-inclusion Venn), §IV.B + Table I + Table II + Figure 2 (existing-test diff coverage, the paired with/without comparison, miss rates by construct), §V (practitioner and agent-developer prescriptions), §VI (the small-Java-repo sampling-bias limitation). **Parse status: docling `verify: ok`, no collapse/shift/canary flags — and both tables were nonetheless reconciled against the local PDF** (`pdftotext -f 4 -l 5 -layout` on ). Table II matches cell for cell. Table I is *cosmetically* damaged in the docling grid — the header is a run of repeated `Java`/`Python` spans and the `% Improved` fractions and p-values splatter across extra cells — but no value is misattributed; every row matches the PDF and the Overall row reproduces from the prose. Note Table II's column order is **Python first, Java second**. Figures 1 and 2 were viewed directly under the image two-pass rule; Figure 1's Venn regions reconcile to every prose total in §IV.A and supply the per-language inclusion rates (Java 248/530, Python 1,928/3,857) that appear nowhere in the text. **Two internal inconsistencies belong to the paper, not the parse:** §IV.A switches denominators between the 49.6%/50.4% headline (over 4,387 code-touching PRs) and the "53.0% Java, 44.3% Python" sentence (over all 532/4,350 PRs) without saying so; and §I cites Watanabe et al. [15] for "nearly one-third of merged agent-generated PRs require subsequent bug fixes or refactoring" while §VI restates the same reference as "45.1% of merged PRs required human revisions," never reconciling the two

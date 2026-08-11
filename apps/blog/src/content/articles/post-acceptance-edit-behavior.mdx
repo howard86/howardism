@@ -1,0 +1,202 @@
+---
+date: 2026-08-12
+title: Post-Acceptance Edit Behavior
+description: "Liang et al. (CMU, arXiv 2607.25130): DECODE, 53.6K in-IDE edits
+  of accepted AI completions from 1,141 developers — the first measurement of
+  what humans DO to AI code after accepting it, pre-commit rather than at PR
+  level. Half of all edits land within 50 minutes and the volume collapses after
+  15; retention is bimodal (median 63% survives, but the mass sits at 0% and
+  100%); 31% of trajectories contain a removal edit, and the developer who first
+  tries to CUSTOMIZE a completion is the likeliest to delete it next (23.4% vs
+  12.2% after a functionality change). Which of 20 models wrote it barely
+  matters (eta-squared 0.002–0.007). The prediction half is weaker than its
+  abstract: fine-tuned 3B models beat their own base by +0.23 F1 but the best
+  frontier baseline by only +0.08, and the dominant edit type — changing
+  functionality — tops out near 0.49 Levenshtein similarity for every model
+  tried"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - ai-coding-workflow
+  - human-ai-collaboration
+  - engineering-metrics
+  - code-quality
+  - empirical
+readingTime: 26
+imageAlt: Illustration for Post-Acceptance Edit Behavior
+sources:
+  - title: Learning from 53.6K Real-World Developer Edits of AI-Generated Code
+    url: https://arxiv.org/pdf/2607.25130
+---
+export { default as heroImage } from "../assets/post-acceptance-edit-behavior.webp";
+
+## Sources
+
+- [Learning from 53.6K Real-World Developer Edits of AI-Generated Code](https://arxiv.org/pdf/2607.25130)
+
+## Summary
+
+Liang, Bairathi, Chi, Talwalkar, Subramani & Chen (Carnegie Mellon, arXiv 2607.25130, July 2026) release **DECODE** — 53,614 before-after code pairs across 5,831 edit trajectories from **1,141 developers**, captured *inside the IDE* as they repaired AI code completions in Python, JavaScript and TypeScript.
+
+It is the first source in this corpus that measures **what a human actually does to AI-generated code after accepting it**. Everything else here measures an artifact that already survived that step: a submitted change, a pull request, a review comment, a production profile. DECODE measures the step itself, and the step is not small — a **median of 63% of the accepted completion survives to the end of the trajectory**, and 31% of trajectories contain an edit whose intent is to remove the completion outright.
+
+The instrument's shape is the whole reason to read it, and also the reason not to over-read it. See the boundary section below before quoting any figure against agent telemetry.
+
+> **Evidence note.** `empirical`, with three limits that travel with every number. (1) **The completions are not frontier-2026 code.** The 20 models in the pool are 2024 to early-2025 vintage — `gpt-4o-mini-2024-07-18`, `codestral-2405`, `gemini-1.5-pro-002`, `claude-3-5-sonnet-20240620`/`20241022`, `claude-3-7-sonnet-20250219`, `deepseek-coder-v3-fim`, two anonymized entries — so this measures repair of *inline autocomplete from a prior model generation*, not repair of an agent's multi-file diff. (2) **Only accepted completions are in scope.** The authors state it: rejected completions, human-written code, and anything typed outside the extension are all excluded, so no acceptance rate can be computed from this dataset and no comparison to human-authored baseline behavior exists. (3) **The population is opt-in and probably not representative.** Data comes from developers who explicitly opted into sharing code via a multi-model VS Code completion extension. The paper never names it, but the model roster (including `anonymous-titan` and `anonymous-q`), the shared author list, and the statement that the context-classification prompts were "used directly from Copilot Arena" make **Copilot Arena** the near-certain source — i.e. volunteers who installed a model-comparison tool, not a random sample of working developers. Extraction quality itself is validated: 125 hand-annotated pairs, pipeline recall 94.7% with 88.1% overlap against human-extracted edits, and the LLM edit-type judge agrees with human raters 94% of the time on 120 pairs.
+
+## The instrument boundary — do not blur this with agent telemetry
+
+This matters enough to state before the findings, because four other sources compiled the same week measure adjacent things at a completely different layer.
+
+| Source | Unit of observation | Stage |
+|---|---|---|
+| **DECODE (this page)** | one edit snapshot on one accepted inline completion | **pre-commit, in-IDE** |
+| [Tran et al.](/articles/efficiency-debt-of-ai-generated-code) | a submitted change in a monorepo | post-submit, production |
+| [Dipongkor et al.](/articles/agent-generated-test-quality) | an agentic pull request | PR |
+| [Cynthia et al.](/articles/agent-review-comment-resolution) | an agent-authored review comment on a PR | PR review |
+| [Greptile](/articles/same-model-review-blindness) | a labelled PR | PR review |
+
+The consequence is arithmetic, not rhetorical. **Whatever gets removed here never becomes a pull request at all.** Every PR-level denominator in the corpus — test coverage over changed lines, security smells per agent PR, review comments per diff — is computed over the survivors of the filter DECODE measures. [Tran et al.](/articles/efficiency-debt-of-ai-generated-code) flag this explicitly as a caveat on their own adoption series ("developers substantially filter generated text before it reaches submitted-code analysis") and have no instrument for it; this is that instrument, on a different population and an older model generation.
+
+The reverse holds too: nothing here says anything about agent-authored PRs, unattended loops, or multi-file refactors. An accepted completion has a **median length of 97 characters, or 9 lines**, inside a code context of median 2,949 characters. That is a suggestion, not a change.
+
+## When: the first fifteen minutes, then a long tail
+
+- **72%** of edits occur within one day of accepting the suggestion.
+- **50%** occur within the first **50 minutes**.
+- The aggregate edit volume shows a steep decay with a knee at **15 minutes** (Figure 3a, viewed directly — the curve falls from ~130K aggregated Levenshtein distance to under 40K by the 15-minute mark and flattens near 10K for the remaining three hours).
+
+Trajectories themselves run a median of **49.7 minutes** with a median of **4 snapshots** and a median of **329 Levenshtein edits** between the initial completion and the final state, but the tails are enormous: 1 second to 283.5 days, 1 to 424 snapshots. The median is the story; the mean would not be.
+
+## What: four repair types, and the one that dominates is the one nobody can predict
+
+The taxonomy was hand-built from every edit in 30 trajectories (85 snapshots), then scaled with `gpt-5-mini` as judge. Two different denominators are reported and they are easy to confuse:
+
+| Edit type | Share of edit *snapshots* | Share of *trajectories* containing it |
+|---|---|---|
+| Changing code functionality | **56%** | **76%** |
+| Improving code quality | 14% | 40% |
+| Customizing code | 10% | 25% |
+| Removing | 9% | **31%** |
+
+*(The snapshot column sums to 89%; the labelling taxonomy carries a fifth `unchanged` class for which no share is reported.)*
+
+The dominant repair is **semantic** — adding methods, changing control flow, changing which API is called — not cosmetic. Only 10% of edit snapshots are the variable-rename-and-literal-tweak class that a "the AI got it 90% right" story would predict.
+
+## The bimodality: kept whole or thrown away, rarely in between
+
+The median 63% retention figure is close to meaningless on its own, because the distribution is **bimodal** (Figure 3b, viewed directly). Nearly all the mass sits at the two ends: a spike at 100% remaining (~1.4K trajectories, the taller of the two) and a spike at 0% (~1.2K), with a low, flat floor across the middle. Developer-added code is even more lopsided — **20%** of the final code was developer-written on average, but **36%** of final states contain **under 5%** developer-added code, and Figure 3c is a single tower at 0% with almost nothing after it.
+
+Read the two panels together and the practical claim is: *the developer either takes the completion essentially as-is or gets rid of it, and in neither case do they write much of their own on top of it.* The paper's own framing of this is the useful one — the property to detect is **editability**, "how easily the code can be adapted, even when it is not immediately usable," which is orthogonal to correctness and which no current metric measures.
+
+**One precision worth keeping.** The much-quoted 31% is *trajectories containing a removal-intent edit*. The abstract's looser phrasing ("resulting in the removal of AI completions in 31% of edit trajectories") reads as an endpoint claim, and Figure 3b's 0%-remaining bar is closer to ~21% of trajectories. Contains-a-removal-edit and ends-at-zero-remaining are different quantities and only the first is 31%.
+
+## The sequence: customizing is the tell that the completion is doomed
+
+The sharpest single result, and the one that most directly bears on human selection. Reading the first two steps of each trajectory (Figure 4, recovered from the figure image — the transition percentages appear nowhere in the prose):
+
+**First edit after acceptance:** change functionality **47.9%**, remove **21.4%**, improve code quality **18.9%**, customize **9.9%**.
+
+**Second edit, conditional on the first:**
+
+| First edit | → Remove | Other frequent successor |
+|---|---|---|
+| Customize code | **23.4%** | — |
+| Improve code quality | 14.0% | → change functionality 14.9%, → customize 11.8% |
+| Change functionality | 12.2% | — |
+| Remove | — | → change functionality **40.3%** |
+
+A developer who starts by *customizing* a completion — tuning names and literals, the smallest possible intervention — is roughly **twice as likely** to delete it next as one who starts by changing its functionality. The authors' reading: "AI completions that subtly do not align with a developer's intent or programming context are difficult for developers to adapt." And the 40.3% Remove → Change Functionality edge says what happens after deletion: the developer writes their own implementation.
+
+There is a competing explanation the paper does not consider, and it is not obviously wrong: a developer who invests in customizing has already read the completion closely enough to discover what is wrong with it, so the ordering may be a *reading-depth* effect rather than an *adaptability* effect. Both predict the same transition matrix. See the open questions.
+
+**Pooled timing corroborates the ordering** (Kruskal-Wallis H = 394.5, p &lt; 0.001): removal edits arrive first (μ = 23.6 min), then quality fixes (28.3), then customization (49.3), then functionality changes (59.2). The paper reads this as a decision procedure — first decide whether to keep it, then fix its errors, then adapt it, then extend it. Note the construct switch: this is a mean-time ordering across pooled edits of each type, not a within-trajectory sequence, and it sits alongside the transition matrix rather than being derived from it.
+
+## Which model wrote it barely matters
+
+Across all 20 completion models, differences in AI-code-remaining (H = 31.5, p = 0.04) and developer-added code (H = 57.3, p &lt; 0.001) are statistically significant and **negligible in size**: eta-squared of **0.002** and **0.007**. Edit types differ too (chi-squared = 320.7, p &lt; 0.001) at Cramér's V = **0.05**.
+
+At this sample size significance is nearly free, and the authors are appropriately careful to report effect sizes alongside it. The reading: within a pool of 2024-vintage completion models, *who generated the suggestion explains almost none of what the human does to it.* Whether that survives a pool with a genuine capability spread is the obvious next question — all 20 models sit in a fairly narrow band, and none of them is a 2026 frontier model.
+
+## Edits cluster at the seams
+
+Edit *positions* within a completion are approximately uniform, with elevated frequency at the beginning and the end (Figure 6), and no relationship to time (Pearson r = -0.12). The authors read the seams as integration work — wiring the completion into the surrounding code and extending it past where it stopped. That is consistent with the 9-line median completion length: at that size, most of the friction is at the boundary rather than in the body.
+
+## The prediction half, and where its headline does not reconcile
+
+The second contribution turns DECODE into a benchmark for two tasks: **classify** whether a completion will end up deleted `[0, 0.1]`, unmodified `[0.9, 1]` or modified `(0.1, 0.9)` (balanced by upsampling; random baseline F1 = 0.33), and **generate** the final edited state.
+
+Few-shot, this is close to a wall for everything tested. *(All values below recovered from the PDF — the docling parse of the summary table is collapsed, see Sources.)*
+
+| Few-shot baseline | Classification F1 | Generation Lev. Sim. |
+|---|---|---|
+| Claude Sonnet 4.6 | **0.37** | 0.36 |
+| DeepSeek-v3.2 | 0.35 | 0.37 |
+| GPT-5.2 | 0.32 | 0.37 |
+| Qwen3-Coder-Next | 0.31 | 0.32 |
+| Llama3.3-70B-Instruct | 0.27 | 0.35 |
+| Devstral-2512 | 0.26 | **0.41** |
+| Qwen2.5-Coder-7B (base) | 0.21 | 0.30 |
+| Llama3.2-3B (base) | 0.23 | 0.21 |
+| Qwen2.5-Coder-3B (base) | 0.19 | 0.26 |
+| **+ DECODE fine-tune, 3B** | **0.42** | 0.41 |
+| **+ DECODE fine-tune, 7B** | **0.45** | **0.43** |
+| **+ DECODE fine-tune, Llama3.2-3B** | 0.44 | **0.43** |
+
+**The fine-tuning gain is real and the frontier comparison is oversold.** Against their *own base versions*, LoRA fine-tuning on DECODE is worth **+0.23 F1** and **+0.18 Levenshtein similarity** — a large, consistent effect across three model families. Against the *best frontier baseline in the same table*, the same models gain **+0.08 F1** (0.45 against Sonnet 4.6's 0.37) and **+0.02 Levenshtein** (0.43 against Devstral's 0.41). The abstract's "significantly surpass frontier models on both generating code edits (+0.17 Levenshtein similarity) and classifying whether developers will edit AI completions (+0.17 F1)" only reconciles against the *average* of the six frontier baselines, not the best of them, and the paper does not say so. Cite the head-to-head.
+
+The gap narrows further once both sides get edit history. Supplying the first *k* edits as context (Tables 7 and 8, both recovered):
+
+- **Generation improves for everyone.** Fine-tuned Qwen2.5-3B goes 0.41 → **0.52** across k=0 to k=4; Claude Sonnet 4.6 few-shot goes 0.36 → **0.48** over the same range, a larger absolute gain. At k=4 the fine-tuned advantage over the best-served frontier model is +0.04.
+- **Classification does not.** Fine-tuned models pick up ~0.06 to 0.08 F1 from edit history (Qwen2.5-3B 0.42 → 0.51). Claude Sonnet 4.6 gains **nothing**: 0.37, 0.36, 0.35, 0.35, 0.36 across k = 0 to 4. Watching a developer's first four edits tells a frontier model nothing about whether the completion will ultimately be kept — while the same context clearly helps it *reproduce* the edits.
+
+**The ceiling is on the class that matters.** Levenshtein similarity stratified by edit type (Table 10, clean in the parse) is the most useful table in the paper:
+
+| Edit type | Best few-shot | Best fine-tuned | Share of snapshots |
+|---|---|---|---|
+| Customizing | 0.73 (Devstral) | **0.76** | 10% |
+| Improving quality | 0.58 (Sonnet 4.6) | **0.65** | 14% |
+| Changing functionality | 0.44 (Sonnet 4.6) | **0.49** | **56%** |
+| Mixed | 0.46 (Sonnet 4.6) | 0.49 | — |
+
+Every model, fine-tuned or frontier, predicts the **cosmetic** repair well and the **semantic** repair badly, and the semantic repair is over half the dataset. Fine-tuning moves the hard class from 0.44 to 0.49 — a real gain, and still the lowest cell in the table. Whatever tells a developer to change what the code *does* is not recoverable from the completion and its surrounding file.
+
+Fine-tuning does not cost general code generation: pass@1 on HumanEval and MBPP is flat or up by 0.00 to 0.02 for all three models. *(One number in that table is not usable: Llama3.2-3B is reported at 0.94 HumanEval and 0.96 MBPP pass@1, above the Qwen2.5-Coder-7B on the same benchmarks. It appears identically in Tables 3 and 9, so it is the paper's number rather than a parse artifact, and it is not quoted here as a capability claim.)*
+
+## What this settles, and what it only sharpens
+
+The paper's own conclusion is a benchmark critique: pass@k on HumanEval, MBPP, SWE-Bench and BigCodeBench measure **correctness**, and the failure mode this dataset exposes is **alignment with developer intent** — a completion can be correct and still be deleted 23 minutes later because it does not fit. That is the same argument [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) makes from the benchmark side, arrived at from usage telemetry. The proposed replacement metrics are notable for being behavioral rather than static: **code retention** and **AI completion abandonment rate**.
+
+What it does *not* do is measure whether human discrimination is any good. Retention is what the human did, not whether they were right — a deleted completion may have been bad code correctly rejected or good code the developer failed to recognize, and DECODE cannot tell those apart. Any reading of these numbers as evidence about *judgment quality* is reading past the instrument.
+
+## Connections
+
+- [AI as Primary Author](/articles/ai-as-primary-author) — **the acceptance construct gets a floor under it.** That page's standing question is what "acceptance" means when the agent applies the change directly; this measures the layer below even the affirmative case. An accepted completion is not an adopted one: 31% of trajectories carry a removal edit, retention is bimodal, and the median completion has lost 37% of itself within an hour. Every acceptance-rate figure — Faros's 20% to 60%, and the provenance shares that replaced it — is a snapshot of a state that is still moving. It also corroborates the authorship shift from the other side: developers add **20%** of the final code and under 5% of it in 36% of cases, so where a completion survives, it survives as the AI's text
+- [Design by Selection](/articles/design-by-selection) — **the first population data on what happens after the selection.** That page's practice is "ask for ten options, then remix," which assumes the human reliably recognizes the good one; this measures the same human one step later, on a single candidate, and finds the recognition is often *late*. The developer who tries the smallest adaptation first (customizing) is the one most likely to delete next (23.4% against 12.2% after a functionality change) — selection failing after the option was already taken, not at the moment of choice. The barbell's back end survives intact and gets a shape: the last mile is real, it is 15 minutes long, and the "small calls better eyeballed than described" claim is corroborated by 10% of edits being literal-and-name tuning
+- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — the reliance side, quantified at keystroke granularity: developers add almost nothing of their own on top of AI completions (20% of final code, under 5% in 36% of final states), which is the behavioral trace of the comprehension-debt worry rather than a measure of it. And a caution about instruments — this is the closest thing in the corpus to Thawar's missing comprehension metric, and it still cannot see comprehension. Retention records what the developer did, not whether they understood it; a completion kept 100% intact by someone who read it closely and one kept by someone who did not are the same row
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) — **a behavioral instrument for the construct that page infers from transcripts.** Its open question is that "decision attribution" is inferred from what the transcript says, and the rubber-stamping boundary is exactly where inference is hardest. Edit trajectories are not inferred: whether a developer rewrote a completion's control flow is a recorded fact about bytes. What DECODE reaches is only the execution layer on accepted completions — it says nothing about who planned — so it is a partial instrument, but a non-inferential one. Its edit-type mix also reads directly against the 80%-execution-to-Claude figure: 56% of edits change what the code *does*, which is an execution decision the human took back
+- [Review as the Control Point](/articles/review-as-the-control-point) — the repair layer *upstream* of everything that theory models. Volume, surface plausibility and lost intent are its drivers; this measures the same forces at a stage where no reviewer exists and the author is the only reader. Two consequences: a completion removed 23 minutes after acceptance never enters the review system at all, so the theory's outcome constructs are all conditioned on surviving this filter; and the customize-then-remove path is the same surface-plausibility mechanism (P4) firing on the *author* rather than a reviewer — code that read well enough to adapt, then didn't
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — **the filter that paper names and cannot measure.** Its RQ1 caveat is that developers "substantially filter generated text before it reaches submitted-code analysis," which is why a 68.62% provenance share is a measure of what survived a human. This is that filter with its own dataset: bimodal retention, a 31% removal-edit rate, and a median 63% of the completion surviving. Different population, different granularity, older completion models — so it bounds the caveat rather than closing it, and in the direction the caveat implies. Note the mirror-image finding on models: Tran et al. cannot separate model generations at all, and here 20 models separate by eta-squared 0.002
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — the same denominator problem from the other end. That study finds existing tests execute 27.0% of an agent's changed lines in Python and none in 64.8% of PRs; this says a substantial share of AI-generated code never reaches a PR to be untested in the first place. Together they bracket the survival path: what gets removed in the IDE, and what gets merged unexercised
+- [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) — the two behavioral instruments for how humans dispose of machine output, at opposite granularities and pointing the same way. There, ~71% of agent review comments get resolved and the modal genuine rejection is **project context the agent could not see** (23.8%); here, the completions most likely to be deleted are the ones that "subtly do not align with a developer's intent or programming *context*." One deficit, two artifacts — and both are measured as adoption, never as correctness
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — a different axis of the same blind spot. That page measures models failing to *catch bugs* in their own family's code; this measures models failing to *predict what a human will change* about AI code at all — Claude Sonnet 4.6 classifies deleted/modified/unmodified at F1 0.37 against a 0.33 random baseline, and gains nothing from watching the developer's first four edits. Neither is a capability claim about code generation; both say a model's read on AI-authored code is worse than its write
+- [Agentic Coding Work-Composition Shift](/articles/agentic-coding-work-composition-shift) — the usage-composition shift measured one layer down and one model generation earlier. There, sessions move from fixing broken code toward end-to-end delegation; here, within a single completion, the repair work is still overwhelmingly functional (56% of edits) rather than cosmetic. The two are compatible and the gap between their instruments is the point: session-level classification cannot see the 15-minute repair burst that follows an accept
+- [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement) — a third instrument shape for that page's taxonomy: **pre-commit editor telemetry**, sitting below both survey self-report and SDLC/PR telemetry, and visible to neither. Its distinctive property is that the artifact it observes is often destroyed — 31% of trajectories contain a removal edit, and none of that code exists in any repository to be surveyed or scraped afterward. The corresponding weakness is population: an opt-in model-comparison extension is a self-selected sample in a way a monorepo's full history is not. That page also hosts the **control-group** argument this dataset is a data point in: [DX](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering) (`vendor-claim`) declares the AI-vs-non-AI control group dead above 90% adoption, and DECODE has no human-written arm — but not for that reason. Its scope is *accepted completions*, so human-typed code is excluded by construction at any adoption rate, and the fix is a design choice (capture the developer's own edits as a cohort) rather than a demographic fact
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the class arriving at the smallest possible scale, before any grader or reviewer. A completion that reads well enough to be accepted and then customized, and is deleted on the next edit, was plausible at every surface signal the developer had — acceptance, then investment, then reversal. The corpus-level version is the paper's benchmark critique: pass@k measures the thing that is not failing here
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the bottleneck's cheapest stage, and the shortest feedback loop in the corpus: half the verification work on a completion happens within 50 minutes of accepting it, at a granularity where the human is still the only reader
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the same argument reached from usage data rather than from benchmark construct validity: correctness benchmarks are saturating on a dimension that is not the one deciding whether generated code survives. The proposed replacements here are behavioral — code retention and abandonment rate — which is a different move than reliability/efficiency/scaffold decomposition and complements it
+
+## Derived
+
+- [Is Human Review of AI-Authored Code Still a Real Control, or Already Rubber-Stamping?](/articles/human-review-real-control-or-rubber-stamp) — its three-way acceptance partition (affirmative adoption / reviewed non-reversion / bare non-reversion) treats *affirmative adoption* as the unambiguous case where a human applied a suggestion. This says that class is itself not terminal: the suggestion the human affirmatively applied is removed in a substantial minority of cases and edited in most of the rest, so even the strongest acceptance signal in the partition is a point on a trajectory rather than an endpoint
+
+## Open Questions
+
+- The completion pool is 2024-to-early-2025 inline autocomplete, median 9 lines. Do the bimodal retention shape, the 15-minute knee and the ~31% removal-edit rate hold at 2026 agentic granularity, where the unit is a multi-file diff the developer never watched being written? The discriminator is the same trajectory extraction run over agent edits rather than completions.
+- The customize-then-remove path (23.4%, against 12.2% after a functionality edit) is offered as evidence that subtly misaligned completions resist adaptation. A **reading-depth** explanation predicts the same matrix: customizing requires reading the completion closely, and close reading is when its real flaw surfaces. Discriminating them needs a signal outside the edit stream — time-to-first-edit conditioned on completion length, or an eye-tracking or dwell-time proxy. Which mechanism is right decides whether the fix is better generation or earlier forced inspection.
+- Is completion retention predictable in principle? Fine-tuning lifts classification only to F1 0.45 against a 0.33 random baseline, and generation on the dominant edit class (changing functionality, 56% of snapshots) tops out at 0.49 Levenshtein similarity for every model tried. Either the signal is in context the models were not given (repository, task history, the developer's other files) or retention is a property of intent that no amount of *code* context contains — and the paper's proposed "detect low-editability generations before showing them" product depends on which.
+
+## Sources
+
+- [Learning from 53.6K Real-World Developer Edits of AI-Generated Code](https://arxiv.org/pdf/2607.25130) — Jenny T. Liang, Mihika Bairathi, Wayne Chi, Ameet Talwalkar, Nishant Subramani & Valerie Chen (Carnegie Mellon, arXiv 2607.25130, 2026-07-27), `empirical`, 35 pages. §3 (dataset construction, the four-step pipeline, hand-validation at 94.7% recall, PII redaction, IRB), §3.2 (dataset statistics, language and task-context breakdowns, trajectory and completion size distributions), §4.2 (the four edit types, the timing results, the bimodality, the Kruskal-Wallis ordering and the cross-model effect sizes), §5.1–5.2 (the two tasks, baselines, LoRA fine-tuning, and results), §6 (the benchmark critique, editability, and the developer-centric-ML argument), Appendix A.1 (model roster, matching thresholds, the under-2% end-of-file exclusion), A.2 (quality validation), B.2 (edit positions), B.3 (taxonomy construction and the gpt-5-mini judge at 94% human agreement), C.1–C.2 (hyperparameters and full result tables), and the stated Limitations.
+- **Parse warning.** docling returned `verify: warn` with both `table-collapse` (1 cell) and `table-shift` (7 cells), and the damage is real and load-bearing. **Table 2** is collapsed two rows at a time — GPT-5.2's row holds both GPT-5.2's and Claude Sonnet 4.6's values in every cell, leaving Sonnet's own row holding DeepSeek-v3.2's F1 (0.35) where its true value is **0.37**, and Qwen3-Coder-Next's row welded to Llama3.3-70B-Instruct's. Reading that grid at face value misattributes numbers across models rather than dropping any. **Table 3** welds base and fine-tuned pass@1 into one cell per benchmark. **Tables 7 and 8** are row-shifted: the `Edits` value migrates into the model-label cell (`Sonnet 4.6 (Few-shot) 1 2`, `Qwen2.5-3B (Fine-tuned) 1 2`, `Qwen2.5-7B (Fine-tuned) 2`) leaving the affected rows short a cell and unlabelled. **Tables 1, 5, 6, 9 and 10 parse clean.** Every model-level figure quoted on this page was recovered with `pdftotext -layout ` and cross-checked against Tables 5 and 6, the paper's clean full-detail versions of Table 2; no cell of the damaged grids is cited as parsed. **Figures 3, 4 and 6 were viewed directly under the image two-pass rule** — Figure 4's transition percentages (47.9 / 21.4 / 18.9 / 9.9 first-edit, and the 23.4 / 14.0 / 12.2 / 40.3 second-edit edges) appear nowhere in the prose except as three rounded values, and Figure 3's bimodal shape and the relative height of its two peaks are not stated in text at all. **Two internal inconsistencies belong to the paper, not the parse:** §4.2 states "23% of edit trajectories immediately remove the AI completion" while Figure 4 puts the Accept→Remove edge at **21.4%**; and the abstract's "+0.17 F1 / +0.17 Levenshtein similarity over frontier models" reconciles only against the mean of the six frontier baselines, while the head-to-head against the best of them in the paper's own Table 2 is +0.08 and +0.02. The Llama3.2-3B pass@1 of 0.94 (HumanEval) / 0.96 (MBPP) in Tables 3 and 9 is implausibly high for a 3B model and above the 7B Qwen on the same rows; it is internally consistent across both tables, so it is the paper's figure rather than a parse artifact, and it is not cited here.

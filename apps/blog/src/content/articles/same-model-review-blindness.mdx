@@ -1,0 +1,141 @@
+---
+date: 2026-08-12
+title: Same-Model Review Blindness
+description: "Greptile's Rodrigo Caridad on two 500-PR labelled datasets (~1,500
+  verified high-severity bugs): each frontier model catches fewer bugs in code
+  authored by its own model family than in the other family's code — Opus 4.7
+  53.7% same-model vs 60.0% cross-model, GPT 5.5 50.5% vs 62.0%. The crossover
+  is a pure interaction (both reviewers average ~56% overall and the two
+  datasets differ by 2.6pp), but the post's offered mechanism — that a model
+  misses the bug categories it produces most — reproduces only ~7% of its own
+  headline when the category table is reweighted by the bug mix, so the
+  blindness operates WITHIN category, not through composition. Vendor-built
+  ground truth with an unspecified labelling procedure, one arm's prompt tuned
+  against the outcome metric, no released artifact — filed case-study, not
+  empirical"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - code-review
+  - ai-coding-workflow
+  - evaluation
+  - failure-modes
+readingTime: 22
+imageAlt: Illustration for Same-Model Review Blindness
+sources:
+  - title: Models are worse at reviewing their own code
+    url: https://www.greptile.com/blog/model-inversion
+---
+export { default as heroImage } from "../assets/same-model-review-blindness.webp";
+
+## Sources
+
+- [Models are worse at reviewing their own code](https://www.greptile.com/blog/model-inversion)
+
+## Summary
+
+Rodrigo Caridad of Greptile's research team reports that **a frontier model reviewing code its own model family authored catches fewer of the high-severity bugs than the other family's model does** — the vault's first direct measurement of the assumption underneath every maker/checker architecture, which [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) states as a rule and until now had no model-lineage evidence for.
+
+Two datasets of 500 pull requests each, one authored by [Claude Code](/articles/claude-code) and one by [Codex](/articles/codex), identified by commit trails (`Co-authored-by: Claude Opus 4.7`), PR title prefixes (`[codex]`) and branch prefixes (`codex/`). Roughly 1,500 ground-truth comments built from "sentiment analysis, upvote/downvote ratios, and git archaeology." Each PR reviewed three times by each vendor's own `/review` feature, recall scored by matching against ground truth with an [LLM-as-a-Judge](/articles/llm-as-a-judge), averaged. Stylistic comments, praise and documentation suggestions excluded; the headline is recall on high-severity (P0/P1) bugs only.
+
+| Reviewer | Claude-authored PRs | Codex-authored PRs |
+|---|---|---|
+| [Claude Opus 4.7](/articles/claude-opus-4-7) | **53.7%** *(same-model)* | 60.0% *(cross-model)* |
+| GPT 5.5 ([OpenAI](/articles/openai)) | 62.0% *(cross-model)* | **50.5%** *(same-model)* |
+
+Cross-model mean 61.0% against same-model mean 52.1% — an **8.9-point gap**. Greptile ships the routing prescription as a product feature ("Model Inversion"): detect the authoring agent from the PR's trail, route the review to the other vendor's model.
+
+> **Evidence note. Filed `case-study`, corrected down from the raw document's `empirical` at compile.** The measurement is real work and the direction is the interesting part, but nothing about it is reproducible in the sense the `empirical` tier reserves. There is no released dataset, no labelling protocol beyond the three-word phrase above, no inter-rater agreement, no validation of the LLM judge that did the matching (compare [Agent Review Comment Resolution](/articles/agent-review-comment-resolution), where the judge's kappa against a human gold set is published), no per-cell n, and no confidence interval on gaps of 6–12 points. One arm's prompt was **tuned against the outcome metric until it recovered** — the post says so plainly, adding an instruction to target 7–10 comments per review after GPT's recall came in low — which is an experimenter degree of freedom sitting directly on the headline number. And the COI is direct: Greptile sells an AI code-review agent, and cross-vendor routing is precisely what a single-model reviewer cannot offer. Not `vendor-claim`, because the subject measured is two third-party models run through their own vendors' review features rather than Greptile's product; but every figure below is Greptile's own and none has been checked by anyone else.
+
+## What survives the arithmetic: this is an interaction, not a main effect
+
+The obvious confound is that one dataset is simply harder — Claude-authored bugs might be tougher for everyone, which would produce a low Opus number on Claude PRs for reasons that have nothing to do with authorship. The post never runs the check; the numbers do.
+
+- **Dataset main effect: 2.6pp.** Mean recall on Claude-authored PRs is 57.85%, on Codex-authored PRs 55.25%.
+- **Reviewer main effect: 0.6pp.** Opus averages 56.85% across both datasets, GPT 56.25%. On this corpus the two reviewers are **equally good** overall.
+- **The whole signal is in the crossover.** Neither model is the better reviewer and neither dataset is much harder; the 8.9-point same-versus-cross gap is what remains after both main effects, and it is 3.4x the larger of them.
+
+That is the strongest structural feature of the result, and it is also why the prompt-tuning caveat does not dissolve it: tuning GPT's comment count upward raises GPT's recall on *both* datasets, moving a main effect, not a crossover.
+
+## The offered mechanism does not reproduce its own headline
+
+The post's explanation for the crossover is compositional: "the types of bugs a model introduces most often are the same types it's more likely to miss during review." It supports this with two more figures — the bug mix of each dataset, and each reviewer's recall by category (pooled).
+
+| Bug category | Claude PRs | Codex PRs | Opus 4.7 recall | GPT 5.5 recall |
+|---|---|---|---|---|
+| Missing behavior | 35.1% | 24.2% | 63.3 | 69.0 |
+| Semantic intent | 21.4% | 27.4% | 40.4 | 33.9 |
+| Error handling | 18.4% | 22.6% | 59.4 | 55.2 |
+| Security | 9.4% | 6.7% | 68.4 | 72.4 |
+| Performance | 5.0% | 7.5% | 57.1 | 51.1 |
+| Contract & schema | 4.7% | 5.2% | 46.6 | 50.2 |
+| UI behavior | 4.3% | 3.6% | 57.9 | 59.3 |
+| Build breakage | 1.7% | 2.8% | 58.8 | 82.4 |
+
+**Category by category, the story mostly holds.** Where Claude produces relatively more bugs, Opus is the relatively weaker reviewer, and vice versa — in **6 of 8** categories. The two exceptions are Contract & schema and Build breakage, which are the two categories with the *smallest* frequency difference between datasets (0.5pp and 1.1pp), i.e. exactly where the compositional signal is weakest and noise should dominate. Worth noting anyway that the single largest recall gap in the whole table (Build breakage, 58.8 against 82.4) is one of the exceptions, on the smallest category by volume.
+
+**Reweighted, the mechanism explains almost none of the headline.** Multiply each dataset's bug mix by each reviewer's per-category recall and the 2x2 the post opens with should fall out. It does not:
+
+| | Claude PRs (predicted / reported) | Codex PRs (predicted / reported) |
+|---|---|---|
+| Opus 4.7 | 56.8 / **53.7** | 54.8 / **60.0** |
+| GPT 5.5 | 57.3 / **62.0** | 54.2 / **50.5** |
+
+Composition reproduces the two main effects almost exactly — predicted dataset effect 2.5pp against an observed 2.6pp, predicted reviewer effect 0.1pp against an observed 0.6pp — and then **predicts a same-versus-cross gap of 0.6pp against the observed 8.9pp**, about 7% of it. The residuals are perfectly structured: every same-model cell comes in 3–4 points *below* its compositional prediction and every cross-model cell 5 points *above*.
+
+The honest reading is that the headline finding is *stronger* than its stated mechanism and the stated mechanism is *weaker* than it reads. Whatever produces the crossover is not the bug mix — a model's blindness to its own family's output operates **within** each bug category, not through which categories it produces. That is the more interesting claim and the post does not make it, because it does not run this reconciliation. Caveats: the pooling basis of the recall column is never stated (across both datasets? weighted per bug or per PR?), all figures are rounded to one decimal with no denominators, and the two figures may not share a bug population. But a 15-point discrepancy in the crossover is far outside rounding, so either the composition story is insufficient or two of the post's three headline figures do not describe the same measurement.
+
+## The behavioral half: breadth-first, depth-first, and a bug named but not posted
+
+Trace analysis, single-corpus and without n reported, splits a review into Scope (read the diff), Investigate (search the codebase for evidence) and Summarize, and measures what share of the final context window each phase built:
+
+| Phase | Opus 4.7 | GPT 5.5 |
+|---|---|---|
+| Scope | 59.4% / 31.5 KB | 6.1% / 2.1 KB |
+| Investigate | 31.2% / 16.6 KB | 82.5% / 28.5 KB |
+| Summarize | 9.4% / 5.0 KB | 11.4% / 3.9 KB |
+
+The absolute figures sharpen the "Opus goes wide, GPT goes deep" framing rather than merely restating it: Opus builds 53.1 KB of context to GPT's 34.5 KB overall, but GPT's *investigation* is 1.7x larger in bytes while its scoping is 15x smaller. Output follows — Codex reviews land at 1–2 comments, Opus at 7–8. Caridad's reading: Opus is preventive and comments on things that *could* be bugs; GPT insists on verifying that what looks wrong is wrong.
+
+The sharpest single observation is a failure mode that recall alone cannot see. In a traced review GPT **named a deadlock in its reasoning** ("a deadlock in `batchSet` due to per-item advisory locks"), spent 20.8% of its trace tokens on it, and **posted only the other, lower-severity finding**. Adding an instruction to target 7–10 comments raised the deadlock's share of reasoning to 37.6% and got it posted. Caridad attributes the suppression to conflicting instructions plus post-training: OpenAI's `/review` system prompt narrows scope to minimize noise, and Deliberative Alignment makes the model reason about developer-versus-user intent before acting. "The model was not disobedient — it was doing exactly what it was trained to do." His own discomfort is worth keeping: prompting around it "felt less like crafting a request and more like trying to jailbreak the model."
+
+Two consequences. First, **a review agent's recall is partly a property of its post-training and its vendor's stock review prompt, not only of the model** — which means a recall number measured through `/review` is a measurement of a *product*, and the ceiling this study puts on GPT is at least partly a ceiling on OpenAI's prompt. Second, this is [Failures That Look Like Success](/articles/failures-that-look-like-success) at the review layer with the internal evidence visible: the model found the bug, the posted review reads clean and confident, and nothing in the artifact records the omission. It is also the same detection/suppression split the report-everything-then-filter rule on [Review as the Control Point](/articles/review-as-the-control-point) exists to prevent, arriving from post-training rather than from a prompt the reviewer wrote.
+
+Opus's opposite failure gets the same treatment: it hedges on intent ("worth confirming this is intentional UX"), praises structure, and predicts future risk — comments whose usefulness is a matter of taste, and whose false positives "are not free. Each one costs an engineer's attention, and in an agentic workflow, each one costs compute."
+
+## Why it matters: the checker's lineage is a design variable
+
+Scope this carefully. The measured effect is 6–12 points of recall on one vendor's labelled set, not a finding that self-review is worthless — a same-model reviewer still catches roughly half the high-severity bugs, and both reviewers average the same overall. What changes is that **model identity joins context, prompt and prior as a variable the maker/checker split has to specify**, and it is the one every existing arrangement in this vault leaves unconstrained:
+
+- **Self-graded quality gates.** [StampHog's](/articles/risk-tiered-auto-approval) last-position LLM showstopper check runs on a diff a coding agent produced; nothing in the design says the veto model differs from the authoring one. If it does not, the gate's weakest layer is also its most blind.
+- **Adversarial review inside one family.** [The Bun port](/articles/optimizer-evaluator-decoupling) ran implementer, two adversarial reviewers and a fixer as the *same pre-release model*, buying context asymmetry and an inverted prior with zero lineage diversity — the axis this measures.
+- **[LLM-as-a-Judge](/articles/llm-as-a-judge) and grading loops.** Lineage bias is usually framed as self-preference (a judge scores its own output higher). On a detection task it presents as lower recall instead, which no consistency or agreement check catches.
+- **Verify-repair loops.** [VRR-Stop's](/articles/stopping-under-a-noisy-verifier) four parameters treat verifier noise as a property of the verifier; a same-model reviewer's false-acceptance rate is 6–12 points higher on the same artifacts, so the verifier's discrimination is a property of the *pair*.
+
+The mechanism Caridad proposes for why routing helps is worth keeping even though his compositional evidence for it does not carry: "Each model seems to have its own mental checklist, its own design instincts. The bugs it introduces are reflections of the things it doesn't naturally worry about." If that is right, the useful property of a second reviewer is not that it is *better* but that it is *differently wrong* — which is exactly [Cursor's](/articles/optimizer-evaluator-decoupling) decorrelated-lenses composition rule, arriving with a number attached and from the model-identity axis rather than the evidence-scope one.
+
+## Connections
+
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — **the rule's model-lineage axis, measured for the first time on a grader that is itself a model.** That page's residual-holes section names lineage as the coupling architectural decoupling does not remove, and its long-running "how much independence is enough" question has swept seven axes without touching this one — because HarnessBank's grader is deterministic and SEAL's audit is an executable procedure. Here the grader is a frontier model and the only thing varied is whether it shares the author's family, holding the review harness, the diff and the ground truth fixed. The result is that context separation is not lineage separation: a reviewer in a fresh window, given only the diff and an adversarial prior, is still 6–12 points blinder on its own family's code
+- [Review as the Control Point](/articles/review-as-the-control-point) — the **second moderator (automated-reviewer capability) stops being a scalar.** That theory treats it as one construct — how good the AI reviewer folded into the loop is — and this says capability is a property of the *pairing*: on the same corpus the two reviewers are within 0.6pp of each other on average and 8.9pp apart depending on who wrote the code. Routing by authorship is therefore a **process-adaptation** decision (the third moderator) that moves the second one, at zero cost in review depth. It also supplies the vault's first recall number for a deployed automated reviewer, which is nearer P9's quality half than anything before it and still not a P9 answer: recall against a self-built label set is not a code-quality outcome
+- [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) — **the two halves of automated review's efficacy, and they must not be pooled.** That study measures *adoption* of an agent reviewer's comments (71.4% resolved, 54,713 comments, published judge validation); this measures their *recall* against a bug ground truth (52–62%). A comment that lands is not a bug that was caught, and a bug that was caught is not a comment that lands. Read together they price the layer end to end for the first time — roughly half the high-severity bugs are named, and roughly seven in ten of the resulting comments are acted on — with the caveat that the two numbers come from different corpora, different agents and evidence tiers two apart. The mechanisms are also complementary: that study's dominant non-adoption cause is the reviewer lacking *project* context, this one's is the reviewer sharing the author's *model* priors
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — a free, unclaimed tightening of the gate stack. Three of StampHog's four gates are deterministic and the fourth is an LLM showstopper check running last on an agent-authored diff; nothing in the design constrains which model. Routing that veto to a different family than the authoring agent costs nothing, needs no calibration to the codebase (unlike the deny-list), and moves the one layer whose measured performance is weakest — the same layer left holding CI/container smells that clear every keyword check. It is also the cheapest instance anywhere of the design that page already endorses in its reviewer-panel section ("different models and providers for different reviewers"), applied to the gate rather than to the panel
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — **J is a property of the (verifier, author) pair.** A missed high-severity bug is that page's false acceptance, so a same-model reviewer's recall deficit is 6–12 points of extra rho-zero on identical artifacts, which subtracts directly from the verifier's discrimination `J = 1 - rho0 - rho1`. The four-parameter model treats verifier noise as fixed and locally estimated; this is a second way it moves, alongside the optimization-pressure drift that page already records. The practical form: a calibration collected on one authoring agent does not transfer to a loop where a different model writes the code, even with the verifier untouched
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the traced GPT review is this class with the internal evidence recovered: the model names a deadlock in its reasoning, allocates a fifth of its trace tokens to it, and posts a different, lower-severity finding. The output is fluent, confident and short, and nothing in it records the omission. The structural version is worse than the instance — a clean review from a same-model reviewer is byte-identical to a clean review from a sighted one, so the acceptance signal carries no information about the blindness that produced it
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — **the ceiling on this page's prescription, from a higher-evidence source.** Routing review to a different model family is a bet that decorrelated graders stack. Zhou bounds that bet on a neighbouring task: three judges from three families accepting only **unanimously still pass 55%** of the errors, and Proposition 2 shows *no* monotone aggregation rule escapes, because every reference-free judge thresholds the same latent plausibility signal. So diversity of family is not the same as diversity of *what is read*, and the 6–12 points measured here are a real but bounded gain rather than the start of a curve that reaches reliability by adding reviewers. The scopes differ enough to keep both — Zhou grades exact-matchable answers where the commitment is checkable, this scores bug detection on unlabelled diffs — and the two point at the same fix from opposite ends: what buys independence is a grader that reads or commits to something the author did not, which is why the strongest single intervention on this page is *also* a commitment device (instructing GPT to target a comment count before it decides what to suppress)
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — lineage bias measured on a **detection** task rather than a scoring one. The usual framing is self-preference (a judge rates its own family's output higher); on a recall task the same coupling presents as *seeing less*, which is invisible to every consistency, agreement and test-retest check because a blind reviewer is a perfectly reliable one. And here it does more than shift magnitudes — it reverses which reviewer is better, twice, on the same pair of corpora
+- [Unknowns as the Agentic Bottleneck](/articles/unknowns-as-the-agentic-bottleneck) — the mechanism under that page's self-graded-quiz worry, sharpened. A quiz the model writes about its own work draws its questions from what the model thinks matters about that code; the categories it under-weights when reviewing are, on this evidence, correlated with the ones it under-weights when authoring. So a self-authored gate is not merely gradeable-into-laziness, it is **systematically silent about the author's own blind spots** before any drift starts. The 2026-07-29 research pass recorded this as an unfed gap
+- [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the review layer's measured detection floor (18.9% of genuine live credentials drew any comment, across seven tools including Greptile's own) with a variable it never controlled for: who authored the PR relative to which model was reviewing it. It does not rescue that floor — a 6–12 point recall difference nowhere near reaches 18.9% — but it does mean the floor is a blended figure over an unrecorded pairing, which is worth knowing before treating it as a property of automated review as such
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — two different reasons the review dial does not work, with opposite prescriptions. Tran et al. find review time and iteration count uncorrelated with which AI inefficiencies survive and conclude the class is invisible to attention **at any depth**, so the fix moves upstream to authoring. This finds the review pass is worth 6–12 points more when a different model runs it, so the fix is lateral — change who looks, not how hard or how early. The two also give competing accounts of the same asymmetry: Tran attributes AI's authoring defects to generalist models lacking monorepo-specific context, Caridad to each model's own design instincts, and only the first has a control cohort
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — "how far do you push automated review" gains an axis orthogonal to how far: **which model**, decided by who wrote the code
+- [Post-Acceptance Edit Behavior](/articles/post-acceptance-edit-behavior) — a second axis of a model's weak read on AI-authored code, on a different task and at `empirical` tier. This page measures models failing to *catch bugs* in their own family's output; DECODE measures models failing to *anticipate what a human will change* about AI output at all — Claude Sonnet 4.6 classifies deleted/modified/unmodified at F1 **0.37** against a 0.33 random baseline, and gains nothing from being shown the developer's first four edits (0.37, 0.36, 0.35, 0.35, 0.36). Neither result is about generation capability; both say the model's read on machine-written code is worse than its write. They are not the same claim and should not be pooled — one is recall against labelled bugs, the other is prediction of human behavior
+
+## Open Questions
+
+- Every number here rests on a ground truth Greptile built from "sentiment analysis, upvote/downvote ratios, and git archaeology," with no protocol, no agreement statistic, no released artifact, and an LLM judge doing the matching without published validation. **Does the crossover survive on a label set someone else constructed** — a curated defect corpus with human adjudication, or an injected-bug benchmark where ground truth is golden by construction? Until then the direction is a vendor's finding and the magnitudes are uncheckable.
+- Is the blindness a property of **shared training lineage** or of **stylistic fit**? The result is compatible with a much duller explanation: each reviewer happens to be strong on the bug mix the *other* agent produces, for reasons unrelated to authorship. The published category data does not settle it (composition reproduces only ~7% of the effect, which argues against the dull reading but is not a test of it). The discriminating experiment is cheap and Greptile has the datasets: run a **third-family model** — Gemini, or an open-weight reviewer — across both corpora. If lineage is the mechanism, the third model has no same-model arm and should score near the cross-model band on both.
+- Caridad predicts the effect shrinks as models converge: "a year ago, the performance difference in the opening figure would likely have been larger." **Does the same protocol, rerun on the next generation of both families, show a narrower gap?** The trigger event is the next paired frontier release measured the same way; note that the prediction is also the one Greptile's own product would least like to be true.
+
+## Sources
+
+- [Models are worse at reviewing their own code](https://www.greptile.com/blog/model-inversion) — Rodrigo Caridad, Greptile research team, "Models are worse at reviewing their own code" (greptile.com/blog/model-inversion, 2026-07-21). **Evidence tier corrected `empirical` to `case-study` at compile** — see the evidence note above; the index row carries the corrected tier and the raw frontmatter is unchanged. Web article, no PDF and no docling parse, so no table-collapse or table-shift risk applies. All figures are **rendered chart markup rather than images**, transcribed into markdown tables in the raw at ingest, and the FIG. 01 label-to-value mapping was cross-checked against the article prose there. Sections used: Methodology (dataset construction, model-authorship identification, three runs per PR, LLM-as-judge matching, the high-severity-only scope); Finding 1 + FIG. 01 (the recall 2x2); Finding 2 + FIG. 02 and FIG. 03 (bug mix per dataset and per-category recall — **the reweighting reconciliation on this page is derived here, not stated by the source**, and it does not reproduce FIG. 01); Finding 3 + FIG. 04 (trace composition by phase, no n reported); Finding 4 + FIG. 05 and FIG. 06 (the omitted-deadlock trace and its recovery under comment-count guidance, single illustrative trace); Finding 5 + FIG. 07 (Opus comment types, selected examples); "Shipping Model Inversion" (the routing feature); Closing Thoughts (the convergence prediction). A `> [!note]` block at the top of the raw records the vendor COI. **Internal-consistency checks run at compile:** FIG. 02's shares sum to 100.0% for both datasets and FIG. 04's KB values reproduce its percentages for both models; FIG. 01 decomposes into a 2.6pp dataset main effect, a 0.6pp reviewer main effect and an 8.9pp same-versus-cross gap, of which the FIG. 02 x FIG. 03 reweighting predicts 0.6pp.

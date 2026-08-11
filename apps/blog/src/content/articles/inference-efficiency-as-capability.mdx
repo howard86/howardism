@@ -18,11 +18,13 @@ tags:
   - test-time-compute
   - quantization
   - deployment
-readingTime: 15
+readingTime: 18
 imageAlt: Illustration for Inference Efficiency as Capability
 sources:
   - title: Gemma 4 Technical Report
     url: https://arxiv.org/pdf/2607.02770
+  - title: "Jeff Dean: The 1% Rule for Building in AI"
+    url: https://www.youtube.com/watch?v=CxXgV54KzpQ
   - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
       Research with OpenAI's Noam Brown
     url: https://www.youtube.com/watch?v=AZrU6y3pUcU
@@ -37,6 +39,7 @@ export { default as heroImage } from "../assets/inference-efficiency-as-capabili
 
 - [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Jeff Dean: The 1% Rule for Building in AI](https://www.youtube.com/watch?v=CxXgV54KzpQ)
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
 
@@ -108,6 +111,16 @@ Three caveats that the arithmetic above cannot escape, all of them the same cave
 
 Cross-vendor, the card places 3.5 Flash-Lite at $0.30/$2.50 against **GPT-5.4 mini** ($0.75/$4.50) and **Claude Haiku 4.5** ($1.00/$5.00): roughly parity on SWE-Bench Pro (54.2 vs 54.4), ahead on OSWorld-Verified (74.0 vs 72.1), far ahead on long context (MRCR@128k 72.2 vs 42.7), behind on Terminal-bench 2.1 (54.0 vs 59.2), CharXiv (74.5 vs 80.3) and GDPVal-AA Elo (1140 vs 1171) — at ~55% of the output price. Weight this as `vendor-claim` and note the comparator selection: both rivals are one or two generations behind the OpenAI and Anthropic models this corpus otherwise tracks.
 
+## The denominator below the denominator: energy, and why batching exists
+
+Every lever above is an *architectural* answer to a *physical* ratio that none of the three sources states. [Jeff Dean](/articles/jeff-dean) states it (YC Startup School 2026, `practitioner-opinion`): a multiply costs on the order of **one picojoule**; bringing the operand in from HBM into the processor costs roughly **1000×** that. "The unit that you measure everything is energy."
+
+The consequence he draws is the one that reframes this page: **batching is not a training convenience, it is amortization of that ratio.** "If you didn't have that thousand X difference, then you wouldn't have to do batching… you avoid paying a thousand X slowdown, but instead pay a thousand X divided by batch size energy cost." Which means batch size and latency are structurally opposed — "for really low latency, batching is not very good" — and every KV-cache trick in the Gemma 4 and K3 sections above is, underneath, an attempt to move less data rather than to do less arithmetic. Keys-as-values deletes a projection whose cost is mostly the traffic; a 5:1 local-to-global ratio keeps most layers off the full-context cache; MXFP4 shrinks what has to cross the wire. The levers look heterogeneous and are all the same lever.
+
+Dean's forward-looking claim is that the next specialization is **inference silicon**, on the same reasoning that produced the TPU: minimize data movement, and commit to a small fixed set of very low precisions rather than supporting many ("if you feel like you have a good answer for what kinds of precision you need, maybe just build that into the hardware and not much else"). His stated prize is "latency 50× better." Weight it as one architect's direction of travel — no roadmap, no measurement, and a standing COI (Google's Chief Scientist on Google's accelerator strategy).
+
+Two things this adds that the model cards cannot. First, an **upper bound on what architecture can buy**: efficiency levers inside the model are competing against a hardware constant, and the constant is where the 1000× lives. Second, a **reason the efficiency tier keeps moving up-market** (the Flash-Lite section above): if low latency requires small batches and small batches forfeit the amortization, then *latency is expensive in energy* independent of capability — so a tier defined by latency has no reason to stay a tier defined by price.
+
 ## Why this is a capability claim, not an engineering claim
 
 Brown's argument runs: a $10 inference budget does one thing, $10,000 does much more. He also observes that per-generation cost drops 10–100×, which is what makes waiting for the next model rational ([Latent Capability Overhang](/articles/latent-capability-overhang)).
@@ -137,6 +150,7 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 - [Google DeepMind](/articles/google-deepmind) — the lab
 - [Noam Brown](/articles/noam-brown) — the thesis this page inverts
 - [Kimi (Moonshot AI)](/articles/kimi) — the same efficiency-is-capability logic at 2.8T: 16-of-896 routing, 69 KDA + 24 Gated MLA, MXFP4 QAT, and an unauditable 2.5×-scaling-efficiency headline
+- [Jeff Dean](/articles/jeff-dean) — the physical constant underneath every lever here (~1 pJ per multiply vs ~1000× to move the operand), the reason batching exists, and the argument that inference-specialized silicon is the next specialization
 - [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the buyer-side statement of the last caveat: price per token is a rate, and Flash-Lite's +67% is uninterpretable without tokens-per-task
 
 ## Open Questions
@@ -150,4 +164,5 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.1–2.7 (attention ratios, p-RoPE, keys-as-values, QAT, MTP drafter, TPU infra), Tables 1–3 (`empirical`)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26): capability as a function of inference budget; per-generation cost drops of 10–100× (`practitioner-opinion`)
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §1 (the 2.5×-scaling-efficiency claim, LatentMoE sparsity), §2 spec table (16-of-896 routing, 69 KDA + 24 Gated MLA, 1M context), §4 (MXFP4/MXFP8 QAT from SFT onward), §6 (preserved-thinking-history requirement) (`vendor-claim`)
+- [Jeff Dean: The 1% Rule for Building in AI](https://www.youtube.com/watch?v=CxXgV54KzpQ) — Jeff Dean with Diana Hu, YC Startup School 2026 (2026-07-30, `practitioner-opinion`): §"Why AI Is Really an Energy Problem" — the ~1 pJ-per-multiply vs ~1000×-per-data-move ratio, batching as amortization of it (`1000/batch_size`), and inference-specialized silicon as the next specialization. **COI:** Google's Chief Scientist on Google's accelerator strategy; the picojoule ratio is stated by the interviewer and confirmed, not cited
 - [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) — Google DeepMind, 2026-07-21 (`vendor-claim`): the July 2026 evaluation table, whose first two rows are input and output price per 1M tokens for all four compared models; per-dollar arithmetic in the section above is computed from those rows, not stated by DeepMind. Machine extraction from a client-side-rendered page, numbers verified across three passes

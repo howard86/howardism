@@ -1,0 +1,181 @@
+---
+date: 2026-08-12
+title: Agent Review Comment Resolution
+description: "Cynthia, Widyasari, Roy, Zhang & Lo (Saskatchewan/SMU/Monash,
+  arXiv 2607.21997): 54,713 agent-generated review comments from Copilot, Cursor
+  and Codex across 341 Python GitHub repos — the first large-scale measurement
+  of the review loop running the OTHER way, where the agent reviews and the
+  human decides. ~71% of comments get resolved (Copilot 72.9%, Cursor 67.2%,
+  Codex 54.8%), core developers do most of the resolving (78.1% of Copilot's),
+  and an inline code suggestion is the strongest predictor (OR 1.62) while
+  longer comments fare worse — but the model's AUC is 0.58, so most of what
+  decides adoption is not in the comment. Card sorting 470 unresolved-but-argued
+  discussions puts the modal failure at project context the agent cannot see
+  (23.8%) and confident false positives (63), with outright hallucination at 4
+  of 470; another 24.3% were acted on and simply never marked resolved"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - code-review
+  - ai-coding-workflow
+  - engineering-metrics
+  - code-quality
+  - empirical
+readingTime: 24
+imageAlt: Illustration for Agent Review Comment Resolution
+sources:
+  - title: developer responses agent review comments
+    url: https://arxiv.org/pdf/2607.21997
+---
+export { default as heroImage } from "../assets/agent-review-comment-resolution.webp";
+
+## Sources
+
+- [developer responses agent review comments](https://arxiv.org/pdf/2607.21997)
+
+## Summary
+
+Cynthia, Widyasari, Roy, Zhang & Lo (University of Saskatchewan / Singapore Management University / Monash, arXiv 2607.21997, July 2026) run the first large-scale study of what happens **after** an AI agent posts a review comment. They mine **54,713 agent-generated review comments** across **341 Python GitHub repositories** and ask three questions: what fraction gets resolved, who resolves it, and what properties of a comment predict that it will be.
+
+**Read the direction carefully — it is the opposite of every other review page in this vault.** [Review as the Control Point](/articles/review-as-the-control-point), [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) and [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) all measure *humans reviewing agent-authored code*, and their efficacy question is "does the reviewer catch the defect." This paper measures *an agent reviewing a pull request*, and its efficacy question is "does the human act on the agent's finding." The two loops share vocabulary and almost nothing else. A resolved comment does not mean a defect existed; it means a project collaborator agreed enough to close the thread. Note also that the paper never establishes **who wrote the code being reviewed** — these are PRs in active Python repos that a review bot commented on, human- and agent-authored alike, never separated.
+
+> **Evidence note.** `empirical`, confirmed on full read, with four qualifications that travel with every number. (1) **"Five agents" is the collection figure, not the analysis.** 54,791 comments across 342 repos were collected from Copilot, Cursor, Codex, Devin and Claude — but Devin (50 comments) and [Claude](/articles/claude-code) (28) were dropped as too sparse for inference, leaving **54,713 from three agents across 341 repos**. Nothing here characterizes Claude or Devin as reviewers. (2) **It is largely a Copilot study.** Copilot is 45,668 of 54,713 comments (83.5%; the paper says 86% in one place), the authors state the pooled regression "largely mirrors Copilot's interaction patterns," and per-agent models for Cursor and Codex **fail to converge** on sparsity and separation. (3) **A layer of the analysis is an LLM judge.** All 15-way comment categories, the seven explanation types, and the relevance/clarity/conciseness scores come from Llama-3.1-70B, chosen over GPT-4o and Qwen3-8B against a 100-comment human gold set (kappa 0.74 for categories against a 0.86 human-human baseline; Jaccard 0.90 for multi-label explanation types, retaining only labels with confidence >= 0.9). Substantial agreement, not ground truth. (4) **The resolution construct is GitHub's `isResolved` thread flag** — the authors say so in their own threats section, and their card sort proves it cuts both ways (see below).
+
+## RQ1: roughly seven in ten comments get resolved
+
+*(Table III, verified against the PDF.)*
+
+| Agent | Comments | Resolved | Resolution rate |
+|---|---|---|---|
+| Copilot | 45,668 | 33,265 | **72.9%** |
+| [Cursor](/articles/cursor) | 6,778 | 4,554 | 67.2% |
+| [Codex](/articles/codex) | 2,267 | 1,242 | 54.8% |
+| **Pooled** | **54,713** | **39,061** | **71.4%** |
+
+**Fix the abstract's arithmetic before quoting it.** The abstract reads "Copilot accounting for the majority of resolved comments (72.9%)," which welds two different quantities. 72.9% is Copilot's *resolution rate*; Copilot's *share of all resolved comments* is 33,265/39,061 = **85.2%**, and that is a statement about market share in this corpus, not about quality. Both numbers are real and neither is the other.
+
+The 18-point spread between Copilot and Codex is the paper's headline, and its own explanation is that the spread is **not** a property of the comments. When the regression controls for comment characteristics the agent-level gap persists, so the authors attribute it to "differences in how agents are integrated into the review workflow, as well as agent integration and developer familiarity" — i.e. to invocation mode and habituation rather than to review quality. Treat the ordering as an adoption measurement with heavy confounds (no controls for repository composition, task mix, or how each agent is triggered).
+
+**What each agent comments on differs more than how often it lands.** Copilot's resolved comments spread across categories — solution approach 21.8%, documentation 19.8%, functional defect 18.1%, visual representation 11.3% — while Cursor and Codex are near-monomaniacs about functional defects (**88.0%** and **88.6%** of their resolved comments respectively; Codex's runner-up category is resource issues at 2.9%). A general-purpose reviewer and a defect detector are being compared on one axis, and the defect detector has the lower resolution rate.
+
+## RQ2: core developers do the resolving, peripheral developers do the defects
+
+Restricting to cases where the resolver is also the PR author (Table IV), core developers — the top 20% by authored-plus-reviewed closed PRs, computed **per repository** rather than globally — account for 78.1% of Copilot resolutions, 54.6% of Cursor's, and 58.4% of Codex's, against a population of 1,538 core and 2,554 peripheral developers.
+
+By category (Figure 4), core share runs 70.5% to 79.8% across all fifteen categories — core developers resolve the majority of everything. The variation is in where peripheral developers show up most: **functional defects (29.5% peripheral, n=8,481)** and visual representation (28.1%, n=3,167) at the top, solution approach (20.2%, n=6,262), organization of code (20.3%) and naming (20.9%) at the bottom. Design and evolvability feedback needs project familiarity to act on; a defect fix does not.
+
+This is [Returns to Expertise in Agentic Coding](/articles/returns-to-expertise) on the receiving end of review: the ability to *use* an agent's design feedback is the same project-specific knowledge that lets you overrule it.
+
+## The ten patterns behind non-resolution — and the ones the parse hid
+
+Of 15,652 unresolved comments, only **1,056 (6.7%) received any reply**, 655 of them from PR authors. From the 431 core-replied and 224 peripheral-replied comments the authors drew a stratified sample of 470 discussions (284 core, 186 peripheral) and open-card-sorted them into 10 categories and 13 sub-categories, at inter-rater kappa 0.85.
+
+*(Table V below is **recovered from the PDF**; the docling parse of this table is damaged — see Sources. Every row reconciles: sub-rows sum to parents, core plus peripheral sums to the total, the per-agent breakdowns sum to the total, and 466 mapped plus 4 unmappable equals 470.)*
+
+| Pattern | Discussions (Copilot/Cursor/Codex) | Core | Periph. |
+|---|---|---|---|
+| **Accepted Agent Feedback** | **114** (66/31/17) | 54 | 60 |
+| — Accepted Suggestion | 78 | 35 | 43 |
+| — Addressed Afterwards | 36 | 19 | 17 |
+| **Intentional Design Decision** | **112** (55/48/9) | 81 | 31 |
+| — Context-Specific Implementation | 64 | 44 | 20 |
+| — Expected Behaviour | 37 | 26 | 11 |
+| — Developers' Preference | 11 | 11 | 0 |
+| **Incorrect Suggestion** | **67** (36/19/12) | 32 | 35 |
+| — Factually Wrong or False Positive | 63 | 29 | 34 |
+| — Agent Hallucination | **4** | 3 | 1 |
+| **Challenging Agent Feedback** | 39 (22/12/5) | 25 | 14 |
+| — Disagreement with Suggestions | 27 | 14 | 13 |
+| — Questioning Agent's Claim | 12 | 11 | 1 |
+| **Needs Further Discussion** | 36 (19/10/7) | 20 | 16 |
+| **Delegation of Work** | 31 (22/6/3) | 24 | 7 |
+| — Agent Task Delegation | 23 | 18 | 5 |
+| — Delegating to Developer | 8 | 6 | 2 |
+| **Suggestions Deferred** | 25 (12/9/4) | 16 | 9 |
+| — Future Improvement | 21 | 15 | 6 |
+| — Deferred to Future PR | 4 | 1 | 3 |
+| **Acceptable Trade-Offs** | 19 (9/10/0) | 13 | 6 |
+| **Missed Existing Fix** | 12 (9/2/1) | 9 | 3 |
+| **Dismissed as Low-Value** | 11 (7/4/0) | 8 | 3 |
+
+Four things in that grid matter more than the taxonomy:
+
+**1. A quarter of "unresolved" is a measurement artifact.** *Accepted Agent Feedback* — the developer applied the change and never marked the thread resolved — is the **largest** category at 114/470 (24.3%), and it is the one category that skews *peripheral* (60 vs 54). GitHub's `isResolved` flag is a hygiene habit, and less-embedded contributors have it less. So the 71.4% resolution rate is a **floor** on adoption, not an estimate of it. (A useful cross-check: RQ3 rebuilds the label from scratch — excluding AI-only resolutions and folding in explicit acknowledgments like "fixed in commit...", "done", "updated" — and lands at 37,512/53,086 = **70.7% useful**. Two differently-constructed denominators, effectively the same number, which suggests the acknowledgment correction is small in aggregate even though it dominates this argued sample.)
+
+**2. The modal genuine rejection is context, not error.** *Intentional Design Decision* is 112/470 (23.8%) and heavily core-skewed (81/112, 72%): the code is deliberate and the agent could not see why. Its dominant sub-pattern is Context-Specific Implementation (64) — "No, the idea is to use add logs to the docker stream" — followed by Expected Behaviour (37). The agent is not wrong about the code; it is wrong about the project.
+
+**3. Hallucination is nearly absent. Confident wrongness is not.** *Incorrect Suggestion* is 67, but the split inside it is **63 factually-wrong / false-positive against 4 hallucinations** — 0.9% of the sampled discussions. The popular account of AI review failure ("it makes things up") is, at this scale, the rarest failure mode measured. The real one is an agent that reads real code and draws a wrong conclusion about it. Note that this sub-category is exactly what the damaged parse concealed: docling welded the 4/3/1 row into its neighbours, inflating hallucination into a 39-discussion category. **This single row is why the table had to be recovered rather than cited.**
+
+**4. Rejecting bad agent feedback does not require seniority.** *Incorrect Suggestion* is the one major category that leans peripheral (35 vs 32), and the authors read it the right way: spotting that a suggestion is wrong "may not require deep project knowledge," whereas knowing that an implementation is deliberate does.
+
+Agent-level, the two dominant patterns split cleanly along the RQ1 result: *Intentional Design Decision* is disproportionate for Cursor (32% of its discussions vs Copilot 21.4%, Codex 15.5%) — a context-awareness gap despite its functional focus — while *Incorrect Suggestion* is elevated for Codex (20.7% vs Copilot 14.0%, Cursor 12.6%), consistent with Codex's lowest resolution rate.
+
+> **The sampling frame is the taxonomy's hard limit, and the paper does not say so.** The 470 discussions are drawn from the 1,056 unresolved comments that got a **reply**. The other **14,596 unresolved comments (93.3%) were met with silence** and are unrepresented in every percentage above. This taxonomy explains why developers *argue with* agent review comments. It says nothing about why they *ignore* them — which is the majority behaviour by an order of magnitude, and the behaviour a reviewer-fatigue or noise hypothesis would predict.
+
+## RQ3: actionability wins, and the model still barely predicts anything
+
+A logistic regression over six comment characteristics, with a comment counted useful if a human resolved it or explicitly acknowledged the fix (37,512 useful vs 15,574 non-accepted, n = 53,086):
+
+| Predictor | OR (all) | Functional | Evolvability |
+|---|---|---|---|
+| **Inline code suggestion** | **1.617** | **1.672** | **1.459** |
+| log comment length | 0.926 | **0.855** | — |
+| has explanation | 0.593 | — (n.s.) | **0.578** |
+| explanation: Rule | 1.144 | — | 1.102 |
+| explanation: Benefit | 1.087 | 1.066 | — |
+| explanation: Example | 1.080 | — | — |
+| Relevance / Conciseness / Clarity | 1.046 / 1.059 / 1.022 | 1.044 / — / — | 1.051 / 1.077 / 1.033 |
+
+Univariately, comments carrying a GitHub `suggestion` block resolve at **75.5% against 64.6%** without one (Chi-squared p &lt; 0.05, **Cramer's V = 0.12** — a small effect), and the gap holds in both issue groups. Non-accepted comments are longer (mean 807 characters, median 405) than useful ones (mean 617, median 356), significantly but with a **negligible effect size**; the length penalty is real only in the functional group (non-accepted mean 1,240 vs useful 966) and vanishes in the evolvability group. Writing-quality scores separate the groups by at most one median point (conciseness 7 vs 6) with negligible effect sizes throughout.
+
+**The deflator the paper puts in its threats section: AUC = 0.58.** Every odds ratio above is statistically significant on 53,086 rows and the model as a whole barely beats a coin flip at ranking which comment will be acted on. The authors' own conclusion — "unobserved factors such as reviewer authority or project context may influence outcomes" — is the same finding as the card sort, arrived at statistically: **what decides adoption mostly is not a property of the comment.** Anyone tuning a review agent's prose against this table is optimizing the small residual.
+
+**One internal tension worth not inheriting.** `has explanation` carries OR 0.593 — explaining yourself *hurts* — and the paper reports it as a headline ("concise, action-oriented comments are more readily adopted"). But its own Table VII debunks the univariate version of exactly this: the no-explanation group resolves at 83.7% and is **89% surface-level categories** (documentation 234, visual representation 178, naming 75), which the authors correctly say means "the observed effect is driven by category characteristics rather than the absence of explanations." That caveat is not carried into the regression, which controls for the functional/evolvability split but not for the fifteen-way category. The defensible reading is the *type* result, which survives: rule-, benefit- and example-based explanations are positively associated, scenario- and issue-based ones are not. Explanation *style* is the finding; explanation *presence* is probably composition.
+
+Usefulness by explanatory richness peaks at **two** explanation types (71.7%) and declines beyond (three 69.3%, four-plus 65.0%) — the same shape as the length penalty, and the paper's reading is that excessive detail reduces actionability.
+
+## Contradiction: this paper against the one it cites
+
+The introduction cites Goldman et al. (ASE 2025) for the claim that **"approximately 60-70% of LLM-generated comments remain unresolved."** This paper measures 71.4% *resolved*. That is roughly a two-fold disagreement on the central quantity, in a paper that cites the other result without reconciling it — and the vault holds neither Goldman's population nor its resolution construct.
+
+Candidate reconcilers, none confirmable from this document alone: the populations differ (industrial deployment there, open-source GitHub Python here); the reviewer differs (an in-house LLM pipeline vs shipped products with GitHub-native suggestion blocks and one-click apply); and the resolution construct almost certainly differs, since this study's number rests on a GitHub thread flag whose own card sort shows a 24.3% under-count. **Until a source settles it, the honest position is that no reliable population-level resolution rate for agent review feedback exists** — two `empirical` studies a year apart differ by a factor of two on it. Recorded as an open question below rather than averaged.
+
+## What this does and does not settle about review efficacy
+
+The vault carries a standing question, on [Review as the Control Point](/articles/review-as-the-control-point) and [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code), about whether review coverage buys catch-rate: agent-PR review coverage is converging toward the human baseline while measured efficacy on leaked credentials sits at 18.9%. **This paper does not answer that question, and the resemblance is a trap.** It measures the other loop — the agent as reviewer, the human as decider — so its 71.4% is an *adoption* rate for the review layer's output, not a *catch* rate for defects in agent code.
+
+What it does contribute is the missing half of a two-sided picture of why the automated review layer under-delivers, and the two halves fail differently:
+
+- **Non-detection** ([Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code)): on hard-coded credentials, the smell class with seven purpose-built commercial detectors present, bots and humans together commented on **18.9%** of genuine live credentials. The layer mostly does not fire.
+- **Non-relevance** (here): when the layer *does* fire, roughly seven comments in ten are closed, and the modal reason the rest are not is that the agent misread project context (23.8%) or was confidently wrong about real code (13.4%). Only 11 of 470 argued cases were dismissed as low-value noise.
+
+Neither failure mode is human inattention. That is the finding that should update the vault's rubber-stamping prior most: in the corpus of unresolved-and-argued comments, developers are reading closely enough to catch the agent being wrong, and doing it disproportionately when they are *peripheral* contributors with the least project context to lose.
+
+The convergence with [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) is the sharpest one available. Tran et al. diagnose AI *authoring* failures as "generalist LLMs lacking the highly specific context of internal enterprise monorepo structures" and prescribe injecting repository context at prompt time. The dominant failure of AI *review* measured here is the same missing context wearing the other hat — an agent flagging as a defect what the team decided on purpose. One context gap, two symptoms, one prescription.
+
+## Connections
+
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — **the other half of automated review's efficacy, and the two numbers must not be pooled.** This page measures *adoption* of an agent reviewer's output (71.4% of comments resolved, with the annotating judge's kappa published); Greptile measures its *recall* against a bug ground truth (52–62% of high-severity bugs named, with no judge validation and a vendor-built label set, `case-study`). A comment that lands is not a bug that was caught, and a bug that was caught is not a comment that lands — held together they price the layer end to end for the first time, roughly half the serious bugs named and roughly seven in ten of the resulting comments acted on, across different corpora, different agents and evidence tiers two apart. The failure mechanisms are complementary rather than rival: the dominant non-adoption cause here is a reviewer missing *project* context, and the dominant recall deficit there is a reviewer sharing the author's *model* priors
+- [Review as the Control Point](/articles/review-as-the-control-point) — **the mirror direction, and the first sizeable measurement of that theory's second moderator.** Its automated-reviewer-capability moderator is here given an adoption number (54.8-72.9% by agent) and a mechanism for where capability actually binds: project context, not correctness or prose. It confirms neither P8 (throughput) nor P9 (quality/security), because this study measures neither — but it does establish that the pooled agent-level spread survives controlling for comment characteristics, which is a moderator effect rather than a message-quality effect
+- [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the two failure modes of the automated review layer, measured from opposite ends: that page finds it **does not fire** (18.9% comment rate on genuine live credentials), this one finds that when it does fire ~71% of the output is acted on and the residue is context error rather than human neglect. Together they relocate the review layer's weakness from attention to detection-and-relevance
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — **independent convergence on comment design.** StampHog's approval is a bare GitHub approval with no line comments and its refusal is 1-2 sentences plus a risk level and next steps; this paper measures why that shape is right, with an inline suggestion the strongest resolution predictor (OR 1.62) and length carrying a penalty concentrated in functional feedback (OR 0.855). It also validates demoting the model to a *veto* rather than a commenter: a veto has no resolution rate to lose
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — the same missing-project-context diagnosis on the authoring side. Tran et al. attribute AI's imperative bias to "generalist LLMs lacking the highly specific context of internal enterprise monorepo structures" and prescribe context injection; here that same gap surfaces as an agent reviewer flagging deliberate design as a defect in 23.8% of argued discussions. It is also the counterweight on evidence class: that study has a human control cohort and this one has none, so "is an agent reviewer worse than a human reviewer" remains unmeasured
+- [Acceleration Whiplash](/articles/acceleration-whiplash) — [Faros AI](/articles/faros-ai) records agentic *review* going 0% to 25% of PRs, faster than agentic authoring; this measures whether that layer's output lands. On adoption it does (~71%), which is a mild counterweight to the whiplash framing — but the pooled figure is 83.5% Copilot, and neither study connects review-comment adoption to any downstream quality outcome
+- [AI as Primary Author](/articles/ai-as-primary-author) — the oversight layer automating faster than the authoring layer is the precondition for this page existing at all; this supplies the first population-level number for whether that oversight layer's output is acted on
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — an adoption datum for "how far do you push fully automated reviews": the output of a deployed automated reviewer is acted on roughly seven times in ten, the strongest lever on that is an applicable diff rather than better prose, and an AUC of 0.58 says most of the decision lives outside the comment
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — a published calibration on a fifteen-way code-review classification: open-weight Llama-3.1-70B at kappa 0.74 against a human gold set **beat GPT-4o at 0.70** and crushed Qwen3-8B at 0.38, with the human-human ceiling at 0.86; multi-label explanation typing hit Jaccard 0.90 after retaining only confidence >= 0.9. A judge chosen on measured agreement rather than brand, with the measurement published
+- [Returns to Expertise in Agentic Coding](/articles/returns-to-expertise) — the receiving end of review: acting on design and evolvability feedback is core-developer work (79.8% of solution-approach resolutions), while functional-defect fixes are where peripheral contributors show up most (29.5%). The project knowledge that lets you *use* an agent's design suggestion is the same knowledge that lets you overrule it
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the deployed instance of the split at population scale: a reviewer agent that never authored the code, whose comments carry no authority to merge and must persuade a human. Its measured failure is exactly the cost of that decoupling — the evaluator lacks the author's project context, and 23.8% of argued rejections are about precisely that
+- [Post-Acceptance Edit Behavior](/articles/post-acceptance-edit-behavior) — the two behavioral instruments for **how humans dispose of machine output**, at opposite granularities and landing on the same diagnosis. Here ~71% of agent review comments get resolved and the modal genuine rejection is project context the agent could not see (23.8%); there, the AI completions most likely to be deleted are the ones that "subtly do not align with a developer's intent or programming *context*." One context deficit, two artifacts. The shared methodological limit is worth naming too: both measure **adoption**, never correctness — a resolved comment is not a caught bug, and a retained completion is not good code
+
+## Open Questions
+
+- Two `empirical` studies a year apart disagree by roughly a factor of two on the central quantity: Goldman et al. (ASE 2025) report 60-70% of LLM-generated review comments **unresolved**, this study reports 71.4% **resolved**. Is the gap population (industrial vs open-source GitHub), product (in-house pipeline vs shipped agents with one-click suggestion blocks), or construct (whatever Goldman counted vs a GitHub thread flag that this paper's own card sort shows under-counts by ~24%)? Ingesting Goldman would settle it; averaging the two would not.
+- The 470-discussion taxonomy is drawn only from unresolved comments that **received a reply** — 6.7% of the unresolved population. What explains the silent 93.3%? Reviewer fatigue, comment volume, triage, or the same context error just not worth arguing about? The taxonomy's shape (only 11 of 470 dismissed as low-value) would look very different if noise dominated the silent majority, and the two hypotheses are distinguishable by sampling the silent set directly.
+- Resolution is adoption, not correctness. Does a resolved agent comment correspond to a defect that would otherwise have shipped — and does an agent reviewer change any downstream outcome (escaped defects, incidents, revert rate) against a no-agent-reviewer baseline? No study in the corpus has run this on either side of the review loop; it is the same missing outcome measurement that leaves [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval)'s throughput figures unattached to safety.
+
+## Sources
+
+- [developer responses agent review comments](https://arxiv.org/pdf/2607.21997) — Shamse Tasnim Cynthia, Ratnadira Widyasari, Banani Roy, Ting Zhang & David Lo (University of Saskatchewan / Singapore Management University / Monash, arXiv 2607.21997, 2026-07-24), `empirical`. §III (data collection, agent identification by reviewer login pattern, the Devin/Claude exclusion, core/peripheral definition, the LLM-annotator selection and its kappa/Jaccard validation, the usefulness construct), §IV + Table III + Figure 3 (resolution rates and per-agent category distribution), §V + Table IV + Table V + Figure 4 (core/peripheral split and the ten-pattern discussion taxonomy), §VI + Tables VI-VIII (usefulness by code suggestion, length, quality scores and explanation type; the logistic regression), §IX (threats to validity — the AUC 0.58 admission and the resolution-proxy concession).
+ **Parse warning: this raw is docling-derived and `verify: warn` with `table-collapse`, and the flag is a true positive.** Table V (the discussion taxonomy) is damaged two ways at once — the label `Agent Hallucinated` is welded into the following row's label (`Agent Hallucinated Challenging Agent Feedback`) while its three values are welded into the preceding row's cells (`| Factually Wrong or False Positive | 63 4 | 29 3 | 34 1 |`), and the `Suggestions Deferred` parenthetical migrated into the `Future Improvement` row. Read as parsed, the Agent Hallucination sub-category disappears and its 39-discussion "parent" is an artifact. **The table quoted on this page is recovered via `pdftotext -f 7 -layout` on and independently reconciled**: sub-rows sum to parents, core plus peripheral sums to each total, per-agent triples sum to each total, and 466 mapped plus 4 unmappable equals the stated 470 — and every per-agent percentage in the §V prose (Cursor 32%, Copilot 21.4%, Codex 15.5%, and the Incorrect Suggestion trio) reproduces from the recovered grid. The other seven tables were cross-checked the same way: Tables III, IV, VI and VII are faithful and arithmetically self-consistent; Table I is welded cosmetically (docling shows 12 rows plus an orphan `software` cell where the PDF has the **15** categories the prose describes — descriptions preserved, so no number is affected); Table VIII's two section-header rows (`Functionability issue`, `Evolvability issue`) are splattered across all four columns while its data rows are clean.
+ **Four internal inconsistencies belong to the paper, not the parse, and were confirmed against the PDF:** the abstract's "majority of resolved comments (72.9%)" conflates a rate with a share; §III states analysis was "restricted to PRs created up to December 2023" while the repository filter requires a PR after December 2024 and every cited example PR is from 2024-2025; the RQ3 answer box gives code suggestion as OR 1.609 against Table VIII's 1.617 and the prose's 1.62, and reports an "OR range: 0.77-0.134" that is not a range; and Table VI's evolvability no-suggestion cell reads 67% where 6807/9873 is 69.0%. None is load-bearing for anything quoted here. Figures 3, 4, 5, 6 and 7 carry per-category distributions that appear in the prose only as selected values; the Figure 3 and Figure 4 numbers quoted above are taken from the `pdftotext -layout` axis labels rather than read off the rendered chart.

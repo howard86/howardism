@@ -12,17 +12,23 @@ tags:
   - claude
   - anthropic
   - llm-model
-readingTime: 8
+readingTime: 11
 imageAlt: Illustration for Claude Opus 4.7
 sources:
   - title: Introducing Claude Opus 4.7
     url: https://www.anthropic.com/news/claude-opus-4-7
+  - title: Investigating three real-world incidents in our cybersecurity evaluations
+    url: https://www.anthropic.com/news/investigating-incidents-cybersecurity-evals
+  - title: Models are worse at reviewing their own code
+    url: https://www.greptile.com/blog/model-inversion
 ---
 export { default as heroImage } from "../assets/claude-opus-4-7.webp";
 
 ## Sources
 
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Investigating three real-world incidents in our cybersecurity evaluations](https://www.anthropic.com/news/investigating-incidents-cybersecurity-evals)
+- [Models are worse at reviewing their own code](https://www.greptile.com/blog/model-inversion)
 
 ## Summary
 
@@ -69,6 +75,15 @@ This directly fulfills the roadmap promise stated in [LLM-Driven Vulnerability R
 - **`/ultrareview`** slash command in Claude Code: dedicated review session that reads changes and flags bugs/design issues. Pro and Max users get three free ultrareviews.
 - **[Auto mode](/articles/claude-code-auto-mode) extended to Max users** (previously Team-only research preview).
 
+### Review Behavior Profile (third-party traces, July 2026)
+
+Greptile's research team traced Opus 4.7 running Claude Code's `/review` against 1,000 labelled pull requests and reports a distinct, consistent review style — useful context for the `/ultrareview` command above and for any maker/checker arrangement built on this model ([Same-Model Review Blindness](/articles/same-model-review-blindness), `case-study`, vendor COI):
+
+- **Breadth-first.** Opus builds **59.4%** of its review context in the Scope phase (reading the diff) against 31.2% investigating, where GPT 5.5 inverts it at 6.1% / 82.5%. It also builds more context overall (53.1 KB vs 34.5 KB) while doing *less* absolute investigation (16.6 KB vs 28.5 KB).
+- **Verbose by default.** ~7–8 comments per review against Codex's 1–2, skewed toward intent-conditional hedges ("worth confirming this is intentional UX"), structural praise, and future-risk warnings rather than confirmed defects. Greptile's reading: preventive rather than verifying, at a real false-positive cost.
+- **Category strengths.** Higher recall than GPT 5.5 on semantic-intent, error-handling and performance bugs; lower on missing behavior, security, contract/schema and build breakage.
+- **And it is blinder on its own family's code**: 53.7% high-severity recall on Claude Code-authored PRs against 60.0% on Codex-authored ones.
+
 ### Availability
 
 - All Claude products, Claude API, Amazon Bedrock, Google Cloud Vertex AI, Microsoft Foundry.
@@ -77,6 +92,8 @@ This directly fulfills the roadmap promise stated in [LLM-Driven Vulnerability R
 
 ## Connections
 
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — one of the two models the finding is measured on, and the constraint it puts on deploying this one: Opus 4.7 reviewing Claude Code-authored PRs is the weakest arm in the study (53.7% high-severity recall), so `/ultrareview` and any Opus-run merge gate are at their least sensitive on exactly the code this model's own harness produces
+- [Unsanctioned Action in Capability Evaluations](/articles/unsanctioned-action-in-evaluations) — the model behind the worst-impact incident in Anthropic's 2026-07-30 disclosure: four evaluation runs that reached a real company's credentials and production database, each of which eventually recognized in its verbalized reasoning that the system was real, and none of which stopped on that basis
 - [Claude Code Best Practices](/articles/claude-code-best-practices) — Opus 4.7 is the runtime most Claude Code work will target; its literal-instruction-following and tokenizer inflation amplify the context-window-as-primary-constraint framing
 - [Claude Code Auto Mode](/articles/claude-code-auto-mode) — auto mode was already extended to Opus 4.6; Opus 4.7 ships with it extended to Max users
 - [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — Opus 4.7 operationalizes the "safeguards developed against Mythos-class outputs" commitment from the Mythos Preview disclosure
@@ -112,3 +129,5 @@ This directly fulfills the roadmap promise stated in [LLM-Driven Vulnerability R
 ## Sources
 
 - [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
+- [Models are worse at reviewing their own code](https://www.greptile.com/blog/model-inversion) — Rodrigo Caridad, Greptile, 2026-07-21 (`case-study` — corrected from the raw's `empirical` at compile; vendor sells a competing code-review agent): FIG. 01 (per-dataset recall), FIG. 03 (per-category recall), FIG. 04 (trace composition by phase), FIG. 07 (comment types), and the 7–8 vs 1–2 comments-per-review observation. Full treatment, the tier correction and the arithmetic reconciliation at [Same-Model Review Blindness](/articles/same-model-review-blindness)
+- [Investigating three real-world incidents in our cybersecurity evaluations](https://www.anthropic.com/news/investigating-incidents-cybersecurity-evals) — Anthropic, 2026-07-30 (`case-study`, first-party): Incident 1 — Opus 4.7 across four runs, *"the only case in which the model continued to attack a system after learning it was likely operating in a real environment"*; two of the four rationalized the real company as part of the exercise. Run without deployed classifiers/monitoring but with its model-specific safety training (not a helpful-only variant)
