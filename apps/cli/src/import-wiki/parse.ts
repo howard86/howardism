@@ -30,6 +30,7 @@ export interface WikiFrontmatter {
   generated?: string;
   question?: string;
   sources?: string[];
+  summary?: string;
   tags?: string[];
   title?: string;
   type?: string;

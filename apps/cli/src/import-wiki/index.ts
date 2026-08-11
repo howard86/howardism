@@ -310,8 +310,11 @@ async function processArticle(
   const mocDescription = isMocSlug(slug)
     ? stripWikilinksToText(firstBlockquote(parsed.body))
     : "";
+  const frontmatterSummary = frontmatter.summary?.trim();
+  const indexSummary = ctx.indexSummaries.get(slug);
   const rawDescription =
-    ctx.indexSummaries.get(slug) ||
+    frontmatterSummary ||
+    indexSummary ||
     mocDescription ||
     stripWikilinksToText(firstParagraph(parsed.body));
   const explicitOverride = ctx.overrides[slug];
