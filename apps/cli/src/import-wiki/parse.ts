@@ -27,6 +27,7 @@ export interface WikiFrontmatter {
    */
   archived?: boolean;
   created?: string;
+  date?: string;
   domain?: string;
   generated?: string;
   kind?: string;
@@ -115,7 +116,7 @@ export async function parseWikiFile(
 
 function normaliseFrontmatter(data: Record<string, unknown>): WikiFrontmatter {
   const result: Record<string, unknown> = { ...data };
-  for (const key of ["created", "updated", "generated"] as const) {
+  for (const key of ["created", "updated", "generated", "date"] as const) {
     const value = result[key];
     if (value instanceof Date) {
       result[key] = value.toISOString().slice(0, 10);
@@ -341,14 +342,18 @@ export function normaliseTags(tags: readonly string[] | undefined): string[] {
 /**
  * Resolve the article's publish date:
  *   concepts → created → updated → mtime
- *   derived  → generated → updated → mtime
+ *   derived  → date → generated → created → updated → mtime
  * Always `YYYY-MM-DD`.
  */
 export function resolveDate(file: ParsedWikiFile): string {
   const { frontmatter, source, mtime } = file;
-  const primary =
-    source.folder === "concepts" ? frontmatter.created : frontmatter.generated;
-  const candidate = primary ?? frontmatter.updated;
+  const candidate =
+    source.folder === "concepts"
+      ? (frontmatter.created ?? frontmatter.updated)
+      : (frontmatter.date ??
+        frontmatter.generated ??
+        frontmatter.created ??
+        frontmatter.updated);
   if (candidate) {
     return normaliseDate(candidate);
   }
