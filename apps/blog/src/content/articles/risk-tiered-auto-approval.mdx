@@ -1,19 +1,11 @@
 ---
 date: 2026-07-29
 title: Risk-Tiered Auto-Approval
-description: "PostHog's StampHog (Jina Yoon, `case-study`): a merge-gate that
-  auto-approves PRs passing four ordered checks — PR state, a blast-radius
-  keyword deny-list, a <500-line/<20-file diff ceiling, and a last-position LLM
-  showstopper pass — under three invariants (fail closed, never merge or request
-  changes, the model may tighten gates but never loosen them). It gave the final
-  stamp on ~1 in 3 PRs merged into their main repo in a quarter (1.6K in one
-  month), routing refusals to a subject-matter expert via CODEOWNERS-soft +
-  git-blame. The deployed instance of the CMU theory's P17 risk-tiered gating,
-  and the first vault source where the deterministic checks do the gating and
-  the model is demoted to a veto. What it displaced was a Slack stamp-exchange
-  ritual — near-zero-information human approval — so it converts an implicit
-  rubber stamp into an explicit, logged, gate-checked one. The case study
-  reports volume and never a defect or escaped-incident rate"
+description: "PostHog's StampHog: a merge-gate that auto-approves PRs passing
+  four ordered checks (PR state, blast-radius deny-list, diff ceiling,
+  last-position LLM veto) under fail-closed invariants — stamped ~1 in 3 merged
+  PRs, displacing a rubber-stamp Slack ritual; the deployed instance of
+  risk-tiered gating, with volume reported but no defect rate."
 tag: Concept
 domain: ai-coding-practice
 tags:
@@ -21,17 +13,20 @@ tags:
   - code-review
   - agent-engineering
   - developer-workflow
-readingTime: 16
+readingTime: 23
 imageAlt: Illustration for Risk-Tiered Auto-Approval
 sources:
   - title: Stop being the code review bottleneck
     url: https://newsletter.posthog.com/p/code-review-tips
+  - title: "The State of AI Impact in Engineering: Q2 2026"
+    url: https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering
 ---
 export { default as heroImage } from "../assets/risk-tiered-auto-approval.webp";
 
 ## Sources
 
 - [Stop being the code review bottleneck](https://newsletter.posthog.com/p/code-review-tips)
+- [The State of AI Impact in Engineering: Q2 2026](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering)
 
 ## Summary
 
@@ -80,6 +75,17 @@ PostHog's porting prompt refuses to hand over its thresholds: "Their deny-list a
 
 This is the load-bearing operational caveat. Both discriminating gates are **empirical facts about one repository**: which identifiers mark danger, and what "small" means in that codebase's merged-PR distribution. A deny-list copied across repos matches the wrong strings, and a 500-line ceiling imported into a repo whose median PR is 40 lines gates almost nothing. The transferable artifact is the *derivation procedure* (mine history for blast-radius candidates, fit ceilings to the merged-PR distribution), not the config.
 
+### And re-calibrate: the distribution the ceiling sits on is moving
+
+The porting prompt says to *calibrate* size ceilings from your merged PRs. It does not say to **re-calibrate**, and the ambient distribution is not holding still. [DX's Q2 2026 panel](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering) (`vendor-claim`, 500+ organizations) reports **median PR size nearly doubling between Q1 and Q2 2026**, corroborating [Faros's +51.3%](/articles/acceleration-whiplash) on a calendar axis rather than an adoption cross-section.
+
+A constant ceiling on a rising distribution loses coverage silently. Nobody edits the config, nothing errors, and the share of the merge stream that clears 500 lines and 20 files just shrinks — so **"~1 in 3 PRs" is a measurement of one quarter, not a property of the design.** Two consequences, pointing opposite ways:
+
+- **The decay is safe.** Shrinking coverage under a fail-closed gate produces latency, not unreviewed merges. This is the invariant earning its keep against a threat its authors did not name.
+- **It makes the stacked-PR practice load-bearing rather than optional.** The size gate only keeps paying if the authoring side is actively pushed down the size curve; otherwise the distribution walks out from under the ceiling and the gate quietly retires itself. Decomposition is what holds the auto-approvable band open.
+
+The operational form is to express the ceiling as a **percentile of the repo's own recent merged-PR distribution**, recomputed, rather than as a constant — which also keeps it aligned with the [16.2%-to-53.6% smell gradient](/articles/security-debt-of-agent-generated-code), since that gradient is a fact about absolute diff size and does not move when your median does. Caveat the transfer, though: DX measures a cross-industry panel median, not PostHog's repository, and no source measures whether any specific repo's distribution shifted.
+
 ## The upstream complement: shrink the diff to fit the gate
 
 The source's fourth pattern turns the size gate into a design constraint rather than a filter. Daniel Visca's rule is **observability over reasoning**: "Agents are good at explaining why their code works. The explanation is often convincing... but also wrong" — so don't accept the argument when you can watch the behavior. Observation doesn't scale to a 3,000-line PR, so the agent is instructed to decompose the work into a **stack of small single-purpose PRs** (target &lt;400 changed lines, stacked via Graphite), each independently runnable, each shipping "a command to run and the output I should expect," merged bottom-up so every layer builds only on already-observed behavior.
@@ -96,13 +102,28 @@ The two patterns compose, and the source says so: decomposition "lets StampHog f
 
 The concrete prescription this yields: **`.github/workflows/`, `Dockerfile`, and IaC paths belong on the deny-list as paths**, independent of keywords. PostHog's own instruction to mine git history for deny candidates would likely surface them; a copied deny-list of business-risk words never will.
 
+## The rival predicate: "the tests cover this change"
+
+The deny-list is a proxy for blast radius, and the obvious third proxy — *the existing suite already exercises this diff* — is the one gate in this space that is a **fact about the change rather than a guess about it**. [Dipongkor et al.](/articles/agent-generated-test-quality) (arXiv 2607.18057, `empirical`) price it on 4,882 agentic PRs, and the price is low: existing tests execute **61.5% of agents' changed executable lines in Java and 27.0% in Python**, with **64.8% of Python PRs having no changed line executed by any existing test at all**. Their own prescription to practitioners is the negative form of it — "teams using agentic PRs should not assume a passing run of tests means that the change has been tested."
+
+Two consequences for this gate stack, pointing opposite ways.
+
+**Against the stack as it stands:** a green CI run is currently doing silent work in the "PR state" check and in every reviewer's prior, and for Python agentic PRs it is close to uninformative about the diff. Whatever confidence the four gates leave to "well, the tests passed" is, on this measurement, mostly unearned.
+
+**For extending the stack:** unlike a keyword deny-list, **diff coverage is computed from the diff**. It needs no calibration to a codebase's vocabulary, it cannot be disarmed by a change that reads clean, and it produces a number rather than a judgment — which puts it squarely in the deterministic tier alongside the size ceiling rather than behind the LLM veto. The obvious form is a floor ("auto-approve only if every added executable line is executed by some test"), and it composes with the size gate rather than duplicating it: PR size predicts *how much* risk, coverage predicts *whether anything watches it*. The cost is the one the paper cannot estimate — a coverage floor may shrink the auto-approvable set much harder than a path deny-list would, since more than half of Python agentic PRs would fail it outright.
+
+Note that this measures the same open-source agentic-PR population as the security study, has the same missing piece (**no human-authored baseline**), and does not stratify coverage by PR size — so it cannot say whether small diffs, the ones StampHog actually auto-approves, are better or worse covered than the corpus average.
+
 **And the case study reports volume, not safety.** 1 in 3 and 1.6K are throughput figures. [P8/P9](/articles/review-as-the-control-point) is exactly this split — automated review reliably buys throughput and latency, its effect on quality and security is contested — and StampHog is a large deployed instance of the contested half with nothing measured attached to it. What would settle it is cheap and absent: the escaped-defect or incident rate of auto-approved PRs against the human-stamped baseline the channel used to produce.
 
 ## Connections
 
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — **a free, unclaimed tightening of the last gate.** Three of the four checks are deterministic and the fourth is an LLM showstopper running last on a diff a coding agent produced; nothing in the design constrains which model runs it. Greptile's paired datasets (`case-study`) put 6–12 points of high-severity recall on that choice — each frontier model catches fewer bugs in its own family's code — so routing the veto to a different family than the authoring agent is worth more than any prompt tuning, costs nothing, and needs no calibration to the codebase the way the deny-list does. It is also the cheapest possible instance of the independence spec this same source states for its *reviewer panel* ("different models and providers for different reviewers"), applied to the gate rather than the panel. Note the ordering caveat: the veto sits behind three gates by design, so this raises the weakest layer without changing what reaches it
+- [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) — **independent empirical support for two of this design's least-argued choices.** Across 54,713 agent review comments, an inline code suggestion is the strongest predictor of resolution (OR 1.62, 75.5% vs 64.6%) while comment length carries a penalty concentrated in functional feedback (OR 0.855) — which is StampHog's minimal-output rule (a bare approval with no line comments; a refusal of 1-2 sentences plus a risk level and next steps) measured rather than asserted. And it validates demoting the model to a **veto**: a veto produces no comment, so it has no resolution rate to lose, and it sidesteps the failure that dominates that study's rejections — an agent flagging as a defect what the team decided on purpose (23.8% of argued cases). What it does *not* supply is the escaped-defect number this page's first open question asks for; adoption is not correctness there either
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — a partial, deployed answer to that page's "how far do you push fully automated reviews?": as far as the *cheap, structural* checks reach, with the model demoted to a veto behind them — not as far as a model's judgment about correctness. That page's [CircleCI](https://circleci.com/blog/five-takeaways-2026-q2-pulse/) material (`vendor-claim`) is the same cheap-checks-first ordering pushed one stage earlier: run lint, unit tests, and builds in the inner loop so failures surface in seconds, and CircleCI models ~$700K/yr of a 50-developer team's delivery cost as recoverable that way. Both are ordering arguments — put the checks that are fast and certain ahead of the ones that are slow or probabilistic — differing only in where the cheap tier sits (the developer's loop vs the merge gate), and the composition is the obvious one: a diff that already passed the inner loop arrives at StampHog cleaner
 - [Review as the Control Point](/articles/review-as-the-control-point) — the deployed instance of **P17** (risk-tiered gating of material changes only), and a large uncontrolled instance of the contested **P9**: this reports throughput (1 in 3, 1.6K/month) and measures no quality outcome
 - [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the empirical check on the gate stack, cutting both ways: the 16.2%→53.6% size gradient backs the diff-size ceiling, while 87.6% of smells living in CI/container files that match no business-risk keyword exposes the deny-list's blind spot, and the 18.9% credential-comment rate is the measured floor under the LLM showstopper check that would have to cover it
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — **the rival gate predicate, measured** (see the section above): existing tests execute 61.5% of agents' changed lines in Java and 27.0% in Python, and reach nothing at all in 64.8% of Python PRs — so "the tests passed" is not the reassurance the gate stack implicitly leans on. It is also the one candidate predicate that is *computable from the diff*, which makes it eligible for the deterministic tier where a keyword deny-list is a guess and the LLM check is a judgment
 - [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the same deterministic-first ordering at the tool-call boundary, and the complement to this page's evidence gap. Two differences decide how they compose. StampHog's gates are *proxies* — a keyword deny-list and a line count stand in for "would a mistake here be expensive" — where a policy gate decides the actual question it was written for, which is why gate precision there is auditable (100% over 161 fires for one gate, 5% for another) and deny-list coverage here is not. And the reporting is mirrored: this case study measures volume and never efficacy, that paper measures efficacy (+12.4pp, replicated on disjoint seeds) and has no deployment. The transferable rule both support is the ordering, not either config
 - [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the same classifier-gated-autonomy shape one layer down (per-tool-call rather than per-merge), with the same one-directional authority: the model may block, never unblock. The difference is what carries the decision — auto-mode's classifier *is* the gate, where here three deterministic checks gate and the model only vetoes
 - [Acceleration Whiplash](/articles/acceleration-whiplash) — the lever against the review-time explosion (median time-in-PR-review +441.5%), and the mechanism by which review coverage can *rise* while human review-hours fall; but Faros's thesis is that the fix belongs in authoring, and a merge gate is downstream of that
@@ -121,10 +142,11 @@ The concrete prescription this yields: **`.github/workflows/`, `Dockerfile`, and
 
 ## Open Questions
 
-- The case study reports volume and never efficacy. What is the escaped-defect or incident rate of auto-approved PRs versus the human-stamp baseline the Slack channel used to produce? PostHog has both populations in its own history, which makes this a checkable before/after rather than a request for new instrumentation.
-- A keyword deny-list is a **proxy** for blast radius, and [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) shows the proxy misses where the measured debt concentrates (CI/container plumbing, 87.6%). Does adding CI/IaC *paths* to the deny-list restore coverage, or does it shrink the auto-approvable set so far that the gate stops paying for itself?
+- The case study reports volume and never efficacy. What is the escaped-defect or incident rate of auto-approved PRs versus the human-stamp baseline the Slack channel used to produce? PostHog has both populations in its own history, which makes this a checkable before/after rather than a request for new instrumentation. The same history answers a second question for free (added 2026-08-12): plotting the share of merged PRs that would clear the 500-line/20-file ceiling, quarter by quarter, dates how fast the gate's coverage decays as the ambient PR-size distribution rises.
+- A keyword deny-list is a **proxy** for blast radius, and [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) shows the proxy misses where the measured debt concentrates (CI/container plumbing, 87.6%). Does adding CI/IaC *paths* to the deny-list restore coverage, or does it shrink the auto-approvable set so far that the gate stops paying for itself? **A third candidate predicate is now priced but not tested (2026-08-12):** [Dipongkor et al.](/articles/agent-generated-test-quality) (`empirical`) show that "the existing suite covers this diff" is computable, deterministic, and rarely true — 27.0% of changed lines in Python, nothing at all in 64.8% of PRs. That reframes this bullet as a choice between two extensions with the same failure mode rather than one open question: both a path deny-list and a coverage floor buy precision by shrinking the auto-approvable set, and neither has been measured against the volume it costs. The same before/after PostHog already has in its history would answer both at once.
 - If the size ceiling becomes a design target — agents instructed to emit stacks under 400 lines — does total risk fall, or does it just redistribute into *more* PRs each below the gate, with the integration risk moving to the seams between them? The security study's size gradient is measured per-PR and cannot distinguish these.
 
 ## Sources
 
+- [The State of AI Impact in Engineering: Q2 2026](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering) — Justin Reock, *The State of AI Impact in Engineering: Q2 2026* (DX, Engineering Enablement newsletter, 2026-07-22), **tier corrected `empirical` to `vendor-claim` at compile** (reasoning in Sources). Finding 2 only — median PR size nearly doubling Q1 to Q2 2026 across 500+ customer organizations — cited here as the moving distribution under this gate's fixed ceiling. No methodology accompanies the figure; the report is gated
 - [Stop being the code review bottleneck](https://newsletter.posthog.com/p/code-review-tips) — Jina Yoon, "Stop being the code review bottleneck", PostHog newsletter (2026-07-09), `case-study`. §3 (StampHog: label trigger, four gates, invariants from the porting prompt, escalation routing, 1-in-3 and 1.6K figures, the `#dev-stamp-exchange` predecessor), §4 (observability over reasoning; stacked PRs under 400 lines via Graphite; the explicit composition with §3), §1 (reviewer panel, independence across models and providers, the 60%-token-spend quote)

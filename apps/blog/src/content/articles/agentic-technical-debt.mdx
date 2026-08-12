@@ -11,7 +11,7 @@ tags:
   - agent-engineering
   - technical-debt
   - claude-code
-readingTime: 12
+readingTime: 18
 imageAlt: Illustration for Agentic Technical Debt
 sources:
   - title: Claude Opus 5 System Card
@@ -23,12 +23,16 @@ sources:
   - title: "From Registry to Repository: How AI Agent Skills Are Written, Adapted,
       and Maintained"
     url: https://arxiv.org/pdf/2607.00911
+  - title: Do Context Files Help Coding Agents? A Two-Agent Ablation Study on Real
+      Repositories
+    url: https://arxiv.org/pdf/2607.27250
 ---
 export { default as heroImage } from "../assets/agentic-technical-debt.webp";
 
 ## Sources
 
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [Do Context Files Help Coding Agents? A Two-Agent Ablation Study on Real Repositories](https://arxiv.org/pdf/2607.27250)
 - [From Registry to Repository: How AI Agent Skills Are Written, Adapted, and Maintained](https://arxiv.org/pdf/2607.00911)
 - [OpenAI Codex lead on the new shape of product work](https://www.youtube.com/watch?v=P3KDebPTUrw)
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)
@@ -61,7 +65,17 @@ The playbook's prescription is to encode architectural intent in `CLAUDE.md` mar
 2. **Start each Claude Code session** by (1) revisiting the scope document and (2) providing the model with the CLAUDE.md context document.
 3. **End each session** by updating CLAUDE.md with any decisions the session surfaced.
 
-The playbook's claim: "Five minutes of documentation per session is cheap insurance against architectural drift that compounds into an unmanageable codebase."
+The playbook's claim: "Five minutes of documentation per session is cheap insurance against architectural drift that compounds into an unmanageable codebase." *(Qualified 2026-08-05 — see "What the remedy was measured to buy" below: the insurance is real for cost and process discipline, unevidenced for per-task correctness.)*
+
+## What the remedy was measured to buy (Khatri, July 2026)
+
+The prescription above has never been tested in this corpus; [Khatri 2026](https://arxiv.org/pdf/2607.27250) (arXiv 2607.27250, `empirical`) is the first controlled ablation of it, and the result cuts a specific way. Across 288 gold-test-evaluated runs on two frontier agents and three real repositories, **removing the context file entirely does not lower task correctness** (Claude 53.3% with no context vs 55.6% with; Codex 58.8% vs 56.9%; differences bounded &lt;10–15pp), and the real `AGENTS.md` never converts a near-miss failure into a pass in a 36-cell probe. The mechanism is the load-bearing part: the near-misses fail on *implementation skill* — a precision bug in a correctly-designed optimization, a reactive-retry pattern chosen where proactive refresh was needed, a rule the agent read off the code and then miswired — not on architectural intent a file could have carried. Full treatment on [Agent Context Files](/articles/agent-context-files).
+
+Three things this does and does not change here:
+
+- **It does not touch the drift claim.** Khatri measures single-session task correctness against a hidden test oracle. This page's mechanism is *cross-session* — inconsistencies between compromises accumulating over months, surfacing as a forced rewrite. A per-task pass rate cannot observe that; the experimental design that would (repeated sessions on one codebase, coherence measured at the end) does not exist in the corpus.
+- **It does narrow the claimed payoff to a channel the playbook doesn't name.** What survived the ablation was a *process* effect with a dose-dependent mechanism: on the one repository whose file warns that the full test suite takes >20 minutes, the agent's blind full-suite runs fall 3.67 → 2.44 → 1.67 as context is delivered more selectively, and wall-clock drops ~24%. That is the "cheap insurance" premise vindicated on **token and latency cost** — which is precisely the currency the rebuild-from-scratch argument below trades in — while leaving the correctness half unevidenced.
+- **It sharpens what belongs in the file.** The gotchas discipline ([Agent Context Files](/articles/agent-context-files)) and the "prune what the agent can infer from the code" rule both survive intact and are, on this evidence, the *only* content with a demonstrated return: the one file that paid was the one carrying a fact about the environment (test-suite cost) that no amount of reading the repository would surface. Architectural principles and style conventions — the playbook's headline content — are exactly what the ablation found inert.
 
 ## When the debt matures
 
@@ -80,9 +94,11 @@ The economic argument: iterating on incoherent code costs more tokens (longer co
 
 ## Connections
 
+- [Community Smells Under AI Adoption](/articles/community-smells-under-ai-adoption) — this debt's team-level shadow: across five structural models the *only* path pointing at harm is information governance (AI adoption → worse documentation and informal information flow, β = −.194, marginal at *p* =.069)
 - [Unproductive Self-Verification](/articles/unproductive-self-verification) — how the debt gets written: unrequested refactors, extra tests, and speculative verification pipelines that read as productivity, observed across Opus 5's training transcripts
 - [AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle) — primary MVP and Launch-stage hazard
 - [Deep Modules for Agents](/articles/deep-modules-for-agents) — Ousterhout-style deep modules + persistent-context discipline are the architectural counter-pressure; [Matt Pocock](/articles/matt-pocock)'s Sandcastle pattern is one concrete instance
+- [Agent Context Files](/articles/agent-context-files) — the cross-vendor pattern this page's remedy is one instance of, and where the Khatri ablation is treated in full: the correctness return on generic convention content is bounded near zero, the measured return is on cost and process
 - [Claude Code Best Practices](/articles/claude-code-best-practices) — official Anthropic guidance on CLAUDE.md; the playbook frames the same discipline as founder survival, not best practice
 - [Claude Code](/articles/claude-code) — the tool where this debt accumulates
 - [Zero-Friction Scope Creep](/articles/zero-friction-scope-creep) — companion failure mode; scope creep accrues debt faster
@@ -104,13 +120,15 @@ The economic argument: iterating on incoherent code costs more tokens (longer co
 - [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — the deletion gap is why "loops are so last week" hasn't yet reached fully-unsupervised autonomous development
 - [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — the *other* debt that arrives with coding agents, and a different mechanism entirely: not intent drift inside your own code but vendor-branch divergence from someone else's, accruing at ~13 upstream PRs/day from other people's velocity. Same maturity profile (invisible until a forced rebase or a forced rewrite), unrelated cause — don't read its PR counts as evidence about agent-authored code quality
 - [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the security register of the same debt, measured: it accrues in the CI/container plumbing (87.6% of smells sit in GitHub Actions workflows and Dockerfiles) that no session's architectural context covers, and stays invisible until a credential is exploited rather than until a rewrite is forced
-- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — "stealth technical debt" in the test suite: agent tests reach the disk and non-deterministic APIs at ~1.4× the human rate, so the suite passes today and costs CI reliability later — the same advertise-nothing property as a working feature that hides its architectural premise, and a debt that accrues in the *environment* rather than the architecture
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — "stealth technical debt" in the test suite: agent tests reach the disk and non-deterministic APIs at ~1.4× the human rate, so the suite passes today and costs CI reliability later — the same advertise-nothing property as a working feature that hides its architectural premise, and a debt that accrues in the *environment* rather than the architecture. The coverage cut on that page is this page's mechanism stated in the testing register by the source itself: untested code paths "create technical debt that accumulates silently until regression failures emerge in production," and it is measured — 50.4% of code-changing agentic PRs carry no test change and existing tests reach 27.0% of changed lines in Python. A working feature advertises nothing about its architectural premise; a green suite advertises nothing about whether it touched the diff
 - [Review as the Control Point](/articles/review-as-the-control-point) — *comprehension debt* is this architectural debt's cognitive twin in the CMU code-review theory: low review depth + code opacity accrue it, and it feeds reinforcing loops that erode maintainability, ownership, and future review skill — and it accrues even when review depth stays high ("tasting the dish, not reading the recipe")
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — the same missing-context mechanism denominated in **compute**: AI-generated C++ writes ~2x the explicit loops and 30-40% fewer standard-library calls, which lands as ~5% relative compute and ~8% relative memory overhead in production. Two things make it this page's sibling rather than a separate topic. The paper's own hypothesis for the cause is "generalist LLMs lacking the highly specific context of internal enterprise monorepo structures," and its proposed fix is a knowledge base injecting that context at prompt time — the CLAUDE.md remedy reached independently from profiling data, and unlike the Khatri ablation it has a measured payoff (an 11.1% reduction in targeted findings). It also names the debt's maturity moment: this one never forces a rewrite, it just bills more every month
+- [Prototype Fidelity After Cheap Polish](/articles/prototype-fidelity-after-cheap-polish) — Boehm's 1988 "spaghetti code difficulties" is this page's argument in its original form, and the reason evolutionary prototyping never worked; whether GenAI resolves it or automates the same mistake is the fork this page's evidence answers
 
 ## Open Questions
 
-- How long does a CLAUDE.md remain accurate as a codebase evolves? The playbook gestures at session-by-session updates; no data on rot rate.
-- The remedy assumes the founder is *able* to articulate architecture in plain language. Non-technical founders (the playbook's headline beneficiary group) may have neither the vocabulary nor the intuition to do this well — a recursion failure the playbook doesn't address.
+- How long does a CLAUDE.md remain accurate as a codebase evolves? The playbook gestures at session-by-session updates; no data on rot rate. *(**Partially answered** — not answered — by [Khatri 2026](https://arxiv.org/pdf/2607.27250): rot rate is still unmeasured, but the question's stakes move. If a Good/Excellent-rated file buys no correctness over having none, then a *stale* file costs correspondingly little correctness too, and the rot that matters is in the environment-fact content (test cost, deployment invariants) that carried the one measured effect. The measurement still owed is a longitudinal one: does a file's accuracy decay track anything observable in agent behaviour?)*
+- The remedy assumes the founder is *able* to articulate architecture in plain language. Non-technical founders (the playbook's headline beneficiary group) may have neither the vocabulary nor the intuition to do this well — a recursion failure the playbook doesn't address. *(Deflated, not resolved, by [Khatri 2026](https://arxiv.org/pdf/2607.27250) — if the file doesn't move correctness, the founder's inability to write a good one costs less than this bullet assumes; see [Founder as Agent Orchestrator](/articles/founder-as-agent-orchestrator).)*
 - Anthropic's [harness-shrinkage](/articles/harness-shrinkage-as-models-improve) thesis suggests CLAUDE.md may eventually be inferred by the model itself. Until then, the discipline is load-bearing.
 
 ## The complexity ratchet: models add, rarely delete (Ambrosino)
@@ -128,3 +146,4 @@ This is a *directional bias*, not just inconsistency: left to run, an agent adds
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf) — MVP Stage and Launch Stage chapters
 - [OpenAI Codex lead on the new shape of product work](https://www.youtube.com/watch?v=P3KDebPTUrw) — Ambrosino: "models usually increase complexity… please make the models better at deleting code"
 - [From Registry to Repository: How AI Agent Skills Are Written, Adapted, and Maintained](https://arxiv.org/pdf/2607.00911) — Gao et al., arXiv 2607.00911 (`empirical`): §VII-A additive-maintenance asymmetry (2.7:1 overall, 6.1:1 in evolution); §VI-A 53% of reused skills never modified after adoption
+- [Do Context Files Help Coding Agents? A Two-Agent Ablation Study on Real Repositories](https://arxiv.org/pdf/2607.27250) — Prakhar Khatri, arXiv 2607.27250, 2026-07-28 (`empirical`, sole author, not peer reviewed): the first controlled ablation of the CLAUDE.md/AGENTS.md remedy — Table 1 flat pass-rates across NONE/ALWAYS ON/SELECTIVE on both agents, §5.1 the implementation-skill-not-knowledge failure triage, §5.2 the manipulation probe (the real file never flips a near-miss), Table 2 the full-suite-test-run dose effect. Bounded null, not a powered equivalence claim (MDE >30pp at n=17); scoped to single-session task correctness, so it does not test this page's cross-session drift mechanism. Two of the paper's five tables are cell-collapsed in the raw — figures here are quoted from prose

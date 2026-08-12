@@ -9,6 +9,7 @@ import {
 import type { ParsedWikiFile } from "../import-wiki/parse.ts";
 
 const UNKNOWN_MOC_ERROR = /moc-nonsense/;
+const UNKNOWN_DOMAIN_ERROR = /nonsense-domain/;
 
 function moc(slug: string, body: string): ParsedWikiFile {
   return {
@@ -68,5 +69,23 @@ describe("buildDomainMembership + resolveDomain", () => {
     expect(() =>
       buildDomainMembership([moc("moc-nonsense", "- [[blast-radius]]\n")])
     ).toThrow(UNKNOWN_MOC_ERROR);
+  });
+
+  it("prefers a valid frontmatter domain over MOC membership", () => {
+    expect(resolveDomain("agent-loop-pattern", membership, "formal-math")).toBe(
+      "formal-math"
+    );
+  });
+
+  it("falls back to MOC membership when frontmatter domain is absent", () => {
+    expect(resolveDomain("agent-loop-pattern", membership, undefined)).toBe(
+      "agent-systems"
+    );
+  });
+
+  it("throws on an unrecognised frontmatter domain", () => {
+    expect(() =>
+      resolveDomain("agent-loop-pattern", membership, "nonsense-domain")
+    ).toThrow(UNKNOWN_DOMAIN_ERROR);
   });
 });

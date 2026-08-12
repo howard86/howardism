@@ -7,7 +7,12 @@ description: "UC Berkeley's 21-judge / 9-provider / ~541K-judgment audit (Norman
   deflation, universal across every judge), judge rankings shift up to 14
   positions across benchmarks, and high test-retest reliability masks severe
   position bias (the consistency–bias paradox); distilled into a 5-step Minimum
-  Viable Validation Protocol"
+  Viable Validation Protocol. Yang et al. (2026) add the judge-*version* axis:
+  upgrading the evaluator is not a reliability intervention (one robust step in
+  18, and scaling makes it worse on 2 of 4 datasets), and repeated-sample juries
+  are capped by measured error correlation ρ ≈ 0.66–0.97. Chen et al. (2026)
+  push it down to the rubric *item*: measurability (judge agreement),
+  informativeness (IRT information) and validity are three different properties"
 tag: Concept
 domain: evals-and-benchmarks
 tags:
@@ -16,18 +21,26 @@ tags:
   - benchmarks
   - reliability
   - measurement
-readingTime: 19
+readingTime: 37
 imageAlt: Illustration for LLM-Judge Validation
 sources:
   - title: "Reliability without Validity: A Systematic, Large-Scale Evaluation of
       LLM-as-a-Judge Models Across Agreement, Consistency, and Bias"
     url: https://arxiv.org/pdf/2606.19544
+  - title: "When the Judge Changes, So Does the Measurement: Auditing LLM-as-Judge
+      Reliability"
+    url: https://arxiv.org/pdf/2607.08535
+  - title: "CalibratedRubric: Task-Adaptive Rubric Banks for Open-Ended LLM
+      Evaluation"
+    url: https://arxiv.org/pdf/2607.29252
 ---
 export { default as heroImage } from "../assets/llm-judge-validation.webp";
 
 ## Sources
 
+- [CalibratedRubric: Task-Adaptive Rubric Banks for Open-Ended LLM Evaluation](https://arxiv.org/pdf/2607.29252)
 - [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+- [When the Judge Changes, So Does the Measurement: Auditing LLM-as-Judge Reliability](https://arxiv.org/pdf/2607.08535)
 
 ## Summary
 
@@ -62,6 +75,8 @@ The vault's prior answer on judge trust came from [DRACO](/articles/draco-benchm
 
 So the practical rule sharpens: **a ranking is trustworthy only across the axis you have actually verified it stable on.** DRACO earns "use rankings" for *judge choice*; it says nothing about *benchmark choice*, which this paper shows is where rankings break. The reassurance and the warning are the same lesson seen from two sides.
 
+A third axis — varying the judge's *version* rather than its identity or its benchmark — arrives below with Yang et al. (2026).
+
 ## Finding 3 — The consistency–bias paradox (reliability masking invalidity)
 
 The paper's sharpest diagnostic. **High test-retest reliability (> 0.95) coexists with severe position bias (> 0.10)** in two *production-deployed* judges:
@@ -78,6 +93,91 @@ This is *reliability without validity* compressed into a single failure mode —
 ## Finding 4 — Verbosity bias has largely faded
 
 A rare "this got better" result. **All 21 judges register verbosity bias &lt; 0.011** on MT-Bench (largest: GPT-4o-mini 0.010; 17 of 21 below 0.005) — an **order of magnitude below** the 20–40% length effects reported in 2023-era studies. Two model generations appear to have wrung most length-preference out of pairwise judging. **Scope caveat (the authors are emphatic):** this holds under a *single pairwise rubric* and one length-differential operationalization; it is **not** a claim that verbosity bias is solved under arbitrary rubrics or scoring tasks.
+
+*(Scope narrowed 2026-08-04 by [Yang et al. (2026)](https://arxiv.org/pdf/2607.08535), `empirical`, and the caveat above is exactly where it lands.* Under an **active probe** — appending a fixed, generic, content-free padding string to one candidate and measuring verdict change — verbosity bias on adversarial **LLMBar** runs **0.547 for Qwen3-1.7B and ≈0.13 for the MiniMax releases**: one to two orders of magnitude above the &lt; 0.011 measured here. The two numbers are not in conflict once the operationalizations are separated: Norman measures a *passive* length differential between naturally-occurring responses on MT-Bench, Yang measures *induced* sensitivity to padding on a benchmark built to be adversarial, over a partly-open-weight cohort that reaches down to 1.7B. Neither result generalizes to the other's setup. What survives is the narrower claim — **verbosity bias has faded as a property of frontier judges on natural preference data, not as a property of judges** — and the practical consequence is that a padding probe belongs in the bias-audit step alongside A/B reversal, because it is the thing that detects what the passive measurement misses.)
+
+## The third invariance — vary the judge's *version* (Yang et al., 2026)
+
+Yang, Hou & Yang (Imperial College London + Nanchang Institute of Technology, arXiv 2607.08535, July 2026, `empirical`) name the axis this page and [DRACO](/articles/draco-benchmark) both leave open. Call it **evaluator-replacement ambiguity**: when a score moves after you swap the judge for a newer or bigger one, *the accuracy number alone cannot say why*. The new judge may be more capable, differently biased, failing on a different slice, or simply parsed differently by the harness. Their reframing is the one this page argues for, stated at its most general — **an LLM-judge result is a measurement, and replacing the instrument is a measurement-validity event, not a version bump.**
+
+**Setup.** Eight judges on two axes chosen because both are decisions practitioners actually face: a **parameter axis** (Qwen3 dense 1.7B / 4B / 14B / 32B) and a **released-API axis** (MiniMax M2 / M2.1 / M2.5 / M2.7, evaluated as shipped — explicitly *not* a controlled ablation, and the paper makes no causal claim about MiniMax internals). GLM-5.1 and mimo-v2-pro serve as cross-family reference judges outside both axes. Four datasets: **LLMBar** (419 adversarial pairwise), **PandaLM** testset-v1 (894 valid after dropping tie-majority items), a seed-42 2,000-example **Chatbot Arena** sample (1,997 valid), and **Judge's Verdict** (200 TechQA-derived, three-level pointwise). Near-greedy `T = 0.1`; exact two-sided **McNemar on parse-shared examples** (so significance reflects paired verdict changes, not differing parser coverage); **Holm correction over the family of 18 adjacent tests**.
+
+### Finding A — upgrading the judge is not a reliability intervention
+
+Of 18 adjacent-step tests, **one survives Holm correction**: Qwen3 **1.7B → 4B**, on LLMBar and Arena. All nine MiniMax adjacent tests fail to reach even *uncorrected* `p < 0.05`, with a maximum adjacent accuracy difference of **0.022**.
+
+Table 3 (reconciled against the PDF — see the parse note in `wiki/sources.md`):
+
+| Dataset | Best judge | Qwen3 1.7B → 32B |
+|---|---|---|
+| LLMBar | GLM-5.1, 0.900 [0.868, 0.925] | 0.463 [0.416, 0.511] → 0.678 [0.632, 0.721] |
+| PandaLM | MiniMax-M2.7, 0.857 [0.833, 0.878] | 0.779 [0.751, 0.805] → **0.769** [0.740, 0.795] |
+| Arena | mimo-v2-pro, 0.742 [0.722, 0.761] | 0.625 [0.604, 0.646] → 0.688 [0.667, 0.708] |
+| Judge's Verdict | GLM-5.1, 0.680 [0.612, 0.741] | 0.595 [0.526, 0.661] → **0.530** [0.461, 0.598] |
+
+Read the two bold cells: **19× the parameters makes the judge *worse* on two of the four datasets** — PandaLM 0.779 → 0.769, Judge's Verdict 0.595 → 0.530. Scaling the judge is not merely a weak intervention, it is **not monotone**. "Use the strongest model as judge" fails here on its own axis, not just against this page's cheaper-judge caveat.
+
+**The headline needs one correction the abstract doesn't make.** "MiniMax adjacent releases show no gain" reads as a negative finding about MiniMax. Figure 2's per-model LLMBar accuracies show it is a **ceiling effect on the panel, not a failure to improve**: Qwen3 runs 0.463 / 0.617 / 0.647 / 0.678 while MiniMax runs 0.829 / 0.839 / 0.832 / 0.832, with GLM-5.1 at 0.900 and mimo-v2-pro at 0.883. **The MiniMax series starts above where the entire Qwen3 sweep ends.** So the honest form of the result is not "releases don't improve judges" but **the reliability gain available from upgrading a judge is concentrated at the bottom of the capability range** — the single robust step in the study is also its cheapest (1.7B → 4B, +0.154 on LLMBar) — **and adjacent steps near the top buy nothing measurable on these datasets.** That is a directly actionable procurement finding: past a threshold, judge-model spend buys you something other than agreement.
+
+**No judge wins all four datasets.** GLM-5.1 leads LLMBar and Judge's Verdict, MiniMax-M2.7 leads PandaLM, mimo-v2-pro leads Arena. This is the same shape as Finding 2 above with a different thing varied — there, judge *identity* across benchmarks; here, judge *version* across benchmarks — and it converges on the same prescription: **slice-specific measurement validity, not one-dimensional evaluator ordering.**
+
+### Finding B — the capability–fairness association is strong and still insufficient
+
+On LLMBar the position-flip rate falls **0.320** (Qwen3-1.7B) → **0.117–0.147** (MiniMax releases), and across the eight evaluated judges LLMBar accuracy and position-flip rate correlate at **Pearson r = −0.957**. Granularity sensitivity shrinks too. But **MiniMax-M2.7 — the best PandaLM judge in the panel — still changes 14.7% of its verdicts under pure A/B reversal.** The authors are careful to call this an *association measured on one dataset and one model panel*, not a mechanism. Position randomization and slice-level bias reporting survive the upgrade. (The flip-rate metric here is not the same statistic as this page's `|P(A wins) − 0.5|` position-bias figure, so the numbers are directionally comparable but not on the same scale.)
+
+### Finding C — juries are capped by error correlation, and the cap is now a formula
+
+The jury experiment is a clean negative result with a usable correction attached. For **homogeneous juries** (one judge sampled K times at `T = 0.7`, deliberately not `T = 0.1`, since repeated low-temperature calls would understate juror dependence), the paper estimates the intra-class error correlation **ρ** from the vote matrix and compares three quantities — the independence prediction, a **ρ-corrected beta-binomial** prediction (`q ~ Beta(α, β)`, `α = ps`, `β = (1−p)s`, `s = 1/ρ − 1`), and observed accuracy:
+
+- Independence misses observed jury accuracy by median absolute error **0.078** (LLMBar) / **0.093** (PandaLM). The ρ-corrected prediction cuts that to **0.008 / 0.004**, max error below 0.02.
+- Measured ρ is high: **Qwen3 homogeneous juries 0.944–0.972**, MiniMax lower but still strongly dependent at **0.664–0.706**.
+- So jury size barely moves anything: Qwen3-1.7B on LLMBar at `K = 1, 3, 5` gives **0.463, 0.475, 0.482**.
+- **Heterogeneous juries also underperform Poisson-binomial independence predictions** — mixing model families under a shared prompt does *not* restore independent errors.
+
+The design question shifts from *"how many jurors?"* to *"how independent are their errors?"*, and the reporting rule is **ρ alongside K, never K alone**.
+
+**This is the measurement sitting under [Zhou's proof](/articles/reference-free-judge-over-crediting).** Zhou showed *analytically* that no monotone aggregation rule can reject a region all judges accept when they threshold a shared latent signal, and measured pairwise acceptance correlation φ = 0.29–0.38 between three judge families — but under deliberate optimization pressure, on manufactured errors. Yang measures the same dependence with **nothing optimizing against the judges at all** — ordinary pairwise grading, ρ = 0.66–0.97 — and supplies the closed form that converts it into a *prediction* rather than a warning. Two independent routes to the same conclusion: **more judges is not a reliability amplifier**, and the family-mixing hedge fails on both.
+
+### Finding D — the largest protocol effect in the study is the one that cannot be attributed
+
+Structured debate (two judges, up to three rebuttal rounds, LLMBar) produces final-vs-round-1 accuracy shifts that **dwarf every scaling effect in the paper**: Qwen3-1.7B paired with GLM-5.1 / MiniMax-M2.7 / mimo-v2-pro shifts **+0.317 / +0.305 / +0.289**; Qwen3-4B with GLM-5.1 shifts +0.243 to reach 0.897. Same-family and top-vs-top pairs shift only +0.005 to +0.050, so the effect tracks the **capability gap** between the paired judges.
+
+And it is uninterpretable. The implementation logged round verdicts and final verdicts but **not raw responses or parse-success flags**; round-1 parse failures fall back to "A" and later failures retain the previous verdict. Fallback rates are therefore unrecoverable without a full rerun, and the shift cannot be separated from *"the weak judge's unparseable outputs got overwritten by the strong judge's verdicts."* The authors present it as an **auditability case study, not a deliberation result** — which is the honest call, and the reason this finding earns a place on a validation page: **a protocol intervention larger than any capability intervention in the study, whose mechanism is unrecoverable because six lines of logging were missing.**
+
+### What this adds to the MVVP
+
+The MVVP is a *pre-deployment* checklist for one judge. Yang's Table 4 is a **reporting** standard for a judge result, and three of its six items are things the MVVP does not ask for:
+
+| Reliability risk | Required report item |
+|---|---|
+| Dataset-slice shift | Valid `N`, parseable `N`, tie handling |
+| Parser artifacts | Parser success rate, fallback rule |
+| Position/verbosity bias | A/B reversal, **padding probe** |
+| Correlated jury errors | **ρ and K**, not K alone |
+| Debate protocol artifacts | Raw outputs, parser status, round verdicts |
+| Statistical overclaiming | Paired tests, Holm correction, uncertainty intervals |
+
+The parser/slice items (rows 1–2) and the ρ item (row 4) have no MVVP counterpart; row 3 is MVVP step 2 plus the padding probe; row 6 is the statistical hygiene the MVVP leaves implicit. The two documents are complementary rather than overlapping — **validate the judge before deploying it (MVVP), then report what the pipeline around it actually did (audit trail).**
+
+**Robustness checks** (which the paper keeps deliberately narrow): human-ceiling calibration shows **PandaLM retains headroom** — best judge matched leave-one-annotator-out κ = 0.753 against a human ceiling of 0.920 — while **Judge's Verdict is at or past its noisy ceiling** (best judge κ = 0.620 against human κ = 0.562, i.e. the judges beat the humans, which is a statement about the labels rather than the judges). Arena seed perturbation moves accuracy only 0.004–0.032, smaller than the robust 1.7B→4B Arena gap. Prompt-sensitivity checks preserve cross-family ordering, with stronger judges more prompt-stable.
+
+**Weight it accordingly.** Two model families, two reference judges, four datasets, a fixed main prompt with prompt sensitivity as a robustness check only, one primary decoding regime per experiment. The MiniMax axis is an *observed release sequence*, not a controlled ablation — a null result on it is a null result about released APIs, not about training interventions. McNemar tests are adjacent-pair tests and constitute no formal between-axis comparison.
+
+## The instrument under the judge — validating rubric *items*
+
+Everything above validates a judge. [CalibratedRubric](/articles/llm-as-a-judge) (Chen et al., FinStep + StepFun, arXiv 2607.29252, July 2026, `empirical`) validates the thing the judge is pointed at, and the distinction it draws belongs in this page's vocabulary because the field routinely conflates all three:
+
+| Property of a rubric item | Observable | What it does **not** establish |
+|---|---|---|
+| **Measurability** | inter-judge agreement rate | that the criterion is worth measuring |
+| **Informativeness** | IRT item information over the fitted ability range | that graders can apply it consistently |
+| **Validity** | expert endorsement | — the paper supplies no automated substitute |
+
+Their `z_j` is defined as *reproducible judgeability* and immediately qualified: "necessary but not sufficient for substantive expert endorsement." That is this page's reliability-is-not-validity thesis restated one level down — an item every judge agrees on can be an item that measures nothing anyone cares about, and agreement is exactly the statistic that will not tell you.
+
+**Where it collides with Finding C.** CalibratedRubric's measurability posterior is a Beta–Bernoulli over the fraction of instances on which *all judges agree*, and it requires **≥ 3 judges** to carry any signal at all (with two, unanimity is definitionally pairwise agreement — their two-judge HealthBench and HelloBench arms show no gain). Assumption A3 concedes the threat without measuring it: "LLM judges share training data and conventions, so correlated errors can inflate apparent consensus and estimated sensitivity or specificity." Yang's ρ = 0.944–0.972 / 0.664–0.706 is the magnitude of exactly that, measured under no optimization pressure. **The two results are not in conflict — they concern different uses of redundancy** (Yang: extra jurors as *votes*, capped by ρ; Chen: extra jurors as *an observation about the item*), but ρ threatens both. The seam shows in Chen's own data: posterior measurability predicts agreement at r = 0.589 / 0.558 on the LLM-judged blocks and drops to **r = 0.127** on JudgmentBench, the single block whose gold labels are human. The mechanism is best-evidenced where LLMs are grading LLMs.
+
+**And a directional judge–human bias that agreement filtering does not remove.** On JudgmentBench the LLM judges assign positive labels at **55.6–62.9%** against the human gold's **47.1%** — the authors' own words, "a systematic judge–human mismatch that measurability filtering does not fully eliminate." Filtering for agreement makes the panel more self-consistent without moving it toward the humans. Same direction as [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)'s over-crediting, arriving from rubric grading rather than reference-free QA. The MVVP-shaped addition: **when a rubric bank is built from judge agreement, report the panel's base positive rate against the human base rate**, because a filter that improves κ and leaves that gap intact has improved reliability without improving calibration.
 
 ## Who judges well (provider patterns)
 
@@ -115,7 +215,8 @@ Two transfers run both ways. ATLAS randomizes classifier option order to defeat 
 
 - [Usage-Telemetry Classifier Validation](/articles/usage-telemetry-classifier-validation) — the same structural failure in AI-usage economics: a lenient metric (human approval, 85.8%) flattering an LLM classifier whose exact accuracy is 22.6%, plus a human-disagreement ceiling this page's protocol doesn't estimate
 
-- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the primitive this page validates; kappa deflation and the consistency–bias paradox are the reliability failures its DRACO-style protocol can hide
+- [Matched Comparisons for Memorization Claims](/articles/matched-comparison-memorization) — **the same arithmetic, one field over.** Chance-correction is "observed agreement minus the agreement you'd get by chance"; Cooper et al.'s calibrated memorization rate is `M(τ) = G(τ) − FPR(τ)` — observed generation on training data minus the generation rate matched non-training data reaches. Both correct a raw rate by a baseline that the field had been assuming was zero, and in both the correction is large (κ deflation of 33–41pp there; ~24% of the apparent extraction rate at 10-token suffixes there). The memorization version has the cleaner null — non-membership is definitionally exclusive, so its baseline is measured against something that *cannot* be a true positive, where a judge's chance baseline must be modeled
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the primitive this page validates; kappa deflation and the consistency–bias paradox are the reliability failures its DRACO-style protocol can hide. It also hosts the *upstream* instrument: CalibratedRubric's rubric bank, where measurability, informativeness and validity separate and the field's unanimity filter turns out to decay exponentially in leaderboard size for reasons unrelated to rubric quality
 - [DRACO Benchmark](/articles/draco-benchmark) — the judge-model-invariance counterpart; DRACO's "use rankings" reassurance is bounded by this paper's benchmark-variance (two different invariances)
 - [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the orthogonal axis of eval quality: production-sourcing fixes *task representativeness*, this page fixes *grading validity*; a representative task graded by an unvalidated judge is still untrustworthy
 - [Automated Failure Attribution](/articles/automated-failure-attribution) — a benchmark that follows most of this protocol, applied to *label* quality rather than judge quality: three independent annotators on 100 stratified traces, majority vote, a chance-corrected **Fleiss κ = 0.73** rather than raw agreement, an explicit "no clear decisive error" escape hatch (2.0%), and a published transfer matrix showing which families annotators moved labels between. The gap worth naming is one this page's protocol would catch: the human panel *ratifies a supplied label* while the models predict from scratch, so its 94.0 / 90.0 / 90.0 is not a like-for-like human ceiling against the models' 73.9 / 57.5 / 22.2 and should not be read as one
@@ -130,15 +231,23 @@ Two transfers run both ways. ATLAS randomizes classifier option order to defeat 
 - [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — the multilingual, reference-axis sibling: a *second* reliability-without-validity instance (temperature-0, perfectly reproducible judges are systematically invalid without a reference), supplying a concrete answer to this page's "biases beyond position bias" open question and extending the evidence into low-resource languages this English-only study lacked. Its second source adds the axis the MVVP structurally cannot cover — **validity is not a property of a judge, it is a property of a judge under a given amount of pressure.** The same judges hold usable discrimination (0.21–0.38) when they are only rating, and collapse to 0.05–0.17 once a policy is optimized against them, with true accuracy unmoved. Every step of the protocol is a one-shot measurement of a judge nobody is pushing on, so a judge can pass all five and still be worthless as a reward; the check that catches it is not on the list — a held-out signal the judge never sees, re-measured over the course of the optimization
 - [Tool-Output Pruning](/articles/tool-output-pruning) — the case that runs this page's suspicion backwards, and locates the blind spot it shares with the field. Selecting a context pruner by **per-line F1** — a deterministic, reference-backed, judge-free label-match metric — picks the wrong head: on both hand-examined cases F1 ranks a signature-only pruner above a usable one (0.53 vs 0.49, and 0.80 vs 0.71) while a GPT-5.4-mini judge separates them by 5-6 points (2/10 vs 8/10; 3/10 vs 8/10), and two loss functions match the winner's F1 while their judge scores collapse to 5.30 and 3.03. The mechanism is that F1 scores *set membership* on the kept lines while the task is *whether the retained skeleton supports the agent's next action*. This does not weaken the MVVP — it says the validation debt is not specific to judges: an unvalidated label-match proxy carries the same construct-validity gap, and nobody demands κ, position checks, or a human ceiling from a metric that looks arithmetic. Left open on that page: the judge doing the correcting here is itself unvalidated in this role
 - [Deep Research Agents](/articles/deep-research-agents) — the high end of the agreement range, and what buys it. MisKnow-Agent's FCAR judge reaches **99.7% raw agreement and Cohen's κ = 0.993** against two blinded annotators whose disagreements were adjudicated to a single reference label, on a 300-report sample. The instructive part is the task shape: not "score this report" but "does this report's own conclusion, recommendation or executive summary endorse *this specific claim*?", with an explicit decision rule listing four ways of surfacing the claim (mention, quotation, attribution, hedging) that score as non-adoption. Reducing an open-ended report grading to one sharply-bounded binary is what moves κ from the 0.4–0.75 band typical of rubric grading to near-unity — a design lever for judge validity that sits upstream of every measurement in the MVVP
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the horizon this page's discipline bounds. Karpathy's "council of LLM judges" is the construction that extends the reward signal into soft domains; the MVVP validates *one* judge, and Yang's ρ = 0.66–0.97 says the council's headroom over that one judge is small by measurement, before anything optimizes against it
+- [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) — where this page's debt gets *inherited by a proof*. DeepMind's CollabEval derives unbiased estimates with asymptotically valid confidence intervals for a model's benchmark mean at a fraction of the annotation budget — and on three of its five datasets the quantity being bounded is an autorater's output (GPT-4 Turbo win-rate on AlpacaEval, AutoAIS on AQA, MetricX on WMT24++). The interval is over *sampling* uncertainty in the mean of whatever the rater produced, so kappa deflation, position bias and reference-presence sensitivity all pass through it untouched: a 30%-tighter CI around a judge with κ = 0.48 is a more precise estimate of a badly-measured thing. The composition that would close the gap already exists in the same literature (stratified PPI relating cheap autorater labels to expensive human ones), but that paper does not build it — which makes "statistically efficient" and "validated" fully orthogonal properties of an eval pipeline
 - [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it) — the cluster synthesis: unvalidated grading is one of the four corruption channels of the public benchmark number, and the MVVP is the validate-the-judge move in the five-part replacement portfolio
 
 ## Open Questions
 
 - The MVVP validates *reliability and bias*; **calibration proper (ECE/Brier) is deferred** for lack of provider logprobs. How far can a judge's *absolute* score be trusted for a threshold once confidence calibration is measurable?
 - All judges were run with **thinking suppressed**. Does reasoning-on flip the consistency–bias paradox, or just move the numbers?
-- Hosted endpoints drift silently between provider updates. How stable are these agreement/bias profiles over a longer horizon than five weeks — and should judge validation be *continuous* rather than one-shot?
+- Hosted endpoints drift silently between provider updates. How stable are these agreement/bias profiles over a longer horizon than five weeks — and should judge validation be *continuous* rather than one-shot? **Partially answered (2026-08-04) by [Yang et al. (2026)](https://arxiv.org/pdf/2607.08535)**, on the *announced-upgrade* sibling of the question rather than silent drift. Across four released MiniMax generations (M2 → M2.1 → M2.5 → M2.7) on four datasets, adjacent accuracy moves at most **0.022** and **not one of the nine adjacent McNemar tests reaches even uncorrected `p < 0.05`** — and because those tests are paired on parse-shared examples, this is stability of the *individual verdicts*, not merely of the aggregate. So a deliberate version step at the top of the capability range is a small perturbation to the agreement profile. Three things keep this open. (i) These are **version-labeled releases you can pin, not the unannounced same-endpoint drift the question is about** — nobody has re-measured a fixed endpoint over months. (ii) Stability of *accuracy* is not stability of *bias*: position-flip rates still span 0.117–0.147 across the MiniMax releases, and no one tracked whether that band moves within a single version. (iii) The finding runs the other way on the parameter axis, where a step *does* move things and can move them **down** (Qwen3 1.7B → 32B costs 0.065 on Judge's Verdict), so "upgrades are safe" is not the lesson — **"upgrades are a measurement event that must be re-validated, and the null case is the lucky case"** is. That is an argument *for* continuous validation, from the direction of the one axis where it was cheap to check.
 - Does the paradox generalize beyond position bias — i.e., are there other biases (self-preference, lineage) that high test-retest also masks? **Partially answered by [Kranti & Vajjala (2026)](/articles/reference-free-judge-over-crediting):** yes — *reference-presence sensitivity* is a large one. Their temperature-0 judges (thus perfectly reproducible) systematically over-credit incorrect answers in no-reference settings, an invalidity invisible to any reliability metric until a gold answer is added, which flips up to 85% of verdicts and lifts human-alignment sharply (e.g. Gemma3-27B 0.34→0.85 NR→RV). It does **not** close the question — self-preference and lineage remain unisolated (their design deliberately overlaps judge and generator but doesn't attribute the effect), and it is a *different bias* on a different (multilingual QA, three specific judges) setup, not a re-run of this study's position-bias protocol. **The self-preference half then largely resolves negatively (2026-08-04), via [Zhou (2026)](/articles/reference-free-judge-over-crediting):** errors optimized against a self-judge transfer to judges from other families that were never in the loop (Llama 0.480 → 0.568, Gemma 0.764 → 0.918) and to same-family judges 3.5× larger (still 77%), with a three-family unanimous-accept ensemble passing 55% and judge acceptances pairwise correlated at φ = 0.29–0.38. So lineage *amplifies* — the self-judge is the worst single cell at 0.906 — but is not the mechanism; the bias is a shared property of the candidate-conditioned channel. This also adds a bias class no reliability metric on this page can reach, because it is **not a property of the judge at all**: the same judge, unchanged, is valid before optimization (discrimination 0.31) and invalid after (0.09), so any one-shot validation — including the full MVVP — certifies a judge that will be true only until something starts optimizing against it. That is a direct argument for the continuous-validation question two bullets up.
 
 ## Sources
 
 - [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544) — Norman, Rivera & Hughes (UC Berkeley, arXiv 2606.19544, June 2026), `empirical`. §2.1 (metric definitions: kappa deflation Δκ, consistency–bias paradox), §4.1 (kappa deflation universal, Table 2), §4.2–4.3 (position-bias heterogeneity, cross-benchmark rank instability), §4.7 (the paradox — Qwen 3 8B, Gemini 2.5 Flash), §4.8 (verbosity bias &lt; 0.011), §4.9 (provider families), §4.5 + App. E (RewardBench position-randomization fix), §5.3 (MVVP), Limitations + App. H (partial-adoption / temporal-drift risks)
+
+- [When the Judge Changes, So Does the Measurement: Auditing LLM-as-Judge Reliability](https://arxiv.org/pdf/2607.08535) — Zongyou Yang, Yinghan Hou & Xiaokun Yang (Imperial College London + Nanchang Institute of Technology, arXiv 2607.08535, 2026-07-09), `empirical`. §1 (evaluator-replacement ambiguity, RQ1–RQ3), §3.2–3.3 (eight-judge two-axis panel, four datasets, `T = 0.1`, parse-shared McNemar, Holm over 18 tests), §4.1 + Table 3 (upgrade non-interchangeability; the 1.7B→4B step as the only Holm-surviving gain; PandaLM and Judge's Verdict regressions; no judge wins all datasets), §4.2 (position flip 0.320 → 0.117–0.147, verbosity 0.547 → ≈0.13 under a padding probe, Pearson r = −0.957, M2.7's residual 14.7%), §4.3 (ρ-corrected beta-binomial; ρ = 0.944–0.972 Qwen3 / 0.664–0.706 MiniMax; K = 1,3,5 → 0.463/0.475/0.482; heterogeneous juries also sub-independence), §4.4 (debate shifts +0.243 to +0.317 with no parser audit trail), §4.5 (human ceilings, Arena seed spread 0.004–0.032), Table 4 (the minimal audit trail), §6 (threats to validity)
+ - **Parse note.** Ingest flagged one `table-collapse` cell; the corpus-wide pattern held — **Tables 2, 3 and 4 each had every data row welded into a single grid row** (3, 4 and 6 rows respectively), which the checker surfaced for Table 3 only. All three were recovered with `pdftotext -f 4/5 -layout` against the local PDF and reconciled cell-for-cell: **value order inside each collapsed cell is correct, no digit is wrong, nothing was dropped** — only the row mapping was lost. Table 3 as quoted above is the recovered version. Table 1 parsed clean.
+ - **Figures read from the page images** per the two-pass rule. Figure 2 supplies the per-model LLMBar accuracies (Qwen3 0.463/0.617/0.647/0.678; MiniMax 0.829/0.839/0.832/0.832; GLM-5.1 0.900, mimo-v2-pro 0.883) that reframe the MiniMax null as a ceiling effect — this is *not* in the prose, which reports only adjacent differences. Figure 5c confirms the per-judge ρ values quoted from prose. Figure 3's McNemar grid gives the uncorrected p-values (Qwen3 1.7B→4B: LLMBar and Arena `p <.001`, PandaLM 0.090; 14B→32B PandaLM 0.032, which does not survive Holm).
+
+- [CalibratedRubric: Task-Adaptive Rubric Banks for Open-Ended LLM Evaluation](https://arxiv.org/pdf/2607.29252) — Mengting Chen et al. (FinStep + StepFun, arXiv 2607.29252, 2026-07-31), `empirical`. Cited here for the item-level half only (full treatment on [LLM-as-a-Judge](/articles/llm-as-a-judge)): §2.1 (`z_j` as reproducible judgeability, explicitly short of expert endorsement), §3.3 (Beta–Bernoulli measurability posterior; the two-judge degeneracy), §4.2 (κ 0.604 → 0.743; r = 0.589/0.558 vs 0.127; positive-label rates 55.6–62.9% against human gold 47.1%), §2.4 + App. B.5 A3 (correlated LLM judges as an acknowledged, unmeasured threat to the agreement posterior)

@@ -1,20 +1,12 @@
 ---
 date: 2026-08-04
 title: Stopping Under a Noisy Verifier
-description: "Wu et al. (arXiv 2607.17641): when the verifier and the repairer
-  are both noisy, a verify-repair loop's true quality peaks and then declines
-  while reported acceptance keeps rising — on a GSM8K stress setting a fixed
-  5-round repair budget lands at 0.116 true validity against 0.700 for not
-  repairing at all, and it worsens monotonically with the budget. A
-  four-parameter noise model (ρ₀ false-accept, ρ₁ false-reject, α repair, β
-  damage) makes the stopping boundary b* = α/(α+β) a property of the *repairer*
-  while verifier discrimination J = 1 − ρ₀ − ρ₁ (Youden's J) decides only
-  whether you can locate yourself against it; VRR-Stop acts on the sign of the
-  true marginal gain rather than on acceptance, and decision damage tracks J and
-  the decision margin rather than the size of the calibration error — a ρ₀ bias
-  of −0.66 costs 0.3pp while a smaller ρ₁ bias at J = 0.03 costs 58.0pp. When J
-  ≈ 0 the label-free estimator degenerates *harder with more data*, and the
-  fallback is an estimation-free keep-best rule"
+description: "Wu et al.: with a noisy verifier and noisy repairer, a
+  verify-repair loop's true quality peaks then declines while reported
+  acceptance keeps rising; the stopping boundary b* = α/(α+β) is a property of
+  the repairer — verifier discrimination (Youden's J) only locates you against
+  it — and VRR-Stop acts on true marginal gain, with a keep-best fallback when J
+  ≈ 0."
 tag: Concept
 domain: agent-systems
 tags:
@@ -23,18 +15,23 @@ tags:
   - loops
   - failure-modes
   - empirical
-readingTime: 20
+readingTime: 28
 imageAlt: Illustration for Stopping Under a Noisy Verifier
 sources:
   - title: Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair
       Loops in LLM Agents
     url: https://arxiv.org/pdf/2607.17641
+  - title: Where Does Agent Reliability Come From? A Cross-Benchmark Decomposition
+      of Verification Loops, Specialist Models, and Scaffolding in a Production
+      Enterprise Agent
+    url: https://arxiv.org/pdf/2607.17044
 ---
 export { default as heroImage } from "../assets/stopping-under-a-noisy-verifier.webp";
 
 ## Sources
 
 - [Verify, Repair, Repeat, or Stop? Robust Stopping for Noisy Verify-Repair Loops in LLM Agents](https://arxiv.org/pdf/2607.17641)
+- [Where Does Agent Reliability Come From? A Cross-Benchmark Decomposition of Verification Loops, Specialist Models, and Scaffolding in a Production Enterprise Agent](https://arxiv.org/pdf/2607.17044)
 
 ## Summary
 
@@ -75,6 +72,25 @@ Three things make this more than an artifact of the stress construction (see the
 - **Two of the six declining settings carry no injected perturbation** — MATH-500 (β = 0.617) and BFCL single-call (β = 0.615) are task shifts, not prompt-mismatch stress.
 
 The mechanism, traced on GSM8K instance #292: a valid plan is under-accepted at 4/8 and falsely rejected; the repairer — whose copy of the problem statement has been corrupted — competently rewrites it into a wrong answer; the verifier, grading against the *uncorrupted* problem, accepts it at 6/8 and commits. True validity flips 1 → 0 while reported acceptance rises.
+
+## The same parameters, measured in production — and the loop is safe there
+
+The four parameters above are estimated on constructed stress settings. Leni's cross-benchmark decomposition ([Where Does Agent Reliability Come From? A Cross-Benchmark Decomposition of Verification Loops, Specialist Models, and Scaffolding in a Production Enterprise Agent](https://arxiv.org/pdf/2607.17044), arXiv 2607.17044, `empirical`, **disclosed total vendor COI**) instruments a *shipping* verify-repair loop end to end and reports what it calls the first published task-level verifier confusion matrix from a production deterministic loop — a spreadsheet recalculation loop where LibreOffice headless supplies external ground truth and a ~4B post-trained specialist performs the comparison. On the 397 of 400 SpreadsheetBench tasks that triggered it:
+
+| | Artifact correct | Artifact erroneous |
+|---|---|---|
+| Verifier confirmed | 357 | 32 (missed errors) |
+| Verifier flagged | **0** (no false alarms) | 8 (6 repaired, 2 not) |
+
+Their parameterisation is this page's under different letters — catch rate `c` (a true error is flagged), fix rate `r` (a flagged error is repaired), false-alarm rate `f`, breakage rate `b` — and their per-step reliability `p' = p(1−fb) + (1−p)cr`, helping iff `(1−p)cr > pfb`, is `G_k = (1−b_k)α − b_kβ` with `α ≈ cr` and `β ≈ fb`. Measured: **c = 8/40 = 0.20, r = 6/8 = 0.75, f = 0/357 = 0** (bounded ≲1% at 95%), worth **+1.5 pp** net (6 rescued tasks) on the benchmark.
+
+Two translations make this the most useful outside datum this page has.
+
+**The verifier is low-J and the loop is still unconditionally safe.** In this page's terms `ρ₀ = Pr(confirm ∣ erroneous) = 32/40 = 0.80` and `ρ₁ = Pr(flag ∣ correct) = 0/357 = 0`, so **`J = 1 − ρ₀ − ρ₁ = 0.20`** — squarely in the band where the sweep above puts stopping-sign flips at 13× the safe rate. (`J = c − f` exactly, which is worth noting: catch rate minus false-alarm rate *is* Youden's J.) Yet nothing here needs a stopping rule, because `f = 0` sends `β → 0` and therefore `b\* = α/(α+β) → 1`: the boundary can never be crossed, repair dominates at every belief, and the loop "cannot hurt" (the paper's words, and Eq. (1) does guarantee it). **The parameter that decides whether a loop is dangerous is the damage term, not the verifier's discrimination** — which is this page's own conclusion (`b\*` contains no verifier term) confirmed from the benign end rather than the catastrophic one. The corollary for anyone reading the stress results as a general warning: a five-round budget is catastrophic at `β = 0.615–0.938`; a two-round budget at `β ≈ 0` is free. Leni ships exactly the fixed round cap this page argues against, and at that operating point it is harmless.
+
+**The parameters are an investment allocator, not only a stopping input.** Because the matrix is complete, the paper reads its own roadmap off it: raising `c` (a better-trained or symbolically assisted comparator) is worth **up to +8 pp**, raising `r` **at most +0.5 pp** — the 32 missed errors are the whole remaining budget, and they are also the paper's proposed mechanism for its 3-point gap to a neurosymbolic leader with a custom runtime. That is a use for `(c, r, f)` orthogonal to stopping: instrument the loop and its telemetry tells you which stage to fund next. See [Agent Harness Engineering](/articles/agent-harness-engineering) for the layer decomposition this sits inside, where the checkpoint is the *smallest* of three contributors (+1.5 of +11.0 pp) and worth keeping anyway on positional grounds.
+
+**Four boundaries on transferring it.** The oracle is deterministic — a re-execution engine, the easy corner of the parameter space and the one this page's own limits flag as breaking the repeated-query estimator outright — so this is not a measurement of an LLM-judged loop. `b` is *unmeasurable* here precisely because `f = 0` left no false alarm to break anything, so one of the four parameters remains without a field value. The loop caps at two iterations (26 tasks reached a second, 22 passed), so nothing is learned about the round-index decline that drives the results above. And the low catch rate is the price of the conservatism: **80% of real errors were confirmed rather than flagged**, so this operating point buys safety with insensitivity rather than by being a good verifier.
 
 ## What VRR-Stop actually does
 
@@ -144,6 +160,7 @@ The Llama row is the whole argument: calibrated stopping collapses to 0.223, the
 
 ## Connections
 
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — **`J` is a property of the (verifier, author) pair, not of the verifier.** A missed high-severity bug is this page's false acceptance, so a code reviewer's recall is `1 - rho0` on the artifacts it is handed. Greptile (`case-study`) holds the review harness and the ground truth fixed and varies only whether the reviewing model shares the authoring model's family: recall moves 6–12 points, which subtracts directly from `J = 1 - rho0 - rho1`. That is a second way this page's supposedly-local parameters move, alongside the optimization-pressure drift recorded below from [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — and it is the more mundane of the two, since it needs no adversarial pressure at all, only a change in who wrote the code. The operational consequence is narrow and concrete: a calibration collected against one authoring agent does not transfer to a loop where a different model writes the code, even with the verifier byte-identical. Weight it accordingly — vendor-built labels, no released artifact, and it measures a review pass rather than a verify-repair loop, so nothing here bears on `alpha` or `beta`
 - [Loop Engineering](/articles/loop-engineering) — the discipline this supplies a stop criterion for. `/goal`'s "keep going until a written condition holds" and the maker/checker sub-agent split both assume the checker's verdict can be acted on; this page prices that assumption in J and shows that when a verify-repair loop's checker is weak, running the loop to its budget is worse than never running it
 - [Agent Loop Pattern](/articles/agent-loop-pattern) — the loop primitive whose stopping condition is a sentinel or a round cap; the measured case against exactly that ("Fixed repair K = 5" is a round cap, and it is the worst deployable arm in the table)
 - [Failures That Look Like Success](/articles/failures-that-look-like-success) — the population form of that class, with a closed form: `Ā_t = ρ₀ + J·Q_t`, so a low-J verifier's pass rate is mostly its own false-accept rate and can rise while true validity falls. The per-instance version is the traced failure — a valid plan falsely rejected at 4/8, damaged by repair, then accepted at 6/8 and committed
@@ -154,13 +171,15 @@ The Llama row is the whole argument: calibrated stopping collapses to 0.223, the
 - [Automated Failure Attribution](/articles/automated-failure-attribution) — the same trust problem applied to *diagnosis* rather than acceptance. Here the noisy signal is a bit (accept/reject) with a measurable discrimination J; there it is a causal explanation, where the failure mode is not a wrong bit but a plausible, confidently-argued wrong cause — 73.9% best step localization, 16–25% on the full agent/step/mode triple. Two direct couplings. The process-vs-outcome verification split this page's four-parameter model abstracts away is measured there: handing the attribution judge the task's gold answer *improves* perception-error diagnosis and *degrades* reasoning-error diagnosis, because the reference tempts an answer-comparison shortcut over process tracing. And both papers land on the same counter-intuitive shape — more of the input that obviously ought to help (repair rounds here, ground-truth signal there) makes the outcome worse
 - [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the J = 1 corner of this page's parameter space. A read-only deterministic predicate over a proposed call has no ρ₀ and no ρ₁, so it needs no belief filter, no calibration, and no fallback; this is what the same problem looks like when you cannot have that. The two prescriptions are complementary rather than competing — use a sound gate wherever one exists, and bound your loop by J wherever one does not
 - [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — where ρ₀ and ρ₁ come from in a coding loop. An agent-authored suite is the verifier in a code verify-repair loop, and its measured properties (breadth without stability, a 0.44 vs 0.30 flakiness-candidate rate) are exactly the ingredients of a low-J verifier: a flaky test contributes both false rejects and, once someone reruns it, false accepts
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — where a verify-repair loop sits in the harness, and the layer that makes this page's parameters affordable to collect at all: the compare stage runs on a ~4B specialist at ~0.1× frontier cost, which is what lets a production system verify *every* task rather than sampling. Two things it supplies back. The loop is the **smallest** of three uplift contributors (+1.5 of +11.0 pp, against +9.5 pp from scaffolding and prompting), so the stopping question this page answers is a top-of-the-distribution problem rather than the main lever — and the ranked prescription that follows, structure → independent observer → strongest available oracle, puts "get an oracle with a low `β`" third rather than first. Conversely, that page's model-fixed layer studies are the reason a loop result cannot be read as a harness result: swap the scaffold and the same loop sits on a different `p`
 - [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the bottleneck given a coefficient: verification is not just expensive, it has a discrimination level, and below some level no amount of it converts into a better decision
 - [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the loop-shaped counterexample to compute-buys-quality: spending five rounds instead of zero moves true validity from 0.700 to 0.116, and the whole budget is spent fitting verifier noise
 - [Deep Research Agents](/articles/deep-research-agents) — β observed in the wild, and the case where the verifier is not noisy at all. MisKnow-Agent (arXiv 2607.20891, `empirical`) adds a post-research refinement agent that re-checks a deep-research report claim by claim — and because it retrieves from the *same* poisoned pool the original run used, combining it with the pre-research defense makes Intern-S1-Pro strictly worse (62% false-conclusion adoption against 57% and 58% for either defense alone). That is this page's `b* = α/(α+β)` argument arriving from a completely different setup: a repair operator whose evidence source is the corruption it is repairing has real damage probability, and running it can cost more than not running it. The sharper contrast is on the verifier side. Here a low-`J` verifier is *miscalibrated*; there the verifier is correct — the same five search-enabled models unanimously classify every injected document as misleading in isolation, including the three that then adopt them at 50–76% as research backbones. So the failure is an **unrun** check rather than a noisy one, and no belief filter helps: `J` is fine, the harness simply never queries it
+- [Expenditure Horizon](/articles/expenditure-horizon) — what optimizing against an unmodeled noisy signal costs in dollars: two of six agents in METR's NanoGPT study (GPT-5, Opus-4.1, `empirical`) spent up to $10,000 each with raw trajectories showing steady progress that 40+-run re-validation erased entirely — horizon $0, the whole budget spent fitting run-to-run timing noise. The verifier there is not an LLM judge but a stochastic measurement (a training run's wall-clock), and the production remedy is neither belief filtering nor a stopping rule: average the noise away — agents prompted to confirm candidate gains at n = 8, every claimed record re-run 40+ times with the lower envelope taken. That option exists exactly where repeated queries are cheap and independent, the corner of this page's parameter space where `J` can be *bought* rather than steered around; the stress results here are about the loops that cannot afford it
 
 ## Open Questions
 
-- The damage probabilities that drive every result here (β = 0.615–0.938) come mostly from a deliberately corrupted repairer premise. **What are α and β on unperturbed production loops** — code repair against a real test suite, tool-call repair against an executor — where nobody injected anything? MATH-500 and BFCL-single decline without the injection, so the direction is not purely constructed, but no field measurement of these two parameters exists.
+- The damage probabilities that drive every result here (β = 0.615–0.938) come mostly from a deliberately corrupted repairer premise. **What are α and β on unperturbed production loops** — code repair against a real test suite, tool-call repair against an executor — where nobody injected anything? MATH-500 and BFCL-single decline without the injection, so the direction is not purely constructed, but no field measurement of these two parameters exists. **Partially answered (2026-08-04):** [Leni's production instrumentation](https://arxiv.org/pdf/2607.17044) supplies the first one — a shipping spreadsheet recalculation loop measures `c = 0.20, r = 0.75, f = 0/357` (≲1% at 95%), i.e. `α ≈ 0.15` and a damage term `β ≈ 0`, and the loop is net-positive (+1.5 pp) with no stopping rule at all. So the harmful-repair regime is *not* the default outside a corrupted-premise construction. Three reasons this doesn't retire the question: the oracle is a deterministic re-execution engine (this page's own limits note that deterministic verifiers break the repeated-query estimator, so it is the easy corner); `b` has no field value precisely because `f = 0` left no false alarm to break anything; and the loop caps at two iterations, so round-index decline is untested. The asked-for cases — LLM-judged code repair, tool-call repair against an executor — remain unmeasured, and this is a single vendor measuring its own system.
 - Diagnosing "my verifier's J is too low to steer on" currently needs *labels*: the paper deliberately uses a held-out labeled separation test rather than the binomial-mixture EM, to avoid diagnosing a broken estimator with its own output — and the EM is precisely what degenerates as J → 0. **Is there a label-free J diagnostic that stays honest at low J**, or is a small labeled probe irreducible?
 - The rule is one-step myopic and lands 17pp below post-hoc round-2 selection on the non-stationary trace. **Does a round-dependent (α_t, β_t) model recover interior peaks**, or is the peak only locatable in hindsight because the mechanism change that creates it is unobservable at the time? The paper names this as future work.
 
@@ -170,3 +189,4 @@ The Llama row is the whole argument: calibrated stopping collapses to 0.223, the
  - **Tables verified.** Tables 1, 2 and 5 were checked cell-for-cell against the PDF (`pdftotext -layout`) and the raw markdown parse is exact; every J in Table 5 reconciles arithmetically as 1 − ρ₀ − ρ₁. No collapse or shift was found in the tables cited here.
  - **Contradiction inside the paper, not a parse artifact.** MATH-500's verifier discrimination is **J = 0.77** in Table 5 (ρ₀ = 0.109, ρ₁ = 0.118 → 0.773) and in the §5.2 prose, but **J = 0.22** in Tables 2 and 9. Both figures are confirmed present in the PDF; every other setting's J agrees across all three tables. The claim that row supports — a strong verifier does not prevent repair damage — needs J = 0.77 to be the right one, and is independently carried by the Appendix-H GSM8K setting at J = 0.805 (0.727 → 0.097), so the argument survives either reading. Do not cite MATH-500's J without this note.
  - **Parse repair at ingest.** A fabricated sentence injected by the mlx formula-enrichment engine into the Eq. (3) block ("This document was last generated by sklearn-api-parser…", appearing nowhere in the PDF) was removed before compilation; the equation's real content is intact. Cosmetic word-glue artifacts remain in the raw ("LLMagent", "Oncomplex") and are harmless.
+- [Where Does Agent Reliability Come From? A Cross-Benchmark Decomposition of Verification Loops, Specialist Models, and Scaffolding in a Production Enterprise Agent](https://arxiv.org/pdf/2607.17044) — Arunabh Dastidar & the Leni Team (Leni Inc., arXiv 2607.17044, 2026-07-19, `empirical`, **disclosed total vendor COI**): §3.2 the compounding-reliability model with imperfect verification (`p' = p(1−fb) + (1−p)cr`, helps iff `(1−p)cr > pfb`), §6.2 + **Table 4** the task-level confusion matrix and the `c`/`r`/`f` estimates, the +8 pp / +0.5 pp marginal-return calculus, and the 26-tasks-into-a-second-iteration convergence note. Table 4 parses clean and reconciles arithmetically against the §6.2 prose (389 = 357 + 32; 40 = 32 + 8). The `J = 0.20` figure above is **derived here**, not stated by the paper. Table 3 in the same document *is* fully collapsed — see [Agent Harness Engineering](/articles/agent-harness-engineering)'s source entry and Source Notes — but nothing on this page comes from it

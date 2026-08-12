@@ -1,0 +1,159 @@
+---
+date: 2026-08-04
+title: Matched Comparisons for Memorization Claims
+description: "Cooper et al. (arXiv 2607.12649): a generation rate measured only
+  on training data is not a memorization rate — comparable non-training
+  sequences must be scored by the identical procedure to supply a predictability
+  floor. A conformal test calibrates the threshold to a chosen false-positive
+  rate for populations, a census calibrates a single document against a matched
+  control book, and 'extractable memorization' is redefined to require both a
+  calibrated claim and near-certain generation within a realistic query budget."
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation-methodology
+  - measurement-validity
+  - data-contamination
+  - memorization
+  - privacy
+  - copyright
+readingTime: 19
+imageAlt: Illustration for Matched Comparisons for Memorization Claims
+sources:
+  - title: Extractable Memorization From First Principles
+    url: https://arxiv.org/pdf/2607.12649
+---
+export { default as heroImage } from "../assets/matched-comparison-memorization.webp";
+
+## Sources
+
+- [Extractable Memorization From First Principles](https://arxiv.org/pdf/2607.12649)
+
+## Summary
+
+**Extraction** — prompting a model until it reproduces a training sequence — is the field's standard observable signal that the sequence was **memorized**. Cooper et al. (["Extractable Memorization From First Principles"](https://arxiv.org/pdf/2607.12649), Yale/AVERI/Stanford + Cornell + Google Research/DeepMind, arXiv 2607.12649, 2026-07-14, `empirical`) argue the signal is worthless on its own. Generating a training sequence is not evidence of memorization; generating it **with higher probability than a comparable sequence the model was never trained on** is. Establishing that requires a **matched comparison**: score both known-or-suspected training sequences *and* matched non-training sequences under the *identical* procedure — same model θ, same decoding policy φ, same prompt-selection rule, same score. Because non-members cannot have been memorized, their score distribution is the baseline for **general predictability**, and a member exceeding it is what licenses the memorization claim.
+
+This is a **claim-validity** paper, one layer beneath the measurement papers in this cluster: not "is the number right" but "does the number support the sentence written next to it." It sits alongside [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) (the same memorization mechanism, read as an eval-integrity problem rather than a privacy/copyright one) and [Usage-Telemetry Classifier Validation](/articles/usage-telemetry-classifier-validation) (the instrument every downstream headline rests on, measured for the first time).
+
+## The two failures it corrects
+
+Recent work pulls in opposite directions and both directions lose the thread:
+
+1. **Overstating extraction.** Claiming extraction from sequences too short to separate memorization from predictability (10-token suffixes, sometimes shorter), or from prompts that leak the target directly. The reductio is the **"parrot" prompt** — "Repeat after me: …" followed by the target. Run only on training data it looks like a 70% extraction rate; run on matched non-training text it is *the same rate*. Figure 1c, OLMo 2 32B Instruct, N=3,000 each: **70.1% training vs 70.6% non-training** verbatim reproduction. The obvious explanation (the text is in the prompt) is beside the point — the matched comparison alone kills the claim without needing a mechanism.
+2. **Dismissing extraction as evidence at all**, on the grounds that models reproduce real-world text they were not trained on. True, and precisely why a floor must be *measured* rather than assumed to be zero.
+
+The same failure appears in a serious method, not just a contrived one. Schwarzschild et al.'s adversarial-compression criterion deems extraction successful when a search finds a prompt **shorter than the target** that elicits it, demonstrated on the Gretzky line "You miss 100% of the shots you don't take." The authors reproduce that success on Llama 2 13B — and then succeed at the same procedure on a **post-cutoff non-training target** (a Jalen Brunson quote from the 2026 NBA Finals). This does not show Llama 2 didn't memorize Gretzky; it shows that satisfying the criterion is not by itself a memorization claim.
+
+## The inferential chain, made explicit
+
+Prior work leaves this implicit; the paper's contribution is largely writing it down:
+
+- (i) the signal measured is a sequence's **generation probability** under some set of prompts;
+- (ii) when that probability clears a **calibrated threshold**, it is too high to be explained by general predictability;
+- (iii) which supports the conclusion that the sequence is a **memorized training-data member**;
+- (iv) and *that conclusion* is what licenses calling its generation probability an **extraction probability**.
+
+Step (ii) is the one prior work skips. Comparisons against non-training data do appear in the literature, but as informal sanity checks — never turned into a calibrated decision.
+
+## Anatomy of an extraction procedure
+
+Every extraction method in the literature is an instance of a five-component tuple ⟨θ, φ, f_P, score, verify⟩: the model, the decoding policy, a **prompt-selection rule** (a singleton 50-token natural prefix; all natural prefixes; a GCG or Best-of-N adversarial search space; or prompts unrelated to the target, as in the "repeat the word 'poem' forever" divergence attack), a **scoring procedure**, and a **verification procedure**. Discoverable extraction is greedy decoding + natural prefix + binary match. Probabilistic extraction relaxes φ to stochastic (top-k) and replaces the binary score with the exact teacher-forced probability. Near-verbatim variants score the mass on an ε-ball. **`verify` is the component prior work leaves under-specified** — and it is the only component that can turn a score into a claim.
+
+**Membership is defined at ε-ball resolution.** Near-duplicates of training sequences are functionally members (the model saw the content, whatever the tokenization), so `membership_ε(v) = 1{D ∩ B_ε(v) ≠ ∅}` for a dissimilarity function d (token edit distance, character BLEU) and tolerance ε. Two consequences that bite in practice:
+
+- **Non-membership is stronger than held-out.** A candidate whose ε-ball contains a training near-duplicate is not a valid control, regardless of whether it appears in the training data itself.
+- **The resolution of the test must match the resolution of the claim** — "one should not ask a radius-ε extraction procedure to prove a radius-0 memorization conclusion."
+
+## The conformal test (population setting)
+
+Draw N matched non-member controls W₁…W_N from a control distribution supported on non-members, score them with the same procedure, and define the conformal p-value `p̂(s) = (1 + |{i: score(Wᵢ) ≥ score(s)}|) / (N+1)`. Reject the "s is a matched non-member" null at level α when `p̂(s) ≤ α` — equivalently when `score(s) > τ_α`, the ⌊α(N+1)⌋-th largest control score. Type I error is controlled at α, **distribution-free**, requiring only exchangeability of candidate and controls under the null. Three properties worth carrying:
+
+- **The guarantee is discrete.** τ_α can only equal one of the N control scores, so certifiable FPR moves in steps of 1/(N+1). The tightest nonzero level is 1/(N+1). **An observed zero false-positive count among controls still certifies only 1/(N+1), never zero** — a useful corrective to papers that report "no non-training sequence was ever generated."
+- **The test is one-sided.** Passing supports a calibrated memorization claim; failing certifies nothing. It does not control false negatives and does not estimate total latent memorization — only what surfaces through *this* extraction procedure.
+- **Calibrated memorization rate** `M(τ) = G(τ) − FPR(τ)` (member above-threshold rate minus matched non-member rate) is a **conservative lower bound** on the fraction of members that are memorized, not an estimate of it. τ must be fixed in advance or set by a target FPR, never chosen post hoc to maximize M.
+
+**Matching is the hard part, and the paper is honest about it.** Controls must be (a) exchangeable — same source, format, length, era, genre — and (b) genuine non-members, which is unknowable for web-scraped corpora. The standard workaround is drawing controls that post-date the training cutoff, which fails outright for some candidates: there will never be a new Sherlock Holmes story by Doyle to serve as a control for the memorized ones. Then one calibrates against a looser null (other non-training mysteries) and caveats harder. The parallel drawn is to membership-inference attacks, which make an exchangeability assumption over *models* (reference models trained with and without the sequence); here exchangeability is over *data* under a single fixed model.
+
+**Post-cutoff is not a sufficient filter.** Wikipedia is heavily templated, so a post-cutoff article can be a near-verbatim duplicate of training boilerplate; a post-cutoff book can quote public-domain material that is certainly in training. Such sequences **contaminate the null** — they are members sitting in the control pool. Direction of the bias is benign: a contaminant pushes τ_α *up*, so the test becomes more conservative and the calibrated rate is understated.
+
+## What the population experiments show
+
+OLMo 2 base models (7B/13B/32B), chosen because the training corpus is publicly released so **membership is known**. 5,000 member candidates from Wikipedia entries dated 2021-01-01 → the December 2023 cutoff; 5,000 matched controls from entries published 2024-01-01 → 2024-12-31. 50-token natural prefix, suffix length ℓ ∈ \{10, 50\}.
+
+**Greedy discoverable extraction — the metric used in the research literature and in model release reports (Gemma 2, Llama 3, Gemini 1.5 are cited).** With a binary score the threshold is degenerate: one operating point, nothing to calibrate, and no way to tell which positives are the false ones.
+
+| suffix | members generated verbatim | matched non-members (false-positive floor) |
+|---|---|---|
+| 10 tokens | 7.54% | **1.82%** |
+| 50 tokens | 0.74% | 0.02% |
+
+At 10 tokens the floor is **≈24% of the apparent extraction rate** (1.82/7.54) — so up to a quarter of what this test flags is predictability that non-members share. It does not show any *particular* suffix was unmemorized; it shows a 10-token verbatim match is **not a sufficiently specific membership signal**. At 50 tokens the floor is negligible, and the paper notes the two sequences responsible for the non-zero 0.02% are themselves contaminants in the control pool.
+
+**Probabilistic extraction (top-40, exact via teacher forcing)** gives a continuous score, so the threshold can be swept. The difference between suffix lengths becomes stark (Figure 4):
+
+- **10-token suffixes**: holding FPR to 0.1% forces **τ_α ≈ 0.95** — the test can only call a candidate memorized when the model generates it with near-certainty — and just **1.16% [0.88, 1.5]** of members clear.
+- **50-token suffixes**: the same 0.1% FPR sits at **τ_α = 8.9 × 10⁻⁶**, and **2.74% [2.31, 3.23]** of members clear.
+
+The ceiling on the control pool tells the same story from the other side: the maximum attainable finite-sample FPR level is α_conf = 10.4% for 50-token controls but **58.9%** for 10-token ones. Decontaminating the null (removing the 2 verified contaminants) *raises* the calibrated memorization rate in the sub-1% FPR regime — roughly 0.4% → 2.6% at α_conf = 0.02% (chart read) — confirming the contaminants were sitting at the top of the control distribution.
+
+**Scale.** On 50-token candidates the calibrated memorization rate rises monotonically with model size: at α = 10%, roughly 5.2% (7B) → 10.9% (13B) → 15.8% (32B); at α = 0.1%, roughly 2.4% → 3.0% → 3.4% (Figure 6, chart reads). The paper is explicit that **comparing the overlap of per-model confidence intervals is the wrong test** for a size effect — the right one is paired: on the same member sequences, how often does one model clear its own calibrated threshold when the other does not. Those paired cross-size differences (Newcombe paired-proportion intervals) sit entirely above zero at every operating point swept, reaching ~11pp for 32B − 7B at high α.
+
+## The census: one document, no population
+
+For "how much of *this book* is memorized" there is no population and therefore no FPR to control. The substitute is a **census** at fixed resolution plus a document-level matched control: for each author, pair an in-training book from Books3 with a book by the **same author** published after the cutoff (two pairs even share a series, with overlapping characters and plot). Llama 3.1 8B/70B base, cutoff December 2023, sliding-window verbatim probabilistic extraction with 50-token prefixes and suffixes. τ^(book) is set by the **highest-scoring sequence of text unique to the non-training book**, rounded up to the next decade because at these magnitudes the mantissa is floating-point noise.
+
+| Author | In-training (Books3) | Post-cutoff control |
+|---|---|---|
+| Dan Brown | *The Da Vinci Code* (March 2003) | *The Secret of Secrets* (September 2025) |
+| Suzanne Collins | *The Hunger Games* (September 2008) | *Sunrise on the Reaping* (March 2025) |
+| Ta-Nehisi Coates | *We Were Eight Years in Power* (October 2017) | *The Message* (October 2024) |
+| Joseph Finder | *Killer Instinct* (May 2006) | *The Oligarch's Daughter* (January 2025) |
+
+**Decontaminating the null is where the work is.** *Sunrise on the Reaping*'s top-scoring sequences turn out to be Poe's "The Raven," quoted repeatedly through the book, plus verbatim quotes from *The Hunger Games* itself — all in training. Culling them sets τ^(book) = 10⁻²⁷ for that pair. Notably, the authors report doing this cleaning with **an agent skill with web search**, where the same work used to be manual — an agentic step inside the measurement pipeline, load-bearing for the threshold that every claim in the section rests on.
+
+Calibrated floors, 50-token prefix (70B / 8B): *Da Vinci Code* 10⁻²¹ / 10⁻²², *We Were Eight Years in Power* 10⁻²⁴ / 10⁻³⁶, *The Hunger Games* 10⁻²⁷ / 10⁻³¹, *Killer Instinct* 10⁻²⁴ / 10⁻²⁶. Shortening the prompt to a **10-token prefix** collapses the whole exercise: the floor jumps to 0.111–0.795, i.e. some non-training sequence is generated with probability 0.795, leaving essentially nothing above it to claim.
+
+Coverage above the floor, Llama 3.1 70B, against the greedy-extraction number for the same book:
+
+| Book | above τ^(book) (70B) | greedy (70B) | above τ^(book) (8B) |
+|---|---|---|---|
+| *The Da Vinci Code* | 68.49% | 3.26% | 0.50% |
+| *The Hunger Games* | 53.27% | 5.41% | 1.03% |
+| *We Were Eight Years in Power* | 31.33% | 5.42% | 4.27% |
+
+*Killer Instinct* is not memorized and is not plotted. The **~20× gap between the standard greedy metric and the calibrated probabilistic claim** on the same document is the practical headline for anyone reading a model card's memorization section. Evidence strength is then graded by **margin** Δ(s) = log₁₀(score/τ^(book)), the orders of magnitude above the floor: pushing the threshold **+5 OOM** retains 55.6% of *Da Vinci Code*, 46.4% of *Hunger Games*, 28.4% of *We Were Eight Years in Power*.
+
+## Memorized ≠ extractable: the refined definition
+
+A threshold of 10⁻²⁷ licenses a *memorization* claim for sequences that no sampling budget in this universe would ever produce. Calling that "extractable memorization" is a misnomer, so the definition is tightened — a candidate is **extractably memorized** iff:
+
+- (i) **it is memorized** — its score clears the matched-comparison threshold; **and**
+- (ii) **it is reproducible within a realistic query budget n** — 1 − (1 − score(s))ⁿ is near 1, or another decoding procedure of comparable cost reaches it.
+
+The budget arithmetic is elementary (Appendix C): `n(p; c) = ⌈log(1−c)/log(1−p)⌉ ≈ 3/p` at 95% confidence. The gap it opens is not: for *The Da Vinci Code* on Llama 3.1 70B, **68.5% of the book is above the floor, but only 12.3% (verbatim) / 18.7% (near-verbatim) is samplable within a 10⁵-query budget** at ≥95% confidence. Two thirds of the *memorization* is not *extraction* in any operational sense.
+
+**But budget is not the only lever — the decoder is.** Cooper et al.'s beam-search-based near-verbatim algorithm (k-CBS), run at a cost comparable to ~20 independent samples, recovers 10.4% verbatim / 17.1% near-verbatim coverage from its 800-continuation pool (6.1% / 13.6% at top-1 decode alone), and **1.8% / 2.3% of the book it recovers is not samplable within a 10⁵ budget at all**. So the "realistic budget" in clause (ii) is a property of the best available decoding algorithm, not a fixed fact about the model — a moving target of exactly the kind [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) is built on.
+
+## Scope and limits
+
+- The test certifies **only what the fixed extraction procedure surfaces**. A candidate below τ_α is not certified unmemorized.
+- Exchangeability is always **best-effort**; some distribution shift remains, and the resulting claim inherits it.
+- Controls of unknown membership status are the norm at web scale; the bias runs conservative, which is the tolerable direction but still a bias.
+- The arXiv version is visibly a **working draft**: §4.3 ("Model scale, sample size, and inferential claims") is a one-sentence pointer with all results delegated to Figure 6, and several appendix figures carry results the body never discusses. Numbers cited here that exist only in figures are marked as chart reads.
+
+## Connections
+
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — **the same mechanism, a different harm.** Contamination is memorization of *benchmark items* (harm: an inflated score); this is memorization of *training text* (harm: privacy/copyright reproduction). Both hinge on separating "the model memorized this" from "this was predictable anyway," and both find the naive signal insufficient — UBD because log-probability cannot distinguish genuinely-easy from hard-but-memorized (PCC &lt; 0.4), this because a raw generation rate cannot distinguish memorized from predictable without a non-member floor. The methods are complements: UBD's ensemble-variance tell needs no controls but needs multiple checkpoints; the conformal test needs one model but genuine matched non-members. Its finding that a *contaminated null* biases conservatively is the mirror image of decontaminating a *model*
+- [Usage-Telemetry Classifier Validation](/articles/usage-telemetry-classifier-validation) — the same discipline one field over: a headline rate is only as good as the instrument that produced it, and nobody had measured the instrument. ATLAS published its classifier's accuracy against human labels; this publishes an extraction procedure's false-positive floor against non-members. Both convert a confident-looking percentage into a percentage with an error term attached, and in both cases the error term is large enough to change what the number means
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — **budget-relative risk claims, from the other end.** That page's argument is that a safety evaluation performed at one inference budget cannot bound what an unbounded budget elicits from published weights; clause (ii) here is the same relativity made quantitative — 68.5% of a book is memorized but only 12.3% is reachable at 10⁵ queries, and a better decoder (k-CBS at ~20-sample cost) reaches text sampling cannot. Open weights are also the *enabling* condition for this work: OLMo 2's released corpus is what makes membership knowable, and Llama 3.1's Books3 provenance is what makes the book census possible at all
+- [LLM-Judge Validation](/articles/llm-judge-validation) — **the same arithmetic in the judge literature.** Chance-corrected agreement is observed agreement minus the agreement chance would produce; `M(τ) = G(τ) − FPR(τ)` is observed generation on members minus what matched non-members reach. Both correct a raw rate by a baseline the field had been assuming was zero, and in both the correction is large enough to change the conclusion (κ deflation of 33–41pp there; ~24% of the apparent extraction rate at 10 tokens here). The difference favors this side: non-membership is definitionally exclusive, so the null can be *measured* against sequences that cannot be true positives, where a judge's chance baseline has to be modeled
+
+## Open Questions
+
+- **Do the calibrated rates hold for instruction-tuned production models?** Everything here runs on open-weight *base* models with known or inferable training corpora; the parrot demonstration is the only instruction-tuned experiment and it is deliberately degenerate. Whether matched controls can be constructed at all for a closed production model — where the cutoff is approximate and the corpus unpublished — is the gap between this method and the deployment setting where the copyright claims actually land.
+- **Does the near-verbatim ε-ball resolution change the answer, or just the accounting?** The near-verbatim test is a strictly broader instance of the same hierarchy, computed with a beam-search lower bound rather than exactly, and its floors differ from verbatim ones by a decade on at least one pair (Collins: 10⁻²⁷ verbatim vs 10⁻²⁶ near-verbatim). Whether calibrated *rates* move as much as thresholds do is not reported.
+- **What is the right realistic query budget?** 10⁵ is picked "for illustration purposes," and the k-CBS result shows a smarter decoder shifts the frontier at fixed cost. Any threshold that determines whether text counts as extractable in a legal or policy setting needs a defensible budget, and there is no principle here for choosing one.
+
+## Sources
+
+- [Extractable Memorization From First Principles](https://arxiv.org/pdf/2607.12649) — A. Feder Cooper, Marika Swanberg, Jamie Hayes, Lea Duesterwald, Christopher De Sa, Daniel E. Ho, Mark A. Lemley, Percy Liang, *Extractable Memorization From First Principles* (Yale/AVERI/Stanford, Google Research, Google DeepMind, Cornell, Stanford; arXiv 2607.12649, 2026-07-14, `empirical`). §1 the two validity failures, the parrot demonstration (Figure 1c: 70.1% training vs 70.6% non-training, N=3,000) and the adversarial-compression reproduction on a post-cutoff Brunson quote; §2 the five-component extraction procedure and ε-ball membership; §3 the conformal test (Definition 3.1), its discreteness and one-sidedness, and the exchangeability/genuine-non-member challenges; §4 OLMo 2 on Wikipedia (5,000 members / 5,000 controls; greedy 7.54% vs 1.82% at 10 tokens and 0.74% vs 0.02% at 50; probabilistic τ_α ≈ 0.95 at 10 tokens vs 8.9×10⁻⁶ at 50; calibrated-rate definition M = G − FPR; scale results in Figure 6); §5 the books census with Llama 3.1 (4 author-matched pairs, null decontamination via an agent skill, τ^(book) 10⁻²¹–10⁻²⁷, coverage 68.49%/53.27%/31.33% vs greedy 3.26%/5.41%/5.42%, margin Δ(s)); §6 the refined definition and the 10⁵-budget gap (68.5% memorized vs 12.3%/18.7% extractable); Appendix B tables and C budget arithmetic. Figures 1c, 3, 4, 5, 6, 9, 10, 11 and 15 viewed. **Parse note:** Appendix B's Table 1 (author/book pairs) and Figure 11's coverage table are **collapsed** in the raw parse — Table 1's four data rows welded into one grid row per column, Figure 11's two-line header split across cells. Both were reconciled cell-for-cell against `pdftotext -layout` on (pp. 22, 17) and the Figure 15 page image: **row order and every value are correct, only the row mapping was lost** — no misattribution reached this page. The τ^(book) table was verified the same way and against the Figure 15 image

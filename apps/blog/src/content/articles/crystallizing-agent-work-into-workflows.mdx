@@ -1,0 +1,130 @@
+---
+date: 2026-08-05
+title: Crystallizing Agent Work into Workflows
+description: "Malik's production lifecycle at Azure Networking: treat agent
+  exploration as a discovery mechanism, not an execution model — promote
+  repeatedly-validated agent behavior down a three-type spectrum
+  (agent-orchestrated → hybrid → zero-token deterministic) on accumulated
+  evidence, demote it automatically on regression; deterministic share 0→45% in
+  eight months, per-incident cost −70% while volume doubled, and autonomy earned
+  by a playbook's track record rather than by model capability"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - workflow-design
+  - cost
+  - autonomy
+  - production
+readingTime: 16
+imageAlt: Illustration for Crystallizing Agent Work into Workflows
+sources:
+  - title: "Progressive Crystallization: Turning Agent Exploration into
+      Deterministic, Lower-Cost Workflows in Production"
+    url: https://arxiv.org/pdf/2607.07052
+  - title: "Beyond RAG: Building Agentic Document Workflows with LlamaIndex"
+    url: https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view
+---
+export { default as heroImage } from "../assets/crystallizing-agent-work-into-workflows.webp";
+
+## Sources
+
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view)
+- [Progressive Crystallization: Turning Agent Exploration into Deterministic, Lower-Cost Workflows in Production](https://arxiv.org/pdf/2607.07052)
+
+## Summary
+
+An agent platform is a permanent cost centre by default: every execution re-invokes full inference, so the tenth occurrence of a recurring incident costs exactly what the first did, takes a possibly different path, and may reach a worse answer. **The waste is that a successful investigation is discarded.**
+
+[Arun Malik](https://arxiv.org/pdf/2607.07052) (Microsoft Azure Networking, arXiv 2607.07052, 2026-07-08, `case-study`) names the fix and reports it running in production on a cloud-network operations platform handling tens of thousands of incidents a month: **progressive crystallization** — agent exploration is a *discovery mechanism*, and behaviour it discovers and repeatedly validates gets converted into deterministic workflows that need zero tokens, while the agent layer stays available for what is genuinely novel.
+
+## The three-type spectrum
+
+The taxonomy is the reusable part, and its point is that the three types are **lifecycle stages of one discovered behaviour**, not three separate systems:
+
+| Type | Execution | Determinism | Tokens/run |
+|---|---|---|---|
+| **Type 3 — agent-orchestrated** | Sub-agents reason freely within a bounded scope; autonomous reads, deterministic checkpoints, human-in-the-loop gates on writes | ~50% | 10k–50k |
+| **Type 2 — hybrid** | Fixed step structure; the LLM is called only at specific stages, for interpretation, classification or summarization. Every action is typed and schema-validated | ~90% | 1k–5k |
+| **Type 1 — deterministic** | Pre-coded logic, conditionals, typed API calls; no LLM at runtime | 100% | zero |
+
+The Type 2 formulation is the sharpest line in the paper: **the LLM decides *understanding*, not *what to do*.** That is the same split [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) draws between the model's judgment and the mechanically-checkable envelope around it, arrived at from the cost side rather than the safety side.
+
+## Promotion is gated on evidence, and demotion is automatic
+
+| Transition | Requirements (defaults, configurable) |
+|---|---|
+| Type 3 → 2 | ≥10 successful runs · zero safety violations · ≥90% of runs produce the same action sequence · all auto-generated acceptance tests pass · no human override in the recent window |
+| Type 2 → 1 | ≥50 successful hybrid runs · LLM classification consistency ≥99% · the deterministic rule covers all observed input variation · full regression suite passes without the LLM · **human review of the deterministic logic** |
+
+Capture is a process-mining step, not a macro recorder: the trace is parsed into an ordered list of tool calls, branch conditions the agent actually acted on are detected, per-step input/output schemas are inferred, a DAG of tool dependencies is built, instance-specific values (device IDs, timestamps) are parameterized, and human-approval points are marked as explicit gates. Acceptance tests are generated from the successful traces, and the candidate playbook must pass them before promotion.
+
+**The circuit breaker is what makes this safe to run unattended.** Each promoted playbook is monitored and demoted on execution failure, safety violation, or acceptance-test regression. The production anecdote is the whole design in one paragraph: a firmware update changed a command's output format, the deterministic parser broke, the system demoted the playbook to hybrid so the LLM could absorb the new format, and after a run of clean executions it was re-promoted — **with no human deciding when to switch.**
+
+## The claim worth arguing with: autonomy is earned by track record, not by model capability
+
+> "Autonomy is attached to the specific playbook class and action type, based on its evidence, rather than to the capability of the underlying model. A more capable model does not automatically earn more autonomy; a track record does."
+
+This is a direct counter-position to the shape of [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve). The shrinkage thesis says scaffolding is a tax on current model weakness and should be deleted at each release. Crystallization says the opposite about *permissions*: what a system is allowed to do unsupervised is a property of the demonstrated reliability of a specific behaviour, and a model upgrade does not transfer that evidence. Both can hold — the shrinkage argument is about how much *instruction* the model needs, this one about how much *authority* a workflow has earned — but the two point in opposite directions on the same question a team actually faces at every model release, and nothing in the corpus reconciles them.
+
+It also inverts the usual reading of a capability upgrade. On this design a better model does not make the platform cheaper directly; it makes *discovery* better, and the savings arrive later, when what it discovered crystallizes.
+
+## Safety improves with cost, rather than trading against it
+
+The paper's counter-intuitive claim is that cheaper is safer, and the argument is structural rather than empirical: auditability is unchanged (all three types record full traces); reproducibility rises monotonically ~50% → ~90% → 100%; blast-radius control moves from runtime HITL gates → schema validation → **statically verifiable deterministic logic**, which is stronger because it can be checked *before* execution rather than caught during it; compliance moves from conditional-on-a-human-being-present to built-in. A deterministic playbook distilled from an agent run is easier to verify, reproduce and audit than the run it came from.
+
+## The production numbers, and what they are not
+
+Over eight months on the Azure cloud-network platform: **Type 1 executions 0% → ~45%** (with ~30% hybrid, ~25% agent-orchestrated), **per-incident agent cost down >70% while incident volume roughly doubled**, >90% of common incident categories resolved autonomously, MTTR from hours to minutes, false-positive remediation under 5% with no customer-visible impact.
+
+The author's own limits, which bound every number above:
+
+- **Single organization, single operational domain.** Thresholds and ratios should be re-derived elsewhere; only the lifecycle is claimed to be domain-agnostic.
+- **Platform-level observations, not a controlled comparison.** There is no counterfactual arm — nothing establishes what the cost curve would have done without crystallization, and eight months is one maturity trajectory.
+- **It assumes recurring patterns.** In an environment dominated by genuinely novel one-off work, most executions stay Type 3 and the mechanism buys little. This is the scope condition that decides whether the idea transfers to coding agents at all: incident response is unusually repetitive, and a codebase feature request may not be.
+- **Promotion quality is bounded by trace quality.** Auto-generated acceptance tests come from traces; an under-observed pattern can be promoted prematurely, which is exactly why demotion and human review of the final deterministic logic are in the design.
+
+**Type 1:2:3 as a maturity metric** is the paper's most portable suggestion — the execution mix is a single number that says how much of your agent spend is buying discovery versus re-paying for solved problems.
+
+## What the crystallized thing looks like: typed events as the architecture
+
+Malik's lifecycle says *when* agent behaviour should become a workflow and says almost nothing about the workflow's shape. [Doulcet's LlamaIndex workshop](/articles/document-parsing-as-retrieval-bottleneck) (AI Engineer Singapore 2026, `practitioner-opinion`, vendor COI — this is a description of LlamaIndex Workflows, not a comparative claim) is the corpus's one detailed account of the shape, and it converges on this page from the other end.
+
+**The starting complaint is Type-3-to-Type-2 drift stated as a code smell.** A linear pipeline — parse, embed, retrieve, synthesize — works until the day you need to branch: *"if the document is a contract, run clause extraction; if it's a report, run summary. Now your pipeline is an `if`-statement. Two more `if`s and it's a mess."* The proposed replacement is an **event-driven graph**: steps are async functions with typed Pydantic events in and out, and *the graph is implied by the type signatures* — no explicit orchestration object, no wiring code. Four primitives cover it: steps, events, a shared mutable `Context`, and the `Workflow` container.
+
+Four properties follow, and each is a claim about what a crystallized workflow buys that a re-invoked agent does not:
+
+- **Typed events are the architecture, not an implementation detail.** The naming rule is the whole argument: name an event by *what it represents* (`ParsedDocument`), never by *who produced it* (`Step2Output`), so future-you reads the type signatures and sees the graph. This is the same instinct as Malik's demand that a promoted playbook be legible enough to audit — a Type 1 workflow nobody can read cannot be demoted on evidence.
+- **Parallelism is declarative.** `send_event` fans out (a step emitting N events of one type runs N branches concurrently), `collect_events` joins on a count held in the context. No threading, no async-pool management. The same primitive serves per-page document ingestion and deep-research sub-question fan-out — see [Deep Research Agents](/articles/deep-research-agents) for the tree-shaped case.
+- **Human review is an event, not an exception.** The naive shape (pause the process, send an email, hope the human returns) is *"fragile, stateless, untraceable."* The prescribed shape emits `HumanReviewRequested`, persists the whole context durably for minutes or days, and resumes on `HumanReviewCompleted` — so a hours-long human decision is an ordinary edge in the graph. The consequence is the interesting one: **if human review is a typed event you can eval it** — measure when humans agreed, when they disagreed, capture what they changed, and feed it into the next eval set. *"Treat the human as part of the system you measure, rather than a fail-safe sitting outside it."* That is [Configurable Human Participation](/articles/configurable-human-participation)'s configurable-agency axis reached from engineering rather than benchmarking, and it is what makes a promotion criterion measurable at Type 2.
+- **Observability falls out.** `stream_events` emits the same typed events that were written down as architecture, so the trace schema and the design are the same artifact — no separate logging layer. Durability is the paired property: retry the failed *step*, not the pipeline, and resume from checkpoint after a crash, because *"parsing a 500-page contract is not cheap; you don't want to redo it because synthesis had a transient network error."*
+
+**The boundary condition agrees with this page and is stated as a warning.** *"If your task is 'answer a single Q&A query over a single document', a function will do."* Workflows earn their cost only under branching, parallelism, durability needs, or human-in-the-loop — Malik's admission criteria for leaving Type 3, restated as a caution against reaching for the machinery by default. Neither source measures the alternative.
+
+Four reference shapes are given, and the last is the one with no analogue on this page: contract review (classify → per-clause parallel extraction → risk score → HITL on flagged clauses only → report); deep research; due diligence over a 5,000-document data room (per-type extraction schemas → accumulate a fact store → cross-document reconciliation → surface anomalies); and a **living knowledge base** — watch sources, reparse on change, re-extract, incrementally reindex, publish fact-level diffs to subscribers, *with no `StopEvent`*. A crystallized workflow that never terminates is a category Malik's spectrum does not contain: its Type 1 endpoint is a deterministic procedure with a finish line, and this is a standing process whose output is a change feed.
+
+## Connections
+
+- [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — the workflow-shape half of the same subject, treated above: typed events as the contract, declarative fan-out/fan-in, durable HITL, observability as a by-product, and the never-terminating "living knowledge base" shape. It also supplies the upstream dependency this page assumes away — a workflow whose first step parses a document inherits every structure-loss failure that step can make, and no amount of promotion discipline downstream recovers it
+- [Configurable Human Participation](/articles/configurable-human-participation) — the same move from two directions: HAS-Bench makes human participation a *benchmark variable*, the workflow account makes it a *typed event*, and both do it for the same reason — a human decision you can address as a first-class object is one you can measure agreement, disagreement, and edits against, which is what turns HITL from a fail-safe into an evidence source for promotion
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the same model/machine division reached from the safety side rather than the cost side; Type 2's "the LLM decides understanding, not what to do" is that split stated as an execution type, and Type 1's statically-verifiable logic is the strongest form of a pre-execution check
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the composition primitive this lifecycle *retires*: where the algebra is about an agent writing a program that composes agents, crystallization is about the program surviving the agent and eventually running without one
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the cost frame this operationalizes and then escapes: the per-task cost of a solved problem falls to zero rather than to a cheaper model's price, which is a different lever from routing or cascades (the paper positions itself explicitly as orthogonal to FrugalGPT-style per-call cost reduction)
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the tension worth holding: shrinkage says scaffolding is a tax on current model weakness that each release should retire, crystallization says a workflow's *authority* is earned by its own track record and does not transfer across a model upgrade
+- [Implementation Abundance Inverts Product Work](/articles/implementation-abundance-inverts-product-work) — a partial answer to the curation-cost question from a different domain: the cost of curating exploration is paid down by *promoting* what the exploration proved, so curation is a one-time investment per recurring pattern rather than a recurring tax — but only where the patterns recur, which is the scope condition an exploratory product context may not meet
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — the same instinct as skills-and-plugins (externalize what you keep re-deriving), pushed one stage further: not "write it down so the agent re-reads it" but "compile it so no agent runs at all"
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the auto-generated acceptance tests are what make promotion possible, so verification quality is the binding constraint on how much work can leave the agent layer
+- [Authority and Audit Survive Abundance](/articles/authority-and-audit-survive-abundance) — resolves this page's upgrade-moment conflict with [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve): shrinkage governs instruction scaffolding, this page's evidence-gated authority is governed by track record alone, and the demotion circuit-breaker is what makes the upgrade moment decision-free on the authority side
+
+## Open Questions
+
+- Does the lifecycle transfer out of IT operations? Every number here comes from incident response, which is unusually repetitive and has a crisp success oracle (the incident resolved). Coding, product and research work have neither property in the same degree. The falsifiable version: apply the Type 3→2→1 promotion criteria to an agentic coding pipeline and measure whether the deterministic share rises at all over comparable time.
+- The platform-level cost curve has no counterfactual arm. How much of the >70% per-incident cost fall is crystallization, and how much is ordinary model-price decline plus caching over the same eight months? A controlled comparison, or a decomposition against contemporaneous list prices, would separate them.
+## Resolved Questions
+
+- Crystallization and [harness shrinkage](/articles/harness-shrinkage-as-models-improve) give opposite instructions at a model upgrade — delete the scaffolding versus keep the evidence-gated permissions. Which governs, and does the answer differ for *instruction* scaffolding versus *authority* scaffolding? **Answered:** [Authority and Audit Survive Abundance](/articles/authority-and-audit-survive-abundance) — neither governs the other; they govern disjoint objects, separable by one test: *can the model being better make this line unnecessary?* Instruction scaffolding encodes a task prior (shrinkage governs — ablate at every release); this page's authority scaffolding encodes a boundary plus a local evidence record, neither of which a capability jump supplies — and the security corpus makes the stronger claim that authority *cannot* migrate inward, because a component that grants its own scope is circular ("you can delegate judgment; you cannot delegate authorization"). The sort is by what a line encodes, not where it lives (a prompt-borne scope declaration is still authority-class; the derived page grounds this in the constraint/request asymmetry). At upgrade day the reconciliation is already in this page's design: the launch pass prunes instructions, permission grants stay untouched, and the demotion circuit-breaker re-earns authority from evidence continuously — so the upgrade moment requires no authority decision at all.
+
+## Sources
+
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view) — Pierre-Loic Doulcet, AI Engineer Singapore 2026 (`practitioner-opinion`, LlamaIndex vendor COI; a description of one framework, with no comparison and no measurement): Part V — the four primitives, typed-event naming rule, `send_event`/`collect_events`, durable HITL, `stream_events` observability, the when-NOT-to-use-a-workflow boundary, and the four reference shapes. The event-graph and durable-pause diagrams exist only as slide images and were read via the image two-pass; full source treatment and parse warnings on [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck)
+- [Progressive Crystallization: Turning Agent Exploration into Deterministic, Lower-Cost Workflows in Production](https://arxiv.org/pdf/2607.07052) — Arun Malik, Microsoft Azure Networking, arXiv 2607.07052, 2026-07-08 (`case-study`, sole author, first-party account of the author's own production platform, not peer reviewed; no controlled comparison): §III + Table I the execution-type taxonomy, §IV + Table II the promotion criteria and trace-extraction algorithm, §V the economic model, §VI + Table III safety monotonicity, §VII the demotion circuit-breaker and the firmware-update episode, §VIII the eight-month production figures, §IX the author's limitations. docling verify **`ok`** — 4pp, 3 tables, 3 pictures, no collapse or shift; the three figures restate numbers stated in prose, so the image two-pass was not load-bearing

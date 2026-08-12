@@ -18,7 +18,7 @@ tags:
   - retrieval
   - orchestration
   - reliability
-readingTime: 26
+readingTime: 30
 imageAlt: Illustration for Deep Research Agents
 sources:
   - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
@@ -26,11 +26,14 @@ sources:
     url: https://arxiv.org/abs/2602.11685
   - title: Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions
     url: https://arxiv.org/pdf/2607.20891
+  - title: "Beyond RAG: Building Agentic Document Workflows with LlamaIndex"
+    url: https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view
 ---
 export { default as heroImage } from "../assets/deep-research-agents.webp";
 
 ## Sources
 
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view)
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
 - [Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions](https://arxiv.org/pdf/2607.20891)
 
@@ -137,6 +140,19 @@ DRACO's token/latency table breaks the intuition that longer, more expensive run
 
 The shape — quality decoupled from output length, input-token spend doing the real work — is the deep-research instance of the cost/quality combo tradeoffs formalized in [Client-Side Agent Optimization](/articles/client-side-agent-optimization) (model-per-role, budget, routing): the lever that matters is orchestration design, not raw token expenditure.
 
+## A tree of agentic retrieval, not a loop — the form factor named from the retrieval side
+
+The corpus's treatment above is evaluative (DRACO grades the systems; MisKnow-Agent attacks their inputs). [Doulcet's 2026 RAG retrospective](/articles/document-parsing-as-retrieval-bottleneck) (`practitioner-opinion`, LlamaIndex vendor COI) supplies the missing structural account: **where deep research sits in the evolution of retrieval, and what its control flow actually is.**
+
+His placement is a one-line taxonomy correction. Corrective/agentic RAG is a **loop** — retrieve, grade the chunks, reformulate, retry, until the evidence is good enough. Deep research is *"plan → branch into parallel sub-searches → synthesize. **A tree of agentic retrieval, not a loop.**"* Fan-out, not iteration. That distinction is not cosmetic: a loop's cost scales with how many attempts a hard query needs, while a tree's scales with the branching factor decided once at decompose time — which is why DRACO's top scorer can carry the *largest* input-token footprint (~779k/task) at the *lowest* latency. The branches ran concurrently.
+
+The engineering consequence he draws is that this form factor is why a workflow runtime earns its cost at all — the four properties named are exactly deep research's: sub-questions must run in parallel to fit a latency budget; the composer must wait for **all** of them; citations must thread through the whole pipeline; and *the failure of one sub-question must not kill the rest*. The last is the one graded evaluations cannot see. A tree that silently drops a failed branch and composes the survivors produces a complete-looking cited report whose coverage gap is invisible at the output — the deep-research instance of the omission problem [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) attacks with checkpoint taps, and a concrete reason its "attribute the loss to a layer" method matters more here than in single-shot retrieval.
+
+Two further items transfer from that page and both point upstream of anything DRACO measures:
+
+- **Parsing evidence gets *more* important as the agent gets better, not less.** The public reply to Liu's thread that stated it best — *"if a retrieval step feeds an action, I want the agent to cite the exact chunk, table, or page it used before it touches the workflow"* — is an unvetted practitioner comment, but it names the property the deck's parsing stack is built to provide (per-value page + bounding-box citations) and the one that makes a deep-research citation *checkable* rather than decorative. DRACO grades citation quality; nothing in that grading distinguishes a citation to a correctly-parsed table row from one to a collapsed cell.
+- **Retrieval is the audit trail.** *"'Why did the AI say this?' Retrieval gives a citation log. Long context gives a vibe."* This is the strongest available argument that the deep-research form factor does not dissolve into a long-context read of the corpus even when the corpus fits — the report's value is inseparable from its traceability.
+
 ## Where it sits
 
 Deep research is a long-horizon, autonomous, multi-step task — exactly the regime [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) measures — run as a continuous retrieval-and-synthesis [harness](/articles/agent-harness-engineering). It is one of the clearest current cases where a product (the harness + orchestration) is worth substantially more than the model it wraps, which is why a benchmark of *systems* (not models) like [DRACO](/articles/draco-benchmark) is the right instrument, graded by [LLM-as-a-judge](/articles/llm-as-a-judge) against expert rubrics built from [real production usage](/articles/production-sourced-evaluation).
@@ -144,6 +160,8 @@ Deep research is a long-horizon, autonomous, multi-step task — exactly the reg
 ## Connections
 
 - [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — **the name collision worth keeping straight.** Autoresearch, AlphaEvolve/EvoX, CORAL and SwarmResearch all call themselves research agents, and none of them does what this page describes: no retrieval, no citations, no report — a numeric evaluator on a problem with no known optimum (circle packing, GPU scheduling, contest heuristics, decoding kernels), run for hours against a score. Two things genuinely transfer. The orchestration-beats-the-base-model finding recurs there in a controlled form (a harness change, model held fixed, moves the result), and the failure modes rhyme: what MisKnow-Agent calls adopting a persuasive false conclusion is what SwarmResearch's case study calls a search agent producing an improved run with a confident, unsubstantiated causal story — in both, the fluent artifact is what defeats review
+- [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — the upstream half of this pipeline, and the reason its weakest graded axis may not be a model problem at all. Supplies the control-flow correction ("a tree of agentic retrieval, not a loop"), the workflow properties that make the form factor buildable (parallel branches, a composer that joins on count, citations threaded through every step, one failed branch not killing the rest), and the failure class DRACO's output grading structurally cannot reach: a figure misattributed by a collapsed table arrives in the report correctly *cited* and wrong
+- [Crystallizing Agent Work into Workflows](/articles/crystallizing-agent-work-into-workflows) — the runtime this form factor needs, and the lifecycle question it raises. The tree shape (`send_event` fan-out, `collect_events` join on count, citations threaded through every step, one failed branch not killing the rest) is the workflow machinery treated there; the open question in the other direction is whether a *research* tree ever crystallizes — its value is that each run explores differently, which is the scope condition Malik names as the limit of promotion
 - [DRACO Benchmark](/articles/draco-benchmark) — the benchmark built to evaluate this system class; source of the orchestration, verification, and efficiency findings here
 - [Context Lifecycle Management](/articles/context-lifecycle-management) — the context-side constraint on long research runs: Self-GC's Hard Set is exactly this workload (browser, shell, web-fetch traces under sustained tool pressure), where the exact URL, extracted row value, or callback handle buried in an old tool output is what a later synthesis turn depends on — and where every position- or type-based pruning heuristic measured below 70% no-impact
 - [Agent Harness Engineering](/articles/agent-harness-engineering) — deep research is a retrieval-and-synthesis harness; the "orchestration beyond the base model" result is direct evidence that this harness layer is load-bearing
@@ -175,6 +193,7 @@ Deep research is a long-horizon, autonomous, multi-step task — exactly the reg
 
 ## Sources
 
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view) — Pierre-Loic Doulcet, AI Engineer Singapore 2026 (`practitioner-opinion`, LlamaIndex vendor COI): the tree-not-loop placement, the four workflow properties, and the retrieval-as-audit-trail argument. Diagrams read via the image two-pass; the raw file contains deliberately corrupted parser output as demo material and no figure may be taken from it — see [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck)
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §1 (definition of deep research), §5 (systems evaluated; orchestration-beyond-base-model finding; token/latency table; per-axis results)
 - [Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions](https://arxiv.org/pdf/2607.20891) — Pengyu Zhu, Lijun Li, Longju Yang, Sen Su & Jing Shao (Beijing Univ. of Posts and Telecommunications / Shanghai AI Laboratory / Chongqing Univ. of Posts and Telecommunications), *Is Deep Research Reliable? Misleading Knowledge Induces False Conclusions*, arXiv 2607.20891, 2026-07-23, `empirical`. §3.2 (threat model — explicit exclusion of prompt injection and instruction hijacking), §3.3 (MisKnow-Agent: blueprint, controlled generation, cross-model verification filter), §3.4 + App. D–E (pre- and post-research defenses; the verification prompt and the refinement algorithm), §4.1 (systems, Serper backend, temperature 0, judge validation), §4.2 (search-result rank; lifecycle stage), §4.3 (authority and style effects), §4.4 (budget / dose response), §4.5 + App. G (framework-LLM interaction, MER/ECAR decomposition), §5.1 (Gemini Deep Research), §5.2 (defense effectiveness), App. B (judge-human agreement), App. C (manual validation of target false conclusions), App. I (all prompt templates — the generation prompt's equal-writing-quality-across-tiers constraint and the verifier's search-discipline instructions are both quoted from here).
  - **Tables verified.** **Table 3** (framework-LLM outcomes) was reconciled arithmetically as well as against the PDF page render: `FCAR = MER × ECAR` holds on all six rows to within 0.1pp, and both gap-decomposition terms reproduce the paper's stated values exactly on all three rows — which is strong evidence the label/value mapping survived parsing, since a collapse or shift would break the identity. **Table 1** (generation-model comparison, qualitative) was checked against the PDF and parses clean. **Table 2** is a single-column blueprint description carrying no comparative numbers. Every quoted percentage on this page comes from prose or from verified Table 3.

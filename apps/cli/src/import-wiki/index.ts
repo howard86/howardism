@@ -20,7 +20,11 @@ import {
   resolveDomain,
 } from "./domains.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
-import { buildEntityTypeMembership } from "./entity-types.ts";
+import {
+  buildEntityTypeMembership,
+  isEntityNote,
+  resolveEntityType,
+} from "./entity-types.ts";
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import {
   buildSlugTitleMap,
@@ -69,6 +73,16 @@ interface RunOptions {
 
 interface ImportSummary {
   articlesWritten: string[];
+  /** Slugs whose frontmatter `domain:` disagrees with their MOC membership. */
+  domainDisagreements: Map<string, { frontmatter: string; moc: string }>;
+  /** Slugs whose frontmatter `kind:` disagrees with `moc-entities.md`. */
+  entityTypeDisagreements: Map<string, { frontmatter: string; moc: string }>;
+  /**
+   * Slugs whose description came from the first-paragraph fallback only — no
+   * `summary:` frontmatter, no index.md entry, no MOC blockquote. A spike
+   * here means a vault digest/frontmatter source went missing on import.
+   */
+  fallbackDescriptions: string[];
   graphPath: string | null;
   imagesCached: string[];
   imagesGenerated: string[];
@@ -185,6 +199,23 @@ async function main(): Promise<void> {
   }
 
   printSummary(summary);
+
+  // This failure class — the vault regenerates a digest/frontmatter source
+  // and the importer silently degrades to the first-paragraph heuristic —
+  // has hit three times. A `--only` re-import of a single article is exempt;
+  // it can't move the corpus-wide ratio anyway.
+  if (!opts.onlySlug && toEmit.length > 0) {
+    const fallbackRatio = summary.fallbackDescriptions.length / toEmit.length;
+    if (fallbackRatio > 0.1) {
+      const examples = summary.fallbackDescriptions.slice(0, 5).join(", ");
+      throw new Error(
+        `${summary.fallbackDescriptions.length}/${toEmit.length} article descriptions ` +
+          `(${Math.round(fallbackRatio * 100)}%) fell back to the first-paragraph ` +
+          "heuristic — likely vault frontmatter/digest drift (missing `summary:` " +
+          `frontmatter or index.md entries). Examples: ${examples}`
+      );
+    }
+  }
 }
 
 interface ImportContext {
@@ -247,6 +278,9 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
 function createSummary(): ImportSummary {
   return {
     articlesWritten: [],
+    domainDisagreements: new Map(),
+    entityTypeDisagreements: new Map(),
+    fallbackDescriptions: [],
     graphPath: null,
     imagesGenerated: [],
     imagesCached: [],
@@ -310,19 +344,28 @@ async function processArticle(
   const mocDescription = isMocSlug(slug)
     ? stripWikilinksToText(firstBlockquote(parsed.body))
     : "";
+  const frontmatterSummary = frontmatter.summary?.trim();
+  const indexSummary = ctx.indexSummaries.get(slug);
   const rawDescription =
-    ctx.indexSummaries.get(slug) ||
+    frontmatterSummary ||
+    indexSummary ||
     mocDescription ||
     stripWikilinksToText(firstParagraph(parsed.body));
+  if (!(frontmatterSummary || indexSummary || mocDescription)) {
+    summary.fallbackDescriptions.push(slug);
+  }
   const explicitOverride = ctx.overrides[slug];
   const defaultTag: WikiTag =
     source.folder === "concepts" ? "Concept" : "Essay";
 
-  // Always strip the editorial `_Entity._` marker. If the article is otherwise
-  // a default-tagged Concept (no explicit override), promote it to Entity.
-  // An explicit override wins over everything — that's the manual escape hatch.
-  const { description: cleanedDescription, isEntity } =
+  // Always strip the editorial `_Entity._` marker (it also drives the legacy
+  // fallback signal); frontmatter `type: entity` is the primary signal now.
+  // If the article is otherwise a default-tagged Concept (no explicit
+  // override), promote it to Entity. An explicit override wins over
+  // everything — that's the manual escape hatch.
+  const { description: cleanedDescription, isEntity: hasEntityMarker } =
     detectEntityPrefix(rawDescription);
+  const isEntity = isEntityNote(frontmatter.type, hasEntityMarker);
   const tag = resolveTag({
     explicitOverride,
     isIndexPage,
@@ -332,18 +375,43 @@ async function processArticle(
 
   const tags = normaliseTags(frontmatter.tags);
 
-  const domain = resolveDomain(slug, ctx.domainMembership);
+  // `syntheses` is a blog-side browse axis for essays, not a vault fact. The
+  // vault now files derived notes under a topical `domain:` as well, and
+  // adopting it here would refile all 38 essays and empty the axis — so
+  // concepts take their frontmatter domain, essays keep the fallback.
+  const frontmatterDomain =
+    source.folder === "derived" ? undefined : frontmatter.domain;
+  const domain = resolveDomain(slug, ctx.domainMembership, frontmatterDomain);
+  const mocDomain = ctx.domainMembership.get(slug);
+  if (frontmatterDomain && mocDomain && frontmatterDomain !== mocDomain) {
+    summary.domainDisagreements.set(slug, {
+      frontmatter: frontmatterDomain,
+      moc: mocDomain,
+    });
+  }
   // A concept the vault forgot to file under any MOC lands in `syntheses` by
   // fallback — flag it so the author can curate it into the right domain.
   if (
     source.folder === "concepts" &&
     !isMocSlug(slug) &&
-    !ctx.domainMembership.has(slug)
+    !ctx.domainMembership.has(slug) &&
+    !frontmatterDomain
   ) {
     summary.unmappedConcepts.add(slug);
   }
 
-  const entityType = ctx.entityTypeMembership.get(slug);
+  const entityType = resolveEntityType(
+    slug,
+    ctx.entityTypeMembership,
+    frontmatter.kind
+  );
+  const mocEntityType = ctx.entityTypeMembership.get(slug);
+  if (frontmatter.kind && mocEntityType && frontmatter.kind !== mocEntityType) {
+    summary.entityTypeDisagreements.set(slug, {
+      frontmatter: frontmatter.kind,
+      moc: mocEntityType,
+    });
+  }
 
   const meta: ArticleMeta = {
     date: resolveDate(parsed),
@@ -619,6 +687,9 @@ async function assertExists(path: string, label: string): Promise<void> {
 function printSummary(summary: ImportSummary): void {
   console.log("\n=== Import summary ===");
   console.log(`Articles written: ${summary.articlesWritten.length}`);
+  console.log(
+    `Descriptions from first-paragraph fallback: ${summary.fallbackDescriptions.length}`
+  );
   console.log(`Images generated: ${summary.imagesGenerated.length}`);
   console.log(`Images cached:    ${summary.imagesCached.length}`);
   if (summary.graphPath) {
@@ -655,6 +726,25 @@ function printSummary(summary: ImportSummary): void {
     );
     for (const [slug, targets] of summary.missingRawSources) {
       console.log(`  ${slug} -> ${[...targets].join(", ")}`);
+    }
+  }
+  if (summary.domainDisagreements.size > 0) {
+    console.log(
+      "\nFrontmatter `domain:` disagrees with MOC membership (frontmatter wins):"
+    );
+    for (const [slug, { frontmatter, moc }] of summary.domainDisagreements) {
+      console.log(`  ${slug}: frontmatter=${frontmatter} moc=${moc}`);
+    }
+  }
+  if (summary.entityTypeDisagreements.size > 0) {
+    console.log(
+      "\nFrontmatter `kind:` disagrees with moc-entities.md (frontmatter wins):"
+    );
+    for (const [
+      slug,
+      { frontmatter, moc },
+    ] of summary.entityTypeDisagreements) {
+      console.log(`  ${slug}: frontmatter=${frontmatter} moc=${moc}`);
     }
   }
 }

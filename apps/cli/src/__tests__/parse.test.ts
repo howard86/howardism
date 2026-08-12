@@ -85,6 +85,33 @@ describe("parseWikiFile", () => {
     expect(parsed.body).toContain("Body content.");
   });
 
+  it("parses `summary`, `domain`, `kind`, and `date` frontmatter", async () => {
+    const content = [
+      "---",
+      'title: "Andrej Karpathy"',
+      "type: entity",
+      "kind: person",
+      "domain: agent-systems",
+      'summary: "Founding member of OpenAI and former Tesla AI lead."',
+      "date: 2026-05-06",
+      "---",
+      "",
+      "Body content.",
+    ].join("\n");
+    const path = await tempFile(content, "andrej-karpathy.md");
+    const parsed = await parseWikiFile({
+      slug: "andrej-karpathy",
+      folder: "concepts",
+      absolutePath: path,
+    });
+    expect(parsed.frontmatter.summary).toBe(
+      "Founding member of OpenAI and former Tesla AI lead."
+    );
+    expect(parsed.frontmatter.domain).toBe("agent-systems");
+    expect(parsed.frontmatter.kind).toBe("person");
+    expect(parsed.frontmatter.date).toBe("2026-05-06");
+  });
+
   it("drops a boolean `generated` flag so resolveDate falls back", async () => {
     const content = [
       "---",
@@ -122,6 +149,13 @@ describe("resolveDate", () => {
     };
   }
 
+  function derivedFixture(overrides: Partial<ParsedWikiFile>): ParsedWikiFile {
+    return fixture({
+      source: { slug: "x", folder: "derived", absolutePath: "/tmp/x.md" },
+      ...overrides,
+    });
+  }
+
   it("prefers `created` for concepts", () => {
     const date = resolveDate(
       fixture({
@@ -131,18 +165,45 @@ describe("resolveDate", () => {
     expect(date).toBe("2026-05-06");
   });
 
-  it("prefers `generated` for derived", () => {
+  it("does not consult `date` for concepts", () => {
     const date = resolveDate(
       fixture({
-        source: {
-          slug: "x",
-          folder: "derived",
-          absolutePath: "/tmp/x.md",
+        frontmatter: { date: "2026-01-01", created: "2026-05-06" },
+      })
+    );
+    expect(date).toBe("2026-05-06");
+  });
+
+  it("prefers `date` for derived", () => {
+    const date = resolveDate(
+      derivedFixture({
+        frontmatter: {
+          date: "2026-04-01",
+          generated: "2026-04-10",
+          created: "2026-03-01",
+          updated: "2026-04-15",
         },
+      })
+    );
+    expect(date).toBe("2026-04-01");
+  });
+
+  it("falls back to `generated` for derived when `date` is missing", () => {
+    const date = resolveDate(
+      derivedFixture({
         frontmatter: { generated: "2026-04-10", updated: "2026-04-15" },
       })
     );
     expect(date).toBe("2026-04-10");
+  });
+
+  it("falls back to `created` for derived when `date`/`generated` are missing", () => {
+    const date = resolveDate(
+      derivedFixture({
+        frontmatter: { created: "2026-03-01", updated: "2026-04-15" },
+      })
+    );
+    expect(date).toBe("2026-03-01");
   });
 
   it("falls back to `updated` when primary is missing", () => {
