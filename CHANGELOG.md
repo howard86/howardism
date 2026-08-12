@@ -1,3 +1,12 @@
+# [v2.24.0](https://github.com/howard86/howardism/compare/v2.23.3...v2.24.0) (2026-08-12)
+
+## ✨ New Features
+- [`3616ec0e`](https://github.com/howard86/howardism/commit/3616ec0e)  feat(wiki-import): read description from summary frontmatter 
+- [`4728d208`](https://github.com/howard86/howardism/commit/4728d208)  feat(wiki-import): tag Entities from type: entity frontmatter 
+- [`a871abdc`](https://github.com/howard86/howardism/commit/a871abdc)  feat(wiki-import): domain/entityType from frontmatter, MOC as fallback 
+- [`7c942529`](https://github.com/howard86/howardism/commit/7c942529)  feat(wiki-import): derive publish date from date/created frontmatter 
+- [`c4d3063a`](https://github.com/howard86/howardism/commit/c4d3063a)  feat(wiki-import): description-coverage tripwire on the import summary
+
 # [v2.23.3](https://github.com/howard86/howardism/compare/v2.23.2...v2.23.3) (2026-08-05)
 
 # [v2.23.2](https://github.com/howard86/howardism/compare/v2.23.1...v2.23.2) (2026-08-04)
