@@ -3,10 +3,15 @@ import { describe, expect, it } from "bun:test";
 import { WIKI_DOMAINS } from "@howardism/article-contract";
 import type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
+import {
+  ArticleNavigationEntrySchema,
+  type ArticleNavigationManifest,
+} from "@howardism/article-contract/manifests/search-index";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
 
 import {
   type ArticleRecord,
+  checkArticleNavigation,
   checkEmptyDomains,
   checkFallbackCeiling,
   checkFrontmatter,
@@ -24,10 +29,14 @@ import {
 
 function article(overrides: Partial<ArticleRecord> = {}): ArticleRecord {
   return {
+    archived: false,
+    date: "2026-01-01",
     slug: "a",
     title: "Title",
     description: "Description",
     imageAlt: "Alt",
+    tag: "Concept",
+    tags: [],
     domain: "agent-systems",
     heroImage: "a.webp",
     ...overrides,
@@ -68,10 +77,14 @@ describe("parseArticle", () => {
       "../assets/slug.webp"
     );
     expect(parseArticle(raw, "slug")).toEqual({
+      archived: false,
+      date: "",
       slug: "slug",
       title: "Trimmed",
       description: "A desc",
       imageAlt: "Alt text",
+      tag: "",
+      tags: [],
       domain: "model-capability-and-training",
       heroImage: "slug.webp",
     });
@@ -82,6 +95,54 @@ describe("parseArticle", () => {
     expect(parsed.description).toBe("");
     expect(parsed.imageAlt).toBe("");
     expect(parsed.domain).toBeNull();
+  });
+});
+
+describe("checkArticleNavigation", () => {
+  it("fails when committed navigation fields drift from frontmatter", () => {
+    const current = article();
+    const manifest: ArticleNavigationManifest = {
+      generatedOn: "2026-01-01",
+      entries: [
+        ArticleNavigationEntrySchema.parse({
+          archived: current.archived,
+          date: current.date,
+          description: current.description,
+          ...(current.domain ? { domain: current.domain } : {}),
+          slug: current.slug,
+          tag: current.tag,
+          tags: current.tags,
+          title: "Stale title",
+        }),
+      ],
+    };
+    expect(checkArticleNavigation(manifest, [current])).toHaveLength(1);
+    manifest.entries[0] = { ...manifest.entries[0], title: current.title };
+    expect(checkArticleNavigation(manifest, [current])).toEqual([]);
+  });
+
+  it("fails when same-date entries are not ordered by slug", () => {
+    const first = article({ slug: "a" });
+    const second = article({ slug: "b" });
+    const entries = [second, first].map((current) =>
+      ArticleNavigationEntrySchema.parse({
+        archived: current.archived,
+        date: current.date,
+        description: current.description,
+        ...(current.domain ? { domain: current.domain } : {}),
+        slug: current.slug,
+        tag: current.tag,
+        tags: current.tags,
+        title: current.title,
+      })
+    );
+
+    expect(
+      checkArticleNavigation({ entries, generatedOn: "2026-01-01" }, [
+        first,
+        second,
+      ])
+    ).toHaveLength(1);
   });
 });
 

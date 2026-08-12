@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { WIKI_DOMAINS, WIKI_TAGS } from "../index";
+
 /**
  * One searchable article in `apps/blog/src/data/search-index.json`. `domain` and
  * `tag` stay loose strings (not the WikiDomain/WikiTag enums): the search index
@@ -41,3 +43,31 @@ export type SearchIndex = z.infer<typeof SearchIndexSchema>;
 /** Parse + validate a raw search index; used to gate the CLI write, not reads. */
 export const parseSearchIndex = (data: unknown): SearchIndex =>
   SearchIndexSchema.parse(data);
+
+export const ArticleNavigationEntrySchema = z.object({
+  archived: z.boolean(),
+  date: z.string(),
+  description: z.string(),
+  domain: z.enum(WIKI_DOMAINS).optional(),
+  slug: z.string(),
+  tag: z.enum(WIKI_TAGS),
+  tags: z.array(z.string()),
+  title: z.string(),
+});
+
+export type ArticleNavigationEntry = z.infer<
+  typeof ArticleNavigationEntrySchema
+>;
+
+export const ArticleNavigationManifestSchema = z.object({
+  entries: z.array(ArticleNavigationEntrySchema),
+  generatedOn: z.string(),
+});
+
+export type ArticleNavigationManifest = z.infer<
+  typeof ArticleNavigationManifestSchema
+>;
+
+export const parseArticleNavigation = (
+  data: unknown
+): ArticleNavigationManifest => ArticleNavigationManifestSchema.parse(data);
