@@ -43,6 +43,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
       aria-current={isActive ? "page" : undefined}
       className="rounded-full px-4 py-2 font-body font-medium text-[0.9rem] text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
       href={href}
+      prefetch={false}
     >
       {label}
     </Link>
