@@ -6,6 +6,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -35,7 +36,12 @@ const SearchContext = createContext<SearchContextValue | null>(null);
  */
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [webMcpAvailable, setWebMcpAvailable] = useState(false);
   const openSearch = useCallback(() => setOpen(true), []);
+
+  useEffect(() => {
+    setWebMcpAvailable(Boolean(document.modelContext));
+  }, []);
 
   useKeyboardShortcut("k", openSearch, { ctrlOrMeta: true });
 
@@ -45,7 +51,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     <SearchContext value={value}>
       {children}
       <SearchPalette onOpenChange={setOpen} open={open} />
-      <WebMcpTools />
+      {webMcpAvailable && <WebMcpTools />}
     </SearchContext>
   );
 }
