@@ -21,13 +21,18 @@ const SLUG_TERMINATOR_RE = /[?#/]/;
 
 type LinkProps = ComponentProps<typeof Link>;
 
+export type ArticlePreviewMeta = Pick<
+  ArticleMeta,
+  "description" | "tag" | "title"
+>;
+
 export interface InternalLinkProps extends Omit<LinkProps, "href"> {
   href: string;
   /**
    * Pre-resolved frontmatter for the destination. When provided, the
    * hover-card renders without an extra client-side fetch.
    */
-  previewMeta?: ArticleMeta;
+  previewMeta?: ArticlePreviewMeta;
 }
 
 export function InternalLink({
@@ -84,7 +89,7 @@ export function InternalLink({
 }
 
 interface InternalLinkPreviewBodyProps {
-  meta: ArticleMeta;
+  meta: ArticlePreviewMeta;
 }
 
 /**

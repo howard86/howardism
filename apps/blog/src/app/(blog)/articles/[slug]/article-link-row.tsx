@@ -19,7 +19,11 @@ export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
         <InternalLink
           className="font-display font-medium text-[0.95rem] text-foreground no-underline hover:text-[var(--article-accent)]"
           href={`/articles/${slug}`}
-          previewMeta={meta}
+          previewMeta={{
+            description: meta.description,
+            tag: meta.tag,
+            title: meta.title,
+          }}
         >
           {meta.title}
         </InternalLink>
