@@ -30,6 +30,10 @@ import {
   parseArticleGraph,
 } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
+import {
+  type ArticleNavigationManifest,
+  parseArticleNavigation,
+} from "@howardism/article-contract/manifests/search-index";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
 import matter from "gray-matter";
 
@@ -61,12 +65,16 @@ const HERO_IMPORT_RE =
 
 /** One article reduced to just the fields the integrity checks need. */
 export interface ArticleRecord {
+  archived: boolean;
+  date: string;
   description: string;
   domain: string | null;
   /** hero filename from the import line (e.g. `foo.webp`), or null if absent. */
   heroImage: string | null;
   imageAlt: string;
   slug: string;
+  tag: string;
+  tags: string[];
   title: string;
 }
 
@@ -78,14 +86,59 @@ export function extractHeroImage(raw: string): string | null {
 /** Parse one MDX article's raw source into an {@link ArticleRecord}. */
 export function parseArticle(raw: string, slug: string): ArticleRecord {
   const { data } = matter(raw);
+  const date =
+    data.date instanceof Date
+      ? data.date.toISOString().slice(0, 10)
+      : String(data.date ?? "");
   return {
+    archived: data.archived === true,
+    date,
     slug,
     title: String(data.title ?? "").trim(),
     description: String(data.description ?? "").trim(),
     imageAlt: String(data.imageAlt ?? "").trim(),
+    tag: String(data.tag ?? "").trim(),
+    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     domain: data.domain ? String(data.domain) : null,
     heroImage: extractHeroImage(raw),
   };
+}
+
+export function checkArticleNavigation(
+  manifest: ArticleNavigationManifest,
+  articles: ArticleRecord[]
+): string[] {
+  const bySlug = <T extends { slug: string }>(entries: T[]): T[] =>
+    entries.toSorted((a, b) => a.slug.localeCompare(b.slug));
+  const expected = bySlug(
+    articles.map(
+      ({ archived, date, description, domain, slug, tag, tags, title }) => ({
+        archived,
+        date,
+        description,
+        ...(domain ? { domain } : {}),
+        slug,
+        tag,
+        tags,
+        title,
+      })
+    )
+  );
+  const current = bySlug(manifest.entries);
+  const expectedOrder = [...manifest.entries]
+    .sort(
+      (a, b) =>
+        new Date(b.date).valueOf() - new Date(a.date).valueOf() ||
+        a.slug.localeCompare(b.slug)
+    )
+    .map((entry) => entry.slug);
+  const hasDeterministicOrder = manifest.entries.every(
+    (entry, index) => entry.slug === expectedOrder[index]
+  );
+  return JSON.stringify(current) === JSON.stringify(expected) &&
+    hasDeterministicOrder
+    ? []
+    : ["article-navigation.json does not match article frontmatter"];
 }
 
 // ---- FAILURE checks: return one message per broken invariant ----
@@ -366,17 +419,28 @@ function emitWarningAnnotations(results: CheckResult[]): void {
 }
 
 async function main(): Promise<void> {
-  const [articles, assetFilenames, graph, openQuestions, wikiSources] =
-    await Promise.all([
-      loadArticles(),
-      loadAssetFilenames(),
-      loadJson<unknown>("article-graph.json").then(parseArticleGraph),
-      loadJson<OpenQuestionsManifest>("open-questions.json"),
-      loadJson<WikiSourcesManifest>("wiki-sources.json"),
-    ]);
+  const [
+    articles,
+    assetFilenames,
+    graph,
+    navigation,
+    openQuestions,
+    wikiSources,
+  ] = await Promise.all([
+    loadArticles(),
+    loadAssetFilenames(),
+    loadJson<unknown>("article-graph.json").then(parseArticleGraph),
+    loadJson<unknown>("article-navigation.json").then(parseArticleNavigation),
+    loadJson<OpenQuestionsManifest>("open-questions.json"),
+    loadJson<WikiSourcesManifest>("wiki-sources.json"),
+  ]);
   const articleSlugs = new Set(articles.map((a) => a.slug));
 
   const failures: CheckResult[] = [
+    {
+      name: "article-navigation",
+      messages: checkArticleNavigation(navigation, articles),
+    },
     {
       name: "hero-images",
       messages: checkHeroImages(articles, assetFilenames),

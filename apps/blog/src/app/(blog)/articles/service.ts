@@ -17,6 +17,7 @@ import {
   type OpenQuestionConcept,
   parseOpenQuestions,
 } from "@howardism/article-contract/manifests/open-questions";
+import { parseArticleNavigation } from "@howardism/article-contract/manifests/search-index";
 import { parseTranslations } from "@howardism/article-contract/manifests/translations";
 import {
   parseWikiSources,
@@ -33,6 +34,7 @@ import { cache } from "react";
 import { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
+import articleNavigationData from "@/data/article-navigation.json";
 import openQuestionsData from "@/data/open-questions.json";
 import translationsData from "@/data/translations.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
@@ -78,7 +80,12 @@ export interface ArticleLink {
   citedCount?: number;
   /** The citing line, quoted verbatim, when the citation sits in prose. */
   citedIn?: string;
-  meta: ArticleMeta;
+  meta: {
+    description: string;
+    domain?: ArticleDomain;
+    tag: ArticleTag;
+    title: string;
+  };
   slug: string;
 }
 
@@ -99,22 +106,26 @@ export interface ArticleHeading {
 }
 
 const graph = parseArticleGraph(graphData);
+const articleNavigation = parseArticleNavigation(articleNavigationData);
+const navigationBySlug = new Map(
+  articleNavigation.entries.map((entry) => [entry.slug, entry])
+);
 
 const isArticleTag = (value: string): value is ArticleTag =>
   (ARTICLE_TAGS as readonly string[]).includes(value);
 
 const toArticleLinks = (
   slugs: readonly string[] | undefined,
-  visible: Normalise<ArticleEntity>
+  entries: typeof navigationBySlug
 ): ArticleLink[] => {
   if (!slugs) {
     return [];
   }
   const links: ArticleLink[] = [];
   for (const slug of slugs) {
-    const entity = visible.entities[slug];
-    if (entity) {
-      links.push({ slug, meta: entity.meta });
+    const entry = entries.get(slug);
+    if (entry && !entry.archived) {
+      links.push({ slug, meta: entry });
     }
   }
   return links;
@@ -127,18 +138,18 @@ const toArticleLinks = (
  */
 const toBacklinks = (
   edges: readonly BacklinkEdge[] | undefined,
-  visible: Normalise<ArticleEntity>
+  entries: typeof navigationBySlug
 ): ArticleLink[] => {
   if (!edges) {
     return [];
   }
   const links: ArticleLink[] = [];
   for (const edge of edges) {
-    const entity = visible.entities[edge.slug];
-    if (entity) {
+    const entry = entries.get(edge.slug);
+    if (entry && !entry.archived) {
       links.push({
         slug: edge.slug,
-        meta: entity.meta,
+        meta: entry,
         citedCount: edge.count,
         ...(edge.context === undefined ? {} : { citedIn: edge.context }),
       });
@@ -219,9 +230,19 @@ export const getArticles = once(async (): Promise<Normalise<ArticleEntity>> => {
  * exact set the route used to prerender. On-demand rendering uses it to 404
  * unknown slugs instead of throwing on a missing MDX import.
  */
-export const articleExists = cache(async (slug: string): Promise<boolean> => {
-  const { entities } = await getArticles();
-  return entities[slug] !== undefined;
+export const articleExists = cache((slug: string): boolean =>
+  navigationBySlug.has(slug)
+);
+
+export const getArticlePreviewMeta = cache((slug: string) => {
+  const entry = navigationBySlug.get(slug);
+  return entry
+    ? {
+        description: entry.description,
+        tag: entry.tag,
+        title: entry.title,
+      }
+    : undefined;
 });
 
 export const getVisibleArticles = once(
@@ -249,13 +270,10 @@ export const getSlicedArticles = cache(
 );
 
 export const getArticleConnections = cache(
-  async (slug: string): Promise<ArticleConnections> => {
-    const visible = await getVisibleArticles();
-    return {
-      backlinks: toBacklinks(graph.backlinks[slug], visible),
-      related: toArticleLinks(graph.related[slug], visible),
-    };
-  }
+  (slug: string): ArticleConnections => ({
+    backlinks: toBacklinks(graph.backlinks[slug], navigationBySlug),
+    related: toArticleLinks(graph.related[slug], navigationBySlug),
+  })
 );
 
 export const getArticlesByTag = cache(
@@ -426,9 +444,25 @@ export const getNavigableTags = cache(async (): Promise<string[]> => {
  * plates and each article page) test `navigable.has(tag)` without rebuilding
  * the set per render.
  */
-export const getNavigableTagSet = cache(
-  async (): Promise<ReadonlySet<string>> => new Set(await getNavigableTags())
-);
+export const getNavigableTagSet = cache((): ReadonlySet<string> => {
+  const counts = new Map<string, number>();
+  for (const entry of articleNavigation.entries) {
+    if (entry.archived) {
+      continue;
+    }
+    for (const tag of entry.tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return new Set(
+    [...counts.entries()]
+      .filter(([, count]) => count >= MIN_TAGGED_ARTICLES)
+      .sort(([tagA, countA], [tagB, countB]) =>
+        countB === countA ? tagA.localeCompare(tagB) : countB - countA
+      )
+      .map(([tag]) => tag)
+  );
+});
 
 /* ── reading-list manifest (emitted by the importer) ── */
 
@@ -555,13 +589,12 @@ export const getOpenQuestionsByDomain = (
  * state so a visible article never links to an archived sibling and vice
  * versa. Position is 1-based within the same partition.
  */
-export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
-  const all = await getArticles();
-  const isArchived = all.entities[slug]?.meta.archived === true;
-  const partition = all.ids.filter(
-    (id) => (all.entities[id]?.meta.archived === true) === isArchived
+export const getSiblings = cache((slug: string): SiblingNav => {
+  const current = navigationBySlug.get(slug);
+  const partition = articleNavigation.entries.filter(
+    (entry) => entry.archived === (current?.archived ?? false)
   );
-  const index = partition.indexOf(slug);
+  const index = partition.findIndex((entry) => entry.slug === slug);
   if (index < 0) {
     return {
       previousSlug: undefined,
@@ -571,15 +604,13 @@ export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
       position: 1,
     };
   }
-  const previousSlug = partition[index + 1];
-  const nextSlug = partition[index - 1];
+  const previous = partition[index + 1];
+  const next = partition[index - 1];
   return {
-    previousSlug,
-    previousTitle: previousSlug
-      ? all.entities[previousSlug]?.meta.title
-      : undefined,
-    nextSlug,
-    nextTitle: nextSlug ? all.entities[nextSlug]?.meta.title : undefined,
+    previousSlug: previous?.slug,
+    previousTitle: previous?.title,
+    nextSlug: next?.slug,
+    nextTitle: next?.title,
     position: index + 1,
   };
 });

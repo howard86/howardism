@@ -1,8 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
   type ArticleTag,
+  articleExists,
   getArticleConnections,
+  getArticlePreviewMeta,
   getArticlesByTag,
+  getNavigableTagSet,
+  getSiblings,
   getSlicedArticles,
   getTagCounts,
   getVisibleArticles,
@@ -35,7 +39,12 @@ describe("graph-backed service helpers", () => {
       expect(visibleSlugs.has(link.slug)).toBe(true);
       const entity = visible.entities[link.slug];
       expect(entity).toBeDefined();
-      expect(link.meta).toEqual(entity?.meta as typeof link.meta);
+      expect(link.meta).toMatchObject({
+        description: entity?.meta.description,
+        domain: entity?.meta.domain,
+        tag: entity?.meta.tag,
+        title: entity?.meta.title,
+      });
     }
   });
 
@@ -132,5 +141,68 @@ describe("tag-aware service helpers", () => {
       const articles = await getArticlesByTag(tagged);
       expect(counts[tagged]).toBe(articles.length);
     }
+  });
+});
+
+describe("navigation-manifest service helpers", () => {
+  it("keeps existence, siblings and navigable tags in parity with the corpus", async () => {
+    const visible = await getVisibleArticles();
+    const orderedSlugs = [...visible.ids].sort((a, b) => {
+      const dateA = visible.entities[a]?.meta.date ?? "";
+      const dateB = visible.entities[b]?.meta.date ?? "";
+      return (
+        new Date(dateB).valueOf() - new Date(dateA).valueOf() ||
+        a.localeCompare(b)
+      );
+    });
+    const slug = orderedSlugs[Math.floor(orderedSlugs.length / 2)];
+    expect(slug).toBeDefined();
+    if (!slug) {
+      return;
+    }
+    const entity = visible.entities[slug];
+    expect(entity).toBeDefined();
+    if (!entity) {
+      return;
+    }
+
+    expect(await articleExists(slug)).toBe(true);
+    expect(await articleExists("definitely-not-a-real-slug-xyz")).toBe(false);
+    expect(getArticlePreviewMeta(slug)).toEqual({
+      description: entity.meta.description,
+      tag: entity.meta.tag,
+      title: entity.meta.title,
+    });
+    expect(getArticlePreviewMeta("definitely-not-a-real-slug-xyz")).toBe(
+      undefined
+    );
+
+    const expectedPreviousSlug = orderedSlugs[orderedSlugs.indexOf(slug) + 1];
+    const expectedNextSlug = orderedSlugs[orderedSlugs.indexOf(slug) - 1];
+    expect(await getSiblings(slug)).toEqual({
+      previousSlug: expectedPreviousSlug,
+      previousTitle: expectedPreviousSlug
+        ? visible.entities[expectedPreviousSlug]?.meta.title
+        : undefined,
+      nextSlug: expectedNextSlug,
+      nextTitle: expectedNextSlug
+        ? visible.entities[expectedNextSlug]?.meta.title
+        : undefined,
+      position: orderedSlugs.indexOf(slug) + 1,
+    });
+
+    const expectedTags = new Set<string>();
+    const counts = new Map<string, number>();
+    for (const id of visible.ids) {
+      for (const tag of visible.entities[id]?.meta.tags ?? []) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    for (const [tag, count] of counts) {
+      if (count >= 2) {
+        expectedTags.add(tag);
+      }
+    }
+    expect(await getNavigableTagSet()).toEqual(expectedTags);
   });
 });

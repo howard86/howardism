@@ -19,15 +19,18 @@
  */
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-
 import {
   type ArticleGraph,
   parseArticleGraph,
   transpose,
 } from "@howardism/article-contract/manifests/graph";
 import {
+  type ArticleNavigationEntry,
+  ArticleNavigationEntrySchema,
+  ArticleNavigationManifestSchema,
   type SearchIndex,
   type SearchIndexEntry,
+  SearchIndexEntrySchema,
   SearchIndexSchema,
 } from "@howardism/article-contract/manifests/search-index";
 import matter from "gray-matter";
@@ -51,6 +54,10 @@ const REPO_ROOT = resolve(HERE, "../../../");
 const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
 const GRAPH_PATH = resolve(REPO_ROOT, "apps/blog/src/data/article-graph.json");
 const OUTPUT_PATH = resolve(REPO_ROOT, "apps/blog/src/data/search-index.json");
+const NAVIGATION_OUTPUT_PATH = resolve(
+  REPO_ROOT,
+  "apps/blog/src/data/article-navigation.json"
+);
 
 /** An entry before its keywords are derived — keywords need the whole corpus. */
 export type PartialSearchEntry = Omit<SearchIndexEntry, "keywords">;
@@ -68,7 +75,7 @@ export function buildSearchEntry(
   if (data.archived === true) {
     return null;
   }
-  return {
+  return SearchIndexEntrySchema.omit({ keywords: true }).parse({
     slug,
     title: String(data.title ?? ""),
     description: String(data.description ?? ""),
@@ -77,7 +84,57 @@ export function buildSearchEntry(
     ...(Array.isArray(data.tags) && data.tags.length > 0
       ? { tags: (data.tags as unknown[]).map(String) }
       : {}),
-  };
+  });
+}
+
+export function buildArticleNavigationEntry(
+  raw: string,
+  slug: string
+): ArticleNavigationEntry {
+  const { data } = matter(raw);
+  const date =
+    data.date instanceof Date
+      ? data.date.toISOString().slice(0, 10)
+      : String(data.date ?? "");
+  return ArticleNavigationEntrySchema.parse({
+    archived: data.archived === true,
+    date,
+    description: String(data.description ?? ""),
+    ...(data.domain ? { domain: String(data.domain) } : {}),
+    slug,
+    tag: String(data.tag ?? ""),
+    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
+    title: String(data.title ?? ""),
+  });
+}
+
+export async function writeArticleNavigation(options?: {
+  dryRun?: boolean;
+}): Promise<{ entryCount: number; outputPath: string }> {
+  const filenames = (await readdir(ARTICLES_DIR)).filter((name) =>
+    MDX_SUFFIX.test(name)
+  );
+  const entries: ArticleNavigationEntry[] = [];
+  for (const filename of filenames) {
+    const raw = await readFile(resolve(ARTICLES_DIR, filename), "utf8");
+    entries.push(
+      buildArticleNavigationEntry(raw, filename.replace(MDX_SUFFIX, ""))
+    );
+  }
+  entries.sort(
+    (a, b) =>
+      new Date(b.date).valueOf() - new Date(a.date).valueOf() ||
+      a.slug.localeCompare(b.slug)
+  );
+  const manifest = ArticleNavigationManifestSchema.parse({
+    entries,
+    generatedOn: new Date().toISOString().slice(0, 10),
+  });
+  const json = JSON.stringify(manifest, null, 2);
+  if (!(process.env.DRY_RUN === "1" || options?.dryRun)) {
+    await writeFile(NAVIGATION_OUTPUT_PATH, `${json}\n`, "utf8");
+  }
+  return { entryCount: entries.length, outputPath: NAVIGATION_OUTPUT_PATH };
 }
 
 /**
@@ -197,6 +254,7 @@ export async function writeSearchIndex(options?: {
 
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
   await writeFile(OUTPUT_PATH, `${json}\n`, "utf8");
+  await writeArticleNavigation(options);
   console.log(
     `[search-index] wrote ${index.entries.length} entries → ${OUTPUT_PATH}`
   );

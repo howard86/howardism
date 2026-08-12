@@ -9,7 +9,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
 
-import type { ArticleMeta } from "@/app/(blog)/articles/service";
 import { TagChip } from "@/components/tag-chip";
 import { truncate } from "@/utils/text";
 
@@ -21,13 +20,19 @@ const SLUG_TERMINATOR_RE = /[?#/]/;
 
 type LinkProps = ComponentProps<typeof Link>;
 
+export interface ArticlePreviewMeta {
+  description: string;
+  tag: string;
+  title: string;
+}
+
 export interface InternalLinkProps extends Omit<LinkProps, "href"> {
   href: string;
   /**
    * Pre-resolved frontmatter for the destination. When provided, the
    * hover-card renders without an extra client-side fetch.
    */
-  previewMeta?: ArticleMeta;
+  previewMeta?: ArticlePreviewMeta;
 }
 
 export function InternalLink({
@@ -84,7 +89,7 @@ export function InternalLink({
 }
 
 interface InternalLinkPreviewBodyProps {
-  meta: ArticleMeta;
+  meta: ArticlePreviewMeta;
 }
 
 /**

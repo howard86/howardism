@@ -2,7 +2,7 @@ import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 
-import { type ArticleMeta, getArticles } from "@/app/(blog)/articles/service";
+import { getArticlePreviewMeta } from "@/app/(blog)/articles/service";
 import {
   ARTICLES_PREFIX,
   extractArticleSlug,
@@ -17,11 +17,7 @@ interface MdxLinkLikeProps
 
 const EXTERNAL_HREF_RE = /^https?:\/\//i;
 
-async function ArticleLinkResolver({
-  href,
-  children,
-  ...rest
-}: MdxLinkLikeProps) {
+function ArticleLinkResolver({ href, children, ...rest }: MdxLinkLikeProps) {
   if (typeof href !== "string" || href.length === 0) {
     return <>{children}</>;
   }
@@ -43,20 +39,13 @@ async function ArticleLinkResolver({
   }
 
   const slug = extractArticleSlug(href);
-  const previewMeta = slug ? await resolveArticleMeta(slug) : undefined;
+  const previewMeta = slug ? getArticlePreviewMeta(slug) : undefined;
 
   return (
     <InternalLink href={href} previewMeta={previewMeta} {...rest}>
       {children}
     </InternalLink>
   );
-}
-
-async function resolveArticleMeta(
-  slug: string
-): Promise<ArticleMeta | undefined> {
-  const articles = await getArticles();
-  return articles.entities[slug]?.meta;
 }
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
