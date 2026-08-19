@@ -271,13 +271,15 @@ export function findOrphanArticles(
 
 /**
  * Domains without a `moc-<domain>` article have no curated spine — the domain
- * page falls back to a bare date-sorted table.
+ * page falls back to a bare date-sorted table. The `syntheses` fallback is
+ * exempt: it is the catch-all for notes no MOC claims, so a `moc-syntheses`
+ * can never exist and flagging it is a permanent unactionable warning.
  */
 export function findDomainsWithoutMoc(articles: ArticleRecord[]): string[] {
   const slugs = new Set(articles.map((a) => a.slug));
   const domains = new Set<string>();
   for (const { domain } of articles) {
-    if (domain) {
+    if (domain && domain !== FALLBACK_DOMAIN) {
       domains.add(domain);
     }
   }
