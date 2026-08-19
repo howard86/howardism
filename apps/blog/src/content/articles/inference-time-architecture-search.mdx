@@ -1,0 +1,130 @@
+---
+date: 2026-08-17
+title: Inference-Time Architecture Search
+description: "Archon (Mirhoseini's lab, 2024): treat test-time scaling as an
+  architecture-design problem — search over layered pipelines of prompting-only
+  operations (generate, fuse, critic, rank, verify, unit-test-generate,
+  unit-test-evaluate) across a pool of LLMs under an inference-call budget,
+  using Bayesian optimization over a hand-constrained space. Two results that
+  outlive the system: *fusion* — synthesizing one answer from k samples — beats
+  oracle selection over the same k, breaking the ceiling the
+  generation–verification gap is defined against; and stacking more inference
+  layers keeps helping, like depth in a network"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - test-time-compute
+  - inference-scaling
+  - llm-architecture
+  - orchestration
+  - search
+readingTime: 12
+imageAlt: Illustration for Inference-Time Architecture Search
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling"
+    url: https://www.youtube.com/watch?v=-Ggc37xLj_Y
+---
+export { default as heroImage } from "../assets/inference-time-architecture-search.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y)
+
+## Summary
+
+Once you accept that [capability is a function of inference budget](/articles/large-scale-test-time-compute), the next question is not *how much* to spend but *what shape* to spend it in. **Archon** — presented by [Azalia Mirhoseini](/articles/azalia-mirhoseini) in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 2 (delivered 2025-09-26, published 2026-08-03, `practitioner-opinion` recounting her lab's own work) — answers it by making the shape itself the object of search: **an inference-time architecture is a stack of layers, each layer one prompting-only operation applied across a pool of models, and the stack is searched for automatically against a target benchmark under an inference-call budget.**
+
+The framing: inputs are (a) a set of target benchmarks, (b) an inference-call budget, (c) a set of available LLMs, and (d) a set of inference-time techniques. The optimizer, **ITAS** (Inference-Time Architecture Search), returns an architecture — which models, which operations, in which order, how wide — that maximizes accuracy for the budget. The whole system is prompting; nothing is fine-tuned. "We don't have — we haven't trained the model to do this specific test-time scaling task."
+
+## The operation set
+
+Every operation is a prompt, which is what makes the search space cheap to instantiate and expensive to evaluate:
+
+| Operation | What it does |
+|---|---|
+| **Generation** | Sample *n* responses from a model — the [repeated-sampling](/articles/latent-capability-overhang) primitive |
+| **Fusion** | Give an LLM the question *plus all k responses* and ask it to synthesize **one** output answer |
+| **Critic** | For a given response, describe its strengths and weaknesses |
+| **Ranker** | Rank the previous layer's responses ([LLM-as-a-Judge](/articles/llm-as-a-judge)) |
+| **Verifier** | Score a response *and* return the reasoning behind the score |
+| **Unit-test generation** | Have the model write unit tests for the problem (coding, maths, reasoning) |
+| **Unit-test evaluation** | Have the model judge a candidate answer **against** those tests — without running them |
+
+The last pair is the notable one: unit-test *evaluation* replaces execution with a second model judgment, which pushes a domain with a hard [verifier](/articles/verifiability-thesis) back into the soft-verifier regime in exchange for applying to maths and reasoning as well as code. It is [CodeMonkeys](/articles/azalia-mirhoseini)'s self-generated-test idea with the interpreter taken out.
+
+## Fusion beats oracle selection
+
+The single result on this page most worth carrying, because it breaks a ceiling everything else on the [test-time-compute](/articles/large-scale-test-time-compute) cluster treats as fixed.
+
+On a reasoning/QA benchmark, sweeping 1→10 samples from **one** model, win rate orders as:
+
+1. **Random selection** — pick any sample. The floor.
+2. **Model ranking** — ask the model to rank and take the top. Already beats random.
+3. **Oracle selection** — a perfect verifier picks the best of the k. Beats ranking, as it must.
+4. **Fusion** — hand all k to a model and ask for one synthesized answer. **Beats oracle selection.**
+5. **Rank-then-fuse** — filter to the top 5, then fuse. Best of all.
+
+Why this matters: the [generation–verification gap](/articles/verifiability-thesis) is *defined* as the distance between what selection methods achieve and what an oracle selector would achieve. Coverage is the ceiling only if the output must **be** one of the samples. Fusion's output need not be — it can assemble a correct answer from parts of several wrong ones, or use the spread of candidates as evidence about the answer. Mirhoseini's read: "this paradigm is so powerful that it can on its own improve the quality of responses over oracle selection." The gap is real for *selectors*; it is not a bound on what a fixed sample budget is worth.
+
+The same trend survives replacing the *k* samples-from-one-model with *k* **different** models (a heterogeneous ensemble, added best-model-first). The random baseline gets worse — the ensemble's later members are weaker — but the ordering above is unchanged. The fuser and ranker are the strongest model in the pool ([Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence)).
+
+## Depth in the stack behaves like depth in a network
+
+Archon's searched architectures are not two-step pipelines. A typical one: generation from several models → critic → ranker → a *bank* of fusers, each fusing responses into one output → critic → ranker again. For coding, the optimizer instead finds generate-many-samples → generate unit tests → evaluate.
+
+**Stacking more layers keeps helping.** The best configuration reported is a model ensemble with **three** critique+fuser layers plus a final fuser layer, "significantly better across many of these tasks" than either the best model once or the best model eight times with a single fusion layer. Mirhoseini's analogy is explicit: "just like in deep learning we are adding layers and pre-training and the model gets better."
+
+This is the closest thing in the corpus to a *depth* claim for inference-time composition, and it is why the framing is "architecture" rather than "pipeline." Held at `practitioner-opinion` from a slide read in an auto-caption transcript, and untested against a compute-matched flat baseline (see the caveat below).
+
+## Searching the space without paying for it
+
+Evaluating a candidate architecture means running a lot of inference, so ITAS spends most of its design effort shrinking the space before searching it:
+
+- **Offline pre-processing.** The sequence generation → critic → ranker → fuser was found to work well *offline*, and the search space was restricted around it.
+- **Hand constraints.** One inference-time technique per layer; the first layer is always the generator; a critic must precede any ranker or fuser; a unit-test generator must be immediately followed by an evaluator.
+- **Bayesian optimization** over the remainder, against a held-out training split, with the objective being accuracy **at a given inference-call budget** — an accuracy-versus-calls frontier, not a single number. It is "much more sample efficient" than greedy search or random selection over configurations.
+
+The constraint list is the honest part of the result: the search does not discover that critics belong before rankers, it is told. What it discovers is width, depth, and model assignment.
+
+## The headline number, and why to hold it loosely
+
+Using **only open-source models**, Archon matched or exceeded the closed frontier models of the time on pass@1, **+14.1% on average over GPT-4o and Claude 3.5 Sonnet** across instruction-following, reasoning, maths and coding. Both variants work: a task-specific Archon (Bayesian search run on one task) and a **general-purpose** Archon optimized to do well across many tasks, which still beat the frontier models on tasks it was not tuned for — the generalization claim the lecture treats as the surprising part.
+
+Note the design choice that makes the comparison meaningful at all: **Archon emits exactly one response**, so it is optimizing pass@1, not pass@k. That is the discipline [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) demands — "a gain visible only in pass@k is a gain in attempts, not capability."
+
+**But the same page's other demand is not met.** [Brown](/articles/noam-brown)'s *benchmark-maxxing* critique names precisely this construction — "run the model five times and take the best answer; add an LLM judge to pick the strongest of N" — as a way to look better on paper that evaporates "once you control for the amount of test-time compute." A single-model GPT-4o call and a multi-layer multi-model Archon stack are not compute-matched, and the lecture reports no such control. Archon does plot accuracy against inference calls *within* its own search, which is more than the benchmark grid does; it does not put the frontier baselines on that axis. Read the 14.1% as *this architecture at this budget beats that model at one call*, which is a real and useful statement about cheap models plus structure, and not as a capability comparison. It is also a late-2025 number against late-2025 models.
+
+## Where this sits against harness self-modification
+
+Archon and [agent-authored harness optimization](/articles/agent-authored-harness-optimization) are the same idea one level apart, and the corpus's later `empirical` work cuts between them:
+
+- Archon searches over **a closed, hand-specified operation vocabulary** with an external Bayesian optimizer, offline, against a held-out split. The thing being searched is a composition, not code.
+- Harness evolution has a **meta-agent rewrite the scaffold's source** with no vocabulary at all. Wang, Zhu, Hu et al. ([arXiv 2607.12227](https://arxiv.org/pdf/2607.12227), `empirical`) budget-match that against plain parallel sampling at K = 5 and find it **loses to doing nothing** (67.4 vs a 68.2 baseline), with +0.6pp held-out transfer.
+
+The reconciliation this suggests — untested, and worth stating as a hypothesis rather than a finding — is that **the constraint is the value**. Archon's restricted space and offline-validated layer ordering are what make its search cheap enough to be worth running; an unconstrained meta-agent spends the same budget rediscovering that structure and usually fails. It also means Archon inherits the second charge Wang et al. level: searching and reporting on the same benchmark family risks measuring adaptation to task patterns rather than architecture quality, which the general-purpose variant's cross-task result partly but not fully answers.
+
+## Connections
+
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the hub: this page is the "what shape" question under its "how much" thesis, and fusion is the one operation on it that beats a perfect selector
+- [The Verifiability Thesis](/articles/verifiability-thesis) — fusion is the first thing in the corpus that routes *around* the generation–verification gap rather than trying to close it, because its output is not constrained to be one of the samples
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the generation layer is repeated sampling; Archon is a proposal for what to do with the samples once you have them
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the ranker, critic, verifier and unit-test-evaluator ops are all judges, stacked rather than used once
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the heterogeneous-ensemble arm: k different models fused by the strongest one, with the ordering unchanged from the single-model case
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the unconstrained sibling: a meta-agent rewriting harness source rather than composing a fixed operation vocabulary, and the arm that loses under budget matching
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the discipline Archon half-observes (pass@1 output, accuracy-vs-calls objective) and half-violates (frontier baselines not compute-matched)
+- [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) — the 2026 descendant of the same question: how to shape a fixed budget across width and depth, answered adaptively at run time rather than by offline search
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — the lab; Archon is the third result in the Monkeys line after Large Language Monkeys and CodeMonkeys
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 2, where this is taught as the constructive answer to the generation–verification gap
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — what the verifier and unit-test-evaluator operations are made of, from the same course one lecture later: the ORM/PRM literature Archon treats as an off-the-shelf layer
+- [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) — the sibling from the same lab and the next lecture, dividing cleanly: Archon composes inference *operations* into a searched architecture, Weaver composes verifier *models* into one aggregated score. Both bet that the shape of a fixed budget matters more than its size, and both are composition rather than training
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — search at a lower altitude and from the same course: Archon searches offline over *pipelines* of inference operations, LATS searches online over *trajectories* of environment actions
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — the ceiling fusion goes around, measured on a second system. AlphaCode's pipeline is pure selection (filter, cluster, submit ten), so it is bounded by coverage by construction; the lecture puts the gap at roughly 30% under a ten-submission cap against above 40% with unlimited attempts. Archon's fusion is the operation that pipeline has no analogue of
+
+## Open Questions
+
+- Does fusion still beat oracle selection when the two are **compute-matched** — fusion costs an extra long-context call over all k samples, oracle selection costs nothing beyond the samples? The lecture plots both against sample count, not against tokens spent.
+- Why does fusion beat an oracle? Two mechanisms are compatible with the result — the fuser assembles a correct answer from fragments of individually-wrong candidates, or the *distribution* of candidates carries information a per-candidate selector discards — and they imply different scaling behaviour as k grows. Nothing here distinguishes them.
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y) — Stanford CS329A lecture 2, [Azalia Mirhoseini](/articles/azalia-mirhoseini) (delivered 2025-09-26, published 2026-08-03, `practitioner-opinion`, YouTube auto-caption transcript, ~9.7k words). The Archon walkthrough: the ITAS framing and its four inputs, the seven-operation vocabulary, the fusion-beats-oracle win-rate curve and its model-ensemble twin, the layer-depth result, the Bayesian optimizer and its hand constraints, and the +14.1% pass@1 average over GPT-4o and Claude 3.5 Sonnet. Every figure is read off a slide in an auto-caption transcript and is approximate; the underlying paper was not compiled. The lecturer is a co-author, and the course TA is a co-author of the paper — a stated COI

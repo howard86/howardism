@@ -7,7 +7,8 @@ description: Building benchmarks from de-identified real production usage rather
   with a human QA gate; representativeness vs. over-specification tradeoff;
   production traffic as a proprietary eval asset; plus the buyer-side instance,
   where a customer builds the eval from its own engineering work to decide what
-  to buy
+  to buy, and the training-side instance, where production failures become RL
+  trajectories and the difficulty proxy stops being independent of the model
 tag: Concept
 domain: evals-and-benchmarks
 tags:
@@ -15,12 +16,14 @@ tags:
   - benchmarks
   - data-provenance
   - privacy
-readingTime: 13
+readingTime: 22
 imageAlt: Illustration for Production-Sourced Evaluation
 sources:
   - title: "DRACO: a Cross-Domain Benchmark for Deep Research Accuracy,
       Completeness, and Objectivity"
     url: https://arxiv.org/abs/2602.11685
+  - title: Measuring coding agent misalignment in the wild
+    url: https://transluce.org/docent/blog/coding-agent-behaviors
   - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
       Developers Blog
     url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
@@ -30,6 +33,11 @@ sources:
   - title: "The price is wrong: AI cost calculation has to consider task completion
       rates, not just token costs"
     url: https://www.theregister.com/ai-and-ml/2026/07/13/the-price-is-wrong-ai-cost-calculation-has-to-consider-task-completion-rates-not-just-token-costs/5270683
+  - title: Sidekick's continual learning loop
+    url: https://shopify.engineering/sidekicks-continual-learning-loop
+  - title: How Bridgewater Built an AI Analyst That Does Hours of Expert Research in
+      Minutes
+    url: https://www.youtube.com/watch?v=lXZb21CfeIY
 ---
 export { default as heroImage } from "../assets/production-sourced-evaluation.webp";
 
@@ -37,7 +45,10 @@ export { default as heroImage } from "../assets/production-sourced-evaluation.we
 
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685)
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY)
+- [Measuring coding agent misalignment in the wild](https://transluce.org/docent/blog/coding-agent-behaviors)
 - [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop)
 - [The price is wrong: AI cost calculation has to consider task completion rates, not just token costs](https://www.theregister.com/ai-and-ml/2026/07/13/the-price-is-wrong-ai-cost-calculation-has-to-consider-task-completion-rates-not-just-token-costs/5270683)
 
 ## Summary
@@ -76,9 +87,35 @@ The method arriving from the fourth direction — not a benchmark vendor, not a 
 
 Two things separate it from DRACO's pipeline. It is **production-sourced tasks, not production traffic**: staff engineering work, not de-identified user queries, so no privacy pipeline is needed and no thumbs-down difficulty proxy is available. And its representativeness claim is stated at company scope, not domain scope — Zaharia concedes the results reflect Databricks' own codebase while arguing other companies can run the same evaluation against theirs. That is the honest form of the moat argument on this page: the asset is not transferable, but the *method* is, and a buyer with a large codebase already owns the substrate.
 
+## One step further: production failures as *training* signal (Shopify, August 2026)
+
+Every instance above sources **test** data from production. [Shopify's Sidekick account](https://shopify.engineering/sidekicks-continual-learning-loop) (McNamara & Mazza-Anthony, Shopify Engineering, 2026-08-05, `case-study` — first-party, unreplicated, self-reported) points the same pipe at the **training** set: anonymized production traffic is mined daily for hard negatives, a frontier critic panel proposes a repair, the conversation is replayed with the repair injected, and if the judge re-scores it as passing, *the replay becomes a reinforcement-learning trajectory with the judge's score as its reward*. Failures the critics cannot repair escalate to human annotators scoring against the same rubric. The account's own framing of why: *"in a traditional workflow, each failure becomes a bug report or Slack thread. In the flywheel, these failures automatically enter a self-healing pipeline."* Full mechanism on [Agent Quality Flywheel](/articles/agent-quality-flywheel).
+
+**The difficulty proxy is the interesting difference, and it runs the wrong way.** DRACO's proxy is a *human* signal independent of the system being improved — subsequent negative sentiment or an explicit thumbs-down. Shopify's is **the judge's own low score**: *"conversations the judge correctly scores low and that expose where the model is weakest."* That is far cheaper and far denser (it applies to all traffic, not the small fraction that draws a complaint) and it is **not independent of the thing being optimized** — the same instrument selects the training data, gates the repair, supplies the RL reward, and grades the result. A judge blind spot is therefore invisible on both sides of the loop: cases it scores wrongly high never enter the corpus, and the improvement it reports is measured in its own units.
+
+**Which instantiates this page's own open question rather than answering it.** The thumbs-down bullet below asks whether difficulty-by-current-failure "makes the benchmark a moving target that flatters the next model trained on those failures." Shopify is the corpus's first source that actually *trains on the sampled failures*, on a daily cadence, with no held-out arm and no clean split anywhere in the account — production-sourced training and production-sourced evaluation drawn from one pipe and graded by one instrument. Nothing is measured, so nothing is settled; what changes is that the hazard now has a deployment rather than a hypothesis. The transferable discipline: **once production failures feed weights as well as evals, the difficulty proxy has to come from outside the model's own grader**, or the split that would detect over-fitting to the proxy does not exist.
+
+## The user-triggered form: Bridgewater's Teach button (2026)
+
+Every instance above mines production traffic *for* the team. Bridgewater's PAT ([Bridgewater Associates](/articles/bridgewater-associates)) adds a variant where **the expert user decides what counts as a failure**, and the interesting part is what the loop does with that judgment.
+
+Two paths run in parallel. The autonomous one matches Google's flywheel: background agents continuously scan completed investor conversations "figuring out where PAT went wrong," producing **human-audited benchmarks** that feed changes to context repositories and to the harness. The explicit one is a **Teach button** in the UI, and its trigger condition is the notable design choice — Michael Ran demonstrates it on an interaction where *nothing was wrong*: the user simply asked for a different set of visualizations, an angle they judged PAT should have proposed unprompted. **The signal being captured is a preference the product failed to anticipate, not an error it committed** — a class of failure no automatic grader defines and no trace inspection surfaces, because every step succeeded.
+
+Pressing it spawns an agent that reads the conversation for three named categories: *behavioral mistakes*, *context gaps*, and **user steering that can be front-run**. The user edits or accepts the agent's reading, and on submit the back end runs a sequence worth stating in order:
+
+1. **Write a benchmark that is expected to fail** — reproducing the poor behavior first, so the fix has a witness.
+2. Iterate on the context repositories or the harness itself until that benchmark passes.
+3. **Re-run the rest of the suite** to confirm the fix caused no regression.
+4. Post a Slack message with a **pull request** containing the proposed changes to PAT.
+
+Step 1 is the one that separates this from the other instances on this page: a red test before the fix converts "the agent learned something" from an assertion into a reproducible artifact, and it is the discipline that makes step 3 meaningful. Steps 2–4 are [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — an agent editing its own harness — with the human gate relocated to **PR review** rather than to benchmark authorship. The claimed payoff is fleet-wide: "the next time a human comes to PAT with a similar question, we expect them to get the better version of PAT right out of the box," one investor's correction compounding for all of them.
+
+What is missing is any measurement of the loop. No acceptance rate for the generated PRs, no benchmark-suite size or growth rate, no report of what fraction of Teach presses produce a durable improvement, and no account of what happens when two investors' preferences conflict — which, for a tool whose failures are *preferences* rather than errors, is the failure mode the design most invites. `case-study`, first-party, unmeasured.
+
 ## Contrast with the alternatives
 
-- **Synthetic generation** (DeepResearchEval, ReportBench, DeepScholar-Bench, DRBench) — scalable, no privacy exposure, but tasks are model-imagined and may miss real failure modes.
+- **Synthetic generation** (DeepResearchEval, ReportBench, DRBench) — scalable, no privacy exposure, but tasks are model-imagined and may miss real failure modes.
+- **Auto-generated from a live corpus** ([DeepScholar-Bench](/articles/deep-research-agents)) — DRACO's Table 1 files this under synthetic, and on the human-authorship axis that is right; but its tasks are derived from recent arXiv papers on a monthly refresh restricted to post-training-cutoff publications, so it is neither model-imagined nor contaminatable. It buys refreshability the way this page's method does — from a stream that renews itself — without needing production traffic or a privacy pipeline. The cost is that the domain is whatever the corpus is about, and nothing about real user intent survives.
 - **Hand-authored from interviews/searches** (xBench, ResearcherBench, DEER) — human-authored and realistic, but bounded by author imagination and not drawn from a live production system.
 - **Production-sourced** (DRACO) — the only one of the three that mines the actual distribution and the actual failures, at the cost of needing deployment access and a privacy pipeline.
 
@@ -97,18 +134,22 @@ Two things separate it from DRACO's pipeline. It is **production-sourced tasks, 
 - [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement) — [Faros AI](/articles/faros-ai)'s telemetry-over-survey stance is the engineering-metrics sibling: measure from the real system, not from self-report
 - [Deployment Simulation](/articles/deployment-simulation) — the alignment-side application of the same method: OpenAI replays de-identified production conversations to forecast *safety* behavior pre-release, where DRACO replays them to build a *capability* benchmark; same PII pipeline, same proprietary-traffic moat
 - [Conversation-to-Delegation Shift](/articles/conversation-to-delegation-shift) — its measurement-obsolescence argument is the same instinct one step further: as usage becomes delegation, even *which metrics* to read (complexity, runtime, concurrency, output) must be re-sourced from real agentic behavior, not interaction counts
-- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the continuous product-loop form: OTel production traces graded in place, Online Monitors on live traffic, synthetic simulation demoted to cold-start bootstrap
+- [Agentic Code Generation as Compilation](/articles/agentic-codegen-as-compilation) — the reproducibility argument for why an eval substrate needs a deterministic pipeline underneath it: Bridgewater buys two-agent code identity explicitly so that "as we're scaling and hill climbing and evaluating, we have something much more dependable than vibes-based or LLM-as-judge evals." A production-sourced benchmark still needs the run-to-run noise floor low enough that a delta is attributable to the change rather than to sampling
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the continuous product-loop form: OTel production traces graded in place, Online Monitors on live traffic, synthetic simulation demoted to cold-start bootstrap. It also carries the version that crosses from test data into training data (Shopify's self-healing pipeline), where the difficulty proxy is the in-loop judge's own score rather than an independent human signal
 - [Failures That Look Like Success](/articles/failures-that-look-like-success) — the failure class production-scale traces could quantify: silent contract violations that demo-sized evals only sample
+- [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic) — the method with its curation stage deleted, pointed at alignment: no sampling design, no augmentation, no human QA gate, just two judge rubrics run over 8,600 real coding-agent transcripts. It is the cheapest possible version and it inherits the liability this page's tradeoff section names in its purest form — the distribution is simply whatever traffic arrived, and one heavy user with unusually strict code-review rules supplies 41 of the 76 charted severe monitor-evasion cases. Also the clearest case that production-sourcing is not free of construct problems: the behaviour it counts is defined against an oversight mechanism the *user* had to install first
 - [Context Advantage, Not Taste](/articles/context-advantage-over-taste) — production telemetry as context transfer: sourcing evals from real usage moves what the human knows about users into where the model can read it, spending the human's asymmetry by design
 - [LLM-Judge Validation](/articles/llm-judge-validation) — the orthogonal quality axis: this page fixes *which tasks* the benchmark contains; judge validation fixes *whether the grading of them is trustworthy* — a representative task graded by an unvalidated judge is still an unreliable eval
 - [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the sibling answer to "what to do when a benchmark saturates," from the opposite end: this page *refreshes the task set* from live production usage; Nadgir et al. *re-instrument the existing task set* along six non-accuracy axes. Both reject the retire-and-replace reflex — new tasks vs new metrics
 - [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — the **prevention vs correction** pairing against data contamination: production-sourcing (and dynamic benchmarking generally) *avoids* leakage up front by drawing fresh, hard-to-pre-memorize tasks and refreshing them; UBD instead *repairs* a model already inflated by exposure to a static benchmark, without a clean reference. Complementary defenses against the same leakage threat
 - [How Much Signal Do Public Benchmarks Still Carry — and What Replaces Them?](/articles/benchmark-signal-and-what-replaces-it) — the cluster synthesis: production-sourced refresh is the new-tasks move of the five-part replacement portfolio (contamination prevention + representativeness), paired there with judge validation as the two halves of a trustworthy eval
 
+- [Governance by Benchmark Threshold: What an Index Must Prove Before an Obligation Can Rest on It](/articles/governance-by-benchmark-threshold) — refresh-from-production as the general form of contamination prevention in a governance setting, and its limiting condition: the pipeline needs deployment traffic at scale, which a regulator drawing a perimeter does not have and the regulated parties do
+
 ## Open Questions
 
 - How much does augmentation distort the distribution it claims to represent? Is there a measurable representativeness loss between raw queries and augmented tasks?
-- Difficulty-by-thumbs-down biases toward current failures — does that make the benchmark a moving target that flatters the next model trained on those failures?
+- Difficulty-by-thumbs-down biases toward current failures — does that make the benchmark a moving target that flatters the next model trained on those failures? **Instantiated, not answered (2026-08-13):** [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) runs exactly this loop in production — hard negatives sampled by a judge's low score, repaired, replayed, and folded into weights daily via SFT then GRPO with that same judge as the reward — and reports no held-out split, no independent difficulty proxy, and no arm that would separate "the model got better" from "the model got better at the sampler." So the hazard has a deployment now and still no measurement. The falsifiable form sharpens: hold out a slice of production traffic sampled by a signal the training loop never sees (user thumbs-down, or a judge from a different family), and compare the improvement measured there against the improvement measured on the in-loop judge.
 - Can the privacy pipeline (no human sees raw queries) be trusted/audited well enough for regulated domains (medicine, law) where the source traffic is most sensitive?
 
 ## Sources
@@ -116,4 +157,7 @@ Two things separate it from DRACO's pipeline. It is **production-sourced tasks, 
 - [DRACO: a Cross-Domain Benchmark for Deep Research Accuracy, Completeness, and Objectivity](https://arxiv.org/abs/2602.11685) — §3 (task construction: sampling, pre-processing, augmentation, filtering, curation), §6.1 (generalization limits; augmentation over-specification caveat)
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — "From the inner loop to the production loop": OTel traces as eval input, Online Monitors, synthetic-as-bootstrap (`vendor-claim`)
 - [Reliability without Validity: A Systematic, Large-Scale Evaluation of LLM-as-a-Judge Models Across Agreement, Consistency, and Bias](https://arxiv.org/pdf/2606.19544) — Norman et al. (arXiv 2606.19544, June 2026, `empirical`): the grading-validity half of eval quality, orthogonal to task representativeness; see [LLM-Judge Validation](/articles/llm-judge-validation)
+- [Measuring coding agent misalignment in the wild](https://transluce.org/docent/blog/coding-agent-behaviors) — The Docent Team, Transluce, 2026-08-04 (`empirical`): the method stripped to its minimum — two LLM-judge rubrics run over 8,600 real coding-agent transcripts with no sampling design, augmentation or human QA gate — and the clearest instance of the representativeness liability, where one heavy user supplies 41 of 76 charted severe cases and the counted behaviour is defined against oversight the user had to install. Full treatment on [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) — Andrew McNamara & Cody Mazza-Anthony, Shopify Engineering, 2026-08-05, `case-study` (first-party account of the authors' own production system; no replication, no controlled arm, no held-out split). Cited for the training-side extension only: hard-negative mining by judge score, the critic-panel → arbiter → hinting → replay repair loop, Toloka escalation for unrepairable failures, and the daily SFT+GRPO fold-in. Its cost and quality figures are not used here. Full source treatment on [Agent Quality Flywheel](/articles/agent-quality-flywheel)
 - [The price is wrong: AI cost calculation has to consider task completion rates, not just token costs](https://www.theregister.com/ai-and-ml/2026/07/13/the-price-is-wrong-ai-cost-calculation-has-to-consider-task-completion-rates-not-just-token-costs/5270683) — Thomas Claburn, The Register, 2026-07-13 (`case-study`, **secondary reporting** of Databricks' benchmark blog post; the primary is not in the corpus): the buyer-side instance — an internal coding benchmark devised from staff engineering tasks against a multi-million-line codebase, motivated by models being tuned to SWE-Bench, with the results driving model and harness selection
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY) — McManus, Ran & Weight (Bridgewater Associates), LangChain channel, 2026-07-24, 25:44 talk, `case-study`. Cited for the Teach-button loop (15:24–18:08) and the autonomous background-agent variant (5:01–6:24). First-party and entirely unmeasured — no PR acceptance rate, no suite size, no durability figure. See [Bridgewater Associates](/articles/bridgewater-associates)

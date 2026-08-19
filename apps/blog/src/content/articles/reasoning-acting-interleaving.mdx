@@ -1,0 +1,134 @@
+---
+date: 2026-08-17
+title: Reasoning–Acting Interleaving (ReAct)
+description: "The 2022 prompting abstraction that made an agent out of a
+  language model: alternate a free-text thought with a tool action and its
+  observation, one pair at a time, so each thought is conditioned on what the
+  environment just returned. Taught in CS329A lecture 4 as the origin of tool
+  calling — it beats action-only prompting everywhere, beats chain-of-thought on
+  fact-checking but not reliably on multi-hop QA, and swaps chain-of-thought's
+  hallucination failure for retrieval failure. Its own fate is the interesting
+  part: the interleave is now distilled into thinking models and the harness no
+  longer supplies it"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - tool-use
+  - prompting
+  - grounding
+  - reasoning
+readingTime: 17
+imageAlt: Illustration for Reasoning–Acting Interleaving (ReAct)
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with
+      Tools and Code"
+    url: https://www.youtube.com/watch?v=Lxh9RF5S-K0
+---
+export { default as heroImage } from "../assets/reasoning-acting-interleaving.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0)
+
+## Summary
+
+**ReAct** is the prompting pattern that alternates a free-text *thought* with a tool *action* and the environment's *observation* — thought₁, action₁, observation₁, thought₂, action₂, … — with each thought conditioned on everything returned so far. It is named in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 4 as "one of the first" abstractions to combine reasoning and acting in a language model, and it is the primitive five other pages in this wiki already invoke by name — [TRACE's three-tool browser harness](/articles/deep-research-agents), [OpenCodeReview's 30-iteration review loop](/articles/deterministic-agent-code-review), AISI's 40-hour cyber-evaluation agent, METR's cheating-detection harness — without anywhere defining it. This page is that definition plus what the lecture's evidence actually supports.
+
+The interleave is the whole content of the idea. The lecture is explicit that the pre-ReAct alternatives were two separate literatures: chain-of-thought produced reasoning steps that "may or may not be grounded because they are based on the model's internal state," and browser-imitation systems like **WebGPT** learned to act on an environment with no reasoning process to speak of. ReAct's claim is that you get a third thing by simply putting them in one prompt in strict alternation, with **no training at all** — a frozen PaLM with few-shot exemplars, in the lecture's telling.
+
+A student asks the question that isolates the design: does the model plan thought₁…thought₄ up front and then act, or does each action feed the next thought? Chowdhery: *"It's interleaved. So it's thought one then act one, thought two act two… it's very much like the human process."* Front-loading the reasoning would reduce ReAct to chain-of-thought with a tool appended; the alternation is what makes the environment able to correct the plan.
+
+> **Evidence.** Everything here is [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 4 ([CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0), [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, delivered **2025-10-03**, published 2026-08-03, `practitioner-opinion`) — a slide walkthrough of the ReAct paper, which is **not** in `raw/`. Every figure below was read off a slide by ASR. Numbers are approximate and attributed to the lecture, not to the paper. The state of the art described is **late 2025**.
+
+## The worked example, and what it shows
+
+The lecture walks one HotpotQA item across four prompting regimes: *"Aside from the Apple Remote, what other device can control the program the Apple Remote was originally designed to interact with?"*
+
+| Regime | What happens |
+|---|---|
+| Standard prompting | Wrong answer |
+| Chain of thought | Intermediate steps shown, answer still not right |
+| **Action only** | Searches *Apple Remote*, then *Front Row* from the observation text, discovers the program is discontinued, and cannot assemble an answer |
+| **ReAct** | Same searches, but each is preceded by a thought naming what is still missing — and when *Front Row* returns nothing, the model **coins a new query term**, *"Front Row software"*, retries, and answers |
+
+The recovery is the point. Action-only had the same observation and stopped; the thought turn is where the failed lookup becomes a reformulated query. This is the smallest possible instance of the pattern [Agent Loop Pattern](/articles/agent-loop-pattern) scales up — read feedback, correct, decide whether to continue — and the lecture's own summary is that reasoning is "an abstraction which allows it to come back with a better answer than just taking actions."
+
+## Results: better than acting, not uniformly better than thinking
+
+Three tasks, two knowledge-intensive and one decision-making:
+
+- **HotpotQA** — multi-hop question answering over Wikipedia. Action space: search a page, look up a string, finish.
+- **FEVER** — fact checking, same action space.
+- **WebShop** — buy a product matching a user instruction ("a nightstand with drawers") in a simulated storefront, via a sequence of searches and selections.
+
+What the lecture reports, and the shape is more interesting than a win:
+
+- ReAct beats **action-only** everywhere.
+- ReAct does **not** uniformly beat chain-of-thought. It wins on FEVER; on HotpotQA it does not reliably win.
+- **The combination wins.** Chain-of-thought-with-self-consistency and ReAct, with either used as the other's fallback (ReAct backs off to CoT-SC after a step budget; CoT-SC backs off to ReAct when the majority answer occurs less than half the time), outperforms both. The lecture's reading: *"there's value in properly combining the model's internal knowledge with the external knowledge."* Note that the fallback trigger on the CoT-SC side is a **consensus-strength threshold** — the same majority-vote signal [lecture 2 showed plateaus at 10–50 samples](/articles/verifiability-thesis), used here not as a selector but as a router.
+- On **WebShop**, ReAct beats both imitation learning and imitation-learning-plus-RL, and is still well short of people: **66.6 against a human expert's 82.1** on the lecture's score axis. Success rate is lower than score for everyone, because *"this is a multi-step process, [and] the errors cascade over time"* — the compounding-per-step arithmetic [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) formalizes.
+- **Prompting is the weakest way to get it.** "When you can fine-tune, ReAct definitely does better, and if you can RL loop then it does even better" — the lecture's forward pointer to its own train-time-scaling session.
+
+## The failure-mode swap
+
+The result the lecture flags as the one to take away from the error analysis is not a score. Chain-of-thought's dominant failure mode is **hallucination**; ReAct's is not. Grounding the trace in retrieved text removes the class of error where the model invents a fact and reasons confidently from it — and replaces it with the errors of a retrieval system, where the search returns the wrong thing or nothing.
+
+This is a trade, not a fix, and it is the same trade [Deep Research Agents](/articles/deep-research-agents) measures a generation later from the other side: once the model believes what it retrieves, **a single plausible-but-false retrieved document moves false-conclusion adoption from 0% to 54.7%** with no injection anywhere. Ungrounded reasoning fails by confabulation; grounded reasoning fails by trusting its ground. The lecture states only the first half — *"hallucination with search results can be controlled much better than just depending on the internal state"* — which was defensible in 2022 and is the weaker claim now.
+
+## Constraining the action space so the action is valid
+
+A student asks how you know a generated action is *executable* at all. Chowdhery's answer is a technique worth keeping separate from ReAct itself: **frame action selection as classification over an enumerated valid set.** Give the model the state, the reasoning so far, and the list of currently-legal actions, and have it choose from the list rather than emit free text. She notes it was also used in a Google robotics collaboration where "the state of the world requires very valid actions, so you can't really operate without having a list of actions."
+
+Two things follow. It is the cheapest known guard against the mode where an agent invents a tool call that does not exist — the same job a typed tool schema does in [MCP](/articles/mcp-and-computer-use), reached by prompting rather than by protocol. And it bounds the pattern: the lecture's stated limitation on ReAct is that **large action spaces need more demonstrations than fit in context**, which is exactly the regime where enumeration stops being possible.
+
+*(COI, small but worth naming: the robotics collaboration is Chowdhery's own prior work at Google, and the backbone model in the ReAct experiments she is teaching is PaLM, of which she is lead author. Neither is disclosed in lecture.)*
+
+## The fate of the pattern: the harness stopped supplying it
+
+The lecture's most durable observation is about ReAct's obsolescence, and it is stated twice:
+
+> "In today's models the reasoning has become innate because thinking has become part of the models. But if you look at the history of the LLMs in the last couple of years this was not something that came out of the box."
+
+> "If you turn on the thinking mode in [open-source] models, you'll see all of this starting to happen, because the models have already been distilled on these kinds of traces… they've already learned how to do tool calls and so on."
+
+That is [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) observed on a specific primitive with a specific mechanism: the prompt scaffold that used to force the alternation became **training data**, and the trained model now emits the alternation unprompted. The scaffold did not get better; it got absorbed. It also explains why the term survives as a name for *loop shape* in this wiki's 2026 sources — nobody is writing ReAct exemplars any more, but everybody's agent still runs thought/action/observation, because that is what the model does now.
+
+## What the lecture leaves standing as open
+
+Two exchanges survive the ASR intact and both are load-bearing.
+
+**Does the model know what it knows?** A student presses on when to search at all — you would not search to add one and one. Chowdhery's answer refuses the framing: *"there's a contradictory set of opinions… typically if you ask the model to rate its output, are you confident, the models are not well calibrated. That's a research problem that is still being solved."* Her design conclusion is to route around it — *"what you are looking for is not so much knowing whether the model knows, but getting the model to use the right set of tools so that you have grounded knowledge."* Grounding as a substitute for calibration, adopted because calibration was unavailable. The wiki has since acquired both the failure ([Confident But Unsure](/articles/confident-but-unsure)) and a deliberate remedy ([Trained Calibration](/articles/trained-calibration)), so the substitution is now a choice rather than the only option.
+
+**What if the environment lies?** Asked what happens when feedback is noisy or wrong, the class converges on three remedies and Chowdhery endorses all three: a **reflection layer** over the environment's output before reasoning on it, **backtracking** (because noisy feedback "might lead it down repetitive loops"), and **confidence estimates** built from repeated attempts. Nothing in ReAct itself does any of this — the pattern trusts every observation — and the repetitive-loop failure the class names is the one [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) later prices exactly: a bounded repair loop under a noisy checker can be *worse* than committing the first draft.
+
+## Connections
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 4's first paper; the course's on-ramp from single-turn reasoning to tool-using agents
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) — the lecturer, and lead author of the PaLM backbone the results run on
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — the primitive one level up: ReAct is the *inner* alternation of thought and action; the loop pattern is the outer question of when the whole thing runs again and when it stops
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — lecture 4's second paper and the same loop with the observation replaced by a test result and the whole thing moved inside a training run: ReAct grounds a *frozen* model at inference, RLEF makes the grounding a gradient
+- [Deep Research Agents](/articles/deep-research-agents) — where the pattern lives in current practice, and where its grounding trade gets measured from the other end: retrieval failure and retrieval *poisoning* are what remain once hallucination is gone
+- [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) — a production ReAct loop with every free parameter pinned: six capped tools, 30 iterations, an empty-round detector, the enumerated-action discipline above taken to its limit
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — what you can do with the trace once you want to *train* on it: TRACE's credit units are exactly ReAct's action–observation boundaries, and its finding that value change concentrates on a handful of observations is the quantitative version of the "Front Row software" recovery above
+- [Invisible Reasoning (Filler-Token Latent Computation)](/articles/invisible-reasoning) — the unresolved question under the thought turn. Asked why reasoning tokens belong in the action space at all, Chowdhery's answer is that "language models are trained on language, so they benefit from having the reasoning tokens in the right abstraction… if you had intermediate representations then maybe it doesn't matter" — an explicit concession that the verbalization may be a substrate accident, which is the hypothesis this page's filler-token result probes directly
+- [Confident But Unsure](/articles/confident-but-unsure) — the calibration gap ReAct routes around rather than fixes
+- [Trained Calibration](/articles/trained-calibration) — the remedy that did not exist when the workaround was chosen
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the priced version of the class's noisy-environment worry, and the reason "add a reflection layer and retry" is not automatically an improvement
+- [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) — why WebShop success rate trails WebShop score: per-step error compounds over a multi-step purchase
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the pattern's own trajectory: a prompting scaffold that became distilled model behavior
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the fallback router uses majority-vote consensus strength as a proxy for "am I right", which is the selector this hub explains the limits of
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — the protocol-layer answer to the valid-action problem ReAct solves by enumeration in the prompt
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — the same alternation with search around it: LATS keeps ReAct's thought/action/observation unit and adds branching, scored nodes, backtracking and a written reflection on why a trajectory failed. Taught in the very next lecture as "more and more planning in the process"
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — what happens when you train on ReAct-shaped trajectories instead of prompting them: SWiRL generates them offline, scores each action with a judge, and moves the weights. Its blind spot is exactly this page's failure-mode swap — a well-formed query that retrieves nothing scores as well as one that finds the answer
+- [Guarantees That Degrade at Deployment: Action-Space Soundness, Admissibility Without Effect, and a Vendor-Coupled Security Framework](/articles/guarantees-that-degrade-at-deployment) — what became of the enumerated-action technique once the action space outgrew the context window: the guarantee survives by *relocation* (ScopeGate's stage 1 is "choose from the list" moved into a fail-closed runtime, where the list's size is free and out-of-set actions become unexecutable rather than unlikely), and the binding constraint changes from context capacity to policy coverage
+- [Retrieval Inside the Reasoning Chain](/articles/retrieval-inside-the-reasoning-chain) — the same alternation once the acting model is a reasoning model that emits its own searches, with two additions: the trigger is the model's own hedging vocabulary in the trace ('perhaps', 'alternatively', 'wait'), and the observation is summarized against the current query before it is read back. The second is what this page's failure-mode swap predicts you would need — grounding installs dependence on what retrieval returns, and dumping 10-20 documents into the chain is where that dependence starts costing
+
+## Open Questions
+
+- The lecture claims the interleaved trace is "extremely interpretable" and that this lets humans trust the model's responses. This wiki's later sources treat verbalized reasoning as an unreliable account of the computation ([Chain-of-Thought Monitorability](/articles/cot-monitorability), [Invisible Reasoning (Filler-Token Latent Computation)](/articles/invisible-reasoning)). Is a ReAct trace *more* faithful than a plain chain-of-thought because each step is anchored to an observed tool result — or does grounding buy verifiability of the actions while leaving the thoughts exactly as post-hoc as before?
+- Enumerating the valid action set fails when the action space is large, which is where every real agent now lives. Does anything recover the guarantee at scale, or is a typed tool schema plus a retry the whole of the current answer? **Partially answered (2026-08-17)** by [Guarantees That Degrade at Deployment: Action-Space Soundness, Admissibility Without Effect, and a Vendor-Coupled Security Framework](/articles/guarantees-that-degrade-at-deployment). The disjunct is settled: a typed schema is *capability gating* and is strictly weaker than what enumeration gave — it validates shape, and [the cross-framework audit](/articles/capability-gating-vs-authorization) found LangChain/LangGraph, LlamaIndex and the Stripe Agent Toolkit all ship it with **no deterministic fail-closed check over concrete argument values by default**. The guarantee is recovered by relocating it: ScopeGate's stage 1 (*"Unlisted tools → DENY. Blocks model-discovered tools and misspelled variants from reaching side effects"*) is this page's technique moved out of the prompt into the runtime, where list size costs nothing and an out-of-set action becomes unexecutable rather than unlikely — and stages 2–5 then decide the property a prompt list never could. The retry half is also improved on: NetInjectBench's gate substitutes a fixed safe fallback rather than terminating, which is why blocking costs almost nothing (0.00% unsafe tool-action rate at 99.17% useful-action rate). **What is not answered is the "at scale" half.** The bound changed from context capacity to *policy coverage*, and no source measures a gate over a large tool surface — ScopeGate governs a handful of tools, NetInjectBench two, and it inherits its policy from an existing change-management record rather than authoring it. Rashidi's Gap 4 finds that no paper in a 39-paper execution-security corpus measures policy-authoring error at all.
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0) — *CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code*, [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, Stanford Online. Delivered **2025-10-03**, published to YouTube 2026-08-03 (`practitioner-opinion`, YouTube auto-caption transcript, ~12.9k words). The ReAct third of the lecture: the thought/action/observation abstraction and its two ancestor literatures, the HotpotQA worked example across four prompting regimes, the HotpotQA/FEVER/WebShop results and the CoT-SC fallback combinations, the WebShop 66.6-vs-82.1 human gap and the error-cascade explanation of the score/success-rate split, the hallucination-to-retrieval failure swap, action-space-as-classification, the large-action-space and inference-cost limits, and the "thinking is innate now" observation. Plus the two discussion segments on model calibration and on noisy environment feedback. The ReAct paper itself is not in `raw/`; all figures are ASR-read off slides and are hedged accordingly

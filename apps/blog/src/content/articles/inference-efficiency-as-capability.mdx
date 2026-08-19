@@ -4,12 +4,15 @@ title: Inference Efficiency as Capability
 description: "If capability is a function of inference budget, then cutting the
   cost of a token is capability work: Gemma 4's five levers (37.5% KV-cache
   reduction via keys-as-values + p-RoPE, QAT to sub-GB, MTP drafter heads, MoE,
-  encoder removal) buy more thinking per dollar — Kimi K3 runs the same logic at
-  the opposite pole, where 3.7% activation sparsity, hybrid linear attention and
-  MXFP4 QAT are what make a 2.8T open model servable at all, and Gemini 3.5
-  Flash-Lite shows the efficiency *tier* moving the other way: a full
-  agentic-capability tier bought with a 67% output-price rise, so that
-  per-dollar the release is a gain on some benchmarks and a loss on others"
+  encoder removal) buy more thinking per dollar; Kimi K3 runs the same logic at
+  2.8T, where 3.7% activation sparsity and MXFP4 QAT are what make the model
+  servable at all; and Gemini 3.5 Flash-Lite shows the efficiency *tier* moving
+  the other way, a capability tier bought with a 67% output-price rise. The
+  reverse term is now measured — sparse attention changes *which* content can
+  influence the answer (severing cross-block attention takes a probe from 4.48
+  logits to zero), with the compression ratio flipping the sign — and the axis
+  finally has a proposed unit: Stanford's **intelligence per watt**, whose 5.3×
+  two-year gain splits into 3.1× model × 1.7× hardware"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -18,7 +21,7 @@ tags:
   - test-time-compute
   - quantization
   - deployment
-readingTime: 18
+readingTime: 38
 imageAlt: Illustration for Inference Efficiency as Capability
 sources:
   - title: Gemma 4 Technical Report
@@ -32,16 +35,23 @@ sources:
     url: https://huggingface.co/moonshotai/Kimi-K3
   - title: Gemini 3.5 Flash-Lite Model Card
     url: https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/
+  - title: Understanding Sparse Attention Selectivity in Long-Context Foundation
+      Models via Counterfactual Evaluation
+    url: https://arxiv.org/pdf/2608.01676
+  - title: "CS329A Self-Improving AI Agents — Part 9: Future Research Areas"
+    url: https://www.youtube.com/watch?v=AyO6wyu4DEg
 ---
 export { default as heroImage } from "../assets/inference-efficiency-as-capability.webp";
 
 ## Sources
 
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg)
 - [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
 - [Jeff Dean: The 1% Rule for Building in AI](https://www.youtube.com/watch?v=CxXgV54KzpQ)
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)
 
 ## Summary
 
@@ -121,6 +131,83 @@ Dean's forward-looking claim is that the next specialization is **inference sili
 
 Two things this adds that the model cards cannot. First, an **upper bound on what architecture can buy**: efficiency levers inside the model are competing against a hardware constant, and the constant is where the 1000× lives. Second, a **reason the efficiency tier keeps moving up-market** (the Flash-Lite section above): if low latency requires small batches and small batches forfeit the amortization, then *latency is expensive in energy* independent of capability — so a tier defined by latency has no reason to stay a tier defined by price.
 
+## The reverse term, measured: an efficiency lever that changes *which content* can influence the answer (August 2026)
+
+Every section above runs the page's thesis forward — cheaper tokens, more capability at a fixed budget. Ren, Sun, Yi & Yang ([Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676), CUHK / University of Maryland, arXiv 2608.01676, 2026-08-03, `empirical`) are the corpus's first **controlled** measurement of the term running backwards, and they attack the axis nobody audits: *sparse attention is judged on throughput, memory, and aggregate benchmark accuracy, and none of those can see a change in whose evidence the model is able to use.*
+
+Their framing of the gap is the sentence this page was missing: a selector that discards evidence blocks "does not just save compute. It changes which evidence can influence the answer, and how strongly."
+
+**What is actually measured — and it is not accuracy.** For a fixed item with gold answer `y_G` and target wrong answer `y_P`, the route-specific margin is `M_o = log p(y_P | x, o) − log p(y_G | x, o)`, and a content block's *behavioural influence* is how that margin moves when the block is admitted to the route rather than excluded. The primary quantity is a difference-in-differences, `∆ = H₃^sparse − H₃^dense`: positive means sparse attention amplifies the probe more than dense does, negative means dense does. Read this as a **content-influence proxy, not a task-accuracy benchmark** — every number below is in logits of a two-way answer margin, and no accuracy figure appears anywhere in the paper.
+
+The apparatus is the contribution more than any single number:
+
+- **Matched probe cards.** Three query-bound cards of exactly 128 tokens — Gold (carries the correct label), Poison (a target wrong label), Benign (whitespace filler only, no legal label) — identical except at frozen index 64. Every pair therefore differs at one token, with length, padding, template and query binding held fixed, and a complete Latin schedule rotates every candidate identity through every legal label so label-token preference cannot leak into the content effect.
+- **Six-layout symmetry.** All six permutations of the three cards, so every card occupies every slot twice and every ordered pair appears in both orders — slot and order confounds removed by construction rather than by covariate.
+- **Equal-cardinality forced routing.** A shared `K−1` core is frozen (protected scaffold blocks plus neutral filler, no G/P/B/R anchor admitted), then four counterfactual routes each add exactly one anchor, giving pairwise Hamming distance two. Each route triggers an independent full forward; no prefill KV state is reused across routes.
+- **A within-kernel dense baseline.** The dense arm is the same model, items, prompts, layouts and scoring rule under patched eager attention at `c = 0` — same forward path, only the compression ratio varies. At `c = 0` the two measurement operations (route substitution vs token replacement) agree to a mean |H₃| discrepancy of **0.044 logits at 100% label agreement**, which is 11×–49× smaller than main effects spanning 0.47–2.15 logits, and that 0.044 is retained as a quantified baseline in every estimate rather than assumed away.
+
+**Two mechanisms compete, and both have direct causal evidence.**
+
+*Signal concentration* — the selector prefers signal-bearing blocks, so retained content gains influence. Natural route receipts give **G ≈ P ≫ B in all four model–task pairs** (Qwen3/SCBench-KV: 0.758 / 0.759 / 0.470). The control that makes this non-trivial is that the Benign card holds 128 *real* tab-filler tokens, so a selector merely preferring non-empty blocks would not separate them.
+
+*Integration loss* — discarding blocks severs cross-block attention paths, so the surviving signal weakens. Confirmed by ablation rather than inferred: masking the probe block to retain full self-attention but neither attend to nor be attended from any other block **collapses its influence from 4.48 logits [4.10, 4.87] to exactly zero across all 1,536 units** (max |H₃| &lt; 10⁻⁴, mean 0.0000). With sparse partial connectivity at `c = 0.25` sitting at 4.09 [3.92, 4.26], the three conditions form a monotonic dose–response from full to partial to zero cross-block connectivity.
+
+The two coexist inside a single cell, which is the finding that most resists summarising: in Qwen3/SCBench-KV at `c = 0.25` the selector admits the signal-bearing block at rate **0.994** and ∆ is nevertheless **−0.31**. Route-level preference does not predict output-level influence; they are different layers.
+
+**Compression ratio is the control variable.** Holding everything else fixed and sweeping `c ∈ {0.25, 0.50, 0.75}`:
+
+| Model–task | c = 0.25 | c = 0.50 | c = 0.75 (95% CI) |
+|---|---|---|---|
+| Qwen3-8B / SCBench-KV | −0.31 | +0.16 | **+0.93** [+0.81, +1.04] |
+| Llama-3.1-8B / SCBench-KV | −0.73 | −0.70 | −0.60 [−0.64, −0.56] |
+| Qwen3-8B / SciFact | +0.19 | +0.08 | **−0.08** [−0.18, +0.02] |
+| Llama-3.1-8B / SciFact | −0.53 | −0.46 | −0.29 [−0.41, −0.17] |
+
+Two sign reversals, running opposite ways, produced by moving one knob. **Three of four cells shift toward more positive ∆ as compression rises; Qwen3/SciFact is the exception and descends.** So "how much does sparsity change content influence" has no answer without naming the operating ratio, the model, and the task — which is [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)'s complaint arriving on the efficiency side with the axis actually plotted.
+
+**The consequence for anyone deploying an efficiency lever** is that the pooled test designed to detect this returns nothing. Three preregistered pooled hypotheses, all testing for a uniform direction, are null after Holm correction at **p = 0.995, 0.771, 0.541** — while the per-cell stratified family rejects 31 of 32 nulls. The null is produced by the effect, not by its absence; see [Aggregate Cancellation](/articles/aggregate-cancellation) for the general form and the detection moves.
+
+**Four caveats, two of them about the paper's own framing.**
+
+- **The headline sentence overreaches the paper's strongest arm, and in a direction worth naming.** The abstract and introduction sell the risk as a sparse model "amplifying misleading content and suppressing corrective content." Every measurement in the paper that uses *real* misleading passages runs the other way: all eight real-evidence ∆ estimates are negative (−2.15 to −0.36, i.e. **dense** amplifies the poison more), and all eight KVPress cells show compression *reducing* the poisoning rate relative to dense (−0.0115 to −0.1644, every interval below zero). The only sparse-amplifies cells anywhere in the document are thin **one-token synthetic label** probes. The defensible claim is that sparsification *changes* content influence heterogeneously in sign; "amplifies misleading content" is not what its own real-evidence arms measured.
+- **The paper contradicts itself in print, twice.** §1 and §7.3 each assert "every cell moves toward more positive ∆ at higher compression" and then, within the same paragraph, name Qwen3/SciFact as moving the opposite way. Table 5, Appendix Table 8 and Figure 3 all agree that the correct count is three of four; the universal claim is an over-claim left standing next to its own correction.
+- **Scale.** Every model is in the 7B–8B class across four open-weight architectures (Llama-3.1-8B, Mistral-7B, Qwen2.5-7B, Qwen3-8B). No frontier-scale MoE is tested — which is precisely the regime where the levers on this page actually ship — and the authors name scaling as open. The block size is fixed at 128 and tied to their own BSFA-based operator, with selection at the final query row only.
+- **Power and provenance.** Thin-probe cells use n = 64 items, rich real-evidence cells n = 16. The KVPress arm's outcome metric differs from ∆, so the authors state the convergence is "directional, not quantitative." And the acknowledgments credit **Agon**, an autonomous research system whose paper is authored by three of this paper's four authors — self-cited tooling on a preprint, not a disqualification but worth knowing.
+
+What the page keeps from it: the first evidence that an efficiency lever's cost lands on *content selectivity* rather than on average accuracy, and a measurement protocol requiring only behavioural access — no weight modification, no architectural change, applicable to any model that exposes block identities. Also one operational finding the authors flag and nobody would guess: **filler content is not neutral to the selector**, so padding and formatting conventions belong inside the audit rather than outside it.
+
+## The metric this page never had: intelligence per watt (Stanford, late 2025)
+
+Every section above measures efficiency in whatever unit its source happened to use — gigabytes, percentages off a KV cache, dollars per million tokens, logits. [Mirhoseini](/articles/azalia-mirhoseini) closes [CS329A](/articles/cs329a-self-improving-ai-agents) ([CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg), delivered 2025-12-05, `practitioner-opinion`) by proposing a single one, and the definition is deliberately blunt:
+
+> **intelligence per watt = average task accuracy ÷ average power draw to solve the task.**
+
+A capability numerator over a physical denominator, which is exactly the ratio [Dean's](/articles/jeff-dean) picojoule argument says everything reduces to. The work is joint with **Christopher Ré** and **John Hennessy** at Stanford; Mirhoseini is an author and says so in lecture (**standing COI**, disclosed — see the note at the end of this section).
+
+**The question it was built to answer is a routing question, not a chip question:** essentially all inference traffic goes to cloud accelerators today, so *what fraction of it could be served locally instead?* Three trends are stacked to motivate it, all as of late 2025 and all slide-read through ASR:
+
+- **Demand is compounding faster than anything else in the stack.** Google Cloud's serving compute up ~**1200×** over the preceding ~20 months; NVIDIA growing ~**10× year over year**; Google's processed-token count from **160 trillion** (Feb of the prior year) to **1.3 quadrillion** (October); an implied ~**250 GW** of data-centre demand. The transcript garbles the units on the last figure and the periods on the first — carried here as orders of magnitude, not as measurements.
+- **Most queries do not need a frontier model.** From a large ChatGPT usage dataset, roughly **77%** of requests are practical guidance, information seeking, or writing — categories the study reads as answerable by small models, with the caveat the lecture states itself: users escalate their asks as chatbots improve.
+- **Local memory grew ~126× since 2012.** A laptop with ~100 GB of unified memory can hold a quantized version of a model that used to require a datacentre — the [QAT](/articles/gemma-4) work above, arriving as a premise rather than as a result.
+
+**The study.** "Local" is operationalized as **≤20B active parameters**; >20 local models (the transcript legibly names quantized families and Llama 3), both enterprise and consumer accelerators, ~**1M queries** drawn from chat traffic plus reasoning benchmarks (**NaturalReasoning**, **MMLU-Pro**, **SuperGPQA**), scored on accuracy, energy, latency and compute, with the full grid open-sourced.
+
+**Three findings, and the third is the one that generalizes:**
+
+1. **Local models cover most of the traffic.** Accuracy on the query mix rose **3.1× since 2023**, reaching — per the source's own abstract, since the ASR drops the number mid-sentence — **~88.7%** of single-turn chat and reasoning queries. Treat the 88.7% as attributed to the paper via the raw document's description rather than as heard in the lecture.
+2. **Consumer silicon is behind, and not by much.** An **Apple M4 Max** delivers roughly **1.5× lower** intelligence per watt than a **B200** — attributed to design intent rather than to process: datacentre parts were built for this workload and laptop parts were not, because *"while designing these chips, the understanding wasn't the LLMs are going to be running"* on them.
+3. **The metric improved 5.3× in two years, and it decomposes.** **3.1× from better models × 1.7× from better hardware.** That decomposition is the first thing in this corpus that separates the two contributions to an efficiency gain on one axis, and it is why the metric is worth more than the study: it makes "efficiency improved" an auditable claim with attributable parts, which is precisely what [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) complains is missing and what [K3's](/articles/kimi) unauditable 2.5× headline lacks.
+
+**The forward claims, flagged as `prediction` inside a `practitioner-opinion` source and attributed inline.** Mirhoseini predicts (i) inference traffic shifts substantially from cloud to edge as both curves continue, requiring **hybrid serving engines that route between local and cloud by query complexity**; (ii) model architectures and kernels optimized for *energy* on local accelerators are an under-attended research area; and (iii) **energy becomes "the most valuable resource we have going forward,"** with intelligence-per-watt-style metrics becoming mainstream optimization targets.
+
+**Graded against this wiki's 2026 sources, that forecast is half right and the half that missed is instructive.**
+
+- **Right on the substrate.** [Gemma 4](/articles/gemma-4) (`empirical`, mid-2026) is the trend continuing exactly as predicted — E2B at **0.8 GB** quantized, drafter heads, encoders deleted, explicitly targeted at `llama.cpp` and consumer hardware. The premise that a capable model fits on a laptop stopped being a projection.
+- **Unsettled on the routing shift**, and the corpus leans mildly against it. Nothing here measures a cloud→local traffic share. What it does have is [DeepMind's](/articles/google-deepmind) **Gemini 3.5 Flash-Lite**, where the *efficiency tier itself moved up-market* — output price **+67%** — which is not what a market being eaten from below looks like. The sharper problem is definitional: the study's unit is a **single-turn chat or reasoning query**, and by mid-2026 this corpus's workloads are agentic and multi-turn (terminal sessions, hundred-tool-call tasks, hours-long autonomous runs). A 20B local model answering 88.7% of single-turn queries says little about the traffic that actually grew.
+- **Right on energy as the physical unit, wrong so far on the metric.** Dean makes the same argument independently eight months later (~1 pJ per multiply against ~1000× to move the operand; *"the unit that you measure everything is energy"*). But no 2026 model card, benchmark, or eval page in this wiki reports a per-watt figure. The axis the market actually adopted is **price per token** — and its critique, [cost per task](/articles/cost-per-task-over-cost-per-token), is a *dollar*-denominated proxy for the same ratio. Energy is the constraint; money is the instrument, and the pass-through between them is nobody's published number.
+
+**COI, and it is the best-disclosed instance in the nine-lecture series.** Mirhoseini introduces the work as *"a recent work that we did, in collaboration with Professor Ré and Professor John Hennessy"*, and the inference-systems work she cites as future direction — **Hydragen** and **Tokasaurus** — as *"my lab did some of this work"*. Compare the pattern on [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents): lectures 2 and 5 taught her lab's papers in the first person without naming the authorship. The difference tracks framing, not honesty — work presented as *current lab activity* gets named; work presented as *a canonical citation in a survey slot* gets a pronoun.
+
 ## Why this is a capability claim, not an engineering claim
 
 Brown's argument runs: a $10 inference budget does one thing, $10,000 does much more. He also observes that per-generation cost drops 10–100×, which is what makes waiting for the next model rational ([Latent Capability Overhang](/articles/latent-capability-overhang)).
@@ -138,6 +225,8 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 ## Connections
 
 - [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the root thesis; efficiency is its denominator
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — the course whose closing lecture proposes intelligence per watt, and whose whole first half is the reason the denominator matters: a self-improvement flywheel is an inference-heavy object, so the efficiency lecture is the bill for the other eight
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — the same lecture's other half, and the reason the two sit in one session: the flywheel's compute cost is what makes the per-watt question urgent rather than academic
 - [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — you cannot see an efficiency gain on a grid that doesn't control for compute
 - [Latent Capability Overhang](/articles/latent-capability-overhang) — the 10–100× per-generation cost drop is the mechanism, disaggregated here into its parts
 - [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — lever five, and the one with independent corroboration
@@ -152,12 +241,17 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 - [Kimi (Moonshot AI)](/articles/kimi) — the same efficiency-is-capability logic at 2.8T: 16-of-896 routing, 69 KDA + 24 Gated MLA, MXFP4 QAT, and an unauditable 2.5×-scaling-efficiency headline
 - [Jeff Dean](/articles/jeff-dean) — the physical constant underneath every lever here (~1 pJ per multiply vs ~1000× to move the operand), the reason batching exists, and the argument that inference-specialized silicon is the next specialization
 - [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — the buyer-side statement of the last caveat: price per token is a rate, and Flash-Lite's +67% is uninterpretable without tokens-per-task
+- [Aggregate Cancellation](/articles/aggregate-cancellation) — the measurement failure this page's newest source demonstrates and the reason an efficiency-shaped capability cost is invisible: a metric averaged over strata reports the mean of a composition it does not record, so offsetting shifts sum to zero and three preregistered pooled tests read as non-events
+- [Tool-Output Pruning](/articles/tool-output-pruning) — the same compress-the-context lever one layer out, at the agent–environment boundary rather than inside attention, and the closest sibling on the one property both measure: **the sign of a compression effect flips with the backbone**. That page's head raises resolve rate on one MoE and lowers it on another with no mechanism offered; this page's audit finds sign heterogeneity across models, tasks and compression ratios by design, and identifies the ratio as the knob that selects it
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the constraint sparse attention is deployed to relax, and the mechanism that complicates the trade: cheap long context bought by discarding blocks severs exactly the cross-block attention that carries a signal to the answer position (4.48 logits → 0 when isolated), so a bigger cheap window is not the same object as a bigger window
+- [Open Weights as Competitive Strategy](/articles/open-weights-as-competitive-strategy) — the geopolitical payoff of this page's premise. If cheap tokens are capability, then whoever supplies intelligence most cheaply sets the cost floor for every application built on top — which is the step Ng's competitiveness argument rests on and never argues for, treating it as given
+- [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) — the same argument applied to the *shape* of a reasoning trace rather than to the serving stack: SPRINT trains a model to emit independent plans together so its own thinking leaves the critical path. Also a case this page's standard is not yet met — the reported axis is sequential tokens, and the wall clock is named as future work
 
 ## Open Questions
 
-- **Is there an efficiency-to-capability exchange rate?** Brown asks whether high-budget performance can be predicted from cheap runs. The dual question: how many Elo points is a 37.5% KV-cache reduction worth, at a fixed dollar budget? Nobody reports this, because nobody plots the axis. **Partially answered (2026-07-30):** [Gemini 3.5 Flash-Lite](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) is the first artifact in this corpus to print price and capability in the same table for a model *and its own predecessor*, so a rate is computable in one direction — +67% output price buys +42% relative on SWE-Bench Pro, +78% on MLE-Bench, +2% on CharXiv. That answers "what did this generation's price rise buy" and still not "what is a KV-cache reduction worth": the axis is price-per-token rather than spend-per-task, the levers are not decomposed, and the exchange rate turns out to be workload-dependent rather than a single number.
+- **Is there an efficiency-to-capability exchange rate?** Brown asks whether high-budget performance can be predicted from cheap runs. The dual question: how many Elo points is a 37.5% KV-cache reduction worth, at a fixed dollar budget? Nobody reports this, because nobody plots the axis. **Partially answered (2026-07-30):** [Gemini 3.5 Flash-Lite](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) is the first artifact in this corpus to print price and capability in the same table for a model *and its own predecessor*, so a rate is computable in one direction — +67% output price buys +42% relative on SWE-Bench Pro, +78% on MLE-Bench, +2% on CharXiv. That answers "what did this generation's price rise buy" and still not "what is a KV-cache reduction worth": the axis is price-per-token rather than spend-per-task, the levers are not decomposed, and the exchange rate turns out to be workload-dependent rather than a single number. **Further partially answered (2026-08-17, late-2025 source):** Stanford's **intelligence per watt** is the first *proposed unit* for exactly this rate — accuracy over power — and its headline **5.3× two-year gain decomposes into 3.1× model and 1.7× hardware**, which is the first attributed split of an efficiency gain in this corpus. Three reasons it still does not close the question: the denominator is watts and every deployment decision in this wiki is denominated in dollars, with no published pass-through between them; the numerator is accuracy on **single-turn** chat and reasoning queries, not the agentic multi-turn work these levers actually serve; and the decomposition is a two-factor split of an aggregate, not a per-lever rate — it still cannot say what a 37.5% KV-cache reduction is worth. `practitioner-opinion`, slide-read, and the lecturer is an author.
 - `values = keys` deletes a third of attention's projections in the global layers with no reported loss. Which other projections are redundant, and does the redundancy grow with scale?
-- Does an efficiency lever ever *cost* capability in a way a benchmark grid hides? Gemma 4's encoder-free 12B collapses on dense-text vision when tokens are cut — an efficiency-shaped regression invisible at max resolution.
+- Does an efficiency lever ever *cost* capability in a way a benchmark grid hides? Gemma 4's encoder-free 12B collapses on dense-text vision when tokens are cut — an efficiency-shaped regression invisible at max resolution. **Partially answered (2026-08-12), and this is the first source to answer it in general form rather than as one vendor's anecdote:** [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676) (`empirical`) runs a dense-calibrated counterfactual audit of block-sparse attention and KV-cache eviction and shows the lever changing *which supplied content can influence the answer* — with a direct mechanism (isolating a probe block from cross-block attention collapses its influence from 4.48 logits to exactly zero across 1,536 units), a control variable (compression ratio, with two sign reversals across four model–task pairs), and three preregistered pooled tests returning null at p = 0.995 / 0.771 / 0.541 *because* opposite-signed cells cancel. So "yes, and here is the instrument" for the *hiding* half. Three reasons it stays open. The outcome is a **logit-margin influence proxy, never task accuracy**, so a hidden *capability* cost is inferred rather than measured. Every model is 7B–8B, so the regime where these levers actually ship is untested. And the direction is not the alarming one the paper's abstract advertises — all eight real-evidence estimates and all eight KV-eviction cells show compression *reducing* poison influence, with sparse amplification appearing only on one-token synthetic probes.
 
 ## Sources
 
@@ -166,3 +260,5 @@ The same distinction sharpens [Harness Shrinkage as Models Improve](/articles/ha
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §1 (the 2.5×-scaling-efficiency claim, LatentMoE sparsity), §2 spec table (16-of-896 routing, 69 KDA + 24 Gated MLA, 1M context), §4 (MXFP4/MXFP8 QAT from SFT onward), §6 (preserved-thinking-history requirement) (`vendor-claim`)
 - [Jeff Dean: The 1% Rule for Building in AI](https://www.youtube.com/watch?v=CxXgV54KzpQ) — Jeff Dean with Diana Hu, YC Startup School 2026 (2026-07-30, `practitioner-opinion`): §"Why AI Is Really an Energy Problem" — the ~1 pJ-per-multiply vs ~1000×-per-data-move ratio, batching as amortization of it (`1000/batch_size`), and inference-specialized silicon as the next specialization. **COI:** Google's Chief Scientist on Google's accelerator strategy; the picojoule ratio is stated by the interviewer and confirmed, not cited
 - [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) — Google DeepMind, 2026-07-21 (`vendor-claim`): the July 2026 evaluation table, whose first two rows are input and output price per 1M tokens for all four compared models; per-dollar arithmetic in the section above is computed from those rows, not stated by DeepMind. Machine extraction from a client-side-rendered page, numbers verified across three passes
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676) — Xingyu Ren, Youran Sun, Chugang Yi & Haizhao Yang (CUHK / University of Maryland, arXiv 2608.01676, 2026-08-03, `empirical`, 24pp): §3 + Table 1 the BSFA route-replay validation across four architectures (13 of 16 cells significantly positive, zero significantly negative, zero identity-replay label flips); §4.1–4.5 the audit protocol (matched 128-token G/P/B cards differing at frozen index 64, six-layout symmetry, equal-cardinality forced routing over a frozen `K−1` core, the `c = 0` within-kernel dense arm and its 0.044-logit kernel-path baseline at 100% label agreement); §5.2 the three preregistered pooled nulls (p = 0.995, 0.771, 0.541) against 31 of 32 stratified rejections; §5.5 + Table 5 the three-ratio sweep and both sign reversals; §5.6 + Table 6 the routing receipts (G ≈ P ≫ B, Qwen3-SCB 0.758 / 0.759 / 0.470); §5.7 the cross-block ablation (4.48 → 0 across all 1,536 units, dose–response through 4.09 at `c = 0.25`); §6 + Table 7 the KVPress eviction arm; §8 Limitations. **Table 5 was reconciled three independent ways before citing** — against Appendix Table 8's fuller matrix digit-for-digit, against Figure 3, and against the §5.5 prose narration of all four rows; `table-collapse` and `table-shift` report zero occurrences and all 11 captions sit above their tables with no alternation. Figures 1, 2 and 3 viewed under the image two-pass rule; Figure 3 independently confirms every sweep value, and Figure 2 confirms Tables 3 and 4 (it also **omits the marker for the Llama-SF `c = 0.50` real-evidence row** it labels — a defect in the paper's own plot, not the parse; the value is in Table 4). **Cosmetic parse artifact:** every em- and en-dash in the document is flattened to a plain hyphen, so quoted sentences here have had the dash restored. Two problems in the source itself, both recorded in the section above: the abstract's "amplifying misleading content" framing is contradicted in direction by all eight real-evidence ∆ estimates and all eight KVPress cells, and §1 and §7.3 each assert a universal compression trend one sentence before naming the cell that violates it. **Provenance note:** the acknowledgments credit *Agon*, an autonomous research system whose own paper (arXiv 2606.24177) is authored by three of this paper's four authors
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg) — Stanford CS329A lecture 9, *Future Research Areas* ([Azalia Mirhoseini](/articles/azalia-mirhoseini)'s half; delivered 2025-12-05, published 2026-08-03, `practitioner-opinion` with the forward-looking directions at `prediction` grade, YouTube auto-caption transcript, ~10.5k words). The intelligence-per-watt section above: the metric's definition, the demand and local-memory trends, the ~77% query-mix figure, the ≤20B-active-parameter definition of "local", the study's model / accelerator / workload / metric grid and its open-sourcing, the three findings and the 3.1 × 1.7 = 5.3× decomposition, and the four forward directions (hybrid local–cloud routing, energy-efficient architectures and kernels, high-throughput low-latency test-time-scaling infrastructure, energy as the scarce resource). **The paper is not in `raw/`** and every figure is read off a slide by ASR: the ~250 GW demand figure has garbled units, the Google Cloud growth period renders as "12 20 months", and **the headline coverage number is dropped mid-sentence by the transcript** — the 88.7% carried above comes from the raw document's own description of the paper, not from the spoken audio, and is labelled as such at the point of use. **COI, disclosed:** Mirhoseini is an author of the work she presents (*"a recent work that we did, in collaboration with Professor Ré and Professor John Hennessy"*), and of the Hydragen and Tokasaurus systems she names as future direction (*"my lab did some of this work"*)

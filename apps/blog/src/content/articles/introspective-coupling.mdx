@@ -16,18 +16,22 @@ tags:
   - post-training
   - faithfulness
   - alignment
-readingTime: 13
+readingTime: 17
 imageAlt: Illustration for Introspective Coupling
 sources:
   - title: "Introspective Coupling: Self-Explanation Training Tracks Behavioral
       Change Despite Fixed Supervision"
     url: https://arxiv.org/pdf/2606.32038
+  - title: "Train the Model, Not the Reader: Decodability Supervision for Verifiable
+      Activation Explanations"
+    url: https://arxiv.org/pdf/2607.20379
 ---
 export { default as heroImage } from "../assets/introspective-coupling.webp";
 
 ## Sources
 
 - [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038)
+- [Train the Model, Not the Reader: Decodability Supervision for Verifiable Activation Explanations](https://arxiv.org/pdf/2607.20379)
 
 ## Summary
 
@@ -100,6 +104,16 @@ This wiki's standing verdict on model self-report is negative, and this page is 
 
 That is a genuine constructive result for the monitorability agenda, and it is not a refutation. Nothing here tests the adversarial case Korbak is actually worried about — a model under pressure to conceal — and the authors decline to claim it. It sits closest in spirit to [Counterfactual Reflection Training](/articles/counterfactual-reflection-training), which also shapes a model by supervising a counterfactual continuation rather than the trace in the target context.
 
+## The other half of the supervision: train the target, not the explainer (August 2026)
+
+[Train the Model, Not the Reader: Decodability Supervision for Verifiable Activation Explanations](https://arxiv.org/pdf/2607.20379) (Dingeto, StackOne, arXiv 2607.20379, `empirical`, single author) cites this paper to locate itself, in one sentence worth keeping verbatim: *"Explanation-side supervision can track behavioral change (Guo et al. 2026); ours is target-model-side."* The two are the same bet placed on different parameters. Guo et al. train the **explainer** while holding behavior near-fixed by KL regularization; RECAP trains the **target model** — auxiliary linear heads on a hidden state, predicting external targets, so designated content stays probe-decodable — and explicitly declines to touch the reader, because it measures the reader-side fixes failing: rewarding a verbalizer for grounding improves the proxy by restructuring sentences while an independent claim-level audit stays null, and pulling activations toward their own reconstruction *destroys* the decodable content in 3/3 seeds.
+
+Its central control is the sharpest external support this page's cross-model-label result has. Two verbalizers get **identical** training — same recipe, same cold-start SFT on gold descriptions, same reconstruction objective — and differ only in which target model's activations they read. Stated-content truth goes from 0.06 on the control to 0.44 on the RECAP-trained target (0.444 / 0.455 / 0.443 over three seeds against 0.062 / 0.060 / 0.000). Nothing about the reader's supervision moved; the readable-ness of what it was reading did. That is the same lesson as *Self > Orig* under foreign labels, from the opposite end: **what governs the verbal channel's fidelity is the state it is coupled to, not the provenance or quality of its own supervision.**
+
+Both papers also escape the same trap the same way. Neither scores an explanation with a *learned* test: Guo et al. construct explanation labels mechanically from behavior, and Dingeto builds exact synthetic ground truth and self-supervised window-occurrence labels. The reason is the second paper's headline methodological claim — a learned test of a model's own explanations can be gamed by the model, and the reconstruction score in particular is passed by gist and by co-adapted private codes rather than by per-claim truth.
+
+Where they part: this page's channel is a model explaining **itself** with a behavioral regularizer and a small capability cost (TruthfulQA −6.7pp); RECAP's is a *separate* reader model on another model's activations, paying a language-modeling tax (+0.010 nats) that erodes within 250 steps of head-free fine-tuning. And RECAP's own scale result is a warning against reading decodability as verbalizability: 0.44 truth is an order of magnitude better than the control and still not a faithful channel, with the shortfall localized to generation rather than storage. So the two approaches are complements with different failure modes — and the wiki now holds one measured instance of each. See [White-Box Activation Monitoring](/articles/white-box-activation-monitoring).
+
 ## Connections
 
 - [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — the negative counterweight: trained self-report of one's own compromised output is unreliable and sharpening it costs safety; this page is the positive case, and the difference is in what the supervision targets
@@ -118,5 +132,7 @@ That is a genuine constructive result for the monitorability agenda, and it is n
 - Alignment training flattens the behavioral variance the method needs (refusal is near-invariant to system prompts, so the *change → refusal* label is never learned). Can counterfactual explanation training be made to work on behaviors alignment has already made rigid — the ones most worth explaining?
 
 ## Sources
+
+- [Train the Model, Not the Reader: Decodability Supervision for Verifiable Activation Explanations](https://arxiv.org/pdf/2607.20379) — Hiskias Dingeto (StackOne Technologies), arXiv 2607.20379, 2026-07-22, `empirical`, single author. Related Work → "Deep supervision and intrinsic interpretability" (the explanation-side versus target-model-side placement, citing this paper by name); §5.1 (the RECAP objective and why each reader-side fix is structurally rather than empirically rejected); §3.1 (the grounding-reward variants that move the proxy and not the audit); §4 (reconstruction-targeted collapse, 3/3 seeds); §5.4 + App. J (the identical-reader-training control and the 0.06 → 0.44 stated-truth swing across three seeds; the generation-not-storage localization); §9 (the "a learned test of a model's own explanations can be gamed by that model" lesson). Largest model tested is Pythia-160M and the sandbox is a from-scratch 8-layer transformer, so the control is clean but small. Full treatment, including the parse warning (Table 11 row-bleed, cited nowhere), on [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)
 
 - [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038) — Guo, Ruis, Andreas & Li (MIT), arXiv 2606.32038, 2026-06-30, `empirical`. §2 (counterfactual explanation construction, KL-regularized SFT objective, Explanation/Behavior EM); §3.2 (Self > Orig on all three tasks; 79/82/63% disagreement-subset resolution; inversion at λ = 0); §3.3 (activation patching, r = 0.89 vs 0.53 unregularized); §4.1 (λ sweep, threshold 5×10⁻³); §4.2 (online relabeling, ν ≥ 0.7 phase transition, flat behavior EM); §4.3 (Llama label mixing, 53% base agreement, Self > Orig at α = 1, 88% → 69%); §5.1 (Jabberwocky, 90.5% / 79.8%); §5.2 (WildChat / warm-assistant / FineWeb / LLM-LAT drift tracking); §6 (privileged-access framing); Limitations (behavioral-variance requirement, incomplete hypothesis, incomplete mechanism); Broader Impact (complementary to probes/SAEs; deception untested); §B.2 (degenerate-distribution and external-explainer controls, 78.5%); §B.3 (14–18% untrained few-shot baseline); §B.6 (Llama-3.1-8B, Qwen3-32B replication); §C.2 (asymmetric cue-ablated patching); §D.1–D.2 (LoRA rank ≥ 96, LR-sweep counter-evidence); §E.3 (lm-evaluation-harness: TruthfulQA −6.7pp, GSM8K −4.6/−5.1pp)

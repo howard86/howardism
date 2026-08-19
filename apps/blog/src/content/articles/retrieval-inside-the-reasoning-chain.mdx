@@ -1,0 +1,133 @@
+---
+date: 2026-08-17
+title: Retrieval Inside the Reasoning Chain
+description: "The three-rung ladder CS329A lecture 7 teaches as the ancestor of
+  deep research: RAG retrieves once before thinking starts; agentic RAG lets the
+  model emit a search between special tokens mid-chain and splices the documents
+  back in; Search-o1 adds a reason-in-documents module that reads each retrieved
+  document against the current query and appends only the extracted chunk. The
+  dividing result is the document-count curve — direct reasoning and RAG go flat
+  or down as documents are added, Search-o1 goes up — because the failure being
+  fixed is long-context reasoning over retrieved noise, not retrieval. The
+  trigger is the model's own hedging tokens ('perhaps', 'alternatively',
+  'wait'), and Search-R1 is the same loop moved into the weights by RL"
+tag: Concept
+domain: agent-systems
+tags:
+  - retrieval
+  - agent-engineering
+  - reasoning
+  - context-management
+  - tool-use
+readingTime: 16
+imageAlt: Illustration for Retrieval Inside the Reasoning Chain
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep
+      Research Agents"
+    url: https://www.youtube.com/watch?v=Uni9dqyuuDM
+  - title: How Bridgewater Built an AI Analyst That Does Hours of Expert Research in
+      Minutes
+    url: https://www.youtube.com/watch?v=lXZb21CfeIY
+---
+export { default as heroImage } from "../assets/retrieval-inside-the-reasoning-chain.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM)
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY)
+
+## Summary
+
+A large reasoning model has a knowledge cutoff and a long chain of thought, and the two interact badly: where the chain hits something the weights do not contain, the model **guesses and keeps going**, and the guess propagates to the answer. [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 7 teaches the fix as a three-rung ladder, and the rungs are worth naming separately because the wiki's 2026 sources describe systems that sit on the third one without a page saying what the first two were.
+
+| Rung | When retrieval happens | What enters the chain |
+|---|---|---|
+| **RAG** | once, before reasoning starts | the retrieved documents, in the prompt |
+| **Agentic RAG** | mid-chain, whenever the model emits a search between special tokens | the retrieved documents, spliced into the reasoning chain |
+| **Search-o1** | mid-chain, same trigger | **only the extracted, query-conditioned chunk** — each document is read by a *reason-in-documents* module first |
+
+This is the lineage under [Deep Research Agents](/articles/deep-research-agents) and the mechanism [ReAct](/articles/reasoning-acting-interleaving) becomes once the acting model is a reasoning model that emits its own tool calls.
+
+> **Evidence.** [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM) ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, delivered **2025-10-17**, published 2026-08-03, `practitioner-opinion`) — a slide walkthrough of Search-o1 (2025), with Search-R1 named and explicitly not covered. Neither paper is in `raw/`; every figure was read off a slide by ASR and is hedged. The state of the art described is **late 2025**, and this wiki holds substantially newer sources on the same workload.
+
+## The trigger: the model's own hedging is the knowledge-gap signal
+
+The observation the lecture builds the whole design on, and the one most worth carrying, is that **a knowledge gap is visible in the reasoning trace before it is visible in the answer**. Running a reasoning model on GPQA, *"you will see the term 'perhaps' in the reasoning chains a lot, or you will see the term 'alternatively' or 'wait'"* — the hedging vocabulary marks exactly the steps where the model is improvising over something it does not know. Left alone, *"those knowledge gaps will continue to propagate through the entire reasoning"* and *"your certainty for the final answer is low."*
+
+Two things follow.
+
+**It is a usable retrieval trigger.** Search when the chain hedges, not on a schedule and not on every entity. The lecture's practical version, when a student asks how the model knows *what* to look up: *"identify which parts you don't want to rely on the knowledge base of the LLM… it's almost like you're finding the key entities in your question and fetching information on those."*
+
+**It doubles as the evaluation.** The lecture reports that Search-o1 measures its own effect by counting uncertainty markers in the reasoning chains and finding they *"go down substantially."* That is an unusually direct instrument — the intervention and the metric read the same tokens — and it is a *process* measurement of a system that is otherwise graded on answers.
+
+It also cuts across a position the same instructor took three lectures earlier. In lecture 4 ([Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving)) she declines to gate tool use on the model's self-assessed confidence because *"the models are not well calibrated,"* and recommends grounding-by-default instead. Here the trigger is the model's *implicit* uncertainty — hedging tokens in the trace rather than a stated probability — and it works. The reconciliation the lecture does not state: asking a model how sure it is and reading how sure it sounds are different measurements, and only the first is the one [Confident But Unsure](/articles/confident-but-unsure) shows to be broken. Lecture 7's own closing discussion re-confirms the first half — aggregate the output log-probabilities and *"the models tend to be overconfident,"* a model that is 50% correct sounding 80% sure (the lecturer's illustrative figures, not a measurement), and the overconfidence showing up behaviourally as refusing to change its mind under correction.
+
+## Why RAG is not enough, in one sentence the lecture repeats
+
+*"You retrieve once at the beginning, so you don't have the ability to tweak things."* If a problem has several parts, *"each reasoning step will need [a] different piece of information"* — and the query that would find it is only formulable **after** the earlier steps have run. RAG therefore helps single-hop questions ("what's the weather") and, in the lecture's words, *"in multi-step reasoning it definitely suffers."*
+
+Agentic RAG fixes the *timing* and inherits a different problem: the documents are long and noisy, and *"if you put 10 or 20 documents, [the model] might actually not be able to do a good job at reasoning over them."* The chemistry worked example makes the failure concrete — asked for the carbon count of the third product in a reaction chain, vanilla reasoning guesses the intermediate structure and is wrong; agentic RAG retrieves the right general material and answers **14 where the answer is 10**, the retrieved bulk having disrupted rather than helped the chain; Search-o1 extracts the relevant formula and gets it.
+
+**So the thing being fixed at rung three is long-context reasoning, not retrieval.** The lecture is explicit when a student asks whether the gains are really a precision/recall story: the paper's claim is *"if you find multiple relevant documents that are loosely correlated to what you're querying about, even then, once you put all of those documents in the context, you're asking the model to do a lot in terms of reasoning over that many documents."* Retrieval quality is held roughly constant and the win comes from what happens to the documents afterwards. That places this squarely in [Context Window Smart Zone](/articles/context-window-smart-zone) territory, arrived at from the retrieval side.
+
+## The reason-in-documents module, and the result that separates the rungs
+
+The module runs *inside* the retrieval tool call rather than around it. Given the retrieved document, the query that triggered the search, and the reasoning so far, it judges relevance and emits an extracted chunk; only the chunk is appended, and the chain continues. The lecture's analogy is the one to remember: *"as humans you don't want to just go and curate all the possible references — you also want to take notes on those references."*
+
+**The result that makes the ladder a ladder is the document-count curve.** Plotting pass@1 against the number of documents retrieved, on GPQA's physics / chemistry / biology splits:
+
+- **Direct reasoning and RAG do not improve as documents are added** (flat or declining).
+- **Search-o1 does**, because each added document is compressed against the query before it enters the chain rather than lengthening it.
+
+Chowdhery names the shape: *"instead of doing iterative refinement you can do parallel refinement, because you can go fetch more information and then chunk it down to put it in the model context."* More retrieval is a *breadth* knob that only pays once per-document compression is in the loop — which is the retrieval-side statement of the same point [Tool-Output Pruning](/articles/tool-output-pruning) makes at the agent–environment boundary, three years earlier and by prompting rather than a trained head.
+
+The compression also has to survive multiple turns, and a student asks what holds the state. The honest answer: *"there is an assumption that there is a state or a memory buffer… it's not obvious in the way this is structured."* The buffer holding the current query plus prior reasoning is assumed, not designed, which is exactly the object [Context Lifecycle Management](/articles/context-lifecycle-management) is about.
+
+## The benchmark claims, all late-2025 and all hedged
+
+**GPQA against human experts, read on the diagonal.** The lecture's care here is worth preserving: compare a physicist's score to the system's physics score, not to its overall score. On that reading Search-o1 built on a reasoning model is *"quite competitive, sometimes even better"* than human experts in **physics**, near-parity in **biology**, and **worse in chemistry**. Chowdhery immediately discounts her own slide when a student asks how good the physicists were — *"maybe they didn't do a good job sourcing the physicists"* — and restates the claim as competitiveness rather than superiority: *"this is not to say that you're outperforming human experts."* A student's hypothesis for the chemistry gap (tokenization of chemical formulae destroying meaning under small edits) is left as an open experiment.
+
+**Multi-hop QA.** On **HotpotQA, 2WikiMultihopQA, MuSiQue and Bamboogle**, plain RAG and agentic RAG both *"hit some amount of saturation"* while Search-o1 takes most of the bolded (best) cells. No absolute numbers survive the ASR; the shape is the claim.
+
+Treat all of this as a **dated baseline**. It is a lecture recounting one paper's tables, delivered in October 2025, and the wiki's 2026 sources on the same workload ([Deep Research Agents](/articles/deep-research-agents)) grade production systems on cited reports rather than short-answer accuracy.
+
+## Search-R1: the same loop, moved into the weights
+
+The lecture ran out of time on the second paper and states the distinction in one line: **Search-o1 closes the loop with prompting; Search-R1 teaches the model to search with an RL loop.** That is the same pair the wiki already carries from the retrieval-tooling side — [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) records Search-R1 / R1-Searcher as the case where *"the retrieval loop a team used to hand-write ends up baked into the model itself,"* and [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) records the squeeze from the other side (Adaptive-RAG routing most queries away from any loop at all).
+
+What this page adds to that record is **what specifically gets absorbed, and what does not**. The absorbable part is the *trigger and the query* — when to search and what to ask. The reason-in-documents module is a second model call that reads a document the policy has not yet attended to; nothing in an RL loop over search actions makes that step unnecessary, and the document-count curve says it is the step carrying the result. So the rung-two-to-rung-three delta is the part of this stack least likely to dissolve into the weights, which is a testable form of the shrinkage thesis rather than a restatement of it.
+
+## The production form on non-text corpora: inspect the candidate, don't trust the name
+
+The ladder above is built on documents, where "reason in the retrieved thing" means reading prose. [Bridgewater Associates](/articles/bridgewater-associates)'s PAT applies the same move to a **time-series database of tens of millions of series** ([How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY), `case-study`), and the transfer is instructive because the failure being fixed is identical while the material is not.
+
+Michael Ran reports that their search agents use "traditional search techniques like RAG, re-ranking, et cetera" — rungs one and two — and that the difference-maker was layering on **human-like inspection**: a human researcher looking for data "don't just anchor to what the name of the time series is. They'll look at the **frequency**, the **currency** of the series, and then most importantly, **whether the values in the series align with their priors**." Embedding that reasoning into the search agent is credited with moving retrieval accuracy from **roughly 50% to 90%**.
+
+This is rung three with the reason-in-documents module reading *data* instead of text: the ranker proposes, and a model call then examines the candidate's actual contents against what the query implies it should look like. The structural claim matches this page's dividing result — the fix is not better retrieval, it is reasoning over what retrieval returned — and it extends the claim to a corpus where the metadata is thin enough that name-matching is close to hopeless, since a series called `oil price` may be any of thousands of vintages, frequencies, and currencies.
+
+Weigh it accordingly: a first-party talk, one self-reported accuracy pair with no benchmark, no task definition, no sample size, and no statement of what "accuracy" means for a retrieval step embedded in a larger pipeline. Directional corroboration from production, not a measurement.
+
+## Connections
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 7's second half, taught as the on-ramp to the course's deep-research homework
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) — the lecturer
+- [Deep Research Agents](/articles/deep-research-agents) — what this ladder becomes. Rung three is a single reasoning chain that searches and compresses as it goes; a deep research agent fans the same primitive into a tree of parallel sub-searches with a composer and citations. The 2026 measurements there are on cited reports, so they grade an axis this lecture's short-answer benchmarks never touch
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — the same alternation with the thought turn supplied by the model's own reasoning mode rather than by few-shot exemplars, and with the observation *summarized before it is read back*. The failure-mode swap that page records (hallucination traded for retrieval failure) is why the hedging-token trigger is interesting: it fires on the residual hallucination the interleave did not remove
+- [Tool-Output Pruning](/articles/tool-output-pruning) — the same subtraction at the same boundary, measured. Search-o1's reason-in-documents is a prompted, per-document post-retrieval pruner from 2025; SWE-Pruner Pro is a trained head reading the backbone's own hidden states in 2026. The convergent finding is placement — compress the observation *before* it enters history — and the 2026 deep-research grid adds the cost half this lecture never mentions: pruning early deletes whole branches, pruning late only edits a prompt
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — the constraint the whole ladder is defending. Rung two fails not because retrieval got worse but because 10–20 documents in the chain exceed what the model reasons well over, which is this page's mechanism stated in tokens
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — the memory buffer the lecture admits is assumed rather than specified: the current query, the prior reasoning, and the accumulated extracts have to live somewhere across turns
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — Search-R1 is this page's rung-two loop absorbed into the weights, which the wiki already records from the RAG-tooling side. The refinement here: the trigger and the query are absorbable, the document-reading step is a separate model call and is not
+- [Document Parsing as the Retrieval Bottleneck](/articles/document-parsing-as-retrieval-bottleneck) — the layer below. This ladder assumes a document arrives as text worth reasoning over; that page is the case that the extraction is where the loss already happened, and a reason-in-documents module reading a collapsed table extracts a wrong number cleanly
+- [Confident But Unsure](/articles/confident-but-unsure) — the calibration failure this design routes around rather than solves. The hedging-token trigger reads uncertainty out of the trace instead of asking for it, and the lecture's closing discussion restates the direct measurement's failure: aggregated log-probabilities are overconfident, and the overconfidence shows behaviourally as resistance to correction
+- [Trained Calibration](/articles/trained-calibration) — the other branch the lecture gestures at without a citation: RL/RLHF aimed at making the model's stated confidence mean something, so it *"doesn't emit answers that it has low confidence over"*
+- [The Verifiability Thesis](/articles/verifiability-thesis) — open-domain factual questions have no mechanical checker, so every rung here is buying grounding rather than verification; the extracted chunk is evidence the chain conditions on, not a check on the answer
+
+## Open Questions
+
+- Search-o1 measures its own effect by counting hedging tokens in the reasoning chain and finds them down substantially. Does the marker count track *correctness*, or only the presence of retrieved text — i.e. would injecting irrelevant-but-confident documents suppress the markers just as well? The lecture reports the correlation and no control.
+- The reason-in-documents step is a second model call per retrieved document. Nobody in this corpus prices it: is compress-then-reason cheaper or more expensive than dumping documents into a long context, once the extra calls are billed? Both this lecture and the 2026 pruning papers report tokens or accuracy and never a bill.
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM) — *CS329A Self-Improving AI Agents — Part 7: Self-Improvement with Search & Deep Research Agents*, [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, Stanford Online. Delivered **2025-10-17**, published to YouTube 2026-08-03 (`practitioner-opinion`, YouTube auto-caption transcript, ~12.1k words). The deep-research half: the knowledge-gap-as-hedging-token observation and the GPQA marker vocabulary, the RAG / agentic RAG / Search-o1 ladder with the special-token trigger and the reason-in-documents module, the chemistry worked example across all three regimes (including agentic RAG's wrong 14-versus-10 answer), the pass@1-against-document-count curve, the GPQA diagonal comparison against human experts with the lecturer's own discount of it, the multi-hop QA claim on HotpotQA / 2WikiMultihopQA / MuSiQue / Bamboogle, the uncertainty-marker reduction, the memory-buffer admission, and the one-line Search-o1-versus-Search-R1 distinction. Closing discussion on log-probability calibration and model overconfidence. Every figure is ASR-read off a slide; neither paper is in `raw/`. **No instructor-authorship COI** — Search-o1 is Renmin University's and Search-R1 is not hers
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY) — McManus, Ran & Weight (Bridgewater Associates), LangChain channel, 2026-07-24, 25:44 talk, `case-study`. Cited for time-series search with human-like inspection, 50% → 90% (10:24–11:14). Self-reported, no benchmark or method. See [Bridgewater Associates](/articles/bridgewater-associates)

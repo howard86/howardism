@@ -7,7 +7,11 @@ description: Consuming rollouts for training the instant each finishes, instead
   policy lag and off-policy drift; SAO's DIS (direct double-sided importance
   sampling) stabilizes it by dropping the old-policy model entirely and masking
   any token whose rollout-vs-current probability ratio leaves a strict trust
-  region
+  region — and ESTR is the rival diagnosis, that the ratio's natural scale grows
+  with token entropy, so any fixed-magnitude bound admits amplified low-entropy
+  sampling noise while discarding the legitimate high-entropy exploration that
+  in-flight weight updates induce, with a matched-budget ablation showing what
+  decides stability is *which* tokens a keep rule removes, not how many
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -16,17 +20,25 @@ tags:
   - post-training
   - agentic-rl
   - training-efficiency
-readingTime: 6
+readingTime: 24
 imageAlt: Illustration for Asynchronous RL for LLMs
 sources:
   - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
     url: https://arxiv.org/pdf/2607.07508
+  - title: "Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for
+      Asynchronous Reinforcement Learning"
+    url: https://arxiv.org/pdf/2607.22186
+  - title: "TRACE: Turn-level Reward Assignment via Credit Estimation for
+      Long-Horizon Agents"
+    url: https://arxiv.org/pdf/2607.13988
 ---
 export { default as heroImage } from "../assets/asynchronous-rl-for-llms.webp";
 
 ## Sources
 
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186)
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988)
 
 ## Summary
 
@@ -53,7 +65,7 @@ SAO's stability mechanism (§3.1) resolves cost 1 by being aggressively simpler:
 
  Tokens that diverge too far are removed from the update entirely rather than contributing a saturated gradient. This is a stricter version of the **IcePop** mechanism (Ling Team, 2025), made simpler by also removing `π_θ_old`.
 
-The trade is explicit: accept a controlled amount of off-policy bias in exchange for a large drop in computational complexity and the elimination of stale-checkpoint error. Empirically the aggressive masking is what makes the update stable — it regularizes the step size by refusing to learn from tokens the rollout and current policy disagree about.
+The trade is explicit: accept a controlled amount of off-policy bias in exchange for a large drop in computational complexity and the elimination of stale-checkpoint error. ~~Empirically the aggressive masking is what makes the update stable — it regularizes the step size by refusing to learn from tokens the rollout and current policy disagree about.~~ *(the causal reading is superseded 2026-08-12 by [ESTR](https://arxiv.org/pdf/2607.22186)'s matched-budget ablation: recalibrate three keep rules to the same step-0 masked fraction and two of the three still collapse, one of them while holding a budget of the winner's order. Aggressiveness is not the operative variable — the mean entropy of the masked population is. See below.)*
 
 ## The stability numbers
 
@@ -66,14 +78,84 @@ The collapse is real and fast, and DIS is what prevents it:
 
 So DIS buys *stability* and single-rollout buys the *extra performance* on top — the two contributions are separable, which the ablation confirms.
 
+## ESTR: the rival diagnosis — the trust boundary is miscalibrated, not too loose
+
+[ESTR](https://arxiv.org/pdf/2607.22186) (Zhao, Xie, Zheng et al., BUPT / Peking / USTC / CAS / **Baidu**, arXiv 2607.22186, v1 2026-07-24, `empirical`) attacks the same failure — off-policy collapse under asynchrony — and reaches an incompatible conclusion about what the fix is. Every method above, DIS included, decides a token's trustworthiness from **the magnitude of its importance ratio against a bound that is the same at every token position**. ESTR's claim is that this magnitude is not a comparable quantity across positions, because **the ratio's natural scale is governed by token entropy**.
+
+The relation (§3.1, Eq. 1) is `E[δ_t² | H_t ∈ B] ≈ a_t · H_t` for the log-ratio `δ_t = log(π_θ/µ_t)` and behavior-policy entropy `H_t`. Appendix A derives it from a local logit-perturbation model — perturb `µ_t`'s logits with per-entry variance `σ_t²` and `E[δ²] = σ_t²(1 − Σ_w ρ_w²) = σ_t²(1 − e^{−H₂})`, where `H₂` is the Rényi-2 entropy; Shannon `H₁` is then used as a **non-saturating upper-envelope proxy**, because `1 − e^{−H₂}` saturates near 1 and loses high-entropy resolution.
+
+**A position-invariant bound therefore fails in both directions at once**, which is the part that makes this a diagnosis rather than a tuning complaint:
+
+- **At high entropy it discards real exploration.** When an in-flight weight update lands mid-generation, the new weights evaluate a prefix written by older ones, and `H_t` and `|δ_t|` **spike together** at the switch point (§3.2, Figure 3, aligned at `t = 0`). Factorizing `|δ_t| = σ_t √H_t` shows the spike is carried *entirely* by the `√H_t` factor while the standardized deviation `z_t = δ_t/√H_t` stays at scale `O(1)`. So `|δ_t| > c` fires while `z_t²` is bounded: a fixed threshold reads legitimate deviation inside the natural high-entropy envelope as drift.
+- **At low entropy it admits pure noise.** At a confident position the model is effectively a binary choice between a dominant token `(1−q)` and a sampled off-mode alternative `q ≈ 0`. Entropy hugs the binary bound `H_bin(q) → 0` **independent of vocabulary size**, while the near-zero denominator amplifies the zero-mean train-inference mismatch `ξ`: the delta method gives `E[δ_t²|q] ≈ Var(ξ)/q² ∝ (1−q)/q → ∞`. Entropy vanishes as ratio magnitude diverges, tracing the concave **entropy-opening arcs** visible at the left edge of Figures 1 and 10. A fixed threshold keeps these; they are amplified sampling noise, not policy drift.
+
+**The rule** (§4.3) standardizes the deviation by its own local scale rather than bounding it raw. With `ν_t ≜ H_t + ε`:
+
+ `S_t = δ_t² / (H_t + ε) ≤ τ ⟺ |δ_t| ≤ √(τ (H_t + ε))`
+
+`ε = 0.01` in every run; `τ = 1.0` on BrowseComp-Plus, `1.6` on the math tasks. `H_t` is read off the **inference-side logits already produced during rollout**, so the rule costs one entropy read per token — no auxiliary forward pass, no version-switch detection, and (the point aimed at the staleness-decoupling family) **no behavior-policy reconstruction**, which matters because a trajectory spanning several weight versions has no single behavior policy to recover. Proposition 1 makes the fixed rule a special case: hold `H_t + ε ≡ C` and the boundary collapses to `|δ_t| ≤ √(τC)`; the two cross exactly once at `H* = C − ε`, with ESTR strictly **tighter below** and strictly **wider above**, contracting to a floor `√(τε)` as `H_t → 0` and growing like `√(τ H_t)`.
+
+ESTR also formalizes the "one trajectory, several versions" cost this page names qualitatively, splitting total staleness in two (§3.2, Eq. 2): **`Δintra = v_last − v_first`** (the version switching *inside* one rollout) and **`Δinter = v_tgt − v_last`** (the batch's lag behind the target). Only the second is what staleness-aware PPO schemes like AReaL bound; the first is the one that produces the entropy/ratio co-spikes.
+
+### The 2.4% of tokens that decide it
+
+The cleanest statement of the disagreement is Figure 1 (viewed at 400 DPI; these four values are **printed in the legend**, not chart reads). On real Qwen3-30B-A3B BrowseComp-Plus rollouts, against a fixed threshold `|δ| = 0.15`, ESTR and the fixed rule **agree on 97.6% of tokens** — 93.8% both keep, 3.8% both mask — and disagree on **2.4%, split exactly evenly**: **1.2% "saved by ESTR"** (high-entropy deviations the fixed rule clips) and **1.2% "newly masked"** (low-entropy arc outliers the fixed rule admits). The boundaries cross at `H ≈ 1.5`. The entire difference between stable and collapsing training, on this paper's own account, is a **2.4% relabeling** — the geometry of the boundary, not its severity.
+
+### What it buys
+
+Matched configuration across all arms, `verl` on H800 nodes, disaggregated train/rollout pools, with the synchronous baseline **colocating generation and training on the same total hardware** so efficiency is compared at equal resource budget:
+
+| Method | BrowseComp-Plus avg@1 | GSM8K (multi-turn) avg@4 | AIME 2024–2026 avg@4 | AIME pass@4 |
+|---|---|---|---|---|
+| GRPO (Sync) | **38.55** | **96.07** | **17.54** | 27.68 |
+| GRPO (Async, no correction) | 28.91 | 60.72 | 13.61 | 23.00 |
+| IcePop | 32.53 | 65.01 | 15.82 | 24.96 |
+| KPop | 34.94 | 70.51 | 16.22 | 25.47 |
+| **ESTR** | 37.34 | 95.69 | 17.04 | **28.38** |
+
+Backbones: Qwen3-30B-A3B (MoE) on BrowseComp-Plus, Qwen2.5-7B on GSM8K and DAPO-Math→AIME. Throughput (Table 2, DAPO-Math): **214.38 vs 82.56 tok/s per GPU (2.6×)** and **514.84 vs 1356.47 s/step (−62%)** against the synchronous run. The headline is that the speedup arrives **at no accuracy cost** — ESTR lands within 1.2 / 0.4 / 0.5 points of synchronous GRPO on the three avg metrics and **beats it on AIME pass@4** (28.38 vs 27.68), which the authors read as preserved high-entropy exploration buying broader solution coverage rather than mere stability. Sensitivity is mild: `τ ∈ [0.7, 1.6]` moves accuracy by at most ~2.4 points (Tables 4–5), and global batch 32/64/128/256 gives AIME24 avg@4 16.97 / 18.26 / 20.03 / 19.87 with diminishing returns past 128 (Table 6).
+
+### The matched-budget ablation, which is the durable result
+
+Everything above is an accuracy comparison and therefore confounded — ESTR could be winning by masking *less*. Table 7 (multi-turn GSM8K, Qwen2.5-7B, **single-seed**) removes that confound directly: each baseline's threshold is **recalibrated offline on step-0 rollouts until its token-level masked fraction equals ESTR's 0.07%**, then left unconstrained.
+
+| Method | ρ_mask (step 0 → train avg) | mean entropy of masked tokens | Acc. | Stable |
+|---|---|---|---|---|
+| **ESTR** | 0.07% → **0.12%** | **0.11** | 95.7 | ✓ |
+| KPop | 0.07% → **0.25%** | 1.67 | 70.5 | ✗ |
+| IcePop | 0.07% → **19.16%** | 3.47 | 65.3 | ✗ |
+
+Two things fall out. **KPop holds a budget of ESTR's own order (0.25% vs 0.12%) and still collapses** — so budget size cannot be the operative variable. And **IcePop cannot hold its budget at all**: its boundary is constant in `|δ_t|` while the deviation's natural scale grows with entropy, so its masked fraction *tracks the off-policy gap* and drifts to 19.16%. What separates the three is **where the budget is spent** — mean masked-token entropy 0.11 (ESTR) against 1.67 (KPop) and 3.47 (IcePop). The paper's sentence is the one worth keeping: *"What matters is which tokens are removed, not how many."*
+
+Corroboration on the third task (Figure 8, DAPO-Math, y-axis **`ρ_mask (×10⁻⁴)`** — all three of these are **approximate chart reads**, not printed values): KPop runs highest at roughly **2.3–2.6 ×10⁻⁴**, IcePop at **0.75–1.1 ×10⁻⁴**, ESTR near the floor at **0–0.2 ×10⁻⁴** with a single spike to ~0.6 near step 460 — and ESTR nonetheless holds the *lowest and most stable* IS-ratio standard deviation, while IcePop's drifts upward in late training at several times ESTR's masking rate. Note the ordering is task-dependent and the two instruments measure different things: at **sequence** level on the same task (§I.3) IcePop is the over-masker, reaching 40%–65% of sequences containing at least one masked token against ESTR's &lt;~5% — so IcePop's masking is spread thinly across most sequences while KPop's is concentrated in fewer.
+
+**Robustness to asynchrony itself** (§5.3, Figure 9 — the paper's only literal staleness sweep) stresses each component alone on DAPO-Math: `Δintra ∈ {1,5,7,9}` at `Δinter = 1`, and `Δinter ∈ {1,5,15,20,30}` at `Δintra = 1`. **No configuration collapses**; rewards "degrade gracefully and monotonically as staleness grows," with the synchronous run plotted alongside as the ceiling and still climbing past step 800. Absorbing a 30-version inter-trajectory lag without collapse and without staleness-specific tuning is the strongest single claim in the paper.
+
+### Does the critique reach DIS? — a wiki inference, not the paper's claim
+
+**The string "DIS" appears nowhere in this paper**; its named baselines are **IcePop** (thresholds the ratio directly) and **KPop** (thresholds a bidirectional binary KL between behavior and target token probabilities), which it files under "interval clipping" and "hard masking". So ESTR never argues against SAO. The bridge is **this wiki's own**: the DIS section above records that DIS *"is a stricter version of the IcePop mechanism"* differing by also dropping `π_θ_old` — and DIS's keep rule is a fixed interval `[1−ε_ℓ, 1+ε_h]` on the raw ratio, i.e. exactly the position-invariant, magnitude-only bound ESTR's `H* = C − ε` analysis says is tighter than it should be above `H*` and looser below. **If the wiki's IcePop equivalence holds, the entropy-miscalibration critique reaches DIS by construction, and "stricter" makes it worse rather than better** — a tighter fixed interval clips more high-entropy exploration while still admitting the low-entropy arcs, since narrowing `c` cannot change the boundary's *shape*.
+
+That inference is unconfirmed and worth flagging rather than asserting, on three counts. SAO reports a clip ratio but never a masked-token *entropy*, so the diagnostic that separates ESTR from KPop has never been computed on DIS. The two papers' collapse settings differ (SAO: 30B-A3B, SWE-Bench/math, its own framework; ESTR: `verl`, three tasks, explicit `Δintra`/`Δinter` control). And DIS was demonstrated as a *rescue* — GRPO+DIS trains stably where vanilla GRPO collapses at ~160 steps — which is consistent with a miscalibrated boundary still being far better than none. **What would settle it**: a head-to-head at matched staleness, or simply SAO's masked population reported the way Table 7 reports it (fraction *and* mean entropy). Note the two designs already **agree** on the question this page's DIS section makes central — ESTR's Appendix G specifies "rollout log-probabilities as the proximal anchor (bypass mode)", the same drop-`π_θ_old` choice DIS makes — so the live disagreement is narrow and clean: **the shape of the trust boundary, nothing else.**
+
 ## Where this sits among async RL systems
 
 The related-work landscape (§5.2) targets throughput more than effectiveness: **AReaL** (Fu et al., 2025) fully decouples rollout from training with staleness-aware PPO; **ROLL Flash** (Lu et al., 2025) adds fine-grained parallelism for RLVR and agentic training; **Noukhovitch et al. (2024)** frame async RLHF as online-but-off-policy learning. SAO's angle is different — it stabilizes the *algorithm* under policy lag rather than optimizing the *system*, and it is the one that leans into single-trajectory feedback rather than around it.
+
+ESTR's survey (§2) supplies the taxonomy that puts both in one frame — three stabilization families, each resting on a premise it says breaks in asynchronous agentic training:
+
+1. **Importance-sampling correction**, split into *interval clipping* (constrain each ratio to a fixed interval) and *hard masking* (zero any token whose deviation exceeds a preset bound). IcePop, KPop, and — by this wiki's equivalence — DIS all live here. Premise: trustworthiness is readable from one scalar deviation against one global bound.
+2. **Staleness-mismatch decoupling** (AReaL; Guan et al. 2026), which approximates the behavior policy that actually generated each rollout so genuine drift can be separated from benign staleness. Premise: a trajectory *has* one well-defined behavior policy — which `Δintra > 0` denies outright, since the generating version of any given token would itself have to be inferred.
+3. **Off-policy objective design** (Ritter et al. 2026; Yuan et al. 2025), softening clipping into a distributional variance penalty or regressing against a reference policy with no importance ratios at all. Premise: a batch-level or position-invariant budget suffices.
+
+One cost worth booking against this topology, from a source that is not about asynchrony at all: **dense reward adds a service, not just a term.** [TRACE](/articles/turn-level-credit-assignment)'s launch script keeps turn-level scoring **disabled by default for a single-node colocated layout, and enables it only when a remote reference-model scoring endpoint is provided** — so buying per-turn credit means standing up a third pool (train, rollout, *score*) alongside the two this page's disaggregation already assumes, and every prefix of every rollout has to reach it. What keeps the bill bounded is that all prefix values for one trajectory come from a **single batched forward pass** against a frozen model, so the endpoint is stateless and never updated. TRACE itself is trained synchronously and reports nothing about staleness, so this is a topology observation rather than an async result — but it is the shape any dense-credit method would have to take here, and a frozen scorer that never syncs weights is the one component in that picture immune to policy lag.
+
+A fourth, developed mostly *outside* the asynchronous setting, is the closest prior art to ESTR and the sharpest boundary of its novelty claim: **ESPO** regroups sequences by entropy, **AEPO** balances entropy along a trajectory, **VCPO** rescales updates by an aggregated effective-sample-size signal. ESTR's stated distinction is that in all three, entropy or variance enters as an **external reweighting or grouping heuristic layered on top of a trust region that stays position-invariant**, whereas ESTR makes local entropy the *definition* of the boundary. That is a real distinction but a fine one, and none of the three is run as a baseline — the comparison is argumentative, not measured.
 
 ## Connections
 
 - [Single-Rollout Optimization](/articles/single-rollout-optimization) — the other half of SAO: single-rollout updates, and the value-model designs that make DIS-stabilized async training also *effective*
 - [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the baseline whose group barrier asynchrony exposes; DIS is first demonstrated *on* GRPO before SAO drops the group
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — dense per-turn reward needs a third disaggregated pool (a frozen reference-model scoring endpoint) on top of the train/rollout split this page assumes
 - [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — async RL is the training-side complement: this is the loop that *produces* the long-horizon agentic models whose capability then scales with inference budget
 - [The Bitter Lesson](/articles/the-bitter-lesson) — DIS removes hand-built machinery (`π_θ_old`, checkpoint history) — "simpler by further removing"; but the training loop is scaffolding the bitter lesson doesn't touch, the way [the inference path](/articles/inference-efficiency-as-capability) isn't
 - [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the training-side sibling: async RL is *training* efficiency, the same "efficiency is capability" logic one loop earlier
@@ -82,10 +164,12 @@ The related-work landscape (§5.2) targets throughput more than effectiveness: *
 
 ## Open Questions
 
-- DIS accepts "a controlled degree of off-policy bias." Controlled how, and does the tolerable bias grow or shrink with model scale and with the degree of asynchrony? The paper reports stability empirically but gives no bound.
-- Masking tokens out of the gradient discards data. At what asynchrony level does the masked fraction get large enough that the effective batch shrinks below usefulness? Figure 4(c) tracks the clip ratio but not its ceiling.
-- Everything here is measured on a Qwen3-30B-A3B backbone. Does the collapse-without-DIS threshold move with model size, or is ~90–160 steps a property of the asynchrony, not the model?
+- DIS accepts "a controlled degree of off-policy bias." Controlled how, and does the tolerable bias grow or shrink with model scale and with the degree of asynchrony? The paper reports stability empirically but gives no bound. **Partially answered (2026-08-12) on the asynchrony half only, and for a different keep rule:** [ESTR](https://arxiv.org/pdf/2607.22186)'s Figure 9 is the corpus's first literal staleness sweep — `Δintra ∈ {1,5,7,9}` and `Δinter ∈ {1,5,15,20,30}`, each stressed with the other held at 1 — and **no configuration collapses**, rewards degrading gracefully and monotonically out to a 30-version inter-trajectory lag with no staleness-specific tuning. So tolerable bias is at least *ordinally* mapped against degree of asynchrony for an entropy-scaled boundary. Still open, and the bound is still missing: the sweep is one task (DAPO-Math) on one 7B backbone, the two components are never varied jointly, "graceful" is a reward curve rather than a bias estimate, and nothing here is measured on DIS. The scale half is untouched.
+- Masking tokens out of the gradient discards data. At what asynchrony level does the masked fraction get large enough that the effective batch shrinks below usefulness? Figure 4(c) tracks the clip ratio but not its ceiling. **Partially answered (2026-08-12), and the framing is what moved:** [ESTR](https://arxiv.org/pdf/2607.22186) supplies the missing instrument — absolute masked fractions for three keep rules across three tasks — and the answer is that **effective-batch shrinkage is the wrong mechanism to worry about.** Its Table 7 recalibrates every rule to the same 0.07% step-0 masked fraction and the two fixed-magnitude rules still collapse; one of them (KPop) does so while *holding* a budget of the winner's order, 0.25% against 0.12%. Training dies from *which* tokens leave — mean masked-token entropy 0.11 vs 1.67 vs 3.47 — not from how few remain, at fractions three orders of magnitude too small to shrink any batch. The question's own scenario does get a first datum: a fixed bound's masked fraction **tracks the off-policy gap**, IcePop drifting 0.07% → 19.16% on multi-turn GSM8K, so runaway masking is real but is a symptom of a miscalibrated boundary rather than a ceiling reached by honest discarding. Still open as posed for DIS specifically, which reports no masked fraction at all.
+- Everything here is measured on a Qwen3-30B-A3B backbone. Does the collapse-without-DIS threshold move with model size, or is ~90–160 steps a property of the asynchrony, not the model? **Partially answered (2026-08-12):** [ESTR](https://arxiv.org/pdf/2607.22186) runs uncorrected asynchronous GRPO on a **second, 4× smaller and dense backbone** (Qwen2.5-7B, on both multi-turn GSM8K and DAPO-Math) and it collapses there too — irreversibly, "within a few hundred steps," never recovering. So collapse is not an artifact of the 30B-A3B MoE, and the low-hundreds-of-steps order of magnitude reproduces across a 4× size gap and two frameworks. What is still missing is the number itself: no step count for collapse onset is printed anywhere in the paper (the closest is an approximate read of Figure 7, where vanilla async peaks near step ~230 on DAPO-Math and declines monotonically thereafter), the staleness configurations are not matched to SAO's, and two backbones two sizes apart is a comparison, not a scaling curve.
 
 ## Sources
 
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou, Li, Tang, Dong (Tsinghua / Z.AI), arXiv 2607.07508, 2026-07-08. §1 (async motivation), §3.1 (DIS), §4.2/4.4 (collapse dynamics), §5.2 (related systems). `empirical`.
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186) — *Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning*, Guanqun Zhao, Zijun Xie, Binbin Zheng (equal contribution, all interning at Baidu), Enlei Gong, Jiafeng Lu, Yehan Yang, Aoqi Hu, Zeyu Chen — BUPT / Peking / USTC / CAS + **Baidu Inc.**, arXiv 2607.22186, v1 **2026-07-24**, `empirical`. Code at `github.com/clarify1/ESTR`. §3.1 (entropy-ratio relation), §3.2 (dual phenomena, staleness decomposition Eq. 2), §4.2–4.4 (the standardized budget, keep mask, objective), §5.1–5.4 (setup, Tables 1–2, Figure 8 mask behavior, Figure 9 staleness sweeps), Appendices A–E (proofs), G (Table 3 configuration, "bypass mode" proximal anchor), H (Tables 4–6 sensitivity), I.2 (Table 7 matched-budget ablation). **Figures 1, 3, 7, 8, 9, 14 viewed under the image two-pass rule**; Figure 1's four-way token decomposition (93.8 / 3.8 / 1.2 / 1.2) re-read at 400 DPI because it is printed only in the legend, and Figure 8's `ρ_mask` values are flagged in-text as approximate chart reads against its `×10⁻⁴` axis. Tables 1 and 2 spot-checked clean against `pdftotext -layout`; Table 6 recovered by `pdftotext -f 14 -layout` and re-verified here. **Parse warnings, in this page's convention** (four, one of them invisible to every automated check): **(1) page 14 failed docling preprocessing outright and its content is simply absent from the parsed body** — `Stage preprocess failed for run 1, pages [14]` — taking **Table 6** (batch-size sensitivity), the headers "I Additional Training Dynamics" / "I.1 BrowseComp-Plus", and Figure 13's caption with it, and resuming mid-word ("nated by the low-entropy outliers…" ← "domi-nated"); nothing is malformed, so no check fires, and Table 6 exists on this page only because it was pulled from the PDF directly. **(2)** `table-collapse` warns at 7 cells, but the three cells it prints ("2/1/8/8" and siblings) are Table 3's own slash notation, not damage — the real collapse it missed is **five Table 3 header rows** (Policy model / Train backend / Rollout engine / Task type / Reward) welded into one markdown row, recoverable in column order. **(3)** the en-dash in "AIME 2024–2026" is welded to **"AIME 20242026"** at raw line 259, plus a "40% -65%" spacing artifact. **(4)** one 4,084-character line of repeated garbled formula-engine tokens after Eq. (24) in Appendix A, the only occurrence. `canary-recall` was skipped legitimately (only 2 unique numeric tokens), not by the missing-`local_pdf` blind spot. **Revision note**: `arxiv.org/pdf/2607.22186` now resolves to **v3 (2026-08-03)**, so every number quoted here is v3's while `published:` records the v1 date used for selection.
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988) — *TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents*, Tao, Peng, Yao, Ge, Cheng, Wang, Gao, Li (UW–Madison + Microsoft Research), arXiv 2607.13988, v1 2026-07-15, `empirical`. Cited here only for §3.2 (all prefix values from one batched forward pass against a frozen model) and Appendix A.1 + Table 4 (turn-level scoring off by default on a colocated single-node layout, enabled only with a remote reference-model scoring endpoint). The paper is synchronous throughout and reports no staleness result. Full treatment on [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment).

@@ -1,0 +1,191 @@
+---
+date: 2026-08-17
+title: Rationale Bootstrapping (STaR)
+description: "The 2022 ancestor of every self-improvement loop that moves the
+  weights: few-shot a model into producing reasoning chains, keep only the ones
+  whose final answer is correct, fine-tune on them, repeat — plus the trick that
+  makes it more than rejection sampling, *rationalization*, where a failed
+  problem is re-attempted with the answer supplied as a hint and the resulting
+  chain is trained on as if the model had solved it unaided. Its filter is the
+  assumption the rest of the field inherited, its ceiling is the base model's
+  reach, and the loop plateaus because it is not really RL. Plus the two 2025
+  descendants CS329A's closing lecture offers: Multiagent Finetuning names the
+  plateau as *diversity collapse* and buys diversity with specialized generator
+  and critic agents, and Absolute Zero deletes the human-curated question set by
+  having the model propose its own tasks under a learnability reward"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-architecture
+  - post-training
+  - reasoning
+  - synthetic-data
+  - test-time-compute
+readingTime: 22
+imageAlt: Illustration for Rationale Bootstrapping (STaR)
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling
+      RL"
+    url: https://www.youtube.com/watch?v=yVnmHSAy3ck
+  - title: "CS329A Self-Improving AI Agents — Part 9: Future Research Areas"
+    url: https://www.youtube.com/watch?v=AyO6wyu4DEg
+---
+export { default as heroImage } from "../assets/rationale-bootstrapping-self-training.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck)
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg)
+
+## Summary
+
+**STaR** — *Self-Taught Reasoner*, Zelikman, Wu, Mu & Goodman (Stanford, 2022) — is the simplest working instance of the loop [CS329A](/articles/cs329a-self-improving-ai-agents) is named after, and the earliest one in this wiki in which **the weights actually move**. It exists because of a data problem the lecture states plainly: internet-scale text does not contain reasoning steps, human annotation of them is expensive, automatic generation from known solution patterns works only in narrow domains, and few-shot prompting with a handful of worked examples underperforms fine-tuning on a larger answer-only dataset. So STaR manufactures the missing data from the model itself.
+
+The loop, as taught ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery), lecture 6, delivered 2025-10-10, `practitioner-opinion`):
+
+1. Start from a **small** seed set of question/rationale/answer triples and a **large** training set of question/answer pairs (in practice, the train split of a benchmark — the answers are what makes filtering possible at all).
+2. **Few-shot prompt** with the seed rationales; generate a rationale and an answer for each training question (the lecture's representative scale: ~10k problems).
+3. **Keep only the generations whose final answer is correct.** Discard the rest.
+4. **Fine-tune** the model on the kept (question → rationale → answer) triples.
+5. **Repeat**, re-generating from the improved model.
+
+Steps 1–5 without step 3's complement are rejection sampling with extra steps. What makes STaR its own thing is what it does with the failures.
+
+## Rationalization: the trick that is the paper
+
+Filtering on correctness has an obvious dead end — *"if we just fine-tune on the correct examples the model is not able to learn how to solve new problems… there's basically no signal."* The wrong answers are exactly the problems worth learning, and they are exactly the ones the filter throws away.
+
+**Rationalization** runs those problems backwards. Hand the model the *correct answer* as a hint, ask it to produce the reasoning that reaches it, then add the resulting (question → rationale → answer) triple to the training set **with the hint stripped out — as if the model had solved it directly.** The training set now covers problems above the model's current solve rate, and the loop can bootstrap upward instead of circling its own competence.
+
+That is the property worth carrying past this paper. Outcome filtering alone keeps only what the model already does, which is the self-limiting shape [SWiRL](/articles/offline-multi-step-tool-rl) names three years later and measures ("outcome filtering keeps only problems the model already solves"). STaR's answer is to *manufacture* a positive example for a problem the model failed rather than to score its steps; SWiRL's is to keep good steps from trajectories that ended wrong. Both are attacks on the same hole, from opposite directions, and neither one needs a process reward model to see it.
+
+## The three assumptions, and the failure mode attached to each
+
+The lecture is unusually explicit that STaR rests on assumptions rather than results:
+
+| Assumption | What breaks if it fails |
+|---|---|
+| A correct final answer proxies a correct rationale | Invalid intermediate steps get trained on. The lecture concedes this: *"you might have some invalid steps in between."* |
+| Given the answer, the model can produce a valid rationale for it | The hinted chain rationalizes *toward* a known target — the model can construct plausible reasoning it did not use, and STaR **does not filter step 3 at all** |
+| The base model is strong enough to bootstrap from few-shot examples | A problem class outside the base model's reach yields nothing, hint or no hint; the iterative outer loop only helps if *some* subset is in range |
+
+The second row is the one the classroom pushed hardest on, and the answer was a concession plus a pointer: STaR itself applies no filter to rationalized chains, *"but there are follow on papers that do filter in step three… you can do some sort of process reward model on top of the reasoning chains"* — i.e. the fix is [process supervision](/articles/process-vs-outcome-reward-models), arriving after the fact. Without it the only quality check available is a human reading the chains, which the lecturer calls tedious and does not recommend.
+
+Note the shape this produces: a method whose entire signal is outcome correctness, with a known false-positive channel (right answer, wrong reasoning) that it has no instrument to detect — the same false positive that lecture 3 gave as the *argument for* process supervision in the first place.
+
+## Results, as taught
+
+Slide-read figures in an auto-caption transcript, delivered late 2025 about a 2022 paper — approximate, and attributed to the lecture rather than to the paper.
+
+- **Model**: GPT-J, a 6B open-source reproduction of GPT-3. Small warm-up, constant learning rate, a fixed number of *outer* loop iterations with the *inner* step count increasing each round (the paper's own note: start the training slowly and ramp).
+- **Datasets**: GSM8K (~9k grade-school word problems), CommonsenseQA (multiple-choice everyday reasoning), and a synthetic multi-digit arithmetic set.
+- **CommonsenseQA** is where rationalization pays: the lecture gives ~**72.5%** accuracy while consuming roughly **86%** of the data direct fine-tuning would need. Human raters shown STaR's rationales against the few-shot seed rationales judged them "pretty reasonable" — a qualitative check, not a measurement.
+- **GSM8K is where it does not.** *"The use of rationalization actually did not improve performance"* — direct fine-tuning on good data reaches a similar place. The lecturer's explanation is difficulty: the number of calculation steps the model used unprompted was already close to what the rationalization steps supplied, so on problems inside the model's reach there is nothing for reasoning-elicitation to add.
+- **The loop plateaus.** *"It's not really true RL… if you basically do multiple iterations of this it starts to plateau after a while."* How many iterations are useful is a tuning problem the paper does not settle.
+
+**One number in this section of the transcript is not trustworthy.** The ASR renders a STaR-versus-supervised-fine-tuning comparison as reaching *51.7* on "math benchmark" — the same figure the same lecture gives forty minutes later for DeepSeekMath's MATH score. Treat it as bleed between slides, not as a STaR result; nothing on this page depends on it.
+
+## Where it sits in the design space
+
+The lecture places STaR inside the RL taxonomy rather than beside it: *"you can almost call it an off policy reinforcement learning technique"* — reward 1 if the final answer is correct, 0 otherwise, applied offline to a batch of generations. Its neighbours differ in one coordinate each:
+
+| Method | Generation | Reward |
+|---|---|---|
+| **STaR** | offline, one pass, then fine-tune | 1/0 on final answer |
+| Online rejection fine-tuning | online, from the current policy | 1/0 on final answer |
+| [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) (GRPO) | online, a group per prompt | group-normalized advantage |
+
+That ordering is also the lecture's argument for why the later methods win: *"if you do basically the online reinforcement learning loop and your sample from the current model that beats what we were doing earlier in STaR."* The difference that matters is not the algorithm's sophistication but **whether the data comes from the model you are currently updating**.
+
+## The two descendants the lecture names
+
+Both are one line each in the transcript and get no more than that here:
+
+- **V-STaR** — put a **verifier** in the loop alongside the generator, trained together, instead of relying on final-answer match as the only filter. The obvious repair for assumption 1 above, and the bridge to [the verification literature](/articles/weak-verifier-ensembling) the course spends lectures 2–3 on.
+- **Quiet-STaR** — move the rationale out of the token space entirely, into **latent** thinking via MLPs: *"why have them in English when you can have the model thinking internally?"* Compare [Invisible Reasoning (Filler-Token Latent Computation)](/articles/invisible-reasoning), where the cost of that move — a chain of thought that is no longer readable as an audit trail — is this wiki's subject.
+
+## What bounds it
+
+The lecture puts the question to the room rather than answering it, and the students' answers converge with the lecturer's:
+
+- **No leaps outside the base model's distribution.** Rationalization produces chains "of the same level as what it was trained on"; it does not manufacture a logical step the model could not have taken. This is the concrete, small-scale statement of the course's standing question — whether the loop adds capability or surfaces what pretraining already contained.
+- **Few-shot format bias.** The style of the seed rationales propagates into everything the model generates and therefore into everything it trains on. Prompt engineering becomes a training-data decision.
+- **No rationale evaluation.** Without a human or a PRM there is no way to hill-climb on chain quality; only the final answer is legible to the loop.
+
+One further boundary the lecture raises and declines to settle: a student points out that in practice you would simply generate the reasoning data from a **frontier model** rather than bootstrap it from the model you are training. The lecturer agrees the argument is fair — *"you can always take a more powerful model and use its outputs, and that's like distillation"* — and defends STaR as the from-scratch case: the interesting version is the one where no stronger teacher exists, which is the only version that says anything about [self-improvement](/articles/recursive-self-improvement) rather than about compression.
+
+## The plateau gets a mechanism: diversity collapse (Multiagent Finetuning, 2025)
+
+The course returns to this page's loop in its **closing lecture** ([CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg), [Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-12-05, `practitioner-opinion`) and supplies the diagnosis lecture 6 did not have. The plateau is not primarily the base model's reach, the rationalization channel, or over-fitting. It is that **the generations stop differing.**
+
+Chowdhery's statement of the mechanism is the useful part, because it is an argument about where pre-training's diversity came from rather than an observation about a curve:
+
+> when you look at model training at the pre-training scale, the data is so diverse because it was generated over such a long time by humans … but when a single large language model is generating outputs for a set of prompts, it will not have very diverse responses **even at high temperatures**.
+
+So a single-model self-training loop is compressing a distribution it is simultaneously narrowing, and the performance increase "will stop after a few iterations or after tens of iterations." That is the same ceiling [lecture 7](/articles/selection-under-a-submission-budget) states from the sampling side — *if you sample 10× more but you don't end up with more diverse solutions, then you're actually not going to improve* — arriving at training time instead of inference time.
+
+**The fix is a society of models fine-tuned from one base.** *Multiagent Finetuning: Self-Improvement with Diverse Reasoning Chains* (Subramaniam, Du, Tenenbaum, Torralba, Li & Mordatch — MIT / Google, ICLR 2025) splits the population into two specialist roles and trains them on different data:
+
+| Role | Trained on | Job |
+|---|---|---|
+| **Generation agents** (×N) | their own outputs that matched the majority vote, as prompt/response SFT pairs | produce diverse initial solutions |
+| **Critic agents** | debate trajectories where an answer starts *wrong* and is corrected over rounds | learn to contrast a correct answer against an incorrect one |
+
+The round structure is ordinary multi-agent debate with one change: each generation agent's next answer is conditioned on a **summary of all the other agents' responses** (summarized by a model, or simply concatenated), the critics critique the summarized set rather than any single agent's chain, and a majority vote closes the round. Repeat, and the resulting trajectories become the next round of fine-tuning data for both roles.
+
+**What the slides show** — negative log-likelihood as a performance proxy on one axis and **embedding dissimilarity** as a diversity proxy on the other, both against fine-tuning iteration count, over three open-source models (fine-tuning forces open weights; **Llama 3** is called the most responsive). Multi-agent fine-tuning keeps improving across iterations where single-agent fine-tuning flattens or collapses, and the responses **stay dissimilar** rather than converging. In-domain is maths; the adjacent-domain check is GSM8K, where the fine-tuned agents also improve — the lecturer flags the absolute numbers as dated ("this is a slightly older piece of work, so the numbers are not that high") and this page carries none of them.
+
+Three things worth keeping past the paper:
+
+- **The instrument, more than the method.** Plotting embedding dissimilarity beside accuracy is a cheap standing readout for *any* self-training loop, and it is exactly what STaR's own plateau discussion lacks. A loop whose accuracy is flattening and whose dissimilarity is falling has a different disease from one whose dissimilarity holds.
+- **The poor man's version is what practitioners already do**: skip the fine-tuning and just generate from *different models* with different prompts. The lecturer names this herself as the naive substitute, which makes the paper's real claim narrower — that specialization can be *manufactured from one base model* rather than bought by paying for several.
+- **The aggregation is the course's own weakest selector.** "You basically get majority voting for free just by having multiple agents" — and [lecture 2](/articles/verifiability-thesis) measured majority voting plateauing at 10–50 samples and structurally blind to the answers that appear once or twice in ten thousand. The diversity is the thing being bought; the thing doing the selecting is the one the course elsewhere shows cannot reach the hard tail. The lecture does not put these two slides together.
+
+## Removing the last human input: self-proposed tasks (Absolute Zero, 2025)
+
+STaR needs a **large training set of question/answer pairs** — the filter exists only because the answers do. Every method on this page inherits that dependency, and the closing lecture's third paper deletes it.
+
+The motivation Chowdhery gives is a supply argument rather than a cost one: supervised learning needs human-curated reasoning traces, RL with verifiable rewards needs experts to curate the question–answer pairs — *"if it's an IMO problem, then you need IMO experts"* — and **as models pass human expert level the supply of people who can write the next question runs out.** That is the data barrier stated as a ceiling on self-improvement rather than as a budget line.
+
+**Absolute Zero** (Zhao et al., 2025 — flagged in lecture as *"still very new"* and having *"not seen much use yet"*) has one model **propose** the tasks and **solve** them, in code, because the interpreter is a free verifier. Three task types over (program, input, output) triplets: **deduction** (generate a program and an input; the environment executes to get the output), **abduction** (the lecture's description of this one is ASR-garbled and reads identically to deduction — the intended contrast, inferred and not quoted here, is recovering an input from a program and its output), and **induction** (sample an *existing* program, generate new inputs plus a natural-language description of the function, and let the environment judge).
+
+Two pieces of machinery carry beyond the paper:
+
+- **The learnability reward.** Each proposed task is passed to the solver: success rate zero → reward **zero**; success rate nonzero → reward **1 − average success rate**. Trivial and impossible tasks both score nothing, so the proposer is paid for tasks the solver sometimes solves and sometimes fails, and must propose harder ones as the solver improves. Proposer and solver are *"slightly adversarial, but overall they're helping each other improve"* — a curriculum that regenerates itself against the current weights.
+- **The validity gates, which are what stop the proposer hacking.** A proposed task enters training only after the environment runs it: program-integrity errors, safety checks, and a **determinism check** (same inputs run repeatedly must produce identical outputs). Accepted triplets go into a **task buffer** with per-task success statistics, and the proposer samples references from that buffer and is explicitly conditioned on past generated examples *to promote diversity* — the same anti-collapse move the multi-agent section above makes, here inside a single model.
+
+**Results as taught** (no figures survive the ASR; everything here is qualitative and attributed to the lecture): state of the art on coding benchmarks with **no human-curated prompt data at all**, beating models trained on tens of thousands of expert examples; complexity metrics and program/answer diversity both rising over training as the proposer escalates; **strong performance on maths benchmarks despite training only on self-proposed code tasks**; and larger models gaining more than smaller ones.
+
+Three readings this page adds:
+
+- **The human dependency moved out one level and the shape did not change.** STaR is bounded by whoever supplies the answers; Absolute Zero is bounded by whatever supplies the *verifier*. Where the environment executes, questions are free — which is [the verifiability thesis](/articles/verifiability-thesis) restated as a claim about training-data supply rather than about capability.
+- **The transfer result is the lecture's third instance of one pattern.** Mirhoseini says so on the spot, reaching for her own [SWiRL](/articles/offline-multi-step-tool-rl): *"there is this like clear kind of repeated trend that we are seeing in terms of synthetic data generation by the model and generalization"* — code→maths here, calculator→search engine in SWiRL, maths→countdown and GPQA in [SPRINT](/articles/intra-trace-parallel-planning), maths→GSM8K in the multi-agent paper above. Four papers, one claim: **what self-generated data transfers is a manner of reasoning, not a task or a tool.**
+- **And the scale term cuts against the flywheel's most interesting reading.** Both instructors state independently that **larger models absorb this kind of data flywheel better** — Absolute Zero's own result, corroborated by Mirhoseini from SWiRL's RL side. Self-improvement is therefore *complementary to* scale, not a substitute for it, which is [The Bitter Lesson](/articles/the-bitter-lesson) arriving inside the method that was supposed to route around the data wall. Nothing in the lecture reports **pass@K** for a self-proposed curriculum, so [lecture 6's bound](/articles/group-relative-policy-optimization) — the RL raised majority@K and not pass@K — is untested here rather than overturned.
+
+## Connections
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 6's first paper, and the course's minimal working example of its own thesis; the closing lecture returns to it with the two 2025 descendants above
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — where Multiagent Finetuning lands as a datum rather than as a method: a *finetune-differentiated* homogeneous population, which is the arm that page's specialization question has been missing (its other sources hold workers identical or differentiate them only by prompt)
+- [Recursive Self-Improvement](/articles/recursive-self-improvement) — the flywheel this is the 2022 prototype of, with the weights moving and a human still choosing the domain, the seed rationales and the number of rounds
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the instrument STaR lacks: its unfiltered rationalization step is the outcome-supervision false positive that lecture 3 gives as the whole argument for process labels
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — the same hole attacked from the other side three years later, and with a measurement: outcome filtering keeps only what the model already solves, so process filtering beats it for RL
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the successor in the lecture's own taxonomy: same 1/0 correctness signal, moved online and given a group-relative advantage instead of a hard filter
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — where the samples being filtered come from; STaR is what happens when the coverage is spent on training data instead of on an answer
+- [Effective Compute Scaling](/articles/effective-compute-scaling) — the data-wall reading: this is the concrete mechanism behind "test-time-search outputs distilled back," and its ceiling is the base model rather than the compute budget
+- [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) — where V-STaR's "add a verifier" branch leads once one verifier is not enough
+- [Invisible Reasoning (Filler-Token Latent Computation)](/articles/invisible-reasoning) — what Quiet-STaR's latent-rationale branch costs: reasoning that no longer sits in readable tokens
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) — the lecturer; lecture 6 is hers
+- [The Bitter Lesson](/articles/the-bitter-lesson) — the term the closing lecture attaches to both 2025 descendants and does not follow up: **larger models absorb the self-improvement flywheel better**, stated independently for Absolute Zero and for SWiRL. A method built to route around the data wall turns out to have returns that rise with scale
+- [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) — the third of four lecture papers reporting the same transfer shape: self-generated training data lifts *other* tasks and tools, which is what makes the flywheel a claim about a manner of reasoning rather than about a benchmark
+- [The Data Wall and the Validation Commons Are One Supply Constraint](/articles/data-wall-and-validation-commons-one-supply) — this page's three results (the plateau, diversity collapse, Absolute Zero's deleted question set) used as the corpus's measured answer to whether synthetic data can outrun the data wall, and the place the two supply questions merge: Absolute Zero's own motivation — *"if it's an IMO problem, then you need IMO experts"*, and that supply runs out as models pass human expert level — is the cognitive-commons argument arriving inside a training-methods lecture
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — where the class reaches for STaR by name. Asked how to embed reasoning into the model rather than searching for it at inference, students propose annotating training solutions with the algorithm used, and the lecturer names the rationalization move: give the model the answer as a hint and ask it to produce the reasoning that reaches it
+
+## Open Questions
+
+- STaR applies no filter to rationalized chains, and the lecture's proposed fix is a PRM over step 3. Does process-filtering the hinted rationales measurably improve the loop, or does it just shrink the training set back toward the problems the model could already solve — the exact hole rationalization exists to fill?
+- The loop "starts to plateau" after a few iterations and the lecture offers no account of why. Is the plateau the base model's reach (no new problems come into range), the rationalization channel poisoning the training set with plausible-but-wrong chains, or ordinary over-fitting to a finite benchmark train split? **Partially answered (lecture 9, delivered 2025-12-05), with a fourth candidate the question did not list and a measurement the other three lack:** *diversity collapse* — a single model's generations converge *"even at high temperatures"*, so successive rounds compress an ever-narrower distribution. Multiagent Finetuning's evidence is the shape of two curves rather than an ablation: fine-tuning a *specialized population* keeps accuracy climbing across iterations where single-agent fine-tuning flattens or collapses, and **embedding dissimilarity stays high** instead of falling. That makes diversity the proximate variable and supplies a cheap standing diagnostic (dissimilarity plotted beside accuracy) that distinguishes this cause from the other three. It does not close the question: the comparison is population-versus-single rather than a decomposition, no arm holds diversity fixed while varying the base model's reach, and the numbers are slide-read through ASR from a paper the lecturer herself calls dated.
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck) — Stanford CS329A lecture 6, *Train-Time Scaling and Scaling RL* ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, delivered 2025-10-10, published 2026-08-03, `practitioner-opinion`, YouTube auto-caption transcript, ~13k words). First of the lecture's three papers: the reasoning-data problem, the generate/filter/fine-tune/repeat loop, the rationalization step and its unfiltered status, the three stated assumptions, GPT-J results on GSM8K / CommonsenseQA / arithmetic, the plateau, the V-STaR and Quiet-STaR one-liners, and the class discussion on what bounds the method. The paper itself is **not in `raw/`** — every figure is read off a slide by ASR and one of them (a *51.7* attributed to STaR) is flagged above as probable slide bleed. Unlike lectures 2–5, no instructor-authorship conflict applies to this paper
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg) — Stanford CS329A lecture 9, *Future Research Areas* (both instructors, delivered 2025-12-05, published 2026-08-03, `practitioner-opinion` with forward-looking sections at `prediction` grade, YouTube auto-caption transcript, ~10.5k words). Papers 1 and 3 of the closing survey: **Multiagent Finetuning** (Subramaniam et al., ICLR 2025) for the diversity-collapse diagnosis, the generator/critic role split and their two training sets, the debate-with-summarization round structure, the NLL-versus-embedding-dissimilarity slides and the GSM8K adjacent-domain check; and **Absolute Zero** (Zhao et al., 2025) for the expert-supply motivation, the deduction/abduction/induction task types, the `1 − average success rate` learnability reward, the program-integrity / safety / determinism validity gates, the task buffer and diversity conditioning, and the code→maths transfer and scale-dependence claims. **Neither paper is in `raw/`** and no figure survives the ASR as a citable number — both sections above are deliberately qualitative. One transcript defect flagged at the point of use: the abduction task type is described identically to deduction. Neither paper is instructor-authored; the lecture's COI sits on its efficiency half ([Inference Efficiency as Capability](/articles/inference-efficiency-as-capability))

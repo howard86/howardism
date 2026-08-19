@@ -2,12 +2,17 @@
 date: 2026-07-15
 title: Group Relative Policy Optimization (GRPO)
 description: "DeepSeek's critic-free RL objective that became the 2024–25
-  default for LLM post-training: sample a group of responses per prompt, use the
-  group's mean reward as the baseline, and optimize the clipped PPO surrogate
-  with no value network — cheaper and more stable than PPO in synchronous
-  training, but the group is an implicit synchronization barrier (updates wait
-  for the slowest member) that mismatches asynchronous and single-trajectory
-  online agentic settings, which is the gap SAO exploits"
+  default for LLM post-training: sample a group per prompt, baseline on the
+  group's mean reward, optimize the clipped PPO surrogate with no value network
+  — cheaper and more stable than PPO synchronously, but its group is a
+  synchronization barrier that mismatches asynchronous and single-trajectory
+  agentic settings (the gap SAO exploits), while run synchronously at matched
+  budget it is a hard, stable ceiling, so that barrier is also most of its
+  unpriced stability — and what improves on it is not a better trajectory-level
+  estimator (GSPO and GiGRPO both score below it on controlled long-horizon
+  search) but a dense per-turn term on top of its unchanged group advantage;
+  DeepSeekMath, its origin paper, credits its headline as much to data curation
+  as to the objective, and reports that its RL raised majority@K and not pass@K"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -15,17 +20,34 @@ tags:
   - reinforcement-learning
   - post-training
   - grpo
-readingTime: 4
+readingTime: 27
 imageAlt: Illustration for Group Relative Policy Optimization (GRPO)
 sources:
+  - title: "CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling
+      RL"
+    url: https://www.youtube.com/watch?v=yVnmHSAy3ck
   - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
     url: https://arxiv.org/pdf/2607.07508
+  - title: "Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for
+      Asynchronous Reinforcement Learning"
+    url: https://arxiv.org/pdf/2607.22186
+  - title: "TRACE: Turn-level Reward Assignment via Credit Estimation for
+      Long-Horizon Agents"
+    url: https://arxiv.org/pdf/2607.13988
+  - title: "Abstention as an Action Can Kill Both the Reward Gradient and the KL
+      Anchor: Collapse Law and Repair for Error-Penalized Reinforcement
+      Learning"
+    url: https://arxiv.org/pdf/2608.00301
 ---
 export { default as heroImage } from "../assets/group-relative-policy-optimization.webp";
 
 ## Sources
 
+- [Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning](https://arxiv.org/pdf/2608.00301)
+- [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck)
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186)
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988)
 
 ## Summary
 
@@ -44,7 +66,47 @@ where `r_t(θ) = π_θ(y_t | q, y_<t) / π_θ_old(y_t | q, y_<t)` is the probabi
 - **PPO** trains a value network `V_ϕ` (a critic) and uses Generalized Advantage Estimation — accurate, but doubles the memory footprint and adds the instability of value learning.
 - **GRPO** skips the critic. For a group of responses to one prompt, it forms the advantage by normalizing each reward against the **group-level average**. The group *is* the baseline.
 
-Refinements have accreted on top: **clip-higher** (asymmetric `ε_low`/`ε_high`, Yue et al.), sequence-level importance weighting, dynamic/adaptive clipping, and smoother alternatives to hard clipping — but these mostly target *synchronous* RL, where exact importance ratios are easy to obtain.
+Refinements have accreted on top: **clip-higher** (asymmetric `ε_low`/`ε_high`, Yue et al.), sequence-level importance weighting, dynamic/adaptive clipping, and smoother alternatives to hard clipping — but these mostly target *synchronous* RL, where exact importance ratios are easy to obtain. Three of those "accretions" are in fact one paper, DAPO — see the stabilization-stack section below.
+
+## Where it came from: DeepSeekMath, and the half of the paper that is not the objective
+
+Every source above cites Shao et al. (DeepSeekMath, 2024) as GRPO's origin and none of them describes it. [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 6 ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-10-10, `practitioner-opinion`, figures read off slides by ASR) walks the paper, and two things it supplies are worth holding.
+
+**The memory argument, stated as a count of model copies.** PPO in the RLHF configuration keeps *four*: the old policy, the new policy, a critic, and a reward model. *"A 7B model is fine, but if you try to scale up RL you have to keep multiple policy models"* — the critic is the copy GRPO deletes, taking the resident set to three. So the original motivation was not stability or sample efficiency but **fitting the run on the GPUs you have**, and the lecture still recommends GRPO on exactly that basis: a *"reasonably strong algorithm that can work even if you don't have enough memory."* The justification offered for why deleting the critic is *safe* is a one-liner and worth its own note: reward models are trained on comparisons in the first place, so a comparative baseline is the natural scale for their scores.
+
+**And the objective is not what made DeepSeekMath work.** The lecture spends as long on the data half, and its claim is a negative result about the obvious approach: Minerva improved PaLM on STEM by training on arXiv, and DeepSeek found *"training on arXiv papers is not the trick"* — arXiv gives poor coverage across maths sub-domains. What worked was **curating maths out of Common Crawl** (the OpenWebMath lineage), for a far larger token yield, on top of a **code** base model (DeepSeek-Coder) rather than a general one, which the lecture reports as the first demonstration that starting from code transfers to maths reasoning and tool use. The RL then runs on a model that was already primed — which is the lecture's own precondition for the objective doing anything at all. Reported result: MATH 46.8 → **51.7**, the first open 7B model past 50 and the first to get there without a critic.
+
+Read against this page's later sections, that ordering is the caveat on all of them: GRPO is measured everywhere here as an objective, and the paper that introduced it attributes most of its headline to data curation and base-model choice.
+
+**And the paper reports what its own RL did not buy.** With 32 samples per problem, DeepSeekMath's RL improved **majority@K and not pass@K** — the set of problems solvable *at all* by the model did not grow; the fraction of its samples landing on the right answer did. The lecturer's summary is the sentence to carry: *"the model actually became more consistent, not fundamentally smarter."* That is the sharpest statement in the corpus of what a verifiable-reward RL run does to a model, and it is developed against the rest of the sampling literature on [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute).
+
+**The degenerate group is named as the objective's shortcoming, at the source.** When every sample in a group is correct, or every one is wrong, the normalization has nothing to normalize and the advantage is zero — *"if there is not a distribution of rewards there's nothing for the model to learn."* The lecture states this as GRPO's known limitation before introducing the paper that patches it. This is the same structural fact the abstention section below turns into a proof that the patch cannot repair a drift.
+
+## The DAPO stabilization stack: what "naively scaling up GRPO" actually breaks
+
+DAPO appears twice elsewhere on this page — as the origin of clip-higher and as the dynamic-resampling filter the abstention result defeats — without either mention saying what it is. Same lecture, third paper. Its framing: **run plain GRPO on a 32B model with long chains of thought and it does not merely underperform, it comes apart**, in four named ways — entropy collapses (the model becomes too confident and stops exploring), training destabilizes, response length grows without bound, and truncated reasoning chains inject noise into the gradient. DAPO's contribution is *"to make explicit what were the techniques in RL that were not covered in GRPO."* The four fixes, as taught:
+
+- **Clip-higher (asymmetric clipping).** PPO's symmetric clip treats increases and decreases alike, so a low-probability token can only climb so far per step while a high-probability one is capped the same way — exploration collapses from below. Widening the upper bound alone permits bigger increases; the reported effect is both higher accuracy *and* an entropy curve that stops collapsing. **Entropy is being used here as a proxy for how much exploration is still possible**, which is the instrument, not the objective.
+- **Dynamic sampling.** Oversample beyond the group size, then **discard the groups that are all-correct or all-wrong** and keep only those with reward spread — directly targeting the zero-advantage case above. The stated purpose is to preserve an *effective* batch size: gradients computed from degenerate groups are not small, they are exactly nothing, so a nominal batch silently shrinks to whatever fraction of it carried signal.
+- **Token-level loss.** Under a sample-level loss each response contributes equally regardless of length, so *"a very long garbage answer gets the same weight as a short good answer."* Moving the loss to token granularity makes length count, and the two variables it is used to control are, again, entropy and mean response length.
+- **Soft overlong punishment.** A hard problem produces a chain that gets truncated at the context limit; the truncated remnant is noise with a reward attached. DAPO applies a **graded** penalty over the final tokens rather than discarding or fully penalizing the sample. The lecture notes the alternative other papers take — grow the context length over the course of the RL run — without preferring one.
+
+**The ablation ladder, on Qwen 32B / AIME.** Cumulative, as narrated, and slide-read through ASR, so treat the steps as approximate and the ordering as the lecture's:
+
+| Arm | AIME |
+|---|---|
+| GRPO baseline | ~30 |
+| + overlong filtering | ~36 |
+| + asymmetric clipping | ~38 |
+| + soft overlong punishment | ~41 |
+| + token-level loss | ~42 |
+| + dynamic sampling | ~50 |
+
+The reference points the lecture puts beside it: DeepSeek-R1 reported ~47 on the same benchmark, and R1-distilled-into-Qwen-32B was the arm DAPO's 50 beat — a fully-published recipe hill-climbing past a distillation of a frontier reasoning model, on an openly available backbone. Note **where the ladder's mass is**: the first and last rungs (overlong filtering, +6; dynamic sampling, +8) are worth more than the three middle ones combined, and both of them are *data-selection* changes rather than objective changes. The clipping fix that this page previously listed as GRPO's headline refinement is worth about two points here.
+
+**Three instruments, offered as the practitioner takeaway**, and this is the part of the lecture that is not about DAPO: in RL post-training the loss is not a usable proxy for progress, so watch **response length**, **entropy** (kept neither too low nor too high), and the **fraction of samples scoring a full reward of 1** — which tells you how much you need to sample. The failure signatures pair with them: an exploding response length means the loss needs controlling, and *no improvement after a number of steps means the reward model may be saturated* — [Reward Hacking](/articles/reward-hacking) observed as a training-curve symptom rather than as a behaviour.
+
+**One tension with this page's own material, worth stating rather than resolving.** DAPO's case for dynamic sampling is about *gradient efficiency* — degenerate groups waste rollouts, so replace them. The [abstention-collapse](/articles/error-penalized-abstention-training) result below proves that the same filter **conserves the expected reward drift per rollout exactly**, so it cannot repair a normalizer-induced drift, only spend more rollouts arriving at it. These do not contradict: one is a claim about batch utilization on maths benchmarks where the rewarded action is common, the other about a two-action gate where it is rare. They do jointly say that dynamic sampling is a throughput fix that has been read, elsewhere, as a correctness fix.
 
 ## The structural weakness SAO exploits
 
@@ -58,17 +120,87 @@ GRPO's group-relative baseline is elegant in synchronous training and fatal in t
 
 In SAO's experiments, **vanilla GRPO** (with the latest-old-policy importance sampling and clip-higher) suffers a **performance collapse at ~160 training steps** — the reported scores are its final valid numbers before collapse. Adding SAO's [DIS](/articles/asynchronous-rl-for-llms) token-level masking to GRPO (**GRPO + DIS**) rescues the stability, confirming that the collapse is an off-policy/clipping problem, not a group-sampling problem per se. But GRPO + DIS then **diverges downward from SAO after ~400 steps** — stability alone isn't enough; the single-rollout + value-model combination is what keeps improving. So GRPO's two problems separate cleanly: DIS fixes its *stability*, single-rollout fixes its *ceiling* and its *incompatibility with online feedback*.
 
+## Synchronous GRPO as the matched-budget ceiling
+
+The collapse above is GRPO run *asynchronously*. [ESTR](https://arxiv.org/pdf/2607.22186) (Baidu et al., arXiv 2607.22186, 2026-07-24, `empirical`) is the corpus's first source to run **synchronous** GRPO as a controlled baseline at equal resource budget across three tasks, and it is the reference point every asynchronous method there is measured against. The synchronous arm colocates generation and training on the same total hardware that the asynchronous arms split into disaggregated pools, so the comparison is an equal-hardware one rather than an equal-step one.
+
+Two facts about GRPO fall out that its own collapse story does not supply.
+
+**Synchronous GRPO is a genuinely hard ceiling, and it does not destabilize.** It is the top scorer on BrowseComp-Plus (38.55 avg@1), on multi-turn GSM8K (96.07 avg@4), and on AIME 2024–2026 avg@4 (17.54), and its training curves stay stable and still climbing for the length of every run in which it is plotted — out past step 800 on DAPO-Math (Figure 9) and through the full ~350-step GSM8K run (Figure 14a/c) in which three separate asynchronous keep-rules collapse. It is beaten on exactly one headline metric, AIME **pass@4**, where ESTR's 28.38 tops it against 27.68.
+
+**What GRPO's group buys, priced.** Removing the correction entirely and running the same objective asynchronously costs **9.6 points** on BrowseComp-Plus (38.55 → 28.91), **35.4** on multi-turn GSM8K (96.07 → 60.72), and **3.9** on AIME avg@4 (17.54 → 13.61). The GSM8K number is the one worth carrying: under aggressive staleness (`Δintra = 5`, `Δinter = 13`) uncorrected asynchronous GRPO does not merely degrade, it loses a third of the benchmark. So the synchronization barrier this page describes as GRPO's structural weakness is also, unpriced, most of its stability — and the whole async-RL stabilization literature exists to buy that stability back without paying the barrier's idle time.
+
+## The other way to fix the trajectory-level advantage: keep the group, split the number
+
+SAO's answer to "the group advantage is attached to the whole rollout" is to delete the group. [TRACE](/articles/turn-level-credit-assignment) ([Tao et al.](https://arxiv.org/pdf/2607.13988), UW–Madison + Microsoft Research, arXiv 2607.13988, 2026-07-15, `empirical`) takes the opposite route and **changes nothing about GRPO except the advantage's granularity**: the clipped surrogate is identical, `A^out` is the same group-relative normalization (returning 0 when the group's reward standard deviation is 0), and the only edit is that tool-interaction tokens get `Â = α_out·A^out + α_turn·r^turn`, with `α_out = 1.0` and `α_turn = 0.2`. The turn term comes from a frozen reference model's gold-answer predictability at tool-call boundaries — no critic, no step labels, no judge, no process reward model. Mechanism, tables and parse notes on [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment); three facts belong here.
+
+**Turn credit is worth more than either published GRPO refinement, and both refinements *lose to plain GRPO* here.** With backbone, browser action space, rollout protocol, training data, terminal reward and evaluation interface held fixed across all arms, the four-benchmark averages are:
+
+| | Qwen3-4B | Qwen3-30B-A3B |
+|---|---|---|
+| Base (untrained) | 13.4 | 16.7 |
+| **GRPO** (outcome-only) | **29.5** | **32.5** |
+| GSPO (sequence-level ratios) | 28.2 | 33.3 |
+| GiGRPO (group-in-group) | 26.5 | 29.7 |
+| TRACE (GRPO + turn credit) | 34.0 | 38.1 |
+
+On the 4B backbone both refinements are *below* the baseline they refine (28.2 and 26.5 against 29.5), and GiGRPO trails at both scales. The authors' reading is structural rather than dismissive: GSPO and GiGRPO change sequence- or group-level *estimation* but still operate at the trajectory level — they can rank rollouts against each other and cannot say which interaction inside one made later success likelier. On a task whose success depends on a chain of dependent environment interactions, that is the axis that pays. Two caveats before carrying it: these are single training runs (the paper says so, and hedges its own ablation headings with "in this run"), and this is one task family on one model family.
+
+**The value of the outcome anchor is priced from the other direction.** GRPO's page already records what removing the *correction* costs under asynchrony; TRACE prices what removing the *dense* signal costs and what over-trusting it costs. Its only formal ablation table isolates the credit **format** — GRPO 30.0 → raw log-prob delta 32.4 → linear remaining-gap normalization 34.6 → log-ratio TD 35.5 on closed-web BrowseComp-Plus — while the on/off toggle for boundary credit exists only in a bar chart: disabling the dense backup entirely returns **30.0**, indistinguishable from the GRPO baseline. Push the turn coefficient the other way and it also breaks (33.6 → 35.6 → 34.5 → **31.1**), because local reference-model readiness starts dominating final correctness. So the group-relative outcome advantage is not something turn credit replaces; it is the anchor that keeps the dense signal honest, and GRPO's contribution to the combined objective is load-bearing at both ends.
+
+**Do not compare these BrowseComp-Plus numbers with the 38.55 above.** Both are "GRPO on BrowseComp-Plus" and they are not the same measurement: TRACE's 30.0 / 36.4 are its own closed-web harness (a Qwen3-Embedding-8B FAISS index over the officially released corpus, a three-action `browser.search`/`open`/`find` ReAct interface, an 80-tool-turn eval cap, normalized exact match plus a format component), trained from a *base* search policy with no cold-start SFT; ESTR's 38.55 is a different framework, retrieval stack, reward (LLM judge) and training setup. The two agree only that GRPO is a serious baseline.
+
+## The group normalizer can rewrite the reward function it optimizes
+
+Every section above treats GRPO's group baseline as an *estimator* — a variance-reduction device that leaves the objective alone. [Che, Yuan, Zhao & Yu](https://arxiv.org/pdf/2608.00301) (arXiv 2608.00301, 2026-07-31, `empirical`) show it is not, in one specific and diagnosable regime. Because the normalizer `σ̂_r` is itself a function of the sampled reward spread, and the spread depends on how often the policy takes the rewarded action, **normalization changes the decay exponent and, when the action is rare, the rule**.
+
+The setting is a ternary reward — +1 correct, −λ wrong, 0 abstain — where the rational threshold is Chow's `t* = λ/(1+λ)`. Their Proposition 6, with `M₂:= q̄ + (1−q̄)λ²`:
+
+| estimator | regime | per-prompt gate drift | local `L`-exponent |
+|---|---|---|---|
+| PG / RLOO / mean-baseline | all `p` | `Θ(pm)` | −1 |
+| group-std normalization | `1/G ≪ p ≪ 1` | `≈ m√p/M₂ = Θ(√p)` | **−2** |
+| group-std normalization | `p ≪ 1/G` | `p(2q̄−1)√(G−1)` | −1 |
+
+Numbers are quoted from the Proposition 6/7 prose, not from the paper's Table 1, which is a genuinely collapsed parse — see [Error-Penalized Abstention Training](/articles/error-penalized-abstention-training) for the reconciliation.
+
+**Two properties of the group baseline fall out that no prior source here recorded.**
+
+**Above the knee, group normalization steepens a collapse.** Where the answer rate sits between `1/G` and 1, the group-std drift goes as `√p` rather than `p`, so a run drifting toward a degenerate action gets there on a `1/t²` clock instead of `1/t`. Measured: head-only slope **0.507** against a predicted 1/2, with the mean-baseline arm at **0.951** against 1, and the simulated GRPO-minus-vanilla slope difference **−1.013** against a predicted −1.
+
+**Below the knee, the designed penalty is erased.** When `p ≪ 1/G` a group contains at most one non-abstaining sample, and that sample's normalized advantage is `sign(r)·√(G−1)` — **independent of |r|**. The magnitude of the reward has been divided out by the group's own standard deviation, so `λ_eff = 1` for every nominal λ, and the drift changes sign at `q̄ = 1/2` rather than at `t*`. The optimizer then trains the model to answer the entire band `q̄ ∈ (1/2, t*)` on which the designed rule assigns *negative* value — at λ = 4.5, the band (0.50, 0.82). The knee sits at `p ≈ 1/G`, measured to scale by **3.79** for G = 64 → 256 (predicted ≈4) and within **1.1%** of an exactly enumerated reference; below it the drift is λ-invariant at every grid point tested. The abstention rate on the contested band is set by **G, not λ**, at a stable fixed point `p* = Θ(1/G)`.
+
+The practical statement: **when one action becomes rarer than 1/G, GRPO stops optimizing the reward you wrote and starts optimizing its sign.** A designer who raises λ to buy caution buys nothing once the answer rate falls below the knee; what they can move is `G`.
+
+**And the standard filter does not fix it.** Degenerate groups (constant reward vector, `Â ≡ 0`) contribute exactly zero, so `E[ĝ] = Pr[D^c]·E[ĝ | D^c]` identically: DAPO-style dynamic resampling **conserves the expected drift per rollout exactly**, for every `p, G, q̄, λ` and every prompt distribution, while spending ≈1/(Gp) times more rollouts per step — which dilutes the once-per-step anchor along the rollout axis. Per optimizer step the law turns exponential; per rollout nothing changes. So no resampling scheme that discards zero-gradient groups can repair a drift of this kind; only changing the score or the estimator can.
+
+**Three scope limits before carrying this.** The rewriting is proved and enumerated for a **two-action gate** (answer/abstain) rather than for general token-level GRPO, and its live confirmation runs at 1.5B/7B on short-form QA. The estimator sweep that verifies the menu is **head-only** on frozen features (G ≤ 256, λ ∈ \{1,4,9\}), and the paper's own full-parameter runs deliberately use **RLOO instead of GRPO** — an unbiased estimator chosen because it "cannot manufacture a collapse" — so the sparse-regime GRPO claim is exact-reference-verified but not demonstrated end-to-end on a frontier run. Production estimator features that would bear on it directly (ratio clipping, the ε floor inside the normalizer, length normalization) are explicitly outside the analysis. Note also which direction this cuts relative to the sections above: nothing here contradicts synchronous GRPO's role as a hard matched-budget ceiling on math and search tasks, where the rewarded action is not rare.
+
 ## Connections
 
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — where GRPO shows up as a substrate rather than a subject: DeepSeek-Math V2 (late 2025) runs this optimizer on a DeepSeek-V3 base with a **meta-verified** proof score standing in for the outcome reward, which is the verifier literature's answer to a judge that invents its own errors
 - [Single-Rollout Optimization](/articles/single-rollout-optimization) — SAO, the method that replaces GRPO's group with one rollout + a value model; this page is its foil
+- [Error-Penalized Abstention Training](/articles/error-penalized-abstention-training) — where the group normalizer stops being a variance-reduction device and becomes part of the reward function: below a knee at `p ≈ 1/G` it erases the designed error penalty (λ_eff = 1) and moves the learned threshold to 1/2
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — the complementary fix: keep GRPO's group-relative outcome advantage exactly as-is and add a dense per-turn term on top, rather than removing the group
 - [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — where GRPO's group barrier does the most damage; DIS is demonstrated on GRPO before SAO drops the group
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the corpus's only production deployment of GRPO, and the one with the least verifiable reward: Shopify runs it **daily** on a merchant-facing agent, after SFT distillation, with a **calibrated LLM judge as the reward signal** rather than a benchmark scorer or an execution verifier (`case-study`, first-party, unreplicated). Two properties every source above lacks — the reward is a learned instrument whose own agreement with humans is 80% against an 83% ceiling, and the prompt distribution is live production traffic mined for hard negatives — so nothing there separates the objective's contribution from the judge's drift, and the group's reward spread is set by an instrument that is itself being optimized against
 - [The Bitter Lesson](/articles/the-bitter-lesson) — GRPO's critic-free design was itself a "remove hand-built structure" move (delete the value network); SAO is a measured argument for when that removal goes too far
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — the PPO-with-a-critic generation this objective replaced, and where the lecture-level GSPO comparison comes from: RLEF pairs a token-level policy with a turn-level value function, which its lecturer places "closer to what GSPO would do" — a comparison worth reading against this page's controlled result that GSPO sits at or below plain GRPO
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — the same per-step-reward ambition without a group or an environment: SWiRL optimizes the expected reward of one action conditioned on offline-collected prior context, scored by a prompted judge, so no rollouts are generated during training at all
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — the predecessor in the lecture's own taxonomy: STaR is the same 1/0 final-answer signal applied *offline* as a hard filter, and what GRPO changes is that the data comes from the policy being updated and the filter becomes a group-relative advantage
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — where the DeepSeekMath and DAPO walkthroughs above come from (lecture 6, late 2025), taught as the two RL rungs above STaR
+- [Reward Hacking](/articles/reward-hacking) — the lecture's training-curve version: flat progress after a number of steps reads as a saturated reward model, and the entropy/length instruments are what tell you which failure you are in
 
 ## Open Questions
 
-- Is GRPO's collapse-at-160-steps a property of asynchrony specifically, or does vanilla GRPO also destabilize in long synchronous runs that nobody pushes to 1000 steps?
+- Is GRPO's collapse-at-160-steps a property of asynchrony specifically, or does vanilla GRPO also destabilize in long synchronous runs that nobody pushes to 1000 steps? **Partially answered (2026-08-12), and the answer so far is "asynchrony-specific":** [ESTR](https://arxiv.org/pdf/2607.22186) runs synchronous GRPO as a matched-budget baseline on three tasks and two backbones, and it stays stable everywhere it is plotted — still climbing past step 800 on DAPO-Math and across the full ~350-step multi-turn GSM8K run, in the same window where uncorrected asynchronous GRPO and two fixed-threshold keep rules each collapse irreversibly. That is roughly 5× past the ~160-step asynchronous collapse point, on a synchronous run of the same objective. Two reasons it is not settled: nobody has actually pushed the synchronous arm to 1000 steps (it is a baseline here, not the object of study, and the longest plotted run stops near 800–900), and the collapse and no-collapse arms differ in more than synchrony, since the asynchronous arms also carry explicit `Δintra`/`Δinter` staleness that the synchronous arm has none of.
 - GRPO won by removing the critic; SAO wins by bringing it back with better engineering. Is the pendulum a real oscillation, or does the answer depend entirely on whether your setting is synchronous-grouped or async-single-trajectory?
+- Both published trajectory-level refinements of GRPO — GSPO's sequence-level ratios and GiGRPO's group-in-group advantages — score *below* plain GRPO on a controlled long-horizon search task where a dense per-turn term gains 4.5 points. Is that a property of the task (chained environment interactions punish anything that stays at trajectory granularity) or of the setting (a base policy trained with no cold-start SFT), and do either of them recover their own papers' wins when the same harness is used?
 
 ## Sources
 
+- [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck) — Stanford CS329A lecture 6, *Train-Time Scaling and Scaling RL* ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, delivered 2025-10-10, published 2026-08-03, `practitioner-opinion`, auto-caption transcript, ~13k words). The DeepSeekMath walkthrough (the four-model-copies memory argument, the arXiv-versus-Common-Crawl data negative result, the DeepSeek-Coder base, MATH 46.8 → 51.7, and the majority@K-not-pass@K finding) and the DAPO walkthrough (the four fixes, the cumulative Qwen-32B/AIME ablation ladder, and the entropy/length/full-reward-fraction instrument set). **Neither paper is in `raw/`**; every figure is read off a slide by ASR and is carried here as approximate and dated to late 2025
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou, Li, Tang, Dong (Tsinghua / Z.AI), arXiv 2607.07508, 2026-07-08. §2 (PPO/GRPO objective), §3.2 + §5.1 (group-wise mismatch), §4.2 (GRPO collapse). Primary GRPO reference: Shao et al. (DeepSeekMath, 2024). `empirical`.
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186) — *Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning*, Zhao, Xie, Zheng et al. (BUPT / Peking / USTC / CAS + Baidu), arXiv 2607.22186, v1 2026-07-24, `empirical`. §5.1 (setup, equal-resource-budget rule for the synchronous arm), **Table 1** (the Sync / Async / IcePop / KPop / ESTR row set quoted above, spot-checked clean against `pdftotext -layout`), §5.2–5.3 (the GSM8K and DAPO-Math collapse narratives), Figures 9 and 14 (viewed — the synchronous curve's stability and extent are read from these, not from prose). Full treatment of the paper on [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms), including its four parse warnings and the page-14 preprocessing gap.
+- [Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning](https://arxiv.org/pdf/2608.00301) — *Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor*, Che, Yuan, Zhao & Yu (UNC Charlotte / George Mason / Auburn / North Texas), arXiv 2608.00301, v1 2026-07-31, `empirical`. Proposition 6 (the drift menu and the knee), Proposition 7 (why DAPO-style resampling conserves the drift per rollout), Figure 2 and §5's mean-field enumeration (exponents converging to 0.5 and 1.0; sparse-regime drift matching `(2q̄−1)√(G−1)` to three decimals for every λ ∈ \{1,2,4.5,9\}), Appendix L.1/L.3 (the head-only sweep and its measured slopes/knee). **The paper's Table 1 is a genuinely collapsed parse — four estimator rows welded into single cells — so every row above comes from the Proposition 6/7 prose.** Full treatment, the repair, and all parse notes on [Error-Penalized Abstention Training](/articles/error-penalized-abstention-training).
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988) — *TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents*, Tao, Peng, Yao, Ge, Cheng, Wang, Gao, Li (UW–Madison + Microsoft Research), arXiv 2607.13988, v1 2026-07-15, `empirical`. §2.1 (why the group-relative advantage stays attached to the whole rollout), §3.3 + Eqs. 11–12 (the mixed advantage; the clipped GRPO surrogate kept verbatim), §4.1 (the controlled baseline set and the harness held fixed across arms), **Table 1** (the GSPO/GiGRPO rows quoted above — reconciled cell-for-cell at compile against `pdftotext -f 8 -layout`), §4.4 + **Table 2** + **Figure 5** (the format ablation, the on/off toggle, the coefficient sweep). Full treatment and all parse notes on [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment).

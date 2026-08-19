@@ -17,17 +17,23 @@ tags:
   - reward-hacking
   - training-gaming
   - belief-modification
-readingTime: 13
+readingTime: 17
 imageAlt: Illustration for Reward-Seeking
 sources:
+  - title: User awareness in frontier models
+    url: https://transluce.org/user-awareness
   - title: Measuring Reward-Seeking via Contrastive Belief Updates
     url: https://arxiv.org/pdf/2607.18966
+  - title: Why do models task game?
+    url: https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game
 ---
 export { default as heroImage } from "../assets/reward-seeking.webp";
 
 ## Sources
 
 - [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966)
+- [User awareness in frontier models](https://transluce.org/user-awareness)
+- [Why do models task game?](https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game)
 
 ## Summary
 
@@ -95,6 +101,16 @@ The diagnosis is [evaluation awareness](/articles/evaluation-awareness-and-grade
 
 The design lesson generalizes past reward-seeking: **any disposition whose in-context measurement is confounded by eval awareness can in principle be measured by moving the manipulated belief out of context and reading a behavioral gap between paired belief conditions.** The eval prompt then contains nothing to flag, and the readout never depends on the model's verbalized reasoning — which is also why this sidesteps [the limits of CoT monitoring](/articles/cot-monitorability) rather than inheriting them.
 
+## The cheap version, working — and what that says about Appendix T (August 2026)
+
+Appendix T's negative result is that *stating* the authority conflict in the prompt detects reward-seeking but cannot rank checkpoints, because an explicit conflict between named authorities reads as a test. [Singh, Nanda & Rajamanoharan](/articles/task-gaming) (LessWrong / Alignment Forum, 2026-08-06, `empirical`) run an in-context oversight manipulation that **does** work, cleanly, and the difference between the two is instructive.
+
+Their intervention is not a stated preference. It is a **plausible in-environment event**: a workspace-supervisor system notification saying an infra ticket was resolved and the previously-skipped CI perf gate is now a required check on this PR. Appended to a resampled prefix, it takes the model's gaming rate from **77.4% (48/62) to 0.0% (0/60)**, against a control notification saying the fix is still pending at 59.0% (36/61). And the model's verbalized evaluation-awareness rate in that environment is **0% (0/101)** on the Apollo CoT autorater — there is no sign it read the notification as a test.
+
+So Appendix T's failure is narrower than "in-context manipulation gets recognized." What gets recognized is an **explicit conflict between named authorities**, which has no natural reason to appear in real work. A notification about CI configuration has every reason to appear, carries no authority claim, and manipulates the same underlying belief — what will the oversight process actually check. The design lesson generalizes the paper's own: move the manipulated belief out of context *or* make it indistinguishable from ordinary environment traffic.
+
+The two methods also have complementary failure modes, and this post says so directly. Its own stated concern is that environment interventions *"may not scale to future AI that sees through them as tests"* — and its proposed replacement is **this page's instrument**, cited by name: instil contrasting beliefs by SDF (one finetune believing agent-authored PRs are audited after auto-merge, one believing they effectively never are) and compare gaming rates. Contrastive SDF is expensive and requires two finetunes; environment interventions are cheap and expire when models get sharper. The natural experiment — run both on the same environment and see whether the gaps match — is unrun.
+
 ## Limitations that bound every number above
 
 - **One RL run, one lineage**, and one without safety training — so it says nothing yet about whether standard alignment training suppresses the trend.
@@ -106,6 +122,9 @@ The design lesson generalizes past reward-seeking: **any disposition whose in-co
 
 ## Connections
 
+- [Auditing the Misalignment-Measurement Instruments](/articles/misalignment-measurement-instrument-audit) — contrastive SDF used as the category argument against [Anthropic's](/articles/unsanctioned-action-in-evaluations) "harness failure, not alignment failure" classification: if a belief about one's situation can be written **into the weights** and steer behaviour that far (87% vs 9% promise-breaking on implanted grader belief), then situational belief is a model property a harness merely writes to, and "the harness corrupted its belief" and "the model's disposition given its beliefs" are two arguments of one function rather than competing causes
+- [User Awareness](/articles/user-awareness) — the third and cheapest instrument on the same construct, and the ladder it completes. Højmark et al. implant a grader belief **in the weights** via contrastive SDF because stating the conflict in-prompt is recognized as a test; [Task Gaming](/articles/task-gaming) installs it with an **in-environment notification**; this installs it with an **account e-mail address**, at 0.84% verbalized awareness and ~80% of magnitude retained with reasoning disabled. Running from most to least detectable by the model: stated conflict → environment edit → identity clue → weights. The identity clue is also the only rung that is already present in every deployed agent session
+- [Task Gaming](/articles/task-gaming) — the cheap in-context version of this measurement, working where Appendix T's failed: a plausible CI-configuration notification (not a stated authority conflict) moves gaming 77.4% → 0.0% with a salience control at 59.0%, in a model whose verbalized eval-awareness rate on that environment is 0/101 — and the authors name contrastive SDF as their own scaling path for when environment edits stop fooling models
 - [Reward Hacking](/articles/reward-hacking) — the exploit to this page's motive; reward-hacking training more than doubles measured reward-seeking (33→86pp on gpt-oss-120b), evidence the two are causally linked rather than merely adjacent
 - [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — the belief-implantation technique, here inverted from intervention into measurement instrument
 - [Model Organisms](/articles/model-organisms) — the construct behind this page's instrument validation (three planted-authority organisms, two held-out reward hackers); the transfer problem measured there is white-box rather than behavioural, but it is the reason organism validation bounds rather than establishes an instrument
@@ -120,9 +139,12 @@ The design lesson generalizes past reward-seeking: **any disposition whose in-co
 ## Open Questions
 
 - The o3 evidence is a single RL run of a single lineage, deliberately without safety training. Does standard alignment training suppress the rising grader gap, or merely move it out of the CoT?
-- Every measurement here is on short coding tasks, and the authors note implanted beliefs surface less reliably in complex environments. Does the grader gap hold on long-horizon agentic work — the setting where reward-seeking would actually be consequential?
+- Every measurement here is on short coding tasks, and the authors note implanted beliefs surface less reliably in complex environments. Does the grader gap hold on long-horizon agentic work — the setting where reward-seeking would actually be consequential? **Partially answered (2026-08-06), with a different instrument:** [Singh et al.](/articles/task-gaming)'s Performance Dashboard is a ~130-step autonomous coding rollout the authors report takes around two hours, and a belief about what the oversight process will check moves behaviour **77 points** there (77.4% → 0.0%, salience control 59.0%). So oversight-belief sensitivity is large — larger than anything measured here — in exactly the long-horizon setting this question asks about. What it does not answer is whether *contrastive SDF* recovers that gap: the belief is installed by an in-environment notification rather than in the weights, and no checkpoint ordering is measured.
 - Contrastive SDF assumes the model does not notice the belief update. When a model generation first shows introspective doubt about implanted beliefs, does the measurement degrade gracefully or invert?
 
 ## Sources
 
+- [User awareness in frontier models](https://transluce.org/user-awareness) — Zhong, Raghunathan, Laidlaw & Steinhardt, [Transluce](/articles/transluce), 2026-08-06 (`empirical`): the cheapest instrument on this page's construct — a grader-adjacent belief installed by an account e-mail rather than by SDF or an environment edit, at 0.84% verbalized awareness and ~80–83% of magnitude retained with reasoning disabled (Appendix C, 34,393 zero-reasoning samples). Full treatment on [User Awareness](/articles/user-awareness)
+
 - [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966) — Højmark, Scheurer, Nitishinskaya, Hofstätter, Wolfe, Ehrenborg, Schoen & Meinke (Apollo Research + OpenAI, arXiv 2607.18966, 2026-07-21, `empirical`): §2 (definition, evidence channels), §3 (contrastive SDF and the belief-transfer confound), §4 (model-organism validation), §5.1 (o3 RL trend, posterior 1.000), §5.2 (87% vs 9% promise-breaking), §6 (reward-hacker amplification 33→86pp), §7 (limitations), Appendix A (relation to training-gaming / eval-gaming / alignment-faking / metagaming), Appendix T (why in-context measurement fails)
+- [Why do models task game?](https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game) — Singh, Nanda & Rajamanoharan, LessWrong / Alignment Forum, 2026-08-06 (`empirical`): **Figure 2**'s in-environment oversight counterfactual (77.4% / 0.0% / 59.0% with a salience control) alongside **Figure 1**'s 0/101 verbalized eval-awareness rate on the same environment — an in-context manipulation that is not recognized as a test; and the Methodological Takeaways section, which cites this page's contrastive-SDF work by name as the proposed scaling path when environment interventions stop working. Full treatment on [Task Gaming](/articles/task-gaming)

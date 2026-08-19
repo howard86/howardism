@@ -1,0 +1,162 @@
+---
+date: 2026-08-12
+title: Error-Penalized Abstention Training
+description: "Paying a model +1 / −λ / 0 to answer, err, or abstain is provably
+  right for a rational agent and can be self-defeating for a gradient learner:
+  when abstention is a discrete action, the reward gradient and the KL anchor's
+  restoring force carry the same saturation factor and die together, so coverage
+  collapses to zero while logged mean reward rises like 1/t — and GRPO's group
+  normalization silently replaces the designed penalty with λ_eff = 1, moving
+  the learned threshold from λ/(1+λ) to 1/2"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - post-training
+  - reinforcement-learning
+  - reward-design
+  - calibration
+  - hallucination
+readingTime: 22
+imageAlt: Illustration for Error-Penalized Abstention Training
+sources:
+  - title: "Abstention as an Action Can Kill Both the Reward Gradient and the KL
+      Anchor: Collapse Law and Repair for Error-Penalized Reinforcement
+      Learning"
+    url: https://arxiv.org/pdf/2608.00301
+---
+export { default as heroImage } from "../assets/error-penalized-abstention-training.webp";
+
+## Sources
+
+- [Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning](https://arxiv.org/pdf/2608.00301)
+
+## Summary
+
+A design family, now common enough to have a failure mode: reward a model **+1 for a correct answer, −λ for a wrong one, 0 for abstaining**, and it should learn to answer exactly when its correctness probability clears **Chow's threshold** `t* = λ/(1+λ)` (Chow 1970). The prescription comes from the statistical account of hallucination — Kalai et al. (2025) argue binary grading pays for confident guessing and prescribe error penalties as the remedy — and a growing RL line adopts the ternary reward directly.
+
+For a *rational reporter* the prescription is provably correct. [Che, Yuan, Zhao & Yu](https://arxiv.org/pdf/2608.00301) (arXiv 2608.00301, 2026-07-31, `empirical`) show that for a *KL-anchored gradient learner* it can produce the opposite outcome, and that the difference has a mechanical cause with a rate attached. This page is the mechanism, its conditions, and the structural repair — not a verdict on any shipped recipe (see the scope section).
+
+## The mechanism in one identity
+
+Make abstention a discrete action: the model answers with probability `σ(v(x))` for a learned gate logit `v`. Every gradient of expected score with respect to the gate then carries the saturation factor `σ′(v)`. That much is ordinary softmax-policy-gradient saturation (Mei et al. 2020; Razin et al. 2024). The new observation is about the **anchor**. For Bernoulli gates,
+
+`d/dv KL( Bern(σ(v)) ‖ Bern(σ(v₀)) ) = σ′(v)·(v − v₀)`
+
+so RLHF's restoring force toward the base model carries **the same factor**. Lemma 1 puts them in one integral — `∇_θ J_β = ∫ σ′(v_θ)[ g − βp(v_θ − v₀) ] ∇_θ v_θ ds` — and the consequence is that where the gate saturates, *both* vanish. The practitioner's intuition that "the KL term keeps the policy near its base" fails structurally: KL regularization, ordinarily a stabilizer, supplies no restoring force on exactly the coordinate that is collapsing.
+
+Three sharper facts follow from the statics alone, with no dynamics:
+
+- **The anchor cannot price the vertex out.** Bernoulli KL to a fixed base is *bounded*; total abstention costs exactly `KL_⊥ = E_p[log 1/(1−σ(v₀))] < ∞`. So all-abstain strictly beats the base whenever `β < β_crit = L(0)/KL_⊥`, and because `KL_⊥` grows only *logarithmically* in the base answer rate, `β_crit` sits **above** typical RLHF coefficients (β ∈ [10⁻³, 5×10⁻²]).
+- **The KL's direction is load-bearing.** Any regularizer with `π·∂_π R → 0` as `π → 0` dies on the boundary with the reward — the entropy bonus and RLHF's forward `KL(π_θ‖π₀)` both qualify. The **reverse** KL does not: its vertex cost diverges and it floors the answer rate at Θ(β). RLHF uses the one that points the collapsing way.
+- **The weight-space stand-in is not conservative.** Replace the KL by a proximal term `(β/2)‖θ − θ₀‖²` and the restoring force no longer carries `σ′(v)`; the flow converges to a floor `P_∞ = Θ(β log(1/β))`. Analyses that model RLHF's KL proximally therefore *understate* this pathology — true KL is strictly more permissive of collapse than its surrogate.
+
+## Three conditions, jointly — not a menu
+
+The paper's thesis is a **conjunction**, and it says so:
+
+1. **(B1) Blanket answering loses score in expectation** — `E[q] < t*`. Necessary. It is what makes the abstain vertex profitable at all.
+2. **Prompts share a bounded readout** — a single bounded feature `φ(s) = σ(ws + a) ∈ (0,1)` drives the gate through a shared bias. This is the transmission channel: (B1) is a *population* condition, and it can drag *profitable* prompts down only because the bias is common to all of them.
+3. **Abstention is a discrete action**, supplying a vertex that attracts on the `q̄ < t*` prompts and repels on the rest.
+
+Remove any one and the collapse goes, in the analyzed class. **Tabular policies do not collapse** (Proposition 1): with one free logit per prompt there is no shared bias, the stationary point is `v* = v₀ + m(q̄)/β`, and the equilibrium decision converges to Chow's rule as β ↓ 0. **Unbounded readouts escape** (Proposition 5): greedy decoding answers a positive-measure set iff the gauge-invariant scalar `sup_s v(s) = max(c₄,0) + c₀` is positive, and gates driven by unbounded hidden-state projections sit outside the class. A **bounded** readout does not create an absorbing state — it delays escape exponentially in the gain the escape must accumulate, `e^Ω(M)`.
+
+The gate-to-sequence lifting theorem (Theorem 2) removes the two-token toy restrictions: with full sequence KL and trainable content, `KL_seq = KL_gate + π_ans·K_ans + π_abs·K_abs`, every gate-channel term still carries `σ′(v)`, and **the anchor taxes only the branch taken — so abstaining hides content drift from the KL**. Under branch-separable content the collapsed manifold is stationary and the finite-time law survives with its lower bound weakened by one logarithm. The nastiest corollary: the correctness channel is throttled by `π_ans`, so the plateau delivers only `O(log t_tilt)` of total content signal — **the plateau starves the very channel that could avert it**. Theorem 2's open cases (content shared across branches, no bias coordinate — i.e. a generic single-decoder Transformer) are open *as theory* but filled *as observation*: the live Tier-2 runs sit in exactly that class and collapse anyway.
+
+## The law, and what an operator actually sees
+
+Write `L(t) = −J(θ_t)`, minus the mean training reward — the curve every RL run already logs. Under gradient flow, (B1), and a small set of *measurable* hypotheses (the observable anchor share `ρ ≤ ½`, a measured sign `c₄ ≤ 0`, a tilt bound, an explicit small-β condition), Theorem 1 gives a two-sided finite-time law:
+
+`c₁ / (t log²t) ≤ L(t) ≤ c₂ / t`
+
+with the readout gain growing as `|c₄| = O(log t)`. **The training curve reads as improvement while coverage collapses**: mean reward rises toward zero like 1/t precisely because the model is answering less and less. The hypotheses are checkable per run rather than assumed — `ρ` peaks at 0.008 on their runs — which makes part (i) an a priori envelope from a single logged quantity.
+
+Two properties matter more than the exponent:
+
+- **The clock is β-independent.** The endpoint time at which `L` crosses zero stabilizes as β ↓ 0, measured at **3.2% variation over two decades of β**; exit times vary by less than a factor 2 across β ∈ [10⁻⁴, 10⁻²]. Turning the anchor up does not buy time. (The one place 1/β does appear is the *floor*: balancing throttled drift against throttled restoring force leaves `P_floor ≍ e^(−D_eff/β)` — about 10⁻¹³ at β = 0.01 — reached only after time `e^Θ(1/β)`. That is the depth of the hole, not the length of the plateau.)
+- **The plateau is metastable, not absorbing.** Escape exists and is real: on the simulation the sampling policy escapes at `t_tilt ≈ 1.15×10⁴` while *greedy* coverage recovers only when `c₀` itself turns positive, between t = 3×10⁴ and 5×10⁴. Exit times are wildly non-monotone in signal quality — at λ = 4.5 they span 3.3×10⁴ to >10⁷ across a λ band two units wide. The claim is the plateau's length **relative to any realistic training budget**, not absorption.
+
+## The estimator rewrites the rule it optimizes
+
+Theorem 1 is about vanilla policy gradient. Practice uses group-based estimators, and because GRPO's normalizer `σ̂_r` itself depends on the answer probability `p = σ(v)`, **normalization changes the exponent and, in the sparse regime, the rule** (Proposition 6, with `M₂:= q̄ + (1−q̄)λ²`):
+
+- **PG / RLOO / mean-baseline**, all `p`: drift `Θ(pm)`, local `L`-exponent **−1**.
+- **Group-std normalization above the knee** (`1/G ≪ p ≪ 1`): drift `≈ m√p/M₂ = Θ(√p)`, exponent **−2** — group normalization *steepens* the collapse.
+- **Group-std normalization below the knee** (`p ≪ 1/G`): a group contains at most one answer, whose advantage is `sign(r)·√(G−1)` **independently of |r|**. The drift is `p(2q̄−1)√(G−1)`, exponent back to **−1**, and **the designed penalty is erased: λ_eff = 1 for every nominal λ**.
+
+The knee sits at `p ≈ 1/G`. The consequence for reward design is the sharpest single result on this page: below the knee the drift changes sign at `q̄ = 1/2`, **not** at `t*`, so the optimizer trains the model to answer the whole band `q̄ ∈ (1/2, t*)` on which the designed rule assigns *negative* gain — at λ = 4.5 that is (0.50, 0.82). Group normalization silently swaps in a rule whose Chow threshold is 1/2, **manufacturing the hallucinations the penalty was introduced to prevent**, and the abstention rate on the contested band is set by **G, not λ** (a stable fixed point at `p* = Θ(1/G)`). Full treatment of what this means for the estimator itself on [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization).
+
+Dynamic resampling does not help. Proposition 7: because degenerate groups contribute exactly zero, a filter that discards and resamples them (DAPO) **conserves the expected reward drift per rollout exactly**, for every `p, G, q̄, λ` — while taking ≈1/(Gp) times more rollouts per step, which *dilutes the anchor* on the rollout axis. Per step the law becomes exponential; per rollout nothing changes. So **no resampling scheme that discards zero-gradient groups can repair the collapse — only changing the score or the estimator can.**
+
+## The repair: move abstention out of the action space
+
+Answer every question, train a **mandatory confidence report** under a strictly proper score, and threshold at `t*` **only at deployment**. The asymmetry is structural, not a tuning choice: a deterministic report has no action distribution, hence no policy KL to anchor, and the Brier gradient `∂_κ B = −2E_p[(c − q̄)∂_κ c]` carries **no saturation factor**. At the calibrated optimum the Hessian in the range parameters is `−2E[∇c∇cᵀ]`, negative definite whenever `φ` is non-constant: the optimum is **interior and attracting**, within O(β) of calibration under a proximal anchor, and a Bernoulli-KL anchor on the *report* actively repels degenerate reports because its derivative diverges at the boundary.
+
+Two refinements keep the repair honest:
+
+- **Properness alone is not enough** (Proposition 9). Score `r_α = α·1{correct} + 1 − (Y − c)²`. Pure Brier (α = 0) makes the calibrated accuracy gradient `2q − 1 < 0` for every `q < 1/2` — **the model gains score by degrading accuracy on hard prompts and honestly reporting the degradation**, and those are exactly the prompts (B1) selects. Any `α > 1` makes the accuracy gradient strictly positive everywhere; `α = 1` leaves a degenerate stationary point at `q = c = 0`. The correctness weight must **strictly exceed** the properness weight.
+- **Properness is not the operative variable** (Remark 1). Clip a strictly proper Brier signal below `t*` — constant score, zero gradient there — and the dead zone returns, the learned confidence slides onto the threshold, and deployment utility is weakly worse at every anchor strength tested, *while the rule remains proper*. The operative variable is whether the training signal contains **a reachable region of identically zero gradient**. A proper score applied to a gated action is not protected by its properness.
+
+The design lesson generalizes past the paper's own composite: any design that keeps answering mandatory in training and learns confidence outside the action channel — including post-hoc calibration and conformal deployment-time abstention — inherits the immunity. The paper's own scope note is worth carrying: gradients in the *feature* parameters still carry `φ′` and can saturate. What the report removes is a **shared** factor multiplying every coordinate.
+
+## What was measured
+
+**Simulation (λ = 4.5, β = 10⁻³, T = 10⁴).** Deployment utility / coverage against the rational optimum:
+
+| signal | optimal U* / cov | action-level | report-level |
+|---|---|---|---|
+| weak | 0.005 / 0.035 | **0.000 / 0.000** | 0.005 / 0.034 |
+| medium | 0.074 / 0.259 | **0.000 / 0.000** | 0.074 / 0.246 |
+| strong | 0.199 / 0.469 | **0.000 / 0.000** | 0.194 / 0.442 |
+
+The action-level arm deploys **nothing at any signal quality** — the failure is total, not signal-dependent — while the report arm captures 97% of the strong-signal optimum. Swapping the true KL for a proximal anchor (which production stacks do not use) rescues medium and strong coverage (0.234 / 0.468 against rational 0.259 / 0.469) but still forfeits all of weak signal and buys its sharpness with unbounded parameter norm. At λ = 1 this calibration has `E[q] = 0.55 > t*`, **(B1) fails, and neither mechanism collapses** — the condition is doing real work.
+
+**Head-only tier (exact references, Qwen2.5 features, G ∈ \{64,256\}, λ ∈ \{1,4,9\}).** Measured against enumerated zero-parameter references: slope above the knee **0.507** (predicted 1/2), mean-baseline slope **0.951** (predicted 1), knee scaling **3.79** for G = 64 → 256 (predicted ≈4), and knee location within **1.1%** of the enumerated reference. Below the knee the drift is λ-invariant at every grid point. First-window mean reward rises in every configuration (p ≤ 7×10⁻⁴) — the collapse signature, logged as improvement.
+
+**Live full-parameter runs (Qwen2.5-1.5B/7B-Instruct, TriviaQA + PopQA, RLOO).** The estimator here is deliberately the *unbiased* one — leave-one-out baselines, chosen because it "cannot manufacture a collapse," so the live result is not a GRPO artifact. The abstain action is a binary first-token gate in the model's own vocabulary, no added head, so the per-prompt answer probability is read exactly in one forward pass.
+
+- **1.5B**: on a held-out 500-prompt cohort whose per-prompt Clopper-Pearson lower bound clears `t*`, median answer probability falls **1.000 → ≤0.008 within ten optimizer steps** and to ≤2×10⁻⁵ by step 8000, in **three of three seeds**, while forced-answer correctness on those same prompts holds at **0.94–0.97** throughout (256 rollouts per prompt). Capability is not the cause.
+- **The attribution control names the cause.** A paired run with common random numbers, zeroing *only* the low-accuracy tier's reward-channel advantages while keeping its KL channel, holds the cohort median at **exactly 1.000 at every probe point in all three seeds**. The collapse is the shared readout transmitting the low tier's negative drift — condition 2, isolated.
+- **Both gradients measured dead, and only where the collapse happened.** At the collapsed terminal state on a fixed diagnostic batch: task-gradient norm **0**, gate-KL-anchor gradient norm **below 2×10⁻¹⁰**, against a task-gradient norm of **108** in the paired control at the same step.
+- **7B sharpens two boundaries.** The overconfident-base premise turns out to be a property of scale and template rather than of the mechanism: offered the abstain option the 7B base answers only **0.51** of its answerable questions (0.91 without it), already partway to Chow's rule — and it collapses anyway, by step 10, sitting near 10⁻⁴ for **roughly 6000 steps** while its paired control climbs to 0.93 in the same ten steps. Then the predicted **late escape** arrives: it leaves the plateau between probe points 6310 and 7943, recovering to terminal median 1.0 (mean 0.65) with the task gradient revived to 131. The 1.5B horizon shows no escape, so both regimes of the escape time's exponential sensitivity are observed.
+- **The report arm moves the other way, jointly.** 1.5B: coverage 0.466 → **0.778 / 0.810 / 0.794**, accuracy 0.41 → 0.685, Brier 0.27 → 0.22. 7B: coverage passes 0.8 by step 631 and ends at **0.976**, accuracy **0.942**, Brier **0.052**. Coverage, accuracy and calibration rise *together*, which is the direction Proposition 9's interior attracting optimum predicts.
+- **The binding constraint is the readout, not the mechanism, at both scales.** A linear prompt-state probe opens at coverage 0.47 on a tier whose true correctness exceeds 0.9; the 7B head fits its calibration split **9× better** (MSE 0.0025 vs 0.0220) and *still* opens at 0.422. So these runs certify the report channel's **direction**, and the 7B run closes most but not all of the utility gap.
+
+**The grader was audited rather than trusted.** All 24 cells manually re-judged, 3600 rows: the error profile is one-sided (false negatives 0.002–0.033 on the high tier and 0.046–0.131 on the low tier; false positives ≤0.020 and *zero in 18 of 24 cells*). Measured correctness therefore **understates** true correctness throughout, which makes the capability certificates conservative and widens (B1)'s margin rather than narrowing it — corrected mixture mean ≈0.46 against `t* = 0.818`. No conclusion is grader-sensitive.
+
+## The leaderboard certificate, and a scoring-rule instrument problem
+
+(B1) is `E[q] < t*`, which public leaderboards do not identify — they report accuracy *conditional on the model's own abstentions*. What **is** identified is a sufficient condition for the initial drift: within a sharp-monotone-threshold class, `sign ċ₀(0) = sign(θ₀ − t*)`, and a **negative error-penalized score implies the initial drift points toward collapse**. On the AA-Omniscience leaderboard, which scores +1/−1/0, **only three of more than 36 frontier models scored above zero at the launch snapshot — so at least 33 satisfy the observable half of the condition at the deployed λ = 1.** And because `λ_crit = acc/err` varies across models (1.17, 1.00, 0.79, 0.73 for the four analyzed), **no single λ is training-safe for a heterogeneous population**.
+
+Two honest limits on that certificate: the implication is one-directional and **the converse genuinely fails** (a base with θ₀ = 0.30, k = 30 has conditional accuracy 0.532 > t* and a positive score, yet negative drift), so the count *undercounts* the affected set; and the behavioral half — that refusals follow a sharp monotone confidence threshold — is an assumption, with formatting- or safety-driven abstentions sitting outside it.
+
+Separately, the same rescoring exercise is a construct-validity finding about the scoring rule as a **measurement instrument**: re-scoring published (accuracy, error, abstention) triples under `score(λ) = acc − λ·err` across four public cohorts yields **eight pairwise rank reversals at λ &lt; 2.3**, with the informative crossings at λ = 0.041 and λ = 0.834 — a 16%-accuracy model overtaking a 39%-accuracy one. Reversals as such are guaranteed by geometry; what the exercise measures is *where they fall*, and both informative crossings sit **below the deployed λ = 1**. A leaderboard that fixes a single λ is implicitly choosing among rankings that flip within the range of stakes it already spans.
+
+## Scope: what this does not show
+
+Weigh the source honestly before carrying any of it to a shipped recipe.
+
+- **It does not examine any production calibration recipe.** The paper never engages a published vendor recipe. It reconciles itself with the two reported ternary-reward successes (TruthRL, TIAR) rather than contradicting them, on two grounds the authors state plainly: **both deploy λ = 1, where the sparse-regime rewriting λ → λ_eff = 1 is the identity and the over-answering band is empty**, and collapse requires (B1) on the training mix, "which curated or retrieval-augmented data plausibly violate."
+- **The live evidence is two models of one family on short-form QA, with mixtures constructed to satisfy (B1).** Qwen2.5-1.5B and 7B, TriviaQA and PopQA. No long-form, no agentic, no multi-turn. The paper supplies a *mechanism* for why short-form discrete-abstention training might not transfer; it does not itself test transfer.
+- **Free-form refusal is untested.** The collapse is demonstrated with a *designated decision position* — a binary first-token gate. "Free-form refusals, with no designated decision position, remain untested," and a generic single-decoder Transformer sits outside Theorem 2's proven cases on two counts.
+- **The verbalized confidence channel is untested.** The live report is read out through a **linear probe on the prompt state**, not through the model's words — and the paper cites evidence that verbalized confidence tracks answer *commitment* more than correctness.
+- **Programmatic grading only.** The authors bound their own claim: with an LLM judge crediting hedged text at rate ν, **properness degrades by O(ν)**. Any calibration reward routed through a model grader inherits that term, and ν is not measured anywhere.
+- **Production estimator features are outside the analysis** — sampled-token variance, ratio clipping, the ε floor in the normalizer, length normalization.
+- Institutionally this is a four-author US academic paper (UNC Charlotte, George Mason, Auburn, North Texas) with no industry lab behind it, 637.5 single-GPU hours in total, and no code release stated. Its theory is proved and its simulations are exactly enumerated; its live scale is far below frontier.
+
+## Connections
+
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the estimator the sparse-regime result is about: group normalization steepens the decay to 1/t² above the knee and, below it, replaces every designed penalty with λ_eff = 1, moving the learned threshold from t* to 1/2
+- [Trained Calibration](/articles/trained-calibration) — the reward-design family this is a mechanism-level result *about*. Its proper-scoring-rule channel is independently this paper's own prescribed repair; its abstention-aware QA reward is the component whose channel geometry decides whether the collapse condition can apply at all
+- [Confident But Unsure](/articles/confident-but-unsure) — the failure the penalty rule is prescribed against, and the empirical pairing this paper's report arm moves: coverage, accuracy and calibration rise together under the composite objective rather than trading off
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the same rescoring exercise read as an instrument problem: fixing a single λ on a leaderboard implicitly picks among rankings that flip at λ = 0.041 and 0.834, both below the deployed λ = 1
+
+## Open Questions
+
+- Does the collapse survive a **free-form refusal** — no designated decision position, the model simply writing "I don't know" somewhere in a generated sequence? The paper's live demonstrations all install a binary first-token gate, and Theorem 2's proven cases exclude the generic shared-decoder case that free-form refusal would sit in. A run that trains the ternary reward on free-form refusals under (B1), reporting coverage on a capability-certified cohort, settles it in either direction.
+- Does the **λ_eff = 1 erasure** show up at frontier scale and production settings — i.e. does a GRPO run with a large nominal λ on a sparse-answer regime learn the λ = 1 threshold, and does the abstention rate track G rather than λ? Every measurement of it so far is head-only against enumerated references at G ≤ 256, and production estimator features (ratio clipping, the normalizer's ε floor, length normalization) are explicitly outside the analysis.
+- Is `ρ ≤ ½` (the observable anchor share) actually a cheap, reliable early-warning statistic on real runs, or does it hold trivially wherever anyone would look? It peaks at **0.008** across every run in this paper, which is two orders of magnitude inside the bound and therefore uninformative as a discriminator here. A run that collapses *with* ρ near ½, or a non-collapsing run with small ρ, would tell us which.
+
+## Sources
+
+- [Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning](https://arxiv.org/pdf/2608.00301) — *Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning*, Xujun Che (UNC Charlotte), Yuchen Yuan (George Mason), Weida Zhao (Auburn), Chenyang Yu (University of North Texas); Che and Yuan equal first authors. arXiv **2608.00301**, v1 **2026-07-31**, 21 pages, AAAI-style formatting, no venue stated, no code release stated. `empirical` (theory + exact enumeration + simulation + live RL runs). §2 (setting, matched heads, condition B1), §3 (Lemma 1, Propositions 1–5, Theorems 1–2), §"The Advantage Estimator Rewrites the Rule" (Propositions 6–7, predictions P1–P5), §4 (Propositions 8–9, Remark 1), §5 + Appendix L.3 (all live numbers), Appendix E (the two escapes and the exit-time landscape), Appendix K (the AA-Omniscience certificate and the rank-reversal rescoring), §7 (limitations, and the TruthRL/TIAR reconciliation).
+ **Parse notes.** `verify: warn` on `table-collapse` (2 cells). **Table 1** (the estimator decay-law menu) is **genuinely collapsed** — four estimator rows welded into single cells — and **every row quoted on this page is taken from the Proposition 6/7 prose instead**, reconciled against the caption's own definition `k:= |2q̄−1|√(G−1)`, `ω ≍ k/G`. Do not read that grid literally: an ingest-time reconstruction of it inverted `√(G−1)` into a denominator on two rows and dropped the DAPO row's `1/G`. **Table 2** (deployment utility/coverage) is **clean**, no collapse or shift, and quoted verbatim above. The third grid (Appendix L.3's theory-vs-measured tolerances) is **clean and uncaptioned**; one cell reads `1 2` for the fraction **1/2** because LaTeX `\frac` lost its slash — the same artifact appears in prose ("predicted 1 2"), so it is recoverable rather than corrupt. All captions sit **before** their tables; no alternation. **Formula-engine bleed, confined and harmless**: raw line 72 (equation 2, the objective `J_β`) carries 274 repeated `\text{the}` tokens (4,372 chars) and raw line 483 (the same partial derivative restated in Appendix F) carries 1,956 repeated `\ ` spacers (4,095 chars); both sit entirely inside `$$…$$`, and lines 48 and 359 restate the two equations cleanly, which is where the identities above are quoted from. Decimals render space-split throughout (`0. 008`) — cosmetic formula-mode splitting, not digit merging; the document contains no en-dashes at all, so no en-dash corruption is possible. **Figure 4 viewed** under the image two-pass rule (the live collapse/control/escape panel and the report-coverage panel); every number quoted from it is also stated in §5 or Appendix L.3 prose, so no chart read is load-bearing.

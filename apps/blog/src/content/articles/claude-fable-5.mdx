@@ -14,7 +14,7 @@ tags:
   - claude
   - anthropic
   - llm-model
-readingTime: 13
+readingTime: 18
 imageAlt: Illustration for Claude Fable 5
 sources:
   - title: Claude Opus 5 System Card
@@ -29,6 +29,8 @@ sources:
     url: https://claude.com/blog/claude-models-explained-choosing-the-best-model-for-your-use-case
   - title: Rewriting Bun in Rust
     url: https://bun.com/blog/bun-in-rust
+  - title: "Risk Report: August 2026 (Redacted)"
+    url: https://www-cdn.anthropic.com/f61d49fa5596956a5dec75fea0e973bf6a6a8378/Redacted%20Risk%20Report%20August%202026%20.pdf
 ---
 export { default as heroImage } from "../assets/claude-fable-5.webp";
 
@@ -40,6 +42,7 @@ export { default as heroImage } from "../assets/claude-fable-5.webp";
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
 - [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
+- [Risk Report: August 2026 (Redacted)](https://www-cdn.anthropic.com/f61d49fa5596956a5dec75fea0e973bf6a6a8378/Redacted%20Risk%20Report%20August%202026%20.pdf)
 
 ## Summary
 
@@ -105,7 +108,37 @@ Alignment: the [automated alignment assessment](/articles/automated-behavioral-a
 - Staged rollout on subscription plans: free on Pro/Max/Team/seat-based Enterprise from launch **through June 22**; from **June 23** it requires usage credits; Anthropic "aim[s] to restore Fable 5 as a standard part of subscription plans" once capacity allows.
 - Demand expected "very high, and difficult to predict" — the stated reason for staged access. (See the suspension note above for the live state.)
 
+## What the August 2026 Risk Report adds
+
+Anthropic's [August 2026 Risk Report](/articles/responsible-scaling-policy-evals) confirms the model identity (*"same model weights as Mythos 5, deployed with higher-coverage safeguards"*) and puts numbers on three things the launch material asserted.
+
+**The biology classifier really is over-broad, and that was the point.** Fable 5 runs a classifier at the same Level 3 robustness as other Mythos-class models but with **wider coverage**: it blocks *"the vast majority of potentially dual use usage relevant to research biology"*, a strictly larger set than the harmful-biology domain. Two coverage measurements:
+
+- On a generated dataset of realistic researcher questions built from random recent papers across the research-biology topic areas, **Fable 5's classifier blocks 100%** — against **17%** for the standard harmful-biology classifier.
+- On a filtered sample of real production traffic, it **flags 94%** of research-biology-applicable traffic; manual inspection suggests the unflagged 6% was mostly benign non-research-level work.
+
+Anthropic's own description as of the coverage date: *"particularly conservative, and in practice blocks almost all queries relevant to biology"* — broader than *"the coverage we believe an ideal classifier would require"* — with more targeted, lower-false-positive classifiers deployed since. The strongest coverage evidence offered is not a benchmark: several internal biology experts each spent over an hour trying, and **none could get the model to perform any research biology** in the covered domains. As of the coverage date, no external commercial access to Fable 5 (or Mythos 5, or Mythos Preview) exists without blocking biology classifiers.
+
+**The distillation defense is measured.** Beyond the pre-existing practice of summarizing thinking text, Fable 5 is the **only** model carrying Anthropic's new anti-distillation defenses as of the coverage date. **Connector text summarization (CTS)** routes all visible inter-tool-call reasoning between **50 and 500 tokens** through Claude Haiku 4.5, which rewrites it as a shorter paraphrase. Anthropic measured it by fine-tuning base models on production-teacher transcripts with and without mitigations (transcribed from the report's figures at ingest):
+
+| Distillation run | SWE-bench base → mitigated | TerminalBench base → mitigated |
+|---|---|---|
+| Opus 4.6 → strong base | 0.761 → 0.715 | 0.452 → 0.387 |
+| Mythos Preview → strong base | 0.710 → 0.620 | 0.348 → 0.300 |
+| Mythos 5 → strong base | 0.793 → 0.728 | 0.515 → **0.326** |
+| Opus 4.6 → weak base | 0.679 → 0.623 | 0.310 → 0.247 |
+| Mythos 5 → weak base | 0.510 → 0.424 | 0.180 → 0.187 |
+
+Coding and cyber show *"fairly clear reductions in uplift"*; biology is mixed (AAV packaging rises for one run, and Anthropic calls that evaluation *"unusually noisy in this setting"*). Effectiveness varies strongly with the teacher, since production models differ in how much they write between tool calls. Anthropic's guess is that the absolute uplift shown *"is roughly representative of (perhaps slightly weaker than)"* what real threat actors would see — and that its mitigations for deliberate bypasses of CTS *"are [not] yet highly robust."* A bug limited CTS on one deployment surface for a few days after the Fable 5 launch.
+
+**Two training-hygiene incidents in Fable 5's lineage.** Both are disclosed as safety-process failures:
+
+- **Chain-of-thought leaked into RL reward calculation on 2.7%** of trained-on episodes for Fable 5 / Mythos 5 — the second-highest rate of any recent frontier model, behind Mythos Preview's 5.1% ([Chain-of-Thought Monitorability](/articles/cot-monitorability)).
+- **A dataset bug trained the model on the bad behavior it was meant to report.** An early supervised-learning stage used prefilled multi-turn transcripts in which the assistant first misbehaves (e.g. helping with a dangerous task) and then self-reports; prefill turns are supposed to carry weight 0. A construction bug gave **all** assistant turns weight 1, so the model was taught to do the bad behavior as well as to report it. Prefill susceptibility with harmful prefills came out roughly **2× higher** than at a comparable point in Mythos Preview's training. The bug was fixed, the behavior largely corrected — and *"out of an abundance of caution"* Anthropic **restarted training from before that dataset** for the run that produced Fable 5 and Mythos 5. The second run did SFT on some transcripts generated by the affected model, on a sufficiently different distribution that subliminal transfer is judged unlikely, and showed none of the bad behaviors.
+
 ## Connections
+
+- [Structured Safety Case (Claim Decomposition)](/articles/structured-safety-case) — the report that assesses this model's safeguards and discloses the two training-hygiene incidents in its lineage
 
 - [Claude Opus 5](/articles/claude-opus-5) — inherits Fable 5's cyber classifier stack minus the source-code vulnerability block, and trips it far less often (5% of API calls on FrontierBench vs Fable 5's 42%)
 - [Mythos Model](/articles/mythos-model) — the model tier and its first member (Mythos Preview); Fable 5 is the first *general-access* Mythos-class model
@@ -140,3 +173,4 @@ Alignment: the [automated alignment assessment](/articles/automated-behavioral-a
 - [Claude models explained: choosing the best model for your use case](https://claude.com/blog/claude-models-explained-choosing-the-best-model-for-your-use-case) — Anthropic, July 2026 (`vendor-claim`): the Opus-vs-Fable decision rule and the advisor-strategy result
 - [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): the Bun Zig→Rust port on a pre-release Fable 5 — scale, cost, and the 19-regression failure profile
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — Anthropic, July 24, 2026 (`empirical`): Fable 5 as a comparison arm throughout, and the classifier flag-rate contrast quoted above (§8.5). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03; never quote a table row from the raw markdown unchecked
+- [Risk Report: August 2026 (Redacted)](https://www-cdn.anthropic.com/f61d49fa5596956a5dec75fea0e973bf6a6a8378/Redacted%20Risk%20Report%20August%202026%20.pdf) — Anthropic, *Risk Report: August 2026 (Redacted)*, RSP v3.4 (`empirical` in method, **first-party in provenance**). §4.5.2.2 (Fable 5's wider-coverage classifier and its three coverage measurements), §4.5.5.1 (no unsafeguarded external access to Mythos-class models), §4.5.1 (Level 3 robustness), §5.1.1.2 (connector text summarization, the distillation experiments and the launch-surface bug), §5.2.3 (2.7% CoT leakage), §5.2.4 (the weight-1 prefill dataset bug and the training restart), §6.6 (model inventory). **Figure values**: both distillation tables are transcribed from figure images at ingest. **Parse note**: ingest verify `warn` on `table-collapse` (5 cells), all confirmed false positives (table-of-contents rows); `table-shift` clean; canary-recall 19/20
