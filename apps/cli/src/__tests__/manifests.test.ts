@@ -23,6 +23,7 @@ function makeParsed(
     frontmatter: {},
     body,
     mtime: new Date("2026-01-01"),
+    isGenerated: false,
     ...overrides,
   };
 }

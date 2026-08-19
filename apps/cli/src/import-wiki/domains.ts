@@ -1,10 +1,11 @@
 /**
  * Domain resolution for the blog's primary browse axis.
  *
- * The vault curates knowledge domains as `moc-*` Map-of-Content pages; each MOC
- * lists the concepts/entities it owns, so the MOC bodies ARE the authoritative
- * domain-membership map. `derived/` essays aren't filed under any MOC, so they
- * fall back to the `syntheses` domain.
+ * `_system/catalog.tsv` (see `catalog.ts`) is the authoritative domain source
+ * for every wiki page except `moc-*` pages (which own their domain directly —
+ * `moc-agent-systems` IS the `agent-systems` domain) and `generated: true`
+ * pages (vault navigation, not filed under any domain — they fall back to
+ * `syntheses`).
  *
  * The `@howardism/article-contract` package is the source of truth for the
  * `WikiDomain` union and `WIKI_DOMAINS` array. This file owns only the
@@ -12,13 +13,11 @@
  */
 import { WIKI_DOMAINS, type WikiDomain } from "@howardism/article-contract";
 
+import type { CatalogRow } from "./catalog.ts";
 import type { ParsedWikiFile } from "./parse.ts";
-import { extractInternalSlugs } from "./wikilink.ts";
 
 const MOC_SLUG_PREFIX = "moc-";
-/** The lone derived backlog page; harvested separately, not a domain member. */
-export const OPEN_QUESTIONS_SLUG = "open-questions";
-/** Catch-all domain for `derived/` essays the vault doesn't file under a MOC. */
+/** Catch-all domain for pages the catalog doesn't file under a real domain. */
 const FALLBACK_DOMAIN: WikiDomain = "syntheses";
 
 const DOMAIN_SET: ReadonlySet<string> = new Set(WIKI_DOMAINS);
@@ -42,34 +41,56 @@ export function mocSlugToDomain(slug: string): WikiDomain | null {
 }
 
 /**
- * Build the slug → domain map by reading each MOC page's member list. First
- * MOC to claim a slug wins (a concept should appear in exactly one MOC).
+ * Build the slug → domain map from the catalog: an entity-typed row folds
+ * into the `entities` domain, every other row takes its `domain` column
+ * verbatim. `moc-*` pages resolve their own domain directly in
+ * `resolveDomain` (not entered here) and `generated: true` pages have no
+ * catalog row by design (they fall back to `syntheses` via `resolveDomain`'s
+ * default) — both are skipped.
  *
  * Throws when the vault holds a `moc-*` page whose domain isn't in the
- * contract. Skipping it silently would drop every concept that MOC lists into
- * the `syntheses` fallback — a corrupted browse axis that still imports, still
- * type-checks, and still passes `content:check`.
+ * contract, or a non-MOC, non-generated page the catalog doesn't cover.
+ * Skipping either silently would file concepts under `syntheses` by
+ * accident — a corrupted browse axis that still imports, still type-checks,
+ * and still passes `content:check`.
  */
 export function buildDomainMembership(
-  parsed: readonly ParsedWikiFile[]
+  parsed: readonly ParsedWikiFile[],
+  catalog: ReadonlyMap<string, CatalogRow>
 ): Map<string, WikiDomain> {
   const membership = new Map<string, WikiDomain>();
   const unknownMocs: string[] = [];
+  const uncataloged: string[] = [];
+
   for (const file of parsed) {
     const slug = file.source.slug;
-    const domain = mocSlugToDomain(slug);
-    if (!domain) {
-      if (isMocSlug(slug)) {
+    if (isMocSlug(slug)) {
+      if (!mocSlugToDomain(slug)) {
         unknownMocs.push(slug);
       }
       continue;
     }
-    for (const memberSlug of extractInternalSlugs(file.body, { dedup: true })) {
-      if (!membership.has(memberSlug)) {
-        membership.set(memberSlug, domain);
-      }
+    if (file.isGenerated) {
+      continue;
     }
+    const row = catalog.get(slug);
+    if (!row) {
+      uncataloged.push(slug);
+      continue;
+    }
+    const domain = row.type === "entity" ? "entities" : row.domain;
+    if (!DOMAIN_SET.has(domain)) {
+      throw new Error(
+        `Catalog row for "${slug}" has domain "${domain}", which isn't a known domain.\n` +
+          "The vault's domain taxonomy has drifted from the code. Add it to:\n" +
+          "  1. WIKI_DOMAINS   packages/article-contract/src/index.ts\n" +
+          "  2. DOMAIN_META    apps/blog/src/app/(blog)/articles/domain-meta.ts\n" +
+          "  3. --domain-<slug> (light + dark) packages/ui/src/styles/globals.css"
+      );
+    }
+    membership.set(slug, domain as WikiDomain);
   }
+
   if (unknownMocs.length > 0) {
     throw new Error(
       `Vault MOC page(s) with no matching domain: ${unknownMocs.sort().join(", ")}.\n` +
@@ -80,14 +101,21 @@ export function buildDomainMembership(
         "  3. --domain-<slug> (light + dark) packages/ui/src/styles/globals.css"
     );
   }
+  if (uncataloged.length > 0) {
+    throw new Error(
+      `Wiki file(s) missing from _system/catalog.tsv: ${uncataloged.sort().join(", ")}.\n` +
+        "Re-run `_system/build.py` in the vault to regenerate the catalog."
+    );
+  }
+
   return membership;
 }
 
 /**
  * Resolve a single note's domain. A MOC page belongs to its own domain; a
- * valid frontmatter `domain:` wins next; otherwise a concept/entity inherits
- * the domain of the MOC that lists it; everything else (derived essays,
- * unlisted concepts) falls back to `syntheses`.
+ * valid frontmatter `domain:` wins next; otherwise a page inherits the
+ * domain the catalog assigned it; everything else (a `generated: true` page,
+ * or any slug the membership map doesn't cover) falls back to `syntheses`.
  *
  * Throws on an unrecognised `domain:` value — same reasoning as
  * `buildDomainMembership`'s `unknownMocs` guard.

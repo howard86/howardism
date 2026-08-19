@@ -20,6 +20,7 @@ function moc(body: string): ParsedWikiFile {
     frontmatter: {},
     body,
     mtime: new Date("2026-01-01"),
+    isGenerated: false,
   };
 }
 

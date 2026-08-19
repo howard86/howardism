@@ -10,7 +10,6 @@ import {
   extractRawSlugsFromSources,
   loadRawDoc,
   type ParsedWikiFile,
-  parseIndexSummaries,
   parseWikiFile,
   resolveDate,
   stripWikilinksToText,
@@ -22,43 +21,6 @@ async function tempFile(content: string, filename: string): Promise<string> {
   await writeFile(path, content, "utf8");
   return path;
 }
-
-describe("parseIndexSummaries", () => {
-  it("extracts summaries from Concepts and Derived tables, skips Source Documents", async () => {
-    const content = [
-      "## Concepts",
-      "",
-      "| Page | Summary | Sources |",
-      "|------|---------|---------|",
-      "| [[claude-code]] | Anthropic's agentic coding product | 6 |",
-      "| [[anthropic]] | AI safety company / vendor of Claude | 4 |",
-      "",
-      "## Derived",
-      "",
-      "| Page | Summary | Date |",
-      "|------|---------|------|",
-      "| [[wiki/derived/what-are-ai-tools]] | Overview of AI tools | 2026-04-10 |",
-      "",
-      "## Source Documents",
-      "",
-      "| Document | Source | Ingested | Category |",
-      "|----------|--------|----------|----------|",
-      "| [[raw/llm-wiki]] | [Karpathy](https://x) | 2026-04-10 | LLM Architecture |",
-      "",
-    ].join("\n");
-    const path = await tempFile(content, "index.md");
-    const summaries = await parseIndexSummaries(path);
-
-    expect(summaries.get("claude-code")).toBe(
-      "Anthropic's agentic coding product"
-    );
-    expect(summaries.get("anthropic")).toBe(
-      "AI safety company / vendor of Claude"
-    );
-    expect(summaries.get("what-are-ai-tools")).toBe("Overview of AI tools");
-    expect(summaries.has("llm-wiki")).toBe(false);
-  });
-});
 
 describe("parseWikiFile", () => {
   it("parses YAML frontmatter and body", async () => {
@@ -130,7 +92,25 @@ describe("parseWikiFile", () => {
       absolutePath: path,
     });
     expect(parsed.frontmatter.generated).toBeUndefined();
+    expect(parsed.isGenerated).toBe(true);
     expect(resolveDate(parsed)).toBe("2026-05-25");
+  });
+
+  it("sets isGenerated to false when frontmatter has no generated flag", async () => {
+    const content = [
+      "---",
+      'title: "Claude Code"',
+      "---",
+      "",
+      "Body content.",
+    ].join("\n");
+    const path = await tempFile(content, "claude-code.md");
+    const parsed = await parseWikiFile({
+      slug: "claude-code",
+      folder: "concepts",
+      absolutePath: path,
+    });
+    expect(parsed.isGenerated).toBe(false);
   });
 });
 
@@ -145,6 +125,7 @@ describe("resolveDate", () => {
       frontmatter: {},
       body: "",
       mtime: new Date("2026-01-01"),
+      isGenerated: false,
       ...overrides,
     };
   }
@@ -239,6 +220,7 @@ describe("buildSlugTitleMap + titleFromSlug", () => {
         frontmatter: {},
         body: "",
         mtime: new Date(),
+        isGenerated: false,
       },
       {
         source: {
@@ -249,6 +231,7 @@ describe("buildSlugTitleMap + titleFromSlug", () => {
         frontmatter: { title: "Bar Page" },
         body: "",
         mtime: new Date(),
+        isGenerated: false,
       },
     ]);
     expect(map.get("foo")).toBe("Foo");

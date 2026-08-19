@@ -12,13 +12,9 @@ import { runWithConcurrency } from "../concurrency.ts";
 import { writeSearchIndex } from "../search-index.ts";
 import { pngToWebp } from "../webp.ts";
 import { generateHeroImage as generateAgyHeroImage } from "./agy/index.ts";
+import { assertCatalogFresh, type CatalogRow, loadCatalog } from "./catalog.ts";
 import { generateHeroImage as generateCodexHeroImage } from "./codex.ts";
-import {
-  buildDomainMembership,
-  isMocSlug,
-  OPEN_QUESTIONS_SLUG,
-  resolveDomain,
-} from "./domains.ts";
+import { buildDomainMembership, isMocSlug, resolveDomain } from "./domains.ts";
 import { type ArticleMeta, emitArticle } from "./emit.ts";
 import {
   buildEntityTypeMembership,
@@ -34,7 +30,6 @@ import {
   loadRawDoc,
   normaliseTags,
   type ParsedWikiFile,
-  parseIndexSummaries,
   parseWikiFile,
   type RawDoc,
   resolveDate,
@@ -60,6 +55,7 @@ interface RunOptions {
   blogArticlesPath: string;
   blogAssetsPath: string;
   blogZhArticlesPath: string;
+  catalogPath: string;
   dryRun: boolean;
   graphOutputPath: string;
   onlySlug: string | null;
@@ -149,6 +145,7 @@ async function main(): Promise<void> {
 
   await assertExists(opts.wikiPath, "wiki path");
   await assertExists(opts.rawPath, "raw path");
+  await assertExists(opts.catalogPath, "catalog path");
   if (!opts.dryRun) {
     await mkdir(opts.blogArticlesPath, { recursive: true });
     await mkdir(opts.blogAssetsPath, { recursive: true });
@@ -212,16 +209,16 @@ async function main(): Promise<void> {
         `${summary.fallbackDescriptions.length}/${toEmit.length} article descriptions ` +
           `(${Math.round(fallbackRatio * 100)}%) fell back to the first-paragraph ` +
           "heuristic — likely vault frontmatter/digest drift (missing `summary:` " +
-          `frontmatter or index.md entries). Examples: ${examples}`
+          `frontmatter or a _system/catalog.tsv row). Examples: ${examples}`
       );
     }
   }
 }
 
 interface ImportContext {
+  catalog: Map<string, CatalogRow>;
   domainMembership: Map<string, WikiDomain>;
   entityTypeMembership: Map<string, EntityType>;
-  indexSummaries: Map<string, string>;
   overrides: Record<string, WikiTag>;
   parsedAll: ParsedWikiFile[];
   slugTitleMap: Map<string, string>;
@@ -246,9 +243,15 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   // text.
   const allParsed = await Promise.all(sources.map(parseWikiFile));
   const slugTitleMap = buildSlugTitleMap(allParsed);
+
+  // The catalog is the domain + description source of truth (see catalog.ts),
+  // so it must be fresh and cover the full corpus before any --only filter.
+  await assertCatalogFresh(opts.catalogPath, allParsed);
+  const catalog = await loadCatalog(opts.catalogPath);
+
   // MOC pages own the domain-membership map, so build it from the full corpus
   // (before any --only filter) — a targeted re-import still needs every MOC.
-  const domainMembership = buildDomainMembership(allParsed);
+  const domainMembership = buildDomainMembership(allParsed, catalog);
   // Same reasoning: moc-entities.md owns the entity-type membership map, so
   // build it from the full corpus even when --only targets a single slug.
   const entityTypeMembership = buildEntityTypeMembership(allParsed);
@@ -260,16 +263,12 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
     throw new Error(`No wiki file found for slug "${opts.onlySlug}"`);
   }
 
-  const indexSummaries = await parseIndexSummaries(
-    join(opts.wikiPath, "index.md")
-  );
-
   return {
     parsedAll,
     slugTitleMap,
     domainMembership,
     entityTypeMembership,
-    indexSummaries,
+    catalog,
     overrides,
     vaultSlugSet: deriveVaultSlugSet(allParsed),
   };
@@ -334,24 +333,25 @@ async function processArticle(
     summary.unresolvedWikilinks.set(slug, new Set(unresolved));
   }
 
-  // MOC and the open-questions backlog are wiki navigation, not editorial
-  // prose — they belong in the `Index` kind, kept out of Concept/Essay.
-  const isIndexPage = isMocSlug(slug) || slug === OPEN_QUESTIONS_SLUG;
+  // A MOC and a vault-generated page (e.g. the open-questions backlog) are
+  // wiki navigation, not editorial prose — they belong in the `Index` kind,
+  // kept out of Concept/Essay.
+  const isIndexPage = isMocSlug(slug) || parsed.isGenerated;
 
-  // A MOC's first content is a `<!-- BEGIN GENERATED -->` marker, so its
-  // description must come from the `> Map of Content…` blockquote intro rather
-  // than the usual first-paragraph fallback.
-  const mocDescription = isMocSlug(slug)
+  // A MOC's/generated page's first content is a `<!-- BEGIN GENERATED -->`
+  // marker, so its description must come from the `> Map of Content…`-style
+  // blockquote intro rather than the usual first-paragraph fallback.
+  const indexDescription = isIndexPage
     ? stripWikilinksToText(firstBlockquote(parsed.body))
     : "";
   const frontmatterSummary = frontmatter.summary?.trim();
-  const indexSummary = ctx.indexSummaries.get(slug);
+  const catalogSummary = ctx.catalog.get(slug)?.summary;
   const rawDescription =
     frontmatterSummary ||
-    indexSummary ||
-    mocDescription ||
+    catalogSummary ||
+    indexDescription ||
     stripWikilinksToText(firstParagraph(parsed.body));
-  if (!(frontmatterSummary || indexSummary || mocDescription)) {
+  if (!(frontmatterSummary || catalogSummary || indexDescription)) {
     summary.fallbackDescriptions.push(slug);
   }
   const explicitOverride = ctx.overrides[slug];
@@ -601,6 +601,12 @@ function parseOptions(): RunOptions {
   // Obsidian-vault layout (`<vault>/wiki/` + `<vault>/raw/`). Override with
   // RAW_PATH when the vault is structured differently.
   const rawPath = resolve(env.RAW_PATH ?? join(wikiPath, "..", "raw"));
+  // Same layout convention as RAW_PATH: the vault's machine-readable catalog
+  // lives at `<vault>/_system/catalog.tsv`. Override with CATALOG_PATH when
+  // the vault is structured differently.
+  const catalogPath = resolve(
+    env.CATALOG_PATH ?? join(wikiPath, "..", "_system", "catalog.tsv")
+  );
   const blogArticlesPath = resolve(
     env.BLOG_ARTICLES_PATH ?? DEFAULT_BLOG_ARTICLES_PATH
   );
@@ -628,6 +634,7 @@ function parseOptions(): RunOptions {
   return {
     wikiPath,
     rawPath,
+    catalogPath,
     blogArticlesPath,
     blogAssetsPath,
     blogZhArticlesPath,
