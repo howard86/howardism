@@ -375,10 +375,12 @@ async function processArticle(
 
   const tags = normaliseTags(frontmatter.tags);
 
-  // `syntheses` is a blog-side browse axis for essays, not a vault fact. The
-  // vault now files derived notes under a topical `domain:` as well, and
-  // adopting it here would refile all 38 essays and empty the axis — so
-  // concepts take their frontmatter domain, essays keep the fallback.
+  // A derived note's own `domain:` is ignored so the catalog row decides it;
+  // concepts may still override theirs from frontmatter. Since the catalog
+  // became the domain source, this no longer parks essays in `syntheses` —
+  // it files them under their catalog domain, leaving the fallback to the
+  // `generated: true` pages alone (which is why `syntheses` was dropped from
+  // the browsable axis).
   const frontmatterDomain =
     source.folder === "derived" ? undefined : frontmatter.domain;
   const domain = resolveDomain(slug, ctx.domainMembership, frontmatterDomain);
@@ -737,7 +739,7 @@ function printSummary(summary: ImportSummary): void {
   }
   if (summary.domainDisagreements.size > 0) {
     console.log(
-      "\nFrontmatter `domain:` disagrees with MOC membership (frontmatter wins):"
+      "\nFrontmatter `domain:` disagrees with the catalog row (frontmatter wins):"
     );
     for (const [slug, { frontmatter, moc }] of summary.domainDisagreements) {
       console.log(`  ${slug}: frontmatter=${frontmatter} moc=${moc}`);
