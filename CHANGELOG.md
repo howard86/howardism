@@ -1,3 +1,13 @@
+# [v2.25.0](https://github.com/howard86/howardism/compare/v2.24.0...v2.25.0) (2026-08-20)
+
+## ✨ New Features
+- [`eee86278`](https://github.com/howard86/howardism/commit/eee86278)  feat(import-wiki): drive domains from catalog.tsv, classify generated pages as Index 
+- [`6c83f35b`](https://github.com/howard86/howardism/commit/6c83f35b)  feat(cli): add SEARCH_INDEX_OUTPUT_PATH override 
+- [`91402516`](https://github.com/howard86/howardism/commit/91402516)  feat(content): import 50 new wiki articles with hero images 
+
+## 🐛 Bug Fixes
+- [`64a395cb`](https://github.com/howard86/howardism/commit/64a395cb)  fix(cli): exempt the syntheses fallback from the domains-without-moc warning
+
 # [v2.24.0](https://github.com/howard86/howardism/compare/v2.23.3...v2.24.0) (2026-08-12)
 
 ## ✨ New Features
