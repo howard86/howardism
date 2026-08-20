@@ -16,9 +16,18 @@ tags:
   - inference-scaling
   - capability-evaluation
   - capability-trajectory
-readingTime: 19
+readingTime: 35
 imageAlt: Illustration for Large-Scale Test-Time Compute
 sources:
+  - title: "CS329A Self-Improving AI Agents — Part 1: Course Overview"
+    url: https://www.youtube.com/watch?v=6YnLB0XbTnI
+  - title: "CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling"
+    url: https://www.youtube.com/watch?v=-Ggc37xLj_Y
+  - title: "CS329A Self-Improving AI Agents — Part 3: Robust Verification"
+    url: https://www.youtube.com/watch?v=p7TdPUcPoik
+  - title: "CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling
+      RL"
+    url: https://www.youtube.com/watch?v=yVnmHSAy3ck
   - title: Rethinking the Evaluation of Harness Evolution for Agents
     url: https://arxiv.org/pdf/2607.12227
   - title: "SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery"
@@ -39,14 +48,25 @@ sources:
     url: https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute
   - title: Rewriting Bun in Rust
     url: https://bun.com/blog/bun-in-rust
+  - title: "Idea Search: Guiding Tree Search with Ideas to Explore Diverse
+      Scientific Methods"
+    url: https://arxiv.org/pdf/2608.08958
+  - title: Not All LLM Reasoning is Visible in the Chain-of-Thought
+    url: https://arxiv.org/pdf/2607.22925
 ---
 export { default as heroImage } from "../assets/large-scale-test-time-compute.webp";
 
 ## Sources
 
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
+- [CS329A Self-Improving AI Agents — Part 1: Course Overview](https://www.youtube.com/watch?v=6YnLB0XbTnI)
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y)
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik)
+- [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Idea Search: Guiding Tree Search with Ideas to Explore Diverse Scientific Methods](https://arxiv.org/pdf/2608.08958)
 - [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
+- [Not All LLM Reasoning is Visible in the Chain-of-Thought](https://arxiv.org/pdf/2607.22925)
 - [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
 - [Rethinking the Evaluation of Harness Evolution for Agents](https://arxiv.org/pdf/2607.12227)
@@ -74,6 +94,46 @@ The measured version of "the plateau moved out":
 - **Public benchmarks.** Raising the total token budget 1M→10M lifted software-engineering scores **~25%** (TerminalBench 2.0, SWE-Bench Pro) and maths/academic scores **~22%** (Humanity's Last Exam, to 5M tokens). TerminalBench kept improving even at 10× the budget public evaluations typically report.
 
 Two further AISI findings sharpen downstream pages rather than this one: compute demand scales with human task time (a power law feeding [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling)), and newer models turn extra compute into disproportionately larger gains (reshaping the doubling rate on [Task Time-Horizon Scaling](/articles/task-time-horizon-scaling) and the danger surface on [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals)). The independence matters: a thesis the vault had drawn almost entirely from [Noam Brown](/articles/noam-brown) (OpenAI) is now anchored by a government evaluator's controlled sweeps.
+
+## Two things called "test-time scaling": coverage, then pass@1
+
+The hub's framing — capability is a function of budget — hides a distinction the [CS329A](/articles/cs329a-self-improving-ai-agents) instructors draw sharply (lecture 1, 2025-09-22, `practitioner-opinion`), and it is the one that separates the 2024 results from the 2025 ones.
+
+- **Budget spent outside the model.** Repeated sampling over a *frozen* model, with an external verifier or selector choosing among the draws. The metric that moves is **coverage / pass@k** — see [Latent Capability Overhang](/articles/latent-capability-overhang) for the Large Language Monkeys numbers.
+- **Budget spent inside the model.** o1 (OpenAI, September 2024) reported the same **log-linear** shape against test-time compute, but on **pass@1** on AIME, with the parameter count unchanged. Nothing external picks the winner.
+
+[Aakanksha Chowdhery](/articles/aakanksha-chowdhery) gives the mechanism connecting them: a base model can already produce many reasoning chains, "it doesn't quite know which one is correct," and what the training loop adds is exactly that — "**it learns which is correct.** So pass@1 accuracy goes up, as opposed to pass@k or coverage, which is what you were seeing in the repeated sampling results."
+
+This is the training-side statement of [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)'s reporting rule ("a gain visible only in pass@k is a gain in attempts, not capability"): the selector is what converts attempts into capability, and reasoning-model post-training internalizes the selector. It also explains why the two literatures report incomparable numbers — one is measuring what a model *can* reach with help, the other what it reaches alone.
+
+### The sharpened version: majority@K rises, pass@K does not
+
+Lecture 6 ([CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck), delivered 2025-10-10) supplies the measurement that turns the paragraph above from a framing into a claim with a shape. Walking DeepSeekMath's RL results at 32 samples per problem, [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) reports that what improved was **majority@K** — *"the majority of the solutions become correct"* — and that **pass@K did not move**. Her summary: *"the model actually became more consistent, not fundamentally smarter."*
+
+That is a tighter statement than "pass@1 goes up," and it cuts in a direction the coverage literature makes easy to miss. If pass@K is flat, the RL added **no problem to the reachable set**; it moved probability mass onto answers the frozen base model could already produce, somewhere in its tail. Read against [Latent Capability Overhang](/articles/latent-capability-overhang), the two halves compose exactly: repeated sampling *reads* capability out of the tail at inference, and verifiable-reward RL *relocates* it toward the mode so a single sample finds it. Neither operation creates one. The lecture generalizes it across all three of its methods — they improve consistency, answer formatting and multi-step coherence, and *"none of these will yet improve the fundamental capability or teach the model to solve new problems."*
+
+Two things keep this from settling the question. It is one paper's ablation on maths, recounted from a slide in an auto-caption transcript, and the lecture lists *why* pass@K is stuck as its own first open problem rather than as a known result. And it is a claim about the methods taught in late 2025, on benchmarks with cheap verifiers — the regime where [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)'s diagnostic ("a gain visible only in pass@k is a gain in attempts") runs in reverse: here the gain is visible everywhere *except* pass@k, which is what buying consistency rather than reach looks like on a scoreboard. Mechanism and the surrounding papers on [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) and [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training).
+
+**And this is where the "self-improving" loop enters.** The instructors' framing of why reasoning models mattered is not the accuracy curve but the data it manufactures: in verifiable domains (maths with known answers, code with tests) test-time scaling is "a whole lot of synthetic data" generation, the verified trajectories become fine-tuning data, and the improved model then scales further at test time. "There's no boundary in how good the models can become with test time scaling and then bringing that back to the process of training." That flywheel is the course's definition of self-improvement — see [Recursive Self-Improvement](/articles/recursive-self-improvement) — and its gate is the [verifier](/articles/verifiability-thesis), which is why the loop runs in maths and code and stalls in creative writing.
+
+Held honestly by the instructors, and worth keeping: whether the gain comes from RL or from diverse pretraining data has "no single point of consensus," "both processes help," and the loop is "not completely well understood — it's the first signs of life."
+
+**One dated gap, since closed.** Asked in late 2025 whether the number of samples could be made a function of problem difficulty, both instructors said no published work did it — only reward-model-guided follow-ups. The 2026 sources on this page fill it from two directions: [marginal value estimation](https://arxiv.org/pdf/2608.08389) prunes branches by expected contribution mid-run, and [SwarmResearch](/articles/open-ended-discovery-harnesses)'s adaptive width-at-depth reallocates budget between breadth and depth *during* a run and beats every fixed configuration. The question was live for about nine months.
+
+### The late-2025 statement of the same three axes
+
+Everything in the two sections above is 2026 `empirical` work asking where to put a fixed budget. [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 2 ([CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y), [Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-26, `practitioner-opinion`) is the teaching-grade version of the same question a year earlier, walking through Snell et al.'s *Scaling LLM Test-Time Compute Optimally Can Be More Effective Than Scaling Model Parameters*. It is worth recording because it names the axis vocabulary the later results assume, and because two of its findings have not been superseded.
+
+**The three knobs.** (1) **Parallel sampling** — n independent draws. (2) **Sequential revision** — one chain the model keeps improving, which in late 2025 still needed prompting to elicit and which reasoning models now do internally ("when you look at the reasoning models, they are now trained — internally we see this kind of behavior in them"). (3) **How you select**, which splits into *outcome* reward models (score the final answer) and *process* reward models (score each step). A PRM turns selection into search: sample four continuations per step, keep the top two by PRM score, expand — beam search guided by a learned step-scorer. PRMs are themselves fine-tuned LLMs, work best in-domain, generalize partially, and are available off the shelf. Lecture 3 spends the whole session on this third knob — see [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) for where the ORM/PRM labels come from and what each buys, including the finding that matters most for a page about spending budget: **a trained verifier's selection accuracy rises to roughly 400 samples and then falls**, so "sample more and let the verifier pick" has a ceiling that is a property of the selector, not of coverage.
+
+**Difficulty bins, and the finding that survives.** The study bins MATH problems into five difficulty levels by the model's own pass@1 (12k train / 500 test, a PaLM model), then asks the optimal sequential-to-parallel ratio per bin. **On easy problems, sequential-heavy allocation wins; as difficulty rises the optimum degrades into noise** — the ratio "changes even from bucket four to bucket five," and the lecture is candid that mixing revisions with parallel scaling optimally is "still open research." A student supplies the intuition that fits it: easy problems have many paths to the answer so refining one is fine, hard problems have few so you need breadth to hit any. Note the direction agrees with the 2026 sources on this page — breadth wins where the task is hard and the feedback is weak — and adds the qualifier they don't test: **that is a statement about hard problems specifically, not about problems in general.**
+
+**Pre-training versus test-time compute, and the caveat from the room.** Snell et al.'s headline: at a matched ratio of inference tokens to pre-training tokens, **extra test-time compute beats extra pre-training on easy and medium problems, and loses on the hardest ones**, where larger models still win "even if we had infinite budget for test time scaling." Mirhoseini endorses it from her own lab's experience and dates it explicitly — "still work in progress and I believe still the true observation as of today" (late 2025). Two qualifiers she volunteers or accepts:
+
+- **The accounting is asymmetric and the paper's ratio hides it.** A student objects that pre-training is paid once while test-time compute is paid *every query*. She agrees, and reframes rather than rebuts: the interesting question is not which is cheaper but **who can do it at all** — "not everyone can pre-train a large model," so a route to capability that is rented per query is available to parties for whom the other route does not exist. That is the distributional argument for inference scaling, distinct from the efficiency one, and it is the same asymmetry [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) tracks from the model side.
+- **The hard-problem exception is about general models.** Asked whether a small model could be made expert on hard problems, she concedes yes via fine-tuning — the comparison holds only for the general recipe, not for a specialized one.
+
+This is the vault's clearest late-2025 statement of the pre-training-versus-inference tradeoff, and no source here has since measured it at matched cost. The [AISI](/articles/uk-ai-security-institute) sweeps above measure the inference side alone; [Effective Compute Scaling](/articles/effective-compute-scaling) models the pre-training side alone.
 
 ## The capability spectrum: when compute helps and when it doesn't
 
@@ -120,9 +180,30 @@ Wang et al. above ask *what object* to spend the budget on (trajectories vs the 
 
 This does not contradict the parallel-sampling result above; it refines it. Wang et al. show breadth beating depth when the arms are independent and the selector is the model itself. Here breadth also wins, and the extra gain comes from *reallocating* between breadth and depth mid-run rather than committing to a ratio. One control is missing and matters: the winning arm's orchestrator runs Claude Sonnet-4.6 while every subagent and the entire fixed-scaling baseline run Minimax-M2.5, so this is orchestration *by a capable model* beating fixed hyperparameters, not orchestration beating them at equal model ([Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)).
 
+### And "more exploration" is not one dial
+
+A third axis, from a third `empirical` source. Wang et al. ask *what object* to spend on; SwarmResearch asks *how to shape* width against depth; **Idea Search** (Wang, Cui, Brenner & Venugopalan, Caltech / Google Research / Harvard, [arXiv 2608.08958](https://arxiv.org/pdf/2608.08958), `empirical`) asks **at what level to inject the exploration** — and finds the two available levels have opposite signs.
+
+On scRNA-seq batch integration with a fixed Gemini 2.5 Pro, a pure Tree Search plateaus at ~300 nodes and **0.678 ± 0.011**; sampling an idea from a bank into each mutation prompt moves the plateau to ~500 nodes and the mean to **0.697**, best 0.728. Within that, the two exploration knobs diverge:
+
+- **Implementation-level (in the prompt).** An "Exploratory" instruction — implement the sampled idea even if it requires refactoring the whole solution — barely moves the mean but produces the run's single best solution (0.728). Breadth bought tail, not average.
+- **Sampling-level (in the selector).** Raising the bandit's UCB exploration coefficient from α=1 to α=4 **lowered** the mean, 0.712 ± 0.012 → 0.703 ± 0.008.
+
+The portable lesson for a page organized around "spend more, get more" is that **a search has several places to put randomness and they do not share a sign** — so "increase exploration" is under-specified as budget advice in exactly the way "increase compute" is. Two caveats hold the claim down: the α gap is under one combined standard deviation, and Figure 5 (read under the two-pass rule) shows α=4 *leading* for the first ~1000 nodes with the bands overlapping the whole run, so the verdict rests on the curve's last quarter. Direction only, on one benchmark with one backbone.
+
 Brown's thesis is stated in the numerator — spend more, get more. It has a corollary he doesn't develop: **anything that lowers the cost of a token raises capability at a fixed budget.** [Gemma 4](/articles/gemma-4) (DeepMind, July 2026, `empirical`) is the corollary made concrete — a 37.5% smaller KV cache, quantization to sub-gigabyte checkpoints, a released speculative-decoding drafter head. Under this page's framing those are not engineering footnotes; they are capability gains denominated in dollars rather than parameters.
 
 The connection runs the other way too. A thinking mode multiplies tokens per query, so shipping one in a model meant to run on a phone is only coherent once tokens are cheap. Gemma 4 ships both in the same release. Developed in [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability).
+
+### And *where in the pipeline* the tokens are spent has a price difference
+
+Every axis above spends the budget in **decode** — trajectories, iterations, rollouts, thinking tokens. [Baherwani, Goldstein & Panda](/articles/invisible-reasoning) (arXiv 2607.22925, 2026-07-24, `empirical`) supply the axis nobody on this page had priced: **prefill is compute-bound while decode is memory-bound**, and accelerators keep improving TFLOPS faster than memory bandwidth, so the same serial computation costs less on the prefill side of the pipeline. Their measured version of it is *filler tokens* — a fixed, semantically empty sequence prefilled into the assistant context, identical for every question — which buys real accuracy on 13 frontier models with chain-of-thought suppressed and no training for it: **+13.1pp** at the top, +10.0 for Opus 4.5 on 4-digit multiplication.
+
+Three implications specific to this page:
+
+- **A budget the user is not billed for in output tokens.** This is test-time compute that does not appear in the visible response at all, so an effort dial and a verbosity knob both miss it, and a benchmark that reports cost in output tokens under-counts it.
+- **It is small, and that is the honest headline.** The authors say plainly that the uplift is small relative to what explicit CoT buys on the same problems. Prefill compute is cheaper per FLOP and much worse per unit of capability — a discount, not a substitute.
+- **The incentive is what makes it matter.** Non-CoT performance is a standard benchmark criterion, serving costs favor concise outputs, and computation that never enters the trace is **resistant to distillation**. So the pressure to move test-time compute out of decode is commercial rather than adversarial, which is precisely why [Chain-of-Thought Monitorability](/articles/cot-monitorability) treats the same argument as a monitoring problem rather than an efficiency one.
 
 ## Connections
 
@@ -145,7 +226,13 @@ The connection runs the other way too. A thinking mode multiplies tokens per que
 - [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the orchestration-side extension of the axis, now with a bill attached: the Bun Zig→Rust port spent **5.9B uncached input + 690M output + 72B cached-read tokens ≈ $165k** over 11 days to complete one task, and the 12:1 cached-read-to-fresh-input ratio says a long fan-out run is priced as a *re-reading* workload, not a generation one (`case-study`, first-party). Brown's "capability is a function of how much money you put into it" gets a concrete upper data point, and it is an *orchestrated* budget rather than a single long context
 - [Expenditure Horizon](/articles/expenditure-horizon) — the thesis's accounting corrected on an agentic AI R&D task: across six runs at up to $10,000 each, **~70–90% of trajectory cost was experiment compute, not model inference**, so "how much money you put into it" and "how many tokens it generated" come apart by roughly an order of magnitude and only the money axis is complete. Also a rare measured shape for the curve itself — L-shaped, with the newer models still rising roughly log-linearly into the thousands of dollars while two older ones flatten at zero real gain
 - [UK AI Security Institute](/articles/uk-ai-security-institute) — the independent government evaluator that measured this thesis across benchmarks, promoting it from anecdote to `empirical` fact
+- [Recursive Self-Improvement](/articles/recursive-self-improvement) — the loop this axis feeds: verified test-time trajectories become the fine-tuning data for the next model, which is what CS329A means by "self-improving"
 - [Noam Brown](/articles/noam-brown) — the source; the researcher who pioneered inference-time scaling
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) — the coverage→pass@1 mechanism: what post-training adds is learning *which* chain is correct
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — the Stanford course built around this axis; its lecture 1 is the field's late-2025 baseline for it
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the selector knob's own literature, and the reason more samples eventually stop helping: a learned verifier's precision decays with candidate count while consensus merely plateaus
+- [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) — the same budget spent on the *verification* half instead: more verifiers rather than more samples from one, then distilled into a ~400M scorer
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — the "what shape" question made searchable: Archon composes generate/fuse/critic/rank/verify layers under an inference-call budget, and its fusion operation beats oracle selection over the same samples
 
 ## Open Questions
 
@@ -155,6 +242,10 @@ The connection runs the other way too. A thinking mode multiplies tokens per que
 
 ## Sources
 
+- [CS329A Self-Improving AI Agents — Part 1: Course Overview](https://www.youtube.com/watch?v=6YnLB0XbTnI) — Stanford CS329A lecture 1 ([Azalia Mirhoseini](/articles/azalia-mirhoseini) & [Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-09-22, published 2026-08-03, `practitioner-opinion`, auto-caption transcript): the coverage-vs-pass@1 distinction and its mechanism, o1's log-linear pass@1 curve, the test-time-compute → synthetic-data → fine-tuning flywheel, the parallel-sampling latency/cost asymmetry, and the (then-open) difficulty-adaptive sampling gap. Everything in it is a year behind the rest of this page — read it as the field's late-2025 baseline
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y) — Stanford CS329A lecture 2 ([Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-26, published 2026-08-03, `practitioner-opinion`): the Snell et al. walkthrough — parallel sampling vs sequential revision vs ORM/PRM selection, PRM-guided beam search, the five difficulty bins and their sequential-to-parallel ratios, and the pre-training-vs-inference tradeoff (test-time compute wins on easy/medium, loses on hard) with the pay-once-vs-pay-per-query objection and her "who can do it at all" reframe. Slide-read figures in an auto-caption transcript; approximate and dated to late 2025
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik) — Stanford CS329A lecture 3 ([Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`): the selector knob developed over four papers. Cited here only for the ~400-sample verifier precision decay and the shipped 100-sample configuration; the rest on [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) and [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling). Slide-read figures in an auto-caption transcript, approximate, late 2025
+- [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck) — Stanford CS329A lecture 6 ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-10-10, published 2026-08-03, `practitioner-opinion`): cited here only for the **majority@K rises / pass@K does not** result at 32 samples, its "more consistent, not fundamentally smarter" reading, and the generalization of it across all three of the lecture's train-time-scaling methods. Slide-read from an auto-caption transcript; the DeepSeekMath paper is not in `raw/`. Mechanism on [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) and [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26), Noam Brown on his essay *Implications of Large-Scale Test-Time Compute* (`practitioner-opinion`)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — the efficiency corollary: a thinking mode plus a five-lever inference-cost reduction, shipped together (`empirical`)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — chain-of-thought as externalized workspace: a transformer's only way past its feedforward depth is to write intermediates into the context and read them back
@@ -162,3 +253,5 @@ The connection runs the other way too. A thinking mode multiplies tokens per que
 - [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807) — Virk, Edds, Xia & Zhang (UIUC), arXiv 2607.02807 (2026-07-02, `empirical`): §3.1 and §3.4 + Table 2 — the (n, k) sweep within a 60-iteration budget, orchestrator-guided scaling winning 4/5 at +7.7% output tokens, and the unmatched orchestrator model. **Table 2 verified clean; Table 1 is collapsed in the raw and is not cited here** (recovered on [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses))
 - [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner, bun.com (2026-07-08, `case-study`): the token accounting for one orchestrated 11-day campaign — 5.9B uncached input, 690M output, 72B cached reads, ~$165k at list API pricing
 - [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI, *More compute, more capability* (2026-07-02, `empirical`): the independent measured confirmation — capability curves over token budget, ~8% of cyber tasks solved only at ≥10M tokens, +25% SWE / +22% maths from 1M→10M, HealthBench as the flat pole
+- [Not All LLM Reasoning is Visible in the Chain-of-Thought](https://arxiv.org/pdf/2607.22925) — Baherwani, Goldstein & Panda, arXiv 2607.22925 (2026-07-24, `empirical`): used here for **§7 / Conclusion** (prefill compute-bound versus decode memory-bound, the TFLOPS-outpacing-bandwidth trend, and the serving caveats — realized savings depend on batching, context length and configuration), **Table 1** (the 13-model 10-shot sweep) and **Figure 3** (the +13.1pp pi-digits arithmetic cell for Opus 4.5), plus the Limitations sentence that the uplift is small next to explicit CoT on the same problems. The mechanism, the monitoring consequence and the per-table parse verdicts live on [Invisible Reasoning (Filler-Token Latent Computation)](/articles/invisible-reasoning)
+- [Idea Search: Guiding Tree Search with Ideas to Explore Diverse Scientific Methods](https://arxiv.org/pdf/2608.08958) — Wang, Cui, Brenner & Venugopalan (Caltech / Google Research / Harvard), arXiv 2608.08958 (2026-08-09, `empirical`): §5.1 the plateau break (0.678 ± 0.011 → 0.697, best 0.728) and §5.3 the prompting-vs-α split. **No tables in the document**; all numbers quoted from prose, figures read under the two-pass rule (Figure 5 verified at 4× — legend-to-curve mapping correct, and it qualifies the α verdict). Effect sizes are on the order of the 0.008–0.018 trial-to-trial spread across 5 trials, one task, one backbone; carried as direction only. Full treatment on [Transformative Creativity](/articles/transformative-creativity) (the conceptual-space reading) and [Open-Ended Discovery Harnesses](/articles/open-ended-discovery-harnesses) (the prescribe-ideas contradiction)

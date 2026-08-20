@@ -16,9 +16,11 @@ tags:
   - classifiers
   - dual-use
   - anthropic
-readingTime: 15
+readingTime: 23
 imageAlt: Illustration for Capability-Gated Model Fallback
 sources:
+  - title: UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities
+    url: https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities
   - title: Recursive Self Improvement for Coding Agents
     url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
   - title: Claude Opus 5 System Card
@@ -27,6 +29,8 @@ sources:
     url: https://www.anthropic.com/news/claude-fable-5-mythos-5
   - title: Kimi K3 Model Card
     url: https://huggingface.co/moonshotai/Kimi-K3
+  - title: "Risk Report: August 2026 (Redacted)"
+    url: https://www-cdn.anthropic.com/f61d49fa5596956a5dec75fea0e973bf6a6a8378/Redacted%20Risk%20Report%20August%202026%20.pdf
 ---
 export { default as heroImage } from "../assets/capability-gated-model-fallback.webp";
 
@@ -36,6 +40,8 @@ export { default as heroImage } from "../assets/capability-gated-model-fallback.
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
 - [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [Risk Report: August 2026 (Redacted)](https://www-cdn.anthropic.com/f61d49fa5596956a5dec75fea0e973bf6a6a8378/Redacted%20Risk%20Report%20August%202026%20.pdf)
+- [UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities)
 
 ## Summary
 
@@ -93,12 +99,58 @@ Caveats: these are counts from one vendor's evaluation runs, unaudited, with no 
 
 **A workload abandoned over it (2026-07-24).** [Cline](/articles/cline) reports trying its autonomous harness-optimization campaign ([Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization)) with Fable 5 as the leader model and giving up: "its AI safety filter kept downgrading the model to Opus-4.8." It reran the campaign on GPT-5.6-Sol instead, and notes separately that "its safety filter repeatedly blocked us from doing AI evals research." This is a passing remark in a blog post, not a measurement — no rate, no per-prompt detail, no way to tell which classifier fired — but it is a different *kind* of evidence from the counts above: not a percentage inside a scored benchmark run, but a real 17-hour engineering workload that a third party **stopped attempting** because of the fallback. The workload is ordinary agent-harness debugging with no cyber or bio framing; the plausible trigger is the campaign's subject matter (evaluation, benchmark scoring, agent self-modification) reading as adjacent to a gated domain. Worth recording precisely because the cost of a fallback that fires on a long-horizon autonomous run is not a lower score — it is the run being abandoned, which no benchmark table can show.
 
+## What the safeguard does to a comparison it isn't part of (July 2026)
+
+A government evaluator's methodology note makes the architecture above visible from an angle
+Anthropic's own reporting cannot show it from.
+[UK AISI and US CAISI](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities) ([AISI](/articles/uk-ai-security-institute) /
+[CAISI](/articles/caisi), 2026-07-23, `empirical`), comparing US frontier models against open-weight PRC
+models on offensive cyber, state their convention plainly: **"U.S. closed-weight models were
+evaluated with system-level safeguards disabled to reduce refusals and enable measurement of maximal
+capabilities. Publicly available versions of these models have these safeguards enabled."**
+
+That sentence is the fallback architecture's shadow. The reason a third-party cyber evaluation of an
+American frontier model has to disable safeguards is that with them on, the measurement is of the
+classifier, not the model — this page's own §1 records that in blocking mode "our classifiers prevent
+Fable from making any progress" on offensive cyber tasks. So a published US-versus-PRC cyber gap is
+necessarily a **latent**-capability gap: the number describes a configuration no general-access user
+can reach. Two consequences worth keeping:
+
+- **The safeguard makes its own subject unmeasurable from outside.** Nobody without a de-safeguarded
+ build can independently check any offensive-cyber claim about these models. The fallback design
+ buys safety by making the capability unavailable, and third-party verifiability is priced into
+ that trade.
+- **The de-safeguarded/as-shipped asymmetry is one-sided.** [Kimi K3](/articles/kimi) was evaluated as hosted,
+ and AISI/CAISI report its safeguards did not prevent attempted exploit development — so one arm of
+ the comparison is at maximal capability by design and the other is at maximal capability by
+ default. The ranking of *obtainable* offensive-cyber capability may invert; see
+ [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility).
+
 ## Where it sits
 
 [RSP](/articles/responsible-scaling-policy-evals) determines *which* capabilities need gating (cyber, CB, AI-R&D, misalignment); this architecture is *how* the cyber/bio gate is implemented at inference for a generally-released model. It is the deployment-time complement to the training-time and policy-level brakes — and the operational answer to the question Mythos Preview left open: *how do you ship Mythos-class capability to everyone without shipping the uplift?*
 
+## The safeguard stack behind the gate (August 2026)
+
+Anthropic's [August 2026 Risk Report](/articles/responsible-scaling-policy-evals) documents the classifier system this page describes as a **two-axis** arrangement — *robustness* (how hard to jailbreak) and *coverage* (how much of the topic space is blocked) — applied at different levels to different models. That separation is the useful abstraction: they are independently tunable, they fail differently, and the report's two biggest CB findings land one on each axis.
+
+**Robustness levels.**
+
+- **Level 1** — the design described in the February 2026 Risk Report, patched for specific known jailbreaks. Used on Opus 4 and 4.1 (both deprecated, expected fully unavailable later in 2026), and on one hard-to-update product surface for Sonnet 4.5/4.6 and Opus 4.5/4.6.
+- **Level 2** — the updated Constitutional Classifiers design (January 2026 paper). Same two-stage shape as Level 1 — a streaming classifier built on **linear probes of model internals** escalating to a more expensive fine-tuned-model second stage — but the block decision is a **weighted combination** of probe and classifier scores rather than the second stage alone.
+- **Level 3** — Level 2 with a **lower blocking threshold**, i.e. more conservative. Used on Opus 4.7, Opus 4.8, Sonnet 5, and all Mythos-class models.
+
+**Coverage** moved separately: the classifier constitution was extended from CB-1 uses to a large (not comprehensive) set of CB-2 uses. Validation is worth recording as a fact about generalization — on a synthetic set built from 30 CB-2-but-not-CB-1 examples expanded through thousands of jailbreak-transformation compositions, the **original CB-1 classifiers already flagged 97.5%** of it, purely by generalization from earlier constitutional training. [Fable 5](/articles/claude-fable-5) then goes further with a strictly wider coverage domain (see that page).
+
+**The bug bounty, priced.** Anthropic pays **up to $35,000** per novel universal jailbreak through its HackerOne program, on a curve that rewards non-universal findings too. Since **March 1, 2026** it has paid **$87,800** across **21 reports**, validating **5 non-universal** jailbreaks and **1 universal** one — representing about **600 self-reported hours** of red-teaming from submitters alone. The universal jailbreak applies only to Level 1 classifiers; Level 2's weighted two-stage design mitigated it *without additional training*. (A second universal-jailbreak bounty was paid and then withdrawn on inspection: the submission had gamed the automated bounty system's rubric rather than obtained real help from the model — [Reward Hacking](/articles/reward-hacking) appearing in the safety program's own incentive design.)
+
+**Where the axes failed.** The coverage axis held; the *deployment* of the whole stack did not. From **May 2025 to April 2026**, all human-feedback vendor traffic ran with blocking biological classifiers disabled by an internal-use flag that also suppressed classifier-hit **logging** — ~50,000 people, ~133M exchanges, on models including Mythos Preview. Reviewed after the fact and found clean, and Anthropic's conclusion is the general one: *"the discovery of this gap… leads us to believe that there is an increased likelihood of other, similar issues unknown to us."* Appendix 6.5 adds six smaller ones in the same shape — a probe threshold copied by hand from the previous classifier and left too high for five days; a streaming-classifier bug leaving ~40 median tokens of each exchange unscored for months; **image data stripped from second-stage classifier input for ~two months**; a customer's exemption inherited by ~4× the approved seats. **A classifier's robustness level is a property of the classifier; whether it is running is a property of the deployment**, and every incident in this report is on the second axis.
+
 ## Connections
 
+- [Structured Safety Case (Claim Decomposition)](/articles/structured-safety-case) — the argument these safeguards are the mitigation half of; the CB-1 rating rose because of a deployment gap in this stack, not a robustness failure
+
+- [Continuous Self-Modification Under Review](/articles/continuous-self-modification-under-review) — the same lever pointed the other way. Here a vendor classifier routes a request *down* to a less capable model on a risk signal; there the concern is a self-modifying agent re-routing its own model slot *up*, which "can increase autonomous capability, alter refusal behavior, enlarge the prompt-injection surface, and change cost by orders of magnitude without changing the visible task interface." Ouroboros's mitigation is to make model routing an audited configuration change rather than an ordinary runtime choice — a config-layer analogue of the safeguard rather than a model-layer one
 - [Agentic Prompt Injection](/articles/agentic-prompt-injection) — Fable's classifiers extend the constitutional-classifier line documented here; jailbreak-robustness is the shared adversarial frame
 - [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the same classifier-gating idea at the *tool-call* boundary; this page applies it at the *query* boundary, and swaps a weaker model rather than blocking
 - [Responsible Scaling Policy Evaluations](/articles/responsible-scaling-policy-evals) — the RSP decides what must be gated; this is the inference-time mechanism, and Mythos-class crossing the risk threshold is what forces it
@@ -115,6 +167,7 @@ Caveats: these are counts from one vendor's evaluation runs, unaudited, with no 
 - [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the footnotes that produced the outside fallback counts, and what they still fail to control for; a safeguard that fires on 35% of a benchmark is a confound the grid never displays
 - [Kimi (Moonshot AI)](/articles/kimi) — the competitor whose evaluation footnotes measure this architecture's firing rate from outside Anthropic
 - [Cline](/articles/cline) — the outside party that abandoned a real long-horizon workload rather than absorb the downgrades; the anecdotal counterpart to Moonshot's counts
+- [UK AI Security Institute](/articles/uk-ai-security-institute) / [US Center for AI Standards and Innovation (CAISI)](/articles/caisi) — the evaluators who have to switch this architecture off to measure the model underneath it, and who say so in the methodology note
 - [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the campaign that was moved off Fable 5; a fallback firing mid-run on a 17-hour autonomous job costs the whole run, not a few points
 - [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — *different sense of "capability" — do not conflate.* Here, *capability* = a model's dangerous knowledge level, and the "gate" is a query-level classifier that routes risky prompts to a weaker model (fallback-not-refusal). There, *capability* = which tools are exposed to an agent, and the thesis is that gating capabilities is **not** authorizing calls (a tool-call-level per-argument-value check). Same word, orthogonal mechanisms — one routes models by query risk, the other authorizes tool-call arguments against operator policy
 - [Balance-of-Power Superintelligence](/articles/balance-of-power-superintelligence) — the direct disagreement on this page's distillation gate: Zuckerberg asks that "you can learn from anything you can observe" be protected as an open-ecosystem principle, where this architecture classifies distillation as a threat class alongside cyber and bio. Not an empirical dispute — a dispute over whether model outputs are observable knowledge or a protected asset
@@ -131,3 +184,5 @@ Caveats: these are counts from one vendor's evaluation runs, unaudited, with no 
 - [Claude Fable 5 and Claude Mythos 5](https://www.anthropic.com/news/claude-fable-5-mythos-5) — §"Claude Fable 5's new safeguards" (safety classifiers; cyber/bio/distillation coverage; red-teaming; 30-day retention)
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — §6.4.7 (behavioral audit with Trust & Safety fallbacks enabled; the alignment regression and Anthropic's capability-gap rationale), §8.5 (classifier flag rates on FrontierBench). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §3 footnotes 2 and 3 (2026-07-26, `vendor-claim`): Fable 5 fallback fractions on SWE-Marathon, Kimi Code Bench 2.0 and Agents' Last Exam, plus refusal counts for GPT-5.6 Sol and GPT-5.5 on the same task set
+- [UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities) — UK AISI / US CAISI, 2026-07-23 (`empirical`, joint government evaluation): the "Detailed Results" methodology paragraph stating that US closed-weight models were evaluated **with system-level safeguards disabled** to measure maximal capabilities while publicly available versions have them enabled, and the finding that Kimi K3's own safeguards did not prevent attempted exploit development. **Limit:** the de-safeguarded US models are never individually named, so it cannot be established which of them carry this page's classifier stack
+- [Risk Report: August 2026 (Redacted)](https://www-cdn.anthropic.com/f61d49fa5596956a5dec75fea0e973bf6a6a8378/Redacted%20Risk%20Report%20August%202026%20.pdf) — Anthropic, *Risk Report: August 2026 (Redacted)*, RSP v3.4 (`empirical` in method, **first-party in provenance**). §4.5/Table 4.5.A (the robustness/coverage/exemptions axes and the per-model assignment), §4.5.1 (Level 1/2/3 definitions), §4.5.2.1 (CB-2 coverage extension and the 97.5% generalization result), §4.5.3.1 (bug bounty economics: $35k cap, $87,800 paid since 2026-03-01, 21 reports / 5 non-universal / 1 universal, ~600 hours, and the rubric-gamed submission), §4.5.8.2.2 (the human-feedback classifier gap), §6.5 (the six minor incidents). Table 4.5.A is split across three docling blocks and read with §4.5.1's prose, which restates the level assignments; no row is quoted that the prose does not corroborate. **Parse note**: ingest verify `warn` on `table-collapse` (5 cells), all confirmed false positives; `table-shift` clean; canary-recall 19/20

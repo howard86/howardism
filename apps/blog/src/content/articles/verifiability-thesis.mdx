@@ -10,17 +10,29 @@ tags:
   - llm-architecture
   - llm-evaluation
   - agent-engineering
-readingTime: 7
+readingTime: 21
 imageAlt: Illustration for The Verifiability Thesis
 sources:
   - title: "Andrej Karpathy: From Vibe Coding to Agentic Engineering"
     url: https://www.youtube.com/watch?v=96jN2OCOfLs
+  - title: "CS329A Self-Improving AI Agents — Part 1: Course Overview"
+    url: https://www.youtube.com/watch?v=6YnLB0XbTnI
+  - title: "CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling"
+    url: https://www.youtube.com/watch?v=-Ggc37xLj_Y
+  - title: "CS329A Self-Improving AI Agents — Part 3: Robust Verification"
+    url: https://www.youtube.com/watch?v=p7TdPUcPoik
+  - title: "CS329A Self-Improving AI Agents — Part 9: Future Research Areas"
+    url: https://www.youtube.com/watch?v=AyO6wyu4DEg
 ---
 export { default as heroImage } from "../assets/verifiability-thesis.webp";
 
 ## Sources
 
 - [Andrej Karpathy: From Vibe Coding to Agentic Engineering](https://www.youtube.com/watch?v=96jN2OCOfLs)
+- [CS329A Self-Improving AI Agents — Part 1: Course Overview](https://www.youtube.com/watch?v=6YnLB0XbTnI)
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y)
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik)
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg)
 
 ## Summary
 
@@ -47,9 +59,67 @@ Karpathy's advice to founders chasing verifiable domains the labs *haven't* prio
 
 On the flip side — "what stays automatable only from a distance?" — Karpathy argues *almost everything can be made verifiable to some extent.* Even soft domains like writing yield to "a council of LLM judges" producing something reasonable. So the question is **how easy or hard**, not whether. This is the optimistic horizon of the thesis: verifiability is a spectrum that AI keeps climbing, with LLM-judge ensembles extending the reward signal into fuzzy domains.
 
+## The same thesis, taught as the *generator–verifier gap*
+
+Stanford's [CS329A](/articles/cs329a-self-improving-ai-agents) arrives at Karpathy's dichotomy from the training side and gives it a different name ([lecture 1](https://www.youtube.com/watch?v=6YnLB0XbTnI), delivered 2025-09-22, `practitioner-opinion`). [Aakanksha Chowdhery](/articles/aakanksha-chowdhery): generation is cheap and abundant — a model will happily produce "a whole bunch of nonsense or sensible set of reasoning traces" — so the binding constraint is the feedback that says which. The gap between how easily a system *generates* and how easily it *checks* is what determines whether a domain improves.
+
+Two things this framing adds to the page:
+
+- **The bottleneck has a name on the human side too.** Where mechanical verification is unavailable — the lecture's example is creative writing — "human feedback ends up becoming a bottleneck," and the domain stops improving not because models can't write but because nobody can afford to grade at scale. Karpathy's optimistic horizon above ("a council of LLM judges") is precisely the proposal to route around this, and [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) is why routing around it is harder than it sounds.
+- **It gates the self-improvement flywheel, not just capability.** The course's whole thesis — test-time compute manufactures verified trajectories, those become training data ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute), [Recursive Self-Improvement](/articles/recursive-self-improvement)) — runs only where the verifier is cheap. So verifiability decides not only what today's model is good at but which domains can bootstrap at all. [Azalia Mirhoseini](/articles/azalia-mirhoseini) treats "robust verification is hard" as the live research problem and works on *combining* verifiers rather than trusting one.
+
+The dated part (late 2025): the instructors present verifiable-domain agents — code with unit tests, maths with known answers — as the only place the loop demonstrably closes. The 2026 sources on this page argue the frontier has moved without ever removing the gate.
+
+### The gap, measured (CS329A lecture 2)
+
+Lecture 2 ([CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y), [Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-26) turns the *generation–verification gap* from a framing into a plotted quantity, and it is the sharpest statement of this page's thesis in the corpus because it isolates the verifier as the only moving part: the generator is frozen, and every arm differs only in how the samples are judged.
+
+Sweep sample count and plot success rate against it:
+
+- **Majority voting plateaus at roughly 10–50 samples** while **coverage** (the perfect-selector line) keeps climbing. The vertical distance between them is the gap.
+- **Reward-model rankers barely dent it.** Outcome reward models, best-of-N against them, and combinations of majority voting with reward scoring all sit far below coverage.
+- **The gap widens with difficulty.** It is larger on MATH than on GSM8K — "this gap is even more pronounced if you have harder problems."
+
+The mechanism is the part worth carrying, because it makes the failure structural rather than a matter of a better ranker. On the hardest problems that *are* solved, the correct answer appears **once, twice or three times in 10,000 samples** ([Latent Capability Overhang](/articles/latent-capability-overhang)). Majority voting is a frequency estimator; the answers worth finding are, by construction, the rarest ones. **A selector that ranks by consensus is blind exactly where the coverage lives.** On GSM8K, where responses are simple, consensus works for most problems — and still fails on the hard tail.
+
+**The verifier taxonomy, ordered by how much you get for free.** The lecture's ladder of what "verifiable" can mean:
+
+1. **Formal proof** — check each step with a proof assistant ([AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search)).
+2. **Unit tests** — and the asymmetry that makes them work: "writing a unit test arguably is a much simpler task than writing the entire program."
+3. **Output equivalence** — the "AI as a compiler" case: generate CUDA from PyTorch and check the two produce identical outputs on arbitrary inputs. The reference implementation *is* the verifier, and the same trick covers any language-to-language port. This is a verifier you get without writing one.
+4. **Model-based scoring** — outcome and process reward models, LLM judges. Where the gap lives.
+
+**And the caveat the lecture attaches to its own top rungs.** Asked whether reported coverage might be inflated by wrong-but-passing answers, Mirhoseini's answer is a manual check: on the maths problems, hand-inspection put true correctness somewhere around 90% — and she immediately generalizes it, "that's always a case for a failure mode if your unit tests don't have true coverage of the code." A hard verifier is a *cheap* verifier, not a sound one, which is the same crack [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) widens into a control problem and [Agent-Generated Test Quality](/articles/agent-generated-test-quality) locates in the tests themselves. A student in the same session proposes the asymmetric route around it — verifying correctness may be too expensive while *falsifying* it is cheap, so filter out demonstrably-wrong answers and iterate evolutionarily — which is the shape [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)'s solve-then-compare result later argues for on measured grounds.
+
+### The gap's second component, and two routes at it (CS329A lecture 3)
+
+Lecture 3 ([CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik), same lecturer, delivered 2025-09-29) is the course's dedicated verification lecture and it splits rung 4 above into its own literature. Two things belong on this page; the machinery lives on [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) (papers 1–3) and [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) (paper 4).
+
+**The gap is two failures, not one.** Lecture 2 established that majority voting plateaus at 10–50 samples because it is a frequency estimator blind to the rare-but-correct answer. Lecture 3 adds the failure mode of a *trained* verifier, which is different in kind: swept against sample count, OpenAI's 2021 GSM8K verifier improves to roughly **400 samples and then declines**, because at 800 candidates two near-identical solutions — one right, one wrong — are harder to separate than they were at 400. A learned selector does not plateau; it **degrades**. The shipped system stopped at 100 samples. So the ladder's softest rung buys about an order of magnitude more usable samples than consensus and then hits a ceiling of its own, and neither ceiling moves by sampling more. The constructive counterweight on the same slide deck: a human-labelled PRM reportedly surfaces correct solutions on problems where **under 5% of samples are correct** — the regime the rarity mechanism above says consensus cannot reach.
+
+**And the lecture supplies the "council of LLM judges" horizon as a built system.** Karpathy's optimistic pole at the top of this page — soft domains yield to a council of judges — is what [Weaver](/articles/weak-verifier-ensembling) is, with two things the horizon does not specify: a **quality floor** that excludes members scoring badly against a small labelled set ("your verifiers should be above a certain quality to even be let in the pool"), and **learned per-verifier weights** rather than a vote. It reports ~40% → over 70% on hard benchmarks and an open-weight stack matching o3-mini. It also rests on an explicit **verifier-independence assumption** that [LLM-Judge Validation](/articles/llm-judge-validation)'s ρ = 0.66–0.97 and [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting)'s Proposition 2 both measure and contradict — so the council is buildable and the reason it works is not the reason its authors give. The open question below already carries the bound; Weaver is the strongest existence proof on the other side of it, and it is a `practitioner-opinion` one.
+
+**The one thing on this page that goes around the gap rather than at it**: fusion. Coverage bounds what a *selector* can achieve, and every arm above is a selector. Hand all k samples to a model and ask it to synthesize one answer, and it beats the oracle — see [Inference-Time Architecture Search](/articles/inference-time-architecture-search).
+
+### The axis the ladder was missing: a verifier too slow to sit in the loop (CS329A lecture 9)
+
+The course's closing lecture ([CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg), both instructors, delivered 2025-12-05, `practitioner-opinion`) is asked the obvious question — *what are the applications that don't fall into verifiable problems?* — and [Mirhoseini's](/articles/azalia-mirhoseini) answer reorganizes this page's ladder around a coordinate it does not have. Her examples are **scientific discovery, chip design, and wet-lab chemistry**, and none of them lacks a verifier:
+
+> running a very slow simulation in chip design that takes like a few days to run to collect one kind of reward signal, or running this chemical experiment that you actually need to go to a wet lab … in RL fine-tuning, or in test time scaling, we need these verifiers to be **almost instant** … maybe we can wait minutes, maybe 1 hour, but if in this RL training we need like hundreds or thousands of steps of iteration, we can't wait like days.
+
+**A chip simulation is a perfect verifier and a useless one.** The ladder above orders verifiers by *how much you get for free*; this adds an orthogonal cut — **latency against the number of iterations the training loop needs** — and it is the one that decides whether a domain can bootstrap. Multiply a days-long reward by thousands of RL steps and the domain is unverifiable in practice while being fully verifiable in principle. That is a different failure from creative writing's, and this page had been filing both under one heading.
+
+Three consequences the lecture states:
+
+- **The workaround is a surrogate**: collect the expensive simulator's outcomes offline, train a **reward model to predict them**, and put the prediction in the loop instead of the simulator. Its bound is the honest one — *"the generality of the reward model is a function of how much data you have,"* and an inaccurate surrogate is a reward-hacking surface rather than a verifier. This is the [learned-verifier](/articles/process-vs-outcome-reward-models) literature deployed where there is no cheap ground truth to train it against, which inverts that literature's usual premise.
+- **The genuinely non-verifiable residue is subjectivity, not slowness.** Creativity and creative writing survive as the hard case, and the lecture's framing is that a reward function can always be *modelled* for them — at which point *"the RL or the agent can do reward hacking if the model is slightly off base."* Same conclusion the [2026 measurements](/articles/reference-free-judge-over-crediting) reach; here it is stated as an expectation.
+- **Verifiability is a property of a task decomposition, not of a domain.** [Chowdhery's](/articles/aakanksha-chowdhery) KernelBench refinement is the sharpest version: compiler output and execution give you a free verifier for an individual GPU kernel, but *reading a performance profile* across a large concatenated program does not, so the working practice is to break the problem into parts the model can verify and hand it a reference knowledge base for the rest. The gradient runs inside one "verifiable" domain, which is what the page's binary reading of Karpathy's dichotomy obscures.
+
 ## Connections
 
 - [Andrej Karpathy](/articles/andrej-karpathy) — author of the thesis (his verifiability writing)
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — the same dichotomy taught as the *generator–verifier gap*, and made the gate on the course's self-improvement flywheel
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) / [Azalia Mirhoseini](/articles/azalia-mirhoseini) — the instructors who state it; Mirhoseini's line of work is on combining verifiers rather than trusting one
 - [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — verifiability is the *cause*; jaggedness is the *symptom*
 - [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — the purest instance: Lean's compiler is the perfect verifier, which is why DeepMind's agents resolve open math problems
 - [Vibe Coding vs. Agentic Engineering](/articles/vibe-coding-vs-agentic-engineering) — the discipline's hiring test ("red-team can't break it") is verifiability operationalized
@@ -60,6 +130,9 @@ On the flip side — "what stays automatable only from a distance?" — Karpathy
 - [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — fine-tuning on your own RL environments is the heaviest "pull the lever" version of the optimization story
 - [Compounding Data Moat](/articles/compounding-data-moat) — a proprietary verification environment is a defensible cornered resource
 - [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — the council run as an actual reward and audited against held-out ground truth. It supports the thesis's *dichotomy* and refutes its *ensemble*: a verdict that commits an answer independently of the candidate inherits a judge-side ceiling and holds under optimization (false positives 0.012, discrimination 0.96), while a council of reference-free judges scoring shown candidates does not — the strictest three-family unanimous-accept rule still passes 55% of self-play-manufactured wrong answers, its discrimination collapses 0.31 → 0.09, and training against it is worse than training against one judge. Proposition 2 gives the reason: every monotone aggregation rule thresholds the same latent plausibility axis, so adding judges cannot reject a region all of them accept. Verifiability is still a spectrum you can climb — but the rung is *solve-then-compare*, not *more raters*
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — rung 4 opened up: outcome vs process supervision, the four-year arc from GSM8K to Math-Shepherd, and the second component of the gap (a learned selector's precision decays past a few hundred candidates)
+- [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) — the council of LLM judges as a built system, with a quality floor and learned weights, and the independence assumption the wiki's measurements contradict
+- [The Data Wall and the Validation Commons Are One Supply Constraint](/articles/data-wall-and-validation-commons-one-supply) — this thesis promoted from a claim about *capability* to a claim about **supply**, on both sides at once. The ladder plus the verifier-latency axis is what rations synthetic training data (so the data wall converts into this friction rather than demoting into compute), and it is also why the Stockfish threshold arrives first exactly where human validators were never load-bearing — one variable, opposite signs, which is what dampens the uneven-arrival worry the labour-side literature raises
 - [Oversight When the Signals Give Out: the Activation Fallback and the Taste Reward](/articles/oversight-when-signals-give-out) — stress-tests the "council of LLM judges" horizon against the judge-validation cluster: reference-free judges over-credit and are gameable, so the council extends the reward signal at the cost of grounding
 
 ## Open Questions
@@ -70,3 +143,7 @@ On the flip side — "what stays automatable only from a distance?" — Karpathy
 ## Sources
 
 - [Andrej Karpathy: From Vibe Coding to Agentic Engineering](https://www.youtube.com/watch?v=96jN2OCOfLs)
+- [CS329A Self-Improving AI Agents — Part 1: Course Overview](https://www.youtube.com/watch?v=6YnLB0XbTnI) — Stanford CS329A lecture 1 (delivered 2025-09-22, published 2026-08-03, `practitioner-opinion`): the *generator–verifier gap* naming, human feedback as the bottleneck in unverifiable domains, and verification as the gate on the self-improvement flywheel
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y) — Stanford CS329A lecture 2 ([Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-26, published 2026-08-03, `practitioner-opinion`): the gap plotted — majority voting plateauing at 10–50 samples against a still-climbing coverage line, reward-model rankers barely denting it, the gap widening from GSM8K to MATH — plus the rarity mechanism (1–3 correct in 10,000), the four-rung verifier taxonomy including output-equivalence checking, and the ~90% manual-correctness caveat on the maths coverage numbers. Figures read off slides in an auto-caption transcript; approximate
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik) — Stanford CS329A lecture 3 ([Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`): rung 4 opened into its own literature. Used here for the trained verifier's ~400-sample precision decay (and the 100-sample shipped configuration), the PRM's reported reach into the &lt;5%-correct regime, and Weaver as the council-of-judges horizon built with a quality floor and learned weights. Every figure is read off a slide in an auto-caption transcript; the four papers are not in `raw/`; total COI on Weaver. Machinery on [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) and [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling)
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg) — Stanford CS329A lecture 9 (both instructors, delivered 2025-12-05, published 2026-08-03, `practitioner-opinion`, auto-caption transcript, ~10.5k words). The closing Q&A on non-verifiable domains: the slow-simulator examples (chip design, wet-lab chemistry, scientific discovery), the instant-verifier requirement and the iteration-count argument behind it, the surrogate-reward-model workaround and its data bound, creativity as the residual truly-subjective case, and Chowdhery's KernelBench gradient from compilable kernels to performance profiling. Practitioner judgment in live Q&A, nothing measured; no paper behind any of it

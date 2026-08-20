@@ -16,17 +16,25 @@ tags:
   - post-training
   - agentic-rl
   - value-model
-readingTime: 8
+readingTime: 16
 imageAlt: Illustration for Single-Rollout Optimization
 sources:
   - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
     url: https://arxiv.org/pdf/2607.07508
+  - title: "Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for
+      Asynchronous Reinforcement Learning"
+    url: https://arxiv.org/pdf/2607.22186
+  - title: "TRACE: Turn-level Reward Assignment via Credit Estimation for
+      Long-Horizon Agents"
+    url: https://arxiv.org/pdf/2607.13988
 ---
 export { default as heroImage } from "../assets/single-rollout-optimization.webp";
 
 ## Sources
 
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186)
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988)
 
 ## Summary
 
@@ -72,9 +80,33 @@ SAO's sharpest claim is not a benchmark bump but a *capability GRPO cannot have*
 
 The demonstration is a simulated online writing task where the target style is switched mid-training between archetypes (*cute*, *chuunibyou*, *classical*), with [GLM-4.7](/articles/glm) as an [LLM judge](/articles/llm-as-a-judge) scoring `r = r_quality × r_style ∈ {0,1}`. When the preference shifts, SAO **rapidly realigns** — suppressing the old dominant style and converging on the new target — while a running-mean baseline (128-reward sliding window) lags, because its historical window stays biased toward the previous distribution. The critic tracks the shift; the running average can only average over it.
 
+## A rival stabilization design, and what it does not contest
+
+SAO's two contributions are separable (DIS buys stability, single-rollout buys the ceiling), which means a competing stabilizer attacks only the first. [ESTR](https://arxiv.org/pdf/2607.22186) (Baidu et al., arXiv 2607.22186, 2026-07-24, `empirical`) is that competitor: it replaces the fixed-magnitude keep rule with a boundary scaled by each token's local entropy, `|δ_t| ≤ √(τ(H_t + ε))`, on the argument that the importance ratio's *natural scale grows with entropy*, so no position-invariant bound can separate amplified low-entropy sampling noise from legitimate high-entropy exploration. Its matched-budget ablation is the load-bearing one — recalibrate three keep rules to an identical 0.07% step-0 masked fraction and two still collapse, one of them while holding a budget of the winner's order — so what decides stability is the mean *entropy* of the masked population (0.11 vs 1.67 vs 3.47), not its size. Full treatment on [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms).
+
+Three things are worth being precise about, because the overlap is narrower than it looks.
+
+**It does not touch the single-rollout half at all.** ESTR runs GRPO advantages with `n = 8` rollout samples per prompt on every task (Table 3) — a group, not a single rollout — and never discusses critics, value pretraining, or single-trajectory feedback. Nothing here bears on this page's central bet that a well-trained critic beats a group baseline.
+
+**It agrees with DIS on the behavior-proxy question.** ESTR's Appendix G specifies "rollout log-probabilities as the proximal anchor (bypass mode)" — the same drop-`π_θ_old` move DIS makes, arrived at independently. Both papers also reject the staleness-decoupling family for the same reason: with a trajectory spanning several weight versions there is no single behavior policy to reconstruct. The live disagreement is narrow: **the shape of the trust boundary, nothing else.**
+
+**Whether the critique lands on DIS is a wiki inference, not ESTR's claim.** ESTR never mentions DIS or SAO; its named baselines are IcePop and KPop. The bridge is this wiki's own note that DIS is "a stricter version of the IcePop mechanism" — and if that holds, being *stricter* makes the miscalibration worse rather than better, since narrowing a fixed interval cannot change its shape. Unconfirmed: SAO reports a clip ratio but never a masked-token entropy, which is exactly the diagnostic that separates the two designs. See the same discussion on [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) for what would settle it.
+
+## A design that bets the opposite way on the observation boundary
+
+Of SAO's four critic-stabilization moves, **skip-observation GAE** is the one that makes an implicit claim about the *world* rather than about optimization: that the action→observation boundary carries no learnable value signal worth propagating, only noise from an external state the model did not generate. [TRACE](/articles/turn-level-credit-assignment) ([Tao et al.](https://arxiv.org/pdf/2607.13988), UW–Madison + Microsoft Research, arXiv 2607.13988, 2026-07-15, `empirical`) is the first source in the corpus to build a method on the exact opposite premise: it splits rollouts **at tool-call boundaries** and derives every one of its dense rewards from the value change *across* an observation, measured as the TD difference in a log-ratio gold-answer-predictability value read off a **frozen reference model** — no trained critic anywhere. On closed-web BrowseComp-Plus that dense boundary signal is worth 4.5 average points over outcome-only GRPO on a 4B backbone and 5.6 on a 30B-A3B (full treatment, numbers and parse notes on [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment)).
+
+**Read this as analogy-strength evidence, not as an ablation of SAO's design.** The distinction is load-bearing and easy to lose:
+
+- **The value functions are different in kind.** SAO's concern is that a *learned* `V_ϕ` asked to estimate advantage across an observation ends up trying to predict an external environment state, and that error then feeds back into policy updates. TRACE's value is never learned and never optimized — it is a frozen copy of the policy initialization scoring gold-answer log-probability, differenced against itself. It cannot degrade the way a trained critic can, so its success at the boundary is not evidence that a critic would survive there.
+- **The two designs actually agree on the loss.** TRACE masks tool observations out of the policy-gradient loss exactly as SAO does. So the live disagreement is not "train on observation tokens or not" — it is narrower: *is the value difference across an observation signal or noise?*
+- **No shared experiment exists.** TRACE never mentions skip-observation GAE, runs no GAE arm at all (its controlled baselines are GRPO, GSPO and GiGRPO), and differs from SAO in task, backbone, objective and reward. What would settle it is skip-observation versus cross-observation GAE, same critic, same task.
+- **What it does move**: it makes the premise contestable rather than assumed. On long-horizon search the observation is demonstrably *what moves the value*, and the movement is concentrated — in one of TRACE's qualitative traces the `browser.open` supplying the decisive phrase earns `δ = +5.86` and the literal `find` confirming it on the next turn earns `+0.00`.
+
 ## Connections
 
-- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the other half of SAO; single-rollout is what removes the group synchronization barrier that async exposes, and DIS is what keeps the resulting updates stable
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the other half of SAO; single-rollout is what removes the group synchronization barrier that async exposes, and DIS is what keeps the resulting updates stable — and the home of ESTR, the rival stabilizer that contests DIS's fixed-magnitude boundary without touching the single-rollout half
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — the design that bets the other way on SAO's observation boundary: all of its reward signal is the value change *across* a tool observation, from a frozen probe rather than a trained critic
 - [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the method SAO replaces; the counter-current here is precisely a move back toward the critic GRPO removed
 - [LLM-as-a-Judge](/articles/llm-as-a-judge) — the online-learning reward signal is an LLM judge (GLM-4.7) scoring quality × style
 - [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the long-horizon agentic models this trains are the ones whose capability then scales with inference budget
@@ -82,14 +114,18 @@ The demonstration is a simulated online writing task where the target style is s
 - [The Bitter Lesson](/articles/the-bitter-lesson) — SAO both removes structure (drops the group baseline, drops `π_θ_old`) and adds a great deal (frozen-attention critic, skip-observation GAE, length-adaptive λ) — the same both-directions shape as [Gemma 4](/articles/gemma-4)
 - [Reward Hacking](/articles/reward-hacking) — a value-based critic gives a denser, state-dependent reward signal than a sparse group-relative one; whether that changes the Goodhart surface is unexplored
 - [GLM (Z.AI)](/articles/glm) — the production deployment: GLM-5.2 (750B-A40B), and GLM-4.7 as both a benchmark ceiling and the online-sim judge
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — the execution-feedback case this page's open question names, trained end to end: RLEF feeds the interpreter's failure text back across turns and rewards the survivor, so on code at least the environment response is treated as the load-bearing signal. It runs no GAE arm and its credit is coarser than SAO's, so it sharpens the doubt without resolving it
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — the systems problem sidestepped rather than solved: SWiRL never touches an environment during RL, scoring proposed actions against frozen context collected offline, so it trades this page's on-policy rollout engineering for an off-policy mismatch that nobody has priced at longer horizons
 
 ## Open Questions
 
 - The whole method is a bet that a well-trained critic beats a group baseline. It wins *here*, on a 30B-A3B backbone with scaled value pretraining — but the critic doubles training memory. At what scale does the group-free simplicity of GRPO win back on cost even if it loses on quality?
 - Frozen-attention is justified by a hypothesis ("pre-trained attention already attends to the right tokens"), validated only by the gradient-norm trace and one ablation. Does it hold when the value model must attend to *tool outputs* it never saw in pretraining?
-- Skip-observation GAE assumes environment feedback carries no learnable value signal worth propagating. For agents where the environment response *is* the crucial information (a compiler error, a test result), is skipping it leaving signal on the table?
+- Skip-observation GAE assumes environment feedback carries no learnable value signal worth propagating. For agents where the environment response *is* the crucial information (a compiler error, a test result), is skipping it leaving signal on the table? **Partially answered (2026-08-12), and only by analogy — the premise is now contestable, not refuted:** [TRACE](https://arxiv.org/pdf/2607.13988) builds an entire dense-reward method out of the value change *across* tool observations at exactly these boundaries, and on long-horizon search it is worth 4.5 (Qwen3-4B) and 5.6 (Qwen3-30B-A3B) average points over outcome-only GRPO on the same backbone, data and protocol — with the credit demonstrably concentrated on the observations that carry evidence (a decisive page-open earns `δ = +5.86`, the literal find confirming it on the next turn `+0.00`). So on at least one long-horizon environment the observation is not value-neutral. Three things keep it from settling the question: TRACE's value function is a **frozen** reference model's gold-answer log-probability, never trained, so it is immune to the specific failure this design choice defends a *learned* critic against; TRACE masks observation tokens from the loss exactly as SAO does, so the disagreement is only about the value difference across the boundary, not about training on it; and no shared experiment exists — TRACE runs no GAE arm and never mentions skip-observation, so the direct test (skip-observation vs cross-observation GAE, same critic, same task) remains unrun. The compiler-error / test-result case in the question is still untouched: this is retrieval, not execution feedback.
 - The online-learning win is on a controlled simulated preference shift with an LLM judge. Real user-facing online adaptation — the paper flags this itself — needs safeguards, monitoring, and privacy review the study doesn't attempt.
 
 ## Sources
 
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou, Li, Tang, Dong (Tsinghua / Z.AI), arXiv 2607.07508, 2026-07-08. §3.2 (single-rollout + value-model designs), §4 (results, ablations), §4.5 (online learning), Appendix A (step-vs-token GAE). `empirical`.
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186) — *Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning*, Zhao, Xie, Zheng et al. (BUPT / Peking / USTC / CAS + Baidu), arXiv 2607.22186, v1 2026-07-24, `empirical`. §4.3 (the keep rule), §I.2 + Table 7 (matched-budget ablation), Appendix G + Table 3 (`n = 8` rollout samples, "bypass mode" proximal anchor — the two facts that bound the overlap with this page). Full treatment and all four parse warnings on [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms).
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988) — *TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents*, Tao, Peng, Yao, Ge, Cheng, Wang, Gao, Li (UW–Madison + Microsoft Research), arXiv 2607.13988, v1 2026-07-15, `empirical`. §3.1 (tool-boundary states; observation tokens masked from the loss, as here), §3.2–3.3 (the frozen-reference log-ratio value and its TD credit — the mechanism that differs in kind from a trained critic), §4.1 (the controlled baseline set, which contains no GAE arm), §A.5 (the concentrated per-turn credit traces). Full treatment, all tables and all parse notes on [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment).

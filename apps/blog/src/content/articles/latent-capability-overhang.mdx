@@ -15,9 +15,15 @@ tags:
   - test-time-compute
   - capability-trajectory
   - latent-capability
-readingTime: 11
+readingTime: 21
 imageAlt: Illustration for Latent Capability Overhang
 sources:
+  - title: "CS329A Self-Improving AI Agents — Part 1: Course Overview"
+    url: https://www.youtube.com/watch?v=6YnLB0XbTnI
+  - title: "CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling"
+    url: https://www.youtube.com/watch?v=-Ggc37xLj_Y
+  - title: UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities
+    url: https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities
   - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
       Research with OpenAI's Noam Brown
     url: https://www.youtube.com/watch?v=AZrU6y3pUcU
@@ -32,8 +38,11 @@ export { default as heroImage } from "../assets/latent-capability-overhang.webp"
 ## Sources
 
 - [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo)
+- [CS329A Self-Improving AI Agents — Part 1: Course Overview](https://www.youtube.com/watch?v=6YnLB0XbTnI)
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y)
 - [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+- [UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities)
 
 ## Summary
 
@@ -45,6 +54,42 @@ OpenAI disproved the **Erdős unit distance conjecture** using an internal model
 
 This is the informal-but-checkable sibling of [DeepMind's Lean-verified Erdős work](/articles/ai-driven-formal-proof-search): DeepMind resolved formalized Erdős problems with a compiler certifying every step, while OpenAI's disproof was produced by a general model under human steering and verified after the fact. Both are 2026 evidence that frontier models now contribute to open mathematics — one via a sound verifier, one via test-time-compute search.
 
+## The empirical ancestor: Large Language Monkeys (2024)
+
+Brown states the overhang in *budget* terms in 2026. The same claim was already on a slide two years earlier, stated in *sampling* terms, and it is the result [Azalia Mirhoseini](/articles/azalia-mirhoseini) teaches as the origin of inference scaling in [CS329A](/articles/cs329a-self-improving-ai-agents) (lecture 1, delivered 2025-09-22, `practitioner-opinion` recounting her lab's `empirical` paper — **Large Language Monkeys: Scaling Inference Compute with Repeated Sampling**, Brown, Juravsky, Ehrlich, Clark, Le, Ré & Mirhoseini, arXiv 2407.21787).
+
+The setup is deliberately minimal: freeze the model, sample the same problem many times at nonzero temperature, and keep a verifier or selector (for code, the unit tests) to pick among the samples. The reported axis is **coverage** — the fraction of problems solved by *at least one* sample:
+
+- Sweeping **1 → 10,000 samples per problem** on maths and coding benchmarks, coverage keeps climbing log-linearly; it does not flatten inside the sweep.
+- **Llama-3-8B and a 7B model, each worse than GPT-4o at one sample, pass GPT-4o's single-sample score once sampling is scaled** — on every benchmark tested. A weaker, cheaper model plus repetition overtakes a stronger model asked once.
+- On some problems **only three or four of 10,000 samples were correct**. The capability was present at a rate low enough that any normal evaluation reports its absence.
+
+Mirhoseini's reading is this page's thesis, stated before the page's own sources existed: models "already know a whole lot more than what you get out of them when you just ask them once." Nothing in the parameters changed — "we're not touching any of the parameters of the model."
+
+Two details that matter for how the overhang gets mined:
+
+- **The overhang is cheap in latency and expensive in money.** Parallel samples run concurrently, "so from a latency perspective that's less of an issue" — the cost frontier is the binding one. It is the same latency-for-cost trade that later shows up at the orchestration layer, where parallel agent fan-out buys wall-clock speedups at a token bill ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)).
+- **Diversity is the fuel, and it has a ceiling.** Repeated sampling only works because generation is stochastic; temperature is the dial, and past roughly **1.2** the extra diversity degrades into gibberish. So "sample more" is bounded by how much genuine variety the model will produce at usable quality.
+
+The through-line to Brown: coverage-at-10,000-samples and capability-at-$100K are the same measurement with different units, taken two years apart. What changed in between is that the selector got good enough to *keep* the right sample — see [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute).
+
+### Why the curve is a power law: a long tail of hard problems
+
+Lecture 2 ([CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y), delivered 2025-09-26) supplies the part the coverage number alone doesn't explain, and it is the most portable thing in the lecture.
+
+The per-problem arithmetic is trivial and *not* a power law. For a single problem with per-sample success probability *p*, coverage at *k* samples is `1 − (1 − p)^k` — a saturating exponential. Yet **aggregated across a benchmark, coverage against sample count fits a power law**, `c ≈ exp(a·k^(−b))` in the lecture's rendering, with the fit holding across Llama 3 (8B and 70B), Gemma and Pythia — **70 million to 70 billion parameters**, four orders of magnitude — and across maths, coding and agentic domains. The 70M model shows the same scaling behaviour as the 70B one.
+
+The reconciliation is a distributional condition, and the lecture states it as necessary and sufficient: **the benchmark must contain a long tail of hard problems.** Most problems are easy and are solved at pass@1; as difficulty rises the per-problem *p* falls, and the histogram of per-problem pass@1 has to decay in the right shape for the mixture of exponentials to aggregate into a power law. Empirically, that is what real benchmarks look like.
+
+Two consequences for how the overhang is read:
+
+- **The overhang lives in the tail, by construction.** The problems repeated sampling unlocks are precisely the low-*p* ones — and the lecture's number for how low is stark: some of the hardest solved problems are correct in **one to three of 10,000 samples**. That is why the capability is invisible to any evaluation and to any [frequency-based selector](/articles/verifiability-thesis).
+- **The overhang is predictable in size.** If the coverage curve is a fitted power law, then "how many samples to reach coverage *c*" is a forecast, not an experiment — a partial, sampling-side answer to this page's open question about estimating a ceiling without paying to reach it. It forecasts *coverage*, though, not the pass@1 a usable system delivers, and the distance between those two is the gap on [The Verifiability Thesis](/articles/verifiability-thesis).
+
+One further domain the lecture adds to the coverage sweep, because it comes with a free perfect verifier: **CUDA kernel generation** (KernelBench), where a generated kernel can be checked by comparing its output against the source PyTorch on arbitrary inputs. Coverage climbs with samples there too, and the same argument extends to any language-to-language translation, where the reference implementation *is* the verifier. This is the "AI as a compiler" direction of [Azalia Mirhoseini](/articles/azalia-mirhoseini)'s lab.
+
+**One agentic data point worth its own line**, because it dates the "weak model plus sampling overtakes a strong one" claim past the 2024 benchmarks: on **SWE-bench**, DeepSeek (v3, per the lecture) at ~1,000 samples solves more problems than Claude 3.5 Sonnet or o1-preview at one — with unit tests as the selector, an end-to-end automated route from an open-weight model to frontier-level coverage. Late-2025 models, and coverage rather than pass@1.
+
 ## Measured, not just anecdotal (UK AISI)
 
 The Erdős story is `practitioner-opinion` — a single reconstructed anecdote. The **[UK AI Security Institute](/articles/uk-ai-security-institute)**'s July 2026 study (`empirical`) supplies the *measured* overhang on released models, and it is exactly the shape this page predicts: capability that a standard fixed-budget evaluation never reveals because nobody spent enough.
@@ -54,6 +99,8 @@ The Erdős story is `practitioner-opinion` — a single reconstructed anecdote. 
 - On public benchmarks the same shape holds: 1M→10M tokens buys +~25% on software engineering and +~22% on maths/academic tasks.
 
 This is the overhang quantified rather than asserted, and by a government third party independent of the OpenAI-sourced framing: for *released* models, a routine eval budget leaves a measurable slice of real capability latent, exactly because extraction costs tokens nobody spends.
+
+**And the same institution has now spent the budget on somebody else's model, before its weights shipped (2026-07-23).** [UK AISI and US CAISI's joint cyber assessment of Kimi K3](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities) (`empirical`) runs the cyber-range evaluation at a 100M-token limit against an open-weight model in the eleven-day window between its API release and its weight release. That closes this page's audit question with a named answer — see Resolved Questions below — and it does so in the least-expected direction: not a lab mining its own overhang, and not the "anybody can audit" of the open-weights argument, but two governments paying for a black-box measurement through the vendor's API and publishing four days before the download link went live. The residue is that a single-budget pre-release number is exactly the artifact this page argues cannot bound a ceiling; the ceiling question below stays open.
 
 ## The release-cycle interaction: why nobody bothers
 
@@ -83,19 +130,32 @@ The overhang is also why **nobody knows the ceiling of the current models.** Pus
 - [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the 10–100× per-generation cost drop, disaggregated into the levers that produce it
 - [UK AI Security Institute](/articles/uk-ai-security-institute) — the government evaluator that measured the overhang: ~8% of cyber tasks solved only at ≥10M tokens, "The Last Ones" only at ≥30M
 - [Noam Brown](/articles/noam-brown) — the source
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — senior author of Large Language Monkeys, the 2024 result that stated this page's thesis in coverage terms
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — the Stanford course that teaches repeated sampling as the origin of inference scaling
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — what to do with the samples once you have them: Archon composes them rather than selecting among them, and its fusion operation beats a perfect selector
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the gate on mining the overhang: coverage is what the tail holds, and the verifier decides how much of it you keep
 - [OpenAI](/articles/openai) — the lab that disproved the conjecture and that chooses not to mine the overhang
 - [Boris Cherny](/articles/boris-cherny) — the product-side statement: "hobbling" / "product overhang," the Claude Code origin story as un-hobbling Sonnet 3.5, and the play-driven OpenCV-drawing discovery
 - [The 1% Rule for Wedge Selection](/articles/one-percent-rule-wedge-selection) — the overhang is that rule's main failure mode: a founder reading 0% success off a released model may be measuring unelicited capability rather than absent capability, and building a company on the gap between the two
 - [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the product surface built to let long-horizon orchestration capability express; its Bun-rewrite case was read as this page's re-throw-each-generation advice paying off, but the first-party account ([Jarred Sumner](/articles/jarred-sumner), `case-study`) describes a one-time experiment rather than a per-generation probe — the overhang was mined once the *cost of a category of work* visibly collapsed, not on a schedule (see [Build for the Next Model](/articles/build-for-the-next-model))
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the selectors trying to convert this coverage into accuracy, and the two distinct reasons they cannot: consensus is blind to the rare-but-correct answer, and a *trained* verifier's precision decays past a few hundred candidates. The constructive counterweight is that a human-labelled PRM reportedly reaches problems where under 5% of samples are correct — the regime the rarity mechanism says frequency-based selection cannot
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — the training-time alternative to buying coverage with samples. RLEF's headline plot is solve rate against sampling budget on a log axis, and what it does is lift the whole curve so fewer samples reach the same solve rate — the migration of repeated sampling into training that CS329A lectures 2–3 argue for, demonstrated in the domain where the verifier is free
+- [The Data Wall and the Validation Commons Are One Supply Constraint](/articles/data-wall-and-validation-commons-one-supply) — the temperature ≈1.2 diversity ceiling promoted from a sampling detail to a **bound on synthetic-data supply**: repeated sampling and self-training run on the same fuel, and the corpus states its ceiling three separate ways (this page's temperature limit, AlphaCode's clustering caveat, Multiagent Finetuning's diversity collapse), none of which is purchasable with compute
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — the coverage curve capped at a realistic number of attempts. CS329A lecture 7's AlphaCode walkthrough finds the log-linear trend survives a ten-submission budget (it lowers the curve, it does not flatten it), and supplies the bound on extrapolating it: sampling 10x more buys nothing unless the extra samples are genuinely *diverse*, which is what the pipeline's clustering step exists to measure
 
 ## Open Questions
 
 - If cost falls 10–100× per release, when is it *ever* rational to spend big extracting a capability now rather than waiting? (For a lab racing a competitor to a specific result, "now"; for everyone else, rarely — which is why overhangs accumulate.)
 - How large is the overhang in a *given* released model — is there a way to estimate the ceiling without paying to reach it? (This is the projection question of [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) read as a safety instrument.) **Sharpened (2026-07):** [AISI](/articles/uk-ai-security-institute) is actively working both halves — forecasting high-budget performance from cheaper runs, and defining "minimum informative budgets" (a budget declared sufficient only once reach stops rising with more compute, which is precisely the "have we reached the ceiling?" test). Unsolved, but now an active government research program rather than an open wish.
-- Who audits released models for latent *dangerous* capability, given the same disincentive discourages spending the budget to find it?
+## Resolved Questions
+
+- Who audits released models for latent *dangerous* capability, given the same disincentive discourages spending the budget to find it? **Answered (2026-07-23) by [UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities):** government evaluators do, jointly and publicly — UK AISI with the US Center for AI Standards and Innovation, on Moonshot's Kimi K3, at a 100M-token limit, published in the window between the model's API release and its open-weight release. The disincentive this question named is real and simply does not apply to a public body: neither institution ships a model, so neither faces the wait-for-the-next-generation trade-off, and the evaluation was funded because the *release* was the trigger rather than the capability. Three limits belong with the answer rather than against it — the audit was black-box through the vendor's API (not on the weights), the task set was "selective" because the hosting setup constrained it, and it reports one budget. So the *who* is settled; whether such an audit can bound a ceiling is the question above, still open.
 
 ## Sources
 
+- [CS329A Self-Improving AI Agents — Part 1: Course Overview](https://www.youtube.com/watch?v=6YnLB0XbTnI) — Stanford CS329A lecture 1 ([Azalia Mirhoseini](/articles/azalia-mirhoseini) & [Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-09-22, published 2026-08-03, `practitioner-opinion`): the Large Language Monkeys walkthrough — 1→10,000 samples, coverage log-linear, 8B/7B models passing GPT-4o's one-sample score, 3–4 correct out of 10,000, the temperature ≈1.2 diversity ceiling, and "models already know a whole lot more than what you get out of them when you just ask them once." A lecture recounting an `empirical` paper (arXiv 2407.21787); figures are read off slides in an auto-caption transcript, so treat them as approximate
+- [CS329A Self-Improving AI Agents — Part 2: Test-Time Compute Scaling](https://www.youtube.com/watch?v=-Ggc37xLj_Y) — Stanford CS329A lecture 2 ([Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-26, published 2026-08-03, `practitioner-opinion`): the coverage power law and its long-tail-of-hard-problems condition (70M→70B parameters, Llama 3 / Gemma / Pythia), the 1-to-3-in-10,000 rarity of the hardest solves, KernelBench CUDA coverage under output-equivalence verification, and DeepSeek at ~1,000 samples out-covering Claude 3.5 Sonnet and o1-preview on SWE-bench. Slide-read figures in an auto-caption transcript; approximate, and dated to late 2025
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26); the Erdős unit distance disproof, the "$100K into a released model" observation, the cost-drops-per-cycle meme, and OpenAI's choice not to mine the overhang (`practitioner-opinion`)
 - [More compute, more capability: Why AI agent evaluations need to account for test-time compute](https://www.aisi.gov.uk/blog/more-compute-more-capability-why-ai-agent-evals-need-to-account-for-test-time-compute) — UK AISI (2026-07-02, `empirical`): the measured overhang on released models — ~8% of cyber tasks solved only at ≥10M tokens (some 50M), "The Last Ones" only at ≥30M, +25%/+22% from 1M→10M tokens
 - [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Cherny, YC interview (2026-07-27, `practitioner-opinion`): hobbling / product overhang, the Claude Code un-hobbling origin story, the give-it-tasks-slightly-too-hard advice, and the OpenCV drawing discovery
+- [UK AISI / CAISI Preliminary Assessment of Kimi K3's Cyber Capabilities](https://www.aisi.gov.uk/blog/preliminary-assessment-of-kimi-k3s-cyber-capabilities) — UK AISI / US CAISI (2026-07-23, `empirical`, joint government evaluation): the audit question's worked answer — a third-party dangerous-capability measurement of an open-weight model at a 100M-token limit, published between its API release (16 July) and its open-weight release (slated by 27 July). Black-box through Moonshot's hosting, on a "selective set of cyber evaluations" the hosting setup allowed, with the US comparator never individually named

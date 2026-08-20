@@ -1,0 +1,124 @@
+---
+date: 2026-08-17
+title: Tree Search over Agent Trajectories (LATS)
+description: "LATS (ICML 2024): run Monte Carlo Tree Search over an agent's
+  action trajectories instead of committing to one — sample k actions from a
+  node, execute each in the environment, score the resulting state with an LLM
+  judge plus a self-consistency frequency term, select by UCT, roll out to a
+  terminal state, back up the return as a running average, and append the
+  model's own written reflection on why the branch succeeded or failed. Taught
+  in CS329A lecture 5 as ReAct plus planning. The two limits the lecture
+  concedes are the ones that matter: the cost is never analysed, and the whole
+  method assumes actions are reversible"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - planning
+  - search
+  - test-time-compute
+  - tool-use
+readingTime: 12
+imageAlt: Illustration for Tree Search over Agent Trajectories (LATS)
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step
+      Reasoning"
+    url: https://www.youtube.com/watch?v=Ml_fp9XkB8Y
+---
+export { default as heroImage } from "../assets/agent-trajectory-tree-search.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y)
+
+## Summary
+
+**LATS** — *Language Agent Tree Search unifies reasoning, acting and planning in language models* (ICML 2024) — is the first paper in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 5 and this wiki's first treatment of **Monte Carlo Tree Search applied to an agent's actions in an environment**. The wiki already carried tree search over *proofs* ([Evolutionary Proof Search](/articles/evolutionary-proof-search)'s P-UCB) and search over *inference pipelines* ([Inference-Time Architecture Search](/articles/inference-time-architecture-search)); LATS is the version where the nodes are states of a world the agent is acting on.
+
+Its one-sentence claim: take [ReAct's](/articles/reasoning-acting-interleaving) thought/action/observation alternation, stop committing to the first trajectory, and put MCTS around it. Mirhoseini's framing of the problem it targets is a capability complaint that she says still holds: models "can be weak in creating a diversity of solutions or acting upon them," so a single sampled plan under-explores by default. Search is the harness-side fix.
+
+> **Evidence.** [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y) ([Azalia Mirhoseini](/articles/azalia-mirhoseini) solo, delivered **2025-10-06**, published 2026-08-03, `practitioner-opinion`) — a slide walkthrough. The LATS paper is **not** in `raw/`; every figure was read off a slide by ASR, and the lecture reports almost no numbers for this paper at all. No COI here: LATS is not her lab's work (it is the only one of the lecture's three papers that isn't).
+
+## The six stages
+
+The lecture enumerates them and walks a maze example — *"you're in a dimly lit room, there are two doors"* — through each:
+
+1. **Selection.** Pick the node to expand, by **UCT** (below), not by best value.
+2. **Expansion.** Sample *k* candidate actions from the selected node (the example samples three: open the left door, open the right door, inspect the room for clues).
+3. **Evaluation.** Execute each action **in the environment**, append the observation to the context, and score the resulting state.
+4. **Simulation.** Roll the best child forward — greedily, in the lecture's version — sampling and expanding until a terminal state (success or failure) or the expansion budget runs out.
+5. **Back-propagation.** Push the trajectory's return back up the path, updating each node's value.
+6. **Reflection.** Have the model write, in free text, *why* the trajectory succeeded or failed, and append that to the context for later expansions. Mirhoseini: this "apparently has been very helpful in overall increasing the quality of this approach."
+
+Stages 1–5 are textbook MCTS. Stages 3 and 6 are where the language model does something a game-playing MCTS cannot.
+
+### The value function is two scores added together
+
+A state's value is the sum of:
+
+- **An LLM-as-a-judge score.** Prompt a model with the action and its observation and ask, literally, for a number in **[0, 1]** for how promising this state is. See [LLM-as-a-Judge](/articles/llm-as-a-judge).
+- **A self-consistency score.** Sample many actions from the parent — the lecture's illustration is **50** rather than 3 — bucket them by type, and score an action by the **frequency** with which it was sampled. In the worked example, state A scores higher because *"75% of the time maybe action A was sampled."*
+
+The two are summed to give one number per state.
+
+### Selection and backup
+
+**UCT** (upper confidence bounds applied to trees) is taken over from the MCTS literature unmodified: value plus a weighted exploration term built from the parent's visit count `n_p` and the node's own visit count `n_s`, so that a node visited rarely relative to its parent gets a bonus and a heavily-visited one gets discounted. *(The lecture describes the term's behaviour rather than writing it out legibly; the exact form is not recoverable from the transcript and is not reconstructed here.)* Asked whether the paper compared alternative bandit algorithms, Mirhoseini says no and treats the choice as arbitrary — *"their main contribution is that they created a platform that now others can bring in other approaches to optimization."*
+
+**Backup** is a running average: a node's new value is `(V_old·(n−1) + return) / n` over its visit count. Nothing learned, nothing trained — every component is prompting.
+
+## What it diverges from, in the lecture's own comparison
+
+Mirhoseini positions LATS against two things the course had already taught, and the distinction is sharper than it first looks:
+
+- **Against Math-Shepherd** ([Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models)): there, a *trained* verifier scores **reasoning steps** and guides the search. In LATS the scoring is over **the outcomes of actions taken in an environment**, plus the model's reflection on the trajectory and the observations the environment returned. The unit of credit moves from a token span to a world state.
+- **Against ReAct** ([Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving)): ReAct never revisits. LATS adds the memory of scored alternatives, the ability to back up to a sibling, and the reflection step. In the lecture's phrasing, "we have more and more planning in the process."
+
+## Results, such as the lecture reports them
+
+Two benchmarks, both already in this wiki via ReAct:
+
+- **HotpotQA** — multi-hop QA requiring retrieval from at least two Wikipedia pages, so multi-step by construction. The reported shape is that accuracy climbs materially with the number of sampled trajectories, and that adding the reflection traces "gives a lot of boosts." No figures survive the ASR. Mirhoseini's summary is the one that matters for this wiki: LATS supplies "a mechanism to translate more compute at test time effectively to better solutions" for multi-step tasks — [test-time scaling](/articles/large-scale-test-time-compute) applied to *acting* rather than to answering.
+- **WebShop** — buy a product matching a natural-language spec in a simulated storefront. LATS reportedly reaches "really high results, even close to human experts," **with no fine-tuning at all**. For scale, [ReAct alone](/articles/reasoning-acting-interleaving) scores 66.6 against a human expert's 82.1 on the lecture-4 slide; LATS's number is not stated, so the comparison is directional only.
+
+The portability claim is the honest one: everything is prompting over a frozen model, so the method is *"very portable and relatively easy to create."*
+
+## The two limits the lecture concedes, and the one it does not
+
+**Cost was never analysed.** Mirhoseini states this outright — every expansion, every rollout, every judge call and every backup adds inference, and *"the cost-benefit was not really analysed in the paper."* A method whose entire pitch is converting test-time compute into quality, published without a compute axis, is exactly the gap [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) exists to name.
+
+**Actions must be reversible.** This is the deeper one, and it is stated as an assumption the paper did not address: the search executes candidate actions in the environment *in order to score them*, so exploring a branch means actually taking it. Mirhoseini's example is a model *"running a transaction… paying for a service."* In any environment without an undo, the expansion stage is not a probe — it is a commitment, and the sibling branches were paid for. **LATS is therefore a method for simulated or sandboxed environments, and the lecture's own maze and storefront are both simulators** — which puts the sandbox from [containment](/articles/blast-radius) in a role it was not designed for: not damage limitation, but a precondition for the algorithm to be sound at all.
+
+**The unstated one: half the value function is a selector this course already showed plateaus.** The self-consistency term scores an action by how often it was sampled — per-node majority voting. [Lecture 2's central result](/articles/verifiability-thesis) is that majority voting saturates at 10–50 samples while coverage keeps climbing, because the hardest problems are solved 1–3 times in 10,000, so a frequency-based selector is structurally blind to the rare-but-right branch. LATS sums that blind selector with an LLM judge and steers the whole search with the result. The lecture states both facts three weeks apart and never joins them; the join is this compile's reading, and it predicts the failure mode — search that converges confidently on the modal plan, which is the same complaint about solution diversity that motivated the paper.
+
+## Repeated actions, and the tree/graph question
+
+A student asks what happens when the same action recurs across branches (A, B, A, B) or the same state is reachable by different paths — can the tree be collapsed? Mirhoseini's answer keeps it a tree: repetition **under a given parent** is captured by the visit count feeding UCT, and *"ideally this is a tree that you're forming, not some kind of fully connected graph."* So identical states reached via different ancestors are separate nodes, evaluated separately and paid for separately — a known and unpriced inefficiency in this design, and one more reason the missing cost analysis matters.
+
+## Connections
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 5's first paper; the course's move from verification to planning
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — the inner loop LATS wraps: ReAct supplies the thought/action/observation unit, LATS supplies the branching, scoring and backtracking ReAct has no way to do
+- [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) — lecture 5's second paper and the opposite trade: LATS spends *more* sequential compute to search alternatives at inference; SPRINT trains the model to spend *less* by emitting independent plans that run at once. Both are called "planning" in the same lecture and they push in opposite directions on latency
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — lecture 5's third, and the training-time answer to the same problem: LATS searches harder around a frozen model, SWiRL changes the weights so the first trajectory is better
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the verifier lineage LATS defines itself against: Math-Shepherd scores *reasoning steps* with a trained PRM, LATS scores *world states* with a prompted judge plus a frequency term
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — half of LATS's value function is a 0-to-1 judge prompt, with all of that pattern's known reliability limits inherited by the search
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — LATS is the acting-agent instance of spending inference budget for quality, and the lecture frames it exactly that way
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the search is only as good as the score that steers it, and the self-consistency half is the selector this hub explains the limits of
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — the same credit problem solved at the other end of the pipeline: LATS back-propagates a terminal return through a tree at *inference* time with no gradients; TRACE splits one trajectory's return across turns at *training* time. The backup formulas are cousins; the objects updated are not
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — the closest existing relative in the wiki: a population of proof sketches ranked by Elo and selected by P-UCB, i.e. the same UCB-family search with a compiler instead of an LLM judge as the fitness signal
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — search at a different altitude: Archon searches over *pipelines* offline, LATS searches over *trajectories* online
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — what the missing cost analysis would have to reckon with: under a noisy scorer, more search is not monotonically better, and the loop's true quality can decline while its reported score rises
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the discipline this paper's headline result is missing
+- [Blast Radius (Agentic)](/articles/blast-radius) — why the reversibility assumption is load-bearing: expanding a node means *executing* it, so the sandbox stops being containment and becomes a correctness precondition
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — the lecturer
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — the need this answers, re-derived from the code side two lectures later. Massive one-shot sampling plateaus on hard competitive-programming problems, and the lecture's own conclusion is that they want decomposition, per-step sampling and backtracking — this page's search, arrived at by exhausting the parallel alternative
+
+## Open Questions
+
+- LATS scores a state with a prompted judge *plus* a sample-frequency term, and the same course showed frequency-based selection is blind to rare-correct solutions. Does the judge half carry the search on hard problems, or does the frequency half dominate and collapse the exploration the method exists to create? An ablation of the two terms would settle it.
+- The reversibility assumption confines tree search to simulators. Is there a version that scores a candidate action *without executing it* — a learned or prompted transition model — or does search over real-world actions reduce to "explore only in a sandbox, then replay the winning trajectory"?
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y) — *CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning*, [Azalia Mirhoseini](/articles/azalia-mirhoseini) solo, Stanford Online. Delivered **2025-10-06**, published to YouTube 2026-08-03 (`practitioner-opinion`, YouTube auto-caption transcript, ~11.3k words). The LATS third of the lecture: the trip-planning and maze walkthroughs, the six stages, the two-term value function and its 0–1 judge prompt, UCT selection and the running-average backup, the reflection step, the divergences from Math-Shepherd and ReAct, the HotpotQA and WebShop results, and the conceded limits (no cost analysis, irreversible actions) plus the two student exchanges on bandit alternatives and repeated actions. The LATS paper is not in `raw/`; the lecture names no authors and almost no numbers, and everything here is ASR-read off slides and hedged accordingly

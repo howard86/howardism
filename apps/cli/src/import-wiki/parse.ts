@@ -8,7 +8,6 @@ import {
   extractRawSlugs,
   humanize as humanizeSlug,
   stripToText,
-  tokenizeWikilinks,
 } from "./wikilink.ts";
 
 export type WikiFolder = "concepts" | "derived";
@@ -43,6 +42,12 @@ export interface WikiFrontmatter {
 export interface ParsedWikiFile {
   body: string;
   frontmatter: WikiFrontmatter;
+  /**
+   * Raw boolean `generated: true` flag, captured before `normaliseFrontmatter`
+   * strips it (see there) — marks a vault-generated page (a MOC's `Derived`
+   * section aside, currently `open-questions` and `open-questions-backlog`).
+   */
+  isGenerated: boolean;
   mtime: Date;
   source: WikiSource;
 }
@@ -66,8 +71,6 @@ export interface RawDoc {
 }
 
 const HTTP_URL_RE = /^https?:\/\//i;
-const TABLE_ROW_RE = /^\s*\|\s*\[\[[^\]]+\]\][^|]*\|[^|]+\|/;
-const HEADING_RE = /^##\s+(.+)$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function discoverWikiSources(
@@ -109,6 +112,10 @@ export async function parseWikiFile(
   return {
     source,
     frontmatter: normaliseFrontmatter(data),
+    // Must read `data.generated` (pre-normalisation) — `normaliseFrontmatter`
+    // treats `generated` as a date field and deletes any non-string value,
+    // so a boolean `generated: true` never survives into `frontmatter`.
+    isGenerated: data.generated === true,
     body: content,
     mtime,
   };
@@ -128,65 +135,6 @@ function normaliseFrontmatter(data: Record<string, unknown>): WikiFrontmatter {
     }
   }
   return result as WikiFrontmatter;
-}
-
-/**
- * Parse index.md's Concepts and Derived tables, keyed by bare slug.
- *
- * Why: meta.description for each article comes from the human-authored
- * one-liner in this catalog. Skips Source Documents (raw inputs, not articles).
- */
-export async function parseIndexSummaries(
-  indexPath: string
-): Promise<Map<string, string>> {
-  const raw = await readFile(indexPath, "utf8");
-  const { content } = matter(raw);
-  const lines = content.split("\n");
-  const summaries = new Map<string, string>();
-
-  let currentSection: string | null = null;
-  for (const line of lines) {
-    const headingMatch = HEADING_RE.exec(line);
-    if (headingMatch) {
-      currentSection = headingMatch[1].trim().toLowerCase();
-      continue;
-    }
-
-    if (currentSection !== "concepts" && currentSection !== "derived") {
-      continue;
-    }
-    if (!TABLE_ROW_RE.test(line)) {
-      continue;
-    }
-
-    const cells = line
-      .trim()
-      .split("|")
-      .slice(1, -1)
-      .map((cell) => cell.trim());
-
-    const [pageCell, summaryCell] = cells;
-    if (!(pageCell && summaryCell)) {
-      continue;
-    }
-
-    const token = tokenizeWikilinks(pageCell)[0];
-    if (!token) {
-      continue;
-    }
-
-    const slug =
-      token.target.kind === "internal"
-        ? token.target.slug
-        : token.target.rawSlug.split("/").pop();
-    if (!slug) {
-      continue;
-    }
-
-    summaries.set(slug, stripWikilinksToText(summaryCell));
-  }
-
-  return summaries;
 }
 
 /**

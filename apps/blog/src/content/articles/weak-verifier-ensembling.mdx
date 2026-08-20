@@ -1,0 +1,135 @@
+---
+date: 2026-08-17
+title: Weak-Verifier Ensembling
+description: "Weaver (Stanford, 2025): stop training a better verifier and
+  combine the imperfect ones you have — normalize a heterogeneous pool of ORMs,
+  PRMs and LLM judges, drop the ones below a quality floor using ~1% of labels,
+  then learn per-verifier weights by Snorkel-style weak supervision. Reported to
+  lift hard benchmarks from ~40% to over 70% and to close a model-class gap (8B
+  generator + ≤8B verifiers ≈ 70B majority voting; 70B class ≈ o3-mini at
+  86.2%), then distill the whole pool into a ~400M scorer keeping ~97% of the
+  accuracy at 99%+ less test-time compute. Its load-bearing assumption — that
+  verifiers capture independent aspects of correctness — is the one the wiki's
+  2026 empirical judge measurements say is false"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - llm-as-a-judge
+  - test-time-compute
+  - inference-scaling
+  - reliability
+readingTime: 15
+imageAlt: Illustration for Weak-Verifier Ensembling
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 3: Robust Verification"
+    url: https://www.youtube.com/watch?v=p7TdPUcPoik
+---
+export { default as heroImage } from "../assets/weak-verifier-ensembling.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik)
+
+## Summary
+
+Every other route to closing the [generation–verification gap](/articles/verifiability-thesis) trains a better verifier. **Weaver** — *Shrinking the Generation-Verification Gap with Weak Verifiers*, from [Azalia Mirhoseini](/articles/azalia-mirhoseini)'s Stanford lab, taught in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 3 ([CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik), delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`) — spends **inference compute** instead: take the verifiers that already exist, none of them good enough alone, and combine them into one that is.
+
+"Weak" is a claim about the world, not about the selection. Mirhoseini is explicit: "we didn't purposefully choose bad verifiers — these are the best verifiers that are out there," and the weakness is simply that **no verifier is perfect**. The formal property required is only that each verifier's score *correlates* with true correctness while being individually imperfect. Three classes go in the pool: **outcome reward models**, **process reward models** (both on [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models)), and **[LLM judges](/articles/llm-as-a-judge)** — the last being any prompted model that can be shown an answer and asked whether it is right, optionally with rubrics or tools.
+
+This page carries the method, the reported numbers, and the **contradiction**: Weaver's derivation rests on verifier independence, and the 2026 `empirical` sources on this wiki measure that independence and find it absent, in the direction that costs it. The resolution is scoping rather than supersession, and it is developed below.
+
+Figures are read off slides in a YouTube auto-caption transcript, the paper is not in `raw/`, and the lecturer is the senior author. Treat every number as approximate and late-2025.
+
+## The result that motivates the design
+
+Before any machinery: rank the available verifiers by quality and ensemble the top 1, top 5, top 10 across four benchmarks. More verifiers helps — **but not monotonically**. What *always* helped was learning a **weight per verifier** from a labelled set, using methods the lecture calls deliberately simple: **naive Bayes or logistic regression**, one scalar per verifier, fit on a training split and applied to held-out test data.
+
+Hold onto the non-monotonicity. It is the first observable in the lecture that the independence assumption below is not true.
+
+## Score → weight → select
+
+Weaver's pipeline, in the lecture's own three words:
+
+1. **Score.** Run every verifier over every candidate solution; **normalize** the scores onto a common scale (verifiers emit 0/1, log-probabilities of correctness, and other things that are not comparable as given).
+2. **Filter.** Drop verifiers that score badly against a **very limited** labelled set. Mirhoseini flags this as load-bearing: "we have noticed that this is a very important step — your verifiers should be above a certain quality to even be let in the pool." A bad verifier does not average out; it has to be excluded.
+3. **Weight and combine.** Estimate each surviving verifier's accuracy by **weak supervision** with very little labelled data, and combine the scores under those weights.
+
+The weak-supervision lineage is named: **Snorkel** (Alex Ratner et al.) and the related Stanford weak-to-strong line.
+
+### The setup and the assumption
+
+*n* queries × *k* solutions each × *m* verifiers = *n·k·m* labels. The target is `P(correct(i,j) = 1 | all m verifier labels)`. Two equations do the work — a factorization that requires **every pair of verifiers to be conditionally independent**, and Bayes' rule, which assumes nothing — and together they yield an optimization whose solution is the per-verifier weights.
+
+**The assumption stated plainly**, because everything downstream turns on it:
+
+> the assumption in Weaver is that each verifier captures an independent aspect of the correctness.
+
+Mirhoseini gives the intuition immediately, and it is the right intuition: **if every verifier agrees on every sample you learn nothing from having many.** The signal lives in the pattern of agreement and disagreement across the pool. That is exactly why the assumption is load-bearing rather than a convenience — the method's value *is* the independence it posits.
+
+## What it reports
+
+- **Gains concentrate on hard benchmarks.** GPQA Diamond, MATH and MMLU-Pro, where the single-verifier baseline is already low, show the largest boost over a naive ensemble. Easy benchmarks show little.
+- **Four arms, ordered.** A **pass@k oracle** (dashed, the unreachable ceiling); **supervised** Weaver (a large labelled set for the weights); **unsupervised** Weaver (**1% of each dataset's training labels** — the name is the lecture's, and the 1% is not zero); **naive ensemble** (plain averaging over the *filtered* pool). All four sit **significantly above majority voting and multi-agent verification**, where MAV is prompting LLMs to score a response on several rubric-style aspects — and MAV lands **below majority voting on two of the datasets**, which is a quiet negative result for rubric-prompted judge panels as a verification method.
+- **The headline movement**: from "slightly over 40%" to "over 70%" on the hard problems, which she notes matches **o3-mini**.
+- **Model-class closure, on solution accuracy rather than coverage.** This is the framing she stresses, since the previous lecture's results were all coverage:
+ - Generator **Llama 3.1 8B Instruct** with a verifier pool of **8B-and-below** models → **~70% average**, roughly what **majority voting with 70B-class models** achieves.
+ - Generator and verifiers at the **70B class** → **86.2% average**, "very comparable" to **o3-mini**, a proprietary model of a different class.
+
+ The claim is that inference-time verification buys you roughly one model class, using only open weights — which is the same trade [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) tracks from the model side, arrived at by spending inference compute rather than training compute.
+
+### Distillation: the cost objection, answered
+
+Running *m* verifiers over *k* samples per query is expensive, and the expense scales with both. The follow-up work trains Weaver once and **distills the whole ensemble into a single small scorer** — as small as **~400M parameters** against an original pool in the 70B range — reportedly retaining **~97% of the ensemble's accuracy at 99%+ less test-time compute**. Distilled and original checkpoints are **open-sourced**; Mirhoseini offers them to the class as project infrastructure.
+
+The efficiency curve (success rate against total inference FLOPs) has the distilled model far left of everything else — but the part worth noting is that the **undistilled** Weaver also becomes more FLOP-efficient than naive ensembling and majority voting *at high accuracy levels*, because those methods cannot reach those levels at any budget. Efficiency comparisons between methods with different ceilings only make sense per accuracy level.
+
+## The contradiction: independence is the assumption the wiki has measured
+
+Weaver's derivation needs conditionally independent verifiers. Two 2026 `empirical` sources here measure the quantity directly, and both find strong dependence.
+
+- **[Yang et al. (2026)](/articles/llm-judge-validation)** estimate intra-class error correlation ρ from judge vote matrices under *ordinary* pairwise grading with nothing optimizing against the judges: **ρ = 0.944–0.972** for Qwen3 homogeneous juries and **0.664–0.706** for MiniMax ones — both *within*-family figures, for two different families. **Heterogeneous juries also underperform Poisson-binomial independence predictions** — mixing model families under a shared prompt does not restore independent errors. Five jurors buy 0.463 → 0.482 on LLMBar. Their prescription is to report ρ alongside K, never K alone.
+- **[Zhou (2026)](/articles/reference-free-judge-over-crediting)**'s Proposition 2 gives the analytic form: every monotone aggregation rule over judges thresholding a **shared latent plausibility axis** collapses to a threshold on that axis, so adding judges cannot reject a region all of them accept. Measured pairwise acceptance correlation across three judge families: φ = 0.29–0.38, and a strictest-unanimous three-family rule still passes **55%** of manufactured wrong answers.
+
+**How this resolves — scoping, not supersession.** Weaver's reported gains are not in dispute; the *mechanism it credits them to* is what the later evidence indicts. Four distinctions decide how much of the method survives:
+
+1. **The pool is heterogeneous by kind, not just by weights.** Yang and Zhou both measure *LLM judges* — models prompted to grade text. Weaver's pool mixes trained ORMs and PRMs (which score against a learned correctness head fitted on ground-truth-matched labels) with judges. A reward model trained on outcome-matched data and a chat model prompted to grade share far less machinery than two chat judges do. Nothing here measures error correlation across *that* mix, and it is the one place independence is most plausible.
+2. **Weaver is anchored to ground truth; a judge council is not.** The filtering step and the weight fit both consume real labels — even the "unsupervised" arm uses 1%. Zhou's failure mode is specifically the *reference-free* judge, and the fix he identifies is a verdict grounded in something the judge did not generate. Weaver has such a grounding, thinly.
+3. **Weaver runs as a static selector, not a reward.** Zhou's collapse (discrimination 0.31 → 0.09) is measured *under optimization pressure*. Weaver as taught selects among fixed candidates with nothing training against it — Yang's regime, where judges retain usable discrimination, not Zhou's. **Anyone using Weaver as an RL reward is in the other regime and inherits the collapse**, and the lecture makes no such distinction.
+4. **The lecture's own data already shows the cost.** Ensembling top-1 → top-5 → top-10 helps **non-monotonically**, which is what correlated errors predict and independence does not. Weaver's answer — learn weights instead of averaging — is a *mitigation* for correlated verifiers, not evidence that they are uncorrelated. The method is better than its stated justification.
+
+The honest summary: **the recipe's ground-truth-anchored parts (filter the pool, fit weights on a small labelled set) are the parts the later evidence does not touch; the independence story it tells about why more verifiers help is one the later evidence contradicts.** [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) carries the general form of the same mechanism from control theory — width averages only the noise that is independent per agent, so structure shared across the population is a floor that no population size lowers.
+
+**And a second, smaller tension inside the same lecture.** Mirhoseini also says models "like their own generations and their own way of interpreting results much better" than another family's, and that she knows of no study on whether generator and verifier should share an architecture family ([Same-Model Review Blindness](/articles/same-model-review-blindness)). If verifiers of one family systematically agree, that is the dependence above; if a generator's own family systematically over-credits it, that is a directional bias no amount of weighting removes. Weaver's cross-lab pool is the right instinct against both, argued for on grounds the lecture does not connect to either observation.
+
+## Where this sits in the lecture's arc
+
+Papers 1–3 ([Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models)) spend four years making a *single* verifier better: label the outcome, then the steps, then the steps without humans. Weaver stops. Its bet is that the marginal return on a better verifier is lower than the marginal return on combining the ones that exist — which is [test-time scaling](/articles/large-scale-test-time-compute) applied to the *verification* half of the pipeline rather than the generation half. In Mirhoseini's recap: "we are using test time scaling, but by bringing more verifiers rather than sampling a single verifier more."
+
+That makes it a sibling of [Archon](/articles/inference-time-architecture-search) from the same lab and the previous lecture, and the pair divides cleanly: Archon composes generation and judging **operations** into a searched architecture; Weaver composes **verifier models** into one aggregated score. Both take the position that the fixed budget's *shape* matters more than its size, and both are prompting-and-composition rather than training.
+
+## Connections
+
+- [The Verifiability Thesis](/articles/verifiability-thesis) — this is the "council of LLM judges" horizon built as an actual system, with two things the horizon lacks: a quality floor that excludes bad members, and weights fitted against real labels. The council's headroom is what [LLM-Judge Validation](/articles/llm-judge-validation) bounds
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the three papers Weaver stops iterating on; ORMs and PRMs are two of the three verifier classes in its pool, and their individual imperfection is its premise
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the measurement that contradicts its independence assumption: ρ = 0.944–0.972 (Qwen3) and 0.664–0.706 (MiniMax), both homogeneous juries, and heterogeneous juries still below independence predictions
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — the analytic form of the same objection (Proposition 2: no monotone rule over a shared latent signal can reject what all judges accept) plus the optimization-pressure boundary that decides whether Weaver is a selector or a reward
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the general mechanism: width averages only independent noise, so correlated structure is a floor no ensemble size lowers
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — one of the three verifier classes, and the one the negative MAV result is about: rubric-prompted judge panels underperform majority voting on two of the four datasets
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — the sibling from the same lab: Archon composes inference *operations*, Weaver composes verifier *models*, both under a budget rather than by training
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — the class-closure claim in its terms: an 8B generator plus ≤8B verifiers reaching 70B-majority-voting accuracy, and a 70B stack reaching o3-mini, using only open weights
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the discipline the FLOP-efficiency curve half-observes: it does plot success against total inference compute, which is more than most, and the o3-mini comparison is not on that axis
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — the senior author, teaching her own lab's work; verifier ensembling is her stated answer to the verification bottleneck
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 3, where this is the fourth and final paper
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — where this page's problem enters the training loop rather than the selection step: STaR's only filter is final-answer match, and the descendant the lecture names (V-STaR) is "put a verifier in the loop with the generator" — one verifier, which is the configuration this page argues is not enough
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — the counterexample from the same instructor's lab two lectures later: SWiRL's every training signal is a *single* prompted, untrained judge, with none of the pooling, quality floor or weak-supervision weighting this page argues an unreliable verifier needs
+
+## Open Questions
+
+- Weaver's gains are real and its independence assumption is measurably false. **How much of the gain survives once the dependence is priced** — i.e. what does the weight-fitting recover that a ρ-corrected aggregation would predict, and does the non-monotonic top-1/5/10 curve match Yang's beta-binomial form? Nobody has run the two together.
+- Is error correlation across *kinds* of verifier — trained reward model vs prompted judge — materially lower than across judges? Every measurement in this wiki is judge-to-judge, which is the case most favourable to the objection and least representative of Weaver's pool.
+- Does the distilled ~400M scorer inherit the ensemble's *robustness* or only its *accuracy*? A single small model reproducing a pool's verdicts has, by construction, no diversity left to lose — which is fine for a static selector and is exactly the object [optimization pressure](/articles/reward-hacking) would attack first.
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik) — Stanford CS329A lecture 3, [Azalia Mirhoseini](/articles/azalia-mirhoseini) (delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`, YouTube auto-caption transcript, ~10.7k words). Paper 4 of four: *Shrinking the Generation-Verification Gap with Weak Verifiers* (Weaver, Stanford, 2025) plus its distillation follow-up. Used for the weak-verifier definition, the top-1/5/10 non-monotonicity and the naive-Bayes/logistic-regression weighting, the score→weight→select pipeline and the load-bearing filter step, the Snorkel weak-supervision lineage, the n·k·m formulation and the conditional-independence assumption stated verbatim, the four-arm comparison including the negative MAV result, the ~40%→70% and 86.2%/o3-mini figures, the 8B-and-70B class-closure claims, and the ~400M / ~97% / 99%+ distillation numbers. **The paper is not in `raw/`** — every figure is read off a slide by ASR and is approximate. **COI: total.** Mirhoseini is the senior author of the work she is teaching, and says so. The "7B / 7TB" renderings in the class-closure passage are ASR corruption of **70B** and are carried as such

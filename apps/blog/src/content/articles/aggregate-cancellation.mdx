@@ -1,0 +1,86 @@
+---
+date: 2026-08-12
+title: Aggregate Cancellation
+description: "The failure mode where a headline metric stays flat because two
+  real effects of opposite sign sum to zero across strata — so a null pooled
+  result is evidence of heterogeneity, not of no effect; the cleanest measured
+  instance is a sparse-attention audit whose three preregistered pooled tests
+  return p = 0.995 / 0.771 / 0.541 *because* per-cell effects run opposite ways,
+  and the wiki's other instances (identical accuracy over disjoint correct
+  subsets, a group cooperation rate over one systematically drained member)
+  share the shape: the composition under the number changed and the number did
+  not"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation-methodology
+  - construct-validity
+  - benchmarks
+  - failure-modes
+readingTime: 9
+imageAlt: Illustration for Aggregate Cancellation
+sources:
+  - title: Understanding Sparse Attention Selectivity in Long-Context Foundation
+      Models via Counterfactual Evaluation
+    url: https://arxiv.org/pdf/2608.01676
+---
+export { default as heroImage } from "../assets/aggregate-cancellation.webp";
+
+## Sources
+
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)
+
+## Summary
+
+A metric can be flat for two very different reasons. The first is that nothing happened. The second is that **two real effects of opposite sign summed to zero** — the composition beneath the number changed, the number did not, and the aggregate is not a lossy summary of the effect so much as an *exact erasure* of it.
+
+This is a narrower and more actionable claim than "aggregate accuracy under-uses the benchmark" ([Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)). Saturation means the variance ran out; cancellation means the variance is there and sums to zero. The two failures have different remedies: for saturation you add axes, for cancellation **you must stratify — adding axes does not help if you keep pooling them.** And it carries one corollary that keeps being got wrong in practice: under cancellation, **a null result is evidence of heterogeneity rather than of absence.**
+
+## The cleanest measured instance: a preregistered null that is the finding
+
+Ren, Sun, Yi & Yang ([Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676), arXiv 2608.01676, 2026-08-03, `empirical`) built a counterfactual audit of sparse attention and preregistered three pooled hypotheses, each testing whether the sparse-versus-dense content contrast has a **uniform direction** across eight model–task–ratio cells. All three returned null after Holm correction: **p = 0.995, 0.771, 0.541.**
+
+The null is not a failure to find an effect. The same 32-test stratified family, run per cell, **rejects 31 of 32 nulls in the specified direction** (8/8 for each of three cellwise contrasts, 7/8 for the label-stratified variant). Seven of eight per-cell bootstrap 95% intervals exclude zero. The pooled tests are null because cells with positive and negative estimates cancel under equal weighting — which the authors state as the point rather than as a limitation: *"cells with opposite calibrated signs cancel under pooling — precisely the phenomenon that makes aggregate evaluation insufficient."*
+
+The compression sweep makes the cancellation mechanical rather than incidental. Holding model, task, items, cards, label mappings, layouts, seeds and scoring rule fixed and varying only the discarded fraction `c ∈ {0.25, 0.50, 0.75}`, two of four model–task pairs cross zero **in opposite directions**: Qwen3-8B on SCBench-KV runs −0.31 → +0.16 → **+0.93** [+0.81, +1.04], while Qwen3-8B on SciFact runs +0.19 → +0.08 → **−0.08** [−0.18, +0.02]. The two Llama-3.1-8B cells stay negative and creep toward zero. Two sign reversals running opposite ways, produced by moving one knob — so any pooling across the four cells at a fixed ratio, or across ratios within a cell, destroys the effect it was built to detect, and at `c = 0.50` the four cells very nearly cancel outright. The full sweep table, the two competing mechanisms it arbitrates between, and the source's bounds are on [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability).
+
+## Why the operator sees nothing
+
+The paper's own statement of the consequence is the sharpest version available: *"A deployed sparse model can preserve its average accuracy while amplifying misleading content and suppressing corrective content — the shifts cancel, the benchmark curve stays flat, and the operator sees nothing."*
+
+Treat the *mechanism* in that sentence as established and the *content* as this source's rhetorical reach; the paper's own real-evidence arms run the other way on sign (see the caveats on [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability)). What survives without qualification is the shape: a metric that is an average over strata reports the mean of a distribution whose composition it does not record, so any pair of offsetting shifts is invisible by construction — no drift, no adversary, no grader error required. That is the metric-layer member of the class [Failures That Look Like Success](/articles/failures-that-look-like-success) catalogues at the trace layer, and it is the one variant where inspecting the trace of a single run cannot help, because no single run is wrong.
+
+## The shape appears wherever a metric averages over strata
+
+Cancellation is not a property of sparse attention; it is a property of any headline number computed as a mean over units that could respond differently. The corpus already held instances before it had a name for them:
+
+- **Identical accuracy over disjoint correct subsets.** [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)'s motivating critique is that two models can post the same aggregate accuracy while being correct on entirely different samples — the decontamination literature scored itself on the aggregate and therefore could not see per-sample divergence. Sun et al.'s own result is the same failure with the signs made explicit: a dataset-level improvement (residual contamination down) alongside per-sample movement *away* from the clean reference (D_KL up). Their remedy is the general one — replace the aggregate with a per-sample distributional distance.
+- **A group rate over one systematically drained member.** [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) records that a group-level cooperation rate is compatible with one member being systematically exploited: the pooled cooperation number is preserved by other members' gains while a specific stratum loses. Same arithmetic, applied to agents rather than items.
+- **The efficiency-lever case.** [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) carries the version with a deployment cost attached, and it is where cancellation is most likely to be load-bearing: efficiency work is judged on a throughput number and an aggregate benchmark grid, and both are averages.
+
+## What actually detects it
+
+Nothing on the measurement side of a pooled test can distinguish "no effect" from "offsetting effects." The three moves that can:
+
+1. **Pre-specify the strata, not just the hypothesis.** This paper's design is worth copying for the reason it is usually criticised: it preregistered pooled tests, watched them fail, and had a labelled cell structure ready to decompose into. The stratified family is explicitly post-hoc and labelled as exploratory — which is the honest form, and cheaper than never having pooled at all.
+2. **Report the sign distribution, not the mean.** "Three of four cells move toward more positive ∆" is a statement the pooled estimate cannot carry, and it is the one an operator needs.
+3. **Find the control variable.** Cancellation is only a nuisance if the strata are arbitrary. Here the balance is governed by a *knob* — compression ratio — so the heterogeneity is predictable rather than noise, and the finding upgrades from "results vary" to "this parameter selects the sign." A cancelling metric with an identified control variable is a measurement problem; without one it is a warning that the unit of analysis is wrong.
+
+The bound on all of this, from the source: the audit's outcome is a **logit-margin proxy for content influence, not task accuracy**, so "the benchmark curve stays flat" is an inference about aggregate metrics in general and not a measured accuracy null. Cancellation is demonstrated in the instrument that was actually run.
+
+## Connections
+
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the sibling failure of the aggregate, and the one this page is most often confused with. That page's premise is that a saturated accuracy number has run out of variance and six other axes still discriminate; cancellation is the case where the variance never left, it summed to zero, and *adding axes does not help unless you also stop pooling them*. Its own second mode (the human reference class stops resolving) is a third distinct way a headline number goes quiet
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the deployment stakes and the full treatment of the source: an efficiency lever whose capability cost is invisible on the grid it is judged by, now with a controlled measurement and a method attached rather than a vendor anecdote
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the same invisibility one layer down. That page's instances are single runs that read as successes; this is the *metric* reading as a non-event, where no individual run is wrong and the only signal is a comparison of strata nobody stratifies by
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — the corpus's other worked instance, and the one with the cleanest remedy: two models at identical aggregate accuracy correct on disjoint samples, answered by swapping the aggregate for a per-sample distributional distance rather than by adding metrics
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — the same arithmetic with agents as the strata: a preserved group cooperation rate over one member being systematically drained
+
+## Open Questions
+
+- Does cancellation survive on a **task-accuracy** outcome, or only on influence proxies? The one controlled demonstration measures a logit-margin contrast; "the benchmark curve stays flat" is inferred, never measured. A sweep reporting per-cell accuracy alongside the calibrated contrast at the same compression ratios would settle whether the sign heterogeneity reaches the number operators actually watch.
+- Is there a cheap **screen** for cancellation that does not require knowing the strata in advance? Every detection move here presumes a labelled cell structure. A variance- or sign-based diagnostic computable from per-item results alone — flagging "this null is heterogeneous" without a pre-specified stratification — would make the check routine rather than a study design. Nobody in the corpus has proposed one.
+
+## Sources
+
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676) — Xingyu Ren, Youran Sun, Chugang Yi & Haizhao Yang (CUHK / University of Maryland, arXiv 2608.01676, 2026-08-03, `empirical`): §1 and §4.5 the three preregistered pooled hypotheses and their Holm-corrected nulls (p = 0.995, 0.771, 0.541) with the authors' own reading that opposite-signed cells cancel; §5.2 the 32-test stratified family rejecting 31 of 32; §5.3 seven of eight per-cell intervals excluding zero; §5.5 and Table 5 the three-ratio sweep and both sign reversals. Table 5 is reconciled three ways (Appendix Table 8, Figure 3, and the §5.5 prose) and is quoted here as reconciled. Full source notes, including the framing overreach this page declines to carry, on [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability)

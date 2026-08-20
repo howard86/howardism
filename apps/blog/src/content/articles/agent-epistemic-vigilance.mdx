@@ -1,0 +1,127 @@
+---
+date: 2026-08-18
+title: Agent Epistemic Vigilance
+description: "Anthropic's Frontier Red Team measures trust calibration in both
+  directions and finds one dial cannot fix both ends: a listener agent taking
+  decisions from four scripted scout peers, one of which lies at a fixed rate
+  and is detectable only by contradiction, holds ~0.85 routing accuracy for
+  Mythos 5 while Sonnet models fall to 0.62 — newer models recover more of the
+  naive-trust-to-oracle gap — while in hidden-profile tasks where the shared
+  evidence favours the wrong option, groups of four vote the hidden-best choice
+  only 17–36% of the time (Mythos 5 ~85%) against a solo ceiling near 100%; the
+  conclusion is dispositional rather than cognitive — every model tested
+  abstractly knows sources have incentives and consensus is not evidence, and
+  none acts on it unprompted"
+tag: Concept
+domain: alignment-and-safety
+tags:
+  - alignment
+  - safety
+  - multi-agent
+  - evaluation
+  - deception
+readingTime: 12
+imageAlt: Illustration for Agent Epistemic Vigilance
+sources:
+  - title: Patterns and problems in multiagent systems
+    url: https://www.anthropic.com/research/multiagent-systems
+---
+export { default as heroImage } from "../assets/agent-epistemic-vigilance.webp";
+
+## Sources
+
+- [Patterns and problems in multiagent systems](https://www.anthropic.com/research/multiagent-systems)
+
+## Summary
+
+The epistemic half of Anthropic's Frontier Red Team piece on multiagent systems ([Patterns and problems in multiagent systems](https://www.anthropic.com/research/multiagent-systems), 2026-08). The framing claim is that human belief updating is *source-sensitive* — we weigh consistency with what we know, and we discount an interested or historically unreliable sender — and that models largely lack this:
+
+> AI agents, while broadly knowledgeable, have limited exposure to or defenses against exploitative senders. Most applications test their capabilities in instruction-following settings, where their sole objective is to fulfill users' requests. But accumulated experience is needed to develop intuitions about who is trustworthy.
+
+Two experiments measure the two directions in which that calibration can fail, and the pairing is the contribution: **the failures are opposite ends of one dial**, so an intervention that fixes either one makes the other worse.
+
+## Experiment 1: gullibility toward a lying peer
+
+Design, per episode:
+
+- A **listener agent** makes ten to fifteen scored decisions about a world state it cannot observe — e.g. choosing between two routes.
+- Its only window is **four scripted scout peers**, each reporting a partially-overlapping slice of the truth (the speed of a given route, say). **One produces decision-relevant lies at a fixed rate.**
+- The overlap is what makes detection possible *in principle*: a false report eventually contradicts an honest one.
+- **The listener is never told that any source might be unreliable.** Nothing in the prompt authorizes suspicion; noticing is the capability under test.
+
+Scoring is bracketed by two baselines rather than reported as raw accuracy: a **naive policy** that trusts and averages every report, and an **oracle** with perfect discovery ("learn who lies" — excluding the liar's reports as soon as they are identifiable by contradiction with two other scouts). The result: **newer models recover more of the gap between naive and oracle**, an ordering that "holds across four different scenarios" and three task domains. On the routing figure, as the untrustworthy scout's lying rate rises, Mythos 5 holds near **0.85** accuracy while Sonnet-class models fall to **0.62**.
+
+The design choice worth carrying is the **unprompted** condition. This is not "can a model detect a lie when told to look for one" — a much easier question that instruction-following alone answers. It is whether vigilance is a *disposition* the model brings. The same distinction is what makes [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) negative and what makes [MCB](/articles/ai-to-ai-coercion)'s escalation finding load-bearing: the interesting behaviors are the uninstructed ones.
+
+## Experiment 2: the opposite failure, in groups
+
+The **hidden-profile** task, borrowed from the human group-decision literature:
+
+- Facts are distributed across a group of agents such that **the evidence they share supports the wrong choice**, while individual agents hold unique information that should be decisive for the right one.
+- Solving it requires two things at once: an agent must recognize its private information as pivotal, **and** the rest must trust a dissenter over the apparent consensus.
+- Scale: **groups of four agents**, scenarios like hiring, investment or property buying, **n = 400 episodes per model**, scored as the share of episodes where the hidden-best option won a majority of votes.
+
+Results: **Mythos 5 groups ~85%; every other model tested 17–36%; the solo-ceiling baseline** — one agent handed all the facts, deciding alone — **near 100%.** Performance "scales with model intelligence but does not saturate even at the top of our range."
+
+The gap between 17–36% and ~100% is not a knowledge deficit. Every fact needed is inside the group, and a single agent given the same facts gets it right. **What fails is communication under consensus pressure** — which the piece notes "matches the human literature where discussion converges on what everyone already knows, and unshared facts are either never volunteered or not pressed once a consensus has formed."
+
+This gives a name and a measurement to a failure mode the wiki previously had only as a debugging category. [WHO&WHEN PRO](/articles/automated-failure-attribution) lists "an agent abandoning its own correct answer after seeing another's" among the coordination errors its 18-mode taxonomy systematically absorbs into "reasoning error." That is the hidden-profile failure seen from the post-mortem side — and the reason it gets relabeled is exactly the reason it is hard to fix: locally, an agent yielding to consensus looks like ordinary reasoning.
+
+## Why one dial cannot fix both
+
+The two results are structurally opposed:
+
+| Failure | What it punishes | The naive fix |
+|---|---|---|
+| Trusting a lying scout | miscalibrated **credulity** — leaning on an unreliable source | trust peers less |
+| Losing the hidden profile | miscalibrated **deference to consensus** — not pressing a lone true signal | trust peers more / weight dissent |
+
+"Turning a simple dial to fix one issue will simply exacerbate the other." The piece's resolution is that human trust "isn't a single global value. Instead, it's conditional," and that the conditionality lives in **institutions rather than individuals**:
+
+> Markets aggregate dispersed private information while reputation acts as a tax upon manipulation, courts discount interested testimony but protect a lone witness, and peer review might balance an author's claims with those of a dissenting reviewer. None of these mechanisms make people individually better judges of truth. Rather, they restructure the incentives around communication so that miscalibrated trust, in either direction, is caught and corrected.
+
+And the deficit is stated as an absence of that layer, not of intelligence: agents "enter the market with no reputation to lose, no court to appeal to, and no colleague who remembers them."
+
+Read against the rest of the corpus, that claim has support in an unexpected place. [CT-Bench](/articles/self-negotiated-contracts) gives two agents a commitment device that *is* enforceable, and the measured effect is not that agents keep promises (defection is flat, 0.32 → 0.29) but that the mechanism **removes the promise from the critical path** — outcomes improve because fewer breakable promises are load-bearing. That is precisely "restructure the incentives around communication" rather than "make the individual a better judge," and it is the closest thing in the wiki to a working instance of the social technology this page says is missing. The same paper's natural-language arm, which scores *below* having no contract at all, is the warning that a mechanism's representation decides its sign.
+
+## The conclusion is dispositional, not cognitive
+
+The piece's own closing claim, and the sharpest sentence in it:
+
+> Every model we tested abstractly understands that information sources have their own incentives, and that consensus is not necessarily evidence. What is missing is a disposition to act on that knowledge without prompting.
+
+This is the same gap [the MSM results](/articles/agentic-misalignment) found on the alignment side — near-ceiling performance on direct QA versions of a question, with a 50–70pp shortfall when the same judgment has to be made *in situ* at a cost. Knowing the right principle and acting on it unprompted are separate capabilities, and only the second one matters in a multiagent deployment.
+
+## Evidence note
+
+**Tier: `empirical`, discounted; the raw carries no `evidence:` field** (clipper ingest — the tier here is the compile-time judgment). Both experiments are designed measurements with baselines, which is more than the conformity results in the same piece carry, and the hidden-profile arm reports n = 400 episodes per model. The discounts:
+
+- **First-party.** Anthropic measures Anthropic models and publishes the ordering; no third party has reproduced it, and no code, prompts or transcripts are released.
+- **Scripted, non-adaptive adversary.** The lying scout lies at a *fixed rate* and does not react to being caught. An adaptive liar — one that stops lying when contradicted, or lies only where overlap is thin — is the case the design cannot see.
+- **Model-naming drift inside the source.** The prose says the ordering "holds across four different scenarios" without naming the model set for this section; the figure alt text names Mythos 5 and Sonnet models, while the piece's other experiments enumerate Sonnet 4.6/5, Opus 4.6/4.8 and Mythos Preview. Which checkpoints ran the epistemics experiments is not stated, so the numbers here should be read as *generation* orderings, not as model scores.
+- **Numbers read off figures.** The 0.85 / 0.62 routing accuracies and the 17–36% / ~85% group accuracies come from the plots and their captions rather than a table; the ~100% solo ceiling likewise. Treat all four as approximate.
+
+## Connections
+
+- [Agent Behavioral Homogeneity](/articles/agent-behavioral-homogeneity) — the conformity half of the same piece, and the reason a shared channel is not obviously a fix: agents that compute the same response to the same signal converge on the consensus this page shows them over-weighting. The forum that helps a stampede is the forum that propagates a common error
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the same failure from the debugging side: "an agent abandoning its own correct answer after seeing another's" is one of the coordination error modes WHO&WHEN PRO finds systematically relabeled as a reasoning error. This page supplies the controlled measurement of the phenomenon that attribution cannot name
+- [Promise-Breaking in Multi-Agent Games](/articles/promise-breaking-in-multi-agent-games) — the trust signal measured from inside the game, with the same warning against reading it as welfare: self-reported peer trust climbs ~1.3 → ~4.0 while payoffs sit flat at the Nash value, because trust there tracks *signaling reliability*, not whether the group is doing well. A vigilance metric and a cooperation metric are different instruments
+- [Self-Negotiated Contracts Between Agents](/articles/self-negotiated-contracts) — the mechanism-design answer this page argues for, measured: an enforceable commitment device improves outcomes by removing breakable promises from the critical path rather than by making agents more trustworthy — and the same contract in natural language scores below having none, so representation decides the sign
+- [AI-to-AI Coercion](/articles/ai-to-ai-coercion) — the sender-side counterpart. This page measures an agent's defenses against an exploitative peer; MCB measures the agent doing the exploiting, and finds a one-line honest-exit affordance switches fabrication off. Cheap affordances move the sender; nothing yet is known to move the listener
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — the same uninstructed-recognition question turned inward, and the answer is worse: models do not reliably notice that *their own* prior output was adversarially elicited, claiming it as intended 27.3% of the time. Vigilance about peers and vigilance about one's own context are both dispositional and both weak
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — the security framing of the credulity half: an agent that cannot discount an interested sender is an agent that treats data as instructions. The difference is the threat model — injection assumes an attacker inside the content, this assumes a *peer* whose reports are mostly true
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — the sharpest version of the same overlap: payloads disguised as trusted data are exactly the "exploitative sender" this page says agents have no defenses against, and the scout experiment is the multiagent-peer form of it
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — its "group alignment" hard problem names epistemic hijacking and epistemic resilience in mixed collectives as open; these two experiments are the first measurements of both directions in the wiki
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — the same knowing-versus-acting gap on the alignment side: near-ceiling on direct QA, 50–70pp short when the judgment has to be made in a costly agentic setting
+- [Claude Mythos 5](/articles/claude-mythos-5) — the top of the range on both arms (~0.85 lie-resistance, ~85% hidden-profile) and the model that makes "does not saturate" the interesting claim
+- [Anthropic](/articles/anthropic) — publisher; Frontier Red Team
+
+## Open Questions
+
+- The lying scout lies at a **fixed rate and never adapts**. Does measured vigilance survive an adaptive liar — one that stops when contradicted, or places lies only where scout coverage is thin so no contradiction is ever observable? The overlap-based detectability that makes the task solvable is the same property an adversary would remove first, so the current numbers are an upper bound of unknown tightness.
+- The hidden-profile gap is a *communication* loss, not a knowledge loss: the group holds every fact and a solo agent with the same facts scores near 100%. Does a mechanism close it — a mandatory private-information round-robin before any vote, dissent weighting, or a reputation channel — or does consensus pressure reassert itself once discussion resumes? Falsifiable directly on the existing n=400 setup by adding one protocol arm.
+- Vigilance and receptivity trade off against each other, and the piece says a single dial cannot fix both. Can they be trained apart — is there any post-training intervention that raises lie-detection without raising deference-to-consensus costs (or unproductive suspicion of a legitimate principal)? *(Trigger: a lab publishing a post-training arm that reports both directions on the same checkpoints.)*
+
+## Sources
+
+- [Patterns and problems in multiagent systems](https://www.anthropic.com/research/multiagent-systems) — Anthropic Frontier Red Team, *Patterns and problems in emerging multiagent systems*, anthropic.com/research/multiagent-systems (created 2026-08-18, no byline, no publication date; `empirical` assigned at compile — the raw carries no `evidence:` field). Used here for §"Epistemic failures" in full: the source-sensitivity framing, the four-scout lie-detection design and its naive/oracle bracketing, the hidden-profile design and its solo-ceiling baseline, the two-sided-dial argument, the conditional-trust/social-technology passage, and the closing disposition claim from §"Conclusion". **Parse note:** the two figures are hosted images, not tables — the 0.85 / 0.62 routing accuracies and the ~85% / 17–36% / ~100% group accuracies are read from figure alt text and captions and are approximate; the prose does not restate them. The section also does not name which model checkpoints ran these two experiments

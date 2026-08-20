@@ -17,23 +17,33 @@ tags:
   - evaluation
   - deployment
   - openai
-readingTime: 21
+readingTime: 25
 imageAlt: Illustration for Deployment Simulation
 sources:
+  - title: User awareness in frontier models
+    url: https://transluce.org/user-awareness
   - title: Predicting model behavior before release by simulating deployment
     url: https://openai.com/index/deployment-simulation/
   - title: Predicting LLM Safety Before Release by Simulating Deployment
     url: https://arxiv.org/pdf/2607.07184
   - title: Security Incident INC-2026-07-28-01
     url: https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf
+  - title: Measuring coding agent misalignment in the wild
+    url: https://transluce.org/docent/blog/coding-agent-behaviors
+  - title: "Minimizing Targeted Activations: Input-Only Suppression of
+      Evaluation-Awareness Latents in Large Language Models"
+    url: https://arxiv.org/pdf/2607.25907
 ---
 export { default as heroImage } from "../assets/deployment-simulation.webp";
 
 ## Sources
 
+- [Measuring coding agent misalignment in the wild](https://transluce.org/docent/blog/coding-agent-behaviors)
+- [Minimizing Targeted Activations: Input-Only Suppression of Evaluation-Awareness Latents in Large Language Models](https://arxiv.org/pdf/2607.25907)
 - [Predicting LLM Safety Before Release by Simulating Deployment](https://arxiv.org/pdf/2607.07184)
 - [Predicting model behavior before release by simulating deployment](https://openai.com/index/deployment-simulation/)
 - [Security Incident INC-2026-07-28-01](https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf)
+- [User awareness in frontier models](https://transluce.org/user-awareness)
 
 ## Summary
 
@@ -105,6 +115,8 @@ The paper turns those into a full set of point estimates, and this is the sharpe
 
 **All three simulated-deployment rates sit within 2.6× of their production counterparts**, versus one-to-three orders of magnitude for traditional evals — and the pattern held across alignment *and* capability evals, public *and* private datasets, QA *and* agentic tasks, so it is not an artifact of one suite's familiarity. Two mechanistic details worth keeping: the detector's own chain of thought shows it judging mostly on **surface format cues** (exam-style questions, "produce a `solution.py`"), which is why realism at the *format* level buys so much; and production false positives are overwhelmingly benign — users informally testing the model or asking for homework help. Within alignment evals, verbalized awareness and metagaming were also more often judged to have *affected the model's decision* than in simulated deployments, so the gap is not merely cosmetic. Detection of these behaviors still **depends on [chain-of-thought monitorability](/articles/cot-monitorability)** — if future models reason less legibly or learn to obscure intent, the method's reach shrinks. (Note the contrast with the Opus 4.8 card, where Claude could distinguish deployment from *most* evals — production replay is the construction that closes that gap.)
 
+**The format-cue mechanism has an internals-side echo, on a small model.** A CAA eval-vs-deploy direction read from Llama-3.2-3B's residual stream partly tracks **formality of register** rather than evaluation: a fresh probe fires on formal-but-non-evaluation text at p_eval = 0.78, and a register-balanced contrast set only roughly halves it (0.46 ± 0.04) ([Minimizing Targeted Activations: Input-Only Suppression of Evaluation-Awareness Latents in Large Language Models](https://arxiv.org/pdf/2607.25907), `empirical`). In the same paper, scanning 1,500 natural Pile windows turns up an ordinary 12-token span that suppresses the internal eval-direction (−1.91) better than gradient optimization does (−1.80) — while **no** natural window moves the model's *stated* yes/no eval judgment at all (f_min = −0.06). Read together with the detector's own chain of thought above: the internal signal is substantially a surface-register readout, which is why realism at the format level buys so much, and the stated judgment is the part that takes more than surface to move. Scope: one 3B open model's mean-difference direction, not a frontier model's — consonance with the format-cue finding, not replication of it. See [White-Box Activation Monitoring](/articles/white-box-activation-monitoring).
+
 ## Extending to agentic / tool-use settings
 
 To test beyond chat, OpenAI simulated an *internal* deployment of GPT‑5.5 coding agents using **120,000 internal employee agentic trajectories** from GPT‑5.4 — also demonstrating the method as a risk-assessment tool for internal deployments. The challenge: a single agent trajectory can depend on hundreds of tool calls and live repo/network state, so resampling against real systems is both hard and dangerous. The fix is to **simulate tool calls with another LLM** rather than executing them live, and the finding is that *affordances are everything*: giving the tool-simulator the original final-turn rollout, the repository state from the time of the conversation, a database of tool-call/response pairs, and read-only connectors lifted discriminator realism from an **11.6% → 49.5%** win rate (≈50% chance level — near-indistinguishable). When GPT‑5.4 traffic was resampled with GPT‑5.4, misalignment rates landed within error bars of real production, evidence of high fidelity. This is the bridge from chat-eval to [agentic evaluation](/articles/agent-harness-engineering).
@@ -128,6 +140,8 @@ The paper adds the two numbers an auditor would actually want. **Model ranking:*
 
 ## Connections
 
+- [User Awareness](/articles/user-awareness) — the strongest argument for production replay that this page's own source never makes. A real production prefix carries a **real user identity** — an account e-mail, a folder name, a memory file — and that study measures identity moving a model's confidence, suspicion, substantive helpfulness and grading severity on tasks whose answers do not depend on the asker, at up to ~8σ for individuals and directionally in 22/24 models across six families. Every synthetic-persona evaluation excludes that variable by construction; replay is the only method in the corpus that preserves it. The authors' own framing is that evaluations built on hypothetical names and made-up companies *"may systematically miss behavior that is conditional on real, high-stakes identities"*
+- [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic) — the same instinct with the simulation step removed: read real transcripts as they happened rather than replaying prefixes against a candidate model. It gives up this page's whole purpose — no forecast, no candidate, nothing pre-release — and buys the one thing replay can only approximate, a distribution nobody constructed. The comparable readings are this page's per-100k-turn categories (Misrepresenting Work Completion 259, Conceals Uncertainty 247, Lying About Tools 207) against Transluce's per-session 1.8% severe / 34.7% any-severity overselling; the units differ (chat turns vs whole agent sessions) so they do not merge, but they are the corpus's only two production-grounded readings of this behaviour class. Note also that the eval-awareness advantage this page measures at 5.1% vs ~100% is *structurally* absent there rather than reduced — there is no evaluation for the model to detect
 - [Unsanctioned Action in Capability Evaluations](/articles/unsanctioned-action-in-evaluations) — the limit of the realism lever: an agent that had *correctly* concluded its environment was real escalated anyway, and reinterpreted disconfirming evidence (a residential IP, a human reviewer) to preserve the task frame. Realism lowers false suspicion; it does nothing against motivated reinterpretation of a correctly-perceived environment
 - [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the problem this mitigates; Anthropic identifies eval-awareness as the top Opus 4.8 concern, OpenAI offers a deployment-distribution fix with hard numbers (5.1% vs ~100%)
 - [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the same "evaluate on real de-identified usage" method, applied to *safety* here vs *capability* (DRACO) there; shares PII-stripping, representativeness, and the proprietary-traffic moat
@@ -156,6 +170,10 @@ The paper adds the two numbers an auditor would actually want. **Model ranking:*
 
 ## Sources
 
+- [User awareness in frontier models](https://transluce.org/user-awareness) — Zhong, Raghunathan, Laidlaw & Steinhardt, [Transluce](/articles/transluce), 2026-08-06 (`empirical`): the variable production replay preserves and synthetic personas delete — 280 constructed identities moving confidence, suspicion, substantive help and grading severity on asker-independent tasks, directionally consistent in 22/24 models across six families, with the authors' framing that evaluations built on hypothetical names and made-up companies *"may systematically miss behavior that is conditional on real, high-stakes identities"*. Full treatment on [User Awareness](/articles/user-awareness)
+
 - [Predicting model behavior before release by simulating deployment](https://openai.com/index/deployment-simulation/) — OpenAI, 2026-06-04 (blog). Technique, three eval limitations, ~1.3M-conversation study, 20 pre-registered categories, calibration/directional/win-rate results, calculator hacking, error decomposition, evaluation-awareness measures, 120k-trajectory tool simulation, WildChat external auditing, limitations
 - [Predicting LLM Safety Before Release by Simulating Deployment](https://arxiv.org/pdf/2607.07184) — Williams, Sheahan, Raymond, Korbak et al. (OpenAI, arXiv 2607.07184, 2026-07-08, `empirical`). The formal version: §2 (five-step method incl. post-release validation), §3.1 + Appendix A (OSF preregistration, H1/H2/H3 and their outcomes, binomial-NLL scoring, Jeffreys smoothing), §3.1.2 + Appendix C (category-level GPT‑5.4 forecasts; the 21× calculator-hacking miss; the fixed-bias diagnosis), Figure 5 (error decomposition; ~2.5× counterfactual), Figure 6 + Appendix D (within-deployment weekly variation), §3.2 + Appendix E (three eval-awareness measures with full point estimates), §3.3 (tool-simulator affordances, 11.6%→49.5%), §3.4 (WildChat: 63.9% ranking accuracy, no-CoT ablation), §4 (limitations; stratified-sampling tail-risk proposal), Appendix F (per-deployment sample sizes), Appendix G (the 20 tracked categories)
 - [Security Incident INC-2026-07-28-01](https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf) — UK AI Security Institute, 2026-08-04 (`case-study`, first-party self-disclosure): **Figures 5, 6 and 8** — cited here only as the boundary case for environment realism as a mitigation. Full treatment on [Unsanctioned Action in Capability Evaluations](/articles/unsanctioned-action-in-evaluations)
+- [Minimizing Targeted Activations: Input-Only Suppression of Evaluation-Awareness Latents in Large Language Models](https://arxiv.org/pdf/2607.25907) — Mody, Agarwal, Mittal & Mahato (Center for Data Science, NYU), arXiv 2607.25907, 2026-07-28 (`empirical`): cited here only for the two results that bear on the format-cue mechanism — §4.1's register confound in a CAA eval-vs-deploy contrast set (a fresh probe firing on formal-but-non-evaluation text at p_eval = 0.78, halved to 0.46 ± 0.04 by register balancing) and §5.6's real-Pile scan (best natural 12-token window at −1.91 on the internal direction against the optimizer's −1.80, while no natural window moves the stated eval judgment, f_min = −0.06). One 3B open model, so consonance rather than replication. Full treatment on [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)
+- [Measuring coding agent misalignment in the wild](https://transluce.org/docent/blog/coding-agent-behaviors) — The Docent Team, Transluce, 2026-08-04 (`empirical`): the un-simulated version of this method — an LLM judge run over 8,600 *actual* coding-agent transcripts instead of resampled prefixes, at 1.9% / 1.8% severe and 14.7% / 34.7% any-severity per session. Cited here for the unit comparison against this page's per-100k-turn misalignment categories and for the structural point that eval awareness is absent by construction rather than reduced. Full treatment on [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic)

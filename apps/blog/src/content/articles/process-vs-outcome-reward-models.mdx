@@ -1,0 +1,206 @@
+---
+date: 2026-08-17
+title: Process vs Outcome Reward Models
+description: "The four-year arc of trained LLM verifiers as taught in CS329A
+  lecture 3: OpenAI's GSM8K verifier (score the finished solution, per-token
+  head, two losses) → Let's Verify Step by Step's PRM800K (800K human step
+  labels; process supervision's real prize is killing the false positive where a
+  hallucinated chain reaches a correct answer) → Math-Shepherd (replace the
+  humans with rollout success rates from each step) — and the sting, that
+  automating the step label reintroduces exactly the false positive process
+  supervision was for. Plus the two findings that generalize (a trained
+  verifier's precision *degrades* past a few hundred candidates; a bigger
+  generator with a smaller verifier beats the reverse) and the rung the sting
+  implies, DeepSeek-Math V2's **meta-verifier**, which grades the verifier's
+  analysis rather than its score"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - llm-evaluation
+  - test-time-compute
+  - reward-modeling
+  - rl-post-training
+  - verification
+readingTime: 25
+imageAlt: Illustration for Process vs Outcome Reward Models
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 3: Robust Verification"
+    url: https://www.youtube.com/watch?v=p7TdPUcPoik
+  - title: "CS329A Self-Improving AI Agents — Part 9: Future Research Areas"
+    url: https://www.youtube.com/watch?v=AyO6wyu4DEg
+---
+export { default as heroImage } from "../assets/process-vs-outcome-reward-models.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik)
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg)
+
+## Summary
+
+A **verifier** here is a trained model that takes a question and a candidate solution and returns the probability the solution is correct. It is the fourth and softest rung of the [verifier taxonomy](/articles/verifiability-thesis) — the one you reach for when there is no proof assistant, no test suite and no reference implementation — and it splits on a single design question: **do you label the finished answer, or every step on the way to it?**
+
+- **Outcome reward model (ORM)** — one label per solution, derived by matching the final answer against ground truth. Cheap, automatic, and blind to *how* the answer was reached.
+- **Process reward model (PRM)** — one label per reasoning step. Expensive, and the expense buys the thing ORMs cannot do.
+
+[CS329A](/articles/cs329a-self-improving-ai-agents) lecture 3 ([CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik), [Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`) walks three papers spanning 2021–2024 that build this out, and the arc has a sting in its tail worth stating before any of the machinery: **process supervision's headline benefit is that it catches the solution that hallucinates its way to a correct answer, and the paper that automates the step labels defines those labels by whether the step reaches a correct answer — so the automation reintroduces the exact failure the supervision existed to catch.** Everything below is the long version of that sentence.
+
+Every figure here is read off a slide in a YouTube auto-caption transcript. None of the three papers is in `raw/`. Numbers are approximate, attributed to the lecture rather than to the papers, and dated to late 2025.
+
+## 1. The outcome verifier (OpenAI, 2021)
+
+*Training Verifiers to Solve Math Word Problems* introduced **GSM8K** — grade-school word problems chosen for multi-step reasoning with natural-language solutions — and, the part the lecture dwells on, a verifier trained alongside it. Mirhoseini's framing of why: as humans we would love a rubric that tells us whether we are on track; the verifier is that rubric handed to the model. The stated motivation ("LLMs hallucinate and can confidently present wrong solutions") she flags as **still true four years later**.
+
+The recipe, and each step is a decision later work revisits:
+
+1. Fine-tune the generator on the dataset for two epochs.
+2. Sample **100 completions per problem**; label each correct or incorrect by matching its final answer against the human-written ground truth. The humans are consulted **once, offline**; every label after that is automatic.
+3. Train the verifier for **one epoch** on those pairs.
+
+**Architecture.** The verifier is itself a language model with a **small scalar head emitting a per-token correctness prediction**, with question tokens masked out of the loss. It is trained with **two** objectives — the binary correctness loss *and* the ordinary next-token language-modelling loss — and the paper reports the pair beating the binary loss alone.
+
+**Two label granularities were ablated**: per-sentence (a loss after each period, asking whether the sentence so far is a correct step) and per-token (much noisier — every token is asked to lie on a path to a correct final answer). Either way the deployed score is **the prediction at the last token**, since one verdict per solution is all the selector needs. The lecture's slide walkthrough shows the per-token signal rendered as colour over a solution: dips in the middle recovering to green at the end on a correct solution, red at the end on an incorrect one.
+
+**Results, and the two that outlive the paper.**
+
+- **Verification beats supervised fine-tuning alone** at both model sizes shown (a 6B and a 175B GPT-3-era pair), and the margin widens as the verifier's training set grows. Below roughly a thousand training problems the fine-tuning baseline wins for the larger model — the verifier needs data before it is worth its complexity.
+- **Asymmetric sizing.** A **larger generator with a smaller verifier beats a smaller generator with a larger verifier.** Mirhoseini's intuition: generation is on average the harder task, so spend the parameters there. She flags the Pareto frontier of the two sizes as an unclaimed research project — sharper now than in 2021, she notes, because verifier and reward models are available off the shelf on Hugging Face with their own leaderboard.
+
+### The finding this page most wants you to carry: verifier precision decays with candidate count
+
+Sweep completions per problem and score with the verifier, and accuracy rises to roughly **400 samples and then falls**. At 800 the verifier "fails to track what's best": with that many candidates, two near-identical solutions — one right, one wrong — are harder to separate than they were at 400, so the top-scored pick degrades. The paper's shipped system stopped at **100 samples**, where most of the gain already sits.
+
+This extends lecture 2's result rather than repeating it. There, **majority voting plateaus at 10–50 samples** while coverage keeps climbing ([The Verifiability Thesis](/articles/verifiability-thesis)). Here a *trained* verifier pushes the useful range out by roughly an order of magnitude — and then degrades, which majority voting does not do in the same way. So the generation–verification gap has two distinct components: consensus selectors are structurally blind to rare-but-correct answers, and learned selectors lose discrimination as the candidate pool grows. **Neither is fixed by sampling more.** The [10,000-sample coverage curves](/articles/latent-capability-overhang) are measured against a perfect selector that no method on this page approaches at that scale.
+
+It is also the cleanest instance of the shape [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) formalizes: a noisy verifier's *reported* score keeps looking usable while what it is selecting gets worse.
+
+**One step Mirhoseini marks as probably obsolete**: the initial supervised fine-tune of the generator. Modern base models already follow instructions and know maths, so "a lot of newer verifiers we directly go to training the verifier objective without any supervised fine-tuning first."
+
+## 2. Process supervision (Let's Verify Step by Step, OpenAI, 2023)
+
+Two years later, same lab, same problem stated differently: one bad step early derails the whole answer, and an outcome label cannot tell you which step. The paper trains an ORM and a PRM from the same fine-tuned GPT-4 base and compares them.
+
+- **ORM label**: match the final answer against ground truth. Score = the final token's prediction, as above.
+- **PRM label**: **human annotators score every step** positive, negative or neutral. Score = **the product of the per-step probabilities**.
+
+### The real argument for process supervision is false positives, not credit assignment
+
+The lecture makes the credit-assignment point and then says the thing that matters more, calling it a potential pitfall for test-time scaling generally:
+
+> with process supervision we can manage the false positives way better than we can with just outcome supervision … model might hallucinate — and this happens, surprisingly — and get to a final correct answer while the process for it is really wrong.
+
+An ORM trained on final-answer matching **rewards that solution**, and a selector built on it will happily promote it. Supervising the steps makes it much less likely. This is the same failure class [Failures That Look Like Success](/articles/failures-that-look-like-success) catalogues on the agent side — an outcome that reads correct over a process that is not — arriving here as a *training-data* defect rather than a runtime one, and it is the specific reason process supervision is worth its annotation bill. The secondary benefits the lecture names are softer: interpretable reasoning, and a solution process humans have explicitly endorsed (because humans wrote the labels).
+
+### PRM800K and the data-efficiency trick
+
+The released dataset is **PRM800K** — ~800K step-level labels, open source. Two things about how it was built:
+
+- **Iterative bootstrapping.** You can get a crude PRM for free by asking an LLM to judge a step; the team used successive PRMs to select what humans annotated next, upgrading the model and the data quality in alternation.
+- **Active selection on disagreement**, reported as **2.6× more data-efficient** than random sampling for annotation. The lecture calls these "convincing wrong answers" and then describes them as samples whose *final answers were correct but intermediate steps were incorrect*. Those two descriptions do not match — the phrase names a solution the current PRM rates highly that reaches a *wrong* final answer — and the transcript does not resolve it. What is safe to carry is the mechanism both readings share: **prioritize for annotation the samples where the verifier's judgment and the outcome disagree**, because that is where a human label buys the most. The 2.6× is attributed to the lecture and is the only number here that rests on the ambiguous passage.
+
+### Results
+
+- **PRM > ORM > majority voting**, sweeping *n* solutions per problem. Majority voting fails past roughly 100 samples in this setting.
+- **PRM finds the rare correct answer.** It surfaces correct solutions on problems where **under 5% of sampled solutions are correct** — precisely the regime lecture 2 shows majority voting is structurally blind to, since the answers worth finding appear one to three times in ten thousand. This is the closest thing in the two lectures to a *constructive* answer to that mechanism.
+- **PRM is more label-efficient than ORM.** Both improve with more labels; the PRM curve is steeper per label. A student objects that the comparison is unfair — an ORM needs *k* labels per problem while a PRM needs *k* × steps — and Mirhoseini concedes the papers themselves say this is hard to control and only partly manage it. Treat the efficiency claim as directional.
+- **Generalization to new domains and datasets**, which she names as what verifier work should be aiming at: **majority voting generalizes better than the ORM**, and the PRM beats majority voting, tolerating "a whole lot more distribution shift."
+
+### And the caveats the room extracted
+
+Three, all from student questions, all of which the later literature confirms:
+
+- **Combine them.** Asked whether a PRM can hurt when good-looking steps don't contribute to the answer: "a lot of the newer approaches combine the two … because you want the benefit of both." And a PRM introduces a **decision threshold** — a new hyperparameter to tune per system.
+- **PRM gaming is a training-time problem, not an inference-time one.** Asked how a PRM avoids rewarding a solution that skips straight to "x = 14": as long as you only *score* with the PRM, the generator is untouched and can still be prompted to reason step by step. **The failure mode appears when you fine-tune the generator against the PRM** — "the model kind of stops reasoning and just generates a final answer that the PRM likes." That is [Reward Hacking](/articles/reward-hacking) named precisely, by the lecturer, one slide before she describes a paper that does exactly that. Her stated defense is that human step labels penalize skipped steps — a defense that evaporates in section 3.
+- **The PRM sees prior steps.** It scores the current step *given* the question and the steps before it, which is what makes "this step skips reasoning" expressible at all.
+
+## 3. Removing the humans (Math-Shepherd, 2024)
+
+*Math-Shepherd: Verify and Reinforce LLMs Step-by-Step Without Human Annotations.* PRMs beat ORMs; PRM labels cost humans; so define the step label mechanically.
+
+**The definition**: the quality of a reasoning step is **its potential to reach a correct final answer**. From a given step, sample *n* continuations to completion and check them against the known final answer.
+
+- **Hard estimate** — label the step a success if **any** continuation ends correct.
+- **Soft estimate** — label it with the **fraction** that end correct.
+
+With n = 3 and two of three continuations correct, hard = 1 and soft = 2/3. The resulting PRM is used two ways: as a test-time selector (sample candidates, take the top PRM score) and as the **reward model for RL fine-tuning the generator**.
+
+**What they found about hard vs soft**: soft looked better as *n* grew, but their best results came at **n = 4** regardless, so the choice barely mattered and they shipped **hard** because it is simpler to compute.
+
+**Results**: beats self-consistency (majority voting) and ORM baselines across GSM8K and MATH-500, on three open models in the 34B–70B range (Llama 70B and DeepSeek 67B are legible in the transcript; the third name is ASR-garbled). It beats the **PRM800K**-trained verifier on MATH — the harder benchmark, where the delta is larger — which is the paper's central claim: annotation-free step labels beat 800K human ones. And RL-ing Mistral 7B against its own Math-Shepherd PRM beats RL against an ORM, with verification stacked on top of the RL'd model better still, though "their optimizations are plateauing at some point" and the RL delta is smaller than the test-time-scaling delta.
+
+Mirhoseini's framing of why it belongs in a course on self-improvement: "you generate the annotation by the model itself, you train the PRM, and then use that PRM to improve the generator as well" — [Recursive Self-Improvement](/articles/recursive-self-improvement) with the reward signal, not just the trajectories, manufactured in-house.
+
+### The sting: the automation undoes the reason for the supervision
+
+Three drawbacks surfaced in the room, and Mirhoseini confirmed all three:
+
+1. **Small *n* punishes unusual correct paths.** A step that only pays off down a rare trajectory needs a large *n* to be seen; at n = 3 it scores zero. This is the coverage long-tail problem ([Latent Capability Overhang](/articles/latent-capability-overhang)) relocated into the *labelling* procedure — the annotator now has the same blind spot the selector had.
+2. **Hard problems yield no signal at all.** If no rollout from any step reaches a correct answer, every step scores zero and the problem contributes nothing. The labels are densest exactly where they are least needed.
+3. **And the one that closes the loop.** If a trajectory reaches the correct answer through a *wrong* intermediate step, that step is labelled positive. Mirhoseini: "the hope is that if you have more samples it shows the wrongness in one of these trajectories, but it's not guaranteed."
+
+Point 3 is the arc's punchline. Section 2's argument for process supervision was that outcome supervision rewards hallucinated chains that land on the right answer. Math-Shepherd's step label is *defined as* whether the step leads to the right answer. **The false positive that justified process supervision is exactly the label noise its automation reintroduces** — bounded, not eliminated, by rollout count. The lecture states both halves clearly and never puts them side by side; doing so is the reading this page adds.
+
+The practical consequence is that "PRM" names two quite different objects — a human-endorsed process judgment and a Monte-Carlo estimate of outcome reachability — that share an interface and not a semantics. A PRM of the second kind is an ORM with variance reduction and better credit assignment, not a check on the process.
+
+### The escape hatch she offers
+
+Asked whether a PRM can be built to reward self-correction, her answer generalizes past the question and is the bridge to lecture 3's fourth paper: **bring more signal into the step judgment than a rollout can give.** Score the step against a **rubric** supplied to the judge; let the judge **use tools** — run a calculator or a CAS on the equation the step asserts; apply test-time scaling and agentic loops to the verification itself. "There are ways to bring more supervision and more signal … to improve the verification process." Each of those is a different *kind* of weak signal about the same step, which is the premise [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) runs with.
+
+## 4. Verify the verifier (DeepSeek-Math V2, late 2025)
+
+The course's **closing lecture** ([CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg), [Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-12-05, `practitioner-opinion`) comes back to this arc with the rung the sting above implies: if the problem is that a verifier's *judgment* is unchecked, then check the judgment rather than the score.
+
+**The setting is theorem proving, which is where an ORM is least defensible.** A final-answer match certifies nothing about a proof — *"even when you have the correct answer, you might not have the correct reasoning"* — and rigorous step-by-step derivation is the entire artifact. The lecturer's account of why LLM-as-a-judge fails here is specific and worth keeping: models trained on quantitative reasoning generate **mathematically invalid proofs and then certify them as valid**, while an expert reading the same proof can say *"this next step is not following from the last step"* without any reference solution. So the human capability being distilled is **issue identification without a reference**, not scoring.
+
+The architecture, as taught, adds one block to the familiar generator/verifier pair:
+
+| Block | Input | Output |
+|---|---|---|
+| **Generator** | problem | a proof |
+| **Verifier** (an LLM judge) | the proof, no reference solution | identified issues + a score (the lecture says on a 0.5–1 scale, which is likely ASR damage to a 0–1 or 0/0.5/1 rubric and is not relied on here) |
+| **Meta-verifier** | the verifier's *analysis* | do the identified issues actually exist? does the score follow from the issues? |
+
+Seeded with human annotations of issues in proofs, the loop then **automates its own labelling**: once the meta-verifier has learned to grade an analysis, humans stop being the source of issue labels. The verifier improves the generator, the generator produces harder proofs, the harder proofs improve the verifier. Built on **DeepSeek-V3 base models** with **GRPO** ([Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization)) as the RL substrate.
+
+**What the meta-verifier is actually for is hallucinated criticism.** Mirhoseini's phrasing — verifiers *"can get correct score when the reasoning chains are incorrect … they might come up with fabricated errors"* — makes this the false-positive argument from §2 applied one level up. §2 said an outcome label rewards a solution whose chain is wrong; §4 says a critique's verdict can be right while the reasons it gives are invented. The instrument is the same in shape (supervise the process, not the verdict) and the object has moved from the *solution's* reasoning to the *verifier's* reasoning.
+
+**Results, as taught, and they are the only numbers here:** eight iterations of the loop, with the proof score climbing monotonically at **pass@1**, and **~42%** proof score on the **IMO 2024 shortlist** at **best-of-32**. CMO problems are also mentioned. Slide-read through ASR, so treat the 42% as approximate and attributed to the lecture. The lecturer notes this is the **open-source counterpart** to the closed Gemini result a guest lecturer had presented earlier in the term.
+
+**Why this belongs on this page rather than on [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling).** Weaver's answer to an unreliable verifier is *more verifiers, weighted*; this is *one verifier, supervised*. They are the two available responses to the same defect and they compose rather than compete — nothing stops a meta-verifier from grading each member of an ensemble, and no source here tries it. The generalization recipe the lecturer offers for other domains is a three-step checklist: get the LLM verifier to identify issues **without reference solutions**, add a meta-verification block **to suppress hallucinated issues**, then give the generator an incentive to maximize quality through deliberate reasoning. Her own bound on it is the one this whole arc keeps hitting — it still *"is limited by domains where verification is rather more difficult,"* i.e. the loop closes where a proof can be argued about and not where the reward takes a week to arrive ([The Verifiability Thesis](/articles/verifiability-thesis)).
+
+## The compute-allocation question the lecture leaves open
+
+Twice, unprompted and then under questioning, the same unanswered problem: **under a fixed compute budget, how do you split spending between the generator and the verifier?** Sample more solutions, or score each one harder? Mirhoseini has no answer and names it as a course project. She also states the methodological precondition anyone attempting it will need — "usually the ORM and PRM should come from the same data for a good apples-to-apples comparison" — which is [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)'s demand arriving from the reward-modelling side, and which none of the three papers here fully satisfies.
+
+## Connections
+
+- [The Verifiability Thesis](/articles/verifiability-thesis) — these are rung 4 of its verifier ladder, and this page is where "model-based scoring" stops being one category. The ~400-sample precision decay is a second, distinct component of the generation–verification gap alongside consensus blindness
+- [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) — lecture 3's fourth paper and the successor move: stop training a better verifier, combine the imperfect ones you have. PRMs and ORMs are two of the three verifier classes it ensembles. The *other* answer to the same defect, and the complement of §4: many verifiers weighted, versus one verifier supervised — nothing here composes them
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the RL substrate §4's loop runs on: DeepSeek-Math V2 is DeepSeek-V3 base plus GRPO, with the verifier's meta-verified score standing in for the outcome reward
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the false positive process supervision exists to catch, in its agent-side form; the Math-Shepherd sting is the same failure re-entering through the annotator
+- [Reward Hacking](/articles/reward-hacking) — the lecturer's own statement of the boundary: a PRM used only for *scoring* cannot be gamed by the generator, and a PRM used as an *RL reward* can, by skipping the reasoning it is supposed to price
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the control-theory statement of the decay above: a noisy verifier's acceptance can keep rising while what it accepts gets worse, and the fix is a stopping rule rather than a better verifier
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — the 2026 descendant that defines itself against everything on this page: dense per-turn credit with **no** step labels, judge or trained PRM, using a frozen reference model's gold-answer predictability instead. It is the answer to "step labels are expensive" that does not route through outcome reachability, and therefore does not inherit the sting in section 3
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the coverage these selectors are trying to convert into accuracy, and the rare-correct-answer regime PRMs reportedly reach and majority voting cannot
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the untrained sibling: a prompted judge is the zero-cost PRM the lecture says you can have "by just asking an LLM to judge a step," and the bootstrapping seed for PRM800K
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — Archon's verifier and unit-test-evaluator operations are these models used as composable layers rather than as a final selector
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the hub these are the *selector* knob of, and the ceiling they put on it: sampling more only pays until the verifier stops being able to tell the candidates apart
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the generator-vs-verifier budget split the lecture names and does not answer
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — the lecturer; verification is the bottleneck her lab works on
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 3, the verification lecture of the course
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — a pure outcome reward with no learned verifier at all: a hidden test suite returns one bit, which is the case this page's whole literature exists because you usually cannot have. CS329A lecture 4 declines to say whether process supervision would beat it, deferring explicitly to the debate on this page
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — the contrast the lecturer draws herself: Math-Shepherd's trained verifier scores *reasoning steps* and guides the search; LATS scores *world states* reached by executed actions, using a prompted 0–1 judge plus a sample-frequency term instead of a trained PRM
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — the same false positive, four years earlier and with no instrument at all: STaR trains on a chain that reached the right answer, and its *rationalization* step trains on a chain generated with the answer already supplied and never filtered. The lecture's own fix for it is a PRM over that step — this page's subject, arriving as a patch for a method that predates it
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — process supervision built from a prompted judge on proposed tool calls, plus a new datapoint for this arc: process-filtered training data beats outcome-filtered for RL and the ordering *reverses* for SFT, because outcome filtering keeps only the problems the model already solves
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — an outcome reward model deployed as nothing but a test-time selector: AlphaCode 2's scoring model estimates correctness in [0, 1] and reranks within behavioural clusters. It also states the training constraint this literature leaves implicit — the scorer needs data *in the distribution* of the generator's problems and must not see the same problems, because contamination and forgetting pull in opposite directions
+
+## Open Questions
+
+- Under a fixed inference budget, what is the optimal split between generator samples and verifier compute — and does the answer move with problem difficulty the way the sequential-vs-parallel ratio does? Named as an open project in lecture.
+- Does a Monte-Carlo-labelled PRM (Math-Shepherd-style) actually retain process supervision's false-positive advantage over an ORM, or only its credit-assignment advantage? The lecture asserts the advantage for human-labelled PRMs and separately concedes the label noise, and no source here measures the two apart.
+- Is the larger-generator/smaller-verifier asymmetry still true for modern models, where off-the-shelf reward models are plentiful and generators are far more capable than the 2021 pair it was measured on?
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik) — Stanford CS329A lecture 3, [Azalia Mirhoseini](/articles/azalia-mirhoseini) (delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`, YouTube auto-caption transcript, ~10.7k words). Papers 1–3 of four: *Training Verifiers to Solve Math Word Problems* (OpenAI 2021, GSM8K), *Let's Verify Step by Step* (OpenAI 2023, PRM800K), *Math-Shepherd* (2024). Used for the training recipes, the two-loss / scalar-head architecture, the sentence-vs-token ablation, the ~400-sample precision decay, the generator/verifier sizing asymmetry, the false-positive argument for process supervision, PRM800K's active-selection trick, the ORM/PRM/majority-voting orderings and generalization result, Math-Shepherd's hard/soft estimators and their three confirmed drawbacks, and the student-question exchanges on PRM gaming and compute allocation. **None of the three papers is in `raw/`** — every figure is read off a slide by ASR and is approximate, attributed to the lecture rather than to the papers. Two transcript defects are flagged at the point of use: the "convincing wrong answers" description is internally inconsistent (see §2), and the third model name in Math-Shepherd's baseline table is unrecoverable. `practitioner-opinion` with a total COI on paper 4 only (§ [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling)); papers 1–3 are other groups' work
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg) — Stanford CS329A lecture 9, *Future Research Areas* (both instructors, delivered 2025-12-05, published 2026-08-03, `practitioner-opinion`, auto-caption transcript, ~10.5k words). §4 above: the theorem-proving setting and why an outcome match certifies nothing there, the LLM-judge failure mode (models generate invalid proofs and then validate them), the human capability being distilled (issue identification *without* a reference solution), the generator / verifier / meta-verifier architecture and its two meta-questions, the human-seeded then self-labelling loop, the DeepSeek-V3 + GRPO substrate, the eight-iteration pass@1 climb and the ~42% best-of-32 IMO-2024-shortlist figure, and the three-step generalization recipe. **The paper is not in `raw/`**; every figure is slide-read through ASR. Two transcript defects flagged at the point of use: the verifier's score range renders as "0.5 and 1", and the *"once you seed the data … you can automate that kind of labeling"* passage is the only statement of how the human annotation bottleneck is escaped. No instructor-authorship conflict on this paper — it is DeepSeek's

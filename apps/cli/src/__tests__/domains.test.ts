@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import type { CatalogRow } from "../import-wiki/catalog.ts";
 import {
   buildDomainMembership,
   isMocSlug,
@@ -10,14 +11,24 @@ import type { ParsedWikiFile } from "../import-wiki/parse.ts";
 
 const UNKNOWN_MOC_ERROR = /moc-nonsense/;
 const UNKNOWN_DOMAIN_ERROR = /nonsense-domain/;
+const UNCATALOGED_ERROR = /orphan-concept/;
 
-function moc(slug: string, body: string): ParsedWikiFile {
+function page(
+  slug: string,
+  overrides: Partial<ParsedWikiFile> = {}
+): ParsedWikiFile {
   return {
     source: { slug, folder: "concepts", absolutePath: `/tmp/${slug}.md` },
     frontmatter: {},
-    body,
+    body: "",
     mtime: new Date("2026-01-01"),
+    isGenerated: false,
+    ...overrides,
   };
+}
+
+function row(overrides: Partial<CatalogRow> = {}): CatalogRow {
+  return { type: "concept", domain: "", title: "", summary: "", ...overrides };
 }
 
 describe("mocSlugToDomain", () => {
@@ -40,17 +51,29 @@ describe("isMocSlug", () => {
 
 describe("buildDomainMembership + resolveDomain", () => {
   const parsed = [
-    moc(
-      "moc-agent-systems",
-      "> Map of Content\n- [[agent-loop-pattern]] — x\n- [[hermes-agent]] — y\n"
-    ),
-    moc("moc-formal-math", "- [[ai-driven-formal-proof-search]] — z\n"),
+    page("moc-agent-systems"),
+    page("moc-formal-math"),
+    page("agent-loop-pattern"),
+    page("hermes-agent"),
+    page("ai-driven-formal-proof-search"),
+    page("andrej-karpathy"),
+    page("open-questions-backlog", { isGenerated: true }),
   ];
-  const membership = buildDomainMembership(parsed);
+  const catalog = new Map<string, CatalogRow>([
+    ["agent-loop-pattern", row({ domain: "agent-systems" })],
+    ["hermes-agent", row({ domain: "agent-systems" })],
+    ["ai-driven-formal-proof-search", row({ domain: "formal-math" })],
+    ["andrej-karpathy", row({ type: "entity", domain: "person" })],
+  ]);
+  const membership = buildDomainMembership(parsed, catalog);
 
-  it("assigns each listed concept to its MOC's domain", () => {
+  it("assigns each cataloged page to its catalog domain", () => {
     expect(membership.get("agent-loop-pattern")).toBe("agent-systems");
     expect(membership.get("ai-driven-formal-proof-search")).toBe("formal-math");
+  });
+
+  it("folds an entity-typed catalog row into the entities domain", () => {
+    expect(membership.get("andrej-karpathy")).toBe("entities");
   });
 
   it("resolves a MOC page to its own domain", () => {
@@ -59,25 +82,37 @@ describe("buildDomainMembership + resolveDomain", () => {
     );
   });
 
-  it("falls back to syntheses for concepts in no MOC", () => {
-    expect(resolveDomain("orphan-concept", membership)).toBe("syntheses");
+  it("falls back to syntheses for a generated page (no catalog row expected)", () => {
+    expect(resolveDomain("open-questions-backlog", membership)).toBe(
+      "syntheses"
+    );
+  });
+
+  it("falls back to syntheses for a slug with no membership entry", () => {
+    expect(resolveDomain("unlisted-slug", membership)).toBe("syntheses");
   });
 
   it("throws when the vault holds a MOC with no matching domain", () => {
     // Silently skipping it would file every concept the MOC lists under
     // `syntheses` — a corrupted browse axis that still imports cleanly.
     expect(() =>
-      buildDomainMembership([moc("moc-nonsense", "- [[blast-radius]]\n")])
+      buildDomainMembership([page("moc-nonsense")], new Map())
     ).toThrow(UNKNOWN_MOC_ERROR);
   });
 
-  it("prefers a valid frontmatter domain over MOC membership", () => {
+  it("throws when a non-MOC, non-generated page has no catalog row", () => {
+    expect(() =>
+      buildDomainMembership([page("orphan-concept")], new Map())
+    ).toThrow(UNCATALOGED_ERROR);
+  });
+
+  it("prefers a valid frontmatter domain over catalog membership", () => {
     expect(resolveDomain("agent-loop-pattern", membership, "formal-math")).toBe(
       "formal-math"
     );
   });
 
-  it("falls back to MOC membership when frontmatter domain is absent", () => {
+  it("falls back to catalog membership when frontmatter domain is absent", () => {
     expect(resolveDomain("agent-loop-pattern", membership, undefined)).toBe(
       "agent-systems"
     );

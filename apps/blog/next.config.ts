@@ -126,6 +126,14 @@ const nextConfig: NextConfig = {
       destination: "/articles/domain/:domain",
       permanent: true,
     },
+    // `syntheses` stopped being a browsable domain once the vault restructure
+    // filed every derived essay under a real domain (2026-08-18) — it now
+    // holds only the two generated index pages, too thin to be its own page.
+    {
+      source: "/articles/domain/syntheses",
+      destination: "/articles",
+      permanent: true,
+    },
     {
       source: "/zh-TW/articles/wiki-changelog",
       destination: "/zh-TW/articles",

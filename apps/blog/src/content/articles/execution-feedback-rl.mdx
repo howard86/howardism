@@ -1,0 +1,131 @@
+---
+date: 2026-08-17
+title: RL from Execution Feedback (RLEF)
+description: "Train a coding model with the interpreter in the loop: generate
+  code, run a small visible set of public tests, feed the failure text back for
+  another attempt, and reward the surviving solution against a hidden private
+  set — so the same execution feedback appears at inference time (exploit the
+  policy) and at training time (update it). Taught in CS329A lecture 4 as the
+  two-tier test split plus a turn-level value function. The mechanism the error
+  analysis shows is not fewer first-try mistakes but *targeted repair*: with
+  RLEF later turns fix the specific failure, without it the edits are not
+  correct"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - reinforcement-learning
+  - post-training
+  - code-generation
+  - reward-design
+  - verification
+readingTime: 15
+imageAlt: Illustration for RL from Execution Feedback (RLEF)
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with
+      Tools and Code"
+    url: https://www.youtube.com/watch?v=Lxh9RF5S-K0
+---
+export { default as heroImage } from "../assets/execution-feedback-rl.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0)
+
+## Summary
+
+**RLEF** — *grounding code LLMs in execution feedback* — is the second of three papers in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 4, and the one that turns [ReAct's](/articles/reasoning-acting-interleaving) observation channel into a gradient. The action is generated code; the observation is what happens when you run it; the reward is binary pass/fail. Its interest for this wiki is not that execution feedback works — [the whole verifiability argument](/articles/verifiability-thesis) predicts that code is the easy case — but the two specific design choices the lecture dwells on, and the mechanism its error analysis reveals.
+
+> **Evidence.** [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0) ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, delivered **2025-10-03**, published 2026-08-03, `practitioner-opinion`). The RLEF paper is **not** in `raw/`; the lecture does not name its authors, and every figure was read off a slide by ASR. Results are on **Llama 3.1** and the lecture flags them as "a little bit older" *at the time of delivery* — so read them as a 2024-vintage demonstration recounted in late 2025. Numbers are approximate and attributed to the lecture.
+
+## The loop
+
+Both halves run on the same feedback signal, which is the design:
+
+1. A natural-language problem description goes in.
+2. The model emits a code solution, which is executed against a **public** test set.
+3. On failure the execution feedback — the failing test output, e.g. an execution timeout — is **appended to the context** and the model tries again. This repeats until the code passes or a turn budget is exhausted.
+4. Whatever survives is scored against a **private** test set the model never saw, yielding a binary reward.
+5. That reward drives a PPO update.
+
+The lecture frames steps 2–3 as RL's **exploitation** phase — running the current policy through an inference-time feedback loop — and steps 4–5 as the policy update. The same test-execution machinery therefore serves as the agent's environment *and* as the reward function, distinguished only by which tests you let it see.
+
+The worked example is a palindrome-substring problem: turn 1 produces a correct-looking but slow implementation that fails the public tests on an **execution timeout**; the model reads that feedback, optimizes, passes; the optimized solution then goes to the private set for reward.
+
+## Design choice 1: the two-tier test split
+
+Public tests are a small subset — *"a small subset for faster iteration"* — visible to the model in-context. Private tests are hidden throughout generation and used only for reward. The lecture's stated purposes:
+
+- **Fast inner loop.** A small visible set makes per-turn iteration cheap.
+- **No memorizing the answer key.** *"This is one way in which the model cannot simply memorize the test outputs, because it's getting the execution feedback."* The model learns to react to failures, not to reproduce a fixed set of expected values — a [Reward Hacking](/articles/reward-hacking) guard built from information asymmetry rather than from reward shaping, and the same shape as the held-out-verifier discipline in [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling): whatever the generator can read, it will optimize against.
+
+**Where this gets shaky, and the lecture says so.** A student asks the obvious question — why not put *all* the tests in the visible loop and PPO on the result? — and the answer never lands. Chowdhery offers "they wanted more fine-grained feedback than just the public test, so that there is no leakage between the two sides," the student presses on why leakage matters when it is all training data anyway, and the exchange closes with *"we can take this one offline… there's a little bit of terminology gap."* The split is presented as a useful innovation with an unresolved justification, and this page carries it that way. Note also that both tiers come from the **same benchmark's** test suite, split by the experimenters — this is not a public/private distinction that exists in the wild.
+
+## Design choice 2: token-level policy, turn-level value
+
+The second innovation is a mismatch between the two halves of the actor–critic pair. The policy generates code **token by token**. The value function is computed at **turn level**: one evaluation over the entire response, read off the last token of the prompt, producing *"a single advantage value for all tokens."*
+
+Chowdhery's own placement is that this is "closer to what GSPO would do" — sequence-level rather than per-token credit. Two caveats on that comparison, both mine: GSPO **postdates** RLEF, so this is a pedagogical back-reference rather than a lineage claim; and on this wiki's one controlled long-horizon comparison, [GSPO scores at or below plain GRPO](/articles/group-relative-policy-optimization), so "sequence-level like GSPO" is a description of the credit granularity, not an endorsement of it.
+
+What it makes RLEF is a clean **ancestor** of [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) with the credit dial at its coarsest setting: one advantage per multi-turn episode, where TRACE's whole contribution is splitting that number across the action–observation boundaries it spans. RLEF's turns are exactly TRACE's credit units; it simply does not differentiate between them.
+
+## What the results show, and what the mechanism turns out to be
+
+**Headline.** On **CodeContests** (competitive programming), solve rate plotted against sampling budget — validation and test sets, **log-scale x-axis** — sits materially higher after RLEF across the whole budget range. The lecture's summary framing is that RLEF *"reduces the amount of budget you need"* to reach state-of-the-art solve rates. That is the training-time counterpart of [repeated sampling](/articles/latent-capability-overhang): rather than buying coverage with more samples at inference, it moves the curve up so fewer samples are needed — the direction [lecture 2 and 3 argue test-time compute should eventually migrate](/articles/large-scale-test-time-compute). It also **generalizes to other code-generation benchmarks**, which the lecture attributes to CodeContests being harder than the transfer targets.
+
+**Why it helps is not what you would guess.** The lecture is explicit that base models *"don't benefit from access to just faulty solutions and execution feedback"* — showing a model its own broken code and the error does nothing on its own. The gain comes from **training on the turn-over-turn correction**.
+
+The supporting slide counts errors at turn 1, turn 2 and turn 3, alongside the number of code changes made and the error type, for a smaller and a larger model. The reported shape:
+
+- With RLEF, wrong outputs **fall across successive turns** — later turns repair the specific failure.
+- Without the iteration loop, the edits *"are not correct"* — the model changes the code without converging.
+
+So the model is exploiting two things at once, in Chowdhery's framing: **sample diversity** across attempts, and **targeted edits** because it can see where the error was. The skill RLEF installs is *repair*, not first-try correctness — which the class immediately notices is a possible defect rather than a feature (below).
+
+**One counter-signal in the ablation, weakly explained.** A student observes that RLEF produces fewer plain wrong outputs but **more timeout errors**. The answer offered — the test ran out of time because the solution was still not correct — does not really distinguish the two categories, and the lecture retreats to "a lot of this is very domain specific." Recorded as unresolved; a repair-trained model producing more timeouts is exactly what you would expect if it learns to patch semantics while ignoring complexity, and nothing in the lecture rules that out.
+
+## The limits the class found, and the instructor conceded
+
+Three pushbacks land, and Chowdhery grants all three rather than defending the method:
+
+- **Binary reward may only be enough because the problems are easy.** CodeContests problems are *"much smaller problems"* than real engineering work. A student argues that harder problems would need the error trace or other metadata to know how to debug; the answer is *"that's quite possible."* The wiki's position on what execution feedback has to carry is otherwise empty, so this is the frontier as of late 2025.
+- **The reward may be teaching the wrong thing.** The reward attaches to the *final* solution, so nothing pushes the model toward getting it right on turn 1 — it can learn to rely on repair. Chowdhery's reply is that inference-time feedback gives it several chances anyway; the objection is not answered.
+- **Process versus outcome reward is explicitly unsettled here.** Asked whether per-step feedback would beat the terminal binary reward, she defers to [lecture 3's arc](/articles/process-vs-outcome-reward-models) and says the debate is not resolved — *"in each domain and each benchmark you might have to make different sets of choices."*
+
+On **SFT versus RL** she gives the field's standard split without claiming resolution: supervised fine-tuning on reasoning traces "will definitely start to see value" for anything in-domain, while RL buys "a little bit more generalization" to newer problems — the same in-distribution/out-of-distribution boundary [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) draws on the alignment side.
+
+## Scaling past a problem that fits in the prompt
+
+The lecture's second discussion question is the one that connects RLEF to real software work: what do you do when the codebase does not fit the context window? The class proposes search-then-act (reuse ReAct's tool loop to gather what you need before generating), per-file summaries, and graph/RAG-style retrieval over the repository. Chowdhery's synthesis is that this is *"the kind of thing that actually runs in Claude Code"* — search for what is relevant, apply the patch, then run the tests — names **SWE-bench** as the benchmark that targets it, and points at **CodeMonkeys** from [Mirhoseini's](/articles/azalia-mirhoseini) lab as work on the same problem.
+
+The wiki's own reading is that this splits RLEF's clean signal into two very unequal halves. The *test-passes* reward survives the move to a repository unchanged. The *retrieval* half — did the agent find the right code to change — has no equivalent reward, which is why [turn-level credit](/articles/turn-level-credit-assignment) and [context management at the tool boundary](/articles/tool-output-pruning) are separate research programs rather than details of this one.
+
+## Connections
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 4's second paper; the coding-domain instance of the course's feedback-source taxonomy
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) — the lecturer
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — the same generate/observe/revise alternation one layer up, at inference and without gradients; RLEF is what happens when you put the loop inside a training run and reward the last turn
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — the direct descendant. RLEF assigns **one** advantage across a whole multi-turn episode; TRACE's entire contribution is splitting that number across the action–observation boundaries RLEF spans undifferentiated, and its credit units are RLEF's turns
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the objective family that replaced RLEF's PPO-with-a-critic. The lecture's own comparison point (GSPO, sequence-level credit) is on that page, where it scores at or below plain GRPO on a controlled long-horizon benchmark
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — RLEF is a pure outcome reward (tests pass or don't) with no step labels anywhere, and the lecture explicitly declines to say whether process supervision would beat it
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — the load-bearing assumption, and the place it is measured. RLEF's whole signal is that a test suite says what "correct" means; AIDev's cuts find agent-written tests execute 61.5% of changed lines in Java and 27.0% in Python, so the tests that would carry this reward in a real repository cover a minority of what the agent changed
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — the same environment-feedback question from the credit-estimation side: SAO's skip-observation GAE assumes environment responses carry no value signal worth propagating, and its own open question names the compiler error and the test result as the cases that would refute it. RLEF is the test-result case trained end-to-end, though not with a GAE arm, so it strengthens the doubt without settling it
+- [Reward Hacking](/articles/reward-hacking) — the private-test tier as a structural guard: withhold the reward's inputs from the generator's context rather than trying to shape a reward it can read
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the same rule stated architecturally; the public/private split is that decoupling implemented inside a training loop
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — the page whose open question already asked for exactly this pipeline, and the reason to be careful about it: RLEF's reward is *tests pass*, which is silent on runtime efficiency, and the lecture's own unexplained finding is that RLEF training produced **more timeout errors**. A pass/fail reward can plausibly train a model to fix semantics while ignoring complexity
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the inference-side alternative RLEF displaces: buy solve rate with more samples, or move the solve-rate curve up so fewer samples are needed
+- [The Verifiability Thesis](/articles/verifiability-thesis) — code with a test suite is this hub's cleanest verifiable domain, and RLEF is what the flywheel looks like when the verifier is free
+- [Tool-Output Pruning](/articles/tool-output-pruning) — the unpriced cost of the loop at repository scale: every failed turn's execution output stays in the context that the next turn conditions on
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the solve-rate-versus-budget curve RLEF shifts, and the migrate-sampling-into-training direction it exemplifies
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — the designed opposite, from the same course three days later: RLEF makes *executing* the code the reward signal; SWiRL removes tool execution from the RL loop entirely and rewards the quality of the proposed query instead, on the argument that a good search query is assessable before you run it
+- [The Data Wall and the Validation Commons Are One Supply Constraint](/articles/data-wall-and-validation-commons-one-supply) — this loop read as a *data-supply* result rather than a training result: where execution is the reward, verified training data is manufacturable without a human in the loop, which is why the data wall does not bind in code — and, on the labour side, why code is a domain where the capability threshold arrives without any validation commons having to be spent
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — the sampling bill this is the alternative to. AlphaCode 2 discards ~95% of its generations as non-compiling or wrong, and when a student asks what would cut that waste the lecturer's two answers are self-refinement and an RL loop that lifts the solve-rate curve so fewer samples reach the same point
+- [Post-Scarcity Macroeconomics](/articles/post-scarcity-macroeconomics) — execution feedback is one of the cheap sound verifiers that decides *where* the Stockfish threshold lands first, which is why arrival order and validator need are correlated rather than independent: the domains that automate first are the ones where human validators were never load-bearing
+
+## Open Questions
+
+- Binary pass/fail is conceded to be sufficient only for short, self-contained problems. Does richer execution feedback — the stack trace, the failing input, coverage deltas — improve the *reward*, or only the in-context repair signal that is already there? The two are separable and the lecture conflates them.
+- RLEF trains repair, not first-attempt correctness, and its reward cannot tell the two apart. Does a model trained this way get measurably *worse* at one-shot generation than its SFT baseline — trading pass@1-without-feedback for pass-after-k-turns?
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0) — *CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code*, [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, Stanford Online. Delivered **2025-10-03**, published to YouTube 2026-08-03 (`practitioner-opinion`, YouTube auto-caption transcript, ~12.9k words). The RLEF third of the lecture: the training/inference feedback loop and its exploitation-versus-update split, the palindrome worked example, the two-tier public/private test strategy and the unresolved student exchange about leakage, the token-level-policy/turn-level-value design and its GSPO comparison, the CodeContests solve-rate-versus-sampling-budget result on Llama 3.1 with its log-scale axis and cross-benchmark generalization, the turn-by-turn error analysis showing targeted repair, the unexplained timeout-error increase, and the three conceded limits (binary reward on easy problems, no first-turn pressure, process-vs-outcome unsettled). Plus the codebase-doesn't-fit-in-context discussion naming SWE-bench and CodeMonkeys. The RLEF paper is not in `raw/` and the lecture does not name its authors; all figures are ASR-read off slides and are hedged accordingly

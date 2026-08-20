@@ -1,0 +1,147 @@
+---
+date: 2026-08-12
+title: Turn-Level Credit Assignment
+description: Giving a long-horizon agent per-turn reward instead of one terminal
+  verdict, without step labels, an LLM judge, or a trained process-reward model
+  — TRACE's answer is to split the rollout at tool-call boundaries, score each
+  prefix by how predictable a *frozen* reference model finds the gold answer,
+  turn that into a log-ratio 'fraction of the initial gap closed' state value,
+  and hand each turn the TD change across its own boundary; the credits
+  telescope so padding a trajectory cannot inflate them, and on closed-web
+  BrowseComp-Plus it lifts Qwen3-4B from 7.2 to 35.6 and Qwen3-30B-A3B from 8.4
+  to 42.6 with pure RL, no cold-start SFT and no live-web data
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - reinforcement-learning
+  - post-training
+  - agentic-rl
+  - reward-design
+  - credit-assignment
+readingTime: 19
+imageAlt: Illustration for Turn-Level Credit Assignment
+sources:
+  - title: "TRACE: Turn-level Reward Assignment via Credit Estimation for
+      Long-Horizon Agents"
+    url: https://arxiv.org/pdf/2607.13988
+---
+export { default as heroImage } from "../assets/turn-level-credit-assignment.webp";
+
+## Sources
+
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988)
+
+## Summary
+
+A long-horizon agent takes dozens to hundreds of tool actions before anything is verifiable. Outcome-only RL then attaches **one** trajectory-level advantage to all of them, which is wrong in both directions at once: a failed rollout's genuinely useful early searches get the same negative advantage as the mistake that killed it, and a successful rollout's redundant re-reads get the same positive advantage as the open that actually found the answer. **Turn-level credit assignment** is the attempt to split that single number across the turns that earned it.
+
+The classical remedies all buy density with a new supervision dependency — step labels, Monte-Carlo continuations, an LLM judge, or a trained process reward model whose scores can drift away from final-answer correctness. **TRACE** (Tao, Peng, Yao, Ge, Cheng, Wang, Gao, Li — UW–Madison + Microsoft Research, arXiv 2607.13988, v1 2026-07-15, `empirical`) is this wiki's first source to get dense turn credit with **none of them**, by noticing that in an RLVR setting the gold answer is already in hand at training time and can be used as a probe rather than as a target.
+
+## The move: a frozen reference model as the value function
+
+TRACE's value function is not learned. It is a **frozen copy of the policy initialization**, `π_ref`, used only to ask one question of each trajectory prefix: *how predictable is the gold answer from here?*
+
+1. **Cut the rollout at tool-call boundaries.** `τ = (x, a₁, o₁, …, a_T, o_T, ŷ)`; let `S_k` be the prefix through the first `k` action–observation pairs, followed by the final-answer opener. These prefix transitions are the credit units, because they isolate how each interaction changed the *information* available.
+2. **Score each prefix** by the average gold-answer log-probability under the frozen model, `ℓ̄_k = (1/|y*|) Σ_t log π_ref(y*_t | S_k, y*_<t) ≤ 0`. Every `ℓ̄_k` for a trajectory comes from a **single batched forward pass**, and is never optimized.
+3. **Convert to a log-ratio state value.** With a remaining-gap `d_k = −ℓ̄_k + ε`, set `V(S_k) = log(d_0 / d_k)`, so `V(S_0) = 0` and `V` measures the **fraction of the initial answer-likelihood gap** the history has closed.
+4. **Credit each turn with the TD change** across its own boundary: `δ_k = V(S_{k+1}) − V(S_k) = log(d_k / d_{k+1})`. Positive when the action *and its returned observation* made the gold answer more likely, `log 2` exactly when the transition halves the remaining gap, zero when the gap is unchanged, negative when the trajectory moved away from the answer.
+5. **Mix, don't replace.** The per-token advantage for tool-interaction tokens is `Â = α_out·A^out + α_turn·r^turn` with `α_out = 1.0`, `α_turn = 0.2` — where `A^out` is the ordinary [GRPO](/articles/group-relative-policy-optimization) group-relative outcome advantage. The objective is the clipped GRPO surrogate, unchanged. The verifier stays the final arbiter; turn credit is an auxiliary. Turn values are deliberately **not** group-normalized: they are a trajectory-local signal.
+
+The design note worth keeping is the framing of the reference model: it is used **"not as a judge, but as a stable probe"**. Freezing it is what stops it becoming another learned reward model with its own drift, and step 4 differences it against itself, so its absolute miscalibration largely cancels.
+
+### Why the log ratio, and not the raw log-prob delta
+
+Because the same absolute gain means different things at different distances from the answer: shrinking the remaining gap `0.2 → 0.1` removes half the uncertainty, while `5.1 → 5.0` barely moves it. The paper's worked pair (§A.2): two transitions with essentially identical raw gains, `ℓ̄ −5.1187 → −1.5712` (`Δℓ = 3.5475`) and `ℓ̄ −10.6570 → −7.1061` (`Δℓ = 3.5509`), get log-ratio credits of **1.1806 and 0.4052** — the first closed a far larger fraction of what was left.
+
+The log ratio is also the only relative-gap form that keeps **telescoping**: `Σ_k δ_k = V(S_T) − V(S_0) = log((−ℓ̄_0 + ε)/(−ℓ̄_T + ε))`, i.e. total credit depends only on the endpoints. Redundant intermediate turns cannot inflate it, so the agent is not rewarded for padding a trajectory — the property a linear remaining-gap normalization loses. An offline diagnostic over **830 held-out rollouts / 3,742 tool turns** ranks the three formulations (Table 6, reconciled against `pdftotext -layout`):
+
+| | Raw delta | Linear remaining gap | **Log-ratio TD** |
+|---|---|---|---|
+| Correlation with final `ℓ̄_T` | 0.425 | 0.721 | **0.751** |
+| Correlation with positive outcome reward | 0.603 | 0.680 | **0.713** |
+| Pairwise ranking accuracy, `\|Δℓ̄_0\| ≤ 0.2` | 97.34% | 93.13% | **98.24%** |
+
+Note the middle column: the linear normalization fixes the scale problem but is the **worst** of the three at pairwise ranking, below even the raw delta — which is exactly what Table 5 predicts analytically ("order preservation: not guaranteed", and it "can spike when `d_k` is small").
+
+### The K-step backup, and the property it gives up
+
+One-step TD credit misses delayed tool effects: a `browser.search` may only surface candidate links while the answer likelihood jumps only after a later `browser.open` exposes the decisive page. So each turn instead receives a discounted **truncated K-step backup** over its own and the next few transitions, `c_k^(K) = Z_k⁻¹ Σ_{u=k}^{h_k} γ_td^{u−k} δ_u` with `h_k = min(k+K−1, T−1)`, plus a **terminal-outcome fill** `λ_term·γ_td^{T−k}·A^out` for turns whose look-ahead window reaches the end. Reported settings: `K = 3`, `γ_td = 0.8`, `λ_term = 2.0`, `ε_train = 10⁻¹`.
+
+The paper is explicit that this **trades away the exact endpoint-only telescoping** that motivated the log ratio in the first place: telescoping holds for the one-step component `δ_k`, and the K-step window plus terminal fill buy delayed-credit propagation and outcome anchoring at its expense. Both properties are load-bearing in the argument and they are not simultaneously satisfiable — worth noticing, because the anti-padding guarantee is the one that gets quoted.
+
+## What the evidence shows, and where the on/off toggle actually lives
+
+The controlled comparison is clean in the way that matters: **Base / GRPO / GSPO / GiGRPO / TRACE all share the backbone, browser action space, rollout protocol, training data, terminal reward and evaluation interface**, so the only variable is how the policy-gradient signal is built. The recipe is pure RL — no cold-start SFT, no agentic mid-training stage, no live-web training data, no judge, no PRM. Training data is synthetic multi-document search over the OpenResearcher offline corpus, deliberately built to need chained retrieval over ≥2 irreplaceable documents; batch 128, 8 rollouts per prompt, up to 60 tool turns per training trajectory (eval cap 80).
+
+Table 1 (reconciled cell-for-cell against `pdftotext -layout`); the four external agents in the paper's top block are **explicitly non-controlled reference points** and are not comparable arms:
+
+| Qwen3-4B-Thinking-2507 | BC-Plus | BrowseComp | GAIA | xbench-DS | Avg |
+|---|---|---|---|---|---|
+| Base | 7.2 | 3.3 | 24.2 | 19.0 | 13.4 |
+| GRPO | 30.0 | 5.1 | 38.8 | 44.0 | 29.5 |
+| GSPO | 29.7 | 5.4 | 36.7 | 41.0 | 28.2 |
+| GiGRPO | 27.7 | 4.4 | 37.9 | 36.0 | 26.5 |
+| **TRACE** | **35.6** | **6.7** | **44.6** | **49.0** | **34.0** |
+
+| Qwen3-30B-A3B-Thinking-2507 | BC-Plus | BrowseComp | GAIA | xbench-DS | Avg |
+|---|---|---|---|---|---|
+| Base | 8.4 | 4.4 | 34.1 | 20.0 | 16.7 |
+| GRPO | 36.4 | 10.8 | 45.6 | 37.0 | 32.5 |
+| GSPO | 39.7 | 11.8 | 46.6 | 35.0 | 33.3 |
+| GiGRPO | 33.0 | 10.1 | 44.7 | 31.0 | 29.7 |
+| **TRACE** | **42.6** | **12.9** | **52.0** | **45.0** | **38.1** |
+
+Beyond the headline (closed-web BrowseComp-Plus **7.2 → 35.6** and **8.4 → 42.6**; four-benchmark average 29.5 → 34.0 and 32.5 → 38.1), two secondary results carry weight. **Learning dynamics**: TRACE's reward curves start rising earlier, are steeper early, and settle at a higher plateau — and the 160-step TRACE checkpoint already beats the 200-step outcome-reward baseline on 30B-A3B, so this is faster acquisition rather than a late-stage separation. **Trajectory scale**: TRACE's interaction length grows earlier and faster than GRPO's, with a mechanism that follows from the reward design — under outcome-only training a longer early trajectory that still fails gets low advantage wholesale, so nothing separates unhelpful extra interaction from intermediate progress, whereas a local progress signal can pay for a good turn before the final answer is right.
+
+**Where the "does boundary credit matter at all" evidence really is, precisely.** This matters because it is easy to cite the wrong table:
+
+- **Table 2 is the paper's only formal ablation table, and it isolates the credit *format*, not the existence of boundary signal**: GRPO **30.0** → + raw log-prob delta **32.4** → + linear remaining-gap normalization **34.6** → + log-ratio TD **35.5**. Its GRPO row is the closest thing in any table to "no turn-level signal at all".
+- **The actual on/off toggle exists only in Figure 5(b)**, a bar chart (viewed under the image two-pass rule). `K = 0`, defined in the text as **disabling the dense TD backup entirely** rather than as an input to the backup equation, scores **30.0** — statistically indistinguishable from the GRPO baseline — while non-zero settings reach **34.7** and **35.6**, and the largest setting **drops to 28.9**, which the authors read as over-propagation importing noise from loosely related later turns.
+- The other two panels: the turn-reward coefficient sweep goes **33.6 → 35.6 → 34.5 → 31.1**, so an over-weighted dense signal actively hurts — "local reference-model readiness" starts dominating final correctness, which is the argument for keeping turn credit auxiliary. The reference-checkpoint panel is the reassuring one: no reference scoring **30.0**, step-0 initialization **35.6**, a step-200 updated checkpoint **36.1** — a ~0.5-point gap, so the method does not depend on a strong or specially tuned probe, only on a stable one.
+
+**A source-internal inconsistency to know before quoting Figure 5, flagged rather than resolved.** Figure 5(b)'s x-axis is labelled `k` with **fractional** ticks (0, 0.1, 0.2, 0.5), while the prose describes `K` as an integer look-ahead horizon and the hyperparameter table gives the main run `K = 3` — a value that does not appear on that axis. Symmetrically, Figure 5(a)'s coefficient axis reads 1, 3, 5, 7 while the reported turn-reward weight is `α_turn = 0.2`, which does not appear on *that* axis either; the peak bar in each panel is 35.6, the main-run score. The two panels' tick scales look interchanged relative to the reported hyperparameters, but no reading reconciles both panels cleanly, so what "moderate" versus "largest" `K` means numerically is not recoverable from the published figure. This is a defect in the PDF, not a parse artifact — the bar *heights* in both panels match the prose exactly.
+
+## What this does not settle: the skip-observation boundary
+
+TRACE places its entire credit signal at the tool-call boundaries that [SAO](/articles/single-rollout-optimization)'s **skip-observation GAE deliberately bridges over** — and reaches the opposite conclusion about what lives there. SAO's argument is that the action→observation boundary is discontinuous from the model's perspective, so estimating advantage across it makes the critic predict the value of an external environment state and injects noise. TRACE's design says the value change *induced by* the observation is the single most informative quantity in the rollout.
+
+The tension is real but the comparison is **analogy-strength, not an ablation** — see [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) for TRACE's baseline set, none of which is a GAE variant. Four reasons to hold it loosely:
+
+- **Different mechanism.** TRACE's value is a frozen reference model's gold-answer log-probability, not a critic trained from returns. Nothing in it can be corrupted by a bad boundary estimate the way a learned `V_ϕ` can, so it is not exposed to the failure mode SAO's fix defends against.
+- **They agree on the loss.** Both mask tool observations out of the policy-gradient loss — TRACE says so explicitly (§3.1), SAO does the same. The disagreement is narrower than it looks: not *train on observation tokens or not*, but *is the value difference across an observation signal or noise*.
+- **Nobody has run the experiment.** TRACE never mentions skip-observation GAE, never runs SAO or any GAE arm, and differs from it in task, backbone, objective and reward. A direct answer needs skip-observation versus cross-observation GAE with the same critic on the same task.
+- **What TRACE does establish** is narrower and still useful: on long-horizon search, the observation is *what moves the value*, and the movement is highly concentrated. In one qualitative trace the `browser.open` that supplies the decisive phrase earns `δ = +5.86` and the literal `find` confirming it on the *next* turn earns `+0.00` — the telescoping property visible in miniature. If observations were value-neutral noise on this task, the dense signal could not have been worth 4.5 average points over GRPO.
+
+## The by-product: an instrument for localizing the decisive turn
+
+Independent of training, the prefix values are a cheap **measurement** of which turn mattered — the same question [post-hoc failure attribution](/articles/automated-failure-attribution) asks, answered without a judge. TRACE defines an *answer-secured prefix* as `V ≥ −0.3` and reads five successful and five failed trajectories: in each success, one tool call closes most of the gap (credit sequences like `[+6.39, +0.59, +0.10, +0.05]` and `[+1.63, −1.03, −1.04, +6.05, +0.03]`), and in each failure the trajectory **first reaches an answer-secured prefix and then loses it after one diagnostic tool call** — a mechanized "when". The penalties are as concentrated as the rewards: a `browser.find` that returns *"No matches"* and is then over-interpreted as evidence of absence earns `δ = −3.48`, which is the paper's own summary of what the instrument buys — *"tool completion alone does not imply progress."*
+
+The precondition is also the boundary: this needs the **gold answer**, which is exactly what deployment-time attribution does not have. It is not a replacement for a judge on unlabelled traces; it is a stronger input to an easier version of the problem.
+
+## Scope, honestly
+
+The paper's own limitation is the sharp one: the frozen-reference value proxy is defined by how predictable a **short, exactly-matchable gold answer** becomes. For a code agent producing a multi-file patch, or an assistant satisfying underspecified preferences, it is unclear that gold-output log-probability is still a state-value proxy at all, and the authors say extending TRACE there may need different targets entirely — execution-based progress signals, structured task specs, decomposed verifiable subgoals. Two further bounds: **controlled ablations are single training runs**, stated by the authors, who hedge their own ablation headings with "in this run"; and the whole evaluation is one task family (search) on one model family (Qwen3 Thinking).
+
+## Connections
+
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — TRACE *is* GRPO with a second advantage term; the group-relative outcome advantage and the clipped surrogate are both kept verbatim, and GRPO's page carries what TRACE's controlled baseline set says about GRPO and its refinements
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — the direct design tension: SAO's skip-observation GAE routes advantage estimation *around* the boundaries where TRACE puts all of its signal
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the systems cost of dense credit: turn scoring is off by default in TRACE's launch script for a single-node colocated layout, and needs a remote reference-model scoring endpoint, i.e. one more disaggregated pool in the training topology
+- [Deep Research Agents](/articles/deep-research-agents) — the agent class TRACE trains, and the behavioural side of the same result: what a learned search policy does turn by turn
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — the same which-turn-mattered question asked post-hoc on unlabelled traces, where a gold-answer probe is unavailable
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — turn credit is what makes the long interaction budget *learnable*; TRACE's trajectory-scale curves are the training-side version of spending more turns
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the lineage TRACE defines itself against, and why the alternative it rejects is worse than "expensive". Human step labels (PRM800K) buy real process supervision at 800K annotations; the cheap substitute (Math-Shepherd) defines a step's label as the fraction of rollouts from it that reach the correct answer, which yields no signal on hard problems, punishes rare-but-correct paths at small rollout counts, and labels wrong intermediate steps positive whenever the trajectory lands right. TRACE's frozen-reference-model probe gets dense credit without paying either bill
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — the coarse ancestor. RLEF puts a coding agent's public-test failures back in context turn after turn and then hands the whole episode **one** advantage computed at turn level from the last prompt token; TRACE's contribution is precisely the split of that number across the action–observation boundaries RLEF leaves undifferentiated. Its lecturer's own comparison point is GSPO, which this page's controlled table scores at or below plain GRPO
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — where the credit units come from: TRACE cuts the rollout at exactly the thought/action/observation boundaries ReAct introduced, and its finding that value change concentrates on a couple of decisive observations is the quantitative form of ReAct's query-reformulation recovery
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — the judge branch this page defines itself against, measured. SWiRL buys dense per-step credit with exactly the LLM-judge dependency TRACE avoids, but pays for it *offline*: tools are executed once during data generation and never during the RL run, and the judge scores the proposed query rather than its result. The trade is TRACE's gold-answer requirement against SWiRL's judge ceiling and frozen off-policy context
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — the same backup arithmetic at the other end of the pipeline: LATS pushes a terminal return up a search tree at inference with no gradients anywhere, where this page splits one trajectory's return across turns inside a training run
+
+## Open Questions
+
+- The frozen probe is a copy of the policy initialization, and a step-200 checkpoint scores within ~0.5 points of it. Does that robustness survive a probe that is *weaker* or *architecturally different* from the policy — or is the real requirement just that the probe was trained on the same distribution as the answers?
+- Turn credit is defined by gold-answer predictability, so it should reward a prefix that makes the *right* answer likely for the wrong reason (a lucky co-occurring string) exactly as much as one that gathers real evidence. Does the frozen probe admit a reward-hacking channel that a trained critic would not, and would it show up as a train/eval gap?
+- Every result here is single-seed on one task family, and the K sweep's own axis is unreadable. Does a second group reproduce the ordering GRPO &lt; raw delta &lt; linear gap &lt; log-ratio, or is the 32.4 / 34.6 / 35.5 spread inside run-to-run noise?
+
+## Sources
+
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988) — *TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents*, Leitian Tao (UW–Madison), Baolin Peng, Wenlin Yao, Tao Ge, Hao Cheng, Mike Hang Wang, Jianfeng Gao (Microsoft Research), Sharon Li (UW–Madison). arXiv **2607.13988**, v1 **2026-07-15**, `empirical`. §2.1–2.2 (agentic RL objective, TD preliminaries), §3.1–3.3 (tool-boundary states, log-ratio state value, K-step backup, joint objective Eqs. 7–12), §4.1 (setup, controlled baselines, hyperparameters), §4.2–4.3 (Table 1, learning dynamics), §4.4 + **Table 2** + **Figure 5** (ablations), §6 (limitations), Appendix A.1 (Tables 3–4 hyperparameters), A.2 (**Tables 5–6**, the raw/linear/log-ratio comparison), A.3–A.4 (tool schema, synthetic data pipeline), A.5 (qualitative credit traces). **Parse notes**: Tables 1 and 6 re-reconciled at compile against `pdftotext -f 8/21 -layout`, clean cell-for-cell; Table 2 fully corroborated by §4.4 prose. Table 1's docling row for the `Qwen3-30B-A3B-Thinking-2507` block header repeats its own label into the first data column — a cosmetic text weld in a section-header row, no data cell affected. **Table 3** had a genuine `table-collapse` (`"1 8192 tokens 72,000 tokens 80 tool turns"`), recovered positionally at ingest; **Table 4** has the same collapsed grid shape without firing the check, all 19 pairs verified. **Table 7** (tool schema, cited nowhere) carries a real one-row `table-shift` the automated checker missed: `browser.find`'s `cursor` description bled up into the `pattern` row — confirmed here against the PDF, content all present but misattributed by one row boundary. Caption pairing verified directly: in the PDF *both* Tables 5 and 6 caption **below** their grids, and docling flipped only Table 6's above, so the alternation is docling-side and both pairings are correct. **Formula-engine bleed**: two lines inside Algorithm 1 (pseudocode steps 11–16) bloated to 4,876 and 4,575 characters by repeated `\quad` tokens; confined to that block, and §3.3's prose states the same math correctly, so no numeric claim is affected. No en-dash corruption. **Figure 5 viewed** under the image two-pass rule — the K on/off datum and the axis defect above both come from that read, not from prose.

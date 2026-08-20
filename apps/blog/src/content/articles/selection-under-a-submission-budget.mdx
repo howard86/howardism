@@ -1,0 +1,140 @@
+---
+date: 2026-08-17
+title: Selection Under a Submission Budget
+description: "What repeated sampling costs when you may only submit n answers,
+  not all k: CS329A lecture 7 walks AlphaCode's 1M-samples-per-problem pipeline,
+  whose real content is the filter-and-cluster stage that gets 1M down to 10,
+  and the 10@k metric that prices it — the gap between 10@k (~30%) and pass@k
+  (~40%+) is the selection bottleneck measured directly. AlphaCode 2 replaces
+  heuristic clustering with a learned scoring model plus a family of fine-tuned
+  Gemini Pro variants for diversity, and reaches AlphaCode's solve rate at 100
+  samples instead of 1,000,000 — the lecturer's own reading being that a better
+  base model is a cheaper lever than a bigger sampling budget"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - test-time-compute
+  - inference-scaling
+  - search
+  - code-generation
+  - reward-models
+readingTime: 15
+imageAlt: Illustration for Selection Under a Submission Budget
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep
+      Research Agents"
+    url: https://www.youtube.com/watch?v=Uni9dqyuuDM
+---
+export { default as heroImage } from "../assets/selection-under-a-submission-budget.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM)
+
+## Summary
+
+Repeated sampling is usually reported as **pass@k** — did any of *k* samples solve it — which quietly assumes you may submit all *k*. Almost no deployment works that way. A competitive-programming platform accepts a handful of attempts; a CI pipeline runs one patch; a user reads one answer. The operative metric is **n@k**: generate *k*, submit *n*, and the gap between the two curves is what the selection stage costs you.
+
+[CS329A](/articles/cs329a-self-improving-ai-agents) lecture 7 is the wiki's first source to make that gap the subject rather than a footnote, by walking the two AlphaCode systems end to end. Its framing of the whole problem: *"we kind of know that the solutions lie in the search space of the models, but how do you curate the answer out of the search space"* — [Latent Capability Overhang](/articles/latent-capability-overhang)'s thesis restated as a curation problem rather than a budget one.
+
+> **Evidence.** Everything below is [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM) ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, delivered **2025-10-17**, published to YouTube 2026-08-03, `practitioner-opinion`) — a slide walkthrough of AlphaCode (DeepMind, 2022) and AlphaCode 2 (Google DeepMind, 2023), neither of which is in `raw/`. Every figure was read off a slide by ASR; numbers are approximate and attributed to the lecture. The state of the art described is **late 2025**.
+
+## AlphaCode: the pipeline is mostly the selector
+
+The generation half is the part everyone quotes and the smaller contribution:
+
+- **Pre-train** an encoder-decoder on ~700 GB of GitHub code (masked-language-model loss; the lecture notes AlphaCode 2 later moves to decoder-only).
+- **Fine-tune** on **CodeContests**, competitive-programming problems with solutions, using two tricks the lecture names: a **GOLD**-style regularizer that upweights high-likelihood tokens and downweights low-likelihood ones so probability mass concentrates on "more meaningful patterns," plus **value conditioning and prediction**.
+- **Sample 1,000,000 programs per problem**, half Python and half C++, with randomized problem tags and difficulty ratings in the prompt and a high temperature — the randomization exists to buy diversity, not accuracy.
+
+Then the half that carries the result:
+
+- **Filter** against the example tests printed in the problem statement.
+- **Cluster** the survivors into groups that are *syntactically different but semantically equivalent*, using a separately trained model that generates plausible **test inputs** from a problem description; two programs that agree on the generated inputs go in one cluster.
+- **Submit ten** — one per cluster, so the submissions are as behaviourally distinct as the pipeline can make them.
+
+The reason clustering is the load-bearing step is stated plainly: on hard problems *"you don't get much benefit out of submitting the same set of solutions,"* so with ten shots the only thing worth optimizing is **behavioural spread among the submitted set**. That makes it a selector whose objective is diversity rather than predicted correctness — the opposite of a reward-model ranker, and the reason it composes with one rather than competing (AlphaCode 2 runs both).
+
+Reported result: an average ranking around the **top 54%** of participants across 10 Codeforces contests of roughly 5,000 entrants each, at 10 submissions per problem. *(The transcript also carries "competitive with 28% of the competitors in the last 6 months"; the two figures are not reconciled in the lecture and both are ASR-read.)* The lecture's framing of why this mattered in 2022: it was the first demonstration of end-to-end problem solving rather than line completion — long problem descriptions, long solutions, and a required inference of *which algorithm applies* before any code is written.
+
+## The measurement: 10@k against pass@k
+
+The lecture defines the pair explicitly, and this is the most portable thing in it.
+
+- **pass@k** — generate *k*, submit all *k*, count problems where any is correct. *"It measures how good is the search aspect of the sampling process"* — [coverage](/articles/latent-capability-overhang).
+- **10@k** — generate *k*, submit **10**. *"You do have to do some selection or scoring to decide which set of solutions I'm going to submit… it measures also the filtering process."*
+
+Sweeping k from 1K to 10K to 100K to 1M on validation and test, across a 9B model, a 41B model, and 41B-plus-clustering:
+
+- **Solve rate scales log-linearly in sampling budget under 10@k, not only under pass@k.** The selection stage does not flatten the curve; it lowers it. This is the finding to carry — the coverage power law of [Latent Capability Overhang](/articles/latent-capability-overhang) survives a realistic submission cap.
+- **Bigger models have better slopes**, not merely better intercepts (the lecture contrasts a 41B curve against a 300M one).
+- **41B + clustering is consistently above 41B alone** at every budget.
+- **And the gap is large.** With unlimited attempts the curve reaches *"something above 40%"*; capped at ten it reaches *"only 30%."* The lecture's own gloss: *"there is definitely some bottlenecking happening in [the] selection stage."*
+
+That ten-point spread is the [generation–verification gap](/articles/verifiability-thesis) measured on a different axis from the one lectures 2–3 used. There the frozen quantity was the sample count and the varying one was the *judge*; here the judge is fixed and what varies is **how many answers you are allowed to keep**. Both say the same thing — the samples contain the answer and the pipeline cannot reliably pick it — but the budget framing is the one an engineer can act on, because *n* is usually a product decision rather than a research one.
+
+**The lecture also names the second bottleneck, in an exchange about variance.** Asked why AlphaCode's percentile swings hard across contest IDs (some near 50%, one near 90% by the transcript's reading), Chowdhery offers two hypotheses and refuses to choose: how in-distribution that contest's problems are, *and* that *"the selection stage can also be a bottleneck — there can be solutions that are almost correct but not completely."* Per-contest variance is therefore not decomposable into generation and selection from the published numbers, which is worth remembering whenever a sampling system's headline is an average over heterogeneous tasks.
+
+## AlphaCode 2: buy a better base model instead of more samples
+
+The 2023 successor changes three things and the lecture treats the comparison as the lesson rather than the scores:
+
+| | AlphaCode (2022) | AlphaCode 2 (2023) |
+|---|---|---|
+| Generator | pre-trained from scratch, encoder-decoder | **fine-tuned Gemini Pro** — "not just prompting" |
+| Diversity source | temperature + randomized tags, one model | **a family of fine-tuned variants**, trained on differently segmented slices of CodeContests v2, plus randomized temperature and metadata |
+| Languages | half Python, half C++ | **C++ only** |
+| Selection | filter by example tests, then cluster | filter (removes **~95%** of samples, leaving ~50k), keep the **top 10 largest clusters**, then **rerank within each cluster by a learned scoring model** and submit the best per cluster |
+| Data | CodeContests | **CodeContests v2** (higher quality, vetted) plus a separate hand-curated set for the scorer |
+
+The **scoring model** is a fine-tuned Gemini Pro that estimates the probability a sample is correct, in [0, 1] — a reward model used purely as a test-time selector, which is exactly the object [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) traces the history of. It replaces the heuristic half of the selection stage: clustering still supplies spread, the scorer now supplies within-cluster ranking. The lecture's framing is that AlphaCode 2 is *"a multi-agent system in almost some ways"* — one family of models produces, another family scores.
+
+**The headline is a substitution, not an improvement.** At 100 samples per problem, AlphaCode 2 reaches the solve rate AlphaCode needed 1,000,000 samples for — a four-orders-of-magnitude reduction from a better base model plus better selection. Pushed to a matched 1M budget it reaches **~43% solve rate against AlphaCode's ~25%**, and lands around the **85th percentile** of human contestants. *(A further "outperforming 99.5% with the top two solutions" appears in the transcript and does not reconcile with the 85th-percentile figure; it is ASR-garbled and not carried.)*
+
+Chowdhery states the takeaway as a rule when a student asks whether one could simply sample a trillion times: **"making the model better is a slightly easier axis than scaling the number of samples."** Read against [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)'s pre-training-versus-inference tradeoff, this is a late-2025 practitioner vote for the pre-training side *at a fixed task* — and note the direction it points relative to lecture 2, where the same course endorsed extra test-time compute over extra pre-training on easy and medium problems. Competitive programming is not easy or medium, so the two positions are compatible; the course never places them side by side.
+
+## Why "just sample more" has a ceiling that is not compute
+
+The most useful thing in the discussion is the reason the log-linear curve is not an invitation to extrapolate. A student proposes spending an enormous budget on one important problem, and Chowdhery agrees the arithmetic works *if* the trend continues, then names the assumption it rests on:
+
+> *"You kind of assume that if we sample more the diversity continues to increase… if you sample 10× more than what was sampled here but you don't end up with more diverse solutions, then you're actually not going to improve."*
+
+That is [Latent Capability Overhang](/articles/latent-capability-overhang)'s "diversity is the fuel" stated as a bound on its own scaling law: the power law holds while the sampler keeps producing genuinely new programs, and clustering is precisely the instrument that reveals when it has stopped. It also explains why clustering earns its place twice over — it selects submissions *and* it measures whether the extra budget bought anything.
+
+Three further limits the lecture attributes to the AlphaCode authors:
+
+- **Training loss is a poor proxy for solve rate**, because many distinct programs solve the problem and the loss rewards one of them. Consistent with weakness on **dynamic programming and constructive algorithms** specifically.
+- **The generated code was checked against the training data for novelty** and found to be genuinely new — the lecture's basis for calling it out-of-distribution generalization rather than retrieval.
+- **One-shot massive sampling is the wrong shape for hard problems.** The lecture's own conclusion, and the bridge to the rest of the course: harder problems need *multi-step* solution approaches, decomposition with hints per sub-part, and a **tree search with backtracking** over partial solutions — [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) and [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) are lecture 5's answers to the need lecture 7 re-derives from the code side. A student pushes on the obvious hazard (a first step that looks right and dooms the second) and it is left open.
+
+## The contamination question the class raises about the scorer
+
+Asked why the scoring model does not simply train on CodeContests v2, Chowdhery's answer is a clean statement of a design constraint that generalizes past this system: *"there would be contamination — the scoring model should not see exactly the same data, but it does need to see some data in the distribution."* What you are teaching the scorer is a preference between two candidate solutions to *this kind of problem*, which requires distributional overlap and forbids identity. She adds the practical reason the two datasets are not simply mixed: staged fine-tuning on a higher-quality set without replaying the earlier one causes the model to **forget** the earlier stage.
+
+This is [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)'s concern arriving as a *training-design* rule for reward models rather than an evaluation-hygiene rule, and it is the sharpest thing the lecture says about how to build a selector rather than how to score one.
+
+## Connections
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 7's first half; the course anchor and its per-lecture arcs
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) — the lecturer
+- [Latent Capability Overhang](/articles/latent-capability-overhang) — the coverage curve this page caps. The finding that transfers in both directions: log-linear scaling survives a ten-submission budget, and the diversity ceiling that bounds repeated sampling is exactly what clustering measures
+- [The Verifiability Thesis](/articles/verifiability-thesis) — the same gap on a different axis: lectures 2–3 vary the judge at fixed sample count, this varies the number of answers you may keep. The ~40%-versus-~30% spread is the selection bottleneck priced directly
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — what AlphaCode 2's scoring model *is*: an outcome reward model estimating correctness in [0, 1], used as a test-time selector rather than an RL reward, with a contamination constraint on its training data that the reward-model literature states less crisply
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — the operation this pipeline lacks. Archon's *fusion* synthesizes one answer from k samples and beats oracle selection; AlphaCode's clustering is pure selection and is therefore bounded by pass@k by construction, which is exactly the ceiling the 10@k-versus-pass@k gap measures
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — where the sample-budget axis lives; this page supplies the late-2025 practitioner vote that improving the base model is the cheaper lever at a fixed hard task
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — the multi-step alternative the lecture concludes massive one-shot sampling needs, taught two lectures earlier
+- [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) — the other structural answer to "decompose and add hints per sub-part," which is how the class arrives at the same need
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — the class's own answer to "how do we embed reasoning into the model?" is STaR by name: generate the solution, hand back the hint, ask for the reasoning that reaches it
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — the scorer's data constraint is that page's concern applied to training a selector: overlap in distribution, disjoint in problems
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — the other route out of the sampling bill, and the one the lecture points at when asked how to avoid wasting 95% of generations: an RL loop that lifts the solve-rate curve so fewer samples reach the same point
+- [Google DeepMind](/articles/google-deepmind) — builder of both systems
+- [The Data Wall and the Validation Commons Are One Supply Constraint](/articles/data-wall-and-validation-commons-one-supply) — two uses. The diversity ceiling here ("sample 10× more without more diverse solutions and you're not going to improve") is one of three independent statements in the corpus that synthetic-data supply is bounded by variety rather than by FLOPs; and AlphaCode 2's 85th-percentile finish under a ten-submission budget is an existence proof that the Stockfish threshold arrives first where a mechanical judge (hidden test cases) already replaced human validators
+
+## Open Questions
+
+- Does the 10@k-versus-pass@k spread narrow as base models improve, or is it roughly constant — i.e. is the selection bottleneck a property of the sampler's diversity or of the selector's discrimination? AlphaCode 2 improves both at once and the lecture reports no arm that isolates them.
+- Clustering selects for behavioural spread and a scoring model selects for predicted correctness. Under a fixed submission budget, is combining them (cluster, then rank within cluster) better than ranking globally — and by how much? AlphaCode 2 ships the combination without an ablation against the alternative.
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM) — *CS329A Self-Improving AI Agents — Part 7: Self-Improvement with Search & Deep Research Agents*, [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) solo, Stanford Online. Delivered **2025-10-17**, published to YouTube 2026-08-03 (`practitioner-opinion`, YouTube auto-caption transcript, ~12.1k words). The AlphaCode half: the pre-train/fine-tune/sample/filter/cluster/submit pipeline with the GOLD regularizer and the test-input-generation model behind the clustering, the Codeforces evaluation and its per-contest variance discussion, the pass@k-versus-10@k definitions and the model-size × sampling-budget sweep, AlphaCode 2's Gemini Pro fine-tuning family and learned scoring model with the 95%-filtered / top-10-clusters / rerank pipeline, the 100-samples-matches-1M and 43%-versus-25% comparisons, the 85th-percentile figure, the diversity-ceiling caveat on extrapolating the log-linear trend, and the class discussion on adapting sample budget to task difficulty. Every figure is ASR-read off a slide and hedged accordingly; neither AlphaCode paper is in `raw/`. **No instructor-authorship COI** — both systems are DeepMind's — with the residual that AlphaCode 2 is narrated as *"this work was at Google"* by a former Google Brain researcher who does not say so

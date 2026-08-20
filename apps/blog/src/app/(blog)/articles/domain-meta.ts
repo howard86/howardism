@@ -130,8 +130,19 @@ export const DOMAIN_META: Record<ArticleDomain, DomainMeta> = {
   },
 };
 
-/** Domain display order — the canonical list, re-exported for plate consumers. */
-export const DOMAIN_ORDER = WIKI_DOMAINS;
+/**
+ * Domain display order — the browsable subset, re-exported for plate
+ * consumers. Excludes `syntheses`: the vault restructure (2026-08-18) filed
+ * every derived essay under a real domain, leaving `syntheses` with only the
+ * two generated index pages, too thin a page to browse to (see the
+ * `/articles/domain/syntheses` redirect in `next.config.ts`). `syntheses`
+ * remains a valid `WikiDomain` — those two pages still carry it — so code
+ * that must recognise every domain (not just the browsable ones) should use
+ * `WIKI_DOMAINS` instead.
+ */
+export const DOMAIN_ORDER: readonly ArticleDomain[] = WIKI_DOMAINS.filter(
+  (domain) => domain !== "syntheses"
+);
 
 /**
  * Resolve a (possibly user-supplied) URL segment to a canonical domain.

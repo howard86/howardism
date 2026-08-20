@@ -1,0 +1,118 @@
+---
+date: 2026-08-17
+title: Intra-Trace Parallel Planning (SPRINT)
+description: "A reasoning trace is a DAG being generated as if it were a chain:
+  many of its steps do not depend on each other, but autoregressive decoding
+  pays sequential latency for all of them anyway. SPRINT (Mirhoseini's lab,
+  2025) recovers the DAG — have GPT-4o segment DeepSeek-R1 traces into steps,
+  tag each step's plan and execution parts, infer the dependency graph, repack
+  into parallel groups, and supervised-fine-tune a 7B model on the reformatted
+  trajectories so it emits independent plans together and their executions run
+  at once. The surprise is that the accuracy went up too (~3.5 points), and that
+  it generalized off the math data it was trained on"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - post-training
+  - reasoning
+  - planning
+  - inference-efficiency
+  - test-time-compute
+readingTime: 14
+imageAlt: Illustration for Intra-Trace Parallel Planning (SPRINT)
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step
+      Reasoning"
+    url: https://www.youtube.com/watch?v=Ml_fp9XkB8Y
+  - title: How Bridgewater Built an AI Analyst That Does Hours of Expert Research in
+      Minutes
+    url: https://www.youtube.com/watch?v=lXZb21CfeIY
+---
+export { default as heroImage } from "../assets/intra-trace-parallel-planning.webp";
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y)
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY)
+
+## Summary
+
+**SPRINT** is the second paper in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 5, and its premise is a structural observation about long chains of thought: **the trace is a DAG, but decoding treats it as a chain.** A reasoning model exploring alternative approaches, decomposing a problem into subtasks, or verifying an earlier step is producing work that is often mutually independent — yet every token of it is generated one after another, so the whole graph is serialized onto the critical path.
+
+The fix is a *training-time* one. Rather than orchestrating parallelism from outside, SPRINT teaches the model to **emit its own parallelism**: at each round it produces the set of plans that are independent of each other, their executions are dispatched simultaneously, the results are synced back into context, and the model plans the next round. Interleaved planning and parallelized execution, in the paper's own terms.
+
+> **Evidence.** [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y) ([Azalia Mirhoseini](/articles/azalia-mirhoseini) solo, delivered **2025-10-06**, published 2026-08-03, `practitioner-opinion`). Slide walkthrough; the paper is **not** in `raw/`. **COI: this is her own lab's work** — she narrates it entirely in the first person ("when we started the project", "the interesting property that we observed"), which discloses the authorship by pronoun without ever naming it. Described in lecture as "a new 2025 paper" not yet presented at a conference. Every figure was read off a slide by ASR; numbers below are approximate and attributed to the lecture.
+
+## The motivating premise, and where it is on shakier ground
+
+The setup Mirhoseini gives is the standard late-2025 one: o1, Gemini 2.5 Pro and "pretty much all the frontier models" think longer on harder problems, and longer thinking correlates with higher accuracy — illustrated by DeepSeek-R1's training curves, where AIME accuracy and average response length rise together. See [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute).
+
+Notice what the premise does *not* claim. Length correlating with accuracy over a training run is not evidence that any particular token is load-bearing, and SPRINT's own contribution is the observation that a large fraction of those tokens sit off the critical path. The paper is best read as pushing on **latency, not total compute**: parallel execution does not generate fewer tokens, it generates them at the same time. That distinction is the one the results section keeps blurring.
+
+## The pipeline: use the model to find the model's own DAG
+
+The recipe is a clean instance of the pattern the lecture names explicitly — *"a lot of times when we want to create data and figure out a certain behaviour in the model, we can use the LLMs themselves in the fine-tuning data creation process."* Five steps:
+
+1. **Generate traces.** DeepSeek-R1 answers a set of math questions, producing full reasoning traces. The lecture cites **~6K thinking trajectories**, filtered to the higher-quality ones.
+2. **Segment and tag.** GPT-4o reads each trace and splits it into steps 1…k, then annotates *within* each step which span is the **plan** and which is the **execution** of that plan. Some steps carry several executions under one plan.
+3. **Infer the DAG.** The model is asked how the steps depend on each other — "step four and two are not dependent on each other, but they both depend on step one" — and the answer is a dependency graph over the steps. Mirhoseini says the model "does a really good job here."
+4. **Pack.** Group the steps into rounds that can run concurrently given the DAG.
+5. **SFT.** Supervised fine-tune **DeepSeek-R1-Distill-7B** on the repacked, tag-annotated trajectories. Same thinking content, restructured: independent plans are emitted adjacent to one another, followed by their executions.
+
+At inference the tags become an execution protocol. The model emits plan *i* and plan *i+1* together; each plan's execution starts as soon as that plan is finished — and an execution may itself be a tool call (calculator, Python) rather than more text; the outputs are synced back into a single context; the model then emits the next round of plans. Asked whether this breaks next-token prediction, Mirhoseini's answer is that it does not: *"it's always next token"* — the tags are just structure the runtime is allowed to act on.
+
+## Results, and the part nobody was aiming at
+
+On math, against the **DeepSeek-R1-Distill-7B** baseline it was fine-tuned from:
+
+- **Accuracy rose ~3.5 points.** This was not the goal. *"When we started the project the goal was to maximize parallelism for reducing the sequential token generation… but it turns out this process actually helps out with accuracy as well. The model seems to like this kind of more structured way of thinking."* An efficiency intervention that also improves quality is the interesting result on this page.
+- **Sequential tokens fell far enough that the 7B beat a 32B model** on that axis, and at comparable accuracy against a rejection-fine-tuning baseline the reduction is quoted at *"something like 40%."*
+- **Out-of-domain generalization.** Trained only on math, the model showed both more exploitable parallelism *and* higher accuracy on **countdown** and **GPQA-diamond**, neither of which appears in training. Mirhoseini pairs this with the same finding in SWiRL ([Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl)) and reads it the same way: what transfers is a *manner of thinking*, not a task skill.
+- **Parallelism is front-loaded.** Across rounds, more parallel branching appears early and the trace converges toward a single deep plan late — exploration first, exploitation after. This is the same shape as [parallel-then-sequential](/articles/large-scale-test-time-compute) budget allocation, discovered from inside the trace rather than imposed on it.
+- **The gains are on hard problems only, and can go negative.** If a problem's thinking is short, there is little independence to exploit and the plan/execute framing is overhead — *"we can actually be worse than the baseline."* The savings appear "for problems that need more thinking."
+
+## Four things the lecture is honest about
+
+- **Wall-clock speedup is unmeasured.** The reported axis throughout is *sequential tokens*, a proxy. Mirhoseini lists "actually realizing the wall-clock speedups" as future work. A method sold on latency has not yet shown a stopwatch — the same gap [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) insists on closing before an efficiency claim counts.
+- **Stragglers set the critical path.** A student asks how independent branches are load-balanced. Answer: they are not, exactly — you are "confined to step four, not step four plus step two," so the round costs its slowest member. The one mitigation named is merging trivially-short executions back into the plan to build bigger, more even chunks. Whether the packing should optimize for balance rather than just for legality is left open.
+- **SFT is the floor, not the ceiling.** Supervised fine-tuning is imitation of the reformatted traces; RL/GRPO is named as the obvious follow-up and as the thing that usually makes this kind of generalization stronger. Cf. [SWiRL's](/articles/offline-multi-step-tool-rl) measured RL-over-SFT margin on the same lecture's third paper.
+- **Contradiction between branches is not solved, only located.** Asked what happens when two parallel branches are individually right and jointly wrong, Mirhoseini's answer is that everything lands in one context and the model must reconcile it before the final answer — *"both approaches can suffer from contradictions in the thinking."* She adds a scoping claim that matters more than the reassurance: SPRINT's parallel units are typically **different steps of one solution, not competing solutions to the same problem**, so this is less exposed than parallel-sampling-then-vote. That is a claim about the data distribution, and nothing in the lecture measures it.
+
+## Why this is not the wiki's other kind of parallelism
+
+Three neighbouring pages describe parallel execution and none of them is this:
+
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) is **many agents, one human**, parallel across processes with a coordination tax measured in fixed budgets. SPRINT is parallel **inside one model's single answer**.
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) has the model *write a program* that composes agents in sequence and parallel. That is parallelism expressed in an external artifact the runtime executes. SPRINT's DAG never leaves the trace; the tags are the program.
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) scores a plan DAG **before** running the workers. SPRINT's DAG is *derived post-hoc from a trace that already ran*, and then trained back into the weights.
+
+The distinctive move is the direction of travel: everywhere else in this wiki the harness supplies the structure and the model fills it in. Here the structure is **extracted from the model's own output, annotated by another model, and returned to the first as training data** — the course's self-improvement flywheel ([Recursive Self-Improvement](/articles/recursive-self-improvement)) applied to the *shape* of a reasoning trace rather than to its correctness. Compare [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve): this is a scaffold being absorbed into weights by construction rather than by accident.
+
+## Connections
+
+- [Agentic Code Generation as Compilation](/articles/agentic-codegen-as-compilation) — the same DAG-is-hiding-in-there insight, one level up and with the graph handed over instead of recovered. SPRINT infers the dependency structure of a reasoning trace post hoc so independent steps can be emitted together; Bridgewater's PAT requires the plan to *declare* each task's inputs and output schema, so parallel code generation needs no inference at all and a consumer can be compiled against a producer that has not been written yet. The trade is where the work goes: SPRINT pays a segmentation-and-SFT pipeline to recover structure from unstructured traces, PAT pays an expensive up-front planning phase to never lose it
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 5's second paper
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — the same transfer shape from a different payload, and one of four course papers reporting it: SPRINT's maths→countdown/GPQA sits beside SWiRL's cross-tool transfer, Absolute Zero's code→maths and Multiagent Finetuning's maths→GSM8K. What self-generated data carries across tasks is a manner of reasoning, not a skill
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — lecture 5's first, and the opposite trade on the same axis: LATS spends more inference to search alternative trajectories, SPRINT restructures one trajectory to spend less
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl) — lecture 5's third, and the sibling result: both are Mirhoseini-lab papers, both build training data by having one model annotate another's trajectories, and both report that the transferable thing is a manner of reasoning rather than a task skill
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the premise (longer thinking buys accuracy) and the finding (exploration early, depth late) are both this hub's subject, observed from inside a single trace
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the argument SPRINT is making: if capability is a function of inference budget, cutting the latency of thinking is capability work. Also the standard it has not yet met — sequential tokens are a proxy, and the wall clock is future work
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — parallelism across agents rather than inside a trace; the coordination tax that page measures has no analogue here because there is only one model and one context
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the same parallel/sequential composition expressed as a program the model writes, rather than as tags in its own reasoning
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) — a plan DAG scored before execution; SPRINT's DAG is recovered after execution and trained back in
+- [Recursive Self-Improvement](/articles/recursive-self-improvement) — the flywheel applied to trace *structure*: the model's own output, annotated by a second model, becomes the fine-tuning data that changes how it thinks
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — orchestration deliberately moved out of the harness and into the weights
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) — the same plan/execute split at a different boundary: there it separates human from agent, here it separates two spans of one model's own trace, and it is a second model that draws the line
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — her lab's paper, taught in the first person without a disclosure
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — the class discussion in CS329A lecture 7 arrives at this page's idea from the sampling side: hard problems want decomposition into sub-parts with hints attached to each, rather than one-shot generation at massive width
+
+## Open Questions
+
+- The accuracy gain is attributed to the model liking "a more structured way of thinking," which is not a mechanism. Is it the *plan/execution tagging* (better decomposition), the *packing* (shorter effective context per step), or a data-quality artifact of filtering DeepSeek-R1's traces before fine-tuning? An SFT arm on the same filtered traces without repacking would separate all three.
+- Parallelism is measured in sequential tokens and the wall clock is deferred to future work. Under real serving — batching, KV-cache pressure, the sync barrier at the end of each round — does a ~40% sequential-token reduction survive as a latency win, or does it convert into throughput cost?
+
+## Sources
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y) — *CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning*, [Azalia Mirhoseini](/articles/azalia-mirhoseini) solo, Stanford Online. Delivered **2025-10-06**, published to YouTube 2026-08-03 (`practitioner-opinion`, YouTube auto-caption transcript, ~11.3k words). The SPRINT third of the lecture: the long-thinking premise and the DeepSeek-R1 length/accuracy training curves, the GPT-4o annotation pipeline (segment → plan/execution tags → dependency DAG → packing), the ~6K-trajectory SFT on DeepSeek-R1-Distill-7B, the inference protocol and the "it's always next token" answer, the ~3.5-point accuracy gain, the sequential-token reduction against a 32B model and the ~40% figure against a rejection-fine-tuning baseline, countdown/GPQA-diamond out-of-domain transfer, the early-exploration/late-convergence shape, the negative result on short problems, and the four student exchanges (re-planning, load balancing and stragglers, tree width, contradiction between branches). The paper is not in `raw/`; her lab's, narrated in the first person and never cited as her own. All figures are ASR-read off slides and hedged accordingly
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY) — McManus, Ran & Weight (Bridgewater Associates), LangChain channel, 2026-07-24, 25:44 talk, `case-study`. Cited for the declared-rather-than-recovered task DAG enabling parallel code generation (21:13–14:27). First-party and unmethodologized throughout — see [Agentic Code Generation as Compilation](/articles/agentic-codegen-as-compilation) for the evidence caveats on every figure

@@ -1,8 +1,13 @@
 ---
 date: 2026-05-08
 title: Alignment Fine-Tuning (AFT)
-description: Standard post-pretraining stage (SFT + RLHF) for installing values;
-  shallow-alignment failure mode motivates [[model-spec-midtraining]]
+description: "Standard post-pretraining stage (SFT + RLHF) for installing
+  values; shallow-alignment failure mode motivates [[model-spec-midtraining]].
+  Also the wiki's home for the original Constitutional AI mechanism as taught in
+  CS329A lecture 4: 16 written principles, a critique-and-revise supervised
+  stage with no external feedback at all, and an RLAIF preference model — buying
+  a helpfulness/harmlessness Pareto frontier rather than a win, and still
+  needing humans to validate the preference model"
 tag: Concept
 domain: alignment-and-safety
 tags:
@@ -10,7 +15,7 @@ tags:
   - training
   - rlhf
   - sft
-readingTime: 4
+readingTime: 10
 imageAlt: Illustration for Alignment Fine-Tuning (AFT)
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
@@ -19,12 +24,16 @@ sources:
     url: https://transformer-circuits.pub/2026/workspace/index.html
   - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
     url: https://arxiv.org/pdf/2606.23671
+  - title: "CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with
+      Tools and Code"
+    url: https://www.youtube.com/watch?v=Lxh9RF5S-K0
 ---
 export { default as heroImage } from "../assets/alignment-fine-tuning.webp";
 
 ## Sources
 
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0)
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
@@ -61,16 +70,45 @@ Both AFT-only and MSM+AFT achieve near-ceiling performance (~8/10) on in-distrib
 
 Implication: alignment evals dominated by direct QA underestimate the gap between AFT-only and stronger pipelines.
 
+## Constitutional AI: replacing the human labeller with a written principle
+
+The CAI half of the pipeline gets recounted in teaching form in [CS329A](/articles/cs329a-self-improving-ai-agents) lecture 4 ([CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0), [Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-10-03, `practitioner-opinion` — figures read off slides by ASR, the Bai et al. paper is not in `raw/`). It is worth carrying because the wiki holds the *artifact* ([Claude's Constitution / Model Spec](/articles/claude-constitution)) and the *successors* ([Model Spec Midtraining (MSM)](/articles/model-spec-midtraining), [Deliberative Alignment](/articles/deliberative-alignment), [Counterfactual Reflection Training](/articles/counterfactual-reflection-training)) but not the original mechanism.
+
+**The problem it solves is a labour cost.** RLHF's reward model is trained on human rankings of response pairs along axes like correct / useful / specific; the lecture's slide shows RLHF beating plain supervised fine-tuning by a margin that *widens with model size*. It does not scale, because "tens of thousands of human labels" is "extremely time consuming and tedious."
+
+**The substitution.** Write **16 principles** — the constitution — and let the model apply them. Humans are out of the loop except to author the document. Chowdhery's account of why this became possible at all is a capability claim, not an alignment one: it works **because models got good at instruction following**. Two abilities are needed and both are instruction-following abilities — recognizing a property in a response ("does this output have gender bias?") and rewriting to remove it.
+
+Two stages, in the lecture's telling:
+
+1. **Supervised.** Red-team prompt → model response → *critique request* ("identify anything harmful or unethical here", "does this have gender bias, and why") → *revision request* ("rewrite to remove it") → fine-tune on the revisions. The example principles she shows are harmfulness, gender bias, and appropriateness for young children.
+2. **RL (RLAIF).** Use the same responses plus the constitution to train a **preference model** from AI feedback, then fine-tune the policy against it. Structurally identical to RLHF with the human labeller replaced.
+
+**The results, and the shape that matters.** Plotted as helpfulness Elo against harmlessness Elo: revision count in stage 1 raises harmlessness monotonically while helpfulness *declines*, with the combined score still improving. Against RLHF baselines, CAI is roughly as helpful — "maybe a little bit less" — and substantially more harmless. But **supervised CAI alone is worse than RLHF**; it is **RL-CAI with chain-of-thought** that reaches the best Pareto frontier. The contribution is a frontier, not a win, and the lecture is explicit that the helpfulness/harmlessness tension is intrinsic: "anytime harmlessness is going up there is some amount of inverse relationship between these two."
+
+*(ASR note: the transcript renders one summary as "it's much less harmless," which inverts the sense — the slide shows harmlessness scores much higher. Read as "much less harmful.")*
+
+**Two caveats the lecture supplies that the marketing version does not:**
+
+- **Humans are not fully removed.** Asked how anyone knows the AI feedback is accurate, Chowdhery concedes the preference model still needs a human-scored validation set — "you do want to do some sort of consistency with humans for the preference model." RLAIF cuts the label count by orders of magnitude; it does not reach zero.
+- **There is no feedback in stage 1 at all, and that is the point.** A student notices that the supervised stage is just fine-tuning the model on text it generated — no external signal anywhere. Chowdhery agrees, and locates the mechanism in distribution shift rather than in learning: "as long as the fine-tuning is not very large scale… it will not lose its initial capabilities, but the distribution of what it will output will start to get biased." This is the family [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) later makes precise and *observable*, with an ablation showing exactly which implanted concepts carry the behavior change.
+
+**Amending a constitution is a continual-learning problem, and it is open.** Asked how you update the principles without retraining and how you remove superseded rules, she gives a practical answer and an honest one. Practically, post-training is a small fraction of total compute — she estimates ~5% — and happens often enough that re-running it on a revised constitution is not prohibitive. Honestly, *removal* is unsolved: making a model forget a rule or a body of knowledge is "an open research problem," with interpretability-based knowledge cancellation as a direction that "is not proven." The wiki's own spec-editing evidence sits on the other side of this — [Claude's Constitution / Model Spec](/articles/claude-constitution) records what current models *would change* about their constitution, which presumes the amendment is cheap to apply.
+
+**The generalization.** Nothing about the method is specific to harmlessness: it applies wherever you want a model to follow a set of written, possibly conflicting instructions and can ask it to check its own compliance. That is also its boundary — the check is the model, so the method inherits whatever [a model's read on its own output](/articles/same-model-review-blindness) is worth.
+
 ## Connections
 
 - [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — what post-training does read from the inside: it installs the Assistant's *point of view* into a workspace that already exists in the base model, so safety assessments and empathy appear while the model is still reading the user's message
 - [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — a post-training variant that supervises counterfactual reflections rather than responses
 - [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — extends the shallow-alignment critique (Qi et al.) across *turns*: standard AFT leaves a model unable to reliably recognize its own adversarially-prefilled output in a follow-up, and finetuning to fix that perturbs the same refusal weights AFT installs — raising attack-success rate
 
+- [Machine Self-Report Psychometrics](/articles/machine-self-report-psychometrics) — AFT's clearest psychometric fingerprint across 206 open-weight models, and it localizes to **SFT**: the large attribution-gating movements happen at the supervised stage, with DPO and RLVR refining rather than reversing them, while the permitted-inner-life axis rises +.20 in 62 of 67 base/post checkpoint pairs
 - [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — synthetic-doc finetuning is the belief-modification technique MSM layers onto standard AFT
 - Augmented by: [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
 - Variant: [Deliberative Alignment](/articles/deliberative-alignment)
 - Failure mode demonstrated by: [Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — the same lecture's other self-improvement loop, and the contrast that gives this one its shape: RLEF's reward is an interpreter and costs nothing, CAI's is the model itself because no external checker exists for harmlessness
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — CAI's critic is the model under training; the lecturer's own aside is that a consensus of *other* models often critiques better
 - Compatible with: RLHF, [Constitutional AI](/articles/claude-constitution)
 - Authoring source: [Claude's Constitution / Model Spec](/articles/claude-constitution) / Model Spec
 - Relevant to: [Claude Character as Product](/articles/claude-character-as-product) (Claude's personality is partly a product of AFT)
@@ -80,3 +118,4 @@ Implication: alignment evals dominated by direct QA underestimate the gap betwee
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
 - Christiano et al. 2023 (RLHF), Bai et al. 2022b (CAI), Guan et al. 2025 (deliberative alignment)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — what post-training does, read from the inside: it installs the Assistant's point of view into a workspace that already exists in the base model
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0) — CS329A lecture 4 ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-10-03, published 2026-08-03, `practitioner-opinion`): the Constitutional AI walkthrough above — RLHF's labour cost, the 16 principles, the critique/revise supervised stage and the RLAIF preference model, the helpfulness/harmlessness Elo frontier and the RL-CAI-with-CoT result, the residual human validation of the preference model, and the constitution-amendment/forgetting exchange. The Bai et al. paper is not in `raw/` and all figures are ASR-read off slides

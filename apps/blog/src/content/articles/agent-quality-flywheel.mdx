@@ -5,7 +5,13 @@ description: "Google's eval-fix loop packaged as a skill your coding agent
   drives: Build & Test → Ship & Monitor → Learn & Refine, expanded into five
   stages (prepare data / run inference / grade / analyze failures / optimize);
   plain-language worry in, metric choice and before/after deltas out; synthetic
-  User Simulator bootstraps, production OTel traces sharpen"
+  User Simulator bootstraps, production OTel traces sharpen. Shopify's Sidekick
+  flywheel is the same loop with the terminus moved — instruction and harness
+  edits until they plateau, then production failures mined into SFT+GRPO
+  training signal, so each cycle starts from better weights rather than a longer
+  prompt; its distillation curve crosses the production baseline between 26k and
+  30k trajectories, and its 96% serving-cost cut is a projection rather than an
+  invoice"
 tag: Concept
 domain: agent-systems
 tags:
@@ -14,7 +20,8 @@ tags:
   - agent-engineering
   - quality
   - google
-readingTime: 9
+  - production
+readingTime: 23
 imageAlt: Illustration for Agent Quality Flywheel
 sources:
   - title: Recursive Self Improvement for Coding Agents
@@ -22,6 +29,8 @@ sources:
   - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
       Developers Blog
     url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: Sidekick's continual learning loop
+    url: https://shopify.engineering/sidekicks-continual-learning-loop
 ---
 export { default as heroImage } from "../assets/agent-quality-flywheel.webp";
 
@@ -29,6 +38,7 @@ export { default as heroImage } from "../assets/agent-quality-flywheel.webp";
 
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
 - [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop)
 
 ## Summary
 
@@ -67,6 +77,71 @@ Google's stated direction is to let the skill drive more of the outer loop itsel
 
 Someone ran that direction anyway. [Cline](/articles/cline)'s July 2026 campaign ([Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization), `case-study`) executed all five stages unattended for 17 hours — baseline run, failure-trace analysis, targeted fix, re-run, keep-or-discard — with the human doing nothing but pressing continue and reviewing the final PR. Two differences from the flywheel as specified are worth holding onto: the object under optimization was the **harness source**, not the agent's instructions, and the grader was a fixed benchmark rather than an independent evaluation service, so [the optimizer had write access to its own scoring substrate](/articles/optimizer-evaluator-decoupling) and the invariant was maintained by a prompt clause instead of by architecture.
 
+## The same flywheel with the loop closed into weights (Shopify, August 2026)
+
+[Andrew McNamara & Cody Mazza-Anthony](https://shopify.engineering/sidekicks-continual-learning-loop) (Shopify Engineering, 2026-08-05, `case-study`) describe the same loop under the same name, running in production on Shopify's **GraphQL Sidekick agent** — a merchant-facing agent that writes and executes Admin GraphQL API queries against a store, serving up to **2,000 requests per minute**. Read it with the COI in front: this is Shopify's own account of Shopify's own system, with no external replication, no adversarial review, and every number self-reported. It sits above Google's `vendor-claim` post on tier and below every `empirical` source in the corpus; where it conflicts with a measured result, the measured result wins.
+
+**The canonical stage list is the diagram's, not the prose's.** The article's "Flywheel loop" figure numbers six stages — **01 Ground Truth Set** ("create a ground truth set as specs") → **02 LLM as a Judge** ("align LLM Judge to humans") → **03 Frontier Model MVP** ("build MVP quickly using frontier models") → **04 Data Collection + Self-healing** ("collect production data and mine hard negatives") → **05 Model Training** ("fine-tune open-weight models") → **06 Gist Compression** ("compress system prompt into Gist tokens") — with a central *Flywheel Optimization Process* node feeding back to 01. The prose's own `##` headings are a different, coarser list that merges 04 and 05 into one section and puts autoresearch where the diagram puts the MVP; both orderings are recorded in the raw file and the diagram's is treated as canonical here.
+
+**The structural difference from Google's flywheel is where the loop terminates.** Google's Learn & Refine hands a failing trace back to the coding agent, which patches an instruction and re-runs; the artifact that changes is a prompt. Shopify does that first and treats the point where it stops paying as the *beginning* of the loop rather than the end — verbatim, *"once harness improvements plateau, we begin optimizing in parameter space."* Their framing of the problem is the sharpest statement of it in the corpus: a deployed frontier model is frozen, so *"improvements accumulate in the discrete artifacts around it: prompt edits, retrieval examples, routing rules, and harness code. Production knowledge piles up in words and code while the model's weights remain untouched."* Each Shopify cycle begins with a better model; each Google cycle begins with a longer prompt. That is an **ordering claim about which object of improvement to exhaust first**, made from production rather than from a benchmark — and it is the only such claim in the corpus (see [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) for the taxonomy of objects it orders, and [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) for the harness stage arriving at the same plateau from three other directions).
+
+### Stage 01–02: quality is defined before anything else, and the judge is calibrated to a human ceiling
+
+The article's own emphasis is that this is the step teams rush: *"Defining quality is the most important step in the loop… It begins as a specification of what good looks like and becomes the reward signal that drives learning."* The concrete protocol:
+
+- A **rubric** of a few scored criteria (completeness, execution, response quality, safety) with concrete anchors per score — *"your product team's definition of good and bad,"* and *"the quality contract for everything downstream."* This is [Evals as Product Spec](/articles/evals-as-product-spec)'s thesis stated as a production gate.
+- Ground truth **must include randomly sampled traffic**, not only curated examples: *"Golden sets test the cases you already know to look for; random samples reveal what good and bad actually look like in production."*
+- A **rubric-ambiguity gate before any judge is built**: two expert annotators blind-annotate 25 random samples, and inter-annotator agreement is measured with **Cohen's kappa**. Around **κ ≈ 0.2** the rubric is declared ambiguous and rewritten — *"if the rubric confuses several product experts who work on this product every day, it will confuse an LLM too."*
+- Judge calibration is a **prompt-optimization** step, not a model choice: DSPy with reflection-based optimizers (GEPA, Agentic Context Engineering).
+- Two validation steps after calibration: **backtest the judge against previous A/B tests** (can it recover the direction of known wins and losses in engagement or retention?) and run **targeted degradation tests** — deliberately break one behaviour and confirm the corresponding criterion, and only that criterion, falls.
+- **Keep judges small and targeted** rather than folding all product behaviour into one, *"because focused judges make these tests easier to interpret."* Independent arrival at this page's promote-one-concern-to-one-stable-metric discipline.
+
+The load-bearing number lives only in an image. The *Judges' agreement* figure (headed "even experts do not fully agree") plots **human agreement = 83%**, annotated "perfect: unreachable," against **judge 80%** just below it — and neither figure appears anywhere in the article's text. The framing is the one [LLM-Judge Validation](/articles/llm-judge-validation) argues for and the MVVP does not contain: *"that agreement is the judge's ceiling… the goal is not a judge that is 'perfect,' but one that matches humans about as well as humans match each other."* The honest qualification is that the ceiling comparison itself is reported as **raw agreement**, not chance-corrected, even though the same team uses κ for the rubric gate one paragraph earlier — see that page for why 83% and 80% are the metric its Finding 1 says overstates.
+
+### Stage 03: autoresearch, and the plateau that ends it
+
+Before touching weights, Shopify pushes the frontier-model MVP as far as it goes *"without touching the weights,"* and does so with an agent rather than by hand. The framing of why prompt tuning is insufficient is precise: the system is *"already a production application, with dynamically assembled prompts, custom control loops, and bespoke orchestration spread across a large codebase. No single prompt determines its behavior… The optimization target is the entire harness: its prompts, tool definitions, and orchestration code."*
+
+The loop is [Karpathy](/articles/andrej-karpathy)-style autoresearch — propose an edit, evaluate against the calibrated judge, keep it if the score improves, discard it otherwise — configured entirely in one readable `program.md` whose `Environment` section grants edit rights to `prompts/`, `tools/` and `harness/` with the note *"everything here is editable, including the harness,"* and whose experiment guidance is *"small, targeted changes, one idea at a time… prefer the simplest change; revert anything that regresses."* Full treatment of this axis, its five other instances and its contradictions on [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization).
+
+### Stage 04: the self-healing pipeline mines failures into training signal, not test cases
+
+This is the stage with no analogue in Google's loop. Anonymized production traffic is mined for **hard negatives** — *"conversations the judge correctly scores low and that expose where the model is weakest"* — and each one enters a repair pipeline:
+
+1. A **panel of frontier reasoning models** critiques the failure independently (the diagram shows three critics on one 2/5-scored conversation: *"wrong tool, retry with schema lookup"*, *"missed pagination; fetch all pages"*, *"answer omitted the requested field"*).
+2. An **arbiter merges the critiques into a single repair instruction**.
+3. The instruction is **injected before the user's turn** — *"a technique sometimes called 'hinting'"* — and the conversation is replayed from that point.
+4. The judge re-scores the replay. **Pass → the replay becomes an RL trajectory with the judge's score as its reward. Fail → it is escalated to human annotation** (Toloka's expert annotators, scoring against the same rubric that calibrated the judge).
+
+Training then runs in two stages: **SFT distillation into a smaller model on complete trajectories including the reasoning that produced them** (not just final answers), then **[GRPO](/articles/group-relative-policy-optimization) with the calibrated judge as the reward signal**. The pipeline runs **daily**, and the fine-tune is *"a full-parameter fine-tune over the accumulated data"* — new trajectories plus all previous ones — because *"training on both new and previous trajectories limits drift and catastrophic forgetting across cycles."*
+
+Two things to hold. The judge is now simultaneously the offline metric, the hard-negative selector, the repair gate **and the RL reward** — four roles for one calibrated instrument, with a measured 80% raw agreement against an 83% human ceiling, and nothing in the account re-validates it as optimization proceeds against it. [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) is the corpus's measurement of exactly that failure: the same unchanged judge is valid before optimization and invalid after. And the escalation path means the pipeline's own throughput is bounded by human annotation on precisely the failures the critics cannot repair — the hardest ones.
+
+### The distillation curve is the most citable thing in the piece
+
+The *GraphQL Distillation* figure is the only place the article reports a scaling relationship, and like the judges' figure its numbers appear nowhere in the text. Axes as printed: **x "Dataset Size"** (10k–70k), **y "Judge Score"** (60–76), six labelled points on a rising curve:
+
+| Dataset size | Judge score |
+|---|---|
+| 13k | 61.5 |
+| 26k | 64.5 |
+| 30k | 66.7 |
+| 39k | 68.5 |
+| 46k | 70.7 |
+| 61k | 73.5 |
+
+Two dashed reference lines, labelled in the chart and not printed as values: **"Production baseline"** at ≈65.8 and **"Frontier reference baseline"** at ≈73.1 (both read off the axis). The curve crosses the production baseline **between 26k and 30k trajectories** and reaches the frontier reference only at the largest size tested, **61k**.
+
+**Read the top of that curve carefully, because the article's headline rests on it.** The chart is titled *Distillation* — it is the SFT stage alone, before GRPO — and its final point clears the frontier reference by **0.4 judge points**, on a chart with no error bars, no seeds, and no confidence intervals anywhere. So the piece's central quality claim (*"SFT and RL enable the specialized model to surpass the frontier model performance"*) decomposes into a measured SFT curve that reaches **parity** and an un-charted GRPO stage that is asserted to carry it past. The claim is plausible and the curve is genuinely informative about *sample efficiency*; the "surpasses the frontier" part is not what the figure shows.
+
+### Stage 06: gist compression, and what it actually bought
+
+The last stage attacks serving cost rather than quality. A long static system prompt is *"a fixed tax on latency and serving cost, paid on every request,"* and gisting removes most of it: run the same model as a teacher with the full prompt and a student with a short sequence of **learned gist token embeddings**, train the embeddings to match the teacher's output distribution with model weights frozen, and ship the student. Shopify reports **roughly 6,000 tokens down to about 1,500** with *"no measured quality loss on the judge."*
+
+Reported effects, all Shopify's own measurements on a **350 requests/minute load test**: time-to-first-token down **~19%**, end-to-end latency down **~38%**, throughput up **~16% more requests per second** and **~12% more output tokens per second** on identical GPUs, working out to *"roughly 14% fewer GPUs for the same traffic."* This is a different lever on the same tax [Prompt-Cache Economics](/articles/prompt-cache-economics) prices — caching makes a static prefix cheap to re-read, gisting makes it short — and that page carries the comparison.
+
+**The economics is a projection, not an invoice, and the article's own modals say so.** Verbatim: *"Serving this traffic on a frontier model could **easily cost an estimated** $27M per year based on average token costs. The fine-tuned model **could come in** at a fraction of the cost, closer to $1M: a 96% reduction in serving cost."* Both figures are genuine to the source and both are counterfactual estimates from *"average token costs"* — Shopify never ran the frontier configuration at 2,000 req/min for a year, and no per-request or per-task denominator is published, so the 96% is a ratio of two modelled annual totals rather than a measured saving ([Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token)'s standing complaint, in a new shape: the percentage is printed and the unit is not). Note also what it does *not* include: the daily full-parameter fine-tune, the frontier critic panel, the arbiter, the replay passes, and the Toloka annotation contract are all recurring costs of running the flywheel and none appears on either side of the comparison.
+
 ## What it is and isn't
 
 **Is:** methodology plus orchestration inside your coding agent — metric selection, eval-service invocation, verdict reading, fix proposals, before/after comparison. Distributed as skills (`npx skills add …`, two packages against the same evaluation service) — methodology shipping in the same unit as org context, the [systematization](/articles/agentic-work-systematization) format crossing vendor lines. **Isn't:** autonomous (human-in-the-loop); a source of ground truth (AutoRaters are sophisticated but model-based — treat scores as directional, **trust deltas between runs more than any absolute number**); a substitute for real traffic.
@@ -85,14 +160,24 @@ Someone ran that direction anyway. [Cline](/articles/cline)'s July 2026 campaign
 - [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform) — the platform whose evaluation service, User Simulator, Online Monitors, and AutoRaters the skill orchestrates
 - [Google DeepMind](/articles/google-deepmind) — co-developer of the AutoRaters
 - [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — the flywheel running with no human in the discovery path: Bun's post-merge coverage-guided fuzzers auto-file Claude-authored reproducing-and-fixing PRs (100B parser executions → ~15 PRs), humans review only the output
-- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the autonomous version of the outer loop Google says it deliberately has not shipped: same five stages (baseline → run → grade → analyze failures → fix), no human approving each fix, and the object under optimization is the harness rather than the agent's instructions
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the autonomous version of the outer loop Google says it deliberately has not shipped: same five stages (baseline → run → grade → analyze failures → fix), no human approving each fix, and the object under optimization is the harness rather than the agent's instructions. Shopify's autoresearch stage is a fifth production instance of it, and the only one that reports what happens *after* the plateau
+- [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) — the taxonomy of objects an improvement loop can persist into (agent, harness, knowledge, prompt), which Shopify's flywheel extends with a fifth — **the weights** — and then orders: exhaust the discrete artifacts first, move to parameter space when they plateau
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the validation discipline stages 01–02 partly practise and partly skip: an inter-annotator κ gate on the rubric, an explicit human *ceiling* rather than 100% as the judge's target, an A/B backtest against the online metric, and per-criterion degradation tests — with the ceiling comparison itself reported as raw agreement rather than chance-corrected
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — the objective the weight-update stage ends in, here with a calibrated LLM judge as the reward rather than a verifier or a benchmark scorer, running daily on production trajectories
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — the risk the self-healing pipeline concentrates: one calibrated judge serving simultaneously as offline metric, hard-negative selector, repair gate and RL reward, with no re-validation as GRPO optimizes against it
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — the other lever on the same static-prefix tax stage 06 attacks: caching makes the prefix cheap to re-read, gist compression makes it short
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — where the $27M → $1M projection lands: a percentage published without a unit, and a counterfactual annual total on both sides rather than a measured per-request cost
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — the same compile boundary with parameters as the output layer rather than markdown, and the closest production instance of that page's own future direction (fine-tune on your accumulated material so the model knows it in its weights); the distillation curve is what gives that idea a dataset-size number
+- [Crystallizing Agent Work into Workflows](/articles/crystallizing-agent-work-into-workflows) — the third endpoint for discovered behaviour: promotion into weights rather than into deterministic code. Same evidence-gated keep-or-discard loop on the harness, opposite effect on determinism (a fine-tune buys none, so there is no demotion criterion), and the only source that reports what happens after the harness stage plateaus
 
 ## Open Questions
 
 - Both demo cycles fixed agents with *instruction-level* bugs and showed large one-cycle gains. What does the loop look like on failures that need tool, memory, or architecture changes — does "several iterations before metrics move" dominate in practice?
 - The custom rubric is authored by the same coding agent that will later propose fixes. Metric *choice* is upstream of grading — does decoupling need to extend to who defines the metric, not just who scores it?
 - Synthetic User Simulator scenarios bootstrapped the whole first cycle. How much of the 21%→5% delta survives on real-traffic distributions (the representativeness gap [Production-Sourced Evaluation](/articles/production-sourced-evaluation) names)?
+- Does a weight-space flywheel actually beat the frontier model it distils from, or only draw level with it? The only curve in the corpus reaches the frontier reference baseline by **0.4 judge points at the largest dataset size tested**, with no error bars, no seeds and no intervals, and the claimed overtake rests on an un-charted GRPO stage after it. The falsifiable version: the same distillation sweep with seeds and confidence intervals, reporting the SFT-only and SFT+RL arms separately against the frontier reference.
 
 ## Sources
 
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) — Andrew McNamara & Cody Mazza-Anthony, *Sidekick's continual learning loop*, Shopify Engineering, 2026-08-05, `case-study` (~2,100 words, 7 content diagrams). **Total first-party COI**: Shopify's own account of Shopify's own production system, no external replication, no adversarial review, every figure self-reported. The six-stage flywheel diagram (canonical stage labels), the rubric / Cohen's-kappa / annotator-agreement protocol, judge calibration via DSPy + GEPA/ACE with an A/B backtest and degradation tests, the `program.md` autoresearch config, the critic-panel → arbiter → hinting → replay self-healing pipeline, Toloka escalation, SFT-on-full-trajectories then GRPO, the daily full-parameter fine-tune over accumulated data, gist compression and the load-test figures, and the $27M/$1M projection. **Two figures carry numbers that appear nowhere in the article text** and were read directly per the image two-pass rule: *Judges' agreement* (human 83% / judge 80%, raw agreement) and *GraphQL Distillation* (the six-point curve and both reference lines, axis labels quoted above). Full parse notes and evidence handling in `wiki/sources.md`
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — Melnyk & Dai, Google Developers Blog, 2026-06-30 (`vendor-claim`); builds on the Cloud Next '26 agent-quality talk

@@ -50,7 +50,11 @@ const HERE = dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = resolve(HERE, "../../../");
 const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
 const GRAPH_PATH = resolve(REPO_ROOT, "apps/blog/src/data/article-graph.json");
-const OUTPUT_PATH = resolve(REPO_ROOT, "apps/blog/src/data/search-index.json");
+// Override lets a dry-run redirect the write into a temp dir instead of the
+// working checkout — mirrors the importer's *_OUTPUT_PATH envs.
+const OUTPUT_PATH = process.env.SEARCH_INDEX_OUTPUT_PATH
+  ? resolve(process.env.SEARCH_INDEX_OUTPUT_PATH)
+  : resolve(REPO_ROOT, "apps/blog/src/data/search-index.json");
 
 /** An entry before its keywords are derived — keywords need the whole corpus. */
 export type PartialSearchEntry = Omit<SearchIndexEntry, "keywords">;

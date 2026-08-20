@@ -252,13 +252,14 @@ describe("findDomainsWithoutMoc", () => {
     const articles = [
       article({ slug: "moc-agent-systems", domain: "agent-systems" }),
       article({ slug: "note-1", domain: "agent-systems" }),
-      article({ slug: "note-2", domain: "syntheses" }),
       article({ slug: "note-3", domain: "product-org" }),
     ];
-    expect(findDomainsWithoutMoc(articles)).toEqual([
-      "product-org",
-      "syntheses",
-    ]);
+    expect(findDomainsWithoutMoc(articles)).toEqual(["product-org"]);
+  });
+
+  it("exempts the syntheses fallback, which can never have a MOC", () => {
+    const articles = [article({ slug: "note-2", domain: "syntheses" })];
+    expect(findDomainsWithoutMoc(articles)).toEqual([]);
   });
 
   it("ignores articles without a domain", () => {
