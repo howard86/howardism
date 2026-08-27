@@ -84,7 +84,11 @@ export function IndexRow({
             compact ? "text-[16px] leading-[1.25]" : "text-[19px] leading-[1.2]"
           )}
           href={`/articles/${slug}`}
-          previewMeta={meta}
+          previewMeta={{
+            description: meta.description,
+            tag: meta.tag,
+            title: meta.title,
+          }}
         >
           {meta.title}
         </InternalLink>
