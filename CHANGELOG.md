@@ -1,3 +1,12 @@
+# [v2.26.0](https://github.com/howard86/howardism/compare/v2.25.0...v2.26.0) (2026-08-27)
+
+## ✨ New Features
+- [`fe8cfed6`](https://github.com/howard86/howardism/commit/fe8cfed6)  feat(content): import 4 new wiki articles with hero images 
+
+## 🐛 Bug Fixes
+- [`b54db5b8`](https://github.com/howard86/howardism/commit/b54db5b8)  fix(import-wiki): leave wikilinks inside code regions unresolved 
+- [`7380605d`](https://github.com/howard86/howardism/commit/7380605d)  fix(import-wiki): exempt uncataloged pages from the catalog staleness gate
+
 # [v2.25.0](https://github.com/howard86/howardism/compare/v2.24.0...v2.25.0) (2026-08-20)
 
 ## ✨ New Features
