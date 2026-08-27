@@ -8,8 +8,44 @@ import { titleFromSlug } from "@howardism/article-contract/markup";
  *  every following line up to the next `]]` anywhere in the file. */
 const WIKILINK_RE = /\[\[([^\]|\\\n]+)(?:\\?\|([^\]\n]+))?\]\]/g;
 
+/** Fenced blocks (``` / ~~~) and inline code spans, in one alternation.
+ *  Inline spans are line-scoped: an unclosed backtick must not swallow the
+ *  rest of the file. `\1` makes a run of N backticks close only on N. */
+const CODE_REGION_RE =
+  /^[ \t]*(?:```|~~~)[^\n]*\n[\s\S]*?^[ \t]*(?:```|~~~)[^\n]*$|(`+)(?:(?!\1)[^\n])+?\1/gm;
+const FENCE_LINE_RE = /^[ \t]*(?:```|~~~)/;
+
 const HUMANIZE_RE = /[._-]+/g;
 const WHITESPACE_RE = /\s+/g;
+
+/**
+ * Split `input` at code-region boundaries and yield only the prose between
+ * them. The vault documents its own link grammar in prose — `` `[[raw/...]]` ``
+ * — and resolving those turns a quoted pattern into a broken link (or, worse,
+ * a real one plus a phantom backlink in the graph).
+ */
+function* proseSegments(input: string): Generator<string> {
+  let last = 0;
+  for (const match of input.matchAll(CODE_REGION_RE)) {
+    yield input.slice(last, match.index);
+    last = match.index + match[0].length;
+  }
+  yield input.slice(last);
+}
+
+/** Rewrite the prose between code regions, leaving code byte-identical. */
+function replaceOutsideCode(
+  input: string,
+  replace: (segment: string) => string
+): string {
+  let out = "";
+  let last = 0;
+  for (const match of input.matchAll(CODE_REGION_RE)) {
+    out += replace(input.slice(last, match.index)) + match[0];
+    last = match.index + match[0].length;
+  }
+  return out + replace(input.slice(last));
+}
 
 export type WikiTarget =
   | { kind: "internal"; slug: string; anchor: string | null }
@@ -44,10 +80,12 @@ export function humanize(raw: string): string {
 /** Scan once; classify every match. Source order. No dedup. */
 export function tokenizeWikilinks(input: string): WikiToken[] {
   const tokens: WikiToken[] = [];
-  for (const match of input.matchAll(WIKILINK_RE)) {
-    const target = match[1];
-    const label = match[2] ? match[2].trim() : null;
-    tokens.push({ label, target: classifyTarget(target) });
+  for (const segment of proseSegments(input)) {
+    for (const match of segment.matchAll(WIKILINK_RE)) {
+      const target = match[1];
+      const label = match[2] ? match[2].trim() : null;
+      tokens.push({ label, target: classifyTarget(target) });
+    }
   }
   return tokens;
 }
@@ -59,24 +97,28 @@ export function extractInternalSlugs(
 ): string[] {
   const slugs: string[] = [];
   const seen = opts?.dedup ? new Set<string>() : null;
-  for (const match of input.matchAll(WIKILINK_RE)) {
-    const target = match[1];
-    if (target.startsWith("raw/")) {
-      continue;
-    }
-    const bare = target.split("/").pop();
-    if (!bare) {
-      continue;
-    }
-    const hash = bare.indexOf("#");
-    const slug = (hash >= 0 ? bare.slice(0, hash) : bare).trim().toLowerCase();
-    if (seen) {
-      if (seen.has(slug)) {
+  for (const segment of proseSegments(input)) {
+    for (const match of segment.matchAll(WIKILINK_RE)) {
+      const target = match[1];
+      if (target.startsWith("raw/")) {
         continue;
       }
-      seen.add(slug);
+      const bare = target.split("/").pop();
+      if (!bare) {
+        continue;
+      }
+      const hash = bare.indexOf("#");
+      const slug = (hash >= 0 ? bare.slice(0, hash) : bare)
+        .trim()
+        .toLowerCase();
+      if (seen) {
+        if (seen.has(slug)) {
+          continue;
+        }
+        seen.add(slug);
+      }
+      slugs.push(slug);
     }
-    slugs.push(slug);
   }
   return slugs;
 }
@@ -111,7 +153,15 @@ export interface LinkOccurrence {
  */
 export function extractLinkOccurrences(input: string): LinkOccurrence[] {
   const byTarget = new Map<string, LinkOccurrence>();
+  let inFence = false;
   for (const line of input.split("\n")) {
+    if (FENCE_LINE_RE.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) {
+      continue;
+    }
     const slugs = extractInternalSlugs(line);
     if (slugs.length === 0) {
       continue;
@@ -164,39 +214,43 @@ export function extractRawSlugs(
 ): string[] {
   const slugs: string[] = [];
   const seen = opts?.dedup ? new Set<string>() : null;
-  for (const match of input.matchAll(WIKILINK_RE)) {
-    const target = match[1];
-    if (!target.startsWith("raw/")) {
-      continue;
-    }
-    const rawSlug = target.slice("raw/".length);
-    if (!rawSlug) {
-      continue;
-    }
-    if (seen) {
-      if (seen.has(rawSlug)) {
+  for (const segment of proseSegments(input)) {
+    for (const match of segment.matchAll(WIKILINK_RE)) {
+      const target = match[1];
+      if (!target.startsWith("raw/")) {
         continue;
       }
-      seen.add(rawSlug);
+      const rawSlug = target.slice("raw/".length);
+      if (!rawSlug) {
+        continue;
+      }
+      if (seen) {
+        if (seen.has(rawSlug)) {
+          continue;
+        }
+        seen.add(rawSlug);
+      }
+      slugs.push(rawSlug);
     }
-    slugs.push(rawSlug);
   }
   return slugs;
 }
 
 /** Replace each wikilink with its plain-text display form. Single-pass. */
 export function stripToText(input: string): string {
-  return input.replace(WIKILINK_RE, (_match, target, label) => {
-    if (label) {
-      return String(label).trim();
-    }
-    const path = String(target);
-    const slug = path.split("/").pop() ?? path;
-    if (path.startsWith("raw/")) {
-      return humanize(slug);
-    }
-    return titleFromSlug(slug);
-  });
+  return replaceOutsideCode(input, (segment) =>
+    segment.replace(WIKILINK_RE, (_match, target, label) => {
+      if (label) {
+        return String(label).trim();
+      }
+      const path = String(target);
+      const slug = path.split("/").pop() ?? path;
+      if (path.startsWith("raw/")) {
+        return humanize(slug);
+      }
+      return titleFromSlug(slug);
+    })
+  );
 }
 
 export type WikiResolver = (token: WikiToken) => string;
@@ -206,10 +260,12 @@ export function rewriteToMarkdown(
   input: string,
   resolve: WikiResolver
 ): { body: string } {
-  const body = input.replace(WIKILINK_RE, (_match, target, label) => {
-    const classified = classifyTarget(String(target));
-    const labelStr = label ? String(label).trim() : null;
-    return resolve({ label: labelStr, target: classified });
-  });
+  const body = replaceOutsideCode(input, (segment) =>
+    segment.replace(WIKILINK_RE, (_match, target, label) => {
+      const classified = classifyTarget(String(target));
+      const labelStr = label ? String(label).trim() : null;
+      return resolve({ label: labelStr, target: classified });
+    })
+  );
   return { body };
 }

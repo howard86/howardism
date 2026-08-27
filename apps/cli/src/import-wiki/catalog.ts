@@ -10,6 +10,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
 
+import { isMocSlug } from "./domains.ts";
 import type { ParsedWikiFile } from "./parse.ts";
 
 export interface CatalogRow {
@@ -55,20 +56,28 @@ export async function loadCatalog(
  * an already-edited page under a stale domain/summary — this class of drift
  * (a vault digest going silently out of sync with the source files) has
  * bitten the importer three times, so it fails loudly instead.
+ *
+ * Only pages that carry a catalog row can make the catalog stale. The `moc-*`
+ * and `generated: true` pages have none by design, and `build.py` rewrites
+ * them in the same run that writes the catalog — writing the catalog first, so
+ * a MOC lands a millisecond later and would otherwise trip this check on every
+ * freshly built vault.
  */
 export async function assertCatalogFresh(
   catalogPath: string,
   parsed: readonly ParsedWikiFile[]
 ): Promise<void> {
   const { mtime: catalogMtime } = await stat(catalogPath);
-  const newestWikiMtime = parsed.reduce(
-    (latest, file) => (file.mtime > latest ? file.mtime : latest),
-    new Date(0)
-  );
-  if (catalogMtime < newestWikiMtime) {
+  const newest = parsed
+    .filter((file) => !(isMocSlug(file.source.slug) || file.isGenerated))
+    .reduce<ParsedWikiFile | null>(
+      (latest, file) => (latest && latest.mtime > file.mtime ? latest : file),
+      null
+    );
+  if (newest && catalogMtime < newest.mtime) {
     throw new Error(
       `${catalogPath} is stale: it was built ${catalogMtime.toISOString()}, ` +
-        `but a wiki file was edited ${newestWikiMtime.toISOString()}. ` +
+        `but ${newest.source.slug} was edited ${newest.mtime.toISOString()}. ` +
         "Re-run `_system/build.py` in the vault to regenerate the catalog."
     );
   }

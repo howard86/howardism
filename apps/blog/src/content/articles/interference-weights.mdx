@@ -1,0 +1,395 @@
+---
+date: 2026-08-23
+title: Interference Weights
+description: "Large virtual weights that are irrelevant or actively harmful to a
+  model's behaviour — the residue of weight superposition. Anthropic expanded a
+  2.9M-parameter 1-layer transformer into ~331M virtual weights and scored each
+  by Fisher effectiveness (effect on outputs) and helpfulness (effect on loss),
+  giving the first identification of a specific interference weight inside a
+  trained transformer: the biggest weight from `IN` votes for `utions`, a
+  completion that never once occurs in training. The tail is helpful, the middle
+  is mixed, and pruning 85% of weights costs under 0.1 nats — but tens of
+  percent of weights remain helpful, so this basis does not yield a sparse
+  readable model"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - superposition
+  - mechanistic-interpretability
+  - methodology
+readingTime: 19
+imageAlt: Illustration for Interference Weights
+sources:
+  - title: Characterizing interference weights in a tiny language model
+    url: https://transformer-circuits.pub/2026/interference_effectiveness_helpfulness/index.html
+---
+export { default as heroImage } from "../assets/interference-weights.webp";
+
+## Sources
+
+- [Characterizing interference weights in a tiny language model](https://transformer-circuits.pub/2026/interference_effectiveness_helpfulness/index.html)
+
+## Summary
+
+An **interference weight** is a linear interaction between two interpretable model
+components, routed through the low-dimensional residual stream, that is either irrelevant
+or harmful to the model's behaviour. The definition is not about small weights: an
+interference weight can be the *largest* weight leaving a component. It exists because of
+**weight superposition** — even given a perfect feature basis, features are written and
+read through low-dimensional projections, so the weights *between* features are forced
+into superposition just as the features themselves are ([Elhage et al. 2022](https://transformer-circuits.pub/2022/toy_model/index.html); the term was named in a 2023 Transformer Circuits update).
+
+The practical consequence is the one that matters for interpretability: **components that
+never interact on the data distribution can still be joined by a large virtual weight that
+suggests a functional role**. Reading circuits off weights therefore does not follow from
+having interpretable features.
+
+Turner, Wu & Batson ([Anthropic](/articles/anthropic), Transformer Circuits, 2026-08-21) built the first
+setting where specific interference weights inside a *trained transformer* can be pointed
+at, characterized, and connected to performance. Prior work had the phenomenon in a toy
+model, or as a suspicion about Claude 3.5 Haiku's unused virtual weights; this is the first
+time one is demonstrated by measuring its effect on the training loss.
+
+## The setup: a 2.9M-parameter model expanded 100×
+
+The object of study is deliberately tiny, so that the most expensive and most accurate
+measurements are affordable:
+
+- **Transformer.** One layer, decoder-only, $d_m$ = 256, 4 heads of $d_\text\{head\}$ = 64,
+ width-1024 ReLU MLP, 4,096-token BPE vocabulary (truncated from Pleias-1.2B's), 1,024-token
+ context. **≈2.9M parameters** (≈0.79M excluding embed/unembed). Crucially: **no
+ normalization layers and no biases anywhere**, and fixed sinusoidal position embeddings.
+ Trained on ≈9.8×10⁷ unique tokens of Common Corpus (English + code) for 11,933 steps;
+ training loss 8.93 → ≈3.33, still falling when the budget ran out. Test loss 3.38.
+- **Transcoder.** A single-layer transcoder with **4,096 JumpReLU features** reads the
+ pre-MLP residual and predicts the MLP output, replacing the polysemantic neuron basis.
+ Attention keeps its native decomposition into heads.
+- **The virtual weight (VW) model.** Basis = `[token, position]` one-hot of size
+ $d_\{v'\}$ = 5,120 (4,096 vocab + 1,024 positions), 4,096 transcoder features, 4,096 output
+ logits. Every path is a product of matrices contracting away the residual dimension —
+ which is *only* exact because there is no normalization.
+
+Six weight families, five linear maps plus one bilinear:
+
+| Family | Target | Note |
+|---|---|---|
+| Tokens→Logits | logits | the direct path |
+| Features→Logits | logits | transcoder decoder × unembed |
+| Tokens→OV→Logits | logits | acts on attention-*moved* tokens |
+| Tokens→Features | features | direct input to the transcoder |
+| Tokens→OV→Features | features | moved-token input to the transcoder |
+| QK | attention scores | the one bilinear map; conditions both OV families |
+
+Materializing all six inflates 2.9M parameters into **331,350,016 virtual weights**, about
+100×, because each pair of endpoints now carries its own explicit weight instead of sharing
+the residual stream. The VW model reproduces the original forward pass exactly, up to a
+per-token **transcoder error term** ($W_U e$ added into the logit sum) that is held out of
+every score — it is not attributable to any single weight.
+
+## Two axes: effectiveness and helpfulness
+
+The identification problem reduces to two questions, and the paper's contribution is
+largely that they are *different* questions.
+
+**Effectiveness** — *does this weight do anything to the outputs?* A second-order estimate
+of the KL divergence between the model's outputs with and without the weight, under the
+Fisher metric:
+
+$$\textrm\{fisher\}(w) = \tfrac\{1\}\{2\}\,\mathbb\{E\}_\{x \sim \mathcal\{D\}\}\!\left[\textrm\{Var\}_p(a)\right] = \tfrac\{1\}\{2\}\,\mathbb\{E\}_\{x \sim \mathcal\{D\}\}\!\left[a^\{T\}Fa\right], \qquad F = \textrm\{diag\}(p) - pp^\{T\}$$
+
+where $a$ is the weight's attribution vector to the logits. It is expressed in **nats**, so
+it is comparable across all six families whether they target a logit or a model internal.
+Estimated over $2^\{29\}$ ≈ **537M tokens**, in a single streaming pass: the score factors
+into a weight-dependent part and an activation statistic, so one pass accumulates
+$\mathbb\{E\}[s^2 p_j(1-p_j)]$ per (source, target) pair and the $w^2/2$ multiply happens once
+at the end.
+
+**Helpfulness** — *did it move the predictions in the right direction?* The mean change in
+loss when the weight is ablated. For the three logit-targeting families there is a closed
+form, $\Delta\ell = \log(1 - p_j(1-e^\{-sw\})) + sw\,\mathbf\{1\}_\{j=t\}$, so it is cheap; for the
+rest it is expensive. Measured over **1B tokens** with 95% Gaussian confidence intervals.
+
+The relationship between them is deliberately loose: **a weight has to be effective to have
+helpfulness, but effectiveness carries no information about the *sign* of helpfulness.**
+Effectiveness is a saliency score — a direct descendant of Optimal Brain Damage / Optimal
+Brain Surgeon, where at a loss minimum the curvature coincides in expectation with the
+Fisher information — applied to virtual weights rather than free parameters, and accumulated
+over the data distribution.
+
+One caution the authors volunteer: Fisher effectiveness replaces the ERA/TWERA
+coactivation-based proxies from Circuit Tracing, and they explicitly **discourage reading
+much into the change**. The metrics are close, several variants were tried, and they judge
+sharpening this metric to be low-leverage next to finding better bases.
+
+### The two measurements live on different scales
+
+- Virtual weights are approximately **normally** distributed; the median magnitude is about
+ **one third** of the largest.
+- Fisher effectiveness is roughly **lognormal** over **ten orders of magnitude**; the median
+ is **10,000× below** the maximum.
+- There is **no bimodality** in effectiveness — no clean split into "effective" and
+ "ineffective" weights, only a continuum. Any threshold is a choice, not a discovered
+ boundary.
+
+## The demonstration: `IN` → `utions`
+
+The model can complete `ACETYLCHOLINE`, predicting the final `E` after `IN`. Decomposed by
+path, **no path individually ranks `E` first**: the direct path favours `␣Mrs`, the attention
+path `ely`, and the MLP path `ATION` (which would complete the word as ACETYLCHOLINATION).
+`E` wins because it is the one continuation every path scores somewhat highly.
+
+The largest Tokens→Logits virtual weight from `IN` points at **`utions`** (w = +2.922) —
+and `utions` **never once follows `IN` in the entire training set**. Every time this weight
+changes the output distribution it pushes the prediction the wrong way. Its Fisher
+effectiveness (4.13e-8) is about **three orders of magnitude** below the most effective
+weights from the same token, and its mean helpfulness is negative (−9.07e-9, SEM 2.60e-10).
+
+Re-sorting the same weights by effectiveness both drops `utions` out of the top and lifts
+the correct `E` from **rank 22 by magnitude to rank 2**:
+
+| | by \|virtual weight\| | by Fisher effectiveness |
+|---|---|---|
+| 1 | `utions` (2.922, f=4.13e-8, **h&lt;0**) | `T` (2.234, f=7.01e-5) |
+| 2 | `TER` (2.750, f=3.15e-5) | **`E`** (1.859, f=4.48e-5) |
+| 3 | `ION` (2.453, f=1.33e-5) | `TER` (2.750, f=3.15e-5) |
+| 7 | `␣Mrs` (2.281, f=1.99e-8, **h&lt;0**) | — |
+| 22 | **`E`** (1.859, f=4.48e-5, h=+2.82e-5) | — |
+
+The effectiveness sort is all upper-case continuations consistent with the all-caps contexts
+where `IN` appears, and all phonetically plausible. (`T` outranking `E` is correct — `T` really
+is more likely after `IN` than `E` is.) The largest *negative* weights from `IN` are a
+separate population entirely: `lor`, `ings`, `cher`, `ity`, `path` and friends all sit at
+effectiveness 10⁻¹⁰–10⁻¹⁴ and are mildly *helpful*.
+
+## Three findings
+
+### 1. Helpful and harmful weights are scattered across the whole magnitude range
+
+Virtual-weight magnitude has only a weak relationship to helpfulness. Effectiveness has a
+much clearer one — weights bifurcate into helpful and harmful as effectiveness rises, with
+the most helpful extending furthest — but neither sort *separates* them. **Naive reading of
+raw weights can miss the weights that implement important circuits while highlighting
+connections that never matter on real data.**
+
+This is not a blanket indictment. The paper deliberately shows a counter-example: a Chinese
+feature (#157) whose largest virtual weights are already the good ones — `。`, and the
+leading bytes of multi-byte CJK characters — with its strongest negative weights suppressing
+Latin-script tokens like `␣European`. Sorting or filtering barely changes the picture. And a
+French/European word-ending feature (#3013) shows the opposite: raw weights lead with
+ineffective, harmful Arabic-script targets, and sorting by effectiveness moves them down but
+**does not fully clean the list** — harmful weights stay intermingled with helpful ones
+across the high-effectiveness range.
+
+**Effectiveness enriches the top of the ranking for helpful weights. It does not isolate them.**
+
+### 2. The effectiveness tail is (almost) purely helpful
+
+Sampling 1,111 weights log-uniformly across effectiveness rank and measuring each one's
+helpfulness gives a three-regime picture that holds within *every* family:
+
+- **Ineffective** — helpfulness ≈ 0. Nothing to see.
+- **Moderate** — helpful and harmful mixed; effectiveness does not separate them.
+- **Highest** — only helpful weights remain. The most effective *helpful* weight
+ out-measures **any** harmful weight in its family by **an order of magnitude or more**.
+
+The gap is much larger and more consistent than the same plot drawn against raw virtual
+weight. The authors' reading is the obvious economic one and is worth keeping: a model
+trained to minimize loss has every reason to point its most consequential weights in a good
+direction, and **relatively little reason to police weights whose effects barely reach the
+output**. Harmful weights are the price of implementing more (and more complex) circuits
+than the residual stream has room for.
+
+The asymmetry shows up in the totals too. Across the 7,765-weight sample, positive
+helpfulness sums to **1.44e-4** against **1.12e-5** of harmful magnitude — roughly 13:1.
+Across all 331M weights, Fisher mass splits 3.62 (positive weights) to 1.59 (negative).
+
+### 3. …but the model is still dense in this basis
+
+This is the paper's negative result, and it is the load-bearing one.
+
+**Pruning by effectiveness is cheap and works well.** Removing weights least-effective-first:
+
+| retained density | ΔL (nats) | Fisher threshold |
+|---|---|---|
+| 0.55 | 0.000146 | 9.148e-12 |
+| 0.30 | 0.0107 | 1.283e-10 |
+| 0.15 | 0.0702 | 8.047e-10 |
+
+Pruning the least effective **70% costs ~0.01 nats**; **85% costs under 0.1**. This beats
+raw virtual-weight magnitude at every density and in every family (the sole exception:
+negative Features→Logits weights). At **1% density** — where the surviving parameter count
+roughly matches the *original* transformer — performance is significantly compromised.
+
+**But helpfulness sets a floor that pruning cannot cross.** Across a random sample of 7,765
+weights measured over 1B tokens:
+
+| Family | N | dead | h > 0 | 95% interval | h &lt; 0 | 95% interval |
+|---|---|---|---|---|---|---|
+| Tokens→Logits | 1,230 | 8.9% | 53.0% | [34.8, 66.6] | 38.1% | [24.5, 56.3] |
+| QK | 1,379 | 11.4% | 48.4% | [8.1, 85.1] | 40.2% | [3.5, 80.5] |
+| Tokens→OV→Logits | 1,358 | 4.5% | 51.0% | [21.7, 77.2] | 44.5% | [18.3, 73.8] |
+| Tokens→Features | 1,230 | 46.2% | 32.9% | [16.8, 48.1] | 20.9% | [5.7, 37.0] |
+| Tokens→OV→Features | 1,358 | 4.0% | 47.9% | [8.9, 87.0] | 48.1% | [9.0, 87.1] |
+| Features→Logits | 1,210 | 3.0% | 51.6% | [34.0, 68.6] | 45.4% | [28.4, 63.0] |
+| **ALL** | **7,765** | **12.7%** | **47.6%** | **[20.3, 72.7]** | **39.7%** | **[14.6, 67.0]** |
+
+Roughly **half of all weights are helpful**, and even counting only those whose confidence
+interval excludes zero leaves **tens of percent**. Since the VW expansion multiplied the
+parameter count by ~100×, "tens of percent" is still **tens of millions of weights to
+interpret, for a one-layer model**. Fisher pruning already reaches a comparable density
+before the loss degrades — which is exactly why the authors argue a sharper saliency metric
+has little room to help.
+
+Relaxing "keep every helpful weight" to "keep 90% of the helpful *mass*" gives **2.43%
+density**, but the requirement climbs fast: **13.6%** for 99% of the mass (and 0.129% for
+50%). At 2% density the filtered VW model would still hold roughly **twice** the original
+transformer's parameter count — which, if those weights were all genuinely interpretable,
+would be closer to an "upstairs" lift than anything previously observed. The paper is careful
+that this is an estimate from a sample, and that removing many weights at once has nonlinear
+effects the single-weight measurement does not capture.
+
+## A worked mechanism: effectiveness finds inhibition that magnitude buries
+
+The clearest demonstration that this is an *interpretability* tool and not just a pruning
+criterion is feature #1254, which fires strongly on newlines inside repeated declaration
+blocks (Java/TypeScript/C# member lists) and weakly on some whitespace tokens.
+
+Reading its raw Tokens→Features weights is actively misleading:
+
+1. The **largest positive weights come from positions**, not tokens. But position input
+ arrives along two paths — Tokens→Features and Tokens→OV→Features — and the two are
+ strongly **anti-correlated** (OLS slope −0.993, $r^2$ = 0.912). They sum to a roughly
+ constant bias whose largest contribution is only **~30% of the feature's effective
+ threshold**. The position weights are real and they cancel.
+2. The **newline token's own weight is buried** deep in the weak-positive tail, and the
+ whitespace tokens carry the feature's **strongest negative weights** — the opposite of
+ what "fires on newlines and whitespace" would predict.
+
+Sorting by effectiveness or helpfulness surfaces exactly the negative whitespace weights and
+the newline. The mechanism they encode: whitespace and newline tokens recruit *similar*
+amounts of attention input, but the negative direct-path weights **raise the activation
+threshold** for whitespace. So the feature outsources the "should I fire?" signal to the
+attention path and uses the direct path to **veto** everything that is not a newline.
+**Effectiveness highlights where inhibition matters more than excitation** — which raw
+magnitude, read positive-first, structurally cannot show.
+
+## What this does and does not settle
+
+The authors' own framing of the result is unusually clean, and the negative half is the
+part worth carrying forward.
+
+**Settled.** Interference weights are real inside a trained transformer, not just in toy
+models; they can be identified by their effect on training loss; the model's most
+consequential weights are overwhelmingly the helpful ones; and ineffective weights are
+abundant and cheap to remove. Because interference is visible even in the **Tokens→Logits**
+path — where both endpoints have a trivially interpretable basis (the vocabulary) and no
+feature-extraction step is involved — the demonstration does not depend on believing the
+transcoder found the "right" decomposition.
+
+**Not settled — and the authors say so.** They could not reach a sparse, interpretable model,
+and they suspect **no saliency scheme will do much better**. Their diagnosis is that the
+problem is the **basis**, not the metric: the same model can be dense in one basis and sparse
+in another, and their basis (this transformer's tokens and this transcoder's features) may
+simply be the wrong coordinates. A model that factored tokens into languages or parts of
+speech might express the same computation compactly.
+
+The conclusion they land on is the one to remember: **identifying interference weights is
+necessary but not sufficient for reading global circuits.** Avoiding interference is why
+Anthropic studied per-prompt attribution graphs rather than global weights in the first
+place. Effectiveness and helpfulness are reframed as *instruments for recognizing a better
+basis once someone finds one* — a good decomposition is one in which the vast majority of
+weights can be discarded as ineffective or harmful, leaving a sparse helpful set.
+
+### Limits worth holding onto
+
+- **The exactness depends on the architecture being unusual.** "Every path is a fixed
+ product of matrices" holds *because* this transformer has no normalization layers. Frontier
+ models have them.
+- **Neither metric scales.** The authors state plainly that Fisher effectiveness and
+ helpfulness do not scale nicely to frontier models across all families, which is why they
+ still see value in developing proxies like ERA/TWERA.
+- **The intervals are enormous.** The headline "47.6% helpful" carries a 95% interval of
+ **[20.3, 72.7]**, and QK's 48.4% carries **[8.1, 85.1]**. The point estimates read far more
+ precise than the measurement is.
+- **Significance is not effect size.** With 1B tokens per estimate a weight can be
+ statistically significant while moving the loss negligibly. The paper's own yardstick: the
+ trained model buys 8.32 − 3.38 ≈ **4.94 nats/token** over uniform, which spread over ~331M
+ weights is ≈**1.5e-8 nats per weight**. A ROPE analysis re-classifies the sample against
+ practical-equivalence intervals rather than against zero.
+- **Approximations inside the QK derivation.** Repeated occurrences of the same token are
+ treated as independent, cross-feature covariances are dropped, and the transcoder error
+ term is unscored.
+- **Their own decomposition is imperfect.** The transcoder contains several polysemantic
+ features and the four attention heads are likely polysemantic too — stated by the authors.
+
+## Connections
+
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — the activation-side twin of this problem, and the sharper contrast.
+ The J-lens is a *readout* method that asks what a residual-stream direction is poised to
+ make the model say; this asks what a *weight between two components* actually does. Both
+ end at the same wall from opposite sides: the J-lens's standing open question is "what is
+ the better basis?" for reading activations, and this paper's conclusion is that a better
+ basis — not a better metric — is what stands between us and a sparse readable weight
+ description. Note also that the per-path decomposition here is the **logit lens** applied
+ to each path, the technique the J-lens was built to correct
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the family that reads internals rather than outputs,
+ and the assumption this page bounds. Monitoring reads *representations*; this shows that
+ interpretable representations do **not** buy you interpretable weights between them, since
+ the weight superposition survives a perfect feature basis by construction. The transcoder
+ used here is the same dictionary-learning lineage those monitors are built on
+- [Model Organisms](/articles/model-organisms) — the same transfer bargain in a different register. There, quirks are
+ planted in small models so an interpretability technique has ground truth to be scored
+ against, and the finding is that scores swing with the construction recipe; here, a 2.9M
+ transformer is chosen so that helpfulness — an almost-ground-truth measure — is affordable
+ at all, and the authors concede the metrics do not scale. Both buy measurability with
+ representativeness, and in both cases the question of what transfers to a frontier model
+ is open
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — the interpretability programme this sits inside: reading a model
+ the way you read a program. The workspace result is about which *representations* carry the
+ causal effects; this is about which *connections between them* do
+- [Anthropic](/articles/anthropic) — the interpretability team that produced it, on the Transformer Circuits Thread
+
+## Open Questions
+
+- Is there a basis in which a trained transformer's virtual weights are actually **sparse**,
+ or is weight density intrinsic to what a residual stream is? The authors bet on the basis
+ and nominate parameter-space decompositions (APD, SPD, LLD) as candidates, but nothing has
+ been measured against this benchmark. The falsifier is concrete: a decomposition in which
+ a large majority of weights can be discarded as ineffective or harmful and the surviving
+ set is interpretable. Distinct from the readout-basis question on [Jacobian Lens (J-lens)](/articles/jacobian-lens) — that
+ one is about a better backward pass over activations, this one is about the coordinates
+ the weights live in.
+- Does the three-regime structure — ineffective / mixed / purely-helpful tail — survive
+ **normalization layers and depth**? The exact matrix-product decomposition here works only
+ because the model has no LayerNorm, and multi-layer composition adds paths that do not
+ factor. A replication on a 2–4-layer normalized transformer would settle whether the
+ finding is about superposition or about this architecture.
+- At frontier scale neither Fisher effectiveness nor helpfulness is computable. Do the
+ scalable coactivation proxies (ERA, TWERA) preserve the **ordering** that matters — namely
+ that the top of the ranking is enriched for helpful weights — or only the middle of the
+ distribution where effectiveness fails to separate helpful from harmful anyway?
+
+## Sources
+
+- [Characterizing interference weights in a tiny language model](https://transformer-circuits.pub/2026/interference_effectiveness_helpfulness/index.html) — Nicholas L. Turner, Jeffrey Wu &
+ Joshua Batson, *Characterizing interference weights in a tiny language model*, Transformer
+ Circuits Thread, 2026-08-21, `empirical`, ~12.1k words. Sections used: Introduction (the
+ two challenges superposition poses to weight-reading); A motivating example (the
+ three-path ACETYLCHOLINE decomposition); The virtual weight model (six families, 2.9M →
+ 331M); Effectiveness and helpfulness (both definitions, the ERA/TWERA note); Effectiveness
+ surfaces helpful weights but does not isolate them (the `IN` leaderboards, features #157,
+ #3013, #1254); The effectiveness tail is helpful (1,111-weight sample, three regimes); The
+ model is still dense in this basis (pruning curve, 7,765-weight helpfulness sample,
+ helpfulness mass); Discussion; Appendix (training details, Fisher derivations per family,
+ the closed-form logit helpfulness, mass CDFs, ROPE, full helpfulness table).
+ **Figure-capture warning**: the source is an HTML Distill page with 29 figures. The 8
+ static ones were captured to and are viewed and
+ cited here; the **21 interactive (iframe) figures could not be captured and are
+ unrecoverable from the raw**. Three of them carry load-bearing numbers and were transcribed
+ inline at ingest from the widgets' own data — the `IN`→logits leaderboards, the main-text
+ helpfulness sign breakdown, and the pruning ΔL-vs-density curve — and this page uses those
+ transcriptions. The remaining 18 are cited qualitatively only (shapes and orderings, never
+ values). The full helpfulness table above was verified cell-by-cell against the figure
+ image `fig08.png` and matches exactly. Not a PDF-derived raw, so the docling table-parsing
+ failure modes do not apply.

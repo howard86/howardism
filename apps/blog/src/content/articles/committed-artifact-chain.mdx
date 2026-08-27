@@ -1,0 +1,127 @@
+---
+date: 2026-08-23
+title: The Committed-Artifact Chain
+description: "Anthropic's Applied AI SDLC playbook makes every stage end by
+  committing a machine-readable artifact the next stage reads — intent.md →
+  spec.md → plan.md → diff+tests → PR findings → incident record — so handoff
+  becomes a merge event and the commit log doubles as the audit trail; the
+  strongest version of markdown-as-interface in the corpus, and entirely
+  prescriptive: every 'how to measure it' is an indicator to collect, not a
+  result"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - ai-coding-workflow
+  - ai-native-org
+  - governance
+  - knowledge-management
+  - anthropic
+readingTime: 16
+imageAlt: Illustration for The Committed-Artifact Chain
+sources:
+  - title: The AI-Native SDLC playbook | Claude by Anthropic
+    url: https://claude.com/blog/the-ai-native-sdlc-playbook
+---
+export { default as heroImage } from "../assets/committed-artifact-chain.webp";
+
+## Sources
+
+- [The AI-Native SDLC playbook | Claude by Anthropic](https://claude.com/blog/the-ai-native-sdlc-playbook)
+
+## Summary
+
+[Anthropic](/articles/anthropic)'s Applied AI team published *The AI-Native SDLC playbook* (claude.com, 2026-08-21) as a stage-by-stage prescription for rebuilding the six-stage software development lifecycle around agents. Underneath its eleven plays sits one structural idea, stated once and then relied on everywhere: **each stage ends by writing an artifact to version control, and the next stage begins by reading it.** The team's own phrasing — *"The thread running through the right-hand column is the committed artifact… The chain of commits is also the audit trail: who asked for what, what the agent produced, and who approved it."*
+
+Two separable claims are bundled there, and the page keeps them apart because they have different failure modes:
+
+1. **Handoff-by-commit.** The interface between SDLC stages stops being a ticket, a meeting or a sign-off and becomes a file. A merge is the trigger for the next stage rather than a record that the last one finished.
+2. **The commit log as the audit record.** Because every artifact carries an author, a timestamp and a revision history for free, git is claimed to satisfy the control objective that approval gates used to satisfy through process.
+
+Evidence tier is `vendor-claim` throughout: it is Anthropic describing what to do with Anthropic's products, drawn from its Applied AI team's customer work, with no measurement anywhere in the document. Attributions below are deliberate — "the playbook recommends," not "teams that do this get."
+
+## The chain
+
+| Stage | Artifact committed | Drafted by | Accepted by | What the merge triggers |
+|---|---|---|---|---|
+| Plan | `intent.md` — the problem, proposed outcome, affected users/systems, constraints, open questions, in the originator's own words | Claude, from a brainstorm with the originator | Product owner | The requirements-and-design pass |
+| Design | `spec.md` — requirements and design in one pass, constrained by the org's skills, with concerns flagged | Claude, from `intent.md` | Product owner (tech lead for higher-risk classes) | Plan mode |
+| Build | `plan.md` — files that change, order of work, risks, proof | Claude in plan mode, interrogated by the engineer | Engineer | Implementation |
+| Build/Test | the diff and its tests | Claude | the feedback loop (tests/build/screenshot) before a human sees it | The PR |
+| Deploy | the PR with its review findings, severity-tagged per `REVIEW.md` | Claude review passes | Code owner via branch protection | The pipeline |
+| Maintain | the incident record, written back as a new `intent.md` | Claude, invoked by a deterministic detector | Service owner triage | The loop again |
+
+The plays are explicitly **non-linear** — each names its prerequisites, and the playbook's dependency graph orders adoption rather than execution. A stage with nothing pointing into it can be adopted first.
+
+## Why markdown, specifically
+
+The stated constraint is dual readership: for the early stages *".md files are the predominant artifact because a product owner and an agent can both read and act on the same file."* This is the sharpest statement in the corpus of the [Agent Context Files](/articles/agent-context-files) premise applied to *product* artifacts rather than agent configuration — the same repo-versioned-plaintext control plane, extended left into the stages that used to belong to non-engineers. The playbook is careful about where it stops: **from Build onward the artifact is code and its records**, not prose. Markdown is the interface only where a human who cannot read a diff still has to review something.
+
+The corollary is an access-design problem the playbook answers directly rather than hand-waving: contributors without git are expected to reach the intent home through a version-control connector, so Claude commits on their behalf from claude.ai or [Cowork](/articles/cowork). Standing the home up is named as a one-time platform-team task, with write access decided deliberately because *"many contributors will come from across the organization."*
+
+## Handoff-by-commit as a trigger, not a record
+
+The escalation the playbook prescribes is explicit and staged: *"First, you prompt each step by hand with the end state being a loop in which each accepted artifact fires the next gate."* The Design play spells the middle rung out — run the requirements pass by hand, codify it as an organization-level slash command, then make acceptance of `intent.md` the trigger for a non-interactive job that commits `spec.md` as a PR. This is [Loop Engineering](/articles/loop-engineering)'s "replace yourself as the prompter" applied at the org's process boundaries rather than inside one engineer's terminal, and the Maintain stage closes it: a deterministic detector invokes Claude with no person in the invocation path, and what it finds re-enters at Plan.
+
+What changes when the trigger is a merge is where human attention sits. The claim is that people stop *starting* stages and only *review* them: *"Human attention concentrates at the gates, reviewing what the agent flagged rather than starting each stage from scratch."*
+
+## The legacy source-of-truth problem, named rather than wished away
+
+The playbook's most operationally honest section is its sidebar on artifacts that already live in Jira, ServiceNow, a regulated requirements tool, or Figma — systems *"hard to displace because auditors and regulators already accept them."* Its rule: **name exactly one system as the source of truth per artifact**, and let everything else hold a copy or a link. Three configurations, chosen per artifact rather than per org:
+
+- **Repo authoritative** — the markdown is the record and the legacy system references commits. Cleanest for engineering-led orgs: one tool, one timestamp authority.
+- **Legacy authoritative** — Jira or the requirements tool holds the record; Claude reads it at session start and writes the outcome back through an MCP connector in the same session that produced the spec or plan. The markdown files are working copies.
+- **Linkage only** — every artifact notes the record ID, every legacy record carries the commit SHA. Named as the starting point, with the cost stated: two sources of truth.
+
+This is [Code as Source of Truth](/articles/code-as-source-of-truth) with the migration path attached, and it is the part of the playbook least dependent on Anthropic's products.
+
+## The chain's integrity problem: three agent drafts, three human corrections
+
+The document is consistent about human accountability — *"Humans remain accountable for every decision that requires judgment"* — and enforces separation of duties at exactly one join, the PR: *"the agent that wrote the code has no way to approve it,"* with branch protection requiring a code owner. But the first three artifacts in the chain are all agent-drafted with a human corrector: the originator corrects `intent.md`, the product owner reviews (explicitly *"but doesn't write"*) `spec.md`, the engineer interrogates `plan.md`. The check the playbook offers for plan quality is a good one and is stated as a bar rather than a ritual — *"iterate until an engineer who has never seen the conversation could implement the change from the plan alone"* — but nothing in the design detects a corrector who stops correcting.
+
+That matters more here than in a single-gate design, because the artifacts are chained: `spec.md` is generated *from* `intent.md` and the PR review checks the diff *against* `plan.md`, so an unchallenged early draft propagates into the standard that every later gate measures against. It is the [rubber-stamp question](/articles/human-review-real-control-or-rubber-stamp) with a compounding term, and the audit-trail claim is where it bites: a commit log records that a human accepted, never that a human read. Git supplies provenance and timestamps; it does not supply attention. The playbook's own [tiering instinct](/articles/risk-tiered-auto-approval) is the available answer — it routes higher-risk classes to a tech lead at both the spec and the plan gate — but the tiers are left to the organization and no calibration is offered.
+
+## Where the measurement isn't
+
+Every play closes with a leading and a lagging indicator, and the instruments are chosen for a specific and defensible reason: they are read off systems the org already runs. Git timestamps (intent→spec elapsed time, `spec.md` commits dated after the first `plan.md`), PR metadata (rework cycles, first-pass merge share, review time), the OpenTelemetry export (hook allow/block verdicts with timestamps, concurrent sessions per engineer), CI (first-pass success, eval pass rate), the incident tracker, DORA.
+
+**None of them is reported.** The document is an instrumentation design, not a study — there is no baseline, no cohort, no before-and-after anywhere in ~10k words, and the one quantitative expectation it does state (elicitation *"fall[ing] from a multi-week… cycle to hours"*) is a projection. Two consequences for how the wiki should carry it:
+
+- Every claim about outcomes is `vendor-claim` and is attributed as such on every page this source touches.
+- The indicator set is nonetheless the reusable half. Several of these are exactly the quantities the corpus's empirical sources measure and disagree about — review time per PR, rework rate, change failure rate — which makes the playbook falsifiable in principle by instruments that already exist. That is worth more than most vendor guidance, and it is why the open questions below are `#oq/source` rather than unanswerable.
+
+## Against the telemetry: same diagnosis, opposite evidence status
+
+The playbook opens on precisely the finding [Acceleration Whiplash](/articles/acceleration-whiplash) measures — build collapses to hours while the stages either side of it stay human-paced, controls stop matching reality, governance cost rises — and it reaches that diagnosis by assertion where [Faros](/articles/faros-ai) reached it from enterprise telemetry. Where they part company is the fix, and here the wiki's own evidence outranks the playbook:
+
+- **Direction of the fix.** Faros's thesis is that this is an *authoring* problem, not a review problem: scaling review is treating the symptom. The playbook is mostly a review-and-gate program — agentic review passes, hooks, control bands — with two genuinely authoring-side plays (`CLAUDE.md`/skills constraining generation, and the feedback loop that makes a session verify before a human sees it). [Acceleration Whiplash](/articles/acceleration-whiplash) is `vendor-claim` too, but it is *measured* vendor telemetry against this document's unmeasured prescription, so on any point of conflict the telemetry is the better-supported side.
+- **The review-time claim.** The playbook expects time-to-first-review to *"fall to minutes"* and review time per PR to fall once tests catch what reviewers used to. Faros measured median time-in-PR-review rising 441.5%, and [Tran et al.](/articles/efficiency-debt-of-ai-generated-code) (`empirical`, with a human control cohort) measured blocking review threads at 1.92× human baseline. Time-to-*first*-review and *total* review time are different quantities and both can move — an agent reviewer posts in minutes without shortening the human's read — so this is a resolvable disagreement rather than a flat contradiction, and the playbook is the only side that has not measured its own.
+- **What the playbook adds that the telemetry doesn't have.** Faros documents the jam; this document is the most complete published account of what a vendor thinks the unjammed process looks like end to end, including the parts nobody measures (who owns the intent home, what a policy owner signs off, what the regulated-enterprise managed-settings profile denies). Read as a hypothesis to test, not a finding.
+
+## Connections
+
+- [Code as Source of Truth](/articles/code-as-source-of-truth) — the direct ancestor, extended two stages left. That page argues specs and skills belong in the repo because docs stale at high throughput; this chain adds the *pre-engineering* artifacts (`intent.md`, `spec.md`) and the migration rule for orgs whose record already lives in Jira. It also gives the "why" a named home for the first time in the corpus — `intent.md` is specified to carry *"what is wanted, why, and under which constraints"* — though as a prescription rather than evidence that the why survives contact with the chain
+- [Prototype Over PRD](/articles/prototype-over-prd) — the rival artifact for the same job. Carey deletes the PRD because the prototype *is* the spec; this playbook keeps a document chain and makes it machine-actionable instead. The choice is not stylistic: a prototype's surface is what makes it a spec, so it covers observable behavior and not cross-cutting constraints, where `intent.md`'s constraint block is exactly the part a prototype cannot show
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) — the measured baseline this chain formalizes. Anthropic's own 400K-session telemetry finds humans making ~70% of planning decisions and Claude ~80% of execution decisions; the playbook's `plan.md` gate is that split written down and committed, with plan mode enforcing it mechanically (Claude cannot edit until the plan is accepted). The tension is that the telemetry describes what people *do* and the playbook prescribes moving planning drafts to the agent with the human demoted to corrector — the same direction the "AI as primary author" reading of that page worries about, applied upstream of code
+- [Agent Context Files](/articles/agent-context-files) — the substrate. `CLAUDE.md` and skills are the chain's *durable* artifacts (they constrain every stage rather than triggering the next one), and the playbook contributes two disciplines to that page: the mistake-twice rule (a correction enters `CLAUDE.md` the second time Claude repeats an error, with review flagging it) and the "keep it under a page" budget argument
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the enforcement layer the chain leans on, and the playbook's clearest technical contribution: a skill is an *advisory* control and a hook is the deterministic layer behind it, with a PR-time re-check as the third net — *"the skill makes violations rare and the hook makes them close to impossible."* Its regulated-enterprise managed-settings profile is the answer to that page's sharpest in-the-wild failure, an agent deleting a blocking hook's trigger
+- [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) — the Deploy stage's mechanism, and the playbook's `REVIEW.md` is a policy artifact of exactly the kind that page's rule-guided dispatch operationalizes: named passes, an explicit Important-vs-Nit boundary, a nit cap, and exclusions for generated paths and anything CI already enforces
+- [Evals as Product Spec](/articles/evals-as-product-spec) — the Test stage's play, and the playbook's own framing is *"evals are the AI-native equivalent of stage-gate QA."* Its contribution is where the suite is pointed: at the **agent's configuration** (`CLAUDE.md`, skills, hooks) as the thing under regression test, gated as a merge check, with every production incident owed a permanent eval by the team that owned it
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the tiering the chain needs at three of its gates (spec, plan, merge) and specifies at none of them; PostHog's deployed stack is the calibrated instance
+- [Loop Engineering](/articles/loop-engineering) — the endpoint: an accepted artifact firing the next gate is a loop whose prompter is a merge event, and the Maintain stage removes the human from the invocation path entirely
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the play that makes the chain's Build stage cheap enough to matter: once the guardrails mature, auto-accept becomes the default for routine work and review shifts from watching edits to reading artifacts after longer autonomous sessions
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the constraint the chain routes around by attaching mechanical evidence to every artifact before a human reads it
+- [Acceleration Whiplash](/articles/acceleration-whiplash) — the measured version of this document's opening diagnosis, and the disagreement about which end of the SDLC to fix
+- [AI-Native Organization](/articles/ai-native-organization) — [Tan](/articles/garry-tan)'s markdown-as-org-primitive mapping reaches the same substrate from the operations side; this chain is the software-lifecycle instance, and the two agree on the load-bearing part (version-controlled plaintext as the thing agents execute) while differing on what sits at the top — skill files as employees vs artifacts as stage boundaries
+- [Engineer PM Convergence](/articles/engineer-pm-convergence) — the role consequence: the product owner reviews a spec they did not write and resolves flagged policy concerns, which is a reviewing-engineer's job description applied to a product role
+- [The PRD-Replacement Spectrum at AI-Native Speed](/articles/prd-replacement-spectrum-at-ai-native-speed) — where this sits on the spectrum: not PRD-deletion but PRD-decomposition into three smaller committed artifacts, each with a named accepter
+- [Is Human Review of AI-Authored Code Still a Real Control, or Already Rubber-Stamping?](/articles/human-review-real-control-or-rubber-stamp) — the compounding-corrector problem above
+
+## Open Questions
+
+- The chain's own indicators are the test of it, and Anthropic has the population to run it: across customers adopting these plays, does **rework after build starts** (`spec.md` commits dated after the first `plan.md` for the same change) actually fall, or does the earlier, cheaper artifact simply move where the churn lands? A falling intent→spec latency with flat rework would mean the chain sped up document production without improving decisions.
+- Does an artifact chain make review *deeper* or only *earlier*? [Faros](/articles/acceleration-whiplash) measured review time exploding and [Tran et al.](/articles/efficiency-debt-of-ai-generated-code) measured blocking threads at 1.92× human; the playbook predicts both fall once mechanical evidence arrives attached. Nothing yet measures a cohort with committed `plan.md` gates against one without on the same quality outcomes.
+- Which chain position degrades first under corrector fatigue? The design's compounding risk is that `spec.md` is generated from `intent.md` and the PR is checked against `plan.md`, so an unread early artifact becomes the standard later gates measure against — but no source in the corpus measures review attention *by artifact type*, only by diff.
+
+## Sources
+
+- [The AI-Native SDLC playbook | Claude by Anthropic](https://claude.com/blog/the-ai-native-sdlc-playbook) — Anthropic Applied AI team, claude.com blog, published **2026-08-21** (the ingested clipping's frontmatter records `published: 2000-08-21`, a clipper year-parse artifact; corrected here and in the ingest ledger), ~10.2k words. Contributions acknowledged to Jim Blackhurst, Will Steuk and Jamal Arif; no named byline. `vendor-claim` — a first-party playbook for the vendor's own products, with a practitioner-opinion component (Applied AI customer work). No measurement of any kind: every "How to measure it" block specifies an indicator to collect. Four diagrams in the source are captioned schematics of the stage/dependency structure described in the prose and carry no data
