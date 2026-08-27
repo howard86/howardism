@@ -3,6 +3,7 @@ import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import {
   extractInternalSlugs,
+  extractLinkOccurrences,
   extractRawSlugs,
   humanize,
   rewriteToMarkdown,
@@ -254,5 +255,60 @@ describe("titleFromSlug", () => {
     expect(titleFromSlug("claude-code-best-practices")).toBe(
       "Claude Code Best Practices"
     );
+  });
+});
+
+describe("code regions", () => {
+  const FENCED = [
+    "Prose links [[claude-code]].",
+    "```md",
+    "- [[raw/some-doc]] — how a source entry is written",
+    "[[fenced-concept]]",
+    "```",
+    "Trailing [[model-spec-midtraining]].",
+  ].join("\n");
+
+  it("leaves a wikilink inside an inline code span verbatim", () => {
+    const source = "articles cite `[[raw/...]]` documents";
+    expect(stripToText(source)).toBe(source);
+    expect(rewriteToMarkdown(source, () => "RESOLVED").body).toBe(source);
+  });
+
+  it("does not tokenize wikilinks inside code spans", () => {
+    expect(tokenizeWikilinks("the `[[raw/...]]` grammar")).toEqual([]);
+    expect(extractRawSlugs("the `[[raw/...]]` grammar")).toEqual([]);
+    expect(extractInternalSlugs("the `[[some-concept]]` grammar")).toEqual([]);
+  });
+
+  it("honours the backtick run length", () => {
+    expect(extractInternalSlugs("`` a ` b [[inside]] ``")).toEqual([]);
+    expect(extractInternalSlugs("`` a `` [[outside]]")).toEqual(["outside"]);
+  });
+
+  it("does not let an unclosed backtick swallow the rest of the line", () => {
+    expect(extractInternalSlugs("stray ` tick [[still-a-link]]")).toEqual([
+      "still-a-link",
+    ]);
+  });
+
+  it("skips fenced blocks but keeps the prose around them", () => {
+    expect(extractInternalSlugs(FENCED)).toEqual([
+      "claude-code",
+      "model-spec-midtraining",
+    ]);
+    expect(extractRawSlugs(FENCED)).toEqual([]);
+    expect(extractLinkOccurrences(FENCED).map((o) => o.slug)).toEqual([
+      "claude-code",
+      "model-spec-midtraining",
+    ]);
+  });
+
+  it("keeps fenced content byte-identical through rewriteToMarkdown", () => {
+    const { body } = rewriteToMarkdown(FENCED, () => "X");
+    expect(body).toContain(
+      "- [[raw/some-doc]] — how a source entry is written"
+    );
+    expect(body).toContain("[[fenced-concept]]");
+    expect(body.startsWith("Prose links X.")).toBe(true);
   });
 });
