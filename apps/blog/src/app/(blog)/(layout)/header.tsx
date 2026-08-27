@@ -18,6 +18,7 @@ import { Container } from "@/app/(common)/container";
 import { useArticleNav } from "@/components/article-nav-context";
 import { ArticleFind } from "@/components/find/article-find";
 import { ReadingProgress } from "@/components/howardism/reading-progress";
+import { ReviewBadge } from "@/components/review-badge";
 import { SearchTrigger } from "@/components/search/search-trigger";
 import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
@@ -199,6 +200,7 @@ export function SiteBar() {
             </>
           )}
 
+          <ReviewBadge />
           <SearchTrigger />
           <ThemeToggle />
           <MobileNav />
