@@ -1,0 +1,136 @@
+---
+date: 2026-08-27
+title: Skill Lift
+description: "NVIDIA SkillEvaluator's with/without-skill ablation turned into a
+  publication gate: three pre-publication tiers (safety-and-structure scanning,
+  catalog distinctiveness, live sandboxed A/B), a per-skill delta in rubric
+  points reported alongside the artifact, and a first at-scale benchmark — 300+
+  verified skills × 30+ products × 2 harnesses, +41 Correctness and +39
+  Effectiveness, +34 (Claude Code) vs +29 (Codex), per-product spread +2 to +46,
+  token cost moving in both directions (-76.9% and +120.3% on two single-attempt
+  examples). The measurement's load-bearing weakness is that the eval set is
+  generated from the skill under test"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - agent-skills
+  - ablation
+  - benchmarks
+  - nvidia
+  - vendor-claim
+readingTime: 15
+imageAlt: Illustration for Skill Lift
+sources:
+  - title: Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator
+    url: https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/
+---
+export { default as heroImage } from "../assets/skill-lift.webp";
+
+## Sources
+
+- [Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator](https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/)
+
+## Summary
+
+**Skill Lift** is the with-skill score minus the without-skill score for a single agent skill, measured in points on a 0–100 rubric, computed once per skill per agent harness and macro-averaged across skill–harness pairs. It comes from **NVIDIA SkillEvaluator** (open source, August 2026), the first tool in this corpus that treats an *individual context artifact* as the unit under test, runs a controlled ablation on it, and publishes the delta next to the artifact in the registry that distributes it.
+
+The structural claim is more interesting than the numbers: measurement moves from post-hoc research to a **precondition of distribution**. NVIDIA's phrasing — "the verified part is the measurement that determines it is ready" — makes a per-skill benchmark run the thing a `verified` badge means. Skills are packaged, signed capability descriptors for NVIDIA products; each passes three evaluation tiers before publication, and the results ship as `benchmarks.json` in the `nvidia/skills` repository.
+
+This is the vendor-side counterpart to [Agent Context Files](/articles/agent-context-files)'s bounded null. Khatri's ablation found that *generic convention context on repositories the agent can already read* moves correctness ~0; SkillEvaluator reports +41 points of correctness for *task-specific product knowledge the agent probably cannot infer*. That is the direction that page's standing open question predicts — and the methodology here cannot settle it, for reasons the "What the design controls" section below sets out.
+
+> **Evidence note.** `vendor-claim`, assigned at compile — the raw carried no `evidence:` field. Every number is NVIDIA measuring NVIDIA's own skills against evaluation sets generated from those skills, with a grading procedure the post never names. The methodology is disclosed unusually well for a vendor post (attempt counts, macro-average definition, a pinned snapshot commit, an explicit "we do not report confidence intervals"), which is what makes the specific weaknesses legible rather than hidden. Treat the *shape* of the finding as informative and the magnitudes as unreplicated.
+
+## The three-tier gate
+
+Each tier answers a different question and can run on its own:
+
+1. **Tier 1 — safety and structure.** Static checks: schema and frontmatter validation, quality scoring, security scanning for prompt injection and data exfiltration, secret and PII detection, license checks, script linting. No agent runs. This is [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) mitigation applied to the skill artifact rather than to the model or the MCP server.
+2. **Tier 2 — distinctiveness.** Embedding similarity used twice: to find duplicated guidance *inside* one skill, and overlapping coverage *across the catalog*. The stated rationale is attention competition — "every skill in an environment competes for the agent's attention, and a skill that loads when it is not relevant can reduce agent performance." Catalog hygiene as a measured property, not a style preference.
+3. **Tier 3 — live evaluation.** The ablation. Built on **Harbor** (open-source, `harbor-framework/harbor`) for repeatable isolated agent evaluations; SkillEvaluator converts eval cases into a Harbor task bundle, runs each case twice in separate sandboxes — identical prompt, model, task inputs, and grading criteria, differing only in whether the skill is installed — grades both, and reports the difference.
+
+The workflow is two commands: `skillevaluator create-eval-dataset./my-skill --full` generates `evals/evals.json` (explicit, implicit, contextual, and negative cases, each with an ID, prompt, expected output, and optional assertions), then `skillevaluator tier3 evaluate./my-skill --agents codex --env-mode docker` runs the comparison.
+
+## The benchmark
+
+All figures from the **August 12, 2026 snapshot** of `benchmarks.json` at commit `738d79e` — 300+ verified skills across 30+ NVIDIA products, evaluated on [Claude Code](/articles/claude-code) and [Codex](/articles/codex), macro-averaged so every skill–harness pair carries equal weight.
+
+| Dimension | What it measures | Without skill | With skill | Skill Lift |
+|---|---|---|---|---|
+| Correctness | Is the final answer correct? | 46 | 87 | **+41** |
+| Discoverability | Does the right skill load when relevant, and stay unloaded when not? | 42 | 82 | +40 |
+| Effectiveness | Did the agent reach the goal and follow the expected workflow? | 39 | 78 | **+39** |
+| Efficiency | Did it get there without wasted steps or redundant tool calls? | 43 | 78 | +35 |
+| Security | Does the run avoid unsafe operations, secret leakage, unauthorized access? | 97 | 98 | +1 |
+| *All dimensions* | | | | *+31* |
+| *Excluding Security* | | | | *+39* |
+
+By harness: **Claude Code +34** across all dimensions (**+42** excluding Security), **Codex +29** (**+36**). The two harnesses differ by ~5 points, which NVIDIA attributes to different default system prompts, context handling, and tool-calling implementations.
+
+Three readings the post itself supplies, and which the numbers do not support on their own:
+
+- **Only Correctness, Effectiveness, and Security are outcome measures** comparable across both arms. Discoverability and Efficiency partly score *how the skill is used* — actions that are unavailable when the skill is absent. The baselines land at 42 and 43 rather than 0 because the without-skill arm still earns credit for productive tool use, clean execution, and correctly leaving the skill unloaded on unrelated tasks. So of the +31 headline, two of five contributors are not lift in the ordinary sense; NVIDIA says to read them as evidence that the skill activates and is used correctly once installed.
+- **Security's +1 is a regression check, not a gain.** The 97 baseline means the objective was to verify that installing a skill introduces no security regression.
+- **Scores are not pass probabilities.** 46 → 87 on Correctness is a higher average rubric score on the evaluated specialized tasks, not a 41-point pass-rate jump.
+
+### Statistical hygiene
+
+**85% of published skills ran one attempt per task; 15% ran two.** No confidence intervals are reported anywhere. Live agent runs vary between runs, so **individual skill scores are noise-dominated** and only the catalog-wide averages (aggregating thousands of trials) are defensible readouts. The post says all of this in plain language — a disclosure standard [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) would like more vendors to meet — but the consequence stands: no per-skill number in `benchmarks.json` should be treated as an estimate with a known error bar, which is awkward given the per-skill numbers are the ones surfaced to adopters in a marketplace UI.
+
+## What the design controls, and what it doesn't
+
+Within a harness, the ablation is clean: same prompt, same model, same inputs, same grader, separate sandboxes, one variable. That is a real controlled comparison and better than most vendor benchmarking.
+
+**What it does not control is where the tasks come from.** `create-eval-dataset./my-skill` generates the evaluation set *from the skill under test*. The skill's own content therefore fixes the task distribution and the expected outputs, and the without-skill arm is graded on an exam derived from the answer key of the arm it is being compared against. For the question NVIDIA is actually asking — *does this skill make an agent better at the job this skill claims to cover?* — that is defensible and arguably the only tractable design. For the question a reader will take away — *do skills make agents better?* — it is not, because a skill that describes an idiosyncratic workflow will generate tasks only it can satisfy, and score high for that reason alone. NVIDIA's own first key finding says as much from the friendly direction: "a skill can only be measured as precisely as its evaluation set describes the job." The measurement is a self-consistency check on the artifact, upgraded to a distribution gate.
+
+The same circularity shows up inside the harness comparison. NVIDIA reports that **per-product Skill Lift ranges from roughly +2 to +46 while the two harnesses differ by ~5 points**, and concludes "the product matters more than the agent — the domain, the task, and the evaluation design mattered more than the harness." True, and note the last clause: the evaluation design varies *with the product*, because each product's eval set is generated from its own skill. So a large part of "the product matters more" is "the eval set matters more," which is the circularity restated as a finding.
+
+**The grader is never named.** Rubric dimensions phrased as "did the agent reach the user's goal and follow the expected workflow" and scored 0–100 imply an LLM judge, but the post reports no judge model, no human-agreement check, no chance-corrected agreement, and no position-bias audit. [LLM-Judge Validation](/articles/llm-judge-validation)'s central result is that unvalidated judges routinely overstate reliability by 33–41pp on chance correction alone; a 41-point delta measured by an unvalidated judge is a 41-point delta of unknown provenance. This is the largest single gap in the published methodology.
+
+## Token savings are not automatic
+
+The most useful empirical detail in the post, because it is the one that goes against the vendor's own interest. SkillEvaluator tracks token usage **separately from** the Efficiency rubric, and two single-attempt examples run in opposite directions:
+
+| Skill | Tokens | Wall clock |
+|---|---|---|
+| `jetson-optimize-memory` | 617,306 → 142,540 (**−76.9%**) | 474.9s → 220.0s (−53.7%) |
+| `cuopt-install` | 25,227 → 55,582 (**+120.3%**) | 34.0s → 41.1s (+20.8%) |
+
+A skill can more than double the token cost of the task it was written to help with. NVIDIA files this as "identifying an opportunity for further optimization," which is the right response, but the general point is stronger: **installing a context artifact has a sign-indeterminate effect on cost, and you find out which sign by measuring.**
+
+This is a direct tension with [Agent Context Files](/articles/agent-context-files)'s Khatri result, which is worth keeping rather than averaging. Khatri found the *only* effects that survived a correctness null were on cost and latency — a significant cache-creation reduction under selective retrieval, and a ~24% wall-clock drop driven dose-dependently by a runtime warning in the file. That is the one place the context-file literature had a reliable win. SkillEvaluator says the sign of that win is not guaranteed even for purpose-built skills. Both are weakly powered on this axis (Khatri: exploratory, n=5, one repo, one agent; NVIDIA: two single-attempt anecdotes), so the honest reading is that **nobody has measured context-artifact token cost with enough power to state a sign**, and two independent efforts have now produced results pointing opposite ways.
+
+## Where the measurement is being distributed
+
+Two pilots put eval output at the point of adoption rather than in a paper:
+
+- **[ClawHub](/articles/openclaw)** is piloting SkillEvaluator for official organizations: Tier 3 runs, with with-skill and without-skill results shown in an **Evals tab** so developers see the evaluation signal where they discover and install skills. A nutrition label on a marketplace listing.
+- **Nous Research's [Hermes Agent](/articles/hermes-agent)** tested it as an **optional advisory scan at install time** — SkillSpector (`NVIDIA/SkillSpector`) checks for PII, Unicode smuggling, script-lint issues, license problems and security findings, surfacing file-line results *before* installation. 29 passing tests; ~1.4–1.5 seconds per skill scan.
+
+The Hermes integration is the notable one for [Agent Supply Chain Risk](/articles/agent-supply-chain-risk): it is the first case in this corpus of a skill registry running static analysis inside the install flow, at a per-scan cost cheap enough to be unconditional. It is advisory rather than blocking, and it is scanning artifacts that are, by NVIDIA's description, already *signed* capability descriptors — signature plus content scan is the posture that page asks for from MCP and does not get.
+
+NVIDIA publishes the skills as plugins for [Claude Code](/articles/claude-code), [Codex](/articles/codex) and Cursor, and through Skills.sh, ClawHub, and Hermes Hub — the same artifact distributed across six channels, which is [Agentic Work Systematization](/articles/agentic-work-systematization)'s cross-vendor distribution observation with a measurement layer bolted on.
+
+## Connections
+
+- [Agent Context Files](/articles/agent-context-files) — the counterpart experiment and the reason this page matters. Khatri's controlled two-agent ablation finds a **bounded null on correctness** for naturalistic convention-and-style context on repositories the agent can read in full, with the surviving effects on cache and wall clock; SkillEvaluator reports **+41 correctness** for task-specific proprietary product context. The artifact classes are different in exactly the way that page's open question isolates — inferable vs not-inferable context — so the direction is confirmatory and the magnitude is not usable, since NVIDIA's tasks are generated from the skill and Khatri's come from merged PRs with a hidden gold-test oracle
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — the adoption curve; this is the efficacy measurement that curve never had. Codex telemetry shows skill use rising 5.4%→26.6% of weekly-active users and 53% of reused skills never modified; Skill Lift is the missing second axis, and the two together frame the real question: adoption is measured, quality is now measurable, and the maintenance discipline that connects them is still the gap
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — Tier 1 and SkillSpector are supply-chain scanning moved onto the skill artifact: signed descriptors, prompt-injection and exfiltration scans, secret/PII detection, license checks, script linting, and a ~1.4s advisory scan wired into a third-party install flow
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — rung 3 of the customization ladder (skills and plugins) acquires an instrument. The ladder's argument is to customize at the highest layer that works; Skill Lift is how you find out whether rung 3 worked before descending to rung 4
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the unaddressed dependency. Five 0–100 rubric dimensions with no named grader, no agreement statistics, and no bias audit; every headline number inherits whatever reliability that judge has
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the opposite sourcing choice, and the sharper contrast in the corpus. DRACO draws tasks from real production traffic *independent of* the system being scored; SkillEvaluator generates tasks from the artifact being scored. Representativeness versus perfect topical alignment, with the failure modes exactly mirrored
+- [Evals as Product Spec](/articles/evals-as-product-spec) — the same idea one step further along: here the eval set *is* generated from the spec, so the spec's own precision becomes the ceiling on measurement precision, which is NVIDIA's first key finding stated as a design constraint
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the disclosure standard this post partly meets (pinned snapshot commit, stated attempt counts, explicit no-CI caveat) and partly misses (no cost or effort budget per arm, and the with-skill arm demonstrably spends different token counts than the without-skill arm)
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — the adjacent failure mode this design leaves open: when the exam is generated from the artifact under test, high scores are consistent with the artifact having specified an easy exam, and nothing in Tier 3 distinguishes the two
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — the durability question. A skill supplying proprietary API facts should hold its lift as models improve; one supplying workflow scaffolding should erode. `benchmarks.json` is re-run continuously, so this is one of the few places in the corpus where shrinkage is directly observable over time
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — measurement as a gate on distribution rather than a report after it; the skill registry version of shifting verification left
+
+## Open Questions
+
+- Does Skill Lift survive an evaluation set the skill's author did not generate? The discriminating experiment is cheap and entirely within NVIDIA's reach: build a held-out task set from *product documentation* independently of the skill, re-run the same Tier 3 ablation, and publish both numbers. If the lift collapses, `benchmarks.json` measures skill–eval agreement rather than agent capability.
+- Who or what grades the five dimensions, and has that grader been validated? Nothing in the post names the judge model or reports agreement statistics; [LLM-Judge Validation](/articles/llm-judge-validation)'s Minimum Viable Validation Protocol is the bar. Falsifiable by NVIDIA publishing the grading configuration alongside `benchmarks.json`.
+- Does per-skill lift decay as models improve? The catalog is re-evaluated continuously against a pinned-commit history, so a second snapshot on a newer model generation would show whether skills supplying not-inferable product facts hold their lift while workflow-scaffolding skills erode — the first direct measurement of [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) on context artifacts. Trigger: a `benchmarks.json` snapshot on a subsequent frontier model release.
+
+## Sources
+
+- [Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator](https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/) — Michelle Horton, NVIDIA Technical Blog, 2026-08-20, ~1.8k words. `vendor-claim` (assigned at compile; raw untagged). All figures from the 2026-08-12 `benchmarks.json` snapshot at commit `738d79e` in `NVIDIA/skills`. HTML-derived, not PDF — `_system/pdf-table-parsing.md` does not apply; the three tables are clean markdown and internally reconcile (the reported +31 and +39 averages match the per-dimension lifts, and the two harness rows average to them)

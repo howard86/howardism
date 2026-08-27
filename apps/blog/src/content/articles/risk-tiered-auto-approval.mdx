@@ -13,7 +13,7 @@ tags:
   - code-review
   - agent-engineering
   - developer-workflow
-readingTime: 24
+readingTime: 27
 imageAlt: Illustration for Risk-Tiered Auto-Approval
 sources:
   - title: Stop being the code review bottleneck
@@ -114,6 +114,22 @@ Two consequences for this gate stack, pointing opposite ways.
 
 Note that this measures the same open-source agentic-PR population as the security study, has the same missing piece (**no human-authored baseline**), and does not stratify coverage by PR size — so it cannot say whether small diffs, the ones StampHog actually auto-approves, are better or worse covered than the corpus average.
 
+## Tiering on the anomaly instead of the diff: control bands (Anthropic, August 2026)
+
+Every gate above tiers on a property of the *change*. [Anthropic](/articles/anthropic)'s Applied AI *AI-Native SDLC playbook* (`vendor-claim`, 2026-08-21) proposes the same ladder keyed to a property of **production**, for work the agent originates rather than work a human handed it. A version-controlled `bands.yaml` sets response tiers against a rolling baseline on one metric with a stable distribution (CI test failure rate, post-deploy 5xx rate, PR cycle time):
+
+- **1σ** — log only.
+- **2σ** — invoke Claude **read-only** to diagnose, with the tools enumerated in the config (`Read,Grep,Bash(gh run view *)`).
+- **3σ** — Claude may **act**, but only through two pre-approved routes: open a PR into the existing review gate, or trigger a runbook approved in advance.
+
+Three design choices are worth carrying across to a merge gate, and all three are this page's own principles restated:
+
+- **The detector is not a model.** *"Detection stays entirely deterministic, with no model involved"* — a unit-tested, version-controlled script using rolling mean/σ with Western Electric-style rules to catch drift as well as spikes. The model is invoked *by* the gate; it is never the gate. Identical to demoting the LLM to a last-position veto here, and to the [deterministic-first ordering](/articles/deterministic-pre-execution-gates) at the tool boundary.
+- **The tier sets the action space, not the confidence threshold.** Rising severity buys the agent *more permitted routes*, not more autonomy within a route; even at 3σ the output is a PR that a code owner still approves. This is the same one-directional authority as the veto — escalation is routing, not unblocking.
+- **Dismissals tune the bands.** Triage outcomes feed back into the thresholds, which is the calibration discipline the deny-list here lacks.
+
+What it shares with StampHog is the evidence gap, and worse: the playbook reports no deployment at all, so the tier boundaries have no observed false-positive rate, no noise budget, and no figure for how often a 2σ diagnosis is worth its token cost. σ-tiering also imports an assumption a deny-list does not — that the metric's baseline is stationary — and this page's own moving-distribution problem (a size ceiling decaying as ambient PR size rises) is the direct analogue: a rolling 30-day baseline absorbs a slow regression rather than firing on it, which is exactly the drift the Western Electric rules are added to catch and exactly where they are hardest to tune.
+
 **And the case study reports volume, not safety.** 1 in 3 and 1.6K are throughput figures. [P8/P9](/articles/review-as-the-control-point) is exactly this split — automated review reliably buys throughput and latency, its effect on quality and security is contested — and StampHog is a large deployed instance of the contested half with nothing measured attached to it. What would settle it is cheap and absent: the escaped-defect or incident rate of auto-approved PRs against the human-stamped baseline the channel used to produce.
 
 ## Connections
@@ -127,6 +143,7 @@ Note that this measures the same open-source agentic-PR population as the securi
 - [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — **the rival gate predicate, measured** (see the section above): existing tests execute 61.5% of agents' changed lines in Java and 27.0% in Python, and reach nothing at all in 64.8% of Python PRs — so "the tests passed" is not the reassurance the gate stack implicitly leans on. It is also the one candidate predicate that is *computable from the diff*, which makes it eligible for the deterministic tier where a keyword deny-list is a guess and the LLM check is a judgment
 - [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates) — the same deterministic-first ordering at the tool-call boundary, and the complement to this page's evidence gap. Two differences decide how they compose. StampHog's gates are *proxies* — a keyword deny-list and a line count stand in for "would a mistake here be expensive" — where a policy gate decides the actual question it was written for, which is why gate precision there is auditable (100% over 161 fires for one gate, 5% for another) and deny-list coverage here is not. And the reporting is mirrored: this case study measures volume and never efficacy, that paper measures efficacy (+12.4pp, replicated on disjoint seeds) and has no deployment. The transferable rule both support is the ordering, not either config
 - [Claude Code Auto Mode](/articles/claude-code-auto-mode) — the same classifier-gated-autonomy shape one layer down (per-tool-call rather than per-merge), with the same one-directional authority: the model may block, never unblock. The difference is what carries the decision — auto-mode's classifier *is* the gate, where here three deterministic checks gate and the model only vetoes
+- [The Committed-Artifact Chain](/articles/committed-artifact-chain) — the process this gate would sit inside, and the source of the control-band variant above. The playbook needs tiering at **three** gates (accept the spec, accept the plan, merge the PR) and specifies it at none of them — it says only that "anything the organization classes as higher risk" routes to a tech lead — so StampHog is the calibrated instance of a lever that playbook leaves as an exercise. The chain also supplies a predicate this page does not have: a committed `plan.md` makes "the diff still matches what was approved" computable, which is a fact about the change in the same class as diff coverage
 - [Acceleration Whiplash](/articles/acceleration-whiplash) — the lever against the review-time explosion (median time-in-PR-review +441.5%), and the mechanism by which review coverage can *rise* while human review-hours fall; but Faros's thesis is that the fix belongs in authoring, and a merge gate is downstream of that
 - [AI Brain Fry](/articles/ai-brain-fry) — the interruption side: what the gate removes is 1.6K context switches by engineers approving changes "they had little to no context on," and escalation-with-routing is the "concentrate review on high-stakes decision points" mitigation mechanized
 - [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the same source's reviewer-panel pattern applies the rule with an explicit independence spec: the agent that wrote the code can't review it, and reviewers should span different instructions, models, *and providers*
@@ -138,6 +155,7 @@ Note that this measures the same open-source agentic-PR population as the securi
 - [Write-Then-Trusted](/articles/write-then-trusted) — the **deny-list critique's second instance, one layer down**: Pillar Security's verdict on allow-by-default sandbox profiles — "not a sandbox, it's a list of things somebody remembered to block that's always one entry short" — is the OS-policy version of this page's measured gap, where a blast-radius keyword deny-list misses the CI/container files carrying 87.6% of [measured security debt](/articles/security-debt-of-agent-generated-code). Two independent enumerate-the-bad controls, each falling short in the direction its author could not anticipate; the open question below ("does extending the deny-list restore coverage?") has the same shape in both
 
 - [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) — the same deterministic-before-model ordering at a smaller join. OpenCodeReview's comment-anchoring step tries two cheap deterministic matches (the cited snippet against the diff's new-side hunks, then against the full file) before ever falling back to an LLM relocation call — the same model-only-after-the-cheap-checks-fail shape this page's gate stack and showstopper veto share, applied to where a comment attaches rather than whether a PR merges
+- [AI-Assisted Error Analysis](/articles/ai-assisted-error-analysis) — the same consequence-tiering logic applied to eval investment rather than merge autonomy: a uniform accuracy bar across every AI feature is the mistake, and the bar gets set by reasoning through worst-case user outcomes up front (with an assistant enumerating them for a human to judge), then working backwards into which evals and guardrails to build
 
 ## Derived
 

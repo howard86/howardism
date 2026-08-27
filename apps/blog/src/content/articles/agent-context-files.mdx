@@ -14,7 +14,7 @@ tags:
   - harness
   - workflow-design
   - control-plane
-readingTime: 60
+readingTime: 66
 imageAlt: Illustration for Agent Context Files
 sources:
   - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
@@ -158,6 +158,45 @@ Everything above argues about *how* to write and inject a context file. [Khatri 
 **Why the prior literature disagreed.** The page's own framing has been that context files obviously help and the argument is about delivery. Two 2026 studies actually disagreed on the premise — Lulla et al. (arXiv 2601.20404, Codex-family) report efficiency gains; Gloaguen et al. (arXiv 2602.11988, Claude-family) find no completion effect. Khatri's candidate reconciliation is methodological and generalizes past this topic: **the borderline band is agent-specific.** Across the 15 shared tasks, per-task pass rates correlate ρ=0.75 — difficulty transfers, the *informative* band does not. Six of 15 are borderline for exactly one agent; for ~40% of tasks the agent that could reveal an effect is not the agent being tested. Any single-agent ablation therefore draws its tasks from one agent's informative range and generalizes off it. (A second portability lesson, cheaply reusable: the study's effort classifier split on turn count and silently marked *every* Codex task trivial, because Codex emits exactly one `turn.completed` event per session regardless of work done. Eight genuinely high-effort tasks were dropped until reclassification on tool calls recovered them — turn-based metrics are not portable across agent architectures.)
 
 **How much of this page it touches.** Less than the headline suggests, and the limits are the author's own. Three Python repos; naturalistic style-guide-type context, not purpose-built task-specific facts; ALWAYS ON injects via system prompt every turn, which is *stronger* than the natural workflow, so the argument that natural discovery cannot beat guaranteed presence is an inference rather than a measurement; SELECTIVE's corpus is content-matched to the `AGENTS.md` for only one of three repos (for the other two it is a 10×/18× larger auto-generated wiki — which strengthens the correctness null and muddies the cache attribution); and everything is pinned to two model versions. The claim this page should carry is the narrow one: **for generic convention-and-style context on repositories the agent can already read, the correctness return is bounded near zero, and the return that exists is on cost and latency.** Whether context the agent *provably cannot infer* helps is untested and is the obvious next experiment.
+
+## The other arm, run by a vendor on its own catalog (NVIDIA, August 2026)
+
+Khatri's null closes with the discriminating experiment he did not run: does context the agent
+**provably cannot infer** move correctness, where generic convention context does not?
+[NVIDIA SkillEvaluator](/articles/skill-lift) ([Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator](https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/),
+2026-08-20, `vendor-claim`) is that arm — the same with/without ablation, pointed at task-specific
+proprietary product knowledge instead of naturalistic style guides — and it reports the opposite
+sign at large magnitude: **+41 points of Correctness and +39 of Effectiveness**, macro-averaged
+across 300+ verified skills for 30+ NVIDIA products on two harnesses (Claude Code +34 all-dimensions,
+Codex +29).
+
+**Why this does not settle the question.** The eval set is generated *from the skill under test*
+(`skillevaluator create-eval-dataset./my-skill`), so the artifact fixes both the task distribution
+and the expected outputs, and the without-skill arm is graded on an exam derived from the other arm's
+answer key. Add: no confidence intervals, 85% of skills run at a single attempt, an unnamed grader,
+and NVIDIA scoring NVIDIA's own catalog. Khatri's design has the properties this one lacks — merged-PR
+tasks with a hidden gold-test oracle, an egress-locked pod, pre-registered probes — and reaches a null
+it is careful to call *bounded*. The two are not directly comparable, and the honest position is that
+the not-inferable arm now has a **result pointing the predicted direction from a methodology that
+cannot rule out the skill having written its own exam**.
+
+**One genuine cross-source tension, worth keeping rather than averaging.** The one effect that
+survived Khatri's correctness null was on *cost* — a significant cache-creation reduction under
+SELECTIVE, and a ~24% wall-clock drop driven dose-dependently by a runtime warning in the file.
+SkillEvaluator's token accounting says that effect's **sign is not guaranteed**: `jetson-optimize-memory`
+cut tokens 617,306 → 142,540 (−76.9%) and wall clock −53.7%, while `cuopt-install` *raised* them
+25,227 → 55,582 (+120.3%) and wall clock +20.8%. Both measurements are weak (Khatri: exploratory,
+n=5, one repo, one agent; NVIDIA: two single-attempt examples), so the reconciliation is not that one
+is wrong — it is that **nobody has measured context-artifact token cost with enough power to state a
+sign**, and the two efforts that tried point opposite ways.
+
+**What NVIDIA adds that this page had no instrument for:** catalog-level crowding as a *measured*
+property. Tier 2 of its pipeline runs embedding similarity across the whole catalog to find
+overlapping coverage, on the stated rationale that "every skill in an environment competes for the
+agent's attention, and a skill that loads when it is not relevant can reduce agent performance" —
+and Discoverability is scored partly on the skill correctly staying *unloaded* on irrelevant tasks.
+That is this page's fifth open question treated as a live failure mode by a vendor shipping 300+
+skills, though still without the curve the question asks for.
 
 ## The architectural objection: a retrieved skill is still executed by the generalist (August 2026)
 
@@ -332,12 +371,25 @@ Three things follow for this page.
 
 One harness detail worth carrying beyond the finding: the study's authors had to **reconstruct a fully interactive prompt** because Claude Code's non-interactive binary *omits some injected clues, including the e-mail address*. An interactive session and a headless one therefore do not put the same identity information in context — which matters for anyone who evaluates through `-p` and ships through the TUI.
 
+## Maintenance disciplines, from the vendor that ships the file (August 2026)
+
+The page above is strong on what context files *are* and weak on the boring question of who keeps them true. [Anthropic](/articles/anthropic)'s Applied AI *AI-Native SDLC playbook* (`vendor-claim`, 2026-08-21) is the first source in the corpus to write the upkeep loop down as procedure. Four rules, none novel individually, all load-bearing together:
+
+- **Generate, then cut.** Run `/init`, then reduce the output *"to what a new joiner would need on day one"* — build/test/lint commands, the conventions that matter, and the things Claude keeps getting wrong. The initial artifact is treated as a draft, not a deliverable.
+- **Keep it under a page**, for the budget reason this page argues from the loading-discipline side: Claude reads all of it at session start, so *"anything stale is taking up context for no benefit."* This is the same conclusion the budget-aware-injection section reaches, arrived at without instrumentation.
+- **The mistake-twice rule.** *"When Claude makes a mistake twice, the correction goes into `CLAUDE.md`."* A threshold, not a habit — which is what stops the file growing by one line per annoyance.
+- **Review is the write path.** Findings feed back into the file as part of PR review: when a review flags the same mistake a second time the correction lands in `CLAUDE.md` in that review, and because the reviewer also reads `CLAUDE.md`, the mistake is caught from the next PR onward. Review is also charged with flagging when a change has made the file **outdated**, which is the only mechanism in the corpus that attacks staleness rather than accretion.
+
+The playbook also states the **skill-versus-context-file boundary** more crisply than any source here: *"write a skill for institutional knowledge that must be applied consistently; don't write a skill for components that belong in `CLAUDE.md` or a prompt."* The discriminator is whether the knowledge has a named policy owner and a source of truth outside the repo — a security standard, an API convention, a brand rule — with the skill authored from that owner's document, re-signed by them on change, and distributed either in-repo at `.claude/skills/<name>/` or organization-wide through a plugin marketplace. Two operational details follow that this page has not carried: **test that the skill triggers** by asking for the task in several different phrasings and confirming it loads each time (the frontmatter-description problem, treated as testable), and a skill is an *advisory* control that needs a hook behind it wherever the policy must always hold (see [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)).
+
+The sharpest contribution is a **drift instrument**, and it is falsifiable: PR review findings that cite a given policy should fall toward zero once a skill applies that policy at authoring time, and *"where the findings don't fall towards zero, either the skill isn't triggering or its text has drifted from the official policy."* That is a cheap, continuous test of whether a context artifact is still connected to the thing it encodes — exactly what the corpus's measured null on generic style-guide content lacks. It is unrun: the playbook reports no findings counts, and every claim in this section is prescription. See [Evals as Product Spec](/articles/evals-as-product-spec) for the same configuration treated as a regression-test surface, and [The Committed-Artifact Chain](/articles/committed-artifact-chain) for the SDLC these files sit inside.
+
 ## Open Questions
 
 - Will the role split converge on Hermes's explicit project/personality separation, or stay folded into a single file as in Claude Code? A separate `SOUL.md`-style personality layer seems strictly better for multi-project users but adds a file to maintain.
 - Is there a natural ceiling on the layering (project → workflow → spec → constitution), or does each new autonomy surface spawn another context-file tier?
 - Does the universal system-prompt slot cost anything? Every vendor on this page injects context files into the system prompt, and the only controlled measurement of that choice ([Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)) finds placement is a *larger* lever than format with a model-specific sign — helping two models, hurting two. Falsifiable cheaply: render the same `CLAUDE.md` / `AGENTS.md` into the first user turn instead and measure adherence per model. *(Genkit's skills middleware is a fourth vendor making the same choice — frontmatter metadata injected into the system prompt at init — which widens the premise without touching the question.)*
-- Does context the agent **provably cannot infer** move correctness, where generic convention context does not? [Khatri's](https://arxiv.org/pdf/2607.27250) null is scoped to naturalistic style-guide content on repositories the agent can read in full, and his failure triage says the gating deficit is implementation skill. The discriminating experiment is his own stated gap: rerun the ablation with purpose-built, task-specific context encoding a fact absent from the codebase (an undocumented external API contract, a deployment invariant, a "this test is flaky for reason X" note) and see whether near-misses flip. If they don't, the practitioner implication hardens from "generic files don't pay" to "context files don't pay for correctness at all."
+- Does context the agent **provably cannot infer** move correctness, where generic convention context does not? [Khatri's](https://arxiv.org/pdf/2607.27250) null is scoped to naturalistic style-guide content on repositories the agent can read in full, and his failure triage says the gating deficit is implementation skill. The discriminating experiment is his own stated gap: rerun the ablation with purpose-built, task-specific context encoding a fact absent from the codebase (an undocumented external API contract, a deployment invariant, a "this test is flaky for reason X" note) and see whether near-misses flip. If they don't, the practitioner implication hardens from "generic files don't pay" to "context files don't pay for correctness at all." **Partially answered:** [NVIDIA SkillEvaluator](/articles/skill-lift) runs that arm on proprietary product knowledge and reports +41 Correctness / +39 Effectiveness across 300+ skills — the predicted direction, from a design whose eval set is generated from the skill under test, with no confidence intervals and an unnamed grader, so it moves the prior without closing the question. The version that would close it is an independently-sourced task set.
 - Metadata-injection discovery relocates the instruction-count ceiling onto the **skill catalog** rather than removing it: every installed skill's description is resident from initialization, so a large enough `skills/` directory should floor adherence before any skill body loads. How many resident descriptions does that take, and does `use_skill` selection degrade before or after all-rules compliance does? Falsifiable with [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)'s harness pointed at N skill frontmatters instead of N rules.
 
 ## Resolved Questions
@@ -346,6 +398,7 @@ One harness detail worth carrying beyond the finding: the study's authors had to
 
 ## Connections
 
+- [Skill Lift](/articles/skill-lift) — the other arm of the ablation this page's correctness null defines: same with/without design, pointed at not-inferable proprietary product context, reporting +41 Correctness where Khatri finds ~0 for convention-and-style context. Also the only source here that treats catalog-level crowding as a measured property, and the one that says context-artifact token cost is sign-indeterminate
 - [AI R&D Autonomy Evaluation (AECI)](/articles/ai-rd-autonomy-evaluation) — the limit case for context files as a correction mechanism: Anthropic reports these failure patterns recurring *"even when the relevant correction is present in memory files or has just been given by the user"*
 
 - [User Awareness](/articles/user-awareness) — the measurement of a channel this page describes but never treated as one: an account e-mail, a folder name and a `MEMORY.md` shift a model's confidence, suspicion, substantive helpfulness and grading severity on tasks whose answers do not depend on the asker, across 280 identities and 24 models. The complement to the correctness null above — the file's claims about the *repository* move nothing measurable, its claims about the *user* move behaviour

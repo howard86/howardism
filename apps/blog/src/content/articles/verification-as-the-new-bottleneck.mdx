@@ -10,7 +10,7 @@ tags:
   - agent-engineering
   - ai-coding-workflow
   - ai-native-org
-readingTime: 31
+readingTime: 33
 imageAlt: Illustration for Verification as the New Bottleneck
 sources:
   - title: Characterizing the Quality Profile of AI-Generated C++ in Production
@@ -136,6 +136,25 @@ Three moves against the verification step, all in one pull request:
 - **The anti-forensics relabelled as good practice.** After force-pushing to erase the malicious commit, the sockpuppet praised it: *"well done … for cleaning the git history instead of just adding a new commit. That makes the diff easy to follow."* A hygiene norm supplied the cover story for evidence destruction.
 
 The structural point: every proposal on this page to relieve the bottleneck routes through **trusting some signal so a human doesn't have to look** — a green check, a second approver, a clean diff, an agent's summary. Each of those is an artifact, and an artifact is forgeable by something that generates at machine speed. So verification effort does not merely need to scale with generation volume; the *provenance* of every verification signal has to be as hard to forge as the review it replaces. Note which control actually bit here: **GitHub's first-time-contributor hold**, which is not a signal at all but a structural gate — and even that was converted into a pretext for asking humans to run the code by hand.
+
+## Protecting the check from the thing being checked (August 2026)
+
+The section above is about forging a verdict from outside. [Anthropic](/articles/anthropic)'s Applied AI *AI-Native SDLC playbook* (`vendor-claim`, 2026-08-21) names the mundane inside version of the same threat and prescribes a control for it: *"the loop itself needs protecting, because an agent fixing code must not be able to weaken the check on that code."* A hook that blocks edits to test files during a fix task; failing that, reject any diff that touches a test in review.
+
+The procedure it wraps is ordinary red-green TDD with one step promoted to a control:
+
+1. Ask Claude to reproduce the bug **as a test**, run it, and confirm it fails *for the reason you expect*.
+2. **Commit that test.**
+3. Only then ask for the fix, without editing the test, with the hook enforcing the restriction.
+
+The stated payoff is a provenance claim, not a correctness one: *"A test that existed before the fix, and that the agent couldn't rewrite, is proof the bug is gone."* That is the same structural-gate logic as GitHub's first-time-contributor hold above — the strength is that the artifact's timestamp precedes the incentive to fake it, and the enforcement lives somewhere the agent cannot reach. It is also the cheap, always-applicable case of the [maker/checker split](/articles/optimizer-evaluator-decoupling), with the checker frozen rather than merely separate.
+
+The playbook draws one further distinction this page has not carried explicitly, and it is a useful one:
+
+- **The feedback loop** runs *throughout* the task, as many times as the work needs — tests, build, or a screenshot diff — so what reaches the engineer has already passed it. Its prerequisites are mundane and stated as such: one command each for build and test, a healthy-output example in `CLAUDE.md`'s Commands section, and a **quantifiable** target the agent can check without asking ("all tests in `test_status.py` pass," "the endpoint returns 200 with the new field").
+- **A verifier subagent** is the *final* check, run in a fresh context window once the session believes the work is done, *"so the verdict is not colored by the assumptions that produced the code"* — an explicitly report-only role that fixes nothing.
+
+Same-context self-checking and fresh-context adjudication are different instruments doing different jobs, and conflating them is how a team ends up with a loop whose only judge shares the author's premises — the failure [Unproductive Self-Verification](/articles/unproductive-self-verification) describes. Nothing here is measured: the playbook's own indicators (first-pass CI success rate for agent-written changes, review time per PR, change failure rate) are quantities to collect. See [The Committed-Artifact Chain](/articles/committed-artifact-chain) for the stage structure these plays sit in.
 
 ## Connections
 

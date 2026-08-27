@@ -1,0 +1,305 @@
+---
+date: 2026-08-25
+title: AI-Assisted Error Analysis
+description: "Shreya Shankar's account of the one eval step that resists
+  automation: discovering what counts as a failure. The argument is epistemic
+  rather than technical — what 'good' means lives in the developer's head, not
+  in the traces, and a tool that could fully find and fix your product's
+  failures could do the same for every competitor, so judgment is the only
+  differentiator left. AI competence rises monotonically along the analyze →
+  measure → improve lifecycle and is weakest at the start. The working division
+  of labor: the human authors the failure-mode taxonomy, the agent builds a
+  bespoke review interface, clusters and samples the traces, and then scales
+  each human annotation back across already-labeled traces — never proposing
+  taxonomy of its own, because validating an agent's taste costs more than
+  expressing your own"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evals
+  - evaluation
+  - error-analysis
+  - human-in-the-loop
+  - taste
+  - methodology
+readingTime: 14
+imageAlt: Illustration for AI-Assisted Error Analysis
+sources:
+  - title: How to Automate AI Evals (Correctly)
+    url: https://www.youtube.com/watch?v=tqUDjc1HzO4
+---
+export { default as heroImage } from "../assets/ai-assisted-error-analysis.webp";
+
+## Sources
+
+- [How to Automate AI Evals (Correctly)](https://www.youtube.com/watch?v=tqUDjc1HzO4)
+
+## Summary
+
+**Error analysis** is the step upstream of every other eval activity: reading traces to
+discover *what the failure modes even are*, before anything can be measured. Shreya
+Shankar (CS professor; co-creator with Hamel Husain of the Maven AI Evals course) argues
+in a July 2026 talk that this is the step AI cannot take from you, and gives a workflow
+for using AI on it anyway.
+
+The wiki's other eval pages are all downstream of a taxonomy that already exists —
+[judges](/articles/llm-as-a-judge) score against criteria someone wrote, [LLM-Judge Validation](/articles/llm-judge-validation)
+asks whether those scores are reliable, [Production-Sourced Evaluation](/articles/production-sourced-evaluation) asks where the
+*cases* come from. This page is the first source in the corpus on where the *criteria*
+come from.
+
+`practitioner-opinion`: a conference talk with a live demo, no measurement. One
+empirical claim inside it (the tool-comparison result below) is preliminary and
+unpublished, and is marked as such.
+
+## The epistemic argument
+
+The load-bearing claim is not that automated eval tools are bad at their job. It is that
+the job is not fully specifiable:
+
+> What good means for your product is living in your head. It's not in the traces.
+
+Two consequences follow, and the second is the sharper one:
+
+1. **Anything not externalized is undiscoverable.** An agent reading traces can only find
+ failures that are legible *in the traces or the prompt*. Taste-specific failures — the
+ ones that make your product yours — are by construction not there.
+2. **The competitive-differentiation argument.** "If a tool could fully build and fix your
+ product for you, it could do the same for everyone else, all of your competitors, and
+ there would be nothing left to set your product apart." So full automation of error
+ analysis is not merely hard; it is self-defeating for the buyer, whichever vendor gets
+ there first.
+
+The reframing that follows: AI tooling for evals should aim to help developers **express
+and apply the judgment already in their heads faster**, not to supply the judgment.
+
+## The lifecycle, and where AI's competence sits on it
+
+The course's three-step loop, run iteratively rather than once:
+
+1. **Analyze** — read traces, discover failure modes.
+2. **Measure** — estimate the prevalence of each mode, to decide what to fix first.
+3. **Improve** — change the prompt, the model, the fine-tune.
+
+**AI competence rises monotonically along this list and is worst at step 1.** Measurement
+and hill-climbing (prompt optimization) automate well; discovery does not. Shankar's
+reason for step 1 being hardest is worth keeping separate from the epistemic argument
+above: there is no ground-truth definition of a mistake. Supervised ML could define
+failure as *prediction ≠ label*; "is this AI slop?" has a know-it-when-I-see-it character
+that admits no such definition. The running example is an AI writing assistant, with the
+motivating statistic that over half of articles on the internet now sound noticeably
+AI-generated (attributed to Graphite).
+
+Measurement earns its place through a **Pareto observation**: ~80% of the issues in the
+data come from ~20% of the failure modes, so prevalence ranking is what makes the fix
+queue tractable.
+
+## Mistake 1 — "here are my traces, go evaluate"
+
+The named anti-pattern is opening a coding agent, pointing it at an S3 bucket of traces,
+and asking it to evaluate the app. It will produce something plausible. Three things are
+wrong with the output:
+
+- **It misses every taste-specific failure**, per the epistemic argument.
+- **It fabricates priority.** The demo screenshot's headline finding — "extremely
+ repetitive voice, the biggest issue" — is both vague and unranked against anything. The
+ agent has no basis for calling one mode biggest, and says so anyway.
+- **No reuse.** Each run rereads the data and re-derives the failure modes from scratch;
+ nothing is shared across runs or across new batches of traces. What you want instead is
+ to **persist the intermediates of the lifecycle** — the failure modes and their
+ definitions — in memory or in code, so later passes start from them.
+
+That third point is the same compile-once-and-keep-it-current premise as
+[LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base), arriving from the eval side: the expensive artifact is
+the accumulated taxonomy, and re-deriving it per run is the defect.
+
+## The workflow: an agent-built review interface
+
+Shankar's alternative is a reusable skill (open-sourced, described as in flux) that keeps
+the human's workflow intact and inserts AI at specific points. Five steps:
+
+1. **Understand the data** — load a sample, identify the fields, structure, and content
+ that repeat across traces.
+2. **Design a visual encoding** — assign visual channels to the dimensions that vary
+ within a trace (the trivial case: color by message role). Standard design practice,
+ applied to making traces readable at speed.
+3. **Build a review app** with three views — a one-by-one trace viewer, a **map view** of
+ all traces needing annotation, and a **progress view** with a tree map of failures
+ found so far.
+4. **Cluster and sample** — pick representative traces so the human does not review
+ everything. Deliberately *unspecified*: the skill says find features that explain how
+ the traces vary, then cluster, and leaves the method to the agent. An earlier version
+ hard-coded embeddings plus K-means; Shankar removed it, because embeddings are not
+ always the right representation and sometimes the object under analysis is not the
+ trace at all (here it is the final essay).
+5. **Human-in-the-loop review**, with the agent monitoring throughout, building the
+ taxonomy, and pushing for **breadth** (cover all the modes) and **depth** (find many
+ instances of each).
+
+In the live demo: 33 AI-generated blog articles → 21 sampled for review → interface built
+in **4 minutes 42 seconds**. Two candid caveats delivered on the way: agent-generated UI
+is still rough ("we have a long ways to go for UI"), and the sampling is a guess — "you
+can't assume that the clustering or that the sample selection is perfect."
+
+## Mistake 2 — reviewing each trace only once
+
+Most people annotate a trace once and move on. Shankar's claim, which she attributes to
+her own research as well as practice, is that **re-reading traces you have already
+analyzed surfaces new failure modes**, because the failure modes emerge from combinations
+of traces held in your head, not from any single trace.
+
+The demonstration is concrete and hard to argue with. Three essays into her own review,
+she noticed the word *matters* recurring — including in the two essays she had already
+finished annotating. The mode was invisible on the first pass over any individual trace
+and unmissable afterward.
+
+The structural fix is an **outer loop over the data and an inner loop over hypotheses
+within a data point**, plus the automation move that is the most transferable thing in the
+talk:
+
+> Ask the agent to take every new annotation you give and apply it to previously labeled
+> traces as well as unlabeled ones.
+
+So when the human flags "I don't like sentence fragments" on one trace, the agent goes
+back through the already-reviewed traces for other sentence fragments and proposes them,
+and the human accepts or rejects each. The agent's suggestions surface in a dedicated tab
+in the progress view. Two limits stated plainly: the agent is **not exhaustive** — it
+finds instances of a flagged failure but not all of them — and its role here is
+acceleration of the human's own review, not replacement.
+
+### The boundary: application, not authorship
+
+The most important design decision is a negative one. Shankar deliberately does **not**
+ask the agent to propose new failure modes or extend the taxonomy:
+
+> I've asked in previous iterations of the skill for the agent to suggest new types of
+> failure modes, but I've always found that some of them I agree, some of them I disagree,
+> and I don't love the experience of just trying to validate the agent's taste. It's much
+> easier for me to say what I think and then have the agent scale that out.
+
+The human owns the taxonomy; the agent owns its application at scale. That is precisely
+the boundary [the CMU grey-literature team](/articles/llm-assisted-grey-literature-theory-building)
+found by failing across it — LLMs do the mechanical, quote-anchored open coding, humans
+keep the interpretive axial coding, and automating the back half yielded 15,029 shallow
+and redundant statements. Two independent arrivals at the same line, one by measured
+failure in qualitative research and one by a practitioner's felt cost, and the cost
+Shankar names is the reason the line holds: **validating someone else's taste is more
+expensive than expressing your own.**
+
+## Mistake 3 — a uniform accuracy bar across all applications
+
+Teams invest in evals equally across every AI feature they ship. The bar should be set by
+context instead: an internal Slack-thread summarizer does not need to be very accurate,
+and anything customer-facing does.
+
+The method for setting it is **worst-case reasoning done up front, with an assistant** —
+hand Claude Code or Codex a sample of traces, a description of the app, or the codebase,
+and ask what the worst things that could happen to a user are. For the writing assistant:
+sabotaging a citation, or leaking private information (a journalist's collected source
+material surfacing in the published article). Those scenarios then work backwards into
+which evals and guardrails to build. This is the same tier-the-investment-by-consequence
+shape as [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval), applied to eval effort rather than to which diffs
+an agent may merge unattended.
+
+Note that this is a use of AI at the *most* taste-heavy point in the lifecycle — and it
+survives the epistemic argument because the agent is being asked to enumerate
+possibilities for a human to judge, not to decide which ones matter.
+
+## The preliminary finding: general-purpose agents beat dedicated eval tools
+
+Shankar previews unpublished benchmarking (led by Hamel Husain and Antariksha Dasgupta) of
+existing automated eval tools on real data, and reports two results:
+
+- **General-purpose coding agents — Claude Code, Codex — are often more exhaustive at
+ finding failure modes than dedicated eval-discovery platforms.** She calls this
+ surprising.
+- **No tool finds all your failure modes at good precision.**
+
+Husain's explanation for the first is the deflationary one: a dedicated tool "at the end
+of the day is someone's prompt. Maybe a little bit of a harness" — and you can inject your
+own domain expertise into your own agent's prompt and customize it to your data, which
+closes the gap. The named vendors with automated eval products are LangChain, Braintrust,
+and Arize; the talk explicitly declines to evaluate any of them individually.
+
+Treat both results as **preliminary and first-party to the eval-course authors**, whose
+teaching material is the alternative to buying such a tool. The disclosed COI is real, and
+the study is not out. It is worth flagging alongside [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)'s
+standing caution: no budget or effort tier is reported for either arm, so "more exhaustive"
+is not yet a controlled comparison.
+
+## What this is not
+
+Not an argument against automating measurement — Shankar puts AI firmly in the measure and
+improve steps. Not an argument that the eval vendors' tools find nothing; they find "some
+errors." The claim is bounded and specific: **the discovery of what counts as a failure is
+where an automated pipeline stops paying, and the reason is epistemic, not a tooling gap
+that a better model closes.**
+
+## Connections
+
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — the same lifecycle from the vendor side, and the sharpest
+ contrast in the corpus. Google's stage 4 ("Analyze Failures") reads *rubric verdicts* to
+ explain why a case failed — it operates on a taxonomy that stages 1–3 assume already
+ exists. Shankar's error analysis is the step before that, and the flywheel's plain-language
+ interface ("I'm worried about whether travel-concierge honors mid-conversation changes")
+ is exactly the externalized-judgment input she says has to come from the human
+- [Evals as Product Spec](/articles/evals-as-product-spec) — where a spec's contents come from: Cat Wu's "ten great evals
+ beats a hundred mediocre" presumes you know which ten, and this page is the discovery
+ procedure that produces them
+- [LLM-Assisted Grey-Literature Theory Building](/articles/llm-assisted-grey-literature-theory-building) — the same automation boundary
+ independently found in qualitative research: mechanical coding delegable, interpretive
+ taxonomy-building not
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — downstream consumer: a judge needs criteria, and error analysis is
+ where the criteria are written. Shankar's Pareto observation is what tells you which ones
+ are worth a stable metric
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the sibling question about the same traces: that page
+ asks how to sample production traffic into an eval set, this one asks how to read the
+ sample once you have it. The clustering-and-sampling step is where they meet, and Shankar's
+ warning that the sample selection is a guess applies to both
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — the failure class that most needs discovery-by-reading:
+ nothing in the output signals it, so no metric written in advance catches it
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — persisting the lifecycle's intermediates instead of
+ re-deriving them per run is this wiki's own operating premise, arriving from the eval side
+- [Context Advantage, Not Taste](/articles/context-advantage-over-taste) — the direct disagreement worth holding open. Andrew Ng
+ reframes the residual human contribution as a closable information asymmetry; Shankar's
+ differentiation argument says the gap is *structurally* unclosable, because a tool that
+ closed it for you would close it for your competitors too. Ng's framing makes the human
+ role an engineering gap; Shankar's makes it a moat
+- [Research Taste as the Human Bottleneck](/articles/research-taste-as-human-bottleneck) — the same bottleneck at product scale rather than
+ research scale, with an unusually concrete account of what expressing taste actually costs
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — mistake 3 is the same consequence-tiering logic applied to
+ how much eval investment an application earns
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — error analysis is the part of verification that
+ did not get cheaper, and the talk's closing line is the reason: "there will be some human
+ element in evals always"
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the missing control on the preliminary
+ agent-vs-platform comparison
+
+## Open Questions
+
+- Shankar's skill has the agent apply each new human annotation to already-labeled traces
+ but explicitly *not* propose new failure modes. Is the taxonomy-authorship boundary a
+ durable one, or an artifact of the review cost being high — i.e. would a good enough
+ agent-suggestion interface (cheap reject, ranked proposals) make validating the agent's
+ taste cheaper than expressing your own?
+- The agent is stated to be non-exhaustive when re-applying a flagged failure mode across
+ reviewed traces. What is the actual recall, and does missing instances bias the
+ prevalence estimates that the measure step then ranks the fix queue by?
+- Does the general-purpose-agent-beats-dedicated-tool result survive a budget-matched
+ comparison and a third-party replication, given that it originates with the authors of
+ the course that competes with those tools? #oq/wait — falsifiable when the Husain &
+ Dasgupta benchmarking study publishes
+
+## Sources
+
+- [How to Automate AI Evals (Correctly)](https://www.youtube.com/watch?v=tqUDjc1HzO4) — Shreya Shankar with Hamel Husain, *How to
+ Automate AI Evals (Correctly)*, YouTube, 2026-07-03, 27:19, `practitioner-opinion`
+ (~6.0k words). Part 1 of a 12-part AI product engineering mini-course promoting the
+ authors' Maven AI Evals course — **disclosed COI on the vendor-tool comparison**, which
+ is also preliminary and unpublished. Transcript from the uploaded human-authored caption
+ track; domain terms mis-transcribed there were corrected at ingest (`evals`, `Hamel`,
+ `skill`, `improve`, `Graphite`) and the corrections are recorded in `wiki/sources.md`.
+ **Slides and the live demo screen are not captured** — the review interface, its three
+ views, and the Claude Code screenshots exist only as description, so every UI detail on
+ this page is what was said aloud, not what was shown. The skill's repository URL appears
+ on a slide and is never stated

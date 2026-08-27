@@ -16,7 +16,7 @@ tags:
   - definition-of-done
   - pm-skill
   - measurement
-readingTime: 20
+readingTime: 25
 imageAlt: Illustration for Evals as Product Spec
 sources:
   - title: "Boris Cherny: We Cut 80% of Claude Code's Prompt"
@@ -148,6 +148,49 @@ Three concrete additions:
 
 **And push for the reasoning, not just the score.** *"A score and one sentence is not enough for the calibration algorithms to learn from. You want the *why* behind every score, and that reasoning is gold."* The annotation format is set by what a downstream optimizer can consume, which is a constraint on eval authoring this page has not carried: an eval that will train something needs to explain itself, not just verdict.
 
+## The other thing evals get pointed at: the agent's own configuration (Anthropic, August 2026)
+
+Everything above points an eval at the **product**. [Anthropic](/articles/anthropic)'s Applied AI *AI-Native SDLC playbook* (`vendor-claim`, 2026-08-21) points one at the **harness**, and frames it as a straight substitution for a process the AI-native SDLC deletes: *"Evals are the AI-native equivalent of stage-gate QA."* Where QA used to gate at a phase boundary, a suite runs whenever the agent's configuration changes.
+
+The recipe is small and specific: a platform engineer collects **20-50 real tasks** from recent work with their accepted outcomes; each becomes a prompt plus the checks that define acceptable (tests pass, lint clean, behavior unchanged, policy followed); the suite runs non-interactively in CI on a schedule **and on any change to `CLAUDE.md`, skills or hooks** — *"since that configuration steers the agent and deserves the regression testing that code gets."* A configuration change that drops the pass rate is reviewed before it merges, with the pass-rate threshold enforced as a merge check.
+
+Three things make this a genuine addition rather than a restatement.
+
+**The unit under test changes.** Cat's evals hold the model fixed and test whether the *feature* is right; this holds the feature fixed and tests whether a `CLAUDE.md` edit or a skill rewrite degraded the agent that builds features. It is the eval-shaped answer to a gap [Agent Context Files](/articles/agent-context-files) documents from the other side — context files are edited constantly by people with no way to tell whether an edit helped — and the closest thing in the corpus to treating [skill files](/articles/agentic-work-systematization) as code with a test suite, against that page's measured finding that 53% of reused skills are never modified at all.
+
+**Every incident is owed an eval, written by the team that owned it.** The permanent regression test is what stops a fix from being a one-off, and it is the closing move of the playbook's maintenance loop: a control-band breach becomes a diagnosis, a fix, and then a case in the suite. The lagging indicator is the one that matters — repeat incidents *of the same class*, which should fall if the suite is actually absorbing them.
+
+**The suite is explicitly perishable.** *"As models improve, cases that once discriminated stop doing so and new ones must be added that arise from ongoing monitoring"* — which is [Cherny](/articles/boris-cherny)'s retire-and-rebuild answer in this page's third open question, arriving independently and, unlike his, with a named source of replacement cases (production monitoring rather than observed struggle). It also concedes the [shrinkage](/articles/harness-shrinkage-as-models-improve) problem rather than solving it.
+
+The caveats are the source's, throughout: no pass rates, no suite sizes, no cost figures, and an acknowledgement that some teams will run these offline on a cadence rather than on every change because agent eval runs cost real API budget. See [The Committed-Artifact Chain](/articles/committed-artifact-chain) for the stage structure.
+
+## Where the ten evals come from (Shankar, July 2026)
+
+"Ten great evals beats a hundred mediocre" presumes you know which ten. Cat Wu's account
+is about what an eval *is for* — encoding what done looks like — and is largely silent on
+the discovery step that produces the list. [[ai-assisted-error-analysis|Shreya Shankar's
+error-analysis workflow]] is that step, and it supplies two things this page was missing.
+
+**A selection rule.** ~80% of the issues in the data come from ~20% of the failure modes,
+so the ten are the prevalent ones, and prevalence is measured after discovery rather than
+guessed before it. That makes the bounded count a consequence of a Pareto distribution in
+the failures rather than a maintenance-cost budget — a different argument for the same
+number than the two already on this page.
+
+**A limit on how far up the automation can go.** This page's twist section notes that
+eval-*authoring* itself gets automated, with the human role compressed to stating the
+worry and approving the plan. Shankar draws the boundary one notch lower and argues it is
+structural: the agent may apply a criterion the human wrote across a whole corpus, but
+asking it to propose the criteria produces a validation problem worse than the authoring
+problem it solves — *"I don't love the experience of just trying to validate the agent's
+taste."* Under that reading, "state the worry" is not a compressed human role but the
+irreducible one, and the compression stops there.
+
+She also names a third thing this page treats as uniform: **not every application earns
+the same bar.** An internal summarizer and a customer-facing feature warrant different
+eval investment, set by reasoning through worst-case user outcomes first — the spec's
+scope being a product decision before it is an authoring one.
+
 ## Why this is "underappreciated" in 2026
 
 Cat's claim that the skill is underappreciated has three readings:
@@ -163,9 +206,11 @@ Predicts a near-term role redefinition: PMs who can write evals will out-ship PM
 - How do you write an eval for *taste*-driven features like [character](/articles/claude-character-as-product)? Amanda's role is canonical for being eval-resistant; Cat names her as someone who *is* good at evals here, but doesn't describe the technique. **Partially answered:** [How Do You Write Evals for Taste? Character as the Limit Case](/articles/evals-for-taste-and-character) — the technique is a pipeline (conviction → dogfood-sourced failure modes → MSM-style variant A/B measurement → ~10 interpretable evals); proven on the safety/values core but still tacit on the warm/witty aesthetic surface.
 - The 10-vs-100 number is given without justification. Is there a Goldilocks zone, or does it depend on feature surface area? [Client-Side Agent Optimization](/articles/client-side-agent-optimization)'s framing of combos suggests evals also have a combinatorial explosion problem. **Partially answered (2026-08-13), and it reframes the axis:** [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) (`case-study`) prescribes *"keep each judge small and targeted rather than cramming all of your product's behavior into one… focused judges make these tests easier to interpret and the resulting metrics easier to trust. You can always add more."* So the quantity that must stay bounded is **behaviours per instrument**, not instruments per product — the count scales with surface area and the interpretability of any one instrument does not. Their operational reason is sharper than "maintenance cost": a blended judge cannot pass a per-criterion degradation test, so decomposition is what makes an eval *falsifiable at the criterion level* rather than merely readable. Still open on the number itself — no source measures where the returns to splitting stop, and this is one unreplicated first-party account.
 - How do evals interact with [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)? When a harness asset shrinks because the model now handles it natively, the evals built around the old harness may become artifacts rather than guardrails. Does Anthropic retire evals or repurpose them? **Partially answered:** [Boris Cherny](/articles/boris-cherny) (YC interview, 2026-07-27, `practitioner-opinion`) — retire: evals live "one, two, three model generations," then saturate and get thrown away and rebuilt from observed struggle; what persists is the authoring practice, not the artifact. Still open: whether *any* eval class (safety, character) is exempt from the saturation cycle.
-- Is there a single non-Anthropic example of a PM-as-eval-writer to cite, or is this currently a Cat-Wu-singular framing? The Matt Pocock workshop reaches the same place from a different vocabulary, but no third source has been ingested yet. **Partially answered (with a twist):** Google's [Agent Quality Flywheel](/articles/agent-quality-flywheel) is a third-party arrival at eval-as-the-quality-surface — but its answer is to have the *coding agent* author the eval, compressing the human role to stating the worry and approving the plan.
+- Is there a single non-Anthropic example of a PM-as-eval-writer to cite, or is this currently a Cat-Wu-singular framing? The Matt Pocock workshop reaches the same place from a different vocabulary, but no third source has been ingested yet. **Partially answered (with a twist):** Google's [Agent Quality Flywheel](/articles/agent-quality-flywheel) is a third-party arrival at eval-as-the-quality-surface — but its answer is to have the *coding agent* author the eval, compressing the human role to stating the worry and approving the plan. A second non-Anthropic arrival (2026-07-03) pushes back on exactly that compression: [Shankar & Husain](/articles/ai-assisted-error-analysis) teach eval-as-the-core-discipline to practitioners and argue the authoring step is where automation stops paying. Still not a *PM*-as-eval-writer instance — Shankar is a CS professor and Husain an ML engineer, so the role-relocation half of Cat's claim remains Anthropic-singular.
 
 ## Connections
+
+- [Skill Lift](/articles/skill-lift) — the principle taken to its literal limit: NVIDIA generates the eval set *from the skill spec itself*, so the spec's precision becomes the hard ceiling on measurement precision — stated by the vendor as a key finding ("a skill can only be measured as precisely as its evaluation set describes the job") and functioning as a circularity, since the artifact under test also authors its own exam
 
 - [Cat Wu](/articles/cat-wu) — primary articulator; lead voice across this concept
 - [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — where the spec becomes a procurement decision: Anthropic's selection framework defers its two hardest questions (is this task hard? do the unit economics work?) to "build an eval," so the eval is what actually picks the model
@@ -192,6 +237,7 @@ Predicts a near-term role redefinition: PMs who can write evals will out-ship PM
 - [Agent Quality Flywheel](/articles/agent-quality-flywheel) — eval-authoring automated: the coding agent translates a plain-language worry into metric choice, rubric design, and before/after deltas; the human states the goal and approves
 - [LLM-Judge Validation](/articles/llm-judge-validation) — the discipline a judge-graded eval needs to be trustworthy: chance-correction, position-swap, replication, cross-benchmark, and the consistency–bias audit; "great evals" presuppose valid judges
 - [AI-Native Organization](/articles/ai-native-organization) — evals applied to the org's own routing layer: [Tan](/articles/garry-tan)'s "trigger evals" (does the right skill file actually load?) are performance reviews in his org-primitive mapping
+- [AI-Assisted Error Analysis](/articles/ai-assisted-error-analysis) — the discovery step that produces the ten evals, and the argument that authoring them is where eval automation stops; see the section above
 
 ## Sources
 
