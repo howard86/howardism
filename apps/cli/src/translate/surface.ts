@@ -79,7 +79,7 @@ export function resyncVerbatimFields(
 
 /** Source `title` frontmatter value (English), for the audit trail. */
 export function sourceTitle(rawMdx: string): string | null {
-  const { data } = matter(rawMdx);
+  const { data } = matter(rawMdx, {});
   const title = (data as Record<string, unknown>).title;
   return typeof title === "string" ? title : null;
 }

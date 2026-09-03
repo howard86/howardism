@@ -43,6 +43,7 @@ const jsonResult = (data: unknown) => ({
 });
 
 interface SearchIndexState {
+  bySlug: Map<string, SearchIndexEntry>;
   entries: SearchIndexEntry[];
   fuse: ReturnType<typeof createFuse>;
 }
@@ -59,7 +60,8 @@ function loadIndex(indexPath: string): Promise<SearchIndexState> {
     state = (async () => {
       const raw = await readFile(indexPath, "utf8");
       const { entries } = parseSearchIndex(JSON.parse(raw));
-      return { entries, fuse: createFuse(entries) };
+      const bySlug = new Map(entries.map((entry) => [entry.slug, entry]));
+      return { entries, bySlug, fuse: createFuse(entries) };
     })();
     indexCache.set(indexPath, state);
   }
@@ -92,8 +94,8 @@ export async function knowledgeGetHandler(
   indexPath: string,
   args: { slug: string }
 ) {
-  const { entries } = await loadIndex(indexPath);
-  const entry = entries.find((candidate) => candidate.slug === args.slug);
+  const { bySlug } = await loadIndex(indexPath);
+  const entry = bySlug.get(args.slug);
   if (!entry) {
     return jsonResult({
       error: `No article found for slug "${args.slug}".`,
@@ -110,7 +112,7 @@ export async function knowledgeGetHandler(
       error: `Article "${args.slug}" is indexed but its MDX is missing.`,
     });
   }
-  return jsonResult({ ...entry, body: toPlainText(matter(raw).content) });
+  return jsonResult({ ...entry, body: toPlainText(matter(raw, {}).content) });
 }
 
 /** Register the two knowledge-base tools on an MCP server reading `indexPath`. */

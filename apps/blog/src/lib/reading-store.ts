@@ -52,77 +52,6 @@ function isReadingEntry(value: unknown): value is StoredReadingEntry {
   );
 }
 
-/**
- * Reading history, most-recent-first. Returns `[]` when storage is
- * unavailable (private browsing) or the stored value is missing/corrupt.
- */
-export function getHistory(): ReadingEntry[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isReadingEntry).map((entry) => ({
-      ...entry,
-      firstReadAt: entry.firstReadAt ?? entry.lastReadAt,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Record (or refresh) a read once it crosses the meaningful-read threshold:
- * moves the slug to the front, updates its last-read time and progress, and
- * caps the list at the 50 most recent — evicting older entries and dropping
- * their per-slug resume state along with them. Below-threshold scrolls and any
- * storage error are silently ignored, so a reader in private browsing sees no
- * failure.
- */
-export function recordProgress(slug: string, pct: number): void {
-  if (pct < MIN_RECORD_PCT) {
-    return;
-  }
-  try {
-    const now = Date.now();
-    const history = getHistory();
-    const existing = history.find((entry) => entry.slug === slug);
-    const withoutSlug = history.filter((entry) => entry.slug !== slug);
-    const next: ReadingEntry[] = [
-      { slug, pct, lastReadAt: now, firstReadAt: existing?.firstReadAt ?? now },
-      ...withoutSlug,
-    ];
-    const kept = next.slice(0, MAX_HISTORY);
-    for (const evicted of next.slice(MAX_HISTORY)) {
-      localStorage.removeItem(perSlugKey(evicted.slug));
-    }
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(kept));
-  } catch {
-    // ignore storage errors (quota / private mode)
-  }
-}
-
-/**
- * Forget a single read: drop it from the history index and delete its per-slug
- * resume state. Backs both the per-row "remove" control and the "dismiss" on a
- * no-longer-available tombstone. Storage errors are silently ignored.
- */
-export function removeFromHistory(slug: string): void {
-  try {
-    const next = getHistory().filter((entry) => entry.slug !== slug);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-    localStorage.removeItem(perSlugKey(slug));
-  } catch {
-    // ignore storage errors (quota / private mode)
-  }
-}
-
-/* ── save-for-later (deliberate, uncapped, separate from history) ── */
-
 export interface SavedEntry {
   /** Epoch ms when the article was saved, for newest-first ordering. */
   savedAt: number;
@@ -139,35 +68,157 @@ function isSavedEntry(value: unknown): value is SavedEntry {
 }
 
 /**
+ * Module-level caches of the parsed history and saved list: a listing page's
+ * SaveButton column checks `isSaved` once per row, and a scroll handler calls
+ * `recordProgress` every tick, so re-reading and re-parsing localStorage on
+ * every call is wasted work. Every writer below refreshes these directly
+ * (rather than merely invalidating them), so the very next read never
+ * re-parses what the writer just produced. A `storage` listener invalidates
+ * them on a cross-tab change, since another tab's writes bypass these.
+ */
+let historyCache: ReadingEntry[] | null = null;
+let savedCache: SavedEntry[] | null = null;
+let savedSlugSetCache: ReadonlySet<string> | null = null;
+
+function invalidateCaches(): void {
+  historyCache = null;
+  savedCache = null;
+  savedSlugSetCache = null;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", invalidateCaches);
+}
+
+/** Test-only: clears the module-level caches so the next read re-parses. */
+export const resetReadingStoreCache = invalidateCaches;
+
+/**
+ * Reading history, most-recent-first. Returns `[]` when storage is
+ * unavailable (private browsing) or the stored value is missing/corrupt.
+ */
+export function getHistory(): ReadingEntry[] {
+  if (historyCache) {
+    return historyCache;
+  }
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) {
+      historyCache = [];
+      return historyCache;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      historyCache = [];
+      return historyCache;
+    }
+    historyCache = parsed.filter(isReadingEntry).map((entry) => ({
+      ...entry,
+      firstReadAt: entry.firstReadAt ?? entry.lastReadAt,
+    }));
+  } catch {
+    historyCache = [];
+  }
+  return historyCache;
+}
+
+/**
+ * Record (or refresh) a read once it crosses the meaningful-read threshold:
+ * moves the slug to the front, updates its last-read time and progress, and
+ * caps the list at the 50 most recent — evicting older entries and dropping
+ * their per-slug resume state along with them. One pass finds and drops the
+ * existing entry (if any), then an unshift + splice re-caps in place. Below-
+ * threshold scrolls and any storage error are silently ignored, so a reader
+ * in private browsing sees no failure.
+ */
+export function recordProgress(slug: string, pct: number): void {
+  if (pct < MIN_RECORD_PCT) {
+    return;
+  }
+  const now = Date.now();
+  const history = getHistory();
+  let firstReadAt = now;
+  const withoutSlug: ReadingEntry[] = [];
+  for (const entry of history) {
+    if (entry.slug === slug) {
+      firstReadAt = entry.firstReadAt;
+    } else {
+      withoutSlug.push(entry);
+    }
+  }
+  withoutSlug.unshift({ slug, pct, lastReadAt: now, firstReadAt });
+  const evicted = withoutSlug.splice(MAX_HISTORY);
+  historyCache = withoutSlug;
+  try {
+    for (const entry of evicted) {
+      localStorage.removeItem(perSlugKey(entry.slug));
+    }
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(withoutSlug));
+  } catch {
+    // ignore storage errors (quota / private mode)
+  }
+}
+
+/**
+ * Forget a single read: drop it from the history index and delete its per-slug
+ * resume state. Backs both the per-row "remove" control and the "dismiss" on a
+ * no-longer-available tombstone. Storage errors are silently ignored.
+ */
+export function removeFromHistory(slug: string): void {
+  const next = getHistory().filter((entry) => entry.slug !== slug);
+  historyCache = next;
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    localStorage.removeItem(perSlugKey(slug));
+  } catch {
+    // ignore storage errors (quota / private mode)
+  }
+}
+
+/* ── save-for-later (deliberate, uncapped, separate from history) ── */
+
+/**
  * The save-for-later list, newest-saved first. Uncapped — only the reader
  * trims it by unsaving. Returns `[]` when storage is unavailable or corrupt.
  */
 export function getSaved(): SavedEntry[] {
+  if (savedCache) {
+    return savedCache;
+  }
   try {
     const raw = localStorage.getItem(SAVED_KEY);
     if (!raw) {
-      return [];
+      savedCache = [];
+      return savedCache;
     }
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
-      return [];
+      savedCache = [];
+      return savedCache;
     }
-    return parsed.filter(isSavedEntry);
+    savedCache = parsed.filter(isSavedEntry);
   } catch {
-    return [];
+    savedCache = [];
   }
+  return savedCache;
+}
+
+/** `getSaved()`'s slugs as a Set, for O(1) membership checks (`isSaved`). */
+export function getSavedSlugSet(): ReadonlySet<string> {
+  savedSlugSetCache ??= new Set(getSaved().map((entry) => entry.slug));
+  return savedSlugSetCache;
 }
 
 /** Whether `slug` is currently saved for later. */
 export function isSaved(slug: string): boolean {
-  return getSaved().some((entry) => entry.slug === slug);
+  return getSavedSlugSet().has(slug);
 }
 
 /**
  * Toggle `slug`'s saved state, persisting the change, and return the new state
  * (`true` if it is now saved). Saving moves it to the front; the list is never
- * auto-trimmed. Storage errors are swallowed; the returned state still
- * reflects the intended toggle so the control stays responsive.
+ * auto-trimmed. Storage errors are swallowed; the returned state (and cache)
+ * still reflect the intended toggle so the control stays responsive.
  */
 export function toggleSave(slug: string): boolean {
   const saved = getSaved();
@@ -175,6 +226,8 @@ export function toggleSave(slug: string): boolean {
   const next = wasSaved
     ? saved.filter((entry) => entry.slug !== slug)
     : [{ slug, savedAt: Date.now() }, ...saved];
+  savedCache = next;
+  savedSlugSetCache = new Set(next.map((entry) => entry.slug));
   try {
     localStorage.setItem(SAVED_KEY, JSON.stringify(next));
   } catch {
@@ -192,6 +245,9 @@ export function toggleSave(slug: string): boolean {
  * Storage errors are silently ignored.
  */
 export function clearReadingData(): void {
+  historyCache = [];
+  savedCache = [];
+  savedSlugSetCache = new Set();
   try {
     localStorage.removeItem(HISTORY_KEY);
     localStorage.removeItem(SAVED_KEY);

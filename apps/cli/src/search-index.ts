@@ -32,6 +32,8 @@ import {
 } from "@howardism/article-contract/manifests/search-index";
 import matter from "gray-matter";
 
+import { runWithConcurrency } from "./concurrency.ts";
+
 export type {
   SearchIndex,
   SearchIndexEntry,
@@ -45,6 +47,9 @@ const MDX_SUFFIX = /\.mdx$/;
  * the sweep for another 5KB gzipped; 12 gives up nine. 20 is the knee.
  */
 const KEYWORD_LIMIT = 20;
+
+/** Concurrent MDX reads while building the index. */
+const READ_CONCURRENCY = 16;
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = resolve(HERE, "../../../");
@@ -68,20 +73,23 @@ export function buildSearchEntry(
   raw: string,
   slug: string
 ): PartialSearchEntry | null {
-  const { data } = matter(raw);
+  const { data } = matter(raw, {});
   if (data.archived === true) {
     return null;
   }
-  return {
+  const entry: PartialSearchEntry = {
     slug,
     title: String(data.title ?? ""),
     description: String(data.description ?? ""),
     tag: String(data.tag ?? ""),
-    ...(data.domain ? { domain: String(data.domain) } : {}),
-    ...(Array.isArray(data.tags) && data.tags.length > 0
-      ? { tags: (data.tags as unknown[]).map(String) }
-      : {}),
   };
+  if (data.domain) {
+    entry.domain = String(data.domain);
+  }
+  if (Array.isArray(data.tags) && data.tags.length > 0) {
+    entry.tags = (data.tags as unknown[]).map(String);
+  }
+  return entry;
 }
 
 /**
@@ -147,14 +155,17 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
     .filter((name) => MDX_SUFFIX.test(name))
     .sort();
 
-  const partials: PartialSearchEntry[] = [];
-  for (const filename of filenames) {
-    const raw = await readFile(resolve(ARTICLES_DIR, filename), "utf8");
-    const entry = buildSearchEntry(raw, filename.replace(MDX_SUFFIX, ""));
-    if (entry) {
-      partials.push(entry);
+  const rawEntries = await runWithConcurrency(
+    filenames,
+    READ_CONCURRENCY,
+    async (filename) => {
+      const raw = await readFile(resolve(ARTICLES_DIR, filename), "utf8");
+      return buildSearchEntry(raw, filename.replace(MDX_SUFFIX, ""));
     }
-  }
+  );
+  const partials = rawEntries.filter(
+    (entry): entry is PartialSearchEntry => entry !== null
+  );
   partials.sort((a, b) => a.slug.localeCompare(b.slug));
 
   const tagsBySlug = new Map(

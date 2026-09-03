@@ -14,7 +14,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type CSSProperties,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -22,7 +25,14 @@ import {
 
 import { SaveButton } from "@/components/save-button";
 import { buildCompareHref, MAX_COMPARE } from "@/lib/compare-ids";
-import { getHistory, getSaved, removeFromHistory } from "@/lib/reading-store";
+import {
+  getHistory,
+  getSaved,
+  type ReadingEntry,
+  removeFromHistory,
+  type SavedEntry,
+} from "@/lib/reading-store";
+import { useShelfManifest } from "@/lib/shelf-manifest";
 import {
   buildShelfRows,
   type ShelfManifestEntry,
@@ -95,8 +105,94 @@ const savedReadOf = (row: SavedRow): ShelfRead => ({
 const domainOf = (row: ShelfRow): WikiDomain | undefined =>
   row.kind === "deleted" ? undefined : row.domain;
 
+/**
+ * Sort `rows` by `sort`, computing each row's sort key once (decorate-sort-
+ * undecorate) instead of twice per comparison — `Array#sort` calls its
+ * comparator O(n log n) times.
+ */
+function sortByRead<T>(
+  rows: T[],
+  sort: ShelfSort,
+  keyOf: (row: T) => ShelfRead
+): T[] {
+  const compare = SHELF_SORT_COMPARATORS[sort];
+  return rows
+    .map((row) => ({ row, key: keyOf(row) }))
+    .sort((a, b) => compare(a.key, b.key))
+    .map((decorated) => decorated.row);
+}
+
 const accentOf = (domain: WikiDomain | undefined): string =>
   domain ? DOMAIN_META[domain].color : "var(--brand)";
+
+/** Join raw history + saved entries against the manifest into `ShelfData`. */
+function buildShelfData(
+  raw: { history: ReadingEntry[]; saved: SavedEntry[] },
+  manifest: ReadonlyMap<string, ShelfManifestEntry>
+): ShelfData {
+  const history = buildShelfRows(raw.history, manifest);
+  const pctBySlug = new Map(history.map((row) => [row.slug, row.pct] as const));
+  const savedAccessions = new Map(
+    [...raw.saved]
+      .sort((a, b) => a.savedAt - b.savedAt)
+      .map((entry, index) => [entry.slug, index + 1] as const)
+  );
+  const saved: SavedRow[] = [];
+  for (const entry of raw.saved) {
+    const meta = manifest.get(entry.slug);
+    if (meta) {
+      saved.push({
+        meta,
+        savedAt: entry.savedAt,
+        pct: pctBySlug.get(entry.slug),
+        accession: savedAccessions.get(entry.slug) ?? 0,
+      });
+    }
+  }
+  return { history, saved };
+}
+
+/**
+ * Reading history + saved list, read from browser storage once on mount and
+ * resolved against the manifest as soon as it's fetched (or immediately, as
+ * empty, when there's no activity to resolve — see `useShelfManifest`).
+ * Returned as a `useState` tuple so the caller can still apply optimistic
+ * updates (remove / unsave) directly.
+ */
+function useShelfData(): [
+  ShelfData | null,
+  Dispatch<SetStateAction<ShelfData | null>>,
+] {
+  const [raw, setRaw] = useState<{
+    history: ReadingEntry[];
+    saved: SavedEntry[];
+  } | null>(null);
+  const [data, setData] = useState<ShelfData | null>(null);
+
+  useEffect(() => {
+    setRaw({ history: getHistory(), saved: getSaved() });
+  }, []);
+
+  const hasActivity =
+    raw !== null && (raw.history.length > 0 || raw.saved.length > 0);
+  const manifest = useShelfManifest(hasActivity);
+
+  useEffect(() => {
+    if (!raw) {
+      return;
+    }
+    if (!hasActivity) {
+      setData({ history: [], saved: [] });
+      return;
+    }
+    if (!manifest) {
+      return;
+    }
+    setData(buildShelfData(raw, manifest));
+  }, [raw, hasActivity, manifest]);
+
+  return [data, setData];
+}
 
 function RemoveButton({
   label,
@@ -207,6 +303,16 @@ const SORTS: [ShelfSort, string][] = [
   ["longest", "Longest"],
 ];
 
+/** How many rows fall into each recency bucket, in one pass over `rows`. */
+function countByBucket(rows: ShelfRow[], now: number): Map<number, number> {
+  const counts = new Map<number, number>();
+  for (const row of rows) {
+    const bucket = bucketOf(row.lastReadAt, now);
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /**
  * Interleave the history rows with recency group headers (when grouped) and
  * render tombstones for reads whose article no longer exists. The marker
@@ -226,17 +332,15 @@ function buildHistoryItems({
   onRemove: (slug: string) => void;
 }): ReactNode[] {
   const items: ReactNode[] = [];
+  const bucketCounts = grouped ? countByBucket(rows, now) : null;
   let lastBucket = -1;
   for (const row of rows) {
     if (grouped) {
       const bucket = bucketOf(row.lastReadAt, now);
       if (bucket !== lastBucket) {
-        const count = rows.filter(
-          (entry) => bucketOf(entry.lastReadAt, now) === bucket
-        ).length;
         items.push(
           <GroupHeader
-            count={count}
+            count={bucketCounts?.get(bucket) ?? 0}
             key={`bucket-${bucket}`}
             label={BUCKET_LABELS[bucket]}
           />
@@ -292,41 +396,14 @@ const TAB_TRIGGER_CLASS =
  * With nothing read and nothing saved there is nothing to control, so the
  * whole shell collapses to an invitation into the article index.
  */
-export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
+export function ShelfTabs() {
   const router = useRouter();
-  const [data, setData] = useState<ShelfData | null>(null);
+  const [data, setData] = useShelfData();
   const [tab, setTab] = useState<ShelfTab>("history");
   const [sort, setSort] = useState<ShelfSort>("recent");
   const [domain, setDomain] = useState<WikiDomain | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-
-  useEffect(() => {
-    const history = buildShelfRows(getHistory(), manifest);
-    const pctBySlug = new Map(
-      history.map((row) => [row.slug, row.pct] as const)
-    );
-    const bySlug = new Map(manifest.map((entry) => [entry.slug, entry]));
-    const savedEntries = getSaved();
-    const savedAccessions = new Map(
-      [...savedEntries]
-        .sort((a, b) => a.savedAt - b.savedAt)
-        .map((entry, index) => [entry.slug, index + 1] as const)
-    );
-    const saved: SavedRow[] = [];
-    for (const entry of savedEntries) {
-      const meta = bySlug.get(entry.slug);
-      if (meta) {
-        saved.push({
-          meta,
-          savedAt: entry.savedAt,
-          pct: pctBySlug.get(entry.slug),
-          accession: savedAccessions.get(entry.slug) ?? 0,
-        });
-      }
-    }
-    setData({ history, saved });
-  }, [manifest]);
 
   const selection: ListSelection = useMemo(
     () => ({
@@ -346,6 +423,57 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
     [selected]
   );
   const rowSelection = compareMode ? selection : undefined;
+
+  const handleRemove = useCallback(
+    (slug: string) => {
+      removeFromHistory(slug);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              history: current.history.filter((row) => row.slug !== slug),
+            }
+          : current
+      );
+      setSelected((current) => current.filter((entry) => entry !== slug));
+    },
+    [setData]
+  );
+
+  const historyRows = useMemo(
+    () =>
+      sortByRead(
+        (data?.history ?? []).filter(
+          (row) => domain === null || domainOf(row) === domain
+        ),
+        sort,
+        readOf
+      ),
+    [data, domain, sort]
+  );
+  const savedRows = useMemo(
+    () =>
+      sortByRead(
+        (data?.saved ?? []).filter(
+          (row) => domain === null || row.meta.domain === domain
+        ),
+        sort,
+        savedReadOf
+      ),
+    [data, domain, sort]
+  );
+  const grouped = tab === "history" && sort === "recent";
+  const historyItems = useMemo(
+    () =>
+      buildHistoryItems({
+        rows: historyRows,
+        grouped,
+        now: Date.now(),
+        selection: rowSelection,
+        onRemove: handleRemove,
+      }),
+    [historyRows, grouped, rowSelection, handleRemove]
+  );
 
   if (data === null) {
     return null;
@@ -379,19 +507,6 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
     }
   }
 
-  const handleRemove = (slug: string) => {
-    removeFromHistory(slug);
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            history: current.history.filter((row) => row.slug !== slug),
-          }
-        : current
-    );
-    setSelected((current) => current.filter((entry) => entry !== slug));
-  };
-
   const handleUnsave = (slug: string, nowSaved: boolean) => {
     if (!nowSaved) {
       setData((current) =>
@@ -423,23 +538,6 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
       yet. Clear the filter, or read an article in that domain.
     </EmptyState>
   ) : null;
-
-  const historyRows = data.history
-    .filter((row) => domain === null || domainOf(row) === domain)
-    .sort((a, b) => SHELF_SORT_COMPARATORS[sort](readOf(a), readOf(b)));
-  const savedRows = data.saved
-    .filter((row) => domain === null || row.meta.domain === domain)
-    .sort((a, b) =>
-      SHELF_SORT_COMPARATORS[sort](savedReadOf(a), savedReadOf(b))
-    );
-  const grouped = tab === "history" && sort === "recent";
-  const historyItems = buildHistoryItems({
-    rows: historyRows,
-    grouped,
-    now: Date.now(),
-    selection: rowSelection,
-    onRemove: handleRemove,
-  });
 
   return (
     <>
@@ -569,6 +667,7 @@ export function ShelfTabs({ manifest }: { manifest: ShelfManifestEntry[] }) {
                   badge={row.meta.archived ? <ArchivedBadge /> : undefined}
                   control={
                     <SaveButton
+                      initialSaved
                       onToggle={(nowSaved) =>
                         handleUnsave(row.meta.slug, nowSaved)
                       }

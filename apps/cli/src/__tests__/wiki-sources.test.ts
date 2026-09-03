@@ -75,6 +75,25 @@ describe("buildWikiSources", () => {
     ]);
   });
 
+  it("de-dupes citedBy instead of listing the same citer twice", async () => {
+    const rawRoot = await mkdtemp(join(tmpdir(), "ws-dedupe-"));
+    await writeRawDoc(rawRoot, "src", {
+      title: "Source",
+      source: "https://example.com",
+    });
+
+    // The same parsed article appearing twice (a defensive case — the
+    // importer should never actually do this) must still yield one citer.
+    const article = makeParsed("dup", ["[[raw/src]]"]);
+    const manifest = await buildWikiSources({
+      parsed: [article, article],
+      rawRoot,
+      generatedOn: "2026-05-14",
+    });
+
+    expect(manifest.sources[0].citedBy).toEqual(["dup"]);
+  });
+
   it("sorts citedBy alphabetically", async () => {
     const rawRoot = await mkdtemp(join(tmpdir(), "ws-cited-"));
     await writeRawDoc(rawRoot, "src", {

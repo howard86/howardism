@@ -2,8 +2,12 @@ import { cn } from "@howardism/ui/lib/utils";
 
 import { DomainLabel } from "@/components/howardism/domain-label";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
-import { InternalLink } from "@/components/internal-link";
+import {
+  InternalLink,
+  PREVIEW_DESCRIPTION_MAX,
+} from "@/components/internal-link";
 import { SaveButton } from "@/components/save-button";
+import { truncate } from "@/utils/text";
 import { formatDateShort } from "@/utils/time";
 
 import type { ArticleEntity } from "./service";
@@ -84,7 +88,11 @@ export function IndexRow({
             compact ? "text-[16px] leading-[1.25]" : "text-[19px] leading-[1.2]"
           )}
           href={`/articles/${slug}`}
-          previewMeta={meta}
+          previewMeta={{
+            tag: meta.tag,
+            title: meta.title,
+            description: truncate(meta.description, PREVIEW_DESCRIPTION_MAX),
+          }}
         >
           {meta.title}
         </InternalLink>

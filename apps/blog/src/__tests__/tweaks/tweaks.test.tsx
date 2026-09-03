@@ -19,8 +19,14 @@ import {
   useTweaks,
 } from "@/components/tweaks/tweaks-provider";
 import { DEFAULT_TWEAKS, TWEAKS_STORAGE_KEY } from "@/components/tweaks/types";
+import { resetReadingStoreCache } from "@/lib/reading-store";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // The "clear reading data" test below writes through reading-store's
+  // module-level cache; reset it so it doesn't leak into other test files.
+  resetReadingStoreCache();
+});
 
 const READER_SETTINGS_LABEL = /reader settings/i;
 const CLEAR_DATA_LABEL = /clear reading data/i;

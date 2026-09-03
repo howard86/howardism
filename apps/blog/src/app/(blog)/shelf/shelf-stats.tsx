@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { getHistory } from "@/lib/reading-store";
-import type { ShelfManifestEntry } from "@/lib/shelf-rows";
+import { getHistory, type ReadingEntry } from "@/lib/reading-store";
+import { useShelfManifest } from "@/lib/shelf-manifest";
 import {
   computeShelfStats,
   type ShelfStats as ShelfStatsData,
@@ -42,22 +42,29 @@ function StatCell({
  * The masthead's three-cell reading-stats strip, computed from the
  * browser-local history on mount (rendered only on the client, and only once
  * there is something to count). The hours figure is an estimate — history
- * keeps a single latest read per article.
+ * keeps a single latest read per article. The article manifest (for reading
+ * times) is fetched only once there's history to resolve against it.
  */
-export function ShelfStats({ manifest }: { manifest: ShelfManifestEntry[] }) {
-  const [stats, setStats] = useState<ShelfStatsData | null>(null);
+export function ShelfStats() {
+  const [history, setHistory] = useState<ReadingEntry[] | null>(null);
 
   useEffect(() => {
-    const bySlug = new Map(
-      manifest.map((entry) => [entry.slug, entry.readingTime])
-    );
-    const reads = getHistory().map((entry) => ({
+    setHistory(getHistory());
+  }, []);
+
+  const manifest = useShelfManifest((history?.length ?? 0) > 0);
+
+  const stats = useMemo<ShelfStatsData | null>(() => {
+    if (!history || history.length === 0 || !manifest) {
+      return null;
+    }
+    const reads = history.map((entry) => ({
       lastReadAt: entry.lastReadAt,
       pct: entry.pct,
-      readingTime: bySlug.get(entry.slug) ?? 0,
+      readingTime: manifest.get(entry.slug)?.readingTime ?? 0,
     }));
-    setStats(computeShelfStats(reads, Date.now()));
-  }, [manifest]);
+    return computeShelfStats(reads, Date.now());
+  }, [history, manifest]);
 
   if (stats === null || stats.notesRead === 0) {
     return null;

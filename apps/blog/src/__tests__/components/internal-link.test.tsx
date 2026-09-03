@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ArticleMeta } from "@/app/(blog)/articles/service";
+import type { ArticlePreview } from "@/components/internal-link";
 import {
   InternalLink,
   InternalLinkPreviewBody,
@@ -11,12 +11,9 @@ afterEach(() => {
   cleanup();
 });
 
-const PREVIEW_META: ArticleMeta = {
-  date: "2026-05-06",
+const PREVIEW_META: ArticlePreview = {
   description:
     "Anthropic's agentic coding product; created by Boris Cherny late 2024; TypeScript/React; CLI/desktop/web/mobile/IDE surfaces; central tool across all 2026 sources.",
-  imageAlt: "alt",
-  readingTime: 4,
   tag: "Entity",
   title: "Claude Code",
 };
@@ -117,7 +114,10 @@ describe("InternalLinkPreviewBody", () => {
     expect(container.textContent).toContain("Read →");
   });
 
-  it("truncates descriptions longer than ~140 chars with a trailing ellipsis", () => {
+  it("renders the description verbatim — truncation is the caller's job", () => {
+    // Callers (index-row.tsx, article-link-row.tsx) truncate to
+    // PREVIEW_DESCRIPTION_MAX before building the preview; the body just
+    // renders what it's given.
     const longDescription = `${"a".repeat(200)}.`;
     const { container } = render(
       <InternalLinkPreviewBody
@@ -126,9 +126,6 @@ describe("InternalLinkPreviewBody", () => {
     );
 
     const paragraph = container.querySelector("p");
-    expect(paragraph).not.toBeNull();
-    expect(paragraph?.textContent?.endsWith("…")).toBe(true);
-    // The original 200-char description must not have rendered in full.
-    expect(paragraph?.textContent?.length).toBeLessThan(longDescription.length);
+    expect(paragraph?.textContent).toBe(longDescription);
   });
 });

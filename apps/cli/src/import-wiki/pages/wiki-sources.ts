@@ -7,6 +7,7 @@ import {
   WikiSourcesManifestSchema,
 } from "@howardism/article-contract/manifests/wiki-sources";
 
+import { runWithConcurrency } from "../../concurrency.ts";
 import {
   extractRawSlugsFromSources,
   loadRawDoc,
@@ -58,21 +59,21 @@ export async function buildWikiSources(args: {
 }): Promise<WikiSourcesManifest> {
   const { parsed, rawRoot, generatedOn } = args;
 
-  const citedBy = new Map<string, string[]>();
+  const citedBy = new Map<string, Set<string>>();
   for (const file of parsed) {
     for (const rawSlug of extractRawSlugsFromSources(
       file.frontmatter.sources
     )) {
-      const list = citedBy.get(rawSlug) ?? [];
-      if (!list.includes(file.source.slug)) {
-        list.push(file.source.slug);
-      }
-      citedBy.set(rawSlug, list);
+      const citers = citedBy.get(rawSlug) ?? new Set<string>();
+      citers.add(file.source.slug);
+      citedBy.set(rawSlug, citers);
     }
   }
 
-  const sources: WikiSource[] = await Promise.all(
-    [...citedBy].map(async ([rawSlug, citers]) => {
+  const sources: WikiSource[] = await runWithConcurrency(
+    [...citedBy],
+    16,
+    async ([rawSlug, citers]) => {
       const doc = await loadRawDoc(rawRoot, rawSlug);
       const url = doc?.url;
       return {
@@ -83,7 +84,7 @@ export async function buildWikiSources(args: {
         kind: deriveKind(url),
         citedBy: [...citers].sort(),
       };
-    })
+    }
   );
 
   sources.sort((a, b) => {

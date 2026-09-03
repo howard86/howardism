@@ -1,14 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 
-import { getHistory } from "@/lib/reading-store";
-import {
-  buildShelfRows,
-  type LinkedShelfRow,
-  type ShelfManifestEntry,
-} from "@/lib/shelf-rows";
+import { getHistory, type ReadingEntry } from "@/lib/reading-store";
+import { useShelfManifest } from "@/lib/shelf-manifest";
+import { buildShelfRows, type LinkedShelfRow } from "@/lib/shelf-rows";
 import { isInProgress } from "@/lib/shelf-view";
 
 import { DOMAIN_META } from "../articles/domain-meta";
@@ -64,22 +61,29 @@ function ResumeCard({ row }: { row: LinkedShelfRow }) {
  * "Continue reading" — a horizontal snap-scroll rail of the newest in-progress
  * reads, resolved from the browser-local history on mount. Renders nothing
  * server-side, while loading, or when everything on the shelf is finished.
- * Opening a card resumes via the article's own resume chip.
+ * Opening a card resumes via the article's own resume chip. The article
+ * manifest is fetched only once there's history to resolve against it.
  */
-export function ContinueReading({
-  manifest,
-}: {
-  manifest: ShelfManifestEntry[];
-}) {
-  const [rows, setRows] = useState<LinkedShelfRow[] | null>(null);
+export function ContinueReading() {
+  const [history, setHistory] = useState<ReadingEntry[] | null>(null);
 
   useEffect(() => {
-    const inProgress = buildShelfRows(getHistory(), manifest).filter(
-      (row): row is LinkedShelfRow =>
-        row.kind === "resolved" && isInProgress(row.pct)
-    );
-    setRows(inProgress.slice(0, MAX_CARDS));
-  }, [manifest]);
+    setHistory(getHistory());
+  }, []);
+
+  const manifest = useShelfManifest((history?.length ?? 0) > 0);
+
+  const rows = useMemo(() => {
+    if (!history || history.length === 0 || !manifest) {
+      return null;
+    }
+    return buildShelfRows(history, manifest)
+      .filter(
+        (row): row is LinkedShelfRow =>
+          row.kind === "resolved" && isInProgress(row.pct)
+      )
+      .slice(0, MAX_CARDS);
+  }, [history, manifest]);
 
   if (!rows || rows.length === 0) {
     return null;

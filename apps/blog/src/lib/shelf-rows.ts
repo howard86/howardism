@@ -72,9 +72,8 @@ export type ShelfRow = LinkedShelfRow | DeletedShelfRow;
  */
 export function buildShelfRows(
   history: readonly ReadingEntry[],
-  manifest: readonly ShelfManifestEntry[]
+  manifest: ReadonlyMap<string, ShelfManifestEntry>
 ): ShelfRow[] {
-  const bySlug = new Map(manifest.map((entry) => [entry.slug, entry]));
   const accessionBySlug = new Map(
     [...history]
       .sort((a, b) => a.firstReadAt - b.firstReadAt)
@@ -88,7 +87,7 @@ export function buildShelfRows(
       lastReadAt: entry.lastReadAt,
       accession: accessionBySlug.get(entry.slug) ?? 0,
     };
-    const meta = bySlug.get(entry.slug);
+    const meta = manifest.get(entry.slug);
     if (meta) {
       rows.push({
         ...base,

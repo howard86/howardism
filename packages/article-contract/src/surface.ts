@@ -35,7 +35,7 @@ const normalizeBody = (body: string): string =>
 export function extractTranslatableSurface(
   rawMdx: string
 ): TranslatableSurface {
-  const { data, content } = matter(rawMdx);
+  const { data, content } = matter(rawMdx, {});
   const d = data as Record<string, unknown>;
   const rawSources = Array.isArray(d.sources) ? d.sources : [];
   return {

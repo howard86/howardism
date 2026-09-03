@@ -19,6 +19,8 @@ mock.module("next/navigation", () => ({
 }));
 
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
+import { resetReadingStoreCache } from "@/lib/reading-store";
+import { resetShelfManifestCache } from "@/lib/shelf-manifest";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 const COMPARE_BUTTON = /compare \(\d+\)/i;
@@ -41,6 +43,13 @@ const manifest: ShelfManifestEntry[] = ["a", "b", "c", "d", "e"].map(
     tags: [],
   })
 );
+
+// ShelfTabs no longer takes a manifest prop — it fetches
+// /shelf/manifest.json (see lib/shelf-manifest.ts) once there's history or a
+// saved list to resolve.
+globalThis.fetch = mock(() =>
+  Promise.resolve(Response.json(manifest))
+) as unknown as typeof fetch;
 
 function seedHistory(slugs: string[]): void {
   localStorage.setItem(
@@ -77,12 +86,14 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   pushed.length = 0;
+  resetShelfManifestCache();
+  resetReadingStoreCache();
 });
 
 describe("Shelf compare selection", () => {
   it("only shows checkboxes while compare mode is on, clearing on exit", async () => {
     seedHistory(["a"]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     await screen.findByRole("link", { name: ALPHA_LINK });
     expect(screen.queryByRole("checkbox")).toBeNull();
@@ -99,7 +110,7 @@ describe("Shelf compare selection", () => {
   it("keeps a selection across switching between History and Saved tabs", async () => {
     seedHistory(["a"]);
     seedSaved(["e"]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await enterCompareMode();
 
     fireEvent.click(
@@ -122,7 +133,7 @@ describe("Shelf compare selection", () => {
 
   it("caps the selection at three and prevents a fourth", async () => {
     seedHistory(["a", "b", "c", "d"]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await enterCompareMode();
 
     fireEvent.click(
@@ -140,7 +151,7 @@ describe("Shelf compare selection", () => {
 
   it("navigates to the compare route built from the selection", async () => {
     seedHistory(["a", "b"]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await enterCompareMode();
 
     fireEvent.click(

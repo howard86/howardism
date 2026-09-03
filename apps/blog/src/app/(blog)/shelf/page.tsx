@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 
 import { env } from "@/config/env";
-import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 import { PlatePage } from "../_shell/plate-page";
-import { DOMAIN_META } from "../articles/domain-meta";
-import { kindMetaFor } from "../articles/kind-meta";
-import { getArticles } from "../articles/service";
 import { ContinueReading } from "./continue-reading";
 import { ShelfStats } from "./shelf-stats";
 import { ShelfTabs } from "./shelf-tabs";
@@ -26,29 +22,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default async function ShelfPage() {
-  const { ids, entities } = await getArticles();
-
-  const manifest: ShelfManifestEntry[] = [];
-  for (const id of ids) {
-    const entity = entities[id];
-    if (!entity) {
-      continue;
-    }
-    const { meta } = entity;
-    manifest.push({
-      slug: id,
-      title: meta.title,
-      label: meta.domain ? DOMAIN_META[meta.domain].label : meta.tag,
-      href: `/articles/${id}`,
-      archived: meta.archived === true,
-      domain: meta.domain,
-      kindPrefix: kindMetaFor(meta.tag).prefix,
-      readingTime: meta.readingTime,
-      tags: meta.tags ?? [],
-    });
-  }
-
+export default function ShelfPage() {
   return (
     <PlatePage
       headerChildren={
@@ -57,7 +31,7 @@ export default async function ShelfPage() {
             Articles you&apos;ve meaningfully read, newest first. This list
             lives only in your browser — nothing is sent anywhere.
           </p>
-          <ShelfStats manifest={manifest} />
+          <ShelfStats />
         </>
       }
       plate="shelf"
@@ -65,8 +39,8 @@ export default async function ShelfPage() {
       titleAccent="read & remembered."
       width="index"
     >
-      <ContinueReading manifest={manifest} />
-      <ShelfTabs manifest={manifest} />
+      <ContinueReading />
+      <ShelfTabs />
     </PlatePage>
   );
 }
