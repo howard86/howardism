@@ -158,13 +158,16 @@ export function QuestionsWorklist({
 
   const results = useMemo(() => {
     const filtered = applyBucket(scoped, bucket);
-    if (sort === "weight") {
-      filtered.sort(
-        (a, b) =>
-          b.lines.length - a.lines.length || a.title.localeCompare(b.title)
-      );
+    if (sort !== "weight") {
+      return filtered;
     }
-    return filtered;
+    // `applyBucket` hands back the memoised `scoped` array itself for the null
+    // bucket, so the sort has to take a copy — sorting in place would reorder
+    // the memo and leave "Filed" showing weight order ever after.
+    return [...filtered].sort(
+      (a, b) =>
+        b.lines.length - a.lines.length || a.title.localeCompare(b.title)
+    );
   }, [scoped, bucket, sort]);
 
   const shownLines = results.reduce(
