@@ -47,6 +47,8 @@ export interface Normalise<T> {
 }
 
 export interface ArticleEntity {
+  /** `meta.date` as epoch ms, parsed once so date sorts compare numbers. */
+  dateMs: number;
   meta: ArticleMeta;
   position: number;
   slug: string;
@@ -127,12 +129,15 @@ const toBacklinks = (
   for (const edge of edges) {
     const entity = visible.entities[edge.slug];
     if (entity) {
-      links.push({
+      const link: ArticleLink = {
         slug: edge.slug,
         meta: entity.meta,
         citedCount: edge.count,
-        ...(edge.context === undefined ? {} : { citedIn: edge.context }),
-      });
+      };
+      if (edge.context !== undefined) {
+        link.citedIn = edge.context;
+      }
+      links.push(link);
     }
   }
   return links;
@@ -145,7 +150,7 @@ const toBacklinks = (
  * The corpus is immutable for the life of the build, so one promise per process
  * is enough — that measured 10 cold runs and 2.0s.
  */
-const once = <T>(load: () => Promise<T>): (() => Promise<T>) => {
+export const once = <T>(load: () => Promise<T>): (() => Promise<T>) => {
   let pending: Promise<T> | null = null;
   return () => {
     pending ??= load();
@@ -169,6 +174,7 @@ const allArticles: Normalise<ArticleEntity> = { ids: [], entities: {} };
 articlesMeta.articles.forEach((entry, index) => {
   allArticles.ids.push(entry.slug);
   allArticles.entities[entry.slug] = {
+    dateMs: Date.parse(entry.meta.date),
     meta: entry.meta,
     position: index,
     slug: entry.slug,
@@ -237,7 +243,7 @@ export const getArticlesByTag = cache(
   }
 );
 
-export const getTagCounts = cache(
+export const getTagCounts = once(
   async (): Promise<Record<ArticleTag, number>> => {
     const visible = await getVisibleArticles();
     const counts: Record<ArticleTag, number> = {
@@ -272,33 +278,39 @@ const isDomainMember = (
 ): entity is ArticleEntity =>
   entity !== undefined && entity.meta.tag !== "Index";
 
-export const getArticlesByDomain = cache(
-  async (domain: ArticleDomain): Promise<ArticleEntity[]> => {
+/**
+ * Every domain's members in one pass, in `ids` order, empty domains included.
+ * The home page plates fourteen domains at once and the counts, sparklines and
+ * lead source all want the same partition, so it is computed once rather than
+ * scanned per domain.
+ */
+export const getArticlesGroupedByDomain = once(
+  async (): Promise<Record<ArticleDomain, ArticleEntity[]>> => {
     const visible = await getVisibleArticles();
-    const matches: ArticleEntity[] = [];
-    for (const id of visible.ids) {
-      const entity = visible.entities[id];
-      if (isDomainMember(entity) && entity.meta.domain === domain) {
-        matches.push(entity);
-      }
-    }
-    return matches;
-  }
-);
-
-export const getDomainCounts = cache(
-  async (): Promise<Record<ArticleDomain, number>> => {
-    const visible = await getVisibleArticles();
-    const counts = Object.fromEntries(
-      ARTICLE_DOMAINS.map((domain) => [domain, 0])
-    ) as Record<ArticleDomain, number>;
+    const grouped = Object.fromEntries(
+      ARTICLE_DOMAINS.map((domain) => [domain, [] as ArticleEntity[]])
+    ) as Record<ArticleDomain, ArticleEntity[]>;
     for (const id of visible.ids) {
       const entity = visible.entities[id];
       if (isDomainMember(entity) && entity.meta.domain) {
-        counts[entity.meta.domain] += 1;
+        grouped[entity.meta.domain].push(entity);
       }
     }
-    return counts;
+    return grouped;
+  }
+);
+
+export const getArticlesByDomain = cache(
+  async (domain: ArticleDomain): Promise<ArticleEntity[]> =>
+    (await getArticlesGroupedByDomain())[domain]
+);
+
+export const getDomainCounts = once(
+  async (): Promise<Record<ArticleDomain, number>> => {
+    const grouped = await getArticlesGroupedByDomain();
+    return Object.fromEntries(
+      ARTICLE_DOMAINS.map((domain) => [domain, grouped[domain].length])
+    ) as Record<ArticleDomain, number>;
   }
 );
 
@@ -314,13 +326,36 @@ const MIN_TAGGED_ARTICLES = 2;
  * first. Distinct from `getArticlesByTag`, which matches the singular `tag`
  * "kind" enum.
  */
+const getTagSlugIndex = once(async (): Promise<Map<string, string[]>> => {
+  const visible = await getVisibleArticles();
+  const slugsByTag = new Map<string, string[]>();
+  for (const id of visible.ids) {
+    const tags = visible.entities[id]?.meta.tags;
+    if (!tags) {
+      continue;
+    }
+    for (const tag of tags) {
+      const slugs = slugsByTag.get(tag);
+      if (slugs) {
+        slugs.push(id);
+      } else {
+        slugsByTag.set(tag, [id]);
+      }
+    }
+  }
+  return slugsByTag;
+});
+
 export const getTaggedArticles = cache(
   async (tag: string): Promise<ArticleEntity[]> => {
-    const visible = await getVisibleArticles();
+    const [visible, slugsByTag] = await Promise.all([
+      getVisibleArticles(),
+      getTagSlugIndex(),
+    ]);
     const matches: ArticleEntity[] = [];
-    for (const id of visible.ids) {
-      const entity = visible.entities[id];
-      if (entity?.meta.tags?.includes(tag)) {
+    for (const slug of slugsByTag.get(tag) ?? []) {
+      const entity = visible.entities[slug];
+      if (entity) {
         matches.push(entity);
       }
     }
@@ -345,23 +380,8 @@ export interface TagIndexEntry {
  * `MIN_TAGGED_ARTICLES` articles link to their `/articles/tagged/[tag]` page;
  * a tag on exactly one article has no such page and links straight to it.
  */
-export const getTagIndex = cache(async (): Promise<TagIndexEntry[]> => {
-  const visible = await getVisibleArticles();
-  const slugsByTag = new Map<string, string[]>();
-  for (const id of visible.ids) {
-    const tags = visible.entities[id]?.meta.tags;
-    if (!tags) {
-      continue;
-    }
-    for (const tag of tags) {
-      const slugs = slugsByTag.get(tag);
-      if (slugs) {
-        slugs.push(id);
-      } else {
-        slugsByTag.set(tag, [id]);
-      }
-    }
-  }
+export const getTagIndex = once(async (): Promise<TagIndexEntry[]> => {
+  const slugsByTag = await getTagSlugIndex();
   return [...slugsByTag.entries()]
     .map(([tag, slugs]) => ({
       tag,
@@ -379,7 +399,7 @@ export const getTagIndex = cache(async (): Promise<TagIndexEntry[]> => {
  * articles, sorted by frequency then name. These are the tags that get a
  * static `/articles/tagged/[tag]` page and clickable chips.
  */
-export const getNavigableTags = cache(async (): Promise<string[]> => {
+export const getNavigableTags = once(async (): Promise<string[]> => {
   const index = await getTagIndex();
   return index
     .filter((entry) => entry.count >= MIN_TAGGED_ARTICLES)
@@ -391,7 +411,7 @@ export const getNavigableTags = cache(async (): Promise<string[]> => {
  * plates and each article page) test `navigable.has(tag)` without rebuilding
  * the set per render.
  */
-export const getNavigableTagSet = cache(
+export const getNavigableTagSet = once(
   async (): Promise<ReadonlySet<string>> => new Set(await getNavigableTags())
 );
 
@@ -415,36 +435,31 @@ const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
  * last `SPARK_WEEKS` weeks, oldest→newest, anchored to the newest article date
  * so the most recent batch always registers. Returns `[]` for empty domains.
  */
-export const getDomainSparklines = cache(
+export const getDomainSparklines = once(
   async (): Promise<Record<ArticleDomain, number[]>> => {
-    const visible = await getVisibleArticles();
-    const dated = visible.ids
-      .map((id) => visible.entities[id])
-      .filter(
-        (e): e is ArticleEntity =>
-          isDomainMember(e) && e.meta.domain !== undefined
-      );
+    const grouped = await getArticlesGroupedByDomain();
 
-    const anchor = dated.reduce(
-      (max, e) => Math.max(max, new Date(e.meta.date).valueOf()),
-      0
-    );
+    let anchor = 0;
+    for (const domain of ARTICLE_DOMAINS) {
+      for (const entity of grouped[domain]) {
+        if (entity.dateMs > anchor) {
+          anchor = entity.dateMs;
+        }
+      }
+    }
     const start = anchor - (SPARK_WEEKS - 1) * MS_PER_WEEK;
 
     const result = Object.fromEntries(
       ARTICLE_DOMAINS.map((domain) => [domain, new Array(SPARK_WEEKS).fill(0)])
     ) as Record<ArticleDomain, number[]>;
 
-    for (const entity of dated) {
-      const domain = entity.meta.domain;
-      if (!domain) {
-        continue;
-      }
-      const week = Math.floor(
-        (new Date(entity.meta.date).valueOf() - start) / MS_PER_WEEK
-      );
-      if (week >= 0 && week < SPARK_WEEKS) {
-        result[domain][week] += 1;
+    for (const domain of ARTICLE_DOMAINS) {
+      const bars = result[domain];
+      for (const entity of grouped[domain]) {
+        const week = Math.floor((entity.dateMs - start) / MS_PER_WEEK);
+        if (week >= 0 && week < SPARK_WEEKS) {
+          bars[week] += 1;
+        }
       }
     }
     return result;
@@ -480,17 +495,17 @@ export const getDomainLeadSource = (
 async function computeDomainLeadSource(
   domain: ArticleDomain
 ): Promise<WikiSource | undefined> {
-  const visible = await getVisibleArticles();
-  const domainSlugs = new Set(
-    visible.ids.filter((id) => {
-      const entity = visible.entities[id];
-      return isDomainMember(entity) && entity.meta.domain === domain;
-    })
-  );
+  const grouped = await getArticlesGroupedByDomain();
+  const domainSlugs = new Set(grouped[domain].map((entity) => entity.slug));
   let best: WikiSource | undefined;
   let bestScore = 0;
   for (const source of wikiSources.sources) {
-    const score = source.citedBy.filter((slug) => domainSlugs.has(slug)).length;
+    let score = 0;
+    for (const slug of source.citedBy) {
+      if (domainSlugs.has(slug)) {
+        score += 1;
+      }
+    }
     if (score > bestScore) {
       best = source;
       bestScore = score;
@@ -509,24 +524,64 @@ const openQuestions = parseOpenQuestions(openQuestionsData);
 export const getOpenQuestions = (): OpenQuestionConcept[] =>
   openQuestions.byConcept;
 
+const openQuestionsByDomain = new Map<ArticleDomain, OpenQuestionConcept[]>();
+for (const concept of openQuestions.byConcept) {
+  const bucket = openQuestionsByDomain.get(concept.domain);
+  if (bucket) {
+    bucket.push(concept);
+  } else {
+    openQuestionsByDomain.set(concept.domain, [concept]);
+  }
+}
+
 /** The open-questions concepts filed under a single domain. */
 export const getOpenQuestionsByDomain = (
   domain: ArticleDomain
-): OpenQuestionConcept[] =>
-  openQuestions.byConcept.filter((concept) => concept.domain === domain);
+): OpenQuestionConcept[] => openQuestionsByDomain.get(domain) ?? [];
 
 /**
  * Returns prev/next slug for the article-page footer, partitioned by archive
  * state so a visible article never links to an archived sibling and vice
  * versa. Position is 1-based within the same partition.
  */
+interface ArchivePartition {
+  indexBySlug: Map<string, number>;
+  list: string[];
+}
+
+/**
+ * The two archive partitions of `ids`, each with its slug positions. Every
+ * article page asks for its siblings, and building the partition per page meant
+ * filtering all 427 ids and then scanning for one of them.
+ */
+const getArchivePartitions = once(
+  async (): Promise<{
+    archived: ArchivePartition;
+    visible: ArchivePartition;
+  }> => {
+    const all = await getArticles();
+    const archived: ArchivePartition = { list: [], indexBySlug: new Map() };
+    const visible: ArchivePartition = { list: [], indexBySlug: new Map() };
+    for (const id of all.ids) {
+      const partition =
+        all.entities[id]?.meta.archived === true ? archived : visible;
+      partition.indexBySlug.set(id, partition.list.length);
+      partition.list.push(id);
+    }
+    return { archived, visible };
+  }
+);
+
 export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
-  const all = await getArticles();
+  const [all, partitions] = await Promise.all([
+    getArticles(),
+    getArchivePartitions(),
+  ]);
   const isArchived = all.entities[slug]?.meta.archived === true;
-  const partition = all.ids.filter(
-    (id) => (all.entities[id]?.meta.archived === true) === isArchived
-  );
-  const index = partition.indexOf(slug);
+  const { list, indexBySlug } = isArchived
+    ? partitions.archived
+    : partitions.visible;
+  const index = indexBySlug.get(slug) ?? -1;
   if (index < 0) {
     return {
       previousSlug: undefined,
@@ -536,8 +591,8 @@ export const getSiblings = cache(async (slug: string): Promise<SiblingNav> => {
       position: 1,
     };
   }
-  const previousSlug = partition[index + 1];
-  const nextSlug = partition[index - 1];
+  const previousSlug = list[index + 1];
+  const nextSlug = list[index - 1];
   return {
     previousSlug,
     previousTitle: previousSlug
@@ -560,8 +615,10 @@ const translations = parseTranslations(translationsData);
 
 const translatedSet = new Set(Object.keys(translations.articles));
 
+const translatedSlugs = [...translatedSet].sort();
+
 /** Slugs that have a committed zh-TW translation (per translations.json). */
-export const getTranslatedSlugs = (): string[] => [...translatedSet].sort();
+export const getTranslatedSlugs = (): string[] => translatedSlugs;
 
 /** Whether `slug` has a zh-TW translation available. */
 export const hasTranslation = (slug: string): boolean =>

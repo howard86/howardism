@@ -129,7 +129,6 @@ export async function getTranslatedArticleLinks(): Promise<
     })
   );
   const links = results.filter((r): r is LocalizedArticleLink => r !== null);
-  return links.sort(
-    (a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf()
-  );
+  // Date.parse rather than new Date(...).valueOf(): same parser, no object.
+  return links.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 }

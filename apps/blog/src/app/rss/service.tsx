@@ -1,10 +1,9 @@
 import "server-only";
 
 import { Feed } from "feed";
-import { cache } from "react";
 
 import { env } from "@/config/env";
-import { getVisibleArticles } from "../(blog)/articles/service";
+import { getVisibleArticles, once } from "../(blog)/articles/service";
 import {
   AUTHOR_EMAIL,
   AUTHOR_NAME,
@@ -14,7 +13,9 @@ import {
 
 const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
 
-export const generateFeed = cache(async (): Promise<Feed> => {
+// `once`, not React's `cache`: feed.xml and feed.json are separate route
+// handlers, so a per-render memo builds the same feed twice per build.
+export const generateFeed = once(async (): Promise<Feed> => {
   const articles = await getVisibleArticles();
 
   const author = {

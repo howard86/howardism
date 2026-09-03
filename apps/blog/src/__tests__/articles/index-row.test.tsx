@@ -27,6 +27,7 @@ const META: ArticleMeta = {
 };
 
 const ARTICLE: ArticleEntity = {
+  dateMs: Date.parse(META.date),
   meta: META,
   position: 0,
   slug: "alpha",

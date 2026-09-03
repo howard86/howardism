@@ -20,6 +20,7 @@ function article(
     ...overrides,
   };
   return {
+    dateMs: Date.parse(meta.date),
     meta,
     position: 0,
     slug,

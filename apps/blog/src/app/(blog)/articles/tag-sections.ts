@@ -89,10 +89,5 @@ export async function getSectionArticles(
   const groups = await Promise.all(
     section.tags.map((t) => getArticlesByTag(t))
   );
-  return groups
-    .flat()
-    .sort(
-      (a, b) =>
-        new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf()
-    );
+  return groups.flat().sort((a, b) => b.dateMs - a.dateMs);
 }

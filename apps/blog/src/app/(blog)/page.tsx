@@ -5,7 +5,7 @@ import { PlatePage } from "./_shell/plate-page";
 import { DOMAIN_META, DOMAIN_ORDER } from "./articles/domain-meta";
 import {
   type ArticleDomain,
-  getArticlesByDomain,
+  getArticlesGroupedByDomain,
   getDomainCounts,
   getDomainLeadSource,
   getDomainSparklines,
@@ -19,7 +19,7 @@ import { DomainPlate } from "./domain-plate";
 const MIN_PLATE_COUNT = 6;
 
 export default async function Home() {
-  const [counts, sparklines, visible, leadSources, domainArticles] =
+  const [counts, sparklines, visible, leadSources, articlesByDomain] =
     await Promise.all([
       getDomainCounts(),
       getDomainSparklines(),
@@ -29,15 +29,10 @@ export default async function Home() {
           async (domain) => [domain, await getDomainLeadSource(domain)] as const
         )
       ),
-      Promise.all(
-        DOMAIN_ORDER.map(
-          async (domain) => [domain, await getArticlesByDomain(domain)] as const
-        )
-      ),
+      getArticlesGroupedByDomain(),
     ]);
 
   const leadSourceByDomain = Object.fromEntries(leadSources);
-  const articlesByDomain = Object.fromEntries(domainArticles);
 
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
   const sourceCount = getWikiSources().length;
