@@ -16,8 +16,9 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
 2. **Import & validate.** Import articles and manifests with images off (fast, no Codex), then validate the summary:
    ```bash
    cd apps/cli && SKIP_IMAGES=1 WIKI_PATH="$WIKI_PATH" bun run import:wiki
+   bun run build:articles-meta
    ```
-   Confirm the printed summary reports articles written and manifests generated with no thrown error. Unresolved wikilinks and missing-raw warnings are expected (MOC internal links resolve to `home`). Then run `bun run format` at the repo root — the importer writes manifests with expanded JSON arrays that Biome collapses, so `bun run lint` fails in CI until it has run. → *done when the import exits 0, `apps/blog/src/data/{article-graph,wiki-sources,open-questions}.json` are updated, and `bun run lint` is clean apart from the `article-graph.json` file-size warning.* (The summary's "leaving missing asset" lines name the articles needing images — step 3 fills them.)
+   Confirm the printed summary reports articles written and manifests generated with no thrown error. Unresolved wikilinks and missing-raw warnings are expected (MOC internal links resolve to `home`). `build:articles-meta` rebuilds the frontmatter manifest from the articles the import just wrote; `content:check` fails on a stale one. Then run `bun run format` at the repo root — the importer writes manifests with expanded JSON arrays that Biome collapses, so `bun run lint` fails in CI until it has run. → *done when the import exits 0, `apps/blog/src/data/{article-graph,wiki-sources,open-questions,articles-meta}.json` are updated, and `bun run lint` is clean apart from the `article-graph.json` file-size warning.* (The summary's "leaving missing asset" lines name the articles needing images — step 3 fills them.)
 
 3. **Generate images sequentially.** From the repo root, run the bundled script — background it for a large batch and log to a file — then monitor and relay progress:
    ```bash
