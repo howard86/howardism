@@ -44,23 +44,31 @@ export default function useScrollSpy({
     if (elements.length === 0) {
       return;
     }
+    // The effect already resolved every id; the callbacks below read from this
+    // rather than going back to `document.getElementById` per tick.
+    const byId = new Map(elements.map((el) => [el.id, el]));
 
     visibleRef.current = new Set();
 
-    const recompute = () => {
-      const topMostId = findTopMostVisibleId(visibleRef.current);
+    const recompute = (rects?: Map<Element, DOMRectReadOnly>) => {
+      const topMostId = findTopMostVisibleId(visibleRef.current, byId);
       if (topMostId) {
         setActiveSectionId(topMostId);
         return;
       }
       setActiveSectionId(
-        findLastAboveAnchorId(elements, fallbackOffsetPx) ?? elements[0].id
+        findLastAboveAnchorId(elements, fallbackOffsetPx, rects) ??
+          elements[0].id
       );
     };
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // The observer already measured its own targets this tick, so the
+        // fallback scan can use those rects instead of forcing a layout read.
+        const rects = new Map<Element, DOMRectReadOnly>();
         for (const entry of entries) {
+          rects.set(entry.target, entry.boundingClientRect);
           const id = entry.target.id;
           if (entry.isIntersecting) {
             visibleRef.current.add(id);
@@ -68,7 +76,7 @@ export default function useScrollSpy({
             visibleRef.current.delete(id);
           }
         }
-        recompute();
+        recompute(rects);
       },
       { rootMargin: `-${fallbackOffsetPx}px 0px -65% 0px`, threshold: 0 }
     );
@@ -98,10 +106,13 @@ function collectElements(ids: string[]): HTMLElement[] {
   return elements;
 }
 
-function findTopMostVisibleId(visibleIds: Iterable<string>): string | null {
+function findTopMostVisibleId(
+  visibleIds: Iterable<string>,
+  byId: ReadonlyMap<string, HTMLElement>
+): string | null {
   let topMost: { id: string; top: number } | null = null;
   for (const id of visibleIds) {
-    const el = document.getElementById(id);
+    const el = byId.get(id);
     if (!el) {
       continue;
     }
@@ -115,13 +126,19 @@ function findTopMostVisibleId(visibleIds: Iterable<string>): string | null {
 
 function findLastAboveAnchorId(
   elements: HTMLElement[],
-  offsetPx: number
+  offsetPx: number,
+  rects?: Map<Element, DOMRectReadOnly>
 ): string | null {
   let fallback: string | null = null;
   for (const el of elements) {
-    if (el.getBoundingClientRect().top < offsetPx) {
-      fallback = el.id;
+    // Headings are in document order, so their tops ascend: the first one at
+    // or below the anchor ends the scan, and everything after it is measured
+    // only to be discarded.
+    const top = (rects?.get(el) ?? el.getBoundingClientRect()).top;
+    if (top >= offsetPx) {
+      break;
     }
+    fallback = el.id;
   }
   return fallback;
 }

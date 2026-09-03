@@ -7,13 +7,15 @@ import { humanize, rewriteToMarkdown, type WikiResolver } from "./wikilink.ts";
 // Accepts both `[[target|label]]` and `[[target\|label]]` — the latter is the
 // Obsidian convention for embedding pipes inside markdown tables.
 const FENCE_RE = /^(\s*)(```+|~~~+)/;
-const WORD_RE = /\b\w+\b/g;
 const LEADING_H1_RE = /^#\s+.+\n+/;
 const TRAILING_PUNCT_RE = /[.\s]+$/;
 const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3}|<!--)/;
 const BLOCKQUOTE_PREFIX_RE = /^>\s?/;
 const BOLD_MARKER_RE = /\*\*([^*]+)\*\*/g;
 const FENCE_START_RE = /^(```+|~~~+)/;
+// The only characters `escapeLine` can change. ~93% of prose lines hold
+// none of them and are returned untouched rather than rebuilt per character.
+const NEEDS_ESCAPE = /[`{}<]/;
 const LEADING_BLANKS_RE = /^\s*\n+/;
 const LEADING_HASH_RE = /^#\s+/;
 const WHITESPACE_RE = /\s+/g;
@@ -116,7 +118,7 @@ function resolveInternalTarget(args: {
   anchor: string | null;
   label: string | null;
   slug: string;
-  slugTitleMap: Map<string, string>;
+  slugTitleMap: ReadonlyMap<string, string>;
 }): InternalResolution {
   const { anchor, label, slug, slugTitleMap } = args;
 
@@ -170,7 +172,7 @@ function resolveInternalTarget(args: {
  */
 export function rewriteWikilinks(
   body: string,
-  slugTitleMap: Map<string, string>,
+  slugTitleMap: ReadonlyMap<string, string>,
   rawIndex?: Map<string, RawDoc>
 ): WikilinkTransformResult {
   let hasInternalLink = false;
@@ -321,6 +323,9 @@ function escapeProseChar(line: string, i: number): string {
 }
 
 function escapeLine(line: string): string {
+  if (!NEEDS_ESCAPE.test(line)) {
+    return line;
+  }
   let result = "";
   let i = 0;
   while (i < line.length) {
@@ -419,8 +424,17 @@ export function stripDuplicateLeadingHeading(
  */
 export function redactLocalPaths(body: string): string {
   let result = body;
-  for (const [re, replacement] of VAULT_PATH_REDACTIONS) {
-    result = result.replace(re, replacement);
+  // Every vault-path pattern needs one of these three literals, and 9 of 427
+  // bodies carry any of them. The cleanup pass below is NOT guarded: it
+  // normalises spacing corpus-wide, not just where a path was removed.
+  if (
+    body.includes("obsidian-vault") ||
+    body.includes("raw/assets") ||
+    body.includes("wiki/")
+  ) {
+    for (const [re, replacement] of VAULT_PATH_REDACTIONS) {
+      result = result.replace(re, replacement);
+    }
   }
   for (const [re, replacement] of REDACTION_CLEANUP) {
     result = result.replace(re, replacement);
@@ -428,9 +442,31 @@ export function redactLocalPaths(body: string): string {
   return result;
 }
 
+/** `\w` without the `u` flag: ASCII letters, digits and underscore. */
+function isWordCharCode(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    code === 95
+  );
+}
+
 export function computeReadingTime(body: string): number {
-  const wordMatches = body.match(WORD_RE);
-  const wordCount = wordMatches?.length ?? 0;
+  // A word is a maximal run of `\w`, which is what `\b\w+\b` matched — but
+  // counting the runs never materialises the ~1.5M substrings that did.
+  let wordCount = 0;
+  let inWord = false;
+  for (let i = 0; i < body.length; i++) {
+    if (!isWordCharCode(body.charCodeAt(i))) {
+      inWord = false;
+      continue;
+    }
+    if (!inWord) {
+      wordCount += 1;
+      inWord = true;
+    }
+  }
   return Math.max(1, Math.ceil(wordCount / WORDS_PER_MINUTE));
 }
 

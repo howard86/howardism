@@ -14,6 +14,10 @@ const WIKILINK_RE = /\[\[([^\]|\\\n]+)(?:\\?\|([^\]\n]+))?\]\]/g;
 const CODE_REGION_RE =
   /^[ \t]*(?:```|~~~)[^\n]*\n[\s\S]*?^[ \t]*(?:```|~~~)[^\n]*$|(`+)(?:(?!\1)[^\n])+?\1/gm;
 const FENCE_LINE_RE = /^[ \t]*(?:```|~~~)/;
+/** Inline code spans alone. The fenced branch of {@link CODE_REGION_RE}
+ *  needs a newline to match, so a single line can only ever hit this
+ *  alternative — and the line-by-line callers track fences themselves. */
+const INLINE_CODE_SPAN_RE = /(`+)(?:(?!\1)[^\n])+?\1/g;
 
 const HUMANIZE_RE = /[._-]+/g;
 const WHITESPACE_RE = /\s+/g;
@@ -24,9 +28,12 @@ const WHITESPACE_RE = /\s+/g;
  * — and resolving those turns a quoted pattern into a broken link (or, worse,
  * a real one plus a phantom backlink in the graph).
  */
-function* proseSegments(input: string): Generator<string> {
+function* proseSegments(
+  input: string,
+  regionRe: RegExp = CODE_REGION_RE
+): Generator<string> {
   let last = 0;
-  for (const match of input.matchAll(CODE_REGION_RE)) {
+  for (const match of input.matchAll(regionRe)) {
     yield input.slice(last, match.index);
     last = match.index + match[0].length;
   }
@@ -36,11 +43,12 @@ function* proseSegments(input: string): Generator<string> {
 /** Rewrite the prose between code regions, leaving code byte-identical. */
 function replaceOutsideCode(
   input: string,
-  replace: (segment: string) => string
+  replace: (segment: string) => string,
+  regionRe: RegExp = CODE_REGION_RE
 ): string {
   let out = "";
   let last = 0;
-  for (const match of input.matchAll(CODE_REGION_RE)) {
+  for (const match of input.matchAll(regionRe)) {
     out += replace(input.slice(last, match.index)) + match[0];
     last = match.index + match[0].length;
   }
@@ -95,9 +103,19 @@ export function extractInternalSlugs(
   input: string,
   opts?: { dedup?: boolean }
 ): string[] {
+  return internalSlugsIn(
+    proseSegments(input),
+    opts?.dedup ? new Set<string>() : null
+  );
+}
+
+/** The slug scan itself, over already-segmented prose. */
+function internalSlugsIn(
+  segments: Iterable<string>,
+  seen: Set<string> | null
+): string[] {
   const slugs: string[] = [];
-  const seen = opts?.dedup ? new Set<string>() : null;
-  for (const segment of proseSegments(input)) {
+  for (const segment of segments) {
     for (const match of segment.matchAll(WIKILINK_RE)) {
       const target = match[1];
       if (target.startsWith("raw/")) {
@@ -159,10 +177,15 @@ export function extractLinkOccurrences(input: string): LinkOccurrence[] {
       inFence = !inFence;
       continue;
     }
-    if (inFence) {
+    // Nothing to resolve and nothing to quote: the overwhelming majority of
+    // lines, and the only reason the two scans below stay cheap.
+    if (inFence || !line.includes("[[")) {
       continue;
     }
-    const slugs = extractInternalSlugs(line);
+    const slugs = internalSlugsIn(
+      proseSegments(line, INLINE_CODE_SPAN_RE),
+      null
+    );
     if (slugs.length === 0) {
       continue;
     }
@@ -186,7 +209,7 @@ export function extractLinkOccurrences(input: string): LinkOccurrence[] {
 }
 
 function lineContext(line: string): string | null {
-  const text = stripToText(line)
+  const text = replaceOutsideCode(line, toDisplayText, INLINE_CODE_SPAN_RE)
     .replace(HEADING_MARKER_RE, "")
     .replace(LIST_MARKER_RE, "")
     .replace(MD_LINK_RE, "$1")
@@ -236,21 +259,23 @@ export function extractRawSlugs(
   return slugs;
 }
 
+function toDisplayText(segment: string): string {
+  return segment.replace(WIKILINK_RE, (_match, target, label) => {
+    if (label) {
+      return String(label).trim();
+    }
+    const path = String(target);
+    const slug = path.split("/").pop() ?? path;
+    if (path.startsWith("raw/")) {
+      return humanize(slug);
+    }
+    return titleFromSlug(slug);
+  });
+}
+
 /** Replace each wikilink with its plain-text display form. Single-pass. */
 export function stripToText(input: string): string {
-  return replaceOutsideCode(input, (segment) =>
-    segment.replace(WIKILINK_RE, (_match, target, label) => {
-      if (label) {
-        return String(label).trim();
-      }
-      const path = String(target);
-      const slug = path.split("/").pop() ?? path;
-      if (path.startsWith("raw/")) {
-        return humanize(slug);
-      }
-      return titleFromSlug(slug);
-    })
-  );
+  return replaceOutsideCode(input, toDisplayText);
 }
 
 export type WikiResolver = (token: WikiToken) => string;

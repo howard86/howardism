@@ -11,6 +11,9 @@ import type { ParsedWikiFile } from "../parse.ts";
 import { extractLinkOccurrences, type LinkOccurrence } from "../wikilink.ts";
 
 const RELATED_LIMIT = 5;
+/** Shared stand-ins for a slug with no edges; never written to. */
+const EMPTY_SET: ReadonlySet<string> = new Set();
+const EMPTY_SCORES: ReadonlyMap<string, number> = new Map();
 
 export type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
 
@@ -81,11 +84,11 @@ function buildBacklinks(
   }
   for (const [source, links] of occurrences) {
     for (const link of links) {
-      backlinks[link.slug]?.push({
-        slug: source,
-        count: link.count,
-        ...(link.context === null ? {} : { context: link.context }),
-      });
+      const edge: BacklinkEdge = { slug: source, count: link.count };
+      if (link.context !== null) {
+        edge.context = link.context;
+      }
+      backlinks[link.slug]?.push(edge);
     }
   }
   for (const edges of Object.values(backlinks)) {
@@ -110,27 +113,53 @@ function buildBacklinkSets(
   return back;
 }
 
-function computeRelated(
+/**
+ * Pair scores, accumulated through shared neighbours instead of over all N²
+ * pairs. The score two articles carry is the number of targets they both cite
+ * plus the number of sources that cite them both — so every pair drawn from
+ * one article's backlink set scores a shared target, and every pair drawn from
+ * its outgoing set scores a shared source. Pairs that never co-occur are never
+ * touched, which is the whole cost of the all-pairs scan.
+ */
+function accumulatePairScores(
+  sortedSlugs: string[],
+  outgoingSets: Map<string, Set<string>>,
+  backlinkSets: Map<string, Set<string>>
+): Map<string, Map<string, number>> {
+  const scores = new Map<string, Map<string, number>>(
+    sortedSlugs.map((slug) => [slug, new Map<string, number>()])
+  );
+  const bump = (from: string, to: string): void => {
+    const row = scores.get(from);
+    row?.set(to, (row.get(to) ?? 0) + 1);
+  };
+  const scoreEveryPair = (members: ReadonlySet<string>): void => {
+    const list = [...members];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        bump(list[i], list[j]);
+        bump(list[j], list[i]);
+      }
+    }
+  };
+
+  for (const slug of sortedSlugs) {
+    scoreEveryPair(backlinkSets.get(slug) ?? EMPTY_SET);
+    scoreEveryPair(outgoingSets.get(slug) ?? EMPTY_SET);
+  }
+  return scores;
+}
+
+export function computeRelated(
   sortedSlugs: string[],
   outgoingSets: Map<string, Set<string>>,
   backlinkSets: Map<string, Set<string>>
 ): Record<string, string[]> {
+  const scores = accumulatePairScores(sortedSlugs, outgoingSets, backlinkSets);
   const related: Record<string, string[]> = {};
   for (const slug of sortedSlugs) {
-    const outA = outgoingSets.get(slug) ?? new Set<string>();
-    const backA = backlinkSets.get(slug) ?? new Set<string>();
     const scored: Array<{ score: number; slug: string }> = [];
-    for (const other of sortedSlugs) {
-      if (other === slug) {
-        continue;
-      }
-      const outB = outgoingSets.get(other) ?? new Set<string>();
-      const backB = backlinkSets.get(other) ?? new Set<string>();
-      const score =
-        countIntersection(outA, outB) + countIntersection(backA, backB);
-      if (score === 0) {
-        continue;
-      }
+    for (const [other, score] of scores.get(slug) ?? EMPTY_SCORES) {
       scored.push({ slug: other, score });
     }
     scored.sort((a, b) => {
@@ -142,17 +171,6 @@ function computeRelated(
     related[slug] = scored.slice(0, RELATED_LIMIT).map((s) => s.slug);
   }
   return related;
-}
-
-function countIntersection(a: Set<string>, b: Set<string>): number {
-  const [small, large] = a.size <= b.size ? [a, b] : [b, a];
-  let count = 0;
-  for (const x of small) {
-    if (large.has(x)) {
-      count += 1;
-    }
-  }
-  return count;
 }
 
 export interface EmitArticleGraphArgs {

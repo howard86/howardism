@@ -42,6 +42,12 @@ const lines = (): string =>
     .map((node) => node.textContent ?? "")
     .join("\n");
 
+/** Stanza order, read off the concept headings' hrefs. */
+const stanzaOrder = (): string[] =>
+  [...document.querySelectorAll('a[href$="#open-questions"]')].map(
+    (node) => node.getAttribute("href") ?? ""
+  );
+
 afterEach(cleanup);
 
 describe("QuestionsWorklist", () => {
@@ -71,6 +77,23 @@ describe("QuestionsWorklist", () => {
     fireEvent.change(searchBox(), { target: { value: "eval drift" } });
     expect(lines()).toContain("Will the benchmark be rerun");
     expect(lines()).not.toContain("Who first published");
+  });
+
+  it("restores the filed order after sorting by weight", () => {
+    // Reversed, so the order the manifest supplies is NOT the weight order.
+    render(<QuestionsWorklist concepts={[...concepts].reverse()} />);
+    const filed = [
+      "/articles/eval-drift#open-questions",
+      "/articles/agent-loop-pattern#open-questions",
+    ];
+    expect(stanzaOrder()).toEqual(filed);
+
+    fireEvent.click(screen.getByText("Most open"));
+    expect(stanzaOrder()).toEqual([...filed].reverse());
+
+    // Sorting must not have reordered the memoised scope behind the filter.
+    fireEvent.click(screen.getByText("Filed"));
+    expect(stanzaOrder()).toEqual(filed);
   });
 
   it("filters to one triage bucket and back", () => {

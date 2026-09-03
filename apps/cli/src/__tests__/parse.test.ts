@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { titleFromSlug } from "@howardism/article-contract/markup";
+import matter from "gray-matter";
 
 import {
   buildSlugTitleMap,
@@ -14,6 +15,12 @@ import {
   resolveDate,
   stripWikilinksToText,
 } from "../import-wiki/parse.ts";
+
+/** gray-matter's process-wide parse cache; absent from its type declarations. */
+const matterInternals = matter as unknown as {
+  cache: Record<string, unknown>;
+  clearCache: () => void;
+};
 
 async function tempFile(content: string, filename: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "wiki-test-"));
@@ -360,6 +367,48 @@ describe("loadRawDoc", () => {
   it("returns null when the file is missing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
     expect(await loadRawDoc(dir, "missing")).toBeNull();
+  });
+
+  it("reads each raw doc once and serves later calls from the memo", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    const slug = "memoised";
+    const path = join(dir, `${slug}.md`);
+    await writeFile(
+      path,
+      ["---", 'title: "Read Once"', "---"].join("\n"),
+      "utf8"
+    );
+
+    const first = await loadRawDoc(dir, slug);
+    // Removing the file makes a second read impossible, so an identical
+    // result can only have come from the memo.
+    await rm(path);
+    expect(await loadRawDoc(dir, slug)).toBe(first);
+  });
+});
+
+describe("gray-matter parse cache", () => {
+  it("stays empty — both parsers pass an options object", async () => {
+    matterInternals.clearCache();
+    const wikiPath = await tempFile(
+      ["---", 'title: "Cached?"', "---", "", "Body."].join("\n"),
+      "cached.md"
+    );
+    await parseWikiFile({
+      slug: "cached",
+      folder: "concepts",
+      absolutePath: wikiPath,
+    });
+
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    await writeFile(
+      join(dir, "clipping.md"),
+      ["---", 'title: "Clipping"', "---"].join("\n"),
+      "utf8"
+    );
+    await loadRawDoc(dir, "clipping");
+
+    expect(Object.keys(matterInternals.cache)).toHaveLength(0);
   });
 });
 

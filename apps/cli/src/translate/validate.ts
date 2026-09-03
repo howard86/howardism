@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
 import { ArticleContractSchema } from "@howardism/article-contract/schema";
@@ -33,9 +33,40 @@ const MARKDOWN_LINK_TARGET_RE = /\]\(((?:[^()\s]|\([^()]*\))+)\)/g;
 const BARE_URL_RE =
   /https?:\/\/(?:[^\s()\]。，、；：！？」』】》〉]|\([^\s()]*\))+/g;
 
-const NON_WHITESPACE_RE = /\S/g;
-const ASCII_LATIN_RE = /[A-Za-z]/g;
-const LIST_ITEM_RE = /^[ \t]*[-*+] /gm;
+const CHAR_TAB = 0x09;
+const CHAR_SPACE = 0x20;
+
+/** The code units JS `\s` matches, in one predicate. */
+function isWhitespaceCode(code: number): boolean {
+  return (
+    code === CHAR_SPACE ||
+    (code >= 0x09 && code <= 0x0d) ||
+    code === 0xa0 ||
+    code === 0x16_80 ||
+    (code >= 0x20_00 && code <= 0x20_0a) ||
+    code === 0x20_28 ||
+    code === 0x20_29 ||
+    code === 0x20_2f ||
+    code === 0x20_5f ||
+    code === 0x30_00 ||
+    code === 0xfe_ff
+  );
+}
+
+/** `[A-Za-z]`. */
+function isAsciiLatinCode(code: number): boolean {
+  return (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a);
+}
+
+/** The code units that start a new line for a `m`-flagged `^`. */
+function isLineTerminatorCode(code: number): boolean {
+  return code === 0x0a || code === 0x0d || code === 0x20_28 || code === 0x20_29;
+}
+
+/** `-`, `*` or `+`. */
+function isListMarkerCode(code: number): boolean {
+  return code === 0x2d || code === 0x2a || code === 0x2b;
+}
 
 /** Extract markdown link targets (`](...)`) plus bare `https?://` URLs. */
 export function extractLinkUrls(text: string): string[] {
@@ -175,12 +206,23 @@ export function residualEnglishRatio(body: string): number {
   stripped = stripped.replace(MARKDOWN_LINK_TARGET_RE, "]");
   stripped = stripped.replace(BARE_URL_RE, "");
 
-  const nonWhitespace = stripped.match(NON_WHITESPACE_RE) ?? [];
-  if (nonWhitespace.length === 0) {
+  // One pass, two counters: `.match(...).length` built an array holding every
+  // matched character just to read how many there were.
+  let nonWhitespace = 0;
+  let asciiLatin = 0;
+  for (let i = 0; i < stripped.length; i++) {
+    const code = stripped.charCodeAt(i);
+    if (isAsciiLatinCode(code)) {
+      asciiLatin += 1;
+      nonWhitespace += 1;
+    } else if (!isWhitespaceCode(code)) {
+      nonWhitespace += 1;
+    }
+  }
+  if (nonWhitespace === 0) {
     return 0;
   }
-  const asciiLatin = stripped.match(ASCII_LATIN_RE) ?? [];
-  return asciiLatin.length / nonWhitespace.length;
+  return asciiLatin / nonWhitespace;
 }
 
 /**
@@ -202,7 +244,28 @@ export const MIN_LIST_ITEM_RATIO = 0.9;
 
 /** Count markdown list items (`-`/`*`/`+` bullets) in a body. */
 export function countListItems(body: string): number {
-  return (body.match(LIST_ITEM_RE) ?? []).length;
+  // `/^[ \t]*[-*+] /gm` without the match array. At most one item can match per
+  // line, so this skips each line's leading blanks and tests the marker there.
+  let count = 0;
+  let atLineStart = true;
+  for (let i = 0; i < body.length; i++) {
+    const code = body.charCodeAt(i);
+    if (isLineTerminatorCode(code)) {
+      atLineStart = true;
+      continue;
+    }
+    if (!atLineStart) {
+      continue;
+    }
+    if (code === CHAR_SPACE || code === CHAR_TAB) {
+      continue;
+    }
+    atLineStart = false;
+    if (isListMarkerCode(code) && body.charCodeAt(i + 1) === CHAR_SPACE) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /** Output-to-source list-item retention (see {@link MIN_LIST_ITEM_RATIO}). */
@@ -445,27 +508,41 @@ const checkTranslationQuality = (
  * so the orchestrator can decide whether to retry without re-running the
  * engine for each individual check.
  */
+/** Read a file, or capture the error that stopped it being read. */
+async function readOrError(
+  path: string
+): Promise<{ error: Error | null; text: string }> {
+  try {
+    return { error: null, text: await readFile(path, "utf8") };
+  } catch (err) {
+    return { error: err as Error, text: "" };
+  }
+}
+
 export async function validateTranslation(
   args: ValidateTranslationArgs
 ): Promise<ValidationResult> {
   const { sourceAbsPath, outputAbsPath } = args;
   const errors: string[] = [];
 
-  // 1. Output exists and is non-empty.
-  let outputStat: Awaited<ReturnType<typeof stat>>;
-  try {
-    outputStat = await stat(outputAbsPath);
-  } catch {
+  // 1. Output exists and is non-empty. Both files are read up front and
+  // together: readFile reports a missing file itself, so the stat that
+  // preceded it was a round trip for what the read already tells us.
+  const [output, source] = await Promise.all([
+    readOrError(outputAbsPath),
+    readOrError(sourceAbsPath),
+  ]);
+  if (output.error) {
     return {
       ok: false,
       errors: [`Output file does not exist: ${outputAbsPath}`],
     };
   }
-  if (outputStat.size === 0) {
+  if (output.text.length === 0) {
     return { ok: false, errors: [`Output file is empty: ${outputAbsPath}`] };
   }
 
-  const outputText = await readFile(outputAbsPath, "utf8");
+  const outputText = output.text;
 
   // 2. Starts with "---".
   if (!outputText.startsWith("---")) {
@@ -504,13 +581,11 @@ export async function validateTranslation(
   }
 
   // 5. heroImage line equals source's byte-for-byte.
-  let sourceText: string;
-  try {
-    sourceText = await readFile(sourceAbsPath, "utf8");
-  } catch (err) {
-    errors.push(`Failed to read source: ${(err as Error).message}`);
+  if (source.error) {
+    errors.push(`Failed to read source: ${source.error.message}`);
     return { ok: errors.length === 0, errors };
   }
+  const sourceText = source.text;
   errors.push(...checkHeroImageLine(sourceText, outputText));
 
   // 6. Preserved frontmatter keys (date, tag, topic, readingTime) match.

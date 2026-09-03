@@ -5,6 +5,7 @@ import { cn } from "@howardism/ui/lib/utils";
 import {
   type CSSProperties,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -14,29 +15,16 @@ import {
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 import { DOMAIN_META, DOMAIN_ORDER } from "../articles/domain-meta";
-import {
-  ConceptStanza,
-  linesOf,
-  type QuestionLine,
-} from "../articles/open-questions-section";
+import { ConceptStanza } from "../articles/open-questions-section";
 import type { OpenQuestionConcept } from "../articles/service";
 import {
   TRIAGE_META,
   TRIAGE_ORDER,
   type TriageBucket,
 } from "../articles/triage-meta";
+import { applyBucket, buildStanzas, filterStanzas } from "./questions-filter";
 
 type Sort = "concept" | "weight";
-
-/** A concept with its lines pre-flattened once, so filtering stays cheap. */
-interface Stanza {
-  domain: WikiDomain;
-  /** Lowercased title, searched alongside every line under it. */
-  haystack: string;
-  lines: QuestionLine[];
-  slug: string;
-  title: string;
-}
 
 const CHIP_CLASS =
   "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.1em] transition-colors";
@@ -74,17 +62,7 @@ export function QuestionsWorklist({
   // before the reader below has restored the state a shared link carried in.
   const hydrated = useRef(false);
 
-  const stanzas = useMemo<Stanza[]>(
-    () =>
-      concepts.map((concept) => ({
-        domain: concept.domain,
-        haystack: concept.title.toLowerCase(),
-        lines: linesOf(concept),
-        slug: concept.slug,
-        title: concept.title,
-      })),
-    [concepts]
-  );
+  const stanzas = useMemo(() => buildStanzas(concepts), [concepts]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -137,7 +115,11 @@ export function QuestionsWorklist({
   const focusSearch = useCallback(() => inputRef.current?.focus(), []);
   useKeyboardShortcut("/", focusSearch);
 
-  const tokens = useMemo(() => tokenize(query), [query]);
+  // Filtering and highlighting walk every line in the backlog, so let the
+  // input paint the typed character first and narrow against the settled
+  // query — the same trade the search palette makes.
+  const deferredQuery = useDeferredValue(query);
+  const tokens = useMemo(() => tokenize(deferredQuery), [deferredQuery]);
   const pattern = useMemo(
     () =>
       tokens.length === 0
@@ -149,20 +131,7 @@ export function QuestionsWorklist({
   // Text and domain narrow the corpus; the bucket filter is applied after, so
   // the tally can keep showing what the other buckets hold under this search.
   const scoped = useMemo(
-    () =>
-      stanzas
-        .filter((stanza) => domain === null || stanza.domain === domain)
-        .map((stanza) => ({
-          ...stanza,
-          lines: stanza.lines.filter((line) =>
-            tokens.every(
-              (token) =>
-                stanza.haystack.includes(token) ||
-                line.text.toLowerCase().includes(token)
-            )
-          ),
-        }))
-        .filter((stanza) => stanza.lines.length > 0),
+    () => filterStanzas(stanzas, tokens, domain),
     [stanzas, domain, tokens]
   );
 
@@ -188,22 +157,17 @@ export function QuestionsWorklist({
   }, [stanzas]);
 
   const results = useMemo(() => {
-    const filtered = scoped
-      .map((stanza) => ({
-        ...stanza,
-        lines:
-          bucket === null
-            ? stanza.lines
-            : stanza.lines.filter((line) => line.bucket === bucket),
-      }))
-      .filter((stanza) => stanza.lines.length > 0);
-    if (sort === "weight") {
-      filtered.sort(
-        (a, b) =>
-          b.lines.length - a.lines.length || a.title.localeCompare(b.title)
-      );
+    const filtered = applyBucket(scoped, bucket);
+    if (sort !== "weight") {
+      return filtered;
     }
-    return filtered;
+    // `applyBucket` hands back the memoised `scoped` array itself for the null
+    // bucket, so the sort has to take a copy — sorting in place would reorder
+    // the memo and leave "Filed" showing weight order ever after.
+    return [...filtered].sort(
+      (a, b) =>
+        b.lines.length - a.lines.length || a.title.localeCompare(b.title)
+    );
   }, [scoped, bucket, sort]);
 
   const shownLines = results.reduce(
