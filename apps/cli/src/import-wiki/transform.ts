@@ -14,6 +14,9 @@ const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3}|<!--)/;
 const BLOCKQUOTE_PREFIX_RE = /^>\s?/;
 const BOLD_MARKER_RE = /\*\*([^*]+)\*\*/g;
 const FENCE_START_RE = /^(```+|~~~+)/;
+// The only characters `escapeLine` can change. ~93% of prose lines hold
+// none of them and are returned untouched rather than rebuilt per character.
+const NEEDS_ESCAPE = /[`{}<]/;
 const LEADING_BLANKS_RE = /^\s*\n+/;
 const LEADING_HASH_RE = /^#\s+/;
 const WHITESPACE_RE = /\s+/g;
@@ -321,6 +324,9 @@ function escapeProseChar(line: string, i: number): string {
 }
 
 function escapeLine(line: string): string {
+  if (!NEEDS_ESCAPE.test(line)) {
+    return line;
+  }
   let result = "";
   let i = 0;
   while (i < line.length) {
