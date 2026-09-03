@@ -17,10 +17,11 @@ function article(
     ...overrides,
   };
   return {
-    heroImage: { src: "/x.png", height: 100, width: 100 },
+    dateMs: Date.parse(meta.date),
     meta,
     position: 0,
     slug,
+    sourceHash: "hash",
   };
 }
 

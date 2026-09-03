@@ -87,7 +87,5 @@ function sortByTitle(members: ArticleEntity[]): ArticleEntity[] {
 }
 
 function sortByDateDesc(members: ArticleEntity[]): ArticleEntity[] {
-  return [...members].sort(
-    (a, b) => new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf()
-  );
+  return [...members].sort((a, b) => b.dateMs - a.dateMs);
 }

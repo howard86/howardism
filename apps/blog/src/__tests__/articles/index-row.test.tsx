@@ -27,10 +27,11 @@ const META: ArticleMeta = {
 };
 
 const ARTICLE: ArticleEntity = {
-  heroImage: { src: "/x.png", height: 100, width: 100 },
+  dateMs: Date.parse(META.date),
   meta: META,
   position: 0,
   slug: "alpha",
+  sourceHash: "hash",
 };
 
 const TITLE = /Alpha Article/i;

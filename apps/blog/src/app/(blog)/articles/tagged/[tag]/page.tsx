@@ -8,7 +8,11 @@ import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../../_shell/plate-page";
 import { ArticlesTable } from "../../articles-table";
-import { getNavigableTags, getTaggedArticles } from "../../service";
+import {
+  getNavigableTagSet,
+  getNavigableTags,
+  getTaggedArticles,
+} from "../../service";
 
 interface TaggedPageParams {
   tag: string;
@@ -30,8 +34,8 @@ export async function generateMetadata({
   params,
 }: TaggedPageProps): Promise<Metadata> {
   const { tag } = await params;
-  const navigable = await getNavigableTags();
-  if (!navigable.includes(tag)) {
+  const navigable = await getNavigableTagSet();
+  if (!navigable.has(tag)) {
     return { title: "Not found — Howardism" };
   }
   const label = humanizeTag(tag);
@@ -46,8 +50,8 @@ export async function generateMetadata({
 
 export default async function TaggedPage({ params }: TaggedPageProps) {
   const { tag } = await params;
-  const navigable = await getNavigableTags();
-  if (!navigable.includes(tag)) {
+  const navigable = await getNavigableTagSet();
+  if (!navigable.has(tag)) {
     notFound();
   }
 
@@ -75,7 +79,7 @@ export default async function TaggedPage({ params }: TaggedPageProps) {
 
       <ArticlesTable
         articles={articles}
-        navigable={new Set(navigable)}
+        navigable={navigable}
         srCaption={`Articles tagged ${label}, sorted by date, newest first.`}
       />
     </PlatePage>

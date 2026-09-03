@@ -9,9 +9,10 @@
  *
  * FAILURES (exit 1): hero-image imports that resolve to a real file, every slug
  * referenced by the committed manifests existing as an article, required
- * frontmatter (`title`, `description`, `imageAlt`) being present, the
- * `syntheses` fallback domain staying under a third of all articles, and
- * every curated domain owning at least one article.
+ * frontmatter (`title`, `description`, `imageAlt`) being present,
+ * `articles-meta.json` mirroring the committed MDX exactly, the `syntheses`
+ * fallback domain staying under a third of all articles, and every curated
+ * domain owning at least one article.
  *
  * WARNINGS (never affect exit code; emitted as GitHub `::warning::` annotations
  * under CI): orphan articles with no backlinks, domains without a `moc-<domain>`
@@ -25,13 +26,17 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import { WIKI_DOMAINS } from "@howardism/article-contract";
+import { ArticlesMetaManifestSchema } from "@howardism/article-contract/manifests/articles-meta";
 import {
   type ArticleGraph,
   parseArticleGraph,
 } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
+import { surfaceHash } from "@howardism/article-contract/surface";
 import matter from "gray-matter";
+
+import { runWithConcurrency } from "./concurrency";
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = resolve(HERE, "../../../");
@@ -45,6 +50,8 @@ const MDX_SUFFIX = /\.mdx$/;
 const HERO_SUFFIX = /\.(?:png|webp)$/;
 const PNG_SUFFIX = /\.png$/;
 const MOC_PREFIX = "moc-";
+/** Enough to keep the disk busy without exhausting file descriptors. */
+const READ_CONCURRENCY = 16;
 /** Catch-all domain for notes no MOC claims. */
 const FALLBACK_DOMAIN = "syntheses";
 /**
@@ -67,6 +74,8 @@ export interface ArticleRecord {
   heroImage: string | null;
   imageAlt: string;
   slug: string;
+  /** Hash of the article's translatable surface — see `articles-meta.json`. */
+  sourceHash: string;
   title: string;
 }
 
@@ -85,6 +94,7 @@ export function parseArticle(raw: string, slug: string): ArticleRecord {
     imageAlt: String(data.imageAlt ?? "").trim(),
     domain: data.domain ? String(data.domain) : null,
     heroImage: extractHeroImage(raw),
+    sourceHash: surfaceHash(raw),
   };
 }
 
@@ -114,29 +124,29 @@ export function checkGraphSlugRefs(
   articleSlugs: Set<string>
 ): string[] {
   const failures: string[] = [];
-  const relations: [string, Record<string, string[]>][] = [
-    [
-      "backlinks",
-      Object.fromEntries(
-        Object.entries(graph.backlinks ?? {}).map(([source, edges]) => [
-          source,
-          edges.map((edge) => edge.slug),
-        ])
-      ),
-    ],
-    ["related", graph.related ?? {}],
-  ];
-  for (const [relation, edges] of relations) {
-    for (const [source, targets] of Object.entries(edges)) {
-      if (!articleSlugs.has(source)) {
-        failures.push(`graph.${relation} key "${source}" has no article`);
+  // Both relations are walked in place. Normalising backlinks into the shape of
+  // `related` first meant rebuilding the whole 1.7MB map to read one field.
+  for (const [source, edges] of Object.entries(graph.backlinks ?? {})) {
+    if (!articleSlugs.has(source)) {
+      failures.push(`graph.backlinks key "${source}" has no article`);
+    }
+    for (const edge of edges) {
+      if (!articleSlugs.has(edge.slug)) {
+        failures.push(
+          `graph.backlinks["${source}"] → "${edge.slug}" has no article`
+        );
       }
-      for (const target of targets) {
-        if (!articleSlugs.has(target)) {
-          failures.push(
-            `graph.${relation}["${source}"] → "${target}" has no article`
-          );
-        }
+    }
+  }
+  for (const [source, targets] of Object.entries(graph.related ?? {})) {
+    if (!articleSlugs.has(source)) {
+      failures.push(`graph.related key "${source}" has no article`);
+    }
+    for (const target of targets) {
+      if (!articleSlugs.has(target)) {
+        failures.push(
+          `graph.related["${source}"] → "${target}" has no article`
+        );
       }
     }
   }
@@ -185,6 +195,51 @@ export function checkFrontmatter(articles: ArticleRecord[]): string[] {
     if (missing.length > 0) {
       failures.push(`${article.slug}: missing ${missing.join(", ")}`);
     }
+  }
+  return failures;
+}
+
+/**
+ * `articles-meta.json` is both the blog's article list and its stale-translation
+ * check, so it has to mirror the committed MDX exactly: one entry per article,
+ * frontmatter that still validates, and a `sourceHash` matching the file as it
+ * stands. Drift is otherwise silent — the blog serves the frontmatter the
+ * manifest was built from, not the one on disk.
+ */
+export function checkArticlesMeta(
+  articles: ArticleRecord[],
+  manifest: unknown
+): string[] {
+  const parsed = ArticlesMetaManifestSchema.safeParse(manifest);
+  if (!parsed.success) {
+    return [
+      `articles-meta.json does not match the contract: ${parsed.error.message}`,
+    ];
+  }
+  const failures: string[] = [];
+  const entries = new Map(
+    parsed.data.articles.map((entry) => [entry.slug, entry])
+  );
+  if (entries.size !== parsed.data.articles.length) {
+    failures.push("articles-meta.json has duplicate slug entries");
+  }
+  for (const article of articles) {
+    const entry = entries.get(article.slug);
+    if (!entry) {
+      failures.push(
+        `${article.slug}: missing from articles-meta.json — run bun run build:articles-meta`
+      );
+      continue;
+    }
+    entries.delete(article.slug);
+    if (entry.sourceHash !== article.sourceHash) {
+      failures.push(
+        `${article.slug}: articles-meta.json is stale — run bun run build:articles-meta`
+      );
+    }
+  }
+  for (const slug of entries.keys()) {
+    failures.push(`articles-meta.json entry "${slug}" has no article`);
   }
   return failures;
 }
@@ -330,12 +385,10 @@ async function readMdxSlugs(dir: string): Promise<string[]> {
 
 async function loadArticles(): Promise<ArticleRecord[]> {
   const slugs = await readMdxSlugs(ARTICLES_DIR);
-  const articles: ArticleRecord[] = [];
-  for (const slug of slugs) {
+  return runWithConcurrency(slugs, READ_CONCURRENCY, async (slug) => {
     const raw = await readFile(resolve(ARTICLES_DIR, `${slug}.mdx`), "utf8");
-    articles.push(parseArticle(raw, slug));
-  }
-  return articles;
+    return parseArticle(raw, slug);
+  });
 }
 
 async function loadAssetFilenames(): Promise<Set<string>> {
@@ -368,14 +421,21 @@ function emitWarningAnnotations(results: CheckResult[]): void {
 }
 
 async function main(): Promise<void> {
-  const [articles, assetFilenames, graph, openQuestions, wikiSources] =
-    await Promise.all([
-      loadArticles(),
-      loadAssetFilenames(),
-      loadJson<unknown>("article-graph.json").then(parseArticleGraph),
-      loadJson<OpenQuestionsManifest>("open-questions.json"),
-      loadJson<WikiSourcesManifest>("wiki-sources.json"),
-    ]);
+  const [
+    articles,
+    assetFilenames,
+    graph,
+    openQuestions,
+    wikiSources,
+    articlesMeta,
+  ] = await Promise.all([
+    loadArticles(),
+    loadAssetFilenames(),
+    loadJson<unknown>("article-graph.json").then(parseArticleGraph),
+    loadJson<OpenQuestionsManifest>("open-questions.json"),
+    loadJson<WikiSourcesManifest>("wiki-sources.json"),
+    loadJson<unknown>("articles-meta.json"),
+  ]);
   const articleSlugs = new Set(articles.map((a) => a.slug));
 
   const failures: CheckResult[] = [
@@ -396,6 +456,10 @@ async function main(): Promise<void> {
       messages: checkWikiSourceSlugRefs(wikiSources, articleSlugs),
     },
     { name: "frontmatter-required", messages: checkFrontmatter(articles) },
+    {
+      name: "articles-meta",
+      messages: checkArticlesMeta(articles, articlesMeta),
+    },
     {
       name: "domain-fallback-ceiling",
       messages: checkFallbackCeiling(articles),
