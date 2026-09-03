@@ -4,9 +4,11 @@ import { WIKI_DOMAINS } from "@howardism/article-contract";
 import type { ArticleGraph } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
+import { surfaceHash } from "@howardism/article-contract/surface";
 
 import {
   type ArticleRecord,
+  checkArticlesMeta,
   checkEmptyDomains,
   checkFallbackCeiling,
   checkFrontmatter,
@@ -30,6 +32,7 @@ function article(overrides: Partial<ArticleRecord> = {}): ArticleRecord {
     imageAlt: "Alt",
     domain: "agent-systems",
     heroImage: "a.webp",
+    sourceHash: "hash-a",
     ...overrides,
   };
 }
@@ -74,6 +77,7 @@ describe("parseArticle", () => {
       imageAlt: "Alt text",
       domain: "model-capability-and-training",
       heroImage: "slug.webp",
+      sourceHash: surfaceHash(raw),
     });
   });
 
@@ -290,5 +294,66 @@ describe("findStrayPngs", () => {
 
   it("is silent once every hero is WebP", () => {
     expect(findStrayPngs(new Set(["a.webp", "b.webp"]))).toEqual([]);
+  });
+});
+
+describe("checkArticlesMeta", () => {
+  const entry = (slug: string, sourceHash: string) => ({
+    slug,
+    sourceHash,
+    meta: {
+      date: "2026-01-01",
+      description: "d",
+      imageAlt: "alt",
+      readingTime: 1,
+      tag: "Concept",
+      title: "T",
+    },
+  });
+  const manifest = (
+    ...entries: ReturnType<typeof entry>[]
+  ): Record<string, unknown> => ({
+    generatedOn: "2026-01-01",
+    articles: entries,
+  });
+
+  it("passes when every article has a matching entry", () => {
+    const articles = [article({ slug: "a", sourceHash: "h1" })];
+    expect(checkArticlesMeta(articles, manifest(entry("a", "h1")))).toEqual([]);
+  });
+
+  it("reports an article with no entry", () => {
+    const articles = [article({ slug: "a", sourceHash: "h1" })];
+    expect(checkArticlesMeta(articles, manifest())).toEqual([
+      "a: missing from articles-meta.json — run bun run build:articles-meta",
+    ]);
+  });
+
+  it("reports an entry with no article", () => {
+    expect(checkArticlesMeta([], manifest(entry("gone", "h1")))).toEqual([
+      'articles-meta.json entry "gone" has no article',
+    ]);
+  });
+
+  it("reports a sourceHash that no longer matches the file", () => {
+    const articles = [article({ slug: "a", sourceHash: "fresh" })];
+    expect(checkArticlesMeta(articles, manifest(entry("a", "stale")))).toEqual([
+      "a: articles-meta.json is stale — run bun run build:articles-meta",
+    ]);
+  });
+
+  it("reports duplicate slug entries", () => {
+    const articles = [article({ slug: "a", sourceHash: "h1" })];
+    const messages = checkArticlesMeta(
+      articles,
+      manifest(entry("a", "h1"), entry("a", "h1"))
+    );
+    expect(messages).toEqual(["articles-meta.json has duplicate slug entries"]);
+  });
+
+  it("reports a manifest that does not match the contract", () => {
+    const messages = checkArticlesMeta([], { articles: [] });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toStartWith("articles-meta.json does not match");
   });
 });
