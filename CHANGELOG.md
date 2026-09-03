@@ -1,3 +1,8 @@
+# [v2.27.0](https://github.com/howard86/howardism/compare/v2.26.3...v2.27.0) (2026-09-03)
+
+## ✨ New Features
+- [`21c917b8`](https://github.com/howard86/howardism/commit/21c917b8)  feat(cli): emit an articles-meta manifest from the committed MDX
+
 # [v2.26.3](https://github.com/howard86/howardism/compare/v2.26.2...v2.26.3) (2026-09-03)
 
 ## 🐛 Bug Fixes
