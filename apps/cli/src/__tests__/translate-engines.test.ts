@@ -5,10 +5,65 @@ import {
   DEFAULT_CURSOR_MODEL,
   DEFAULT_ENGINE_MODELS,
   defaultModelForEngine,
+  drainStream,
   ENGINES,
   parseEngine,
   runEngine,
 } from "../translate/engines.ts";
+
+/** A ReadableStream that yields each string in `chunks` as one UTF-8 push. */
+function streamFrom(chunks: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  let i = 0;
+  return new ReadableStream({
+    pull(controller) {
+      if (i < chunks.length) {
+        controller.enqueue(encoder.encode(chunks[i]));
+        i += 1;
+      } else {
+        controller.close();
+      }
+    },
+  });
+}
+
+describe("drainStream", () => {
+  it("splits chunked input into lines, calling onLine, and returns the joined text", async () => {
+    const lines: string[] = [];
+    const result = await drainStream(streamFrom(["a\nb\n", "c\n"]), (line) =>
+      lines.push(line)
+    );
+    expect(lines).toEqual(["a", "b", "c"]);
+    expect(result).toBe("a\nb\nc");
+  });
+
+  it("strips a trailing \\r from CRLF-terminated lines", async () => {
+    const result = await drainStream(streamFrom(["a\r\nb\r\n"]));
+    expect(result).toBe("a\nb");
+  });
+
+  it("reconstructs a line split across a chunk boundary", async () => {
+    const result = await drainStream(streamFrom(["ab", "c\nd"]));
+    expect(result).toBe("abc\nd");
+  });
+
+  it("reconstructs a multi-byte UTF-8 character split across a chunk boundary", async () => {
+    const bytes = new TextEncoder().encode("emoji: 😀\n");
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        // Splits inside the emoji's 4-byte UTF-8 sequence.
+        controller.enqueue(bytes.slice(0, 8));
+        controller.enqueue(bytes.slice(8));
+        controller.close();
+      },
+    });
+    expect(await drainStream(stream)).toBe("emoji: 😀");
+  });
+
+  it("keeps a final line with no trailing newline", async () => {
+    expect(await drainStream(streamFrom(["a\nb"]))).toBe("a\nb");
+  });
+});
 
 const KIRO_ENV_RE = /KIRO_ACP_CLIENT/;
 const ENGINE_LIST_RE = /one of:\s*codex,\s*claude,\s*agy,\s*kiro,\s*cursor/;

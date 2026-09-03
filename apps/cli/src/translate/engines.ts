@@ -247,6 +247,10 @@ export function buildEngineArgv(
   return ["python3", kiroClient, "--cwd", scopeDir, "--model", "auto", prompt];
 }
 
+// Consumed-but-not-yet-trimmed prefix past which `buffer` gets compacted —
+// amortises the trim instead of re-slicing the remainder on every line.
+const COMPACT_THRESHOLD = 64 * 1024;
+
 // Drain a ReadableStream<Uint8Array> line by line, calling onLine for each
 // line as it arrives and returning the full text when the stream closes.
 // Must be used with Promise.all over stdout+stderr to avoid pipe deadlocks.
@@ -257,6 +261,10 @@ export async function drainStream(
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  // Index of the first unconsumed character in `buffer` — lines before it
+  // have already been sliced out, so each `indexOf` only scans forward from
+  // here instead of `buffer` re-flattening on every line found.
+  let start = 0;
   const all: string[] = [];
   try {
     while (true) {
@@ -265,22 +273,27 @@ export async function drainStream(
         break;
       }
       buffer += decoder.decode(value, { stream: true });
-      let newline = buffer.indexOf("\n");
+      let newline = buffer.indexOf("\n", start);
       while (newline !== -1) {
         // Strip trailing \r so CRLF-terminated lines don't corrupt terminal output.
-        const line = buffer.slice(0, newline).replace(TRAILING_CR_RE, "");
-        buffer = buffer.slice(newline + 1);
+        const line = buffer.slice(start, newline).replace(TRAILING_CR_RE, "");
+        start = newline + 1;
         all.push(line);
         onLine?.(line);
-        newline = buffer.indexOf("\n");
+        newline = buffer.indexOf("\n", start);
+      }
+      if (start > COMPACT_THRESHOLD) {
+        buffer = buffer.slice(start);
+        start = 0;
       }
     }
     // Flush the TextDecoder's internal buffer so multi-byte UTF-8 sequences
     // split across the last two chunks are not silently dropped.
     buffer += decoder.decode();
-    if (buffer) {
-      all.push(buffer);
-      onLine?.(buffer);
+    const remainder = buffer.slice(start);
+    if (remainder) {
+      all.push(remainder);
+      onLine?.(remainder);
     }
   } finally {
     reader.releaseLock();
