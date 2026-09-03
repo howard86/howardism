@@ -17,11 +17,13 @@ mock.module("next/navigation", () => ({
 }));
 
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
+import { resetShelfManifestCache } from "@/lib/shelf-manifest";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  resetShelfManifestCache();
 });
 
 const DAY_MS = 24 * 3_600_000;
@@ -60,6 +62,13 @@ const manifest: ShelfManifestEntry[] = [
     tags: [],
   },
 ];
+
+// ShelfTabs no longer takes a manifest prop — it fetches
+// /shelf/manifest.json (see lib/shelf-manifest.ts) once there's history or a
+// saved list to resolve.
+globalThis.fetch = mock(() =>
+  Promise.resolve(Response.json(manifest))
+) as unknown as typeof fetch;
 
 const HISTORY_KEY = "howardism:reading-history";
 const SAVED_KEY = "howardism:reading-saved";
@@ -106,7 +115,7 @@ function seedSaved(slugs: string[]): void {
 describe("ShelfTabs history tab", () => {
   it("renders a history row linking to the top of the article", async () => {
     seedHistory([{ slug: "alpha", pct: 0.6 }]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     const link = await waitFor(() =>
       screen.getByRole("link", { name: ROW_TITLE })
@@ -119,7 +128,7 @@ describe("ShelfTabs history tab", () => {
     // which is an attribute-presence selector — `data-orientation` alone left
     // the controls and the list side by side, collapsing the title column.
     seedHistory([{ slug: "alpha", pct: 0.6 }]);
-    const { container } = render(<ShelfTabs manifest={manifest} />);
+    const { container } = render(<ShelfTabs />);
 
     await waitFor(() => screen.getByRole("link", { name: ROW_TITLE }));
     const root = container.querySelector('[data-slot="tabs"]');
@@ -127,7 +136,7 @@ describe("ShelfTabs history tab", () => {
   });
 
   it("offers only an invitation when nothing is read or saved", async () => {
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     await waitFor(() => expect(screen.getByText(EMPTY_STATE)).not.toBeNull());
     expect(screen.queryByRole("button", { name: PROGRESS_SORT })).toBeNull();
@@ -139,7 +148,7 @@ describe("ShelfTabs history tab", () => {
 
   it("keeps the per-tab empty state when the other list has entries", async () => {
     seedSaved(["alpha"]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     await waitFor(() =>
       expect(screen.getByText(TAB_EMPTY_STATE)).not.toBeNull()
@@ -149,7 +158,7 @@ describe("ShelfTabs history tab", () => {
 
   it("removes a row when its remove control is clicked", async () => {
     seedHistory([{ slug: "alpha", pct: 0.6 }]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     const remove = await waitFor(() =>
       screen.getByRole("button", { name: REMOVE_ALPHA })
@@ -162,7 +171,7 @@ describe("ShelfTabs history tab", () => {
 
   it("tags an archived read and still links it", async () => {
     seedHistory([{ slug: "gamma", pct: 0.5 }]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     await waitFor(() => expect(screen.getByText(ARCHIVED_TAG)).not.toBeNull());
     expect(
@@ -172,7 +181,7 @@ describe("ShelfTabs history tab", () => {
 
   it("renders a dismissible tombstone for a slug that no longer resolves", async () => {
     seedHistory([{ slug: "ghost-slug", pct: 0.7 }]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     await waitFor(() => expect(screen.getByText(TOMBSTONE)).not.toBeNull());
     expect(screen.queryByRole("link")).toBeNull();
@@ -186,7 +195,7 @@ describe("ShelfTabs history tab", () => {
       { slug: "alpha", pct: 0.6 },
       { slug: "beta", pct: 0.4, ageMs: 3 * DAY_MS },
     ]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
 
     await waitFor(() => expect(screen.getByText("Today")).not.toBeNull());
     expect(screen.getByText("Earlier this week")).not.toBeNull();
@@ -197,7 +206,7 @@ describe("ShelfTabs history tab", () => {
       { slug: "alpha", pct: 0.3 },
       { slug: "beta", pct: 0.9, ageMs: 3 * DAY_MS },
     ]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await screen.findByRole("link", { name: ROW_TITLE });
 
     fireEvent.click(screen.getByRole("button", { name: PROGRESS_SORT }));
@@ -213,7 +222,7 @@ describe("ShelfTabs history tab", () => {
       { slug: "beta", pct: 0.3, firstAgeMs: 5 * DAY_MS },
       { slug: "alpha", pct: 0.9, ageMs: 3 * DAY_MS, firstAgeMs: 10 * DAY_MS },
     ]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await screen.findByRole("link", { name: ROW_TITLE });
 
     // Accession order is first-read order: alpha (older) is 01, beta is 02.
@@ -234,7 +243,7 @@ describe("ShelfTabs history tab", () => {
       { slug: "alpha", pct: 0.6 },
       { slug: "beta", pct: 0.4 },
     ]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await screen.findByRole("link", { name: ROW_TITLE });
 
     fireEvent.click(screen.getByRole("button", { name: AGENT_SYSTEMS_CHIP }));
@@ -250,7 +259,7 @@ describe("ShelfTabs history tab", () => {
       { slug: "alpha", pct: 0.6 },
       { slug: "beta", pct: 0.4 },
     ]);
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await screen.findByRole("link", { name: ROW_TITLE });
 
     fireEvent.click(screen.getByRole("button", { name: AGENT_SYSTEMS_CHIP }));

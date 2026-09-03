@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { ReadingEntry } from "@/lib/reading-store";
 import { buildShelfRows, type ShelfManifestEntry } from "@/lib/shelf-rows";
 
-const manifest: ShelfManifestEntry[] = [
+const manifestEntries: ShelfManifestEntry[] = [
   {
     slug: "alpha",
     title: "Alpha",
@@ -35,6 +35,7 @@ const manifest: ShelfManifestEntry[] = [
     tags: [],
   },
 ];
+const manifest = new Map(manifestEntries.map((entry) => [entry.slug, entry]));
 
 describe("buildShelfRows", () => {
   it("resolves visible articles into rows, preserving newest-first order", () => {

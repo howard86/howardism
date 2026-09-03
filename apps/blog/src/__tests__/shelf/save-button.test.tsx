@@ -19,11 +19,13 @@ mock.module("next/navigation", () => ({
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
 import { SaveButton } from "@/components/save-button";
 import { isSaved } from "@/lib/reading-store";
+import { resetShelfManifestCache } from "@/lib/shelf-manifest";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  resetShelfManifestCache();
 });
 
 const SAVE = /save for later/i;
@@ -45,6 +47,13 @@ const manifest: ShelfManifestEntry[] = [
     tags: [],
   },
 ];
+
+// ShelfTabs no longer takes a manifest prop — it fetches
+// /shelf/manifest.json (see lib/shelf-manifest.ts) once there's history or a
+// saved list to resolve.
+globalThis.fetch = mock(() =>
+  Promise.resolve(Response.json(manifest))
+) as unknown as typeof fetch;
 
 function seedSaved(): void {
   localStorage.setItem(
@@ -88,7 +97,7 @@ describe("SaveButton", () => {
 describe("ShelfTabs saved tab", () => {
   it("lists saved articles and drops a row when unsaved", async () => {
     seedSaved();
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await openSavedTab();
 
     const link = await waitFor(() =>
@@ -109,7 +118,7 @@ describe("ShelfTabs saved tab", () => {
         { slug: "alpha", pct: 0.6, lastReadAt: Date.now(), firstReadAt: 1 },
       ])
     );
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await openSavedTab();
     await waitFor(() => expect(screen.getByText(EMPTY_SAVED)).not.toBeNull());
   });
@@ -120,7 +129,7 @@ describe("ShelfTabs saved tab", () => {
       "howardism:reading-history",
       JSON.stringify([{ slug: "alpha", pct: 0.6, lastReadAt: Date.now() }])
     );
-    render(<ShelfTabs manifest={manifest} />);
+    render(<ShelfTabs />);
     await openSavedTab();
 
     await screen.findByRole("link", { name: ALPHA_TITLE });
