@@ -14,29 +14,16 @@ import {
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 import { DOMAIN_META, DOMAIN_ORDER } from "../articles/domain-meta";
-import {
-  ConceptStanza,
-  linesOf,
-  type QuestionLine,
-} from "../articles/open-questions-section";
+import { ConceptStanza } from "../articles/open-questions-section";
 import type { OpenQuestionConcept } from "../articles/service";
 import {
   TRIAGE_META,
   TRIAGE_ORDER,
   type TriageBucket,
 } from "../articles/triage-meta";
+import { applyBucket, buildStanzas, filterStanzas } from "./questions-filter";
 
 type Sort = "concept" | "weight";
-
-/** A concept with its lines pre-flattened once, so filtering stays cheap. */
-interface Stanza {
-  domain: WikiDomain;
-  /** Lowercased title, searched alongside every line under it. */
-  haystack: string;
-  lines: QuestionLine[];
-  slug: string;
-  title: string;
-}
 
 const CHIP_CLASS =
   "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.1em] transition-colors";
@@ -74,17 +61,7 @@ export function QuestionsWorklist({
   // before the reader below has restored the state a shared link carried in.
   const hydrated = useRef(false);
 
-  const stanzas = useMemo<Stanza[]>(
-    () =>
-      concepts.map((concept) => ({
-        domain: concept.domain,
-        haystack: concept.title.toLowerCase(),
-        lines: linesOf(concept),
-        slug: concept.slug,
-        title: concept.title,
-      })),
-    [concepts]
-  );
+  const stanzas = useMemo(() => buildStanzas(concepts), [concepts]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -149,20 +126,7 @@ export function QuestionsWorklist({
   // Text and domain narrow the corpus; the bucket filter is applied after, so
   // the tally can keep showing what the other buckets hold under this search.
   const scoped = useMemo(
-    () =>
-      stanzas
-        .filter((stanza) => domain === null || stanza.domain === domain)
-        .map((stanza) => ({
-          ...stanza,
-          lines: stanza.lines.filter((line) =>
-            tokens.every(
-              (token) =>
-                stanza.haystack.includes(token) ||
-                line.text.toLowerCase().includes(token)
-            )
-          ),
-        }))
-        .filter((stanza) => stanza.lines.length > 0),
+    () => filterStanzas(stanzas, tokens, domain),
     [stanzas, domain, tokens]
   );
 
@@ -188,15 +152,7 @@ export function QuestionsWorklist({
   }, [stanzas]);
 
   const results = useMemo(() => {
-    const filtered = scoped
-      .map((stanza) => ({
-        ...stanza,
-        lines:
-          bucket === null
-            ? stanza.lines
-            : stanza.lines.filter((line) => line.bucket === bucket),
-      }))
-      .filter((stanza) => stanza.lines.length > 0);
+    const filtered = applyBucket(scoped, bucket);
     if (sort === "weight") {
       filtered.sort(
         (a, b) =>

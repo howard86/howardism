@@ -110,7 +110,7 @@ function buildBacklinkSets(
   return back;
 }
 
-function computeRelated(
+export function computeRelated(
   sortedSlugs: string[],
   outgoingSets: Map<string, Set<string>>,
   backlinkSets: Map<string, Set<string>>

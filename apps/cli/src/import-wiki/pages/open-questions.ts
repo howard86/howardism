@@ -90,6 +90,17 @@ function collectSection(
   return bySlug;
 }
 
+/** The open and the settled question bullets of every page, keyed by slug. */
+export function collectQuestionSections(parsed: readonly ParsedWikiFile[]): {
+  open: Map<string, string[]>;
+  resolved: Map<string, string[]>;
+} {
+  return {
+    open: collectSection(parsed, OPEN_HEADING_RE),
+    resolved: collectSection(parsed, RESOLVED_HEADING_RE),
+  };
+}
+
 export function buildOpenQuestions(args: {
   generatedOn: string;
   membership: ReadonlyMap<string, WikiDomain>;
@@ -98,8 +109,7 @@ export function buildOpenQuestions(args: {
 }): OpenQuestionsManifest {
   const { parsed, membership, slugTitleMap, generatedOn } = args;
 
-  const resolvedBySlug = collectSection(parsed, RESOLVED_HEADING_RE);
-  const open = collectSection(parsed, OPEN_HEADING_RE);
+  const { open, resolved: resolvedBySlug } = collectQuestionSections(parsed);
 
   // Question bullets are prose lifted out of note bodies, so they carry the
   // vault's own `[[wikilink]]`s. Resolve them through the same rewriter the
