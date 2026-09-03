@@ -4,15 +4,18 @@ import {
   clearReadingData,
   getHistory,
   getSaved,
+  getSavedSlugSet,
   isSaved,
   perSlugKey,
   recordProgress,
   removeFromHistory,
+  resetReadingStoreCache,
   toggleSave,
 } from "@/lib/reading-store";
 
 afterEach(() => {
   localStorage.clear();
+  resetReadingStoreCache();
 });
 
 const HISTORY_KEY = "howardism:reading-history";
@@ -125,6 +128,35 @@ describe("reading-store save-for-later", () => {
     expect(getSaved()).toEqual([]);
     localStorage.setItem("howardism:reading-saved", "{not-json");
     expect(getSaved()).toEqual([]);
+  });
+});
+
+describe("reading-store caching", () => {
+  it("keeps getHistory in sync with a write instead of returning a stale cache", () => {
+    expect(getHistory()).toEqual([]); // populates the cache as empty
+    recordProgress("alpha", 0.3);
+    expect(getHistory().map((entry) => entry.slug)).toEqual(["alpha"]);
+  });
+
+  it("getSavedSlugSet reflects isSaved/toggleSave immediately, not a stale cache", () => {
+    expect(getSavedSlugSet().has("alpha")).toBe(false); // populates the cache
+    toggleSave("alpha");
+    expect(getSavedSlugSet().has("alpha")).toBe(true);
+    expect(isSaved("alpha")).toBe(true);
+  });
+
+  it("invalidates the cache on a cross-tab storage event", () => {
+    expect(getHistory()).toEqual([]); // populates the cache as empty
+    // Same-tab writes never fire `storage` — seed localStorage directly (as
+    // another tab would) and dispatch the event by hand.
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify([
+        { slug: "alpha", pct: 0.5, lastReadAt: 1, firstReadAt: 1 },
+      ])
+    );
+    window.dispatchEvent(new StorageEvent("storage", { key: HISTORY_KEY }));
+    expect(getHistory().map((entry) => entry.slug)).toEqual(["alpha"]);
   });
 });
 

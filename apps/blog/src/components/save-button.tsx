@@ -8,10 +8,15 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useState } from "react";
 
-import { isSaved, toggleSave } from "@/lib/reading-store";
+import { getSavedSlugSet, toggleSave } from "@/lib/reading-store";
 
 interface SaveButtonProps {
   className?: string;
+  /**
+   * Pre-known saved state — skips the self-check when the caller already
+   * has it (e.g. a Shelf saved-tab row is saved by definition).
+   */
+  initialSaved?: boolean;
   /** Notified with the new saved state after a toggle. */
   onToggle?: (saved: boolean) => void;
   /** Render the state word ("Save" / "Saved") next to the icon. */
@@ -22,20 +27,21 @@ interface SaveButtonProps {
 /**
  * Reusable save-for-later toggle. Reflects the persisted saved state (read on
  * mount to avoid a hydration mismatch — the server always renders the unsaved
- * state) and flips it on click. Used on the article page, listing rows, and
- * the Shelf.
+ * state — unless the caller already knows it via `initialSaved`) and flips it
+ * on click. Used on the article page, listing rows, and the Shelf.
  */
 export function SaveButton({
   slug,
   className,
   showLabel = false,
   onToggle,
+  initialSaved,
 }: SaveButtonProps) {
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(initialSaved ?? false);
 
   useEffect(() => {
-    setSaved(isSaved(slug));
-  }, [slug]);
+    setSaved(initialSaved ?? getSavedSlugSet().has(slug));
+  }, [slug, initialSaved]);
 
   const handleClick = () => {
     const next = toggleSave(slug);

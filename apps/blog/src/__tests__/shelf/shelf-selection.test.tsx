@@ -19,6 +19,7 @@ mock.module("next/navigation", () => ({
 }));
 
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
+import { resetReadingStoreCache } from "@/lib/reading-store";
 import { resetShelfManifestCache } from "@/lib/shelf-manifest";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
@@ -86,6 +87,7 @@ afterEach(() => {
   localStorage.clear();
   pushed.length = 0;
   resetShelfManifestCache();
+  resetReadingStoreCache();
 });
 
 describe("Shelf compare selection", () => {

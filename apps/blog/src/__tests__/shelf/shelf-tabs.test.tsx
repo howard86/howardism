@@ -17,6 +17,7 @@ mock.module("next/navigation", () => ({
 }));
 
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
+import { resetReadingStoreCache } from "@/lib/reading-store";
 import { resetShelfManifestCache } from "@/lib/shelf-manifest";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
@@ -24,6 +25,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   resetShelfManifestCache();
+  resetReadingStoreCache();
 });
 
 const DAY_MS = 24 * 3_600_000;

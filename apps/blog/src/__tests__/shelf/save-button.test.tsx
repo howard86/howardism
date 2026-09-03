@@ -18,7 +18,7 @@ mock.module("next/navigation", () => ({
 
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
 import { SaveButton } from "@/components/save-button";
-import { isSaved } from "@/lib/reading-store";
+import { isSaved, resetReadingStoreCache } from "@/lib/reading-store";
 import { resetShelfManifestCache } from "@/lib/shelf-manifest";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
@@ -26,6 +26,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   resetShelfManifestCache();
+  resetReadingStoreCache();
 });
 
 const SAVE = /save for later/i;

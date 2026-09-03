@@ -667,6 +667,7 @@ export function ShelfTabs() {
                   badge={row.meta.archived ? <ArchivedBadge /> : undefined}
                   control={
                     <SaveButton
+                      initialSaved
                       onToggle={(nowSaved) =>
                         handleUnsave(row.meta.slug, nowSaved)
                       }

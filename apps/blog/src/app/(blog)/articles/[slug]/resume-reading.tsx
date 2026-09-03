@@ -10,6 +10,7 @@ import type { ArticleHeading } from "../service";
 const MIN_PCT = 0.25; // below this, "resume" isn't worth offering
 const MAX_PCT = 0.9; // above this, the reader has effectively finished
 const AUTO_DISMISS_MS = 6000;
+const PERSIST_THROTTLE_MS = 2000;
 
 interface SavedProgress {
   headingId: string;
@@ -74,9 +75,12 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
   }, [headings.length, slug]);
 
   // Persist progress as the reader scrolls (only once actually scrolled, so the
-  // saved anchor isn't clobbered with pct≈0 on first paint).
+  // saved anchor isn't clobbered with pct≈0 on first paint). Throttled ticks
+  // write both the history entry and the per-slug resume state together; a
+  // page hide or tab switch flushes the latest position immediately, ahead of
+  // the throttle, so it isn't lost to the wider throttle window.
   useEffect(() => {
-    const persist = throttle(() => {
+    const persistNow = () => {
       const scrollable =
         document.documentElement.scrollHeight - window.innerHeight;
       if (scrollable <= 0 || window.scrollY <= 0) {
@@ -97,12 +101,23 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
       } catch {
         // ignore storage errors (quota / private mode)
       }
-    }, 500);
+    };
+    const persist = throttle(persistNow, PERSIST_THROTTLE_MS);
+    const flushIfHidden = () => {
+      if (document.visibilityState === "hidden") {
+        persist.cancel();
+        persistNow();
+      }
+    };
 
     window.addEventListener("scroll", persist, { passive: true });
+    window.addEventListener("pagehide", persistNow);
+    document.addEventListener("visibilitychange", flushIfHidden);
     return () => {
       persist.cancel();
       window.removeEventListener("scroll", persist);
+      window.removeEventListener("pagehide", persistNow);
+      document.removeEventListener("visibilitychange", flushIfHidden);
     };
   }, [slug]);
 
