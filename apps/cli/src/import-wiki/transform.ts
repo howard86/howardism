@@ -425,8 +425,17 @@ export function stripDuplicateLeadingHeading(
  */
 export function redactLocalPaths(body: string): string {
   let result = body;
-  for (const [re, replacement] of VAULT_PATH_REDACTIONS) {
-    result = result.replace(re, replacement);
+  // Every vault-path pattern needs one of these three literals, and 9 of 427
+  // bodies carry any of them. The cleanup pass below is NOT guarded: it
+  // normalises spacing corpus-wide, not just where a path was removed.
+  if (
+    body.includes("obsidian-vault") ||
+    body.includes("raw/assets") ||
+    body.includes("wiki/")
+  ) {
+    for (const [re, replacement] of VAULT_PATH_REDACTIONS) {
+      result = result.replace(re, replacement);
+    }
   }
   for (const [re, replacement] of REDACTION_CLEANUP) {
     result = result.replace(re, replacement);
