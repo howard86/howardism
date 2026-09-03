@@ -1,3 +1,9 @@
+# [v2.26.3](https://github.com/howard86/howardism/compare/v2.26.2...v2.26.3) (2026-09-03)
+
+## 🐛 Bug Fixes
+- [`6d23d98e`](https://github.com/howard86/howardism/commit/6d23d98e)  fix(cli): revert stringify-original sub-items (zod reorders manifest keys) 
+- [`6bc793e9`](https://github.com/howard86/howardism/commit/6bc793e9)  fix(blog): resolve shelf manifest from getArticles, archived included
+
 # [v2.26.2](https://github.com/howard86/howardism/compare/v2.26.1...v2.26.2) (2026-09-03)
 
 ## 🐛 Bug Fixes
