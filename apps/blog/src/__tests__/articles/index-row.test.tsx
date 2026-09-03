@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 
 import { IndexRow } from "@/app/(blog)/articles/index-row";
 import type { ArticleEntity, ArticleMeta } from "@/app/(blog)/articles/service";
@@ -106,5 +112,19 @@ describe("IndexRow", () => {
       </ul>
     );
     expect(within(container).queryByRole("button", { name: SAVE })).toBeNull();
+  });
+
+  it("truncates the hover preview's description with a trailing ellipsis", async () => {
+    const longDescription = `${"a".repeat(200)}.`;
+    renderRow({
+      article: { ...ARTICLE, meta: { ...META, description: longDescription } },
+    });
+
+    fireEvent.focus(screen.getByRole("link", { name: TITLE }));
+    const dialog = await screen.findByRole("dialog");
+
+    const paragraph = dialog.querySelector("p");
+    expect(paragraph?.textContent?.endsWith("…")).toBe(true);
+    expect(paragraph?.textContent?.length).toBeLessThan(longDescription.length);
   });
 });
