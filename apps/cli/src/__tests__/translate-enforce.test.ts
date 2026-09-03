@@ -121,4 +121,15 @@ describe("enforceGlossary", () => {
     const result = enforceGlossary(output, source, ["agentic", "agent"]);
     expect(result.missing).toEqual(["agentic", "agent"]);
   });
+
+  it("finds a term containing an astral character (e.g. an emoji)", () => {
+    // 🦀 is outside the BMP — a UTF-16 surrogate pair. The trie must be
+    // built and walked by the same unit (code unit) on both sides, or the
+    // term is silently dropped from the source scan instead of being
+    // reported missing.
+    const source = "We use Claude 🦀 SDK for this.";
+    const output = "我們為此使用某工具。";
+    const result = enforceGlossary(output, source, ["Claude 🦀 SDK"]);
+    expect(result.missing).toEqual(["Claude 🦀 SDK"]);
+  });
 });

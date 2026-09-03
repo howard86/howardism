@@ -39,7 +39,12 @@ function buildTermTrie(terms: string[]): TermTrieNode {
   const root: TermTrieNode = { children: new Map(), term: null };
   for (const term of terms) {
     let node = root;
-    for (const ch of term) {
+    // Code unit, not code point: findPresentTerms walks text[i] the same
+    // way, so an astral character (e.g. an emoji) must be keyed as its two
+    // surrogate halves on both sides or the walk never lines up.
+    // biome-ignore lint/style/useForOf: for...of iterates by code point, which would split each astral character differently than the code-unit walk below
+    for (let i = 0; i < term.length; i++) {
+      const ch = term[i];
       let next = node.children.get(ch);
       if (!next) {
         next = { children: new Map(), term: null };
