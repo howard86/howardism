@@ -84,11 +84,11 @@ function buildBacklinks(
   }
   for (const [source, links] of occurrences) {
     for (const link of links) {
-      backlinks[link.slug]?.push({
-        slug: source,
-        count: link.count,
-        ...(link.context === null ? {} : { context: link.context }),
-      });
+      const edge: BacklinkEdge = { slug: source, count: link.count };
+      if (link.context !== null) {
+        edge.context = link.context;
+      }
+      backlinks[link.slug]?.push(edge);
     }
   }
   for (const edges of Object.values(backlinks)) {

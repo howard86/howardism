@@ -51,54 +51,92 @@ function toQuestion(raw: string): OpenQuestion {
   };
 }
 
+/** Where one section's scan stands: not reached, open, or closed for good. */
+type SectionState = "before" | "in" | "done";
+
 /**
- * Harvest one `## <section>` heading's bullets from every parsed page. Both the
- * open and the settled questions are authored on the concept pages themselves;
- * the vault's generated `open-questions` backlog is a truncated digest of them,
- * so reading the pages keeps the full question text and does not break when the
- * digest's layout is regenerated.
+ * Advance one section's scan by a line. The section opens on its own heading
+ * and closes for good at the next `##` — a separate scan per section simply
+ * stopped reading there, so a heading that recurs after the close is ignored.
+ * `isH2` is hoisted out because both scans share it, and because only an `##`
+ * line can be a section heading.
  */
-function collectSection(
-  parsed: readonly ParsedWikiFile[],
-  headingRe: RegExp
-): Map<string, string[]> {
-  const bySlug = new Map<string, string[]>();
-
-  for (const file of parsed) {
-    const bullets: string[] = [];
-    let inSection = false;
-
-    for (const rawLine of file.body.split("\n")) {
-      const line = rawLine.trim();
-      if (headingRe.test(line)) {
-        inSection = true;
-        continue;
-      }
-      if (inSection && H2_RE.test(line)) {
-        break;
-      }
-      const bullet = inSection ? BULLET_RE.exec(line) : null;
-      if (bullet) {
-        bullets.push(bullet[1].trim());
-      }
-    }
-
-    if (bullets.length > 0) {
-      bySlug.set(file.source.slug, bullets);
-    }
+function stepSection(
+  state: SectionState,
+  line: string,
+  isH2: boolean,
+  headingRe: RegExp,
+  bullets: string[]
+): SectionState {
+  if (state === "done") {
+    return state;
   }
-  return bySlug;
+  if (isH2) {
+    if (headingRe.test(line)) {
+      return "in";
+    }
+    return state === "in" ? "done" : state;
+  }
+  if (state !== "in") {
+    return state;
+  }
+  const bullet = BULLET_RE.exec(line);
+  if (bullet) {
+    bullets.push(bullet[1].trim());
+  }
+  return state;
 }
 
-/** The open and the settled question bullets of every page, keyed by slug. */
+/**
+ * Harvest the `## Open Questions` and `## Resolved Questions` bullets from
+ * every parsed page, in one walk of each body. Both are authored on the
+ * concept pages themselves; the vault's generated `open-questions` backlog is
+ * a truncated digest of them, so reading the pages keeps the full question
+ * text and does not break when the digest's layout is regenerated.
+ */
 export function collectQuestionSections(parsed: readonly ParsedWikiFile[]): {
   open: Map<string, string[]>;
   resolved: Map<string, string[]>;
 } {
-  return {
-    open: collectSection(parsed, OPEN_HEADING_RE),
-    resolved: collectSection(parsed, RESOLVED_HEADING_RE),
-  };
+  const open = new Map<string, string[]>();
+  const resolved = new Map<string, string[]>();
+
+  for (const file of parsed) {
+    const openBullets: string[] = [];
+    const resolvedBullets: string[] = [];
+    let openState: SectionState = "before";
+    let resolvedState: SectionState = "before";
+
+    for (const rawLine of file.body.split("\n")) {
+      const line = rawLine.trim();
+      const isH2 = H2_RE.test(line);
+      openState = stepSection(
+        openState,
+        line,
+        isH2,
+        OPEN_HEADING_RE,
+        openBullets
+      );
+      resolvedState = stepSection(
+        resolvedState,
+        line,
+        isH2,
+        RESOLVED_HEADING_RE,
+        resolvedBullets
+      );
+      if (openState === "done" && resolvedState === "done") {
+        break;
+      }
+    }
+
+    if (openBullets.length > 0) {
+      open.set(file.source.slug, openBullets);
+    }
+    if (resolvedBullets.length > 0) {
+      resolved.set(file.source.slug, resolvedBullets);
+    }
+  }
+  return { open, resolved };
 }
 
 export function buildOpenQuestions(args: {
@@ -116,9 +154,8 @@ export function buildOpenQuestions(args: {
   // article bodies use: a published slug becomes a markdown link to its
   // article, an unpublished one becomes its plain title. Without this the blog
   // has no way to tell a link from literal brackets, and renders neither.
-  const titles = new Map(slugTitleMap);
   const resolveLinks = (text: string): string =>
-    rewriteWikilinks(text, titles).body;
+    rewriteWikilinks(text, slugTitleMap).body;
 
   // A concept earns an entry if it has open questions *or* settled ones — a
   // page whose questions have all been answered is the most useful thing the

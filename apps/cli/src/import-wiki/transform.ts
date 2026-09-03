@@ -118,7 +118,7 @@ function resolveInternalTarget(args: {
   anchor: string | null;
   label: string | null;
   slug: string;
-  slugTitleMap: Map<string, string>;
+  slugTitleMap: ReadonlyMap<string, string>;
 }): InternalResolution {
   const { anchor, label, slug, slugTitleMap } = args;
 
@@ -172,7 +172,7 @@ function resolveInternalTarget(args: {
  */
 export function rewriteWikilinks(
   body: string,
-  slugTitleMap: Map<string, string>,
+  slugTitleMap: ReadonlyMap<string, string>,
   rawIndex?: Map<string, RawDoc>
 ): WikilinkTransformResult {
   let hasInternalLink = false;
