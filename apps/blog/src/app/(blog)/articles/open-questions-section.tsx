@@ -49,6 +49,13 @@ function Highlighted({
   if (!pattern) {
     return text;
   }
+  // `split` builds the parts array whether or not anything matched, and most
+  // segments hold no match; `test` stops at the first hit. The pattern is /g,
+  // so its cursor is reset before each use.
+  pattern.lastIndex = 0;
+  if (!pattern.test(text)) {
+    return text;
+  }
   const parts = text.split(pattern);
   if (parts.length === 1) {
     return text;

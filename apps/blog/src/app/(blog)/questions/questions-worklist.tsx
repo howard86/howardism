@@ -5,6 +5,7 @@ import { cn } from "@howardism/ui/lib/utils";
 import {
   type CSSProperties,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -114,7 +115,11 @@ export function QuestionsWorklist({
   const focusSearch = useCallback(() => inputRef.current?.focus(), []);
   useKeyboardShortcut("/", focusSearch);
 
-  const tokens = useMemo(() => tokenize(query), [query]);
+  // Filtering and highlighting walk every line in the backlog, so let the
+  // input paint the typed character first and narrow against the settled
+  // query — the same trade the search palette makes.
+  const deferredQuery = useDeferredValue(query);
+  const tokens = useMemo(() => tokenize(deferredQuery), [deferredQuery]);
   const pattern = useMemo(
     () =>
       tokens.length === 0
