@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import type { ArticleContract } from "@howardism/article-contract";
 import YAML from "yaml";
@@ -57,7 +57,6 @@ export async function emitArticle(args: EmitArticleArgs): Promise<string> {
     return filePath;
   }
 
-  await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, fileContent, "utf8");
   return filePath;
 }
