@@ -144,13 +144,13 @@ export const DOMAIN_ORDER: readonly ArticleDomain[] = WIKI_DOMAINS.filter(
   (domain) => domain !== "syntheses"
 );
 
+const DOMAIN_ORDER_SET: ReadonlySet<string> = new Set(DOMAIN_ORDER);
+
 /**
  * Resolve a (possibly user-supplied) URL segment to a canonical domain.
  * Returns `null` for unknown slugs so callers can `notFound()`.
  */
 export function resolveDomain(rawSlug: string): ArticleDomain | null {
   const slug = rawSlug.toLowerCase();
-  return (DOMAIN_ORDER as readonly string[]).includes(slug)
-    ? (slug as ArticleDomain)
-    : null;
+  return DOMAIN_ORDER_SET.has(slug) ? (slug as ArticleDomain) : null;
 }

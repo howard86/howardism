@@ -8,6 +8,7 @@ import {
 
 import {
   buildSnippet,
+  matchesQuery,
   type SearchEntry,
 } from "@/components/search/search-data";
 
@@ -137,5 +138,34 @@ describe("buildSnippet", () => {
   it("returns null when nothing matches", () => {
     expect(buildSnippet("no overlap here", "xyzzy")).toBeNull();
     expect(buildSnippet("", "loop")).toBeNull();
+  });
+});
+
+describe("matchesQuery", () => {
+  // Same texts/queries buildSnippet's own tests exercise, but as a boolean:
+  // matchesQuery(text, query.trim().toLowerCase()) must agree with
+  // `buildSnippet(text, query) !== null` in every case.
+  const CASES: [text: string, query: string][] = [
+    ["A loop repeatedly executes a prompt until a queue is empty.", "executes"],
+    ["The Loop Primitive matters.", "loop"],
+    ["alignment training matters", "reward alignment"],
+    [
+      "The transformer depends on an attention mechanism.",
+      "the attention mechanism",
+    ],
+    ["no overlap here", "xyzzy"],
+    ["", "loop"],
+    ["automation", "loop"],
+    ["scheduling", "scheduling"],
+    ["runtime", "   "],
+  ];
+
+  it("agrees with buildSnippet(text, query) !== null over a sample", () => {
+    for (const [text, query] of CASES) {
+      const lowerQuery = query.trim().toLowerCase();
+      expect(matchesQuery(text, lowerQuery)).toBe(
+        buildSnippet(text, query) !== null
+      );
+    }
   });
 });
