@@ -132,13 +132,16 @@ export function buildReport(
     return emptyReport(locale);
   }
 
-  const models: ReportModelRow[] = rawModels
-    .map((row) => priceIfConfigured({ ...row }, prices))
-    .map((row) => ({
-      ...row,
+  const models: ReportModelRow[] = rawModels.map((row) => {
+    const priced = priceIfConfigured(row, prices);
+    return {
+      ...priced,
       cacheHitRate:
-        row.inputTokens > 0 ? row.cachedInputTokens / row.inputTokens : null,
-    }));
+        priced.inputTokens > 0
+          ? priced.cachedInputTokens / priced.inputTokens
+          : null,
+    };
+  });
 
   const totals = models.reduce<ReportTotals>((acc, m) => {
     acc.runs += m.runs;

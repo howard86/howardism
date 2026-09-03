@@ -44,6 +44,9 @@ const toggleFence = (current: string | null, marker: string): string | null => {
  */
 const splitOnCodeSpans = (line: string): string[] => line.split(CODE_SPAN_RE);
 
+/** A line with none of these can never be changed by fixSegment/splitOnCodeSpans. */
+const FIXABLE_CHAR_RE = /[{}<`]/;
+
 /**
  * Apply MDX-escaping fixes to a single prose segment (no backtick content).
  * `(?<!\\)` lookbehinds ensure already-escaped sequences are not doubled.
@@ -54,10 +57,14 @@ const fixSegment = (seg: string): string =>
     .replace(/(?<!\\)\}/g, "\\}")
     .replace(/<(?=[0-9$])/g, "&lt;");
 
-const fixProseLine = (line: string): string =>
-  splitOnCodeSpans(line)
+const fixProseLine = (line: string): string => {
+  if (!FIXABLE_CHAR_RE.test(line)) {
+    return line;
+  }
+  return splitOnCodeSpans(line)
     .map((part, i) => (i % 2 === 0 ? fixSegment(part) : part))
     .join("");
+};
 
 interface FrontmatterState {
   frontmatterDone: boolean;

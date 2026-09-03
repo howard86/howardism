@@ -13,8 +13,12 @@ import {
   InitTweaksScript,
 } from "@/components/tweaks/init-tweaks-script";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
-import { TweaksProvider, useTweaks } from "@/components/tweaks/tweaks-provider";
-import { TWEAKS_STORAGE_KEY } from "@/components/tweaks/types";
+import {
+  readStorage,
+  TweaksProvider,
+  useTweaks,
+} from "@/components/tweaks/tweaks-provider";
+import { DEFAULT_TWEAKS, TWEAKS_STORAGE_KEY } from "@/components/tweaks/types";
 
 afterEach(cleanup);
 
@@ -153,6 +157,18 @@ describe("tweaks-provider", () => {
         "light/m/false"
       )
     );
+  });
+
+  it("returns the shared DEFAULT_TWEAKS reference when stored values equal the defaults", () => {
+    expect(Object.is(readStorage(), DEFAULT_TWEAKS)).toBe(true);
+
+    localStorage.setItem(TWEAKS_STORAGE_KEY, JSON.stringify(DEFAULT_TWEAKS));
+    expect(Object.is(readStorage(), DEFAULT_TWEAKS)).toBe(true);
+  });
+
+  it("returns a new object when a stored value differs from the defaults", () => {
+    localStorage.setItem(TWEAKS_STORAGE_KEY, JSON.stringify({ mode: "dark" }));
+    expect(Object.is(readStorage(), DEFAULT_TWEAKS)).toBe(false);
   });
 });
 

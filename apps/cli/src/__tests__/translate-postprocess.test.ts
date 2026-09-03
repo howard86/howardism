@@ -94,6 +94,13 @@ describe("fixMdxEscaping — idempotency", () => {
   });
 });
 
+describe("fixMdxEscaping — fast path", () => {
+  it("leaves a line with none of { } < ` untouched", () => {
+    const input = "plain prose with nothing to fix";
+    expect(fixMdxEscaping(input)).toBe(input);
+  });
+});
+
 describe("fixMdxEscaping — CRLF preservation", () => {
   it("preserves CRLF line endings on modified lines", () => {
     const input = "foo {bar}\r\n";

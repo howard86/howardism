@@ -26,8 +26,9 @@ export function useKeyboardShortcut(
   const { ctrlOrMeta = false } = options;
 
   useEffect(() => {
+    const lowerKey = key.toLowerCase();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== key.toLowerCase()) {
+      if (event.key.toLowerCase() !== lowerKey) {
         return;
       }
       if (ctrlOrMeta) {
