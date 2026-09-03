@@ -1,5 +1,8 @@
 import { DomainDot } from "@/components/howardism/domain-dot";
-import { InternalLink } from "@/components/internal-link";
+import {
+  InternalLink,
+  PREVIEW_DESCRIPTION_MAX,
+} from "@/components/internal-link";
 import { truncate } from "@/utils/text";
 
 import type { ArticleLink } from "../service";
@@ -19,7 +22,11 @@ export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
         <InternalLink
           className="font-display font-medium text-[0.95rem] text-foreground no-underline hover:text-[var(--article-accent)]"
           href={`/articles/${slug}`}
-          previewMeta={meta}
+          previewMeta={{
+            tag: meta.tag,
+            title: meta.title,
+            description: truncate(meta.description, PREVIEW_DESCRIPTION_MAX),
+          }}
         >
           {meta.title}
         </InternalLink>

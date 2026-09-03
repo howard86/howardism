@@ -9,25 +9,32 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
 
-import type { ArticleMeta } from "@/app/(blog)/articles/service";
 import { TagChip } from "@/components/tag-chip";
-import { truncate } from "@/utils/text";
 
 export const ARTICLES_PREFIX = "/articles/";
-const PREVIEW_DESCRIPTION_MAX = 140;
+/** Exported so callers truncate the description before it reaches this module. */
+export const PREVIEW_DESCRIPTION_MAX = 140;
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 100;
 const SLUG_TERMINATOR_RE = /[?#/]/;
 
 type LinkProps = ComponentProps<typeof Link>;
 
+/** The hover-preview payload — just what `InternalLinkPreviewBody` renders. */
+export interface ArticlePreview {
+  description: string;
+  tag: string;
+  title: string;
+}
+
 export interface InternalLinkProps extends Omit<LinkProps, "href"> {
   href: string;
   /**
-   * Pre-resolved frontmatter for the destination. When provided, the
-   * hover-card renders without an extra client-side fetch.
+   * Pre-resolved preview for the destination (description already truncated
+   * to `PREVIEW_DESCRIPTION_MAX`). When provided, the hover-card renders
+   * without an extra client-side fetch.
    */
-  previewMeta?: ArticleMeta;
+  previewMeta?: ArticlePreview;
 }
 
 export function InternalLink({
@@ -84,12 +91,13 @@ export function InternalLink({
 }
 
 interface InternalLinkPreviewBodyProps {
-  meta: ArticleMeta;
+  meta: ArticlePreview;
 }
 
 /**
  * Separate export so tests can render the body in isolation — Radix's portal
- * + open-state behaviour doesn't unwrap cleanly under happy-dom.
+ * + open-state behaviour doesn't unwrap cleanly under happy-dom. The
+ * description arrives already truncated (see `PREVIEW_DESCRIPTION_MAX`).
  */
 export function InternalLinkPreviewBody({
   meta,
@@ -101,7 +109,7 @@ export function InternalLinkPreviewBody({
         {meta.title}
       </span>
       <p className="m-0 font-body text-muted-foreground text-xs leading-normal">
-        {truncate(meta.description, PREVIEW_DESCRIPTION_MAX)}
+        {meta.description}
       </p>
       <span className="mt-0.5 font-medium font-mono text-[0.625rem] text-brand uppercase tracking-[0.14em]">
         Read →
