@@ -250,7 +250,7 @@ export function buildEngineArgv(
 // Drain a ReadableStream<Uint8Array> line by line, calling onLine for each
 // line as it arrives and returning the full text when the stream closes.
 // Must be used with Promise.all over stdout+stderr to avoid pipe deadlocks.
-async function drainStream(
+export async function drainStream(
   stream: ReadableStream<Uint8Array>,
   onLine?: (line: string) => void
 ): Promise<string> {
