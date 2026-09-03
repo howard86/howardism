@@ -1,3 +1,9 @@
+# [v2.26.1](https://github.com/howard86/howardism/compare/v2.26.0...v2.26.1) (2026-09-03)
+
+## 🐛 Bug Fixes
+- [`31ad1ee2`](https://github.com/howard86/howardism/commit/31ad1ee2)  fix(questions): sort a copy so the memoised scope keeps its order 
+- [`64f65e6e`](https://github.com/howard86/howardism/commit/64f65e6e)  fix(find): re-index the body when the panel outlives the article
+
 # [v2.26.0](https://github.com/howard86/howardism/compare/v2.25.0...v2.26.0) (2026-08-27)
 
 ## ✨ New Features
