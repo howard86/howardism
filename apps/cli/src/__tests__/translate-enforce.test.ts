@@ -110,4 +110,26 @@ describe("enforceGlossary", () => {
     const result = enforceGlossary(output, source, ["Anthropic"]);
     expect(result.missing).toEqual(["Anthropic"]);
   });
+
+  it("finds a term missing from the source scan even when it only ever occurs as a substring of a longer glossary term", () => {
+    // "agent" never appears standalone — only embedded in "agentic", which is
+    // also a glossary term. A single non-overlapping alternation regex over
+    // both terms would match "agentic" and never separately record "agent",
+    // silently dropping it from the missing report.
+    const source = "The agentic loop is powerful.";
+    const output = "強大的循環很有力。";
+    const result = enforceGlossary(output, source, ["agentic", "agent"]);
+    expect(result.missing).toEqual(["agentic", "agent"]);
+  });
+
+  it("finds a term containing an astral character (e.g. an emoji)", () => {
+    // 🦀 is outside the BMP — a UTF-16 surrogate pair. The trie must be
+    // built and walked by the same unit (code unit) on both sides, or the
+    // term is silently dropped from the source scan instead of being
+    // reported missing.
+    const source = "We use Claude 🦀 SDK for this.";
+    const output = "我們為此使用某工具。";
+    const result = enforceGlossary(output, source, ["Claude 🦀 SDK"]);
+    expect(result.missing).toEqual(["Claude 🦀 SDK"]);
+  });
 });

@@ -92,6 +92,7 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   // ms per keystroke), so let the input paint the typed character first and
   // rank against the settled query.
   const deferredQuery = useDeferredValue(query);
+  const lowerQuery = deferredQuery.trim().toLowerCase();
 
   // With no query but a scope picked, the palette browses that slice instead of
   // ranking — an empty search box is otherwise a dead end.
@@ -105,6 +106,13 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   // Facets come from the unscoped result set, so picking one narrows the list
   // without collapsing the row you'd need to click to undo it.
   const facets = useMemo(() => buildFacets(ranked), [ranked]);
+  // Nothing typed and nothing picked yet: offer the whole taxonomy as a
+  // starting point rather than an empty row. Memoised so this doesn't
+  // rescan all entries on every keystroke while facets stays empty.
+  const fallbackFacets = useMemo(
+    () => (entries ? buildFacets(entries) : []),
+    [entries]
+  );
   const matches = useMemo(
     () =>
       scope ? ranked.filter((e) => e[scope.field] === scope.value) : ranked,
@@ -116,7 +124,12 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
     const byDomain = new Map<string, SearchEntry[]>();
     for (const entry of shown) {
       const label = domainLabel(entry);
-      byDomain.set(label, [...(byDomain.get(label) ?? []), entry]);
+      const group = byDomain.get(label);
+      if (group) {
+        group.push(entry);
+      } else {
+        byDomain.set(label, [entry]);
+      }
     }
     return [...byDomain.entries()];
   }, [shown]);
@@ -155,11 +168,7 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
         value={query}
       />
       <ScopeBar
-        facets={
-          // Nothing typed and nothing picked yet: offer the whole taxonomy as a
-          // starting point rather than an empty row.
-          facets.length > 0 || !entries ? facets : buildFacets(entries)
-        }
+        facets={facets.length > 0 || !entries ? facets : fallbackFacets}
         onSelect={setScope}
         scope={scope}
       />
@@ -182,7 +191,7 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
               >
                 <ResultRow
                   entry={entry}
-                  query={deferredQuery}
+                  lowerQuery={lowerQuery}
                   showDomain={groups.length === 1 && scope?.field !== "domain"}
                 />
               </CommandItem>

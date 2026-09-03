@@ -34,10 +34,15 @@ function isRouteActive(pathname: string | null, href: string): boolean {
   );
 }
 
-function NavLink({ href, label }: { href: string; label: string }) {
-  const pathname = usePathname();
-  const isActive = isRouteActive(pathname, href);
-
+function NavLink({
+  href,
+  isActive,
+  label,
+}: {
+  href: string;
+  isActive: boolean;
+  label: string;
+}) {
   return (
     <Link
       aria-current={isActive ? "page" : undefined}
@@ -50,13 +55,20 @@ function NavLink({ href, label }: { href: string; label: string }) {
 }
 
 function DesktopNav() {
+  const pathname = usePathname();
+
   return (
     <nav
       aria-label="Primary"
       className="hidden gap-0.5 rounded-full border border-border bg-card/85 p-1.5 shadow-paper backdrop-blur-md md:flex"
     >
       {NAV_SECTION_KEYS.map((key) => (
-        <NavLink href={NavSection[key]} key={key} label={key} />
+        <NavLink
+          href={NavSection[key]}
+          isActive={isRouteActive(pathname, NavSection[key])}
+          key={key}
+          label={key}
+        />
       ))}
     </nav>
   );

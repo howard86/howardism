@@ -32,18 +32,24 @@ function applyToDom(tweaks: Tweaks) {
   document.documentElement.dataset.textSize = tweaks.textSize;
 }
 
-function readStorage(): Tweaks {
+export function readStorage(): Tweaks {
   try {
     const raw = localStorage.getItem(TWEAKS_STORAGE_KEY);
     if (!raw) {
       return DEFAULT_TWEAKS;
     }
     const parsed = JSON.parse(raw) as Partial<Tweaks>;
-    return {
-      mode: parsed.mode ?? DEFAULT_TWEAKS.mode,
-      tapToScroll: parsed.tapToScroll ?? DEFAULT_TWEAKS.tapToScroll,
-      textSize: parsed.textSize ?? DEFAULT_TWEAKS.textSize,
-    };
+    const mode = parsed.mode ?? DEFAULT_TWEAKS.mode;
+    const tapToScroll = parsed.tapToScroll ?? DEFAULT_TWEAKS.tapToScroll;
+    const textSize = parsed.textSize ?? DEFAULT_TWEAKS.textSize;
+    if (
+      mode === DEFAULT_TWEAKS.mode &&
+      tapToScroll === DEFAULT_TWEAKS.tapToScroll &&
+      textSize === DEFAULT_TWEAKS.textSize
+    ) {
+      return DEFAULT_TWEAKS;
+    }
+    return { mode, tapToScroll, textSize };
   } catch {
     return DEFAULT_TWEAKS;
   }

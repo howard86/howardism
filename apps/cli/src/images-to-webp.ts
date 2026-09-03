@@ -12,6 +12,7 @@
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import { runWithConcurrency } from "./concurrency";
 import { pngToWebp, rewriteHeroImportToWebp } from "./webp";
 
 const HERE = dirname(new URL(import.meta.url).pathname);
@@ -64,14 +65,20 @@ async function transcodeAssets(): Promise<void> {
 
   let pngTotal = 0;
   let webpTotal = 0;
-  for (let i = 0; i < pngs.length; i += TRANSCODE_CONCURRENCY) {
-    const batch = pngs.slice(i, i + TRANSCODE_CONCURRENCY);
-    const results = await Promise.all(batch.map(migrateOne));
-    for (const { pngBytes, webpBytes } of results) {
-      pngTotal += pngBytes;
-      webpTotal += webpBytes;
+  let done = 0;
+  const results = await runWithConcurrency(
+    pngs,
+    TRANSCODE_CONCURRENCY,
+    async (filename) => {
+      const result = await migrateOne(filename);
+      done += 1;
+      console.log(`[images:webp] ${done}/${pngs.length} transcoded`);
+      return result;
     }
-    console.log(`[images:webp] ${i + batch.length}/${pngs.length} transcoded`);
+  );
+  for (const { pngBytes, webpBytes } of results) {
+    pngTotal += pngBytes;
+    webpTotal += webpBytes;
   }
 
   const saved = pngTotal - webpTotal;
@@ -84,16 +91,21 @@ async function rewriteArticles(): Promise<void> {
   let rewritten = 0;
   for (const dir of ARTICLE_DIRS) {
     const entries = await readdir(dir).catch(() => [] as string[]);
-    for (const filename of entries.filter((name) => MDX_SUFFIX.test(name))) {
-      const path = join(dir, filename);
-      const raw = await readFile(path, "utf8");
+    const paths = entries
+      .filter((name) => MDX_SUFFIX.test(name))
+      .map((filename) => join(dir, filename));
+    const rawContents = await Promise.all(
+      paths.map((path) => readFile(path, "utf8"))
+    );
+    for (let i = 0; i < paths.length; i++) {
+      const raw = rawContents[i];
       const next = rewriteHeroImportToWebp(raw);
       if (next === raw) {
         continue;
       }
       rewritten += 1;
       if (!dryRun) {
-        await writeFile(path, next);
+        await writeFile(paths[i], next);
       }
     }
   }

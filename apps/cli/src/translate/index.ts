@@ -675,16 +675,20 @@ async function runCheck(opts: RunOptions): Promise<void> {
     untranslated: [],
   };
 
-  for (const slug of sourceSlugs) {
-    const sourceText = await readFile(
-      join(opts.sourceDir, `${slug}.mdx`),
-      "utf8"
-    );
-    const outputText = await readFileOrNull(
-      join(opts.outputDir, `${slug}.mdx`)
-    );
-    const recordedHash = recordedHashOf(projection, slug);
-    const status = classifyArticle({ sourceText, outputText, recordedHash });
+  const classified = await runWithConcurrency(
+    sourceSlugs,
+    opts.concurrency,
+    async (slug) => {
+      const [sourceText, outputText] = await Promise.all([
+        readFile(join(opts.sourceDir, `${slug}.mdx`), "utf8"),
+        readFileOrNull(join(opts.outputDir, `${slug}.mdx`)),
+      ]);
+      const recordedHash = recordedHashOf(projection, slug);
+      const status = classifyArticle({ sourceText, outputText, recordedHash });
+      return { recordedHash, slug, status };
+    }
+  );
+  for (const { slug, status, recordedHash } of classified) {
     // A never-translated article (no output, no record) is opt-in, not a
     // failure — only TRACKED translations are held to freshness.
     if (status === "missing" && recordedHash === null) {

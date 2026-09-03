@@ -90,3 +90,26 @@ export function buildSnippet(
       text.slice(index + matchLength, end) + (end < text.length ? "…" : ""),
   };
 }
+
+/**
+ * Boolean form of `buildSnippet`'s match test, without allocating a Snippet.
+ * `lowerQuery` is the already-trimmed, already-lowercased query — callers
+ * testing many texts against one query (e.g. a row's tags) compute it once
+ * per render instead of re-lowercasing per call.
+ */
+export function matchesQuery(text: string, lowerQuery: string): boolean {
+  if (lowerQuery.length === 0 || text.length === 0) {
+    return false;
+  }
+
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes(lowerQuery)) {
+    return true;
+  }
+
+  return lowerQuery
+    .split(TOKEN_SPLIT_RE)
+    .some(
+      (part) => part.length >= MIN_TOKEN_LENGTH && lowerText.includes(part)
+    );
+}

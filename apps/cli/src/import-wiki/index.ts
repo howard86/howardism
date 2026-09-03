@@ -131,6 +131,7 @@ const STAGING_DIR = join(
     : ".codex-staging"
 );
 const IMAGE_CONCURRENCY = 6;
+const PARSE_CONCURRENCY = 16;
 const WEBP_SUFFIX = /\.webp$/;
 
 async function main(): Promise<void> {
@@ -241,7 +242,11 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   // targets. Without this, `--only <slug>` would build a map containing only
   // the targeted article and every cross-link would be downgraded to plain
   // text.
-  const allParsed = await Promise.all(sources.map(parseWikiFile));
+  const allParsed = await runWithConcurrency(
+    sources,
+    PARSE_CONCURRENCY,
+    parseWikiFile
+  );
   const slugTitleMap = buildSlugTitleMap(allParsed);
 
   // The catalog is the domain + description source of truth (see catalog.ts),
@@ -422,10 +427,16 @@ async function processArticle(
     readingTime: computeReadingTime(body),
     tag,
     domain,
-    ...(entityType ? { entityType } : {}),
-    ...(tags.length > 0 ? { tags } : {}),
-    ...(sources.length > 0 ? { sources } : {}),
   };
+  if (entityType) {
+    meta.entityType = entityType;
+  }
+  if (tags.length > 0) {
+    meta.tags = tags;
+  }
+  if (sources.length > 0) {
+    meta.sources = sources;
+  }
 
   const imageFile = `${slug}.webp`;
   await ensureImage({

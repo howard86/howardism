@@ -89,6 +89,24 @@ interface GetArticleInput {
 }
 
 /**
+ * Slug→entry indexes keyed on the entry array they index. Every caller shares
+ * the one array `loadSearchIndex` caches, so repeat `get_article` calls —
+ * previously a linear scan per call — get an O(1) lookup for free. Weak so a
+ * discarded index does not pin its Map. Mirrors createFuse's cache.
+ */
+const slugIndexCache = new WeakMap<SearchEntry[], Map<string, SearchEntry>>();
+
+function slugIndex(entries: SearchEntry[]): Map<string, SearchEntry> {
+  const cached = slugIndexCache.get(entries);
+  if (cached) {
+    return cached;
+  }
+  const index = new Map(entries.map((entry) => [entry.slug, entry]));
+  slugIndexCache.set(entries, index);
+  return index;
+}
+
+/**
  * Returns everything the loaded index knows about one slug — summary, domain,
  * kind, tags and related keywords — with no network fetch. The index carries no
  * article text (see the CLI's index builder), so `url` is how an agent reaches
@@ -100,7 +118,7 @@ export function getArticle(
   input: GetArticleInput,
   origin: string
 ): string {
-  const entry = entries.find((candidate) => candidate.slug === input.slug);
+  const entry = slugIndex(entries).get(input.slug);
   if (!entry) {
     return `No article found for slug "${input.slug}".`;
   }
