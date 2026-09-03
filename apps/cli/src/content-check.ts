@@ -36,6 +36,8 @@ import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/
 import { surfaceHash } from "@howardism/article-contract/surface";
 import matter from "gray-matter";
 
+import { runWithConcurrency } from "./concurrency";
+
 const HERE = dirname(new URL(import.meta.url).pathname);
 const REPO_ROOT = resolve(HERE, "../../../");
 const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
@@ -48,6 +50,8 @@ const MDX_SUFFIX = /\.mdx$/;
 const HERO_SUFFIX = /\.(?:png|webp)$/;
 const PNG_SUFFIX = /\.png$/;
 const MOC_PREFIX = "moc-";
+/** Enough to keep the disk busy without exhausting file descriptors. */
+const READ_CONCURRENCY = 16;
 /** Catch-all domain for notes no MOC claims. */
 const FALLBACK_DOMAIN = "syntheses";
 /**
@@ -120,29 +124,29 @@ export function checkGraphSlugRefs(
   articleSlugs: Set<string>
 ): string[] {
   const failures: string[] = [];
-  const relations: [string, Record<string, string[]>][] = [
-    [
-      "backlinks",
-      Object.fromEntries(
-        Object.entries(graph.backlinks ?? {}).map(([source, edges]) => [
-          source,
-          edges.map((edge) => edge.slug),
-        ])
-      ),
-    ],
-    ["related", graph.related ?? {}],
-  ];
-  for (const [relation, edges] of relations) {
-    for (const [source, targets] of Object.entries(edges)) {
-      if (!articleSlugs.has(source)) {
-        failures.push(`graph.${relation} key "${source}" has no article`);
+  // Both relations are walked in place. Normalising backlinks into the shape of
+  // `related` first meant rebuilding the whole 1.7MB map to read one field.
+  for (const [source, edges] of Object.entries(graph.backlinks ?? {})) {
+    if (!articleSlugs.has(source)) {
+      failures.push(`graph.backlinks key "${source}" has no article`);
+    }
+    for (const edge of edges) {
+      if (!articleSlugs.has(edge.slug)) {
+        failures.push(
+          `graph.backlinks["${source}"] → "${edge.slug}" has no article`
+        );
       }
-      for (const target of targets) {
-        if (!articleSlugs.has(target)) {
-          failures.push(
-            `graph.${relation}["${source}"] → "${target}" has no article`
-          );
-        }
+    }
+  }
+  for (const [source, targets] of Object.entries(graph.related ?? {})) {
+    if (!articleSlugs.has(source)) {
+      failures.push(`graph.related key "${source}" has no article`);
+    }
+    for (const target of targets) {
+      if (!articleSlugs.has(target)) {
+        failures.push(
+          `graph.related["${source}"] → "${target}" has no article`
+        );
       }
     }
   }
@@ -381,12 +385,10 @@ async function readMdxSlugs(dir: string): Promise<string[]> {
 
 async function loadArticles(): Promise<ArticleRecord[]> {
   const slugs = await readMdxSlugs(ARTICLES_DIR);
-  const articles: ArticleRecord[] = [];
-  for (const slug of slugs) {
+  return runWithConcurrency(slugs, READ_CONCURRENCY, async (slug) => {
     const raw = await readFile(resolve(ARTICLES_DIR, `${slug}.mdx`), "utf8");
-    articles.push(parseArticle(raw, slug));
-  }
-  return articles;
+    return parseArticle(raw, slug);
+  });
 }
 
 async function loadAssetFilenames(): Promise<Set<string>> {
