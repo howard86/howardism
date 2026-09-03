@@ -108,11 +108,15 @@ function collectRanges(
  */
 export function useFindHighlights(
   query: string,
-  active: boolean
+  active: boolean,
+  slug: string | null
 ): FindHighlights {
   const rangesRef = useRef<Range[]>([]);
   const currentRef = useRef(-1);
-  const entriesRef = useRef<TextNodeEntry[] | null>(null);
+  /** The body index, tagged with the article it was built from. */
+  const indexRef = useRef<{ entries: TextNodeEntry[]; slug: string } | null>(
+    null
+  );
   const scrolledForRef = useRef<string | null>(null);
   const [state, setState] = useState({ count: 0, current: -1 });
   // Rebuilding the ranges is synchronous over the whole article body, so let
@@ -135,21 +139,35 @@ export function useFindHighlights(
     setState((prev) => ({ count: prev.count, current: wrapped }));
   }, []);
 
-  // Index the body once per open panel. Declared before the rebuild effect so
-  // it has run by the time that one reads the index on the same commit.
+  // Index the body once per article per open panel. Keyed on `slug` as well as
+  // `active` because the find bar lives in the site header: a client-side
+  // navigation to another article replaces the body under an open panel, and an
+  // index built from the previous one holds text nodes that are no longer in the
+  // document. Declared before the rebuild effect so it has run by the time that
+  // one reads the index on the same commit.
   useEffect(() => {
-    const root = active
-      ? document.querySelector<HTMLElement>(BODY_SELECTOR)
-      : null;
-    entriesRef.current = root ? indexTextNodes(root) : null;
-  }, [active]);
+    const root =
+      active && slug !== null
+        ? document.querySelector<HTMLElement>(BODY_SELECTOR)
+        : null;
+    indexRef.current =
+      root && slug !== null ? { entries: indexTextNodes(root), slug } : null;
+    // A new body means the term has not been scrolled to in it yet.
+    scrolledForRef.current = null;
+  }, [active, slug]);
 
   // Rebuild highlights whenever the query (or open state) changes.
   useEffect(() => {
     const trimmed = deferredQuery.trim();
+    // `index.slug === slug` is the guard, not just a memo key: an index built
+    // from the previous article's body must never be matched against.
+    const index = indexRef.current;
     const entries =
-      active && supportsHighlights() && trimmed.length >= MIN_QUERY_LENGTH
-        ? entriesRef.current
+      active &&
+      index?.slug === slug &&
+      supportsHighlights() &&
+      trimmed.length >= MIN_QUERY_LENGTH
+        ? index.entries
         : null;
 
     if (!entries) {
@@ -186,7 +204,7 @@ export function useFindHighlights(
     }
     currentRef.current = 0;
     setState({ count: ranges.length, current: 0 });
-  }, [deferredQuery, active]);
+  }, [deferredQuery, active, slug]);
 
   // Tear highlights down on unmount.
   useEffect(() => clearHighlights, []);

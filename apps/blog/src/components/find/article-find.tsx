@@ -33,7 +33,11 @@ export function ArticleFind() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { count, current, goNext, goPrev } = useFindHighlights(query, open);
+  const { count, current, goNext, goPrev } = useFindHighlights(
+    query,
+    open,
+    nav?.slug ?? null
+  );
 
   const close = useCallback(() => {
     setOpen(false);

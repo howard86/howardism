@@ -30,13 +30,33 @@ beforeAll(() => {
 
 afterEach(cleanup);
 
-function Harness({ query, active }: { query: string; active: boolean }) {
-  const { count, current, goNext, goPrev } = useFindHighlights(query, active);
+function Harness({
+  query,
+  active,
+  slug = "first",
+  body,
+}: {
+  active: boolean;
+  body?: string;
+  query: string;
+  slug?: string;
+}) {
+  const { count, current, goNext, goPrev } = useFindHighlights(
+    query,
+    active,
+    slug
+  );
   return (
     <div>
       <div data-article-body>
-        <p>loop one</p>
-        <p>loop two and loop three</p>
+        {body ? (
+          <p>{body}</p>
+        ) : (
+          <>
+            <p>loop one</p>
+            <p>loop two and loop three</p>
+          </>
+        )}
       </div>
       <span data-testid="status">
         {count === 0 ? "0" : `${current + 1}/${count}`}
@@ -97,6 +117,18 @@ describe("useFindHighlights", () => {
     } finally {
       document.createTreeWalker = original;
     }
+  });
+
+  it("re-indexes when the panel survives a move to another article", () => {
+    // The find bar lives in the site header, so an open panel outlives a
+    // client-side navigation: the body it indexed is replaced under it.
+    const { rerender } = render(<Harness active query="loop" />);
+    expect(screen.getByTestId("status").textContent).toBe("1/3");
+
+    rerender(
+      <Harness active body="loop once here" query="loop" slug="second" />
+    );
+    expect(screen.getByTestId("status").textContent).toBe("1/1");
   });
 
   it("reports nothing when inactive or below the min length", () => {
