@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
-
 import {
   extractTranslatableSurface,
   surfaceHash,
+  surfaceHashFromParsed,
 } from "@howardism/article-contract/surface";
+import matter from "gray-matter";
 import {
   resyncVerbatimFields,
   sourceTitle,
@@ -83,6 +84,13 @@ describe("surfaceHash", () => {
     const lf = mdx();
     const crlf = lf.replace(/\n/g, "\r\n");
     expect(surfaceHash(crlf)).toBe(surfaceHash(lf));
+  });
+});
+
+describe("surfaceHashFromParsed", () => {
+  it("matches surfaceHash for the same text, parsed once by the caller", () => {
+    const raw = mdx({ sources: [{ title: "T", url: "https://e.com" }] });
+    expect(surfaceHashFromParsed(matter(raw, {}))).toBe(surfaceHash(raw));
   });
 });
 

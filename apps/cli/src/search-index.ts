@@ -68,7 +68,7 @@ export function buildSearchEntry(
   raw: string,
   slug: string
 ): PartialSearchEntry | null {
-  const { data } = matter(raw);
+  const { data } = matter(raw, {});
   if (data.archived === true) {
     return null;
   }

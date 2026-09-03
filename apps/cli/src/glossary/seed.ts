@@ -70,7 +70,7 @@ const collectEntityTermsFromArticles = async (
     } catch {
       continue;
     }
-    const { data } = matter(raw);
+    const { data } = matter(raw, {});
     const fm = data as ArticleFrontmatter;
     if (fm.tag !== "Entity") {
       continue;

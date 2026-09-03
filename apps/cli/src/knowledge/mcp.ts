@@ -110,7 +110,7 @@ export async function knowledgeGetHandler(
       error: `Article "${args.slug}" is indexed but its MDX is missing.`,
     });
   }
-  return jsonResult({ ...entry, body: toPlainText(matter(raw).content) });
+  return jsonResult({ ...entry, body: toPlainText(matter(raw, {}).content) });
 }
 
 /** Register the two knowledge-base tools on an MCP server reading `indexPath`. */
