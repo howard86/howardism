@@ -75,6 +75,30 @@ describe("useFindHighlights", () => {
     expect(status.textContent).toBe("3/3");
   });
 
+  it("walks the article body once per open panel, not once per keystroke", () => {
+    const original = document.createTreeWalker;
+    let walks = 0;
+    document.createTreeWalker = ((
+      root: Node,
+      whatToShow?: number,
+      filter?: NodeFilter | null
+    ) => {
+      walks += 1;
+      return original.call(document, root, whatToShow, filter);
+    }) as typeof document.createTreeWalker;
+
+    try {
+      const { rerender } = render(<Harness active query="loop" />);
+      rerender(<Harness active query="loop t" />);
+      rerender(<Harness active query="loop tw" />);
+
+      expect(screen.getByTestId("status").textContent).toBe("1/1");
+      expect(walks).toBe(1);
+    } finally {
+      document.createTreeWalker = original;
+    }
+  });
+
   it("reports nothing when inactive or below the min length", () => {
     const { rerender } = render(<Harness active={false} query="loop" />);
     expect(screen.getByTestId("status").textContent).toBe("0");
