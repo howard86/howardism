@@ -43,6 +43,17 @@ const WIKILINK_ALIAS_RE = /\\?\|/;
  */
 const MAX_DEPTH = 4;
 
+/**
+ * One `/g` scanner per recursion depth. `exec` is stateful and a nested parse
+ * runs while its parent's scan is still open, but two scans never share a
+ * depth — so one scanner per level is enough, and a line no longer compiles a
+ * fresh RegExp for itself and for every emphasis run inside it.
+ */
+const SCANNERS: RegExp[] = Array.from(
+  { length: MAX_DEPTH + 1 },
+  () => new RegExp(INLINE_RE.source, "g")
+);
+
 /** Title-case a hyphenated slug. The one implementation; the CLI imports it. */
 export function titleFromSlug(slug: string): string {
   return slug
@@ -95,8 +106,9 @@ function parseAt(input: string, depth: number): InlineSegment[] {
       ? [{ kind: "text", text: body }]
       : parseAt(body, depth + 1);
 
-  // `exec` on a /g regex is stateful, so each scan owns its own instance.
-  const scanner = new RegExp(INLINE_RE.source, "g");
+  // `exec` on a /g regex is stateful, so each scan owns its own cursor.
+  const scanner = SCANNERS[depth];
+  scanner.lastIndex = 0;
   let match = scanner.exec(input);
   while (match !== null) {
     pushText(input.slice(cursor, match.index));
