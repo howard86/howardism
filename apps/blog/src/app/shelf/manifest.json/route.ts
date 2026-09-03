@@ -1,16 +1,25 @@
 import { DOMAIN_META } from "@/app/(blog)/articles/domain-meta";
 import { kindMetaFor } from "@/app/(blog)/articles/kind-meta";
-import { getVisibleArticles } from "@/app/(blog)/articles/service";
+import {
+  type ArticleEntity,
+  getArticles,
+  type Normalise,
+} from "@/app/(blog)/articles/service";
 import type { ShelfManifestEntry } from "@/lib/shelf-rows";
 
 export const dynamic = "force-static";
 
-export async function GET() {
-  const { ids, entities } = await getVisibleArticles();
-
+/**
+ * Every article, archived included — not `getVisibleArticles()` — so a
+ * previously-read-then-archived article still resolves to its archived
+ * badge on the Shelf instead of a "no longer available" tombstone.
+ */
+export function buildManifestEntries(
+  articles: Normalise<ArticleEntity>
+): ShelfManifestEntry[] {
   const manifest: ShelfManifestEntry[] = [];
-  for (const id of ids) {
-    const entity = entities[id];
+  for (const id of articles.ids) {
+    const entity = articles.entities[id];
     if (!entity) {
       continue;
     }
@@ -27,6 +36,11 @@ export async function GET() {
       tags: meta.tags ?? [],
     });
   }
+  return manifest;
+}
+
+export async function GET() {
+  const manifest = buildManifestEntries(await getArticles());
 
   return new Response(JSON.stringify(manifest), {
     headers: { "Content-Type": "application/json; charset=utf-8" },
