@@ -29,6 +29,56 @@ const extractMarkdownLinks = (text: string): LinkOccurrence[] =>
     url: m[2],
   }));
 
+interface TermTrieNode {
+  children: Map<string, TermTrieNode>;
+  /** Set to the term string when a term ends at this node. */
+  term: string | null;
+}
+
+function buildTermTrie(terms: string[]): TermTrieNode {
+  const root: TermTrieNode = { children: new Map(), term: null };
+  for (const term of terms) {
+    let node = root;
+    for (const ch of term) {
+      let next = node.children.get(ch);
+      if (!next) {
+        next = { children: new Map(), term: null };
+        node.children.set(ch, next);
+      }
+      node = next;
+    }
+    node.term = term;
+  }
+  return root;
+}
+
+/**
+ * Every term in `trie` that appears verbatim anywhere in `text`, found with
+ * one linear scan instead of one `.includes()` call per term: at each
+ * position, walk the trie as far as `text` matches, recording every term
+ * completed along the way. Walking rather than a single alternation regex
+ * matters here — a non-overlapping regex match would let a longer term (e.g.
+ * "agentic") shadow a shorter one it contains ("agent"), silently dropping a
+ * term `.includes()` would still find.
+ */
+function findPresentTerms(text: string, trie: TermTrieNode): Set<string> {
+  const present = new Set<string>();
+  for (let start = 0; start < text.length; start++) {
+    let node = trie;
+    for (let i = start; i < text.length; i++) {
+      const next = node.children.get(text[i]);
+      if (!next) {
+        break;
+      }
+      node = next;
+      if (node.term !== null) {
+        present.add(node.term);
+      }
+    }
+  }
+  return present;
+}
+
 /**
  * Deterministic glossary enforcement: verify every do-not-translate term
  * that appears in the SOURCE also appears in the OUTPUT, and repair the one
@@ -67,41 +117,56 @@ export function enforceGlossary(
     protectedSpans.some((span) => span.includes(raw));
 
   const sourceLinks = extractMarkdownLinks(sourceText);
-  const seen = new Set<string>();
+  const sourceLinksByText = new Map<string, LinkOccurrence>();
+  for (const link of sourceLinks) {
+    if (!sourceLinksByText.has(link.text)) {
+      sourceLinksByText.set(link.text, link);
+    }
+  }
 
+  const seen = new Set<string>();
+  const dedupedTerms: string[] = [];
   for (const term of terms) {
     const trimmed = term.trim();
     if (!trimmed || seen.has(trimmed)) {
       continue;
     }
     seen.add(trimmed);
+    dedupedTerms.push(trimmed);
+  }
+  const glossaryTrie = buildTermTrie(dedupedTerms);
+  const presentInSource = findPresentTerms(sourceText, glossaryTrie);
 
+  let outputLinks = extractMarkdownLinks(text);
+  let presentInOutput = findPresentTerms(text, glossaryTrie);
+
+  for (const trimmed of dedupedTerms) {
     // Only terms actually used in the source are in scope.
-    if (!sourceText.includes(trimmed)) {
+    if (!presentInSource.has(trimmed)) {
       continue;
     }
     // Already verbatim in the output — nothing to do.
-    if (text.includes(trimmed)) {
+    if (presentInOutput.has(trimmed)) {
       continue;
     }
 
-    const sourceLink = sourceLinks.find((link) => link.text === trimmed);
+    const sourceLink = sourceLinksByText.get(trimmed);
     const outputLinksForUrl = sourceLink
-      ? [...text.matchAll(MARKDOWN_LINK_RE)].filter(
-          (m) => m[2] === sourceLink.url
-        )
+      ? outputLinks.filter((link) => link.url === sourceLink.url)
       : [];
 
     const candidate = outputLinksForUrl[0];
     if (
       sourceLink &&
       outputLinksForUrl.length === 1 &&
-      candidate[1] !== trimmed &&
-      !isProtected(candidate[0])
+      candidate.text !== trimmed &&
+      !isProtected(candidate.raw)
     ) {
       const repaired = `[${trimmed}](${sourceLink.url})`;
-      text = text.replace(candidate[0], repaired);
+      text = text.replace(candidate.raw, repaired);
       applied += 1;
+      outputLinks = extractMarkdownLinks(text);
+      presentInOutput = findPresentTerms(text, glossaryTrie);
       continue;
     }
 
