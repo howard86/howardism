@@ -1,14 +1,15 @@
 import "server-only";
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import {
   WIKI_DOMAINS,
   WIKI_TAGS,
   type WikiDomain,
   type WikiTag,
 } from "@howardism/article-contract";
+import {
+  type ArticleMeta,
+  parseArticlesMeta,
+} from "@howardism/article-contract/manifests/articles-meta";
 import {
   type BacklinkEdge,
   parseArticleGraph,
@@ -22,17 +23,12 @@ import {
   parseWikiSources,
   type WikiSource,
 } from "@howardism/article-contract/manifests/wiki-sources";
-import {
-  ArticleContractSchema,
-  type SourceRefSchema,
-} from "@howardism/article-contract/schema";
-import { surfaceHash } from "@howardism/article-contract/surface";
-import glob from "fast-glob";
-import type { StaticImageData } from "next/image";
+import type { SourceRefSchema } from "@howardism/article-contract/schema";
 import { cache } from "react";
-import { z } from "zod";
+import type { z } from "zod";
 
 import graphData from "@/data/article-graph.json";
+import articlesMetaData from "@/data/articles-meta.json";
 import openQuestionsData from "@/data/open-questions.json";
 import translationsData from "@/data/translations.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
@@ -51,19 +47,14 @@ export interface Normalise<T> {
 }
 
 export interface ArticleEntity {
-  heroImage: StaticImageData;
   meta: ArticleMeta;
   position: number;
   slug: string;
+  /** Hash of the translatable surface — see {@link isTranslationStale}. */
+  sourceHash: string;
 }
 
-const ArticleMetaSchema = ArticleContractSchema.extend({
-  archived: z.boolean().optional(),
-  dropCap: z.boolean().optional(),
-  imageAlt: z.string(),
-});
-
-export type ArticleMeta = z.infer<typeof ArticleMetaSchema>;
+export type { ArticleMeta } from "@howardism/article-contract/manifests/articles-meta";
 
 export interface SiblingNav {
   nextSlug: string | undefined;
@@ -162,57 +153,31 @@ const once = <T>(load: () => Promise<T>): (() => Promise<T>) => {
   };
 };
 
-const MDX_SUFFIX = /\.mdx$/;
-const ARTICLES_DIR = join(process.cwd(), "src", "content", "articles");
+const articlesMeta = parseArticlesMeta(articlesMetaData);
 
-interface ArticleModule {
-  heroImage?: StaticImageData;
-  meta?: unknown;
-}
-
-const loadArticle = async (
-  filename: string
-): Promise<{ heroImage: StaticImageData; meta: ArticleMeta; slug: string }> => {
-  const slug = filename.replace(MDX_SUFFIX, "");
-  const mod = (await import(`@/content/articles/${filename}`)) as ArticleModule;
-  const parsed = ArticleMetaSchema.safeParse(mod.meta);
-  if (!parsed.success) {
-    throw new Error(
-      `Invalid article frontmatter for "${slug}": ${parsed.error.message}`
-    );
-  }
-  if (!mod.heroImage) {
-    throw new Error(
-      `Article "${slug}" is missing the \`heroImage\` named export. Re-export the hero asset: \`export { default as heroImage } from './hero.webp'\`.`
-    );
-  }
-  return { slug, meta: parsed.data, heroImage: mod.heroImage };
-};
-
-export const getArticles = once(async (): Promise<Normalise<ArticleEntity>> => {
-  const filenames = await glob("*.mdx", { cwd: ARTICLES_DIR });
-
-  const files = await Promise.all(filenames.map(loadArticle));
-
-  files.sort(
-    (a, b) => new Date(b.meta.date).valueOf() - new Date(a.meta.date).valueOf()
-  );
-
-  const results: Normalise<ArticleEntity> = {
-    ids: [],
-    entities: {},
+/**
+ * The manifest as this service's entity table. It replaces a load that globbed
+ * the articles directory and dynamically imported all 427 compiled MDX modules
+ * for their `meta` export — the ~200ms per process {@link once} describes. The
+ * manifest is already ordered newest-first, so `ids` is its slug column.
+ *
+ * Built at module scope rather than behind `once`: the JSON is static for the
+ * life of the process, and {@link isTranslationStale} needs the hashes without
+ * awaiting.
+ */
+const allArticles: Normalise<ArticleEntity> = { ids: [], entities: {} };
+articlesMeta.articles.forEach((entry, index) => {
+  allArticles.ids.push(entry.slug);
+  allArticles.entities[entry.slug] = {
+    meta: entry.meta,
+    position: index,
+    slug: entry.slug,
+    sourceHash: entry.sourceHash,
   };
-
-  files.forEach((file, index) => {
-    results.ids.push(file.slug);
-    results.entities[file.slug] = {
-      position: index,
-      ...file,
-    };
-  });
-
-  return results;
 });
+
+export const getArticles = (): Promise<Normalise<ArticleEntity>> =>
+  Promise.resolve(allArticles);
 
 /**
  * Whether `slug` is a known English article (all ids, archived included) — the
@@ -605,17 +570,13 @@ export const hasTranslation = (slug: string): boolean =>
 /**
  * Whether the zh-TW translation for `slug` is stale — i.e. the EN source has
  * changed since the translation was recorded. Returns false if no translation
- * exists or the source file cannot be read.
+ * exists. Both hashes come from a committed manifest, so this is the same
+ * comparison `translate:check` makes.
  */
 export const isTranslationStale = (slug: string): boolean => {
   const record = translations.articles[slug];
   if (!record) {
     return false;
   }
-  try {
-    const rawMdx = readFileSync(join(ARTICLES_DIR, `${slug}.mdx`), "utf8");
-    return surfaceHash(rawMdx) !== record.sourceHash;
-  } catch {
-    return false;
-  }
+  return allArticles.entities[slug]?.sourceHash !== record.sourceHash;
 };
