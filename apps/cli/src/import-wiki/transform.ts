@@ -7,7 +7,6 @@ import { humanize, rewriteToMarkdown, type WikiResolver } from "./wikilink.ts";
 // Accepts both `[[target|label]]` and `[[target\|label]]` — the latter is the
 // Obsidian convention for embedding pipes inside markdown tables.
 const FENCE_RE = /^(\s*)(```+|~~~+)/;
-const WORD_RE = /\b\w+\b/g;
 const LEADING_H1_RE = /^#\s+.+\n+/;
 const TRAILING_PUNCT_RE = /[.\s]+$/;
 const FIRST_PARAGRAPH_SKIP_RE = /^(#|>|\||-|\*|`{3}|~{3}|<!--)/;
@@ -443,9 +442,31 @@ export function redactLocalPaths(body: string): string {
   return result;
 }
 
+/** `\w` without the `u` flag: ASCII letters, digits and underscore. */
+function isWordCharCode(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    code === 95
+  );
+}
+
 export function computeReadingTime(body: string): number {
-  const wordMatches = body.match(WORD_RE);
-  const wordCount = wordMatches?.length ?? 0;
+  // A word is a maximal run of `\w`, which is what `\b\w+\b` matched — but
+  // counting the runs never materialises the ~1.5M substrings that did.
+  let wordCount = 0;
+  let inWord = false;
+  for (let i = 0; i < body.length; i++) {
+    if (!isWordCharCode(body.charCodeAt(i))) {
+      inWord = false;
+      continue;
+    }
+    if (!inWord) {
+      wordCount += 1;
+      inWord = true;
+    }
+  }
   return Math.max(1, Math.ceil(wordCount / WORDS_PER_MINUTE));
 }
 
