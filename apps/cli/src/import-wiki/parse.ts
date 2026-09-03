@@ -106,7 +106,9 @@ export async function parseWikiFile(
   source: WikiSource
 ): Promise<ParsedWikiFile> {
   const raw = await readFile(source.absolutePath, "utf8");
-  const { data, content } = matter(raw);
+  // `{}` opts gray out of gray-matter's global cache, which otherwise keeps
+  // every parsed file's full text alive for the process' lifetime.
+  const { data, content } = matter(raw, {});
   const { mtime } = await stat(source.absolutePath);
 
   return {
@@ -185,12 +187,31 @@ export function extractRawSlugsFromBody(body: string): string[] {
  * vault here (raw docs are author-curated clippings) and only normalise
  * empty / non-http(s) values to `undefined` so the rendered output never
  * produces a broken or relative link.
+ *
+ * Memoised on the resolved path: `resolveRawSources` builds its index once per
+ * article, so without this the same few hundred raw files are re-read and
+ * re-parsed once per citing article. Raw docs do not change during a run.
  */
-export async function loadRawDoc(
+export function loadRawDoc(
   rawRoot: string,
   slug: string
 ): Promise<RawDoc | null> {
   const absolutePath = join(rawRoot, `${slug}.md`);
+  const cached = rawDocCache.get(absolutePath);
+  if (cached) {
+    return cached;
+  }
+  const pending = readRawDoc(absolutePath, slug);
+  rawDocCache.set(absolutePath, pending);
+  return pending;
+}
+
+const rawDocCache = new Map<string, Promise<RawDoc | null>>();
+
+async function readRawDoc(
+  absolutePath: string,
+  slug: string
+): Promise<RawDoc | null> {
   let raw: string;
   try {
     raw = await readFile(absolutePath, "utf8");
@@ -201,7 +222,7 @@ export async function loadRawDoc(
     throw err;
   }
 
-  const { data } = matter(raw);
+  const { data } = matter(raw, {});
   const rawData = data as {
     author?: unknown;
     published?: unknown;
