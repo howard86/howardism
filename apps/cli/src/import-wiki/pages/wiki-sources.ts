@@ -76,16 +76,13 @@ export async function buildWikiSources(args: {
     async ([rawSlug, citers]) => {
       const doc = await loadRawDoc(rawRoot, rawSlug);
       const url = doc?.url;
-      // Field order matches WikiSourceSchema's declaration — stringifying
-      // this directly (see emitWikiSources) must match what stringifying a
-      // Schema.parse() clone would have produced.
       return {
-        author: doc?.author,
-        citedBy: [...citers].sort(),
-        kind: deriveKind(url),
-        published: doc?.published,
         title: doc?.title ?? humanize(rawSlug),
         url,
+        author: doc?.author,
+        published: doc?.published,
+        kind: deriveKind(url),
+        citedBy: [...citers].sort(),
       };
     }
   );
@@ -111,8 +108,11 @@ export async function emitWikiSources(args: {
   outputPath: string;
 }): Promise<string> {
   const { manifest, outputPath, dryRun } = args;
-  WikiSourcesManifestSchema.parse(manifest);
-  const json = JSON.stringify(manifest, null, 2);
+  const json = JSON.stringify(
+    WikiSourcesManifestSchema.parse(manifest),
+    null,
+    2
+  );
 
   if (dryRun) {
     console.log(

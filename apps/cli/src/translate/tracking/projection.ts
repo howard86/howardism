@@ -85,16 +85,16 @@ export async function writeProjection(
   for (const slug of Object.keys(articles).sort()) {
     sorted[slug] = articles[slug];
   }
-  // Field order matches TranslationsManifestSchema's declaration — stringifying
-  // `next` directly (see below) must match what stringifying a Schema.parse()
-  // clone would have produced.
   const next: TranslationProjection = {
-    articles: sorted,
     generatedOn: new Date().toISOString().slice(0, 10),
     locale: existing.locale ?? DEFAULT_LOCALE,
+    articles: sorted,
   };
-  TranslationsManifestSchema.parse(next);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  await writeFile(
+    path,
+    `${JSON.stringify(TranslationsManifestSchema.parse(next), null, 2)}\n`,
+    "utf8"
+  );
   return next;
 }

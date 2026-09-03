@@ -172,21 +172,12 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
     partials.map((entry) => [entry.slug, entry.tags ?? []])
   );
   const outgoing = transpose(graph.backlinks);
-  // Field order matches SearchIndexEntrySchema's declaration — stringifying
-  // this directly (see writeSearchIndex) must byte-match what stringifying a
-  // Schema.parse() clone would have produced, since zod rebuilds objects in
-  // schema order.
-  const entries: SearchIndexEntry[] = partials.map((entry) => ({
-    description: entry.description,
-    domain: entry.domain,
+  const entries = partials.map((entry) => ({
+    ...entry,
     keywords: deriveKeywords(entry, graph, tagsBySlug, outgoing),
-    slug: entry.slug,
-    tag: entry.tag,
-    tags: entry.tags,
-    title: entry.title,
   }));
 
-  return { entries, generatedOn };
+  return { generatedOn, entries };
 }
 
 /**
@@ -199,8 +190,7 @@ export async function writeSearchIndex(options?: {
 }): Promise<{ entryCount: number; outputPath: string }> {
   const generatedOn = new Date().toISOString().slice(0, 10);
   const index = await buildIndex(generatedOn);
-  SearchIndexSchema.parse(index);
-  const json = JSON.stringify(index, null, 2);
+  const json = JSON.stringify(SearchIndexSchema.parse(index), null, 2);
 
   const keywordless = index.entries.filter(
     (entry) => entry.keywords.length === 0
