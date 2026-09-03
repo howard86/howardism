@@ -1,3 +1,8 @@
+# [v2.26.2](https://github.com/howard86/howardism/compare/v2.26.1...v2.26.2) (2026-09-03)
+
+## 🐛 Bug Fixes
+- [`2fb1c626`](https://github.com/howard86/howardism/commit/2fb1c626)  fix(translate): walk the glossary trie by code unit on both sides
+
 # [v2.26.1](https://github.com/howard86/howardism/compare/v2.26.0...v2.26.1) (2026-09-03)
 
 ## 🐛 Bug Fixes
