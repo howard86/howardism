@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import matter from "gray-matter";
 
+import { runWithConcurrency } from "../concurrency.ts";
 import type { GlossaryEntry } from "./store.ts";
 
 export interface HarvestCandidate {
@@ -22,6 +23,7 @@ export interface HarvestOptions {
 }
 
 const MDX_SUFFIX_RE = /\.mdx$/;
+const READ_CONCURRENCY = 8;
 const CODE_FENCE_RE = /```[\s\S]*?```/g;
 const HERO_IMAGE_LINE_RE = /^export\s*\{[^}]*\bheroImage\b[^}]*\}[^\n]*$/gm;
 // Blank out leading list/blockquote markers so they never read as part of a
@@ -78,7 +80,9 @@ const URL_RE = /https?:\/\/\S+/g;
  * lines, and leading list/blockquote markers. Pure — no IO.
  */
 export function extractBody(raw: string): string {
-  const { content } = matter(raw);
+  // `{}` opts out of gray-matter's global cache, which would otherwise hold
+  // every article's full text for the process' lifetime.
+  const { content } = matter(raw, {});
   return blankLinkListSections(content)
     .replace(CODE_FENCE_RE, " ")
     .replace(HERO_IMAGE_LINE_RE, " ")
@@ -87,35 +91,41 @@ export function extractBody(raw: string): string {
     .replace(MARKDOWN_LINE_PREFIX_RE, (m) => " ".repeat(m.length));
 }
 
-interface Span {
-  end: number;
-  start: number;
-}
-
-const overlapsAny = (span: Span, spans: Span[]): boolean =>
-  spans.some((s) => span.start < s.end && span.end > s.start);
+const isSpanFree = (
+  consumed: Uint8Array,
+  start: number,
+  end: number
+): boolean => {
+  for (let i = start; i < end; i++) {
+    if (consumed[i] === 1) {
+      return false;
+    }
+  }
+  return true;
+};
 
 /**
  * Collect non-overlapping matches of `re` against `text`, skipping any span
- * that overlaps one already in `consumed` (mutated in place with newly
- * accepted spans) so a later, lower-priority pattern can't re-split a match
- * already claimed by a higher-priority one — e.g. "Brown" inside the phrase
- * match "Noam Brown".
+ * that overlaps one already claimed in `consumed` (a per-character mask over
+ * `text`, filled in place as spans are accepted) so a later, lower-priority
+ * pattern can't re-split a match already claimed by a higher-priority one —
+ * e.g. "Brown" inside the phrase match "Noam Brown".
  */
 function collectNonOverlapping(
   text: string,
   re: RegExp,
-  consumed: Span[],
+  consumed: Uint8Array,
   filter?: (match: string) => boolean
 ): string[] {
   const out: string[] = [];
   re.lastIndex = 0;
   let m = re.exec(text);
   while (m) {
-    const span: Span = { start: m.index, end: m.index + m[0].length };
-    if (!overlapsAny(span, consumed) && (!filter || filter(m[0]))) {
+    const start = m.index;
+    const end = start + m[0].length;
+    if (isSpanFree(consumed, start, end) && (!filter || filter(m[0]))) {
       out.push(m[0]);
-      consumed.push(span);
+      consumed.fill(1, start, end);
     }
     m = re.exec(text);
   }
@@ -160,7 +170,7 @@ const CAMEL_RE = /\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+\b/g;
 // never glues its last word onto the next line's first word.
 const PHRASE_RE = /\b[A-Z][A-Za-z0-9-]+(?:[ \t]+[A-Z][A-Za-z0-9-]+)+\b/g;
 
-const MONTH_NAMES = [
+const MONTH_NAMES = new Set([
   "january",
   "february",
   "march",
@@ -173,7 +183,7 @@ const MONTH_NAMES = [
   "october",
   "november",
   "december",
-];
+]);
 
 // Function words (articles/pronouns/prepositions/conjunctions/auxiliary
 // verbs) that can start a phrase match purely by grammar, not because the
@@ -366,7 +376,7 @@ const isValidPhrase = (term: string): boolean => {
   if (LEADING_FUNCTION_WORDS.has(words[0] as string)) {
     return false;
   }
-  return !words.some((w) => MONTH_NAMES.includes(w) || RFC2119_KEYWORDS.has(w));
+  return !words.some((w) => MONTH_NAMES.has(w) || RFC2119_KEYWORDS.has(w));
 };
 
 /**
@@ -398,7 +408,7 @@ export function extractCandidates(docs: HarvestDoc[]): HarvestCandidate[] {
   };
 
   for (const { slug, text } of docs) {
-    const consumed: Span[] = [];
+    const consumed = new Uint8Array(text.length);
     for (const term of collectNonOverlapping(
       text,
       PHRASE_RE,
@@ -462,18 +472,51 @@ const isCoveredBySubstring = (
  * substring of an existing longer entry. Pure — takes `listTerms(db)`'s
  * output rather than a DB handle.
  */
+const WORD_TOKENS_RE = /[a-z0-9]+/g;
+const FIRST_WORD_RE = /[a-z0-9]+/;
+
+/**
+ * Existing terms bucketed by the words they contain. `isCoveredBySubstring`
+ * only accepts a match at word boundaries on both sides, so every word of a
+ * covered candidate is a whole word of the covering entry — which means one
+ * of the candidate's own words is enough to find every entry that could
+ * cover it, instead of scanning the whole glossary per candidate.
+ */
+function indexByWord(existingLower: string[]): Map<string, string[]> {
+  const byWord = new Map<string, string[]>();
+  for (const existing of existingLower) {
+    for (const word of new Set(existing.match(WORD_TOKENS_RE) ?? [])) {
+      const bucket = byWord.get(word);
+      if (bucket) {
+        bucket.push(existing);
+      } else {
+        byWord.set(word, [existing]);
+      }
+    }
+  }
+  return byWord;
+}
+
 export function filterAgainstGlossary(
   candidates: HarvestCandidate[],
   existing: GlossaryEntry[]
 ): HarvestCandidate[] {
   const existingLowerSet = new Set(existing.map((e) => e.term.toLowerCase()));
   const existingLowerList = [...existingLowerSet];
+  const byWord = indexByWord(existingLowerList);
   return candidates.filter((c) => {
     const lower = c.term.toLowerCase();
     if (existingLowerSet.has(lower)) {
       return false;
     }
-    return !isCoveredBySubstring(c.term, existingLowerList);
+    // A term with no word characters at all cannot be looked up; it falls
+    // back to the full list rather than silently skipping the check.
+    const firstWord = FIRST_WORD_RE.exec(lower)?.[0];
+    const maybeCovering =
+      firstWord === undefined
+        ? existingLowerList
+        : (byWord.get(firstWord) ?? []);
+    return !isCoveredBySubstring(c.term, maybeCovering);
   });
 }
 
@@ -502,23 +545,24 @@ export async function readArticleDocs(
     }
   }
 
-  const docs: HarvestDoc[] = [];
-  for (const filename of filenames) {
-    const slug = filename.replace(MDX_SUFFIX_RE, "");
-    const filePath = join(articlesDir, filename);
-    let raw: string;
-    try {
-      raw = await readFile(filePath, "utf8");
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        console.error(`harvest: skipping missing article "${slug}"`);
-        continue;
+  const docs = await runWithConcurrency(
+    filenames,
+    READ_CONCURRENCY,
+    async (filename): Promise<HarvestDoc | null> => {
+      const slug = filename.replace(MDX_SUFFIX_RE, "");
+      const filePath = join(articlesDir, filename);
+      try {
+        return { slug, text: extractBody(await readFile(filePath, "utf8")) };
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+          console.error(`harvest: skipping missing article "${slug}"`);
+          return null;
+        }
+        throw err;
       }
-      throw err;
     }
-    docs.push({ slug, text: extractBody(raw) });
-  }
-  return docs;
+  );
+  return docs.filter((doc) => doc !== null);
 }
 
 /**
