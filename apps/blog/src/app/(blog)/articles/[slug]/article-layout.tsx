@@ -98,67 +98,10 @@ export function ArticleLayout({
       <ResumeReading headings={headings} slug={slug} />
       <div className="grid rail:grid-cols-[minmax(0,720px)_320px] gap-12">
         <div className="min-w-0">
-          <DiscPageHeader
-            accent={accent}
-            data={metaRows}
-            eyebrowEnd={
-              <>
-                {locale === "zh-TW" && (
-                  <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
-                    機器翻譯 · machine-translated
-                  </span>
-                )}
-                {locale === "zh-TW" && isStale && (
-                  <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
-                    過時翻譯 · stale translation
-                  </span>
-                )}
-                {translationHref && (
-                  <Link
-                    className={cn(
-                      EYEBROW_CLASS,
-                      "no-underline transition-colors hover:text-[var(--article-accent)]"
-                    )}
-                    href={translationHref}
-                  >
-                    {locale === "zh-TW" ? "EN" : "中文"}
-                  </Link>
-                )}
-                HOWARDISM
-              </>
-            }
-            eyebrowStart={
-              <>
-                {PLATE_META.domains.label}
-                {meta.domain && (
-                  <>
-                    <span aria-hidden="true" className="mx-1.5">
-                      ·
-                    </span>
-                    <DomainLabel domain={meta.domain} />
-                  </>
-                )}
-              </>
-            }
-            stackData
-            title={meta.title}
-            variant="compact"
-          >
-            <SaveButton showLabel slug={slug} />
-          </DiscPageHeader>
-
-          <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
-            {meta.description}
-          </p>
-
           {heroImage && (
             <Image
               alt={meta.imageAlt}
               className="mb-10 h-auto w-full rounded-md"
-              // `priority` alone emits the preload link and drops loading=lazy,
-              // but Next 16 does not set fetchpriority on the element itself —
-              // which is exactly what Lighthouse's LCP `priorityHinted` check
-              // reads. Both are needed.
               fetchPriority="high"
               placeholder="blur"
               priority
@@ -169,7 +112,57 @@ export function ArticleLayout({
 
           <article>
             <LedeContractWrapper
-              description={meta.description}
+              headerSection={
+                <DiscPageHeader
+                  accent={accent}
+                  data={metaRows}
+                  eyebrowEnd={
+                    <>
+                      {locale === "zh-TW" && (
+                        <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
+                          機器翻譯 · machine-translated
+                        </span>
+                      )}
+                      {locale === "zh-TW" && isStale && (
+                        <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
+                          過時翻譯 · stale translation
+                        </span>
+                      )}
+                      {translationHref && (
+                        <Link
+                          className={cn(
+                            EYEBROW_CLASS,
+                            "no-underline transition-colors hover:text-[var(--article-accent)]"
+                          )}
+                          href={translationHref}
+                        >
+                          {locale === "zh-TW" ? "EN" : "中文"}
+                        </Link>
+                      )}
+                      HOWARDISM
+                    </>
+                  }
+                  eyebrowStart={
+                    <>
+                      {PLATE_META.domains.label}
+                      {meta.domain && (
+                        <>
+                          <span aria-hidden="true" className="mx-1.5">
+                            ·
+                          </span>
+                          <DomainLabel domain={meta.domain} />
+                        </>
+                      )}
+                    </>
+                  }
+                  stackData
+                  title={meta.title}
+                  variant="compact"
+                >
+                  <SaveButton showLabel slug={slug} />
+                </DiscPageHeader>
+              }
+              ledeText={meta.description}
               metaCard={
                 <Card className="px-6 py-5">
                   <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
@@ -183,7 +176,6 @@ export function ArticleLayout({
                   </p>
                 </Card>
               }
-              title={meta.title}
             >
               <div
                 className={cn(

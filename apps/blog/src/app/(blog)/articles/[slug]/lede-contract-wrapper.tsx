@@ -7,22 +7,26 @@ import { useReaderSpike } from "@/hooks/use-reader-spike";
 
 interface LedeContractWrapperProps {
   children: ReactNode;
-  description: string;
+  headerSection: ReactNode;
+  ledeText: string;
   metaCard: ReactNode;
-  title: string;
 }
 
 function LedeContractContent({
   children,
+  headerSection,
+  ledeText,
   metaCard,
-  title,
-  description,
 }: LedeContractWrapperProps) {
   const isSpike = useReaderSpike();
 
   if (!isSpike) {
     return (
       <>
+        {headerSection}
+        <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
+          {ledeText}
+        </p>
         {children}
         {metaCard}
       </>
@@ -31,14 +35,10 @@ function LedeContractContent({
 
   return (
     <>
-      <div className="mb-10">
-        <h1 className="mb-4 font-display font-semibold text-3xl text-foreground leading-tight tracking-tight sm:text-4xl">
-          {title}
-        </h1>
-        <p className="border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
-          {description}
-        </p>
-      </div>
+      {headerSection}
+      <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
+        {ledeText}
+      </p>
 
       <details className="mb-8">
         <summary className="cursor-pointer rounded-md border border-border bg-card px-4 py-3 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.1em] transition-colors hover:bg-accent">
@@ -57,6 +57,10 @@ export function LedeContractWrapper(props: LedeContractWrapperProps) {
     <Suspense
       fallback={
         <>
+          {props.headerSection}
+          <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
+            {props.ledeText}
+          </p>
           {props.children}
           {props.metaCard}
         </>

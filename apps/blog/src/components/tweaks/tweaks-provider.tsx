@@ -19,6 +19,7 @@ import {
 } from "./types";
 
 interface TweaksContextValue {
+  setFocusMode: (focusMode: boolean) => void;
   setMode: (mode: Mode) => void;
   setTapToScroll: (tapToScroll: boolean) => void;
   setTextSize: (textSize: TextSize) => void;
@@ -39,17 +40,19 @@ export function readStorage(): Tweaks {
       return DEFAULT_TWEAKS;
     }
     const parsed = JSON.parse(raw) as Partial<Tweaks>;
+    const focusMode = parsed.focusMode ?? DEFAULT_TWEAKS.focusMode;
     const mode = parsed.mode ?? DEFAULT_TWEAKS.mode;
     const tapToScroll = parsed.tapToScroll ?? DEFAULT_TWEAKS.tapToScroll;
     const textSize = parsed.textSize ?? DEFAULT_TWEAKS.textSize;
     if (
+      focusMode === DEFAULT_TWEAKS.focusMode &&
       mode === DEFAULT_TWEAKS.mode &&
       tapToScroll === DEFAULT_TWEAKS.tapToScroll &&
       textSize === DEFAULT_TWEAKS.textSize
     ) {
       return DEFAULT_TWEAKS;
     }
-    return { mode, tapToScroll, textSize };
+    return { focusMode, mode, tapToScroll, textSize };
   } catch {
     return DEFAULT_TWEAKS;
   }
@@ -70,6 +73,17 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
     const stored = readStorage();
     setState(stored);
     applyToDom(stored);
+  }, []);
+
+  const setFocusMode = useCallback((focusMode: boolean) => {
+    setState((prev) => {
+      if (prev.focusMode === focusMode) {
+        return prev;
+      }
+      const next = { ...prev, focusMode };
+      writeStorage(next);
+      return next;
+    });
   }, []);
 
   const setMode = useCallback((mode: Mode) => {
@@ -108,8 +122,8 @@ export function TweaksProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ state, setMode, setTapToScroll, setTextSize }),
-    [state, setMode, setTapToScroll, setTextSize]
+    () => ({ state, setFocusMode, setMode, setTapToScroll, setTextSize }),
+    [state, setFocusMode, setMode, setTapToScroll, setTextSize]
   );
 
   return <TweaksContext value={value}>{children}</TweaksContext>;

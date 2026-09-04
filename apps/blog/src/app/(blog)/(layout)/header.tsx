@@ -219,12 +219,13 @@ function FocusPlate({
 
   return (
     <div
+      aria-label={`Reading, ${activeSection ? `section ${activeSection}, ` : ""}${progressPercent}% complete`}
       aria-live="polite"
       className={cn(
-        "pointer-events-none fixed top-20 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 px-5 py-2.5 shadow-lg backdrop-blur-sm transition-all duration-200 motion-reduce:transition-none",
+        "pointer-events-none fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 px-5 py-2.5 shadow-lg backdrop-blur-sm transition-all motion-reduce:transition-none motion-reduce:duration-0",
         isVisible
-          ? "translate-y-0 opacity-100"
-          : "-translate-y-4 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100"
+          ? "translate-y-0 opacity-100 duration-200"
+          : "-translate-y-4 opacity-0 duration-[120ms]"
       )}
       role="status"
     >
@@ -249,26 +250,36 @@ function FocusPlate({
  * Persistent, context-aware top bar. Owns route nav + theme on every page, and
  * on article pages gains reader controls (TOC, reader settings) plus the
  * reading-progress bar rendered as its bottom edge. Condenses on scroll.
- * When ?readerSpike=1, adds focus plate (running head).
+ * When ?readerSpike=1, adds focus mode toggle that collapses chrome to running head.
  */
 export function SiteBar() {
   const isScrolled = useHasScrolled({ offsetPx: 80 });
   const articleNav = useArticleNav();
   const isArticle = articleNav !== null;
   const isSpike = useReaderSpike();
+  const { state, setFocusMode } = useTweaks();
+  const isFocusMode = isSpike && state.focusMode;
+
+  let chromeClass = "py-4 opacity-100 duration-200";
+  if (isFocusMode) {
+    chromeClass =
+      "pointer-events-none h-0 overflow-hidden py-0 opacity-0 duration-[120ms]";
+  } else if (isScrolled) {
+    chromeClass = "py-2 opacity-100 duration-200";
+  }
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-colors duration-200",
+        "sticky top-0 z-50 transition-colors duration-200 motion-reduce:transition-none",
         isScrolled && "border-border border-b bg-background/20 backdrop-blur-sm"
       )}
     >
       <Container className="relative w-full">
         <div
           className={cn(
-            "flex items-center gap-2 transition-[padding] duration-200 sm:gap-3",
-            isScrolled ? "py-2" : "py-4"
+            "flex items-center gap-2 transition-all motion-reduce:transition-none sm:gap-3",
+            chromeClass
           )}
         >
           {/* Wordmark + avatar pill */}
@@ -301,6 +312,19 @@ export function SiteBar() {
                 </span>
                 <ArticleFind />
                 <ReaderSettings />
+                {isSpike && (
+                  <button
+                    aria-label="Toggle focus mode"
+                    className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onClick={() => setFocusMode(!state.focusMode)}
+                    title="Focus mode"
+                    type="button"
+                  >
+                    <span className="font-medium font-mono text-[10px]">
+                      {state.focusMode ? "EXIT" : "FOCUS"}
+                    </span>
+                  </button>
+                )}
               </div>
               <span
                 aria-hidden="true"
@@ -319,7 +343,7 @@ export function SiteBar() {
         <ReadingProgress headings={isSpike ? articleNav.headings : undefined} />
       )}
 
-      {isArticle && isSpike && isScrolled && (
+      {isArticle && isSpike && isFocusMode && (
         <FocusPlate articleNav={articleNav} />
       )}
     </header>
