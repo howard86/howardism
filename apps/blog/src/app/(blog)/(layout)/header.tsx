@@ -74,6 +74,40 @@ function DesktopNav() {
   );
 }
 
+function ThemeToggle() {
+  const { state, setMode } = useTweaks();
+  const isDark = state.mode === "dark";
+  return (
+    <button
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      onClick={() => setMode(isDark ? "light" : "dark")}
+      type="button"
+    >
+      {isDark ? (
+        <HugeiconsIcon className="size-[18px]" icon={Sun03Icon} />
+      ) : (
+        <HugeiconsIcon className="size-[18px]" icon={Moon02Icon} />
+      )}
+    </button>
+  );
+}
+
+const PLATE_ANNOTATIONS: Record<string, string> = {
+  Home: "Masthead · 00",
+  Articles: "Plate I · 01",
+  Questions: "Plate III · 03",
+  Shelf: "Plate IV · 04",
+  RSS: "Feed",
+};
+
+const QUICK_LINKS = [
+  { label: "Questions", href: "/questions" },
+  { label: "Shelf", href: "/shelf" },
+  { label: "繁體中文", href: "/zh-TW/articles" },
+  { label: "RSS Feed", href: "/rss/feed.xml" },
+];
+
 function MobileNav() {
   const pathname = usePathname();
 
@@ -91,15 +125,20 @@ function MobileNav() {
           showCloseButton={false}
           side="top"
         >
-          <SheetHeader className="flex-row items-center gap-3 p-0">
-            <Avatar label="Home" size={36} />
-            <div className="flex flex-col gap-px">
-              <SheetTitle className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
-                Howardism
-              </SheetTitle>
-              <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
-                vol. 03 · quiet corner of the web
-              </span>
+          <SheetHeader className="flex-row items-center justify-between gap-3 p-0">
+            <div className="flex items-center gap-3">
+              <Avatar label="Home" size={36} />
+              <div className="flex flex-col gap-px">
+                <SheetTitle className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
+                  Howardism
+                </SheetTitle>
+                <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
+                  vol. 03 · quiet corner of the web
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
             </div>
           </SheetHeader>
           <nav aria-label="Mobile primary" className="mt-6">
@@ -111,42 +150,48 @@ function MobileNav() {
                       aria-current={
                         isRouteActive(pathname, href) ? "page" : undefined
                       }
-                      className="flex min-h-12 items-center rounded-lg px-2 font-body text-[15px] text-foreground transition-colors aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
+                      className="flex min-h-12 items-center justify-between rounded-lg px-2 font-body text-[15px] text-foreground transition-colors aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
                       href={href}
                     >
-                      {label}
+                      <span>{label}</span>
+                      {PLATE_ANNOTATIONS[label] && (
+                        <span className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
+                          {PLATE_ANNOTATIONS[label]}
+                        </span>
+                      )}
                     </Link>
                   </SheetClose>
                 </li>
               ))}
             </ul>
           </nav>
-          <span className="mt-6 block font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
+          <div className="mt-5 border-border border-t pt-4">
+            <div className="mb-2 font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
+              Quick Navigation
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {QUICK_LINKS.map(({ label, href }) => (
+                <SheetClose asChild key={label}>
+                  <Link
+                    aria-current={
+                      isRouteActive(pathname, href) ? "page" : undefined
+                    }
+                    className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground aria-[current=page]:border-brand/30 aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
+                    href={href}
+                  >
+                    {label}
+                  </Link>
+                </SheetClose>
+              ))}
+            </div>
+          </div>
+          <span className="mt-5 block font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
             Set in Fraunces, Newsreader &amp; JetBrains Mono. The text is the
             work; the design is the chrome.
           </span>
         </SheetContent>
       </Sheet>
     </div>
-  );
-}
-
-function ThemeToggle() {
-  const { state, setMode } = useTweaks();
-  const isDark = state.mode === "dark";
-  return (
-    <button
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      onClick={() => setMode(isDark ? "light" : "dark")}
-      type="button"
-    >
-      {isDark ? (
-        <HugeiconsIcon className="size-[18px]" icon={Sun03Icon} />
-      ) : (
-        <HugeiconsIcon className="size-[18px]" icon={Moon02Icon} />
-      )}
-    </button>
   );
 }
 
