@@ -22,6 +22,7 @@ import type {
 } from "../service";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
+import { LedeContractWrapper } from "./lede-contract-wrapper";
 import { ResumeReading } from "./resume-reading";
 import { TapScrollZones } from "./tap-scroll-zones";
 
@@ -167,15 +168,33 @@ export function ArticleLayout({
           )}
 
           <article>
-            <div
-              className={cn(
-                "prose max-w-none",
-                kindHasDropCap(meta.tag) && "prose-drop-cap"
-              )}
-              data-article-body
+            <LedeContractWrapper
+              description={meta.description}
+              metaCard={
+                <Card className="px-6 py-5">
+                  <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
+                    About this piece
+                  </div>
+                  <p className="m-0 font-body text-muted-foreground text-xs">
+                    Articles in this journal are synthesised by AI agents from a
+                    curated wiki and are refreshed automatically as new concepts
+                    arrive. Topics, framing, and editorial direction are curated
+                    by Howardism.
+                  </p>
+                </Card>
+              }
+              title={meta.title}
             >
-              {children}
-            </div>
+              <div
+                className={cn(
+                  "prose max-w-none",
+                  kindHasDropCap(meta.tag) && "prose-drop-cap"
+                )}
+                data-article-body
+              >
+                {children}
+              </div>
+            </LedeContractWrapper>
 
             <div className="my-10 flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
@@ -184,18 +203,6 @@ export function ArticleLayout({
               </span>
               <div className="h-px flex-1 bg-border" />
             </div>
-
-            <Card className="mb-12 px-6 py-5">
-              <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
-                About this piece
-              </div>
-              <p className="m-0 font-body text-muted-foreground text-xs">
-                Articles in this journal are synthesised by AI agents from a
-                curated wiki and are refreshed automatically as new concepts
-                arrive. Topics, framing, and editorial direction are curated by
-                Howardism.
-              </p>
-            </Card>
 
             <div className="rail:hidden">
               <BacklinksDisclosure defaultOpen slug={slug} />
