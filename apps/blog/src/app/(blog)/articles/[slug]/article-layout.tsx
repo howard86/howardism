@@ -146,7 +146,7 @@ export function ArticleLayout({
             <SaveButton showLabel slug={slug} />
           </DiscPageHeader>
 
-          <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
+          <p className="mt-8 mb-12 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
             {meta.description}
           </p>
 

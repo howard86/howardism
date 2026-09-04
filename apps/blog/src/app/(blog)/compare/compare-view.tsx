@@ -19,7 +19,7 @@ const COLUMN_CLASS: Record<number, string> = {
 };
 
 const PANEL_CLASS =
-  "max-h-[calc(100dvh-9rem)] overflow-y-auto rounded-md border border-border bg-card/40 p-5";
+  "max-h-[calc(100dvh-9rem)] overflow-y-auto rounded-md border border-border bg-card/40 p-5 text-[0.95rem] [--prose-font-scale:0.8] [&_.prose]:text-[0.95rem] [&_.prose]:leading-[1.65]";
 
 /**
  * Side-by-side reader for up to three article bodies. On wide screens the
