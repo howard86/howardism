@@ -22,6 +22,7 @@ import type {
 } from "../service";
 import { ArticleRail } from "./article-rail";
 import { BacklinksDisclosure } from "./backlinks-disclosure";
+import { LedeContractWrapper } from "./lede-contract-wrapper";
 import { ResumeReading } from "./resume-reading";
 import { TapScrollZones } from "./tap-scroll-zones";
 
@@ -97,67 +98,10 @@ export function ArticleLayout({
       <ResumeReading headings={headings} slug={slug} />
       <div className="grid rail:grid-cols-[minmax(0,720px)_320px] gap-12">
         <div className="min-w-0">
-          <DiscPageHeader
-            accent={accent}
-            data={metaRows}
-            eyebrowEnd={
-              <>
-                {locale === "zh-TW" && (
-                  <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
-                    機器翻譯 · machine-translated
-                  </span>
-                )}
-                {locale === "zh-TW" && isStale && (
-                  <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
-                    過時翻譯 · stale translation
-                  </span>
-                )}
-                {translationHref && (
-                  <Link
-                    className={cn(
-                      EYEBROW_CLASS,
-                      "no-underline transition-colors hover:text-[var(--article-accent)]"
-                    )}
-                    href={translationHref}
-                  >
-                    {locale === "zh-TW" ? "EN" : "中文"}
-                  </Link>
-                )}
-                HOWARDISM
-              </>
-            }
-            eyebrowStart={
-              <>
-                {PLATE_META.domains.label}
-                {meta.domain && (
-                  <>
-                    <span aria-hidden="true" className="mx-1.5">
-                      ·
-                    </span>
-                    <DomainLabel domain={meta.domain} />
-                  </>
-                )}
-              </>
-            }
-            stackData
-            title={meta.title}
-            variant="compact"
-          >
-            <SaveButton showLabel slug={slug} />
-          </DiscPageHeader>
-
-          <p className="mt-10 mb-8 border-[var(--article-accent)] border-l-2 pl-4 font-body text-base text-muted-foreground italic leading-[1.65]">
-            {meta.description}
-          </p>
-
           {heroImage && (
             <Image
               alt={meta.imageAlt}
               className="mb-10 h-auto w-full rounded-md"
-              // `priority` alone emits the preload link and drops loading=lazy,
-              // but Next 16 does not set fetchpriority on the element itself —
-              // which is exactly what Lighthouse's LCP `priorityHinted` check
-              // reads. Both are needed.
               fetchPriority="high"
               placeholder="blur"
               priority
@@ -167,15 +111,100 @@ export function ArticleLayout({
           )}
 
           <article>
-            <div
-              className={cn(
-                "prose max-w-none",
-                kindHasDropCap(meta.tag) && "prose-drop-cap"
-              )}
-              data-article-body
+            <LedeContractWrapper
+              headerSection={
+                <DiscPageHeader
+                  accent={accent}
+                  eyebrowEnd={
+                    <>
+                      {locale === "zh-TW" && (
+                        <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
+                          機器翻譯 · machine-translated
+                        </span>
+                      )}
+                      {locale === "zh-TW" && isStale && (
+                        <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
+                          過時翻譯 · stale translation
+                        </span>
+                      )}
+                      {translationHref && (
+                        <Link
+                          className={cn(
+                            EYEBROW_CLASS,
+                            "no-underline transition-colors hover:text-[var(--article-accent)]"
+                          )}
+                          href={translationHref}
+                        >
+                          {locale === "zh-TW" ? "EN" : "中文"}
+                        </Link>
+                      )}
+                      HOWARDISM
+                    </>
+                  }
+                  eyebrowStart={
+                    <>
+                      {PLATE_META.domains.label}
+                      {meta.domain && (
+                        <>
+                          <span aria-hidden="true" className="mx-1.5">
+                            ·
+                          </span>
+                          <DomainLabel domain={meta.domain} />
+                        </>
+                      )}
+                    </>
+                  }
+                  title={meta.title}
+                  variant="compact"
+                >
+                  <SaveButton showLabel slug={slug} />
+                </DiscPageHeader>
+              }
+              ledeText={meta.description}
+              metaCard={
+                <Card className="px-6 py-5">
+                  <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
+                    About this piece
+                  </div>
+                  <p className="m-0 font-body text-muted-foreground text-xs">
+                    Articles in this journal are synthesised by AI agents from a
+                    curated wiki and are refreshed automatically as new concepts
+                    arrive. Topics, framing, and editorial direction are curated
+                    by Howardism.
+                  </p>
+                </Card>
+              }
+              metaGrid={
+                <Card className="px-6 py-5">
+                  <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
+                    Publication details
+                  </div>
+                  <div className="space-y-2">
+                    {metaRows.map(([label, value], index) => (
+                      <div
+                        className="flex items-baseline gap-2 text-xs"
+                        key={label || index}
+                      >
+                        <span className="font-medium text-foreground-subtle">
+                          {label}:
+                        </span>
+                        <span className="text-muted-foreground">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              }
             >
-              {children}
-            </div>
+              <div
+                className={cn(
+                  "prose max-w-none",
+                  kindHasDropCap(meta.tag) && "prose-drop-cap"
+                )}
+                data-article-body
+              >
+                {children}
+              </div>
+            </LedeContractWrapper>
 
             <div className="my-10 flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
@@ -184,18 +213,6 @@ export function ArticleLayout({
               </span>
               <div className="h-px flex-1 bg-border" />
             </div>
-
-            <Card className="mb-12 px-6 py-5">
-              <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
-                About this piece
-              </div>
-              <p className="m-0 font-body text-muted-foreground text-xs">
-                Articles in this journal are synthesised by AI agents from a
-                curated wiki and are refreshed automatically as new concepts
-                arrive. Topics, framing, and editorial direction are curated by
-                Howardism.
-              </p>
-            </Card>
 
             <div className="rail:hidden">
               <BacklinksDisclosure defaultOpen slug={slug} />

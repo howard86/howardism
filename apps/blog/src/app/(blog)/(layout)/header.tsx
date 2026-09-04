@@ -11,8 +11,10 @@ import {
 import { cn } from "@howardism/ui/lib/utils";
 import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import throttle from "lodash.throttle";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Container } from "@/app/(common)/container";
 import { useArticleNav } from "@/components/article-nav-context";
@@ -23,6 +25,7 @@ import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
 import { useTweaks } from "@/components/tweaks/tweaks-provider";
 import useHasScrolled from "@/hooks/use-has-scrolled";
+import { useReaderSpike } from "@/hooks/use-reader-spike";
 
 import { Avatar } from "./avatar";
 import { FOOTER_NAV, NAV_SECTION_KEYS, NavSection } from "./constants";
@@ -150,27 +153,135 @@ function ThemeToggle() {
   );
 }
 
+function FocusPlate({
+  articleNav,
+  onExit,
+}: {
+  articleNav: {
+    headings: Array<{ depth: 2 | 3; id: string; text: string }>;
+    slug: string;
+  };
+  onExit: () => void;
+}) {
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const compute = () => {
+      const article = document.querySelector("article");
+      if (!article) {
+        setProgress(0);
+        return;
+      }
+      const rect = article.getBoundingClientRect();
+      const start = rect.top + window.scrollY;
+      const scrollable = article.offsetHeight - window.innerHeight;
+      const scrolled = window.scrollY - start;
+      let ratio = 0;
+      if (scrollable > 0) {
+        ratio = scrolled / scrollable;
+      } else if (scrolled <= 0) {
+        ratio = 0;
+      } else {
+        ratio = 1;
+      }
+      setProgress(Math.min(1, Math.max(0, ratio)));
+
+      const h2s = articleNav.headings.filter((h) => h.depth === 2);
+      let current: string | null = null;
+      for (const heading of h2s) {
+        const el = document.getElementById(heading.id);
+        if (el && el.getBoundingClientRect().top <= 120) {
+          current = heading.text;
+        }
+      }
+      setActiveSection(current);
+    };
+
+    const onScroll = throttle(compute, 50);
+    compute();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      onScroll.cancel();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [articleNav.headings]);
+
+  const progressPercent = Math.round(progress * 100);
+
+  return (
+    <div
+      aria-label={`Reading, ${activeSection ? `section ${activeSection}, ` : ""}${progressPercent}% complete`}
+      aria-live="polite"
+      className="fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 shadow-lg backdrop-blur-sm"
+      role="status"
+    >
+      <div className="flex items-center gap-3 px-5 py-2.5">
+        <div className="flex items-center gap-2 font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
+          <span className="max-w-[200px] truncate sm:max-w-[300px]">
+            Reading
+          </span>
+          {activeSection && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="max-w-[150px] truncate sm:max-w-[200px]">
+                {activeSection}
+              </span>
+            </>
+          )}
+          <span aria-hidden="true">·</span>
+          <span className="tabular-nums">{progressPercent}%</span>
+        </div>
+        <button
+          aria-label="Exit focus mode"
+          className="flex items-center justify-center rounded-full px-2.5 py-1 font-medium font-mono text-[10px] text-foreground-subtle transition-colors duration-[120ms] hover:bg-accent hover:text-foreground motion-reduce:transition-none"
+          onClick={onExit}
+          title="Exit focus mode"
+          type="button"
+        >
+          EXIT
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Persistent, context-aware top bar. Owns route nav + theme on every page, and
  * on article pages gains reader controls (TOC, reader settings) plus the
  * reading-progress bar rendered as its bottom edge. Condenses on scroll.
+ * When ?readerSpike=1, adds focus mode toggle that collapses chrome to running head.
  */
 export function SiteBar() {
   const isScrolled = useHasScrolled({ offsetPx: 80 });
-  const isArticle = useArticleNav() !== null;
+  const articleNav = useArticleNav();
+  const isArticle = articleNav !== null;
+  const isSpike = useReaderSpike();
+  const { state, setFocusMode } = useTweaks();
+  const isFocusMode = isSpike && state.focusMode;
+
+  let chromeClass = "py-4 opacity-100 duration-200";
+  if (isFocusMode) {
+    chromeClass =
+      "pointer-events-none h-0 overflow-hidden py-0 opacity-0 duration-[120ms]";
+  } else if (isScrolled) {
+    chromeClass = "py-2 opacity-100 duration-200";
+  }
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-colors duration-200",
+        "sticky top-0 z-50 transition-colors duration-200 motion-reduce:transition-none",
         isScrolled && "border-border border-b bg-background/20 backdrop-blur-sm"
       )}
     >
       <Container className="relative w-full">
         <div
           className={cn(
-            "flex items-center gap-2 transition-[padding] duration-200 sm:gap-3",
-            isScrolled ? "py-2" : "py-4"
+            "flex items-center gap-2 transition-all motion-reduce:transition-none sm:gap-3",
+            chromeClass
           )}
         >
           {/* Wordmark + avatar pill */}
@@ -203,6 +314,19 @@ export function SiteBar() {
                 </span>
                 <ArticleFind />
                 <ReaderSettings />
+                {isSpike && !state.focusMode && (
+                  <button
+                    aria-label="Enter focus mode"
+                    className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onClick={() => setFocusMode(true)}
+                    title="Focus mode"
+                    type="button"
+                  >
+                    <span className="font-medium font-mono text-[10px]">
+                      FOCUS
+                    </span>
+                  </button>
+                )}
               </div>
               <span
                 aria-hidden="true"
@@ -217,7 +341,16 @@ export function SiteBar() {
         </div>
       </Container>
 
-      {isArticle && <ReadingProgress />}
+      {isArticle && (
+        <ReadingProgress headings={isSpike ? articleNav.headings : undefined} />
+      )}
+
+      {isArticle && isSpike && isFocusMode && (
+        <FocusPlate
+          articleNav={articleNav}
+          onExit={() => setFocusMode(false)}
+        />
+      )}
     </header>
   );
 }
