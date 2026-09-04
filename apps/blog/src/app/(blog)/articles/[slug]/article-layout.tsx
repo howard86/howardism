@@ -115,7 +115,6 @@ export function ArticleLayout({
               headerSection={
                 <DiscPageHeader
                   accent={accent}
-                  data={metaRows}
                   eyebrowEnd={
                     <>
                       {locale === "zh-TW" && (
@@ -155,7 +154,6 @@ export function ArticleLayout({
                       )}
                     </>
                   }
-                  stackData
                   title={meta.title}
                   variant="compact"
                 >
@@ -174,6 +172,26 @@ export function ArticleLayout({
                     arrive. Topics, framing, and editorial direction are curated
                     by Howardism.
                   </p>
+                </Card>
+              }
+              metaGrid={
+                <Card className="px-6 py-5">
+                  <div className="mb-2 font-medium font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
+                    Publication details
+                  </div>
+                  <div className="space-y-2">
+                    {metaRows.map(([label, value], index) => (
+                      <div
+                        className="flex items-baseline gap-2 text-xs"
+                        key={label || index}
+                      >
+                        <span className="font-medium text-foreground-subtle">
+                          {label}:
+                        </span>
+                        <span className="text-muted-foreground">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </Card>
               }
             >

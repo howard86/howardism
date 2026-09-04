@@ -155,11 +155,13 @@ function ThemeToggle() {
 
 function FocusPlate({
   articleNav,
+  onExit,
 }: {
   articleNav: {
     headings: Array<{ depth: 2 | 3; id: string; text: string }>;
     slug: string;
   };
+  onExit: () => void;
 }) {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -222,25 +224,38 @@ function FocusPlate({
       aria-label={`Reading, ${activeSection ? `section ${activeSection}, ` : ""}${progressPercent}% complete`}
       aria-live="polite"
       className={cn(
-        "pointer-events-none fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 px-5 py-2.5 shadow-lg backdrop-blur-sm transition-all motion-reduce:transition-none motion-reduce:duration-0",
+        "fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 shadow-lg backdrop-blur-sm transition-all motion-reduce:transition-none motion-reduce:duration-0",
         isVisible
           ? "translate-y-0 opacity-100 duration-200"
           : "-translate-y-4 opacity-0 duration-[120ms]"
       )}
       role="status"
     >
-      <div className="flex items-center gap-2 font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
-        <span className="max-w-[200px] truncate sm:max-w-[300px]">Reading</span>
-        {activeSection && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="max-w-[150px] truncate sm:max-w-[200px]">
-              {activeSection}
-            </span>
-          </>
-        )}
-        <span aria-hidden="true">·</span>
-        <span className="tabular-nums">{progressPercent}%</span>
+      <div className="flex items-center gap-3 px-5 py-2.5">
+        <div className="flex items-center gap-2 font-mono text-[11px] text-foreground-subtle tracking-[0.02em]">
+          <span className="max-w-[200px] truncate sm:max-w-[300px]">
+            Reading
+          </span>
+          {activeSection && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="max-w-[150px] truncate sm:max-w-[200px]">
+                {activeSection}
+              </span>
+            </>
+          )}
+          <span aria-hidden="true">·</span>
+          <span className="tabular-nums">{progressPercent}%</span>
+        </div>
+        <button
+          aria-label="Exit focus mode"
+          className="flex items-center justify-center rounded-full px-2.5 py-1 font-medium font-mono text-[10px] text-foreground-subtle transition-colors hover:bg-accent hover:text-foreground"
+          onClick={onExit}
+          title="Exit focus mode"
+          type="button"
+        >
+          EXIT
+        </button>
       </div>
     </div>
   );
@@ -312,16 +327,16 @@ export function SiteBar() {
                 </span>
                 <ArticleFind />
                 <ReaderSettings />
-                {isSpike && (
+                {isSpike && !state.focusMode && (
                   <button
-                    aria-label="Toggle focus mode"
+                    aria-label="Enter focus mode"
                     className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={() => setFocusMode(!state.focusMode)}
+                    onClick={() => setFocusMode(true)}
                     title="Focus mode"
                     type="button"
                   >
                     <span className="font-medium font-mono text-[10px]">
-                      {state.focusMode ? "EXIT" : "FOCUS"}
+                      FOCUS
                     </span>
                   </button>
                 )}
@@ -344,7 +359,10 @@ export function SiteBar() {
       )}
 
       {isArticle && isSpike && isFocusMode && (
-        <FocusPlate articleNav={articleNav} />
+        <FocusPlate
+          articleNav={articleNav}
+          onExit={() => setFocusMode(false)}
+        />
       )}
     </header>
   );

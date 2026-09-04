@@ -10,6 +10,7 @@ interface LedeContractWrapperProps {
   headerSection: ReactNode;
   ledeText: string;
   metaCard: ReactNode;
+  metaGrid: ReactNode;
 }
 
 function LedeContractContent({
@@ -17,6 +18,7 @@ function LedeContractContent({
   headerSection,
   ledeText,
   metaCard,
+  metaGrid,
 }: LedeContractWrapperProps) {
   const isSpike = useReaderSpike();
 
@@ -28,7 +30,10 @@ function LedeContractContent({
           {ledeText}
         </p>
         {children}
-        {metaCard}
+        <div className="space-y-4">
+          {metaGrid}
+          {metaCard}
+        </div>
       </>
     );
   }
@@ -44,7 +49,10 @@ function LedeContractContent({
         <summary className="cursor-pointer rounded-md border border-border bg-card px-4 py-3 font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.1em] transition-colors hover:bg-accent">
           Article Metadata
         </summary>
-        <div className="mt-4">{metaCard}</div>
+        <div className="mt-4 space-y-4">
+          {metaGrid}
+          {metaCard}
+        </div>
       </details>
 
       {children}
@@ -62,7 +70,10 @@ export function LedeContractWrapper(props: LedeContractWrapperProps) {
             {props.ledeText}
           </p>
           {props.children}
-          {props.metaCard}
+          <div className="space-y-4">
+            {props.metaGrid}
+            {props.metaCard}
+          </div>
         </>
       }
     >
