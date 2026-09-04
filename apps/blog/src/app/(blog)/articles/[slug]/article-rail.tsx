@@ -23,19 +23,33 @@ export async function ArticleRail({ headings, slug }: ArticleRailProps) {
     return null;
   }
 
+  const hasConnections = related.length > 0 || backlinks.length > 0;
+
   return (
     <aside aria-label="Article navigation rail" className="rail:block hidden">
       <div className="sticky top-20 flex h-[calc(100vh-6rem)] flex-col gap-6">
-        <ArticleToc headings={headings} />
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="flex flex-col gap-8 pr-3 pb-4">
-            <RailSection label="Related articles" links={related} />
-            <RailSection
-              label={formatBacklinkLabel(backlinks.length)}
-              links={backlinks}
-            />
-          </div>
-        </ScrollArea>
+        {headings.length >= 2 && (
+          <ScrollArea
+            className={
+              hasConnections ? "max-h-[45vh] shrink-0" : "min-h-0 flex-1"
+            }
+          >
+            <div className="pr-3">
+              <ArticleToc headings={headings} />
+            </div>
+          </ScrollArea>
+        )}
+        {hasConnections && (
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-8 pr-3 pb-4">
+              <RailSection label="Related articles" links={related} />
+              <RailSection
+                label={formatBacklinkLabel(backlinks.length)}
+                links={backlinks}
+              />
+            </div>
+          </ScrollArea>
+        )}
       </div>
     </aside>
   );

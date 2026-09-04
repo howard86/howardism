@@ -40,7 +40,7 @@ export function DomainPlate({
       className="border-border border-b px-gutter py-9"
       style={banded ? { background: "var(--card)" } : undefined}
     >
-      <div className="grid grid-cols-1 items-start gap-x-11 gap-y-8 lg:grid-cols-[180px_1fr_320px]">
+      <div className="grid grid-cols-1 items-start gap-x-11 gap-y-8 md:grid-cols-[160px_1fr] lg:grid-cols-[180px_1fr_320px]">
         {/* marker */}
         <div>
           <div
@@ -106,7 +106,7 @@ export function DomainPlate({
         {/* source aside */}
         {leadSource && (
           <aside
-            className="pt-1 pl-5"
+            className="pt-1 pl-5 md:col-start-2 lg:col-start-auto"
             style={{ borderLeft: `2px solid ${meta.color}` }}
           >
             <div className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.18em]">

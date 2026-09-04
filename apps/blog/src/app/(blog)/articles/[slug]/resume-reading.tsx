@@ -135,7 +135,7 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
   }
 
   return (
-    <div className="fixed right-5 bottom-5 z-40 flex items-center gap-1 rounded-full border border-[var(--article-accent,var(--brand))] bg-card px-1 py-1 shadow-paper-lg">
+    <div className="fixed right-[max(1.25rem,env(safe-area-inset-right))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-full border border-[var(--article-accent,var(--brand))] bg-card px-1 py-1 shadow-paper-lg">
       <button
         className="rounded-full px-3 py-1.5 font-mono text-[11px] text-[var(--article-accent,var(--brand))] uppercase tracking-[0.16em] transition-colors hover:text-foreground"
         onClick={handleResume}

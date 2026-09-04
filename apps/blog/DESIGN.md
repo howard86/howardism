@@ -183,7 +183,7 @@ Warm paper and ink in the low-chroma 45–85° hue band, cut by one saturated re
 
 - **The Domain Spectrum** (fifteen hues, `oklch(0.49–0.56 0.09–0.15 …)`): One per curated knowledge domain, spaced around the wheel and clamped to L ≤ 0.56; lifted to L ≈ 0.72–0.78 in dark. They appear as the domain dot, the ordinal numeral in an index row, a ≤3px rule, and the compact header's eyebrow. They are identity, not palette.
 
-  **Contrast, measured.** On `--card` all fifteen clear AA for normal text (≥4.75:1 light, ≥6.4:1 dark), which is what the L clamp guarantees. On `--background` (paper) the margin is thinner and one hue misses: `model-capability-and-training` (`oklch(0.55 0.1 70)`) is **4.48:1**, just under the 4.5:1 threshold, and it is used at 10.5px in the compact header eyebrow, so the large-text exemption does not apply. `interaction-multimodal` sits exactly on 4.50:1 with no margin. Treat the ochre as a defect to fix by darkening it a step — not as licence to place spectrum hues as small text on paper. Dark mode is comfortable throughout.
+  **Contrast, measured.** On `--card` all fifteen clear AA for normal text (≥4.75:1 light, ≥6.4:1 dark), which is what the L clamp guarantees. On `--background` (paper) the margin is thinner: `model-capability-and-training` was darkened to `oklch(0.52 0.1 70)` to satisfy WCAG AA on paper (≥4.5:1), resolving the previous 4.48:1 near-miss when used at 10.5px in the compact header eyebrow. `interaction-multimodal` sits exactly on 4.50:1 with no margin. Treat this not as licence to place spectrum hues as small text on paper without checking contrast. Dark mode is comfortable throughout.
 
 ### Tertiary
 
