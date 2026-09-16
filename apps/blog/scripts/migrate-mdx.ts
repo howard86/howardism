@@ -12,7 +12,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import glob from "fast-glob";
 import YAML from "yaml";
 
 const DOCS_DIR = resolve(
@@ -74,7 +73,7 @@ function parseLegacyMeta(source: string, assets: AssetImport[]): LegacyMeta {
   if (!match) {
     throw new Error("Could not find `export const meta = {...}` block");
   }
-  let sanitized = match[1];
+  let [, sanitized] = match;
   // Replace every asset-import binding with a quoted placeholder so the
   // function-eval doesn't trip over an unresolved identifier.
   for (const { binding } of assets) {
@@ -216,7 +215,9 @@ async function migrateFile(path: string): Promise<MigrationResult> {
 }
 
 async function main(): Promise<void> {
-  const filenames = await glob("**/page.mdx", { cwd: DOCS_DIR });
+  const filenames = await Array.fromAsync(
+    new Bun.Glob("**/page.mdx").scan({ cwd: DOCS_DIR })
+  );
   if (filenames.length === 0) {
     console.error(`No page.mdx files found under ${DOCS_DIR}`);
     process.exit(1);
@@ -228,6 +229,7 @@ async function main(): Promise<void> {
   for (const filename of filenames) {
     const fullPath = join(DOCS_DIR, filename);
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: a one-shot codemod rewriting files in place; sequential keeps the per-file failure log in directory order
       results.push(await migrateFile(fullPath));
     } catch (err) {
       failures.push({ path: fullPath, error: err as Error });
