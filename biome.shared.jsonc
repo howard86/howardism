@@ -1,0 +1,53 @@
+{
+  // Repo-wide deviations from `ultracite/biome/core`. Every biome config in the
+  // workspace extends this *after* the ultracite presets so these win.
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": false,
+  "linter": {
+    "rules": {
+      "suspicious": {
+        // ultracite 7.12 turned this on. `x == null` is the idiomatic nullish
+        // check — it matches exactly `null` and `undefined` and nothing else —
+        // and biome's autofix for this rule rewrites it to `x === null`, which
+        // silently drops the `undefined` half. Applying it here broke an env-var
+        // fallback (`raw: string | undefined` could never match) and introduced
+        // a null-deref in `resolveCost`. The rule's real target, `==` between
+        // two values, is already covered by `noDoubleEquals`.
+        "noEqualsToNull": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        // ultracite 7.12 turned this on. Zod v4 `.parse()` clones objects in
+        // schema-declaration order, and the manifests committed under
+        // `apps/blog/src/data/` are stringified from those clones — so sorting
+        // the keys of a `z.object({ … })` rewrites every manifest wholesale
+        // (article-graph.json alone is 1.7 MB). Keep it off.
+        "useSortedKeys": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.{test,spec,test-d,spec-d}.{ts,tsx,js,jsx}",
+        "**/__tests__/**/*",
+        "**/bench/**/*"
+      ],
+      "linter": {
+        "rules": {
+          "performance": {
+            // Both rules exist to keep render cheap and I/O concurrent in
+            // shipped code. A test's inline `onChange` is never re-rendered in
+            // anger, and a benchmark's sequential `await` is usually the point
+            // of the measurement.
+            "noJsxPropsBind": "off",
+            "noAwaitInLoops": "off"
+          }
+        }
+      }
+    }
+  ]
+}
