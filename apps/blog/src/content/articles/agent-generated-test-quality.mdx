@@ -18,9 +18,11 @@ tags:
   - testing
   - ai-coding-workflow
   - empirical
-readingTime: 29
+readingTime: 32
 imageAlt: Illustration for Agent-Generated Test Quality
 sources:
+  - title: Uncle Bob on Software Fundamentals in the Age of AI
+    url: https://www.youtube.com/watch?v=zcLPGC-tvgk
   - title: "Beyond Test Presence: Assessing the Quality and Robustness of
       Agent-Generated Tests in Open-Source Projects"
     url: https://arxiv.org/pdf/2607.12068
@@ -33,6 +35,7 @@ export { default as heroImage } from "../assets/agent-generated-test-quality.web
 
 - [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](https://arxiv.org/pdf/2607.12068)
 - [Test Coverage Analysis of Agentic Pull Requests](https://arxiv.org/pdf/2607.18057)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)
 
 ## Summary
 
@@ -183,7 +186,25 @@ This page is the **quality sibling** of [Security Debt of Agent-Generated Code](
 - **Control groups run opposite ways.** The security paper has *no* human baseline, so it measures a level (38.9% of agent PRs carry a smell) and cannot support an agent-vs-human delta. This paper *has* a human cohort but the comparison is confounded by the pytest parse gap. Neither, therefore, is the matched-baseline study the vault's open questions keep asking for — but they fail in different directions, and where they agree (agents are weaker on *environmental* concerns: CI plumbing, containers, file I/O, isolation) the agreement is not an artifact of either defect.
 - **Both find the debt in the plumbing, not the logic.** Security smells concentrate 87.6% in GitHub Actions and Dockerfiles; test instability concentrates in file I/O and non-deterministic APIs. In both cases the agent handles the code under consideration competently and mishandles the *environment it runs in*. That is a sharper and more actionable characterization than "agent code is lower quality."
 
+## The instrument that would close the measured gap (Martin, 2026-08)
+
+Both studies above measure whether agent tests *reach* the code — coverage of changed lines, presence of a test change, miss rates by construct. Neither measures whether the tests that do reach it actually **constrain** it, and coverage cannot: a test that executes a line without asserting anything about it counts as covered.
+
+[Robert C. Martin](/articles/robert-c-martin) runs the instrument that closes exactly that gap, as a mandatory stage in his pipeline ([Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk), 2026-08-19, `practitioner-opinion`). Mutation testing flips operators throughout the source and requires the suite to fail on every flip; a flip the suite survives is a **surviving mutant** — a line that is covered but unconstrained. His hardener stage runs it to exhaustion and is "absolutely merciless."
+
+Three ways this bears on the numbers here:
+
+- **It converts this page's coverage findings into a floor rather than an estimate.** If 61.5% of changed lines are executed in Java and 27.0% in Python, the fraction actually *pinned* is at most that and plausibly well below it. Nobody has run a mutation score on the AIDev corpus, and it is the single cheapest addition to either study.
+- **The error-handling result is the one it would move most.** Up to 86.0% of error-handling constructs go unexercised. Error paths are also where assertion-free coverage is most common — a test that triggers an exception without checking what was raised or what state survived. A mutation gate treats both failures identically.
+- **It is a gate, not a metric.** Martin's use is not measurement but enforcement: the agent loops until no mutants survive. That is the same shape [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) argues for and the same one [Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools) explains the availability of — the technique was sound in 2000 and unaffordable because a human had to kill the mutants.
+
+He pairs it with a claim this page has evidence for: agents will not do TDD however they are instructed, reverting to write-function-then-test ([Impose Values, Not Disciplines](/articles/impose-values-not-disciplines)). His response is to stop specifying the ordering and enforce the outcome, which is exactly the substitution the numbers above would recommend if anyone had measured it.
+
 ## Connections
+
+- [Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools) — mutation testing as the affordable-now instrument that measures constraint rather than coverage
+- [Impose Values, Not Disciplines](/articles/impose-values-not-disciplines) — why Martin enforces the outcome instead of the test-first ordering agents will not hold
+- [Robert C. Martin (Uncle Bob)](/articles/robert-c-martin) — the practitioner running the gate
 
 - [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — the sibling AIDev result on the security axis; opposite control-group weakness, converging finding that agent debt concentrates in environment/plumbing rather than application logic. With the coverage cut above, three studies now read the same corpus family on three axes — see the count-reconciliation note, since 4,022 and 4,882 are different filters and not the same PRs
 - [Failures That Look Like Success](/articles/failures-that-look-like-success) — the canonical instance in the verification layer itself: a flaky test passes on the run you look at, so the suite reads as green while its signal quietly decays. The coverage cut adds the blunter version — in 64.8% of Python agentic PRs the existing suite executes *none* of the changed lines, so a green run is not a weak signal about the diff, it is no signal at all. The failure is in the *verifier*, which is the worst place for it
@@ -200,6 +221,7 @@ This page is the **quality sibling** of [Security Debt of Agent-Generated Code](
 - [Prototype Fidelity After Cheap Polish](/articles/prototype-fidelity-after-cheap-polish) — a second axis of the same question: whether prototype code carries the test quality that would let it evolve into a production system
 - [Post-Acceptance Edit Behavior](/articles/post-acceptance-edit-behavior) — the denominator problem from the other end of the pipeline. This page measures AI code that reached a PR and went unexercised; [DECODE](https://arxiv.org/pdf/2607.25130) measures AI code that never reached a PR at all — 31% of in-IDE edit trajectories carry a removal edit, and retention of the rest is bimodal. Together they bracket the survival path from suggestion to merged-but-untested, and they share the structural gap this page already names: neither has a human-authored control cohort, so both describe the posture of AI-assisted work rather than an AI-versus-human delta
 - [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — where test quality becomes a *training* signal rather than a safety net. RLEF's entire reward is a hidden test suite's verdict; this page's numbers on how little of a diff agent-written tests actually execute are the reason that reward is cheap on CodeContests and expensive in a repository
+- [Open Source Under Agent Contributions](/articles/open-source-under-agent-contributions) — [DHH](/articles/dhh)'s claim that instructed agents outclass the median contributor is about process compliance (tests written, why documented), not about the plumbing deficits this page measures
 
 ## Open Questions
 
@@ -212,3 +234,4 @@ This page is the **quality sibling** of [Security Debt of Agent-Generated Code](
 
 - [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](https://arxiv.org/pdf/2607.12068) — Jhanglani, Desai, Kansara & AlOmar (Stevens Institute of Technology, arXiv 2607.12068, 2026-07-13), `empirical`. §II (AIDev retrieval, AST pipelines, heuristic rules in Tables III–IV), §III.A–C (RQ1–RQ3 results, Tables VI–VIII), §IV (threats to validity — the RQ1 pytest-parsing admission and the RQ3 two-stage construct argument), §VI (future work: sandboxed execution, RAG-grounded assertions, automated mocking, longitudinal survival)
 - [Test Coverage Analysis of Agentic Pull Requests](https://arxiv.org/pdf/2607.18057) — Dipongkor, Baral, Lam & Moran (University of Central Florida / George Mason, arXiv 2607.18057, 2026-07-20, ICSME 2026 emerging results), `empirical`. §II (AIDev v3 corpus, the two filters, the ≥10-agentic-PR coverage subset), §III (patch reconstruction, test-only patch extraction and reverse-apply, JaCoCo/pytest-cov instrumentation, srcML line typing, the build-and-instrument attrition to 213/1,664 PRs), §IV.A + Figure 1 (test-inclusion Venn), §IV.B + Table I + Table II + Figure 2 (existing-test diff coverage, the paired with/without comparison, miss rates by construct), §V (practitioner and agent-developer prescriptions), §VI (the small-Java-repo sampling-bias limitation). **Parse status: docling `verify: ok`, no collapse/shift/canary flags — and both tables were nonetheless reconciled against the local PDF** (`pdftotext -f 4 -l 5 -layout` on ). Table II matches cell for cell. Table I is *cosmetically* damaged in the docling grid — the header is a run of repeated `Java`/`Python` spans and the `% Improved` fractions and p-values splatter across extra cells — but no value is misattributed; every row matches the PDF and the Overall row reproduces from the prose. Note Table II's column order is **Python first, Java second**. Figures 1 and 2 were viewed directly under the image two-pass rule; Figure 1's Venn regions reconcile to every prose total in §IV.A and supply the per-language inclusion rates (Java 248/530, Python 1,928/3,857) that appear nowhere in the text. **Two internal inconsistencies belong to the paper, not the parse:** §IV.A switches denominators between the 49.6%/50.4% headline (over 4,387 code-touching PRs) and the "53.0% Java, 44.3% Python" sentence (over all 532/4,350 PRs) without saying so; and §I cites Watanabe et al. [15] for "nearly one-third of merged agent-generated PRs require subsequent bug fixes or refactoring" while §VI restates the same reference as "45.1% of merged PRs required human revisions," never reconciling the two
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk) — Robert C. Martin with [Matt Pocock](/articles/matt-pocock), 2026-08-19 (`practitioner-opinion`; auto-caption transcript): mutation testing run as a mandatory pipeline gate, and the observation that agents revert from instructed TDD to write-function-then-test

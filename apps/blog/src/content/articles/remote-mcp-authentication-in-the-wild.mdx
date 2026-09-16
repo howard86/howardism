@@ -1,0 +1,189 @@
+---
+date: 2026-09-02
+title: Remote MCP Authentication in the Wild
+description: "Zhou et al. (Fudan, arXiv 2605.22333): the first internet-scale
+  census of authentication on remote MCP servers — 7,973 live servers found via
+  FOFA/Shodan fingerprints plus handshake validation, 40.55% exposing tools with
+  no authentication at all, 2,428 running OAuth of which 1,118 (46.0%) advertise
+  a DCR registration_endpoint; a 9-flaw/4-category taxonomy over an abstracted
+  P1-P3+PA OAuth lifecycle, and a Burp-based passive+active detector finding all
+  119 testable OAuth servers carry at least one flaw (325 confirmed instances,
+  85.75% precision), with malicious DCR binding at 95.8% and PKCE downgrade at
+  68.1%, yielding 9 CVEs — the deployment-side counterpart to the vault's MCP
+  spec ledger"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - mcp
+  - oauth
+  - authentication
+  - identity
+  - measurement
+readingTime: 25
+imageAlt: Illustration for Remote MCP Authentication in the Wild
+sources:
+  - title: A First Measurement Study on Authentication Security in Real-World Remote
+      MCP Servers
+    url: https://arxiv.org/pdf/2605.22333
+---
+export { default as heroImage } from "../assets/remote-mcp-authentication-in-the-wild.webp";
+
+## Sources
+
+- [A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333)
+
+## Summary
+
+[MCP and Computer Use](/articles/mcp-and-computer-use) carries the vault's ledger of what the **MCP specification requires** of authorization. This page carries the other half: what deployed remote MCP servers **actually do**. Zhou et al. (Fudan University; one author at Central South University), *A First Measurement Study on Authentication Security in Real-World Remote MCP Servers* ([A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333), arXiv 2605.22333, submitted 2026-05-21, `empirical`, no COI) is the first internet-scale census of the boundary.
+
+Three results, in descending order of how much they should change your priors:
+
+1. **40.55% of live remote MCP servers have no authentication at all** — any client that can reach the endpoint can call its tools. This is not an authorization weakness; there is no door.
+2. **Among the servers that do run OAuth and were testable end-to-end, every single one carried at least one confirmed authentication flaw** (119/119, 325 confirmed instances), and the dominant flaw is *dynamic client registration accepting an arbitrary attacker-supplied `redirect_uri`* — 95.8% of tested servers.
+3. **The flaws compose into account takeover**, demonstrated on three real deployments and confirmed by nine assigned CVE IDs, seven of which correspond to the single DCR flaw above.
+
+The paper's own framing of the cause is worth keeping: the flaws are *"coordination failures across layers"* driven by a specification that added a full OAuth 2.1 authorization architecture in roughly one year while deployments implemented *"only the minimum flow needed for interoperability."*
+
+## The census: 7,973 servers, and 40.55% with no door
+
+Discovery was a two-step pipeline (Figure 3). **Candidate discovery** queried **FOFA** and **Shodan** with MCP-specific fingerprints — identifier signals (`mcp-session-id`, `mcp-version`, MCP hostnames), protocol strings (`tools/call`, `tools/list`, `initialize` payloads containing `jsonrpc`), and structure cues from non-HTML endpoints such as `/info`, with `text/html` explicitly excluded to suppress ordinary websites. That produced **28,715** unique endpoints after deduplication by IP and port. **Automated validation** then sent a real MCP `initialize` handshake to each and kept only nodes returning a structurally valid JSON-RPC response carrying MCP protocol features, leaving **7,973** live remote MCP servers. Two researchers independently reviewed a random sample of 100 validated servers and found **1** false positive (a non-standard JSON-RPC service that resembled the handshake without exposing a tool interface).
+
+The authentication split across those 7,973:
+
+| Authentication status | Servers | Share |
+|---|---|---|
+| None | 3,233 | 40.55% |
+| OAuth-based | 2,428 | 30.45% |
+| Static token or API key | 2,312 | 29.00% |
+
+Static tokens and API keys are the pattern [Agent Identity and Authentication](/articles/agent-identity-and-authentication) calls unacceptable even at its Foundation tier, and they cover **29%** of the population — but they at least gate. The 40.55% do not, and the paper's own reading is that authentication is *"treated as a deployment add-on rather than a first-class security boundary."*
+
+### The one unauthenticated server they looked inside
+
+The authors sampled unauthenticated servers and report most were test or demonstration deployments. **One was not.** A CRM server intended as an internal service had shipped with no authentication mechanism, so any client able to connect could query **over 5,000 internal enterprise records** — customer names, email addresses, phone numbers, physical addresses. Reported; **CVE-2025-61510**.
+
+That single case is the whole [Blast Radius (Agentic)](/articles/blast-radius) argument for the unauthenticated tail in one instance: nothing was exploited, no credential was stolen, no model was manipulated. A tool interface was reachable and it answered. The remaining 3,232 are explicitly deferred to future work, so **the census measures exposure, not impact** — which is the honest limit of the finding and the reason the 40.55% should not be read as 3,233 breaches.
+
+## From 2,428 OAuth servers to 119 tested — and why the sampling matters
+
+The paper narrows in stages (Table 3, reconciled against the §3.3 prose; the subtraction closes exactly). Of the **2,428** OAuth-enabled servers, **1,118** advertise a `registration_endpoint` in their `/.well-known/oauth-authorization-server` or OpenID Connect metadata — **46.0%** support Dynamic Client Registration. From those 1,118 the authors removed 387 redundant nodes (domain/IP overlap, multi-instance deployments), 32 that turned out to require no authentication, 573 untestable (50 returning HTTP 404 on DCR, 207 connection or execution failures, 316 behind strict enterprise access controls), and 7 anomalous nodes that fired a callback with no user interaction at all — leaving a **core testable subset of 119**. Every percentage in the evaluation is scoped to those 119.
+
+### Two of the three "characteristics" are selection effects
+
+The paper distills three properties that it argues distinguish MCP OAuth from conventional web OAuth, and reports their prevalence over the 119 (Table 4): **open client environments 119/119 (100%)**, **dynamic client registration 119/119 (100%)**, **delegated authorization 81/119 (68.07%)**.
+
+Read the sampling and only the third is a free measurement.
+
+- **DCR at 100% is true by construction** — the testable set was drawn from the DCR-enabled pool precisely because non-dynamic registration cannot be automated. The population-level DCR figure is the **46.0%** above, not 100%, and the Discussion's phrasing that *"all 1,118 OAuth-enabled servers advertise a `registration_endpoint`"* mislabels its own denominator (see the reconciliation below).
+- **Open client environments at 100% is close to definitional** — MCP clients are desktop apps, IDEs, CLI tools and browser-integrated frontends, so they run in user-controlled environments and cannot protect a `client_secret`. That is a property of what MCP *is*, and it is why PKCE, redirect-URI binding and correct callback handling carry the whole flow.
+- **Delegated authorization at 68.07% is the real number** — 81 of 119 servers act as an OAuth *resource server* toward the MCP client while simultaneously acting as an OAuth *client* toward an upstream service (a Notion MCP server authenticating the client through its own flow, then obtaining a Notion token to call the Notion API on the user's behalf). This is the multi-hop chain across independently operated entities that [AIMS](/articles/agent-identity-management-system) models with token exchange and cross-domain chaining — measured here, in the wild, at roughly two thirds of deployments.
+
+## The four-phase lifecycle, and where the bindings break
+
+Figure 4 abstracts the deployed flow into three core phases plus an optional delegated one. Each flaw in the taxonomy is a **broken binding** at a named phase, which is what makes the taxonomy testable rather than descriptive:
+
+- **P1 Discovery & Registration** — an unauthenticated MCP request returns HTTP 401 with metadata pointing at the authorization server; the client then establishes an identity via CIMD, DCR, or pre-registration. The security-critical state created here is the association between a `client_id`, its permitted `redirect_uri` values, and the AS that will issue codes. In remote MCP that association is usually created *dynamically*, which turns the registration endpoint from an administrative interface into attack surface.
+- **P2 Authorization** — the client builds an authorization URL (`client_id`, `redirect_uri`, `state`, PKCE parameters) and opens the browser; the AS should verify client identity, enforce the registered redirect URI, preserve CSRF protection through `state`, and show the user where the result will be delivered.
+- **P3 Token Exchange** — the callback carries the code and the original `state`; the code must be bound to the same client and PKCE verifier used in P2 and invalidated immediately on redemption.
+- **PA Delegated Authorization** — the second-hop flow to an upstream AS, where routing state bridging the two layers must be integrity-protected and bound to the correct user session.
+
+## The taxonomy: nine flaws in four categories
+
+Definitions below are taken from the §4.2 prose, not from Table 5 (see the parse warning in Sources). Detection rates are per-flaw over the 119.
+
+**C1 — Dynamic client registration flaws** *(P1–P2)*
+- **F1 Malicious DCR Binding** — the DCR endpoint accepts arbitrary `redirect_uri` values from anonymous requesters, so an attacker registers a client bound to their own callback, receives a legitimately issued `client_id`, and uses it in a deceptive authorization request. **114 servers (95.8%)** — the dominant flaw in the study.
+- **F2 Blind Client Trust** — the AS accepts a supplied `client_id` without verifying it was ever registered, so the consent page displays a familiar application's identity for an attacker's request. **12 (10.1%)**.
+
+**C2 — Delegated authorization flaws** *(PA)*
+- **F3 Layer Inconsistency** — the first-hop MCP authorization requires PKCE but the MCP server's upstream request does not, breaking the request-to-token binding end to end. **12 instances**.
+- **F4 Nested Context Pollution** — the MCP server encodes downstream routing state (typically a `redirect_uri`) inside the upstream `state` parameter without integrity protection or an allowlist check after decoding. **7 instances**. Among the 81 delegated deployments, **40 (49.4%)** use nested `state` for routing — i.e. half of them run the mechanism F4 exploits.
+
+**C3 — Open client environment flaws** *(P2–P3)*
+- **F5 PKCE Downgrade** — the AS accepts authorization requests with no `code_challenge`, or permits `plain`. **81 (68.1%)**. In an open client environment with no protectable secret, this converts a stolen code directly into a token.
+- **F6 Consent Page Bypass** — the AS does not display the `redirect_uri`, so a user cannot see that a code will be delivered to a rogue localhost port. **62** (see reconciliation below; the prose prints 72/60.5%).
+
+**C4 — Common OAuth misconfigurations** *(P2, P3)*
+- **F7 Open Redirect** — `redirect_uri` not strictly validated against the registered value. **28 (23.5%)**, of which 15 accept a fully substituted attacker-controlled domain and 13 weaker forms (decimal IP representations, non-existent subpaths).
+- **F8 Weak State** — `state` missing, fixed, or predictable. **3 (2.5%)**.
+- **F9 Code Replay** — authorization code not invalidated on redemption. **6 (5.0%)**.
+
+Aggregate: **C1 in 115/119 (96.6%)**, **C3 in 102/119 (85.7%)**, **C4 in 34/119 (28.6%)**, **C2 in 18/119 (15.1%)**. Note that C1's 96.6% is partly an artifact of the DCR-selected sample — every tested server had a registration endpoint by construction, so the finding is *"almost every DCR endpoint that exists is unrestricted,"* not *"almost every MCP server has a DCR flaw."*
+
+## The detector, and the evidence levels it separates
+
+The framework is a **Burp Suite plugin** extending PortSwigger's **OAuthScan**, driven with **VSCode Copilot** as the MCP client. Its contribution over generic OAuth scanning is architectural context, in four stages (Figure 5):
+
+1. **Traffic identification** — extract `redirect_uri`, `client_id`, `code_challenge`, `state`, `code`, then infer the *authorization layer* from the callback destination: loopback addresses and custom URI schemes (`127.0.0.1`, `vscode://`) mark the local MCP client layer **L1**; a callback pointing at a remote MCP server URL marks the delegated upstream layer **L2**. Without this split a rule gets applied to the wrong flow.
+2. **Lifecycle modeling** — correlate authorization request → callback (keyed on `state`) → token exchange (keyed on the code), and for delegated flows reconstruct the L2 pair and the routing context bridging the layers.
+3. **Passive evaluation** — F3, F5, F8 from the reconstructed lifecycle with no additional traffic.
+4. **Active probing** — F1 (submit a DCR request with a malicious `redirect_uri`), F2 (substitute `evil_client_id`), F4 (decode and tamper with the nested `redirect_uri`), F5 (downgrade `S256`→`plain` or strip both parameters), F7 (mutate `redirect_uri`), F9 (replay a consumed code). **F6 is UI-assisted**: the tool generates test links and a human inspects what the browser actually shows.
+
+Evidence levels are stated per flaw — F3/F8 passive; F5 passive plus active; F1/F2/F4/F7/F9 active probe plus manual confirmation; F6 human-in-the-browser — and **every vulnerable case reported was manually verified.** That, plus a published confusion matrix, is why this reads as a measurement rather than a scan report: 379 candidate alerts → **325 true positives, 54 false positives, 1 false negative**, i.e. **85.75% precision, 99.69% recall** over manually verified flaw instances (no true negatives reported, because the detector operates over flaw-specific opportunities rather than an enumerable space of non-vulnerable request variants). The false positives are two engineering artifacts, both named: a five-hop cap on redirect tracking that misses validation deeper in the chain (18 in F2, 25 in F7) and background OAuth traffic conflated with the target flow (7 in F3, 4 in F8). The single false negative was an F5 case with non-standard parameter naming.
+
+## Results: every server, at least one flaw
+
+All **119** servers exhibited at least one confirmed flaw; **325** confirmed instances in total; **39 servers (32.8%) were flagged in three or more categories**, so the weaknesses arrive in combinations rather than as isolated mistakes. Nine confirmed vulnerabilities received CVE IDs through responsible disclosure, and the Discussion reports that **seven of the nine correspond to F1** — the single unrestricted-DCR flaw accounts for most of the externally validated impact.
+
+### Three chains to account takeover
+
+The case studies (all disclosed; vendors anonymized as `** 2`, CVE IDs not redacted) show composition rather than single defects:
+
+- **Case 1 — malicious client registration via open DCR** (an error-monitoring MCP server for AI coding tools, `https://mcp.**.dev/mcp`). The attacker POSTs a DCR request with `redirect_uri = https://evil.example.com/cb`, receives a legitimately issued `client_id` (`201 Created`), builds an authorization URL around it, and social-engineers the victim into completing consent; the AS delivers the code to the attacker. Representative of the **CVE-2026-26384 – CVE-2026-26390** series; this instance is **CVE-2026-26390**.
+- **Case 2 — nested context pollution to account takeover** (a database/project-management MCP server, `https://mcp.**.tech/mcp`). The attacker intercepts a legitimate **L2** authorization request the MCP server generated, base64-decodes the `state`, rewrites the nested `redirect_uri` to their own domain, re-encodes, and sends the forged link. The victim authenticates at the genuine upstream identity provider; the callback returns to the MCP server, which parses the tampered nested value without integrity validation and performs a secondary redirect, forwarding the code to the attacker. **Nothing in the first hop is broken** — the attack lives entirely in the MCP server's own routing state.
+- **Case 3 — open redirect amplified by PKCE downgrade** (a workspace document/project CRUD server, `https://mcp.**.com/mcp`). The attacker mutates `redirect_uri` *and* strips `code_challenge`/`code_challenge_method`; the AS validates neither, so the code is issued to the attacker's endpoint and redeemable with no verifier. **CVE-2025-69898**. This is the composition that makes F5 load-bearing: with PKCE enforced, stealing a code is not enough; without it, an open redirect is a complete token theft.
+
+## Root cause, and what the spec did two months later
+
+The paper's root-cause account has three parts: a spec that moved from *no mandatory authentication* (2024-11-05) to a full OAuth 2.1 architecture in roughly a year while deployments implemented the interoperability minimum; the MCP server's **dual role** as resource server and OAuth client, making security a cross-layer coordination property rather than a per-endpoint one; and **DCR as the convenient default** — available in off-the-shelf OAuth stacks, deployed without redirect-URI restriction or client identity checks, and consequently the broadest attack surface.
+
+The mitigations follow the same three seams, and one of them has since been ratified by the protocol itself:
+
+- **Restrict client registration** — allowlist permitted `redirect_uri` patterns, require client attestation or rate-limit registrations per IP, and **migrate from DCR to Client ID Metadata Documents**, which pin client identity to a cryptographically verifiable HTTPS-hosted JSON document rather than an open registration call.
+- **Enforce PKCE server-side** — reject requests without `code_challenge`, refuse `plain`, and advertise only `S256` in `code_challenge_methods_supported`. The paper argues this single change neutralizes the most prevalent flaw in the dataset.
+- **Preserve user-visible consent** — unconditionally display the exact `redirect_uri`, with elevated scrutiny and explicit warnings for localhost callbacks.
+- **Isolate delegated contexts** — never embed routing parameters in `state`; keep a server-side map from an opaque `state` to the routing context, so there is nothing client-side to tamper with.
+- **Harden the specification** — elevate PKCE enforcement and DCR redirect-URI restrictions from SHOULD to MUST, and make CIMD RECOMMENDED over DCR with DCR classified as high-risk.
+
+**The dating is the interesting part.** The paper's timeline (Figure 2) ends at the 2025-11-25 stable release, which prefers CIMD and keeps DCR as a backward-compatibility fallback — that is the newest spec this population could have been built against. The vault's ledger on [MCP and Computer Use](/articles/mcp-and-computer-use) runs one revision further: **MCP 2026-07-28 deprecates RFC 7591 DCR outright in favor of Client ID Metadata Documents**, along with issuer-keyed non-reusable client credentials and RFC 9207 `iss` validation as MUSTs. The specification therefore did, two months after this submission, close to exactly what the paper asked for. What the census supplies is the counterfactual that makes that change meaningful and the reason not to score it as solved: **at measurement time the deployed population was not implementing the weaker requirements either.** A spec revision changes what conformant means; it does not change 1,118 running registration endpoints.
+
+## Reconciliations: two internal inconsistencies and a mislabelled denominator
+
+Three places where the paper contradicts itself, all resolved here rather than repeated:
+
+1. **F6's count.** Finding 3.2's prose says *"F6 (Consent Page Bypass) was confirmed in 72 servers (60.5%)"*; **Figure 6 prints 62**. The per-flaw counts sum to the paper's headline total of 325 confirmed instances (also Table 6's true-positive cell) **only with 62** — 114+12+12+7+81+62+28+3+6 = 325, where 72 gives 335. Both the prose sentence and the figure's data label were re-read from the PDF text layer, so this is the source's own inconsistency and not a parse artifact. **This page uses 62** (52.1% of 119) and flags that the prose's 60.5% is internally unsupported.
+2. **The DCR denominator.** The Discussion asserts *"all 1,118 OAuth-enabled servers advertise a `registration_endpoint`"*. Finding 2.1 and Table 3 make **1,118 the DCR-enabled subset of 2,428 OAuth-enabled servers — 46.0%**, a figure Finding 2.1 states explicitly. The Discussion sentence appears to have collapsed the *testable* subset's by-construction 100% into the population. The correct reading is 46.0%, and any downstream citation of "all OAuth-enabled MCP servers support DCR" is wrong.
+3. **The PKCE mitigation percentage.** §6.2 justifies server-side PKCE enforcement with *"67.5% of tested servers silently accept PKCE-free requests"*, where Finding 3.2 measured F5 at 81/119 = **68.1%**. 67.5% corresponds to no stated count; treat 68.1% as the figure.
+
+A fourth, smaller one worth knowing if you quote the mitigation: §6.2 describes *"the current MAY-level status of CIMD"*, while both §2.2 and Figure 2 place CIMD at **SHOULD** and DCR at **MAY** in the 2025-11-25 release. The requirement levels are swapped in the mitigation text.
+
+## Limitations, stated and observed
+
+The authors state two: **discovery bias** — FOFA and Shodan index publicly reachable infrastructure, so servers behind CDNs, firewalls or private networks are invisible, a scope also chosen on ethical grounds; and **rule-based detection**, which requires each flaw type to be specified by hand and may miss novel patterns (they propose LLM- or agent-driven analysis as the successor). Two more follow from the sampling above: the **119 are not a random sample of OAuth-enabled MCP servers** but a testable slice of the DCR-enabled slice, so C1/C3 rates should not be extrapolated to the 1,310 OAuth-enabled servers without DCR; and **no artifact, dataset or detector release is mentioned**, with vendors anonymized, so the nine CVE IDs are the only externally checkable anchors — the tier covers systematic measurement, not reproducibility.
+
+Ethics were handled to a standard the corpus should hold others to: public assets only, minimum protocol actions, code replay only in tester-controlled sessions, no persistence, no destructive operations, no use of issued tokens against real user data, and end-to-end impact validated only in controlled environments — *"when a full attack chain would have required compromising an actual third-party account… we stopped after confirming the vulnerable condition."*
+
+## Connections
+
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — the deployment counterpart to that page's MCP spec ledger. Its authorization section records what revisions **2025-11-25** and **2026-07-28** require (CIMD preferred, then DCR deprecated; RFC 9207 `iss` validation; issuer-keyed credentials); this page records that at measurement time 46.0% of OAuth-enabled servers still advertised a DCR endpoint and 95.8% of the tested ones accepted an arbitrary `redirect_uri` on it. That page also carries the first-hand replacement of the second-hand figures it previously cited through Dantuluri & Sundi
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — its "first artifact that ships" section notes that a spec *"states requirements and is no evidence that any client or authorization server meets them."* This is the evidence, and it runs the other way: static tokens or API keys on 29.00% of servers (the Foundation-unacceptable pattern), no authentication at all on 40.55%, and the DCR deprecation the page records as a protocol MUST measured against a population that had not adopted the *preceding* revision's weaker guidance
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — AIMS models the multi-hop case with OAuth token exchange, transaction tokens and cross-domain chaining; **68.07% of tested MCP deployments run exactly that shape** (server as resource server downward, OAuth client upward), and **half of them (40/81) pass routing context in a client-visible `state`** with no integrity protection. AIMS's *"isolate delegated contexts"* equivalent is the server-side opaque-state mapping this paper prescribes; F4 is what its absence costs. The page's plural-governance question gains a datum from below: the de-facto shipping layer is not implementing its own rules either
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — supplies the population base rate that framework's MCP threat model lacked. Its MCP threats (tool poisoning, rug pulls, tool chaining) all presuppose a client that got past the boundary; on 3,233 of 7,973 servers there is no boundary to get past, and its prescription of *"short-lived tokens bound to the calling agent's identity, never static API keys"* is contradicted in the field by 29.00% static-token deployments
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — the orthogonal layer. That page's attacks (poisoned tool metadata, malicious data relayed by a legitimate server) assume an authenticated session; this measures whether the session is authenticated at all. The two compose in the obvious direction: an unauthenticated server needs no poisoning, and a server whose DCR endpoint issues a `client_id` to anyone gives an attacker a legitimate client from which to do everything that page describes
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) — the "run/host and self-sign the MCP server yourself" prescription is priced by this census: 7,973 reachable servers, 40.55% unauthenticated, and vendor identities redacted, so a consumer of a third-party MCP server has no way to check the authentication posture of what they are wiring in
+- [Blast Radius (Agentic)](/articles/blast-radius) — the unauthenticated CRM server (>5,000 internal enterprise records, **CVE-2025-61510**) is the containment unit at its simplest: no compromise, no credential, no model, just a reachable tool interface that answered. And **32.8% of tested servers carry flaws in three or more categories**, which is the composition property that turns individual weaknesses into the takeover chains above
+- [Standardize the Infrastructure, Not the Tools](/articles/standardize-infrastructure-not-tools) — the one org in the corpus asserting this problem solved, and what the census does to the claim. Shopify reaches Salesforce, Slack and GitHub through MCP servers *"with the same access controls as their normal auth flow"* — stated as a property, with no mechanism given. A public census cannot see an internally-run server behind a corporate IdP, so this is no contradiction; what it does is relocate the claim from *default* to *achievement*, since on the measured population MCP supplies no access control at all
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — a layer below that page's argument. It shows frameworks gate *which tools are exposed* but not *whether this call's argument values are allowed*; this shows that at the protocol boundary the prior question — *is this client who it says it is* — frequently has no enforcement either, so a per-call authorization decision would be made for a principal the deployment never established
+
+## Open Questions
+
+- **Does the 2026-07-28 DCR deprecation move the deployed population, or only the conformance definition?** The census measures a population governed at best by 2025-11-25 (CIMD preferred, DCR retained as fallback); the next revision deprecates RFC 7591 outright. The falsifiable form: re-run the same FOFA/Shodan fingerprints and metadata probe after CIMD-supporting clients ship, and see whether the 46.0% `registration_endpoint` rate and the 95.8% arbitrary-`redirect_uri` acceptance rate fall. Trigger: a follow-up census, or a first-party MCP client shipping CIMD as its default registration path.
+- **What do the OAuth-enabled servers *without* DCR look like?** The evaluation's 119 are a testable slice of the 1,118 DCR-enabled servers, so C1's 96.6% and C3's 85.7% are conditioned on a registration endpoint existing. The 1,310 OAuth-enabled servers that advertise no `registration_endpoint` were never tested, and manual pre-registration plausibly correlates with a more deliberate deployment. Do the PKCE-downgrade and consent-bypass rates hold outside the DCR-selected sample, or is the "every server is vulnerable" headline a property of the sampling frame?
+- **Is the 40.55% unauthenticated tail mostly demo deployments, or mostly the CRM case?** The authors sampled it, found "most" were test or demonstration servers and one holding 5,000 live enterprise records, and deferred the rest to future work. The exposure figure is solid; the impact distribution behind it is a single anecdote. A systematic characterization — what fraction of unauthenticated servers expose tools that read or write real data — is the number that decides whether 3,233 is an embarrassment or an incident backlog.
+
+## Sources
+
+- [A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333) — Huijun Zhou, Xiaohan Zhang (both first authors), Haozhe Zhang, Haoyang Zhang, Min Yang (Fudan University) and Mi Zhang (Central South University), *A First Measurement Study on Authentication Security in Real-World Remote MCP Servers*, arXiv **2605.22333**, submitted **2026-05-21**, cs.CR, 15pp / 6 tables / 9 figures, `empirical` — **kept as ingested, no COI**: an academic measurement study with no vendor affiliation, no commercial product described, and no first-party stake in any server measured. Cited here for §3.1–3.2 (the FOFA/Shodan + handshake pipeline, 28,715 → 7,973, the 100-server false-positive review, Table 2's authentication split, and Finding 1.2's CRM case with CVE-2025-61510), §3.3 (Table 3's subset construction and Findings 2.1–2.3), §4.1–4.2 (the P1–P3 + PA lifecycle and all nine flaw definitions), §5.1–5.3 (the Burp/OAuthScan detector, the L1/L2 layer split, the evidence-level assignment, Table 6's confusion matrix, and Findings 3.1–3.4), §5.4 (the three disclosed case studies and their CVE IDs), §6.1–6.3 (root causes, the five mitigations, and the stated limitations), and the Ethics section. **Figures viewed under the image two-pass rule**: Figure 2 (spec authentication timeline), Figure 3 (discovery pipeline), Figure 4 (the four-phase OAuth workflow), Figure 5 (the four-stage detector), Figure 6 (per-flaw counts — load-bearing, see below), and Figures 7–9 (the three attack chains).
+
+ **Parse warning, in this page's convention.** PDF-derived (`docling`, 15pp, rapidocr, mlx formula enrichment); ingest `verify.py` returned `ok` on all ten checks with `canary-recall` at 10/10, and **the checks were wrong about Table 5**. The taxonomy table is **grouped-row collapsed** despite `table-collapse` reporting 0 multi-value cells: each category row merges two or three flaws into one cell (`F1: Malicious DCR Binding F2: Blind Client Trust`) beside a merged phase cell (`P1-P2 P2`), a label-prefixed variant with no numeric signature for the detector to catch (now recorded in `_system/pdf-table-parsing.md`). **No flaw definition on this page comes from Table 5** — all nine are taken from the §4.2 prose and every rate from Findings 3.1–3.4. Tables 1, 2, 3, 4 and 6 parse clean and were arithmetically reconciled (3,233+2,428+2,312 = 7,973; 1,118 − 387 − 32 − 573 − 7 = 119; 325 + 54 = 379 with 325/379 = 85.75% and 325/326 = 99.69%). **One number here comes from a figure rather than prose, deliberately**: F6 = **62** from Figure 6's data label, because the prose's 72 (60.5%) is irreconcilable with the paper's own 325 total while 62 closes it exactly; both readings were confirmed against `pdftotext -layout` on, so the discrepancy is the source's, not the parser's. Two further source-internal inconsistencies (the Discussion's 1,118-as-all-OAuth-servers, and §6.2's 67.5% against Finding 3.2's 68.1%) are recorded in Reconciliations above rather than propagated. **Vendor identities are redacted throughout** (`** 1`, `** 2`); the CVE IDs are not (CVE-2025-61510, the CVE-2026-26384–26390 series, CVE-2025-69898).

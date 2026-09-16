@@ -1,0 +1,148 @@
+---
+date: 2026-09-10
+title: Adaptive Stopping in Evaluation Sampling
+description: "UK AISI's optstop (Pilditch, arXiv 2608.14425): treat an LLM
+  evaluation as a sequential measurement problem and stop sampling each item and
+  each model-task grouping once its Bayesian credible interval is narrow enough
+  — removing 57.2-97.3% of planned trials across nine validation cells with a
+  pooled truncation effect of +0.0003, but measured at 200 items x 10 epochs
+  with the low-performance safeguard never engaged, and buying an interval-width
+  guarantee rather than frequentist coverage"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - capability-evaluation
+  - benchmarks
+  - evaluation-methodology
+  - statistics
+  - measurement
+  - empirical
+readingTime: 22
+imageAlt: Illustration for Adaptive Stopping in Evaluation Sampling
+sources:
+  - title: "Knowing When to Stop: Bayesian Optimal Stopping for LLM Evaluations"
+    url: https://arxiv.org/pdf/2608.14425
+---
+export { default as heroImage } from "../assets/adaptive-stopping-in-evaluation-sampling.webp";
+
+## Sources
+
+- [Knowing When to Stop: Bayesian Optimal Stopping for LLM Evaluations](https://arxiv.org/pdf/2608.14425)
+
+## Summary
+
+Every benchmark run in this corpus spends a **fixed** sampling budget: N items, K repetitions each, the same K for every item whether the model gets it right every time or coin-flips it. Toby D. Pilditch ([UK AI Security Institute](/articles/uk-ai-security-institute), [arXiv 2608.14425](https://arxiv.org/pdf/2608.14425), 2026-08-14, 32pp, `empirical`) asks the question a statistician would ask first and nobody in the eval literature had asked for evaluation *collection*: **when has an evaluation collected enough data?** The answer is a Python package, `optstop`, that fits a hierarchical Bayesian model as the run proceeds and retires an item — or a whole model-task grouping — the moment its posterior credible interval is narrow enough.
+
+The headline: in a 3x3 validation matrix (three score types x three performance levels, 200 items x 10 epochs = 2,000 planned trials per cell, seed 42, delta = 0.05, 97% credible intervals) it **removes 57.2% to 97.3% of planned trials**, mean 81.1%, with a mean absolute score deviation of **0.006** on a normalised [0,1] scale and a pooled truncation effect of **+0.0003 (97% HDI [-0.002, +0.003])** inside a ROPE of +/-0.02 — an accept-null verdict on the question of whether truncation biases the score.
+
+Three qualifiers travel with that number everywhere it appears in this wiki, and they are large enough that the number should never be quoted alone:
+
+1. **It is the author's own tool, validated by the author's own institution, under a single experimental configuration.** The paper says so: "The present validation... represents a single experimental configuration."
+2. **The efficiency is a property of the evaluation design, not of the method.** The same framework, on a leaner 100-item x 5-epoch design at the same delta = 0.05, saves **59.5%**, not 81% (Table 4). The paper is explicit that "leaner configurations (fewer items or epochs) will necessarily afford less scope for early termination."
+3. **The safety mechanism was switched off for the headline.** The asymmetric conservatism adjustment that guards against stopping before a rare success is observed **was never exercised in the 3x3 matrix** — even the lowest cell sat at `p-hat ~ 0.05`, above the 1% threshold that engages it. Its behaviour is validated separately, on synthetic data.
+
+## The reframe: an evaluation is a sequential measurement problem
+
+The framing move is the contribution, and it is cleanly stated. Evaluation data are **hierarchically nested** — responses within items, items within model-task groupings, groupings within capability domains — and performance across that space is *jagged*: some model-task pairs settle after three observations, others are still moving after fifty. A uniform sampling regime spends the same on both. So the stopping question "reduces to a resource allocation problem: how to maximise the expected information gain from the next observation."
+
+The lineage is Wald's sequential analysis (1945), and the licence for using it is the **Stopping Rule Principle**: because a Bayesian posterior depends only on the likelihood and the prior, the inference is valid *regardless of the rule that decided when to stop collecting*. That is why the method is Bayesian rather than a frequentist sequential test with alpha-spending — there is no multiplicity penalty to pay for looking at the data repeatedly.
+
+Within sequential analysis the paper draws a distinction this wiki should keep, because it separates two pages that both say "stopping":
+
+- **Inference-based rules** stop when the evidence suffices to *decide between hypotheses* (a Bayes factor crossing a threshold, a posterior probability crossing a decision boundary). Confirmatory.
+- **Precision-based rules** stop when the *estimate is accurate enough* — a credible interval narrower than a threshold. Descriptive, and the right shape for "how well does this model perform on task X?"
+
+`optstop` is squarely the second. [VRR-Stop](/articles/stopping-under-a-noisy-verifier) is the first, applied to production rather than to measurement.
+
+It is also explicitly **not** a companion to the analysis frameworks: where AISI's own HiBayES answers *what does this data tell us?* after collection, `optstop` answers the logically prior *when can collection stop?*
+
+## The machinery, in the order it fires
+
+**Two criteria.** The primary one is interval width: with `W = theta_U - theta_L` the width of the (1 - alpha) credible interval, stop when `W < delta`. Two thresholds are exposed — `delta_item` governs how many epochs a single prompt gets, `delta_cap` governs when a whole model-task grouping is done and its remaining items are skipped. `delta = 0.05` means "precise to within +/-2.5 percentage points" at the default 97% credibility (chosen to be wider than the frequentist 95% habit without paying for 99%).
+
+The secondary one is **stabilisation**, a fallback for cases where the width target would need impractically many observations: fit a linear regression to the last `k` interval widths, declare stabilisation when the slope is near zero *and* not trending toward steeper descent (a guard against transient plateaus), with at least four accumulated slope estimates required. Validated in isolation on synthetic data at three performance levels x three thresholds: all nine conditions stopped via stabilisation at **75-81% efficiency regardless of delta** — the insensitivity to delta being the proof that the criterion is genuinely slope-based rather than width-based in disguise.
+
+**Two levels, partially pooled.** Item-level inference runs on the epochs of one prompt; grouping-level inference runs a hierarchical model over item summaries, shrinking sparsely-observed items toward the population mean. The pooling is not decoration — under adaptive stopping the item sample sizes become *deliberately* uneven (easy items terminate early, hard items accumulate), which is exactly the regime where complete pooling and no pooling both fail. Groupings are user-defined partitions (model x task, model x task x difficulty, or tag-based), each with its own inference state, and the recommendation is a **factorial design over every manipulated factor** that might move performance. Finer groupings resolve more heterogeneity and converge slower; coarser ones converge fast and hide it.
+
+The cascade this produces is the point: item criteria fire first, grouping criteria fire as item data accumulates, and computation concentrates on the items that vary and the groupings that disagree with themselves.
+
+## The finding worth carrying: binary scoring is the expensive one
+
+The three inference pathways are routed by configuration, not by observed data (declare your ordinal and continuous tasks or everything defaults to binary):
+
+| Pathway | Item model | Grouping model | Estimand |
+|---|---|---|---|
+| Binary | adaptive Beta, data-dependent prior | logit-normal hierarchical | population mean success probability |
+| Ordinal | Bayesian bootstrap over the modal category | hierarchical ordered logistic (cumulative link), Dirichlet-Multinomial fallback | modal category of the item-averaged distribution |
+| Continuous bounded | Beta via method-of-moments | logit-normal hierarchical on item-level *means* | population mean of item-level means |
+
+Efficiency splits sharply by pathway: **continuous 95.1% (93-97%), ordinal 75.0% (57-92%), binary 73.3% (59-84%)**. The mechanism is information density — a binary outcome carries at most **1 bit**, an ordinal category more, a real-valued score more still, so each continuous observation contracts the posterior far harder.
+
+The paper turns that into a design prescription, and it is the most transferable thing in the document: **"practitioners designing evaluations with efficiency in mind should prefer continuous or ordinal rubrics over binary pass/fail scoring where the assessment task permits it."** That inverts the field's instinct, which treats binary exact-match as the *clean* scorer and rubrics as the compromise. On sampling cost the ordering is the other way round, and by a factor that shows up in the trial counts: continuous cells stopped at **54-142 trials of 2,000**; binary cells needed 318 and 815.
+
+The second-order pattern is an **extremity effect**: within each pathway, near-floor and near-ceiling cells stop earlier than mid-range ones, because mid-range scores maximise per-item variance. Stated the other way round, which is how it should be remembered — **adaptive stopping saves the most exactly where the benchmark tells you the least**, and costs the most in the mid-range regime where the measurement is actually discriminating.
+
+## Conservatism: the asymmetry that keeps a rare success findable
+
+The obvious failure mode of any early-stopping rule on a capability evaluation: a model that succeeds 1% of the time looks, after a string of failures, exactly like a model that cannot do the task at all — and under the `pass@k` paradigm those are qualitatively different findings. A posterior concentrated near zero is *precise* and possibly wrong in the only direction that matters.
+
+The remedy is deliberately one-sided. When estimated performance falls below `low_performance_threshold` (default 1%), the effective interval width is multiplied by a conservatism factor `c` (default 5) before comparison, the stabilisation slope threshold is divided by the same `c`, and at the item level the adaptive prior's decay slows five-fold. High performance gets no such treatment: "a model that succeeds on 99% of attempts can be confidently characterised with fewer observations than one that succeeds on 1%." Capability *detection* and capability *measurement* have different inferential demands and the rule encodes the difference.
+
+The isolated sensitivity study (synthetic binary, 200 items x 10 epochs, four calibrated performance levels, `c` in \{1, 5, 10, 50\}) is the evidence that the default is not arbitrary. At 1% true performance (realised 0.0065): `c = 1` stops at **120 trials with `theta-hat = 0.027`, a fourfold overestimate**; `c = 5` delays to **910 trials with `theta-hat = 0.008`**; `c = 10` and `c = 50` consume 1,590-1,920 trials for marginal gains. At >= 10% performance `c` does nothing, by construction. The two parameters are coupled — the effective target is `delta/c`, so the shipped defaults (`c = 5`, `delta = 0.05`) leave 0.01 as the real precision target, which has to stay reachable inside the budget.
+
+One honest wrinkle recorded in the same study: when the width pathway becomes unreachable, stopping falls through to the stochastic stabilisation pathway, and trial counts there go **non-monotonic in `c`** (coefficient of variation up to 13% at `c = 50` across repeated MCMC runs on identical data; only 2 of 5 data seeds monotonic at 1% performance).
+
+## What the validation establishes, and what it does not
+
+**The equivalence test is properly done.** Every cell ran in *shadow mode* — all 2,000 trials executed while the stopping criteria were tracked internally — so the comparison is full-run against truncated-run **from the same data**, eliminating between-run LLM stochasticity. Analysis A pairs per-item epoch-averaged scores by item identity and fits a Normal model to the differences; the 94% HDI is tested against a ROPE. Six of nine cells accept, **three return undecided (low-binary, mid-binary, high-ordinal), and no cell rejects**. A hierarchical random-effects meta-analysis pools the nine and resolves all three by shrinkage, with between-cell heterogeneity `tau-hat = 0.001` and prior sensitivity checked across four configurations.
+
+The undecided cells are informative rather than embarrassing, and the paper reads them correctly: the two binary cells have per-item standard deviations of 0.135 and 0.136 against a +/-0.02 ROPE — the 1-bit problem again, not a truncation problem, and both accept at a ROPE of +/-0.05 matching the framework's own delta. The high-ordinal cell is different and worth flagging: `mu_diff ~ -0.059`, 94% HDI [-0.114, -0.001], driven by a **genuine estimand mismatch** — the ordinal pathway stops on the *modal category* while Analysis A evaluates *mean* scores. The paper warns that an evaluator may legitimately report the mean while the stopping rule tracks the mode, "but the two should not be confused in reporting."
+
+**Ranking survives.** Across the three `max_tokens` levels (50 / 500 / 5,000) on WritingBench, the ordering is preserved with non-overlapping 94% HDIs in both full and truncated conditions — though Analysis B's full-run ordered-logistic model suffered **severe convergence failure (7,982 of 8,000 draws divergent, R-hat up to 1.14, bulk ESS as low as 23)**, which the paper concedes makes its absolute estimates uninterpretable; the clean continuous replication (Analysis C) is what carries the claim.
+
+**What it does not establish**, taken from the paper's own limitations plus its appendices:
+
+- **A width guarantee is not a coverage guarantee, and the paper says so twice.** The criterion targets interval *width*; the interval's *location* depends on the data. Controlled simulation found empirical coverage of **~80% at 94% nominal** for the hierarchical binary model under moderate heterogeneity, and at exact performance boundaries (0.0 or 1.0) both the shipped logit-normal and its Beta-Binomial alternative show **zero coverage**. The 100% empirical coverage reported in the order-robustness study (90/90 binary and continuous comparisons) is explicitly "a design property" — stopping at `W = delta` leaves intervals wide enough to absorb the ~0.01 truncation biases — "rather than evidence of Bayesian calibration in the frequentist sense."
+- **Ordinal intervals do not cover the mean at all**, for the same estimand reason: coverage across shuffles was **0/15 (low), 12/15 (mid), 1/15 (high)**. The paper's recommended consistency metric for ordinal groupings is pairwise CI overlap (Jaccard 0.954 / 0.729 / 0.772) instead.
+- **Ordinal efficiency is presentation-order sensitive.** Post-hoc replays with shuffled item order give ordinal efficiencies of **95.7-97.3%** against the fixed-order shadow run's **57-92%** — a 38-point swing from ordering alone. Binary and continuous match within 1-6pp and &lt;1pp respectively.
+- **Epoch pseudoreplication.** Epochs of the same item are treated as exchangeable, inflating effective sample size relative to independent observations; the paper says this affects convergence speed but not point estimates.
+- **The expensive tasks are not the tasks tested.** The motivation invokes agentic benchmarks whose single tasks "consume tokens worth hundreds of US dollars"; the validation runs on MATH Level 5, GPQA Diamond, MMLU 0-shot, TruthfulQA, RACE-H, SciKnowEval and WritingBench — single-turn, item-scored, cheap per trial. **The savings are demonstrated where trials are cheap and argued where trials are expensive.**
+
+## The deployment gotcha: the assumption is off by default
+
+Validity rests on two conditions: **exchangeability** of observations within a grouping, and **randomised item presentation order**. The second is not a modelling nicety — the ordinal efficiency swing above is what happens when it is violated by a difficulty-ordered item list.
+
+And the framework `optstop` integrates with does not do it by default. Inspect (`inspect_ai`, also an AISI artifact) supports randomisation through `sample_shuffle`, which is **"not enabled by default"** — the paper says so three separate times, recommending it "as a precautionary measure when the evaluator cannot guarantee that item ordering is independent of difficulty or other confounds." A benchmark whose item IDs increment with difficulty, run under the shipped defaults of both packages, violates the stated precondition of the method silently. This belongs beside the other default-configuration hazards in this wiki: the composition works, and its out-of-the-box composition is misconfigured relative to its own requirement.
+
+## Three routes to a cheaper valid evaluation, and how they fail
+
+This is the third distinct answer in the corpus to "the evaluation costs too much", and the three compress different axes and fail differently. The failure column is the one that matters for choosing between them.
+
+| Route | Axis compressed | What it needs | How it fails |
+|---|---|---|---|
+| BenchPress ([Benchmark Score Redundancy](/articles/benchmark-score-redundancy)) | across **benchmarks** — run ~5 probes, predict the other 128 | the 84x133 score matrix staying effectively rank-2 | **silently**: a broken geometry corrupts the point estimate with no signal |
+| CollabEval ([Benchmark Score Redundancy](/articles/benchmark-score-redundancy)) | across **items** — label a fraction of prompts, complete the rest as a control variate inside prediction-powered inference | nothing structural; low rank buys efficiency only | **gracefully**: correctness is independent of the rank, so a broken matrix costs efficiency and degrades to the classical sample mean |
+| `optstop` (this page) | across **repetitions and the item stream** — every item stays eligible, sampling stops when precise | exchangeability, randomised order, a well-specified hierarchical model | **quietly**: a misspecified model or near-boundary performance yields a narrow interval in the wrong place; the guarantee is width, not coverage |
+
+The distinguishing property `optstop` claims against the adaptive-item-selection literature (IRT / computerized adaptive testing, which cuts required items by up to 90%) is that it needs **no pre-calibrated item bank** and **pre-selects no subset** — every benchmark item stays eligible, which is what safety-critical coverage requirements demand and what a probe-set or coreset approach cannot offer. That is a real distinction, and it is also where the CollabEval comparison bites: CollabEval's ablations found coresets "lose on both counts" (biased point estimate, no valid interval), and `optstop` avoids the coreset failure by never selecting a subset in advance — but it lands closer to BenchPress than to CollabEval on the failure axis, because its correctness *does* depend on the model being right.
+
+## Connections
+
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the same evaluator, the same cost problem, a **different lever**, and the two must not be run together. That page records AISI "researching how to forecast high-budget performance from cheap runs" — an *extrapolation* along the compute-budget axis, predicting what the curve does at budgets you never paid for. `optstop` does nothing of the sort: it fixes the budget and cuts the **sampling** needed to place each point on the curve precisely. One predicts an unobserved regime; the other stops observing an already-characterised one. They compose (adaptive stopping makes each point of a capability curve cheaper, which is what makes running the full curve affordable at all) but the guarantees do not transfer in either direction, and a forecast validated by `optstop`'s equivalence test would be validating the wrong thing
+- [Benchmark Score Redundancy](/articles/benchmark-score-redundancy) — the third route table above. The sharpest pairing is the **failure mode**, not the axis: CollabEval is built so a broken assumption costs efficiency rather than correctness, and `optstop` is not — its precision target is explicitly not a coverage guarantee, so a misspecified hierarchical model returns a narrow interval in the wrong place. The two also share one unexamined seam: `optstop`'s entire ordinal and continuous validation runs on WritingBench, an **LLM-judged rubric**, so its credible intervals are intervals around a judge's mean, and the paper never raises it — the same objection that page already carries against CollabEval's autorater matrices
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — the two halves of one budget argument. That page's prescription is to *keep* a saturated benchmark and re-instrument it along six axes, which multiplies the measurement burden; this is the machinery that pays for the multiplication. And the interaction is favourable in a way neither source notices: near-ceiling performance is the **extremity regime** where `optstop` is most efficient (the high-binary MMLU cell and the continuous cells stop earliest), so a saturated benchmark is precisely the cheapest kind to measure precisely. The inversion worth keeping is uncomfortable — sampling cost is lowest where the accuracy axis is least informative, and highest in the mid-range where it still discriminates
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the other stopping rule in the wiki, and the two are complements rather than homonyms because the paper's own taxonomy separates them cleanly. VRR-Stop is an **inference-based** rule stopping a *production* loop on estimated marginal true gain; this is a **precision-based** rule stopping a *measurement* on interval width. Their asymmetries are mirror images: there the risk is that continuing **damages** a good answer (priced in `beta`, with `b* = alpha/(alpha+beta)`), here the risk is that stopping **misses** a rare success (priced in `c = 5` below 1% performance). And the boundary between them is a single assumption — this framework assumes the scorer is correct and only the sampling is noisy, so it buys precision about the mean of whatever the grader produces; VRR-Stop is what the same problem looks like once the grader itself has a false-accept rate
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the rubric-design consequence, which runs against this wiki's instincts. Because a binary observation carries at most 1 bit, **pass/fail scoring is the most expensive score type to estimate precisely**, and the paper's explicit prescription is to prefer ordinal or continuous rubrics where the task permits. That is a sampling-cost argument for exactly the rubric granularity a judging protocol wants for other reasons. It comes with a reporting hazard attached: the ordinal pathway's estimand is the **modal category**, not the mean, and the high-ordinal validation cell's largest single deviation (`mu_diff ~ -0.059`) is that mismatch showing up as an undecided equivalence verdict rather than as a stopping error
+- [Expenditure Horizon](/articles/expenditure-horizon) — where the dollars actually are, and why the demonstration does not reach them. The motivating cost claim is agentic tasks worth hundreds of dollars per task, and METR's finding that **experiment compute is ~70-90% of trajectory cost** on an agentic AI R&D task is the strongest available argument that cutting trials cuts the dominant line item — but `optstop`'s validation is entirely single-turn item-scored benchmarks where a trial is an API call. There is also a live tension in the opposite direction: METR's remedy for its own noisy measurements was *more* repetition (n = 8 confirmation, 40+ re-runs, lower envelope taken), which is what you do when the measurement itself is noisy and an agent is optimizing against that noise — a regime where exchangeability fails and adaptive truncation is the wrong instrument
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the compute-is-a-curve thesis seen from the evaluator's side of the ledger. That cluster prices what a *model* should spend at inference; this prices what an *evaluator* should spend to measure it, and the two budgets multiply — every extra point on a compute curve is another grouping that needs its own precision
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — the publisher, and this is its methods-and-tooling line rather than its findings line
+
+## Open Questions
+
+- Does the efficiency survive a lean or agentic evaluation design, and is there a design below which adaptive stopping costs more than it saves? The measured 81.1% is a 200-item x 10-epoch configuration; the same framework at 100 items x 5 epochs and the same threshold returns **59.5%**, and the paper concedes leaner configurations afford less scope. Nobody has run it on a 1-3 epoch agentic suite, where per-trial cost is highest and repetition counts are lowest — and where the fixed cost of repeated MCMC re-analysis could plausibly exceed the trials saved. Falsifiable directly: run `optstop` in shadow mode over an existing agentic eval log and compare the trials it would have saved against the inference overhead.
+- Is a **width** guarantee enough for a decision that needs a **location** guarantee? The framework is explicit that it targets interval width rather than coverage, and its own simulation puts empirical coverage at ~80% against a 94% nominal level under moderate heterogeneity — with zero coverage at exact performance boundaries, which is where a dangerous-capability threshold would sit. Any governance use of an adaptively-stopped evaluation needs the coverage number, not the width number, and no source in this corpus reports one at a boundary under a well-specified model with known truth.
+- Do evaluators actually satisfy the randomisation precondition? Randomised presentation order is required for exchangeability, `sample_shuffle` is off by default in the framework `optstop` ships against, and ordinal efficiency moves 38 points (57-92% fixed-order versus 95.7-97.3% shuffled) on order alone. Falsifiable by audit: sample published Inspect evaluation configurations and count how many enable shuffling.
+
+## Sources
+
+- [Knowing When to Stop: Bayesian Optimal Stopping for LLM Evaluations](https://arxiv.org/pdf/2608.14425) — Toby D. Pilditch, *Knowing When to Stop: Bayesian Optimal Stopping for LLM Evaluations* (UK AI Security Institute, arXiv 2608.14425, 2026-08-14, 32pp, `empirical`). Everything on this page: the precision-based versus inference-based stopping taxonomy and the Stopping Rule Principle justification (Section 2.1, Appendix A.1); the dual width/stabilisation criteria and `delta_item`/`delta_cap` (A.1.1-A.1.2); the hierarchical item/grouping structure and grouping design guidance (2.3, A.2-A.3); the three inference pathways and Table 1 (2.4, A.4); asymmetric conservatism and the `c = 5` / 1% defaults (2.2, A.1.3) with the isolated sensitivity study (B.11); the 3x3 matrix results, per-pathway efficiency split and score fidelity (Section 3.1); the HDI+ROPE equivalence tests, three undecided cells and hierarchical meta-analysis (3.2, B.8.3-B.8.5); ranking preservation and Analysis B's convergence failure (B.8.6); the precision-efficiency trade-off table at two thresholds (B.2); pathway coverage across four benchmarks and 29 validation runs (B.1); logit-normal versus Beta-Binomial simulation including the ~80%-at-94% coverage figure (B.6); presentation-order robustness, ordinal coverage and the bias decomposition (B.10); stabilisation validation (B.12); and the four named limitations of the matrix design (B.8.9). Package v0.4.0 against `inspect_ai` v0.3.170; code, simulation and shadow datasets at `github.com/UKGovernmentBEIS/optstop`. **Tier scope**: `empirical` is right — live LLM inference throughout, shadow-mode within-run comparison, released data — but the efficiency figure is the author's own tool measured by the author's own institution under one configuration, and the conservatism safeguard is validated only on synthetic data. **Parse note**: PDF-derived (docling 2.126.0); four of seven tables were repaired at ingest, Table 7 having silently lost an entire data row (`high_cont.`) inside a cell collapse. Table 7 was independently re-verified against `pdftotext -layout -f 25` at compile time and matches the repaired raw cell for cell. The body retains minor docling artifacts (`µ 0`, `\_`, `&gt;`). A companion AISI blog post, *Optimal stopping: spending evaluation compute where it counts* (2026-08-27), is named in the raw's note block but **was not ingested** and is cited nowhere on this page

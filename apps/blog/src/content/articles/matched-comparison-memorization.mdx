@@ -17,17 +17,21 @@ tags:
   - memorization
   - privacy
   - copyright
-readingTime: 19
+readingTime: 23
 imageAlt: Illustration for Matched Comparisons for Memorization Claims
 sources:
   - title: Extractable Memorization From First Principles
     url: https://arxiv.org/pdf/2607.12649
+  - title: "Shortcutting the Fix: Identifying and Categorizing Agentic Exploits in
+      Software Engineering Benchmarks"
+    url: https://arxiv.org/pdf/2609.06780
 ---
 export { default as heroImage } from "../assets/matched-comparison-memorization.webp";
 
 ## Sources
 
 - [Extractable Memorization From First Principles](https://arxiv.org/pdf/2607.12649)
+- [Shortcutting the Fix: Identifying and Categorizing Agentic Exploits in Software Engineering Benchmarks](https://arxiv.org/pdf/2609.06780)
 
 ## Summary
 
@@ -141,8 +145,19 @@ The budget arithmetic is elementary (Appendix C): `n(p; c) = ⌈log(1−c)/log(1
 - Controls of unknown membership status are the norm at web scale; the bias runs conservative, which is the tolerable direction but still a bias.
 - The arXiv version is visibly a **working draft**: §4.3 ("Model scale, sample size, and inferential claims") is a one-sentence pointer with all results delegated to Figure 6, and several appendix figures carry results the body never discusses. Numbers cited here that exist only in figures are marked as chart reads.
 
+## The behavioural instrument, and the control it accidentally supplies (September 2026)
+
+Everything above measures memorization **distributionally** — a generation rate against a matched non-member baseline, on open-weight models with a known corpus. [Ludwig et al.](https://arxiv.org/pdf/2609.06780) (NVIDIA, arXiv 2609.06780, 2026-09-06, `empirical`) measure a strict subset of the same phenomenon **behaviourally**, on production models whose corpora are unpublished, and the comparison is instructive in both directions.
+
+Their setting is coding agents on repository benchmarks built from real upstream commits. One of five exploit categories they audit is `MEMORY`: the agent **states** that it is recalling upstream code or a pull request from training data, **and then acts on that recollection in the environment**. LLM judges read the reasoning trace for exactly this, and the paper publishes the tells — *"OK here's what I remember of the actual upstream v0.9.0 environ.py (I've seen this file)"*; *"which I have seen (I have decent memory of linkerd2 source since it's my training data)"*; *"upstream PR #5978? Let me think. I believe it's…"*.
+
+What the instrument is worth, stated plainly against this page's standard: **it has no matched comparison and cannot have one.** It is a rate measured only on member-like sequences, judged by other LLMs, requiring both a verbalised claim and a downstream action — so it undercounts silent recall by an unknown amount and its false-positive rate against a model that merely *asserts* familiarity is unmeasured. It is not a memorization rate and should never be quoted as one. What it does have is reach: it runs on Kimi-K3, DeepSeek-V4-Pro, GLM-5.3 and Qwen3.8-Flash-Next as deployed, which is precisely the setting this page's first open question names as out of reach.
+
+The incidental control is the interesting part. `MEMORY` is the primary category for **1.3–12.8% of trajectories on SWE-bench Multilingual** and **exactly 0.0% on all five models on DeepSWE**, in both prompt conditions. DeepSWE's tasks are original and long-horizon by construction, so there is no memorised upstream fix to recall; SWE-bench Multilingual's are real merged PRs, which are. A behavioural signal that fires on the corpus where the answer plausibly sits in training data and reads a clean zero on the corpus where it does not is a **negative control the paper did not set out to run** — weak evidence, wrong direction of rigour, but it is the shape a matched comparison has, arrived at by accident.
+
 ## Connections
 
+- [Evaluation-Time Answer Leakage](/articles/evaluation-time-answer-leakage) — memorization measured **behaviourally**, on production models, as one exploit class among five: an agent stating it recalls the upstream fix and then acting on that recollection. It has no matched comparison and cannot have one, so it is not a memorization rate — but it reaches the deployed instruction-tuned models this page's method cannot, and it supplies an accidental negative control (0.0% on a benchmark of original tasks against 1.3–12.8% on one built from real merged PRs). The reverse lesson runs this page's way: a rate measured only where the answer plausibly sits in training data is uninterpretable until something measures where it does not
 - [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — **the same mechanism, a different harm.** Contamination is memorization of *benchmark items* (harm: an inflated score); this is memorization of *training text* (harm: privacy/copyright reproduction). Both hinge on separating "the model memorized this" from "this was predictable anyway," and both find the naive signal insufficient — UBD because log-probability cannot distinguish genuinely-easy from hard-but-memorized (PCC &lt; 0.4), this because a raw generation rate cannot distinguish memorized from predictable without a non-member floor. The methods are complements: UBD's ensemble-variance tell needs no controls but needs multiple checkpoints; the conformal test needs one model but genuine matched non-members. Its finding that a *contaminated null* biases conservatively is the mirror image of decontaminating a *model*
 - [Usage-Telemetry Classifier Validation](/articles/usage-telemetry-classifier-validation) — the same discipline one field over: a headline rate is only as good as the instrument that produced it, and nobody had measured the instrument. ATLAS published its classifier's accuracy against human labels; this publishes an extraction procedure's false-positive floor against non-members. Both convert a confident-looking percentage into a percentage with an error term attached, and in both cases the error term is large enough to change what the number means
 - [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — **budget-relative risk claims, from the other end.** That page's argument is that a safety evaluation performed at one inference budget cannot bound what an unbounded budget elicits from published weights; clause (ii) here is the same relativity made quantitative — 68.5% of a book is memorized but only 12.3% is reachable at 10⁵ queries, and a better decoder (k-CBS at ~20-sample cost) reaches text sampling cannot. Open weights are also the *enabling* condition for this work: OLMo 2's released corpus is what makes membership knowable, and Llama 3.1's Books3 provenance is what makes the book census possible at all
@@ -157,4 +172,5 @@ The budget arithmetic is elementary (Appendix C): `n(p; c) = ⌈log(1−c)/log(1
 
 ## Sources
 
+- [Shortcutting the Fix: Identifying and Categorizing Agentic Exploits in Software Engineering Benchmarks](https://arxiv.org/pdf/2609.06780) — Ludwig, Ahmad, Majumdar & Ginsburg (**NVIDIA**), *Shortcutting the Fix*, arXiv 2609.06780, 2026-09-06 (`empirical`, 16pp): §2.2's `MEMORY` category definition, Appendix A Figure 2's verbatim recall tells from agent reasoning traces, and Table 4's per-category rates (1.3–12.8% on SWE-bench Multilingual, 0.0% throughout on DeepSWE). Every figure is a majority vote of three open-weight LLM judges with **no human-annotated subset and no chance-corrected agreement statistic**, and the category fires only on verbalised recall followed by an environment action — an undercount of unknown size with an unmeasured false-positive rate. Full treatment on [Evaluation-Time Answer Leakage](/articles/evaluation-time-answer-leakage)
 - [Extractable Memorization From First Principles](https://arxiv.org/pdf/2607.12649) — A. Feder Cooper, Marika Swanberg, Jamie Hayes, Lea Duesterwald, Christopher De Sa, Daniel E. Ho, Mark A. Lemley, Percy Liang, *Extractable Memorization From First Principles* (Yale/AVERI/Stanford, Google Research, Google DeepMind, Cornell, Stanford; arXiv 2607.12649, 2026-07-14, `empirical`). §1 the two validity failures, the parrot demonstration (Figure 1c: 70.1% training vs 70.6% non-training, N=3,000) and the adversarial-compression reproduction on a post-cutoff Brunson quote; §2 the five-component extraction procedure and ε-ball membership; §3 the conformal test (Definition 3.1), its discreteness and one-sidedness, and the exchangeability/genuine-non-member challenges; §4 OLMo 2 on Wikipedia (5,000 members / 5,000 controls; greedy 7.54% vs 1.82% at 10 tokens and 0.74% vs 0.02% at 50; probabilistic τ_α ≈ 0.95 at 10 tokens vs 8.9×10⁻⁶ at 50; calibrated-rate definition M = G − FPR; scale results in Figure 6); §5 the books census with Llama 3.1 (4 author-matched pairs, null decontamination via an agent skill, τ^(book) 10⁻²¹–10⁻²⁷, coverage 68.49%/53.27%/31.33% vs greedy 3.26%/5.41%/5.42%, margin Δ(s)); §6 the refined definition and the 10⁵-budget gap (68.5% memorized vs 12.3%/18.7% extractable); Appendix B tables and C budget arithmetic. Figures 1c, 3, 4, 5, 6, 9, 10, 11 and 15 viewed. **Parse note:** Appendix B's Table 1 (author/book pairs) and Figure 11's coverage table are **collapsed** in the raw parse — Table 1's four data rows welded into one grid row per column, Figure 11's two-line header split across cells. Both were reconciled cell-for-cell against `pdftotext -layout` on (pp. 22, 17) and the Figure 15 page image: **row order and every value are correct, only the row mapping was lost** — no misattribution reached this page. The τ^(book) table was verified the same way and against the Figure 15 image
