@@ -13,7 +13,7 @@ import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
 import { Container } from "@/app/(common)/container";
@@ -84,11 +84,15 @@ function DesktopNav() {
 function ThemeToggle() {
   const { state, setMode } = useTweaks();
   const isDark = state.mode === "dark";
+  const toggleMode = useCallback(
+    () => setMode(isDark ? "light" : "dark"),
+    [isDark, setMode]
+  );
   return (
     <button
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      onClick={() => setMode(isDark ? "light" : "dark")}
+      onClick={toggleMode}
       type="button"
     >
       {isDark ? (
@@ -161,11 +165,11 @@ function MobileNav() {
                       href={href}
                     >
                       <span>{label}</span>
-                      {PLATE_ANNOTATIONS[label] && (
+                      {PLATE_ANNOTATIONS[label] ? (
                         <span className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
                           {PLATE_ANNOTATIONS[label]}
                         </span>
-                      )}
+                      ) : null}
                     </Link>
                   </SheetClose>
                 </li>
@@ -245,14 +249,14 @@ function FocusPlate({
           <span className="max-w-[200px] truncate sm:max-w-[300px]">
             Reading
           </span>
-          {activeSection && (
+          {activeSection ? (
             <>
               <span aria-hidden="true">·</span>
               <span className="max-w-[150px] truncate sm:max-w-[200px]">
                 {activeSection}
               </span>
             </>
-          )}
+          ) : null}
           <span aria-hidden="true">·</span>
           <span className="tabular-nums">{progressPercent}%</span>
         </div>
@@ -284,6 +288,8 @@ export function SiteBar() {
   // focusMode is persisted, so scope it to article pages: elsewhere there is no
   // running head to carry EXIT, and collapsed chrome would be a dead end.
   const isFocusMode = isArticle && state.focusMode;
+  const enterFocusMode = useCallback(() => setFocusMode(true), [setFocusMode]);
+  const exitFocusMode = useCallback(() => setFocusMode(false), [setFocusMode]);
 
   let chromeClass = "py-4 opacity-100 duration-200";
   if (isFocusMode) {
@@ -341,7 +347,7 @@ export function SiteBar() {
                   <button
                     aria-label="Enter focus mode"
                     className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={() => setFocusMode(true)}
+                    onClick={enterFocusMode}
                     title="Focus mode"
                     type="button"
                   >
@@ -366,12 +372,9 @@ export function SiteBar() {
 
       {isArticle && <ReadingProgress headings={articleNav.headings} />}
 
-      {isFocusMode && (
-        <FocusPlate
-          headings={articleNav.headings}
-          onExit={() => setFocusMode(false)}
-        />
-      )}
+      {isFocusMode ? (
+        <FocusPlate headings={articleNav.headings} onExit={exitFocusMode} />
+      ) : null}
     </header>
   );
 }

@@ -214,14 +214,14 @@ export function ConceptStanza({
               }`}
               key={`${line.bucket}-${line.text}`}
             >
-              {meta.code && (
+              {meta.code ? (
                 <span
                   className="mr-2 font-mono text-[10px] uppercase tracking-[0.14em]"
                   style={{ color: meta.tone }}
                 >
                   {meta.code}
                 </span>
-              )}
+              ) : null}
               <InlineText pattern={pattern} segments={line.segments} />
             </li>
           );
@@ -257,7 +257,7 @@ export function OpenQuestionsSection({
 
   return (
     <section className="mt-12">
-      {heading && (
+      {heading ? (
         <h2
           className="m-0 border-t-2 pt-3 font-display font-normal text-[clamp(22px,3vw,28px)] text-foreground tracking-[-0.02em]"
           style={{ borderColor: color }}
@@ -267,7 +267,7 @@ export function OpenQuestionsSection({
             {total} open
           </span>
         </h2>
-      )}
+      ) : null}
       <ul className="m-0 mt-6 flex list-none flex-col gap-7 p-0">
         {concepts.map((concept) => (
           <ConceptStanza

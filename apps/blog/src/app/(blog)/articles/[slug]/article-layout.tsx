@@ -51,6 +51,71 @@ const NAV_KICKER_CLASS =
 const NAV_TITLE_CLASS =
   "font-display text-[15px] text-foreground leading-[1.25] transition-colors group-hover:text-[var(--article-accent)]";
 
+/** One end of the previous/next pair; renders nothing without a target. */
+function NavLink({
+  align,
+  href,
+  kicker,
+  title,
+}: {
+  align: "left" | "right";
+  href: string | undefined;
+  kicker: ReactNode;
+  title: string | undefined;
+}) {
+  if (!href) {
+    return null;
+  }
+  return (
+    <Link
+      className={cn(
+        "group inline-flex flex-col gap-1 no-underline",
+        align === "right" && "items-end"
+      )}
+      href={href}
+    >
+      <span className={NAV_KICKER_CLASS}>{kicker}</span>
+      {title ? <span className={NAV_TITLE_CLASS}>{title}</span> : null}
+    </Link>
+  );
+}
+
+/** Previous/next article pair. Absent when the article has neither neighbour. */
+function ArticleNav({ siblings }: { siblings?: SiblingNav }) {
+  const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
+  if (!(previousSlug ?? nextSlug)) {
+    return null;
+  }
+  return (
+    <nav aria-label="Article navigation" className="flex justify-between gap-6">
+      <div className="min-w-0">
+        <NavLink
+          align="left"
+          href={previousSlug && `/articles/${previousSlug}`}
+          kicker={
+            <>
+              <span aria-hidden="true">← </span>Previous
+            </>
+          }
+          title={previousTitle}
+        />
+      </div>
+      <div className="min-w-0 text-right">
+        <NavLink
+          align="right"
+          href={nextSlug && `/articles/${nextSlug}`}
+          kicker={
+            <>
+              Next<span aria-hidden="true"> →</span>
+            </>
+          }
+          title={nextTitle}
+        />
+      </div>
+    </nav>
+  );
+}
+
 export function ArticleLayout({
   children,
   headings = [],
@@ -63,7 +128,6 @@ export function ArticleLayout({
   slug,
   translationHref,
 }: ArticleLayoutProps) {
-  const { previousSlug, previousTitle, nextSlug, nextTitle } = siblings ?? {};
   const accent = meta.domain ? DOMAIN_META[meta.domain].color : "var(--brand)";
   const domainRow: [string, ReactNode] | null = meta.domain
     ? ["Domain", <DomainLabel domain={meta.domain} key="domain" />]
@@ -99,7 +163,7 @@ export function ArticleLayout({
               過時翻譯 · stale translation
             </span>
           )}
-          {translationHref && (
+          {translationHref ? (
             <Link
               className={cn(
                 EYEBROW_CLASS,
@@ -109,21 +173,21 @@ export function ArticleLayout({
             >
               {locale === "zh-TW" ? "EN" : "中文"}
             </Link>
-          )}
+          ) : null}
           HOWARDISM
         </>
       }
       eyebrowStart={
         <>
           {PLATE_META.domains.label}
-          {meta.domain && (
+          {meta.domain ? (
             <>
               <span aria-hidden="true" className="mx-1.5">
                 ·
               </span>
               <DomainLabel domain={meta.domain} />
             </>
-          )}
+          ) : null}
         </>
       }
       title={meta.title}
@@ -196,43 +260,7 @@ export function ArticleLayout({
         <BacklinksDisclosure defaultOpen slug={slug} />
       </div>
 
-      {(previousSlug ?? nextSlug) && (
-        <nav
-          aria-label="Article navigation"
-          className="flex justify-between gap-6"
-        >
-          <div className="min-w-0">
-            {previousSlug && (
-              <Link
-                className="group inline-flex flex-col gap-1 no-underline"
-                href={`/articles/${previousSlug}`}
-              >
-                <span className={NAV_KICKER_CLASS}>
-                  <span aria-hidden="true">← </span>Previous
-                </span>
-                {previousTitle && (
-                  <span className={NAV_TITLE_CLASS}>{previousTitle}</span>
-                )}
-              </Link>
-            )}
-          </div>
-          <div className="min-w-0 text-right">
-            {nextSlug && (
-              <Link
-                className="group inline-flex flex-col items-end gap-1 no-underline"
-                href={`/articles/${nextSlug}`}
-              >
-                <span className={NAV_KICKER_CLASS}>
-                  Next<span aria-hidden="true"> →</span>
-                </span>
-                {nextTitle && (
-                  <span className={NAV_TITLE_CLASS}>{nextTitle}</span>
-                )}
-              </Link>
-            )}
-          </div>
-        </nav>
-      )}
+      <ArticleNav siblings={siblings} />
     </>
   );
 

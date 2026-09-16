@@ -56,7 +56,7 @@ log(`  checksum ${checksum(byDomain)}`);
 
 await benchAsync(`getNavigableTagSet × ${REPEATS}`, async () => {
   let last: ReadonlySet<string> | undefined;
-  for (let i = 0; i < REPEATS; i++) {
+  for (let i = 0; i < REPEATS; i += 1) {
     last = await service.getNavigableTagSet();
   }
   return last;
@@ -65,7 +65,7 @@ log(`  checksum ${checksum([...(await service.getNavigableTagSet())])}`);
 
 await benchAsync(`getTagIndex × ${INDEX_REPEATS}`, async () => {
   let last: Awaited<ReturnType<typeof service.getTagIndex>> | undefined;
-  for (let i = 0; i < INDEX_REPEATS; i++) {
+  for (let i = 0; i < INDEX_REPEATS; i += 1) {
     last = await service.getTagIndex();
   }
   return last;
@@ -74,7 +74,7 @@ log(`  checksum ${checksum(await service.getTagIndex())}`);
 
 await benchAsync(`getDomainSparklines × ${INDEX_REPEATS}`, async () => {
   let last: Awaited<ReturnType<typeof service.getDomainSparklines>> | undefined;
-  for (let i = 0; i < INDEX_REPEATS; i++) {
+  for (let i = 0; i < INDEX_REPEATS; i += 1) {
     last = await service.getDomainSparklines();
   }
   return last;

@@ -26,10 +26,10 @@ function splitAuthors(author: string): string[] {
   const parts: string[] = [];
   let depth = 0;
   let start = 0;
-  for (let i = 0; i < author.length; i++) {
+  for (let i = 0; i < author.length; i += 1) {
     const char = author[i];
     if (char === "(") {
-      depth++;
+      depth += 1;
     } else if (char === ")") {
       depth = Math.max(0, depth - 1);
     } else if (char === "," && depth === 0) {
@@ -131,11 +131,11 @@ export function Desk({ sources }: DeskProps) {
                     source.title
                   )}
                 </div>
-                {source.author && (
+                {source.author ? (
                   <div className="mt-0.5 font-body text-[12.5px] text-foreground-subtle italic">
                     {formatAuthors(source.author)}
                   </div>
-                )}
+                ) : null}
               </li>
             );
           })}

@@ -150,7 +150,7 @@ export function ShelfArticleRow({
       )}
       style={{ "--dc": accent } as CSSProperties}
     >
-      {selection && (
+      {selection ? (
         <input
           aria-label={selection.label}
           checked={selection.selected}
@@ -159,7 +159,7 @@ export function ShelfArticleRow({
           onChange={selection.onToggle}
           type="checkbox"
         />
-      )}
+      ) : null}
       <span className="whitespace-nowrap font-display font-light text-[22px] text-foreground-subtle leading-[0.9] tracking-[-0.03em] md:text-[28px]">
         {marker}
       </span>

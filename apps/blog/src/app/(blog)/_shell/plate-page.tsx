@@ -110,7 +110,7 @@ export function PlatePage({
         className={cn("hw-page-enter mx-auto w-full min-w-0", widthClass)}
         style={style}
       >
-        {headerNode && <div className="px-gutter">{headerNode}</div>}
+        {headerNode ? <div className="px-gutter">{headerNode}</div> : null}
         {children}
       </div>
     );

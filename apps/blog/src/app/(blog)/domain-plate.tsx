@@ -104,7 +104,7 @@ export function DomainPlate({
         </div>
 
         {/* source aside */}
-        {leadSource && (
+        {leadSource ? (
           <aside
             className="pt-1 pl-5 md:col-start-2 lg:col-start-auto"
             style={{ borderLeft: `2px solid ${meta.color}` }}
@@ -126,13 +126,13 @@ export function DomainPlate({
                 leadSource.title
               )}
             </div>
-            {(leadSource.author || leadSource.published) && (
+            {leadSource.author || leadSource.published ? (
               <div className="mt-1 font-body text-[13.5px] text-foreground-subtle italic">
                 {[leadSource.author, leadSource.published]
                   .filter(Boolean)
                   .join(" · ")}
               </div>
-            )}
+            ) : null}
             <div
               className="mt-3.5 font-mono text-[10px] uppercase tracking-[0.16em]"
               style={{ color: meta.color }}
@@ -141,7 +141,7 @@ export function DomainPlate({
               {leadSource.citedBy.length === 1 ? "ref" : "refs"} in wiki
             </div>
           </aside>
-        )}
+        ) : null}
       </div>
     </section>
   );

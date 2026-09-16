@@ -2,7 +2,7 @@
 
 import { cn } from "@howardism/ui/lib/utils";
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 
 export interface ComparePanel {
   body: ReactNode;
@@ -27,6 +27,34 @@ const PANEL_CLASS =
  * to a tab bar that flips one panel into view at a time; all panels stay
  * mounted, so each keeps its scroll position across tab switches.
  */
+/**
+ * One tab in the narrow-viewport panel switcher. A component rather than an
+ * inline `() => setActive(index)` so the click handler is stable per tab.
+ */
+function PanelTab({
+  index,
+  onSelect,
+  selected,
+  title,
+}: {
+  index: number;
+  onSelect: (index: number) => void;
+  selected: boolean;
+  title: string;
+}) {
+  const handleClick = useCallback(() => onSelect(index), [index, onSelect]);
+  return (
+    <button
+      aria-pressed={selected}
+      className="rounded-full border border-border px-3 py-1.5 font-body text-[13px] text-foreground-subtle transition-colors aria-pressed:border-brand/40 aria-pressed:bg-brand/10 aria-pressed:text-brand"
+      onClick={handleClick}
+      type="button"
+    >
+      {title}
+    </button>
+  );
+}
+
 export function CompareView({ panels }: { panels: ComparePanel[] }) {
   const [active, setActive] = useState(0);
 
@@ -51,15 +79,13 @@ export function CompareView({ panels }: { panels: ComparePanel[] }) {
         className="m-0 flex flex-wrap gap-1.5 border-0 p-0 lg:hidden"
       >
         {panels.map((panel, index) => (
-          <button
-            aria-pressed={index === active}
-            className="rounded-full border border-border px-3 py-1.5 font-body text-[13px] text-foreground-subtle transition-colors aria-pressed:border-brand/40 aria-pressed:bg-brand/10 aria-pressed:text-brand"
+          <PanelTab
+            index={index}
             key={panel.slug}
-            onClick={() => setActive(index)}
-            type="button"
-          >
-            {panel.title}
-          </button>
+            onSelect={setActive}
+            selected={index === active}
+            title={panel.title}
+          />
         ))}
       </fieldset>
 

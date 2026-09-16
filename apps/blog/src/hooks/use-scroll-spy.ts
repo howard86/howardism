@@ -69,7 +69,7 @@ export default function useScrollSpy({
         const rects = new Map<Element, DOMRectReadOnly>();
         for (const entry of entries) {
           rects.set(entry.target, entry.boundingClientRect);
-          const id = entry.target.id;
+          const { id } = entry.target;
           if (entry.isIntersecting) {
             visibleRef.current.add(id);
           } else {
@@ -116,7 +116,7 @@ function findTopMostVisibleId(
     if (!el) {
       continue;
     }
-    const top = el.getBoundingClientRect().top;
+    const { top } = el.getBoundingClientRect();
     if (!topMost || top < topMost.top) {
       topMost = { id, top };
     }
@@ -134,7 +134,7 @@ function findLastAboveAnchorId(
     // Headings are in document order, so their tops ascend: the first one at
     // or below the anchor ends the scan, and everything after it is measured
     // only to be discarded.
-    const top = (rects?.get(el) ?? el.getBoundingClientRect()).top;
+    const { top } = rects?.get(el) ?? el.getBoundingClientRect();
     if (top >= offsetPx) {
       break;
     }

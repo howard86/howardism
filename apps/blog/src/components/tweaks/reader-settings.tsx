@@ -26,6 +26,37 @@ const PILL_TOGGLE =
  * The "Aa" reader-settings control in the site bar (article pages): text size
  * and the tap-to-scroll switch. Opens via its trigger or the `t` shortcut.
  */
+/**
+ * One text-size pill. A component rather than an inline `onPressedChange` so
+ * each pill keeps a stable handler across the group's re-renders.
+ */
+function TextSizeToggle({
+  label,
+  onSelect,
+  pressed,
+  value,
+}: {
+  label: string;
+  onSelect: (value: TextSize) => void;
+  pressed: boolean;
+  value: TextSize;
+}) {
+  const handlePressedChange = useCallback(
+    () => onSelect(value),
+    [onSelect, value]
+  );
+  return (
+    <Toggle
+      className={PILL_TOGGLE}
+      onPressedChange={handlePressedChange}
+      pressed={pressed}
+      size="sm"
+    >
+      {label}
+    </Toggle>
+  );
+}
+
 export function ReaderSettings() {
   const { state, setTapToScroll, setTextSize } = useTweaks();
   const [open, setOpen] = useState(false);
@@ -83,15 +114,13 @@ export function ReaderSettings() {
               className="m-0 inline-flex gap-1.5 rounded-full border-0 bg-background-2 p-1"
             >
               {TEXT_SIZES.map(({ value, label }) => (
-                <Toggle
-                  className={PILL_TOGGLE}
+                <TextSizeToggle
                   key={value}
-                  onPressedChange={() => setTextSize(value)}
+                  label={label}
+                  onSelect={setTextSize}
                   pressed={state.textSize === value}
-                  size="sm"
-                >
-                  {label}
-                </Toggle>
+                  value={value}
+                />
               ))}
             </fieldset>
           </section>

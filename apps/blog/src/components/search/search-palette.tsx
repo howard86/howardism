@@ -10,7 +10,13 @@ import {
   CommandList,
 } from "@howardism/ui/components/command";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { DOMAIN_META, resolveDomain } from "@/app/(blog)/articles/domain-meta";
 
@@ -53,6 +59,37 @@ function emptyLabel(
 function domainLabel(entry: SearchEntry): string {
   const resolved = entry.domain ? resolveDomain(entry.domain) : null;
   return resolved ? DOMAIN_META[resolved].label : "Other";
+}
+
+/**
+ * One result row. A component rather than an inline `() => onSelect(slug)` so
+ * each row keeps a stable handler as the result list re-renders on every
+ * keystroke.
+ */
+function ResultItem({
+  entry,
+  lowerQuery,
+  onSelect,
+  showDomain,
+}: {
+  entry: SearchEntry;
+  lowerQuery: string;
+  onSelect: (slug: string) => void;
+  showDomain: boolean;
+}) {
+  const handleSelect = useCallback(
+    () => onSelect(entry.slug),
+    [entry.slug, onSelect]
+  );
+  return (
+    <CommandItem onSelect={handleSelect} value={entry.slug}>
+      <ResultRow
+        entry={entry}
+        lowerQuery={lowerQuery}
+        showDomain={showDomain}
+      />
+    </CommandItem>
+  );
 }
 
 export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
@@ -134,18 +171,24 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
     return [...byDomain.entries()];
   }, [shown]);
 
-  const handleOpenChange = (next: boolean) => {
-    onOpenChange(next);
-    if (!next) {
-      setQuery("");
-      setScope(null);
-    }
-  };
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      onOpenChange(next);
+      if (!next) {
+        setQuery("");
+        setScope(null);
+      }
+    },
+    [onOpenChange]
+  );
 
-  const handleSelect = (slug: string) => {
-    handleOpenChange(false);
-    router.push(`/articles/${slug}`);
-  };
+  const handleSelect = useCallback(
+    (slug: string) => {
+      handleOpenChange(false);
+      router.push(`/articles/${slug}`);
+    },
+    [handleOpenChange, router]
+  );
 
   // Both read the deferred query so the highlighted span and the "no articles"
   // copy always describe the result set actually on screen.
@@ -184,17 +227,13 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
             key={label}
           >
             {groupEntries.map((entry) => (
-              <CommandItem
+              <ResultItem
+                entry={entry}
                 key={entry.slug}
-                onSelect={() => handleSelect(entry.slug)}
-                value={entry.slug}
-              >
-                <ResultRow
-                  entry={entry}
-                  lowerQuery={lowerQuery}
-                  showDomain={groups.length === 1 && scope?.field !== "domain"}
-                />
-              </CommandItem>
+                lowerQuery={lowerQuery}
+                onSelect={handleSelect}
+                showDomain={groups.length === 1 && scope?.field !== "domain"}
+              />
             ))}
           </CommandGroup>
         ))}

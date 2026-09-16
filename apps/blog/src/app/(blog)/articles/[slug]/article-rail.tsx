@@ -39,7 +39,7 @@ export async function ArticleRail({ headings, slug }: ArticleRailProps) {
             </div>
           </ScrollArea>
         )}
-        {hasConnections && (
+        {hasConnections ? (
           <ScrollArea className="min-h-0 flex-1">
             <div className="flex flex-col gap-8 pr-3 pb-4">
               <RailSection label="Related articles" links={related} />
@@ -49,7 +49,7 @@ export async function ArticleRail({ headings, slug }: ArticleRailProps) {
               />
             </div>
           </ScrollArea>
-        )}
+        ) : null}
       </div>
     </aside>
   );

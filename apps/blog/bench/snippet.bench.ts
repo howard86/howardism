@@ -55,7 +55,7 @@ log(`  checksum: ${checksum(after)}`);
 const FACET_RUNS = 20;
 const facetsOut = bench("buildFacets(entries) x20", () => {
   let last: ReturnType<typeof buildFacets> = [];
-  for (let i = 0; i < FACET_RUNS; i++) {
+  for (let i = 0; i < FACET_RUNS; i += 1) {
     last = buildFacets(entries);
   }
   return last;

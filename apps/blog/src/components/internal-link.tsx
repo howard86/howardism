@@ -123,6 +123,6 @@ export function extractArticleSlug(href: string): string | null {
     return null;
   }
   const remainder = href.slice(ARTICLES_PREFIX.length);
-  const slug = remainder.split(SLUG_TERMINATOR_RE)[0];
+  const [slug] = remainder.split(SLUG_TERMINATOR_RE);
   return slug.length > 0 ? slug : null;
 }

@@ -49,7 +49,7 @@ export function ResultRow({
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center gap-2">
-        {kind && (
+        {kind ? (
           <span
             aria-hidden="true"
             className="inline-flex size-[18px] shrink-0 items-center justify-center rounded font-medium font-mono text-[10px]"
@@ -60,7 +60,7 @@ export function ResultRow({
           >
             {kind.prefix}
           </span>
-        )}
+        ) : null}
         <span className="truncate font-display font-medium text-[15px] text-foreground">
           {entry.title}
         </span>
@@ -81,11 +81,11 @@ export function ResultRow({
       </p>
 
       <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden">
-        {domain && (
+        {domain ? (
           <span className="inline-flex shrink-0 items-center font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.12em]">
             <DomainLabel domain={domain} />
           </span>
-        )}
+        ) : null}
         {tags.map(({ tag, matched }) => (
           <span
             className={`shrink-0 rounded-full px-1.5 py-px font-mono text-[10px] ${

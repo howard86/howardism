@@ -50,19 +50,30 @@ export function ArticleFind() {
     }
   }, [open]);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      if (event.shiftKey) {
-        goPrev();
-      } else {
-        goNext();
+  const toggleOpen = useCallback(() => setOpen((prev) => !prev), []);
+
+  const handleChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) =>
+      setQuery(event.target.value),
+    []
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          goPrev();
+        } else {
+          goNext();
+        }
       }
-    }
-  };
+    },
+    [close, goNext, goPrev]
+  );
 
   if (!nav) {
     return null;
@@ -76,13 +87,13 @@ export function ArticleFind() {
         aria-label="Find in article"
         aria-pressed={open}
         className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={toggleOpen}
         type="button"
       >
         <HugeiconsIcon className="size-[18px]" icon={SearchList01Icon} />
       </button>
 
-      {open && (
+      {open ? (
         <search
           aria-label="Find in article"
           className="fixed top-[4.5rem] right-4 z-[60] flex items-center gap-1.5 rounded-full border border-border bg-popover py-1.5 pr-1.5 pl-3.5 text-popover-foreground shadow-paper-lg ring-1 ring-foreground/10 sm:right-6"
@@ -90,7 +101,7 @@ export function ArticleFind() {
           <input
             aria-label="Find text in article"
             className="w-40 bg-transparent font-body text-[14px] outline-none placeholder:text-muted-foreground sm:w-52"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Find in article"
             ref={inputRef}
@@ -127,7 +138,7 @@ export function ArticleFind() {
             <HugeiconsIcon className="size-4" icon={Cancel01Icon} />
           </button>
         </search>
-      )}
+      ) : null}
     </>
   );
 }
