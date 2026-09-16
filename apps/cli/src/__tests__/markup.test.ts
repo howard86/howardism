@@ -63,7 +63,7 @@ describe("parseInline", () => {
     expect(segmentsToText(segments)).toBe(
       "Which instrument for the frontier set?"
     );
-    const strong = segments[0];
+    const [strong] = segments;
     expect(strong.kind === "strong" && kinds(strong.children)).toEqual([
       "text",
       "em",

@@ -103,9 +103,10 @@ async function assertValidPng(path: string, label: string): Promise<void> {
   let info: Awaited<ReturnType<typeof stat>>;
   try {
     info = await stat(path);
-  } catch {
+  } catch (err) {
     throw new Error(
-      `agy did not produce ${path} for "${label}" — image generation failed`
+      `agy did not produce ${path} for "${label}" — image generation failed`,
+      { cause: err }
     );
   }
 

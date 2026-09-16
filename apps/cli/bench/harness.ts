@@ -68,7 +68,7 @@ function report(name: string, samples: number[]): void {
 export function bench<T>(name: string, fn: () => T, runs = 7): T {
   const samples: number[] = [];
   let last: T | undefined;
-  for (let i = 0; i < runs; i++) {
+  for (let i = 0; i < runs; i += 1) {
     const start = performance.now();
     last = fn();
     samples.push(performance.now() - start);
@@ -84,7 +84,7 @@ export async function benchAsync<T>(
 ): Promise<T> {
   const samples: number[] = [];
   let last: T | undefined;
-  for (let i = 0; i < runs; i++) {
+  for (let i = 0; i < runs; i += 1) {
     const start = performance.now();
     // Sequential on purpose: overlapping runs would share the clock.
     last = await fn();
@@ -101,7 +101,7 @@ export async function benchAsync<T>(
 export function checksum(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   let hash = 7;
-  for (let i = 0; i < text.length; i++) {
+  for (let i = 0; i < text.length; i += 1) {
     hash = (hash * 31 + text.charCodeAt(i)) % 4_294_967_291;
   }
   return hash.toString(16).padStart(8, "0");

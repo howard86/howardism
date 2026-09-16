@@ -276,6 +276,7 @@ async function main(): Promise<void> {
   const intervalMs = cfg.intervalMin * MS_PER_MINUTE;
 
   for (let cycle = 1; cycle <= cfg.maxCycles; cycle += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: the drip exists to space batches across engine quota windows; concurrent cycles would exhaust the quota it stays under
     const code = await runStreaming([
       TRANSLATE_ENTRY,
       "--update",
@@ -298,7 +299,7 @@ async function main(): Promise<void> {
       prevRemaining,
       remaining,
     });
-    consecutiveZeroProgress = decision.consecutiveZeroProgress;
+    ({ consecutiveZeroProgress } = decision);
     prevRemaining = remaining;
 
     const willContinue = !(decision.done || decision.abort);

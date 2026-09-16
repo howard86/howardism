@@ -267,12 +267,9 @@ export async function drainStream(
   let start = 0;
   const all: string[] = [];
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      buffer += decoder.decode(value, { stream: true });
+    let chunk = await reader.read();
+    while (!chunk.done) {
+      buffer += decoder.decode(chunk.value, { stream: true });
       let newline = buffer.indexOf("\n", start);
       while (newline !== -1) {
         // Strip trailing \r so CRLF-terminated lines don't corrupt terminal output.
@@ -286,6 +283,8 @@ export async function drainStream(
         buffer = buffer.slice(start);
         start = 0;
       }
+      // biome-ignore lint/performance/noAwaitInLoops: a stream is consumed one chunk at a time; there is no next chunk to request until this one lands
+      chunk = await reader.read();
     }
     // Flush the TextDecoder's internal buffer so multi-byte UTF-8 sequences
     // split across the last two chunks are not silently dropped.
@@ -525,7 +524,6 @@ export function parseUsage(
   if (engine === "cursor") {
     return parseCursorUsage(result.stdout);
   }
-  return;
 }
 
 /**

@@ -90,7 +90,7 @@ export function tokenizeWikilinks(input: string): WikiToken[] {
   const tokens: WikiToken[] = [];
   for (const segment of proseSegments(input)) {
     for (const match of segment.matchAll(WIKILINK_RE)) {
-      const target = match[1];
+      const [, target] = match;
       const label = match[2] ? match[2].trim() : null;
       tokens.push({ label, target: classifyTarget(target) });
     }
@@ -117,7 +117,7 @@ function internalSlugsIn(
   const slugs: string[] = [];
   for (const segment of segments) {
     for (const match of segment.matchAll(WIKILINK_RE)) {
-      const target = match[1];
+      const [, target] = match;
       if (target.startsWith("raw/")) {
         continue;
       }
@@ -239,7 +239,7 @@ export function extractRawSlugs(
   const seen = opts?.dedup ? new Set<string>() : null;
   for (const segment of proseSegments(input)) {
     for (const match of segment.matchAll(WIKILINK_RE)) {
-      const target = match[1];
+      const [, target] = match;
       if (!target.startsWith("raw/")) {
         continue;
       }

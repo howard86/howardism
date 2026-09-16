@@ -86,6 +86,7 @@ export async function pruneOrphanedArticles(
   const onDiskSlugs = await listArticleSlugs(articlesDir);
   const orphans = computeOrphanedSlugs({ onDiskSlugs, onlySlug, vaultSlugs });
 
+  const deletions: Promise<void>[] = [];
   for (const slug of orphans) {
     if (dryRun) {
       console.log(
@@ -96,14 +97,15 @@ export async function pruneOrphanedArticles(
     console.log(
       `[prune] deleting orphaned article: ${slug} (no matching vault note)`
     );
-    await Promise.all([
+    deletions.push(
       rm(join(articlesDir, `${slug}${MDX_EXT}`), { force: true }),
       // `.png` covers heroes committed before the WebP migration.
       rm(join(assetsDir, `${slug}.webp`), { force: true }),
       rm(join(assetsDir, `${slug}.png`), { force: true }),
-      rm(join(zhArticlesDir, `${slug}${MDX_EXT}`), { force: true }),
-    ]);
+      rm(join(zhArticlesDir, `${slug}${MDX_EXT}`), { force: true })
+    );
   }
+  await Promise.all(deletions);
 
   return orphans;
 }
