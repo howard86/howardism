@@ -102,6 +102,22 @@ Two interfaces share the one DB:
   { "mcpServers": { "glossary": { "command": "bun", "args": ["apps/cli/src/glossary/mcp.ts"] } } }
   ```
 
+### Lint config layout
+
+`biome.json` (root), `apps/blog/biome.jsonc`, and `apps/cli/biome.jsonc` each extend the `ultracite/*` presets **directly**, so a rule set at the root does *not* reach the apps. Repo-wide deviations go in `biome.shared.jsonc`, which all three extend last (so it wins); each carries a comment saying why. `turbo.json`'s `lint` task lists every one of these files as an input — add new ones there or turbo serves a stale cached lint. `apps/blog/public` is excluded: Biome 2.5 began linting `.svg`, and those are static assets whose accessible name comes from the referencing markup.
+
+Two Biome behaviours worth knowing: a `// biome-ignore` comment must carry its whole reason on **one line** (a wrapped one silently stops suppressing), and the `noEqualsToNull` autofix is unsound — it rewrites `x == null` to `x === null`, dropping the `undefined` half. The rule is off for that reason.
+
+### Bun-native file I/O
+
+The CLI runs only under `bun`, so it reads with `Bun.file(path).text()` and writes with `Bun.write(path, data)` rather than `node:fs/promises`. `mkdir`/`readdir`/`rm`/`stat`/`rename` have no Bun equivalent and stay on `node:fs`. Two things do *not* move: `packages/article-contract`'s `createHash` (the blog imports that package and runs on Node, where `Bun` is undefined — and `sourceHash` is committed), and `apps/blog/src`, for the same reason. `apps/blog/scripts` and `apps/blog/bench` are bun-only and declare the `Bun` global in `apps/blog/biome.jsonc`.
+
+Undocumented, but verified: `Bun.write(path, data)` creates any missing parent directory, where `writeFile` raises `ENOENT`. So it is *not* a drop-in wherever that `ENOENT` is load-bearing — `import-wiki/emit.ts` relies on it to keep `main()` solely responsible for creating `articlesDir`, and has a test pinning that. `Bun.file(path).text()` *is* a drop-in for `readFile(path, "utf8")`: it throws with the same `code === "ENOENT"`.
+
+### Deployment (Vercel, Bun runtime)
+
+`apps/blog/vercel.json` sets `bunVersion`, which puts the Vercel Functions and Middleware on Bun instead of Node. Only `"1.4.x"` and `"1.x"` are accepted — an exact patch version such as `1.4.2` is *not* valid, so this cannot be kept literally in step with `packageManager`; CI reads the exact pin separately via `bun-version-file: package.json`. The blog's `dev`/`build`/`start` scripts run `bun run --bun next …` as the Bun-runtime docs require. Note this is not a build-speed change (Turbopack does the work in Rust either way — measured 10.2s vs 10.1s); it changes the runtime the deployed functions execute on. `vercel.json` must sit in the Vercel project's Root Directory, which is `apps/blog`.
+
 ## Code Style
 
 - **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
