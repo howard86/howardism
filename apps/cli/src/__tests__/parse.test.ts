@@ -16,6 +16,8 @@ import {
   stripWikilinksToText,
 } from "../import-wiki/parse.ts";
 
+const UNPARSEABLE_RAW_ERROR = /unescaped-quotes\.md: unparseable frontmatter/;
+
 /** gray-matter's process-wide parse cache; absent from its type declarations. */
 const matterInternals = matter as unknown as {
   cache: Record<string, unknown>;
@@ -367,6 +369,24 @@ describe("loadRawDoc", () => {
   it("returns null when the file is missing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
     expect(await loadRawDoc(dir, "missing")).toBeNull();
+  });
+
+  it("names the offending file when the frontmatter will not parse", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    const slug = "unescaped-quotes";
+    await writeFile(
+      join(dir, `${slug}.md`),
+      // An unescaped `"` inside a double-quoted value: YAML ends the scalar
+      // early and chokes on the rest of the line.
+      [
+        "---",
+        'description: "his bar is "what have you built"; that is all"',
+        "---",
+      ].join("\n"),
+      "utf8"
+    );
+
+    await expect(loadRawDoc(dir, slug)).rejects.toThrow(UNPARSEABLE_RAW_ERROR);
   });
 
   it("reads each raw doc once and serves later calls from the memo", async () => {

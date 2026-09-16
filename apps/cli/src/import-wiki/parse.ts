@@ -222,7 +222,22 @@ async function readRawDoc(
     throw err;
   }
 
-  const { data } = matter(raw, {});
+  // gray-matter surfaces a YAML error with a line/column but no file path, so
+  // an unhandled throw here dumps a stack trace that names neither the raw doc
+  // nor the article citing it — leaving the whole vault to grep. Unparseable
+  // frontmatter stays fatal (a silently URL-less citation is exactly the audit
+  // trail drift this importer fails loudly on), but it must say which file.
+  let data: Record<string, unknown>;
+  try {
+    ({ data } = matter(raw, {}) as { data: Record<string, unknown> });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message.split("\n")[0] : err;
+    throw new Error(
+      `${absolutePath}: unparseable frontmatter — ${reason}. ` +
+        "Fix the YAML in the vault's raw/ document (a common cause is an " +
+        'unescaped `"` inside a double-quoted value) and re-run the import.'
+    );
+  }
   const rawData = data as {
     author?: unknown;
     published?: unknown;
