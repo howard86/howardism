@@ -4,9 +4,15 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { plugin } from "bun";
 import React from "react";
 import YAML from "yaml";
-import "@testing-library/jest-dom";
 
+// Must run before anything pulls in `@testing-library/dom`: its `screen` export
+// is bound to `document.body` at module-evaluation time, so a DOM-less import
+// permanently freezes it into a stub that throws on every query. Static imports
+// are hoisted above this call, which is why `@testing-library/jest-dom` — which
+// reaches into `@testing-library/dom` as of 6.10.0 — is required lazily below.
 GlobalRegistrator.register();
+
+require("@testing-library/jest-dom");
 
 // next/image and next/link depend on the Next.js runtime, so we stub them
 // with plain HTML equivalents for component tests.
