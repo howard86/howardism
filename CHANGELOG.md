@@ -1,3 +1,11 @@
+# [v2.30.0](https://github.com/howard86/howardism/compare/v2.29.0...v2.30.0) (2026-09-16)
+
+## ✨ New Features
+- [`5af89e6e`](https://github.com/howard86/howardism/commit/5af89e6e)  feat(blog): import 20 wiki articles and refresh content manifests 
+
+## 🐛 Bug Fixes
+- [`efb4fe8e`](https://github.com/howard86/howardism/commit/efb4fe8e)  fix(cli): name the offending file when raw frontmatter fails to parse
+
 # [v2.29.0](https://github.com/howard86/howardism/compare/v2.28.0...v2.29.0) (2026-09-09)
 
 ## ✨ New Features
