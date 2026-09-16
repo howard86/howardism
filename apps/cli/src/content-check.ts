@@ -22,7 +22,7 @@
  * The check functions are pure and unit-tested against small in-memory
  * fixtures; only `main` touches the filesystem.
  */
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import { WIKI_DOMAINS } from "@howardism/article-contract";
@@ -386,7 +386,7 @@ async function readMdxSlugs(dir: string): Promise<string[]> {
 async function loadArticles(): Promise<ArticleRecord[]> {
   const slugs = await readMdxSlugs(ARTICLES_DIR);
   return runWithConcurrency(slugs, READ_CONCURRENCY, async (slug) => {
-    const raw = await readFile(resolve(ARTICLES_DIR, `${slug}.mdx`), "utf8");
+    const raw = await Bun.file(resolve(ARTICLES_DIR, `${slug}.mdx`)).text();
     return parseArticle(raw, slug);
   });
 }
@@ -397,7 +397,7 @@ async function loadAssetFilenames(): Promise<Set<string>> {
 }
 
 async function loadJson<T>(filename: string): Promise<T> {
-  const raw = await readFile(resolve(DATA_DIR, filename), "utf8");
+  const raw = await Bun.file(resolve(DATA_DIR, filename)).text();
   return JSON.parse(raw) as T;
 }
 

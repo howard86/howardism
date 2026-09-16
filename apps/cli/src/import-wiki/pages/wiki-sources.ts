@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
-
 import {
   type WikiSource,
   type WikiSourcesManifest,
@@ -121,7 +118,6 @@ export async function emitWikiSources(args: {
     return outputPath;
   }
 
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${json}\n`, "utf8");
+  await Bun.write(outputPath, `${json}\n`);
   return outputPath;
 }

@@ -1,6 +1,3 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
-
 import {
   type TranslationRecord,
   TranslationsManifestSchema,
@@ -35,7 +32,7 @@ export async function readProjection(
 ): Promise<TranslationProjection> {
   let raw: string;
   try {
-    raw = await readFile(path, "utf8");
+    raw = await Bun.file(path).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return emptyProjection(locale);
@@ -87,14 +84,12 @@ export async function writeProjection(
   }
   const next: TranslationProjection = {
     generatedOn: new Date().toISOString().slice(0, 10),
-    locale: existing.locale ?? DEFAULT_LOCALE,
+    locale: existing.locale,
     articles: sorted,
   };
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(
+  await Bun.write(
     path,
-    `${JSON.stringify(TranslationsManifestSchema.parse(next), null, 2)}\n`,
-    "utf8"
+    `${JSON.stringify(TranslationsManifestSchema.parse(next), null, 2)}\n`
   );
   return next;
 }

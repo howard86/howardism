@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { titleFromSlug } from "@howardism/article-contract/markup";
 
@@ -79,9 +79,14 @@ export async function discoverWikiSources(
   const folders: WikiFolder[] = ["concepts", "derived"];
   const results: WikiSource[] = [];
 
-  for (const folder of folders) {
-    const dir = join(wikiRoot, folder);
-    const entries = await readdir(dir);
+  const listings = await Promise.all(
+    folders.map(async (folder) => {
+      const dir = join(wikiRoot, folder);
+      return { folder, dir, entries: await readdir(dir) };
+    })
+  );
+
+  for (const { folder, dir, entries } of listings) {
     for (const entry of entries) {
       if (extname(entry) !== ".md") {
         continue;
@@ -105,7 +110,7 @@ export async function discoverWikiSources(
 export async function parseWikiFile(
   source: WikiSource
 ): Promise<ParsedWikiFile> {
-  const raw = await readFile(source.absolutePath, "utf8");
+  const raw = await Bun.file(source.absolutePath).text();
   // `{}` opts gray out of gray-matter's global cache, which otherwise keeps
   // every parsed file's full text alive for the process' lifetime.
   const { data, content } = matter(raw, {});
@@ -214,7 +219,7 @@ async function readRawDoc(
 ): Promise<RawDoc | null> {
   let raw: string;
   try {
-    raw = await readFile(absolutePath, "utf8");
+    raw = await Bun.file(absolutePath).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
@@ -235,7 +240,8 @@ async function readRawDoc(
     throw new Error(
       `${absolutePath}: unparseable frontmatter — ${reason}. ` +
         "Fix the YAML in the vault's raw/ document (a common cause is an " +
-        'unescaped `"` inside a double-quoted value) and re-run the import.'
+        'unescaped `"` inside a double-quoted value) and re-run the import.',
+      { cause: err }
     );
   }
   const rawData = data as {
@@ -277,7 +283,6 @@ function normalisePublished(value: unknown): string | undefined {
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim();
   }
-  return;
 }
 
 function humanizeRawSlug(slug: string): string {

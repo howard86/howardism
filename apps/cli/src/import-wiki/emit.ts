@@ -57,6 +57,11 @@ export async function emitArticle(args: EmitArticleArgs): Promise<string> {
     return filePath;
   }
 
+  // Deliberately `writeFile`, not `Bun.write`: `Bun.write` creates missing
+  // parent directories, which would silently re-introduce the per-article
+  // directory creation this function was refactored to drop. The ENOENT from
+  // a missing `articlesDir` is the guard that keeps `main()` solely
+  // responsible for creating it, once, up front.
   await writeFile(filePath, fileContent, "utf8");
   return filePath;
 }

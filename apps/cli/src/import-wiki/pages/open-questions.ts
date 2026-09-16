@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import type { WikiDomain } from "@howardism/article-contract";
 import {
   OPEN_QUESTION_KINDS,
@@ -204,7 +202,6 @@ export async function emitOpenQuestions(args: {
     return outputPath;
   }
 
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${json}\n`, "utf8");
+  await Bun.write(outputPath, `${json}\n`);
   return outputPath;
 }

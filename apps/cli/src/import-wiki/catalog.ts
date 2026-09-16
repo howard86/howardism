@@ -7,7 +7,7 @@
  * tab-separated row per page (`path type domain title summary updated
  * bytes`).
  */
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 
 import { isMocSlug } from "./domains.ts";
@@ -27,7 +27,7 @@ const MIN_CATALOG_COLUMNS = 5;
 export async function loadCatalog(
   catalogPath: string
 ): Promise<Map<string, CatalogRow>> {
-  const raw = await readFile(catalogPath, "utf8");
+  const raw = await Bun.file(catalogPath).text();
   const lines = raw.split("\n").filter((line) => line.trim().length > 0);
   const [, ...rows] = lines; // drop the header row
   const catalog = new Map<string, CatalogRow>();

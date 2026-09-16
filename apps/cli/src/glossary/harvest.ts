@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import matter from "gray-matter";
@@ -96,7 +96,7 @@ const isSpanFree = (
   start: number,
   end: number
 ): boolean => {
-  for (let i = start; i < end; i++) {
+  for (let i = start; i < end; i += 1) {
     if (consumed[i] === 1) {
       return false;
     }
@@ -119,15 +119,14 @@ function collectNonOverlapping(
 ): string[] {
   const out: string[] = [];
   re.lastIndex = 0;
-  let m = re.exec(text);
-  while (m) {
+  // biome-ignore lint/suspicious/noUnnecessaryConditions: `RegExp.exec` returns null once the scan is exhausted — that null is the loop's exit condition
+  for (let m = re.exec(text); m; m = re.exec(text)) {
     const start = m.index;
     const end = start + m[0].length;
     if (isSpanFree(consumed, start, end) && (!filter || filter(m[0]))) {
       out.push(m[0]);
       consumed.fill(1, start, end);
     }
-    m = re.exec(text);
   }
   return out;
 }
@@ -552,7 +551,7 @@ export async function readArticleDocs(
       const slug = filename.replace(MDX_SUFFIX_RE, "");
       const filePath = join(articlesDir, filename);
       try {
-        return { slug, text: extractBody(await readFile(filePath, "utf8")) };
+        return { slug, text: extractBody(await Bun.file(filePath).text()) };
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === "ENOENT") {
           console.error(`harvest: skipping missing article "${slug}"`);

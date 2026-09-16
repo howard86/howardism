@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rm } from "node:fs/promises";
+import { access, mkdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   type EntityType,
@@ -303,7 +303,7 @@ async function processArticle(
   summary: ImportSummary
 ): Promise<void> {
   const { source, frontmatter } = parsed;
-  const slug = source.slug;
+  const { slug } = source;
 
   // A MOC's `MOC — …` frontmatter title duplicates its `Index` badge and never
   // matches the clean `# Domain` body heading, so the page renders two
@@ -603,7 +603,7 @@ async function ensureImage(args: {
 }
 
 function parseOptions(): RunOptions {
-  const env = process.env;
+  const { env } = process;
   if (!env.WIKI_PATH) {
     throw new Error(
       "WIKI_PATH is required. Point it at the Obsidian wiki root (the directory containing `concepts/` and `derived/`)."
@@ -664,7 +664,7 @@ function parseOptions(): RunOptions {
 async function loadOverrides(path: string): Promise<Record<string, WikiTag>> {
   let raw: string;
   try {
-    raw = await readFile(path, "utf8");
+    raw = await Bun.file(path).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return {};
@@ -676,7 +676,9 @@ async function loadOverrides(path: string): Promise<Record<string, WikiTag>> {
   try {
     parsed = JSON.parse(raw) as Record<string, string>;
   } catch (err) {
-    throw new Error(`Failed to parse ${path}: ${(err as Error).message}`);
+    throw new Error(`Failed to parse ${path}: ${(err as Error).message}`, {
+      cause: err,
+    });
   }
 
   for (const [slug, tag] of Object.entries(parsed)) {

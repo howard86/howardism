@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
 import { ArticleContractSchema } from "@howardism/article-contract/schema";
@@ -103,12 +102,12 @@ interface SourceListEntry {
 
 /** Extract `sources[].title` values from parsed frontmatter, in order. */
 export function extractSourceTitles(data: Record<string, unknown>): string[] {
-  const sources = data.sources;
+  const { sources } = data;
   if (!Array.isArray(sources)) {
     return [];
   }
   return sources.map((entry) => {
-    const title = (entry as SourceListEntry | null)?.title;
+    const { title } = (entry as SourceListEntry | null) ?? {};
     return typeof title === "string" ? title : "";
   });
 }
@@ -210,7 +209,7 @@ export function residualEnglishRatio(body: string): number {
   // matched character just to read how many there were.
   let nonWhitespace = 0;
   let asciiLatin = 0;
-  for (let i = 0; i < stripped.length; i++) {
+  for (let i = 0; i < stripped.length; i += 1) {
     const code = stripped.charCodeAt(i);
     if (isAsciiLatinCode(code)) {
       asciiLatin += 1;
@@ -248,7 +247,7 @@ export function countListItems(body: string): number {
   // line, so this skips each line's leading blanks and tests the marker there.
   let count = 0;
   let atLineStart = true;
-  for (let i = 0; i < body.length; i++) {
+  for (let i = 0; i < body.length; i += 1) {
     const code = body.charCodeAt(i);
     if (isLineTerminatorCode(code)) {
       atLineStart = true;
@@ -513,7 +512,7 @@ async function readOrError(
   path: string
 ): Promise<{ error: Error | null; text: string }> {
   try {
-    return { error: null, text: await readFile(path, "utf8") };
+    return { error: null, text: await Bun.file(path).text() };
   } catch (err) {
     return { error: err as Error, text: "" };
   }
