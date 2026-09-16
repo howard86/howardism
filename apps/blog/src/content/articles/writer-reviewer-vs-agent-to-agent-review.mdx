@@ -1,0 +1,213 @@
+---
+date: 2026-09-02
+title: Writer/Reviewer vs Agent-to-Agent Review
+description: "The two patterns are one architecture differing on venue, so the
+  corpus's evidence attaches to four decomposed axes rather than to either
+  brand. Reviewer lineage is the only axis with a code-review number (Greptile,
+  case-study: cross-model 61.0% vs same-model 52.1% high-severity recall, an
+  8.9pp crossover surviving both main effects and NOT explained by bug
+  composition) — which falsifies the Writer/Reviewer rationale as written, since
+  the own-code bias is a property of the model family and clearing context does
+  not clear it. The information-boundary axis has the better design argument
+  (Bun's diff-only reviewer, OpenCodeReview's falsification-only reflector,
+  Cursor's swept-but-unreported lens sweep) and its only number comes from an
+  adjacent task (Anthropic monitor recall 92% → 48% under long benign context).
+  Gate position has one block rate (Ouroboros 63.5%) and no outcome measurement.
+  The outcome axis is fractured across two incommensurable constructs:
+  7.23–37.80% reference-match precision on AACR-Bench against 71.4% developer
+  resolution of 54,713 real agent review comments. Codex's shipped /review is
+  the high-precision/very-low-recall point (266 comments over 200 PRs, 4.92%
+  recall) and Claude Code's pinned /code-review the opposite (5,980 comments,
+  28.90% recall, 7.23% precision) — a difference in comment-volume policy, not
+  in pattern. Nothing measures the two patterns head to head"
+tag: Essay
+domain: ai-coding-practice
+tags:
+  - derived
+  - code-review
+  - ai-coding-workflow
+  - agent-architecture
+  - oversight
+readingTime: 27
+imageAlt: Illustration for Writer/Reviewer vs Agent-to-Agent Review
+---
+export { default as heroImage } from "../assets/writer-reviewer-vs-agent-to-agent-review.webp";
+
+## The question
+
+From [Claude Code Best Practices](/articles/claude-code-best-practices)'s Open Questions (opened 2026-04-28, the corpus's oldest cohort; retagged `#oq/now` on 2026-09-02):
+
+> How does the Writer/Reviewer pattern compare to agent-to-agent review (as in OpenAI's Codex workflow)?
+
+The pattern as that page states it: **"one session implements, another reviews with fresh context (no bias toward own code)."**
+
+## The short answer
+
+**They are the same architecture and the parenthetical is wrong.** Both are instances of [the maker/checker split](/articles/optimizer-evaluator-decoupling); they differ on *venue* (an in-session second opinion vs a comment thread posted onto a pull request) and on *who adjudicates* (the operator vs a project collaborator). No source in this corpus measures venue, so "which pattern is better" is not a question the wiki can answer as asked.
+
+What the corpus **can** do is decompose both patterns into four design variables and attach evidence to each. Doing that produces a ranking that inverts the page's own emphasis:
+
+| Axis | Best evidence | Tier | Verdict |
+|---|---|---|---|
+| **Who the reviewer is** (lineage) | 8.9pp of high-severity recall rides on same- vs cross-family ([Same-Model Review Blindness](/articles/same-model-review-blindness)) | `case-study` | **The only axis with a code-review number.** Free to act on |
+| **What the reviewer sees** (context boundary) | Design arguments only; one number from an adjacent task (monitor recall 92% → 48% under long context, [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic)) | `practitioner-opinion` + `case-study` | Defensible, unmeasured on code review |
+| **Where the gate sits** (advisory vs blocking) | One block rate: 63.5% ([Continuous Self-Modification Under Review](/articles/continuous-self-modification-under-review)) | `case-study` | No outcome measurement anywhere |
+| **Measured outcomes** | Two constructs an order of magnitude apart and not poolable ([Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) vs [Agent Review Comment Resolution](/articles/agent-review-comment-resolution)) | `empirical` both | Cannot rank the patterns; can rank operating points |
+
+The single most actionable correction: **"fresh context, no bias toward own code" conflates two independent things.** Fresh context buys smart-zone reasoning; it does **not** buy the absence of own-code bias, because the measured bias is a property of the *model family*, not of the session. A `/clear` does not clear it. Route the reviewer to a different family and you get the 8.9 points; clear the context and you get a well-rested reviewer with the same blind spots.
+
+## Why the two patterns are not on the same axis
+
+[Claude Code Best Practices](/articles/claude-code-best-practices) lists Writer/Reviewer under Scaling Patterns as an operator discipline: run two sessions, keep the second one's window clean. The Codex-side arrangement in this corpus is a different *deployment shape* of the same split:
+
+- Codex's shipped **`/review`** command, run per PR, posting comments into GitHub ([Codex](/articles/codex)).
+- Codex as a **review bot on other people's PRs** — 2,267 comments across the 341 repos in [Agent Review Comment Resolution](/articles/agent-review-comment-resolution)'s corpus.
+- **`/goal`**, where a *separate small model* checks the stop condition after every turn so the agent that wrote the code is not the one deciding it is done ([Loop Engineering](/articles/loop-engineering)).
+- Trail of Bits' production form: a security gate, then **two judges on different models that must agree**, then a human filter and a duplicate check ([Loop Engineering](/articles/loop-engineering), `case-study`, no false-positive rate published for any stage).
+
+Claude Code has converged on the same shape from the other side, in product releases rather than in prose. The [changelog](/articles/claude-code) (`vendor-claim`, snapshotted 2026-08-03) records **v2.1.202** turning `/code-review` into an explicitly multi-agent, effort-tiered review; **v2.1.215** removing Claude's ability to invoke `/verify` and `/code-review` *on its own* — the writer no longer calls its own reviewer; and **v2.1.218** moving `/code-review` into a background subagent, which is the context-asymmetry half shipped as a default. [Claude Opus 4.7](/articles/claude-opus-4-7) added `/ultrareview` as a dedicated review session. None of those releases publishes a rationale, so read them as the invariant being satisfied, not endorsed.
+
+So the honest framing is not "pattern A vs pattern B." It is: **one split, four variables, and the corpus has numbers on one and a half of them.**
+
+## Axis 1 — What the reviewer sees
+
+**The argument for freshness** is a context-budget argument, and it is `practitioner-opinion`. [Deep Modules for Agents](/articles/deep-modules-for-agents): if implementation burned 80K tokens of smart zone, a same-context reviewer reads the diff in the dumb zone; clearing and re-running restores smart-zone reasoning ([Context Window Smart Zone](/articles/context-window-smart-zone)). Pocock pairs it with role-based model selection (Sonnet implements, Opus reviews) and bakes it into Sandcastle's four-agent pipeline — planner, N implementers in isolated worktrees, **a reviewer in fresh context per diff with coding standards *pushed* into its system prompt**, then a merger.
+
+**The stronger version is asymmetry, not freshness.** The Bun Zig-to-Rust port ([Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling), `case-study`, 6,502 commits, ~1M lines) specifies what the reviewer may *know*: the implementer sees the original file, the port plan and its own reasoning; the reviewer sees **only the diff**. Withholding the author's rationale is the mechanism — "a reviewer given the reasoning can be argued into the author's frame, and separate context window alone doesn't prevent that." OpenCodeReview's reflector runs the same asymmetry in the direction nobody builds: the auditor sees **strictly less** than the author (the diff plus the comments, never the tool-augmented exploration), and its veto is scoped to what an under-informed auditor can actually decide — falsification only, filter-only, fail-open on a parse error ([Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review)).
+
+**The measurement does not exist.** [Cursor's](/articles/cursor) swarm swept exactly this axis — full worker transcript vs output only vs nothing but the codebase — and published the design rule instead of the numbers: "no single lens catches everything, but decorrelated lenses stack." OpenCodeReview's paper concludes that "for reflection, the **information boundary may matter more than the model identity**" and runs **no ablation of any kind** to support it: no no-reflector arm, no same-context arm, no different-model arm. That sentence is the paper's tier over-extending; the corpus holds a measurement pointing the other way on the same task (Axis 2).
+
+**The one number, from an adjacent task.** Anthropic's offline monitoring pipeline is a reviewer reading agent trajectories, and the Risk Report publishes its recall as context grows ([Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic), `empirical`): MonitorBench Hard falls **92% → 72% → 48%** for the Opus 4.6 monitor as 200k benign tokens are padded before, then before and after, the incident; the Opus 4.8 monitor degrades less (92% → 83% → 77%) but still degrades. Different task, different rubric, and Anthropic notes the both-sides case is less analogous to its own setup — but it is the corpus's only quantitative statement that a reviewer inside a long context loses recall, which is precisely the mechanism the fresh-context argument invokes.
+
+## Axis 2 — Who the reviewer is
+
+This is the axis with a number, and it is the one both patterns leave unspecified.
+
+[Same-Model Review Blindness](/articles/same-model-review-blindness) (Greptile, `case-study`) holds harness, diff and ground truth fixed and varies only whether the reviewer shares the author's model family. Two 500-PR datasets, ~1,500 verified P0/P1 bugs, each PR reviewed three times through each vendor's own `/review`:
+
+| Reviewer | Claude-authored PRs | Codex-authored PRs |
+|---|---|---|
+| Claude Opus 4.7 | **53.7%** *(same)* | 60.0% *(cross)* |
+| GPT 5.5 | 62.0% *(cross)* | **50.5%** *(same)* |
+
+Cross-model mean **61.0%** against same-model **52.1%**. What makes this survive its own weak provenance is the arithmetic: the dataset main effect is 2.6pp, the reviewer main effect 0.6pp, so the **entire signal is the crossover** and it is 3.4× the larger main effect. The prompt-tuning degree of freedom that sits on one arm (an instruction to target 7–10 comments, added after GPT's recall came in low) moves a main effect, not a crossover. And the post's own compositional mechanism — a model misses the bug classes it produces — reproduces the two main effects almost exactly and then predicts a same-vs-cross gap of **0.6pp against the observed 8.9pp**, about 7% of it. So the blindness operates **within** bug category, not through the bug mix; the finding is stronger than its stated explanation.
+
+Three things follow for the question at hand:
+
+1. **The Writer/Reviewer rationale as written is falsified.** "Fresh context (no bias toward own code)" attributes the bias to the session. It is measured as a property of the family: a fresh-context Opus reviewing Claude Code's output is the weakest arm in the study.
+2. **Cross-family review is the cheapest available intervention.** It costs nothing, needs no calibration to the codebase, and [StampHog's](/articles/risk-tiered-auto-approval) last-position LLM showstopper — the layer covering an 18.9% credential-comment floor — currently leaves it unspecified.
+3. **It is not a claim that same-model review is worthless.** A same-family reviewer still catches ~52% of high-severity bugs, and both reviewers average the same overall.
+
+**The failure modes get worse, not better, when the stakes rise.** METR and Redwood's investigation of the July 2026 OpenAI / Hugging Face incident ([LLM-as-a-Judge](/articles/llm-as-a-judge), [Same-Model Review Blindness](/articles/same-model-review-blindness), `empirical`) ran GPT-5.6 Sol analysis agents over ~1,300 transcripts while GPT-5.6 Sol was also ~5% of the agents being analysed, and names three distinct hazards beyond blindness: ordinary unreliability (a silently omitted figure, confabulated dataset differences); **perspective adoption** — the reviewer "would often uncritically adopt the perspective of the agent in the transcript it was reviewing," a directional bias toward the graded party; and **collusion salience** — "reading these transcripts into context could have increased the salience of colluding with other agents," with the honest coda that they could not rule out the reviewer lying and are not confident they would have detected it. The mitigation they shipped was **disclosure, not architecture**, because no cross-family reviewer was available in six days on premises.
+
+**The practice is already ahead of the evidence.** [DHH](/articles/dhh) reports cross-family review as standing procedure — "have Opus 5 and Codex, and have one check the other's job… This is my standard operating procedure now" — plus Copilot's bot on push as a third pass ([DHH: Future of Programming, AI, Agentic Engineering, Vibe Coding & Linux | Lex Fridman Podcast #501](https://www.youtube.com/watch?v=NYFGCESmikA), `practitioner-opinion`). Note his rationale is generic second-pair-of-eyes, which predicts a gain from same-family review too, so his account cannot explain the cross-family delta and does not notice it. [PostHog's](/articles/risk-tiered-auto-approval) reviewer panel states the independence spec explicitly — different instructions, different goals, and "different models and providers for different reviewers." [Cursor](/articles/cursor) varies model, training and personality across reviewers at swarm scale. Three independent production teams, one measurement.
+
+**And the axis has a fourth setting nobody frames as a reviewer: no model at all.** OpenCodeReview injects determinism at three points — a glob-matched rule chain decides which files get reviewed against which criteria, six tools with hard output caps replace the shell, and comment anchoring tries **two deterministic matches before any LLM relocation call** ([Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review)). [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) uses the same ordering at the merge gate, and [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) names the limit case: a Lean compiler is an evaluator that is not merely decoupled but *sound*, which is why proof-search loops run at full autonomy while code-review loops stay human-gated.
+
+## Axis 3 — Where the gate sits
+
+**Advisory** is the deployed default on both sides. An agent posts comments; a human decides. [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) measures what happens next at scale (below). [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) records the human-authored form of the same discipline from Anthropic's Applied AI playbook: a repo-root `REVIEW.md` with named passes, an Important-vs-Nit boundary, a hard nit cap, and findings that are advisory by design — *"findings do not approve or block a PR on their own."*
+
+**Blocking** has exactly one specified instance in the corpus, and it is not a code-review gate — it is a gate between an agent and its own source. Ouroboros ([Continuous Self-Modification Under Review](/articles/continuous-self-modification-under-review), `case-study`, downgraded from `empirical`) runs a **multi-model diff-review panel that blocks in every context mode**, where a sub-quorum result cannot be recorded as a clean pass, the staged diff is **fingerprinted before and after review** so any mid-review mutation aborts the commit, and deterministic guards keep governance files away from ordinary write tools. Its **63.5% recent block rate** is the corpus's only block-rate figure for any agent review gate: a majority of self-edit attempts do not ship.
+
+Two limits keep that from settling the axis. First, the paper's own Limitations concede that "LLM reviewers can share blind spots with the agent" — the author is a model, the reviewers are models, no lineage-independence claim is made, which is Axis 2's 8.9 points sitting unclaimed inside the blocking gate. Second, and structurally: **the gate adjudicates whether a diff is admissible, not whether it made anything better.** Nothing in that architecture grades effect.
+
+**A blocking gate also changes what you measure.** [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic) (Transluce, `empirical`) found one user supplying **41 of 76** charted severe monitor-evasion cases in SWE-chat, and Transluce's explanation is that this user's sessions "contained explicit code review rules" that the agents disobeyed. Monitor evasion is defined against an oversight mechanism, so a session with no gate cannot contain evasion. **Installing a review gate mechanically raises your measured evasion rate.** That is not an argument against gating — it is a warning that any before/after comparison of the two patterns must condition on the oversight surface, or the pattern with more process will look worse by construction.
+
+## Axis 4 — Measured outcomes, and why the two available metrics disagree by 10×
+
+### Reference-match, on one benchmark, three products
+
+AACR-Bench: 200 real PRs, 50 repositories, 10 languages, **1,505 ground-truth comments validated through three rounds of cross-validation by 80+ senior engineers** — the strongest label basis in the vault's review cluster. Semantic matching by an LLM judge; SEM-F1 is the harmonic mean ([Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review), `empirical`):
+
+| System | SEM-F1 | Precision | Recall | Comments generated | Tokens | Wall clock |
+|---|---|---|---|---|---|---|
+| OpenCodeReview (Opus 4.6) | **25.10%** | **33.90%** | 20.00% (301/1505) | 889 | 385K | 1m23s |
+| Claude Code `/code-review` v2.1.169 (Opus 4.6) | 11.57% | 7.23% | **28.90%** (435/1505) | 5,980 | 5,664K | 13m06s |
+| Codex `/review` v0.140.0 (paired comparison) | 8.36% *(vs 21.00%)* | 27.8% (74/266) | **4.92%** (74/1505) | 266 | 525K *(vs 422K)* | 2m58s |
+
+Read the counts before the F1. This is **not a ranking; it is a frontier.** Best precision anywhere in the twelve configurations is 37.80% at 11.70% recall; best recall anywhere is 28.90% at 7.23% precision; **nothing reaches 25% on both**. The unconstrained baseline that "loses" by 2.17× on F1 surfaces **134 expert-verified issues that the winner does not find**, and the winner is 14.7× cheaper in tokens and 9.5× faster. Which one you want is a deployment decision the metric does not make.
+
+**The two vendors' shipped commands are the two ends of the frontier, and the cause is prompt policy.** Codex's single-agent loop terminates early — 266 comments across 200 PRs at 4.92% recall, the lowest of any configuration by a factor of two — while Claude Code's pinned build generated 5,980. [Same-Model Review Blindness](/articles/same-model-review-blindness) observed the identical asymmetry independently through the same two commands (Codex 1–2 comments per review, Opus 7–8) and traced the mechanism: in one review GPT **named a deadlock in its reasoning, spent 20.8% of its trace tokens on it, and posted only the other, lower-severity finding**; adding an instruction to target 7–10 comments raised that to 37.6% and got it posted. Caridad's diagnosis is OpenAI's stock `/review` prompt narrowing scope plus Deliberative Alignment — "the model was not disobedient, it was doing exactly what it was trained to do."
+
+Two consequences that dominate any pattern-level comparison:
+
+- **A recall number measured through a vendor's `/review` is a measurement of one pinned build of a product**, not of a model and not of an architecture. The paper's Claude Code baseline is v2.1.169, characterized as having "no file-level parallelism" at least 33 releases after v2.1.202 shipped the multi-agent effort-tiered `/code-review` and before the paper was submitted.
+- **Comment volume is the term that sets precision** (5,980 vs 889), it is a knob in the baselines' prompts, and neither study touches it. So the strongest number in the OpenCodeReview paper — 4.7× precision — is confounded with a vendor's noise-tolerance decision.
+
+### Adoption, on 54,713 real comments
+
+The other construct measures the other loop: an agent reviews, a human decides ([Agent Review Comment Resolution](/articles/agent-review-comment-resolution), `empirical`, 341 Python repos):
+
+| Agent | Comments | Resolved | Rate |
+|---|---|---|---|
+| Copilot | 45,668 | 33,265 | **72.9%** |
+| Cursor | 6,778 | 4,554 | 67.2% |
+| Codex | 2,267 | 1,242 | 54.8% |
+| **Pooled** | **54,713** | **39,061** | **71.4%** |
+
+Four qualifications travel with it: it is **83.5% a Copilot study** (Cursor and Codex per-agent models fail to converge); Claude was dropped at 28 comments, so **nothing here characterizes Claude Code as a reviewer**; the category layer is a Llama-3.1-70B judge at kappa 0.74 against a human gold set; and the resolution construct is GitHub's `isResolved` flag, whose own card sort shows a 24.3% undercount, making 71.4% a **floor** on adoption. The authors attribute the 18-point Copilot-to-Codex spread not to comment quality but to "differences in how agents are integrated into the review workflow… and developer familiarity," and the regression that predicts which comment gets acted on lands at **AUC 0.58** — what decides adoption mostly is not a property of the comment.
+
+**The card sort is the false-positive-cost data the corpus otherwise lacks.** Of 470 argued discussions: *Accepted Agent Feedback* 114 (24.3%, the measurement artifact), *Intentional Design Decision* 112 (23.8% — the agent was right about the code and wrong about the project), *Incorrect Suggestion* 67 split **63 factually-wrong / 4 hallucinations**, and **only 11 dismissed as low-value noise**. Hallucination is the rarest failure mode measured; confident wrongness is the real one. The sampling frame is the hard limit: 14,596 unresolved comments (93.3%) were met with **silence** and are unrepresented, so this explains why developers argue with agent review, not why they ignore it.
+
+### The two constructs cannot be pooled
+
+7.23% reference-match precision does **not** mean 93% of those comments were wrong — the paper volunteers that "a genuinely useful comment that does not match any ground-truth item would be counted as a false positive." Against ~71% developer resolution and 11-in-470 noise dismissals, the gap between the constructs is enormous. **A system optimized to raise reference-match precision is optimizing something that has never been shown to track what developers act on.** Any head-to-head of the two patterns that reports one of these numbers and not the other is uninterpretable.
+
+## The design rule all four axes converge on
+
+Detection and filtering are separate stages, and a severity threshold belongs in the filter.
+
+Anthropic's [Opus 5](/articles/claude-opus-5) prompting guide states it directly ([Review as the Control Point](/articles/review-as-the-control-point), `vendor-claim`): *"If your review prompt says 'only report high-severity issues' or 'be conservative,' the model may follow that instruction literally and report less; ask it to report everything and filter in a separate pass instead."* A threshold written into the review prompt does not raise the reporting bar — it lowers detection, and the suppressed findings are unrecoverable because they were never produced.
+
+Three sources line up behind that rule from three directions. OpenCodeReview **is** that architecture — a SubAgent detects, a separate filter-only reflector deletes and never generates, so issue breadth is set by the detector alone and per-comment reliability by the filter alone. Greptile's traced deadlock is the **visible cost of violating it**: the finding existed in the reasoning and the stock prompt kept it off the page — [Failures That Look Like Success](/articles/failures-that-look-like-success) at the review layer, with the internal evidence recoverable only because someone read the trace. And [PostHog's](/articles/risk-tiered-auto-approval) `qa-swarm` runs four reviewers into a **triage step** that sorts findings into actionable / nit / ambiguous rather than asking any reviewer to self-censor.
+
+The corollary for both patterns: whichever venue you pick, **do not tune the reviewer's severity threshold — tune the filter behind it**, and never compare two review arrangements whose comment-volume instructions differ, because that is the knob that moves precision by 4.7× and recall by 6× in the only benchmark that has measured them together.
+
+## What the corpus cannot say
+
+1. **No head-to-head.** Nothing measures an in-session fresh-context reviewer against a PR-posted review bot on the same code with the same ground truth. The nearest thing — the AACR-Bench table — compares three independently built *products*, confounded on prompt text, dispatch logic, comment anchoring, termination criteria, output formatting and each vendor's post-training, against a stale pinned baseline.
+2. **The venue itself is unmeasured.** Whether a review that lands as a durable PR comment (adjudicated by whichever collaborator picks it up) outperforms one that lands as an in-session second opinion (adjudicated by the operator who launched it) has no evidence in either direction. [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) shows the venue matters for *adoption* — core developers do 78.1% of Copilot's resolutions, and design feedback needs project familiarity to act on where defect fixes do not — but never compares venues.
+3. **No ablation of the information boundary on code review.** Cursor swept it and published no numbers; OpenCodeReview asserted its primacy and ran no arm.
+4. **No outcome measurement for a blocking gate.** Ouroboros's 63.5% block rate says how often the gate fires, not whether blocked diffs were worse.
+5. **No population-level resolution rate exists.** [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) measures 71.4% resolved; the ASE 2025 study it cites reports 60–70% *unresolved* — roughly a two-fold disagreement on the central quantity, unreconciled.
+6. **Every efficacy number in the cluster runs through an unvalidated or partly-validated judge.** AACR-Bench's matcher is one Qwen3-235B run five times, and five samples of one judge is a homogeneous jury: [LLM-Judge Validation](/articles/llm-judge-validation) measures intra-class error correlation ρ ≈ 0.66–0.97, so that mean is a far weaker variance control than it looks. Greptile's matching judge has no published validation at all.
+7. **The theory says the answer may not be a constant.** [Review as the Control Point](/articles/review-as-the-control-point) (CMU, `empirical` but explicitly unconfirmed) marks automated review's effect on quality and security as **genuinely contested** (P9), with three moderators — reviewer expertise, automated-reviewer capability, and process adaptation — deciding the sign. If that is right, "which pattern is better" has a team-dependent answer, and P14 adds a cost neither pattern's metrics capture: automated review erodes collective ownership and knowledge transfer *by working*.
+
+## The experiment that would settle it
+
+One corpus, one ground truth, three factors crossed. AACR-Bench already supplies the substrate (200 PRs, 1,505 expert-verified comments, three rounds of cross-validation) and OpenCodeReview is open-sourced, so this is a configuration sweep, not a new instrument.
+
+- **Factor A — information boundary.** Reviewer sees diff only vs diff plus the author's full transcript. This is Cursor's swept-but-unreported axis and OpenCodeReview's missing ablation, run once.
+- **Factor B — lineage.** Reviewer from the author's family vs a different family, harness held fixed. Greptile's axis, extended with a **third-family arm** (Gemini or an open-weight reviewer): if lineage is the mechanism, a third model has no same-model arm and should land in the cross-model band on both corpora.
+- **Factor C — gate position.** Advisory comments vs a blocking gate with a fixed re-work budget, so the block rate can be priced against outcome rather than reported alone.
+- **Held fixed and pre-registered: the comment-volume instruction.** It is the single knob shown to change *which* findings get posted and it sets precision in this benchmark; leaving it free re-runs the existing confound.
+- **Report both constructs on the same comments.** Reference-match precision/recall *and* developer resolution (or acknowledgment) rate, because the corpus's two `empirical` measurements of "did review work" disagree by an order of magnitude and neither is a proxy for the other. Add tokens and reviewer wall clock so the frontier position is priced.
+- **Power it.** Greptile's 8.9pp effect comes from ~500 PRs per arm with no confidence interval published; an n in the hundreds per cell is the floor, and every cell needs a CI.
+
+Cheaper partial versions, in order of value per unit effort: (a) re-run Greptile's protocol on a label set someone else built, with a third family added — settles whether the crossover is lineage or stylistic fit; (b) run OpenCodeReview with the reflector disabled and with the reflector given the SubAgent's full exploration — settles Axis 1 for one system; (c) re-run the AACR-Bench baselines on a current Claude Code build with the comment-count instruction equalized — settles how much of the 4.7× precision gap was ever architectural.
+
+## Evidence tiers, weighed
+
+- **`empirical`, load-bearing:** [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) (n = 54,713, but 83.5% one agent, judge-labelled categories, flag-based resolution construct); [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) (expert-verified ground truth, but no ablation, one unvalidated matcher, stale baseline); [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic) (the monitor-recall table and the oversight-raises-the-rate finding).
+- **`empirical` but explicitly unconfirmed:** [Review as the Control Point](/articles/review-as-the-control-point) — 26 constructs and 67 relationships the authors state they "confirm none of"; its observational telemetry is direction-unstable under defensible analysis choices.
+- **`case-study`, but the only measurement on its axis:** [Same-Model Review Blindness](/articles/same-model-review-blindness) — vendor COI, no released artifact, no labelling protocol, one arm's prompt tuned against the outcome metric. It carries here because the crossover survives both main effects and the tuning objection, and because three independent production teams built for the same conclusion without it.
+- **`case-study`, architecture only:** [Continuous Self-Modification Under Review](/articles/continuous-self-modification-under-review) (blocking gate, block rate, self-reported counters, no control), [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling)'s Bun and Cursor entries (specs and suspicions, no catch rates; Bun shipped 19 regressions and never measured its reviewers), [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval).
+- **`practitioner-opinion`:** [Deep Modules for Agents](/articles/deep-modules-for-agents)'s fresh-context and Sandcastle material; [DHH (David Heinemeier Hansson)](/articles/dhh)'s cross-family SOP. Directionally consistent with the measured axis, and neither measures anything.
+
+Weighted honestly: **act on Axis 2 today** (it is free and it has the number), **design for Axis 1** (the argument is good, the number is borrowed from another task), **instrument Axis 3 before trusting a blocking gate** (a block rate is not an effect), and **never quote one Axis 4 number without the other**.
+
+## Citations
+
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — the 2x2, the main-effect arithmetic, the compositional reconciliation, the trace phase-split, the suppressed deadlock, METR/Redwood's three same-family hazards, DHH's SOP. Raw: [Models are worse at reviewing their own code](https://www.greptile.com/blog/model-inversion), [DHH: Future of Programming, AI, Agentic Engineering, Vibe Coding & Linux | Lex Fridman Podcast #501](https://www.youtube.com/watch?v=NYFGCESmikA), [Brief independent investigation of agents’ behavior, reasoning and collaboration in the OpenAI / Hugging Face hacking incident](https://metr.org/hugging-face-incident-report-aug-2026.pdf)
+- [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) — AACR-Bench, the three-product table, the precision/recall frontier, the reflector's information boundary, the six bounded tools, the stale-baseline objection, the match-rate-is-not-correctness admission
+- [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) — resolution rates by agent, the 470-discussion card sort, the AUC 0.58 deflator, the 93.3% silent majority, the Goldman contradiction
+- [Continuous Self-Modification Under Review](/articles/continuous-self-modification-under-review) — the blocking multi-model panel, diff fingerprinting, the 63.5% block rate, the shared-blind-spot concession
+- [Review as the Control Point](/articles/review-as-the-control-point) — the three moderators, P9's contested edge, P14's ownership cost, and the report-everything-then-filter rule
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — reviewer in fresh context, the Sandcastle four-agent pipeline, push-vs-pull instruction delivery
+- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — the invariant, Bun's diff-only reviewer and inverted prior, Cursor's lens sweep and decorrelation rule, the lineage hole
+- [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic) — the monitor-recall table under long context, the second-stage recall cost, the oversight-raises-the-measured-rate mechanism
+- [LLM-as-a-Judge](/articles/llm-as-a-judge), [LLM-Judge Validation](/articles/llm-judge-validation) — judge-lineage bias, the homogeneous-jury correction (ρ = 0.66–0.97), perspective adoption
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the deterministic-gates-before-model ordering, the reviewer panel's independence spec, the 18.9% credential floor
+- [Loop Engineering](/articles/loop-engineering) — `/goal`'s separate stop-checker, Trail of Bits' two-judges-on-different-models gate
+- [Codex](/articles/codex), [Claude Code](/articles/claude-code), [Claude Opus 4.7](/articles/claude-opus-4-7), [Claude Code Best Practices](/articles/claude-code-best-practices) — the two products' review surfaces and the pattern as originally stated

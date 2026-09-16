@@ -5,7 +5,14 @@ description: "PostHog's StampHog: a merge-gate that auto-approves PRs passing
   four ordered checks (PR state, blast-radius deny-list, diff ceiling,
   last-position LLM veto) under fail-closed invariants — stamped ~1 in 3 merged
   PRs, displacing a rubber-stamp Slack ritual; the deployed instance of
-  risk-tiered gating, with volume reported but no defect rate."
+  risk-tiered gating, with volume reported but no defect rate. Plus the third
+  tiering key and the first population distribution for it: security operations
+  tiers on the reversibility of the *response* (13% read-only / 44%
+  recommend-only / 30% auto-execute low-risk / 13% medium-risk / 0% full
+  autonomy, self-reported). And a fourth key for non-code enterprise workflows —
+  consequence of the output (automated / sampled / reviewed / advisory, each
+  with a review cadence) — plus the structural-drag account of why checkpoints
+  only ever accumulate and the three-question audit that removes them."
 tag: Concept
 domain: ai-coding-practice
 tags:
@@ -13,18 +20,25 @@ tags:
   - code-review
   - agent-engineering
   - developer-workflow
-readingTime: 27
+readingTime: 36
 imageAlt: Illustration for Risk-Tiered Auto-Approval
 sources:
   - title: Stop being the code review bottleneck
     url: https://newsletter.posthog.com/p/code-review-tips
   - title: "The State of AI Impact in Engineering: Q2 2026"
     url: https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering
+  - title: "State of AI in the SOC 2026: 8 Key Takeaways"
+    url: https://www.prophetsecurity.ai/blog/state-of-ai-in-the-soc-2026
+  - title: "Deploying AI from pilot to production: A practical blueprint for CIOs
+      and technical leaders"
+    url: https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6aa46440db7c5ad962ef7ef2_Claude-Accenture-Deploying-AI-from-pilot-to-production-09112026%20(1).pdf
 ---
 export { default as heroImage } from "../assets/risk-tiered-auto-approval.webp";
 
 ## Sources
 
+- [Deploying AI from pilot to production: A practical blueprint for CIOs and technical leaders](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6aa46440db7c5ad962ef7ef2_Claude-Accenture-Deploying-AI-from-pilot-to-production-09112026%20(1).pdf)
+- [State of AI in the SOC 2026: 8 Key Takeaways](https://www.prophetsecurity.ai/blog/state-of-ai-in-the-soc-2026)
 - [Stop being the code review bottleneck](https://newsletter.posthog.com/p/code-review-tips)
 - [The State of AI Impact in Engineering: Q2 2026](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering)
 
@@ -132,8 +146,112 @@ What it shares with StampHog is the evidence gap, and worse: the playbook report
 
 **And the case study reports volume, not safety.** 1 in 3 and 1.6K are throughput figures. [P8/P9](/articles/review-as-the-control-point) is exactly this split — automated review reliably buys throughput and latency, its effect on quality and security is contested — and StampHog is a large deployed instance of the contested half with nothing measured attached to it. What would settle it is cheap and absent: the escaped-defect or incident rate of auto-approved PRs against the human-stamped baseline the channel used to produce.
 
+## The third tiering key: reversibility of the response (security operations, 2026-09-02)
+
+Two tiering keys are on this page already — a property of the **change** (StampHog's size ceiling and
+blast-radius deny-list) and a property of **production** (Anthropic's σ control bands). Security
+operations supplies a third, and the first population distribution of where teams actually set it.
+
+[Prophet Security's *State of AI in the SOC 2026*](https://www.prophetsecurity.ai/blog/state-of-ai-in-the-soc-2026)
+(`vendor-claim`, **vendor-commissioned survey**, n=250 security leaders and practitioners fielded by
+ViB, every figure self-reported) asks AI-using SOCs what autonomy they grant a triage model. The
+answers sum to 100, so it is a single-choice ladder:
+
+| Highest autonomy granted | Share of AI users |
+|---|---|
+| Read-only triage | 13% |
+| Recommend actions, a human executes | **44%** |
+| Auto-execute **low-risk** actions | **30%** |
+| Auto-execute **medium-risk** actions | **13%** |
+| Full unsupervised autonomy | **0%** |
+
+The tier is keyed to **how hard the action would be to undo** — quarantine, credential revocation,
+session termination, an access-control change — rather than to how large or how sensitive the input
+was. That is a different predicate from either of this page's, and it is the one that is *computable
+from the tool call itself* rather than from the artifact: an action's tier is a fixed property of the
+API you are about to hit, needing no calibration to a codebase's vocabulary and no baseline to drift
+against. It sits in the deterministic tier beside diff coverage, and unlike a keyword deny-list it
+cannot be disarmed by content that reads clean.
+
+**What transfers and what does not.** The shape transfers exactly — deterministic tiering up front,
+the model bounded to a subset of permitted routes, escalation as routing rather than blocking. The
+*level* does not, and the reason is the same predicate: a merge auto-approval sits behind CI and a
+one-command revert, where an auto-executed containment action is customer-facing and often
+irreversible. Reading "0% full autonomy in the SOC" against "StampHog approves 1 in 3 merged PRs" as
+a difference in nerve gets it backwards; they are two settings of the same dial on actions with very
+different undo costs, which is exactly what a reversibility-keyed tier is for.
+
+**And the survey supplies one number this page has been missing for its own gate, in the wrong
+domain.** Of AI users, **19% rely on vendor-reported accuracy metrics** as their validation practice
+(against 57% requiring human review of every verdict before closure, 40% senior spot checks, 32%
+benchmarking against labeled datasets or red-team exercises, 5% no formal process — multi-select).
+This page's standing complaint is that StampHog reports volume and never efficacy; in the SOC, roughly
+a fifth of teams close that same gap by **accepting the seller's accuracy figure in place of their own
+measurement**. That is not a control, it is a `vendor-claim` standing where a measurement should be,
+and it is the outcome the "no escaped-defect rate" question below drifts toward if nobody runs the
+before/after.
+
+## The fourth tiering key: consequence of the output (Anthropic × Accenture, 2026-09-11)
+
+Three keys are on this page — a property of the **change**, a property of **production**, and the
+**reversibility of the action**. [[raw/claude-accenture-pilot-to-production|*Deploying AI from pilot
+to production*]] (Anthropic × Accenture, `vendor-claim`) supplies a fourth, keyed to **what the output
+does when it lands**, and it is the first one on this page written for non-code enterprise workflows
+rather than for a merge queue or a SOC.
+
+| Tier | Oversight model | Example use cases | Review cadence |
+|---|---|---|---|
+| **1. Automated** | No human review; output goes directly to workflow | Summarizing meeting transcripts; reformatting data between systems; generating code documentation | Quarterly audit of output quality |
+| **2. Sampled** | Random subset reviewed on a regular cadence | Extracting structured data from invoices; classifying support tickets; populating CRM fields from call transcripts | A portion reviewed weekly; start higher and adjust as error patterns stabilize |
+| **3. Reviewed** | Human approves every output before it reaches its audience | Drafting client communications; financial analysis for external distribution; contract language from templates; marketing content | Every output reviewed before release; audit the review process monthly for catch rate and cost |
+| **4. Advisory** | AI provides analysis, a human makes the decision and produces the output | Credit and lending recommendations; candidate screening; clinical findings for physician review; regulatory filing preparation | Every decision documented with an audit trail; compliance review quarterly |
+
+The predicate is neither the artifact's size nor the action's undo cost but **who the output reaches
+and what they do with it** — which is why "generating code documentation" sits at tier 1 and
+"drafting client communications" at tier 3 despite being the same act of text generation. Tier 4 is
+the one worth noting: it is not a stricter review, it is a *different architecture* — the human
+produces the output, so there is no AI output to review at all, and the gate has been moved upstream
+of the artifact rather than placed in front of it.
+
+**The cadence column is the part this page did not have.** Every earlier key on this page specifies
+*which* items get reviewed and none specifies *how often the tiering itself gets re-examined*. Here
+each tier carries its own audit rhythm, and tiers are explicitly declared mobile: "if a process has
+had a low error rate for a long period of time, say six months or a year, it may be ready to move up
+to tier 2." Tiers as a ratchet that only tightens is the failure the next section names.
+
+### Structural drag, and the checkpoint audit
+
+The document's account of why oversight accumulates is the sharpest thing in it:
+
+> "review checkpoints accumulate because they're easier to add than to remove, and because the risk
+> of removing a checkpoint is visible while the cost of keeping it is not."
+
+The asymmetry is between a *legible* risk and an *illegible* cost, which is why the drift runs one
+way regardless of anyone's intent. The prescribed counter is a three-question audit run periodically
+against each manual review step:
+
+1. What does it actually catch?
+2. How often does a reviewer change the output?
+3. What is the cost per review, and what justifies incurring it?
+
+Low catch rate plus high cost means the checkpoint gets automated, sampled, or removed. Question 2 is
+the load-bearing one and is the same measurement [Is Human Review of AI-Authored Code Still a Real Control, or Already Rubber-Stamping?](/articles/human-review-real-control-or-rubber-stamp)
+argues is what separates a real control from a ritual — a reviewer who never changes the output is
+not reviewing, and this is the first source in the corpus to write that as a standing operational
+metric rather than as a critique. It is also, in this document's own framing, the mechanism by which
+StampHog's predecessor was diagnosed: an approval ritual whose catch rate nobody had ever measured.
+
+**Tier note.** All of this is prescriptive vendor guidance with no deployment behind it — the
+document reports no organization running the ladder, no tier distribution, and no catch rates from
+the audit it prescribes. Read it as a well-argued taxonomy, not as evidence. Its companion claim from
+the same source — that organizations with formal chargeback accountability tie **32¢ of every AI-token
+dollar** to a quantified business outcome, six times those with no allocation — is the closest thing
+it offers to a measured governance outcome, and it measures cost attribution rather than oversight
+efficacy.
+
 ## Connections
 
+- [Autonomous Defense](/articles/autonomous-defense) — **the same ladder in security operations, keyed to the reversibility of the response** (see the section above): 13% read-only / 44% recommend-only / 30% auto-execute low-risk / 13% medium-risk / **0% full autonomy**, self-reported by AI-using SOCs in a vendor-commissioned survey of 250 security leaders. It is the first population distribution of a risk-tiered gate anywhere in the corpus — this page has one deployment and no distribution — and it arrives by policy rather than by a gate stack, which is why the tier is stated in terms of the action rather than the artifact
 - [Misalignment in Production Agent Traffic](/articles/misalignment-in-production-agent-traffic) — the informed-consent boundary this page's gates depend on, written as an explicit judging criterion. A named bypass ("use `--no-verify` when you commit") or a short approval given after the agent surfaced the gate both authorize; "commit this", "just get it done", "don't ask me questions" and general grants of autonomy do not — *"a reflexive approval from a user who was never told about the gate or the bypass is not informed intent, however broad it sounds."* Project documentation instructing a specific bypass counts; the agent's own inference from ambiguous docs does not
 - [Same-Model Review Blindness](/articles/same-model-review-blindness) — **a free, unclaimed tightening of the last gate.** Three of the four checks are deterministic and the fourth is an LLM showstopper running last on a diff a coding agent produced; nothing in the design constrains which model runs it. Greptile's paired datasets (`case-study`) put 6–12 points of high-severity recall on that choice — each frontier model catches fewer bugs in its own family's code — so routing the veto to a different family than the authoring agent is worth more than any prompt tuning, costs nothing, and needs no calibration to the codebase the way the deny-list does. It is also the cheapest possible instance of the independence spec this same source states for its *reviewer panel* ("different models and providers for different reviewers"), applied to the gate rather than the panel. Note the ordering caveat: the veto sits behind three gates by design, so this raises the weakest layer without changing what reaches it
 - [Agent Review Comment Resolution](/articles/agent-review-comment-resolution) — **independent empirical support for two of this design's least-argued choices.** Across 54,713 agent review comments, an inline code suggestion is the strongest predictor of resolution (OR 1.62, 75.5% vs 64.6%) while comment length carries a penalty concentrated in functional feedback (OR 0.855) — which is StampHog's minimal-output rule (a bare approval with no line comments; a refusal of 1-2 sentences plus a risk level and next steps) measured rather than asserted. And it validates demoting the model to a **veto**: a veto produces no comment, so it has no resolution rate to lose, and it sidesteps the failure that dominates that study's rejections — an agent flagging as a defect what the team decided on purpose (23.8% of argued cases). What it does *not* supply is the escaped-defect number this page's first open question asks for; adoption is not correctness there either
@@ -155,6 +273,7 @@ What it shares with StampHog is the evidence gap, and worse: the playbook report
 - [Write-Then-Trusted](/articles/write-then-trusted) — the **deny-list critique's second instance, one layer down**: Pillar Security's verdict on allow-by-default sandbox profiles — "not a sandbox, it's a list of things somebody remembered to block that's always one entry short" — is the OS-policy version of this page's measured gap, where a blast-radius keyword deny-list misses the CI/container files carrying 87.6% of [measured security debt](/articles/security-debt-of-agent-generated-code). Two independent enumerate-the-bad controls, each falling short in the direction its author could not anticipate; the open question below ("does extending the deny-list restore coverage?") has the same shape in both
 
 - [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) — the same deterministic-before-model ordering at a smaller join. OpenCodeReview's comment-anchoring step tries two cheap deterministic matches (the cited snippet against the diff's new-side hunks, then against the full file) before ever falling back to an LLM relocation call — the same model-only-after-the-cheap-checks-fail shape this page's gate stack and showstopper veto share, applied to where a comment attaches rather than whether a PR merges
+- [Pilot-to-Production Gap](/articles/pilot-to-production-gap) — **where this page's tiering sits in an enterprise deployment lifecycle.** Consideration 06 of that blueprint is the fourth tiering key above, and the framing it adds is that oversight design is an *in-production* decision whose owner ("risk and monitoring owner") must be named pre-pilot — so the gate's calibration is an org-chart question before it is an engineering one. It also supplies the structural-drag account of why every gate on this page drifts toward more review than it can justify
 - [AI-Assisted Error Analysis](/articles/ai-assisted-error-analysis) — the same consequence-tiering logic applied to eval investment rather than merge autonomy: a uniform accuracy bar across every AI feature is the mistake, and the bar gets set by reasoning through worst-case user outcomes up front (with an assistant enumerating them for a human to judge), then working backwards into which evals and guardrails to build
 
 ## Derived
@@ -167,7 +286,12 @@ What it shares with StampHog is the evidence gap, and worse: the playbook report
 - A keyword deny-list is a **proxy** for blast radius, and [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) shows the proxy misses where the measured debt concentrates (CI/container plumbing, 87.6%). Does adding CI/IaC *paths* to the deny-list restore coverage, or does it shrink the auto-approvable set so far that the gate stops paying for itself? **A third candidate predicate is now priced but not tested (2026-08-12):** [Dipongkor et al.](/articles/agent-generated-test-quality) (`empirical`) show that "the existing suite covers this diff" is computable, deterministic, and rarely true — 27.0% of changed lines in Python, nothing at all in 64.8% of PRs. That reframes this bullet as a choice between two extensions with the same failure mode rather than one open question: both a path deny-list and a coverage floor buy precision by shrinking the auto-approvable set, and neither has been measured against the volume it costs. The same before/after PostHog already has in its history would answer both at once.
 - If the size ceiling becomes a design target — agents instructed to emit stacks under 400 lines — does total risk fall, or does it just redistribute into *more* PRs each below the gate, with the integration risk moving to the seams between them? The security study's size gradient is measured per-PR and cannot distinguish these.
 
+- Three tiering keys are now on this page — the **change** (size ceiling, deny-list), **production** (σ control bands), and the **reversibility of the action** (the SOC ladder). Only the first has a deployment with a coverage number attached. **Does a reversibility-keyed tier admit a larger auto-approved set at equal escaped-defect rate than a size-keyed one?** Checkable in the same PostHog history the first question asks for: partition merged PRs by how cheaply the change could be undone (revert-only versus data migration, config, or a released artifact) instead of by line count, and compare the auto-approvable share and the incident attribution of each partition. The prediction from the SOC ladder is that reversibility dominates size, since every gate that tiers on undo cost stops at exactly the point where undo stops being possible.
+
 ## Sources
 
 - [The State of AI Impact in Engineering: Q2 2026](https://newsletter.getdx.com/p/the-state-of-ai-impact-in-engineering) — Justin Reock, *The State of AI Impact in Engineering: Q2 2026* (DX, Engineering Enablement newsletter, 2026-07-22), **tier corrected `empirical` to `vendor-claim` at compile** (reasoning in Sources). Finding 2 only — median PR size nearly doubling Q1 to Q2 2026 across 500+ customer organizations — cited here as the moving distribution under this gate's fixed ceiling. No methodology accompanies the figure; the report is gated
 - [Stop being the code review bottleneck](https://newsletter.posthog.com/p/code-review-tips) — Jina Yoon, "Stop being the code review bottleneck", PostHog newsletter (2026-07-09), `case-study`. §3 (StampHog: label trigger, four gates, invariants from the porting prompt, escalation routing, 1-in-3 and 1.6K figures, the `#dev-stamp-exchange` predecessor), §4 (observability over reasoning; stacked PRs under 400 lines via Graphite; the explicit composition with §3), §1 (reviewer panel, independence across models and providers, the 60%-token-spend quote)
+
+- [State of AI in the SOC 2026: 8 Key Takeaways](https://www.prophetsecurity.ai/blog/state-of-ai-in-the-soc-2026) — Ajmal Kohgadai (Prophet Security), *State of AI in the SOC 2026: 8 Key Takeaways*, 2026-08-03, `vendor-claim` (**vendor-commissioned survey**, n=250, fielded by ViB, self-reported, methodology behind a lead-gen form; Prophet sells an agentic AI SOC platform). Cited here only for §7 — the single-choice autonomy ladder and the validation-practice multi-select. Full treatment on [Autonomous Defense](/articles/autonomous-defense); tier reasoning in Sources
+- [Deploying AI from pilot to production: A practical blueprint for CIOs and technical leaders](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6aa46440db7c5ad962ef7ef2_Claude-Accenture-Deploying-AI-from-pilot-to-production-09112026%20(1).pdf) — *Deploying AI from pilot to production*, Anthropic × Accenture, 2026-09-11, 38pp, `vendor-claim`. Consideration 06 only — the four-tier oversight ladder with its review cadences, the structural-drag account, and the three-question checkpoint audit. Prescriptive throughout: no deployment, no tier distribution, no catch rates. Full treatment on [Pilot-to-Production Gap](/articles/pilot-to-production-gap)

@@ -1,19 +1,23 @@
 ---
 date: 2026-05-06
 title: Context Window Smart Zone
-description: "Smart zone vs dumb zone (Dex Hardy / Matt Pocock): quadratic
+description: "Smart zone vs dumb zone (Dex Horthy / Matt Pocock): quadratic
   attention scaling, ~100K marker independent of advertised context;
   clear-and-restart > compaction; status-line token counting as essential
-  discipline"
+  discipline; Robert C. Martin corroborates from the instruction side via
+  lost-in-the-middle — a positional claim, not an occupancy one — and draws
+  born-do-die role agents from it"
 tag: Concept
 domain: agent-systems
 tags:
   - llm-architecture
   - agent-engineering
   - context-management
-readingTime: 16
+readingTime: 20
 imageAlt: Illustration for Context Window Smart Zone
 sources:
+  - title: Uncle Bob on Software Fundamentals in the Age of AI
+    url: https://www.youtube.com/watch?v=zcLPGC-tvgk
   - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
     url: https://youtu.be/-QFHIoCo-Ko
   - title: "Self-GC: Self-Governing Context for Long-Horizon LLM Agents"
@@ -34,10 +38,11 @@ export { default as heroImage } from "../assets/context-window-smart-zone.webp";
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
 - [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
 - [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)
 
 ## Summary
 
-LLMs do not degrade linearly as context grows; they degrade quadratically because attention relationships scale O(n²) with token count. [Matt Pocock](/articles/matt-pocock) (citing Dex Hardy of Human Layer) frames this as a **smart zone / dumb zone** split: the first ~100K tokens of any session is the smart zone where the model performs well; beyond that the model gets "dumber and dumber" regardless of advertised window size. Practical implication: context budget is a real, hard resource — and the agent harness is responsible for keeping individual sessions within the smart zone.
+LLMs do not degrade linearly as context grows; they degrade quadratically because attention relationships scale O(n²) with token count. [Matt Pocock](/articles/matt-pocock) (citing Dex Horthy of Human Layer) frames this as a **smart zone / dumb zone** split: the first ~100K tokens of any session is the smart zone where the model performs well; beyond that the model gets "dumber and dumber" regardless of advertised window size. Practical implication: context budget is a real, hard resource — and the agent harness is responsible for keeping individual sessions within the smart zone.
 
 ## The constraint
 
@@ -110,7 +115,26 @@ Refusal also contaminates the recall numbers in a way worth knowing: at Sonnet 5
 
 Pocock recommends a status-line widget showing the exact running token count of each session — without it, developers don't know when they're approaching the dumb zone. He treats this as "absolutely essential information."
 
+## Independent corroboration, and the harness consequence (Martin, 2026-08)
+
+[Robert C. Martin](/articles/robert-c-martin) arrives at this page's constraint from a different direction and gives it a different name ([Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk), 2026-08-19, `practitioner-opinion`). He went looking for why the coding rules in his prompt stopped being followed, and landed on **lost in the middle**:
+
+> "As the context window builds up inside the model the stuff at the very beginning and the stuff at the very end have more prominence than the stuff in the middle… **anything you say at the very beginning is going to get shoved into the middle if it's long.** So maybe the first three sentences you put at the beginning will remain as priority, but the 50th and the 80th sentence in there, they're gone."
+
+The two framings are not the same claim and it is worth keeping them apart. The smart-zone framing is about **total occupancy** — performance degrades as the window fills, wherever your content sits. Lost-in-the-middle is about **position** — the middle of the window is served worse than either end, at any occupancy. Martin's practical prescription follows from the second: it is not "keep the session short" but "keep the *instruction block* short," because a long instruction block manufactures its own middle. "The key with agents is to trim that initial prompt down to its absolute minimum so that you can get as much of it as possible into its priority." [Instruction Compounding](/articles/instruction-compounding) measures a related but distinct ceiling — all-rules-obeyed compliance reaching zero around 80 simultaneous instructions, independent of format — which would predict Martin's observation without any positional term at all. Nobody has separated the two.
+
+**The design consequence he draws is role-scoped, short-lived agents.** This is the same conclusion this page reaches from clear-over-compaction, arrived at from the instruction side:
+
+> "When you focus the agents down to a single task, you're keeping the context window under control. The lost in the middle problem becomes much less of a problem. So you can pile a few more, not a lot more, but a few more rules up at the top and they'll tend to follow them better. You can also set up a system where the agents are born, do the task, and die so that the next one comes in with a clean context."
+
+He prices the pattern honestly: 10–15 seconds of startup per agent, "and then it's got to figure out its whole context all over again." See [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) for the five-role pipeline this produces, and [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) for the corollary he draws — that anything you cannot afford to have decay should not be in the window at all.
+
+**Marker drift worth noting.** In this conversation the smart-zone boundary is given as "the first 150k tokens," against the ~100K this page has carried since 2026-05. The caption track does not label speakers, but the phrasing ("I refer to this as… it's not my term, that's Dex Horthy's term, I stole it") and the attention-dilution explanation place it with [Matt Pocock](/articles/matt-pocock), the same practitioner who supplied the 100K figure. Neither number is measured; both are practitioner feel, and the movement is in the direction model context handling has been going.
+
 ## Connections
+
+- [Robert C. Martin (Uncle Bob)](/articles/robert-c-martin) — independent arrival at the same constraint via lost-in-the-middle, with the minimize-the-prompt prescription and born-do-die role agents
+- [Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools) — his response to the decay: move the durable rules out of the window and into checkers
 
 - [Context Lifecycle Management](/articles/context-lifecycle-management) — the measured alternative to both clearing and compaction: govern the active context as indexed objects with byte-exact recovery, and price the commit against prefix-cache disruption
 - [Instruction Compounding](/articles/instruction-compounding) — the other ceiling on always-in-context material, measured in the same paper and denominated in instruction *count* rather than tokens: a prompt block collapses past ~80 simultaneous rules whatever its length or rendering
@@ -139,3 +163,4 @@ Pocock recommends a status-line widget showing the exact running token count of 
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) — primary articulation
 - [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503) — Gaurav Dadhich (Maximem), arXiv 2607.21503, 2026-07-23, `empirical`, **sole author with a total vendor COI** (the paper's benchmark subject is its author's own product). Cited here for **one number only**, from Table 1 and §3.2: the 18,282 → 122 token compression dropping accuracy 66.7% → 57.1%, itself a **secondary citation to Zhang et al. 2025 (arXiv 2510.04618)**, which the wiki has not read directly. None of that paper's own product or benchmark claims is used on this page; they live on [Context Lifecycle Management](/articles/context-lifecycle-management) with the COI stated in full. Its Table 3 is cell-collapsed and Table 4 scrambled in the raw parse; neither is cited anywhere
 - [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav, arXiv 2607.19257, 2026-07-21 (`empirical`, sole author, single lab, not peer reviewed): §3 the Book of Veyra corpus and context ladder, §5.2 recall accuracy and Table 7's non-ceiling cells, §5.4 the fabrication and sycophancy nulls, §5.5 and Table 8 the refusal climb, §5.6 the anchor-set methodology caveat, §7 cost-adjusted accuracy. Tables 3, 7, 8 and 9 were reconciled and are clean; the paper's Table 1 model roster is cell-collapsed in the raw markdown and is not cited (see the Sources note on [Instruction Compounding](/articles/instruction-compounding)), so per-model context ceilings here come from the paper's prose
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk) — Robert C. Martin with [Matt Pocock](/articles/matt-pocock), 2026-08-19 (`practitioner-opinion`; auto-caption transcript): lost-in-the-middle as the reason prompt rules decay, minimize-the-prompt as the prescription, born-do-die role agents as the harness consequence; also the source of the 150K smart-zone figure, unlabeled speaker

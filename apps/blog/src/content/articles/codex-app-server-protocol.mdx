@@ -15,19 +15,22 @@ tags:
   - codex
   - agent-runtime
   - integration
-readingTime: 11
+readingTime: 15
 imageAlt: Illustration for Codex App Server Protocol
 sources:
   - title: "An open-source spec for Codex orchestration: Symphony."
     url: https://openai.com/index/open-source-codex-orchestration-symphony/
   - title: MCP Specification Changelog — 2026-07-28
     url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
+  - title: Codex App Server
+    url: https://developers.openai.com/codex/app-server/
 ---
 export { default as heroImage } from "../assets/codex-app-server-protocol.webp";
 
 ## Sources
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Codex App Server](https://developers.openai.com/codex/app-server/)
 - [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 
 ## Summary
@@ -127,7 +130,7 @@ Treating user-input-required as a hard failure is appropriate for unattended orc
 
 ### Dynamic Tool Calls (the Most Underrated Feature)
 
-Experimental feature. The agent can request `item/tool/call` for tools the orchestrator advertises during `thread/start`. If the tool isn't recognized, return a tool-failure response — the session continues rather than stalling.
+Experimental feature — and, per the vendor reference below (2026-09-07), still one: `dynamicTools` on `thread/start` requires `capabilities.experimentalApi = true`. The agent can request `item/tool/call` for tools the orchestrator advertises during `thread/start`. If the tool isn't recognized, return a tool-failure response — the session continues rather than stalling.
 
 The leverage: **orchestrator-implemented tools can wrap credentials the subagent should never see**.
 
@@ -174,6 +177,16 @@ Symphony's spec is unusually explicit about version tolerance:
 
 Practical implication: don't bind tightly to specific JSON field names. Implementors are encouraged to inspect the installed Codex schema via `codex app-server generate-json-schema --out <dir>` and treat Codex-owned config (`approval_policy`, `thread_sandbox`, `turn_sandbox_policy`) as pass-through values.
 
+### What the vendor reference settles (snapshot 2026-09-07)
+
+Everything above was compiled from Symphony's spec, which reads the protocol from the client side. [Codex App Server](https://developers.openai.com/codex/app-server/) (`vendor-claim`; OpenAI's rolling reference, snapshotted 2026-09-07 — the `developers.openai.com/codex/app-server` URL now 308-redirects to `learn.chatgpt.com/docs/app-server`) is the server side, and it settles the three questions this page opened in April:
+
+- **Versioning is per-binary, and there is no registry.** "You can generate a TypeScript schema or a JSON Schema bundle from the CLI. Each output is specific to the Codex version you ran, so the generated artifacts match that version exactly" (`generate-ts`, `generate-json-schema`). No protocol-version field, no published schema package; the open-source implementation in `openai/codex` (`codex-rs/app-server`) is the reference. Symphony's Compatibility Profile — tolerate equivalent payload shapes, dump the installed schema — is therefore not a workaround but the intended contract, and the contrast with MCP's per-request `_meta` version negotiation above is a design difference, not a documentation gap.
+- **"Experimental" is a capability gate, not a caveat.** `capabilities.experimentalApi = true` in `initialize` opts a client into every experimental method and field; without it the server rejects them with `<descriptor> requires experimentalApi capability`. `dynamicTools` on `thread/start` is one such field, and the same gate covers `process/*`, `thread/turns/list`, `thread/items/list`, background-terminal control, `environment/info`, collaboration modes, `tool/requestUserInput` and the `parentThreadId`/`ancestorThreadId` thread filters. Two facts matter for Symphony's credential-proxy model: dynamic tools are *persisted* in the thread rollout metadata and restored on `thread/resume` unless the client supplies new ones, and their invocations surface as a standard `dynamicToolCall` item (`{id, tool, arguments, status, contentItems?, success?, durationMs?}`) — the *item* is on the stable surface while the *declaration* is behind the gate. No roadmap or graduation date is published; `experimentalFeature/list` exposes feature flags "with lifecycle stage metadata," the only machine-readable stability signal.
+- **Turns are multimodal.** `turn/start` input items are `text`, `image` (`{url}`) and `localImage` (`{path}`); `userMessage` items carry the same three; `model/list` reports `inputModalities` per model (missing → assume `["text", "image"]`); an `imageView` item is emitted when the agent invokes its own image viewer. The "text-focused" reading came from Symphony's spec, whose orchestrator never sends an image.
+
+Also surfaced, beyond the questions: transports beyond stdio (WebSocket, "experimental and unsupported"; a Unix socket via the HTTP Upgrade handshake; `off`); `turn/start` with `toolOutput` and an empty `input`, which feeds a client-run tool's result into the thread as a `functionCallOutput` item; an MCP server marked `required` that fails to initialize now fails `thread/start`/`thread/resume` rather than continuing without it; and resuming with a different model than the rollout recorded emits a warning and a one-time model-switch instruction on the next turn.
+
 ### Recommended Error Categories
 
 For normalization across implementations:
@@ -199,11 +212,13 @@ Worth flagging because it's easy to get wrong. Agent events may include token co
 
 ## Open Questions
 
-- Is there a public schema registry so external orchestrators can target specific App Server versions without `generate-json-schema`?
-- The "dynamic tool calls (experimental)" caveat — what's the stability roadmap? Symphony depends on this for its security model.
-- How well does the protocol handle multi-modal turns (image inputs, screenshot attachments)? The spec is text-focused.
+- Does `dynamicTools` leave the `experimentalApi` gate before Symphony-style orchestrators standardize on it for credential proxying? Trigger: the field drops off the experimental list in the app-server reference, or `experimentalFeature/list` reports it at a stable lifecycle stage.
 
 ## Resolved Questions
+
+- Is there a public schema registry so external orchestrators can target specific App Server versions without `generate-json-schema`? **Answered (2026-09-07):** no — [Codex App Server](https://developers.openai.com/codex/app-server/) offers only per-binary schema dumps ("each output is specific to the Codex version you ran, so the generated artifacts match that version exactly"), no protocol-version field and no published package; the `openai/codex` source tree is the reference. Symphony's tolerate-equivalent-shapes profile is the intended client posture, not a stopgap.
+- The "dynamic tool calls (experimental)" caveat — what's the stability roadmap? Symphony depends on this for its security model. **Answered (2026-09-07):** there is no published roadmap; the mechanism is a capability gate. `dynamicTools` on `thread/start` requires `capabilities.experimentalApi = true`, the same opt-in that covers `process/*`, turn/item listing and background-terminal control; declared tools persist in the rollout and survive `thread/resume`; invocations surface as the stable `dynamicToolCall` item; `experimentalFeature/list` carries lifecycle-stage metadata per flag. Graduation timing is now the `#oq/wait` above ([Codex App Server](https://developers.openai.com/codex/app-server/)).
+- How well does the protocol handle multi-modal turns (image inputs, screenshot attachments)? The spec is text-focused. **Answered (2026-09-07):** natively — `turn/start` accepts `text`, `image` (URL) and `localImage` (path) input items, `userMessage` items carry all three, and `model/list` advertises `inputModalities` per model with `["text", "image"]` as the backward-compatible default ([Codex App Server](https://developers.openai.com/codex/app-server/)). The text-only impression was Symphony's, whose orchestrator never sends an image.
 
 - How does the App Server protocol compare in detail to MCP? Both expose tools to a model, but App Server is *inside* the Codex runtime while MCP is *outside*. When does each win? **Answered:** [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — they sit at different planes and mostly compose rather than compete: MCP is the model↔world *tool plane* (write once, consume on every surface, provider-operated), App Server is the orchestrator↔runtime *session plane* (thread lifecycle, turns, events, timeouts, token accounting — none of it in MCP's scope). The only overlap is dynamic tool calls, where the rule is: MCP for reusable cross-surface third-party capabilities; orchestrator-injected tools for session-scoped, credential-sensitive ones (the `linear_graphql` token-isolation pattern, which also shrinks the poisoned-metadata/rug-pull attack surface to first-party code) — at the cost of experimental stability and zero ecosystem reuse.
 - Is there an analogous protocol on the Claude side, or is Claude's equivalent exclusively the Agent SDK + tool-use API? Comparing the two would clarify when "drive an existing CLI" beats "build on the SDK." **Answered:** [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — no documented Claude-side protocol; the offering *brackets* the App Server's position: `claude -p` (drive the product, inherit the full harness — permissions with abort-don't-hang unattended behavior, skills, context files, MCP wiring — but get text, not structured events) and the Agent SDK (build a different product on the raw runtime — Claude Design's weekend prototype). Rule: drive the CLI when the product's harness is the value and orchestration is batch/fan-out shaped; build on the SDK when the agent is a different product with its own surface and tools. Symphony's own tmux→protocol evolution marks the middle layer (structured session control *over* the product harness) that the Claude side currently approximates from either end — whether it gets standardized or harness shrinkage makes it moot is the watch item.
@@ -215,4 +230,5 @@ Worth flagging because it's easy to get wrong. Agent events may include token co
 ## Sources
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — Section 10 (Agent Runner Protocol) and Section 13.5 (Token Accounting) are the authoritative reference
+- [Codex App Server](https://developers.openai.com/codex/app-server/) — OpenAI, *Codex App Server* reference (`vendor-claim`). **Rolling page, snapshotted 2026-09-07**, `published:` blank by design; fetched as the `.md` endpoint at `learn.chatgpt.com/docs/app-server`, where the `developers.openai.com/codex/app-server` URL this page cites now redirects. Used for transports, the per-version schema dumps, the `experimentalApi` gate and what sits behind it, `dynamicTools` persistence and the `dynamicToolCall` item, `turn/start` input items and `inputModalities`, `toolOutput`, and the `required`-MCP-server and model-switch behaviours. The full method list (threads, turns, review, process, filesystem, approvals, elicitation) is in the raw and not compiled beyond what the questions needed
 - [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project, *Key Changes* for spec revision **2026-07-28**, `vendor-claim`. Major changes 1–3 (sessions and `Mcp-Session-Id` removed, handshake deleted, per-request `_meta` version negotiation, `server/discover`) and 7–8 (MRTR, `resultType`), used only for the protocol comparison above

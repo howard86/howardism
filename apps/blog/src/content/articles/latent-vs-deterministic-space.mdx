@@ -7,7 +7,9 @@ description: "Garry Tan's diagnostic for agent-system bugs: computation lives in
   external state) — and most AI-engineering failures are computation happening
   on the wrong side; now with one measured instance, where moving four policy
   rules out of a prompt document into Python predicates over database state
-  recovers +12.4pp of agent task success"
+  recovers +12.4pp of agent task success; Robert C. Martin adds the practitioner
+  decay argument — prompt rules have a half-life inside a growing session and
+  checkers do not"
 tag: Concept
 domain: agent-systems
 tags:
@@ -15,7 +17,7 @@ tags:
   - architecture
   - context-management
   - practitioner-opinion
-readingTime: 12
+readingTime: 16
 imageAlt: Illustration for Latent vs. Deterministic Space
 sources:
   - title: The New Physics of Business — Garry Tan, Y Combinator
@@ -25,6 +27,8 @@ sources:
   - title: "Reason Less, Verify More: Deterministic Gates Recover a Silent
       Policy-Violation Failure Mode in Tool-Using LLM Agents"
     url: https://arxiv.org/pdf/2607.07405
+  - title: Uncle Bob on Software Fundamentals in the Age of AI
+    url: https://www.youtube.com/watch?v=zcLPGC-tvgk
 ---
 export { default as heroImage } from "../assets/latent-vs-deterministic-space.webp";
 
@@ -33,6 +37,7 @@ export { default as heroImage } from "../assets/latent-vs-deterministic-space.we
 - [Garry Tan: Own Your Intelligence](https://www.youtube.com/watch?v=eRrc1pUY5oU)
 - [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405)
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)
 
 ## Summary
 
@@ -73,6 +78,23 @@ Three things this adds to the framing as stated above.
 - **The diagnostic has a precondition, and the paper states it.** Gates pay only where the policy is **state-decidable** — expressible as a deterministic predicate over current state and arguments. Rules requiring ambiguity resolution, legal interpretation, or human judgment stay latent by construction. So "which side should this be on?" is not always a free choice; the answer is forced for a decidable rule and unavailable for an interpretive one, which is a sharper version of Tan's question than the framing supplies.
 - **The wrong-side cost is a specific failure shape, not general degradation.** Computation left in latent space that belonged in deterministic space doesn't produce noisy or approximate results here — it produces *silent* ones. The tool executes, no error is raised, the transcript reads clean. The seating example's inverse (an LLM tracking 800 seats in context) would degrade visibly; this degrades invisibly, which is the more expensive way to be wrong.
 
+## The practitioner statement: rules decay, checkers do not (Martin, 2026-08)
+
+[Robert C. Martin](/articles/robert-c-martin) ([Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk), 2026-08-19, `practitioner-opinion`) reaches the same boundary from the coding-agent side, and states the *reason* for it more sharply than the framing above does. He started where most people start — a five-to-ten-page document of coding rules in the prompt — and abandoned it:
+
+> "The agents treat those rules in the Pirates of the Caribbean sense. They're more like guidelines, you know, might follow."
+
+His mechanism is positional rather than economic: **anything in the latent side has to survive the context window, and deterministic tools do not live there.**
+
+> "As the context window builds up, the stuff at the very beginning and the stuff at the very end have more prominence than the stuff in the middle… anything you say at the very beginning is going to get shoved into the middle if it's long. So maybe the first three sentences you put at the beginning will remain as priority, but the 50th and the 80th sentence in there, they're gone. **So deterministic tools don't disappear** … the key with agents is to trim that initial prompt down to its absolute minimum so that you can get as much of it as possible into its priority."
+
+Two things this adds.
+
+- **A decay argument for the boundary, not just a capacity or correctness argument.** Tan's seating example and the τ²-bench gates both argue that some computation belongs on the deterministic side *by nature* — too much state, or a state-decidable rule. Martin's argument is about **durability**: an instruction on the latent side has a half-life inside a growing session, and the same instruction compiled into a checker has none. That makes the boundary a function of session length, and it explains a failure the other two do not — a rule that demonstrably worked early in a session and stopped working later. See [Context Window Smart Zone](/articles/context-window-smart-zone) for the decay curve, [Instruction Compounding](/articles/instruction-compounding) for the compliance floor measured under instruction count.
+- **It supplies the missing arm named on [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review).** That page records that the corpus's determinism-beats-autonomy claim "still has no gate-vs-instruction arm" — nobody has run the same quality bar as prompt text against the same bar as a checker. Martin ran exactly that comparison, sequentially, on his own work, and reports the checker winning. It is one practitioner with no controls, no ablation, and a strong prior, so it is a **hypothesis with a named holder**, not the missing arm. But it is the first statement in the corpus of what that experiment would even look like.
+
+His enforcement shape is the loop condition rather than a pre-execution predicate: "you must change the code until this tool says that it's okay," with the tools themselves being CRAP scores, mutation testing, and a dependency-rule specification file "that the agents cannot violate" ([Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools)). The cost he reports is throughput — a five-minute task takes about an hour through the full gate stack — and he names a ceiling he has not found: "eventually you will slow the agents down to the point where they're slower than humans. And at that point you've lost the game."
+
 ## Connections
 
 - [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) — the diagnostic operationalized as a full pipeline taxonomy rather than one axis: nine layers split into deterministic software (L0-L3) and model behavior (L4-L8), with every lost fact assigned to exactly one, and a waterfall equation that converts conditional layer rates into shares of total loss. Under its benchmark allocation 73.4% of loss lands on the software side — Tan's predicted direction — with the caveat that the allocation was produced by deliberate fault injection rather than observed
@@ -86,6 +108,8 @@ Three things this adds to the framing as stated above.
 - [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — this vault as an instance: deterministic generators and linters around a latent compiler
 - [AI-Native Organization](/articles/ai-native-organization) — the org-level thesis from the same talk; the org mapping presumes each encoded process knows which side its steps run on
 - [Owning Your Externalized Cognition](/articles/owning-your-externalized-cognition) — why the latent side is written in markdown at all: steering a model with prose is what makes judgment writable-down, which is the precondition for it becoming an owned (or appropriable) artifact
+- [Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools) — the practitioner instance: quality rules moved out of the prompt into CRAP-score and mutation-testing gates, argued for on decay rather than capacity
+- [Impose Values, Not Disciplines](/articles/impose-values-not-disciplines) — what belongs in the checker once you accept the boundary: the value, not the ritual that produced it in humans
 - [Garry Tan](/articles/garry-tan) — the framing's author
 - [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) — a second measured instance, and a shape neither the seating example nor [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)'s constraints category quite covers. Rule-Guided Dispatch keeps *which* files get reviewed and against *what* checklist on the deterministic side — a four-tier glob chain, first-match-wins, so "the same PR always yields the same file and criterion assignment" — while leaving the checklist text itself, natural-language review criteria, in latent space. That is not a rule made deterministic, it is the *selection* of which latent-space rule applies made deterministic — code deciding which prose the model gets, rather than prose replaced by code. Unlike the τ²-bench gates, the instance is confounded rather than clean: three deterministic mechanisms move against two different baseline products at once, so the dispatch boundary alone was never isolated
 
@@ -99,3 +123,4 @@ Three things this adds to the framing as stated above.
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan, "The New Physics of Business," AI Engineer, 2026-07-17, §latent space vs. deterministic space (8:38–10:53)
 - [Garry Tan: Own Your Intelligence](https://www.youtube.com/watch?v=eRrc1pUY5oU) — Garry Tan, "Own Your Intelligence," YC Startup School, 2026-08-06 (`practitioner-opinion`; auto-caption transcript), §"Latent Space vs. Deterministic Code": the same diagnostic retold at 6,000-attendee scale with the delivered-in-production framing and the "the model fails where we fail" compression
 - [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405) — Reddy, Challaram & Basu (arXiv 2607.07405, KDD-ETAAI '26, `empirical`): §1.1 (policy in a natural-language document that the tool does not enforce), §5.1 (29.6% → 42.0% from moving four rules into deterministic predicates, replicated on 15 disjoint seeds), §7 limitation 6 (state-decidability as the precondition for the move). All tables reconciled against the prose; two-column reading-order scramble in §1.2 and §2. Full treatment on [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk) — Robert C. Martin with [Matt Pocock](/articles/matt-pocock), 2026-08-19 (`practitioner-opinion`; auto-caption transcript): the decay argument for the boundary — prompt rules are "more like guidelines" and get shoved into the lost-in-the-middle region, deterministic tools never enter the window at all. No controls; one practitioner's sequential comparison on his own work
