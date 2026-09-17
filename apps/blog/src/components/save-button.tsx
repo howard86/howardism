@@ -6,7 +6,7 @@ import {
   BookmarkCheck01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { getSavedSlugSet, toggleSave } from "@/lib/reading-store";
 
@@ -43,11 +43,11 @@ export function SaveButton({
     setSaved(initialSaved ?? getSavedSlugSet().has(slug));
   }, [slug, initialSaved]);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     const next = toggleSave(slug);
     setSaved(next);
     onToggle?.(next);
-  };
+  }, [slug, onToggle]);
 
   return (
     <button
@@ -67,7 +67,7 @@ export function SaveButton({
         className="size-[18px]"
         icon={saved ? BookmarkCheck01Icon : BookmarkAdd01Icon}
       />
-      {showLabel && <span>{saved ? "Saved" : "Save"}</span>}
+      {showLabel ? <span>{saved ? "Saved" : "Save"}</span> : null}
     </button>
   );
 }

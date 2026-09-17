@@ -121,6 +121,8 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
     };
   }, [slug]);
 
+  const dismiss = useCallback(() => setResume(null), []);
+
   const handleResume = useCallback(() => {
     if (resume) {
       document
@@ -147,7 +149,7 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
       <button
         aria-label="Dismiss resume"
         className="flex size-6 items-center justify-center rounded-full text-foreground-subtle transition-colors hover:text-foreground"
-        onClick={() => setResume(null)}
+        onClick={dismiss}
         type="button"
       >
         <span aria-hidden="true">×</span>

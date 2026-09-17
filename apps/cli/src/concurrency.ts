@@ -12,12 +12,10 @@ export async function runWithConcurrency<T, R>(
   const workers = Array.from(
     { length: Math.min(concurrency, items.length) },
     async () => {
-      while (true) {
+      while (nextIndex < items.length) {
         const i = nextIndex;
         nextIndex += 1;
-        if (i >= items.length) {
-          return;
-        }
+        // biome-ignore lint/performance/noAwaitInLoops: this *is* the concurrency limiter — each worker awaits one item at a time so at most `concurrency` run at once; Promise.all here would unbound it
         results[i] = await worker(items[i]);
       }
     }

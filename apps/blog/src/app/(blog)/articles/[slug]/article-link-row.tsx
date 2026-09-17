@@ -18,7 +18,7 @@ export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
   return (
     <li className="flex flex-col gap-0.5">
       <span className="leading-[1.25]">
-        {meta.domain && <DomainDot domain={meta.domain} size={6} />}
+        {meta.domain ? <DomainDot domain={meta.domain} size={6} /> : null}
         <InternalLink
           className="font-display font-medium text-[0.95rem] text-foreground no-underline hover:text-[var(--article-accent)]"
           href={`/articles/${slug}`}

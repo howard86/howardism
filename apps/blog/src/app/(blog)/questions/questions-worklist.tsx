@@ -48,6 +48,136 @@ const tokenize = (query: string): string[] =>
 const escapeToken = (token: string): string =>
   token.replace(REGEX_SPECIALS, "\\$&");
 
+/**
+ * One segmented sort button. These three and the chip/tally rows below are
+ * components rather than inline `() => setX(key)` props so each control keeps a
+ * stable handler as the list re-renders on every keystroke.
+ */
+function SortButton({
+  label,
+  onSelect,
+  selected,
+  value,
+}: {
+  label: string;
+  onSelect: (value: Sort) => void;
+  selected: boolean;
+  value: Sort;
+}) {
+  const handleClick = useCallback(() => onSelect(value), [onSelect, value]);
+  return (
+    <button
+      aria-pressed={selected}
+      className={cn(
+        SEG_BUTTON_CLASS,
+        selected
+          ? "bg-accent text-foreground"
+          : "text-foreground-subtle hover:bg-secondary hover:text-foreground"
+      )}
+      onClick={handleClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+/** One triage bucket in the tally band, with its share-of-peak bar. */
+function TriageTallyButton({
+  bucketKey,
+  count,
+  dimmed,
+  onSelect,
+  peak,
+  selected,
+}: {
+  bucketKey: TriageBucket;
+  count: number;
+  dimmed: boolean;
+  onSelect: (next: TriageBucket | null) => void;
+  peak: number;
+  selected: boolean;
+}) {
+  const meta = TRIAGE_META[bucketKey];
+  const handleClick = useCallback(
+    () => onSelect(selected ? null : bucketKey),
+    [bucketKey, onSelect, selected]
+  );
+  return (
+    <button
+      aria-pressed={selected}
+      className={cn(
+        "group min-w-[112px] flex-1 shrink-0 text-left transition-opacity",
+        dimmed && "opacity-45"
+      )}
+      onClick={handleClick}
+      type="button"
+    >
+      <span
+        className={cn(
+          "flex items-baseline justify-between gap-2 font-mono text-[10.5px] uppercase tabular-nums tracking-[0.14em] transition-colors",
+          selected
+            ? "text-foreground"
+            : "text-foreground-subtle group-hover:text-foreground"
+        )}
+      >
+        <span>{meta.label}</span>
+        <span>{count}</span>
+      </span>
+      <span
+        aria-hidden="true"
+        className="mt-1.5 block h-[3px] w-full bg-border"
+      >
+        <span
+          className="block h-full bg-[var(--tone)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+          style={
+            {
+              "--tone": meta.tone,
+              width: `${(count / peak) * 100}%`,
+            } as CSSProperties
+          }
+        />
+      </span>
+    </button>
+  );
+}
+
+/** One domain filter chip. Clicking the active chip clears the filter. */
+function DomainChip({
+  count,
+  domainKey,
+  onSelect,
+  selected,
+}: {
+  count: number | undefined;
+  domainKey: WikiDomain;
+  onSelect: (next: WikiDomain | null) => void;
+  selected: boolean;
+}) {
+  const handleClick = useCallback(
+    () => onSelect(selected ? null : domainKey),
+    [domainKey, onSelect, selected]
+  );
+  return (
+    <button
+      aria-pressed={selected}
+      className={cn(
+        CHIP_CLASS,
+        selected
+          ? "border-[var(--dc)] bg-card text-foreground"
+          : "border-border text-muted-foreground hover:text-foreground"
+      )}
+      onClick={handleClick}
+      style={{ "--dc": DOMAIN_META[domainKey].color } as CSSProperties}
+      type="button"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full bg-[var(--dc)]" />
+      {DOMAIN_META[domainKey].label}
+      <span className="text-foreground-subtle">{count}</span>
+    </button>
+  );
+}
+
 export function QuestionsWorklist({
   concepts,
 }: {
@@ -88,6 +218,7 @@ export function QuestionsWorklist({
   // Filters live in the URL so a worked-down view stays linkable and survives a
   // reload — the page is prerendered, so this is a client-side replace only.
   useEffect(() => {
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: the ref is flipped by the hydration effect above, which biome does not track across effects
     if (!hydrated.current) {
       return;
     }
@@ -190,11 +321,28 @@ export function QuestionsWorklist({
     TRIAGE_ORDER.filter((key) => (counts.get(key) ?? 0) > 0).length > 1;
   const peak = Math.max(1, ...activeBuckets.map((key) => counts.get(key) ?? 0));
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     setQuery("");
     setBucket(null);
     setDomain(null);
-  };
+  }, []);
+
+  const clearDomain = useCallback(() => setDomain(null), []);
+
+  const handleQueryChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) =>
+      setQuery(event.target.value),
+    []
+  );
+
+  const handleQueryKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Escape") {
+        setQuery("");
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -207,12 +355,8 @@ export function QuestionsWorklist({
             <input
               aria-label="Search open questions"
               className="min-w-0 flex-1 bg-transparent font-body text-[15px] text-foreground outline-none placeholder:text-foreground-subtle"
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setQuery("");
-                }
-              }}
+              onChange={handleQueryChange}
+              onKeyDown={handleQueryKeyDown}
               placeholder="a word in the question, or a concept…"
               ref={inputRef}
               type="search"
@@ -239,20 +383,13 @@ export function QuestionsWorklist({
             className="flex overflow-hidden rounded-lg border border-border bg-card"
           >
             {SORTS.map(([key, label]) => (
-              <button
-                aria-pressed={sort === key}
-                className={cn(
-                  SEG_BUTTON_CLASS,
-                  sort === key
-                    ? "bg-accent text-foreground"
-                    : "text-foreground-subtle hover:bg-secondary hover:text-foreground"
-                )}
+              <SortButton
                 key={key}
-                onClick={() => setSort(key)}
-                type="button"
-              >
-                {label}
-              </button>
+                label={label}
+                onSelect={setSort}
+                selected={sort === key}
+                value={key}
+              />
             ))}
           </fieldset>
         </div>
@@ -260,49 +397,17 @@ export function QuestionsWorklist({
         {showTally && (
           <fieldset aria-label="Filter by triage" className="min-w-0">
             <div className="flex min-w-0 gap-x-6 gap-y-3 overflow-x-auto pb-3">
-              {activeBuckets.map((key) => {
-                const meta = TRIAGE_META[key];
-                const count = counts.get(key) ?? 0;
-                const active = bucket === key;
-                return (
-                  <button
-                    aria-pressed={active}
-                    className={cn(
-                      "group min-w-[112px] flex-1 shrink-0 text-left transition-opacity",
-                      bucket !== null && !active && "opacity-45"
-                    )}
-                    key={key}
-                    onClick={() => setBucket(active ? null : key)}
-                    type="button"
-                  >
-                    <span
-                      className={cn(
-                        "flex items-baseline justify-between gap-2 font-mono text-[10.5px] uppercase tabular-nums tracking-[0.14em] transition-colors",
-                        active
-                          ? "text-foreground"
-                          : "text-foreground-subtle group-hover:text-foreground"
-                      )}
-                    >
-                      <span>{meta.label}</span>
-                      <span>{count}</span>
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      className="mt-1.5 block h-[3px] w-full bg-border"
-                    >
-                      <span
-                        className="block h-full bg-[var(--tone)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                        style={
-                          {
-                            "--tone": meta.tone,
-                            width: `${(count / peak) * 100}%`,
-                          } as CSSProperties
-                        }
-                      />
-                    </span>
-                  </button>
-                );
-              })}
+              {activeBuckets.map((key) => (
+                <TriageTallyButton
+                  bucketKey={key}
+                  count={counts.get(key) ?? 0}
+                  dimmed={bucket !== null && bucket !== key}
+                  key={key}
+                  onSelect={setBucket}
+                  peak={peak}
+                  selected={bucket === key}
+                />
+              ))}
             </div>
           </fieldset>
         )}
@@ -322,37 +427,20 @@ export function QuestionsWorklist({
                   ? "border-foreground-subtle text-foreground"
                   : "border-border text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => setDomain(null)}
+              onClick={clearDomain}
               type="button"
             >
               All domains
             </button>
             {DOMAIN_ORDER.filter((key) => (domainCounts.get(key) ?? 0) > 0).map(
               (key) => (
-                <button
-                  aria-pressed={domain === key}
-                  className={cn(
-                    CHIP_CLASS,
-                    domain === key
-                      ? "border-[var(--dc)] bg-card text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
+                <DomainChip
+                  count={domainCounts.get(key)}
+                  domainKey={key}
                   key={key}
-                  onClick={() =>
-                    setDomain((current) => (current === key ? null : key))
-                  }
-                  style={{ "--dc": DOMAIN_META[key].color } as CSSProperties}
-                  type="button"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-2 rounded-full bg-[var(--dc)]"
-                  />
-                  {DOMAIN_META[key].label}
-                  <span className="text-foreground-subtle">
-                    {domainCounts.get(key)}
-                  </span>
-                </button>
+                  onSelect={setDomain}
+                  selected={domain === key}
+                />
               )
             )}
           </div>
@@ -376,19 +464,21 @@ export function QuestionsWorklist({
         <div className="mt-10">
           <p className="m-0 max-w-[56ch] font-body text-[15px] text-muted-foreground leading-[1.6]">
             Nothing in the backlog matches{" "}
-            {query && <b className="font-medium text-foreground">“{query}”</b>}
+            {query ? (
+              <b className="font-medium text-foreground">“{query}”</b>
+            ) : null}
             {query && (bucket || domain) ? " under " : null}
-            {bucket && (
+            {bucket ? (
               <b className="font-medium text-foreground">
                 {TRIAGE_META[bucket].label}
               </b>
-            )}
+            ) : null}
             {bucket && domain ? " in " : null}
-            {domain && (
+            {domain ? (
               <b className="font-medium text-foreground">
                 {DOMAIN_META[domain].label}
               </b>
-            )}
+            ) : null}
             . Widen it, or clear the filters and read the whole worklist.
           </p>
           <button

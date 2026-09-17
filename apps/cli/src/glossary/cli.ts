@@ -22,7 +22,7 @@ interface CliOptions {
 }
 
 const resolveCliOptions = (): CliOptions => {
-  const env = process.env;
+  const { env } = process;
   return {
     // The translation orchestrator pins GLOSSARY_DB_PATH for engine
     // subprocesses so they all hit the one seeded DB.
@@ -64,7 +64,9 @@ const parseAddManyJson = (raw: string | undefined): GlossaryEntry[] => {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new Error(`add-many: invalid JSON: ${(err as Error).message}`);
+    throw new Error(`add-many: invalid JSON: ${(err as Error).message}`, {
+      cause: err,
+    });
   }
   if (!Array.isArray(parsed)) {
     throw new Error("add-many: JSON must be an array of {term, category}");

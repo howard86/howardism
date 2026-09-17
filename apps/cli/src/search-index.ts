@@ -17,7 +17,7 @@
  *   bun run build:search-index            # write the index
  *   DRY_RUN=1 bun run build:search-index  # report counts without writing
  */
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import {
@@ -149,7 +149,7 @@ export function deriveKeywords(
 
 async function buildIndex(generatedOn: string): Promise<SearchIndex> {
   const graph = parseArticleGraph(
-    JSON.parse(await readFile(GRAPH_PATH, "utf8"))
+    JSON.parse(await Bun.file(GRAPH_PATH).text())
   );
   const filenames = (await readdir(ARTICLES_DIR))
     .filter((name) => MDX_SUFFIX.test(name))
@@ -159,7 +159,7 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
     filenames,
     READ_CONCURRENCY,
     async (filename) => {
-      const raw = await readFile(resolve(ARTICLES_DIR, filename), "utf8");
+      const raw = await Bun.file(resolve(ARTICLES_DIR, filename)).text();
       return buildSearchEntry(raw, filename.replace(MDX_SUFFIX, ""));
     }
   );
@@ -210,8 +210,7 @@ export async function writeSearchIndex(options?: {
     return { entryCount: index.entries.length, outputPath: OUTPUT_PATH };
   }
 
-  await mkdir(dirname(OUTPUT_PATH), { recursive: true });
-  await writeFile(OUTPUT_PATH, `${json}\n`, "utf8");
+  await Bun.write(OUTPUT_PATH, `${json}\n`);
   console.log(
     `[search-index] wrote ${index.entries.length} entries → ${OUTPUT_PATH}`
   );

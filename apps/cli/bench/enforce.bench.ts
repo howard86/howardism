@@ -21,14 +21,14 @@ function corpusWordPool(texts: string[]): string[] {
 }
 
 /** `size` terms from `pool`, ~10% of them two-word phrases. */
-function buildGlossary(pool: string[], size: number): string[] {
+function buildGlossary(wordPool: string[], size: number): string[] {
   const phraseCount = Math.round(size * PHRASE_FRACTION);
   const wordCount = size - phraseCount;
-  const terms = pool.slice(0, wordCount);
-  const phraseStart = pool.length - phraseCount * 2;
-  for (let i = 0; i < phraseCount; i++) {
-    const a = pool[phraseStart + i * 2];
-    const b = pool[phraseStart + i * 2 + 1];
+  const terms = wordPool.slice(0, wordCount);
+  const phraseStart = wordPool.length - phraseCount * 2;
+  for (let i = 0; i < phraseCount; i += 1) {
+    const a = wordPool[phraseStart + i * 2];
+    const b = wordPool[phraseStart + i * 2 + 1];
     if (a && b) {
       terms.push(`${a} ${b}`);
     }

@@ -166,11 +166,11 @@ export default function RootLayout({ children }: ChildrenProps) {
             </SearchProvider>
           </ArticleNavProvider>
           <Analytics />
-          {env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          {env.NEXT_PUBLIC_GA_MEASUREMENT_ID ? (
             <GoogleAnalytics
               measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
             />
-          )}
+          ) : null}
         </TweaksProvider>
       </body>
     </html>

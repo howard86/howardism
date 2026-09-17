@@ -239,14 +239,14 @@ export function escapeMdxBody(body: string): string {
   let inFence = false;
   let fenceMarker: string | null = null;
 
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     const fenceMatch = FENCE_RE.exec(line);
     if (fenceMatch) {
-      const marker = fenceMatch[2];
+      const [, , marker] = fenceMatch;
       if (!inFence) {
         inFence = true;
-        fenceMarker = marker[0];
+        [fenceMarker] = marker;
       } else if (marker.startsWith(fenceMarker ?? "")) {
         inFence = false;
         fenceMarker = null;
@@ -264,13 +264,13 @@ export function escapeMdxBody(body: string): string {
 }
 
 function findClosingBacktickRun(rest: string, runLen: number): number {
-  for (let j = 0; j <= rest.length - runLen; j++) {
+  for (let j = 0; j <= rest.length - runLen; j += 1) {
     if (rest[j] !== "`") {
       continue;
     }
     let len = 0;
     while (j + len < rest.length && rest[j + len] === "`") {
-      len++;
+      len += 1;
     }
     if (len === runLen) {
       return j;
@@ -286,7 +286,7 @@ function consumeBacktickSpan(
 ): { emit: string; next: number } {
   let i = start;
   while (i < line.length && line[i] === "`") {
-    i++;
+    i += 1;
   }
   const openRun = i - start;
   const closeIdx = findClosingBacktickRun(line.slice(i), openRun);
@@ -305,8 +305,8 @@ function consumeBacktickSpan(
  */
 function isBraceAlreadyEscaped(line: string, i: number): boolean {
   let backslashes = 0;
-  for (let j = i - 1; j >= 0 && line[j] === "\\"; j--) {
-    backslashes++;
+  for (let j = i - 1; j >= 0 && line[j] === "\\"; j -= 1) {
+    backslashes += 1;
   }
   return backslashes % 2 === 1;
 }
@@ -336,7 +336,7 @@ function escapeLine(line: string): string {
       continue;
     }
     result += escapeProseChar(line, i);
-    i++;
+    i += 1;
   }
   return result;
 }
@@ -457,7 +457,7 @@ export function computeReadingTime(body: string): number {
   // counting the runs never materialises the ~1.5M substrings that did.
   let wordCount = 0;
   let inWord = false;
-  for (let i = 0; i < body.length; i++) {
+  for (let i = 0; i < body.length; i += 1) {
     if (!isWordCharCode(body.charCodeAt(i))) {
       inWord = false;
       continue;
@@ -541,7 +541,7 @@ function updateFenceState(line: string, state: FenceState): boolean {
   if (!match) {
     return false;
   }
-  const marker = match[1][0];
+  const [marker] = match[1];
   if (!state.inFence) {
     state.inFence = true;
     state.fenceChar = marker;

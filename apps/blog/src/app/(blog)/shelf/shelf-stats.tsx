@@ -31,7 +31,7 @@ function StatCell({
     <div className={`border-border p-4 sm:px-5 ${className ?? ""}`}>
       <div className={NUMERAL_CLASS}>
         {value}
-        {unit && <span className={UNIT_CLASS}>{unit}</span>}
+        {unit ? <span className={UNIT_CLASS}>{unit}</span> : null}
       </div>
       <div className={LABEL_CLASS}>{label}</div>
     </div>

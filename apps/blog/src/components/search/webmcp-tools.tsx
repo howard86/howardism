@@ -26,10 +26,10 @@ interface ModelContext {
    * `undefined` synchronously — hence the union and the defensive `register`
    * helper below.
    */
-  registerTool<TInput>(
+  registerTool: <TInput>(
     descriptor: ModelContextToolDescriptor<TInput>,
     options?: { signal?: AbortSignal }
-  ): Promise<unknown> | undefined;
+  ) => Promise<unknown> | undefined;
 }
 
 declare global {
@@ -148,7 +148,7 @@ export function WebMcpTools() {
       return;
     }
 
-    const modelContext = document.modelContext;
+    const { modelContext } = document;
     const controller = new AbortController();
 
     /**

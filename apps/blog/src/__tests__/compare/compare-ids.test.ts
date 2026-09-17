@@ -60,7 +60,7 @@ describe("buildCompareHref", () => {
 
   it("round-trips through resolveCompareIds", () => {
     const href = buildCompareHref(["alpha", "beta"]);
-    const ids = href.split("ids=")[1];
+    const [, ids] = href.split("ids=");
     expect(resolveCompareIds(ids, known)).toEqual(["alpha", "beta"]);
   });
 });

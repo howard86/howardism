@@ -80,7 +80,7 @@ describe("tag-aware service helpers", () => {
 
   it("getArticlesByTag returns ArticleEntity items sorted by date desc (inherited from getArticles)", async () => {
     const entries = await getArticlesByTag("Concept");
-    for (let i = 1; i < entries.length; i++) {
+    for (let i = 1; i < entries.length; i += 1) {
       const previous = new Date(entries[i - 1]?.meta.date ?? "").valueOf();
       const current = new Date(entries[i]?.meta.date ?? "").valueOf();
       expect(previous).toBeGreaterThanOrEqual(current);

@@ -1,14 +1,5 @@
 import type { Database } from "bun:sqlite";
-import {
-  access,
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, rm, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { surfaceHash } from "@howardism/article-contract/surface";
@@ -194,7 +185,8 @@ export function parseStructuredResult(raw: string): StructuredTranslation {
     parsed = JSON.parse(raw);
   } catch (err) {
     throw new Error(
-      `final message is not valid JSON: ${(err as Error).message}`
+      `final message is not valid JSON: ${(err as Error).message}`,
+      { cause: err }
     );
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -349,7 +341,7 @@ async function processArticle(slug: string, ctx: RunContext): Promise<void> {
   const outputAbsPath = join(opts.outputDir, `${slug}.mdx`);
 
   try {
-    const sourceText = await readFile(sourceAbsPath, "utf8");
+    const sourceText = await Bun.file(sourceAbsPath).text();
     const outputText = await readFileOrNull(outputAbsPath);
     const status = classifyArticle({
       sourceText,
@@ -426,7 +418,7 @@ async function resyncArticle(args: ResyncArgs): Promise<void> {
   const { slug, sourceText, outputText, outputAbsPath, ctx } = args;
   const next = resyncVerbatimFields(outputText, sourceText);
   if (next !== outputText) {
-    await writeFile(outputAbsPath, next, "utf8");
+    await Bun.write(outputAbsPath, next);
   }
   recordResult(ctx, {
     slug,
@@ -569,10 +561,10 @@ interface ApplyGlossaryArgs {
  */
 async function applyGlossary(args: ApplyGlossaryArgs): Promise<void> {
   const { ctx, slug, sourceText, outputAbsPath } = args;
-  const outputText = await readFile(outputAbsPath, "utf8");
+  const outputText = await Bun.file(outputAbsPath).text();
   const result = enforceGlossary(outputText, sourceText, ctx.glossaryTerms);
   if (result.applied > 0) {
-    await writeFile(outputAbsPath, result.text, "utf8");
+    await Bun.write(outputAbsPath, result.text);
     console.log(
       `[translate] ${slug} glossary: repaired ${result.applied} link anchor(s)`
     );
@@ -618,10 +610,10 @@ async function runAdopt(ctx: RunContext): Promise<void> {
       ctx.summary.skipped.push(slug);
       continue;
     }
-    const sourceText = await readFile(
-      join(opts.sourceDir, `${slug}.mdx`),
-      "utf8"
-    );
+    // biome-ignore lint/performance/noAwaitInLoops: adopt is a one-off reconciliation and `recordResult` mutates shared summary state that has to stay in slug order
+    const sourceText = await Bun.file(
+      join(opts.sourceDir, `${slug}.mdx`)
+    ).text();
     recordResult(ctx, {
       slug,
       sourceHash: surfaceHash(sourceText),
@@ -680,7 +672,7 @@ async function runCheck(opts: RunOptions): Promise<void> {
     opts.concurrency,
     async (slug) => {
       const [sourceText, outputText] = await Promise.all([
-        readFile(join(opts.sourceDir, `${slug}.mdx`), "utf8"),
+        Bun.file(join(opts.sourceDir, `${slug}.mdx`)).text(),
         readFileOrNull(join(opts.outputDir, `${slug}.mdx`)),
       ]);
       const recordedHash = recordedHashOf(projection, slug);
@@ -862,7 +854,7 @@ async function spawnEngine(
 async function postProcessOutput(outputAbsPath: string): Promise<void> {
   let original: string;
   try {
-    original = await readFile(outputAbsPath, "utf8");
+    original = await Bun.file(outputAbsPath).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return;
@@ -871,7 +863,7 @@ async function postProcessOutput(outputAbsPath: string): Promise<void> {
   }
   const normalised = fixMdxEscaping(normalizeHeadings(original));
   if (normalised !== original) {
-    await writeFile(outputAbsPath, normalised, "utf8");
+    await Bun.write(outputAbsPath, normalised);
   }
 }
 
@@ -896,10 +888,10 @@ async function runEngineAttempt(
   if (lastMessagePath) {
     try {
       const parsed = parseStructuredResult(
-        await readFile(lastMessagePath, "utf8")
+        await Bun.file(lastMessagePath).text()
       );
-      await writeFile(outputAbsPath, parsed.mdx, "utf8");
-      newTerms = parsed.newTerms;
+      await Bun.write(outputAbsPath, parsed.mdx);
+      ({ newTerms } = parsed);
     } catch (err) {
       return {
         ok: false,
@@ -931,7 +923,7 @@ async function restoreExistingOutput(
   existingOutput: string
 ): Promise<void> {
   try {
-    await writeFile(outputAbsPath, existingOutput, "utf8");
+    await Bun.write(outputAbsPath, existingOutput);
     console.warn(
       `[translate] ${slug} all attempts failed; prior translation restored`
     );
@@ -960,15 +952,15 @@ async function runEngineWithRetry(
   let lastErrors = ["unknown failure"];
   try {
     if (schemaPath) {
-      await writeFile(
+      await Bun.write(
         schemaPath,
-        JSON.stringify(TRANSLATION_OUTPUT_SCHEMA, null, 2),
-        "utf8"
+        JSON.stringify(TRANSLATION_OUTPUT_SCHEMA, null, 2)
       );
     }
     for (let attempt = 1; attempt <= MAX_ENGINE_ATTEMPTS; attempt += 1) {
       // Clear any prior output before each attempt so an engine that exits 0
       // without rewriting (a no-op) can't pass validation on a stale file.
+      // biome-ignore lint/performance/noAwaitInLoops: retries are sequential by definition — attempt N+1 only exists because attempt N failed
       await unlinkSilently(outputAbsPath);
       if (lastMessagePath) {
         await unlinkSilently(lastMessagePath);
@@ -1048,7 +1040,7 @@ async function discoverOutputSlugs(outputDir: string): Promise<string[]> {
 
 async function readFileOrNull(path: string): Promise<string | null> {
   try {
-    return await readFile(path, "utf8");
+    return await Bun.file(path).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
@@ -1068,7 +1060,7 @@ async function unlinkSilently(path: string): Promise<void> {
 }
 
 function parseOptions(): RunOptions {
-  const env = process.env;
+  const { env } = process;
   const argv = process.argv.slice(2);
 
   const onlyIndex = argv.indexOf("--only");

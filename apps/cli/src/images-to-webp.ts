@@ -9,7 +9,7 @@
  *   bun run images:webp            # convert, rewrite, delete the PNGs
  *   DRY_RUN=1 bun run images:webp  # report what would change, touch nothing
  */
-import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { runWithConcurrency } from "./concurrency";
@@ -89,26 +89,33 @@ async function transcodeAssets(): Promise<void> {
 
 async function rewriteArticles(): Promise<void> {
   let rewritten = 0;
-  for (const dir of ARTICLE_DIRS) {
-    const entries = await readdir(dir).catch(() => [] as string[]);
-    const paths = entries
+  const listings = await Promise.all(
+    ARTICLE_DIRS.map(async (dir) => ({
+      dir,
+      entries: await readdir(dir).catch(() => [] as string[]),
+    }))
+  );
+  const paths = listings.flatMap(({ dir, entries }) =>
+    entries
       .filter((name) => MDX_SUFFIX.test(name))
-      .map((filename) => join(dir, filename));
-    const rawContents = await Promise.all(
-      paths.map((path) => readFile(path, "utf8"))
-    );
-    for (let i = 0; i < paths.length; i++) {
-      const raw = rawContents[i];
-      const next = rewriteHeroImportToWebp(raw);
-      if (next === raw) {
-        continue;
-      }
-      rewritten += 1;
-      if (!dryRun) {
-        await writeFile(paths[i], next);
-      }
+      .map((filename) => join(dir, filename))
+  );
+  const rawContents = await Promise.all(
+    paths.map((path) => Bun.file(path).text())
+  );
+  const writes: Promise<number>[] = [];
+  for (let i = 0; i < paths.length; i += 1) {
+    const raw = rawContents[i];
+    const next = rewriteHeroImportToWebp(raw);
+    if (next === raw) {
+      continue;
+    }
+    rewritten += 1;
+    if (!dryRun) {
+      writes.push(Bun.write(paths[i], next));
     }
   }
+  await Promise.all(writes);
   const verb = dryRun ? "DRY_RUN — would rewrite" : "rewrote";
   console.log(`[images:webp] ${verb} ${rewritten} heroImage import line(s)`);
 }

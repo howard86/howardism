@@ -38,7 +38,8 @@ export function parsePricingEnv(
     parsed = JSON.parse(trimmed);
   } catch (err) {
     throw new Error(
-      `TRANSLATE_PRICING must be valid JSON: ${(err as Error).message}`
+      `TRANSLATE_PRICING must be valid JSON: ${(err as Error).message}`,
+      { cause: err }
     );
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {

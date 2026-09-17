@@ -1,6 +1,5 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import { harvestSeedEntries, type SeedSources } from "./seed.ts";
@@ -283,7 +282,7 @@ const readLegacyJsonTerms = async (
 ): Promise<LegacyEntry[]> => {
   let raw: string;
   try {
-    raw = await readFile(jsonPath, "utf8");
+    raw = await Bun.file(jsonPath).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
@@ -296,7 +295,7 @@ const readLegacyJsonTerms = async (
   } catch {
     return [];
   }
-  const terms = (parsed as { terms?: unknown })?.terms;
+  const terms = (parsed as { terms?: unknown } | null)?.terms;
   if (!Array.isArray(terms)) {
     return [];
   }

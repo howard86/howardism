@@ -141,7 +141,7 @@ export function recordProgress(slug: string, pct: number): void {
   const withoutSlug: ReadingEntry[] = [];
   for (const entry of history) {
     if (entry.slug === slug) {
-      firstReadAt = entry.firstReadAt;
+      ({ firstReadAt } = entry);
     } else {
       withoutSlug.push(entry);
     }

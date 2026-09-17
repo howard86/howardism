@@ -39,9 +39,9 @@ export function Ph({
       }}
     >
       <span>{label}</span>
-      {meta && (
+      {meta ? (
         <span className="text-[10px] tracking-[0.06em] opacity-70">{meta}</span>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+
 import {
   DOMAIN_META,
   DOMAIN_ORDER,
@@ -74,6 +76,48 @@ const isActive = (facet: Facet, scope: Scope | null): boolean =>
   scope !== null && scope.field === facet.field && scope.value === facet.value;
 
 /**
+ * One facet chip. A component rather than an inline `() => onSelect(...)` so
+ * each chip's click handler is stable across the row's re-renders.
+ */
+function FacetChip({
+  active,
+  facet,
+  onSelect,
+}: {
+  active: boolean;
+  facet: Facet;
+  onSelect: (next: Scope | null) => void;
+}) {
+  const handleClick = useCallback(
+    () => onSelect(active ? null : facet),
+    [active, facet, onSelect]
+  );
+  return (
+    <button
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors ${
+        active
+          ? "bg-brand text-background"
+          : "bg-muted text-foreground-subtle hover:text-foreground"
+      }`}
+      onClick={handleClick}
+      type="button"
+    >
+      {facet.field === "domain" && !active ? (
+        <DomainDot
+          domain={resolveDomain(facet.value) ?? "syntheses"}
+          size={5}
+        />
+      ) : null}
+      {facet.label}
+      <span className={active ? "opacity-70" : "opacity-50"}>
+        {facet.count}
+      </span>
+    </button>
+  );
+}
+
+/**
  * The chip row above the results. Clicking a chip narrows to that domain or
  * kind; clicking the active one clears it. With no query typed this is the
  * whole palette — picking a chip browses that slice, which is the answer to an
@@ -94,33 +138,14 @@ export function ScopeBar({
 
   return (
     <div className="flex flex-wrap gap-1.5 border-border border-b px-3 py-2.5">
-      {facets.map((facet) => {
-        const active = isActive(facet, scope);
-        return (
-          <button
-            aria-pressed={active}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors ${
-              active
-                ? "bg-brand text-background"
-                : "bg-muted text-foreground-subtle hover:text-foreground"
-            }`}
-            key={`${facet.field}:${facet.value}`}
-            onClick={() => onSelect(active ? null : facet)}
-            type="button"
-          >
-            {facet.field === "domain" && !active && (
-              <DomainDot
-                domain={resolveDomain(facet.value) ?? "syntheses"}
-                size={5}
-              />
-            )}
-            {facet.label}
-            <span className={active ? "opacity-70" : "opacity-50"}>
-              {facet.count}
-            </span>
-          </button>
-        );
-      })}
+      {facets.map((facet) => (
+        <FacetChip
+          active={isActive(facet, scope)}
+          facet={facet}
+          key={`${facet.field}:${facet.value}`}
+          onSelect={onSelect}
+        />
+      ))}
     </div>
   );
 }

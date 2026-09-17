@@ -59,7 +59,7 @@ export function DiscPageHeader({
           </div>
           <h1 className="m-0 font-display font-normal text-[27px] text-foreground leading-[1.2] tracking-[-0.015em]">
             {title}
-            {titleAccent && (
+            {titleAccent ? (
               <>
                 {" "}
                 <em
@@ -69,14 +69,14 @@ export function DiscPageHeader({
                   {titleAccent}
                 </em>
               </>
-            )}
+            ) : null}
           </h1>
-          {data && (
+          {data ? (
             <div className="mt-5">
               <DataGrid maxWidth={280} rows={data} stack={stackData} />
             </div>
-          )}
-          {children && <div className="mt-5">{children}</div>}
+          ) : null}
+          {children ? <div className="mt-5">{children}</div> : null}
         </div>
       </section>
     );
@@ -96,13 +96,15 @@ export function DiscPageHeader({
       <div className="py-8">
         <h1 className="m-0 font-display font-normal text-[clamp(40px,6vw,72px)] text-foreground leading-[1.05] tracking-[-0.03em]">
           {title}{" "}
-          {titleAccent && <em className="text-brand italic">{titleAccent}</em>}
+          {titleAccent ? (
+            <em className="text-brand italic">{titleAccent}</em>
+          ) : null}
         </h1>
-        {data && (
+        {data ? (
           <div className="mt-7">
             <DataGrid rows={data} />
           </div>
-        )}
+        ) : null}
         {children}
       </div>
     </section>

@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
-
 import {
   type ArticleGraph,
   ArticleGraphSchema,
@@ -58,7 +55,7 @@ function buildOccurrences(
 ): Map<string, LinkOccurrence[]> {
   const out = new Map<string, LinkOccurrence[]>();
   for (const file of live) {
-    const slug = file.source.slug;
+    const { slug } = file.source;
     out.set(
       slug,
       extractLinkOccurrences(file.body).filter(
@@ -135,8 +132,8 @@ function accumulatePairScores(
   };
   const scoreEveryPair = (members: ReadonlySet<string>): void => {
     const list = [...members];
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
+    for (let i = 0; i < list.length; i += 1) {
+      for (let j = i + 1; j < list.length; j += 1) {
         bump(list[i], list[j]);
         bump(list[j], list[i]);
       }
@@ -192,7 +189,6 @@ export async function emitArticleGraph(
     return outputPath;
   }
 
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${json}\n`, "utf8");
+  await Bun.write(outputPath, `${json}\n`);
   return outputPath;
 }

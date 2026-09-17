@@ -12,7 +12,7 @@
  *
  *   bun run build:articles-meta
  */
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import {
@@ -69,7 +69,7 @@ export async function buildArticlesMeta(
     READ_CONCURRENCY,
     async (filename) => {
       const slug = filename.replace(MDX_SUFFIX, "");
-      const raw = await readFile(resolve(ARTICLES_DIR, filename), "utf8");
+      const raw = await Bun.file(resolve(ARTICLES_DIR, filename)).text();
       const parsed = ArticleMetaSchema.safeParse(
         matter(raw, MATTER_OPTIONS).data
       );
@@ -100,8 +100,7 @@ export async function writeArticlesMeta(): Promise<{
     2
   );
 
-  await mkdir(dirname(OUTPUT_PATH), { recursive: true });
-  await writeFile(OUTPUT_PATH, `${json}\n`, "utf8");
+  await Bun.write(OUTPUT_PATH, `${json}\n`);
   console.log(
     `[articles-meta] wrote ${manifest.articles.length} entries → ${OUTPUT_PATH}`
   );

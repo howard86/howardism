@@ -14,10 +14,10 @@ let realObserver: typeof globalThis.IntersectionObserver;
 /** Nothing intersects, so the hook takes its fallback path — the one measured. */
 class InertIntersectionObserver {
   observe() {
-    return;
+    // Intentionally inert: never fires a callback.
   }
   disconnect() {
-    return;
+    // Intentionally inert: nothing to tear down.
   }
 }
 

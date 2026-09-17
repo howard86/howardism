@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import {
@@ -58,7 +57,7 @@ function loadIndex(indexPath: string): Promise<SearchIndexState> {
   let state = indexCache.get(indexPath);
   if (!state) {
     state = (async () => {
-      const raw = await readFile(indexPath, "utf8");
+      const raw = await Bun.file(indexPath).text();
       const { entries } = parseSearchIndex(JSON.parse(raw));
       const bySlug = new Map(entries.map((entry) => [entry.slug, entry]));
       return { entries, bySlug, fuse: createFuse(entries) };
@@ -101,10 +100,9 @@ export async function knowledgeGetHandler(
       error: `No article found for slug "${args.slug}".`,
     });
   }
-  const raw = await readFile(
-    resolve(ARTICLES_DIR, `${args.slug}.mdx`),
-    "utf8"
-  ).catch(() => null);
+  const raw = await Bun.file(resolve(ARTICLES_DIR, `${args.slug}.mdx`))
+    .text()
+    .catch(() => null);
   if (raw === null) {
     // Indexed but the MDX is gone: report it rather than serving metadata that
     // looks like a successful full-content fetch.

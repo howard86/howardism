@@ -213,13 +213,28 @@ function RemoveButton({
   );
 }
 
+/** `RemoveButton` bound to one slug, so the handler is stable per row. */
+function RemoveRowButton({
+  label,
+  onRemove,
+  slug,
+}: {
+  label: string;
+  onRemove: (slug: string) => void;
+  slug: string;
+}) {
+  const handleClick = useCallback(() => onRemove(slug), [onRemove, slug]);
+  return <RemoveButton label={label} onClick={handleClick} />;
+}
+
 function TombstoneRow({
   slug,
-  onDismiss,
+  onRemove,
 }: {
   slug: string;
-  onDismiss: () => void;
+  onRemove: (slug: string) => void;
 }) {
+  const handleDismiss = useCallback(() => onRemove(slug), [onRemove, slug]);
   return (
     <li className="flex items-center gap-2 border-border border-t border-dashed py-4">
       <div className="min-w-0 flex-1">
@@ -228,7 +243,7 @@ function TombstoneRow({
         </span>
         <span className={`mt-1 block ${META_CLASS}`}>no longer available</span>
       </div>
-      <RemoveButton label={`Dismiss ${slug}`} onClick={onDismiss} />
+      <RemoveButton label={`Dismiss ${slug}`} onClick={handleDismiss} />
     </li>
   );
 }
@@ -350,11 +365,7 @@ function buildHistoryItems({
     }
     if (row.kind === "deleted") {
       items.push(
-        <TombstoneRow
-          key={row.slug}
-          onDismiss={() => onRemove(row.slug)}
-          slug={row.slug}
-        />
+        <TombstoneRow key={row.slug} onRemove={onRemove} slug={row.slug} />
       );
     } else {
       items.push(
@@ -362,9 +373,10 @@ function buildHistoryItems({
           accent={accentOf(row.domain)}
           badge={row.kind === "archived" ? <ArchivedBadge /> : undefined}
           control={
-            <RemoveButton
+            <RemoveRowButton
               label={`Remove ${row.title} from shelf`}
-              onClick={() => onRemove(row.slug)}
+              onRemove={onRemove}
+              slug={row.slug}
             />
           }
           href={row.href}
@@ -382,6 +394,91 @@ function buildHistoryItems({
     }
   }
   return items;
+}
+
+/**
+ * One segmented sort button. These and the domain chips below are components
+ * rather than inline `() => setX(key)` props so each control keeps a stable
+ * handler as the shelf re-renders.
+ */
+function SortButton({
+  label,
+  onSelect,
+  selected,
+  value,
+}: {
+  label: string;
+  onSelect: (value: ShelfSort) => void;
+  selected: boolean;
+  value: ShelfSort;
+}) {
+  const handleClick = useCallback(() => onSelect(value), [onSelect, value]);
+  return (
+    <button
+      aria-pressed={selected}
+      className={cn(
+        SEG_BUTTON_CLASS,
+        selected
+          ? "bg-accent text-foreground"
+          : "text-foreground-subtle hover:bg-secondary hover:text-foreground"
+      )}
+      onClick={handleClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+/** One domain filter chip. Clicking the active chip clears the filter. */
+function DomainChip({
+  count,
+  domainKey,
+  onSelect,
+  selected,
+}: {
+  count: number | undefined;
+  domainKey: WikiDomain;
+  onSelect: (next: WikiDomain | null) => void;
+  selected: boolean;
+}) {
+  const handleClick = useCallback(
+    () => onSelect(selected ? null : domainKey),
+    [domainKey, onSelect, selected]
+  );
+  return (
+    <button
+      aria-pressed={selected}
+      className={cn(
+        CHIP_CLASS,
+        selected
+          ? "border-[var(--dc)] bg-card text-foreground"
+          : "border-border text-muted-foreground hover:text-foreground"
+      )}
+      onClick={handleClick}
+      style={{ "--dc": DOMAIN_META[domainKey].color } as CSSProperties}
+      type="button"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full bg-[var(--dc)]" />
+      {DOMAIN_META[domainKey].label}
+      <span className="text-foreground-subtle">{count}</span>
+    </button>
+  );
+}
+
+/** A saved row's bookmark control, wired to drop the row when it unsaves. */
+function SavedRowControl({
+  onUnsave,
+  slug,
+}: {
+  onUnsave: (slug: string, nowSaved: boolean) => void;
+  slug: string;
+}) {
+  const handleToggle = useCallback(
+    (nowSaved: boolean) => onUnsave(slug, nowSaved),
+    [onUnsave, slug]
+  );
+  return <SaveButton initialSaved onToggle={handleToggle} slug={slug} />;
 }
 
 const TAB_TRIGGER_CLASS =
@@ -475,6 +572,40 @@ export function ShelfTabs() {
     [historyRows, grouped, rowSelection, handleRemove]
   );
 
+  const handleUnsave = useCallback(
+    (slug: string, nowSaved: boolean) => {
+      if (!nowSaved) {
+        setData((current) =>
+          current
+            ? {
+                ...current,
+                saved: current.saved.filter((row) => row.meta.slug !== slug),
+              }
+            : current
+        );
+      }
+    },
+    [setData]
+  );
+
+  const startCompare = useCallback(() => {
+    if (selected.length >= MIN_COMPARE) {
+      router.push(buildCompareHref(selected));
+    }
+  }, [router, selected]);
+
+  const toggleCompare = useCallback(() => {
+    setCompareMode((current) => !current);
+    setSelected([]);
+  }, []);
+
+  const clearSelection = useCallback(() => setSelected([]), []);
+  const clearDomain = useCallback(() => setDomain(null), []);
+  const handleTabChange = useCallback(
+    (value: string) => setTab(value as ShelfTab),
+    []
+  );
+
   if (data === null) {
     return null;
   }
@@ -507,30 +638,6 @@ export function ShelfTabs() {
     }
   }
 
-  const handleUnsave = (slug: string, nowSaved: boolean) => {
-    if (!nowSaved) {
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              saved: current.saved.filter((row) => row.meta.slug !== slug),
-            }
-          : current
-      );
-    }
-  };
-
-  const startCompare = () => {
-    if (selected.length >= MIN_COMPARE) {
-      router.push(buildCompareHref(selected));
-    }
-  };
-
-  const toggleCompare = () => {
-    setCompareMode((current) => !current);
-    setSelected([]);
-  };
-
   const filteredEmpty = domain ? (
     <EmptyState>
       Nothing on your shelf under{" "}
@@ -541,7 +648,7 @@ export function ShelfTabs() {
 
   return (
     <>
-      <Tabs onValueChange={(value) => setTab(value as ShelfTab)} value={tab}>
+      <Tabs onValueChange={handleTabChange} value={tab}>
         <div className="sticky top-20 z-30 -mx-3 mt-9 border-border border-b bg-background/85 px-3 backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-3 pt-3 pb-2 md:gap-4">
             <TabsList variant="line">
@@ -576,20 +683,13 @@ export function ShelfTabs() {
               className="flex overflow-hidden rounded-lg border border-border bg-card"
             >
               {SORTS.map(([key, label]) => (
-                <button
-                  aria-pressed={sort === key}
-                  className={cn(
-                    SEG_BUTTON_CLASS,
-                    sort === key
-                      ? "bg-accent text-foreground"
-                      : "text-foreground-subtle hover:bg-secondary hover:text-foreground"
-                  )}
+                <SortButton
                   key={key}
-                  onClick={() => setSort(key)}
-                  type="button"
-                >
-                  {label}
-                </button>
+                  label={label}
+                  onSelect={setSort}
+                  selected={sort === key}
+                  value={key}
+                />
               ))}
             </fieldset>
           </div>
@@ -607,7 +707,7 @@ export function ShelfTabs() {
                   ? "border-foreground-subtle text-foreground"
                   : "border-border text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => setDomain(null)}
+              onClick={clearDomain}
               type="button"
             >
               All
@@ -618,30 +718,13 @@ export function ShelfTabs() {
             {(Object.keys(DOMAIN_META) as WikiDomain[])
               .filter((key) => (domainCounts.get(key) ?? 0) > 0)
               .map((key) => (
-                <button
-                  aria-pressed={domain === key}
-                  className={cn(
-                    CHIP_CLASS,
-                    domain === key
-                      ? "border-[var(--dc)] bg-card text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
+                <DomainChip
+                  count={domainCounts.get(key)}
+                  domainKey={key}
                   key={key}
-                  onClick={() =>
-                    setDomain((current) => (current === key ? null : key))
-                  }
-                  style={{ "--dc": DOMAIN_META[key].color } as CSSProperties}
-                  type="button"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-2 rounded-full bg-[var(--dc)]"
-                  />
-                  {DOMAIN_META[key].label}
-                  <span className="text-foreground-subtle">
-                    {domainCounts.get(key)}
-                  </span>
-                </button>
+                  onSelect={setDomain}
+                  selected={domain === key}
+                />
               ))}
           </fieldset>
         </div>
@@ -666,11 +749,8 @@ export function ShelfTabs() {
                   accent={accentOf(row.meta.domain)}
                   badge={row.meta.archived ? <ArchivedBadge /> : undefined}
                   control={
-                    <SaveButton
-                      initialSaved
-                      onToggle={(nowSaved) =>
-                        handleUnsave(row.meta.slug, nowSaved)
-                      }
+                    <SavedRowControl
+                      onUnsave={handleUnsave}
                       slug={row.meta.slug}
                     />
                   }
@@ -706,7 +786,7 @@ export function ShelfTabs() {
       {compareMode && selected.length > 0 && (
         <CompareBar
           count={selected.length}
-          onClear={() => setSelected([])}
+          onClear={clearSelection}
           onCompare={startCompare}
         />
       )}

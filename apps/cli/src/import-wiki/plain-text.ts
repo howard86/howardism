@@ -33,7 +33,7 @@ export function toPlainText(markdown: string): string {
   for (const line of lines) {
     const fence = FENCE_RE.exec(line);
     if (fence) {
-      const marker = fence[2][0];
+      const [marker] = fence[2];
       if (fenceChar === null) {
         fenceChar = marker;
       } else if (marker === fenceChar) {

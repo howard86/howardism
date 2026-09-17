@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import matter from "gray-matter";
@@ -58,18 +58,20 @@ const collectEntityTermsFromArticles = async (
     throw err;
   }
   const out: GlossaryEntry[] = [];
-  for (const filename of entries) {
-    if (!MDX_SUFFIX_RE.test(filename)) {
+  const mdxNames = entries.filter((name) => MDX_SUFFIX_RE.test(name));
+  const sources = await Promise.all(
+    mdxNames.map(async (filename) => ({
+      filename,
+      raw: await Bun.file(join(articlesDir, filename))
+        .text()
+        .catch(() => null),
+    }))
+  );
+  for (const { filename, raw } of sources) {
+    if (raw === null) {
       continue;
     }
     const slug = filename.replace(MDX_SUFFIX_RE, "");
-    const filePath = join(articlesDir, filename);
-    let raw: string;
-    try {
-      raw = await readFile(filePath, "utf8");
-    } catch {
-      continue;
-    }
     const { data } = matter(raw, {});
     const fm = data as ArticleFrontmatter;
     if (fm.tag !== "Entity") {
@@ -88,7 +90,7 @@ const collectAuthorTermsFromWikiSources = async (
 ): Promise<GlossaryEntry[]> => {
   let raw: string;
   try {
-    raw = await readFile(wikiSourcesPath, "utf8");
+    raw = await Bun.file(wikiSourcesPath).text();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return [];

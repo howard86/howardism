@@ -43,7 +43,7 @@ function buildTermTrie(terms: string[]): TermTrieNode {
     // way, so an astral character (e.g. an emoji) must be keyed as its two
     // surrogate halves on both sides or the walk never lines up.
     // biome-ignore lint/style/useForOf: for...of iterates by code point, which would split each astral character differently than the code-unit walk below
-    for (let i = 0; i < term.length; i++) {
+    for (let i = 0; i < term.length; i += 1) {
       const ch = term[i];
       let next = node.children.get(ch);
       if (!next) {
@@ -68,9 +68,9 @@ function buildTermTrie(terms: string[]): TermTrieNode {
  */
 function findPresentTerms(text: string, trie: TermTrieNode): Set<string> {
   const present = new Set<string>();
-  for (let start = 0; start < text.length; start++) {
+  for (let start = 0; start < text.length; start += 1) {
     let node = trie;
-    for (let i = start; i < text.length; i++) {
+    for (let i = start; i < text.length; i += 1) {
       const next = node.children.get(text[i]);
       if (!next) {
         break;
@@ -160,7 +160,7 @@ export function enforceGlossary(
       ? outputLinks.filter((link) => link.url === sourceLink.url)
       : [];
 
-    const candidate = outputLinksForUrl[0];
+    const [candidate] = outputLinksForUrl;
     if (
       sourceLink &&
       outputLinksForUrl.length === 1 &&

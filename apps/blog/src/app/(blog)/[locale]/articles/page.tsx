@@ -75,11 +75,11 @@ export default async function ZhArticlesIndex() {
                   </time>
                 </span>
               </div>
-              {article.description && (
+              {article.description ? (
                 <p className="mt-1.5 font-body text-muted-foreground text-sm leading-[1.6]">
                   {article.description}
                 </p>
-              )}
+              ) : null}
             </div>
           </li>
         ))}

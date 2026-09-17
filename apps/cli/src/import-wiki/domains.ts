@@ -63,7 +63,7 @@ export function buildDomainMembership(
   const uncataloged: string[] = [];
 
   for (const file of parsed) {
-    const slug = file.source.slug;
+    const { slug } = file.source;
     if (isMocSlug(slug)) {
       if (!mocSlugToDomain(slug)) {
         unknownMocs.push(slug);

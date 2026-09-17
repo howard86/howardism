@@ -61,7 +61,7 @@ export function resyncVerbatimFields(
     return outputText;
   }
   const srcBlock = frontmatterBlock(sourceText);
-  let block = fm[2];
+  let [, , block] = fm;
   for (const key of VERBATIM_KEYS) {
     const srcLine = verbatimRawLine(srcBlock, key);
     if (srcLine == null) {
@@ -80,6 +80,6 @@ export function resyncVerbatimFields(
 /** Source `title` frontmatter value (English), for the audit trail. */
 export function sourceTitle(rawMdx: string): string | null {
   const { data } = matter(rawMdx, {});
-  const title = (data as Record<string, unknown>).title;
+  const { title } = data as Record<string, unknown>;
   return typeof title === "string" ? title : null;
 }

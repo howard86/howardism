@@ -14,7 +14,7 @@ describe("import-wiki parse concurrency (O4)", () => {
     const dir = await mkdtemp(join(tmpdir(), "wiki-parse-concurrency-"));
     try {
       const sources: WikiSource[] = [];
-      for (let i = 0; i < FILE_COUNT; i++) {
+      for (let i = 0; i < FILE_COUNT; i += 1) {
         const slug = `note-${i}`;
         const absolutePath = join(dir, `${slug}.md`);
         await writeFile(

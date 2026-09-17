@@ -36,6 +36,7 @@ export default function GoogleAnalytics({
           stay lazyOnload — the shim buffers calls into window.dataLayer until the
           166 KB library arrives at idle. Reverting either strategy to the default
           re-races the library against LCP without gaining anything. */}
+      {/* biome-ignore lint/correctness/noBeforeInteractiveScriptOutsideDocument: the rule targets the Pages Router, where the strategy only works in `pages/_document`; this is the App Router, where `beforeInteractive` is supported in any server component */}
       <Script id="google-analytics" strategy="beforeInteractive">
         {`
           window.dataLayer = window.dataLayer || [];

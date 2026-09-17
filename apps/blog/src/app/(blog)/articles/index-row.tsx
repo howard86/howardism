@@ -104,20 +104,20 @@ export function IndexRow({
       </div>
 
       <div className="flex items-baseline gap-x-4">
-        {showDomain && meta.domain && (
+        {showDomain && meta.domain ? (
           <span className={cn(META_CLASS, "hidden sm:inline")}>
             <DomainLabel domain={meta.domain} />
           </span>
-        )}
+        ) : null}
         <span className={cn(META_CLASS, "text-right tabular-nums")}>
           <time dateTime={meta.date}>{formatDateShort(meta.date)}</time> ·{" "}
           {meta.readingTime}′
         </span>
-        {showSave && (
+        {showSave ? (
           <span className="-translate-y-0.5">
             <SaveButton slug={slug} />
           </span>
-        )}
+        ) : null}
       </div>
     </li>
   );

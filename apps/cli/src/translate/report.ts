@@ -310,7 +310,7 @@ function parseTopOption(argv: string[]): number {
 
 function main(): void {
   const argv = process.argv.slice(2);
-  const env = process.env;
+  const { env } = process;
   const json = argv.includes("--json");
   const top = parseTopOption(argv);
   const locale = env.TARGET_LANG ?? DEFAULT_LOCALE;
