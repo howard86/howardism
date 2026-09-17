@@ -1,3 +1,8 @@
+# [v2.30.1](https://github.com/howard86/howardism/compare/v2.30.0...v2.30.1) (2026-09-17)
+
+## 🐛 Bug Fixes
+- [`64ce3f2c`](https://github.com/howard86/howardism/commit/64ce3f2c)  fix(test-config): register DOM globals before jest-dom loads
+
 # [v2.30.0](https://github.com/howard86/howardism/compare/v2.29.0...v2.30.0) (2026-09-16)
 
 ## ✨ New Features
