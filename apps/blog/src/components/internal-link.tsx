@@ -9,14 +9,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
 
+import {
+  ARTICLES_PREFIX,
+  extractArticleSlug,
+} from "@/components/internal-link-shared";
 import { TagChip } from "@/components/tag-chip";
 
-export const ARTICLES_PREFIX = "/articles/";
-/** Exported so callers truncate the description before it reaches this module. */
-export const PREVIEW_DESCRIPTION_MAX = 140;
+// Constants and helpers shared with server components live in internal-link-shared.ts: a value exported from a "use client" module reaches a server component as a client-reference proxy, not the value.
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 100;
-const SLUG_TERMINATOR_RE = /[?#/]/;
 
 type LinkProps = ComponentProps<typeof Link>;
 
@@ -116,13 +117,4 @@ export function InternalLinkPreviewBody({
       </span>
     </div>
   );
-}
-
-export function extractArticleSlug(href: string): string | null {
-  if (!href.startsWith(ARTICLES_PREFIX)) {
-    return null;
-  }
-  const remainder = href.slice(ARTICLES_PREFIX.length);
-  const [slug] = remainder.split(SLUG_TERMINATOR_RE);
-  return slug.length > 0 ? slug : null;
 }

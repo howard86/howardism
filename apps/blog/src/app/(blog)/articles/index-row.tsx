@@ -2,10 +2,8 @@ import { cn } from "@howardism/ui/lib/utils";
 
 import { DomainLabel } from "@/components/howardism/domain-label";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
-import {
-  InternalLink,
-  PREVIEW_DESCRIPTION_MAX,
-} from "@/components/internal-link";
+import { InternalLink } from "@/components/internal-link";
+import { PREVIEW_DESCRIPTION_MAX } from "@/components/internal-link-shared";
 import { SaveButton } from "@/components/save-button";
 import { truncate } from "@/utils/text";
 import { formatDateShort } from "@/utils/time";

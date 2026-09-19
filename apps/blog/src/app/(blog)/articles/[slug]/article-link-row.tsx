@@ -1,8 +1,6 @@
 import { DomainDot } from "@/components/howardism/domain-dot";
-import {
-  InternalLink,
-  PREVIEW_DESCRIPTION_MAX,
-} from "@/components/internal-link";
+import { InternalLink } from "@/components/internal-link";
+import { PREVIEW_DESCRIPTION_MAX } from "@/components/internal-link-shared";
 import { truncate } from "@/utils/text";
 
 import type { ArticleLink } from "../service";
