@@ -9,6 +9,7 @@ import {
 import {
   type ArticleMeta,
   parseArticlesMeta,
+  parseLocalizedArticlesMeta,
 } from "@howardism/article-contract/manifests/articles-meta";
 import {
   type BacklinkEdge,
@@ -619,6 +620,49 @@ const translatedSlugs = [...translatedSet].sort();
 
 /** Slugs that have a committed zh-TW translation (per translations.json). */
 export const getTranslatedSlugs = (): string[] => translatedSlugs;
+
+export interface LocalizedArticleLink {
+  date: string;
+  description: string;
+  slug: string;
+  title: string;
+}
+
+/**
+ * Translated-article links carrying their zh-TW titles, newest-first — backs
+ * the `/zh-TW/articles` index. Restricted to the slugs that also carry a
+ * translation record, so a committed translation the tracker has not recorded
+ * (or a record with no committed file) stays off the index, exactly as the
+ * module-import version's `.catch(() => null)` did.
+ *
+ * It used to recover these three fields by dynamically importing all 274
+ * compiled translation modules — each pulling in its component tree and hero
+ * image — on every cold start. It reads `articles-meta.zh-TW.json` instead.
+ *
+ * Lives here rather than next to `renderArticle`: that module's
+ * `importArticleModule` is what creates the bundler's require-context over
+ * `src/content/articles-zh-TW`, so importing anything from it drags all 274
+ * compiled modules into the index route.
+ *
+ * The manifest is dynamically imported inside the memo rather than at module
+ * scope: every English route imports this service and none of them read the
+ * zh-TW manifest. `once` keeps it to one parse per process.
+ */
+export const getTranslatedArticleLinks = once(
+  async (): Promise<LocalizedArticleLink[]> => {
+    const data = await import("@/data/articles-meta.zh-TW.json");
+    const links = parseLocalizedArticlesMeta(data.default)
+      .articles.filter((entry) => translatedSet.has(entry.slug))
+      .map(({ slug, meta }) => ({
+        slug,
+        title: meta.title,
+        description: meta.description,
+        date: meta.date,
+      }));
+    // Date.parse rather than new Date(...).valueOf(): same parser, no object.
+    return links.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  }
+);
 
 /** Whether `slug` has a zh-TW translation available. */
 export const hasTranslation = (slug: string): boolean =>

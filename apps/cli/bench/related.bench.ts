@@ -30,9 +30,14 @@ for (const [target, edges] of Object.entries(graph.backlinks)) {
   }
 }
 
+Bun.gc(true);
+const heapBefore = process.memoryUsage().heapUsed;
 const related = bench("computeRelated over article-graph", () =>
   computeRelated(sortedSlugs, outgoingSets, backlinkSets)
 );
+// Peak is what matters here (the pair table is transient), but heapUsed right
+// after the last run still catches a table that survives the call.
+const heapAfter = process.memoryUsage().heapUsed;
 
 let drift = 0;
 for (const slug of sortedSlugs) {
@@ -42,6 +47,9 @@ for (const slug of sortedSlugs) {
   }
 }
 
+log(
+  `  heapUsed delta across the runs ${((heapAfter - heapBefore) / 1024 / 1024).toFixed(2)} MB`
+);
 log(
   `  slugs ${sortedSlugs.length}  differs from committed related ${drift}  checksum ${checksum(related)}`
 );

@@ -13,7 +13,7 @@ import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
 import { Container } from "@/app/(common)/container";
@@ -25,8 +25,7 @@ import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
 import { useTweaks } from "@/components/tweaks/tweaks-provider";
 import {
-  HEADING_ACTIVE_OFFSET_PX,
-  measureArticleScroll,
+  findActiveHeadingIndex,
   subscribeToArticleScroll,
 } from "@/hooks/use-article-scroll";
 import useHasScrolled from "@/hooks/use-has-scrolled";
@@ -55,6 +54,7 @@ function NavLink({
       aria-current={isActive ? "page" : undefined}
       className="rounded-full px-4 py-2 font-body font-medium text-[0.9rem] text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
       href={href}
+      prefetch={false}
     >
       {label}
     </Link>
@@ -216,26 +216,33 @@ function FocusPlate({
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    const compute = () => {
-      const scroll = measureArticleScroll();
-      setProgress(scroll?.progress ?? 0);
+  const h2Headings = useMemo(
+    () => headings.filter((h) => h.depth === 2),
+    [headings]
+  );
+  const h2Ids = useMemo(() => h2Headings.map((h) => h.id), [h2Headings]);
+  const textById = useMemo(
+    () => new Map(h2Headings.map((h) => [h.id, h.text])),
+    [h2Headings]
+  );
 
-      let current: string | null = null;
-      for (const heading of headings) {
-        if (heading.depth !== 2) {
-          continue;
+  useEffect(
+    () =>
+      subscribeToArticleScroll(h2Ids, (frame) => {
+        if (!frame) {
+          setProgress(0);
+          setActiveSection(null);
+          return;
         }
-        const el = document.getElementById(heading.id);
-        if (el && el.getBoundingClientRect().top <= HEADING_ACTIVE_OFFSET_PX) {
-          current = heading.text;
-        }
-      }
-      setActiveSection(current);
-    };
-
-    return subscribeToArticleScroll(compute);
-  }, [headings]);
+        setProgress(frame.progress);
+        // Cached, ascending offsets — a binary search instead of a rect sweep.
+        const index = findActiveHeadingIndex(frame);
+        setActiveSection(
+          index < 0 ? null : (textById.get(frame.headings[index].id) ?? null)
+        );
+      }),
+    [h2Ids, textById]
+  );
 
   const progressPercent = Math.round(progress * 100);
 

@@ -182,6 +182,34 @@ describe("buildArticleGraph", () => {
     ]);
   });
 
+  it("lets a late, higher-scoring slug displace a full related list", () => {
+    // The top-5 is filled in ascending slug order, so the riskiest path is a
+    // high scorer that arrives alphabetically last and has to walk to the
+    // front of an already-full list. "zzz" scores 3 (one shared source, two
+    // shared targets) against the p-nodes' 1 (shared source only).
+    const parsed = [
+      makeParsed(
+        "hub",
+        "[[a0]] [[p1]] [[p2]] [[p3]] [[p4]] [[p5]] [[p6]] [[zzz]]"
+      ),
+      makeParsed("a0", "[[t1]] [[t2]]"),
+      makeParsed("p1", ""),
+      makeParsed("p2", ""),
+      makeParsed("p3", ""),
+      makeParsed("p4", ""),
+      makeParsed("p5", ""),
+      makeParsed("p6", ""),
+      makeParsed("t1", ""),
+      makeParsed("t2", ""),
+      makeParsed("zzz", "[[t1]] [[t2]]"),
+    ];
+
+    const graph = buildArticleGraph({ parsed, generatedOn: "2026-05-14" });
+
+    expect(graph.related.a0).toEqual(["zzz", "p1", "p2", "p3", "p4"]);
+    expect(graph.related.zzz).toEqual(["a0", "p1", "p2", "p3", "p4"]);
+  });
+
   it("breaks related ties alphabetically by slug", () => {
     // x and y both share one outgoing target (target). Tie at score 1.
     // x and y also share one backlink (source). Tie continues at 2.

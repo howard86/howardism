@@ -1,5 +1,6 @@
-import throttle from "lodash.throttle";
 import { useEffect, useState } from "react";
+
+import { throttle } from "@/utils/throttle";
 
 export default function useHasScrolled({
   offsetPx = 0,

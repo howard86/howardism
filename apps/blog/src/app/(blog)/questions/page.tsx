@@ -4,7 +4,7 @@ import { env } from "@/config/env";
 
 import { PlatePage } from "../_shell/plate-page";
 import { getOpenQuestions } from "../articles/service";
-import { QuestionsWorklist } from "./questions-worklist";
+import { QuestionsBacklog } from "./questions-backlog";
 
 const QUESTIONS_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/questions`;
 
@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   openGraph: { url: QUESTIONS_URL },
 };
 
+/**
+ * The shell only: the headline counts are computed here, but the backlog itself
+ * is fetched by {@link QuestionsBacklog} as its own chunk. Passing the corpus
+ * down as a prop would serialise all 312 concepts twice into every hit — once
+ * as rendered HTML, once as the flight payload beside it.
+ */
 export default function QuestionsPage() {
   const concepts = getOpenQuestions();
   const open = concepts.reduce((sum, c) => sum + c.questions.length, 0);
@@ -45,7 +51,7 @@ export default function QuestionsPage() {
       titleAccent="unresolved."
       width="wide"
     >
-      <QuestionsWorklist concepts={concepts} />
+      <QuestionsBacklog />
     </PlatePage>
   );
 }

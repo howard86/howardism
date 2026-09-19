@@ -193,7 +193,13 @@ async function main(): Promise<void> {
       dryRun: opts.dryRun,
     });
 
-    summary.searchIndex = await writeSearchIndex({ dryRun: opts.dryRun });
+    // `set.graph` is the object emitArticleGraph just serialised, so the
+    // index is built against it rather than re-reading and re-validating the
+    // 1.7 MB manifest that was written a few lines up.
+    summary.searchIndex = await writeSearchIndex({
+      dryRun: opts.dryRun,
+      graph: set.graph,
+    });
   }
 
   printSummary(summary);

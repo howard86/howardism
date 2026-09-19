@@ -31,12 +31,31 @@ const asString = (value: unknown): string => {
 const normalizeBody = (body: string): string =>
   body.replace(/\r\n/g, "\n").trim();
 
-/** Parse the translatable surface out of a raw source MDX string. */
-export function extractTranslatableSurface(
-  rawMdx: string
+/**
+ * A frontmatter parse the caller already has. Structurally what gray-matter
+ * returns, so a `matter()` result passes straight in.
+ */
+export interface ParsedFrontmatter {
+  content: string;
+  data: Record<string, unknown>;
+}
+
+/**
+ * The translatable surface of an ALREADY-PARSED article, for callers that
+ * parsed the frontmatter for their own reasons — `matter()` is the expensive
+ * half of {@link surfaceHash}, and several of them were paying for it twice.
+ *
+ * The parse must be equivalent to gray-matter's default: `title`,
+ * `description`, `imageAlt`, `tags` and `sources` are read straight out of
+ * `data`, so a YAML engine that types any of them differently (a bare `no` as
+ * a boolean, a bare date as a Date) would change the digest for unchanged
+ * content — and `sourceHash` is committed and compared by `translate:check`.
+ */
+export function translatableSurfaceFrom(
+  parsed: ParsedFrontmatter
 ): TranslatableSurface {
-  const { data, content } = matter(rawMdx, {});
-  const d = data as Record<string, unknown>;
+  const { data, content } = parsed;
+  const d = data;
   const rawSources = Array.isArray(d.sources) ? d.sources : [];
   return {
     title: asString(d.title),
@@ -51,6 +70,13 @@ export function extractTranslatableSurface(
   };
 }
 
+/** Parse the translatable surface out of a raw source MDX string. */
+export function extractTranslatableSurface(
+  rawMdx: string
+): TranslatableSurface {
+  return translatableSurfaceFrom(matter(rawMdx, {}));
+}
+
 /**
  * Stable SHA-256 over the translatable surface. The digest input is a JSON
  * array assembled in an EXPLICIT, fixed element order — not a stringified
@@ -58,7 +84,13 @@ export function extractTranslatableSurface(
  * nor a future refactor can change the hash for unchanged content.
  */
 export function surfaceHash(rawMdx: string): string {
-  const s = extractTranslatableSurface(rawMdx);
+  return surfaceHashFrom(matter(rawMdx, {}));
+}
+
+/** {@link surfaceHash} over an already-parsed article — see the caveat on
+ * {@link translatableSurfaceFrom}. */
+export function surfaceHashFrom(parsed: ParsedFrontmatter): string {
+  const s = translatableSurfaceFrom(parsed);
   const canonical = JSON.stringify([
     s.title,
     s.description,

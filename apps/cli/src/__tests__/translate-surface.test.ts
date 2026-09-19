@@ -2,7 +2,9 @@ import { describe, expect, it } from "bun:test";
 import {
   extractTranslatableSurface,
   surfaceHash,
+  surfaceHashFrom,
 } from "@howardism/article-contract/surface";
+import matter from "gray-matter";
 import {
   resyncVerbatimFields,
   sourceTitle,
@@ -165,4 +167,31 @@ describe("sourceTitle", () => {
   it("returns the source frontmatter title", () => {
     expect(sourceTitle(mdx({ title: "Cat Wu" }))).toBe("Cat Wu");
   });
+});
+
+describe("surfaceHashFrom", () => {
+  // surfaceHash's callers parse the frontmatter for their own reasons and hand
+  // the parse over rather than pay for it twice. sourceHash is committed and
+  // translate:check compares it, so the two entry points must never diverge:
+  // a drift here marks every translation stale and invites a paid re-run.
+  const cases: [string, string][] = [
+    ["a plain article", mdx()],
+    [
+      "one with sources and tags",
+      mdx({
+        title: "Retrieval",
+        description: "Why it is not dead",
+        sources: [{ title: "A paper", url: "https://example.com/p" }],
+        body: "Body text.\n\n## Heading\n\nMore.",
+      }),
+    ],
+    ["one with an empty body", mdx({ body: "" })],
+    ["one with CRLF line endings", mdx({ body: "one\r\ntwo" })],
+  ];
+
+  for (const [name, raw] of cases) {
+    it(`matches surfaceHash for ${name}`, () => {
+      expect(surfaceHashFrom(matter(raw, {}))).toBe(surfaceHash(raw));
+    });
+  }
 });

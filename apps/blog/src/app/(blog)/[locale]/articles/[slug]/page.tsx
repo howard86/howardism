@@ -7,7 +7,11 @@ import {
   importArticleModule,
   renderArticle,
 } from "../../../articles/render-article";
-import { hasTranslation } from "../../../articles/service";
+import {
+  getTranslatedSlugs,
+  hasTranslation,
+  PREFIXED_LOCALES,
+} from "../../../articles/service";
 
 interface ZhArticlePageProps {
   params: Promise<{
@@ -16,13 +20,16 @@ interface ZhArticlePageProps {
   }>;
 }
 
-// On-demand: no build-time prerender; render the precompiled zh-TW module on
-// first request, cache until redeploy.
+// Prerendered at build time, one HTML file per translated slug and prefixed
+// locale. `dynamicParams` stays on so a slug translated after the deploy still
+// renders on demand, and `hasTranslation` still 404s an untranslated one.
 export const dynamicParams = true;
 export const revalidate = false;
 
 export function generateStaticParams(): { locale: string; slug: string }[] {
-  return [];
+  return PREFIXED_LOCALES.flatMap((locale) =>
+    getTranslatedSlugs().map((slug) => ({ locale, slug }))
+  );
 }
 
 export async function generateMetadata({

@@ -33,7 +33,7 @@ import {
 } from "@howardism/article-contract/manifests/graph";
 import type { OpenQuestionsManifest } from "@howardism/article-contract/manifests/open-questions";
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
-import { surfaceHash } from "@howardism/article-contract/surface";
+import { surfaceHashFrom } from "@howardism/article-contract/surface";
 import matter from "gray-matter";
 
 import { runWithConcurrency } from "./concurrency";
@@ -86,7 +86,10 @@ export function extractHeroImage(raw: string): string | null {
 
 /** Parse one MDX article's raw source into an {@link ArticleRecord}. */
 export function parseArticle(raw: string, slug: string): ArticleRecord {
-  const { data } = matter(raw);
+  // `{}` opts out of gray-matter's global cache, which would otherwise hold
+  // every article's full text for the process' lifetime.
+  const parsed = matter(raw, {});
+  const { data } = parsed;
   return {
     slug,
     title: String(data.title ?? "").trim(),
@@ -94,7 +97,9 @@ export function parseArticle(raw: string, slug: string): ArticleRecord {
     imageAlt: String(data.imageAlt ?? "").trim(),
     domain: data.domain ? String(data.domain) : null,
     heroImage: extractHeroImage(raw),
-    sourceHash: surfaceHash(raw),
+    // Hand the parse over rather than let surfaceHash redo it. Same
+    // gray-matter defaults on both sides, so the digest is unchanged.
+    sourceHash: surfaceHashFrom(parsed),
   };
 }
 

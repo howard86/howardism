@@ -5,7 +5,7 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../_shell/plate-page";
-import { getTranslatedArticleLinks } from "../../articles/render-article";
+import { getTranslatedArticleLinks } from "../../articles/service";
 
 const ZH_ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW/articles`;
 

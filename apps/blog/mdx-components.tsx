@@ -2,12 +2,15 @@ import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 
-import { type ArticleMeta, getArticles } from "@/app/(blog)/articles/service";
+import { getArticles } from "@/app/(blog)/articles/service";
+import type { ArticlePreview } from "@/components/internal-link";
+import { InternalLink } from "@/components/internal-link";
 import {
   ARTICLES_PREFIX,
   extractArticleSlug,
-  InternalLink,
-} from "@/components/internal-link";
+  PREVIEW_DESCRIPTION_MAX,
+} from "@/components/internal-link-shared";
+import { truncate } from "@/utils/text";
 
 interface MdxLinkLikeProps
   extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
@@ -54,9 +57,17 @@ async function ArticleLinkResolver({
 
 async function resolveArticleMeta(
   slug: string
-): Promise<ArticleMeta | undefined> {
+): Promise<ArticlePreview | undefined> {
   const articles = await getArticles();
-  return articles.entities[slug]?.meta;
+  const meta = articles.entities[slug]?.meta;
+  if (!meta) {
+    return;
+  }
+  return {
+    description: truncate(meta.description, PREVIEW_DESCRIPTION_MAX),
+    tag: meta.tag,
+    title: meta.title,
+  };
 }
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {

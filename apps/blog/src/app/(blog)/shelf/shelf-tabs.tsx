@@ -8,8 +8,6 @@ import {
   TabsTrigger,
 } from "@howardism/ui/components/tabs";
 import { cn } from "@howardism/ui/lib/utils";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -46,6 +44,8 @@ import {
   type ShelfSort,
 } from "@/lib/shelf-view";
 
+import { formatRelativeTime } from "@/utils/time";
+
 import { DOMAIN_META } from "../articles/domain-meta";
 import {
   ArchivedBadge,
@@ -53,8 +53,6 @@ import {
   ShelfArticleRow,
   toRowSelection,
 } from "./shelf-article-row";
-
-dayjs.extend(relativeTime);
 
 /** Minimum selection that makes a comparison meaningful. */
 const MIN_COMPARE = 2;
@@ -387,7 +385,7 @@ function buildHistoryItems({
           readingTime={row.readingTime}
           selection={toRowSelection(selection, row.slug, row.title)}
           tags={row.tags}
-          timeText={dayjs(row.lastReadAt).fromNow()}
+          timeText={formatRelativeTime(row.lastReadAt)}
           title={row.title}
         />
       );
@@ -768,7 +766,7 @@ export function ShelfTabs() {
                     row.meta.title
                   )}
                   tags={row.meta.tags}
-                  timeText={`saved ${dayjs(row.savedAt).fromNow()}`}
+                  timeText={`saved ${formatRelativeTime(row.savedAt)}`}
                   title={row.meta.title}
                 />
               ))}

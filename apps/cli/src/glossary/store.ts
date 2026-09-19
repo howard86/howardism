@@ -46,6 +46,17 @@ export interface GlossaryMatch extends GlossaryEntry {
   notes: string | null;
 }
 
+/** An entry on the way in, where each may carry its own `notes`. */
+export interface GlossaryEntryInput extends GlossaryEntry {
+  notes?: string;
+}
+
+/** What {@link addTerms} reports back about one requested entry. */
+export interface AddedTerm extends GlossaryEntry {
+  /** False when the term was already registered, in any case. */
+  added: boolean;
+}
+
 export interface AddTermOptions {
   notes?: string;
   /** Provenance: 'agent' (default), 'migrated', 'seed', or 'manual'. */
@@ -190,12 +201,14 @@ export function addTerm(
 
 interface NormalisedEntry {
   category: string;
+  notes: string | null;
   term: string;
 }
 
 const normaliseEntry = (
-  entry: GlossaryEntry,
-  index: number
+  entry: GlossaryEntryInput,
+  index: number,
+  fallbackNotes: string | null
 ): NormalisedEntry => {
   if (!entry || typeof entry !== "object") {
     throw new Error(
@@ -213,7 +226,11 @@ const normaliseEntry = (
       `addTerms: entry at index ${index} must have a non-empty string \`category\``
     );
   }
-  return { term: term.trim(), category: category.trim() };
+  return {
+    term: term.trim(),
+    category: category.trim(),
+    notes: entry.notes?.trim() || fallbackNotes,
+  };
 };
 
 /**
@@ -221,8 +238,11 @@ const normaliseEntry = (
  * case-insensitive (via the unique `lower(term)` index): rows already present
  * — in any case — are silently ignored. Validation mirrors {@link addTerm}:
  * `entries` must be an array, and every entry must have non-empty string
- * `term` and `category`. Returns `{ added }` = number of rows actually
- * inserted (excludes duplicates and pre-existing rows).
+ * `term` and `category`. An entry may carry its own `notes`, falling back to
+ * `opts.notes`. Returns `{ added }` = number of rows actually inserted
+ * (excludes duplicates and pre-existing rows) alongside `results`, one entry
+ * per request in request order, so a caller can tell which of its terms were
+ * new.
  *
  * One transaction per call keeps N writes to a single fsync, which makes
  * concurrent agents friendlier neighbours on the WAL than N separate
@@ -230,33 +250,33 @@ const normaliseEntry = (
  */
 export function addTerms(
   db: Database,
-  entries: GlossaryEntry[],
+  entries: GlossaryEntryInput[],
   opts: AddTermOptions = {}
-): { added: number } {
+): { added: number; results: AddedTerm[] } {
   if (!Array.isArray(entries)) {
     throw new Error("addTerms: entries must be an array");
   }
-  const normalised = entries.map(normaliseEntry);
+  const fallbackNotes = opts.notes?.trim() || null;
+  const normalised = entries.map((entry, index) =>
+    normaliseEntry(entry, index, fallbackNotes)
+  );
   if (normalised.length === 0) {
-    return { added: 0 };
+    return { added: 0, results: [] };
   }
   const source = opts.source?.trim() || "agent";
-  const notes = opts.notes?.trim() || null;
   const insert = db.query(
     "INSERT OR IGNORE INTO glossary_term (term, category, notes, source) VALUES (?, ?, ?, ?)"
   );
-  const insertAll = db.transaction((items: NormalisedEntry[]): number => {
-    let added = 0;
-    for (const item of items) {
-      const result = insert.run(item.term, item.category, notes, source);
-      if (result.changes === 1) {
-        added += 1;
-      }
-    }
-    return added;
-  });
-  const added = withBusyRetry(() => insertAll(normalised));
-  return { added };
+  const insertAll = db.transaction((items: NormalisedEntry[]): AddedTerm[] =>
+    items.map((item) => ({
+      term: item.term,
+      category: item.category,
+      added:
+        insert.run(item.term, item.category, item.notes, source).changes === 1,
+    }))
+  );
+  const results = withBusyRetry(() => insertAll(normalised));
+  return { added: results.filter((r) => r.added).length, results };
 }
 
 /** Substring (case-insensitive) lookup over `term`; returns notes too. */

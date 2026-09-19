@@ -24,6 +24,57 @@ function forceGc(): void {
 
 const corpus = readCorpus();
 
+// Every caller parses a given file once per process, so the cache never gets a
+// hit in production — the repeat-parse figures below are the bench's own doing
+// and say nothing about a real run. This is the honest comparison: N distinct
+// strings, each parsed for the first time. Each run gets its own copies so no
+// string is ever seen twice.
+function firstParse(useCache: boolean, run: number): void {
+  for (const file of corpus) {
+    const distinct = `${file.text}\n<!-- ${run} -->`;
+    if (useCache) {
+      matter(distinct);
+    } else {
+      matter(distinct, {});
+    }
+  }
+}
+
+const FIRST_PARSE_RUNS = 7;
+matterCache.clearCache();
+forceGc();
+const beforeFirstCached = process.memoryUsage().heapUsed;
+let cachedRun = 0;
+bench(
+  "first parse of distinct strings — cached",
+  () => {
+    cachedRun += 1;
+    firstParse(true, cachedRun);
+  },
+  FIRST_PARSE_RUNS
+);
+forceGc();
+log(
+  `heapUsed delta (first parse, cached): ${((process.memoryUsage().heapUsed - beforeFirstCached) / 1024 / 1024).toFixed(2)} MB over ${Object.keys(matterCache.cache).length} cache entries`
+);
+
+matterCache.clearCache();
+forceGc();
+const beforeFirstUncached = process.memoryUsage().heapUsed;
+let uncachedRun = 0;
+bench(
+  "first parse of distinct strings — uncached",
+  () => {
+    uncachedRun += 1;
+    firstParse(false, uncachedRun);
+  },
+  FIRST_PARSE_RUNS
+);
+forceGc();
+log(
+  `heapUsed delta (first parse, uncached): ${((process.memoryUsage().heapUsed - beforeFirstUncached) / 1024 / 1024).toFixed(2)} MB over ${Object.keys(matterCache.cache).length} cache entries`
+);
+
 matterCache.clearCache();
 forceGc();
 const beforeCached = process.memoryUsage().heapUsed;
