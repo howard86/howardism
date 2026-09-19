@@ -1,12 +1,20 @@
 import { describe, expect, it } from "bun:test";
-
+import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
 
 import {
+  buildIndex,
   buildSearchEntry,
   deriveKeywords,
   type PartialSearchEntry,
 } from "../search-index.ts";
+
+const HERE = dirname(new URL(import.meta.url).pathname);
+const GRAPH_PATH = resolve(
+  HERE,
+  "../../../../apps/blog/src/data/article-graph.json"
+);
 
 const HERO = 'export { default as heroImage } from "../assets/x.png";';
 
@@ -129,5 +137,35 @@ describe("deriveKeywords", () => {
   it("returns an empty string for an article with no neighbours", () => {
     const orphan = { ...subject, slug: "orphan" };
     expect(deriveKeywords(orphan, graph, tagsBySlug, outgoing)).toBe("");
+  });
+});
+
+describe("buildIndex", () => {
+  // The importer calls writeSearchIndex right after writing article-graph.json
+  // from the object it holds, so it passes that object in rather than have the
+  // 1.7 MB manifest read and re-validated straight back off disk. The two
+  // paths must agree, or `import:wiki` and `build:search-index` would emit
+  // different indexes from the same corpus.
+  it("gives the same index whether the graph is injected or read", async () => {
+    const graph = parseArticleGraph(
+      JSON.parse(await readFile(GRAPH_PATH, "utf8"))
+    );
+    const [fromDisk, injected] = await Promise.all([
+      buildIndex("2026-05-14"),
+      buildIndex("2026-05-14", graph),
+    ]);
+    expect(injected).toEqual(fromDisk);
+  });
+
+  it("indexes against the injected graph, not the committed one", async () => {
+    // An empty graph has no neighbours to draw keywords from, so every entry
+    // loses them — which only happens if the injected graph is really used.
+    const injected = await buildIndex("2026-05-14", {
+      generatedOn: "2026-05-14",
+      backlinks: {},
+      related: {},
+    });
+    expect(injected.entries.length).toBeGreaterThan(0);
+    expect(injected.entries.every((entry) => entry.keywords === "")).toBe(true);
   });
 });

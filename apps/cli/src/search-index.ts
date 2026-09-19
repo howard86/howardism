@@ -12,7 +12,8 @@
  * 101KB→61KB gzipped, 23.5ms→16ms a query, 241→252 results, and the top hit
  * matches a full-text index on 23/24 queries rather than 22/24.
  *
- * Reads `article-graph.json`, so it must run after `import:wiki`.
+ * Reads `article-graph.json`, so it must run after `import:wiki` — unless the
+ * caller passes the graph in, which the importer does.
  *
  *   bun run build:search-index            # write the index
  *   DRY_RUN=1 bun run build:search-index  # report counts without writing
@@ -147,10 +148,20 @@ export function deriveKeywords(
     .join(" ");
 }
 
-async function buildIndex(generatedOn: string): Promise<SearchIndex> {
-  const graph = parseArticleGraph(
-    JSON.parse(await Bun.file(GRAPH_PATH).text())
-  );
+async function readGraph(): Promise<ArticleGraph> {
+  return parseArticleGraph(JSON.parse(await Bun.file(GRAPH_PATH).text()));
+}
+
+/**
+ * The index itself. `injectedGraph` is the caller's in-memory
+ * `article-graph.json`; without it the manifest is read and re-validated off
+ * disk. Exported for the test that pins the two paths to the same output.
+ */
+export async function buildIndex(
+  generatedOn: string,
+  injectedGraph?: ArticleGraph
+): Promise<SearchIndex> {
+  const graph = injectedGraph ?? (await readGraph());
   const filenames = (await readdir(ARTICLES_DIR))
     .filter((name) => MDX_SUFFIX.test(name))
     .sort();
@@ -187,9 +198,17 @@ async function buildIndex(generatedOn: string): Promise<SearchIndex> {
  */
 export async function writeSearchIndex(options?: {
   dryRun?: boolean;
+  /**
+   * The graph to index against, for a caller that already has it in memory.
+   * The wiki importer does: it calls this immediately after writing
+   * `article-graph.json` from the very object it would otherwise re-read and
+   * re-validate off disk. Omitted, the graph is read from disk as before, so
+   * `bun run build:search-index` still runs standalone.
+   */
+  graph?: ArticleGraph;
 }): Promise<{ entryCount: number; outputPath: string }> {
   const generatedOn = new Date().toISOString().slice(0, 10);
-  const index = await buildIndex(generatedOn);
+  const index = await buildIndex(generatedOn, options?.graph);
   const json = JSON.stringify(SearchIndexSchema.parse(index), null, 2);
 
   const keywordless = index.entries.filter(
