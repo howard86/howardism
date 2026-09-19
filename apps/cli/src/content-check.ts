@@ -86,7 +86,9 @@ export function extractHeroImage(raw: string): string | null {
 
 /** Parse one MDX article's raw source into an {@link ArticleRecord}. */
 export function parseArticle(raw: string, slug: string): ArticleRecord {
-  const { data } = matter(raw);
+  // `{}` opts out of gray-matter's global cache, which would otherwise hold
+  // every article's full text for the process' lifetime.
+  const { data } = matter(raw, {});
   return {
     slug,
     title: String(data.title ?? "").trim(),

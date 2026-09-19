@@ -555,7 +555,9 @@ export async function validateTranslation(
   let outputImageAlt: unknown;
   let outputBody: string | null = null;
   try {
-    const parsed = matter(outputText);
+    // `{}` opts out of gray-matter's global cache, which would otherwise hold
+    // every article's full text for the process' lifetime.
+    const parsed = matter(outputText, {});
     outputBody = parsed.content;
     const normalised = normaliseFrontmatter(
       parsed.data as Record<string, unknown>
@@ -593,7 +595,8 @@ export async function validateTranslation(
   let sourceData: Record<string, unknown> | null = null;
   let sourceBody: string | null = null;
   try {
-    const parsedSource = matter(sourceText);
+    // `{}` opts out of gray-matter's global cache — see above.
+    const parsedSource = matter(sourceText, {});
     sourceData = parsedSource.data as Record<string, unknown>;
     sourceBody = parsedSource.content;
   } catch (err) {

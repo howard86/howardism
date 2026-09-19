@@ -32,3 +32,12 @@ Env vars:
 | `DRY_RUN` | unset | When `1`, plans all writes and prints the summary but does not touch disk. |
 
 Per-slug category overrides live in `wiki-category-overrides.json`.
+
+## Conventions
+
+Always call gray-matter as `matter(raw, {})`, never `matter(raw)`. With no
+options argument gray-matter memoises every string it parses in a
+process-global cache that nothing ever reads back — the CLI parses each file
+once per process, so the cache can only cost. Measured over the 447-article
+corpus (`bun run bench gray-matter`): first parse of distinct strings runs
+12.24 ms cached vs 9.25 ms uncached, and retains 25 MB per pass instead of 0.
