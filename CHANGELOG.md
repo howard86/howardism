@@ -1,3 +1,12 @@
+# [v2.31.0](https://github.com/howard86/howardism/compare/v2.30.1...v2.31.0) (2026-09-19)
+
+## ✨ New Features
+- [`27edeba0`](https://github.com/howard86/howardism/commit/27edeba0)  feat(glossary): batch glossary_add over MCP 
+
+## 🐛 Bug Fixes
+- [`46f2bd12`](https://github.com/howard86/howardism/commit/46f2bd12)  fix(blog): retag two zh-TW articles onto live domains 
+- [`830f35a3`](https://github.com/howard86/howardism/commit/830f35a3)  fix(articles): keep the preview truncation limit out of the client module
+
 # [v2.30.1](https://github.com/howard86/howardism/compare/v2.30.0...v2.30.1) (2026-09-17)
 
 ## 🐛 Bug Fixes
