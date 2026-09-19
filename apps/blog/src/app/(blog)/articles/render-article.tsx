@@ -11,7 +11,6 @@ import {
   articleExists,
   getNavigableTagSet,
   getSiblings,
-  getTranslatedSlugs,
   hasTranslation,
   isTranslationStale,
   type Locale,
@@ -97,38 +96,4 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
       <mod.default />
     </ArticleLayout>
   );
-}
-
-export interface LocalizedArticleLink {
-  date: string;
-  description: string;
-  slug: string;
-  title: string;
-}
-
-/**
- * Translated-article links carrying their zh-TW titles, newest-first — backs
- * the `/zh-TW/articles` index. Loads each translated module's frontmatter only
- * (precompiled, cheap).
- */
-export async function getTranslatedArticleLinks(): Promise<
-  LocalizedArticleLink[]
-> {
-  const results = await Promise.all(
-    getTranslatedSlugs().map(async (slug) => {
-      const mod = await importArticleModule(slug, "zh-TW").catch(() => null);
-      if (!mod) {
-        return null;
-      }
-      return {
-        slug,
-        title: mod.meta.title,
-        description: mod.meta.description,
-        date: mod.meta.date,
-      };
-    })
-  );
-  const links = results.filter((r): r is LocalizedArticleLink => r !== null);
-  // Date.parse rather than new Date(...).valueOf(): same parser, no object.
-  return links.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 }
