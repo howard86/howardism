@@ -28,7 +28,10 @@ import {
   type LocalizedArticlesMetaManifest,
   LocalizedArticlesMetaManifestSchema,
 } from "@howardism/article-contract/manifests/articles-meta";
-import { surfaceHash } from "@howardism/article-contract/surface";
+import {
+  type ParsedFrontmatter,
+  surfaceHashFrom,
+} from "@howardism/article-contract/surface";
 import matter from "gray-matter";
 import YAML from "yaml";
 import type { z } from "zod";
@@ -84,7 +87,7 @@ function byDateDescThenSlug(
 async function readArticleDir<T>(
   dir: string,
   schema: { safeParse: (data: unknown) => z.ZodSafeParseResult<T> }
-): Promise<{ meta: T; raw: string; slug: string }[]> {
+): Promise<{ meta: T; parsed: ParsedFrontmatter; slug: string }[]> {
   const filenames = (await readdir(dir))
     .filter((name) => MDX_SUFFIX.test(name))
     .sort();
@@ -95,13 +98,14 @@ async function readArticleDir<T>(
     async (filename) => {
       const slug = filename.replace(MDX_SUFFIX, "");
       const raw = await Bun.file(resolve(dir, filename)).text();
-      const parsed = schema.safeParse(matter(raw, MATTER_OPTIONS).data);
-      if (!parsed.success) {
+      const parsed = matter(raw, MATTER_OPTIONS);
+      const validated = schema.safeParse(parsed.data);
+      if (!validated.success) {
         throw new Error(
-          `Invalid article frontmatter for "${slug}": ${parsed.error.message}`
+          `Invalid article frontmatter for "${slug}": ${validated.error.message}`
         );
       }
-      return { slug, raw, meta: parsed.data };
+      return { slug, parsed, meta: validated.data };
     }
   );
 }
@@ -110,9 +114,9 @@ export async function buildArticlesMeta(
   generatedOn: string
 ): Promise<ArticlesMetaManifest> {
   const read = await readArticleDir(ARTICLES_DIR, ArticleMetaSchema);
-  const articles = read.map(({ slug, raw, meta }) => ({
+  const articles = read.map(({ slug, parsed, meta }) => ({
     slug,
-    sourceHash: surfaceHash(raw),
+    sourceHash: surfaceHashFrom(parsed),
     meta,
   }));
   articles.sort(byDateDescThenSlug);
