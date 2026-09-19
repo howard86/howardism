@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { env } from "@/config/env";
 
 import { importArticleModule, renderArticle } from "../render-article";
-import { articleExists } from "../service";
+import { articleExists, getVisibleArticles } from "../service";
 
 interface ArticlePageProps {
   params: Promise<{
@@ -11,14 +11,17 @@ interface ArticlePageProps {
   }>;
 }
 
-// On-demand rendering: skip the build-time prerender pass (faster builds) and
-// render each article from its precompiled module on first request, then cache
-// it until the next deploy (revalidate = false). See translations tracking plan.
+// Prerendered at build time, one HTML file per visible article: every article
+// is otherwise rendered on first request per deploy, on the traced serverless
+// bundle, and that first reader pays for it. `dynamicParams` stays on so an
+// archived slug — deliberately left out of the list below — still renders on
+// demand, and `articleExists` still 404s an unknown one.
 export const dynamicParams = true;
 export const revalidate = false;
 
-export function generateStaticParams(): { slug: string }[] {
-  return [];
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  const visible = await getVisibleArticles();
+  return visible.ids.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({
