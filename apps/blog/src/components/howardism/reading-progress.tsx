@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
+import type { ArticleScrollFrame } from "@/hooks/use-article-scroll";
 import {
-  HEADING_ACTIVE_OFFSET_PX,
-  measureArticleScroll,
+  findActiveHeadingIndex,
   subscribeToArticleScroll,
 } from "@/hooks/use-article-scroll";
 
@@ -19,6 +19,55 @@ interface TickPosition {
   offset: number;
 }
 
+const EMPTY_TICKS: readonly TickPosition[] = [];
+
+function buildTicks(
+  frame: ArticleScrollFrame,
+  pastCount: number
+): readonly TickPosition[] {
+  const { articleTop, headings, scrollable } = frame;
+  const ticks: TickPosition[] = [];
+  for (const [index, heading] of headings.entries()) {
+    ticks.push({
+      id: heading.id,
+      isPast: index < pastCount,
+      offset:
+        scrollable > 0
+          ? Math.min(1, Math.max(0, (heading.top - articleTop) / scrollable))
+          : 0,
+    });
+  }
+  return ticks;
+}
+
+/**
+ * Memoised so a scroll tick that only moves the bar — the common case, since
+ * tick offsets are document-space and `isPast` flips at most once per heading
+ * per read — commits the bar width and nothing else.
+ */
+function TickRow({ ticks }: { ticks: readonly TickPosition[] }) {
+  if (ticks.length === 0) {
+    return null;
+  }
+  return (
+    <div className="absolute inset-0">
+      {ticks.map((tick) => (
+        <div
+          className={
+            tick.isPast
+              ? "absolute top-0 h-full w-px bg-[var(--article-accent,var(--brand))]/30"
+              : "absolute top-0 h-full w-px bg-background/50"
+          }
+          key={tick.id}
+          style={{ left: `${tick.offset * 100}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const TickLayer = memo(TickRow);
+
 /**
  * Reading progress through the article body, rendered as the site bar's bottom
  * edge. Tracks scroll position relative to the page's `<article>` element so it
@@ -27,44 +76,39 @@ interface TickPosition {
  */
 export function ReadingProgress({ headings }: ReadingProgressProps) {
   const [progress, setProgress] = useState(0);
-  const [ticks, setTicks] = useState<TickPosition[]>([]);
+  const [ticks, setTicks] = useState<readonly TickPosition[]>(EMPTY_TICKS);
+
+  const h2Ids = useMemo(
+    () => headings.filter((h) => h.depth === 2).map((h) => h.id),
+    [headings]
+  );
 
   useEffect(() => {
-    const h2Headings = headings.filter((h) => h.depth === 2);
+    let lastGeneration = -1;
+    let lastPastCount = -1;
 
-    const compute = () => {
-      const scroll = measureArticleScroll();
-      if (!scroll) {
+    return subscribeToArticleScroll(h2Ids, (frame) => {
+      if (!frame) {
+        lastGeneration = -1;
+        lastPastCount = -1;
         setProgress(0);
-        setTicks([]);
+        setTicks(EMPTY_TICKS);
         return;
       }
-      setProgress(scroll.progress);
+      setProgress(frame.progress);
 
-      const nextTicks: TickPosition[] = [];
-      for (const heading of h2Headings) {
-        const el = document.getElementById(heading.id);
-        if (!el) {
-          continue;
-        }
-        const elTop = el.getBoundingClientRect().top + window.scrollY;
-        nextTicks.push({
-          id: heading.id,
-          isPast: window.scrollY >= elTop - HEADING_ACTIVE_OFFSET_PX,
-          offset:
-            scroll.scrollable > 0
-              ? Math.min(
-                  1,
-                  Math.max(0, (elTop - scroll.articleTop) / scroll.scrollable)
-                )
-              : 0,
-        });
+      // Offsets only move when the geometry is re-measured, and `isPast` is a
+      // prefix of the ascending heading list — so the ticks array keeps its
+      // identity, and `TickLayer` bails out, until one of those two changes.
+      const pastCount = findActiveHeadingIndex(frame) + 1;
+      if (frame.generation === lastGeneration && pastCount === lastPastCount) {
+        return;
       }
-      setTicks(nextTicks);
-    };
-
-    return subscribeToArticleScroll(compute);
-  }, [headings]);
+      lastGeneration = frame.generation;
+      lastPastCount = pastCount;
+      setTicks(buildTicks(frame, pastCount));
+    });
+  }, [h2Ids]);
 
   return (
     <div
@@ -76,21 +120,7 @@ export function ReadingProgress({ headings }: ReadingProgressProps) {
         style={{ width: `${progress * 100}%` }}
       />
 
-      {ticks.length > 0 && (
-        <div className="absolute inset-0">
-          {ticks.map((tick) => (
-            <div
-              className={
-                tick.isPast
-                  ? "absolute top-0 h-full w-px bg-[var(--article-accent,var(--brand))]/30"
-                  : "absolute top-0 h-full w-px bg-background/50"
-              }
-              key={tick.id}
-              style={{ left: `${tick.offset * 100}%` }}
-            />
-          ))}
-        </div>
-      )}
+      <TickLayer ticks={ticks} />
     </div>
   );
 }
