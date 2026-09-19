@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import {
   addTerm,
+  addTerms,
   DEFAULT_ARTICLES_DIR,
   DEFAULT_GLOSSARY_DB_PATH,
   DEFAULT_WIKI_SOURCES_PATH,
@@ -33,16 +34,43 @@ export const glossaryListHandler = (
   args: { category?: string }
 ) => jsonResult(listTerms(db, args.category));
 
-export const glossaryAddHandler = (
-  db: Database,
-  args: { category: string; notes?: string; term: string }
-) =>
-  jsonResult(
+const errorResult = (message: string) => ({
+  content: [{ type: "text" as const, text: message }],
+  isError: true,
+});
+
+export interface GlossaryAddArgs {
+  category?: string;
+  notes?: string;
+  term?: string;
+  terms?: { category: string; notes?: string; term: string }[];
+}
+
+/**
+ * Both shapes of `glossary_add`. A model registering K terms one at a time
+ * costs K round-trips through the transport and K fsyncs; `terms` routes the
+ * whole list through `addTerms`, which is one transaction. The singular
+ * `term`/`category` pair is still accepted so existing callers keep working.
+ */
+export const glossaryAddHandler = (db: Database, args: GlossaryAddArgs) => {
+  if (args.terms) {
+    if (args.terms.length === 0) {
+      return errorResult("glossary_add: `terms` must not be empty");
+    }
+    return jsonResult(addTerms(db, args.terms, { source: "agent" }));
+  }
+  if (!(args.term && args.category)) {
+    return errorResult(
+      "glossary_add: pass either `terms`, or both `term` and `category`"
+    );
+  }
+  return jsonResult(
     addTerm(db, args.term, args.category, {
       notes: args.notes,
       source: "agent",
     })
   );
+};
 
 export const glossarySearchHandler = (db: Database, args: { query: string }) =>
   jsonResult(searchTerms(db, args.query));
@@ -65,12 +93,22 @@ export function registerGlossaryTools(server: McpServer, db: Database): void {
   server.registerTool(
     "glossary_add",
     {
-      title: "Add a glossary term",
+      title: "Add glossary terms",
       description:
-        "Register a new do-not-translate term so it stays verbatim across translations. Idempotent and case-insensitive; returns { added: false } if the term already exists.",
+        "Register do-not-translate terms so they stay verbatim across translations. Pass `terms` to register several in one call — they go in as a single transaction, and the result lists each one with whether it was new. Pass `term` + `category` for a single term. Idempotent and case-insensitive: an already-registered term comes back as added: false.",
       inputSchema: {
-        term: z.string().min(1),
-        category: z.enum(GLOSSARY_CATEGORIES),
+        terms: z
+          .array(
+            z.object({
+              term: z.string().min(1),
+              category: z.enum(GLOSSARY_CATEGORIES),
+              notes: z.string().optional(),
+            })
+          )
+          .min(1)
+          .optional(),
+        term: z.string().min(1).optional(),
+        category: z.enum(GLOSSARY_CATEGORIES).optional(),
         notes: z.string().optional(),
       },
     },
