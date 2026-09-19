@@ -5,10 +5,17 @@ import { ArticleContractSchema } from "../schema";
 /**
  * An article's frontmatter as the blog reads it: the write-side contract plus
  * the three fields the importer does not own (`archived`, `dropCap`,
- * `imageAlt`). This is the shape the blog's article service hands to every
- * consumer, so the manifest below carries it verbatim.
+ * `imageAlt`), minus `sources`.
+ *
+ * `sources` stays in the MDX frontmatter and in `ArticleContractSchema` — it is
+ * what `wiki-sources.json` is built from and what `surfaceHash` covers — but it
+ * is dropped here: the blog serves its reading list from `wiki-sources.json`
+ * and never reads `meta.sources`, while carrying it cost 225 KB of a 787 KB
+ * manifest (29%) that every route parses at module scope.
  */
-export const ArticleMetaSchema = ArticleContractSchema.extend({
+export const ArticleMetaSchema = ArticleContractSchema.omit({
+  sources: true,
+}).extend({
   archived: z.boolean().optional(),
   dropCap: z.boolean().optional(),
   imageAlt: z.string(),
