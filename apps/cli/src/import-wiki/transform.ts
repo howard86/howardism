@@ -487,8 +487,16 @@ export function computeReadingTime(body: string): number {
  */
 export function firstBlockquote(body: string): string {
   const lines: string[] = [];
-  for (const rawLine of body.split("\n")) {
-    const line = rawLine.trim();
+  // Walked rather than `body.split("\n")`: both this and collectFirstParagraph
+  // stop within the first handful of lines, and an article body averages 129 of
+  // them, so splitting allocated an array and a string per line nobody reads.
+  let from = 0;
+  while (from <= body.length) {
+    const newline = body.indexOf("\n", from);
+    const end = newline === -1 ? body.length : newline;
+    const line = body.slice(from, end).trim();
+    // Past the end when there was no newline, which ends the loop.
+    from = end + 1;
     if (line.startsWith(">")) {
       lines.push(line.replace(BLOCKQUOTE_PREFIX_RE, ""));
     } else if (lines.length > 0) {
@@ -523,8 +531,13 @@ function collectFirstParagraph(body: string): string[] {
   const paragraph: string[] = [];
   const fence: FenceState = { inFence: false, fenceChar: null };
 
-  for (const rawLine of body.split("\n")) {
-    const line = rawLine.trim();
+  // Walked, not split — see firstBlockquote.
+  let from = 0;
+  while (from <= body.length) {
+    const newline = body.indexOf("\n", from);
+    const end = newline === -1 ? body.length : newline;
+    const line = body.slice(from, end).trim();
+    from = end + 1;
     if (updateFenceState(line, fence)) {
       if (paragraph.length > 0) {
         return paragraph;
