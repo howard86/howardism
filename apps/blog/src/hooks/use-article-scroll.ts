@@ -1,6 +1,6 @@
 "use client";
 
-import throttle from "lodash.throttle";
+import { throttle } from "@/utils/throttle";
 
 /** How close to the viewport top a heading sits before it counts as active. */
 export const HEADING_ACTIVE_OFFSET_PX = 120;

@@ -1,9 +1,9 @@
 "use client";
 
-import throttle from "lodash.throttle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useScrollSpy from "@/hooks/use-scroll-spy";
 import { perSlugKey, recordProgress } from "@/lib/reading-store";
+import { throttle } from "@/utils/throttle";
 
 import type { ArticleHeading } from "../service";
 
