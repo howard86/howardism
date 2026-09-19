@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useScrollSpy from "@/hooks/use-scroll-spy";
+import type { ArticleScrollFrame } from "@/hooks/use-article-scroll";
+import {
+  findActiveHeadingIndex,
+  subscribeToArticleScroll,
+} from "@/hooks/use-article-scroll";
 import { perSlugKey, recordProgress } from "@/lib/reading-store";
 import { throttle } from "@/utils/throttle";
 
@@ -48,12 +52,21 @@ interface ResumeReadingProps {
  */
 export function ResumeReading({ headings, slug }: ResumeReadingProps) {
   const sectionIds = useMemo(() => headings.map((h) => h.id), [headings]);
-  const activeId = useScrollSpy({
-    defaultSectionId: sectionIds[0] ?? null,
-    sectionIds,
-  });
-  const activeIdRef = useRef(activeId);
-  activeIdRef.current = activeId;
+
+  // The persisted anchor is read at most once per PERSIST_THROTTLE_MS, so this
+  // component has no reason to run a live scroll-spy: it parks the shared
+  // scroll frame in a ref and resolves the active heading when it persists.
+  // That keeps it out of the render path entirely — it renders `null` until
+  // the resume chip is offered.
+  const frameRef = useRef<ArticleScrollFrame | null>(null);
+
+  useEffect(
+    () =>
+      subscribeToArticleScroll(sectionIds, (frame) => {
+        frameRef.current = frame;
+      }),
+    [sectionIds]
+  );
 
   const [resume, setResume] = useState<SavedProgress | null>(null);
 
@@ -89,7 +102,12 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
       const pct = Math.min(1, Math.max(0, window.scrollY / scrollable));
       // Remember this read on the Shelf once it crosses the resume threshold.
       recordProgress(slug, pct);
-      const headingId = activeIdRef.current;
+      const frame = frameRef.current;
+      const index = frame ? findActiveHeadingIndex(frame) : -1;
+      const headingId =
+        index >= 0 && frame
+          ? frame.headings[index].id
+          : (sectionIds[0] ?? null);
       if (!headingId) {
         return;
       }
@@ -119,7 +137,7 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
       window.removeEventListener("pagehide", persistNow);
       document.removeEventListener("visibilitychange", flushIfHidden);
     };
-  }, [slug]);
+  }, [slug, sectionIds]);
 
   const dismiss = useCallback(() => setResume(null), []);
 

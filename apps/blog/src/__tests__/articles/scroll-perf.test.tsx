@@ -334,5 +334,10 @@ describe("article scroll chrome cost per tick", () => {
 
     restoreObserver();
     report("ResumeReading", layoutReads(), renders);
+    // The gate: no live scroll-spy. The active heading is resolved from the
+    // shared frame when the 2 s persist throttle fires, so scrolling neither
+    // measures nor re-renders a component that renders null.
+    expect(layoutReads()).toBe(0);
+    expect(renders).toBe(0);
   });
 });
