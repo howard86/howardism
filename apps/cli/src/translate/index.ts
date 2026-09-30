@@ -1505,7 +1505,7 @@ function parseOptions(): RunOptions {
  * Resolve the model actually requested (and the telemetry label — they are the
  * same thing). An explicit `TRANSLATE_MODEL` always wins; cursor's is
  * separately overridable via `TRANSLATE_CURSOR_MODEL`; everything else falls
- * back to the engine's own default (codex → `gpt-5.6-luna`, null for engines
+ * back to the engine's own default (codex → `gpt-6-luna`, null for engines
  * with no configurable model).
  */
 function resolveModelLabel(
