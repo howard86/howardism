@@ -18,7 +18,7 @@ tags:
   - search
   - test-time-compute
   - tool-use
-readingTime: 12
+readingTime: 16
 imageAlt: Illustration for Tree Search over Agent Trajectories (LATS)
 sources:
   - title: "CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step
@@ -95,6 +95,44 @@ The portability claim is the honest one: everything is prompting over a frozen m
 
 A student asks what happens when the same action recurs across branches (A, B, A, B) or the same state is reachable by different paths — can the tree be collapsed? Mirhoseini's answer keeps it a tree: repetition **under a given parent** is captured by the visit count feeding UCT, and *"ideally this is a tree that you're forming, not some kind of fully connected graph."* So identical states reached via different ancestors are separate nodes, evaluated separately and paid for separately — a known and unpriced inefficiency in this design, and one more reason the missing cost analysis matters.
 
+## The same algorithm where the environment is a compiler (2026-08)
+
+[Vamshi and Yang](/articles/kernel-level-proof-auditing) ([Reward-Oracle MCTS for Formal Theorem Proving: Sample-Efficient Search and the Need for Kernel-Level Proof Auditing](https://arxiv.org/pdf/2608.28639),
+arXiv 2608.28639, `empirical`) run structurally the same search in formal mathematics, and the
+differences are exactly the three places this page says LATS is weak. Their tree's nodes are
+natural-language *proof plans* rather than world states; a decomposer expands each selected node into
+K = 4 candidate next subgoals; a generator writes S complete Lean 4 proof attempts per child; UCB with
+`c = √2` selects; the rollout reward backpropagates as a running mean. Per-model results on
+[Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems); its place among the benchmark denominators on
+[AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search).
+
+**The value function is still two scores added together, and the second one is sound.** LATS sums an
+LLM judge's [0,1] score with a *sample-frequency* term. This system sums an LLM critic's score
+(normalized from a 0–100 rubric, five samples at τ = 0.3, averaged) with `s_k/S` — **the fraction of
+the node's proof attempts that the Lean compiler accepted**. Same shape, same arity, but the second
+term is a frequency of *success* measured by a sound verifier rather than a frequency of *sampling*
+measured by the model's own prior. That is the structural fix for the blind selector this page
+identifies: a branch nobody samples often but that compiles gets credit, where LATS's frequency term
+would bury it.
+
+**Reversibility is free here, which is why the method is deployable at all.** This page's sharpest
+criticism of LATS is that expansion means *executing* the candidate action, so the search only works
+in a simulator. Compiling a candidate Lean proof has no side effects: the probe and the commitment are
+different objects by construction. Formal proof search is therefore the natural habitat of trajectory
+tree search, and the reason it keeps appearing there ([Evolutionary Proof Search](/articles/evolutionary-proof-search)'s P-UCB is the
+other instance in this wiki).
+
+**The cost analysis LATS never ran.** At an identical proof-attempt budget the three-role search
+consumes **32.8% fewer total inference tokens and 35.8% fewer output tokens** than flat sampling
+— the decomposer and critic calls are short (1,024 and 3 max output tokens) and a generator
+conditioned on an explicit decomposition writes materially shorter proofs. So in this domain the
+search is not a test-time-compute *trade* at all; it is Pareto. The paper also publishes the
+allocation sweep this page's UCT discussion wants: under a fixed N·K·S = 32, one wide expansion
+(N=1, K=16) scores 82.1% and four iterations of four (N=4, K=4) scores 84.2% with *identical* numbers
+of decomposition calls, critic evaluations and proof attempts — so the gain is the intermediate
+backpropagation, not the call budget. The narrowest setting (N=16, K=1) buys 0.1 points for 2.8× the
+wall clock against 1.5×.
+
 ## Connections
 
 - [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — lecture 5's first paper; the course's move from verification to planning
@@ -111,12 +149,13 @@ A student asks what happens when the same action recurs across branches (A, B, A
 - [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — what the missing cost analysis would have to reckon with: under a noisy scorer, more search is not monotonically better, and the loop's true quality can decline while its reported score rises
 - [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — the discipline this paper's headline result is missing
 - [Blast Radius (Agentic)](/articles/blast-radius) — why the reversibility assumption is load-bearing: expanding a node means *executing* it, so the sandbox stops being containment and becomes a correctness precondition
+- [Kernel-Level Proof Auditing](/articles/kernel-level-proof-auditing) — the formal-math instance of this algorithm and the reason its verifier is trustworthy: same UCB tree, same two-term value function, but the second term is a compiler's accept count rather than a sample frequency — and the page that measures what happens when the harness reporting that count is weaker than the kernel behind it
 - [Azalia Mirhoseini](/articles/azalia-mirhoseini) — the lecturer
 - [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget) — the need this answers, re-derived from the code side two lectures later. Massive one-shot sampling plateaus on hard competitive-programming problems, and the lecture's own conclusion is that they want decomposition, per-step sampling and backtracking — this page's search, arrived at by exhausting the parallel alternative
 
 ## Open Questions
 
-- LATS scores a state with a prompted judge *plus* a sample-frequency term, and the same course showed frequency-based selection is blind to rare-correct solutions. Does the judge half carry the search on hard problems, or does the frequency half dominate and collapse the exploration the method exists to create? An ablation of the two terms would settle it.
+- LATS scores a state with a prompted judge *plus* a sample-frequency term, and the same course showed frequency-based selection is blind to rare-correct solutions. Does the judge half carry the search on hard problems, or does the frequency half dominate and collapse the exploration the method exists to create? An ablation of the two terms would settle it. **Partially answered 2026-09-23** by [Reward-Oracle MCTS for Formal Theorem Proving: Sample-Efficient Search and the Need for Kernel-Level Proof Auditing](https://arxiv.org/pdf/2608.28639), which runs exactly that ablation in a domain where the second term is a *sound* verifier rather than a sample frequency: critic-score-only against critic-plus-compile-fraction, same tree, same budget, five seeds. The judge half does **not** carry the search — dropping the second term costs 3.4 points on DeepSeek-Prover-V2-7B (77.1 → 73.7 at PAB@32) and 2.6 on Goedel-Prover-V2-8B (84.2 → 81.6), and the gap widens rather than closes as budget grows. So the two-term design is load-bearing and the ablation is cheap to run, which is the transferable half. It stays `#oq/source` because the substituted term is the wrong object: LATS's frequency term measures how often the *model* proposed an action, this one measures how often a *compiler* accepted the result, and the rare-correct blindness this question is about lives entirely in the former. Nobody has ablated LATS's own two terms.
 - The reversibility assumption confines tree search to simulators. Is there a version that scores a candidate action *without executing it* — a learned or prompted transition model — or does search over real-world actions reduce to "explore only in a sandbox, then replay the winning trajectory"?
 
 ## Sources

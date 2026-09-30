@@ -1,0 +1,165 @@
+---
+date: 2026-09-25
+title: Typed Decision Verifiers
+description: "A structured-verdict verifier (boolean/choice/ordinal, zero
+  generated tokens) scored against 12 rivals on one shared 2,018-item
+  answer-correctness test set (Proto_AGI/mayafree, 2026-09-20): the top two (ZTC
+  397B 0.7364, JEV 0.7350) are statistically tied, a ten-feature surface
+  baseline (answer length/formatting, 0.7036) beats 8 of 13 measured systems,
+  size is non-monotonic within a family, and a downstream retry-gate experiment
+  shows AUC does not predict deployed value — a 0.0014 AUC gap between the top
+  two produces a 1.4pp swing in end-to-end agent accuracy because gate value is
+  set by precision (how many already-correct answers get needlessly re-answered
+  and broken), not by AUC's recall-weighted ranking; the category's primary
+  vendor source (TypeSafe AI's Jev launch, 2026-09-15, vendor-claim) pitches it
+  wider than verification — 'smart if-statements' trained by RL for Calibrated
+  Decisions, owning a self-run workflow-eval cost Pareto frontier (~68%
+  agreement with a two-LLM reference at ~$0.0004/workflow, vs sol ~74% at
+  ~$0.085) while conceding the reference, the workflows and the LLM wrapper are
+  all its own choices"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - verification
+  - llm-as-a-judge
+  - benchmarks
+readingTime: 20
+imageAlt: Illustration for Typed Decision Verifiers
+sources:
+  - title: "Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set"
+    url: https://huggingface.co/blog/mayafree/jve-ecosystems
+  - title: Introducing System One Models & Jev
+    url: https://typesafe.ai/blog/introducing-system-one-models-and-jev
+  - title: Building Prod with Jev and LangGraph
+    url: https://www.langchain.com/blog/building-prod-with-jev-and-langgraph
+---
+export { default as heroImage } from "../assets/typed-decision-verifiers.webp";
+
+## Sources
+
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph)
+- [Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set](https://huggingface.co/blog/mayafree/jve-ecosystems)
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
+
+## Summary
+
+A **typed decision model** returns a structured verdict — boolean, choice, or ordinal score — in one forward pass, zero generated tokens, one to three orders of magnitude cheaper than asking a frontier model the same question in free text. TypeSafe AI's **[Jev](/articles/jev)** named the category (as "System One models"; [launch post](https://typesafe.ai/blog/introducing-system-one-models-and-jev), 2026-09-15, `vendor-claim` — treated below); an ecosystem has grown around it — VIDRAFT's **ZTC**, the open reproduction **open-jev**, Patronus **Lynx**, Convai's **Laya**. Until [this study](https://huggingface.co/blog/mayafree/jve-ecosystems) (Proto_AGI / `mayafree`, HuggingFace community article, published 2026-09-20, `empirical`), no shared test set had run all of them.
+
+## The shared benchmark
+
+2,018 items, 508 incorrect, 5 domains, answers from 4 different models, no grounding document (pure factual verification, not attribution). Metric: **AUC**, aggregated per-domain first then size-weighted — the paper reports its own pooled figure would read 0.80 against the per-domain 0.73, and explicitly reports the lower, reproducible number rather than the flattering pooled one. Uncertainty: paired bootstrap, 3,000 resamples; a 95% interval containing zero yields **no rank**, stated above the results table rather than in a footnote. Two reference rows anchor every other number: a logistic model over ten surface features (length, digit count, formatting) and the answering model's own stated confidence.
+
+| # | System | Vendor | AUC |
+|---|---|---|---|
+| 1 | ZTC (397B) | VIDRAFT | 0.7364 |
+| 2 | JEV | TypeSafe AI | 0.7350 |
+| 3 | ZTC (27B) | VIDRAFT | 0.7282 |
+| — | Length & formatting baseline | reference | 0.7036 |
+| 4 | open-jev 4B | pngwn | 0.6844 |
+| 5 | Patronus Lynx 8B | Patronus AI | 0.5179 |
+| 6 | Laya-Typed-Decisions 421M | Convai | 0.5144 |
+| — | Model's own stated confidence | reference | 0.5000 |
+| 7 | Laya-Multilingual 322M | Convai | 0.4796 |
+
+Reference, generates tokens so outside the axis and unranked: GPT-5.2 0.7148, Qwen3-Next-80B 0.6366, GPT-4o-mini 0.5878, Gemini 2.5 Flash-Lite 0.5822. Different axis entirely (grounded-attribution, not open factual verification): Vectara HHEM-2.1 0.4852.
+
+## Four findings that survive the error bars
+
+**The surface baseline is the real bar.** Answer length and formatting alone reach 0.7036 — above 8 of the 13 measured systems. A verifier scoring below that line is detecting shape, not correctness.
+
+**The top of the table is a statistical tie.** ZTC (397B) leads JEV by 0.0014 AUC; the 95% CI on the gap runs −0.019 to +0.032, containing zero.
+
+**Bigger is not better within a family.** ZTC 397B beats ZTC 27B overall, but on scientific reasoning the order reverses hard (27B 0.7410 vs 397B 0.6287 — a 14×-larger model scoring 0.11 lower). Consistent with a separately-cited 180B-class model at 0.7146 losing to a 4B at 0.7284: verification quality tracks representation geometry, not parameter count.
+
+**Frontier LLM judges are mid-table and expensive.** GPT-5.2 (0.7148) sits below both ZTC configurations and JEV while generating tokens and costing ~$0.55/1,000 calls against JEV's $0.024. GPT-4o-mini and Gemini 2.5 Flash-Lite fall further (0.5878, 0.5822).
+
+**The open alternative's speed claim holds, its accuracy claim doesn't transfer.** Laya is the closest open, non-autoregressive analogue to Jev (Apache-2.0, ~0.015s/call, ~140× faster than the hosted API measured here) but scores 0.4796/0.5144 on this set against a published claim of beating Jev on the vendor's own benchmark — "both numbers can be true, they are different tests," which the study offers as the argument for a shared one.
+
+## AUC is not the number you deploy on
+
+The ranking answers "which system separates right from wrong best," not "which system helps my agent." A second experiment tests the latter directly: score each item, send the lowest-scoring 20% to a stronger model to re-answer, keep the rest; all arms draw from one shared re-answer pool so no arm gets luckier retries; averaged over 200 seeds. Against a 74.83% no-gate baseline:
+
+| Gate | Final accuracy | vs. no gate |
+|---|---|---|
+| ZTC | 76.16% | +1.34 pp |
+| JEV | 74.76% | −0.07 pp |
+| Random | 74.58% | −0.25 pp |
+
+A 0.0014 AUC gap between ZTC and JEV becomes a **1.4-point swing in end-to-end accuracy**, because re-answering is double-edged — wrong answers sent back get fixed 38% of the time; right answers sent back get broken 30% of the time — so a gate's deployed value is set by **precision, not recall**. At the 20% budget, JEV routed 403 items of which 216 were already correct (it "repaired about as much as it damaged"); ZTC routed 403 of which 195 were already correct. That asymmetry is invisible in an AUC column. Scope: one escalation target, one item set — reported as a mechanism, not a universal constant.
+
+## What's published, what isn't, what's pending
+
+Every score, label, and the grading code are published; source items are not redistributed (licensing/access restrictions on the corpora and on commercial model outputs). Four reproductions that would not execute from released artefacts (missing classifier head, unsupported architecture, incomplete tokenizer) are listed with the failure rather than omitted. One entry's re-measurement disagreed with its earlier value by a margin the reproduction harness could not yet account for; it is flagged and kept at its prior number rather than silently lowered.
+
+## The vendor's own case (TypeSafe launch post, 2026-09-15)
+
+The [launch post](https://typesafe.ai/blog/introducing-system-one-models-and-jev) (Diogo Almeida, founder, `vendor-claim`) is the category's primary source, and it frames the object more broadly than the benchmark above does. Verification ("score, judge, verify, guardrail, and detect jailbreaks") is one of four pitched uses; the lead one is **"AI-powered workflows / smart if-statements"** — structured outputs slotted into ordinary code as fuzzy decision rules (classify, route, score, extract, branch) "where hand-written logic is too brittle," with the surrounding code constraining the model's freedom. The shared board above measures only the verification use.
+
+**What is claimed.** A non-LLM architecture with a parallel sampler — every output in one query, choices up to cardinality 255 — trained by **RL for Calibrated Decisions (RLCD)**, whose target is "answers with epistemically honest probabilities" rather than rater-preferred text (RLHF) or programmatically checkable outputs (RLVR, which the vendor blames for "spikey / non-robust intelligence" on judgment tasks). Every output carries a probability; the vendor claims higher confidence means higher accuracy and similar inputs get similar answers. Price $0.042/MTok input, output unmetered; 70–500 ms per call. No training algorithm, architecture, or data detail is published. The home-page headline — **193.6× faster, 444.6× cheaper** — comes from the workflow eval below, and the vendor itself calls it "the higher end of real world gains."
+
+**The workflow eval, and what it can and cannot show.** Four workflows are written as code (a fixed compute graph); every model gets the same workflow, and "accuracy" is **agreement with the average of GPT-6 Astra and Fable 5.1's probabilities**, not ground truth. The simplest published one is security-alert triage: three readings (unauthorized? a record explains it in advance? evidence strength), code that closes, queues or acts (act at P(unauthorized) > 0.75; identity alerts in a 0.15–0.60 grey zone notify the user), eleven containment readings, and a five-group first-match playbook ending in "escalate urgent." Averaged over the four (values read off a log-scale chart, approximate):
+
+| Model | In workflow: cost / accuracy | Generated prompt, logic in CoT: cost / accuracy |
+|---|---|---|
+| Jev | ~$0.0004 / ~68% | — |
+| GPT luna | ~$0.0035 / ~67% | ~$0.008 / ~52% |
+| GPT terra | ~$0.03 / ~68% | ~$0.075 / ~61.5% |
+| GPT sol | ~$0.085 / ~74% | ~$0.2 / ~63.5% |
+| Claude Opus 5 | ~$0.18 / ~73% | ~$0.35 / ~65% |
+| Claude Sonnet 5 | ~$0.12 / ~68% | ~$0.22 / ~60.5% |
+| DeepSeek v4 pro | ~$0.04 / ~65.5% | ~$0.09 / ~60% |
+
+Three readings the headline does not give. **Jev owns the cost frontier, not the accuracy one**: sol and Opus 5 agree with the reference ~5–6pp more, at ~200–450× the cost — the Pareto line runs Jev → luna → terra → sol. **The metric has a ceiling**: a model that disagreed with Astra and Fable because it was *more* right would score lower, so the eval measures closeness to the frontier, and the vendor concedes the reference biases toward OpenAI and Anthropic models. **Every other rigging lever is also vendor-held, and the post says so**: the workflows were written by TypeSafe's capabilities team ("some bias could exist," though "not in our training distribution"), and the LLMs ran through TypeSafe's own "System One LLM wrapper," which it says is the most accurate way to get decisions from LLMs *and* slower and more expensive than asking for decisions without probabilities — so the LLM cost points include overhead the vendor chose. The workflow-vs-prompt column is the most portable result and is treated on [Crystallizing Agent Work into Workflows](/articles/crystallizing-agent-work-into-workflows); the same model inside fixed code beat itself reasoning through the logic in chain-of-thought by roughly 5–15pp at about half the cost for every LLM tested — partly by construction, since the eval's premise ("we assume there is a correct compute graph") implies the reference answers were computed through the workflow too.
+
+**Type-safety as the reliability argument.** The post's second chart pulls structured-output and tool-call error rates for LLMs from OpenRouter traffic; Jev's 0% is "not empirical — schema matching is guaranteed." The LLM numbers are more interesting than the 0%: the provider ranking **inverts** between panels. Structured-output errors: luna and terra 0.58%, sol 0.83%, astra 1.43%, Gemini 3.1 Pro 1.94%, Gemini 3.8 Flash 3.15%, Opus 5 5.73%, Fable 5.1 8.25%, Sonnet 5 13.2%, Haiku 4.5 45.5%. Tool-call errors: Opus 5 0.67%, Fable 5.1 1.38%, Haiku 4.5 1.76%, Sonnet 5 2.07%, Gemini 3.8 Flash 2.15%, Gemini 3.1 Pro 3.17%, terra 5.5%, luna 7.67%, astra 16.6%, sol 17.0%. OpenAI models are best at one interface and worst at the other; Anthropic's the reverse. The vendor's own caveat applies — OpenRouter routing is not a controlled sample. And type-safety is not correctness: a schema-valid wrong verdict is still wrong, which is exactly what the retry-gate result above measures.
+
+**On benchmarks.** TypeSafe says it deliberately publishes *no* public-benchmark numbers, only one-off evals at product updates, and urges users to build their own ("System One tasks are much easier to evaluate") — the [Production-Sourced Evaluation](/articles/production-sourced-evaluation) stance stated by a vendor. The shared board's opening line is the counterweight: *"Every answer-verification vendor publishes a benchmark, and every one of them wins it."* TypeSafe's own eval is one it wins on its chosen axis (cost) and, notably, does not claim to win on agreement.
+
+## Where the vendor and the independent board disagree
+
+- **Calibration vs. gate precision.** RLCD's promise is that probabilities are honest, which is the property a retry gate needs. On the shared board, Jev's lowest-scoring 20% contained 216 already-correct answers of 403 routed (vs. ZTC's 195), and the gate netted −0.07pp. Not a refutation — answer-correctness verification with no grounding document is not a workflow decision, and AUC 0.7350 is the board's co-best — but it is the only independent measurement of the calibration claim and it is unflattering where calibration matters most. `empirical` outweighs `vendor-claim` here; the question stays open (below).
+- **Latency.** Vendor: 70–500 ms, measured from West-Coast laptops. The board describes Laya's ~0.015 s as "roughly 140× faster than the hosted API we measured," which in context is Jev's — ~2 s. Neither states input length or client location; unresolved.
+- **Price.** Consistent: $0.024/1,000 calls on the board is the vendor's $0.042/MTok rate at ~570 input tokens per call.
+
+## Partner deployments: three more numbers, none of them accuracy (LangChain, 2026-09-25)
+
+[LangChain's integration post](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph) (Runkle & Lovell, `vendor-claim` — a Jev integration partner selling the LangGraph runtime and LangSmith tracing it demos) is the category's first third-party *deployment* account, and every figure in it is speed or stability: Jev **5–6× faster than Sonnet** on the classification step of a litigation discovery-review graph; Jev-as-judge scores that "barely moved across **100 repeated runs**, far less than any LLM judge we tested"; and Browserbase's Stagehand `act()` at **1.97 s → 0.46 s median** with Jev choosing the browser action and an LLM fallback below **0.7 confidence**. Detail on [Jev](/articles/jev).
+
+Read against this page, each number is the half the independent board did not measure, and misses the half it did:
+
+- **Consistency is not calibration.** The 100-run stability claim is the vendor's "similar inputs get similar answers" property, finally given an (unquantified) experiment. It says nothing about whether the stable score is *right* — the board's retry-gate result is a consistency-compatible failure, a stably-ranked low-score tail that was more than half already-correct. For [LLM-as-a-Judge](/articles/llm-as-a-judge) the claim matters on its own terms: run-to-run judge variance is noise the measurement inherits, and a judge with none removes one error source without touching bias.
+- **The 0.7 fallback is a retry gate by another name.** Stagehand's cascade routes low-confidence decisions to a stronger model — the exact mechanism the board tested, where Jev's gate netted −0.07pp because its precision was poor. Browserbase reports the latency win (the cheap path handles most calls) and neither the fallback rate nor task success, so the one question the board says decides a gate's value — how many confidently-wrong actions pass the threshold — is unanswered. Open question below.
+- **Stagehand is the action-space case.** A page offers a finite list of interactive elements, so the next browser action is a choice from a list — [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving)'s "action selection as classification over an enumerated valid set," shipped with a typed-choice model whose 255-way cardinality is the enumeration's hard ceiling.
+
+## Evidence and COI
+
+`empirical` kept — a real, reproducible measured benchmark with published scoring code, run against a shared test set rather than a vendor's own. Single-author community post, not peer-reviewed; ~~the author has no evident affiliation with any ranked vendor (two VIDRAFT-affiliated accounts appear only as upvoters, not authors, on the HuggingFace post)~~ *(superseded 2026-09-29 on re-reading the raw during the [Jev launch](https://typesafe.ai/blog/introducing-system-one-models-and-jev) compile: the methodology says "on **our own system** the pooled figure reads 0.80 where the per-domain mean reads 0.73," and the pending-entry note says "lowering **a competitor's** score on the strength of our own untrusted code is not a correction" — so the author has a system on this board. The 0.73 per-domain figure matches the two ZTC rows (0.7364 / 0.7282), and VIDRAFT-affiliated accounts upvoted the post; the author's system is most likely ZTC, the entry ranked above Jev and the winner of the retry-gate experiment. Unconfirmed, but it makes this an entrant-run board, not a neutral one)*. Weight accordingly: no second team has reproduced the leaderboard, and the "one entry pending" disclosure is the author's own unresolved discrepancy, not an external audit finding one.
+
+## Connections
+
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — the historical arc of trained answer/outcome verifiers this study's trained entrants (ZTC, JEV, open-jev, Lynx, Laya) sit downstream of; that page's finding that verifier precision degrades past a few hundred candidates is a different axis (candidate-count scaling) from this page's cross-system AUC comparison, but the same "a verifier's summary score is not the whole story" theme
+- [Stopping Under a Noisy Verifier](/articles/stopping-under-a-noisy-verifier) — the general form of this page's headline result. That page prices a verify-repair loop's stopping boundary as a function of the repairer, with verifier discrimination (Youden's J) only locating you against it; this page supplies a second, independent empirical instance of the same dissociation — a 0.0014 AUC gap producing a 1.4pp deployed-accuracy swing because precision, not AUC's recall-weighted ranking, sets a gate's value
+- [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling) — this study's 13-system, one-shared-test-set design is the closest empirical instance in the corpus to a Weaver-style pool assembled from real, independently-built verifiers (trained classifiers and LLM judges together) rather than one paper's own ablation — but it reports no pairwise error correlation between systems, so it does not answer that page's open question on whether cross-kind (trained-verifier vs. prompted-judge) error correlation is lower than the judge-to-judge correlation the wiki has actually measured
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — the four token-generating reference rows (GPT-5.2, GPT-4o-mini, Gemini 2.5 Flash-Lite, Qwen3-Next-80B) are exactly this page's subject scored on the same axis and item set as the typed-decision entrants: mid-table to bottom-table, and one to three orders of magnitude more expensive per call than the top typed-decision systems
+- [Jev](/articles/jev) — the model that named the category; its entity page carries the launch claims and the independent numbers side by side
+- [Trained Calibration](/articles/trained-calibration) — RLCD is a vendor-named route to calibration as the whole training objective of a decision model; the retry-gate result above is the only independent check of whether it delivers the property a gate needs
+- [Crystallizing Agent Work into Workflows](/articles/crystallizing-agent-work-into-workflows) — Jev's lead pitch is that page's Type 2 hybrid (code owns control flow, the model supplies readings); the launch post's workflow-vs-prompt comparison is a measured argument for that split, with its circularity caveat
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — cost per workflow as the denominator: the launch prices a whole decision graph, and its Pareto frontier puts Jev ~200× below the frontier LLMs at ~5–6pp less agreement
+- [The Bitter Lesson](/articles/the-bitter-lesson) — TypeSafe's "bitterest lesson" (the right training objective beats data, compute and algorithms) is a vendor inversion of Sutton's claim, offered without evidence
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — Stagehand's `act()` rebuild (LangChain post) is that page's enumerated-valid-action classification in production: interactive elements marked, a typed choice picks one, low confidence escalates to an LLM
+- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — the vendor's refusal to publish public-benchmark scores and its push for customer-built evals is that page's thesis adopted as marketing policy
+
+## Open Questions
+
+- This study reports per-system AUC on a shared set but no pairwise error correlation between systems. **Does typed-decision-vs-typed-decision error correlation differ from typed-decision-vs-LLM-judge correlation**, and is either lower than the judge-to-judge correlation this wiki has measured elsewhere (ρ̄ ≈ 0.2–0.97 across the wiki's judge-dependence studies)? Would need the published per-item scores, which this raw source does not carry.
+- The retry-gate mechanism (precision, not recall, sets deployed value) is measured on one escalation target and one item pool at one budget (20%). **Does the ZTC-over-JEV precision advantage hold at other retry budgets, or does it invert the way size does between the 397B and 27B configurations on scientific reasoning?**
+- The "pending" entry (re-measurement disagreement the harness cannot yet explain) is unresolved in the source. **Which system is it, and does the eventual reconciliation move it across the surface-baseline line?**
+- The launch claims RLCD yields calibrated, consistent probabilities; the only independent test (the retry gate above) found Jev's low-score tail barely enriched for errors. **Does Jev's calibration hold on a workflow-decision task scored against ground truth rather than a two-LLM reference** — e.g. a reliability diagram on TypeSafe's own security-triage workflow with labelled outcomes?
+- Browserbase's Stagehand `act()` cascade (Jev picks the action; &lt;0.7 confidence falls back to an LLM) reports only latency (median 1.97 s → 0.46 s). **What fraction of actions clear the 0.7 threshold, and does end-to-end task success hold, fall, or rise versus the LLM-only `act()`** — i.e. does the retry-gate precision problem measured on the shared board reappear in a production cascade?
+
+## Sources
+
+- [Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set](https://huggingface.co/blog/mayafree/jve-ecosystems) — Proto_AGI (`mayafree`), *Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set*, HuggingFace community article, published 2026-09-20, `empirical`. Leaderboard: `huggingface.co/spaces/mayafree/typed-decision-leaderboard`. No table-parse hazard — HTML/markdown clipping, not PDF-derived; all figures quoted match the source's own prose and tables directly.
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) — Diogo Almeida, TypeSafe AI blog, *Introducing System One Models & Jev*, 2026-09-15, `vendor-claim`. Comparison table, workflow-eval Pareto chart (scatter values read off a log-scale image at ingest — approximate, ±~1pp / ±~20% cost; re-checked against at compile), security-triage workflow diagram (fig2), structured-output / tool-call error-rate bars (fig3; printed labels, verified against the image). Three demo videos not captured. Not PDF-derived, no docling hazard.
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph) — Sydney Runkle & Hunter Lovell, LangChain blog, *Building Prod with Jev and LangGraph*, 2026-09-25, `vendor-claim` (Jev integration partner). Cited for the three partner-side figures (5–6× vs Sonnet, 100-run judge stability, Stagehand latency — the last Browserbase's, secondhand). No accuracy, agreement, or fallback-rate number anywhere in it. Not PDF-derived; the four figures were transcribed at ingest and the two LangSmith screenshots re-checked at compile.

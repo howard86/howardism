@@ -1,0 +1,300 @@
+---
+date: 2026-09-18
+title: Harness Value Is a Product, Not a Score — Why the Artifact-Payoff
+  Questions Keep Returning Partially Answered
+description: "Synthesis of three #oq/now items that share one obstacle. Every
+  reported measure of a harness or instruction artifact's value is an end-to-end
+  score, which is a *product* of at least four terms — activation (does the
+  artifact enter context), adherence (is it followed, and does it survive the
+  trajectory), artifact quality, and task headroom — and each of the three
+  questions asks to recover one term from the product without intervening, which
+  is not identifiable. Lin et al. are the first to measure activation and
+  adherence separately and they come apart hard (Qwen3-235B loads at 0.961 and
+  follows at 0.350, against Opus 4.6's 0.957/0.757), while the evolver-side
+  control shows artifact quality is nearly flat across three orders of magnitude
+  of writer capability — so the consumer, not the artifact, is the variable.
+  Every method in the corpus that has actually resolved one of these questions
+  breaks the product with an *intervention* (ablation non-inferiority, effort
+  sweeps, with/without-skill arms, the runner's action log), and every attempt
+  at a cheaper observational proxy fails predictably: the model's own read of
+  its prompt is actively harmful because naming a failure surfaces it,
+  unvalidated LLM judges carry a 33–41pp chance-correction discount so only
+  ordering survives, and even the log-derived skill-load rate conflates 'never
+  tried' with 'tried and was format-rejected.' New cross-link:
+  instruction-following capacity depletes on two independent axes measured on
+  pages that do not cite each other — *width* (Eliav's ~80-simultaneous-rule
+  floor, format-invariant) and *depth* (Lin et al.'s within-trajectory drift,
+  0.52→0.13 for the weak tier), so a harness author needs two budgets, not one.
+  The weak-model-plus-rich-harness configuration fails on both axes at once"
+tag: Essay
+domain: agent-systems
+tags:
+  - derived
+  - harness
+  - agent-engineering
+  - prompting
+  - measurement
+readingTime: 14
+imageAlt: Illustration for Harness Value Is a Product, Not a Score — Why the
+  Artifact-Payoff Questions Keep Returning Partially Answered
+---
+export { default as heroImage } from "../assets/harness-value-is-a-product-not-a-score.webp";
+
+# Harness Value Is a Product, Not a Score
+
+## The questions
+
+No question was supplied, so this synthesis selects a cluster from the `#oq/now` worklist. Three
+items, on three pages, in two domains, that turn out to share one obstacle:
+
+1. **[Harness Activation and Adherence](/articles/harness-activation-and-adherence)** — How much of the weak tier's activation gap is the
+ model and how much is the runner's action grammar? SkillsBench's format gate rejects a composite
+ action containing a correct `load_skill`, so the reported 0.251 charges the model for a parse
+ failure.
+2. **[Instruction Compounding](/articles/instruction-compounding)** — Anthropic's prune list is hand-curated per release. Is there a
+ detectable signal flagging which existing prompt lines have become compounding, so pruning is not
+ a manual reread?
+3. **[Unproductive Self-Verification](/articles/unproductive-self-verification)** — Is there a usable detector for tasks where more effort
+ will hurt, so effort can be set per task rather than globally?
+
+They read as three unrelated instrumentation requests. They are the same request three times, and
+the reason each has sat at "partially answered" is structural rather than evidentiary.
+
+## The answer in one line
+
+**Every one of the three asks to recover a single factor from a product, observing only the
+product.** That is not identifiable without varying something, and every method in this corpus that
+has actually resolved one of these questions works by intervening — never by finding a smarter
+statistic over existing traces.
+
+## The product
+
+An end-to-end score — the only number almost every source in the corpus reports — is the composition
+of at least four terms ([Harness Activation and Adherence](/articles/harness-activation-and-adherence)):
+
+| Term | What it is | Whose property |
+|---|---|---|
+| **Activation** | the artifact enters working context at all | the consumer |
+| **Adherence** | having loaded, the agent follows it — and keeps following it | the consumer |
+| **Artifact quality** | the skill/rule/patch is actually correct and useful | the artifact |
+| **Task headroom** | the task was failable and is now passable | the benchmark |
+
+A bad artifact, an artifact that never loaded, and an artifact that loaded and was ignored all
+produce **the same score**. That is the identification problem, and it is why the census on
+[Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) cannot partition its own negative results.
+
+Lin, Wu, Wang et al. ([arXiv 2605.30621](https://arxiv.org/pdf/2605.30621), `empirical`)
+are the first source in the corpus to instrument the first two terms separately, and the headline is
+that **they come apart**:
+
+| Model | Skill-load rate | Harness-following rate | Pass when loaded |
+|---|---|---|---|
+| Qwen3-32B | 0.251 | 0.142 | 0.023 |
+| Qwen3-235B | **0.961** | **0.350** | 0.022 |
+| Opus 4.6 | 0.957 | 0.757 | 0.177 |
+
+Qwen3-235B loads as reliably as Opus 4.6 and follows less than half as often, for a pass-when-loaded
+rate eight times lower. **A study reporting only load rate would have called it a success.**
+
+And the third term is nearly constant. The same paper's evolver-side control varies *who writes* the
+harness while holding the solving agent fixed: the spread across seven evolvers is **at most 3.1pp on
+any benchmark**, the smallest model in the study (Qwen3.5-9B) posts the highest SkillsBench update
+gain, and its skill and Opus 4.6's are **procedurally isomorphic** on the worked case — the same five
+steps at 3,300 against 3,800 characters, both lifting the same agent 0.67 → 1.0. Artifact quality is
+flat across three orders of magnitude of writer capability; what varies by a factor of seven is
+whether the consumer activates and follows it.
+
+**So the consumer is the variable, and the score is where that fact goes to hide.**
+
+## Why each question stalls, and what it would take
+
+### Q1 — the activation gap
+
+The corpus can bound this and cannot compute it. Three things are settled:
+
+- **0.251 is an upper bound on model-attributable activation failure, not an estimate of it.** The
+ worked `threejs` case has Qwen3-32B *correctly identifying the needed skill at turn 0* and then
+ emitting a composite JSON action bundling `analysis`, `plan` and `load_skill`; SkillsBench's format
+ gate accepts only single-key actions and rejects it. The skill never enters context. Qwen3-235B on
+ the same task emits `{"load_skill": "threejs"}` and passes at 1.0 — the two models differ **not in
+ knowing which skill they need but in being able to say so in the runner's format**.
+- **Therefore skill-load rate as reported is a property of the model-and-runner pair**, not of the
+ model. The page already records this as a structural caveat the paper does not raise.
+- **The paper's own conclusion points away from activation as the weak tier's binding constraint**:
+ weak models *"do not fail to read the harness, they fail to operate under it."* That is an
+ adherence claim, and it is supported by a separate instrument (the phase analysis below) rather
+ than by the load rate.
+
+What the wiki **cannot** supply is the number. The question's own stated falsification — re-score the
+same trajectories counting any action whose payload names a valid skill as an activation attempt — is
+cheap and needs no new models, but it needs *the trajectories*, which are not in the corpus. This is a
+`#oq/source` in `#oq/now` clothing: the synthesis over existing pages is complete and its answer is
+"the reported figure is an upper bound and the design flaw is real," which retires the interpretive
+half and leaves the measurement.
+
+### Q2 — the compounding-line detector
+
+[What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) already established the signature —
+**ablation non-inferiority** (removal holds quality while cutting tokens, Anthropic's own criterion)
+plus **inverted dose-response** (escalating the instruction worsens the metric), with
+native-behavior baselining as the cheap pre-filter. That answer stands; this synthesis adds only why
+the residual ("nothing automates it") is not an engineering gap waiting on effort.
+
+Both halves of that signature are **interventions**. Ablation non-inferiority requires running the
+arm without the line. Inverted dose-response requires running the arm with the line escalated.
+Neither is computable from traces of the deployed configuration, because in those traces the line is
+always present at one strength — the product again, observed at a single point.
+
+The corpus is also explicit that the one genuinely observational shortcut is **actively harmful**.
+[Instruction Compounding](/articles/instruction-compounding) records Anthropic's finding that for tag leakage, "instructions that call
+out thinking tags by name are less effective than the general form" — *naming the failure surfaces
+it*. Asking the model to read its own system prompt and report which lines have gone stale is the
+same move, and it contaminates the thing being measured. The page's general rule — describe the
+target state and the boundary, don't request a behavior or prohibit a failure — is what rules the
+introspective detector out.
+
+### Q3 — the per-task effort detector
+
+The prompting guide supplies a per-task-*class* lookup table (review accuracy holds at low effort;
+`xhigh` for demanding coding and agentic work; run an effort sweep on your own evals), which the page
+correctly declines to call a detector ([Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)).
+
+The corpus now explains why the per-task version is harder than it looks: **the sign of a verification
+intervention is a property of the backbone's dominant pathology, not of the task.** HarnessBank's
+cross-model table on [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) has a model that "thinks too little"
+gaining **+15.3** from raised reasoning budget, the recovery mechanism built for a model that thinks
+too *much* transplanting at **−1.5**, and the lever turned the wrong way costing **−15.7**. Opus 5
+sits at the over-verifying end, which is why Anthropic's fix is subtraction
+([Unproductive Self-Verification](/articles/unproductive-self-verification)) — and none of that transfers to a model that finalizes early.
+
+So "will more effort hurt on this task?" cannot be answered without knowing the backbone's pathology,
+which is itself only measurable by a sweep. Same identification problem, one level up. The practical
+consequence is the inverse of the usual inheritance instinct: **verification scaffolding is the most
+model-specific content in a harness**, and inherited best-practice verification steps arrive with the
+wrong sign more often than not.
+
+## What the corpus's successes have in common
+
+Every resolved question in this cluster was resolved by breaking the product apart with an
+intervention or a second instrument:
+
+| Question | What worked | Term isolated |
+|---|---|---|
+| Which lines compound? | ablation non-inferiority, inverted dose-response | artifact quality |
+| Does the skill help? | with/without-skill arms ([Skill Lift](/articles/skill-lift)) | artifact quality |
+| Did it load? | the runner's **action log**, not a judge | activation |
+| Was it followed? | blinded trajectories against a rubric locked before scoring | adherence |
+| Is the writer the problem? | hold the agent fixed, vary the evolver | artifact quality |
+
+And every cheaper observational proxy degrades in a characteristic way:
+
+- **The model's own read of its prompt** — contaminating, per above.
+- **Unvalidated LLM judges** — harness-following rate and every phase score are Sonnet 4.6 judge
+ outputs with blinding and a locked rubric but *no* human-agreement check, chance correction,
+ position-bias audit or second judge. Per [LLM-Judge Validation](/articles/llm-judge-validation), unvalidated judges overstate
+ reliability by **33–41pp on chance correction alone**, so only the *ordering* across models is
+ usable and the 0.757-vs-0.730 Opus/Sonnet gap is not a gap.
+- **Even the log-derived measure** — skill-load rate looks like ground truth and still conflates
+ "never tried" with "tried and was format-rejected" (Q1).
+
+The lesson generalizes past this cluster: **a metric's being measured rather than judged does not make
+it the quantity you wanted.**
+
+## The cross-link neither page has drawn: capacity depletes on two axes
+
+The most useful thing this cluster produces is a connection the corpus holds in two places that do
+not cite each other. [Harness Activation and Adherence](/articles/harness-activation-and-adherence) contains no reference to Eliav's capacity
+work; the two results are measured on orthogonal axes of the same underlying resource.
+
+**Width — how many instructions can be in force at once.** [Eliav 2026](https://arxiv.org/pdf/2607.19257)
+(`empirical`, regex-scored, no LLM judge) runs N ∈ \{10…160\} simultaneous verifiable rules across five
+models: perfect-compliance rate is effectively **zero by N≈80 and flat through 160** — a floor, not
+an asymptote. Format is not the lever (markdown-minus-plain within 2.1pp, inconsistent sign);
+placement is a bigger lever than format and its **sign is model-specific**
+([Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)). The guidance is "treat ~40 simultaneous instructions as a
+redesign point, not a tuning point."
+
+**Depth — how long an instruction stays in force.** Lin et al.'s phase analysis scores adherence at
+three points in a single trajectory:
+
+| Phase | Qwen3-32B | GPT-OSS-120B | Opus 4.6 |
+|---|---|---|---|
+| Harness loaded | 0.52 | 0.67 | 0.89 |
+| Mid turn | 0.22 | 0.48 | 0.79 |
+| Final turn | 0.13 | 0.43 | 0.80 |
+| **Drift** | **−0.39** | −0.24 | −0.09 |
+
+The weak model does not misread the harness at load time — it starts above chance and **loses the
+thread**, drifting four times as steeply as the strong tier. The named bottleneck is long-horizon
+instruction following, not comprehension.
+
+Three consequences of holding them together:
+
+1. **A harness author needs two budgets, not one.** A context file where every line passes ablation
+ can still fail on width (too many simultaneous rules) or on depth (fine at turn 1, gone by turn
+ 20). Per-line hygiene finds neither — as [Instruction Compounding](/articles/instruction-compounding) notes for width, no single
+ line is at fault.
+2. **Progressive disclosure buys width, not depth.** Loading one skill body instead of the union of
+ everything installed attacks the simultaneous-instruction count, and
+ [Instruction Compounding](/articles/instruction-compounding) already records that it **relocates the ceiling onto catalog size
+ rather than removing it**. It does nothing about drift — a skill loaded at turn 0 and forgotten by
+ turn 10 was in context the whole time. The `pg-essay-to-audiobook` case is exactly this: the skill
+ loads, and the agent skips the fallback chain at turn 8 anyway.
+3. **Weak model plus rich harness fails on both axes simultaneously**, which is the configuration
+ intuition most strongly recommends. This sharpens the counter-pressure
+ [Harness Activation and Adherence](/articles/harness-activation-and-adherence) already raises against
+ [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve): scaffold budget and model capability move **together**,
+ not apart, because the models that need scaffolding most are the least able to hold it — narrow on
+ width and steep on depth.
+
+## What survives both axes
+
+One class of remedy is immune to both failure modes by construction, and it is the practical
+takeaway: a **runtime predicate that intercepts the action** cannot be un-activated and cannot be
+drifted away from, because nothing in the trajectory has to remember it
+([Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)). Everything that lives as text in the context window is
+subject to the width floor on entry and the drift curve thereafter.
+
+That is not an argument for replacing harness text with gates — most harness content is not
+expressible as a predicate. It is an argument about **where to put the load-bearing parts**: the rules
+whose violation you cannot tolerate belong in a mechanism that does not depend on the agent still
+caring at turn 20.
+
+## Residuals
+
+Stated plainly, since each question stays open:
+
+- **Q1 is now a measurement request, not a synthesis request.** The interpretive half is settled (the
+ figure is an upper bound; the conflation is real and named); the number needs the trajectories.
+- **Q2's signature stands and its automation gap is structural** — both halves of the signature are
+ interventions, so no trace-mining tool can close it. What *could* be automated is the running of
+ the ablations, not the detection.
+- **Q3 has no per-task detector and the corpus now explains why**: the sign depends on the backbone's
+ pathology, discoverable only by sweep. The per-task-class lookup table is the available instrument.
+- **The two-axis picture is assembled from two sources that never met.** Eliav is single-author,
+ single-lab, 20 trials per cell, and tests only hard output constraints on one generation — the
+ paper explicitly declines to claim the pattern transfers to uncheckable instructions, which is most
+ of a real context file. Lin et al.'s mechanism numbers are SkillsBench-only, pre-Claude-5, and the
+ adherence half is judge-derived. **Nobody has run the crossed experiment** (instruction count ×
+ trajectory length on one model set), which is the obvious next study and would be the first direct
+ test of whether width and depth are one resource or two.
+
+## Sources
+
+- [Harness Activation and Adherence](/articles/harness-activation-and-adherence) — the two consumer-side gates, the per-model SLR/HFR/LPR
+ table, the phase-drift curve, both worked failure cases, and the measured/judged split
+- [Instruction Compounding](/articles/instruction-compounding) — the compounding asymmetry (boundaries work, behavior requests
+ backfire), the naming-surfaces-it finding, and Eliav's capacity floor with the
+ progressive-disclosure limit
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — effort inversion on four benchmark suites, the
+ delete-the-instruction mitigation, and the backbone-pathology sign result
+- [Skill Lift](/articles/skill-lift) — the with/without ablation and the activation term it silently multiplies by
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — the evolver-side flatness control and HarnessBank's
+ cross-model transplant table
+- [LLM-Judge Validation](/articles/llm-judge-validation) — the 33–41pp chance-correction discount applied to every judged number
+- [What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) — the prior answer to Q2's signature
+ question, which this extends rather than revisits
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates), [Agent Context Files](/articles/agent-context-files),
+ [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve), [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity),
+ [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — the remedy, the artifact class, the counter-pressure, the
+ placement result, and the effort lookup table

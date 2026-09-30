@@ -1,0 +1,162 @@
+---
+date: 2026-09-22
+title: Agent-Vendor Heterogeneity
+description: "Kraishan (Texas Tech, arXiv 2609.17598): 37,623
+  provenance-labelled PRs across 2,807 repos with a same-repo human baseline —
+  the spread between coding-agent vendors is wider than the spread between
+  agents and humans on every outcome measured. Codex reverts at 6.1% (OR 0.50 vs
+  the human 11.5%), Devin at 14.5% (OR 1.31), and the other three are
+  statistically indistinguishable from humans; security-smell presence runs 1.6%
+  (Cursor) to 9.5% (Claude Code) around a 4.6% human rate; hardcoded-credential
+  rates spread fourfold; first-human-review latency spreads from ~1 h to 12.6 h.
+  Pooling agents into one category averages away exactly the differences a
+  maintainer is choosing between — but vendor is confounded with PR size and
+  with task self-selection, and the paper cannot separate them"
+tag: Concept
+domain: ai-coding-practice
+tags:
+  - code-quality
+  - ai-coding-workflow
+  - engineering-metrics
+  - code-review
+  - empirical
+readingTime: 21
+imageAlt: Illustration for Agent-Vendor Heterogeneity
+sources:
+  - title: From Agent Behaviour to Agent-Friendly Documentation
+    url: https://arxiv.org/pdf/2608.20195
+  - title: "Not All Agents Are Equal: Code Quality and Post-Merge Maintenance Across
+      Five Autonomous Coding Agents in the Wild"
+    url: https://arxiv.org/pdf/2609.17598
+  - title: AI-to-AI Code Reviews of GitHub Pull Requests
+    url: https://arxiv.org/pdf/2608.21311
+---
+export { default as heroImage } from "../assets/agent-vendor-heterogeneity.webp";
+
+## Sources
+
+- [AI-to-AI Code Reviews of GitHub Pull Requests](https://arxiv.org/pdf/2608.21311)
+- [From Agent Behaviour to Agent-Friendly Documentation](https://arxiv.org/pdf/2608.20195)
+- [Not All Agents Are Equal: Code Quality and Post-Merge Maintenance Across Five Autonomous Coding Agents in the Wild](https://arxiv.org/pdf/2609.17598)
+
+## Summary
+
+Every prior measurement in this vault asks whether **agent code** differs from **human code**. Kraishan (arXiv 2609.17598, September 2026) asks a question one level down and finds it is the bigger effect: on reverts, on security smells, on comment density, on review latency, the distance between two commercial coding agents exceeds the distance between agents-as-a-pool and humans. The paper's own statement of it — *"the gap between the best and worst agent (odds ratios 0.50 vs. 1.31 against the same baseline) is far wider than any pooled agent-human gap"* — is the load-bearing claim, and it indicts the pooling done by nearly every study the vault holds, this page's neighbours included.
+
+The design is the reason it can say this. 37,623 PRs carry a **vendor label** from [the AIDev corpus](/articles/security-debt-of-agent-generated-code) — 33,596 agent (OpenAI [Codex](/articles/codex), Devin, GitHub Copilot, [Cursor](/articles/cursor), [Claude Code](/articles/claude-code)) and 4,027 human — across 2,807 repositories over December 24 2024 – July 30 2025, joined to 58,792 cached GitHub REST responses for post-merge follow-up. 26,283 merged PRs get a full 90-day maintenance window.
+
+## The matched human baseline, and what it is worth
+
+This is the part that matters beyond the vendor result, because it is the control the vault's other AIDev pages do not have. The human sample is not "all human PRs on GitHub": it is human PRs **only from the 810 repositories that also contain agent PRs**, restricted to the agents' activity window, and **capped per repository under a fixed seed** so no single project dominates. That yields 4,027 human PRs beside 9,750 agent PRs *in the same 810 repos*; the remaining ~24K agent PRs contribute within-agent power only.
+
+Three limits on it, all of which bite somewhere below:
+
+- **Static analysis reaches 23.7% of PRs.** Only Python/JS/TS diffs enter smell analysis (8,933 PRs, 1,348,822 added lines), and diffs over 5,000 added lines are dropped as auto-generated.
+- **Review measures have no human arm at all.** AIDev's review/comment/timeline tables cover agentic PRs only, so RQ5 compares agents *to each other*, with per-group coverage from **5.4% (Codex) to 51.2% (Copilot)** of PRs.
+- **Agents are not randomly assigned to tasks.** Repos and users self-select which agent to use and for what, so every "vendor" difference mixes code quality with task mix. The shared-repo baseline and the size-bucket check reduce this; the authors are explicit that they do not eliminate it.
+
+## Corpus composition (Table 1, verified against the PDF)
+
+| Group | PRs | Merged | Enrich. | Anal. | Med. changed lines |
+| --- | --- | --- | --- | --- | --- |
+| OpenAI Codex | 21,799 | 18,004 | 17,761 | 4,570 | 63 |
+| Devin | 4,827 | 2,595 | 2,186 | 1,224 | 61 |
+| GitHub Copilot | 4,970 | 2,139 | 3,459 | 1,102 | 76 |
+| Cursor | 1,541 | 1,005 | 946 | 571 | 96 |
+| Claude Code | 459 | 271 | 456 | 241 | **495** |
+| Human | 4,027 | 3,076 | 3,038 | 1,225 | 52 |
+| Total | 37,623 | 27,090 | 27,846 | 8,933 | — |
+
+Two things to read off it that the paper does not. **Merged share** runs 43.0% (Copilot) to 82.6% (Codex) against a human 76.4% — but this column pools all 33,596 agent PRs across 2,807 repos while the human row is the capped 810-repo baseline, and the paper runs no test on it, so it is a descriptive artefact of the corpus and **not** a controlled merge-rate comparison. And **Claude Code's median PR is 495 changed lines against 52–96 everywhere else** — roughly eight times the other groups — which is the confound that reappears in three separate results below.
+
+## Reverts: the vendors split cleanly (Table 2, verified)
+
+Human baseline 11.5%, within 90 days of merge. BH-adjusted *p*.
+
+| Agent | n | Reverted | OR [95% CI] | p |
+| --- | --- | --- | --- | --- |
+| OpenAI Codex | 17,756 | 6.1% | 0.50 [0.44, 0.57] | &lt;.001 |
+| Devin | 2,185 | 14.5% | 1.31 [1.11, 1.54] |.004 |
+| GitHub Copilot | 2,094 | 12.5% | 1.10 [0.93, 1.31] |.457 |
+| Cursor | 946 | 11.4% | 1.00 [0.79, 1.25] | 1.00 |
+| Claude Code | 267 | 10.5% | 0.90 [0.60, 1.36] |.878 |
+
+Two vendors differ from humans **in opposite directions on the most expensive outcome measured**, and three do not differ at all. The paper reports no pooled agent revert figure; weighting Table 2's rows gives **≈7.7% pooled agent vs 11.5% human, OR ≈ 0.64** *(this page's arithmetic, not the paper's)* — and that pooled number is 76% Codex by volume, which is precisely the averaging the paper argues against.
+
+**What a revert is here.** Revert-style commits are flagged **by commit message** on the PR's most-changed file within 90 days. The authors state the consequence: this **misses silent rewrites**. A reverted-in-substance-but-not-in-message change counts as surviving.
+
+## Security smells: agents below humans in aggregate, one vendor far above
+
+Presence of **any** smell in the added lines: pooled agents **2.9%** vs humans **4.6%** (χ²(1) = 8.59, *p* =.003, **OR 0.63 [0.47, 0.85]**). By group (Fig. 2 — Devin's and Copilot's values are image-only, read off the plot):
+
+| Group | PRs with ≥1 smell |
+| --- | --- |
+| Cursor | 1.6% |
+| OpenAI Codex | 2.5% |
+| GitHub Copilot | 2.7% |
+| Devin | 4.1% |
+| **Human** | **4.6%** |
+| Claude Code | **9.5%** |
+
+A sixfold spread across vendors straddling the human line. Per-**line** density tells a much duller story — H(5) = 52.5, *p* &lt;.001, but ε² =.005 and every pairwise Cliff's δ against humans is **negligible** (Codex −.02, Copilot −.02, Cursor −.03, Devin ns at *p* =.60, Claude Code **+.05**). The honest summary the authors give: *"per-line smell density is similar across authorship once a PR reaches a public repository."* A size-stratified check finds the pooled agent-human density difference lives **entirely in the XL PR bucket** (δ = −.08, *p* =.025), with no difference in the four smaller buckets.
+
+By CWE class (Fig. 4, pooled agents vs human), only two survive BH correction and **both run in agents' favour**: hardcoded credentials (CWE-798, 0.9% vs 2.2%, **OR 0.39 [0.25, 0.62]**, *p* &lt;.001) and eval/exec injection (CWE-95, 0.2% vs 0.8%, **OR 0.25 [0.11, 0.56]**, *p* =.006). **No class is over-represented in agent code**; the two that lean that way — weak crypto (OR 1.59) and XSS (1.47) — do not survive correction and rest on small counts. Per-vendor, the same class spreads fourfold: Claude Code carries hardcoded-credential smells in **3.3%** of its analyzed PRs, *above* the human 2.2%, while Codex and Cursor sit at **0.5%**.
+
+The detector is regex over diff lines, mapped to eight CWE classes. The authors call the output **smells, not vulnerabilities**, an upper bound on pattern presence with no exploitability claim — and disclose that an early path-traversal pattern matched relative-import strings and inflated that class **roughly 150-fold** before being tightened to fire only inside file-open calls. One detector bug found during development is a reason to read every class count as instrument-dependent.
+
+## Maintainability and post-merge churn
+
+Structural measures all separate the six groups (comment ratio is the widest: H(5) = 868.5, ε² =.097). At the median, **Copilot (.065), Claude Code (.076) and Cursor (.042) comment their added code while the median Codex, Devin *and human* diff contains no comment lines at all.** Claude Code writes the structurally heaviest code (median nesting 4 levels vs 3 elsewhere, branch density.063/line) — consistent with its 495-line median PR. Dunn contrasts: **44 of 60 pairwise tests reach adjusted *p* &lt;.05, and every agent differs from at least two others on at least one measure.** No agent dominates all four dimensions.
+
+Post-merge churn, normalized by PR size (follow-up commits on the most-changed file ÷ changed lines, ×100):
+
+- **Claude Code lowest of any group** — δ = **−.33** vs humans (medium, *p* &lt;.001), median 0.5 against the human 5.3.
+- Copilot δ = −.16 (small), Cursor δ = −.08, **Codex and Devin at the human level**.
+- On *raw* follow-up commits (before size normalization) the ranking is different: Copilot is lowest of any group including humans (δ = −.20), Codex is *slightly above* humans (δ = +.03, *p* =.020).
+
+The normalization is doing real work here, and it is doing it in Claude Code's favour: dividing by 495 changed lines is what turns its results around. Churn is also measured on the **most-changed file only**, a cost-driven proxy for whole-PR churn.
+
+Reading churn and reverts together, the authors' verdict: **none of the five agents imposes a measurably higher per-line maintenance burden than human contributors in the same repositories**, within 90 days, in >100-star repos.
+
+## Review effort concentrates by vendor, not by authorship
+
+All five review measures differ across agents at *p* &lt;.001, with the two largest effects on **human reviews per PR** (ε² =.116) and **bot reviews** (ε² =.119):
+
+- **Copilot draws the deepest scrutiny** — 3.6 human reviews and 0.43 change requests per PR on average, plus the most bot reviews (4.0). The paper reads this as its tight integration into GitHub's own review surface.
+- **Claude Code waits longest for a first human review: median 12.6 hours against 1–4 hours elsewhere**, plausibly because its PRs are an order of magnitude larger.
+- Devin and Codex PRs are *"typically dispatched with one to two quick human reviews."*
+
+This is the finding with the weakest footing, and the reason is coverage: review records exist for **5.4% of Codex PRs and 51.2% of Copilot PRs**. A measure computed on a twentieth of one group and half of another is comparing differently-selected samples, and there is no human arm to anchor either.
+
+## What this does and does not overturn
+
+**The feared post-merge debt did not materialize on these measures, in this window, in this population.** Agent PRs in >100-star public repos carry security smells *less* often than human PRs, need no more per-line follow-up, and in several cases need less. The authors offer two mechanisms they cannot separate: agents write conservative, template-like code, *or* the humans steering them assign bounded, well-specified tasks. Either way it is not [the churn explosion early commentary predicted](/articles/acceleration-whiplash) — and note the second mechanism is not a property of the agent at all.
+
+**Size is the confound to watch, and it has a name in this dataset.** Claude Code's higher smell prevalence, heavier structure and slower first review all co-occur with PRs ~8× the median size of the other groups. Per-line densities and the size-stratified check limit but cannot remove the entanglement; the authors say per-agent task-mix data is what would close it. Until then, **"vendor" in this paper is partly a label for "what people delegate to this product"** — and 459 Claude Code PRs against 21,799 Codex PRs means the outlier vendor is also the thinnest cell.
+
+## Connections
+
+- [Closed-Loop AI Review](/articles/closed-loop-ai-review) — **the same instruction from the reviewing side, on a corpus 75× larger and a different dataset.** This page's spread is in post-merge outcomes across 37,623 AIDev PRs; Selvanayagam & Ghaleb's is in the review configuration itself across 248,641 CodAGE PRs — Copilot-authored PRs are 95.7% reviewed by Copilot, while Cursor's and Google Jules's are 0.0% self-reviewed because those products ship no reviewer at all — and in reviewer output, where CodeRabbit's `refactor` share runs 9.7% to 35.0% depending only on who wrote the PR. It also independently reproduces this page's Copilot reading: the same-product arm is 80% Copilot, consistent with the integration-surface mechanism invoked here for Copilot drawing the most bot reviews. **The two corpora are distinct and their figures must not be read against each other** — AIDev is 33,596 curated PRs from 2,807 >100-star repositories, CodAGE is a GHArchive-wide event stream with a 38.0% author-side quarantine — and both inherit the identical blind spot, stated outright there: the label names a product, not a model
+- [Agent Documentation Behavior](/articles/agent-documentation-behavior) — **a vendor-comparison hazard this page's PR-level design is immune to and any trace-level successor is not.** Gao & Chen report session-level documentation rates by agent (62.6% Claude Code, 37.2% Codex, 0/11 Cursor) and then tell the reader not to interpret them: one agent family routes file operations through shell commands, so its documentation events were invisible until the extractor learned to parse paths out of `apply_patch` heredocs, and it registered **zero** until then. Their §6.3 generalises it — any corpus analysis keyed on tool names systematically undercounts shell-centric agents, and cross-agent comparison measures extraction coverage rather than behaviour. The vendor-label-plus-artefact design this page rests on has no equivalent exposure; a trajectory-level vendor comparison would
+- [Human-Governed Skill Maintenance](/articles/human-governed-skill-maintenance) — the same pooling warning on the human-vs-AI axis: a 62% AI-co-author rate across five skill repositories is a 93% / 92% / 16% / 5% / 0% split by repository, read there as disclosure-and-merge culture rather than AI use, and both papers cite the Simpson's-reversal result for pooled trailer signals as the reason to report per unit
+- [Security Debt of Agent-Generated Code](/articles/security-debt-of-agent-generated-code) — **the human control that page's first open question asks for, pointing the opposite way.** Sakib et al. find 38.9% of agentic PRs carry ≥1 smell with no human arm; this finds 2.9% agent vs 4.6% human. The gap is instrument and scope, not contradiction: that study is an LLM judge over CI/Dockerfile/IaC *high-risk paths*, this is regex over Python/JS/TS *added application lines*. They also disagree on credentials in a way worth keeping: there, humans committed 67.6% of the genuine leaked credentials; here, human PRs carry hardcoded-credential smells at 2.2% against the pooled agent 0.9% — two different measurements landing on the same unexpected side
+- [Efficiency Debt of AI-Generated Code](/articles/efficiency-debt-of-ai-generated-code) — **the gates-vs-code discriminator that page asks for, run outside the monorepo.** Google's revert ratio is ~0.9× human in a review-gated C++ monorepo with mature presubmit; the open question was whether sub-parity reverts are a property of AI code or of Google's gates. Public GitHub, weaker and heterogeneous gates, commit-message revert detection: the pooled ratio is ~0.64 and the *per-vendor* range 0.50–1.31 brackets Google's 0.9 on both sides. The property survives the population change; the vendor spread is the new information, and Google cannot see it because it pools all AI authorship
+- [Acceleration Whiplash](/articles/acceleration-whiplash) — the direct counterweight on the post-deployment half. Faros reports incidents/PR +243% and churn +861%; this reports pooled agent reverts *below* the human baseline and per-line churn at or below it for four of five vendors. It is the second non-vendor `empirical` source to land on that side, and the first outside an enterprise monorepo. **The pooling problem gets worse in Faros's September 2026 successor** ([The Speed Trap: 8 takeaways from our latest AI engineering research](https://www.faros.ai/blog/ai-speed-trap-takeaways), `vendor-claim`): it too names no tool, reports no mix, and its figures are *period-over-period deltas between two windows* — so whatever the agent mix was, any change in it between the two windows is unobserved and enters the delta as if it were an effect of adoption depth. With agents opening 13–14% of PRs at a leading edge there, the unmeasured mix is a larger share of the signal than it was in the report this page already contrasts
+- [Review as the Control Point](/articles/review-as-the-control-point) — **a new moderator on the review side: which vendor authored the PR predicts how much review it draws.** Copilot 3.6 human reviews per PR, Claude Code a 12.6-hour median wait for the first one. That is the same shape as the Greptile and Goldman results on the reviewing side — automated-reviewer capability depends on who wrote the code and on which codebase — now appearing in human review *effort*. Bounded hard by coverage (5.4%–51.2%) and by having no human arm
+- [Risk-Tiered Auto-Approval](/articles/risk-tiered-auto-approval) — the sharpest practical consequence. A size-keyed gate (PostHog's 500-line/20-file ceiling) is, on this distribution, **a de facto vendor filter**: it passes the median Codex/Devin/Copilot/Cursor PR and blocks essentially every Claude Code PR. Whether that is the right call is exactly what the size confound leaves unresolved
+- [Open Source Under Agent Contributions](/articles/open-source-under-agent-contributions) — the maintainer-side reading. DHH argues agent contributions are a free vein to take or leave; this supplies the first controlled numbers on what taking them costs, and says the answer depends on *whose* agent wrote the PR
+- [Agent-Generated Test Quality](/articles/agent-generated-test-quality) — the sibling AIDev cut, and the missing-baseline complaint it carries twice. This paper builds the matched human baseline on AIDev that both test studies lack, and demonstrates its cost (810 shared repos, per-repo cap, fixed seed) — but measures no test-related quantity at all, so the test-coverage comparison is still unrun with the recipe now on the shelf
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — the same "the model identity is the variable" result from the reviewing end. Greptile finds high-severity recall moves 6–12 points with the reviewer's model family; this finds post-merge outcomes move by a factor of 2.6 in odds with the authoring product. Both argue against treating "an LLM" as one population, from opposite sides of the review
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — the paper's own closing prescription lands here: *"the scarce resource in this loop is human attention, which argues for research on routing and prioritizing agent PRs rather than only on generating them"*
+
+## Open Questions
+
+- Vendor is confounded with task mix by the paper's own admission — repos and users self-select which agent to use and for what. **Does the Codex-vs-Devin revert gap (OR 0.50 vs 1.31) survive conditioning on task type?** The discriminator is per-PR task-mix labels, which AIDev does not carry; the authors name it as the missing variable. Until it exists, every "which agent is better" reading of this page is a reading of a product-and-its-users bundle.
+- Revert-by-commit-message misses silent rewrites, and the paper says so. **What fraction of agent PRs are functionally undone without a revert-shaped commit?** A diff-level check — how much of a merged PR's added code survives at 90 days — is computable from the same cached payloads and would say whether the sub-parity revert rate is a real survival advantage or an artefact of how agent code gets unwound.
+- Claude Code's median PR is 495 changed lines against 52–96 for every other group, and its three anomalous results (9.5% smell presence, heaviest structure, 12.6 h review wait) all co-move with it. **Is there any per-vendor outcome left once PR size is matched?** Size-matched resampling within the existing corpus is enough to test it, and a null would collapse most of this page into a statement about PR size.
+
+## Sources
+
+- [From Agent Behaviour to Agent-Friendly Documentation](https://arxiv.org/pdf/2608.20195) — Gao & Chen (Peking University), arXiv 2608.20195, 2026-08-20, `empirical`. Cited here only for §4.4.1 + Table 9 (per-agent session-level documentation rates and the authors' refusal to read them as behavioural differences), §3.4 (the shell-embedded-path extraction defect) and §6.3 (the generalised warning to dataset and tool builders). Its per-agent numbers are **not** cited as vendor findings anywhere in the vault, on the authors' own instruction. Full treatment on [Agent Documentation Behavior](/articles/agent-documentation-behavior)
+- [Not All Agents Are Equal: Code Quality and Post-Merge Maintenance Across Five Autonomous Coding Agents in the Wild](https://arxiv.org/pdf/2609.17598) — Obada Kraishan (College of Media and Communication, Texas Tech University), *Not All Agents Are Equal*, arXiv 2609.17598 v1, 2026-09-12, 9 pages, `empirical`. §3 (corpus construction, matched baseline, enrichment, regex smell catalog, non-parametric design), §4.1 + Fig. 2 (smell density and presence), §4.2 (structural maintainability), §4.3 + Table 2 + Fig. 3 (churn and reverts), §4.4 + Fig. 4 (CWE classes), §4.5 + Fig. 5 (review behaviour), §6 (threats to validity). **Parse status: clean.** Tables 1 and 2 reconciled cell-for-cell against `pdftotext -f 3`/`-f 4 -layout` on the local PDF and match exactly; canary-recall 20/20; no collapse, shift, weld or split-row flags. All five figure images viewed under the image two-pass rule and each confirmed against its caption — the markdown's image/caption pairing is correct, unlike the Goldman parse compiled the same day. **Two source-internal notes, neither a parse artefact:** (1) Fig. 5's caption reads *"mean human reviews per PR (right)"*, but the panel plots integer points (Codex 1, Devin 2, Copilot 2, Cursor 1, Claude Code 2) with IQR whiskers — medians, not means; the prose's 3.6 mean for Copilot appears nowhere in the panel, so the caption's "mean" is wrong for the right-hand panel. Nothing on this page is cited from that panel. (2) Devin's 4.1% and Copilot's 2.7% smell-presence rates appear **only** in Fig. 2 and nowhere in the prose. **Provenance caveat, load-bearing for how much weight the framing carries:** sole author, a College of Media and Communication rather than a software-engineering lab, arXiv preprint with no venue and no journal-ref. The tier is kept at `empirical` because the dataset (AIDev), the design (matched same-repo baseline, non-parametric tests, Cliff's δ with bootstrap CIs, BH correction at FDR 0.05, a released 63-variable codebook and replication pipeline) and the statistical reporting are all standard and self-consistent — but there is no peer review behind it and no second author to have caught the Fig. 5 caption
+- [AI-to-AI Code Reviews of GitHub Pull Requests](https://arxiv.org/pdf/2608.21311) — Selvanayagam & Ghaleb (ÉTS Montréal / Trent), arXiv 2608.21311, 2026-08-21, 15pp, ESEM 2026 Emerging Results track, `empirical`. Cited here only for the **corpus-boundary and vendor-label points**: §3.4's insistence that "product" means the identifiable agentic harness rather than the parent company (Google Jules and Gemini Code Assist counted as distinct; 117 of 45,269 cross-product PRs are that kind of same-vendor crossing), §4.3 + Table 2's same/cross composition per authoring agent, and §5.1 + Table 3's reviewer-output spread with the reviewer held fixed. **Corpus-consistency check run at compile: this study uses CodAGE, not AIDev** — 2,830,284 signature-attributed agent-authored PRs from a GHArchive-wide stream, against this page's 37,623 AIDev PRs from 2,807 >100-star repositories — so no figure of its is comparable with one of Kraishan's and none is carried here as a vendor finding. All five of its tables reconciled against `pdftotext -layout`. Full treatment on [Closed-Loop AI Review](/articles/closed-loop-ai-review)

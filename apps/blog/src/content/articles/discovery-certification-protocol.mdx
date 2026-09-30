@@ -1,0 +1,87 @@
+---
+date: 2026-09-24
+title: Discovery Certification Protocol (DCP)
+description: "CMU's outcome-level audit for AI-research-agent claims: Gate 1
+  certifies a sealed utility gain, Gate 2 gives a fresh matched challenger the
+  registered background and captured Web bytes (withholding the target run's own
+  research history) and treats any valid route within tolerance as a veto
+  witness, with a finite-sample recovery-probability bound from zero recoveries;
+  optional Gate 3 randomizes truthful vs. a matched neutral feedback policy from
+  a shared checkpoint. Two controlled audits (SQLite query optimization, virtual
+  catalyst control) each returned 0/96 recoveries (upper bound 0.0468) and a
+  Core+Evidence decision"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation-methodology
+  - ai-rd
+  - benchmark-validity
+  - research-agents
+  - contamination-adjacent
+readingTime: 10
+imageAlt: Illustration for Discovery Certification Protocol (DCP)
+sources:
+  - title: "Scores Alone Do Not Prove Discovery: The Discovery Certification
+      Protocol for Auditing AI Research Agents"
+    url: https://arxiv.org/pdf/2609.09219
+---
+export { default as heroImage } from "../assets/discovery-certification-protocol.webp";
+
+## Sources
+
+- [Scores Alone Do Not Prove Discovery: The Discovery Certification Protocol for Auditing AI Research Agents](https://arxiv.org/pdf/2609.09219)
+
+## Summary
+
+DCP (Ning, Zhong, Li & Zeng, CMU, arXiv 2609.09219, `empirical`) is an audit protocol that turns a claim like *"our AI research agent found a useful result"* into three separately checkable questions about one numerical outcome, rather than one benchmark score:
+
+1. **Gate 1 — is the result actually useful?** A sealed evaluation checks that the agent's final output `A*` beats a baseline `b` by at least a registered minimum gain `δ_min`, with a lower-confidence-bound test.
+2. **Gate 2 — is the result *recoverable* without the target run's private research trail?** A fresh, matched challenger agent is given the same background `K`, the same initial observations `E0`, and every Web byte the target run actually observed (`W_obs`) — but not the target run's hypotheses, experiment results, or reasoning trace (`L*`). If *any* valid method the challenger produces scores within a registered tolerance `ε` of the target, that is a **recovery witness** and it **vetoes** the certification outright (Core refuted), regardless of how rare it is. If zero challengers recover the result across `n` independent episodes, DCP reports a finite-sample upper bound on the true recovery probability: `p_upper = 1 - α^(1/n)`.
+3. **Gate 3 (optional) — did truthful feedback actually help?** From a shared frozen checkpoint, paired fresh branches get either truthful experimental observations or a schema/timing-matched **neutral policy** that withholds the actual information. The estimand is the average effect of truthful vs. neutral feedback on outcome utility, calibrated against an independent null study so the neutral channel isn't secretly informative.
+
+**Core** = Gate 1 pass + zero qualified Gate 2 recoveries + adequate controls + `p_upper ≤ ρ`. **Evidence** = Core + a Gate 3 feedback effect whose lower confidence bound clears a registered margin above the null-calibration band. Failed registration or weak controls yield **audit incomplete**; a qualified Gate 2 recovery yields **recovered** (Core vetoed) regardless of Gate 1 or Gate 3.
+
+## Why Gate 2 matters more than it looks
+
+Gate 2 is a **rediscovery test admitting any valid route to the same numerical outcome** — not an ablation of the target's specific implementation. A challenger may recombine known components, transfer a technique from another domain, or write an entirely different program; the only thing that counts is whether it clears the score threshold under the registered validity check. This is the design DCP's own knapsack calibration case exercises directly: one matched challenger episode produced two *different* legal solutions (0.9363, 0.9356) both above the recovery line (0.9329) and one above the target run itself — a qualified recovery witness that triggers the Core veto through the shared numerical rule alone, with no comparison of *how* the two solutions were reached.
+
+The **E0/L\* boundary is the whole mechanism**: an observation present at the start of the run belongs to `E0` (fair game for the challenger); a measurement returned because the target agent chose to run an experiment belongs to `L*` (withheld). That is a formal, executable version of "would this have been found anyway from public information and generic competence, without the specific research trail that produced it" — the prior-art / rediscovery question this wiki has carried as an open question on [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery) without an instrument to answer it.
+
+## The two controlled audits, reconciled against prose (not Table 2's cells)
+
+Table 2 (p. 9 of the raw) packs two values into several cells — `Main, baseline` and `Gate 2` columns each read as an ordered pair (e.g. `0.8855, 0` and `0/96, best 0.6734`). Ingest verify flagged this as `table-collapse`. **Confirmed false positive**: these are the paper's own two-value-per-cell design, not a docling weld — every pair matches Appendix C's prose exactly (§C.1–C.4), cell for cell. Citing the audit numbers from prose rather than the table row, per the parse-warning convention:
+
+- **SQLite-Web (DeepSeek-v4-flash, §C.1).** Main score **0.8855470** vs. baseline **0**, recovery line **0.8805470**. All 96 challenger episodes were valid confirmed misses, scoring between 0.0368978 and 0.6733847. Zero-hit upper bound: **1 − 0.01^(1/96) = 0.0468381**. All 45 positive controls succeeded (recall lower bound 0.8889268). Gate 1 required `δ_min = 0.5`; the plan's 88.55% reduction in traffic-weighted SQLite VM work over a no-index baseline is the useful-improvement claim being certified.
+- **Virtual catalyst control (DeepSeek-v4-pro, §C.2).** Main score **1.0** (hit all five hidden-optimal control levels over 256 sealed conditions) vs. baseline **0.5989989**, recovery line **0.95**. All 96 episodes valid confirmed misses, best **0.814649**. Same zero-hit upper bound, 0.0468381 (both audits used `α_recovery = 0.01`, `ρ = 0.05`, and 96 registered episodes against a required minimum of 90 per §A.3's `n ≥ ⌈log(α)/log(1-ρ)⌉`).
+- **Gate 3, both audits.** The **30-pair target feedback study** gave **30/30 truthful and 0/30 neutral recoveries**, paired exact 99% CI **[0.6379, 1.0]**. A **separate 60-pair null study** — comparing the neutral channel against a *second*, independently non-directional channel, to check the neutral policy wasn't itself leaking information — found both arms succeeding equally in every pair: contrast **0**, 99% CI **[−0.0950, 0.0950]**, inside the registered ±0.17 equivalence band. **These are two different instruments, not one "30/0 in 60 pairs" number**: the 30/0 truthful-vs-neutral recovery count comes from the 30-pair target study; the 60-pair study is calibration of the neutral channel itself and reports a contrast of zero, not a recovery tally. The margin math (`LCB(Δ) ≥ δ_evidence + δ_sham` → `0.6379 − 0.17 = 0.4679 > 0.34`) is what promotes both audits from Core to **Core + Evidence**.
+- **Cost.** 507 sessions / $61.17 (SQLite-Web), 419 confirmatory + 435 total sessions / $56.40 (catalyst, confirmatory + development).
+
+## Calibration cases (§4.4, Table 2)
+
+- **Device calibration** — a controlled information-deficit case (24 hidden binary gains, 4 given upfront): 0/80 recoveries, upper bound 0.0477, all 60 positive controls pass → **Core** only (no Gate 3 run).
+- **Multidimensional knapsack** — the recovery mechanism demonstrated positive: two qualified witnesses above the recovery line → **Developmental (recovery) refuted**, i.e. Core vetoed by construction, kept as the "the rule actually catches something" control.
+- **Affine parity** (Appendix C.6) — two episodes, two target pairs, two null pairs; positive-control recall lower bound only 0.0707 → **audit incomplete** at control adequacy, despite an observed 1.0 feedback contrast. Shows the adequacy gate, not just the recovery gate, doing work.
+
+## Threat model: the claimant is the adversary, not just the model
+
+DCP's Appendix B treats **the evidence producer as potentially strategic** — the audit exists to prevent a lab from overselling its own agent's result, not to test the agent's safety. The mechanism is registration-before-results (task, model, budget, validity rules, stopping rule all fixed before the run), a complete attempt ledger (every timeout, invalid output and infrastructure failure stays in the record), one symmetric evaluator for baseline/target/controls, and byte-for-byte recording of every Web response the model saw. That is the same anti-gaming apparatus [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) argues is missing at the model-behavior level, applied one level up: at the level of the claim a lab publishes about what its agent achieved.
+
+## What the paper is not
+
+Both complete audits are **software/engineering optimization tasks under a sealed numerical score** (SQLite query planning, a virtual chemistry process-control simulator), run with DeepSeek-v4-flash/pro as the audited and challenger agents, by a four-person CMU team — not an open-ended scientific-hypothesis claim, not Anthropic or another frontier lab's own AI-R&D self-assessment, and not yet applied to a wet-lab or literature-style discovery claim. The recovery-audit *design* generalizes (the paper states this explicitly: "the same outcome audit applies to programs, models, data products, and experimental recipes"), but no instance of it doing so is in this source.
+
+## Connections
+
+- [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery) — supplies an executable instrument for that page's standing open question ("does any AI-generated-hypothesis claim survive an independent, pre-registered prior-art search?"), though only demonstrated here on sealed-score engineering optimization, not open-ended hypothesis generation — see that page's Open Questions for the scope gap
+- [AI R&D Autonomy Evaluation (AECI)](/articles/ai-rd-autonomy-evaluation) — a different anti-inflation instrument for the same broad problem CoBench and the revealed-preference argument address: whether a claimed AI-research result reflects genuine agent capability rather than something recoverable from public information and generic competence. CoBench asks "can the model diagnose the root cause"; DCP asks "would a fresh matched agent, without the target's private trail, independently reach the same number"
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — same anti-inflation logic, different leak channel: that page's methods detect whether a *benchmark answer* leaked into training data (or a sandbox), whether via a statistical tell or a behavioral probe; DCP's Gate 2 detects whether a *research outcome* was reachable from public information and prior competence alone, using a live rediscovery episode rather than a corpus check
+- [Evaluation Awareness & Grader Gaming](/articles/evaluation-awareness-and-grader-gaming) — DCP's registration, sealed evaluation, complete ledger and independent verifier are the claim-producer-level counterpart to that page's model-behavior-level anti-gaming concern
+
+## Open Questions
+
+- Has a DCP-style recovery audit been run on an open-ended scientific-hypothesis claim (e.g. Anthropic's ~80% blinded hypothesis-preference result, or a Co-Scientist-style suggestion) rather than a sealed-score engineering-optimization task? This is the scope gap between what Gate 2 formally tests and what [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery)'s prior-art question actually asks about.
+- Does the zero-hit recovery bound hold as challenger budget scales — i.e., does giving the Gate 2 challenger more episodes, a stronger harness, or a higher-capability model shrink `p_upper` toward zero recoveries becoming a positive rate, the way [AI R&D Autonomy Evaluation (AECI)](/articles/ai-rd-autonomy-evaluation)'s CoBench score barely moves with a 3× token budget but "harness effort... could produce significant further gains"?
+
+## Sources
+
+- [Scores Alone Do Not Prove Discovery: The Discovery Certification Protocol for Auditing AI Research Agents](https://arxiv.org/pdf/2609.09219) — Jingjie Ning, Shanshan Zhong, Xiaochuan Li, Ji Zeng (Carnegie Mellon University), *Scores Alone Do Not Prove Discovery: The Discovery Certification Protocol for Auditing AI Research Agents*, arXiv 2609.09219, 2026-09-07, 17pp, `empirical`. Full paper read; §3 (protocol definition), §4 (the two complete audits and three calibration cases), §5 (results), Appendix A (statistical decision details, the `n ≥ ⌈log(α)/log(1-ρ)⌉` formula), Appendix B (threat model and audit validity), Appendix C (per-case numeric detail, used here in preference to Table 2). **Parse note**: ingest verify `warn` on `table-collapse` for Table 2 — confirmed false positive, the flagged cells are the paper's own two-value-per-cell design (`Main, baseline` and `Gate 2` count/best pairs), verified exact against Appendix C's prose for both complete audits. No other tables in the raw (docling reports 2). Five figures, none load-bearing for a number not already in prose (Figures 1–4 illustrate the gate structure and the decision map; no figure was read for a quantity used here)

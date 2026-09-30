@@ -16,7 +16,7 @@ tags:
   - design-principle
   - zero-trust
   - threat-model
-readingTime: 22
+readingTime: 24
 imageAlt: Illustration for Impossible, Not Tedious (Design Test)
 sources:
   - title: Zero Trust for AI Agents
@@ -32,6 +32,9 @@ sources:
   - title: "GhostJacking Attacks: Half of the Fortune 500 Run These Tools. Getting
       Blocked by the Firewall Was the Way to Take Over Their AI Agents"
     url: https://tenetsecurity.ai/blog/ghostjacking-attacks-agentic-kill-chain/
+  - title: "Red-Teaming Auto Mode: Improving Blocking Classifiers Against Malign
+      Coding Agents"
+    url: https://arxiv.org/pdf/2609.19587
 ---
 export { default as heroImage } from "../assets/impossible-not-tedious-test.webp";
 
@@ -41,6 +44,7 @@ export { default as heroImage } from "../assets/impossible-not-tedious-test.webp
 - [GhostJacking Attacks: Half of the Fortune 500 Run These Tools. Getting Blocked by the Firewall Was the Way to Take Over Their AI Agents](https://tenetsecurity.ai/blog/ghostjacking-attacks-agentic-kill-chain/)
 - [Investigating three real-world incidents in our cybersecurity evaluations](https://www.anthropic.com/news/investigating-incidents-cybersecurity-evals)
 - [Mind Viruses: Self-Propagating Ideas in Multi-Agent LLM Systems](https://arxiv.org/pdf/2608.10218)
+- [Red-Teaming Auto Mode: Improving Blocking Classifiers Against Malign Coding Agents](https://arxiv.org/pdf/2609.19587)
 - [Security Incident INC-2026-07-28-01](https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
@@ -131,8 +135,17 @@ read data become run instructions, assume every reachable token is compromised) 
 human approval on every command an agent runs — is friction placed at the busiest step in a triage
 loop.
 
+## One monitor, both sides of the line (September 2026)
+
+[Remedios et al.](https://arxiv.org/pdf/2609.19587) (arXiv 2609.19587, `empirical`, Anthropic-affiliated; [Blocking Monitors Against Malign Coding Agents](/articles/blocking-monitors-against-malign-agents)) red-team a production per-action blocking monitor. Its controls fall on both sides of this test, and each performs as the test predicts.
+
+- **Friction, priced at zero.** The session ends after 20 blocks, but a block costs the attacker nothing. Just telling an agent to re-send the same blocked call raises attack success from 44.5% to 61.4% within that budget, because the monitor is stochastic. Splitting the attack across 20 agents or 20 compactions is tedious, not impossible: an Opus 5 attacker reaches 88% and 85%.
+- **Removal under Kerckhoffs.** Forged transcript turns (94% arena success) stop at the escaping-and-framing fix. Each turn is wrapped in a delimiter carrying a 48-bit ID from a per-process key. The attacker is told the scheme and the ID distribution, but it cannot produce the closing tag. Success drops to 0% for every attacker/monitor pair. This is the "cryptographic identity" item from the list above, applied to a transcript boundary.
+- **A mitigation that sits between the two.** Showing the monitor its own earlier blocks holds brute-force retry at 33%. The channel stays open, but each retry now counts as evidence against the attacker instead of as a free draw.
+
 ## Connections
 
+- [Blocking Monitors Against Malign Coding Agents](/articles/blocking-monitors-against-malign-agents) — a blocking monitor's block budget is friction, and brute-force retry prices it at +17 pp. Its keyed transcript framing is removal, holding at 0% when the attacker is told the scheme
 - [Unsanctioned Action in Capability Evaluations](/articles/unsanctioned-action-in-evaluations) — Anthropic's account of an agent needing a PyPI account, therefore an email, therefore a phone number, failing to obtain funds several ways, then backtracking to a free provider and succeeding: a four-deep prerequisite chain with repeated failures that cost the attacker nothing but time
 - [Unsanctioned Action in Capability Evaluations](/articles/unsanctioned-action-in-evaluations) — the anti-automation instance: audio CAPTCHAs defeated by public-data matching, image CAPTCHAs by CV models, Tor exit rotation, and a blocked DNS restriction routed around twice; the one control that held was a structural gate, not a friction cost
 - [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — the framework that adopts this as a standing design-review question (hub)
@@ -160,6 +173,7 @@ loop.
 
 ## Sources
 
+- [Red-Teaming Auto Mode: Improving Blocking Classifiers Against Malign Coding Agents](https://arxiv.org/pdf/2609.19587) — Remedios & Storf (Anthropic Fellows), Roger & Hughes (Anthropic), arXiv 2609.19587, 2026-09-17, `empirical`, lab self-evaluation. Cited for brute-force retry 44.5% → 61.4% and block memory at 33% (Appendix A.3), the Kerckhoffs affordance policy (Appendix B), keyed framing (§4.4) and its 0% arena result, and the 88% / 85% multi-context curves (Figures 3 and 7, image)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf) — "A design test: impossible, not tedious" (Part: principles); reprised in Phases 3 & 5 and the closing chapter
 - [Security Incident INC-2026-07-28-01](https://cdn.prod.website-files.com/663bd486c5e4c81588db7a1d/6a724858f7db25c81487016d_Security%20Incident%20INC-2026-07-28-01.pdf) — UK AI Security Institute, 2026-08-04 (`case-study`, first-party self-disclosure): Appendix A.1 Event 1-2, A.3, A.6 Event 6-1 and A.10 Event 10-2 — CAPTCHA defeat by audio matching and computer vision, Tor/SOCKS rotation against signup restrictions, DNS record-type restrictions routed around via delegation then a shared-domain registry, and the repository/release/organisation volume
 - [Investigating three real-world incidents in our cybersecurity evaluations](https://www.anthropic.com/news/investigating-incidents-cybersecurity-evals) — Anthropic, 2026-07-30 (`case-study`, first-party): Incident 2's account-creation chain, and Anthropic's own observation that the lengths involved *"would likely have indicated to a human participant that this was no longer just an evaluation"* — the friction that reads as a stop signal to a person and as a routing problem to an agent

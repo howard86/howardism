@@ -5,15 +5,18 @@ description: "Multimodal design with minimal pre-processing instead of large
   standalone encoders: TML co-trains dMel audio + 40×40-patch hMLP + flow head
   in one transformer for 200ms latency; Gemma 4's 12B independently discards a
   305M audio conformer for on-device memory; Inkling carries the design to 975B
-  open-weight scale — but Kimi K3 keeps a 401M MoonViT-V2 encoder at 2.8T and
-  tops the corpus on exactly the dense-text-in-image tasks where the
-  encoder-free 12B regressed, so the verdict is now contested"
+  open-weight scale; Kimi K3 keeps a 401M MoonViT-V2 encoder at 2.8T and tops
+  the corpus on dense-text-in-image — and Tuna-2 finally supplies the
+  matched-size arm, where a patch-embedding-only 7B beats its SigLIP-carrying
+  twin on 10 of 12 understanding benchmarks (and on OCRBench, killing the
+  dense-text worry) while losing generation, but only above a 1.5B backbone and
+  only after ~2T of 3T pretraining tokens"
 tag: Concept
 domain: interaction-multimodal
 tags:
   - llm-architecture
   - multimodal
-readingTime: 10
+readingTime: 25
 imageAlt: Illustration for Encoder-Free Early Fusion
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
@@ -24,6 +27,11 @@ sources:
     url: https://thinkingmachines.ai/news/introducing-inkling/
   - title: Kimi K3 Model Card
     url: https://huggingface.co/moonshotai/Kimi-K3
+  - title: "Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal
+      Understanding and Generation"
+    url: https://arxiv.org/pdf/2604.24763
+  - title: "Toward Native Multimodal Modeling: A Roadmap"
+    url: https://arxiv.org/pdf/2605.25343
 ---
 export { default as heroImage } from "../assets/encoder-free-early-fusion.webp";
 
@@ -33,6 +41,8 @@ export { default as heroImage } from "../assets/encoder-free-early-fusion.webp";
 - [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343)
+- [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763)
 
 ## Summary
 
@@ -74,7 +84,7 @@ Table 8 is the receipt. The encoder-free 12B reaches **0.063 WER** on English FL
 
 ### Two caveats the report doesn't state
 
-**It is not a controlled ablation.** The encoder-free model is the **12B**; the encoder-having comparison is the **4.5B-effective E4B**. The 12B has more LLM capacity to absorb the work the discarded encoder used to do. The claim *"competitive performance is achievable without an encoder"* is supported. The stronger claim *"removing the encoder is free"* is not tested anywhere in the paper — a same-size arm would settle it, and none is run.
+**It is not a controlled ablation.** The encoder-free model is the **12B**; the encoder-having comparison is the **4.5B-effective E4B**. The 12B has more LLM capacity to absorb the work the discarded encoder used to do. The claim *"competitive performance is achievable without an encoder"* is supported. The stronger claim *"removing the encoder is free"* is not tested anywhere in the paper — a same-size arm would settle it, and none is run. *(The same-size arm now exists, from a different lab and for vision only — see the Tuna-2 section below. Its verdict is stronger than "free": at 7B the encoder-free arm is better on understanding and worse on generation.)*
 
 **There is a measured regression, and it is specific.** Cut vision tokens from 1120 (Table 6) to 280 (Table 12) and the 12B degrades **out of order with scale**:
 
@@ -88,7 +98,7 @@ Table 8 is the receipt. The encoder-free 12B reaches **0.063 WER** on English FL
 
 The 12B falls harder than models both larger *and smaller* than it — the only ordering violation in the family, and it is the only encoder-free member. The effect is confined to **dense-text-in-image** tasks: MMMU Pro (−1.4) and MATH-Vision (−3.0) degrade normally. A plausible reading is that a 35M linear projection performs no feature compression, so the model must spend resolution where a ViT would have spent parameters. Reading small text then becomes token-budget-bound.
 
-If that reading is right, encoder-free is not free — it **trades encoder parameters for vision tokens**, which is an [inference-cost](/articles/inference-efficiency-as-capability) trade, not a saving. The report neither reports nor comments on the inversion.
+If that reading is right, encoder-free is not free — it **trades encoder parameters for vision tokens**, which is an [inference-cost](/articles/inference-efficiency-as-capability) trade, not a saving. The report neither reports nor comments on the inversion. *(Partly superseded 2026-09-21 by [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763): the matched 7B ablation shows a projection-only path leading on OCRBench, so dense text does not require an encoder. The parameters-for-tokens reading survives as the reason the Gemma 4 cliff appeared **at 280 tokens specifically** — Tuna-2 never sweeps its token budget, so the mechanism is untested either way. What it does establish is a different non-free-ness: the encoder-free arm needs an added masking objective, and loses outright below ~2T tokens or on a 1.5B backbone.)*
 
 ## Third instance: Inkling at 975B (July 2026)
 
@@ -104,8 +114,79 @@ The comparison that matters is *where* it wins. The encoder-free 12B's one measu
 
 One asymmetry does survive the caveats: every encoder-free instance here also drops the *audio* encoder, and K3 has no audio path at all (text and image only). The strongest evidence for encoder-free — Gemma 4's Table 8, where discarding a 305M conformer cost 0.002 WER — is audio evidence, and K3 does not contest it.
 
+## The matched-size arm finally exists: Tuna-2 vs Tuna-R at 7B (April 2026)
+
+Every instance above compares an encoder-free model to a *different* model — different scale, different lab, or different training run. **Tuna-2** (Liu et al., Meta FAIR + HKU + Waterloo, arXiv 2604.24763, `empirical`) is the first source in this corpus to run the arm the open questions below have been asking for: two unified multimodal models that differ **only** in whether a pretrained vision encoder sits in the visual path.
+
+- **Tuna-R** — Qwen2.5-7B-Instruct decoder + **SigLIP 2 So400M** representation encoder + connector (the LLaVA shape, with the VAE already removed).
+- **Tuna-2** — the same Qwen2.5-7B-Instruct decoder, a **single patch-embedding layer at patch size 16** on raw pixels, and nothing else. No VAE, no representation encoder, one transformer.
+
+Both do understanding *and* pixel-space image generation (rectified-flow, JiT-style x-prediction with a v-loss), so a single ablation covers both halves of the design.
+
+**What is matched.** Stage-1 pretraining: the same 550M in-house image–text pairs at a 7:3 generation-to-understanding sampling ratio (`7g3u`, itself chosen by ablation), plus Nemotron text at 20% of the mix; **300k steps on 64 nodes**, AdamW at 1×10⁻⁴, sequences padded to 16k tokens per GPU; the masking objective over the final 40% of pretraining (50% of examples, mask ratio sampled 0–50%). Stage-2 SFT: the same corpus (13M FineVision conversations + ~2M OmniEdit edits), 50k steps at 2×10⁻⁵. Same benchmark suite, same protocol.
+
+**What is not matched — and all three asymmetries favour the encoder arm.**
+
+1. Tuna-R carries **~400M extra parameters** (SigLIP 2 So400M) plus a connector. Both rows are labelled "7B"; the encoder-free model is the *smaller* of the two.
+2. Tuna-R gets an **extra training stage Tuna-2 does not**: 3k connector-alignment steps at 5×10⁻⁴ before Stage 1. The paper's framing is that the encoder-free design "does not require this additional stage."
+3. Compute is matched in **steps, not FLOPs or visual tokens**. Neither arm's visual token count is reported, and a patch-16 pixel path and a SigLIP path do not yield the same sequence length. "Matched size" here means matched backbone and matched data, not matched compute.
+
+A fourth limit is worth stating before reading the table: the `Tuna` row is **cited to the earlier paper** rather than presented as a re-run, so only the **Tuna-R ↔ Tuna-2 pair** is a clean controlled comparison. Tuna is a reference point, not a third arm.
+
+**Result (Table 1; every value recovered from `pdftotext -f 6 -layout` — the docling parse dropped these rows entirely, see the parse warning in Sources).**
+
+| Benchmark | Tuna (VAE + enc.) | Tuna-R (enc.) | **Tuna-2 (encoder-free)** | Δ vs Tuna-R |
+|---|---|---|---|---|
+| GQA | 63.9 | 63.5 | **65.0** | +1.5 |
+| RealWorldQA | 66.1 | **67.9** | 67.7 | −0.2 |
+| MMVet | 42.9 | 46.7 | **51.7** | **+5.0** |
+| MMMU | 49.8 | **51.1** | 50.7 | −0.4 |
+| MMVP | 70.7 | 74.7 | **77.3** | +2.6 |
+| SEED-Bench2+ | 52.7 | 58.4 | **61.1** | +2.7 |
+| AI2D | 79.3 | 79.4 | **79.6** | +0.2 |
+| **ChartQA** | **85.8** | 85.6 | 85.6 | 0.0 |
+| **OCRBench** | 74.3 | 78.3 | **79.7** | **+1.4** |
+| V* | 52.4 | 57.6 | **59.2** | +1.6 |
+| CountBench | 73.5 | 77.8 | **81.7** | **+3.9** |
+| VisuLogic | 22.4 | 26.2 | **28.8** | +2.6 |
+
+**Encoder-free wins 10 of 12** at matched backbone and matched data, while being the smaller model and getting one training stage fewer. The two losses are 0.2 and 0.4 points. The largest gains are exactly where the abstract says they are — fine-grained perception (MMVet +5.0, CountBench +3.9, SEED-Bench2+ +2.7, MMVP +2.6).
+
+**The dense-text prediction does not reproduce.** The Gemma 4 section above predicted that a projection-only vision path should show the InfographicVQA cliff intrinsically. In the matched comparison the encoder-free arm is *best or tied* on every dense-text row: OCRBench **79.7 vs 78.3**, AI2D 79.6 vs 79.4, ChartQA 85.6 vs 85.6. Two caveats keep this from being a clean refutation. The suite contains **no InfographicVQA, DocVQA or OmniDocBench** — the exact benchmarks where Gemma 4's 12B fell — and, more importantly, **no vision-token sweep**: Gemma 4's −29.7 appeared only when tokens were cut 1120 → 280, and Tuna-2 runs at one token budget throughout. So what dies is the strong reading ("projection-only paths are inherently bad at dense text"); the token-budget mechanism this page proposed is untouched, and untested.
+
+**Generation is the other direction, consistently.** The encoder helps where semantic priors help:
+
+- GenEval overall: Tuna 0.90 / Tuna-R 0.88 / **Tuna-2 0.87**. DPG-Bench overall: 86.76 / 86.35 / **86.54**.
+- ImgEdit total: Tuna 4.31 / Tuna-R 4.18 / **Tuna-2 4.09** — encoder-free is last of the three.
+- LLM-judge best-of-three on 1.5K prompts × 4 images (Table 3): on **quality** Tuna-2 trails Tuna-R under both judges (GPT-5.4 32.1% vs 35.7%; Claude Opus 4.7 34.8% vs 37.2%), but on **diversity** it is preferred by a wide margin (48.4% vs 30.9%; 41.9% vs 29.9%).
+- Image reconstruction after a light finetune (ImageNet val): Tuna-R rFID **0.12** / PSNR 32.22, Tuna-2 rFID 0.15 / PSNR **32.80**, both SSIM 0.93 — first among unified tokenizers, approaching FLUX.1[dev]'s VAE (0.06 / 33.65 / 0.93) without a VAE at all.
+
+**"At scale" means training scale, not model scale — and the small-scale arm reverses the verdict.** Figure 6 plots accuracy against **train tokens, 0T → 3T**. Tuna-R leads throughout the early phase on all three understanding benchmarks; the crossover on OCRBench sits at roughly **2T tokens** (Tuna-R ~71.5 → 71.5, Tuna-2 ~65.7 → 73.2 over the 1T→3T span), with V* similar and MMVP crossing somewhat earlier. On GenEval Tuna-R leads for the **entire** pretraining run and the two converge only after SFT. The mirror image is Table 6's ablation on a **Qwen-2.5-Instruct-1.5B** backbone at 100k steps, where encoder-free loses everything: OCRBench 56.8 vs 59.2, MMVP 55.7 vs 58.0, CountBench 57.6 vs 58.2, GenEval **48.2 vs 56.0**. So the finding is not "encoder-free wins"; it is **"encoder-free wins given a large-enough backbone and enough pretraining tokens, and loses below that."** The encoder buys sample efficiency, and the purchase depreciates.
+
+**The masking objective is load-bearing for the encoder-free arm specifically.** Same Table 6, masking on vs off: Tuna-R gains +0.9 / +1.3 / +1.0 / +0.3 (OCRBench / MMVP / CountBench / GenEval); Tuna-2 gains **+1.4 / +3.4 / +4.2 / +0.6**. The authors' explanation is that SigLIP 2 was already pretrained with a masked-prediction objective, so Tuna-R has it baked in. Practical reading: removing the encoder does not come for free — it comes with an added training objective that recovers part of what the encoder supplied.
+
+**A calibration the paper's "state-of-the-art" framing obscures.** The claim is SOTA *among ≤13B native unified models*, not among 7B multimodal models. In Table 1's own rows, understanding-only **Qwen2.5-VL 7B beats Tuna-2 on 8 of the 12 benchmarks** (OCRBench 83.7 vs 79.7, V* 71.2 vs 59.2, MMMU 58.6 vs 50.7, MMVet 61.7 vs 51.7, SEED-Bench2+ 70.5 vs 61.1, AI2D 82.7 vs 79.6, RealWorldQA 69.9 vs 67.7, MMVP 78.0 vs 77.3), with Tuna-2 ahead only on GQA, ChartQA, CountBench and VisuLogic. Dropping the encoder helps *within* the unified-model design; it does not make a unified model the best way to read an image.
+
+**What this settles for the pages above.** It is a **vision-only, image-only** result: there is no audio path anywhere in Tuna-2, so the strongest existing evidence for encoder-free ([Gemma 4](/articles/gemma-4)'s audio Table 8) is neither corroborated nor contested. It is also at **7B**, not the ~1T scale where TML and Moonshot disagree. And both arms start from a **pretrained text LLM**, not from scratch — which is precisely what makes it decisive for the third question below.
+
+## A definition arrives, and it splits this page's title in two (May 2026)
+
+[An, Lu, Dong et al.](/articles/native-multimodal-taxonomy) (Tencent Youtu Lab + 5 universities, arXiv 2605.25343, `practitioner-opinion`) is the first source in this corpus to define "native" formally rather than by example — and the definition does not line up with the way this page has been using "early fusion."
+
+The survey's axis is **where the tokenization happens**, not whether an encoder exists:
+
+- **Mid-fusion** — `Backbone(C(E₁(m₁), …, Eₙ(mₙ)))`, encoder features injected into the backbone's intermediate layers through a cross-attention or adapter operator `C`. Modality-aware, encoders architecturally distinct from the backbone. *Trainability is irrelevant to the classification:* a mid-fusion model with a fully unfrozen encoder is still mid-fusion.
+- **Early-fusion** — `Transformer(⋃ᵢ T(mᵢ))`, one unified tokenization operator `T` mapping every modality into a single shared space from the outset.
+
+**Encoder-free modeling** does not name either regime in the survey. It appears two levels down: one of *two* strategies (beside "Physical Decoupling" — Janus-Pro's separate understanding/generation encoders, BAGEL's Mixture-of-Transformer-Experts) for resolving the Comprehension-Generation Dilemma inside the **M2M Modality-Specificity Preserving** camp, with **Tuna-2 and SenseNova-U1** as its named instances. Under that reading, this page has been running two claims under one heading: *drop the encoder* (a parameter-allocation choice, which is what every section above actually measures) and *fuse early* (a tokenization-path choice, which none of them isolate). `T` can perfectly well be a learned discrete tokenizer, and Chameleon/AnyGPT/Emu3.5 are the survey's canonical early-fusion models precisely because of their codebooks — the opposite end of the design space from a raw patch projection. Take this as a definitional sharpening, not a finding; the survey measures nothing.
+
+**Two absences in the survey are worth recording, because it is a census.** Its Gemma-4 rows are **31B and E4B**, and it files Gemma-4-31B under *Vision-Encoder-Based Fusion* — the **12B that carries this page's strongest evidence, the one that discards the 305M conformer, is not in Table 1 or the taxonomy figure at all.** So the survey neither corroborates nor contests the Gemma 4 audio result; it catalogues a different part of the family. Nothing from the interaction-model line is present either ([TML-Interaction-Small](/articles/tml-interaction-small), [Inkling](/articles/inkling)), since the census is limited to open-source models and technical reports with "verified architecture and parameter transparency."
+
+One thing the survey does add on the merits: its Table 1 records **Tuna-2 as continuous** (no discrete-unified star), which is consistent with the matched-arm result above and rules out the reading that Tuna-2's win came from quantization rather than from encoder removal.
+
 ## Connections
 
+- [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy) — the formal definition that separates *early-fusion* (one tokenizer into one space) from *encoder-free modeling* (a strategy inside M2M modality-specificity-preserving), and whose census omits the encoder-free Gemma-4 12B
 - [Interaction Models](/articles/interaction-models) — parent concept
 - [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — why minimal pre-processing is a hard requirement (200ms budget)
 - [Interaction / Background Model Split](/articles/interaction-background-model-split) — the other half of the architecture
@@ -120,9 +201,12 @@ One asymmetry does survive the caveats: every encoder-free instance here also dr
 
 ## Open Questions
 
-- **Does an encoder-free model at matched size still match?** Neither source runs the ablation. TML co-trains everything from scratch; Gemma 4 freezes encoders on four models and drops them on one, at a different scale. [Kimi K3](/articles/kimi) retains a 401M encoder at 2.8T and leads on dense-text vision, which sharpens the question without answering it — still no matched-size arm anywhere.
-- Is the dense-text degradation intrinsic to a projection-only vision path, or an artifact of the 12B's particular training run? The prediction is falsifiable: an encoder-free 31B should show the same InfographicVQA cliff at 280 tokens.
-- TML deletes encoders *and* co-trains from scratch. Gemma 4 deletes encoders *and* trains the 12B from scratch, but keeps frozen encoders elsewhere. Which half of "encoder-free + from-scratch" does the work?
+- **Does an encoder-free model at matched size still match?** TML co-trains everything from scratch; Gemma 4 freezes encoders on four models and drops them on one, at a different scale; [Kimi K3](/articles/kimi) retains a 401M encoder at 2.8T and leads on dense-text vision. **Partially answered (2026-09-21) by [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763):** for *vision*, at 7B, on a matched backbone (Qwen2.5-7B-Instruct) and matched data, the encoder-free arm does better than match — it wins 10 of 12 understanding benchmarks against its encoder-carrying twin (MMVet +5.0, CountBench +3.9, OCRBench +1.4) while being ~400M parameters smaller and training one stage fewer, and loses only RealWorldQA (−0.2) and MMMU (−0.4). Three reasons it stays open. The ablation is **image-only** — Tuna-2 has no audio path, and the audio arm is where the original evidence (a 305M conformer deleted for 0.002 WER) actually lives. It is at **7B**, an order of magnitude below the scale where the two labs disagree. And the encoder arm still wins **generation** (GenEval 0.88 vs 0.87, ImgEdit 4.18 vs 4.09, LLM-judge quality under both judges), so "match" holds for understanding and not for synthesis.
+- Is the dense-text degradation intrinsic to a projection-only vision path, or an artifact of the 12B's particular training run? The prediction is falsifiable: an encoder-free 31B should show the same InfographicVQA cliff at 280 tokens. **Partially answered (2026-09-21) by [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763)**, graded in three parts. *Right:* the question was right to doubt that the cliff is a property of the 12B's run alone and to treat the vision path's representation as the variable — the matched 7B comparison isolates exactly that variable and produces a clean signal. *Wrong:* the "intrinsic to projection-only" horn. A patch-16 projection-only path is **best or tied on every dense-text row** against its encoder twin (OCRBench 79.7 vs 78.3, AI2D 79.6 vs 79.4, ChartQA 85.6 vs 85.6), so nothing about reading dense text requires an encoder. *Right for the wrong reason:* this page's own proposed mechanism — a projection performs no feature compression, so resolution must substitute for parameters, making dense text **token-budget-bound** — survives untouched, because Tuna-2 runs at a single token budget and never sweeps it, and its suite contains no InfographicVQA, DocVQA or OmniDocBench. The falsifier that would settle it is now narrower and cheaper: a vision-token sweep on *any* encoder-free model, not a 31B.
+
+## Resolved Questions
+
+- TML deletes encoders *and* co-trains from scratch. Gemma 4 deletes encoders *and* trains the 12B from scratch, but keeps frozen encoders elsewhere. Which half of "encoder-free + from-scratch" does the work? **Answered (2026-09-21):** the encoder-free half, at least for the vision path — and the two halves are separable. [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) initializes **both** arms from a pretrained text LLM (Qwen2.5-7B-Instruct), so nothing in it is trained from scratch, and the encoder-free arm still beats its encoder-carrying twin on 10 of 12 understanding benchmarks. From-scratch co-training is therefore **not** a precondition for the encoder-free advantage. Two riders that do not reopen the question but bound it: the advantage is conditional on scale, reversing completely on a 1.5B backbone at 100k steps (OCRBench 56.8 vs 59.2, GenEval 48.2 vs 56.0) and appearing only after roughly 2T of 3T pretraining tokens; and removing the encoder is paid for with an added masking objective, which is worth +1.4/+3.4/+4.2 to the encoder-free arm against +0.9/+1.3/+1.0 to the encoder arm.
 
 ## Sources
 
@@ -130,3 +214,5 @@ One asymmetry does survive the caveats: every encoder-free instance here also dr
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.3 (encoder-free architecture), Table 8 (audio without an encoder), Tables 6 & 12 (the 280-vs-1120 vision-token regression) (`empirical`)
 - [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/) — dMel + 4-layer hMLP at 975B, from-scratch general-domain training, audio/vision benchmark tables (`vendor-claim`)
 - [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §2 spec table (MoonViT-V2, 401M, at 2.8T/104B; modality text+image), §3 vision rows (OmniDocBench 91.1, WorldVQA, CharXiv, BabyVision) and footnote 3 (OfficeQA Pro's images-only PDF corpus) (`vendor-claim`) — the counter-instance
+- [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) — Liu et al. (Meta FAIR + HKU + Waterloo; arXiv 2604.24763, v1 2026-04-27, PDF v2 2026-05-18; `empirical`) — **the matched-size arm**. §2.1 the three-architecture ladder (Tuna → Tuna-R → Tuna-2), §2.2 the masking objective, §3.1 the training recipe both arms share and the two places they differ (SigLIP 2 So400M; the 3k-step connector-alignment stage), §3.2 + Table 1 the 12-benchmark understanding comparison, Tables 2–5 generation/editing/reconstruction, §3.4 + Table 6 the 1.5B masking ablation, §3.5 + Figure 6 the 0T→3T training-scale curves. **Parse warning, in this page's convention:** the docling parse of **Table 1 lost the Tuna / Tuna-R / Tuna-2 rows outright** and collapsed the LLaVA/Qwen baseline group into a single multi-value row (25 flagged cells) — every Table 1 and Table 2 number on this page was recovered from `pdftotext -f 6 -l 7 -layout` on the local PDF, and Tables 3–6 were re-read the same way and match the docling body cell-for-cell. Figures 1, 5 and 6 were viewed; Figure 6's crossover points are read off the plot, not from prose. **COI:** vendor-adjacent — Meta authors constructing the encoder-based foil they then beat, self-reported, single seed, no error bars; the comparative baselines in Table 1 are copied from their original papers
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343) — An, Lu, Dong et al. (**Tencent Youtu Lab** + Tsinghua/HKU/Warwick/Monash/PolyU; arXiv 2605.25343, 2026-05-25; `practitioner-opinion`, 52 pp): §2.1 the mid-fusion/early-fusion operator definitions, §3.3.2 encoder-free modeling as one strategy inside M2M modality-specificity-preserving, Table 1's Gemma-4-31B/E4B rows and Tuna-2's unstarred (continuous) classification, Figure 4's placement of Tuna-2 and SenseNova-U1. Read here for the definition only — the survey runs no experiments and restates third-party results throughout. Full treatment on [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy)
