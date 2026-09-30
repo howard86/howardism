@@ -11,6 +11,17 @@ set -uo pipefail
 # Run from the monorepo root (or apps/cli). No paths are hardcoded —
 # WIKI_PATH is supplied by the caller, apps/cli is located from the CWD.
 # Requires: codex CLI on PATH and logged in; bun; WIKI_PATH = Obsidian wiki root.
+#
+# Aborts after MAX_CONSECUTIVE_FAILURES (default 3) failures in a row: a
+# deterministic, non-image error (stale catalog.tsv, bad YAML) fails every
+# remaining slug identically and instantly, so stopping beats ~40 copies of it.
+#
+# Live-edited vault? Don't point WIKI_PATH at it — a concurrent edit makes
+# _system/catalog.tsv stale mid-run. Import from an mtime-preserving snapshot:
+#   rsync -a --exclude assets "$VAULT/wiki/" "$SNAP/wiki/"
+#   rsync -a --exclude assets "$VAULT/raw/"  "$SNAP/raw/"
+#   python3 "$VAULT/_system/build.py" --root "$SNAP"   # snapshot's own catalog
+#   WIKI_PATH="$SNAP/wiki" bash sequential-images.sh
 
 : "${WIKI_PATH:?set WIKI_PATH to your Obsidian wiki root}"
 [ -d "$WIKI_PATH" ] || { echo "WIKI_PATH not a directory: $WIKI_PATH" >&2; exit 1; }
@@ -54,7 +65,8 @@ else
 fi
 echo "    Per-image time is measured, not guessed — ETA appears after #1."
 
-i=0; cum=0; failed=0
+i=0; cum=0; failed=0; consecutive=0
+max_consecutive="${MAX_CONSECUTIVE_FAILURES:-3}"
 : >"$tmp/failures.txt"
 while IFS= read -r slug; do
   [ "$i" -ge "$planned" ] && break
@@ -62,6 +74,7 @@ while IFS= read -r slug; do
   start=$SECONDS
   if WIKI_PATH="$WIKI_PATH" bun run import:wiki -- --only "$slug" >"$tmp/last.log" 2>&1; then
     dur=$((SECONDS - start)); cum=$((cum + dur))
+    consecutive=0
     avg=$((cum / i)); remaining=$(((planned - i) * avg))
     printf '[%d/%d] %s ✓ %ds | elapsed %dm | ETA ~%dm\n' \
       "$i" "$planned" "$slug" "$dur" "$((cum / 60))" "$((remaining / 60))"
@@ -69,6 +82,15 @@ while IFS= read -r slug; do
     failed=$((failed + 1)); echo "$slug" >>"$tmp/failures.txt"
     printf '[%d/%d] %s ✗ FAILED (continuing) — last log lines:\n' "$i" "$planned" "$slug"
     tail -n 15 "$tmp/last.log"
+    consecutive=$((consecutive + 1))
+    if [ "$consecutive" -ge "$max_consecutive" ]; then
+      echo "==> Aborting: $consecutive consecutive failures — likely a deterministic, non-image error, not quota." >&2
+      echo "Last log:" >&2; cat "$tmp/last.log" >&2
+      echo "Not attempted ($((planned - i))):" >&2
+      tail -n +$((i + 1)) "$tmp/slugs.txt" | head -n $((planned - i)) >&2
+      echo "Failed so far:" >&2; cat "$tmp/failures.txt" >&2
+      exit 1
+    fi
   fi
 done <"$tmp/slugs.txt"
 
