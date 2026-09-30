@@ -1,0 +1,157 @@
+---
+date: 2026-08-04
+title: Live-Path Minimalism
+description: "GPT-Live 的服務原則——「語音必須流暢」：即時媒體迴圈是即時路徑上唯一的工作；委派、壓縮、持久化與執行個體管理都在路徑之外非同步執行。有狀態執行個體交接（預熱替代執行個體、預填、讓兩者同時執行，再切換）能讓壓縮與重新平衡成為零中斷轉換；委派是以預算控管的迴圈，運作於預先暖機並預填的前沿模型工作階段；WARP + Instant Connect 將 WebRTC 啟動從六次往返縮減為一個 UDP 封包；容量指的是讓每個影格都準時送達的並行工作階段數，而非 GPU 吞吐量。這條界線面向第三方並採用計價方式（API 中的 GPT-Live-1，2026-09-10：僅即時路徑每分鐘 $0.05）；NVIDIA 進行的有／無委派消融實驗（2026 年 9 月）為其標價：即時路徑上的輪替延遲增加 +15 ms，代價則由路徑外的 ASR WER 10.80→11.47 與 CommonEval 2.87→2.36 承擔。"
+tag: Concept
+domain: interaction-multimodal
+tags:
+  - llm-architecture
+  - inference
+  - multimodal
+readingTime: 21
+imageAlt: Live-Path Minimalism 示意圖
+sources:
+  - title: How we built a realtime system for responsive voice AI in six months
+    url: https://openai.com/index/continuous-voice-interaction-with-gpt-live/
+  - title: A frontend-backend architecture for tool calls in full-duplex speech models
+    url: https://arxiv.org/pdf/2609.19334
+  - title: Build more natural voice experiences with GPT‑Live‑1 in the API
+    url: https://openai.com/index/introducing-gpt-live-1-in-the-api/
+  - title: "NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with
+      Tool Calling Capabilities"
+    url: https://arxiv.org/pdf/2609.21967
+---
+export { default as heroImage } from "../assets/live-path-minimalism.webp";
+
+## 資料來源
+
+- [A frontend-backend architecture for tool calls in full-duplex speech models](https://arxiv.org/pdf/2609.19334)
+- [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/)
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/)
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967)
+
+## 摘要
+
+[GPT-Live](/articles/gpt-live) 背後的服務端架構，可用 OpenAI 提出的單一原則概括：**「語音必須流暢。」** 全雙工模型（[Full-Duplex Interaction](/articles/full-duplex-interaction)）讓對話成為持續的媒體迴圈，傳輸、處理或推論上的任何延遲都會變成聽得見的停頓——輪替式系統可以容忍音訊資料塊抵達時間有所變動；即時媒體系統則必須讓**每個音訊影格都準時送達**。因此，設計上盡可能縮小即時路徑，並把*其他一切*——深入推理、工具使用、對話持久化、脈絡壓縮、執行個體管理——移到不會阻塞即時路徑的非同步路徑。以下所有數據均為第一方資料（`case-study`）；協定工作則可透過公開的 IETF 草案從外部查證。
+
+## 將媒體路徑與其他工作分開
+
+- 音訊透過**專用快速路徑**在用戶端與語音模型之間傳輸；委派、工具使用與應用程式工作則位於**非同步 RPC 邊界**之後。緩慢的工具呼叫或後端服務可能延遲自身結果，但不會阻塞媒體傳輸。
+- 同一道邊界也是自訂化介面：應用程式可以變更工具、政策與後端行為，而不必觸碰媒體前端——這讓 ChatGPT Voice 得以擴展應用程式行為（電腦控制、代理程式協調），同時不損及回應速度。
+- 媒體前端與推論邏輯從 Python `asyncio` **改寫為 Go**；OpenAI 表示，新系統的 **p95 影格傳送流暢度達到舊系統的 p50**。
+- 傳輸採用 **WebRTC**：它專為低延遲媒體打造，能因應封包遺失、時鐘漂移與連線變更——稍微拉長音訊以補上遲到的封包，接著短暫加快播放速度追上進度。
+
+## 長時間運作的有狀態推論：將干擾性操作轉為受控轉換
+
+有狀態串流推論表示，工作階段的脈絡存放在模型執行個體中——但工作階段會持續很久、脈絡不斷增長，執行個體也會隨需求啟動與停止。讓這些條件彼此相容的機制是**無縫執行個體交接**：在目前執行個體旁預熱替代執行個體，以工作階段脈絡預填，讓兩者並行執行推論，等替代執行個體完全就緒後再切換。
+
+這項機制的重要用途，是把**脈絡壓縮作為受控轉換**來處理。壓縮需要時間，而且因為會改寫過去的脈絡，會**使 KV 快取失效**，迫使系統重新預填——若在即時路徑上執行，就會造成冷場。改採另一種方式後，原執行個體繼續對話，同時系統壓縮脈絡並以壓縮後的內容準備替代執行個體；工作階段切換時不會中斷媒體傳輸：「即使在交接期間，對話也從不間斷。」[Context Lifecycle Management](/articles/context-lifecycle-management) 的快取感知提交會為快取中斷*標價*，並可讓計畫暫緩執行；這裡則是服務端的迴避方法：用平行執行個體隱藏中斷的**延遲**（運算成本仍然要付，只是移到使用者聽不見的路徑上）。
+
+## 委派迴圈就是延遲預算
+
+[Interaction / Background Model Split](/articles/interaction-background-model-split) 的正式上線版本：語音模型可以短暫讓對話繼續進行，同時等待前沿模型推理，但「無法掩蓋任意緩慢的回應」——因此**完整委派迴圈**（路由、提示處理、推論、工具呼叫）都納入回應速度預算：
+
+- 語音工作階段開始時，應用程式伺服器會**預先建立前沿模型的推論工作階段，並以初始對話脈絡預填**——在首次要求委派之前，提示就已完整處理。
+- 工作階段會在整段對話期間持續存在，並搭配**穩定的工作階段親和性**與提示快取；即使工作者故障，也能以低成本復原。
+- 推理投入程度、輸出限制、工具結構描述，以及模型↔工具往返次數，全都經過調校，作為影響取得實用結果所需時間的槓桿。
+
+## 原則的代價：委派會如何拖慢即時路徑（NVIDIA，2026 年 9 月）
+
+OpenAI 提出了「語音必須流暢」這項原則，卻從未量測——GPT-Live 沒有公開反事實數據來說明委派若位於*即時路徑上*會如何，或語音模型若從未學會委派會如何。[Hu et al.](https://arxiv.org/pdf/2609.19334)（NVIDIA，arXiv 2609.19334，2026-09-16，`empirical`）在另一套系統上提供了這項消融實驗：對訓練方式相同的雙工前端進行**有與無**工具呼叫訓練的比較，其餘條件都固定（架構細節見 [Interaction / Background Model Split](/articles/interaction-background-model-split)）。
+
+他們的架構從設計上就比 OpenAI 更徹底地採用即時路徑極簡化：後端完全不會接觸任何方向的音訊。它接收 ASR 轉錄文字並回傳文字，因此媒體迴圈不只是透過非同步 RPC 邊界與後端隔離——後端根本不在媒體模態中。
+
+**即時路徑的代價：幾乎沒有。** 在 NVIDIA 內部的多輪對話基準測試中，加入委派能力使輪替延遲從 **423 → 438 ms**（+15 ms），插話延遲則從 **403 → 395 ms**（−8 ms），插話準確率從 100% 降至 99%。在 Full-Duplex-Bench v1 上，接受工具呼叫訓練的前端甚至比自身基準版本*更*靈敏：流暢輪替 TOR 從 **93 → 100%**，延遲從 **221 → 92 ms**；使用者打斷延遲從 **590 → 349 ms**；GPT interruption score 從 3.94 升至 4.04。
+
+**其他方面的代價：確實存在，而且不像摘要所說的「最小修改」那麼輕微。** 同一項消融實驗是以對話品質下降換取能力：
+
+- 輪替精確率／召回率從 **85/94 → 82/91**；
+- 在 Open ASR Leaderboard 平均值上，串流 ASR 詞錯誤率從 **10.80% → 11.47%**（論文將此歸因於新增的工具呼叫訓練資料大多為合成資料）；
+- VoiceBench CommonEval 在五分制中從 **2.87 → 2.36**，下降約 18%，是這組指標中最大的退步；相較之下，OpenbookQA 從 65.0 → 64.7，AlpacaEval 從 3.54 → 3.61，幾乎持平；
+- FDB-v1 暫停處理 **TOR 從 53.2 → 68.2%**（此指標越低越好——模型更常打斷停頓），使用者打斷 TOR 則從 **95.5 → 89.5%**。
+
+可推廣的結論是：**即時路徑極簡化能換得低延遲，代價則落在前端行為，而不是時鐘上。** 教會互動模型*何時交接*本身就是一種能力，會與它原有的能力競爭；代價會出現在模型何時接過話語權，以及如何處理語流不順，而這正是即時路徑要保護的特性。GPT-Live 的說明並未排除它也付出了相同代價——只是沒有量測。
+
+解讀時須留意：所有數據都是單次執行、由研究者自行回報，而且只來自一套系統；內部輪替基準測試也未公開。這是*內部*比較（相同方法、只改變一項變因），因此結果可供參考；不同實驗室之間的絕對數值則不能直接比較。
+
+## 這道邊界向第三方開放，並且有了價格（2026 年 9 月）
+
+上述架構原本是對內部系統的內部說明，也留下了一個顯而易見的問題：媒體／應用程式分離，是供 *OpenAI* 自行使用的自訂介面，還是任何人都能在其後方建置的介面？[API 上線公告](https://openai.com/index/introducing-gpt-live-1-in-the-api/)（OpenAI，2026-09-10，`vendor-claim`）給出了答案：分離本身就是產品，而且兩側分開計價。
+
+- **即時路徑就是 SKU。** GPT-Live-1 的「前端語音層」售價為**每分鐘 $0.05**。開發者不負責託管、調校或觸碰它；計費依據是*時間*而非 token，因為購買的是必須維持時序的媒體迴圈。
+- **邊界後的一切都歸開發者掌控。** 「開發者可選擇對話背後的模型、工具與代理程式 harness」——OpenAI 指定的後端（複雜推理用 GPT-6 Astra、高流量任務用 Luna、基準測試中使用 Terra），**或第三方模型**。後端推論費用由提供者收取。
+- **非同步 RPC 邊界有公開的呼叫形式。** 公告中的程式碼範例會執行任意的開發者端代理程式（透過本機 repo 執行的 Codex SDK 執行緒），再使用 `live.send({ type: "session.commentary.append", delegation_id, content })` 回傳答案。由即時工作階段核發的 id，內容則非同步附加至該工作階段；「連線設定與委派處理……從略。」第一節所述的非同步 RPC 邊界，以 API 動詞的形式對外開放。
+- **哪些功能*未*開放。** 前兩節提及、用來確保即時路徑持續運作的所有機制——無縫執行個體交接、路徑外脈絡壓縮、預先暖機並預填的後端工作階段、工作階段親和性、WARP/Instant Connect 啟動——都作為產品行為提供，而不是控制介面。開發者可透過系統提示、十二種語音選擇、選用的輪替偵測，以及原生 ASR 轉錄文字與回應文字來調整語氣、節奏與風格。他們無法把工作放到*即時路徑上*；從另一側來看，道理相同：之所以開放這道邊界，正是因為開發者不能跨越它。
+
+可推廣的結論是：**即時路徑極簡化原來是一道商業邊界，不只是工程邊界。** 真正的資產是無法容忍停頓的部分，按分鐘計費；可以容忍停頓的部分則成為商品，可互換，而且費用由別人承擔。這也表示，這種分離的兩個部分如今採用*不同單位*計價——前端按分鐘，後端按 token——而 [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) 此前還不必為這種成本結構定價。
+
+本節內容全是供應商對自家產品的描述。對於此處提出的主張，這正是適當的證據層級——產品發布公告是產品開放功能的一手證據；但若要主張其運作成效如何，這種證據層級就不夠。
+
+## 啟動：縮短交握
+
+工作階段啟動會讓每次協定交握都落在關鍵路徑上，而原生 WebRTC 早於 QUIC 時代對往返次數的精簡設計——其層疊的子協定甚至會重複執行防 DoS 工作。OpenAI 與 WebRTC 社群透過 IETF 的 TSVWG，以**開放規格**方式開發了解決方案：
+
+- **WARP**（WebRTC Abridged Roundtrip Protocol）——透過可向後相容的元件，將**六次網路往返縮減為一次**：讓 DTLS 交握搭載於 ICE 上（SPED）、採用 DTLS 1.3、預先協商 SCTP 交握（SNAP），並使用預先協商的資料通道取代 DCEP。已在 libwebrtc 與 Pion 中實作。
+- **Instant Connect**——預先協商 SDP 訊號參數，但不預留伺服器容量；如果參數有效，伺服器會在收到第一個媒體封包時建立工作階段；若參數已過期，標準訊號流程已同時作為備援啟動，不會增加額外成本。
+
+結果是：用戶端只需**一個 UDP 封包**就能啟動工作階段。
+
+## 輪替成為衍生檢視
+
+移除輪替偵測器並不代表不再需要輪替——ChatGPT 的對話介面、分析與安全系統仍會處理離散的使用者／助理訊息。因此，應用程式伺服器會**從連續串流推導輪替**：部分轉錄文字與時間訊號用來推測目前由誰掌握話語權；最新訊息在最終確定前維持暫定狀態（文字、時間與說話者指派都可能修訂），直到某一方持續掌握話語權足夠久才定稿。重疊發言需要政策處理——使用者說話時，助理短暫回應「嗯哼」不應成為獨立訊息，但實質插話則應該。每項分段政策都是在**即時性與確定性之間取捨**，因此系統維持兩種檢視：供即時介面使用的**推測性**檢視（可以容忍修訂），以及供分析使用的**權威性**記錄（需要最終定稿）。輪替式資料模型仍留在應用程式邊界上——由對串流的推論維護，而不是強加到音訊路徑上（見 [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck)）。
+
+## 生產環境測試的心得
+
+在服務使用者之前，系統先進行**靜默影子測試**，把一小部分且逐步增加的 ChatGPT Voice 生產流量，同時導向仍在提供服務的 Advanced Voice Mode，以及以唯讀方式運作的新系統——使用真實用戶端、網路、工作階段長度與地理位置，使用者不會察覺任何變化。得到的心得如下：
+
+- **容量不等於 GPU 吞吐量。** 語音工作階段會保持連線並持續傳送影格，因此 CPU 端的串流處理器、佇列與網路路徑都必須跟著推論一起擴展；有個支援元件比負載測試估算更早飽和，造成延遲不斷累積。容量問題於是變成：「系統能支撐多少並行工作階段，**同時讓每個影格都準時送達**？」
+- **地理位置是首要因素。** 遠距離的服務容量會同時拖累啟動與串流；部署逐漸改為一併驗證模型、區域容量與流量導向，並依來源地理位置拆解延遲。
+- **需要時間與狀態才會出現的故障。** 長工作階段暴露記憶體與持久化壓力；重新連線會測試壓縮與狀態還原；一般中斷則揭露關閉交握中的競態狀況——這些都不會在短時間負載測試中顯現。
+- **必須重建可觀測性**：混淆不同延遲來源的指標、隱藏個別異常引擎的儀表板彙總資料，以及測試系統與部署系統之間的設定漂移，促使團隊改採細粒度遙測、依據已知良好設定進行驗證、分階段提高流量，以及為各路徑設定緊急開關。影子測試成了偵測、圍堵與復原的演練，而不只是吞吐量檢查。
+
+## 語料庫首次以自身單位公布的容量數字（NVIDIA，2026 年 9 月）
+
+本文結尾主張，即時語音系統的容量應以**讓每個影格都準時送達的並行工作階段數**衡量，而非 GPU 吞吐量——這是語料庫中從未有人公布過的單位。[NemotronLabs VoiceChat](https://arxiv.org/pdf/2609.21967)（NVIDIA，arXiv 2609.21967，2026-09-18，`empirical`）在附錄 C.4 以一句話公布了這項數據：
+
+> 「在四條並行串流下，每條串流每個 160-ms 音訊區塊的 p95 推論延遲為 118 ms。這相當於 1.36× 即時處理吞吐量。」
+
+**一張 H100 PCIe 80 GB 上執行四條串流，1.36× 即時速度的餘裕很小。** 論文所述的精度配置為：感知編碼器與 LLM 主幹採用 BF16，**TTS 主幹與快取的 Mamba 遞迴狀態採用 FP32**，符合條件的 FP32 矩陣乘法則採用 TF32；此外也明確指出「未評估低精度與量化版本」，因此這是尚未最佳化的基準，而非調校後的上限。值得關注的是論文所報告的餘裕：每 160 ms 音訊需要 118 ms 運算，只要**速度減慢 26% 就會讓影格遲到**；而這份預算是在頂級加速器上、只有四個並行工作階段時就已用到這種程度。這是「每個影格都必須準時」的限制首次以數字呈現，也有力支持本文所命名的極簡化設計。
+
+**整個堆疊由四個執行環境拼接，再由第五個協調**——這本身正是本文論點的具體呈現：PyTorch 感知路徑透過 **CUDA Graph 擷取**；Nemotron 主幹與 TTS 解碼器在**自訂 vLLM 分支**上運作，該分支擴充支援透過增量介面附加編碼語音張量，以及多碼本生成；因果式 PyTorch codec 也採用 CUDA Graph，逐步解碼至 22.05 kHz，並重複使用快取的卷積狀態；負責排程與張量交換的 **Triton Inference Server Python backend**，原因是「這些階段在異質執行環境中執行」；以及位於邊緣的 **FastAPI 雙向 WebSocket**。用戶端傳送**80 ms 單聲道 PCM 區塊**，兩個方向的音訊都以 80 ms 的整數倍傳輸。這裡沒有通用服務堆疊；每個元件都經過修補或包裝，只為讓單一持續串流正常運作。
+
+**已公布成本的部署時延旋鈕。** 區塊長度可設定，「讓推論節奏能依特定即時部署的延遲預算調整」；由於編碼器具備快取感知能力，*同一個訓練後檢查點*無須重新訓練，就能服務多種區塊長度。兩方面的成本都有公布：平均 OpenASR WER 在 80 ms 時為 **9.02%，160 ms 時為 8.28%**；區塊愈長，八個評估集的結果都愈好。在這個語料庫中，能量測準確度代價的服務旋鈕相當少見；請見 [Interactivity Benchmarks](/articles/interactivity-benchmarks) 的目錄條目。
+
+**這裡的工具呼叫對即時路徑造成的影響，比會委派的同類系統更糟。** 執行環境讓工具呼叫的*解碼*離開關鍵路徑——函式通道發出起始標記時，「fast-decode」會非同步執行；執行器工作期間，TTS 會朗讀預先設定的確認語句——但*音訊*路徑無法保持正常運作：輸入音訊持續通過感知與 RNN-T，「但在工具執行期間，不會用來條件化回應生成。**因此，此階段無法插話。**」語音持續流暢，但使用者無法中止它。與 Hu et al. 會委派的前端比較，見 [Interaction / Background Model Split](/articles/interaction-background-model-split)。
+
+**還有一種持續解碼器故障模式，本文此前沒有相關數據。** 上述內容都假設解碼器會在整段對話中保持開啟。VoiceChat-TTS 評估連續解碼的第 1 輪與第 4 輪：可理解度與預測品質維持穩定（未見過的說話者，其 **WER 為 2.00% → 2.20%**，SQuIM-MOS 為 **4.380 → 4.376**），但**說話者相似度從 0.757 漂移至 0.685**——零樣本語音有所退化，內容品質卻沒有。對訓練時見過的說話者而言，同一段期間只從 0.785 變為 0.778，這表示漂移源自零樣本說話者條件化，而非持續解碼本身。讓即時路徑持續運作時，最先出問題的是*身分*，不是品質。
+
+
+## 相關連結
+
+- [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy) — 同一限制的架構面向：§6.3 將 TTFT 與持續延遲列為首要目標，並點名因應快取競爭的動態 KV 快取管理；§8.4 則指出可部署的低延遲全雙工仍是尚未解決的工業問題
+- [GPT-Live](/articles/gpt-live) — 此架構所服務的系統
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 造成每個影格都必須準時送達這項限制的模型特性
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 本文的延遲預算工程所實作之雙模型架構及其委派部分
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — TML 對推論內部機制的公開對應作法：讓序列持續駐留於 GPU，以支援頻繁的小型預填（已上游整合至 SGLang）；OpenAI 的有狀態堆疊——執行個體交接、路徑外壓縮——仍屬專有技術，且位於更高一層
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — 此架構從音訊路徑中消除的 harness，以及輪替作為衍生檢視重新出現之處
+- [Interaction Models](/articles/interaction-models) — 對此服務問題的研究框架
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — 這套架構改以平行執行個體隱藏的壓縮／快取中斷取捨之定價版本
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — 上述消融實驗所採用的基準測試面向；FD-bench v1 在這裡是有／無對照工具，而非排行榜
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — 產品化後的分離架構以不同單位為兩個部分定價：即時路徑按分鐘計費，後端按 token 計費
+- [NVIDIA](/articles/nvidia) — 透過消融實驗為這項原則標價的實驗室
+
+## 待解決的問題
+
+- TML 已將串流工作階段服務上游整合至 SGLang；GPT-Live 的有狀態服務（持續工作階段、無縫執行個體交接、路徑外壓縮）則仍屬專有技術。開源推論堆疊是否會為全雙工語音提供執行個體交接？觸發條件：SGLang/vLLM 發布支援工作階段交接的版本。
+
+## Resolved Questions
+
+- 即將推出的 GPT-Live API 是否會向第三方開放媒體／應用程式分離——也就是應用程式邏輯可在非同步 RPC 邊界之後自訂，而不觸碰即時路徑——還是這道邊界僅供內部使用？觸發條件：GPT-Live API 上線。**已回答（2026-09-21）——觸發條件已實現，第一個分支的判斷正確：**[GPT-Live-1 已於 2026-09-10 在 API 中推出](https://openai.com/index/introducing-gpt-live-1-in-the-api/)（`vendor-claim`），僅以前端語音層每分鐘 **$0.05** 計費；開發者可選擇「對話背後的模型、工具與代理程式 harness」——OpenAI 自家的後端*或第三方模型*——並透過 `live.send({ type: "session.commentary.append", delegation_id, content })` 非同步跨越邊界傳回結果，範例中使用了任意的開發者端代理程式（Codex SDK 執行緒）。這道邊界並非僅供內部使用；它是產品接縫，也是計價接縫。產品發布公告正是產品功能開放情況的適切證據，因此 `vendor-claim` 層級的證據足以結束此問題；若問題是開放的邊界運作成效如何，則仍無法回答。
+  這個問題原先是包含兩種可能的提問，而非預測，但本文的說法有所傾向，因此要檢視傾向判斷哪些正確、哪些錯誤：**正確**之處在於，同一道邊界確實會成為第三方自訂介面（「應用程式可變更工具、政策與後端行為，而不觸碰媒體前端」——如今這已是 API 合約的明確內容，甚至允許選用 OpenAI 未訓練的後端）；**錯誤**之處在於暗示的涵蓋範圍——本文將分離架構視為單一道邊界，但產品實際上把它分成兩道：開放*委派* RPC，同時將有狀態服務機制（執行個體交接、路徑外壓縮、預先暖機並預填的後端工作階段、WARP 啟動）完全留在幕後，作為產品行為而非控制介面；**正確，但原因尚無證據支持**之處在於，這道邊界能承受第三方負載——目前沒有公開資料量測開發者自建後端的延遲分布是否影響即時路徑，因此只確認了分離*對外開放*，尚未確認其*穩健性*。完整討論見上文。
+
+## 資料來源
+
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/) — OpenAI 工程部落格，2026-07-29（`case-study`，第一方）：所有架構與測試細節；效能數據（Go 改寫後 p95≈舊版 p50、WARP 往返次數從 6→1）均為供應商回報，未經稽核；WARP/SPED/SNAP 則已有公開的 IETF 草案，以及 libwebrtc 和 Pion 實作。文章中的唯一一張圖（系統架構圖）已由圖說與周邊文字完整描述；未另行查看。
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967) — Balam、Bartley、Casanova 等人（**NVIDIA**），arXiv 2609.21967，2026-09-18（`empirical`，19 頁）：附錄 B 說明由四種執行環境組成的服務堆疊（採用 CUDA Graph 的感知路徑、自訂 vLLM 分支、Triton Python backend、FastAPI WebSocket、80 ms 區塊），以及具有插話讓步的 fast-decode／fast-inject 工具路徑；附錄 C.4 提供容量量測（H100 PCIe 80 GB、4 條並行串流、每個 160 ms 區塊的 p95 為 118 ms、1.36× 即時速度、未評估量化版本）；表 7 呈現 80 ms 與 160 ms 區塊取捨（平均 WER 9.02% → 8.28%）；表 6 呈現多輪 TTS 穩定性與說話者漂移。所有 7 張表均已與 `pdftotext -layout` 輸出逐一核對；單次執行，無誤差範圍，由 NVIDIA 在自家硬體上測量自家系統。
+- [A frontend-backend architecture for tool calls in full-duplex speech models](https://arxiv.org/pdf/2609.19334) — Hu et al.（**NVIDIA**），arXiv 2609.19334，2026-09-16（`empirical`，5 頁）：表 4–7 比較接受與未接受工具呼叫訓練的雙工語音轉文字前端。表 4、5、7 的匯入內容帶有 `table-shift` 警告；核對後確認這是跨欄標題造成的假象；上述每個數據均已從 `pdftotext -f 4 -l 5 -layout` 重新讀取。單次執行，無誤差範圍，內部基準測試未公開。
+- [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/) — OpenAI，2026-09-10（`vendor-claim`，約 1,670 字，未署名）：API 上線、每分鐘 $0.05 的前端價格、由開發者選擇的後端（包括第三方模型）、`session.commentary.append` 委派呼叫，以及十二種語音／電話／輪替偵測功能。這是第一方對第一方產品功能的描述，適用於判斷開放了什麼，不適用於判斷運作成效如何。

@@ -1,0 +1,170 @@
+---
+date: 2026-09-23
+title: "原生多模態建模：融合深度與 I/O 二元性"
+description: An、Lu、Dong 等人（Tencent Youtu + 5 所大學，2026 年 5 月）將「原生」形式化為兩種運算子定義：中期融合將編碼器特徵注入聯合骨幹，早期融合則透過單一統一分詞器將每種模態映射至共享空間，而晚期融合（凍結 LLM + 接枝輸出頭）則直接排除；接著，他們以 43 個模型的普查，將此軸與正交的輸入／輸出二元性（Multi-to-Text、Multi-to-Target、Multi-to-Multi）交叉分析。其核心主張是：每種融合體制都會迫使訓練呈現不同特徵；中期融合必須採用差異化學習率（CogVLM 的編碼器學習率為 1/10），早期融合則以 z-loss + QK-Norm 為先決條件（沒有這些條件時，Chameleon 在訓練約 20% 後便會發散），模態混合排程取代差異化學習率，而一旦 softmax 統一，RL 的路徑局部性便會完全消失
+tag: Concept
+domain: interaction-multimodal
+tags:
+  - llm-architecture
+  - multimodal
+  - training
+readingTime: 27
+imageAlt: "原生多模態建模：融合深度與 I/O 二元性的插圖"
+sources:
+  - title: "Toward Native Multimodal Modeling: A Roadmap"
+    url: https://arxiv.org/pdf/2605.25343
+  - title: "NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with
+      Tool Calling Capabilities"
+    url: https://arxiv.org/pdf/2609.21967
+  - title: "OmniVChat: Synthesizing, Benchmarking, and Training for Native
+      Audio-Visual Dialogue"
+    url: https://arxiv.org/pdf/2609.21465
+---
+export { default as heroImage } from "../assets/native-multimodal-taxonomy.webp";
+
+## 資料來源
+
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967)
+- [OmniVChat: Synthesizing, Benchmarking, and Training for Native Audio-Visual Dialogue](https://arxiv.org/pdf/2609.21465)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343)
+
+## 摘要
+
+一篇 52 頁的路線圖論文（An、Lu、Dong 等人，arXiv 2605.25343，2026-05-25；21 位作者，主要隸屬機構為 **Tencent Youtu Lab**，`practitioner-opinion`），完成了這個知識庫中的多模態頁面一直以來手動在做的事：為「原生」提供一個可套用於模型卡的定義，接著說明這個定義對訓練有*實質影響*，而不只是描述性標籤。
+
+論文沒有進行自己的實驗。下文每個數字都是該綜述對第三方論文的轉述；綜述的價值在於整理，而非測量。
+
+## 1. 原生性的正式定義
+
+令輸入模態集合為 `M = {m₁ … mₙ}`，`Eᵢ` 為各模態專屬的編碼器，`Pᵢ` 為投影／對齊層，`T` 為統一分詞運算子，`G` 為接枝的輸出頭。
+
+| 體制 | 運算子 | 意義 |
+|---|---|---|
+| **晚期融合**（NMM 不納入） | `F_late = G(LLM({Pᵢ(Eᵢ(mᵢ))}ⁿᵢ₌₁))` | 淺層投影器之後接凍結骨幹；「無法感知原始感官訊號」。LLaVA、DeepSeek-VL、Qwen-Image。 |
+| **中期融合**（原生、「自然互動」） | `F_mid = Backbone(C(E₁(m₁), …, Eₙ(mₙ)))` | `C` 是跨模態對齊／注入運算子，透過交叉注意力或深度堆疊的轉接器，將編碼器特徵寫入聯合骨幹的**中間層**。仍具「模態感知」能力：編碼器與骨幹在架構上仍然彼此獨立。CogVLM、Qwen-Audio → Qwen2.5-VL、Qwen3-VL、InternVL-3.5、GLM-5V-Turbo、Kimi K2.5。 |
+| **早期融合**（原生、「匯聚式」） | `F_early = Transformer(⋃ᵢ T(mᵢ))` | 完全沒有獨立的凍結編碼器；**單一**運算子 `T` 從一開始就把每種模態映射至同一個共享嵌入空間。「與生俱來的原生性」，所有模態都是等價的 token。Transfusion、Chameleon、AnyGPT。 |
+
+對這個知識庫而言，關鍵之處在於：**晚期融合被明確排除在「原生」之外**，而中期／早期的分界取決於*是否還保留獨立的編碼器子圖*，而非編碼器是否可訓練。即使中期融合模型的編碼器完全解除凍結，它仍然是中期融合。
+
+## 2. 正交軸：輸入—輸出二元性
+
+此軸與融合深度交叉，並明確宣告彼此正交（「每個功能類別都包含兩種融合典範的代表」）：
+
+- **Multi-to-Text (M2T)**，非對稱理解 — `F_M2T: M → T`。任意交錯的跨模態串流會收斂至單一語言空間。瓶頸在跨模態對齊與感知落地，而非文字合成。
+- **Multi-to-Target (M2G)**，非對稱生成 — `F_M2G: M → yₖ`，直接從原生隱藏表徵解碼出一種非文字目標模態，而非交給接枝的解碼器。
+- **Multi-to-Multi (M2M)**，對稱建模 — `F_M2M: M_in → M_out`，輸入與輸出皆可為任意子集。「獨立感知器與渲染器的概念就此消失。」
+
+M2M 又分為**完全離散化統一**（所有內容都量化為離散 token，並使用單一自回歸目標——Chameleon、AnyGPT、Emu3.5、LongCat-Next、LLaDA2.0-Uni、OneCAT、Janus-Pro、Moshi）和**保留模態特異性**（連續特徵空間、解耦編碼器、混合式 AR+diffusion 損失——Transfusion、Show-o2、BAGEL、TUNA-2、SenseNova-U1、Mamoda2.5）。
+
+支撐這項普查的資料（表 1，共 43 個模型，逐格對照 `pdftotext -layout` 第 4 頁核對）包括 16 個 M2T、12 個 M2G、15 個 M2M，時間範圍為 2023.11 至 2026.05；僅納入「架構與參數透明度經過確認的開源模型或技術報告」。43 個模型中有 15 個以星號標示，代表採用離散統一方案。旗艦模型規模幾乎全是稀疏架構：1TA32B（Kimi K2.5）、744BA40B（GLM-5V-Turbo）、310BA15B（MiMo-V2.5）、400BA17B（Llama-4-Maverick）。
+
+## 3. 這對知識庫釐清了什麼
+
+知識庫從互動模型的角度談到「早期融合」，並一直寬鬆地把它當作**移除編碼器**的同義詞（見 [無編碼器早期融合](/articles/encoder-free-early-fusion)）。這篇綜述的定義把那個頁面混為一談的兩件事拆開了：
+
+- **早期融合**是*分詞路徑*的一項特性：透過單一運算子映射至單一共享空間。這是綜述所命名的軸。
+- **無編碼器建模**在綜述中出現在更細的層次：它是在 M2M 的「保留模態特異性」陣營中，用來處理**理解—生成兩難**的兩種策略之一，另一種是「物理解耦」，也就是 Janus-Pro 的理解／生成獨立編碼器，以及 BAGEL 的 Mixture-of-Transformer-Experts。綜述列出的實例是 **TUNA-2 和 SenseNova-U1**，兩者都被歸類為連續式，表 1 中都沒有離散統一星號。
+
+因此，按照這套分類，僅由 patch embedding 組成的連續路徑不會自動成為早期融合；早期融合也不要求丟棄編碼器（`T` 可以是學習式分詞器，也可以是原始投影）。這確實釐清了知識庫中的一處模糊之處；它是定義，不是研究發現，應據此衡量其分量。
+
+由於這篇綜述是普查，缺漏也值得留意，以下是涵蓋範圍說明：
+
+- 綜述中的 Gemma-4 條目是 **Gemma-4-31B 和 Gemma-4-E4B**，並在圖 4 將 Gemma-4-31B 歸類為*基於視覺編碼器的融合*。知識庫中無編碼器證據實際依據的 **12B**——也就是丟棄其 305M 音訊 conformer 的那個版本——未出現在表 1，也完全未出現在分類圖中。因此，這篇綜述既未佐證，也未反駁 [Gemma 4](/articles/gemma-4) 的無編碼器結果；它整理的是該系列的另一部分。
+- 互動模型脈絡的內容完全沒有出現：沒有 [TML-Interaction-Small](/articles/tml-interaction-small)、沒有 [Inkling](/articles/inkling)、沒有 [GPT-Live](/articles/gpt-live)、也沒有 [Gemini 3.8 Live](/articles/gemini-3-8-live)。這項普查僅收錄開源／技術報告模型，因此排除了知識庫 [互動模型](/articles/interaction-models) 群集所依據的正式上線即時語音系統。Moshi 是唯一橋接案例：它列於表 1，屬於 M2M 離散化陣營，也是綜述中代表性的全雙工參考。
+- **四個月後出現一個符合普查條件的候選模型，但依照運算子定義，它不符合 M2M 資格（新增於 2026-09-23）。** [NemotronLabs VoiceChat](https://arxiv.org/pdf/2609.21967)（NVIDIA，arXiv 2609.21967，2026-09-18，`empirical`）採開放權重且附有完整技術報告，符合普查的納入門檻，原本會是**第二個全雙工語音條目**——但綜述自己的定義讓它與 Moshi 分道揚鑣。它的輸入路徑明確屬於**中期融合**：獨立的 600M cache-aware FastConformer 編碼器仍作為自身子圖存在，身分模態轉接器與投影將其 1,024 維狀態映射至骨幹隱藏空間，再由共同訓練的 Nemotron-Nano-9B-v2 骨幹消耗這些表徵——完全符合 `F_mid = Backbone(C(E(m)))`，編碼器可訓練但在架構上仍彼此分離。分類的轉折點在輸出路徑：骨幹輸出的是**代理程式文字**，語音則由獨立訓練的 VoiceChat-TTS 解碼器渲染（778M Gemma-3 骨幹 + 199M 因果 codec）；骨幹的音訊損失權重為 **0.0**，且「full-duplex 骨幹與 TTS 模型之間不會傳遞梯度」。解耦且梯度隔離的渲染器就是綜述所說的 `G`——也就是定義*晚期*融合、並被原生建模明確排除的**接枝輸出頭**。因此依這些運算子分類，這個系統是**中期融合 M2T，搭配接枝語音渲染器**，無論標題如何命名都不是 M2M；**Moshi 仍是普查中唯一真正的全雙工 M2M 條目**，綜述 §8.4 所指出的缺口依然存在。參見 [全雙工互動](/articles/full-duplex-interaction)（語音到語音標籤與架構實際輸出之間的差異），以及 [互動／背景模型切分](/articles/interaction-background-model-split)（其平行工具呼叫通道）。
+- **另一個九月的新模型則自行將原生性界定為輸入端主張（新增於 2026-09-23）。** [OmniVChat](https://arxiv.org/pdf/2609.21465)（He、Chu、Chen 等人，Alibaba Qwen Team + CUHK + SJTU，arXiv 2609.21465，2026-09-18，`empirical`）定義了一種任務——「原生音訊視訊對話」：全能模型「直接且同時接收使用者的音訊與視訊，並回傳文字」，查詢同時嵌入兩種串流，不需獨立的文字問題、不需外部加字幕，也不需 ASR。依綜述的運算子定義，這是**中期融合 M2T**；而且難得的是，論文並未誇大其詞：研究中的系統是 **Qwen3-Omni-30B-A3B-Instruct 的 Thinker**，論文稱其為「視訊與音訊編碼器及文字解碼器」——`F_mid = Backbone(C(E_audio(m), E_video(m)))`，不同編碼器子圖保留並進入聯合 MoE 骨幹，輸出則完全是文字。Qwen3-Omni 中會讓該系列成為 M2M 的 Talker 元件並未參與此流程。另有三項細節精確定位了它。(i) **編碼器已凍結**：RL 僅在注意力與 MoE 專家投影上訓練 rank-64 LoRA adapter，總計 30B 參數中有 325M（啟用 3B）；「視覺與音訊塔仍保持凍結」——因此，構成其原生性的感知路徑並未變動，所有測得的提升都來自解碼器端。(ii) 綜述自己的普查已將 Qwen-Audio → Qwen2.5-VL → Qwen3-VL 列為中期融合的典型脈絡，因此這是同一脈絡擴展至同步音訊+視訊，而非新的體制。(iii) 論文對原生性的主張嚴格限於**移除輸入端的 ASR／加字幕環節**——對輸出端原生性隻字未提，也不必提，因為任務定義上輸出就是文字。這是很明確的例子，凸顯知識庫一直在要求那些不願區分來源的材料面對的一個差異：**「原生」包含兩項主張，系統可以誠實地符合輸入端主張，卻從未主張輸出端主張。**其比較組也符合這個分析：其中一個參賽者 JoyAI-VL-Interaction 使用 Qwen3-ASR 作為明確的串接流程組，這依綜述定義屬於晚期融合，卻刻意放進一張其他項目皆為原生輸入的比較表中。基準與評審見 [互動性基準](/articles/interactivity-benchmarks) 和 [LLM-as-a-Judge](/articles/llm-as-a-judge)。
+
+## 4. 真正的貢獻：每種融合體制都會迫使訓練呈現不同特徵
+
+§5 是知識庫中其他地方都沒有的內容。其主張比「不同架構的訓練方式不同」更強：**融合階梯每向右跨一步，都會使一項特定訓練技巧從選擇性做法變成必要條件**；論文將每個轉變都表述為架構上的必然要求（圖 5，「Training × Fusion」，以 PT／SFT／RL／OPD 為列、晚期／中期／早期為欄的階段 × 體制矩陣）。
+
+三種體制都遵循同一項不變原則：**模態量化器與 VAE 分別預訓練，並保持凍結**（VQ-VAE、MAGVIT-v2、Make-a-Scene；Mimi、SpeechTokenizer、Encodec；3D Causal VAE、Video DC-AE、Wan-VAE）。它們定義了潛在空間，因此訓練中途更動它們，就會使所有已學得的表徵失效。
+
+### 預訓練
+
+**晚期融合 PT 在五項特徵維度上都退化至最簡形式**（凍結拓樸、LR 拓樸、損失形式、穩定化處方、課程安排）。使用單一全域 LR、僅文字的自回歸交叉熵、不需要特殊穩定化技巧；視覺 token 只是前綴。其代價很明確：**跨模態能力受限**，因為編碼器從未適應語言目標。
+
+**中期融合 PT** 是梯度首次抵達編碼器的體制，其他所有設計都由此而生：
+
+- **逐步解除凍結。**Qwen2-VL 在第一階段凍結 LLM 並訓練 ViT，第二階段才解除兩者凍結；CogVLM、Janus-Pro 和 MiniCPM-V 則延至 SFT 才解除編碼器凍結。
+- **差異化學習率成為必要條件。**統一學習率對編碼器而言同時過高、對 LLM 而言又過低。CogVLM 在 SFT 時解除凍結，對 EVA2-CLIP-E 編碼器採用**基礎學習率的 1/10**；綜述稱這是典型做法。逐階段的全域衰減也能以隱含方式達成相同效果：Janus-Pro 在三個階段分別使用 10⁻³ → 10⁻⁴ → 4×10⁻⁵，總計**降低 25 倍**；Moshi 的時間與深度轉換器分別以 3×10⁻⁵ 和 2×10⁻⁴ 訓練，兩者相差**約 7 倍**。
+- **解耦損失。**在共享骨幹上使用兩種損失：Janus-Pro 透過兩個獨立視覺編碼器，分別對文字 token 與離散 VQ token 計算交叉熵；BAGEL 則以 SigLIP 特徵的交叉熵處理理解，以連續 VAE 潛在表徵的 MSE（Next-Group-Token Prediction）處理生成，並透過 MoT 搭配任務專屬的批次切換進行路由。參數共享，但模態專屬層接收的梯度訊號不共享：「部分統一，而非完全統一。」
+- **解析度課程成為排程變數**，因為解除凍結後，編碼器的操作解析度不再固定。MiniCPM-V 為 224 → 448 → 1344+；CogVLM 為 224 → 490；Qwen2.5-Omni 的上下文視窗在最後一個 PT 階段從 8,192 → 32,768；Emu3 的生成解析度在後訓練時從 512 → 720 px（理解解析度則提高至 1024 px）。綜述提出的洞見是：中期融合會把*哪些*參數解除凍結，與它們在*什麼解析度下*解除凍結連結起來，兩者若缺少其中一種排程，訓練就會不穩定。
+
+**早期融合 PT** 拆除了架構防火牆，因此每種穩定化方法都成為先決條件：
+
+- **從一開始就聯合訓練**，沒有從凍結轉為解凍的階段。詞彙表依碼本大小擴充：**Chameleon 增加 8,192、Emu3.5 增加 32,768，AnyGPT 則增加 8,192 個影像、1,024 個語音及 8,192 個音樂 token。**單一全域 LR 再度出現（Chameleon 為 10⁻⁴ → 10⁻⁵，Transfusion 為 3×10⁻⁴ → 1.5×10⁻⁵ cosine），不是因為差異化學習率不適用，而是統一詞彙表讓不同 token 類型具有同質的梯度統計。例外是 Llama-4 的 MetaP，它採用演算法決定的逐層學習率，方向相反。
+- **統一 NTP，並在模態難以 token 化時採用混合方案。**Transfusion 使用 `L = L_LM + 5·L_DDPM`（λ = 5 是初步搜尋所得）；Show-o 除了文字 NTP，也對影像採用 Mask Token Prediction；LLaDA2.0-Uni 則完全以離散 diffusion masked-denoising 目標取代自回歸損失，同時處理文字與影像。在 Moshi 的 RVQ 音訊路徑中，**語義碼本的損失權重為 α = 100，聲學碼本則為 α = 1**，藉此讓語言內容優先於聲學細節。注意力機制依據目標而定：純 NTP 模型對所有內容一致採用因果注意力，並使用結構分隔 token；Transfusion 和 Show-o 則在*影像區域內*放寬為雙向注意力，因為 diffusion 能從完整影像上下文受益。
+- **Z-loss 和 QK-Norm 是先決條件，不是小技巧。**Chameleon 的消融實驗顯示：**沒有 QK-Norm，模型在訓練約 20% 後便會發散**；z-loss 正規化 `10⁻⁵ · log²Z`（Z 是 softmax 分割函數）則是維持異質 token 分布中 logits 有界所必需。綜述稱這是「最明確的證據，表明早期融合是不同的訓練體制，而不是中期融合的風格修飾」。這是論文中最有力的實證線索，但它是 Chameleon 的結果，不是綜述自身的發現。
+- **模態混合排程取代差異化學習率。**一旦移除模態專屬的損失頭，*每個批次*中的混合比例就會直接決定梯度方向。Transfusion 固定**文字與影像 token 比為 1:1，且 80% 的情況下先輸入說明文字再輸入影像**，並以 BOI／EOI token 切換注意力模式。Chameleon 無論來源解析度如何，都將**每張影像固定為 1,024 個 token，取自 512×512 中心裁切**，因此每張影像的梯度貢獻固定。Moshi 以**12.5 Hz 影格頻率交錯排列文字與音訊——每個時間步含一個文字位置及八個音訊碼本位置——並明確讓一半預訓練批次使用純文字資料作為防遺忘緩衝。**影片生成器則採用平行的解析度課程：Open-Sora 2.0 為 256 → 768 px，HunyuanVideo 為 256 → 960 px，Wan 為 256 → 720 px。失敗模式見於 Chameleon 的明確警告：混合比例失衡會讓早期融合模型學到**退化的無條件先驗**，進而扭曲生成。晚期融合透過結構避免此問題（生成路徑不起作用），中期融合則透過結構避免（損失彼此解耦）。
+
+### SFT：凍結狀態重新配置的特權只屬於中期融合
+
+PT 特徵之上又多了兩個新軸。第一，**只有中期融合能在 SFT 時重新配置凍結拓樸**——晚期融合沒有可解除凍結的可訓練部分，而早期融合從一開始便採用聯合訓練，若重新凍結就會破壞統一 softmax。中期融合兩種方式都用：*在 SFT 時解除凍結*（CogVLM、Janus-Pro、MiniCPM-V；Janus-Pro 在解除理解編碼器凍結後，仍凍結生成分詞器，形成逐元件的不對稱解凍），以及*先訓練再重新凍結*（Qwen2-VL 在兩個 PT 階段後重新凍結 ViT，理由是 1.4T token 的聯合預訓練已鞏固視覺—文字對齊）。
+
+第二個軸是**重新平衡分布**：SFT 語料遠小於 PT 語料且偏重文字，因此恢復 PT 階段的模態混合比例，是依體制而異的設計步驟。Janus-Pro 將生成：理解比例從第二階段 PT 的 50/50，調整為第三階段 SFT 的 **40/60**。早期融合 SFT 簡化為通用層（較低 LR、提示 token 損失遮罩、dropout——Chameleon 在 34B 加入 **0.05 dropout**），再加上重新平衡。特殊案例是 AnyGPT，它把所有做法反轉：**在 SFT 凍結 LLM 骨幹，僅更新新的多模態嵌入與預測層，共訓練 5,000 步**；另一端則是 BAGEL，所有階段都採用全部參數可訓練的聯合最佳化。晚期融合 SFT 是退化至最簡形式的案例：LLaVA 從第一階段僅訓練投影器，到第二階段端到端訓練，**LR 降低 100 倍**，就是全部做法。
+
+### RL：範圍問題，以及路徑局部性消失之處
+
+各體制共用的工具組包括 DPO／PPO／GRPO，以及結果層級、過程層級（多模態 PRM）和規則式確定性獎勵。體制決定的是*獎勵會作用於哪些參數子集*。
+
+- **晚期融合 RL**在結構上最精簡：Qwen2.5-Omni 和 Qwen3-Omni 只對 Talker 套用 DPO，依詞錯誤率或停頓錯誤排序的三元組進行訓練，Thinker 與所有編碼器都不動。投影器太淺，政策不會偏離視覺條件資訊。
+- **中期融合 RL**承襲路徑解耦：HunyuanVideo、Wan、T2I-R1 和 FlowGRPO 凍結 VAE 與文字編碼器，只將梯度導入 diffusion transformer，並採用路徑局部的規則式獎勵（CLIP、ImageReward、美感／動態評分器）。此處唯一的失敗模式是：天真的 DPO 依賴語言先驗並忽略影像，學到的偏好會**只以文字為主**；這個問題仍*限制在理解路徑內*，mDPO 透過在影像條件下計算偏好損失加以對抗。
+- **早期融合 RL**則完全失去這種隔離。在統一 softmax 下沒有獨立的輸出頭，因此整個骨幹都是政策（Emu3.5、採用 GRPO 的 UniRL）。同一個統一設計也帶來優勢——單一純量抵達任意輸出 token 後，能透過共享參數在**跨模態**間分配功勞，這是解耦路徑做不到的——也帶來兩種中期融合在結構上能抑制的失敗模式：**視覺落地作弊**（提升長度、格式和確定性等文字代理指標，卻不讓主張以影像為依據；獎勵端可採用 Fact-RLHF 和具捷徑意識的 MM-RM）以及過程監督中**感知錯誤與邏輯錯誤混淆**（只看結果的 RL 無法區分「看錯圖表」和「推導出錯」；URSA、GM-PRM 等多模態 PRM 能將兩者分開）。兩者都可歸結為同一個機制：*在統一 softmax 下，語言先驗和視覺證據站在同等基礎上競爭，而天真的 RL 會讓先驗勝出。*
+- 問題還會因**拉鋸效應**加劇：分別針對數學、程式碼、代理程式工具使用、指令遵循、安全性進行的專門 RL，會產生彼此取捨的檢查點。
+
+### OPD：結構性解方
+
+線上策略蒸餾及其多教師形式 MOPD，被提出作為解決拉鋸效應的方法；它只需對 GRPO 做一行修改，將群組相對優勢值換成教師與學生間、帶有停止梯度的反向 KL 對數比值：`Â_{i,t} = sg[log π_teacher(y_{i,t}|x, y_{i,<t}) / π_student(y_{i,t}|x, y_{i,<t})]`。如此一來，每個由學生取樣的 token 都會獲得密集的逐位置教師監督，同時維持線上策略訓練。
+
+**MiMo-V2.5 被稱為首個公開報告採用 MOPD 的原生多模態模型**，完整流程為文字 PT → 投影器暖身 → 多模態 PT → SFT 與代理程式後訓練（上下文延伸 **32K → 1M**）→ RL 與 MOPD。其結構包含三個部分：來自獨立領域 RL 的專家教師池；結果獎勵增強 `Â = Â_OPD + α·Â_ORM`，讓學生不受限於單一教師的上限；以及寬鬆的教師池，納入領域 SFT 模型、RL 專家，**還有學生自身的凍結快照，作為在其他教師可能把學生推離分布時的防漂移錨點**。
+
+## 5. 推論、串流，以及與生俱來的雙工主張
+
+§6 以多模態角度重述長上下文問題：高解析度影像、多影像文件或長影片會變成數十萬至數百萬個 token，與語言共用上下文視窗；並指出多模態上下文已進入百萬 token 規模（Gemini 1.5/2.5）。有兩個攻擊面：減少進入骨幹的 token（固定預算重取樣器；VisionZip、SparseVLM、FitPrune、LLaVA-PruMerge；可訓練的 VisionSelector／LaCo；具查詢感知能力的 Q-Zoom，先推理粗略視圖，只在能改變答案之處投入高解析度 token），或重新設計骨幹／服務堆疊。
+
+綜述列出的具體壓縮數據包括：**InternVL-3.5 的 Visual Resolution Router 對語義豐富的區塊配置 256 個 token，對背景配置 64 個，將 token 冗餘降低 50%**；Nemotron3-Nano-Omni 的三層卷積式子取樣達成**時間維度 8 倍降採樣**，其 TDT 解碼器依預測的 token 時長跳過影格，而**31B 的 Mamba2-Transformer 混合 MoE 每次前向傳遞啟用 3B**，以長上下文中 O(N) 的 Mamba2 取代 O(N²) 注意力；Kimi K2.5 的代理程式群集分解在長影片處理上帶來**4.5 倍效率提升**；Emu3.5 的 Discrete Diffusion Adaptation 將逐 token 串行解碼改為雙向平行預測，使單張影像推論速度提升**約 20 倍**。
+
+§6.3 與 §8.4 正面呼應 [全雙工互動](/articles/full-duplex-interaction) 和 [Live-Path Minimalism](/articles/live-path-minimalism)，並從架構面而非服務面得出相同結論：TTFT、持續延遲與即時回應能力是「首要最佳化目標，而非次要部署考量」；真正原生的互動代理程式需要**「從架構設計之初就支援串流，而不是事後包覆在自回歸骨幹上的外掛」**——這是綜述對知識庫所稱與生俱來的串流能力的用語。共有四條路徑：漸進式多模態 token 解碼（逐步輸出視覺／音訊 token，而非等待完整編碼）；**全雙工狀態管理**（對輸入感官串流與輸出生成串流進行並行推論，並搭配雙工對話控制、串流狀態預測，以及因應快取競爭與順序阻塞的動態 KV-cache 管理）；推論時自適應位元率控制（動態降低離散碼粒度——綜述承認直接切換 RVQ 層「仍未充分研究」）；以及模態感知混合量化，為視覺編碼器、投影器及骨幹指定不同精度。
+
+綜述對當前技術的判斷是：端到端全雙工框架（Moshi、ELLSA、FireRedChat）和 Watch-Think-Speak 協定「展現了未來的可能，但品質穩定、可部署、低延遲且跨模態一致的系統，仍是產業尚未解決的問題」。這是第三方、非廠商說法，重述的正是知識庫的即時語音頁面所記錄、被廠商以各種方式掩飾的缺口。
+
+## 6. 評估普查
+
+表 3 共收錄 39 個基準（18 個影像、7 個音訊、14 個影片；原始資料是從 `pdftotext -layout` 第 29 頁重建，因 docling 遺漏了大部分內容；本次整理時逐列核對），適合作為清單，而不是研究結果。以下三點值得記錄：
+
+- **全雙工條目佐證了知識庫從中立來源整理的數據**：Moshi Eval 的目標延遲為 **200 ms**，SoulX-Duplug-Eval 的雙語串流輪次偵測延遲為 **240 ms**，Full-Duplex-Bench 則評分輪流發言、插話處理及誤判打斷率。綜述加入 ThinkStream 的 **Watch-Think-Speak** 協定——除了答案正確性，也評估*回應時機*，也就是回覆前是否累積了足夠證據——以及 AURA 的主動式問答（相關事件發生時即使沒有明確查詢也會回應）和多重回應問答。這些第三方工具正好對應 [互動性基準](/articles/interactivity-benchmarks) 和 [內容驅動介入](/articles/content-driven-intervention) 所記錄、但尚未量測的主動性缺口。
+- **論點指出，幻覺評估是統一架構特有的問題**：在共享表徵空間中，生成先驗可能滲入判別式預測，因此 POPE 和 RLHF-V 不只是模型評估工具，也是架構診斷工具。
+- **值得標記的離散 token 化負面結果**：Rao 和 Rachuri 顯示，**即使理解指標有所改善，對 VQ 統一模型使用 DPO 仍無法提升 CLIPScore**；綜述據此認為，離散 token 化為離線偏好最佳化造成結構性瓶頸。
+
+綜述最著力推動的是效率感知面向：據報 ResAdapt 能在處理多出 16 倍的影格時，移除**超過 90% 的視覺 token**，並在複雜長影片推理上帶來**超過 15% 的相對提升**。這構成其主張的依據：基準應在明確的 Pareto 前緣上，同時報告準確度、token 預算、延遲與能耗。
+
+## 7. 該相信它到什麼程度
+
+- **證據等級確認為 `practitioner-opinion`。**論文沒有進行任何實驗。作者列出的貢獻稱其提供「來自最先進實作的實證洞見」，實際上是綜整他人的測量結果。沒有任何部分達到 `empirical`；上述每個數據都承襲其*原始*論文的證據等級，而若知識庫已收錄原始研究（Gemma 4、Tuna-2、TML），原始研究優先，綜述最多只能補充佐證。
+- **利益衝突：Tencent。**21 位作者，第一個隸屬機構是 Tencent Youtu Lab。綜述中有利 Tencent 的主張具體而明確，應視為第一方說法：**HunyuanVideo-1.5**「僅靠資料分布學習，就自然發展出強大的時間一致性與長期物理推理能力」，**不需明確的 RL 物理獎勵**；其 **SSTA** 機制會剪除冗餘時空區塊（靜態背景），提升端到端推論速度，「讓消費級 GPU 記憶體也能流暢運作」。綜述並未量化這兩項主張，此處也沒有獨立來源。
+- **綜述有一處明顯的自相矛盾。**§1 將 Seedream3.0 列入「以語音為核心的原生框架」，但其自身表 1 記錄 Seedream3.0 是文字輸入／**影像**輸出，完全沒有音訊路徑。表 1 是正確的。文中對另外四個模型的引用編號也使用了第二套不一致的編號（MiniCPM-V-4.6 在文中是 [52]，表 1 則是 [16]；OmniVoice 是 [53] 對 [29]；Moshi 是 [54] 對 [48]）——原始 PDF 就是如此，因此問題出在論文，不是解析器。
+- **這是普查，不是評估。**表 1 記錄模型宣稱支援哪些輸入與輸出模態；表中沒有任何品質數據，因此無法據此排名。「Params of Flagship」是技術報告中的自我陳述。
+
+## 延伸閱讀
+
+- [無編碼器早期融合](/articles/encoder-free-early-fusion) — 知識庫先前討論早期融合的頁面；本頁提供定義，區分*早期融合*（單一分詞運算子映射至單一空間）與*M2M 模態特異性保留體制中的兩種策略之一——無編碼器建模*，並指出綜述列有 Gemma-4-31B／E4B，卻沒有無編碼器的 12B
+- [全雙工互動](/articles/full-duplex-interaction) — §6.3 的全雙工狀態管理，以及 §8.4 的「從架構設計之初就支援串流，而不是事後包覆」都是從架構面陳述相同主張；Moshi 是普查連結至知識庫即時語音群集的唯一橋梁
+- [互動模型](/articles/interaction-models) — 獨立於廠商之外，從多模態架構而非 harness 批判出發，推導出「互動必須內建於模型」
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — Moshi 以 12.5 Hz 交錯排列文字／音訊（每個時間步一個文字位置 + 八個音訊碼本位置），是微輪次交錯的第一手來源形式；此處則將其視為早期融合的*訓練*限制
+- [互動性基準](/articles/interactivity-benchmarks) — 表 3 中的全雙工與串流項目（Full-Duplex-Bench、OVO-Bench、StreamingBench、OmniMMI、ThinkStream、AURA）是評估主動性缺口的第三方工具
+- [推論效率即能力](/articles/inference-efficiency-as-capability) — §6 的核心論點是，原生多模態會把感知轉化為 token 預算問題：256 對 64 token 路由、8 倍時間降採樣、31B 中啟用 3B、移除超過 90% 的 token
+- [Gemma 4](/articles/gemma-4) — 綜述將 31B 和 E4B 列為基於視覺編碼器的融合；無編碼器的 12B 未列入
+- [TML-Interaction-Small](/articles/tml-interaction-small) — 未列於普查中（非開源／技術報告），因此綜述既未確認也未反駁它
+- [Inkling](/articles/inkling) — 同樣未列入，儘管它採用開放權重且規模達 975B
+
+## 尚待解答的問題
+
+- **單一機率目標**（或單一統一 token 化方案、或連續潛在文法）能否同時涵蓋理解與生成，且兩者都不退步？現今的「統一」模型仍是混合架構——文字採 NTP，影像和音訊採 diffusion／flow head（Transfusion、Show-o2、BAGEL）——而離散統一路線（Chameleon、AnyGPT、Janus-Pro）與連續潛在路線（TUNA-2、Mamoda2.5）孰優孰劣仍未解決。可推翻此說的證據：在規模相同的條件下，單一目標模型於生成和理解測試組都能達到最佳混合模型的水準。
+- **「專家原生性」**——MoE 專家在多大程度上跨模態聯合訓練，或按模態專門化——是否如綜述所提議，應與架構原生性並列為一個可正式化且具有可測量影響的軸？以上普查中所有規模超過約 100B 的旗艦模型都是稀疏模型（1TA32B、744BA40B、310BA15B），但此處沒有來源報告模態感知路由消融實驗，也沒有說明稀疏性如何與跨模態注意力互動。
+- **在串流與全雙工限制下，對稱 M2M 行為能否蒸餾至精簡模型？**目前僅有一份 MiMo-V2.5 的 MOPD 報告，而且只針對 M2T 投影；綜述稱蒸餾 M2M 行為「幾乎尚未探索」，而這正是知識庫目前透過第二個模型來取得的互動／背景切分能力。
+
+## 資料來源
+
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967) — Balam、Bartley、Casanova 等人（**NVIDIA**），arXiv 2609.21967，2026-09-18（`empirical`，19 頁）：此處僅用來依照綜述的運算子分類一個系統——§2.1 的 FastConformer 編碼器、身分模態轉接器與投影（中期融合輸入），§2.3 和 §3.1 的梯度隔離 VoiceChat-TTS 解碼器，音訊損失權重為 0.0（接枝輸出頭）。完整討論見 [全雙工互動](/articles/full-duplex-interaction)、[互動／背景模型切分](/articles/interaction-background-model-split) 和 [互動性基準](/articles/interactivity-benchmarks)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343) — An、Lu、Dong、Wang、Li、Fei、Yu、Yuan、Liu、Wang、Liang、Yang、Shen、Ke、Chen、Luo、Zou、Huang、Yin、Qiao 與 Sun，*Toward Native Multimodal Modeling: A Roadmap*，arXiv 2605.25343，2026-05-25，52 頁／約 32.5k 字（`practitioner-opinion`）。§2.1 三種融合運算子，§2.2 M2T／M2G／M2M 二元性，§3 與圖 4 的挑戰→設計軸→系統分類，§4 與表 2 的資料普查，§5 與圖 5 的逐體制訓練特徵（核心章節），§6 推論與全雙工部署，§7 與表 3 的基準普查，§8 未解問題。**表格核對結果：**表 1（43 個模型）已逐格對照 `pdftotext -layout -f 4` 核對，內容一致，原始資料以 `[!note]` 修復 Chameleon／AnyGPT 接合處的處理正確；表 2（17 列資料）沒有修復區塊，已在此對照第 15 頁核對，內容一致，沒有合併或位移；表 3（39 個基準）已對照第 29 頁核對，原始資料重建結果精確，唯一需注意的是來源欄位標題為 **"Task Group"，而非**修復說明所稱的「Category」。已檢視圖 2（時間軸）、圖 3（輸入／輸出二元性）、圖 4（挑戰分類）和圖 5（訓練 × 融合矩陣）；其餘 52 張圖片都是重複的裝飾性頁首（57 張圖中有 52 張可由三個雜湊值確認）。**利益衝突：**Tencent Youtu Lab 是主要隸屬機構——§7 所述 HunyuanVideo-1.5 主張屬第一方說法

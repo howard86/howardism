@@ -1,7 +1,7 @@
 ---
 date: 2026-07-09
 title: 推論效率即能力
-description: "若能力是推論預算的函數，那麼降低 token 成本就是能力工作：Gemma 4 的五個槓桿（透過 keys-as-values + p-RoPE 將 KV-cache 減少 37.5%、QAT 降至低於 1 GB、MTP drafter heads、MoE、移除 encoder）讓每一美元能換來更多思考——也是 wiki 首次涵蓋堆疊的部署側"
+description: "若能力是推論預算的函數，那麼降低 token 成本就是能力工程：Gemma 4 的五項槓桿（透過 keys-as-values + p-RoPE 將 KV-cache 減少 37.5%、QAT 降至低於 1 GB、MTP drafter heads、MoE、移除 encoder）讓每一元能換來更多思考；Kimi K3 在 2.8T 規模上採用相同邏輯，其中 3.7% 的 activation sparsity 與 MXFP4 QAT 讓模型得以部署；Gemini 3.5 Flash-Lite 則顯示 *tier* 往相反方向移動，以 67% 的漲價換取能力。反向效應也有量測——sparse attention 會改變哪些內容能影響答案（跨區塊切斷：4.48 logits → 0），比例甚至會翻轉正負號；Keyless Attention 刪除 key projection，採用 50% 容量的 value-only cache，在 ≤1.5B 規模下五項測試贏四項，但在 3B 時 PPL 增加 3.9%；而這條軸線也有單位：Stanford 的 **每瓦 intelligence**（5.3× = 3.1× model × 1.7× hardware）"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -10,87 +10,283 @@ tags:
   - test-time-compute
   - quantization
   - deployment
-readingTime: 8
-imageAlt: 推論效率即能力的插圖
+readingTime: 50
+imageAlt: 《Inference Efficiency as Capability》插圖
 sources:
   - title: Gemma 4 Technical Report
     url: https://arxiv.org/pdf/2607.02770
+  - title: "Jeff Dean: The 1% Rule for Building in AI"
+    url: https://www.youtube.com/watch?v=CxXgV54KzpQ
   - title: Really Big Test-Time Compute in AI Changes Benchmarks, Safety and
       Research with OpenAI's Noam Brown
     url: https://www.youtube.com/watch?v=AZrU6y3pUcU
+  - title: Kimi K3 Model Card
+    url: https://huggingface.co/moonshotai/Kimi-K3
+  - title: Gemini 3.5 Flash-Lite Model Card
+    url: https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/
+  - title: Understanding Sparse Attention Selectivity in Long-Context Foundation
+      Models via Counterfactual Evaluation
+    url: https://arxiv.org/pdf/2608.01676
+  - title: "CS329A Self-Improving AI Agents — Part 9: Future Research Areas"
+    url: https://www.youtube.com/watch?v=AyO6wyu4DEg
+  - title: "Keyless Attention: Value-Space Routing and Value-Only Caching for
+      Efficient Transformers"
+    url: https://arxiv.org/pdf/2606.21848
 ---
 export { default as heroImage } from "../assets/inference-efficiency-as-capability.webp";
 
 ## 資料來源
 
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg)
+- [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Jeff Dean: The 1% Rule for Building in AI](https://www.youtube.com/watch?v=CxXgV54KzpQ)
+- [Keyless Attention: Value-Space Routing and Value-Only Caching for Efficient Transformers](https://arxiv.org/pdf/2606.21848)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU)
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)
 
 ## 摘要
 
-在 [Noam Brown 的論點](/articles/large-scale-test-time-compute)——能力取決於你投入多少資金進行推論——之下，可以推出一個兩個來源都沒有明說的推論：**在固定預算下，任何能降低單位推論成本的事物，都會提升能力。**效率工程不再只是模型的註腳，而成為與 scaling 具有相同量綱的能力槓桿。
+根據 [Noam Brown 的論點](/articles/large-scale-test-time-compute)——能力取決於你投入多少資金在推論上——可以推得一項兩個來源都未明說的推論：**任何能降低單位推論成本的作法，都能在預算固定時提升能力。** 效率工程不再只是模型的附註，而成為與擴展同量綱的能力槓桿。
 
-[Gemma 4](/articles/gemma-4)（`empirical`）就是一個完整案例。它的摘要主打「效能上的飛躍」；但其實質是五個彼此 distinct 的槓桿，讓產生 token 的成本降低。透過 Brown 的框架來看，KV-cache 與量化工作並不是能力故事底下的管線工程——它們*就是*能力故事，只是從分母的角度敘述。
+[Gemma 4](/articles/gemma-4)（`empirical`）是實際案例。它的摘要宣稱「效能躍升」；實際內容則是五項各自不同的槓桿，用來降低產生 token 的成本。透過 Brown 的框架來看，KV-cache 與量化工作並非能力故事底下的管線工程——它們*就是*能力故事，只是從分母的角度來說。
 
-本頁也是 wiki 首次涵蓋堆疊部署側的內容。這裡其他所有內容都關乎模型能做什麼；本頁關乎讓模型做到這些事需要付出多少成本。
+這也是這個 wiki 首次涵蓋技術堆疊的部署面向。這裡其他內容都在談模型能做什麼；本篇談的是讓模型做到這些事要花多少成本。
 
-## 五個槓桿（Gemma 4）
+## 五項槓桿（Gemma 4）
 
-**1. KV cache——整體 cache 減少 37.5%。**三個相互疊加的選擇。**區域滑動視窗與全域 self-attention 層採用 5:1 的比例**（2.3B 模型為 4:1），因此大多數層都不必保存完整上下文 cache。全域層使用 p = 0.25 的 **p-RoPE**——只有四分之一的維度取得旋轉編碼（全域 RoPE 頻率為 1M，區域為 10k）。還有一個奇特的選擇：**在全域層中將 keys 重用為 values**，`values = keys`，直接刪除 V projection（引用 Kayyam et al. 2026，*Do transformers need three projections?*）。E2B 與 E4B 跳過 keys-as-values 技巧，改為跨層共享 KV cache，比例分別為 20/35 與 18/42。
+**1. KV cache——全域快取減少 37.5%。** 三項相乘的選擇。採用 **5:1 的區域滑動視窗與全域自注意力層比例**（2.3B 模型為 4:1），因此多數層不必保留完整上下文快取。全域層使用 **p-RoPE**，p = 0.25——只有四分之一維度採用旋轉位置編碼（RoPE 頻率：全域 1M、區域 10k）。還有一項特別的做法：**在全域層將 keys 重用為 values**，設定 `values = keys`，直接刪除 V projection（引用 Kayyam et al. 2026，*Do transformers need three projections?*）。E2B 和 E4B 不採用 keys-as-values 技巧，而是以 20/35 與 18/42 的比例在層間共用 KV cache。*(2026-09-23：keys-as-values 技巧如今已有獨立的控制消融實驗——見下方「將槓桿推至極限」。刪除 projection 卻不補上其路由功能，相較於匹配的 QKV 基準會損失驗證 loss；Gemma 4 宣稱沒有損失，是一項 `vendor-claim`，但未公布這類消融結果。)*
 
-**2. 量化感知訓練——模型降至低於一 GB。**兩種權重格式：*mobile quantization*（per-channel int2/int4 權重、int8 activations）與 *Q4_0* blockwise，選擇依據是 `llama.cpp` 與消費級硬體實際採用的格式。在 32k context 下的純文字 footprint：
+**2. 量化感知訓練——模型縮至低於 1 GB。** 兩種權重格式：*行動裝置量化*（逐通道 int2/int4 權重、int8 activations）與區塊式 *Q4_0*，依據 `llama.cpp` 和消費級硬體實際採用的格式選擇。32k context 下的純文字模型大小：
 
-| 模型 | bf16 | Quantized | +KV cache |
+| Model | bf16 | Quantized | +KV cache |
 |---|---|---|---|
 | E2B | 4.6 GB | **0.8 GB** | +0.05 |
 | E4B | 9.0 GB | 2.3 GB | +0.14 |
 | 12B | 24.0 GB | 7.65 GB | +0.28 |
 | 31B | 64.0 GB | 19.2 GB | +1.10 |
 
-QAT 也套用於 encoders：150M 的 vision encoder 採用 W8A8 後，forward-pass 記憶體減半（400 → 200 MB），相較 Gemma 3n，裝置端延遲降低 44%；audio encoder 量化為 8-bit activations，並使用 per-layer-cluster 的 \{2,4,8\}-bit 權重後，**磁碟空間縮減 78%，由 390 MB 降至 87 MB**。每個 block 使用一個 scalar scale 限制 activation 範圍，讓 fp16 inference 保持穩定。
+QAT 也用於 encoder：150M vision encoder 採用 W8A8，將 forward-pass 記憶體減半（400 → 200 MB），相較 Gemma 3n 將裝置端延遲降低 44%；audio encoder 量化為 8-bit activations 與逐層叢集的 \{2,4,8\}-bit 權重後，磁碟空間縮小 **78%，390 MB → 87 MB**。每個區塊使用 scalar scale 限制 activation 範圍，使 fp16 推論維持穩定。
 
-**3. Speculative decoding，以 artifact 形式發布。**Gemma 4 隨每個模型發布一個**multi-token-prediction drafter head**（E2B 為 76M，31B 則最高達 500M）：由獨立 embedder 加上一個 4-layer Transformer block 組成（三個 local、一个 global attention layer），並且**對主模型的 KV cache 執行 cross-attention**。由於 drafter 讀取主模型的 KVs，而不是執行自己的 prefill，因此不需要 MTP prefill，且支援任意 draft length。對小型 drafter 而言，final projection 由對 token *clusters* 執行 top-k 取代，讓最後一個 matmul 從 d × 262,000 縮減至 **d × 4,096**，同時維持相近的 acceptance rate。
+**3. Speculative decoding，以成品形式隨模型發布。** Gemma 4 隨每個模型發布一個 **multi-token-prediction drafter head**（E2B 為 76M，31B 最高為 500M）：由獨立 embedder 加上 4 層 Transformer block 組成（三個區域注意力層、一個全域注意力層），並**對主模型的 KV cache 執行 cross-attention**。由於 drafter 讀取主模型的 KV，而非自行執行 prefill，因此不需要 MTP prefill，且支援任何 draft 長度。對較小的 drafter，最後的 projection 會替換成對 token *clusters* 執行 top-k，讓最後一個矩陣乘法從 d × 262,000 縮小為 **d × 4,096**，接受率相近。
 
-**4. Mixture-of-Experts。**總計 26B，啟用 3.8B——標準的稀疏性取捨。值得注意的是，在人類偏好上，這是此處**最弱的槓桿**；請見 [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap)。
+**4. Mixture-of-Experts。** 總計 26B、啟用 3.8B——標準的稀疏取捨。值得注意的是，這是此處在人類偏好上的*最弱*槓桿；見 [開放權重前沿差距](/articles/open-weight-frontier-gap)。
 
-**5. 移除 encoders。**12B 的 550M vision encoder 變成 35M matmul，而其 305M audio conformer 則直接刪除，「減輕對獨立 encoders 的需求並降低記憶體碎片化」。動機是記憶體，而非準確度——請見 [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion)。
+**5. 移除 encoder。** 12B 的 550M vision encoder 改為 35M 矩陣乘法，其 305M audio conformer 則直接刪除，藉此「免去獨立 encoder 的需求並減少記憶體碎片化」。此舉是出於記憶體考量，而非準確率——見 [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion)。*(2026-09-21：這是此處唯一一項後來證實能提升準確率、而不只是維持準確率的槓桿。匹配 backbone 的 7B 消融實驗——相同 decoder、相同資料，比較 encoder 與僅 patch-embedding 的版本——顯示無 encoder 組在 12 項理解基準中的 10 項領先，包括 OCRBench。成本只是轉移，並未消失：它轉而出現在樣本效率上，無 encoder 組在前約 2T 個 3T 預訓練 token 中落後，且在 1.5B backbone 上始終落後。長時間訓練結束時免費、訓練初期卻昂貴的效率槓桿，其成本帳目和其他四項並不相同。)*
 
-## 為什麼這是能力主張，而不只是工程主張
+## 相反端的相同邏輯：Kimi K3（2026 年 7 月）
 
-Brown 的論證是：10 美元的推論預算只能做一件事，10,000 美元則能做多得多。他也觀察到每次生成的成本會下降 10–100 倍，這正是等待下一個模型變得合理的原因（[Latent Capability Overhang](/articles/latent-capability-overhang)）。
+Gemma 4 運用效率讓模型能裝進手機。[Kimi K3](/articles/kimi)（`vendor-claim`）則運用效率，讓任何人都能**執行一個 2.8T 參數的開放模型**——分母論點相同，方向相反。它的槓桿性質各異，而且每一項都是不可或缺，而非可有可無：
 
-Gemma 4 就是這種成本下降，只是被拆解並逐一歸因。一個能裝進 0.8 GB 的模型可以在手機上運行，此時限制預算是 RAM 而非美元；KV cache 小 37.5%，代表在相同的記憶體上限下可以容納更長的思考軌跡；drafter head 則讓思考軌跡中的每個 token 更快抵達。**思考模式與效率堆疊是同一個專案**：推理軌跡會讓每個 query 的 token 數倍增，因此要在使用者能於本機執行的模型中提供這種模式，前提就是先讓 token 變得便宜。報告在同一次發布中同時交付了兩者，卻沒有將它們連結起來。
+- **3.7% activation sparsity。** 2.8T 總參數中啟用 104B，每個 token 路由至 **896 個 experts 中的 16 個**，另加 2 個共用 expert。這是此語料中稀疏度最高的路由，遠勝其他模型（Inkling：256 個中取 6 個）。MoE 是 Gemma 26B 規模下*最弱*的槓桿；在 2.8T 規模時，它是讓參數數量有意義的唯一方法，這也符合 [開放權重前沿差距](/articles/open-weight-frontier-gap)的解讀：稀疏化的收益要遠超 26B 才會顯現。
+- **混合式注意力：69 層 Kimi Delta Attention 對 24 層 Gated MLA。** 結構上與 Gemma 的 5:1 區域對全域比例、Inkling 的 5:1 滑動對全域比例押注相同——讓少數層承擔完整上下文的注意力成本——但多數層採用線性注意力變體，而非滑動視窗。三間實驗室、三種機制、一類比例，目標都是 KV cache。K3 因此取得 **1M-token context**。
+- **MXFP4 權重 / MXFP8 activations，從 SFT 階段起即採用量化感知訓練。** Gemma 採用 QAT，讓檢查點縮至低於 1 GB，能在消費級硬體執行；Moonshot 則在另一端以 QAT 達到「廣泛的硬體相容性」，因為 2.8T 的 bf16 檢查點根本無法部署。技術相同，限制相反：一種是塞進 RAM，另一種是塞進整個伺服器群。
 
-反向推論同樣成立，而且值得明說。如果效率就是能力，那麼 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 就是比較高效模型與大型模型時**唯一誠實的方法**——Brown 關於 GPT-5.5 與 5.4 的軼聞，正是一個網格掩蓋效率提升的案例。Gemma 4 自己的 Table 5 隨後犯下了它本應察覺的錯誤。
+標題宣稱「相較 Kimi K2，整體 scaling efficiency 約提升 2.5 倍」——這也是此處唯一無法查證的數字。模型卡沒有定義該指標、沒有基準曲線、沒有分離 KDA、AttnRes 與 LatentMoE 的消融實驗，也沒有成本軸線。這正是 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 所指出的失敗模式，只不過出現在效率面，而非能力面：沒有軸線的效率主張，和沒有預算的基準分數一樣缺乏明確規格。Gemma 4 的效率工作可稽核（記憶體占用、WER 差異、延遲百分比），但它自己的評分表低估了這些成果；K3 的效率工作無法稽核，卻成了這次發布的主打。
 
-## Bitter lesson 觸及與未觸及之處
+有一項成本落在呼叫端，而非伺服器。K3 要求**保留思考歷史**——每則先前的 assistant 訊息都必須連同 `reasoning_content` 原封不動傳回——因此，長時間的代理式工作階段會把完整推理軌跡留在上下文中，而不是丟棄。這是效率的*轉移*：對模型較便宜（無須重新推導），對上下文視窗則較昂貴，而且還會與 K3 沒有關閉思考模式這一點相互作用。
 
-報告同時**移除**手工設計的結構（encoders，依 Sutton 的邏輯），又**加入**大量這類結構（5:1 attention ratios、p = 0.25、keys-as-values、per-layer-cluster bit-widths、top-k cluster projection）。這並不矛盾。[The Bitter Lesson](/articles/the-bitter-lesson) 談的是**模型學會什麼**——將人類對*任務*的先驗編碼進去，會成為上限。它沒有談及執行網路的算術。部署工程不受此限，而 Gemma 4 是 corpus 中最清楚的例子：encoders 被移除，是因為它們編碼了關於模態的先驗；KV-cache 技巧則保留，是因為它們根本沒有編碼任何東西。
+## 效率 *tier* 轉向高價市場：Gemini 3.5 Flash-Lite（2026 年 7 月）
 
-同樣的區分也讓 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 更清楚。Harness 會縮小，是因為能力向內遷移。推論效率工作不會縮小——它會複利，因為它沒有可以遷移進去的內部。
+Gemma 4 和 K3 是**架構**層級的效率——模型內部的槓桿，讓產生 token 更便宜。[DeepMind](/articles/google-deepmind) 的 **Gemini 3.5 Flash-Lite** 模型卡（2026-07-21，`vendor-claim`）是此處首個將效率視為**產品 tier**的來源，而它的方向與「效率即能力」框架的*預測*相反：效率 tier 模型的後繼版本**價格更高**。輸出價格從 **每 1M tokens $1.50 → $2.50（+67%）**，輸入價格從 **$0.25 → $0.30（+20%）**，而新模型在其他方面全面勝過前代。
 
-## 相關連結
+根據 DeepMind 自己的表格，這個漲價換來的成果如下（3.1 Flash-Lite → 3.5 Flash-Lite）：
 
-- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 根本論點；效率是它的分母
-- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — 在沒有控制 compute 的網格上，你看不見效率提升
-- [Latent Capability Overhang](/articles/latent-capability-overhang) — 每次生成成本下降 10–100 倍是其機制，本頁將它拆成各個部分
-- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — 第五個槓桿，也是有獨立佐證的一個
-- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — 效率正是 31B dense model 能與 744B MoEs 競爭的軸線
-- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — 低成本推論讓任何人都能負擔對 open weights 進行無限制 elicitation
-- [The Bitter Lesson](/articles/the-bitter-lesson) — 適用於學習到的結構，不適用於提供它服務的算術
-- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — 訓練側的姊妹篇：async RL 是訓練效率，同一套「效率就是能力」的邏輯，只是提前一個迴圈套用
-- [Effective Compute Scaling](/articles/effective-compute-scaling) — 效率提升會以與硬體和演算法相同的方式，進入「effective compute」分子
+| Benchmark | 3.1 FL | 3.5 FL | Δ | Relative gain | 能抵銷輸出價格上漲 +67% 嗎？ |
+|---|---|---|---|---|---|
+| MLE-Bench | 22.0% | 39.2% | +17.2pp | +78% | 是 |
+| Terminal-bench 2.1 | 31.0% | 54.0% | +23.0pp | +74% | 是 |
+| GDM-MRCR v2 (1M pointwise) | 12.3% | 21.3% | +9.0pp | +73% | 是 |
+| SWE-Bench Pro | 38.3% | 54.2% | +15.9pp | +42% | 否 |
+| OSWorld-Verified | 54.3% | 74.0% | +19.7pp | +36% | 否 |
+| GDM-MRCR v2 (128k avg) | 60.1% | 72.2% | +12.1pp | +20% | 否 |
+| CharXiv (no tools) | 73.2% | 74.5% | +1.3pp | +2% | 否 |
+| GDPVal-AA v2 (Elo) | 642 | 1140 | +498 | — (Elo 是區間尺度；比例沒有意義) | 不適用 |
+
+**結構上的發現是成效的不對稱，而不是正負方向。** 漲價是套用到每個 token 的單一固定數字。能力提升卻極不平均：代理式工作（terminal、ML engineering、computer use、知識工作 Elo）整整提升一個 tier，圖表理解則幾乎毫無變化。因此，*同一供應商最便宜的 tier 內*，新模型對你而言是否更划算，如今是**工作負載問題**，而非規格表問題——同一位買家在類似 MLE-Bench 的工作負載上可得到 +78% 的價值，在類似 CharXiv 的工作負載上則只有 +2%，帳單卻同樣上漲 +67%。「Flash-Lite」不再代表固定價格點，而開始代表一種價格浮動的延遲與能力組合。
+
+有三項算術無法迴避的但書，換了不同說法，講的其實都是同一項限制：
+
+- **正確率百分比與價值並非線性關係。** 一種模型有 62% 的機率做錯的任務類別，可能完全不值錢，因此 38.3 → 54.2 帶來的價值可能遠超 42%。每美元欄位只能提供比較下限，並非完整比較結果。
+- **輸入與輸出價格的變動幅度不同**（+20% 對 +67%）。以輸入為主的長上下文工作負載——正是 MRCR@128k 的 +12.1pp 所在之處——面對的漲幅更接近 +20%，因此該列的結論會反轉。「價格上漲 67%」這個單一標題數字本身就是未控制的數字。
+- **完全沒有 token 數量資料。** 每個 token 的價格是單價；帳單則是單價 × 每項任務的 token 數量，而推理更久的模型即使單價更低，總成本仍可能更高。這是 [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) 的區別從供應商端浮現，也說明模型卡上的價格列不等於運算控制——見 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)。
+
+跨供應商來看，模型卡將 3.5 Flash-Lite 的價格列為 $0.30/$2.50，並與 **GPT-5.4 mini**（$0.75/$4.50）和 **Claude Haiku 4.5**（$1.00/$5.00）比較：SWE-Bench Pro 大致打平（54.2 對 54.4），OSWorld-Verified 領先（74.0 對 72.1），長上下文大幅領先（MRCR@128k 72.2 對 42.7），Terminal-bench 2.1（54.0 對 59.2）、CharXiv（74.5 對 80.3）與 GDPVal-AA Elo（1140 對 1171）則落後——輸出價格約為對手的 55%。請將此視為 `vendor-claim`，並留意比較對象的選擇：這兩個對手比本語料其他地方追蹤的 OpenAI 與 Anthropic 模型落後一、兩個世代。
+
+## 分母之下的分母：能源，以及批次處理的由來
+
+以上每項槓桿都是針對某種**物理比例**的*架構解法*，而三個來源都未明說這個比例。[Jeff Dean](/articles/jeff-dean) 曾提及此事（YC Startup School 2026，`practitioner-opinion`）：一次乘法的成本約為**一皮焦耳**；從 HBM 將運算元搬入處理器，成本約為前者的 **1000 倍**。「你衡量一切的單位是能量。」
+
+他推論出的結果，正是重新定義本頁內容的關鍵：**batching 並非訓練上的便利作法，而是攤提該比例所需的手段。**「如果沒有那一千倍的差距，就不需要 batching……你避免付出一千倍的減速代價，改為付出除以 batch size 的一千倍能耗。」也就是說，batch size 與延遲在結構上相互牴觸——「若要極低延遲，batching 就不太理想」——而上方 Gemma 4 與 K3 章節裡的每種 KV-cache 技巧，根本上都是想減少搬動的資料，而不是減少運算。keys-as-values 刪除主要成本在資料流量上的 projection；5:1 區域對全域比例讓多數層避開完整上下文快取；MXFP4 則縮小必須傳輸的內容。這些槓桿看起來各不相同，實際上都是同一種槓桿。
+
+Dean 對未來的主張是，下一項專用硬體會是**推論晶片**，其邏輯與催生 TPU 的思路相同：盡量減少資料搬動，並固定支援少數幾種極低精度，而非支援多種精度（「如果你覺得自己對所需精度已有可靠答案，也許就把它直接做進硬體，而不用支援太多別的東西」）。他提出的目標是「延遲改善 50 倍」。應將其視為一位架構師提出的發展方向——沒有路線圖、沒有量測，而且存在固定的 COI（Google Chief Scientist 關於 Google accelerator strategy 的利益衝突）。
+
+這為模型卡無法提供的兩件事增添了脈絡。第一，提供**架構所能帶來效益的上限**：模型內部的效率槓桿與一項硬體常數相抗衡，而 1000 倍差距就在該常數上。第二，解釋**效率 tier 為何持續往高價市場移動**（見上方 Flash-Lite 章節）：若低延遲必須採用小批次，而小批次無法攤提成本，那麼無論能力如何，*低延遲的能耗都很高*——因此，以延遲定義的 tier 沒有理由繼續維持為以價格定義的 tier。
+
+## 反向效應的實測：一項會改變「哪些內容」能影響答案的效率槓桿（2026 年 8 月）
+
+以上每一節都順著本頁的論點推進——token 更便宜，固定預算下能力更強。Ren、Sun、Yi 與 Yang（[Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)，CUHK / University of Maryland，arXiv 2608.01676，2026-08-03，`empirical`）是此語料中首個**受控**測量反方向效應的研究，研究焦點正是無人稽核的軸線：*sparse attention 的評估看吞吐量、記憶體和整體基準準確率，這些指標都無法看出模型能運用哪些證據是否改變。*
+
+他們對這個缺口的描述，正是本頁一直缺少的一句話：篩選器若丟棄證據區塊，「不只是節省運算。它會改變哪些證據能影響答案，以及影響的強度。」
+
+**實際量測的內容——不是準確率。** 固定一個項目，設定正確答案 `y_G` 與目標錯誤答案 `y_P`，依路由計算的邊際值為 `M_o = log p(y_P | x, o) − log p(y_G | x, o)`，而內容區塊的*行為影響力*則是：允許區塊進入路由而非排除時，該邊際值如何變化。主要量是差異中的差異，`∆ = H₃^sparse − H₃^dense`：正值表示 sparse attention 對探測效應的放大程度高於 dense，負值則表示 dense 較高。應將此視為**內容影響力的代理指標，而非任務準確率基準**——以下所有數字都是雙選答案邊際的 logits，論文完全沒有呈現準確率數字。
+
+比任何單一數字更重要的貢獻，是整套實驗設計：
+
+- **匹配的探測卡片。** 三張綁定查詢、長度恰為 128 tokens 的卡片——Gold（包含正確標籤）、Poison（包含目標錯誤標籤）、Benign（只有空白填充，不含任何合法標籤）——除凍結於索引 64 的 token 外，內容完全相同。因此每一組卡片只差一個 token，長度、padding、範本與查詢綁定均維持一致；完整的拉丁方排程會讓每個候選身分輪流對應所有合法標籤，避免標籤 token 偏好滲入內容效應。
+- **六種排列的對稱設計。** 三張卡片的六種排列都會使用，使每張卡片在每個位置各出現兩次，每組有序配對也以兩種順序各出現一次——位置與順序的混淆因設計本身而排除，而不是靠共變數處理。
+- **等基數強制路由。** 凍結共用的 `K−1` 核心（受保護的鷹架區塊加中性填充，不納入任何 G/P/B/R 錨點），再讓四種反事實路由各自加入一個錨點，因此兩兩 Hamming distance 都是二。每種路由都會觸發獨立完整 forward；不同路由之間不會重用 prefill KV state。
+- **同一 kernel 內的 dense 基準。** dense 組是在 `c = 0` 時使用 patched eager attention 的同一模型、項目、提示、排列與評分規則——forward path 相同，只有壓縮比不同。在 `c = 0` 時，兩種測量操作（路由替換與 token 替換）的 |H₃| 平均差距為 **0.044 logits，標籤一致率 100%**，比涵蓋 0.47–2.15 logits 的主要效應小 11 到 49 倍；這個 0.044 會作為每項估計的量化基準保留，而非假設它不存在。
+
+**兩種機制彼此競爭，而且都有直接因果證據。**
+
+*訊號集中*——選取器偏好帶有訊號的區塊，因此保留內容的影響力上升。自然路由收據顯示，四組模型與任務配對中皆為 **G ≈ P ≫ B**（Qwen3/SCBench-KV：0.758 / 0.759 / 0.470）。要讓這項控制具備實質意義，關鍵在於 Benign 卡片包含 128 個*真實*標籤填充 token，因此單純偏好非空區塊的選取器無法將兩者區分。
+
+*整合損失*——捨棄區塊會切斷跨區塊注意力路徑，因此倖存訊號會減弱。這項結果由消融實驗確認，而非推論所得：將探測區塊遮罩，使其保留完整自注意力、但不與任何其他區塊互相注意，會讓其影響力**從 4.48 logits [4.10, 4.87] 降至完全歸零，涵蓋全部 1,536 個單位**（最大 |H₃| &lt; 10⁻⁴，平均值 0.0000）。在 `c = 0.25` 時，稀疏但部分連通的條件為 4.09 [3.92, 4.26]，三種條件構成從完整、部分到零跨區塊連通性的單調劑量反應。
+
+兩者共存於單一格子中，這是最難簡化成摘要的發現：在 `c = 0.25` 的 Qwen3/SCBench-KV 測試中，選取器納入訊號區塊的比例為 **0.994**，但 ∆ 仍是 **−0.31**。路由層級的偏好無法預測輸出層級的影響力；它們是不同層次的現象。
+
+**壓縮比是控制變數。** 固定其他條件，只改變 `c ∈ {0.25, 0.50, 0.75}`：
+
+| Model–task | c = 0.25 | c = 0.50 | c = 0.75 (95% CI) |
+|---|---|---|---|
+| Qwen3-8B / SCBench-KV | −0.31 | +0.16 | **+0.93** [+0.81, +1.04] |
+| Llama-3.1-8B / SCBench-KV | −0.73 | −0.70 | −0.60 [−0.64, −0.56] |
+| Qwen3-8B / SciFact | +0.19 | +0.08 | **−0.08** [−0.18, +0.02] |
+| Llama-3.1-8B / SciFact | −0.53 | −0.46 | −0.29 [−0.41, −0.17] |
+
+調整同一個旋鈕，便產生兩種方向相反的正負號反轉。**四組中有三組會隨壓縮加深而朝更正的 ∆ 移動；Qwen3/SciFact 則是例外，數值下降。** 因此，「稀疏化在多大程度上改變內容影響力」若不交代運作比例、模型和任務，就沒有明確答案——這是 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 的批評從效率面浮現，並且這次真的畫出了軸線。
+
+**部署效率槓桿的人需注意的後果**是，用來偵測此效應的整體合併檢定毫無結果。三個預先註冊、都在檢驗方向是否一致的整體假設，經 Holm 校正後皆為虛無結果：**p = 0.995、0.771、0.541**；但分層檢驗的各格結果中，有 32 項裡的 31 項拒絕虛無假設。這個虛無結果是效應本身造成的，而非效應不存在；一般形式與偵測方式見 [Aggregate Cancellation](/articles/aggregate-cancellation)。
+
+**四項但書，其中兩項關乎論文自己的說法。**
+
+- **標題句對論文最有力的實驗組過度延伸，而且方向值得明說。** 摘要與導言將風險描述為 sparse model「放大誤導內容並壓制更正內容」。然而，論文所有使用*真實*誤導段落的測量結果方向都相反：八項真實證據的 ∆ 估計值全為負（−2.15 到 −0.36，也就是 **dense 對 poison 的放大更強**），而 KVPress 的八個實驗格都顯示壓縮相較 dense *降低*中毒率（−0.0115 到 −0.1644，所有區間皆低於零）。整份文件中，只有較薄弱的**單 token 合成標籤**探測出現 sparse 放大的結果。站得住腳的主張是，稀疏化會以正負方向不一的方式*改變*內容影響力；「放大誤導內容」並非論文的真實證據實驗所得出的結論。
+- **論文印刷內容中有兩處自相矛盾。** §1 和 §7.3 都宣稱「每個實驗格在壓縮比提高時都朝更正的 ∆ 移動」，但同一段裡又指出 Qwen3/SciFact 方向相反。Table 5、Appendix Table 8 和 Figure 3 都支持正確數量是四組中的三組；過度概括的說法仍與它自己的更正並列。
+- **規模。** 所有模型都屬於 7B–8B 級別，涵蓋四種開放權重架構（Llama-3.1-8B、Mistral-7B、Qwen2.5-7B、Qwen3-8B）。沒有測試前沿規模的 MoE——恰恰是本頁所談槓桿實際部署的規模；作者也將擴展列為待研究問題。區塊大小固定為 128，且綁定其自有的 BSFA-based operator，只在最後一個 query row 執行選取。
+- **檢定力與來源。** 薄型探測每格使用 n = 64 個項目，豐富真實證據每格使用 n = 16。KVPress 實驗採用的結果指標不同於 ∆，因此作者表示收斂是「方向性的，而非量化的」。致謝中還提到 **Agon**，一套自主研究系統，而論文作者四人中的三人也共同撰寫了該系統的論文——這是 preprint 上自我引用的工具，並不代表研究不合格，但值得知情。
+
+本頁從研究中保留的內容是：首項證據顯示效率槓桿的代價落在*內容選擇性*上，而非平均準確率；以及一套僅需行為層級存取權的測量流程——無須修改權重、改變架構，適用於任何能暴露區塊身分的模型。作者還指出另一項不太會有人猜到的操作層面發現：**填充內容並非對選取器完全中性**，因此 padding 與格式慣例應納入稽核，而不是排除在外。
+
+## 將槓桿推至極限：刪除 keys（2026 年 9 月）
+
+以上每項 KV-cache 槓桿都是在*縮小*快取。Gao 與 Xu（[Keyless Attention: Value-Space Routing and Value-Only Caching for Efficient Transformers](https://arxiv.org/pdf/2606.21848)，York University / UC Davis，arXiv 2606.21848，`empirical`，17 頁）則追問最極端的版本：如果其中一半不存在呢？
+
+**做法。** 標準 attention 透過 key space 路由，而定義路由的物件是雙線性形式 `Ω = W^Q(W^K)^⊤`。Keyless Attention 將*相同的* Ω 再多分解一層——`Ω = W^Q W^R (W^V)^⊤`——其中 **value-space routing matrix `W^R`** 會把 query 對應至 value space，讓 query 直接與即將擷取的表徵比對分數。key projection 被刪除，但 projection 數量仍維持三個。推論時，`W̃^Q = W^Q W^R` 會合併成一個矩陣，因此額外的深度不產生成本。快取的內容只有 values：**Value-Only Cache 在所有上下文長度下都恰為 KV cache 的 50%**（在他們的 Qwen2-1.5B testbed 中，8,192 個 tokens 下為 0.118 對 0.236 GB）。
+
+論文為此提出一條軸線——**factorization depth `m`**，也就是組成 Ω 的矩陣數量。Luong et al. 2015 是 `m = 1`；Vaswani et al. 2017 是 `m = 2`；Keyless 則是 `m = 3`。Gemma 4 的 `values = keys` 是 `m = 2`，只是刪除 value projection 而非 key projection——方向相反。槓桿 1 的技巧和這篇論文的做法屬於同一家族，消融實驗也為兩者的差異計算了代價。
+
+**足以修正槓桿 1 的結果。** `QVV(2)`——key 和 value 共用單一 projection、*不含* `W^R`——正是 Gemma 4 引用（Kayyam et al. 2026）並採用的 KV-sharing 家族。使用 12 層 GPT-2 進行控制消融實驗（WikiText-103，只改變 attention 機制）發現，**QVV(2) 的最佳驗證 loss 高於 QKV(2) 基準**；QVV(3) 和 QVV(4) 則與基準相當，QVV(4ReLU) 的表現最差——因此真正發揮作用的是*線性*分解，而非額外容量。作者提出的解讀，也是本頁採用的解讀：只有在有其他機制明確接手其路由功能時，刪除 projection 才是低成本的。Gemma 4 宣稱 `values = keys` 不會造成損失，但這是一項未公布匹配架構消融實驗的 `vendor-claim`；這篇 `empirical` 研究則在 280M 規模下執行了此類實驗。兩者都不能定論對方——280M、多 epoch 的執行方式並不等同於正式的預訓練——但在這個 wiki 中，**「刪除一個 projection、完全不付代價」已不再是毫無但書的主張。**
+
+**它帶來什麼效益，以及比較對象是誰。** 這篇文章應精確說明 50% 的意義，而且這個數字是可信的：keyless 實驗組是在基準所用的群組方式*之內*建構——Qwen2 1.5B 和 Llama 3.2 1B 執行使用與基準 KV-head 數相符的 GQA value groups——因此節省的是在*既有 GQA* 快取上再減少 50%，而非相較於 vanilla MHA 減少 50%。論文的主張是兩者互相獨立：將這項方法疊加於 MQA、GQA，或 latent（MLA-style）壓縮之下，仍可將快取減半。這項主張只有提出，未經測試——**整篇論文沒有 MLA、MQA 或滑動視窗基準**，只有使用相同分組方式的 vanilla QKV；而論文的導言也承認 MLA 能「大幅減少記憶體占用」。
+
+測的不只是位元組，還有實際時間：batch size 為 1、產生 256 個 tokens 時，prefill 長度為 512 / 2,048 / 8,192 的情況下，decode throughput 約為 **Keyless 每秒 24 tokens，QKV 約為 22.3**，提升約 +7%，且大致持平，符合效益來自刪除 key projection 的*運算*而非快取減半的解釋。記憶體頻寬效益——整個方法的動機，也是 [Dean 的 1000 倍比例](/articles/jeff-dean)指出應占主導地位的部分——**預期在較大的 batch size 下才會顯現，尚未量測**。訓練則*更慢*：36 層模型每個 epoch 慢 7.5%（75.5 對 70.2 分鐘），因為 `W^R` 與 `W^V` 之間的梯度糾纏，讓路由與擷取互相牽制，減慢收斂。
+
+**「表現相當或更好」在哪些情況成立，又在哪裡不成立。** 兩種運作條件，結論互相矛盾。
+
+| Regime | Scale | Result |
+|---|---|---|
+| WikiText-103，約 30M tokens，10 個 epochs | GPT-2 280M / 557M、Pythia 410M、Qwen2 1.5B、Llama 3.2 1B | Keyless 在 **5 項中有 4 項**贏得最佳 epoch 的 PPL（只在 GPT-2 280M 落敗，33.84 對 33.71） |
+| FineWeb-Edu，約 1B tokens，**一個** epoch | Qwen2.5-3B 架構 | **QKV 的 PPL 較佳**：分布內為 24.83 對 25.80（相對差距 3.9%），held-out WikiText-103 為 55.20 對 57.73 |
+
+第二列來自論文 §6，明確新增來測試「工業級預訓練」情境，這才是誠實的標題結論：**這項優勢只出現在小型語料、多 epoch 訓練的情境。** 五模型測試組測量的內容，有很大部分是*抵抗過度擬合的能力*——36 層時，兩組模型都遠遠超過最佳 epoch（最佳驗證 loss 為 3.50，最後為 4.19–4.35），而 Keyless 的優勢是退化速度較慢（∆Overfit +0.6866 對 +0.8404）。讓模型在只有 30M tokens 的語料上訓練十個 epochs、導致過度擬合的情境，並非本頁任何槓桿實際部署的情境。作者將單一 epoch 的 3.9% 差距歸因於梯度糾纏造成的收斂延遲，而非容量損失；論文沒有測試這項解釋，因為訓練時間都不夠長。
+
+**來源自身表格中有兩項但書，文字敘述卻未提及。**
+
+*下游任務的「勝出」多半接近猜測水準。* GPT-2 557M 的 zero-shot 測試組中，HellaSwag 從 0.2460 升至 0.2550（p = 0.004），ARC-Challenge 從 0.2352 升至 0.2355——兩者都是四選一任務，猜測機率為 0.25。在 3B/1B-token 規模下更差：HellaSwag 為 0.230/0.240、OpenBookQA 為 0.115/0.145，都**不高於**四選一的猜測機率；WinoGrande 的 0.525/0.475 則橫跨二選一的猜測機率。因此，論文所稱的「準確率平均 0.355 對 0.359」，其實是針對一組兩個模型都尚未學會的任務所算出的平均值。兩個帶有真實訊號的項目（BoolQ 0.620/0.670、ARC-Easy 0.440/0.435）各由一組模型領先一項。這是 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 最簡單的問題：基準測試的網格所用規模太小，項目無法區分模型優劣。
+
+*沒有人測試刪除 keys 理應最可能破壞的能力。* 整篇論文**沒有長上下文、擷取或 needle 評測**——訓練視窗為 1,024 tokens，最長測試序列則是在 throughput 圖中使用的 8,192-token prefill。最接近的替代指標卻支持相反方法：QKV 贏的任務，正是作者自己歸類為*結構性*的項目——WinoGrande（共指）和 LAMBADA（長距離句法補全，0.198 對 0.180）；Keyless 則在語意任務勝出（HellaSwag、OpenBookQA、BoolQ）。作者的假設是，獨立 key space 帶來 value-space routing 無法表達的句法路由能力。若此假設成立，快取減半的代價便恰好落在 [Context Window Smart Zone](/articles/context-window-smart-zone) 所指出的弱點上，而這篇論文無法看見。該理論也容許這項疑慮：單頭等同於標準 attention 的結論無條件成立（Theorem 1），但**多頭等同則要求每個 head 都符合子空間條件 `col(Ω_h^⊤) ⊆ col(W_h^V)`，而論文表示這項條件「一般情況下並不保證成立」**——然而所有實際執行的都是多頭 attention。
+
+**直接說明規模。** 所有實驗都在一台 NVIDIA A100-SXM4-80GB 上執行；單是五模型測試組就耗費約 102.3 GPU-hours，而且因「GPU 記憶體限制」，WikiText 子集被縮減至 30M tokens。最大訓練對象是 3B 參數架構、使用 1B tokens，由兩位沒有實驗室隸屬關係的作者進行。應將它視為**架構發展方向的一項乾淨、控制良好的小規模存在性證明**，而非前沿模型部署的證據——這與上方 sparse-attention 稽核附帶的限制相同，只是來自相反方向。
+
+## 這個頁面從未有過的指標：每瓦智慧（Stanford，2025 年底）
+
+上方各節都依照來源採用的單位衡量效率——GB、KV 快取的百分比降幅、每百萬個 token 的美元成本、logits。[Mirhoseini](/articles/azalia-mirhoseini)在 [CS329A](/articles/cs329a-self-improving-ai-agents) 的結課講座（[CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg)，於 2025-12-05 發表，`practitioner-opinion`）提出一個統一指標，定義刻意直白：
+
+> **每瓦智慧 = 平均任務準確率 ÷ 解決任務所需的平均功耗。**
+
+以能力為分子、物理量為分母，正是 [Dean](/articles/jeff-dean) 的皮焦耳論證所說的一切最終都能歸結於的比值。這項研究由 Stanford 的 **Christopher Ré** 和 **John Hennessy** 共同參與；Mirhoseini 是作者，也在講座中明確說明（**利益衝突已揭露**——見本節末尾說明）。
+
+**這項研究要回答的是路由問題，而非晶片問題：**如今幾乎所有推論流量都送往雲端加速器，那麼其中有多少比例可以改由本機處理？研究以三項趨勢作為動機，都是截至 2025 年底的資料，且都根據投影片並透過 ASR 判讀：
+
+- **需求增長速度超過整個技術堆疊中的其他一切。**Google Cloud 的服務運算量在此前約 20 個月增長約 **1200 倍**；NVIDIA 年增約 **10 倍**；Google 處理的 token 數量從前年 2 月的 **160 兆**增加到 10 月的 **1.3 千兆**；推估資料中心需求約 **250 GW**。逐字稿把最後一項的單位和第一項的期間都轉錄得含糊，因此此處僅作為量級呈現，而非精確測量值。
+- **多數查詢不需要前沿模型。**根據一份大型 ChatGPT 使用資料集，約 **77%** 的請求屬於實用指引、資訊查詢或寫作——研究認為這些類別可由小型模型回答；但講座也明確提醒，聊天機器人愈進步，使用者提出的要求也會愈高。
+- **本機記憶體自 2012 年起增長約 126 倍。**配備約 100 GB 統一記憶體的筆電，已能容納量化後、過去需要資料中心才能執行的模型——上文的 [QAT](/articles/gemma-4) 工作在此是前提，而非研究結果。
+
+**研究內容。**研究將「本機」操作性定義為 **≤20B 個活躍參數**；涵蓋超過 20 種本機模型（逐字稿中可辨識出量化模型家族和 Llama 3）、企業級與消費級加速器，以及從聊天流量和推理基準抽取的約 **100 萬筆查詢**（**NaturalReasoning**、**MMLU-Pro**、**SuperGPQA**）；評分指標包括準確率、能耗、延遲和運算量，完整測試網格已開源。
+
+**三項發現，第三項最具通用性：**
+
+1. **本機模型能涵蓋大部分流量。**查詢混合資料的準確率自 2023 年以來提升 **3.1 倍**，達到單輪聊天與推理查詢的 **約 88.7%**——數字來自來源論文摘要；ASR 在句中漏掉了這個數字。應將 88.7% 視為根據原始文件說明轉述的論文數據，而非講座中聽到的內容。
+2. **消費級晶片落後一些，但差距不大。****Apple M4 Max** 的每瓦智慧約比 **B200** 低 **1.5 倍**——來源將差異歸因於設計目標，而非製程：資料中心晶片是為這項工作負載打造，筆電晶片則不是，因為「設計這些晶片時，大家還沒想到 LLM 會在上面執行」。
+3. **這項指標兩年內提升 5.3 倍，而且可以拆解。****模型改進帶來 3.1 倍 × 硬體改進帶來 1.7 倍。**這是本資料集中第一個在同一個軸上拆分效率提升的兩項貢獻，因此這項指標的價值甚至超越這項研究：它讓「效率提升了」成為可稽核、且能歸因於各部分的主張，正好補上 [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) 指出的缺口，也補上 [K3](/articles/kimi) 那個無法稽核的 2.5 倍標題所缺少的內容。
+
+**前瞻性主張標記為 `prediction`，出自 `practitioner-opinion` 來源，並在文中註明歸屬。**Mirhoseini 預測：(i) 隨著兩條曲線持續發展，推論流量將大幅從雲端轉移至邊緣，因此需要能依查詢複雜度在本機與雲端之間路由的 **混合服務引擎**；(ii) 針對本機加速器、以*能耗*為優化目標的模型架構與核心，是目前受關注不足的研究領域；(iii) **能源將成為「未來最有價值的資源」**，而每瓦智慧一類的指標將成為主流優化目標。
+
+**以本 wiki 的 2026 年資料檢視，這項預測有一半正確；失準的那一半也很有啟發性。**
+
+- **硬體基礎的走向預測正確。**[Gemma 4](/articles/gemma-4)（`empirical`，2026 年中）正如預測般延續這項趨勢——量化後的 E2B 僅需 **0.8 GB**，搭配 drafter heads、移除 encoders，並明確以 `llama.cpp` 和消費級硬體為目標。能在筆電上執行具備實用能力的模型，已不再只是預測。
+- **路由轉移仍未定論，資料集略微不支持這項預測。**這裡沒有任何資料測量雲端→本機的流量占比。現有資料是 [DeepMind](/articles/google-deepmind) 的 **Gemini 3.5 Flash-Lite**：*效率級距本身反而升向高階市場*——輸出價格 **+67%**，這不像是市場正被低階產品由下而上蠶食。更關鍵的問題在定義：研究單位是**單輪聊天或推理查詢**，而到 2026 年中，本資料集中的工作負載已轉向代理式、多輪任務（終端機工作階段、呼叫工具上百次的任務、長達數小時的自主執行）。本機 20B 模型能回答 88.7% 的單輪查詢，對實際成長的流量能說明的事情很有限。
+- **能源作為物理單位的預測正確，但目前衡量指標的預測不然。**八個月後，Dean 獨立提出相同論點（每次乘法約 1 pJ，移動運算元則約需其 1000 倍；「衡量一切的單位是能量」）。但這個 wiki 中沒有任何 2026 年模型卡、基準測試或評估頁面提供每瓦數據。市場實際採用的軸是**每 token 價格**，其批判觀點 [每項任務成本高於每個 token 成本](/articles/cost-per-task-over-cost-per-token)則以*美元*作為同一比值的代理指標。能源是限制條件，金錢是衡量工具；兩者之間的成本傳遞比例，至今沒有任何人公開。
+
+**利益衝突，這是九場系列講座中揭露得最完整的一例。**Mirhoseini 介紹研究時說：「這是我們最近完成的工作，與 Ré 教授和 John Hennessy 教授合作」；她引述作為未來方向的推論系統研究——**Hydragen** 和 **Tokasaurus**——時，也說「我的實驗室做過其中一些工作」。對照 [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) 的講座 2 和 5：她以第一人稱講授自己實驗室的論文，卻沒有點出作者身分。差異反映的是呈現方式，而非誠信——以*實驗室目前正在做的工作*來介紹時會明說；在綜述單元中以*典型引用文獻*來介紹時則會改用代名詞。
+
+## 為什麼這是能力主張，而非工程主張
+
+Brown 的論點是：10 美元的推論預算能做到一件事，10,000 美元則能做到更多。他也指出，每一代模型的成本會降低 10–100 倍，因此等待下一代模型是理性的選擇（[潛在能力懸置](/articles/latent-capability-overhang)）。
+
+Gemma 4 正是這種成本下降的例子，而且可以拆解並歸因。只需 0.8 GB 的模型能在手機上執行，此時限制預算的是 RAM，而非美元；KV 快取縮小 37.5%，代表在相同記憶體上限下能容納更長的思考軌跡；drafter head 則能讓推理軌跡中的每個 token 更快到達。**思考模式與效率堆疊是同一項工程：**推理軌跡會增加每次查詢所需的 token 數量，因此要讓人們能在本機執行具備此能力的模型，前提就是先讓 token 變得便宜。這份報告在同一次發布中推出兩者，卻沒有把它們連結起來。
+
+反過來說也成立，而且值得明確指出。如果效率就是能力，那麼受運算量控制的基準測試（[Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)）就是比較高效率模型與大型模型時*唯一*誠實的做法——Brown 關於 GPT-5.5 與 5.4 的軼事，正是測試網格掩蓋效率提升的案例。接著 Gemma 4 自己的 Table 5 又犯了本該避免的錯誤。
+
+## 苦澀教訓涵蓋與未涵蓋的範圍
+
+這份報告一方面**移除**手工設計的結構（依 Sutton 的邏輯，移除 encoders），另一方面又**加入**大量結構（5:1 attention ratios、p = 0.25、keys-as-values、per-layer-cluster bit-widths、top-k cluster projection）。這並不矛盾。[苦澀教訓](/articles/the-bitter-lesson)談的是**模型如何學習**——編碼人類對*任務*先驗知識的結構會形成上限。它沒有談網路執行時的算術。部署工程不受此原則限制，而 Gemma 4 是本資料集中最清楚的例子：移除 encoders，是因為它們編碼了對模態的先驗；保留 KV 快取技巧，是因為它們完全沒有編碼任何先驗。
+
+同樣的區分也讓 [模型能力提升時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)更加清楚。Harness 會縮減，因為能力向內遷移。推論效率工程不會縮減，反而會累積，因為沒有任何「內部」可以讓它遷移。
+
+## 延伸閱讀
+
+- [原生多模態建模：融合深度與 I/O 雙重性](/articles/native-multimodal-taxonomy) — 原生多模態將感知轉化為 token 預算問題：256 對 64 token 的視覺路由（冗餘減少 50%）、8 倍時間下採樣、3B/31B 啟用參數，以及研究綜述呼籲在明確的 Pareto 前沿上，同時呈現準確率、token 預算、延遲與能耗
+- [共享預算的運算分配](/articles/shared-budget-compute-allocation) — 本頁的算術假設不存在的資源浪費問題。只有當預算花在有用之處時，降低 token 成本才能在固定預算下提升能力；若把同一筆預算分給七個推理模型，回答 N 個問題，**其中 32% 的 token 會用在同一模型拿到 40,960 個 token 時仍無法答對的問題上**。KV 快取減少 37.5% 與分配錯誤造成的 32% 效果相同，方向卻相反
+- [大規模測試時運算](/articles/large-scale-test-time-compute) — 核心論點；效率就是它的分母
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — 這門課的最後一場講座提出每瓦智慧指標，而課程前半部正好說明了分母的重要性：自我改進飛輪是高度依賴推論的系統，因此效率講座就是前八場課的帳單
+- [理由引導式自舉（STaR）](/articles/rationale-bootstrapping-self-training) — 同一場講座的另一半，也說明了兩者為何安排在同一節：飛輪的運算成本，讓每瓦問題迫切而非空談
+- [受運算量控制的基準測試](/articles/compute-controlled-benchmarking) — 若測試網格不控制運算量，就無法看出效率提升
+- [潛在能力懸置](/articles/latent-capability-overhang) — 每一代模型成本降低 10–100 倍是其作用機制，此處進一步拆解了各個部分
+- [無 Encoder 的早期融合](/articles/encoder-free-early-fusion) — 第五項手段，也是有獨立佐證的一項
+- [開放權重的前沿差距](/articles/open-weight-frontier-gap) — 效率是 31B 密集模型能與 744B MoE 競爭的關鍵軸
+- [Open-Weight Elicitation Irreversibility](/articles/open-weight-elicitation-irreversibility) — 便宜的推論讓任何人都能負擔對開放權重進行無上限的能力誘發
+- [苦澀教訓](/articles/the-bitter-lesson) — 適用於模型學得的結構，不適用於執行模型的算術
+- [適用於 LLM 的非同步 RL](/articles/asynchronous-rl-for-llms) — 訓練端的對應方法：非同步 RL 是訓練效率，將「效率就是能力」的邏輯往前應用一個迴圈
+- [Effective Compute Scaling](/articles/effective-compute-scaling) — 效率提升和硬體、演算法一樣，會進入「有效運算量」的分子
 - [Gemma 4](/articles/gemma-4) — 來源模型家族
 - [Google DeepMind](/articles/google-deepmind) — 研究機構
 - [Noam Brown](/articles/noam-brown) — 本頁反轉的論點
+- [Kimi (Moonshot AI)](/articles/kimi) — 同樣採用效率即能力的邏輯，規模達 2.8T：16-of-896 路由、69 KDA + 24 Gated MLA、MXFP4 QAT，以及無法稽核的 2.5 倍擴展效率標題
+- [Jeff Dean](/articles/jeff-dean) — 本頁所有手段背後的物理常數（每次乘法約 1 pJ，移動運算元則約需其 1000 倍）、批次處理存在的原因，以及推論專用晶片是下一個專門化方向的論點
+- [每項任務成本高於每個 token 成本](/articles/cost-per-task-over-cost-per-token) — 最後一項限制的採購方表述：每 token 價格是一種費率，而若沒有每項任務所用 token 數，Flash-Lite 的 +67% 就無從解讀
+- [總量抵銷](/articles/aggregate-cancellation) — 本頁最新來源展示的測量失效，也是效率形態的能力成本難以看見的原因：依分層平均的指標回報的是它沒有記錄的組成平均，因此互相抵銷的變化相加後歸零，三項預先註冊的整體檢定都顯示為非事件
+- [Tool-Output Pruning](/articles/tool-output-pruning) — 同一種壓縮情境的手段延伸到外一層，位於代理程式–環境邊界，而非 attention 內部；也是最接近的對照研究，兩者都測量同一項特性：**壓縮效果的正負號會隨底層模型而反轉**。該頁的 head 在一種 MoE 上提升解決率，在另一種上降低，且未提出作用機制；本頁稽核則刻意檢視不同模型、任務與壓縮比例間的正負號差異，並指出比例是決定差異的控制參數
+- [情境視窗智慧區](/articles/context-window-smart-zone) — 稀疏 attention 試圖放寬的限制，也說明這種取捨為何複雜：藉由丟棄區塊取得便宜的長情境，會切斷恰好把訊號傳至答案位置的跨區塊 attention（4.48 logits → 隔離後為 0），因此更大的廉價視窗並不等於更大的視窗
+- [開放權重作為競爭策略](/articles/open-weights-as-competitive-strategy) — 本頁前提在地緣政治上的回報。若便宜的 token 就是能力，那麼誰能以最低成本提供智慧，誰就能訂出所有上層應用的成本下限——Ng 的競爭力論點正是建立在這一步上，卻未加以論證，而是將之視為既定事實
+- [Prompt-Cache Economics](/articles/prompt-cache-economics) — 相同的快取，只是以成本而非工程來呈現。本頁縮小快取 token 佔用的位元組數；該頁測量生產帳單上一個快取 token 的*成本*，發現快取並非免費，也不是平滑計價（ρ ≈ 0.83、接近 3,500 token 時出現價格階梯、寫入費率高於未快取費率）。資料集尚缺的連結是：Value-Only Cache 將保留前綴所佔的記憶體減半，而這正是供應商的前綴快取要配給的資源——因此，架構上的減半與帳單級距是同一數量從兩個角度呈現，但沒有人公開兩者間的換算關係
+- [軌跡內平行規劃（SPRINT）](/articles/intra-trace-parallel-planning) — 將相同論點應用於推理軌跡的*形狀*，而非服務堆疊：SPRINT 訓練模型同時輸出彼此獨立的計畫，使自身思考不再落在關鍵路徑上。這也尚未達到本頁標準：報告採用的軸是序列 token 數，而實際耗時則列為未來工作
 
 ## 開放問題
 
-- **是否存在效率到能力的交換率？**Brown 詢問，能否從低成本執行預測高預算效能。對偶問題是：在固定美元預算下，KV cache 減少 37.5% 值得多少 Elo 分？沒有人報告這件事，因為沒有人繪製這條軸線。
-- `values = keys` 在全域層中刪除了 attention 三分之一的 projections，且沒有報告任何損失。還有哪些 projections 是多餘的？這種冗餘是否會隨 scale 增長？
-- 某個效率槓桿是否會以 benchmark grid 掩蓋的方式**犧牲**能力？Gemma 4 的 encoder-free 12B 在 tokens 被削減時，於 dense-text vision 上崩潰——這是一種在最大解析度下看不見、由效率形塑的 regression。
+- **效率與能力之間是否存在兌換率？**Brown 問的是能否以低成本執行結果預測高預算下的表現。對偶問題是：在固定美元預算下，KV 快取減少 37.5% 值多少 Elo 分？沒有人報告這個數字，因為沒有人繪出這個軸。**部分獲得回答（2026-07-30）：**[Gemini 3.5 Flash-Lite](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) 是本資料集中第一個在同一張表中同時列出某模型及其前代型號的價格和能力的資料，因此可以朝一個方向算出兌換率——輸出價格 +67%，換得 SWE-Bench Pro 相對表現 +42%、MLE-Bench +78%、CharXiv +2%。這回答了「這一代模型漲價買到什麼」，仍未回答「KV 快取減少值多少」：所用軸是每 token 價格，而非每項任務支出；各項手段未拆開；且兌換率依工作負載而異，不是單一數字。**進一步部分獲得回答（2026-08-17，來自 2025 年底的來源）：**Stanford 的**每瓦智慧**是第一個專為此兌換率提出的*單位*——準確率除以功耗；其標題數字顯示兩年提升 **5.3 倍，拆解為模型 3.1 倍與硬體 1.7 倍**，是本資料集中第一個將效率提升歸因拆分的案例。仍未能解決問題有三個原因：分母是瓦特，但此 wiki 中每項部署決策都以美元計價，兩者間沒有已公開的傳遞比例；分子是在**單輪**聊天與推理查詢上的準確率，而非這些手段實際服務的代理式多輪工作；而且這只是整體數據的兩因素拆分，不是逐項手段的兌換率，因此仍無法說明 KV 快取減少 37.5% 值多少。來源屬於 `practitioner-opinion`，根據投影片判讀，且講師是作者。
+- `values = keys` 在全域層中移除三分之一的 attention 投影，且未報告任何損失。還有哪些投影冗餘？冗餘是否會隨規模增加？**部分獲得回答（2026-09-23）：**[Keyless Attention: Value-Space Routing and Value-Only Caching for Efficient Transformers](https://arxiv.org/pdf/2606.21848)（`empirical`）進行鏡像實驗——改為移除 **key** 投影，透過專用的值空間矩陣 `W^R` 路由 queries；消融實驗對第一個問題給出明確答案。投影可以移除，但*並非沒有代價*：深度 2 變體 `QVV(2)`，也就是 Gemma 4 採用的 `values = keys`／KV-sharing 家族，在 12 層 GPT-2 上的最佳驗證損失高於經匹配的 QKV 基準。因此冗餘存在於*key 空間*，而非投影數量——`vendor-claim` 所稱「沒有報告損失」無法通過首次受控消融檢驗。至於第二個問題，證據顯示相反的方向：此處的冗餘並未隨規模明顯增加，反而減少。在 280M–1.5B、3,000 萬 token 的多輪訓練中，Keyless 在五個模型中的四個模型上，最佳 epoch 的 perplexity 較低；但在最大測試規模則**落敗**——在採用 Qwen2.5-3B 架構、使用 10 億 FineWeb-Edu token 訓練一個 epoch 的模型上，PPL 為 24.83，對比 25.80（相對差異 3.9%）。問題仍未解決，因為 3B 規模、10 億 token 的資料量，比這些手段實際部署的規模小三個數量級；比較基準是 vanilla QKV，完全沒有 MLA/MQA 組別；作者將 3B 的差距歸因於收斂落後，而非能力損失，卻沒有測試這項解釋。
+- 效率手段是否曾以基準網格掩蓋的方式損害能力？Gemma 4 無 encoder 的 12B 模型在密集文字視覺任務上，隨著 token 減少而崩潰——這種效率形態的回退在最高解析度下看不出來。**部分獲得回答（2026-08-12），而且這是第一個以一般形式回答、而非只呈現單一供應商軼聞的來源：**[Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)（`empirical`）針對區塊稀疏 attention 和 KV 快取淘汰進行密集校準的反事實稽核，顯示這些手段會改變*哪些已提供內容能影響答案*——包括直接作用機制（將探針區塊與跨區塊 attention 隔離後，其影響力在 1,536 個單位中從 4.48 logits 降至正好 0）、控制變數（壓縮比例，在四組模型—任務配對中造成兩次正負號反轉），以及三項預先註冊的整體檢定；其 p 值為 0.995／0.771／0.541，呈現無效結果，*原因*是正負相反的分層結果互相抵銷。因此對於*隱藏效果*而言，答案是「是，而且測量工具就在這裡」。問題仍未解決有三個原因。結果是 **logit-margin 影響力代理指標，從未測量任務準確率**，因此隱藏的*能力*成本是推論得出，而非實際測得。所有模型規模都在 7B–8B，因此尚未測試這些手段實際部署時的規模。研究結果也沒有論文摘要所宣稱的那麼令人警惕——所有八個真實證據估計值及所有八個 KV 淘汰實驗單元都顯示壓縮*降低*了投毒影響力；稀疏放大效果只出現在單 token 合成探針上。
 
 ## 資料來源
 
-- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.1–2.7（attention ratios、p-RoPE、keys-as-values、QAT、MTP drafter、TPU infra）、Tables 1–3（`empirical`）
-- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview（2026-06-26）：能力是推論預算的函數；每次生成成本下降 10–100 倍（`practitioner-opinion`）
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.1–2.7（attention 比例、p-RoPE、keys-as-values、QAT、MTP drafter、TPU 基礎設施）、表 1–3（`empirical`）
+- [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors 訪談（2026-06-26）：能力與推論預算的關係；每一代模型成本降低 10–100 倍（`practitioner-opinion`）
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §1（2.5 倍擴展效率主張、LatentMoE 稀疏性）、§2 規格表（16-of-896 路由、69 KDA + 24 Gated MLA、1M 情境）、§4（從 SFT 開始採用 MXFP4/MXFP8 QAT）、§6（保留思考歷史的要求）（`vendor-claim`）
+- [Jeff Dean: The 1% Rule for Building in AI](https://www.youtube.com/watch?v=CxXgV54KzpQ) — Jeff Dean 與 Diana Hu，YC Startup School 2026（2026-07-30，`practitioner-opinion`）：§「Why AI Is Really an Energy Problem」——每次乘法約 1 pJ、資料傳輸約需其 1000 倍的比例，以批次處理將成本攤提（`1000/batch_size`），以及推論專用晶片是下一個專門化方向。**利益衝突：**Google 首席科學家談 Google 的加速器策略；皮焦耳比例由訪談者提出，Dean 加以確認，未引用來源
+- [Gemini 3.5 Flash-Lite Model Card](https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/) — Google DeepMind，2026-07-21（`vendor-claim`）：2026 年 7 月評估表，前兩列列出所有四個比較模型的每百萬 token 輸入與輸出價格；上文的每美元計算是根據這些數值計算而得，並非 Google DeepMind 自行陳述。該頁使用用戶端渲染，透過機器擷取並經三輪核對確認數字
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676) — Xingyu Ren、Youran Sun、Chugang Yi 與 Haizhao Yang（CUHK／University of Maryland，arXiv 2608.01676，2026-08-03，`empirical`，24 頁）：§3 + 表 1：四種架構的 BSFA 路由重播驗證（16 個實驗單元中有 13 個顯著為正、沒有顯著為負，也沒有 identity-replay 標籤反轉）；§4.1–4.5：稽核流程（配對的 128-token G/P/B 卡片，僅在凍結索引 64 處不同、六種對稱配置、在凍結的 `K−1` 核心上進行等基數強制路由、`c = 0` 的 kernel 內密集組別及其 100% 標籤一致率下 0.044-logit 的 kernel 路徑基準）；§5.2：三項預先註冊整體虛無檢定（p = 0.995、0.771、0.541），對比 32 個分層結果中有 31 個拒絕虛無假設；§5.5 + 表 5：三種比例掃描及兩次正負號反轉；§5.6 + 表 6：路由紀錄（G ≈ P ≫ B、Qwen3-SCB 0.758／0.759／0.470）；§5.7：跨區塊消融（所有 1,536 個單位從 4.48 → 0，在 `c = 0.25` 時依劑量反應達到 4.09）；§6 + 表 7：KVPress 淘汰組別；§8 限制。**引用前以三種獨立方式核對表 5**——逐字逐數比對附錄表 8 的完整矩陣、圖 3，以及 §5.5 逐列描述的文字；未發現 `table-collapse` 或 `table-shift`，11 個圖說都位於表格上方，沒有交錯。依照圖像兩輪檢視規則查看圖 1、2、3；圖 3 獨立確認每個掃描值，圖 2 確認表 3 和表 4（該圖也**漏掉了它所標示的 Llama-SF `c = 0.50` 真實證據列標記**——這是論文繪圖本身的缺陷，並非解析錯誤；數值列於表 4）。**外觀解析瑕疵：**文件中的每個 em dash 和 en dash 都被攤平成一般連字號，因此此處引述的句子已還原 dash。來源本身有兩個問題，皆已記錄於上文：摘要所稱「放大誤導內容」的框架，與所有八個真實證據 ∆ 估計值及所有八個 KVPress 實驗單元所呈現的方向相矛盾；§1 和 §7.3 各自在點名違反普遍壓縮趨勢的實驗單元前一個句子，先宣稱趨勢普遍成立。**來源沿革說明：**致謝提到 *Agon*，一個自主研究系統，其論文（arXiv 2606.24177）的作者是本論文四位作者中的三位
+- [Keyless Attention: Value-Space Routing and Value-Only Caching for Efficient Transformers](https://arxiv.org/pdf/2606.21848) — Xin Gao 與 Xingming Xu（York University／UC Davis，arXiv 2606.21848，`empirical`，17 頁；PDF 標題頁所列修訂日期為 2026-08-04）。§2.1–2.2：深度 `m` 的 `Ω` 分解與值空間路由矩陣 `W^R`；§2.4 定理 1–2（單頭等價性無條件成立，多頭等價性則以 `col(Ω_h^⊤) ⊆ col(W_h^V)` 為條件）；§3：Value-Only Cache 及其 MHA/MQA/GQA/latent 變體；§4 實驗設定（單張 A100-SXM4-80GB、WikiText-103 3,000 萬 token 子集、約 102.3 GPU 小時）；§5.1 + 表 1：深度結果和 ∆Overfit；§5.2 + 表 2：GPT-2 557M 零樣本測試套件；§5.3 + 圖 3：因子分解深度消融，包括 `QVV(2)`，即 KV-sharing 家族；§5.4：Pythia／Qwen2／Llama 實驗組；§5.5 + 圖 4：解碼吞吐量與快取大小；§6 + 表 3：採用 Qwen2.5-3B 架構的 10 億 token FineWeb-Edu 預訓練實驗；§7 + 表 4：多樣本測試。**表格解析狀態（引用前已用 `pdftotext -layout` 逐一核對全部六個表格）。**表 1 和表 6 在匯入時已修復，原始資料中附有 `[!note]` 說明，並已在此重新確認無誤。表 2、3、4 已逐字逐數對照版面解析確認。**原始資料中的表 5 仍有損毀，本處沒有引用其中任何內容**：docling 整組漏掉 GPT-2 557M 配對，並將三個數值往下錯置一列（Pythia 的 Keyless 損失 3.6692 出現在 Qwen2 列，Qwen2 的 3.5201 出現在 Llama 列），導致只剩六列，而 PDF 中有十列。上文的跨架構數據取自 §5.1／§5.4 內文以及 `pdftotext -layout -f 16 -l 16` 參照解析，兩者完全一致。依照圖像兩輪檢視規則查看圖 3 和圖 4；吞吐量數字只出現在圖 4，是唯一來源，內文沒有列出。**對來源的解讀，而非來源自身的主張：**摘要所稱「表現相當或更佳」是 3,000 萬 token 多輪訓練的結果，而論文自身 §6 的產業規模實驗則推翻了此結果；表 2 和表 3 中數列低於或等於機率基準，因此「平均準確率」標題值納入了在此規模下無法區分模型的項目。沒有揭露利益衝突，亦未發現明顯衝突——兩位學者，沒有實驗室隸屬關係，也沒有經費聲明
+- [CS329A Self-Improving AI Agents — Part 9: Future Research Areas](https://www.youtube.com/watch?v=AyO6wyu4DEg) — Stanford CS329A 第 9 場講座，*Future Research Areas*（[Azalia Mirhoseini](/articles/azalia-mirhoseini) 負責的部分；於 2025-12-05 發表，2026-08-03 公開，屬於 `practitioner-opinion`，其中前瞻方向的分級為 `prediction`；YouTube 自動字幕逐字稿，約 10,500 字）。上文的每瓦智慧段落：指標定義、需求與本機記憶體趨勢、約 77% 的查詢混合比例、「本機」定義為 ≤20B 個活躍參數、研究的模型／加速器／工作負載／指標網格及其開源、三項發現與 3.1 × 1.7 = 5.3 倍拆解，以及四項前瞻方向（本機與雲端混合路由、節能架構與核心、高吞吐量低延遲的測試時擴展基礎設施、能源成為稀缺資源）。**`raw/` 中沒有論文**，而每項數值都來自投影片並透過 ASR 讀取：約 250 GW 的需求數值單位轉錄不清，Google Cloud 成長期間轉錄為「12 20 months」，而**標題中的涵蓋率數字在逐字稿句中漏掉**——上文採用的 88.7% 來自原始論文對該研究的說明，而非語音內容，且已在引用處明確標註。**利益衝突已揭露：**Mirhoseini 是她所介紹研究的作者（「這是我們最近完成的工作，與 Ré 教授和 John Hennessy 教授合作」），她提到作為未來方向的 Hydragen 和 Tokasaurus 系統也由她撰寫（「我的實驗室做過其中一些工作」）

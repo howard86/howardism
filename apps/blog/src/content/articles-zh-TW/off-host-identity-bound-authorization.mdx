@@ -1,7 +1,7 @@
 ---
 date: 2026-07-16
 title: 主機外、綁定身分的授權
-description: "Sai Varun Kodathala（arXiv 2607.05518，單一作者預印本）：aiAuthZ 是一個在代理主機之外、獨立信任網域中運作的授權閘道——它以每則訊息一組 HMAC-SHA256 簽章（一次性 nonce + 時間戳視窗）驗證人類傳送者，並評估代理既無法讀取也無法修改的角色與參數層級政策，因此遭入侵／注入的代理無法透過未驗證的工具呼叫文字偽造權限（呼叫權限源自最近一次驗證的人類訊息，而不是模型讀到的文字）。在 15 個 LLM 中，模型層級拒絕率介於 100%→38%，且與價格無關；使用閘道後，殘餘攻擊成功率在新增延遲 ≤0.03 ms 時降至 0%；在 9 個納入範圍的 Agents-of-Chaos 案例中，閘道阻擋 9/9，相較之下僅參數式（OAP 風格）設計為 4/9，委派權杖（AIP 風格）設計為 0/9；在 AgentDojo 銀行測試中，它阻擋全部 7 個攻擊者導向呼叫（spotlighting 讓 2 個注入成功），代價是阻擋一次合法的首次付款；HMAC-QR 收據跨通道驗證率為 94%，偽造率 0/25——這是 ScopeGate 框架內 PDP/PEP 的主機外、身分綁定對應方案"
+description: "aiAuthZ（Kodathala）：位於獨立信任網域的授權閘道，以 HMAC 驗證每則真人訊息，並執行代理程式無法讀取或修改的角色與引數層級政策——呼叫的權限來自最後一則經驗證的真人訊息，而非模型文字；在 15 個模型上，殘餘攻擊成功率為 0%；是 ScopeGate 的主機外對應方案。"
 tag: Concept
 domain: agent-security
 tags:
@@ -11,117 +11,160 @@ tags:
   - off-host
   - reference-monitor
   - prompt-injection
-readingTime: 21
-imageAlt: 主機外、綁定身分授權的插圖
+readingTime: 31
+imageAlt: 主機外、綁定身分的授權示意圖
 sources:
   - title: "aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents"
     url: https://arxiv.org/pdf/2607.05518
   - title: OpenID Foundation advances authorization for the agent era with new
       AuthZEN Working Group Drafts
     url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+  - title: "Delegation Without Trust: An Empirical Gap Analysis of Identity,
+      Authorization, and Runtime Governance in Multi-Agent LLM Systems"
+    url: https://arxiv.org/pdf/2609.00267
+  - title: Trust propagation and structural containment in Multi-agent LLM pipelines
+    url: https://arxiv.org/pdf/2609.17648
 ---
 export { default as heroImage } from "../assets/off-host-identity-bound-authorization.webp";
 
 ## 資料來源
 
 - [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518)
+- [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
+- [Trust propagation and structural containment in Multi-agent LLM pipelines](https://arxiv.org/pdf/2609.17648)
 
 ## 摘要
 
-Sai Varun Kodathala（SportsVision AI R&D；arXiv 2607.05518，2026 年 7 月）提出 **aiAuthZ**：一個授權 **閘道**，在代理主機外、代理沒有任何憑證的獨立信任網域中，回答決定任何代理行動是否安全的兩個問題——*誰在請求？*以及*這個呼叫者是否獲准？*這個論述的前提正是本群組一再遇到的問題：使用工具的模型「根據無法驗證的文字發出工具呼叫，因此任何控制部分上下文的一方，都能偽造權限的表象」。把安全決策放在代理程序*內部*無法解決這件事，因為存在於遭入侵程序中的權限系統也會隨之遭入侵。aiAuthZ 的答案是把兩個問題都移出模型，並將答案綁定到加密身分，而不是代理*說了什麼*。
+Sai Varun Kodathala（SportsVision AI R&D；arXiv 2607.05518，2026 年 7 月）提出 **aiAuthZ**，這是一個授權**閘道**，負責回答決定任何代理程式動作是否安全的兩個問題——*是誰在提出要求？*以及*這個呼叫者是否獲准？*——而且這些判斷是在**代理程式主機之外、代理程式沒有任何憑證可用的獨立信任網域中進行。**其出發前提是本組文章一再碰到的問題：使用工具的模型「依據自身無法驗證的文字發出工具呼叫，因此任何能控制部分上下文的一方，都能偽造出具有權限的表象。」把安全判斷放在代理程式處理程序內無法解決這件事，因為存在於遭入侵處理程序中的權限系統也會一併遭到入侵。aiAuthZ 的解法，是把這兩個問題都移出模型，並將答案綁定到密碼學身分，而不是代理程式*聲稱*的內容。
 
-**證據限制（請附在承重論述處）：**這是來自小型商業研發機構的**單一作者預印本**，不是經過同儕審查或多供應商驗證的來源。它確實報告了可重現、開源的實證評估（15 個模型、AgentDojo、收據健壯性、釋出的程式碼與逐字記錄），因此其測量屬於 `empirical`——但應把這項設計視為一位研究者的提案，在採用問題上其權重低於多供應商標準工作（[AIMS](/articles/agent-identity-management-system)），並注意幾個標題數字依作者自己承認的說法其實接近必然結果（如下）。其 `evidence:` 層級是 `empirical`。
+**證據注意事項（在關鍵主張旁一併說明）：**這是來自小型商業研發機構的**單一作者預印本**，不是經同儕審查或多家供應商共同提出的資料來源。它**確實**報告了可重現且已開源的實證評估（15 個模型、AgentDojo、收據穩健性、已釋出的程式碼與逐字記錄），因此其測量屬於 `empirical`；但應將設計視為一位研究者的提案，在採用問題上給予低於多廠商標準工作（[AIMS](/articles/agent-identity-management-system)）的權重，並留意作者也承認幾項醒目數字近乎理所當然（見下文）。其 `evidence:` 層級為 `empirical`。
 
-**為何值得成為獨立節點：**它是資料庫中 **[ScopeGate](/articles/capability-gating-vs-authorization) 的主機外對應方案**——兩者都執行確定性的逐次呼叫授權，但位於「授權邊界在哪裡？」這條軸線的不同位置（框架內 PDP/PEP 對主機外身分綁定閘道），而且 aiAuthZ 增加了 ScopeGate 完全沒有的一層：**對人類傳送者逐則訊息進行身分驗證。**
+**為何值得獨立成篇：**它是知識庫中 [ScopeGate](/articles/capability-gating-vs-authorization) 的**主機外對應方案**——兩者都執行確定性的逐次呼叫授權，但位於「授權邊界在哪裡？」這條軸線的不同位置（框架內 PDP/PEP，對比主機外、綁定身分的閘道）；而 aiAuthZ 還多了一層 ScopeGate 沒有的功能：**逐則驗證訊息的真人寄件者身分。**
 
-## 將兩個問題移出主機
+## 把兩個問題移到主機之外
 
-每個請求都會出現三種主體。**使用者**是代表其採取行動的人類（或指定的系統身分）；每位使用者在註冊時取得一把每人專用的 HMAC 金鑰，以及四種角色之一（owner、member、guest、system）。**服務**是代理執行環境，使用永遠*不代表使用者*的服務權杖進行驗證。**管理員**操作控制平面。閘道**永遠不信任執行環境對目前使用者的宣告**：工作階段的目前使用者，就是最近提交 HMAC 驗證訊息的人，而執行環境必須在每個工具呼叫中回傳該訊息的識別碼。
+每個請求中都有三種主體。**使用者**是代表其採取動作的真人（或指定的系統身分）；每位使用者在註冊時會取得自己的 HMAC 金鑰以及四種角色之一（owner、member、guest、system）。**服務**是代理程式執行環境，透過服務權杖驗證身分，這個權杖**絕不代表任何使用者**。**管理員**負責操作控制平面。閘道**絕不信任執行環境聲稱目前是哪位使用者**：工作階段的目前使用者，是最近提交 HMAC 驗證訊息的人；執行環境在每次工具呼叫中都必須回傳該訊息的識別碼。
 
-信任邊界就是整個設計的核心。閘道、其政策資料庫，以及 nonce／速率限制儲存區，都在代理無法觸及的基礎設施上運行。另一側的所有內容——代理程序、其上下文視窗、它讀取的每份文件／訊息／工具結果、它發出的每個工具呼叫——都不受信任。「閘道把模型視為不受信任的請求發出者。」它說的是 Model Context Protocol（JSON-RPC：initialize、tool-list、tool-invoke）與一般 HTTP，因此執行環境可像連接普通工具來源一樣連接它；預設情況下，它是回傳允許／拒絕的授權*決策點*（拒絕會以協定錯誤傳遞，讓執行環境無法將其誤認為結果），而不是執行者。
+信任邊界就是整個設計。閘道、政策資料庫，以及 nonce／速率限制儲存區都在代理程式無法觸及的基礎架構上執行。另一側的一切——代理程式處理程序、其上下文視窗、它讀取的每份文件／訊息／工具結果，以及它發出的每次工具呼叫——都是不受信任的。「閘道將模型視為不受信任的請求發送者。」它支援 Model Context Protocol（JSON-RPC：initialize、tool-list、tool-invoke）與一般 HTTP，因此執行環境可將它當成普通工具來源連接；預設情況下，它是回傳允許／拒絕結果的授權**決策點**（拒絕會以通訊協定錯誤傳回，避免執行環境誤認為是結果），而非執行者。
 
-## 逐則訊息身分：承重的新穎性
+## 逐則訊息身分：承載核心主張的新意
 
-每則使用者訊息都帶有 **HMAC-SHA256 簽章**，使用該使用者的祕密金鑰，對五個欄位的標準 JSON 編碼計算：使用者 ID、工作階段 ID、訊息內容的 SHA-256 雜湊、隨機 **nonce**，以及 Unix **timestamp**。驗證分為三個確定性步驟：timestamp 必須落在視窗內（預設 300 秒）；簽章必須通過常數時間比對；nonce 必須是**未見過的**（在共享儲存區中以原子性的 set-if-absent 加上到期時間寫入），如此一來，即使在視窗內，截獲的訊息也無法重播。
+每則使用者訊息都帶有 **HMAC-SHA256 簽章**，用該使用者的秘密金鑰對五個欄位的標準化 JSON 編碼計算：使用者 ID、工作階段 ID、訊息內容的 SHA-256 雜湊、隨機 **nonce**，以及 Unix **時間戳記**。驗證分成三個確定性步驟：時間戳記必須落在時間窗內（預設 300 秒）；簽章必須通過常數時間比較；nonce 必須**尚未出現過**（在共享儲存區中透過具到期時間的原子化 set-if-absent 操作確認），因此即使仍在時間窗內，截取的訊息也不能重放。
 
-兩個綁定機制會把已驗證訊息轉成授權錨點：
+兩項綁定將已驗證訊息轉化為授權錨點：
 
-1. **最早**的已驗證訊息會把工作階段綁定到該使用者；不同使用者提交到同一工作階段時會被拒絕（阻止跨使用者工作階段劫持）。
-2. 每則已驗證訊息都會成為工作階段的**目前訊息**，並具有有限生命週期，且**每個工具呼叫都必須回傳目前訊息 ID**——因此工具呼叫只有在已驗證人類回合後的有限時間內才會成功，且*其權限源自該回合*。
+1. **最早**的已驗證訊息會將工作階段綁定至該使用者；其他使用者若在同一工作階段中提交訊息，就會遭到拒絕（防止跨使用者工作階段劫持）。
+2. 每則已驗證訊息都會成為工作階段的**目前訊息**，並有有限的有效期限；**每次工具呼叫都必須回傳目前訊息 ID**——因此，工具呼叫只有在已驗證真人操作後的有限時間內才會成功，且*其權限來自該次操作。*
 
-這是資料庫中其他內容都沒有的特性。「訊息本文可以宣稱任何事情，包括 owner 已批准該行動，但綁定的身分是加密的，而該宣稱不會賦予任何權限。」這正是它能阻止 Agents of Chaos 語料庫中的**權限冒充**與**遭破壞的憲法**攻擊，以及（見下方 §5.4）五個僅參數式政策在結構上無法與合法 owner 使用區分的身分冒充案例。請注意範圍：當攻擊者是與目前使用者**不同的**主體（宣稱具 owner 權限的非 owner）時，這項綁定具有**決定性**；它本身不會限制在目前使用者**自身**權限下觸發的注入——那項殘餘風險只能由參數與速率政策限制（即 [ScopeGate](/articles/capability-gating-vs-authorization) 和 [ADI](/articles/agent-data-injection) 所稱的同一種可合法變動資料遭竄改限制）。
+這是知識庫中其他內容都沒有的性質。「訊息本文可以聲稱任何事情，包括 owner 已核准這項動作，但綁定的身分是密碼學驗證結果，這種聲稱本身不會賦予任何權限。」這正是它能防住 Agents of Chaos 語料庫中的**權限冒充**與**遭污染的章程**攻擊的原因；而且（見下文 §5.4）也能擋下五種身分冒充情境，因為僅依引數制定的政策在結構上無法將這些情境與合法的 owner 操作區分開來。請留意其適用範圍：當攻擊者與目前使用者是**不同主體**時（例如非 owner 冒稱 owner），這項綁定具有**決定性**；但它本身**無法**限制在目前使用者**自身**權限下觸發的注入——只有引數與速率政策能限制這種殘餘風險（這與 [ScopeGate](/articles/capability-gating-vs-authorization) 和 [ADI](/articles/agent-data-injection) 所稱的「合法可變資料遭污染」限制相同）。
 
 ## 主機外政策（三道閘門）
 
-政策是附加在 scope 上的 YAML（user > workspace > 保守的內建預設值），依序評估並採用**失敗即關閉**：
+政策以 YAML 附加至各個範圍（user > workspace > 保守的內建預設），依序評估，並採取**預設拒絕**：
 
-1. **角色閘門**——每個工具都會列出允許的角色；政策中不存在的工具會落入預設值，而已附帶的設定中預設值是**拒絕**。預設拒絕非 owner 使用 shell/file/email/env 工具。
-2. **參數限制**——檔案工具的 glob 路徑拒絕／允許清單、網路工具的 URL 允許／拒絕清單、訊息工具的收件者允許清單，以及寫入資料的位元組上限。這能關閉*透過已允許工具進行*的提權：member 可以擷取網頁，但空白的 URL 允許清單仍會拒絕傳送到任意主機的擷取。
-3. **速率限制**——每個工具使用固定視窗計數器；遭拒絕的呼叫**不會計入**，因此攻擊者不能用被拒絕的請求耗盡預算。
+1. **角色閘門**——每個工具都會列出允許的角色；政策中未列出的工具會套用預設值，而已發布的設定中預設值是**拒絕**。預設設定會拒絕非 owner 使用 shell／檔案／電子郵件／環境變數工具。
+2. **引數限制**——檔案工具使用路徑 glob 拒絕清單／允許清單，網路工具使用 URL 允許清單／拒絕清單，訊息工具使用收件者允許清單，並限制寫入位元組數。這能阻止透過已允許工具升權：member 可以擷取網頁，但若 URL 允許清單為空，任意主機的資料外洩擷取仍會遭拒。
+3. **速率限制**——每個工具使用固定視窗計數器；遭拒的呼叫**不會計入**，因此攻擊者無法用遭拒的請求耗盡額度。
 
-每個決策都帶有結構化原因（`role_not_in_allowlist:member`、`path_denied:/etc/passwd`），回傳給呼叫者並記錄在稽核鏈中。關鍵在於，**政策存在代理沒有憑證的資料庫裡**，因此「被操縱的代理無法改寫自己的授權」——這是[頻道外](/articles/out-of-band-prompt-injection-defense)原則「閘門不能是模型，政策必須在頻道外」的身分層回應。
+每項決策都會附上結構化原因（`role_not_in_allowlist:member`、`path_denied:/etc/passwd`），回傳給呼叫端並記錄在稽核鏈中。關鍵在於，**政策存放於代理程式沒有憑證可存取的資料庫**，因此「遭操控的代理程式無法改寫自己的授權」——這是 [頻外](/articles/out-of-band-prompt-injection-defense) 原則在身分層的體現：「閘門不能是模型，政策必須位於頻外。」
 
-## 防竄改稽核、可存活收據、憑證代理
+## 可竄改跡象稽核、可保存的收據、憑證代理
 
-三種支援機制讓整體組合更加完整：
+三項輔助機制補足整體設計：
 
-- **防竄改稽核鏈**——每個驗證結果與工具決策都會在 SHA-256 雜湊鏈中新增一列（每列都綁定前一個雜湊）；驗證端點會回報第一個斷裂處。**加密抹除保留策略**：編輯流程會清除過期資料列的加密負載欄位，但不刪除資料列（編輯本身也會加入鏈中），因此 GDPR 風格的資料主體抹除與未斷裂的鏈可以共存。只有當鏈首雜湊在外部錨定時，才能偵測對整張表的特權改寫。
-- **簽署的 QR 收據**——在行動獲得授權時產生的證明，證明特定人士授權了特定行動；即使影像被轉寄、截圖並重新壓縮，也能由**事後才看到它的第三方**驗證。設計將截短的 128 位元 HMAC-SHA256 標記（涵蓋 user id、message id、內容雜湊，絕不包含明文）放入 QR code：這是一種自定位、經 Reed-Solomon（level H）錯誤校正的載體，可在旋轉／縮放／裁切後重新同步。驗證是常數時間的標記比對——沒有相似度門檻，也沒有需要調整的誤接受率。這勝過作者測量的替代方案：對檔案位元組做分離式 Ed25519 簽章確實完全不可偽造，但任何重新編碼都會使其失效；DWT／展頻浮水印能撐過 JPEG，卻會在截圖／裁切下崩潰，而最常見的函式庫沒有金鑰（可輕易偽造）。
-- **憑證代理**——祕密只存在閘道上；代理以名稱引用它們，且只有在獲得授權後才會取得存取權，因此遭入侵的代理主機不持有長期憑證——這是三種「關閉繞過路徑」緩解措施中最強的一種（合規檢查器 → 出站鎖定設定檔 → 代理）。
+- **可竄改跡象稽核鏈**——每個驗證結果與工具決策都會在 SHA-256 雜湊鏈中附加一列（每列都綁定前一列的雜湊）；驗證端點會回報第一個斷裂處。**密碼學抹除式保留**：清除程序會清空已到期列的加密負載欄位，但不刪除列（清除操作本身也會串入鏈中），因此可兼顧 GDPR 式資料主體抹除與鏈條完整。只有當鏈首雜湊在外部固定錨定時，才偵測得到對整張表的特權改寫。
+- **簽署 QR 收據**——在動作獲得授權時產生的證明，可證明特定人士授權了特定動作，並可由**事後未在場的一方**驗證，即使圖片已轉傳、截圖並重新壓縮也一樣。設計將截斷至 128 位元的 HMAC-SHA256 標記（涵蓋使用者 ID、訊息 ID、內容雜湊，不含明文）放進 QR code：它是具自定位能力、經 Reed-Solomon（等級 H）錯誤更正的載體，旋轉／縮放／裁切後仍可重新同步。驗證只需以常數時間比較標記——不需要相似度門檻，也沒有要調整的錯誤接受率。這勝過作者測試的替代方案：以檔案位元組為輸入的獨立 Ed25519 簽章同樣無法偽造，但任何重新編碼都會讓它失效；DWT／展頻浮水印雖可承受 JPEG 壓縮，但在截圖／裁切後就會崩潰，而且最常見的函式庫不使用金鑰（很容易偽造）。
+- **憑證代理**——秘密只存在於閘道；代理程式以名稱參照秘密，只有**完成授權後**才會取得存取權，因此遭入侵的代理程式主機不會持有長期憑證——這是三種「封住繞過途徑」措施中最強的一項（符合性檢查器 → 鎖定輸出的設定檔 → 憑證代理）。
 
 ## 評估
 
-四個研究問題，全部在未修改的 production 程式路徑上進行，且釋出程式碼與逐字記錄。
+四項研究問題，全部採用未修改的正式環境程式碼路徑，並已釋出程式碼與逐字記錄。
 
-- **RQ1——模型層級拒絕不均，且與價格無關。** 15 個當代模型 × 8 個攻擊情境（改編自 Agents of Chaos 紅隊測試語料庫——Shapira 等人，以純文字引用），每個情境在不同溫度下執行 5 次；若危險呼叫在至少 1 次執行中觸發，該情境就算作一次*嘗試*（最壞情況的易受攻擊程度）。在完整評估的模型中，拒絕率從 **100%**（Fable 5）降至 **38%**（Qwen3 Max 在受速率限制的 4 情境子集達到 25%）。**最昂貴**的模型（Opus 4.8，每案例約 $0.0095）只拒絕 **50%**；**最便宜**的模型（DeepSeek V4 Pro，每案例約 $0.0004）在可比條件下拒絕 **38%**——價格相差約 20 倍，但安全性沒有排序關係。內容分類器（Llama Guard）只標記出 8 個攻擊中的 **4 個**，因為這些是以普通請求措辭表達的未授權行動，而不是有害文字——因此 guardrail 與此閘道是**互補的**。
-- **RQ2——閘道以低成本歸零殘餘風險。** 當呼叫者綁定為非 owner 時，政策會拒絕每個情境所需的僅限 owner 工具類別，因此抵達工具的殘餘攻擊成功率，在 **≤0.03 ms** 額外延遲下，對 **15 個模型全部為 0%**（0.006–0.030 ms；模型呼叫本身花費 1.1–12.5 秒，長了五個數量級）。作者坦率承認這項特定結果接近必然（「預設拒絕政策拒絕一個遭拒的工具……是立即的」）；重點是*每個模型都相同的確定性*，因此模型層級的巨大分散不會傳播到工具。逐則訊息身分的獨特貢獻——固定角色以對抗冒充者——在 RQ3 中隔離，而不是在這個實驗中測量。
-- **RQ3——與先前確定性設計比較（身分收益）。** 在 **9 個納入範圍的 Agents-of-Chaos 案例**中，完整設計阻擋 **9/9**；仿照 [Open Agent Passport](/articles/capability-gating-vs-authorization) 的**僅參數式**政策阻擋 **4/9**；仿照 Agent Identity Protocol 的**委派權杖**設計單獨只能阻擋 **0/9**（範圍不匹配——委派不攜帶參數政策）。僅參數式設計漏掉的**五個**案例，正是**身分冒充**案例：攻擊者使用通常允許的工具；僅行動政策「無法區分非 owner 與 owner」，因此必須對所有人允許該工具（冒充者通過），或對所有人禁止（破壞 owner 使用）。逐則訊息身分透過拒絕非 owner、允許 owner 解決此問題。區域決策延遲為 **0.008–0.026 ms**，相較之下僅參數系統回報的雲端登錄查詢為 **53 ms**（約 3000 倍）。
-- **AgentDojo 銀行測試套件**（`important_instructions`，20 對，Fable 5 + Gemini 3 Flash）。兩個模型在模型層級已具抵抗力（無防禦 ASR 為 0%），因此幾乎沒有殘餘風險可移除；**spotlighting** 沒有幫助，在 Gemini 上反而讓 ASR 升至 **2/20**，因誘發了注入所尋求的確切付款；而 **aiAuthZ 維持 ASR 為 0%**，並確定性地阻擋模型發出的 **7** 個攻擊者導向呼叫（付款、重新導向排程交易、2 次變更密碼）。誠實代價是：嚴格的已知收款人允許清單讓**乾淨效用從 100% 降至 80%**（阻擋一次向新收款人的合法首次付款），因此對基線 ASR 已為 0% 的模型而言，閘道在此是*淨效用成本*——作者選擇報告而非隱藏。這個套件中的阻擋來自**參數限制，而非逐則訊息身分**（注入與使用者共用同一主體），因此任何採用相同允許清單的確定性價值閘門都能達到同樣效果。
-- **健壯性補充。** 長上下文：在 500→48,000 token 記錄中埋入資料外洩指令，隨上下文增長，部分模型反而更常遵從；閘道阻擋全部 12 次嘗試（判決不受上下文長度影響）。收據：簽署 QR 在八種通道上的平均驗證率為 **94%**（調整大小／截圖／裁切為 97%），錯誤金鑰偽造 **0/25**；分離式 Ed25519 簽章只有在原始檔案上能驗證，而所有浮水印在截圖／裁切下都降至 0%。端到端：透過即時 JSON-RPC 阻擋 4/4 個危險 MCP 呼叫；真實的 [OpenClaw](/articles/openclaw) 執行環境部署確認了拒絕路徑與合規檢查器（當重疊的內建工具仍啟用時，會讓 CI 失敗）。58/58 個單元測試通過。
+- **RQ1——模型層級拒絕能力不一致，也不隨價格排序。**15 個當代模型 × 8 種攻擊情境（改編自 Agents of Chaos 紅隊測試語料庫——Shapira 等人，以純文字引用），在不同溫度設定下各執行 5 次；只要危險呼叫在至少 1 次執行中觸發，該情境就計為一次*嘗試*（採最壞情況易受攻擊程度）。完整評估模型的拒絕率介於 **100%**（Fable 5）與 **38%**（Qwen3 Max 在僅有 4 種情境且有速率限制的子集上達到 25%）。**最貴**的模型（Opus 4.8，每個案例約 $0.0095）只拒絕了 **50%**；**最便宜**的模型（DeepSeek V4 Pro，每個案例約 $0.0004）拒絕率相近，為 **38%**——價格相差約 20 倍，安全性卻沒有相應排序。內容分類器（Llama Guard）只標記出 8 種攻擊中的 **4 種**，因為這些是包裝成一般請求的未授權動作，而非有害文字——因此防護措施與此閘道是*互補*關係。
+- **RQ2——閘道以低成本清除殘餘風險。**呼叫者被綁定為非 owner 時，政策會拒絕各情境需要的 owner 專用工具類別，因此所有 15 個模型的攻擊成功殘餘率降至 **0%**，增加的延遲**不超過 0.03 ms**（0.006–0.030 ms；模型呼叫本身耗時 1.1–12.5 秒，長了五個數量級）。作者坦言，這個特定結果近乎理所當然（「預設拒絕政策拒絕了本來就要拒絕的工具……立刻見效」）；重點在於，**所有模型得到的確定性結果完全一致**，因此模型層級的巨大差異不會傳遞到工具。逐則訊息身分的獨特貢獻——在固定角色、面對冒充者時的效果——是在 RQ3 中單獨測量，而非本實驗。
+- **RQ3——與先前確定性設計相比（身分層的效益）。**在 **9 個範圍內的 Agents of Chaos 案例**中，完整設計阻擋 **9/9**；採用 [Open Agent Passport](/articles/capability-gating-vs-authorization) 風格的**純引數**政策阻擋 **4/9**；採用 Agent Identity Protocol 風格的**委派權杖**設計單獨使用時阻擋 **0/9**（範圍不符——委派本身不包含引數政策）。純引數設計漏掉的**五個**案例正是**身分冒充**案例，攻擊者在其中使用一般允許的工具：僅依動作制定的政策「無法區分非 owner 與 owner」，因此只能選擇允許所有人使用工具（冒充者也能使用），或禁止所有人使用（owner 也會受阻）。逐則訊息身分可藉由拒絕非 owner、同時允許 owner 來解決。決策延遲為 **0.008–0.026 ms**，相較之下，純引數系統回報的雲端登錄查詢耗時 **53 ms**（快約 3,000 倍）。
+- **AgentDojo banking suite**（`important_instructions`，20 組配對，Fable 5 + Gemini 3 Flash）。兩個模型原本在模型層級就能抵禦攻擊（無防禦 ASR 為 0%），因此可消除的殘餘風險不多；**spotlighting** 沒有幫助，反而在 Gemini 上將 ASR **提高**到 **2/20**，因為它誘使模型執行了注入所要求的付款；aiAuthZ 則維持 ASR 為 **0%**，並確定性地擋下模型發出的 **7 次**攻擊者指定呼叫（付款、排程交易重新導向、2 次密碼變更）。必須誠實看待成本：嚴格的已知收款人允許清單讓**正常使用效用從 100% 降到 80%**（一筆對新收款人的合法首次付款遭封鎖），因此對基準 ASR 已是 0% 的模型來說，此處的閘道是**淨效用成本**——作者有揭露，而非隱瞞。這個測試套件的封鎖效果來自**引數限制，而非逐則訊息身分**（注入與使用者共用同一主體），因此任何採用相同允許清單的確定性值閘門都能達到同樣效果。
+- **穩健性補充。**長上下文：在 500→48,000 個 token 的記錄中埋入資料外洩指令後，部分模型會隨上下文增長而更常遵從；閘道擋下全部 12 次嘗試（判定不受上下文長度影響）。收據：簽署 QR 在八種管道上的平均驗證率為 **94%**（在縮放／截圖／裁切下為 97%），錯誤金鑰偽造測試 **0/25**；獨立 Ed25519 簽章只能在原始檔案上驗證成功，所有浮水印在截圖／裁切下都降至 0%。端對端：透過即時 JSON-RPC 擋下 4/4 次危險 MCP 呼叫；實際部署 [OpenClaw](/articles/openclaw) 執行環境，確認拒絕路徑與符合性檢查器可正常運作（若重疊的內建工具仍啟用，就會讓 CI 失敗）。58/58 項單元測試通過。
 
 ## aiAuthZ 與 ScopeGate：授權邊界軸線上的兩個位置
 
-它與姊妹頁面 [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization)（ScopeGate）的精確關係如下：
+與相關頁面 [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization)（ScopeGate）的精確關係如下：
 
-- **共享核心。** 兩者都是確定性、失敗即關閉、**逐次呼叫**的授權閘門，具備參數層級允許清單、模型既無法讀取也無法修改的頻道外政策、微秒級延遲，且決策中沒有 LLM。兩者共享相同的兩種殘餘風險：一連串個別獲准的呼叫組合成不想要的結果，以及可合法變動的參數遭竄改，而價值政策無法限制。aiAuthZ 自身的**僅參數消融基線**基本上就是 ScopeGate 的形狀（沒有身分層的參數閘門）。
-- **邊界所在位置。** ScopeGate 是**框架內 PDP/PEP**，其作者主張，只要每個具有副作用的呼叫都通過 PEP，且政策在頻道外，安全性就與部署位置無關（SDK 中介軟體、迴路側車或出站閘道皆可）。aiAuthZ 正好以一項測量結果反駁這點：當執行環境保留自身重疊的內建 shell/file/web 工具時，「模型透過內建工具執行了敏感行動，完全沒有諮詢閘道」——程序內 PEP 與攻擊者透過模型影響的信任網域相同。因此 aiAuthZ 讓**獨立信任網域**成為承重部分，並以合規檢查器、出站鎖定設定檔與憑證代理予以強制。
-- **身分層。** ScopeGate **沒有**呼叫者驗證步驟——它根據操作員政策授權 `(tool, args)`，但將主體／工作階段視為既定。aiAuthZ 增加了**對人類傳送者逐則訊息進行 HMAC 身分驗證**；其相較僅參數基線的 9/9 對 4/9 優勢，正是該層的測量價值：它能阻擋純參數政策看不見的身分冒充（非 owner 宣稱具 owner 權限）。合併閱讀這兩個頁面，可以框住設計空間——*ScopeGate = 參數層級授權、框架內；aiAuthZ = 參數層級授權 + 逐則訊息身分、主機外。*
+- **共同核心。**兩者都是確定性、預設拒絕的**逐次呼叫**授權閘門，具備引數層級允許清單、模型無法讀取或修改的頻外政策、微秒級延遲，且決策不涉及 LLM。兩者也有相同的兩種殘餘風險：個別獲准的呼叫串接後形成不希望的結果；以及值政策無法限制的*合法可變*引數遭到污染。aiAuthZ 自己的**純引數消融基線，形狀基本等同 ScopeGate**（也就是沒有身分層的引數閘門）。
+- **邊界所在位置。**ScopeGate 是**框架內的 PDP/PEP**；其作者主張，只要每次造成副作用的呼叫都經過 PEP，且政策位於頻外，安全性便不受部署位置影響（SDK 中介軟體、loopback sidecar 或輸出閘道皆可）。aiAuthZ 以測量結果直接反駁這個主張：當執行環境保留重疊的內建 shell／檔案／網路工具時，「模型透過內建工具完成敏感動作，從未查詢閘道」——處理程序內的 PEP 與攻擊者透過模型影響的部分共享同一信任網域。因此 aiAuthZ 將**獨立信任網域**列為關鍵設計要件，並以符合性檢查器、鎖定輸出的設定檔與憑證代理強制落實。
+- **身分層。**ScopeGate **沒有**呼叫者驗證步驟——它會依據操作員政策授權 `(tool, args)`，但將主體／工作階段視為既定資訊。aiAuthZ 加上**真人寄件者逐則 HMAC 身分驗證**；相較於純引數基線，9/9 對 4/9 的差距正是該層實測出的價值：它能阻擋純引數政策看不見的身分冒充（非 owner 冒稱具有 owner 權限）。合起來看，這兩頁界定了設計空間的範圍——*ScopeGate = 框架內的引數層級授權；aiAuthZ = 引數層級授權 + 逐則身分驗證，並在主機外執行。*
 
-## 標準化路線上的對應方案（OpenID AuthZEN / COAZ）
+## 軸線上的第三個位置：多跳、逐步收窄的委派（2026-08）
 
-aiAuthZ 是已部署的研究閘道；**OpenID Foundation 的 AuthZEN Working Group** 正將相同的逐次授權邊界標準化為可互通的設定檔。AuthZEN 的 **Authorization API 1.0** 定義了 **Subject-Action-Resource-Context（SARC）** 允許／拒絕決策介面，aiAuthZ 的主機外閘道目前以臨時方式實作了這個介面；新近核准的 **COAZ** Working Group Draft（2026-06-15）則將 **MCP 工具呼叫映射到 SARC**，使任何相容的 PDP——例如和 aiAuthZ 完全相同的 API／AI 閘道——都能在呼叫點授權工具呼叫。雙方重疊之處是**參數層級政策**；AuthZEN/COAZ 沒有標準化 aiAuthZ 的獨特部分：**對人類傳送者逐則訊息進行 HMAC 身分驗證**（也沒有標準化主機外的獨立信任網域要求）——這些仍是 aiAuthZ 自身的貢獻。**AARP** 草案是可恢復核准步驟的標準對應方案：它不是對超過門檻的行動終止拒絕，而是定義「還不行——這是必要前置條件」的交握（泛化 CIBA），由人或自動化治理系統在政策重新決策前滿足條件。以上都是**提議中的**互通性標準（`practitioner-opinion`、Working Group *Drafts*），在重疊部分其權重低於 aiAuthZ 的 `empirical` 測量；完整討論請見 [AIMS](/articles/agent-identity-management-system)。
+aiAuthZ 與 [ScopeGate](/articles/capability-gating-vs-authorization) 界定了單一代理程式工具呼叫的*邊界位置*。Dantuluri 與 Sundi 的代理服務（[Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)，arXiv 2609.00267，`empirical`，**VotalAI COI——見下方層級說明**）補上兩頁都尚未涵蓋的軸線：**權限本身為何物，以及它如何跨越多次委派跳轉。**它的 PEP 和 aiAuthZ 閘道一樣在模型外部運作，但它判斷的不是「這些引數值是否允許？」而是「這份憑證是否已收窄、綁定至出示它的工作負載、未過期、未撤銷，且可追溯至真人授權？」
 
-## 它做不到的事（限制）
+**兩個系統在對方的測試套件中都約得 0 分，這正是有用的發現。**本頁已記錄 aiAuthZ 的 RQ3 結果：**Agent Identity Protocol 風格的委派權杖設計，在 9 個 Agents of Chaos 案例中阻擋 0 個**，因為「*單獨使用時範圍不符——委派不含引數政策*」。對照來看：在自己的威脅測試中，代理服務擋下 **4 項中的 4 項**，而 bearer 執行環境一項都擋不住；論文指出，其中三項——權杖遭竊／重放、跨跳權限升級，以及子代理遭入侵——「*在單跳閘門中沒有對應情況*」。兩項結果並未推翻彼此，因為它們衡量的是不同事物。論文明確說明兩者如何組合，而這也是本組文章正確的解讀方式：
 
-作者明確說明、值得延續注意的事項：
+> *「即使政策引擎能正確判斷偽造、重放或權限過廣的委派憑證，仍會授權錯誤的主體。」*代理服務「*提供經收窄並綁定寄件者的權限，再由 FORGE 或 Progent 等政策引擎評估。*」
 
-- **它不是提示注入偵測器或內容防護欄。** 注入文字按設計會通過輸入；防禦在於注入文字無法改變與工作階段綁定的身分。它與 Llama Guard／Constitutional Classifiers 互補，而不是替代品。
-- **繞過問題是部署義務，而非系統屬性。** 保留重疊內建工具的執行環境會在未諮詢閘道的情況下行動；合規檢查器／出站鎖定／代理可以關閉這條路徑，但每一項都是操作員的選擇。
-- **不可否認性的取捨。** 逐則訊息身分使用**對稱式** HMAC（快速、微秒級），因此稽核能向操作員證明真實性，卻**不能向第三方證明**——閘道持有金鑰，原則上可以鑄造有效標記。對需要防止操作員否認的部署，作者提出非對稱簽署模式作為擴充。
-- **沒有與程序內防禦進行正面比較。** 比較對象是兩個最接近的同期設計（OAP、AIP）的*縮減設定*，不是針對 [CaMeL 或 Progent](/articles/out-of-band-prompt-injection-defense) 的效用匹配基準測試。主機外信任邊界是否能在兩種設計共享的參數政策**之外**帶來可測量的安全差異，明確留作下一步——這正是來源場域限制應持續提醒我們的缺口。
+因此，這個知識庫逐篇論文拼出的堆疊如下：**下層是工作負載身分與逐步收窄的委派**（哪個主體持有何種權限，且權限可證明地在每一跳縮小）→ **逐則真人身分**（aiAuthZ，確認這項權限來自哪一輪對話）→ **逐次呼叫的值授權**（ScopeGate，確認*這些引數*是否允許）。每一層的殘餘風險都由下一層處理，而且三層全部在模型之外強制執行。
+
+**這對本頁的成本討論有何影響，又沒有說明什麼。**代理服務每次授權耗時 **約 2.6 µs**（每秒約 3.9×10⁵ 次決策），每次權杖交換耗時 **約 5.4 µs**，各自以筆記型電腦上的 2×10⁵ 次以上呼叫測量——與 aiAuthZ 本機決策的 0.008–0.026 ms 在同一量級，也得出相同結論（相較於模型推論，治理成本微不足道；真正的成本在營運）。**效益**是相對於 **bearer 委派**測量，而不是相對於處理程序內檢查：在 bearer 委派下，遭入侵的子代理可觸及全部 8,100 個環境動作；使用代理服務後，平均只能觸及 1.5 個。這個基線選擇正是它**無法回答**下方「信任邊界溢價」問題的原因——它比較的是*權限已收窄與未收窄*，而非*主機外與處理程序內的強制執行*。
+
+**證據層級與利益衝突。**代理服務測量屬於 `empirical`，但本頁每次引用都應附上兩項限定：兩位作者都任職於 **VotalAI**，而 §8 用兩頁介紹該公司的商業產品 **LLM Shield**（其正式環境數據——呼叫前檢查約 2 ms、護欄模型檢查約 190 ms——屬於 `vendor-claim`，不能視為證據）；此外，受評估的實作是一個**約 160 行、未公開釋出的標準函式庫示範程式**，只針對抽象工具／資源動作模型，沒有即時模型參與。aiAuthZ 已釋出程式碼與逐字記錄；ScopeGate 則在具名提交版本釋出 Apache-2.0 成品。以**可重現性**而言，這篇論文的排名低於兩者；但在本語料庫中，沒有其他研究測量過其多跳效果。
+
+## 消融邊界：簽章代表來源，不代表許可（Safin 等人，2026-09）
+
+aiAuthZ 的 RQ3 測得，不含引數政策的委派權杖設計只能阻擋 **0/9** 案例。Safin、Zisad、Shatabda 與 Hasan（BRAC University／UAB；[arXiv 2609.17648](https://arxiv.org/pdf/2609.17648)，IEEE CARS 2026，`empirical`，小規模）以元件消融的方式做了相同比較，不過他們測的是多代理管線內部的一跳，而非真人到代理程式的邊界。由四個代理程式組成的 LangGraph 管線（確定性的 Supervisor → Researcher → Validator → Executor，gemma4:31b-cloud，溫度 0）操作一個含 1,000 個 Enron 訊息標頭的 SQLite 儲存區。Executor 只有在請求同時帶有**HMAC 簽署、綁定任務且只能使用一次的權杖**，並通過獨立的**政策 oracle**依據提議動作及資源範圍重新判定權限後，才會接受請求。在記憶體污染攻擊中，Validator 被替換成一個會偽造核准的例程；由於它持有簽署金鑰，也能為偽造的核准簽發有效權杖。
+
+圖 2（單一隨機種子，每種條件 n = 60；已檢視）：沒有邊界時，不安全動作率為 **100%**；只有權杖檢查時仍是 **100%**；只有政策 oracle 或兩者皆有時則為 **0%**。論文自己的解讀是：*「簽章授權的是來源，而非許可；只有簽章的系統會繼承持有金鑰者的權限。」*作者保留了權杖的其他用途（防偽、任務綁定，以及防範沒有金鑰的攻擊者重放），並明確表示本研究並未評估這些用途。
+
+兩項來自不同設置、沒有共同設計點的發現，如今指向相同結論。aiAuthZ 的委派權杖因不含引數政策，在 9 個案例中一項也擋不住。Safin 等人的簽署權杖因攻擊者持有金鑰，也一項都擋不住。兩者之中，真正提供遏制效果的都是代理程式無法改寫、並針對提議動作進行評估的政策。這使政策層位於上方多跳章節所述堆疊的最上層。憑證確認*是誰*提出要求，只有政策能決定*可以發生什麼事*。
+
+**這些數字說明了什麼，沒說明什麼。**作者提出四項注意事項：
+
+- **100% 的判斷繞過率是由測試設計決定的。**遭污染的例程會直接寫入核准結果，不會呼叫模型。結果顯示授權層能遏止已遭入侵的驗證者，但沒有證明 LLM 審查者被騙了。
+- **0% UAR 代表執行忠實度，不代表發現能力。**預設政策直接複製每個任務的正確標籤，因此 0% 顯示的是已提供的政策有被落實。手寫的最小權限允許清單（將 13 種動作類型映射至允許的範圍、不使用標籤資訊，並與標籤 60/60 相符）也能提供相同遏制效果。由於兩項政策都由同一組人撰寫，作者將其稱為「實作非循環性的證據，而非政策正確性的客觀證明」。就下文本頁所提的政策制定問題而言，這是小規模證據，並未回答該問題。
+- **規模。**一個模型、一個框架、一種固定拓撲、60 個任務、3 個隨機種子，且消融只在單一隨機種子上執行。
+- **未測試的變數。**信任網域與身分都未納入。Executor 與其政策共用管線的處理程序，也沒有將真人主體納入模型。因此這項研究測量的是*政策與簽章的差別*，沒有比較*主機外與處理程序內*；下文的信任邊界溢價問題仍未解答。
+
+## 標準化工作對應方案（OpenID AuthZEN／COAZ）
+
+aiAuthZ 是已推出的研究閘道；**OpenID Foundation 的 AuthZEN Working Group** 正將相同的逐次授權邊界制定為可互通設定檔。AuthZEN 的 **Authorization API 1.0** 定義了**主體－動作－資源－上下文（SARC）**允許／拒絕決策介面；aiAuthZ 的主機外閘道以非標準方式實作了這套介面。新近獲准的 **COAZ** Working Group Draft（2026-06-15）將 **MCP 工具呼叫映射至 SARC**，讓任何相容的 PDP——例如與 aiAuthZ 完全相同的 API／AI 閘道——都能在呼叫發生時授權工具呼叫。兩者的共同點是*引數層級政策*；AuthZEN／COAZ **沒有**標準化 aiAuthZ 獨有的**真人寄件者逐則 HMAC 身分驗證**（也沒有主機外的獨立信任網域要求），這些仍是 aiAuthZ 自身的貢獻。**AARP** 草案是可恢復核准步驟的標準對應方案：對超過門檻的動作，它不會直接終止並拒絕，而是定義「尚未——以下是前置條件」的交握流程（將 CIBA 一般化），由真人或自動化治理系統滿足前置條件後，再交由政策重新判定。這些都是**提議中的**互通標準（`practitioner-opinion`、Working Group **草案**），在重疊部分的權重低於 aiAuthZ 的 `empirical` 測量；完整討論見 [AIMS](/articles/agent-identity-management-system)。
+
+## 它不做什麼（限制）
+
+作者明確陳述、值得延續保留的限制如下：
+
+- **它不是提示注入偵測器或內容護欄。**注入文字依設計會通過入口；防禦方式是注入文字無法改變綁定至工作階段的身分。它與 Llama Guard／Constitutional Classifiers 互補，而非取代它們。
+- **封住繞過途徑是部署義務，不是產品本身的性質。**若執行環境保留重疊的內建工具，就會在未查詢閘道的情況下採取動作；符合性檢查器／輸出鎖定／憑證代理可以封住這些途徑，但每一項都取決於操作員的選擇。
+- **不可否認性取捨。**逐則訊息身分使用**對稱式** HMAC（快速、微秒級），因此稽核能向操作員證明訊息真實性，卻**無法向第三方證明**——閘道持有金鑰，理論上可以自行產生有效標記。作者列出非對稱簽署模式，作為需要防止操作員否認時可採用的擴充。
+- **沒有與處理程序內防禦進行直接比較。**比較對象是兩種最接近、同期設計（OAP、AIP）的**簡化設定**，不是與 [CaMeL 或 Progent](/articles/out-of-band-prompt-injection-defense) 進行效用相當的基準測試。主機外信任邊界是否能在共同的引數政策之外，帶來可測量的安全差異，被明確列為後續工作——這也是閱讀會議品質限定時應記住的缺口。
 
 ## 相關連結
 
-- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — **姊妹頁面與主機外對應方案**：兩者都是共享相同殘餘風險的確定性逐次授權閘門，但 ScopeGate 是沒有身分層的框架內 PDP/PEP，而 aiAuthZ 是主機外、身分綁定的閘道；兩者框住「授權邊界在哪裡？」這條軸線，而 aiAuthZ 的僅參數消融基線基本上就是 ScopeGate 的形狀（上文有詳細比較）
-- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — 同一家族（在模型外以確定性監視器強制執行安全性），並推到最強的部署位置：aiAuthZ 把閘門移入代理無法觸及的**獨立信任網域**；CaMeL/FIDES/Progent/RTBAS/FORGE 則在程序內執行。它共享允許呼叫組合的限制，也如作者所承認，缺少與該程序內家族的效用匹配正面比較
-- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — **不同粒度的互補方案**：該頁面的基石將身分綁定到*代理／工作負載*；aiAuthZ 將身分綁定到*每則訊息的人類傳送者*，並從最近驗證的人類回合推導呼叫權限——這是讓「無法歸屬主體的呼叫不能被授權」變成無法由文字偽造的具體機制
-- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system) — **標準層與具體系統**：AIMS（WIMSE/SPIFFE 身分 + OAuth／交易權杖委派）標準化*工作負載*身分與委派權限；aiAuthZ 是已部署的閘道，逐則訊息驗證*人類使用者*，並可將 AIMS 發行的身分作為政策中的服務／主體輸入——兩者可組合，但粒度不同（AIMS 將身分綁定到工作負載／工作階段／權杖；aiAuthZ 綁定到每則使用者訊息）。同一頁也收錄 **OpenID AuthZEN** 草案：**COAZ**（MCP 呼叫→SARC 授權設定檔）是 aiAuthZ 逐次呼叫閘門的*提議標準*版本，而 **AARP** 是必要條件／核准模式——這是補足 AIMS IETF 身分／委派堆疊的授權切片（提議中的 Working Group 草案，其權重低於 aiAuthZ 的測量）
-- [Least Agency](/articles/least-agency) — **逐次呼叫、身分範圍粒度的最小代理權**：角色 + 參數 + 速率政策就是「限制每個工具能做什麼、多久能做一次、以及在哪裡做」，在主機外強制執行，並在每次呼叫重新錨定到已驗證的人類；它回答了該頁面關於如何對抗遭操縱代理、驗證提權請求的開放問題（將權限綁定到加密身分，而不是代理宣稱的文字）
-- [Blast Radius (Agentic)](/articles/blast-radius) — 主機外的爆炸半徑控制：閘道限制*受騙代理*在每個路由呼叫中能做的事（「它阻止受騙模型採取超出已驗證使用者權限的行動」），而憑證代理不在代理主機上留下可竊取的長期祕密
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — aiAuthZ 在**授權層**削弱的威脅：它不會停止注入（文字會通過輸入），但能確保注入文字「不會賦予權限」；當攻擊者是與目前使用者不同的主體時，這一點尤其關鍵
-- [Agent Data Injection (ADI)](/articles/agent-data-injection) — **共享同一種殘餘風險**：aiAuthZ 的身分綁定能擊敗不同主體的偽造（非 owner 宣稱具 owner 權限），但 ADI 風格的、偽造目前使用者合法採取行動所依據資料的攻擊，會在使用者自身權限下觸發，只能由參數／速率政策限制——這與 Progent（22.2%）及 ScopeGate 的價值閘門所留下的是同一類可合法變動資料遭竄改風險
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 這是框架第 4 階段（防禦注入）+ 第 5 階段（保護工具存取）的具體實例，將「假設已遭入侵」貫徹到底：信任邊界畫在代理*周圍*，閘道是通往敏感工具的唯一已驗證路徑（hub）
-- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test) — 一種移除能力（而非增加摩擦）的控制：工具邊界上的確定性拒絕會*移除*超出已驗證權限行動的能力，而不是節流——不可能，而不只是繁瑣（hub）
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization)——**相關頁面，也是主機外對應方案**：兩者都是確定性的逐次呼叫授權閘門，且面對相同的殘餘風險；但 ScopeGate 是沒有身分層的框架內 PDP/PEP，aiAuthZ 則是主機外、綁定身分的閘道。兩者界定了「授權邊界在哪裡？」這條軸線的範圍，而 aiAuthZ 的純引數消融基線基本等同 ScopeGate 的設計（詳見上文比較）
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)——屬於相同家族（在模型外部以確定性監測器強制執行安全政策），並推進到最徹底的部署位置：aiAuthZ 將閘道移至代理程式無法觸及的**獨立信任網域**；CaMeL／FIDES／Progent／RTBAS／FORGE 則在處理程序內強制執行。它同樣受限於多次獲准呼叫串接後形成不希望結果的問題；作者也承認，尚未與這個處理程序內家族進行效用相當的直接比較
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication)——**不同粒度下的互補方案**：該頁的核心機制將身分綁定至*代理程式／工作負載*；aiAuthZ 則將身分綁定至*每則訊息的真人寄件者*，並依據最近一次經驗證的真人對話輪次推導呼叫權限——這是讓「無法歸屬主體的呼叫，就不能授權」成為無法以文字偽造的具體機制
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)——**多跳測量的完整介紹也在此頁**（Dantuluri 與 Sundi，arXiv 2609.00267，`empirical`，VotalAI COI）：這是首次遭到攻擊並計數的 AIMS 風格組合，也是本頁閘道之下的層——代理服務在每一跳簽發受限於子任務、綁定至接收端 SVID、有效期短的權杖，並在模型外的 PEP 強制執行。其第 12 項邊界測試揭示了兩頁共同依賴的假設：「*若攻擊者能出示受害者的 SVID，遭竊的權杖就能運作*」——寄件者限制的效果取決於工作負載身分證明的強度，而這正是 aiAuthZ 的主機外信任邊界和憑證代理也試圖提供的保障（見上方比較）
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)——**標準化層與具體系統的比較**：AIMS（WIMSE／SPIFFE 身分 + OAuth／交易權杖委派）標準化*工作負載*身分及委派權限；aiAuthZ 則是已推出的閘道，逐則驗證*人類使用者*身分，也可以將 AIMS 簽發的身分作為政策的服務／主體輸入——兩者可組合，處理的粒度不同（AIMS 將身分綁定至工作負載／工作階段／權杖；aiAuthZ 綁定至每則使用者訊息）。同一頁也介紹 **OpenID AuthZEN** 草案：**COAZ**（將 MCP 呼叫映射至 SARC 的授權設定檔）是 aiAuthZ 逐次呼叫閘門的*提議標準*版本；**AARP** 則規範前置條件／核准模式——這是補足 AIMS 的 IETF 身分／委派堆疊的授權部分（Working Group 提案草案，權重低於 aiAuthZ 的測量結果）
+- [Least Agency](/articles/least-agency)——**逐次呼叫、限定身分範圍的最小代理權限**：角色 + 引數 + 速率政策可限制「每種工具能做什麼、多久能做一次，以及在哪裡執行」，並在主機外強制執行，每次呼叫都重新錨定至已驗證的真人；它回答了該頁提出的開放問題：如何在代理程式遭操控時驗證權限提升請求（將權限綁定至密碼學身分，而非代理程式聲稱的文字）
+- [Blast Radius (Agentic)](/articles/blast-radius)——主機外限制爆炸半徑：閘道限制遭欺騙的代理程式每次路由呼叫能做的事（「避免受騙的模型超出已驗證使用者的權限行動」），而憑證代理不會在代理程式主機上留下可供竊取的長期秘密
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection)——aiAuthZ 在**授權層**緩解的威脅：它不會阻止注入（文字仍會通過入口），但能確保注入文字「不會賦予任何權限」；當攻擊者與目前使用者是不同主體時，效果具有決定性
+- [Agent Data Injection (ADI)](/articles/agent-data-injection)——**面對相同殘餘風險**：aiAuthZ 的身分綁定可防止**不同主體**偽造（非 owner 冒稱 owner），但 ADI 風格的偽造若作用於*目前使用者合法操作的資料*，仍會在使用者自身權限下觸發，只有引數／速率政策能限制——這與 Progent（22.2%）及 ScopeGate 值閘門仍無法處理的「合法可變資料遭污染」類型相同
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)——具體落實此架構的第 4 階段（防範注入）與第 5 階段（保護工具存取），並照字面落實「假設已遭入侵」：信任邊界畫在代理程式**外圍**，閘道是通往敏感工具的唯一驗證路徑（hub）
+- [Impossible, Not Tedious (Design Test)](/articles/impossible-not-tedious-test)——移除能力、而非增加摩擦的控制：在工具邊界確定性地拒絕，會**移除**超越已驗證權限採取動作的能力，而非只是加以限流——讓動作不可能，而非僅僅麻煩（hub）
+- [MCP and Computer Use](/articles/mcp-and-computer-use)——**COAZ 設定檔所涵蓋的通訊協定，以及該通訊協定自身授權所到達的邊界。**MCP authz rev. 2026-07-28 會限制權杖的受眾、在用戶端模型外驗證並輪替權杖——這也解釋了為何 Dantuluri 與 Sundi 評分的四種執行環境中，只有它能得到任何分數；但它不會在呼叫時判斷引數值是否允許。本頁閘道會在主機外做出這項判斷，而 COAZ 會將其映射至 SARC。兩者可組合而非互相競爭：一個決定誰可以連線到伺服器，另一個決定連線後的呼叫可以做什麼
+
+- [Guarantees That Degrade at Deployment: Action-Space Soundness, Admissibility Without Effect, and a Vendor-Coupled Security Framework](/articles/guarantees-that-degrade-at-deployment)——本頁發現內建工具可繞過閘道（「*模型透過內建工具完成敏感動作，從未查詢閘道*」），這為移動後的動作列舉保證提供完整性前提：只有當執行環境端的合法集合是唯一途徑時，才能構成保證，因此符合性檢查器是部署義務，而非產品本身的性質
 
 ## 開放問題
 
-- **信任邊界溢價尚未測量。** aiAuthZ 主張主機外優於程序內，但其自身比較只針對僅參數／委派權杖消融，而非與 CaMeL 或 Progent 進行效用匹配的正面比較。獨立信任網域是否能在共享參數政策**之外**帶來可測量的安全性——作者點名的下一步，也是單一作者預印本限制應保留開放的核心問題？
-- **大規模政策由誰撰寫？** 如同 ScopeGate，主機外政策（角色允許清單、路徑／URL／收件者限制、上限）由操作員撰寫並在頻道外運作。同一個撰寫負擔問題也適用：為大型工具表面維護已驗證集合，是否會使控制只能適用於高風險工具？
-- **不可否認性缺口。** 對稱式 HMAC 能提供面向操作員的真實性，卻不能提供第三方不可否認性；若要部署提議中的非對稱模式，是否仍能維持使閘道具吸引力的微秒級延遲，或金鑰管理會侵蝕成本優勢？
-- **目前使用者的殘餘風險。** 逐則訊息身分只有在攻擊者是**不同**主體時才具決定性。在目前 owner 自身權限下觸發的注入，只能由參數／速率政策限制——與每個價值閘門相同的限制。除了來源／資料流追蹤（[CaMeL Strict](/articles/out-of-band-prompt-injection-defense)）之外，什麼能關閉**這一半**的風險？
+- **信任邊界溢價尚未測量。**aiAuthZ 主張主機外優於處理程序內，但它自己的比較只涵蓋純引數／委派權杖消融，沒有與 CaMeL 或 Progent 進行效用相當的直接比較。獨立信任網域是否能在共同的引數政策之外帶來可測量的安全效益？這是作者指出的後續工作，也是單一作者預印本的注意事項應保持開放的核心問題。**2026-08 的代理服務論文（[Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267) 沒有回答這個問題**，即使乍看之下它似乎可以：它的 R8 將與模型無關的強制執行視為關鍵設計要件，也測量成本（每次決策約 2.6 µs，每次交換約 5.4 µs）與效益（平均 1.5 個可達動作，對比全部 8,100 個）；但其**比較基線是 bearer 委派，而非處理程序內檢查**，所以它定價的是權限收窄與否，主機外對比處理程序內的問題仍原封不動。這個問題要求的效用相當直接比較目前仍不存在。
+- **微秒級強制執行已在三項研究中、針對抽象動作模型測量。**ScopeGate、aiAuthZ 與 2026-08 的代理服務都回報微秒至亞毫秒級決策時間，而且三者都是針對簡化的動作表示進行決策——`(tool, args)`、角色／路徑／URL 政策，或工具／資源 tuple。代理服務論文也將落差列為其自身內部效度的威脅：「*正式環境的 PEP 必須忠實地將真實工具呼叫映射至此模型*」；而本組文章唯一的正式環境數字，是供應商自有閘道在呼叫前檢查需時**約 2 ms**。PEP 若必須解析真實 MCP JSON-RPC 呼叫、將引數對應到政策物件，並在映射失敗時預設拒絕，強制執行成本是否仍微不足道？還是延遲與錯誤其實來自映射層，而非決策本身？
+- **規模擴大後由誰撰寫政策？**和 ScopeGate 一樣，主機外政策（角色允許清單、路徑／URL／收件者限制、上限）由操作員撰寫，並設於頻外。同樣需要面對政策制定負擔問題：在龐大的工具範圍中維護已驗證集合，是否會使這種控制只能用在高風險工具上？
+- **不可否認性缺口。**對稱式 HMAC 能向操作員證明訊息真實性，卻無法提供第三方不可否認性；提議的非對稱模式能否在使閘道具吸引力的微秒級延遲內部署？還是金鑰管理會侵蝕成本優勢？
+- **目前使用者權限下的殘餘風險。**只有當攻擊者與目前使用者是**不同主體**時，逐則訊息身分才有決定性效果。在目前 owner 自身權限下觸發的注入，只有引數／速率政策能限制——這是所有值閘門共同的限制。除了來源／資料流追蹤（[CaMeL Strict](/articles/out-of-band-prompt-injection-defense)）之外，還有什麼辦法能補上這一半的防護？
 
 ## 資料來源
 
-- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*…advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`（提議中的 Working Group **Drafts**，不是已批准的規格；權重低於 aiAuthZ 的 `empirical` 測量）。aiAuthZ 主機外逐次呼叫閘門的標準化對應方案：AuthZEN Authorization API 1.0（SARC 允許／拒絕）、COAZ（MCP 呼叫 → SARC 設定檔）、AARP（泛化 CIBA 的必要條件／核准模式）；不標準化 aiAuthZ 的逐則訊息人類身分或主機外信任邊界
-- [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518) — Sai Varun Kodathala，*aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents*，arXiv 2607.05518，2026 年 7 月，`empirical`（單一作者預印本，SportsVision AI）。§1（問題：使用工具的模型依據不受信任文字行動；程序內權限系統會與程序一起遭入侵；Agents of Chaos 動機——7/11 案例是身分／授權失敗）、§2（三種主體；信任邊界；範圍內／外威脅；表 1 標準對應）、§3（逐則訊息 HMAC 身分 + 兩個綁定；三道閘門的主機外政策；雜湊鏈稽核 + 加密抹除；簽署 QR 收據；關閉繞過路徑）、§4（FastAPI/MCP 實作，58 個測試）、§5（評估：表 2 的 15 模型拒絕率 100%→38% + 殘餘率在 ≤0.03 ms 時降至 0%；表 3 Agents-of-Chaos 案例；§5.4 RQ3 的 9/9 對 4/9 對 0/9；表 4 AgentDojo 銀行；表 5 長上下文；表 6 收據 94%／0 偽造；表 7 即時 MCP）、§6（限制：繞過、組合、不可否認性取捨、沒有 CaMeL/Progent 正面比較）、§7（相關工作：OAP/AIP 同期研究、程序內 CaMeL/Progent/IsolateGPT、SPIFFE/OAuth/ETDI 工作負載身分、guardrail、浮水印）。依照影像兩遍規則檢視圖 1、4、5、6；docling 的連在一起的圖說只是外觀問題，且與表格一致。
+- [Trust propagation and structural containment in Multi-agent LLM pipelines](https://arxiv.org/pdf/2609.17648) — Safin、Zisad、Shatabda 與 Hasan（BRAC University／University of Alabama at Birmingham），*Trust propagation and structural containment in Multi-agent LLM pipelines*，arXiv 2609.17648，2026-09-15，IEEE CARS 2026，`empirical`（小規模：一個模型、60 個任務、3 個隨機種子；授權消融只使用單一隨機種子；無利益衝突）。此處引用 §IV-C（兩種政策 oracle 模式）、§V-B 與圖 2（由持有金鑰的攻擊者發動攻擊時，僅權杖、僅政策及 T1 的差異；已檢視圖表，與文中描述相符）、§V-C（獨立的最小權限政策）及 §V-E（效度威脅）。完整管線結果見 [Blast Radius (Agentic)](/articles/blast-radius)
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*…advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`（提議中的 Working Group **草案**，尚非正式核定規格；權重低於 aiAuthZ 的 `empirical` 測量）。這是 aiAuthZ 主機外逐次呼叫閘門的標準化工作對應方案：AuthZEN Authorization API 1.0（SARC 允許／拒絕）、COAZ（MCP 呼叫 → SARC 設定檔）、AARP（將 CIBA 一般化的前置條件／核准模式）；未標準化 aiAuthZ 的真人逐則身分驗證或主機外信任邊界
+- [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267) — Dantuluri 與 Sundi（**兩人皆任職於 VotalAI**），*Delegation Without Trust*，arXiv 2609.00267，2026-08-31，`empirical`（**供應商利益衝突；受評估實作為約 160 行、未公開的示範程式；框架稽核中只有 LangGraph 列執行**）。此處引用 §3–§4（四種委派威脅及 R1–R8）、§7.1–§7.3（代理服務設計、11 項設計攻擊、獨立 0/200,000 模糊測試、2,000 種情境的爆炸半徑、約 2.6 µs／約 5.4 µs 的額外成本，以及第十二項邊界測試），及 §12（作者將其定位為 Progent／FORGE／PAuth／AC4A 之下的「政策引擎憑證層」）。完整討論見 [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)
+- [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518) — Sai Varun Kodathala，*aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents*，arXiv 2607.05518，2026 年 7 月，`empirical`（單一作者預印本，SportsVision AI）。§1（問題：使用工具的模型依據不受信任文字行動；處理程序內的權限系統會隨處理程序一同遭入侵；Agents of Chaos 動機——11 個案例中有 7 個屬於身分／授權失敗）；§2（三種主體、信任邊界、納入／排除範圍的威脅、表 1 標準對照）；§3（逐則 HMAC 身分與兩項綁定、三道主機外政策閘門、雜湊鏈稽核與密碼學抹除、簽署 QR 收據、封住繞過途徑）；§4（FastAPI／MCP 實作、58 項測試）；§5（評估：表 2，15 個模型拒絕率由 100% 降至 38%，殘餘攻擊成功率降至 0%，增加延遲不超過 0.03 ms；表 3 Agents of Chaos 案例；§5.4 RQ3 的 9/9 對 4/9 對 0/9；表 4 AgentDojo banking；表 5 長上下文；表 6 收據 94%／偽造 0 次；表 7 即時 MCP）；§6（限制：繞過、組合效應、不可否認性取捨、沒有與 CaMeL／Progent 直接比較）；§7（相關研究：同期 OAP／AIP、處理程序內 CaMeL／Progent／IsolateGPT、SPIFFE／OAuth／ETDI 工作負載身分、護欄、浮水印）。依圖片雙階段規則檢視圖 1、4、5、6；docling 將圖說連在一起只是外觀問題，內容與表格相符。

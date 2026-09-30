@@ -1,72 +1,85 @@
 ---
 date: 2026-05-13
-title: 無編碼器早期融合
-description: "以最少前處理進行多模態設計，而非使用大型獨立編碼器：TML 在單一 transformer 中共同訓練 dMel 音訊 + 40×40 patch hMLP + flow head，延遲達 200ms；Gemma 4 的 12B 為了裝置端記憶體，獨立捨棄 305M 音訊 conformer——兩個實驗室、兩種動機、相同結論，代價則是經測量的密集文字視覺退化"
+title: 不使用編碼器的早期融合
+description: "以最少前處理進行多模態設計，而非使用大型獨立編碼器：TML 在單一 transformer 中共同訓練 dMel 音訊、40×40-patch hMLP 與 flow head，延遲為 200ms；Gemma 4 的 12B 獨立地捨棄 305M 音訊 conformer，以節省裝置端記憶體；Inkling 將此設計延伸至 975B 開放權重規模；Kimi K3 在 2.8T 規模保留 401M MoonViT-V2 encoder，並在影像密集文字辨識上領先整個語料庫——而 Tuna-2 終於補上同規模比較組：僅有 patch embedding 的 7B 在 12 項理解基準中有 10 項勝過搭載 SigLIP 的同型模型（也在 OCRBench 勝出，消除了密集文字方面的疑慮），但生成表現較差；而且只有在 backbone 大於 1.5B，且完成約 3T 預訓練 token 中的 2T 之後才如此"
 tag: Concept
 domain: interaction-multimodal
 tags:
   - llm-architecture
   - multimodal
-readingTime: 6
-imageAlt: 無編碼器早期融合插圖
+readingTime: 25
+imageAlt: 不使用編碼器的早期融合示意圖
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
   - title: Gemma 4 Technical Report
     url: https://arxiv.org/pdf/2607.02770
+  - title: "Inkling: Our Open-Weights Model"
+    url: https://thinkingmachines.ai/news/introducing-inkling/
+  - title: Kimi K3 Model Card
+    url: https://huggingface.co/moonshotai/Kimi-K3
+  - title: "Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal
+      Understanding and Generation"
+    url: https://arxiv.org/pdf/2604.24763
+  - title: "Toward Native Multimodal Modeling: A Roadmap"
+    url: https://arxiv.org/pdf/2605.25343
 ---
 export { default as heroImage } from "../assets/encoder-free-early-fusion.webp";
 
 ## 資料來源
 
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770)
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343)
+- [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763)
 
 ## 摘要
 
-[互動模型](/articles/interaction-models)中的一項多模態設計選擇：不把音訊與視訊送進大型、獨立的編碼器（也不透過獨立的類 TTS 解碼器輸出音訊），而是採用**最少前處理**與一個**單一 transformer**，讓所有元件從頭共同訓練。「無編碼器」是相對而言的——仍有輕量的嵌入層——但沒有 Whisper 規模的音訊編碼器，也沒有獨立的 TTS 模型。
+這是 [Interaction Models](/articles/interaction-models) 中的一項多模態設計選擇：不將音訊和影片送入大型獨立編碼器（再透過另一個類似 TTS 的解碼器輸出音訊），而是採用**最少前處理**，並使用從頭開始共同訓練所有元件的**單一 transformer**。「不使用編碼器」是相對而言——仍有輕量 embedding 層——但沒有 Whisper 規模的音訊編碼器，也沒有獨立的 TTS 模型。
 
-## 元件（一次 200ms 微回合）
+## 元件（每個 200ms micro-turn）
 
 輸入（文字／畫格／音訊的任意子集）：
-- **文字** → token embedding（標準）。
-- **影像／視訊畫格** → 切分成 **40×40 patches**，由 **hMLP** 編碼（[Touvron et al. 2022](https://arxiv.org/abs/2203.09795)）。
-- **音訊** → 以 **dMel** 輸入（[Bai et al. 2024](https://arxiv.org/abs/2407.15835)），再由輕量嵌入層（「embedding bag」）轉換。
+- **文字** → token embedding（標準做法）。
+- **影像／影片畫格** → 切分為 **40×40 patches**，由 **hMLP** 編碼（[Touvron et al. 2022](https://arxiv.org/abs/2203.09795)）。
+- **音訊** → 以 **dMel** 輸入（[Bai et al. 2024](https://arxiv.org/abs/2407.15835)），再由輕量 embedding 層（「embedding 袋」）轉換。
 
-單一共享的 **Transformer** 消化融合後的輸入。
+單一共用的 **Transformer** 接收融合後的輸入。
 
 輸出：
-- **文字** → unembedding（標準）。
-- **音訊** → 產生 mel 的 **flow head**（[Lipman et al. 2022](https://arxiv.org/abs/2210.02747)）。
+- **文字** → unembedding（標準做法）。
+- **音訊** → **flow head**（[Lipman et al. 2022](https://arxiv.org/abs/2210.02747)）產生 mel。
 
 **所有元件都與 transformer 一起從頭共同訓練**——不是把預訓練編碼器／解碼器拼接起來。
 
-## 為何重要
+## 為什麼重要
 
-- 避免大型獨立編碼器／解碼器的延遲與複雜度——當你每 200ms 都必須執行一次時尤其重要（見[時間對齊微回合](/articles/time-aligned-micro-turns)）。
-- 早期融合（所有內容進入同一個 transformer）意味著模型能跨模態共同推理，而不是只處理已由編碼器消化的輸出——這是「一邊說話、一邊對視覺提示做出反應」等能力的先決條件（見[全雙工互動](/articles/full-duplex-interaction)）。
-- 從頭共同訓練符合[苦澀教訓](/articles/the-bitter-lesson)：減少人手設計的模組邊界，增加端到端學習。
+- 避免大型獨立編碼器／解碼器的延遲與複雜度——每 200ms 就必須執行一次時尤其重要（見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）。
+- 早期融合（所有內容進入同一個 transformer）表示模型會跨模態共同推理，而不是只處理編碼器預先消化的輸出——這是邊說話邊對視覺線索做出反應等能力的先決條件（見 [Full-Duplex Interaction](/articles/full-duplex-interaction)）。
+- 從頭共同訓練符合 [The Bitter Lesson](/articles/the-bitter-lesson)：減少人工設計的模組邊界，讓端到端學習發揮更多作用。
 
 ## 獨立佐證：Gemma 4 12B（2026 年 7 月）
 
-上述設計原本只建立在單一來源與單一實驗室之上。[Gemma 4](/articles/gemma-4)（`empirical`）從無關的起點得到相同架構——而這是更有趣的一致，因為兩者的*動機*不同。
+上面的設計依據單一來源、單一實驗室。[Gemma 4](/articles/gemma-4)（`empirical`）從不相關的出發點得出相同架構——而這類共識更值得關注，因為背後的*動機*不同。
 
-TML 移除編碼器，是為了達到 **200 ms 延遲預算**。DeepMind 移除編碼器，則是為了**記憶體**：在邊緣硬體上「減輕對獨立編碼器的需求，並降低記憶體碎片化」。結論相同，理由正交。當兩個以不同目標最佳化的實驗室都收斂到刪除同一元件時，該元件可能並非承重元件。
+TML 移除編碼器，是為了達到 **200 ms 延遲預算**。DeepMind 移除編碼器，則是為了節省**記憶體**：「減輕對獨立編碼器的需求，並減少邊緣硬體上的記憶體碎片化」。結論相同，理由彼此獨立。當兩個以不同目標最佳化的實驗室都決定刪除同一元件，該元件大概就不是不可或缺的。
 
-Gemma 4 12B 的實作：
+Gemma 4 12B 的實作方式：
 
-- **視覺。** 將 48×48×3 RGB patches 通過**單一 35M 矩陣乘法**，取代 550M ViT。在最後一個 LayerNorm 之前，將以 2D 座標為基礎的位置嵌入加入 patch 表徵。
-- **音訊。** 305M、以 USM 為基礎的 conformer 被**完全捨棄**。原始 16 kHz 音訊被切成 40 ms 的區塊——每個是 640 維向量——再直接投影到 LLM 嵌入空間。完全不加入位置編碼：音訊本來就是時間序列。
+- **視覺。** 48×48×3 RGB patches 經由**單一 35M 矩陣乘法**處理，取代 550M ViT。在最終 LayerNorm 之前，會將以 2D 座標為基礎的位置 embedding 加到 patch 表徵上。
+- **音訊。** 305M、以 USM 為基礎的 conformer **完全捨棄**。原始 16 kHz 音訊切成 40 ms 區塊——每個是 640 維向量——再直接投影到 LLM embedding 空間。完全不加入位置編碼：音訊本身已是時間序列。
 
-Table 8 就是證據。無編碼器的 12B 在英文 FLEURS ASR 上達到 **0.063 WER**，在 CoVoST de→en 上達到 **41.9 CorpusBLEU**；相較之下，擁有編碼器的 E4B 分別為 0.065 與 42.0。依這些數字來看，丟掉 305M conformer 沒有付出任何代價。DeepMind 自己的說法是：「不需要專用音訊編碼器，也能達到具競爭力的音訊文字效能。」
+Table 8 是證據。無編碼器的 12B 在英文 FLEURS ASR 達到 **0.063 WER**，在 CoVoST de→en 達到 **41.9 CorpusBLEU**；搭載編碼器的 E4B 則分別為 0.065 和 42.0。就這些數字而言，丟掉 305M conformer 毫無代價。DeepMind 自己的說法是：「不需要專用音訊編碼器，也能達到具競爭力的音訊文字表現。」
 
-### 報告未提及的兩項保留
+### 報告未提及的兩項但書
 
-**這不是受控消融實驗。** 無編碼器模型是**12B**；有編碼器的比較對象是**具 4.5B 有效規模的 E4B**。12B 擁有更多 LLM 容量，可以吸收被捨棄編碼器原本負責的工作。*「不使用編碼器仍可達到具競爭力的效能」*這項主張獲得支持。更強的主張——*「移除編碼器不需付出代價」*——在論文任何地方都沒有測試；同規模的對照組就能定案，但並未執行。
+**這不是受控消融實驗。** 無編碼器模型是 **12B**；搭載編碼器的比較對象則是有效規模 **4.5B** 的 E4B。12B 有更多 LLM 容量，可以承接原本由捨棄的編碼器處理的工作。論文支持「不使用編碼器也能達到具競爭力的表現」這項主張；但並未在任何地方測試更強的主張——「移除編碼器不花任何代價」；要確認這點，應比較相同規模的模型，而論文並未這麼做。（如今不同實驗室已有相同規模的比較組，而且只涵蓋視覺——見下方 Tuna-2 章節。結果比「沒有代價」更有力：在 7B 規模下，無編碼器比較組理解表現更好，生成表現更差。）
 
-**確實存在經測量的退化，而且很具體。** 將視覺 token 從 1120（Table 6）削減至 280（Table 12）後，12B 的退化程度**不符合規模排序**：
+**存在經測量的退步，而且情況很特定。** 將視覺 token 從 1120（Table 6）減至 280（Table 12），12B 的退化幅度**不符合規模排序**：
 
-| 模型 | InfographicVQA Δ | OmniDocBench 1.5 Δ（↓ 越好） |
+| Model | InfographicVQA Δ | OmniDocBench 1.5 Δ（↓ 越好）|
 |---|---|---|
 | 31B | −9.2 | +0.070 |
 | 26B-A4B | −11.5 | +0.120 |
@@ -74,29 +87,123 @@ Table 8 就是證據。無編碼器的 12B 在英文 FLEURS ASR 上達到 **0.06
 | E4B | −15.2 | +0.126 |
 | E2B | −19.3 | +0.206 |
 
-12B 的跌幅比比它更大與更小的模型都嚴重——這是整個家族唯一違反排序的成員，而它也是唯一的無編碼器成員。這個效應侷限於**影像中的密集文字**任務：MMMU Pro（−1.4）與 MATH-Vision（−3.0）的退化則符合正常情況。一種合理解讀是，35M 線性投影不進行特徵壓縮，因此模型必須把解析度花在 ViT 原本會花參數的地方。如此一來，讀取小字就受 token 預算限制。
+12B 的退步比比它大、也比它小的模型都嚴重——這是整個系列唯一違反排序的案例，而且它也是唯一不使用編碼器的成員。這種影響僅出現在**影像中的密集文字**任務：MMMU Pro（−1.4）和 MATH-Vision（−3.0）的退化程度符合常態。一種合理解讀是，35M 的線性投影不會壓縮特徵，因此模型必須提高解析度，補上 ViT 原本用參數處理的部分。讀取小字因此會受 token 預算限制。
 
-如果這個解讀正確，無編碼器並非免費——它**用視覺 token 換取編碼器參數**，這是[推理成本](/articles/inference-efficiency-as-capability)的取捨，而不是節省。報告既未回報，也未評論這項反轉。
+若這種解讀正確，不使用編碼器就不是免費的——而是**以視覺 token 換取編碼器參數**，屬於[推論成本](/articles/inference-efficiency-as-capability)的取捨，而非單純節省。報告既未呈現也未評論這種反轉。（部分結論已於 2026-09-21 被 [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) 更新：同規模 7B 消融顯示，僅使用投影的路徑在 OCRBench 領先，因此密集文字不必然需要編碼器。參數換 token 的解讀仍可解釋 Gemma 4 為何**恰好在 280 tokens** 時出現斷崖式退步——Tuna-2 從未掃描 token 預算，因此無論哪種解釋，機制都尚未測試。Tuna-2 確認的是另一種並非免費的代價：無編碼器比較組需要額外的 masking objective，而且在約 2T token 以前或 1.5B backbone 上表現較差。）
 
-## 相關連結
+## 第三個實例：975B 規模的 Inkling（2026 年 7 月）
 
-- [互動模型](/articles/interaction-models) — 父概念
-- [時間對齊微回合](/articles/time-aligned-micro-turns) — 為何最少前處理是硬性要求（200ms 預算）
-- [互動／背景模型分離](/articles/interaction-background-model-split) — 架構的另一半
-- [全雙工互動](/articles/full-duplex-interaction) — 聯合多模態推理正是視覺＋音訊插話成為可能的原因
-- [苦澀教訓](/articles/the-bitter-lesson) — 「從頭共同訓練，捨棄模組化編碼器」是苦澀教訓式的做法
+[Inkling](/articles/inkling)（`vendor-claim`）把這項設計從 276B 研究預覽版和 12B 邊緣模型，延伸到 **975B 開放權重基礎模型**：音訊使用 dMel 頻譜圖，影像使用 40×40 像素 patches，並經過四層 hMLP；兩者都透過輕量 embedding 層「與文字 token 一起處理」，以一般領域資料從頭訓練——TML 明確表示這種選擇「符合互動模型設計」。由於與第一個實例出自同一實驗室，這是規模延伸，而非新的獨立佐證；但它回答了前兩個實例留下的問題：當預算足以採用任何架構時，不使用編碼器的輸入是否仍然可靠？TML 表示 Inkling 是最強大的開放權重音訊模型之一（VoiceBench 91.4、MMAU 77.2、AudioMC 56.6；它所比較的開放全能專家模型為 24–38），在圖表／圖解視覺理解上也表現出色（CharXiv RQ 78.1）。三個實例仍都沒有提供同規模的使用編碼器／不使用編碼器消融——下方的開放問題依然成立。
+
+## 反例：Kimi K3 在 2.8T 規模保留編碼器（2026 年 7 月）
+
+前三個實例看法一致；第四個資料點則提出異議，而且它是四者中規模最大的模型。[Kimi K3](/articles/kimi)（`vendor-claim`）是**由 401M MoonViT-V2 視覺編碼器搭載的 2.8T/104B 開放 MoE**——一個專用的獨立視覺塔，在沒有外力迫使其做出選擇的規模下仍刻意保留。它不是有記憶體上限的邊緣模型，也不是受延遲限制的互動模型；Moonshot 有足夠預算採用任何架構，卻選擇了本文所記錄的、其他實驗室正逐漸放棄的架構。
+
+關鍵比較在於它*在哪裡*勝出。不使用編碼器的 12B 唯一經測量的退步，是**影像中的密集文字**——InfographicVQA 下滑 29.7 分，也是該系列唯一違反規模排序的案例——提出的解釋是，僅投影的路徑不會壓縮特徵，因此必須用解析度補足參數。K3 在本語料庫中恰好是這類任務表現最強的模型：**OmniDocBench 91.1**，在其自身 45 組模型比較表中名列第一（高於 [Fable 5](/articles/claude-fable-5) 的 89.8）；在 **OfficeQA Pro** 上則達 63.3，該測試的設定是「每個測試案例都會提供完整 PDF 語料庫，所有 PDF 都以影像呈現，且不提供機器可讀文字」。同時，它在視覺感知與推理基準上*落後*於 Fable 5（WorldVQA 51.0 vs 56.7、BabyVision 85.7 vs 90.5、CharXiv 84.8 vs 88.9）——這與「編碼器只是提供通用視覺能力」的預期剛好相反。
+
+**這項證據應該讓你改變多少看法：不多；理由值得直接說明，而不是急著下定論。** 這不是下方第一個開放問題要求的同規模消融實驗，而是不同實驗室、不同規模、不同訓練語料，以及供應商自己的數據。這些資料沒有顯示移除 MoonViT-V2 會讓 K3 損失任何表現，Gemma 4 的資料也沒有顯示加入編碼器就能挽救其 12B。四個實例共同確立的結論，比「不使用編碼器就是贏家」更有限，也更有用：**在約 1T 的前沿規模，這個領域尚未形成共識。** TML 在 975B 移除編碼器，Moonshot 則在 2.8T 保留編碼器，而且兩者在同一個月都回報了出色的視覺表現。應把「不使用編碼器是趨勢」視為兩家實驗室的觀察（[TML](/articles/thinking-machines-lab) 與 [DeepMind](/articles/google-deepmind)），而非整個領域的定論。
+
+有一項不對稱的觀察仍成立：這裡每個不使用編碼器的實例都同時移除了*音訊*編碼器，而 K3 完全沒有音訊路徑（只有文字和影像）。不使用編碼器最有力的證據——Gemma 4 的 Table 8 顯示捨棄 305M conformer 只讓 WER 差了 0.002——來自音訊，而 K3 並未對此提出異議。
+
+## 終於有同規模比較組：7B 規模下的 Tuna-2 與 Tuna-R（2026 年 4 月）
+
+上述每個實例都是拿無編碼器模型與*另一個*模型比較——規模不同、實驗室不同，或訓練流程不同。**Tuna-2**（Liu et al.，Meta FAIR + HKU + Waterloo，arXiv 2604.24763，`empirical`）是本語料庫中第一個執行下方開放問題所要求之比較組的來源：兩個統一多模態模型，**唯一差異**在視覺路徑中是否採用預訓練視覺編碼器。
+
+- **Tuna-R**——Qwen2.5-7B-Instruct decoder + **SigLIP 2 So400M** 表徵編碼器 + connector（LLaVA 架構，且 VAE 已移除）。
+- **Tuna-2**——相同的 Qwen2.5-7B-Instruct decoder，在原始像素上使用 **patch size 16 的單一 patch embedding 層**，除此之外沒有其他元件。沒有 VAE、沒有表徵編碼器，只有一個 transformer。
+
+兩者都能做理解和像素空間影像生成（rectified-flow、採用 JiT 風格 x-prediction 並搭配 v-loss），因此單一消融實驗涵蓋了設計的兩個部分。
+
+**哪些條件相同。** 第一階段預訓練：使用相同的 550M 內部影像文字配對資料，生成與理解的抽樣比例為 7:3（`7g3u`，比例本身也是透過消融選定），並以 Nemotron 文字資料佔混合資料的 20%；在 **64 個節點訓練 300k steps**，AdamW 設為 1×10⁻⁴，每個 GPU 的序列補齊至 16k tokens；預訓練最後 40% 階段使用 masking objective（50% 範例，mask ratio 隨機取樣自 0–50%）。第二階段 SFT：使用相同語料（13M FineVision 對話 + 約 2M OmniEdit 編輯資料），以 2×10⁻⁵ 訓練 50k steps。基準套件與測試流程也相同。
+
+**哪些條件不同——而且三項不對稱都對使用編碼器的一方有利。**
+
+1. Tuna-R 多了**約 400M 個參數**（SigLIP 2 So400M）和一個 connector。兩列都標示為「7B」；無編碼器模型其實是較小的那一個。
+2. Tuna-R 多了一個**Tuna-2 沒有的訓練階段**：第一階段之前，以 5×10⁻⁴ 進行 3k connector 對齊步驟。論文的說法是，無編碼器設計「不需要這個額外階段」。
+3. 計算量是以 **steps** 而非 FLOPs 或視覺 token 數量匹配。兩個比較組的視覺 token 數都沒有報告，而且 patch-16 像素路徑和 SigLIP 路徑產生的序列長度不同。此處的「同規模」是指 backbone 和資料相同，並非計算量相同。
+
+讀取表格前，還應先說明第四項限制：`Tuna` 這一列**引用自較早論文**，並非重新執行的結果，因此只有 **Tuna-R ↔ Tuna-2 配對**是乾淨的受控比較。Tuna 是參考點，而非第三個比較組。
+
+**結果（Table 1；所有數值均從 `pdftotext -f 6 -layout` 還原——docling 解析完全漏掉這些列，詳見 Sources 的解析警告）。**
+
+| Benchmark | Tuna（VAE + 編碼器） | Tuna-R（編碼器） | **Tuna-2（無編碼器）** | 與 Tuna-R 的差異 |
+|---|---|---|---|---|
+| GQA | 63.9 | 63.5 | **65.0** | +1.5 |
+| RealWorldQA | 66.1 | **67.9** | 67.7 | −0.2 |
+| MMVet | 42.9 | 46.7 | **51.7** | **+5.0** |
+| MMMU | 49.8 | **51.1** | 50.7 | −0.4 |
+| MMVP | 70.7 | 74.7 | **77.3** | +2.6 |
+| SEED-Bench2+ | 52.7 | 58.4 | **61.1** | +2.7 |
+| AI2D | 79.3 | 79.4 | **79.6** | +0.2 |
+| **ChartQA** | **85.8** | 85.6 | 85.6 | 0.0 |
+| **OCRBench** | 74.3 | 78.3 | **79.7** | **+1.4** |
+| V* | 52.4 | 57.6 | **59.2** | +1.6 |
+| CountBench | 73.5 | 77.8 | **81.7** | **+3.9** |
+| VisuLogic | 22.4 | 26.2 | **28.8** | +2.6 |
+
+在 backbone 和資料相同的條件下，**無編碼器模型有 10 項中的 12 項勝出**，而且模型規模更小、少一個訓練階段。輸掉的兩項分別只差 0.2 和 0.4 分。最大進步正是摘要所提到的細粒度感知（MMVet +5.0、CountBench +3.9、SEED-Bench2+ +2.7、MMVP +2.6）。
+
+**密集文字方面的預測並未重現。** 上方 Gemma 4 章節預測，僅投影的視覺路徑本身就應該在 InfographicVQA 出現斷崖式退步。但在同規模比較中，無編碼器模型在每一項密集文字基準上都*名列第一或並列第一*：OCRBench **79.7 vs 78.3**、AI2D 79.6 vs 79.4、ChartQA 85.6 vs 85.6。兩項但書意味著這不能算是乾淨的反駁。基準套件**不含 InfographicVQA、DocVQA 或 OmniDocBench**——也就是 Gemma 4 的 12B 退步最明顯的基準；更重要的是，**沒有視覺 token 數量測試**：Gemma 4 的 −29.7 只在 token 從 1120 降到 280 時出現，而 Tuna-2 全程只用一種 token 預算。因此被推翻的是強版本的說法（「僅投影路徑本質上不擅長處理密集文字」）；本文提出的 token 預算機制仍未受到影響，也未經測試。
+
+**生成表現則呈現相反方向，而且結果一致。** 語意先驗在有幫助之處，編碼器就能帶來優勢：
+
+- GenEval overall：Tuna 0.90 / Tuna-R 0.88 / **Tuna-2 0.87**。DPG-Bench overall：86.76 / 86.35 / **86.54**。
+- ImgEdit total：Tuna 4.31 / Tuna-R 4.18 / **Tuna-2 4.09**——無編碼器模型在三者中墊底。
+- 對 1.5K 個提示詞、每個提示詞生成 4 張影像進行 LLM-judge 三選一比較（Table 3）：在**品質**方面，兩個評審都認為 Tuna-2 落後於 Tuna-R（GPT-5.4 為 32.1% vs 35.7%；Claude Opus 4.7 為 34.8% vs 37.2%）；但在**多樣性**方面，Tuna-2 以明顯差距勝出（48.4% vs 30.9%；41.9% vs 29.9%）。
+- 輕量微調後的影像重建（ImageNet val）：Tuna-R 的 rFID **0.12**／PSNR 32.22，Tuna-2 的 rFID 0.15／PSNR **32.80**，兩者 SSIM 都是 0.93——在統一 tokenizer 中排名第一，完全不使用 VAE，表現已接近 FLUX.1[dev] 的 VAE（0.06 / 33.65 / 0.93）。
+
+**「達到規模」指的是訓練規模，不是模型規模——而小規模比較組的結果正好相反。** Figure 6 繪出準確率與**訓練 token 數（0T → 3T）**的關係。在早期階段，Tuna-R 在三項理解基準上都領先；OCRBench 約在 **2T tokens** 時交叉（在 1T→3T 的區間中，Tuna-R 約為 71.5 → 71.5，Tuna-2 約為 65.7 → 73.2），V* 情況相似，MMVP 則稍早交叉。在 GenEval 上，Tuna-R 在**整個**預訓練期間都領先，直到 SFT 後兩者才趨於一致。Table 6 的消融結果正好與此相反：使用 **Qwen-2.5-Instruct-1.5B** backbone 訓練 100k steps 時，無編碼器模型樣樣落敗：OCRBench 56.8 vs 59.2、MMVP 55.7 vs 58.0、CountBench 57.6 vs 58.2、GenEval **48.2 vs 56.0**。因此研究發現不是「不使用編碼器就會贏」，而是**「backbone 夠大且預訓練 token 夠多時，不使用編碼器才會贏；低於這個門檻就會輸。」** 編碼器提高了樣本效率，而這項優勢會逐漸折舊。
+
+**Masking objective 對無編碼器模型特別關鍵。** 同一個 Table 6 比較開啟與關閉 masking：Tuna-R 的增益為 +0.9 / +1.3 / +1.0 / +0.3（OCRBench / MMVP / CountBench / GenEval）；Tuna-2 則增加 **+1.4 / +3.4 / +4.2 / +0.6**。作者的解釋是，SigLIP 2 本來就使用 masked-prediction objective 預訓練，因此 Tuna-R 已經內建此能力。實際上的解讀是：移除編碼器並非毫無代價——還得額外加入一項訓練目標，才能補回編碼器提供的部分能力。
+
+**論文的「state-of-the-art」說法掩蓋了一項校準資訊。** 這項主張指的是 SOTA *限於 ≤13B 的原生統一模型*，並非所有 7B 多模態模型。在 Table 1 的比較列中，僅用於理解的 **Qwen2.5-VL 7B 在 12 項基準中的 8 項勝過 Tuna-2**（OCRBench 83.7 vs 79.7、V* 71.2 vs 59.2、MMMU 58.6 vs 50.7、MMVet 61.7 vs 51.7、SEED-Bench2+ 70.5 vs 61.1、AI2D 82.7 vs 79.6、RealWorldQA 69.9 vs 67.7、MMVP 78.0 vs 77.3）；Tuna-2 只在 GQA、ChartQA、CountBench 和 VisuLogic 領先。移除編碼器在*統一模型*設計內有所幫助，但不表示統一模型是讀取影像的最佳方法。
+
+**這對上方各頁的結論。** 這是**僅限視覺、僅限影像**的結果：Tuna-2 完全沒有音訊路徑，因此最有力的無編碼器證據（[Gemma 4](/articles/gemma-4) 的音訊 Table 8）既未獲得佐證，也未被反駁。規模也只有 **7B**，遠低於 TML 和 Moonshot 出現分歧的約 1T 規模。而且兩個比較組都是從**預訓練文字 LLM** 起步，並非從頭訓練——正因如此，它對下方第三個問題具有決定性。
+
+## 一項新定義讓本文標題分成兩個概念（2026 年 5 月）
+
+[An, Lu, Dong et al.](/articles/native-multimodal-taxonomy)（Tencent Youtu Lab + 5 所大學，arXiv 2605.25343，`practitioner-opinion`）是本語料庫中第一個以正式定義而非舉例說明「原生」的來源——但這項定義並不符合本文一直以來使用「early fusion」的方式。
+
+這份調查的分類軸線是**tokenization 發生在哪裡**，而不是有沒有編碼器：
+
+- **Mid-fusion**——`Backbone(C(E₁(m₁), …, Eₙ(mₙ)))`，將編碼器特徵透過 cross-attention 或 adapter 運算子 `C` 注入 backbone 的中間層。這種架構會因應模態而異，編碼器在架構上與 backbone 不同。*是否可訓練與分類無關：*即使 mid-fusion 模型中的編碼器完全解凍，它仍然是 mid-fusion。
+- **Early-fusion**——`Transformer(⋃ᵢ T(mᵢ))`，使用一個統一的 tokenization 運算子 `T`，從一開始就把所有模態映射到同一個共用空間。
+
+調查並未用「無編碼器建模」來命名上述任一架構。它出現在低兩個層級：這是**M2M 模態特異性保留**陣營為化解**理解與生成兩難**而採用的兩種策略之一，另一種是「實體解耦」——例如 Janus-Pro 的理解／生成分離編碼器，以及 BAGEL 的 Mixture-of-Transformer-Experts。調查列出的無編碼器實例是 **Tuna-2 和 SenseNova-U1**。依照這種解讀，本文一直在同一個標題下主張兩件事：*移除編碼器*（參數配置選擇，也是以上各節實際測量的內容），以及*早期融合*（tokenization 路徑選擇，以上各節都沒有單獨檢驗）。`T` 完全可以是學得的離散 tokenizer；Chameleon／AnyGPT／Emu3.5 正是調查列出的典型 early-fusion 模型，因為它們採用 codebook——與原始 patch 投影位於設計空間的另一端。這是定義更精確了，並非研究發現；調查沒有測量任何事物。
+
+**這份調查中有兩處缺漏值得記錄，因為它是一份普查。** Gemma-4 的列出模型是 **31B 和 E4B**，而它把 Gemma-4-31B 歸類為*以視覺編碼器為基礎的融合*——**承載本文最有力證據的 12B——捨棄 305M conformer 的模型——完全沒有出現在 Table 1 或分類圖中。** 因此，這份調查既未佐證也未反駁 Gemma 4 的音訊結果；它整理的是該系列的另一部分。互動模型系列也完全沒有出現（[TML-Interaction-Small](/articles/tml-interaction-small)、[Inkling](/articles/inkling)），因為這份普查僅收錄開源模型與技術報告，且要求「架構與參數透明度經過驗證」。
+
+這份調查確實補上了一項有實質意義的資訊：其 Table 1 將 **Tuna-2 記為 continuous**（沒有離散統一星號），這與上方同組比較的結果一致，也排除了「Tuna-2 的優勢來自量化，而非移除編碼器」這種解讀。
+
+## 延伸閱讀
+
+- [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy) — 正式定義將*early-fusion*（一個 tokenizer 映射到一個空間）和*無編碼器建模*（M2M 模態特異性保留中的一項策略）區分開來；其普查未收錄無編碼器的 Gemma-4 12B
+- [Interaction Models](/articles/interaction-models) — 上位概念
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — 為什麼最少前處理是硬性要求（200ms 預算）
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 架構的另一部分
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 跨模態共同推理使視覺與音訊插話成為可能
+- [The Bitter Lesson](/articles/the-bitter-lesson) —「從頭共同訓練，移除模組化編碼器」是苦澀教訓式的做法
 - [TML-Interaction-Small](/articles/tml-interaction-small) — 實作此設計的模型（dMel 音訊、40×40 hMLP patches、flow head），從頭共同訓練
-- [Gemma 4](/articles/gemma-4) — 第二個獨立實例：直接捨棄其 305M 音訊 conformer 的 12B 開放權重模型
-- [推理效率即能力](/articles/inference-efficiency-as-capability) — DeepMind 的動機是記憶體而非延遲；而密集文字退化暗示，節省其實是參數換 token 的取捨
-- [開放權重前沿差距](/articles/open-weight-frontier-gap) — 移除編碼器是讓小型 dense 模型仍能競爭的槓桿之一
+- [Gemma 4](/articles/gemma-4) — 第二個獨立實例：一個直接完全捨棄 305M 音訊 conformer 的 12B 開放權重模型
+- [Inkling](/articles/inkling) — 第三個實例：在 975B 開放權重規模採用此設計，理由是符合互動模型的設計方向
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — DeepMind 的動機是記憶體而非延遲；密集文字方面的退步也暗示，節省的其實是參數換 token
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — 移除編碼器是小型 dense 模型得以參與競爭的手段之一
+- [Kimi (Moonshot AI)](/articles/kimi) — 反例：保留 401M MoonViT-V2 編碼器的 2.8T 模型，在密集文字影像任務上領先整個語料庫；無編碼器的 12B 正是在這些任務上退步
 
 ## 開放問題
 
-- **在匹配規模下，無編碼器模型仍能匹敵嗎？** 兩個來源都沒有執行這項消融。TML 從頭共同訓練所有內容；Gemma 4 在四個模型上凍結編碼器、在一個模型上移除編碼器，而且規模不同。
-- 密集文字退化是投影式視覺路徑的內在特性，還是 12B 特定訓練執行的產物？這項預測可以證偽：無編碼器 31B 應在 280 tokens 下呈現相同的 InfographicVQA 斷崖。
-- TML 同時刪除編碼器，並從頭共同訓練。Gemma 4 同時刪除編碼器，並從頭訓練 12B，但在其他地方保留凍結的編碼器。「無編碼器 + 從頭開始」的哪一半真正發揮作用？
+- **同規模下，無編碼器模型仍能匹敵嗎？** TML 從頭共同訓練所有元件；Gemma 4 在四個模型上凍結編碼器、只在一個模型上移除編碼器，且規模不同；[Kimi K3](/articles/kimi) 在 2.8T 保留 401M 編碼器，並在密集文字視覺任務上領先。**[Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) 已於 2026-09-21 提供部分解答：**就*視覺*而言，在 7B 規模下使用相同 backbone（Qwen2.5-7B-Instruct）和相同資料，無編碼器模型不只是追平，表現還更好：在 12 項理解基準中，有 10 項勝過搭載編碼器的同型模型（MMVet +5.0、CountBench +3.9、OCRBench +1.4），而且參數少約 400M、少訓練一個階段；只有在 RealWorldQA（−0.2）和 MMMU（−0.4）落敗。這個問題仍有三個未解之處。消融實驗**只有影像**——Tuna-2 沒有音訊路徑，而原始證據真正所在之處是音訊：移除 305M conformer，WER 只差 0.002。規模只有 **7B**，比兩家實驗室意見分歧的規模小了整整一個數量級。生成方面，搭載編碼器的模型仍然勝出（GenEval 0.88 vs 0.87、ImgEdit 4.18 vs 4.09，以及兩個評審對品質的評價），所以「匹敵」只適用於理解，不適用於生成。
+- 密集文字的退化是僅投影視覺路徑的固有現象，還是 12B 特定訓練流程造成的？這項預測可以被證偽：無編碼器的 31B 應該在 280 tokens 時也出現相同的 InfographicVQA 斷崖式退步。**[Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) 已於 2026-09-21 提供部分解答**，可分三部分評估。*問對了方向：*這個問題正確地質疑斷崖式退步是否只源自 12B 的訓練流程，也正確地把視覺路徑的表徵方式視為變因——7B 同規模比較正好隔離了這個變因，並得到明確結果。*預測錯誤：*「僅投影路徑本質上就有問題」這一支。與搭載編碼器的同型模型相比，patch-16 僅投影路徑在每一項密集文字基準上都**最佳或並列最佳**（OCRBench 79.7 vs 78.3、AI2D 79.6 vs 79.4、ChartQA 85.6 vs 85.6），因此閱讀密集文字並不需要編碼器。*理由不對，方向卻對：*本文提出的機制——投影不會壓縮特徵，因此必須用解析度補足參數，使密集文字受**token 預算限制**——仍未受到影響，因為 Tuna-2 只用一種 token 預算，從未掃描其變化，基準套件也不含 InfographicVQA、DocVQA 或 OmniDocBench。如今要判定此機制的證偽測試範圍更小、成本更低：對任何無編碼器模型進行視覺 token 數量測試，而非訓練 31B 模型。
+
+## 已解決問題
+
+- TML 移除編碼器**並**從頭共同訓練。Gemma 4 移除編碼器，且 12B 是從頭訓練；但其他模型仍保留凍結的編碼器。「無編碼器 + 從頭訓練」兩項條件中，究竟是哪一項發揮作用？**已於 2026-09-21 解答：**至少對視覺路徑而言，發揮作用的是不使用編碼器，而且兩項條件可以分開。[Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) 的**兩個比較組**都以預訓練文字 LLM（Qwen2.5-7B-Instruct）初始化，因此沒有任何部分是從頭訓練；即便如此，無編碼器模型仍在 12 項理解基準中的 10 項勝過搭載編碼器的同型模型。因此，從頭共同訓練**並非**無編碼器優勢的先決條件。兩項補充資訊不會讓問題重開，但界定了適用範圍：這項優勢有規模條件，在 100k steps 的 1.5B backbone 上完全反轉（OCRBench 56.8 vs 59.2、GenEval 48.2 vs 56.0），而且約要等到 3T 預訓練 tokens 中的 2T 才會出現；移除編碼器還得付出額外 masking objective 的代價，無編碼器模型從中得到 +1.4/+3.4/+4.2，搭載編碼器模型則得到 +0.9/+1.3/+1.0。
 
 ## 資料來源
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
-- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.3（無編碼器架構）、Table 8（無編碼器的音訊）、Tables 6 & 12（280 與 1120 視覺 token 的退化）(`empirical`)
+- [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — §2.3（無編碼器架構）、Table 8（無編碼器音訊）、Tables 6 和 12（280-vs-1120 視覺 token 退化）（`empirical`）
+- [Inkling: Our Open-Weights Model](https://thinkingmachines.ai/news/introducing-inkling/) — 975B 規模的 dMel + 4 層 hMLP、一般領域從頭訓練、音訊／視覺基準表（`vendor-claim`）
+- [Kimi K3 Model Card](https://huggingface.co/moonshotai/Kimi-K3) — §2 規格表（MoonViT-V2、401M、2.8T/104B 規模；模態為文字+影像）、§3 視覺資料（OmniDocBench 91.1、WorldVQA、CharXiv、BabyVision）及註腳 3（OfficeQA Pro 僅以影像提供 PDF 語料）（`vendor-claim`）——反例
+- [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) — Liu et al.（Meta FAIR + HKU + Waterloo；arXiv 2604.24763，v1 2026-04-27，PDF v2 2026-05-18；`empirical`）——**同規模比較組**。§2.1 三種架構階層（Tuna → Tuna-R → Tuna-2）、§2.2 masking objective、§3.1 兩個比較組共用的訓練方式以及兩項差異（SigLIP 2 So400M；3k 步驟的 connector 對齊階段）、§3.2 + Table 1 的 12 項基準理解比較、Tables 2–5 的生成／編輯／重建結果、§3.4 + Table 6 的 1.5B masking 消融、§3.5 + Figure 6 的 0T→3T 訓練規模曲線。**本文慣例中的解析警告：**docling 對 **Table 1 的解析完全漏掉 Tuna／Tuna-R／Tuna-2 三列**，並把 LLaVA/Qwen 基準組折疊為一列多值資料（25 個標記儲存格）——本文 Table 1 和 Table 2 的所有數字都從本機 PDF 的 `pdftotext -f 6 -l 7 -layout` 還原；Tables 3–6 也以同樣方式重新閱讀，並與 docling 本文逐格相符。Figures 1、5、6 均已檢視；Figure 6 的交叉點是從圖中讀取，並非取自文字。**COI：**與供應商有關聯——由 Meta 作者打造其後勝出的以編碼器為基礎的對照組；數據為作者自行回報，單一隨機種子，沒有誤差範圍；Table 1 的比較基準取自原始論文
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343) — An, Lu, Dong et al.（**Tencent Youtu Lab** + Tsinghua/HKU/Warwick/Monash/PolyU；arXiv 2605.25343，2026-05-25；`practitioner-opinion`，52 頁）：§2.1 mid-fusion／early-fusion 運算子的定義、§3.3.2 將無編碼器建模列為 M2M 模態特異性保留中的一種策略、Table 1 的 Gemma-4-31B/E4B 資料列，以及 Tuna-2 沒有星號的（continuous）分類、Figure 4 中 Tuna-2 和 SenseNova-U1 的位置。本文僅採用其定義——調查沒有進行實驗，並在全文重述第三方結果。完整分析見 [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy)

@@ -1,55 +1,63 @@
 ---
 date: 2026-04-28
 title: Codex App Server Protocol
-description: "用於無頭 Codex session 的 JSON-RPC stdio 協定：initialize/initialized/thread-start/turn-start 握手、延續回合重用 thread_id、動態工具呼叫實現 token 隔離的工具注入"
+description: "透過 stdio 傳輸的 JSON-RPC 協定，用於無頭 Codex 工作階段：
+  initialize/initialized/thread-start/turn-start 握手、延續回合重用 thread_id、
+  動態工具呼叫可注入 token 隔離的工具；而自 MCP 規格於 2026-07-28 刪除工作階段與 initialize 握手後，
+  這兩種協定在狀態性上已分道揚鑣：MCP 不再採用工作階段語義，工作階段語義卻是此協定的全部核心"
 tag: Concept
-topic: harness
+domain: agent-systems
 tags:
   - protocol
   - codex
   - agent-runtime
   - integration
-readingTime: 7
-imageAlt: Codex App Server Protocol 的示意圖
+readingTime: 15
+imageAlt: Codex App Server Protocol 示意圖
 sources:
   - title: "An open-source spec for Codex orchestration: Symphony."
     url: https://openai.com/index/open-source-codex-orchestration-symphony/
-domain: agent-systems
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
+  - title: Codex App Server
+    url: https://developers.openai.com/codex/app-server/
 ---
 export { default as heroImage } from "../assets/codex-app-server-protocol.webp";
 
 ## 資料來源
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Codex App Server](https://developers.openai.com/codex/app-server/)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 
 ## 摘要
 
-一種基於 stdio 的行分隔 JSON-RPC 風格協定，讓外部編排器能以程式化方式驅動 Codex 程式碼 agent session。文件位於 [developers.openai.com/codex/app-server](https://developers.openai.com/codex/app-server/)，並在 [Symphony](/articles/symphony) 的 `SPEC.md` 中有詳細實作範例。編排器啟動 `codex app-server`（預設指令），完成啟動握手後串流回合事件直到回合終止。同一個 `thread_id` 可在多個 `turn/start` 請求間重複使用以實現延續，而**動態工具呼叫**允許編排器注入自訂工具（例如 `linear_graphql`），無需將憑證暴露給子 agent 容器。
+這是一種透過 stdio 傳輸、以行分隔的類 JSON-RPC 協定，讓外部協調器能以程式方式驅動 Codex 程式設計代理程式工作階段。文件見於 [developers.openai.com/codex/app-server](https://developers.openai.com/codex/app-server/)，而 [Symphony](/articles/symphony) 的 `SPEC.md` 則詳細示範了它的用法。協調器會啟動 `codex app-server`（預設命令）、交換啟動握手，接著持續接收回合事件，直到回合結束。多個 `turn/start` 請求會重用同一個 `thread_id` 以延續工作；**動態工具呼叫**則讓協調器能注入自訂工具（例如 `linear_graphql`），而不必將憑證暴露給子代理程式容器。
 
-## 細節
+## 詳細說明
 
-### 為何需要協定而非 CLI
+### 為什麼要用協定，而不是 CLI
 
-[Symphony](/articles/symphony) 直接指出了限制：試圖透過 CLI 或 tmux session 驅動 Codex 無法擴展到程式化編排。App Server 是「Codex 內建的無頭模式」，提供 JSON-RPC API 來執行啟動執行緒或回應回合等操作。編排器獲得：
+[Symphony](/articles/symphony) 直接指出這項限制：透過 CLI 或 `tmux` 工作階段驅動 Codex，無法擴展以支援程式化協調。App Server 是「Codex 內建的無頭模式」，提供 JSON-RPC API，可用來啟動執行緒或回應回合等操作。協調器可取得：
 
-- **程式化控制**執行緒生命週期，無需解析終端輸出。
-- **掛鉤**以注入自訂工具實作（動態工具呼叫）。
-- **結構化事件**以驅動可觀測性、重試邏輯和停滯偵測。
+- **程式化控制**執行緒生命週期，無須擷取終端機輸出。
+- 可注入自訂工具實作的**掛鉤**（動態工具呼叫）。
+- 可用於觀測、重試邏輯與停滯偵測的**結構化事件**。
 
 ### 啟動契約
 
-來自 Symphony 規格的子程序啟動參數：
+Symphony 規格中的子程序啟動參數：
 
-- **指令**：`codex.command`（預設：`codex app-server`）
+- **命令**：`codex.command`（預設：`codex app-server`）
 - **呼叫方式**：`bash -lc <command>`
-- **工作目錄**：每個 issue 的工作區路徑（啟動前驗證安全不變式 — `cwd == workspace_path`）
-- **Stdout/stderr**：分離的串流。**只有 stdout 是協定串流。** Stderr 僅供診斷 — 絕不將其解析為 JSON。
-- **框架**：行分隔 JSON，每行一則訊息。
-- **建議最大行大小**：10 MB。
+- **工作目錄**：每個議題各自的工作區路徑（驗證為安全不變條件——啟動前 `cwd == workspace_path`）
+- **Stdout/stderr**：分開的串流。**只有 stdout 是協定串流。** Stderr 僅供診斷使用——不可將其解析為 JSON。
+- **訊框格式**：以行分隔的 JSON，每行一則訊息。
+- **建議的最大行長度**：10 MB。
 
 ### 啟動握手
 
-必要的訊息順序，改寫自 Symphony 的說明性記錄：
+以下為依 Symphony 說明性逐字稿改寫的必要訊息順序：
 
 ```json
 {"id":1,"method":"initialize","params":{"clientInfo":{"name":"symphony","version":"1.0"},"capabilities":{}}}
@@ -58,28 +66,28 @@ export { default as heroImage } from "../assets/codex-app-server-protocol.webp";
 {"id":3,"method":"turn/start","params":{"threadId":"<thread-id>","input":[{"type":"text","text":"<rendered prompt>"}],"cwd":"/abs/workspace","title":"ABC-123: Example","approvalPolicy":"...","sandboxPolicy":{"type":"..."}}}
 ```
 
-注意事項：
+說明：
 
-1. `initialize` 請求 — `clientInfo` 和 `capabilities`。若目標 Codex 版本需要動態工具的能力協商，在此宣告。
-2. `initialized` 通知 — 在 `initialize` 回應後發送。
-3. `thread/start` — 建立執行緒上下文，包含核准策略、沙箱模式和 cwd。可選的客戶端工具規格（例如 `linear_graphql`）在此公告。
-4. `turn/start` — 第一個回合攜帶渲染後的提示詞；後續延續回合僅發送延續指引。
+1. `initialize` 請求——包含 `clientInfo` 和 `capabilities`。如果指定的 Codex 版本要求為動態工具協商能力，請在此處宣告。
+2. `initialized` 通知——在收到 `initialize` 回應後傳送。
+3. `thread/start`——建立執行緒脈絡，包含核准政策、沙箱模式與 cwd。可選擇在此宣告用戶端工具規格（例如 `linear_graphql`）。
+4. `turn/start`——第一個回合會帶上完整呈現後的提示；後續延續回合只傳送延續指引。
 
-**Session 識別碼組成**：
-- `thread_id` 來自 `thread/start` 結果（`result.thread.id`）
-- `turn_id` 來自每個 `turn/start` 結果（`result.turn.id`）
-- 發出的 `session_id` = `<thread_id>-<turn_id>`
+**工作階段識別碼組成**：
+- `thread/start` 結果中的 `thread_id`（`result.thread.id`）
+- 每個 `turn/start` 結果中的 `turn_id`（`result.turn.id`）
+- 產生的 `session_id` = `<thread_id>-<turn_id>`
 
 ### 延續回合（重用執行緒）
 
-一個不明顯但重要的特性：**延續回合在同一個存活的子程序上重用相同的 `thread_id`**，透過新的 `turn/start` 請求。第一個回合發送完整的渲染任務提示詞；後續回合僅發送延續指引，因為原始提示詞已在執行緒歷史中。
+一項重要但不太直觀的特性：**延續回合會在同一個執行中的子程序上，以新的 `turn/start` 請求重用相同的 `thread_id`**。第一個回合傳送完整呈現的任務提示；後續回合只傳送延續指引，因為原始提示已留在執行緒歷史中。
 
-Symphony 的 worker 邏輯：
-- 每個成功回合後，重新檢查追蹤器狀態。
-- 若 issue 仍為活躍狀態，在同一個 `threadId` 上發出另一個 `turn/start`，最多到 `agent.max_turns`（預設 20）。
-- 子程序在延續回合間保持存活 — 僅在 worker 執行結束時停止。
+Symphony 的工作者邏輯：
+- 每個回合成功後，重新檢查追蹤器狀態。
+- 如果議題仍在進行，就在同一個 `threadId` 上再發出一個 `turn/start`，最多達到 `agent.max_turns`（預設 20）。
+- 子程序會在延續回合期間保持執行——只有工作者執行結束時才停止。
 
-這是使 ticket 驅動的多回合工作變得實用的基本原語：agent 在外部看起來像離散延續的操作中維持對話狀態。
+這項基本機制讓以工單驅動的多回合工作切實可行：代理程式能在外部看似獨立的延續回合之間維持對話狀態。
 
 ### 串流回合事件
 
@@ -90,93 +98,120 @@ Symphony 的 worker 邏輯：
 | `turn/completed` | 成功 |
 | `turn/failed` | 失敗 |
 | `turn/cancelled` | 失敗 |
-| 回合逾時（`turn_timeout_ms`，預設 1 小時） | 失敗 |
+| 回合逾時（`turn_timeout_ms`，預設 1h） | 失敗 |
 | 子程序退出 | 失敗 |
 
-Symphony 規格列舉的重要發出事件：
+Symphony 規格列出的重要事件：
 `session_started`、`startup_failed`、`turn_completed`、`turn_failed`、`turn_cancelled`、`turn_ended_with_error`、`turn_input_required`、`approval_auto_approved`、`unsupported_tool_call`、`notification`、`other_message`、`malformed`。
 
-### 三個獨立的逾時
+### 三種獨立逾時
 
 | 逾時 | 預設值 | 範圍 |
 |---|---|---|
-| `read_timeout_ms` | 5 秒 | 啟動和同步請求期間的請求/回應 |
-| `turn_timeout_ms` | 1 小時 | 回合串流總持續時間 |
-| `stall_timeout_ms` | 5 分鐘 | 事件間的閒置時間（編排器強制） |
+| `read_timeout_ms` | 5 s | 啟動期間與同步請求中的請求／回應 |
+| `turn_timeout_ms` | 1 h | 回合串流的總時長 |
+| `stall_timeout_ms` | 5 m | 事件之間的不活動時間（由協調器強制執行） |
 
-設定 `stall_timeout_ms <= 0` 以停用停滯偵測。
+將 `stall_timeout_ms <= 0` 設為停用停滯偵測。
 
-### 核准、沙箱、使用者輸入
+### 核准、沙箱與使用者輸入
 
-實作定義的姿態，但規格要求核准請求和使用者輸入所需事件**不得讓執行無限期停滯**。實作選擇以下之一：
+實作可自行決定處理方式，但規格要求核准請求和需要使用者輸入的事件**不得讓執行無限期停滯**。實作可選擇：
 
-- **自動核准**（高信任模式，例如指令執行和檔案變更核准在 session 中自動核准）。
-- **呈報給操作者**（互動流程）。
-- **依策略自動解決**。
-- **硬性失敗該次執行**（Symphony 參考實作對使用者輸入所需的回合採用此方式）。
+- **自動核准**（高信任模式，例如在工作階段中自動核准命令執行與檔案變更）。
+- **呈交操作人員處理**（互動流程）。
+- 依政策**自動解決**。
+- **直接判定執行失敗**（Symphony 參考實作會讓需要使用者輸入的回合失敗）。
 
-將使用者輸入所需視為硬性失敗適用於無人值守的編排 — 沒有人類在迴圈中來滿足該請求。
+對無人值守的協調而言，將需要使用者輸入視為硬性失敗是合理的——沒有真人能在迴圈中滿足該請求。
 
 ### 動態工具呼叫（最被低估的功能）
 
-實驗性功能。Agent 可以對編排器在 `thread/start` 期間公告的工具請求 `item/tool/call`。若工具未被識別，回傳工具失敗回應 — session 繼續而非停滯。
+這是實驗性功能——而根據下方廠商參考資料（2026-09-07），目前仍屬實驗性：`thread/start` 上的 `dynamicTools` 需要 `capabilities.experimentalApi = true`。代理程式可對協調器在 `thread/start` 宣告的工具提出 `item/tool/call` 請求。若工具不受辨識，請回傳工具失敗回應——工作階段會繼續，不會停滯。
 
-槓桿效應：**編排器實作的工具可以包裝子 agent 永遠不應看到的憑證**。
+其優勢在於：**由協調器實作的工具可以包裝子代理程式絕不應接觸的憑證**。
 
-Symphony 的 `linear_graphql` 工具是典型範例：
-- 子 agent 容器不會取得 Linear 存取權杖。
-- 編排器公告一個 `linear_graphql` 工具，代理已認證的 GraphQL 查詢。
-- 子 agent 以 `{ "query": "...", "variables": {...} }` 呼叫工具；編排器使用自己的認證對 Linear 端點執行。
+Symphony 的 `linear_graphql` 工具是典型例子：
+- 子代理程式容器不會取得 Linear 存取權杖。
+- 協調器會宣告一個 `linear_graphql` 工具，代理經過驗證的 GraphQL 查詢。
+- 子代理程式以 `{ "query": "...", "variables": {...} }` 呼叫該工具；協調器則使用自己的驗證資訊，對 Linear 端點執行查詢。
 
 `linear_graphql` 的契約：
-- 每次呼叫單一非空 GraphQL 操作（多重操作被拒絕）。
-- 可選的 `variables` 物件。
+- 每次呼叫只能有一個非空的 GraphQL 操作（多個操作會遭拒）。
+- `variables` 物件為選填。
 - 結果語義：
- - 傳輸成功 + 無 GraphQL `errors` → `success=true`
- - 頂層 GraphQL `errors` → `success=false`，但保留回應主體
- - 無效輸入 / 缺少認證 / 傳輸失敗 → `success=false` 附帶錯誤酬載
+ - 傳輸成功且沒有 GraphQL `errors` → `success=true`
+ - 頂層 GraphQL `errors` → `success=false`，但保留回應本文
+ - 輸入無效／缺少驗證資訊／傳輸失敗 → `success=false` 並附上錯誤內容
 
-這在**架構上與 MCP 平行**，但存在於程式碼 agent 的執行時期內部而非獨立程序 — 編排器決定每個 session 注入哪些工具。
+這在**架構上與 MCP 平行**，但它位於程式設計代理程式執行環境內，而非獨立程序中——協調器會決定每個工作階段要注入哪些工具。
+
+### 兩種協定在狀態性上已分道揚鑣（2026-07-28）
+
+[App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) 根據觀察到的分工提出工具層／工作階段層的區隔；如今這已成為 **MCP 自己明確表明的立場**。2026-07-28 修訂版（[MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)，`vendor-claim`；紀錄見 [MCP and Computer Use](/articles/mcp-and-computer-use)）移除了協定層級的工作階段與 Streamable HTTP 的 `Mcp-Session-Id` 標頭，也徹底刪除了 `initialize`／`notifications/initialized` 握手，改以 `_meta` 中的逐請求版本協商取代，並將跨呼叫狀態移出協定，改由伺服器產生的控制代碼以一般工具引數傳遞。
+
+App Server 保留並以此為基礎建構的，正是上述每一項：`initialize`/`initialized` 握手、在多次 `turn/start` 呼叫間重用的 `thread_id`、`<thread_id>-<turn_id>` 工作階段識別碼，以及串流回合生命週期。因此比較的結論更明確，而非有所轉變——MCP 遠離了工作階段語義，而 App Server 的全部核心正是工作階段語義。另一個方向也有兩項較小的趨同值得一提：MCP 新增的 **MRTR** 模式（伺服器回傳 `InputRequiredResult`，用戶端再以 `inputResponses` 重試）在結構上與此協定的 `turn_input_required` 事件相同；MCP 在逐請求版本不符時使用的 `UnsupportedProtocolVersionError`，則是對同一問題採取更嚴格的回應，而 Symphony 下方的相容性設定檔是透過容忍欄位名稱差異來解決此問題。
 
 ### 相容性設定檔
 
-Symphony 的規格對版本容忍度異常明確：
+Symphony 的規格對版本容忍度說明得格外明確：
 
-> 「規範性契約是訊息順序、必要行為，以及必須提取的邏輯欄位。確切的 JSON 欄位名稱在相容的 app-server 版本間可能略有不同。實作應在攜帶相同邏輯意義時容忍等效的酬載形狀。」
+>「規範性契約在於訊息順序、必要行為，以及必須擷取的邏輯欄位。相容的 app-server 版本之間，確切的 JSON 欄位名稱可能略有差異。只要承載相同的邏輯意義，實作就應容忍等效的負載結構。」
 
-實務意涵：不要緊密綁定特定 JSON 欄位名稱。鼓勵實作者透過 `codex app-server generate-json-schema --out <dir>` 檢查已安裝的 Codex schema，並將 Codex 擁有的設定（`approval_policy`、`thread_sandbox`、`turn_sandbox_policy`）視為透傳值。
+實際上的含意：不要與特定 JSON 欄位名稱緊密綁定。規格鼓勵實作者透過 `codex app-server generate-json-schema --out <dir>` 檢查已安裝的 Codex 結構描述，並將 Codex 管理的設定（`approval_policy`、`thread_sandbox`、`turn_sandbox_policy`）視為直接傳遞的值。
+
+### 廠商參考資料所確認的內容（2026-09-07 快照）
+
+以上內容皆整理自 Symphony 規格，該規格從用戶端角度解讀協定。[Codex App Server](https://developers.openai.com/codex/app-server/)（`vendor-claim`；OpenAI 持續更新的參考文件，快照日期為 2026-09-07——`developers.openai.com/codex/app-server` 網址目前會以 308 重新導向至 `learn.chatgpt.com/docs/app-server`）則從伺服器端出發，並解答了本頁四月提出的三個問題：
+
+- **版本依二進位檔而定，而且沒有登錄庫。**「你可以從 CLI 產生 TypeScript 結構描述或 JSON Schema 套件。每份輸出都專屬於你執行的 Codex 版本，因此產生的成品會與該版本完全相符」（`generate-ts`、`generate-json-schema`）。沒有協定版本欄位，也沒有已發布的結構描述套件；開源實作 `openai/codex`（`codex-rs/app-server`）就是參考依據。因此 Symphony 的相容性設定檔——容忍等效的負載結構、匯出已安裝的結構描述——不是權宜做法，而是預期的契約；與前述 MCP 逐請求 `_meta` 版本協商的差異，則是設計上的不同，不是文件缺漏。
+- **「實驗性」是能力閘門，而非保留說明。**在 `initialize` 中設定 `capabilities.experimentalApi = true`，即表示用戶端選擇啟用所有實驗性方法與欄位；若未設定，伺服器會以 `<descriptor> requires experimentalApi capability` 拒絕這些請求。`thread/start` 上的 `dynamicTools` 就是其中一個欄位；同一道閘門也涵蓋 `process/*`、`thread/turns/list`、`thread/items/list`、背景終端機控制、`environment/info`、協作模式、`tool/requestUserInput`，以及 `parentThreadId`／`ancestorThreadId` 執行緒篩選條件。對 Symphony 的憑證代理模式而言，有兩點很重要：動態工具會*持續儲存在*執行緒 rollout 中繼資料，並在 `thread/resume` 時還原，除非用戶端提供新的工具；其呼叫則會以標準 `dynamicToolCall` 項目呈現（`{id, tool, arguments, status, contentItems?, success?, durationMs?}`）——*項目*屬於穩定介面，*宣告*則位於閘門之後。沒有公布任何發展路線圖或正式推出日期；`experimentalFeature/list` 會列出「附有生命週期階段中繼資料」的功能旗標，是唯一可由機器讀取的穩定性訊號。
+- **回合支援多模態。**`turn/start` 的輸入項目可為 `text`、`image`（`{url}`）和 `localImage`（`{path}`）；`userMessage` 項目也帶有相同三種類型；`model/list` 會回報各模型的 `inputModalities`（若未提供，則假設為 `["text", "image"]`）；代理程式呼叫自己的圖片檢視器時，會產生 `imageView` 項目。先前「以文字為主」的解讀來自 Symphony 規格，其協調器不會傳送圖片。
+
+此外還發現一些超出原先問題範圍的資訊：stdio 以外的傳輸方式（WebSocket，屬於「實驗性且不受支援」；透過 HTTP Upgrade 握手使用 Unix socket；`off`）；使用 `toolOutput` 與空 `input` 的 `turn/start`，可將用戶端執行的工具結果作為 `functionCallOutput` 項目送入執行緒；標記為 `required` 的 MCP 伺服器若初始化失敗，如今會導致 `thread/start`／`thread/resume` 失敗，而不會在缺少該伺服器的情況下繼續；若恢復時使用的模型與 rollout 記錄的模型不同，則會發出警告，並在下一個回合附上一則一次性的模型切換指示。
 
 ### 建議的錯誤類別
 
-用於跨實作的正規化：
+統一不同實作時可使用：
 
 `codex_not_found`、`invalid_workspace_cwd`、`response_timeout`、`turn_timeout`、`port_exit`、`response_error`、`turn_failed`、`turn_cancelled`、`turn_input_required`。
 
-### Token 計算的微妙之處
+### Token 計數的細微處
 
-值得標記，因為很容易搞錯。Agent 事件可能以多種形狀包含 token 計數：
+值得特別提醒，因為很容易弄錯。代理程式事件可能會以多種形式包含 token 計數：
 
-- **優先使用絕對執行緒總量**（例如 `thread/tokenUsage/updated` 或 token 計數包裝器中的 `total_token_usage`）。
-- **忽略差量風格的酬載**（例如 `last_token_usage`）用於儀表板，否則會重複計算。
-- **不要將通用 `usage` 映射視為累計**，除非事件類型如此定義。
-- 對於絕對總量，追蹤相對於上次報告總量的差量。
+- **優先採用執行緒絕對總量**（例如 `thread/tokenUsage/updated`，或 token 計數包裝資料中的 `total_token_usage`）。
+- **忽略差值型負載**（例如 `last_token_usage`）以供儀表板使用，否則會重複計數。
+- **除非事件類型明確定義，否則不要將一般 `usage` 對照表視為累計值。**
+- 對絕對總量，追蹤相較於上次回報總量的差值。
 
-## 相關連結
+## 延伸閱讀
 
-- [Symphony](/articles/symphony) — 建立在此協定上的典型編排器；包含生命週期和營運細節的實體頁面
-- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 延續回合是使每張 ticket 的多回合工作變得實用的關鍵；一張 ticket → 一個執行緒 → 多個回合
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — App Server 協定是使「harness 即服務」成為可能的整合邊界 — 編排器驅動 session 生命週期而無需解析 CLI
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude 的 `claude -p` 非互動模式加上 Claude Agent SDK 是平行生態系統；兩者都讓外部編排器驅動 session，但 Codex 的 App Server 對穩定的 JSON-RPC 協定更為明確
-- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — `agent.max_turns`、`turn_timeout_ms`、`stall_timeout_ms` 和動態工具呼叫成本（代理往返 vs. 直接呼叫）是 AgentOpt 形式化的預算槓桿的營運實例
+- [Symphony](/articles/symphony) — 以此協定建構的典型協調器；實體頁面收錄生命週期與操作細節
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — 延續回合讓每張工單執行多回合工作成為可能；一張工單 → 一個執行緒 → 多個回合
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — App Server 協定是實現「harness 即服務」的整合邊界——協調器可驅動工作階段生命週期，而無須擷取 CLI 輸出
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — Claude 的 `claude -p` 非互動模式與 Claude Agent SDK 是平行生態系；兩者都能讓外部協調器驅動工作階段，但 Codex 的 App Server 對穩定 JSON-RPC 協定有更明確的定義
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — `agent.max_turns`、`turn_timeout_ms`、`stall_timeout_ms` 和動態工具呼叫成本（代理往返與直接呼叫的差異）是 AgentOpt 所形式化之預算控制手段的實際案例
 
-## 開放問題
+## 尚待解答
 
-- App Server 協定與 MCP 的詳細比較如何？兩者都向模型暴露工具，但 App Server 在 Codex 執行時期*內部*，而 MCP 在*外部*。各自何時勝出？
-- 是否有公開的 schema 註冊表，讓外部編排器可以針對特定 App Server 版本而無需 `generate-json-schema`？
-- 「動態工具呼叫（實驗性）」的警告 — 穩定性路線圖是什麼？Symphony 的安全模型依賴於此。
-- 協定對多模態回合（圖片輸入、截圖附件）的處理如何？規格以文字為主。
-- Claude 端是否有類似的協定，還是 Claude 的等效方案完全是 Agent SDK + tool-use API？比較兩者將釐清何時「驅動現有 CLI」優於「建立在 SDK 上」。
+- 在採用 Symphony 風格的協調器，並以此代理憑證之前，`dynamicTools` 會離開 `experimentalApi` 閘門嗎？觸發條件：該欄位從 app-server 參考文件的實驗性功能清單中消失，或 `experimentalFeature/list` 將其列為穩定生命週期階段。
+
+## 已解答的問題
+
+- 是否有公開的結構描述登錄庫，讓外部協調器無須使用 `generate-json-schema` 就能以特定 App Server 版本為目標？**已解答（2026-09-07）：**沒有——[Codex App Server](https://developers.openai.com/codex/app-server/) 只提供依二進位檔產生的結構描述匯出（「每份輸出都專屬於你執行的 Codex 版本，因此產生的成品會與該版本完全相符」），沒有協定版本欄位，也沒有已發布的套件；`openai/codex` 原始碼樹就是參考依據。Symphony 容忍等效結構的設定檔是預期的用戶端處理方式，而非權宜之計。
+- 「動態工具呼叫（實驗性）」這項保留說明——穩定性的發展路線圖為何？Symphony 的安全模型仰賴這項功能。**已解答（2026-09-07）：**沒有已公布的發展路線圖；這項機制受能力閘門控制。`thread/start` 上的 `dynamicTools` 需要 `capabilities.experimentalApi = true`，與涵蓋 `process/*`、回合／項目清單和背景終端機控制的選擇性啟用相同；已宣告工具會持續保存在 rollout 中，並在 `thread/resume` 後保留；呼叫會以穩定的 `dynamicToolCall` 項目呈現；`experimentalFeature/list` 則會提供各旗標的生命週期階段中繼資料。其正式推出時間目前列為上方的 `#oq/wait`（[Codex App Server](https://developers.openai.com/codex/app-server/)）。
+- 此協定處理多模態回合（圖片輸入、螢幕截圖附件）的能力如何？規格著重於文字。**已解答（2026-09-07）：**原生支援——`turn/start` 接受 `text`、`image`（URL）和 `localImage`（路徑）輸入項目；`userMessage` 項目承載這三種類型；`model/list` 會公告各模型的 `inputModalities`，並以 `["text", "image"]` 作為向下相容的預設值（[Codex App Server](https://developers.openai.com/codex/app-server/)）。對純文字的印象來自 Symphony，因為其協調器不會傳送圖片。
+
+- App Server 協定與 MCP 的詳細比較如何？兩者都會向模型提供工具，但 App Server 位於 Codex 執行環境*內部*，而 MCP 位於*外部*。各自在什麼時候更適合？**已解答：**[App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk)——兩者位於不同層面，通常是互補而非競爭：MCP 是模型↔世界的*工具層*（撰寫一次、各個介面皆可使用、由供應商執行）；App Server 是協調器↔執行環境的*工作階段層*（執行緒生命週期、回合、事件、逾時、token 計數——這些都不屬於 MCP 範圍）。兩者唯一重疊之處是動態工具呼叫；原則是：可重複用於不同介面的第三方功能使用 MCP；工作階段專用且涉及敏感憑證的功能使用協調器注入工具（`linear_graphql` 權杖隔離模式也能將中毒中繼資料／暗中替換攻擊面縮減至第一方程式碼）——代價是實驗性穩定程度，以及無法在生態系中重複利用。
+- Claude 端是否有類似協定，還是 Claude 的對應方案只有 Agent SDK 加上工具使用 API？比較兩者有助於釐清何時「驅動既有 CLI」勝過「以 SDK 建構」。**已解答：**[App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk)——沒有文件記載的 Claude 端協定；其提供的兩端方案分別*涵蓋* App Server 的定位：`claude -p`（驅動產品，承接完整 harness——包含無人值守時中止而不掛起的權限管理、技能、脈絡檔案、MCP 連線——但提供文字而非結構化事件）以及 Agent SDK（在原始執行環境上打造不同產品——例如 Claude Design 的週末原型）。原則：當產品的 harness 就是價值所在，而且協調工作以批次／扇出形式進行時，驅動 CLI；當代理程式本身是具有獨立介面與工具的另一種產品時，以 SDK 建構。Symphony 自身從 tmux 演進至協定，標示出中間層（在產品 harness *之上*提供結構化工作階段控制）；Claude 端目前只能從任一端近似實現——這層最終會標準化，還是 harness 縮減會使其不再必要，仍值得觀察。
+
+## 衍生內容
+
+- [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk) — 根據本頁兩項協定問題整理出的三邊界比較
 
 ## 資料來源
 
-- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — Section 10 (Agent Runner Protocol) and Section 13.5 (Token Accounting) are the authoritative reference
+- [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/) — 第 10 節（Agent Runner Protocol）和第 13.5 節（Token Accounting）是權威參考資料
+- [Codex App Server](https://developers.openai.com/codex/app-server/) — OpenAI，*Codex App Server* 參考文件（`vendor-claim`）。**持續更新的頁面，快照日期為 2026-09-07**，依設計 `published:` 欄位留白；透過 `learn.chatgpt.com/docs/app-server` 的 `.md` 端點擷取，本頁引用的 `developers.openai.com/codex/app-server` 網址目前會重新導向至該處。用於傳輸方式、依版本產生的結構描述匯出、`experimentalApi` 閘門及其涵蓋範圍、`dynamicTools` 持續保存與 `dynamicToolCall` 項目、`turn/start` 輸入項目與 `inputModalities`、`toolOutput`，以及 `required` MCP 伺服器與模型切換行為。完整方法清單（執行緒、回合、審查、程序、檔案系統、核准、徵詢）收錄於原始資料中，未在此整理超出問題所需的部分
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol 專案，規格修訂版 **2026-07-28** 的 *Key Changes*（`vendor-claim`）。重大變更 1–3（移除工作階段與 `Mcp-Session-Id`、刪除握手、逐請求 `_meta` 版本協商、`server/discover`）以及 7–8（MRTR、`resultType`），僅用於上述協定比較

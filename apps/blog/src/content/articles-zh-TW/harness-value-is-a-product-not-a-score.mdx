@@ -1,0 +1,156 @@
+---
+date: 2026-09-18
+title: Harness Value Is a Product, Not a Score — 為什麼 Artifact-Payoff 問題總是只得到部分解答
+description: "綜合三個有共同障礙的 #oq/now 項目。每一項已報告的 harness 或指令 artifact 價值衡量，都是端到端分數；它是至少四個項目的*乘積*——啟用（artifact 是否進入 context）、遵循（是否照做，以及是否能在整段 trajectory 中持續遵循）、artifact 品質，以及任務餘裕——而這三個問題都試圖在不介入的情況下，從乘積中還原其中一項，因此無法識別。Lin et al. 首度分別測量啟用與遵循，結果兩者差異極大（Qwen3-235B 的載入率為 0.961、遵循率為 0.350；Opus 4.6 則為 0.957/0.757）；另一方面，evolver 端的控制顯示，writer 能力跨越三個數量級，artifact 品質幾乎持平——因此變數是 consumer，而非 artifact。語料中每一種真正解決其中一個問題的方法，都透過*介入*打破乘積（消融非劣性、努力程度掃描、有／無 skill 組別、runner 的動作紀錄）；而每一種試圖採用更便宜觀察性代理指標的方法，都以可預期的方式失敗：模型自行解讀 prompt 有害，因為指出失敗會讓它浮現；未驗證的 LLM 評審有 33–41pp 的機率校正折扣，因此只有排序仍然可靠；甚至從紀錄推算的 skill 載入率，也混淆了「從未嘗試」與「嘗試了但遭格式拒絕」。新增的交叉連結：指令遵循能力會沿著兩個獨立軸線耗損，而這兩軸是在彼此不互相引用的頁面上測得——*寬度*（Eliav 的約 80 條同步規則下限，不受格式影響）與*深度*（Lin et al. 測得的 trajectory 內漂移，弱模型層級從 0.52 降至 0.13），因此 harness 作者需要兩種預算，而非一種。弱模型搭配豐富 harness 的配置會同時在兩個軸線上失敗。"
+tag: Essay
+domain: agent-systems
+tags:
+  - derived
+  - harness
+  - agent-engineering
+  - prompting
+  - measurement
+readingTime: 14
+imageAlt: Harness Value Is a Product, Not a Score — 為什麼 Artifact-Payoff 問題總是只得到部分解答的插圖
+---
+export { default as heroImage } from "../assets/harness-value-is-a-product-not-a-score.webp";
+
+# Harness Value Is a Product, Not a Score
+
+## 問題
+
+沒有提供問題，因此這篇綜合文章從 `#oq/now` 工作清單中挑選了一組相關項目。三個項目，分布在三個頁面、兩個領域，最後發現它們有一個共同障礙：
+
+1. **[Harness Activation and Adherence](/articles/harness-activation-and-adherence)** — 弱模型層級的啟用落差有多少來自模型，又有多少來自 runner 的動作語法？SkillsBench 的格式閘門會拒絕包含正確 `load_skill` 的複合動作，因此報告的 0.251 把剖析失敗算在模型頭上。
+2. **[Instruction Compounding](/articles/instruction-compounding)** — Anthropic 每次發布都會手動整理 prune 清單。有沒有可偵測的訊號，能標出哪些現有 prompt 行已開始產生複利效應，讓精簡不必靠人工重讀？
+3. **[Unproductive Self-Verification](/articles/unproductive-self-verification)** — 有沒有可用的偵測器，能找出哪些任務會因投入更多努力而變糟，讓我們能按任務設定努力程度，而非一律採用同一設定？
+
+這些看起來是三種互不相關的儀器需求。其實它們是同一個需求的三種問法，而每個問題之所以一直停留在「部分解答」，原因在於結構，而非證據不足。
+
+## 一句話解答
+
+**這三個問題都想從一個乘積中還原單一因子，卻只能觀察到乘積。**若不改變任何因素，就無法識別；而語料中每一種真正解決這些問題的方法，都是透過介入來完成——從來不是在既有軌跡上找出更聰明的統計量。
+
+## 乘積
+
+端到端分數——語料中幾乎所有來源唯一會報告的數字——是至少四個項目的組合（[Harness Activation and Adherence](/articles/harness-activation-and-adherence)）：
+
+| 項目 | 定義 | 屬於誰的特性 |
+|---|---|---|
+| **啟用** | artifact 是否進入工作 context | consumer |
+| **遵循** | 載入後，agent 是否照做——並持續照做 | consumer |
+| **Artifact 品質** | skill／規則／patch 是否正確且有用 | artifact |
+| **任務餘裕** | 任務原本是否會失敗，如今是否能通過 | benchmark |
+
+品質不佳的 artifact、從未載入的 artifact，以及載入後遭到忽略的 artifact，都會產生**相同的分數**。這就是識別問題，也是為什麼 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) 的普查無法拆分自身的負面結果。
+
+Lin, Wu, Wang et al.（[arXiv 2605.30621](https://arxiv.org/pdf/2605.30621)，`empirical`）是語料中第一個將前兩個項目分開設置儀器的來源，核心發現是：**兩者確實不同**：
+
+| 模型 | Skill 載入率 | Harness 遵循率 | 載入後通過率 |
+|---|---|---|---|
+| Qwen3-32B | 0.251 | 0.142 | 0.023 |
+| Qwen3-235B | **0.961** | **0.350** | 0.022 |
+| Opus 4.6 | 0.957 | 0.757 | 0.177 |
+
+Qwen3-235B 的載入可靠度與 Opus 4.6 一樣高，遵循率卻不到一半，載入後通過率更低了八倍。**若研究只報告載入率，就會把它判定為成功。**
+
+第三個項目則幾乎不變。同一篇論文中的 evolver 端控制固定解題 agent、改變*誰來撰寫* harness：七個 evolver 之間的差距在**任何 benchmark 上都不超過 3.1pp**，研究中最小的模型（Qwen3.5-9B）取得最高的 SkillsBench 更新增益；在實際案例中，它的 skill 與 Opus 4.6 的 skill **程序同構**——同樣五個步驟，長度分別為 3,300 與 3,800 個字元，且都讓同一個 agent 從 0.67 提升到 1.0。writer 能力跨越三個數量級，artifact 品質仍然持平；相差七倍的，是 consumer 啟用並遵循它的可能性。
+
+**因此變數是 consumer，而分數正是這個事實藏身之處。**
+
+## 每個問題為何停滯，以及需要什麼才能解決
+
+### Q1 — 啟用落差
+
+語料能界定範圍，卻無法算出確切數字。有三件事已經確定：
+
+- **0.251 是可歸因於模型的啟用失敗率上限，不是估計值。**在實際的 `threejs` 案例中，Qwen3-32B 在第 0 回合就*正確辨認出所需的 skill*，接著卻輸出一個把 `analysis`、`plan` 和 `load_skill` 打包在一起的複合 JSON 動作；SkillsBench 的格式閘門只接受單一鍵值動作，因此拒絕了它。skill 從未進入 context。Qwen3-235B 在相同任務中輸出 `{"load_skill": "threejs"}`，以 1.0 通過——兩個模型的差異**不在於是否知道需要哪個 skill，而在於能否使用 runner 的格式表達出來**。
+- **因此，報告中的 skill 載入率是模型與 runner 配對後的特性**，而不是模型本身的特性。該頁面已將此記為論文未提及的結構性限制。
+- **論文自己的結論指出，啟用並非弱模型層級的主要瓶頸**：弱模型「並非讀不懂 harness，而是無法在其規範下運作。」這是遵循方面的主張，且有另一種獨立儀器支持（如下方的階段分析），而非載入率。
+
+wiki **無法提供**的是確切數字。問題本身提出的證偽方法——重新評分相同的軌跡，把 payload 中提及有效 skill 的任何動作都算作啟用嘗試——成本很低，也不需要新模型，但需要取得*軌跡*；而語料中沒有這些資料。這其實是披著 `#oq/now` 外衣的 `#oq/source`：對現有頁面的綜合已經完成，結論是「報告的數值是上限，而且設計缺陷確實存在」，解決了詮釋部分，留下待測量的部分。
+
+### Q2 — 複利指令行偵測器
+
+[What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) 已確立其特徵——**消融非劣性**（移除指令後品質不變、token 數減少，這是 Anthropic 自己採用的標準）加上**反向劑量反應**（加強指令反而使指標變差），並以原生行為基線作為低成本預篩。這個答案仍然成立；這篇綜合文章只補充說明，為什麼剩下的問題（「沒有自動化」）並非只要投入工程心力就能填補的缺口。
+
+這個特徵的兩個部分都需要**介入**。要驗證消融非劣性，必須執行不含該指令的組別；要驗證反向劑量反應，必須執行加強該指令的組別。兩者都無法從已部署設定的軌跡中計算出來，因為在那些軌跡中，指令始終以同一強度存在——再次回到乘積，而且只觀察到單一點。
+
+語料也明確指出，唯一真正具觀察性的捷徑其實**有害**。[Instruction Compounding](/articles/instruction-compounding) 記載了 Anthropic 對 tag 外洩的發現：「直接點名思考標籤的指令，不如一般形式有效」——*指出失敗會讓它浮現*。要求模型讀取自己的 system prompt，並回報哪些行已經過時，就是同樣的做法，而且會汙染測量對象。該頁面的通則——描述目標狀態與界線，不要要求某種行為或禁止某種失敗——正是排除內省式偵測器的理由。
+
+### Q3 — 逐任務努力程度偵測器
+
+prompting 指南提供一份按任務*類別*分類的查表（review accuracy 在低 effort 下維持不變；複雜的 coding 與 agentic 工作使用 `xhigh`；在自己的 eval 上執行 effort sweep），而該頁面正確地不把它稱為偵測器（[Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)）。
+
+語料如今說明了為什麼逐任務的版本比看起來更困難：**驗證介入的效果方向取決於 backbone 的主要病灶，而非任務本身。**[Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) 中 HarnessBank 的跨模型表格顯示，有個模型因為「想得太少」，提高推理預算後獲得 **+15.3**；為「想得太多」的模型設計的修正機制，移植過去卻得到 **−1.5**；而把調整方向弄反則損失 **−15.7**。Opus 5 位於過度驗證的一端，這正是 Anthropic 採取刪減措施的原因（[Unproductive Self-Verification](/articles/unproductive-self-verification)）——而這些方法全都無法套用到會提早定案的模型上。
+
+因此，若不知道 backbone 的病灶，就無法回答「在這個任務上投入更多努力會有害嗎？」而病灶本身只有透過 sweep 才能測量。同一個識別問題，只是層級更高。實務上的結果與一般的沿用直覺相反：**驗證用的 scaffolding 是 harness 中最依賴模型的一類內容**；照搬既有的最佳驗證步驟，結果往往方向錯誤。
+
+## 語料中成功案例的共通點
+
+這一組中每個獲得解答的問題，都是透過介入或第二種儀器來拆解乘積：
+
+| 問題 | 有效方法 | 隔離的項目 |
+|---|---|---|
+| 哪些指令行會產生複利效應？ | 消融非劣性、反向劑量反應 | artifact 品質 |
+| skill 有幫助嗎？ | 有／無 skill 組別（[Skill Lift](/articles/skill-lift)） | artifact 品質 |
+| 有載入嗎？ | runner 的**動作紀錄**，而非評審 | 啟用 |
+| 有遵循嗎？ | 依預先鎖定評分規準盲測軌跡 | 遵循 |
+| 問題出在 writer 嗎？ | 固定 agent，改變 evolver | artifact 品質 |
+
+每種更便宜的觀察性代理指標都會以各自特有的方式失真：
+
+- **模型自行解讀自己的 prompt**——如前所述，會造成汙染。
+- **未驗證的 LLM 評審**——harness 遵循率與每項階段分數都是由 Sonnet 4.6 評審產生，雖採用盲測及鎖定的評分規準，卻*沒有*人類一致性檢查、機率校正、位置偏誤稽核或第二位評審。根據 [LLM-Judge Validation](/articles/llm-judge-validation)，未驗證的評審只因機率校正一項就會高估可靠度 **33–41pp**，因此只有模型之間的*排序*可用，而 Opus/Sonnet 的 0.757 對 0.730 並不是差距。
+- **甚至連從紀錄推算的指標也一樣**——skill 載入率看起來像 ground truth，仍會混淆「從未嘗試」與「嘗試了但遭格式拒絕」（Q1）。
+
+這項教訓適用於這組問題之外：**一項指標是測量所得，而非評審判斷所得，不代表它就是你真正想要的量。**
+
+## 兩個頁面都沒連起來的交叉關係：能力會沿兩個軸線耗損
+
+這組文章最有用的發現，是連結了語料中兩個彼此不互相引用的地方。[Harness Activation and Adherence](/articles/harness-activation-and-adherence) 沒有提及 Eliav 的能力研究；兩項結果衡量的是同一項底層資源的正交軸線。
+
+**寬度——同時生效的指令有多少。**[Eliav 2026](https://arxiv.org/pdf/2607.19257)（`empirical`，以 regex 評分，沒有 LLM 評審）在五個模型上測試 N ∈ \{10…160\} 條同時生效、可驗證的規則：完美遵循率在 N≈80 時實際上已**歸零，並一路維持到 160**——這是下限，不是漸近線。格式不是有效調整手段（markdown 與純文字的差異在 2.1pp 以內，方向也不一致）；位置的影響大於格式，而且其**方向因模型而異**（[Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)）。建議是「把約 40 條同步指令視為重新設計的起點，而非調校的起點」。
+
+**深度——一條指令能維持生效多久。**Lin et al. 的階段分析在單一軌跡中的三個時間點評估遵循程度：
+
+| 階段 | Qwen3-32B | GPT-OSS-120B | Opus 4.6 |
+|---|---|---|---|
+| 已載入 Harness | 0.52 | 0.67 | 0.89 |
+| 中段回合 | 0.22 | 0.48 | 0.79 |
+| 最終回合 | 0.13 | 0.43 | 0.80 |
+| **漂移** | **−0.39** | −0.24 | −0.09 |
+
+弱模型在載入時並沒有誤讀 harness——一開始的表現高於機率水準，接著卻**失去脈絡**，漂移速度是強模型層級的四倍。被指出的瓶頸是長期指令遵循，而非理解能力。
+
+把兩個軸線放在一起，可以得到三個結果：
+
+1. **Harness 作者需要兩種預算，而非一種。**Context 檔案中的每一行即使都通過消融測試，仍可能在寬度上失敗（同時生效的規則過多），或在深度上失敗（第 1 回合運作正常，第 20 回合就忘了）。逐行檢查找不出這兩種問題——正如 [Instruction Compounding](/articles/instruction-compounding) 對寬度問題的說明，沒有任何單一指令行該負責。
+2. **漸進式揭露能改善寬度，無法改善深度。**載入單一 skill 內文，而非所有已安裝項目的聯集，能降低同時生效的指令數；[Instruction Compounding](/articles/instruction-compounding) 已指出，這**只是把上限移到目錄大小，沒有移除上限**。它對漂移毫無幫助——第 0 回合載入、第 10 回合就忘記的 skill，從頭到尾都在 context 中。`pg-essay-to-audiobook` 案例正是如此：skill 成功載入，agent 在第 8 回合仍然跳過了後備流程。
+3. **弱模型加上豐富 harness 會同時在兩個軸線上失敗**，但這偏偏是直覺最推薦的配置。這讓 [Harness Activation and Adherence](/articles/harness-activation-and-adherence) 對 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 提出的反向論點更加明確：scaffold 預算與模型能力會**同步**變化，而非背向而行，因為最需要 scaffolding 的模型，最無法穩住它——寬度承載有限，深度衰退又快。
+
+## 能跨越兩個軸線的解法
+
+有一類解法從設計上就不受這兩種失敗模式影響，也是實務上的重點：**在執行時攔截動作的 predicate** 不會無法啟用，也不會因漂移而失效，因為整段 trajectory 不需要記住它（[Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)）。凡是以文字形式存在於 context window 的內容，一開始就受寬度下限影響，之後還會受到漂移曲線影響。
+
+這不是主張應以 gates 取代 harness 文字——大多數 harness 內容無法表示成 predicate。這是在說**應該把關鍵負荷放在哪裡**：不可容忍違反的規則，應該放進不依賴 agent 到第 20 回合時仍然在意它的機制裡。
+
+## 尚待解決之處
+
+每個問題都仍然開放，以下直接說明：
+
+- **Q1 如今是測量需求，而非綜合需求。**詮釋部分已經確定（該數字是上限；混淆確實存在且已具體指出）；要得到確切數字，仍需要軌跡。
+- **Q2 的特徵仍然成立，而自動化缺口是結構性的**——特徵的兩個部分都需要介入，因此無法靠任何軌跡探勘工具補上。可以自動化的是執行消融，而非偵測結果。
+- **Q3 沒有逐任務偵測器，語料如今也解釋了原因**：效果方向取決於 backbone 的病灶，只能透過 sweep 發現。目前可用的工具是按任務類別分類的查表。
+- **這個雙軸圖像是從兩個從未相遇的來源拼湊而成。**Eliav 是單一作者、單一實驗室，每個測試格有 20 次試驗，且只測試單次生成中的硬式輸出限制——論文明確表示，不主張此模式能套用到無法檢查的指令上，而真實 context 檔案中的大多數指令正屬於此類。Lin et al. 的機制數據僅來自 SkillsBench，時間早於 Claude 5，而遵循部分是由評審推算的。**沒有人做過交叉實驗**（在同一組模型上同時改變指令數 × trajectory 長度）；這是顯而易見的下一項研究，也會是首次直接檢驗寬度與深度究竟是一種資源還是兩種資源。
+
+## 資料來源
+
+- [Harness Activation and Adherence](/articles/harness-activation-and-adherence) — 兩個 consumer 端閘門、按模型排列的 SLR/HFR/LPR 表格、階段漂移曲線、兩個實際失敗案例，以及測量與評審的區別
+- [Instruction Compounding](/articles/instruction-compounding) — 複利效應的不對稱性（界線有效，行為要求會適得其反）、指出問題會讓它浮現的發現、Eliav 的能力下限，以及漸進式揭露的限制
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — 四個 benchmark 套件上的 effort 反轉、刪除指令的緩解方式，以及 backbone 病灶決定效果方向的結果
+- [Skill Lift](/articles/skill-lift) — 有／無 skill 的消融，以及遭默默相乘的啟用項目
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — evolver 端的持平控制與 HarnessBank 的跨模型移植表
+- [LLM-Judge Validation](/articles/llm-judge-validation) — 套用至每個評審所得數字的 33–41pp 機率校正折扣
+- [What Scaffolding Survives Model Improvement — and How Do You Know When a Line Turns Harmful?](/articles/what-scaffolding-survives-model-improvement) — Q2 特徵問題的先前解答；本文在此基礎上延伸，而非重新探討
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)、[Agent Context Files](/articles/agent-context-files)、[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)、[Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity)、[Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 解法、artifact 類別、反向論點、位置效應，以及 effort 查表

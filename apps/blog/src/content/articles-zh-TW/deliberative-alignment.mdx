@@ -1,7 +1,8 @@
 ---
 date: 2026-05-08
-title: 審議式對齊
-description: "Guan et al. 2025 (OpenAI)：針對（提示、CoT、回應）tuple 進行 SFT，搭配以規格為依據的 CoT；最強的非 MSM 基準；可能損害 CoT 可監控性"
+title: Deliberative Alignment
+description: "Guan et al. 2025 (OpenAI)：以（prompt, CoT, response）tuple 進行 SFT，並以規格為依據的 CoT；最強的非 MSM 基線；可能損害
+  [[cot-monitorability]]"
 tag: Concept
 domain: alignment-and-safety
 tags:
@@ -10,7 +11,7 @@ tags:
   - chain-of-thought
   - openai
 readingTime: 4
-imageAlt: 審議式對齊插圖
+imageAlt: 深思熟慮式對齊的插圖
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
@@ -26,69 +27,69 @@ export { default as heroImage } from "../assets/deliberative-alignment.webp";
 
 ## 摘要
 
-一種對齊微調方法：模型接受（提示、**思維鏈**、回應）tuple 的訓練，其中 CoT 會根據規格或一組政策，推理應如何回應。由 Guan、Joglekar、Wallace、Jain、Bhalerao 等人（OpenAI，2025）提出——*"Deliberative alignment: Reasoning enables safer language models"*（arXiv 2412.16339）。它將規格內容蒸餾為監督式推理訊號。在 [MSM](/articles/model-spec-midtraining) 論文中，它被用作最強的非 MSM 基準。
+一種對齊微調方法，使用（prompt, **chain-of-thought**, response）tuple 訓練模型——CoT 會根據規格或一組政策，推理該如何回應。由 Guan、Joglekar、Wallace、Jain、Bhalerao 等人（OpenAI，2025）提出，論文為 *「Deliberative alignment: Reasoning enables safer language models」*（arXiv 2412.16339）。此方法將規格內容蒸餾為監督式推理訊號。在 [MSM](/articles/model-spec-midtraining) 論文中，它被用作最強的非 MSM 基線。
 
 ## 機制
 
 對每個訓練提示：
-1. 將規格放入上下文，執行模型以產生一段較長的 CoT，推理如何將規格套用到此提示。
+1. 將規格放入上下文，讓模型產生一段較長的 CoT，推理如何將規格套用於這個提示。
 2. 產生符合規格的回應。
-3. 對（提示、CoT、回應）進行 SFT——模型學會在部署時不依賴上下文中的規格，也能在內部完成審議。
+3. 以（prompt, CoT, response）進行 SFT——模型學會在部署時不依賴上下文中的規格，於內部完成審慎推理。
 
-CoT 本身經常明確引用政策（「根據 SP2，我不被允許……」），因此會將以政策為依據的推理訓練進思維鏈。
+CoT 本身經常明確引用政策（「根據 SP2，我不能……」），藉此將以政策為依據的推理訓練進思維鏈中。
 
 ## 與 [AFT](/articles/alignment-fine-tuning) 和 [MSM](/articles/model-spec-midtraining) 的比較
 
-在 MSM 論文中，它被視為 **AFT（含 CoT）**，並與 **AFT（不含 CoT）** 及 **MSM + AFT** 變體比較。
+在 MSM 論文中，此方法被視為 **AFT（含 CoT）**，並與 **AFT（不含 CoT）** 和 **MSM + AFT** 變體比較。
 
 | 方法 | 規格內容所在位置 | CoT 監督 |
 |--------|--------------------------|-----------------|
 | AFT（不含 CoT） | 隱含於回應示範中 | 無 |
-| 含 CoT 的 AFT（審議式對齊） | 蒸餾至 CoT 中 | 有 |
+| AFT（含 CoT，深思熟慮式對齊） | 蒸餾進 CoT | 有 |
 | MSM + AFT（不含 CoT） | 以預訓練風格對規格文件進行中期訓練 | 無 |
-| 含 CoT 的 MSM + AFT | 兩者皆有 | 有 |
+| MSM + AFT（含 CoT） | 兩者皆有 | 有 |
 
-## 實證比較（[AM](/articles/agentic-misalignment) eval）
+## 實證比較（[AM](/articles/agentic-misalignment) 評估）
 
-Qwen2.5-32B 基準 AM 比率為 68%：
-- AFT（含 CoT）——也就是審議式對齊——降至 48%
+Qwen2.5-32B 基線 AM 比率為 68%：
+- AFT（含 CoT）——也就是深思熟慮式對齊——降至 48%
 - **MSM + AFT（不含 CoT）降至 5%**
 
-Qwen3-32B 基準為 54%：
+Qwen3-32B 基線為 54%：
 - AFT（含 CoT）降至 14%
 - **MSM + AFT（不含 CoT）降至 7%**
 
-在兩個模型上，**MSM + AFT（不含 CoT）的表現都優於 AFT（含 CoT）**。這項核心結果促使研究者盡可能避免直接進行 CoT 訓練。
+在兩個模型上，**MSM + AFT（不含 CoT）都勝過 AFT（含 CoT）**。這項主要結果支持盡可能避免直接訓練 CoT。
 
 ## CoT 可監控性的取捨
 
-[Korbak et al. 2025](/articles/cot-monitorability) 認為，過度針對思維鏈進行訓練，會損害其作為*監控器*的功能——一旦為了安全評分而最佳化 CoT，它就不再忠實揭示模型的實際推理。審議式對齊直接對 CoT 施加壓力。
+[Korbak et al. 2025](/articles/cot-monitorability) 主張，過度以思維鏈訓練會損害它作為*監控器*的功能——一旦為了安全評分而最佳化 CoT，它就不再忠實揭露模型實際的推理。深思熟慮式對齊直接對 CoT 施加壓力。
 
-MSM 提供了另一條路徑：模型透過對*談論*規格的文件進行中期訓練，學會以規格為依據的推理，而不是接受監督式 CoT。CoT 因而受到的最佳化較少，作為監控器時可能也更忠實。MSM 是否真的能保留 CoT 可監控性，仍被列為開放問題。
+MSM 提供另一條路徑：模型透過對*談論*規格的文件進行中期訓練，學會以規格為依據的推理，而非透過監督式 CoT。CoT 因此較少經過最佳化，作為監控器時也可能更忠實。MSM 是否確實保留 CoT 的可監控性，仍列為待解問題。
 
 ## 與 MSM 疊加
 
-MSM 論文第 5.1 節發現，**價值增強型 MSM**（解釋規則*為何*存在的規格）與**規則增強型含 CoT 的 AFT**（附有明確政策引用的審議式對齊）**能良好疊加**。這表示，以規則為基礎的審議式對齊訓練，與以價值解釋為風格的 MSM 彼此互補，而非重複。
+MSM 論文第 5.1 節發現，**價值增補式 MSM**（說明規則*為何*存在的規格）與**規則增補式 AFT-with-CoT**（明確引用政策的深思熟慮式對齊）**搭配效果良好**。這表示以規則為基礎、類似深思熟慮式對齊的訓練，與價值說明式 MSM 彼此互補，而非重複。
 
-## 高計算量下的收斂
+## 高算力下的收斂
 
-在 Qwen3-32B 上使用 80k 個 AFT 樣本時，AFT（含 CoT）會收斂至 MSM+AFT 的表現（兩者的錯位程度都接近零，eval 已飽和）。MSM 的優勢在低／中等 AFT 計算量時最大——它讓 AFT 的 token 效率提高 10–60 倍。
+在 Qwen3-32B 上使用 80k 個 AFT 樣本時，AFT（含 CoT）的表現收斂至 MSM+AFT（兩者的錯位程度都接近零，評估已飽和）。MSM 在低／中等 AFT 算力下優勢最大——它讓 AFT 的 token 效率提升 10–60 倍。
 
 ## 相關連結
 
-- 對比：[反事實反思訓練](/articles/counterfactual-reflection-training)——它針對一段*從未在 eval 時被要求產生*的反思式延續進行訓練，因此既不介入目標上下文中的回應，也不介入推理軌跡；所以避開了此技術所造成的直接 CoT 壓力，而這種壓力會使其成為[思維鏈可監控性](/articles/cot-monitorability)風險
+- 對比方法：[Counterfactual Reflection Training](/articles/counterfactual-reflection-training)——訓練模型產生一段*評估時從不要求*的反思式延續，因此在目標上下文中既不干預回應，也不干預推理軌跡；因此可避免此技術對 CoT 施加的直接壓力，而這種壓力會帶來 [Chain-of-Thought Monitorability](/articles/cot-monitorability) 風險
 
-- 比較：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
-- 增強：[Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)
-- 取捨：[思維鏈可監控性](/articles/cot-monitorability)
-- Eval：[代理錯位（AM）](/articles/agentic-misalignment)
+- 比較對象：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- 增補：[Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)
+- 取捨：[Chain-of-Thought Monitorability](/articles/cot-monitorability)
+- 評估：[Agentic Misalignment (AM)](/articles/agentic-misalignment)
 - 來源論文：Guan et al. 2025 (OpenAI)
 - 研究／使用者：[Anthropic](/articles/anthropic)（Anthropic 研究的對齊堆疊元件）
-- 將規格作為上下文中的 CoT 輸入：[Claude's Constitution / Model Spec](/articles/claude-constitution)（將規格作為產生 CoT 時的上下文）
-- 對比：[Model Spec Science](/articles/model-spec-science)（教授規格內容的另一種方式）
+- 將規格作為上下文內 CoT 輸入：[Claude's Constitution / Model Spec](/articles/claude-constitution)（將規格作為 CoT 生成時的上下文）
+- 對比方法：[Model Spec Science](/articles/model-spec-science)（教授規格內容的另一種方式）
 
 ## 資料來源
 
-- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（作為基準使用）
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（將其作為基線）
 - Guan et al. 2025 — *Deliberative alignment: Reasoning enables safer language models*（arXiv 2412.16339）
-- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——反事實反思訓練是對比案例：它監督一段從未被要求產生的反思式延續，既不介入目標上下文中的回應，也不介入推理軌跡
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — 反事實反思訓練是對照案例：它監督一段從未被要求的反思式延續，在目標上下文中既不干預回應，也不干預推理軌跡

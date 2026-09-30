@@ -1,87 +1,161 @@
 ---
 date: 2026-05-06
 title: Context Window Smart Zone
-description: "智慧區 vs 愚笨區（Dex Hardy / Matt Pocock）：注意力的
-  二次方縮放、與宣稱的上下文大小無關的約 100K 標記；清除並重新開始 > 壓縮；
-  狀態列 token 計數是不可或缺的紀律"
+description: "聰明區與遲鈍區（Dex Horthy / Matt Pocock）：注意力以二次方擴展，約 100K 的分界與宣稱的上下文長度無關；清除並重新開始勝過壓縮；狀態列 token 計數是必要紀律；Robert C. Martin 從指令面以中間遺失現象佐證——這是位置主張，不是占用量主張——並由此推導出有始有終的角色代理程式"
 tag: Concept
 domain: agent-systems
 tags:
   - llm-architecture
   - agent-engineering
   - context-management
-readingTime: 5
+readingTime: 20
 imageAlt: Context Window Smart Zone 的插圖
 sources:
+  - title: Uncle Bob on Software Fundamentals in the Age of AI
+    url: https://www.youtube.com/watch?v=zcLPGC-tvgk
   - title: "Full Walkthrough: Workflow for AI Coding — Matt Pocock"
     url: https://youtu.be/-QFHIoCo-Ko
+  - title: "Self-GC: Self-Governing Context for Long-Horizon LLM Agents"
+    url: https://arxiv.org/pdf/2607.00692
+  - title: "Prompt Design at Scale: How Format, Instruction Count, and Context
+      Length Shape Instruction Adherence and Hallucination in Large Language
+      Models"
+    url: https://arxiv.org/pdf/2607.19257
+  - title: "Agentic Context Management: Solving Agent Memory and Cost by Treating
+      Them as Lifecycle and Architecture Problems"
+    url: https://arxiv.org/pdf/2607.21503
 ---
 export { default as heroImage } from "../assets/context-window-smart-zone.webp";
 
 ## 資料來源
 
+- [Agentic Context Management: Solving Agent Memory and Cost by Treating Agent Memory and Cost as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503)
 - [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko)
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)
+- [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)
 
 ## 摘要
 
-LLM 並不會隨著上下文增長而線性退化；它們會呈二次方退化，因為注意力關係會隨 token 數量以 O(n²) 擴展。[Matt Pocock](/articles/matt-pocock)（引用 Human Layer 的 Dex Hardy）將此描述為 **smart zone / dumb zone** 的分界：任何工作階段的前約 100K 個 token 都是模型表現良好的智慧區；超過這個範圍後，無論宣稱的上下文視窗大小為何，模型都會「越來越笨」。實際含義是：上下文預算是一項真實且嚴格的資源，而 agent harness 有責任讓個別工作階段維持在智慧區內。
+LLM 的效能不會隨著上下文增長而線性下降；由於注意力關係會隨 token 數量以 O(n²) 擴展，效能會呈二次方下降。[Matt Pocock](/articles/matt-pocock)（引述 Human Layer 的 Dex Horthy）將此描述為**聰明區／遲鈍區**的分界：每個工作階段最初約 100K 個 token 是模型表現良好的聰明區；超過之後，無論宣稱的上下文視窗多大，模型都會「愈來愈遲鈍」。實務上的意涵是：上下文預算是真實而有限的資源——agent harness 有責任讓各工作階段維持在聰明區內。
 
-## 這項限制
+## 限制
 
-> 「每次你為 LLM 加入一個 token，就有點像是在足球聯盟中增加一支球隊。比賽數量會以二次方上升。」
+> 「每次你替 LLM 加上一個 token，就有點像替足球聯盟增加一支隊伍。比賽數量會以二次方增加。」
 
-> 「不管你使用的是 1 million context window 還是 200K，它始終會在大約 [100K]。它會開始變得越來越笨。」
+> 「你用的是 100 萬上下文視窗還是 200K 都無關緊要，總是在 [100K] 左右。它會開始變得愈來愈遲鈍。」
 
 — [Matt Pocock](/articles/matt-pocock)
 
-2026 年推出的 1M-token 上下文視窗並沒有移動智慧區——它們「只是推出了更多愚笨區」。長上下文對於*檢索*很有用（在五本《War and Peace》的副本中找出一項事實），但不適合*推理*（撰寫依賴全部內容的程式碼）。
+2026 年推出的 1M-token 上下文視窗並未擴大聰明區——它們「只是推出了更多遲鈍區」。長上下文適合*檢索*（從五份《戰爭與和平》中找出一項事實），卻不適合*推理*（撰寫仰賴所有內容的程式碼）。
 
-## Memento 比喻
+## 《記憶拼圖》的比喻
 
-每個工作階段都是全新的開始。工作階段之間沒有記憶；模型每次都會重設回 system prompt。這是一項*限制*，但也是一項*特性*——清除上下文就能以低成本恢復智慧區行為。持久狀態必須存放在下一個工作階段可以讀取的位置（repo、filesystem，或索引式目錄）。
+每個工作階段都是全新開始。工作階段之間沒有記憶；模型每次都會重設到系統提示。這是個*限制*，但也是一項*優點*——清除上下文能以低成本恢復聰明區的表現。持續狀態必須存放在下一個工作階段能讀取的地方（repo、檔案系統、類似索引的目錄）。
 
 ## 壓縮不如清除
 
-Claude Code 的 `/compact` 指令會將進行中的工作階段摘要成較小的歷史記錄。Pocock 偏好 `/clear`：
+Claude Code 的 `/compact` 指令會將進行中的工作階段摘要成較短的歷史記錄。Pocock 比較偏好 `/clear`：
 
-- 壓縮後的歷史會累積「沉積物」——扭曲與有損摘要——使後續工作品質下降
-- 清除並重新開始會回到已知的乾淨基準（system prompt）
-- 清除的成本會透過在智慧區內工作而獲得回補
+- 壓縮後的歷史會累積「沉積物」——失真與有損摘要——進而降低後續工作的品質
+- 清除並重新開始會回到已知乾淨的基準（系統提示）
+- 清除的成本會由在聰明區內工作所帶來的好處抵銷
 
-這項分歧並非普遍存在——許多開發者喜歡壓縮，因為它能保留連續性。正確的選擇取決於你的任務是否能夠**從書面紀錄乾淨地恢復**（那麼應偏好清除），或是**需要進行中的對話上下文**（那麼壓縮勝出）。
+~~這種分歧並非普遍存在——許多開發者喜歡壓縮，因為它能保留連續性。正確選擇取決於任務能否**根據書面紀錄乾淨地接續**（那就偏好清除），還是**需要保留進行中的對話脈絡**（那就適合壓縮）。~~ *(2026-08-03 起，二分法已被 [Self-GC: Self-Governing Context for Long-Horizon LLM Agents](https://arxiv.org/pdf/2607.00692) 的結果取代；底層觀察仍然成立——見下文)*
 
-## 對 harness 設計的影響
+### 實測（2026-08-03）：摘要會遺失什麼，以及第三種選項
 
-1. **System prompt 預算。** 任何始終存在於上下文中的內容，都會消耗智慧區預算。「我看過有人把 250K token 放進 [system prompt]，那你甚至還沒開始做任何事，就已經進入愚笨區了。」讓 CLAUDE.md / AGENTS.md 成為目錄，而不是百科全書（參見 [Agent Harness Engineering](/articles/agent-harness-engineering) 中將 AGENTS.md 作為 ToC 的說明）。
-2. **Sub-agent 保留父層上下文。** Sub-agent 會在自己的上下文視窗中執行；只有它的摘要會返回。Pocock 的 `grill-me` skill 執行了一個 93.7K-token 的 sub-agent，但他的主要工作階段仍有約 25K token 未使用。
-3. **將工作切分成許多工作階段。** Loops（參見 [Agent Loop Pattern](/articles/agent-loop-pattern)）與垂直切片（參見 [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)）之所以有效，是因為每次迭代都會在智慧區中重新開始。
-4. **Reviewer 應在全新上下文中執行。** 如果 implementer 在智慧區使用了 80K token，要求它審查自己的工作就會把 reviewer 推進愚笨區。清除後的上下文等於智慧區 reviewer（參見 [Deep Modules for Agents](/articles/deep-modules-for-agents) 中關於 push-vs-pull 與 reviewer 安置的說明）。
-5. **Push vs pull 指令。** 始終存在於上下文中的指令會消耗智慧區 token；按需拉取（skills）在被呼叫前不會產生成本。
+Pocock 的論點屬於 `practitioner-opinion`；[Self-GC](/articles/context-lifecycle-management)（[Xiaohongshu](/articles/xiaohongshu)、arXiv 2607.00692、`empirical`）在 332 個衍生自實際部署的 agent 工作階段中測量相同現象，實務直覺仍然成立——而且機制更明確，也有一處修正：
 
-## 狀態列 token 計數器是不可或缺的工具
+- **「沉積物」有了名稱。** 摘要遺失的不是籠統的模糊資訊，而是**精確證據、定位資訊與即時控制代碼、行為約定（使用者修正）、來源原文，以及當前即時狀態**。摘要「保留了敘事狀態，卻隱藏精確證據、定位資訊與可編輯的成品」。
+- **選擇並非二分。** 第三種政策是在物件粒度管理執行過程，將龐大的負載折疊成可逐位元精確還原的旁側檔案，而非摘要；這正好處理清除與壓縮都不理想的情況：任務既需要進行中的脈絡，*也需要*精確成品。
+- **更激進地裁切並非沒有代價。** 在 Hard Set 上，移除 62–70% 前綴 token 的啟發式方法，達到 54.55–69.70% 的「無影響」比率（愈高愈好）；Self-GC 移除 43.95%，達到 84.85%。harness 若靠積極修剪來維持在聰明區，就會以依賴項缺失問題取代二次方注意力問題。
 
-Pocock 建議使用顯示每個工作階段確切執行中 token 數量的狀態列元件——沒有它，開發者就不知道自己何時接近愚笨區。他將此視為「絕對不可或缺的資訊」。
+**斷崖有了數字（2026-08-04 新增）。** Pocock 所說的沉積物，最鮮明的實測案例在這份語料中是間接得知的：將 **18,282-token 上下文一步壓縮至 122 tokens，且未經驗證，任務準確率便從 66.7% 降至 57.1%——低於沒有上下文的基準。** 摘要比什麼都不傳更糟，因為摘要器無從得知下游會需要哪些內容。來源脈絡在此很重要：這項數字出自 Zhang et al. 2025（Agentic Context Engineering，arXiv 2510.04618），由 [Maximem 的 ACM 論文](https://arxiv.org/pdf/2607.21503)（arXiv 2607.21503，`empirical`，唯一作者有全面的 vendor COI——但 COI 涉及該論文自身的產品主張，不涉及它引用的第三方研究數字，而 wiki 尚未直接閱讀該研究）**所引用**。應保留引用論文得出的概括，而它與 [Context Lifecycle Management](/articles/context-lifecycle-management) 以機制呈現的區別一致：粗略摘要透過*犧牲*保真度來換取線性成本，失敗的結果不是答案品質下降，而是自信地答錯。
 
-## 相關連結
+## 實測（2026-08-04）：檢索在分界之後仍然有效，而接近上限時出問題的是*拒答*
 
-- [Matt Pocock](/articles/matt-pocock) — 智慧區框架的推廣者
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — system-prompt 極簡主義與 AGENTS.md 作為 ToC，都是智慧區原則的重述
-- [Agent Loop Pattern](/articles/agent-loop-pattern) — 將工作切分以維持在智慧區內，正是 loops 強大的*原因*
-- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 讓每項任務保持小到足以容納於智慧區中
-- [Design Concept Grilling](/articles/design-concept-grilling) — grilling session 使用 sub-agent，因此父層上下文能維持較小
-- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 審查前清除是智慧區紀律
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 智慧區可能會擴大（「愚笨區最近變得沒那麼笨了」），但二次方注意力仍然限制著它
-- [AI Brain Fry](/articles/ai-brain-fry) — 智慧區在人類一側的類比：監督能力超過容量後也有自己的退化曲線，映照出模型超過約 100K token 後的注意力退化
-- [Interaction Models](/articles/interaction-models) — 每 200ms 一次的持續音訊／視訊會快速累積上下文；TML 將長工作階段的上下文管理列為開放問題——同一項限制在新模態中的呈現
-- [HTML as the New Markdown](/articles/html-as-the-new-markdown) — *人類注意力*的類比：讀者超過一定量的無差別 markdown 後會退化，就像模型超過約 100K token 後會退化；HTML 將 token 花在可讀性上，提高了人類有效的智慧區
-- [Agentic Technical Debt](/articles/agentic-technical-debt) — 創辦人的持久上下文紀律（CLAUDE.md）會與智慧區預算競爭；過長的上下文檔案會成為自身的問題
+上文的約 100K 分界指的是**推理**，而 Pocock 自己也指出，長上下文仍適用於**檢索**。[Eliav 2026](https://arxiv.org/pdf/2607.19257)（arXiv 2607.19257，`empirical`）是這份語料中首個對該區別進行控制測量的研究：一個決定性、無污染的 512,000-token 合成語料（8,780 個具唯一名稱的虛構實體，以固定種子產生，完全未使用 LLM，因此隨機猜測的召回率約為 0），切分成 2k→512k 階梯，呈現為四種內容完全相同的格式，測試召回、錯誤前提諂媚，以及捏造從未陳述的事實。五個模型，在完整上下文下各呼叫 5,520 次，共評分 30,480 個回應。這個區別仍然成立，且三項發現讓結論更精確。
 
-## 開放問題
+**1. 召回率在 64–128k 前持平，之後依格式而異。** 在 2k、16k 與 64k 時，各格式中的每個模型召回準確率皆為 0.98–1.00，格式之間沒有差異。差異直到 128k 才首次出現。因此，聰明區的分界不是*檢索*分界——模型仍能從 64k 的無差別文字中幾乎完美地取出特定且無法猜測的事實，而 Gemini Flash 在 512k 時仍有 0.93–1.00 的表現。
 
-- 智慧區標記會隨模型大小擴展，還是受注意力架構限制？Pocock 觀察到「愚笨區最近變得沒那麼笨了」，但截至 2026 年仍將其定位在 100K。
-- 當 sparse-attention 或 memory-augmented 架構推出後，智慧區會變成軟性限制嗎？
-- Harness 應如何向使用者呈現剩餘的智慧區預算——token 數量、百分比，還是更豐富的訊號？
+**2. 界線取決於模型，而非 token 數。** Claude Haiku 在 128k 時是整份資料中格式差距最大的模型——純文字的召回率跌至 0.383，markdown、散文與表格則為 0.817–0.867，48.4pp 的差距完全由單一格式造成。另一方面，Sonnet 5 的格式差距從 256k 的 11.7pp 幾乎倍增至 512k 的 20.0pp；Gemini Flash 的差距則維持平穩（5.0pp → 6.7pp）。**兩者處於完全相同的 token 範圍，且都有文件記載的 1,000,000-token 上限**。差距幅度反映模型接近自身*有效*上限的程度，而非絕對 token 數量。這是語料中最有力的證據，顯示單一通用分界——無論是否為 100K——都不是描述此限制的恰當方式；這個數字是每個模型各自的屬性，必須測量，而宣稱的視窗長度無法預測它。
+
+**3. 接近上限時的失敗模式是拒答，而非幻覺。** 這是本頁先前沒有的發現，也顛倒了常見的監控方向。捏造未陳述的事實的次數**恰好為零**——5,760 個不存在事實的探測中為 0，涵蓋每個模型、每個階段與每種格式。對已陳述的錯誤前提直接附和，最高僅在單一資料格達 8.3%，絕大多數情況在 3% 以下。急遽上升的是直接拒絕回答錯誤前提的探測：
+
+| 模型 | 2k | 16k | 64k | 128k | 256k | 512k |
+|---|---|---|---|---|---|---|
+| Claude Haiku | 0.000 | 0.142 | 0.704 | 0.896 | — | — |
+| Sonnet 5 | 0.154 | 0.058 | 0.317 | 0.217 | 0.579 | 0.788 |
+| Gemini Flash | 0.004 | 0.000 | 0.004 | 0.042 | 0.350 | 0.250 |
+| Qwen 27B | 0.008 | 0.000 | 0.125 | 0.362 | — | — |
+| Qwen 35B | 0.038 | 0.096 | 0.088 | 0.154 | — | — |
+
+拒答也會以值得留意的方式污染召回率數字：Sonnet 5 在 512k 階段中，**四分之三的 markdown 錯誤回應，都是字面上的「資訊不足」而非錯誤猜測**，所以純文字與表格看似有較高召回率，部分原因是它們較不容易拒答，而非理解力較好。若 harness 只監控視窗上限附近的錯誤或附和答案，就是在看錯失敗模式。
+
+**格式並非免費，成本可能逆轉選擇。** 呈現同一批事實，散文成本是純文字的 1.221 倍，markdown 為 1.258 倍，表格為 1.367 倍；每一階段都相當穩定。在 Claude Haiku @ 128k，散文與表格的原始準確率同為 0.867，計入額外成本後，散文勝出。論文對此的界定是：除了兩個確實有準確率差異的資料格之外，各格式都在雜訊範圍內，因此挑成本最低者只是平手時的決勝方式，不代表效率有所提升。
+
+**注意事項。** 唯一作者、單一實驗室、預印本。對三個短上下文模型來說，拒答曲線攀升所指向的「上限」是**測試過的最大階段**（128k），不是實測到的界線，因此「接近自身上限」在此並不像 Sonnet 5 和 Gemini Flash 的案例那麼嚴謹。在此設計中，跨階段比較只有在固定的 20 題錨定組上才有效——它發現 Gemini Flash 在 256k→512k 看似有所進步（0.900 → 1.000），其實是題目組成造成的假象——而拒答上升與排名翻轉都通過了這項檢查。此外，捏造為零的結果無法完全區分「確認事實不存在」與「在此階段拒絕回答任何問題」，因為不存在事實的探測會把拒答評為正確；論文本身也有說明。
+
+## 對 harness 設計的啟示
+
+1. **系統提示預算。** 任何永遠放在上下文中的內容都會占用聰明區預算。「我看過有人把 250K tokens 放進[系統提示]，接著你連事情都還沒開始做，就已經進入遲鈍區。」讓 CLAUDE.md / AGENTS.md 成為目錄，而非百科全書（見 [Agent Harness Engineering](/articles/agent-harness-engineering) 關於將 AGENTS.md 作為目錄）。
+2. **子代理程式能保留父工作階段的上下文。** 子代理程式在自己的上下文視窗中執行；只有摘要會傳回。Pocock 的 `grill-me` skill 曾執行一個使用 93.7K-token 的子代理程式，但他的主要工作階段仍有約 25K 個未使用的 token。
+3. **把工作拆成多個工作階段。** 迴圈（見 [Agent Loop Pattern](/articles/agent-loop-pattern)）與垂直切片（見 [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets)）之所以有效，是因為每次迭代都在聰明區重新開始。
+4. **審查者應在全新上下文中執行。** 如果實作者已在聰明區使用 80K 個 token，再請它審查自己的工作，就會把審查者推進遲鈍區。清除上下文就能讓審查者回到聰明區（見 [Deep Modules for Agents](/articles/deep-modules-for-agents) 關於推送與拉取，以及審查者的安排）。
+5. **推送與拉取指令。** 永遠留在上下文中的指令會消耗聰明區 token；按需拉取的內容（skills）則在呼叫前不花任何成本。永遠留在上下文中的區塊，其上限不只有 token 預算：指令*數量*本身也有獨立上限，與長度無關——見 [Instruction Compounding](/articles/instruction-compounding)。
+6. **在接近上限時，要為拒答而非幻覺預留預算。** 測量到的視窗頂端失敗模式是模型拒絕作答（單一模型最高達 89.6%），而非憑空捏造內容。只針對錯誤或附和答案設計的警示與評估會一路顯示正常；拒答率升高則會看起來像品質退化，而非上下文預算的徵兆。
+
+## 狀態列 token 計數器是必要工具
+
+Pocock 建議使用狀態列元件，顯示各工作階段精確的即時 token 數——沒有它，開發者無從得知自己何時接近遲鈍區。他認為這是「絕對必要的資訊」。
+
+## 獨立佐證，以及對 harness 的影響（Martin，2026-08）
+
+[Robert C. Martin](/articles/robert-c-martin) 從另一個方向抵達本頁的限制，並為它取了不同名稱（[Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)，2026-08-19，`practitioner-opinion`）。他想找出提示中的程式設計規則為何不再被遵循，最後找到**中間遺失**現象：
+
+> 「隨著模型內的上下文視窗逐漸累積，最一開始和最末尾的內容會比中間的內容更醒目……**一開始說的任何內容，只要篇幅夠長，就會被推到中間。** 所以你開頭放的前三句也許還會維持優先，但裡面第 50 句和第 80 句就消失了。」
+
+這兩種說法並非同一項主張，值得分開看待。聰明區的說法指的是**整體占用量**——視窗填滿時，效能就會下降，不管內容位於何處。中間遺失指的是**位置**——在任何占用量下，視窗中段的內容都比兩端更難被處理。Martin 根據第二種現象提出的實務建議是：不是「讓工作階段保持短」，而是「讓*指令區塊*保持精簡」，因為過長的指令區塊會自行製造出中段。「agent 的關鍵在於把初始提示精簡到絕對最低限度，這樣你才盡可能多地將內容放在優先位置。」[Instruction Compounding](/articles/instruction-compounding) 測量到相關但不同的上限——同時遵循所有規則的服從率，在約 80 條同時存在的指令時降至零，與格式無關——即使完全不考慮位置因素，也能預測 Martin 的觀察。目前沒有人把這兩種效應分開。
+
+**他提出的設計結果是依角色劃分、生命週期短的代理程式。** 這和本頁從清除勝過壓縮推得的結論相同，只是從指令面切入：
+
+> 「將代理程式的工作聚焦在單一任務，就能控制上下文視窗。中間遺失問題就會大幅減輕。所以你可以在最上方多放幾條規則，不會多很多，但多放幾條，它們通常就會遵循得更好。你也可以建立一套系統，讓代理程式誕生、完成任務，然後結束，這樣下一個代理程式就能以乾淨的上下文開始。」
+
+他也坦承這種模式的成本：每個代理程式啟動要花 10–15 秒，「而且接著它得重新弄清楚自己的整套上下文」。見 [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) 了解這種模式產生的五角色管線，以及 [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) 了解他推導出的推論——任何你無法承受其衰退的內容，都不該放在視窗中。
+
+**值得留意的分界變動。** 在這段對話中，聰明區的界線被描述為「最初 150k 個 token」，而本頁自 2026-05 起採用的數字約為 100K。字幕沒有標示說話者，但措辭（「我把這稱為……這不是我的說法，是 Dex Horthy 的說法，我借來用的」）以及注意力稀釋的解釋，都顯示這段話出自 [Matt Pocock](/articles/matt-pocock)，也就是提出 100K 數字的同一位實務工作者。兩個數字都不是實測結果，而是實務經驗判斷；數字變動的方向，則反映模型處理上下文的能力一直在進步。
+
+## 相關文章
+
+- [Robert C. Martin (Uncle Bob)](/articles/robert-c-martin) — 從中間遺失現象獨立得出相同限制，並提出精簡提示的建議與有始有終的角色代理程式
+- [Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools) — 他針對內容衰退的回應：將持久規則移出視窗，交給檢查器
+
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — 同時取代清除與壓縮的實測選項：將作用中的上下文管理為可索引物件，提供逐位元精確的復原，並計算提交對前綴快取的干擾成本
+- [Instruction Compounding](/articles/instruction-compounding) — 永遠放在上下文中的內容面臨的另一項上限，同一篇論文以指令*數量*而非 token 計量：提示區塊無論長度或呈現格式為何，超過約 80 條同時存在的規則就會崩潰
+- [Scale-Dependent Prompt Sensitivity](/articles/scale-dependent-prompt-sensitivity) — 長上下文結果中與格式有關的部分：不同模型間，以及同一模型相鄰階段間，表現最佳的格式都會反轉，因此沒有可通用的「注入上下文時使用 markdown」規則
+- [Matt Pocock](/articles/matt-pocock) — 聰明區說法的普及者
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 精簡系統提示，以及將 AGENTS.md 作為目錄，都是對聰明區原則的重述
+- [Agent Loop Pattern](/articles/agent-loop-pattern) — 將工作拆開以維持在聰明區，*正是*迴圈強大的原因
+- [Vertical Slice Tracer Bullets](/articles/vertical-slice-tracer-bullets) — 讓每項任務都小到能放進聰明區
+- [Design Concept Grilling](/articles/design-concept-grilling) — 設計刁問工作階段使用子代理程式，讓父工作階段的上下文維持精簡
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 審查前清除上下文，是維持聰明區的紀律
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 聰明區可能擴大（「遲鈍區最近變得沒那麼遲鈍」），但二次方注意力仍然構成限制
+- [AI Brain Fry](/articles/ai-brain-fry) — 聰明區在人類一側的對應現象：監督能力超過負荷後也會逐漸下降，與模型超過約 100K token 後的注意力退化相呼應
+- [Interaction Models](/articles/interaction-models) — 以 200ms 粒度處理連續音訊／影片會快速累積上下文；TML 將長工作階段上下文管理列為待解問題——同一限制出現在新的模態中
+- [HTML as the New Markdown](/articles/html-as-the-new-markdown) — *人類注意力*的對應現象：讀者接觸到一定量的無差別 markdown 後會逐漸失去注意力，正如模型超過約 100K token 後效能下降；HTML 透過將 token 用於提升易讀性，擴大人類有效的聰明區
+- [Agentic Technical Debt](/articles/agentic-technical-debt) — 創辦人維持持續上下文的紀律（CLAUDE.md）會與聰明區預算競爭；過長的上下文檔案本身也會成為問題
+- [Authority and Audit Survive Abundance](/articles/authority-and-audit-survive-abundance) — 本頁提供的有效上限／拒答證據，是「免費」長上下文未計價的第三個面向：金錢成本與能力成本並不一致——但這是檢索辯護中唯一會隨模型進步而減弱、而非由結構保護的面向
+
+## 尚待解答的問題
+
+- 聰明區分界會隨模型大小擴大，還是受注意力架構限制？Pocock 觀察到「遲鈍區最近變得沒那麼遲鈍」，但截至 2026 年仍將它定在 100K。**2026-08-04 部分獲得解答**：[Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)（`empirical`）證明兩種說法都不完全正確，因為單一分界的前提並不成立。效能開始退化的位置，是**每個模型各自的有效上限**，宣稱的視窗長度無法預測：兩個模型具有相同、文件記載的 1,000,000-token 上限，但在相同的 256k→512k 範圍內，格式差距的增長卻大不相同。這也將問題拆成不同任務——*檢索*在 64k 仍維持 0.98–1.00，部分模型超過 128k 後也依然如此，遠超 100K 分界，符合 Pocock 自己對檢索與推理的區別。該論文沒有測量推理任務，因此約 100K 的*推理*分界是否來自架構仍未經檢驗。
+- 稀疏注意力或記憶體增強架構推出後，聰明區會變成較寬鬆的限制嗎？**部分獲得解答（2026-08-12）——觸發事件已發生，第一批證據指向相反方向。** 用 [Ren et al.](https://arxiv.org/pdf/2608.01676) 的話來說，稀疏注意力如今已「廣泛部署於長上下文服務堆疊」，所以這不再只是預測。他們以密集注意力校準的稽核（`empirical`）提供了反駁「限制可放寬」這種期待的機制：區塊選擇不只讓更多上下文變得可負擔，也會**切斷跨區塊注意力**；若以消融實驗隔離單一探測區塊，使其無法跨區塊通訊，其行為影響會從 4.48 logits 降至完全為零，適度的稀疏連接則介於兩者之間。既然聰明區主張的是對視窗內容進行*推理*，而非在其中檢索，而推理恰恰需要區塊彼此溝通，那麼以捨棄區塊換來的廉價視窗，並不等同於大型視窗。只有部分獲得解答有三個原因：結果是以 logit 差值影響作為代理指標，完全沒有測量推理或任務準確率；所有模型都是 7B–8B；稽核從未改變上下文長度，因此無法指出*稀疏*模型自身的有效上限在哪裡。架構既已推出，此問題如今已從「預測」清單移除，改列其他類別。
+- harness 應如何向使用者顯示剩餘的聰明區預算——token 數量、百分比，還是更豐富的訊號？
 
 ## 資料來源
 
-- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) — 主要論述
+- [Full Walkthrough: Workflow for AI Coding — Matt Pocock](https://youtu.be/-QFHIoCo-Ko) — 主要說法來源
+- [Agentic Context Management: Solving Agent Memory and Cost by Treating Them as Lifecycle and Architecture Problems](https://arxiv.org/pdf/2607.21503) — Gaurav Dadhich (Maximem)，arXiv 2607.21503，2026-07-23，`empirical`，**唯一作者有全面的 vendor COI**（論文的基準測試對象是作者自己的產品）。本頁只引用該論文的一項數字，出自 Table 1 與 §3.2：18,282 → 122 token 的壓縮，使準確率從 66.7% 降至 57.1%；此數字本身是**二手引用 Zhang et al. 2025（arXiv 2510.04618）**，wiki 尚未直接閱讀該研究。該論文自身的產品或基準測試主張都未用於本頁；它們另見 [Context Lifecycle Management](/articles/context-lifecycle-management)，且已完整說明 COI。其 Table 3 的儲存格在原始解析中塌縮，Table 4 順序混亂，兩者都未在任何地方引用
+- [Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257) — Netanel Eliav，arXiv 2607.19257，2026-07-21（`empirical`，唯一作者、單一實驗室、尚未經同儕審查）：§3 的 Book of Veyra 語料與上下文階梯，§5.2 的召回準確率與 Table 7 中未達上限的資料格，§5.4 的捏造與諂媚零值，§5.5 與 Table 8 的拒答上升，§5.6 的錨定組方法注意事項，§7 的成本調整準確率。Tables 3、7、8 和 9 已交叉核對，內容一致；論文的 Table 1 模型名單在原始 markdown 中儲存格塌縮，因此未引用（見 [Instruction Compounding](/articles/instruction-compounding) 的 Sources 備註），所以本文的各模型上下文上限取自論文正文
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk) — Robert C. Martin 與 [Matt Pocock](/articles/matt-pocock)，2026-08-19（`practitioner-opinion`；自動字幕逐字稿）：中間遺失是提示規則衰退的原因、精簡提示是建議、有始有終的角色代理程式是 harness 的結果；150K 聰明區數字也出自此處，但說話者未標示

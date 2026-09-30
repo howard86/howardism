@@ -1,0 +1,192 @@
+---
+date: 2026-08-23
+title: 干擾權重
+description: "大型虛擬權重與模型行為無關，甚至會造成傷害——這是權重疊加的殘留現象。Anthropic 將一個 290 萬參數、單層的 transformer 擴展為約 3.31 億個虛擬權重，並以 Fisher effectiveness（對輸出的影響）和 helpfulness（對損失的影響）為各權重評分，首次在訓練過的 transformer 中辨識出特定干擾權重：來自 `IN` 的最大權重投向 `utions`，這個續接在訓練資料中一次也沒出現過。尾端權重有益，中段好壞參半；剪除 85% 的權重，損失不到 0.1 nats——但仍有數十個百分比的權重有益，因此這個基底無法產生稀疏且易讀的模型。"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - superposition
+  - mechanistic-interpretability
+  - methodology
+readingTime: 19
+imageAlt: 干擾權重示意圖
+sources:
+  - title: Characterizing interference weights in a tiny language model
+    url: https://transformer-circuits.pub/2026/interference_effectiveness_helpfulness/index.html
+---
+export { default as heroImage } from "../assets/interference-weights.webp";
+
+## 資料來源
+
+- [Characterizing interference weights in a tiny language model](https://transformer-circuits.pub/2026/interference_effectiveness_helpfulness/index.html)
+
+## 摘要
+
+**干擾權重**是兩個可解讀模型元件之間的線性交互作用，經由低維殘差流傳遞，對模型行為不是無關緊要，就是有害。這個定義與權重大小無關：干擾權重可以是離開某個元件的*最大*權重。它之所以存在，是因為**權重疊加**——即使有完美的特徵基底，特徵仍須透過低維投影寫入和讀取，因此特徵之間的權重也必須像特徵本身一樣疊加（[Elhage et al. 2022](https://transformer-circuits.pub/2022/toy_model/index.html)；這個詞於 2023 年 Transformer Circuits 更新中命名）。
+
+對可解讀性而言，實際後果才是關鍵：**在資料分布上從未互動的元件，仍可能由一個大型虛擬權重連接，讓人以為它們有某種功能角色**。因此，不能因為特徵可解讀，就推論能從權重讀出迴路。
+
+Turner、Wu 與 Batson（[Anthropic](/articles/anthropic)，Transformer Circuits，2026-08-21）建立了首個能指出、描述並連結特定干擾權重與效能的情境，而且這些權重位於*訓練過的 transformer* 內。先前研究只在玩具模型中看到這種現象，或懷疑 Claude 3.5 Haiku 有未使用的虛擬權重；這是首次透過測量其對訓練損失的影響來證明此現象。
+
+## 設定：擴展 100 倍的 290 萬參數模型
+
+研究對象刻意選得很小，讓成本最高、最精確的測量也能負擔：
+
+- **Transformer。** 單層、僅解碼器，$d_m$ = 256，4 個注意力頭，每個頭的維度為 $d_\text\{head\}$ = 64，寬度 1024 的 ReLU MLP，4,096 個 token 的 BPE 詞彙表（由 Pleias-1.2B 截取），1,024 個 token 的上下文。**約 290 萬個參數**（不含嵌入／反嵌入則約 79 萬）。關鍵是：**全模型沒有任何正規化層或偏置**，並使用固定的正弦位置嵌入。以 Common Corpus（英文與程式碼）約 9.8×10⁷ 個不重複 token 訓練 11,933 步；訓練損失從 8.93 降至約 3.33，預算用盡時仍在下降。測試損失為 3.38。
+- **Transcoder。** 單層 transcoder 含有 **4,096 個 JumpReLU 特徵**，讀取 MLP 前的殘差並預測 MLP 輸出，取代多義神經元基底。注意力保留原生的注意力頭分解。
+- **虛擬權重（VW）模型。** 基底為大小 $d_\{v'\}$ = 5,120 的 `[token, position]` 單熱向量（4,096 個詞彙 token 加 1,024 個位置）、4,096 個 transcoder 特徵，以及 4,096 個輸出 logits。每條路徑都是一連串矩陣相乘，收縮掉殘差維度——這只有在沒有正規化時才完全精確。
+
+六種權重家族，五種線性映射加上一種雙線性映射：
+
+| 家族 | 目標 | 說明 |
+|---|---|---|
+| Tokens→Logits | logits | 直接路徑 |
+| Features→Logits | logits | transcoder 解碼器 × 反嵌入 |
+| Tokens→OV→Logits | logits | 對經注意力移動的 token 起作用 |
+| Tokens→Features | features | 輸入 transcoder 的直接路徑 |
+| Tokens→OV→Features | features | 輸入 transcoder 的移動 token 路徑 |
+| QK | 注意力分數 | 唯一的雙線性映射；同時調節兩種 OV 家族 |
+
+將六種權重全部具體化，會把 290 萬個參數擴增為 **331,350,016 個虛擬權重**，約 100 倍；這是因為現在每對端點都有自己的明確權重，不再共用殘差流。VW 模型能完全重現原始前向傳遞，但會多出每個 token 的 **transcoder 誤差項**（$W_U e$ 加進 logit 總和）；這項誤差不納入任何評分，因為它無法歸因於單一權重。
+
+## 兩個面向：effectiveness 與 helpfulness
+
+辨識問題可歸結為兩個問題；論文的主要貢獻，是指出它們是*不同的*問題。
+
+**Effectiveness**——*這個權重對輸出有任何作用嗎？* 以 Fisher 度量估算模型輸出有無該權重時，KL 散度的二階近似：
+
+$$\textrm\{fisher\}(w) = \tfrac\{1\}\{2\}\,\mathbb\{E\}_\{x \sim \mathcal\{D\}\}\!\left[\textrm\{Var\}_p(a)\right] = \tfrac\{1\}\{2\}\,\mathbb\{E\}_\{x \sim \mathcal\{D\}\}\!\left[a^\{T\}Fa\right], \qquad F = \textrm\{diag\}(p) - pp^\{T\}$$
+
+其中 $a$ 是該權重對 logits 的歸因向量。其單位為 **nats**，所以不論六種家族的目標是 logit 還是模型內部表示，都能彼此比較。估算使用 $2^\{29\}$，約 **5.37 億個 token**，以單次串流遍歷完成：評分可拆成依賴權重的部分與活化統計，因此一次遍歷即可累積每個（來源、目標）配對的 $\mathbb\{E\}[s^2 p_j(1-p_j)]$，最後再乘上 $w^2/2$。
+
+**Helpfulness**——*它讓預測往正確方向移動了嗎？* 消融該權重時，損失的平均變化。對三種以 logit 為目標的家族，有封閉形式 $\Delta\ell = \log(1 - p_j(1-e^\{-sw\})) + sw\,\mathbf\{1\}_\{j=t\}$，因此計算成本低；其他家族則成本較高。測量使用 **10 億個 token**，並計算 95% 高斯信賴區間。
+
+兩者之間的關係刻意保留彈性：**權重要有作用才談得上 helpfulness，但 effectiveness 無法提供 helpfulness 正負號的任何資訊。** Effectiveness 是顯著性分數，是 Optimal Brain Damage／Optimal Brain Surgeon 的直接延伸：在損失極小值處，曲率的期望值與 Fisher 資訊重合；此處則將其套用於虛擬權重，而非自由參數，並在資料分布上累積。
+
+作者主動提出一項提醒：Fisher effectiveness 取代了 Circuit Tracing 使用的 ERA/TWERA 共活化代理指標，他們也明確**不建議過度解讀這項變動**。兩類指標很接近，也試過數個變體；相較於尋找更好的基底，他們認為繼續精煉這個指標的效益有限。
+
+### 兩種測量的尺度不同
+
+- 虛擬權重大致呈**常態分布**；中位數幅度約為最大值的**三分之一**。
+- Fisher effectiveness 在**十個數量級**範圍內大致呈**對數常態分布**；中位數比最大值低 **10,000 倍**。
+- Effectiveness **沒有雙峰分布**——沒有清楚的「有效」與「無效」兩群，只有連續變化。任何門檻都是人為選擇，而非發現出來的界線。
+
+## 示範：`IN` → `utions`
+
+模型能補完 `ACETYLCHOLINE`，也就是在 `IN` 之後預測最後一個 `E`。按路徑拆解後，**沒有任何單一路徑會把 `E` 排第一**：直接路徑偏好 `␣Mrs`，注意力路徑偏好 `ely`，MLP 路徑偏好 `ATION`（若接上去，單字就會變成 ACETYLCHOLINATION）。`E` 勝出，是因為每條路徑都給這個續接相當高的分數。
+
+來自 `IN`、最大的 Tokens→Logits 虛擬權重指向 **`utions`**（w = +2.922）——但在整個訓練集中，`utions` **從未接在 `IN` 後面出現過**。每當此權重改變輸出分布時，它都把預測推向錯誤方向。其 Fisher effectiveness（4.13e-8）比來自同一 token 的最高效權重低約**三個數量級**，平均 helpfulness 也為負（−9.07e-9，SEM 2.60e-10）。
+
+若將同一批權重改按 effectiveness 排序，`utions` 便從前段排名中消失，正確的 `E` 則從依幅度排名第 22 升至第 2：
+
+| | 依虛擬權重絕對值 | 依 Fisher effectiveness |
+|---|---|---|
+| 1 | `utions` (2.922, f=4.13e-8, **h&lt;0**) | `T` (2.234, f=7.01e-5) |
+| 2 | `TER` (2.750, f=3.15e-5) | **`E`** (1.859, f=4.48e-5) |
+| 3 | `ION` (2.453, f=1.33e-5) | `TER` (2.750, f=3.15e-5) |
+| 7 | `␣Mrs` (2.281, f=1.99e-8, **h&lt;0**) | — |
+| 22 | **`E`** (1.859, f=4.48e-5, h=+2.82e-5) | — |
+
+依 effectiveness 排序後，前列全是與 `IN` 出現時全大寫上下文相符、且在語音上合理的續接。（`T` 排在 `E` 前面是正確的——`IN` 後接 `T` 的可能性確實高於 `E`。）來自 `IN` 的最大**負權重**則完全屬於另一群：`lor`、`ings`、`cher`、`ity`、`path` 等都落在 10⁻¹⁰–10⁻¹⁴ 的 effectiveness 範圍，而且只有輕微的*助益*。
+
+## 三項發現
+
+### 1. 有益與有害權重散布於整個幅度範圍
+
+虛擬權重的幅度與 helpfulness 只有微弱關係。Effectiveness 與 helpfulness 的關聯明顯得多——effectiveness 越高，權重越分化為有益與有害，而且最有益的權重延伸得最遠——但兩種排序都*無法將它們分開*。**只看原始權重，很可能漏掉實作重要迴路的權重，卻凸顯那些在真實資料上毫無影響的連結。**
+
+這並非一概否定。論文刻意展示了一個反例：中文特徵（#157）最大的虛擬權重本來就是好的——`。` 以及多位元組 CJK 字元的開頭位元組；它最強的負權重則會壓低 `␣European` 等拉丁字母 token。排序或篩選幾乎不改變整體樣貌。另一個法語／歐洲語言字尾特徵（#3013）則呈現相反情形：原始權重開頭是低效且有害的阿拉伯字母目標；依 effectiveness 排序後它們雖然往下移，卻**沒有完全清理名單**——在高 effectiveness 範圍，有害權重仍與有益權重交錯。
+
+**Effectiveness 能讓排名頂端富集更多有益權重，但無法將它們單獨分出來。**
+
+### 2. Effectiveness 的尾端幾乎全是有益權重
+
+依 effectiveness 排名以對數均勻方式抽樣 1,111 個權重並測量各自的 helpfulness，結果呈現三個區段，而且*每個*家族都符合：
+
+- **無效區**——helpfulness 約為 0，沒有值得觀察的影響。
+- **中度區**——有益與有害混雜；effectiveness 無法將兩者分開。
+- **最高區**——只剩有益權重。最有效的*有益*權重，其度量值至少比同一家族中的任何有害權重**高一個數量級**。
+
+這個差距比以原始虛擬權重繪製的同一張圖大得多，也穩定得多。作者提出的解讀很直觀，也值得記住：以最小化損失為目標訓練的模型，有充分理由讓最關鍵的權重指向正確方向，卻**不太需要管控那些幾乎不影響輸出的權重**。有害權重是模型想實作更多、也更複雜的迴路，超過殘差流所能容納時付出的代價。
+
+總量也呈現這種不對稱。在 7,765 個權重的樣本中，helpfulness 正值總和為 **1.44e-4**，有害權重的幅度總和為 **1.12e-5**——約為 13:1。在全部 3.31 億個權重中，Fisher 質量依正負權重分別為 3.62 與 1.59。
+
+### 3. ……但此基底下的模型仍然稠密
+
+這是論文的負面結果，也是整篇研究的關鍵所在。
+
+**依 effectiveness 剪枝成本低且成效良好。** 從 effectiveness 最低的權重開始移除：
+
+| 保留密度 | ΔL（nats） | Fisher 門檻 |
+|---|---|---|
+| 0.55 | 0.000146 | 9.148e-12 |
+| 0.30 | 0.0107 | 1.283e-10 |
+| 0.15 | 0.0702 | 8.047e-10 |
+
+剪除 effectiveness 最低的**70% 權重，成本約為 0.01 nats**；剪除 **85% 的成本不到 0.1**。在所有密度及所有家族中，這都勝過依原始虛擬權重幅度剪枝（唯一例外是負向的 Features→Logits 權重）。在 **1% 密度**時——此時剩餘參數量約等於*原始* transformer——模型效能明顯受損。
+
+**但 helpfulness 設下了剪枝無法跨越的下限。** 從隨機抽樣的 7,765 個權重中，取各權重在 10 億個 token 上的測量結果：
+
+| 家族 | N | 無效 | h > 0 | 95% 區間 | h &lt; 0 | 95% 區間 |
+|---|---|---|---|---|---|---|
+| Tokens→Logits | 1,230 | 8.9% | 53.0% | [34.8, 66.6] | 38.1% | [24.5, 56.3] |
+| QK | 1,379 | 11.4% | 48.4% | [8.1, 85.1] | 40.2% | [3.5, 80.5] |
+| Tokens→OV→Logits | 1,358 | 4.5% | 51.0% | [21.7, 77.2] | 44.5% | [18.3, 73.8] |
+| Tokens→Features | 1,230 | 46.2% | 32.9% | [16.8, 48.1] | 20.9% | [5.7, 37.0] |
+| Tokens→OV→Features | 1,358 | 4.0% | 47.9% | [8.9, 87.0] | 48.1% | [9.0, 87.1] |
+| Features→Logits | 1,210 | 3.0% | 51.6% | [34.0, 68.6] | 45.4% | [28.4, 63.0] |
+| **全部** | **7,765** | **12.7%** | **47.6%** | **[20.3, 72.7]** | **39.7%** | **[14.6, 67.0]** |
+
+約**半數權重有益**；即使只計入信賴區間不含零的權重，也仍有**數十個百分比**。VW 擴展使參數數量增為約 100 倍，因此「數十個百分比」仍代表**數千萬個權重要解讀，而且模型只有一層**。Fisher 剪枝在損失開始惡化前，已達到相近密度——這正是作者認為精煉顯著性指標幫助有限的原因。
+
+若將「保留所有有益權重」放寬為「保留 90% 的有益質量」，密度只需 **2.43%**；但若要保留 99% 的質量，需求便迅速升至 **13.6%**（保留 50% 則只需 0.129%）。密度為 2% 時，經篩選的 VW 模型仍會保有約為原始 transformer **兩倍**的參數數量——如果這些權重都真正可解讀，那會比以往任何觀察都更接近「樓上」的提升。論文謹慎指出，這是依樣本得出的估算，而且同時移除許多權重會帶來單一權重測量無法捕捉的非線性效應。
+
+## 機制分析：effectiveness 找出幅度排序掩蓋的抑制作用
+
+這項研究最清楚地展現它是*可解讀性*工具，而不只是剪枝準則的例子，是特徵 #1254。此特徵在 Java／TypeScript／C# 的重複宣告區塊（成員清單）內換行時強烈觸發，在一些空白 token 上則弱烈觸發。
+
+讀取它的原始 Tokens→Features 權重會造成誤導：
+
+1. **最大正權重來自位置，不是 token。** 但位置輸入有兩條路徑——Tokens→Features 與 Tokens→OV→Features——而兩者高度**負相關**（OLS 斜率 −0.993，$r^2$ = 0.912）。它們相加後形成近乎固定的偏置，最大貢獻也只有特徵有效閾值的 **約 30%**。位置權重確實存在，而且彼此抵銷。
+2. **換行 token 本身的權重深埋在微弱正值的尾端**；空白 token 卻帶有此特徵**最強的負權重**——這與「對換行和空白觸發」的預期恰好相反。
+
+依 effectiveness 或 helpfulness 排序，會將那些負向空白權重和換行 token 恰好突顯出來。它們編碼的機制是：空白與換行 token 會引入*相近*程度的注意力輸入，但負向的直接路徑權重會**提高空白 token 的活化閾值**。因此，此特徵把「是否應該觸發？」的訊號交由注意力路徑處理，再利用直接路徑**否決**所有非換行輸入。**Effectiveness 會凸顯抑制作用比激發作用更重要的地方**——只看原始幅度，並依正值優先排序，在結構上就無法呈現這一點。
+
+## 這些結果能確立什麼，不能確立什麼
+
+作者對結果的詮釋格外明確，其中值得記住的是負面的一半。
+
+**已確立。** 訓練過的 transformer 內確實存在干擾權重，不只是玩具模型中才有；可依其對訓練損失的影響辨識這些權重；模型中影響最大的權重大多有益；無效權重則大量存在，而且容易移除。由於干擾在 **Tokens→Logits** 路徑中也看得見——其兩端的基底（詞彙表）都很容易解讀，而且不涉及特徵擷取步驟——因此這項示範不必依賴「transcoder 找到了正確分解」這個前提。
+
+**尚未確立——作者也明確這麼說。** 他們無法得到稀疏且可解讀的模型，並懷疑**任何顯著性方法都不會有太大改善**。他們判斷問題出在**基底**，而非指標：同一個模型在一種基底下可能稠密，在另一種基底下則可能稀疏；他們使用的基底（這個 transformer 的 token，以及此 transcoder 的特徵）可能只是選錯了座標。若模型能將 token 分解為語言或詞性，或許就能簡潔地表達相同計算。
+
+值得記住的結論是：**辨識干擾權重是理解全域迴路的必要條件，但並不足夠。** Anthropic 最初研究逐提示歸因圖，而非全域權重，原因正是要避免干擾。Effectiveness 與 helpfulness 的定位改為：*有人找到更好的基底後，用來辨認它的工具*——好的分解應能讓絕大多數權重因無效或有害而被丟棄，只留下稀疏且有益的權重集合。
+
+### 值得謹記的限制
+
+- **精確性取決於不尋常的架構。**「每條路徑都是固定矩陣乘積」之所以成立，*是因為*這個 transformer 沒有正規化層。前沿模型都有正規化層。
+- **兩種指標都無法擴展。** 作者坦言，Fisher effectiveness 與 helpfulness 無法順利擴展至前沿模型的所有家族，因此他們仍認為開發 ERA/TWERA 等代理指標有其價值。
+- **信賴區間極大。** 標題數字「47.6% 有益」的 95% 區間為 **[20.3, 72.7]**；QK 的 48.4% 則對應 **[8.1, 85.1]**。點估計呈現的精確程度遠高於測量本身。
+- **統計顯著不等於效應量大。** 每項估計使用 10 億個 token，因此即使權重對損失的影響微不足道，也可能達到統計顯著。論文以此作為參照：訓練好的模型相較均勻分布，損失從 8.32 降至 3.38，相差約 **4.94 nats/token**；平均分攤至約 3.31 億個權重，即每個權重約 **1.5e-8 nats**。ROPE 分析則依據實務等效區間重新分類樣本，而非以零為基準。
+- **QK 推導中的近似。** 同一 token 的重複出現被視為彼此獨立，捨棄跨特徵共變異數，而且不為 transcoder 誤差項評分。
+- **作者自己的分解並不完美。** 作者指出，transcoder 含有幾個多義特徵，而四個注意力頭可能也有多義性。
+
+## 延伸閱讀
+
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens)——這是從活化側看同一問題的對照方法，也讓差異更清楚。J-lens 是一種*讀出*方法，探問殘差流方向可能使模型說出什麼；本文則探問*兩個元件之間的權重*實際起了什麼作用。兩者從相反方向走到同一堵牆：J-lens 尚待回答的問題是，讀取活化時「更好的基底是什麼？」；本文的結論則是，擋在我們與稀疏、易讀權重描述之間的是更好的基底，並非更好的指標。另請注意，此處按路徑進行的分解，就是將**logit lens**套用到每條路徑；J-lens 正是為了修正這項技術而建立的
+- [White-Box Activation Monitoring](/articles/white-box-activation-monitoring)——這個方法家族讀取模型內部而非輸出，也呈現了本文所界定的假設範圍。監控方法讀取*表徵*；本文則顯示，可解讀的表徵**無法**讓它們之間的權重也變得可解讀，因為依照建構方式，即使特徵基底完美，權重疊加仍然存在。本文使用的 transcoder，與這些監控方法所依循的字典學習脈絡相同
+- [Model Organisms](/articles/model-organisms)——換個角度看，是同一種遷移取捨。該文將特性植入小型模型，讓可解讀性技術有已知答案可供評分，結果發現評分會隨建構方式改變；本文則選用 290 萬參數的 transformer，讓 helpfulness——一種幾乎等同真實答案的測量——變得負擔得起，而作者也承認這些指標無法擴展。兩者都以代表性換取可測量性，也都尚未解答哪些結果能遷移至前沿模型
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace)——本文所屬的可解讀性研究計畫：像讀程式一樣讀取模型。Global Workspace 的研究關注哪些*表徵*承載因果效應；本文探討的是它們之間哪些*連結*會產生作用
+- [Anthropic](/articles/anthropic)——產出此研究的可解讀性團隊，位於 Transformer Circuits Thread 上
+
+## 開放問題
+
+- 是否存在某種基底，能讓訓練過的 transformer 虛擬權重真正**稀疏**？還是權重稠密是殘差流本身的特性？作者看好基底，並提出參數空間分解（APD、SPD、LLD）作為候選方案，但目前尚未以此基準進行測量。可具體驗證的反例是：某種分解能丟棄大多數無效或有害權重，且留下的集合可供解讀。這不同於 [Jacobian Lens (J-lens)](/articles/jacobian-lens) 的讀出基底問題——前者關乎對活化執行更好的反向傳遞，本文則關乎權重所處的座標。
+- 三階段結構——無效／混合／尾端純有益——在有**正規化層和深度**時仍成立嗎？此處精確的矩陣乘積分解只因模型沒有 LayerNorm 才成立；多層組合則會增加無法因式分解的路徑。若在 2 至 4 層、含正規化的 transformer 上複製研究，就能判定這項發現關乎疊加現象，還是只適用於此架構。
+- 在前沿規模下，Fisher effectiveness 和 helpfulness 都無法計算。可擴展的共活化代理指標（ERA、TWERA）能保留關鍵的**排序**嗎？也就是讓排名頂端富集有益權重；還是只能反映分布中段——在該處 effectiveness 本來就無法區分有益與有害權重？
+
+## 資料來源
+
+- [Characterizing interference weights in a tiny language model](https://transformer-circuits.pub/2026/interference_effectiveness_helpfulness/index.html) — Nicholas L. Turner、Jeffrey Wu 與 Joshua Batson，*Characterizing interference weights in a tiny language model*，Transformer Circuits Thread，2026-08-21，`empirical`，約 12,100 字。使用章節：Introduction（疊加現象對權重解讀造成的兩項挑戰）；A motivating example（ACETYLCHOLINE 的三路徑拆解）；The virtual weight model（六種家族、290 萬 → 3.31 億）；Effectiveness and helpfulness（兩者定義及 ERA/TWERA 說明）；Effectiveness surfaces helpful weights but does not isolate them（`IN` 排名、特徵 #157、#3013、#1254）；The effectiveness tail is helpful（1,111 個權重樣本、三階段）；The model is still dense in this basis（剪枝曲線、7,765 個權重的 helpfulness 樣本、helpfulness 質量）；Discussion；附錄（訓練細節、各家族的 Fisher 推導、logit helpfulness 的封閉形式、質量累積分布、ROPE、完整 helpfulness 表）。
+  **圖表擷取提醒**：來源是 HTML Distill 頁面，包含 29 張圖。8 張靜態圖已擷取、檢視並於本文引用；**21 張互動式（iframe）圖無法擷取，且無法從原始資料還原**。其中 3 張帶有關鍵數字，於匯入時直接從互動元件的資料轉錄至本文：`IN`→logits 排名、正文中的 helpfulness 正負號拆解，以及 ΔL 對密度的剪枝曲線；本文使用了這些轉錄資料。其餘 18 張僅作質性引用（形狀與排序，不含數值）。上方完整 helpfulness 表已逐格對照圖檔 `fig08.png` 驗證，完全相符。來源並非從 PDF 取得，因此不涉及 docling 的表格解析失敗模式。

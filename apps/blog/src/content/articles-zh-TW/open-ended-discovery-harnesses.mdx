@@ -1,0 +1,256 @@
+---
+date: 2026-08-04
+title: Open-Ended Discovery Harnesses
+description: >-
+  針對沒有已知最佳解、可讓代理程式連續執行數小時的問題所設計的 Harness：反覆出現的失敗是想法塌縮——太早押注單一方法，之後便永遠只做微幅最佳化；SwarmResearch 的兩項作法（以全域脈絡 Shepherd 引導彼此隔離分支的 Search Agents，每個代理程式一個 worktree）在 15 項任務中的 13 項與 EvoX/CORAL 持平或勝出，但所有方法在競賽啟發式上都遠低於人類 SOTA。
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - agent-orchestration
+  - open-ended-discovery
+  - test-time-compute
+  - empirical
+readingTime: 37
+imageAlt: Open-Ended Discovery Harnesses 的插圖
+sources:
+  - title: "SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery"
+    url: https://arxiv.org/pdf/2607.02807
+  - title: "Idea Search: Guiding Tree Search with Ideas to Explore Diverse
+      Scientific Methods"
+    url: https://arxiv.org/pdf/2608.08958
+  - title: "DarwinX: Evolving Agent Harnesses Through Natural Selection"
+    url: https://arxiv.org/pdf/2608.07545
+  - title: "Stellar Colosseum: A Many-Agent Harness for Long-Horizon Research in
+      Mathematics and Theoretical Computer Science"
+    url: https://arxiv.org/pdf/2609.15983
+---
+export { default as heroImage } from "../assets/open-ended-discovery-harnesses.webp";
+
+## 資料來源
+
+- [DarwinX: Evolving Agent Harnesses Through Natural Selection](https://arxiv.org/pdf/2608.07545)
+- [Idea Search: Guiding Tree Search with Ideas to Explore Diverse Scientific Methods](https://arxiv.org/pdf/2608.08958)
+- [Stellar Colosseum: A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science](https://arxiv.org/pdf/2609.15983)
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807)
+
+## 摘要
+
+這類 Harness 讓程式設計代理程式連續執行數小時或數天，面對**沒有已知最佳解**、只有評估器而沒有測試套件的問題：讓圓形排列得更緊密、讓交易排程更快、寫出更好的競賽啟發式、加快推測解碼。目前有四種設計在競逐相同預算——單一長時間執行迴圈（Karpathy 的 **autoresearch**，提交改進並還原退步）、**LLM 引導的演化**（AlphaEvolve、OpenEvolve、ShinkaEvolve、EvoX——讓 LLM 在啟發式選擇流程中擔任突變運算子）、**共享記憶體多代理程式**（CORAL——代理程式透過檔案系統記憶體交換見解並自行組織），以及本文所命名的協調者—子代理程式設計。四種設計都圍繞同一種失敗：**想法塌縮**。
+
+> **名詞釐清。** 此處的「研究」指*最佳化與探索*，不是文獻綜整。這和 [Deep Research Agents](/articles/deep-research-agents) 是不同類型的系統；後者會拆解查詢、搜尋網路並產生附引用的報告。兩者只有「研究」一詞相同，其他幾乎全然不同——沒有檢索、沒有引用，以數值目標而非評分規準衡量，執行時間以小時計而非分鐘計。兩者真正相通之處在於結構：都是拆解 → 探索 → 綜整的迴圈，品質取決於協調層，而非基礎模型。
+
+> **證據說明。** `empirical`，單篇論文、單一實驗室（UIUC）、預印本。**每種技術、每項任務 n = 1 次執行**——作者表示，三種方法各自在 15 項任務基準上跑一遍，Opus 4.6 點數約花費 $1,700；他們主張單次長時間執行最能代表各方法自身建議的用法（附錄 B）。全文沒有呈現變異、誤差棒或顯著性檢定。
+
+## 此類系統要解決的失敗：想法塌縮
+
+SwarmResearch 的論述是，收斂到單一方法是 **Harness 的特性，而非模型限制**，並指出三種不同機制——每種競爭設計各有一種：
+
+- **脈絡累積**（單代理程式迴圈）。代理程式花三小時逐步精修某一方法後，便會受到這段精修歷史制約；因此，大幅轉向——這需要好幾輪整個程式重寫——就不太可能發生。漫長對話本身就是錨點。
+- **單一可編輯程式狀態**（同樣是單代理程式迴圈）。改進會被提交、退步會被還原，後續搜尋則從目前最佳實作繼續。如此一來，軌跡就成了「一連串貪婪的局部精修」，而有潛力但未達頂尖的解法會永久被丟棄。
+- **共享記憶體**（多代理程式）。CORAL 的代理程式透過共用檔案系統記憶體自行組織；「當所有代理程式看到另一個代理程式找到更強的解法時，就會決定改進最佳解法並放棄各自獨立的方向。」這種塌縮來自*可見性*而非脈絡長度，也正是 SwarmResearch 限制每個 Search Agent 只能沿著自己的系譜工作的原因——參見 [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence)，這裡提供了目前最明確的答案：同質集體何時不再只是各部分的總和。
+
+演化方法早已對同一問題提出解法——AlphaEvolve 中的 MAP-Elites、P-UCB，以及 [Evolutionary Proof Search](/articles/evolutionary-proof-search) 中強制多樣化的提示——但它們是**透過啟發式演算法**而非讓 LLM 讀取整個族群來達成。SwarmResearch 主張 LLM 可以擔任這個角色。
+
+## 兩種機制
+
+**脈絡分層。** Search Agents 取得*區域*脈絡：其 git worktree 的內容，加上（對 Optimizers 而言）直接父代理程式分支而來的對話紀錄。Shepherd Agent 取得*全域*脈絡：每個 Search Agent 的方法摘要與評估分數。每個 Search Agent 也會在自己的系譜中附加 `findings.md`——記錄嘗試內容與得分的事實紀錄，讓後代取得祖先的結果，而不必繼承祖先的對話。
+
+**每個代理程式都有自己的 git 分支與 worktree。** `main` 只放 `prompt.md` 和最小可執行基準。從 `main` 分支是從頭開始嘗試；從已完成代理程式的 commit ref 分支可精修該系譜；多父分支（`git merge --no-commit`）則可合併兩者。任何內容都不會被還原抹除，因此「有潛力但非頂尖的解法不會過早遭到丟棄。」
+
+Shepherd 只透過三個槓桿引導，而且**沒有一個槓桿是想法**：
+
+| 槓桿 | 機制 | 控制內容 |
+|---|---|---|
+| **父節點選擇** | 建立代理程式起始所在的分支/worktree | 解空間中要探索哪個鄰域 |
+| **代理程式類型** | Explorer（全新脈絡視窗）或 Optimizer（`--resume <parent_session> --fork-session`） | 轉向或精修 |
+| **提示** | 精簡、不預設立場的脈絡 | 哪些內容*不必*重新探索；跨系譜發現；停滯簡報 |
+
+最關鍵的設計決策是一項**禁令**，也是 shepherd skill 中最重要的規則：*「搜尋代理程式自行決定實驗；你不得指示它們採用特定想法。」* 作者提出的理由來自實證，值得記下——限制 Shepherd 提出想法「有助於維持想法多樣性；否則，Shepherd Agent 本身可能會困在某個想法盆地裡。」**具有全域脈絡的單一協調者，恰好是最可能發生此架構想避免之塌縮的元件**，所以解法是剝奪它表達自身收斂方向的能力。該 skill 還提供了好壞範例，對照描述權衡的脈絡與指定方法及參數範圍的脈絡。
+
+整套系統由三個 [Claude Code](/articles/claude-code) skills 組成，透過 shell 呼叫 `claude --permission-mode bypassPermissions -p... --output-format json`，沒有超參數——協調者自行設定寬度與深度。這是手工打造的姊妹系統，對照 [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra)：後者在 Bun sandbox 中將相同的「模型撰寫協調程式」概念產品化。
+
+## 15 項任務的結果，以及標題掩蓋的差異
+
+> **解析警告。** 從 PDF 擷取的原始資料中，表 1 **儲存格遭合併、列也錯位**——五個 Math 列被併成一個包含串接數值的表格列，EPLB 的 SOTA 值（0.1490）則落在單獨的幽靈列上，使 EPLB 列少了一格。`parse-asset.sh` 檢查通過（這正是編譯器提示所警告的假陰性）。**不可引用未解析的原始表格。** 下方每格都在匯入時及編譯時，依據 (`pdftotext -f 7 -layout`) 重新對應；數字沒有錯，問題純粹是結構錯誤。
+
+粗體 = 三種方法中最佳。論文中的綠色標記（分數 ≥ SOTA）在此以 **§** 表示。
+
+| 領域 | 任務 | SOTA | EvoX | CORAL | SwarmResearch |
+|---|---|---|---|---|---|
+| Math | Circle-Packing ↑ | 2.635983 | 2.1064 | 2.635985 **§** | **2.635996 §** |
+| Math | Signal Processing ↑ | 0.8229 | 0.7181 | 0.7403 | **0.7970** |
+| Math | Erdős Min Overlap ↓ | 0.380876 | 0.38195 | 0.381099 | **0.381080** |
+| Math | MMD-14-3 (Min-Max-3) ↓ | 4.16578 | 4.46410 | **4.16578 §** | 4.16584 |
+| Math | 3rd-Autocorrelation ↓ | 1.45368 | 1.46220 | 1.46233 | **1.45649** |
+| Systems | EPLB ↑ | 0.1490 | 0.1443 | **0.1467** | 0.1436 |
+| Systems | LLM-SQL ↑ | 0.7310 | 0.7253 | 0.7195 | **0.7331 §** |
+| Systems | Txn Scheduling ↑ | 4566.0 | 4081.6 | 4201.7 | **4366.8** |
+| Systems | Cloudcast ↓ | 618.4 | 696.1 | **618.0 §** | **618.0 §** |
+| Systems | PRISM ↑ | 26.26 | 26.26 **§** | 26.26 **§** | 26.26 **§** |
+| Heuristics | Territory (AHC008) ↑ | 3463 | 1161 | 1208 | **1304** |
+| Heuristics | Halloween Candy (AHC015) ↑ | 3506 | 1985.67 | 2268 | **2543** |
+| Heuristics | Graphorean (AHC016) ↑ | 3517 | 1621 | 1782 | **2138** |
+| Heuristics | Balancing by Balance (AHC025) ↑ | 3479 | 1400 | 1236 | **1470** |
+| Heuristics | Stack of Boxes (AHC026) ↑ | 3451 | 2009.67 | **2618** | 1992 |
+
+### 「13/15」指的是方法彼此比較，SOTA 欄則是另一回事
+
+標題的意思是：**15 項任務中，有 13 項表現優於或可比於兩個基準**。按這個意思理解，數字是成立的：SwarmResearch 在 10 項中明確最佳、在 2 項中並列最佳（Cloudcast 與 CORAL、PRISM 與所有方法），在 2 項中落敗（EPLB、Stack of Boxes）；在 MMD-14-3 上比 CORAL 高 0.00006——論文把這算作可比，這樣說也合理。**這個數字完全沒有宣稱達到當前 SOTA。**
+
+SOTA 欄才呈現當前技術水準，而且依領域清楚分成兩類：
+
+- **Systems 與 Math：具競爭力。** SwarmResearch 在 10 項中有 4 項達到或超越 SOTA（Circle-Packing、LLM-SQL、Cloudcast、PRISM）。這些是 AI 創下的紀錄；論文也指出其中許多「難以驗證，因為解法沒有公開發布」——因此門檻本身並不牢靠。
+- **競賽啟發式：所有方法都差得遠。** 五個 SOTA 數值都由人類撰寫，而每種方法的成績都只有它們的 **34% 到 73%**：1304/3463、2543/3506、2138/3517、1470/3479、1992/3451。SwarmResearch 在這五項中有四項*勝過其他方法*，但離人類水準仍很遠。作者明確指出，ALE-Bench 的指標類似 Elo——3000 對 1500 並不代表目標值差了兩倍，而是指一方很可能勝過另一方的評分——這讓差距更難解讀，並沒有讓差距變小。
+
+因此，誠實的一句話總結是：**在一個由人類以搜尋方法尚未做到的方式設定前沿的基準上，一種搜尋程序勝過其他搜尋程序。** 論文本身也這麼說（「AI 系統仍落後」）；掩蓋這點的是標題。
+
+### 它在哪些地方落敗，以及這對機制論述的影響
+
+三列結果不支持論點，而且很有參考價值：
+
+- **EPLB ↑**——SwarmResearch 在三種方法中**排名最後**（0.1436，CORAL 為 0.1467，EvoX 為 0.1443），整個領域也都低於 0.1490 的 SOTA。論文自己的解釋是 CORAL「更充分利用了強健方法，也找到了有意義的低階變動」。剩餘進步空間若在調參，高階探索就會成為*成本*。
+- **Stack of Boxes (AHC026) ↑**——又是最後（1992，CORAL 為 2618，EvoX 為 2009.67），也是唯一落敗的啟發式任務。原因相同。
+- **MMD-14-3 ↓**——CORAL 精確達到 SOTA（4.16578），SwarmResearch 則差 0.00006。差異不重要，但這代表 CORAL *達到 SOTA* 的任務數比 SwarmResearch 多一項。
+
+**值得指出的一處計數不一致。** §3.2 兩度聲稱 SwarmResearch「在 15 項任務中有 13 項勝過 EvoX，另有 1 項持平。」表 1 顯示的是 **12 項嚴格勝出、1 項持平（PRISM）、2 項落敗**——EvoX 在 EPLB（0.1443 對 0.1436）和 Stack of Boxes（2009.67 對 1992）都勝過 SwarmResearch。正文承認在這兩項落敗，卻把兩項都只歸因於 CORAL。摘要中的 13/15（優於或可比於*兩個*基準）才和表格吻合；針對 EvoX 的計數多算了一項。
+
+### 預算與一個基準相同，與另一個則不同
+
+這正是 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) 在 Harness 演化出現預算匹配的負面結果後，列為持續要求的控制條件；此處的答案分成兩種：
+
+| 方法 | 預算 | 執行環境 | 模型 |
+|---|---|---|---|
+| SwarmResearch | **每項任務 $50** | Claude Code | Opus 4.6 |
+| CORAL（4 個代理程式） | **每項任務 $50** | Claude Code | Opus 4.6 |
+| EvoX | 100 次迭代，**平均每項任務約 $23.50** | 自有流程 | Opus 4.6 |
+
+- **和 CORAL 比較很公平**——美元上限、執行環境與模型都相同——而且這也是差距*較小*的比較：10 勝、2 平、3 負。作者也把其中三項勝利（Circle Packing、Erdős、MMD-14-3）描述為差異「在更高預算下進一步精修解法後可能縮小」。
+- **和 EvoX 比較則不公平。** SwarmResearch 的花費約為 **2.1 倍**，而大幅領先的結果也出現在 EvoX 身上（圓形排列為 2.635996 對 2.1064；每一項啟發式的分數都近乎翻倍）。「依論文設定跑 100 次迭代，之後效益遞減」是合理的實驗規範選擇——但這不代表預算相同，因此不能把面對 EvoX 的差距歸因於搜尋設計，而非投入金額。作者另外報告，EvoX 在 Opus 4.6 上的表現低於其已發表結果，因為它原本是以 GPT-5 調校；作者並表示「若使用最新 GPT 模型，排名可能改變。」同一項比較有兩個獨立折扣。
+
+**截至 2026-08-13，整個文獻領域的情況是：最好的控制仍只做了一半。** [DarwinX](https://arxiv.org/pdf/2608.07545)（Salesforce，arXiv 2608.07545，2026-07-31，`empirical`）原本是本文此節所談、最有希望符合預算匹配條件的候選研究——它用一節標題 *「增益來自 Harness，而非算力」* 討論此問題，並稱自己的比較為 **「effort-controlled」**。但查核全文後，並非如此：33 頁內容沒有任何地方定義「medium / high / xhigh」，逐基準的實驗規範附錄**沒有算力欄**，全文也沒有出現美元成本；其標題中的模型配對還跨越 `default` → `high`。因此它比較的是不同代理程式使用的供應商努力等級名稱，和 SwarmResearch 一樣只做到半套控制——碰巧匹配的地方有匹配，差距所在之處則未受控制。**此文獻中的解法搜尋與 Harness 搜尋分支，都還沒有提出以預算正規化的比較**，而兩者的缺失型態不同：SwarmResearch 報告了金額卻沒有使預算相等，DarwinX 則完全沒有報告預算。完整討論見 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization)。
+
+和 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) 相比，最關鍵的差異是：該頁的負面結果探討搜尋 **Harness**，並發現產品無法轉移。這裡搜尋的是**解法**，產物就是答案，沒有聲稱能轉移——所以若預算相等時仍落敗，代表算力在別處使用會更有效；在前一頁則代表算力沒有產生可重用成果。**批評仍完全適用；結論則不同。**
+
+## 協調者引導的擴展，在 5 項中有 4 項勝過最佳固定 (n, k)
+
+第二項實驗是預算控制最乾淨的一項，也是 [test-time-scaling](/articles/large-scale-test-time-compute) 的結果。固定擴展 = *n* 個並行代理程式 × *k* 次序列迭代，共用 git 歷史；在 60 次迭代預算內測試 (5,12)、(10,6)、(15,4)、(20,3)、(30,2)，平均 3 次執行，回報最佳設定。協調者引導 = 相同的 60 次迭代預算，由協調者即時選擇寬度與深度。**表 2 解析乾淨，可直接引用。**
+
+| 任務 | 最佳固定設定 (w × d) | 固定分數 | 協調者（平均 w × d） | 協調者分數 |
+|---|---|---|---|---|
+| 3rd-Autocorrelation ↓ | 5 × 12 | **1.4649** | 8.57 × 6 | 1.4652 |
+| Signal Processing ↑ | 15 × 4 | 0.6369 | 6.78 × 8 | **0.6787** |
+| Circle-Packing ↑ | 20 × 3 | 2.244 | 9.60 × 4 | **2.294** |
+| Cloudcast ↓ | 10 × 6 | 714.3 | 10.83 × 5 | **672.3** |
+| Txn Scheduling ↑ | 20 × 3 | 3775 | 6.00 × 4 | **4049** |
+
+可以得出三點，其中第二點最容易應用到其他情境：
+
+- **加寬勝過加深，但有上限。** 五項任務中有四項的最佳固定設定都偏寬而非偏深，但最寬的設定（30, 2）**從未**是最佳。「長時間序列執行會停留在相同的解法鄰域，錯過高度並行執行所發現的更強鄰域」；但超過某個寬度後，每個代理程式的迭代又會淺得無法建構成果。
+- **最佳 (n, k) 取決於任務——這正是協調者的實際價值。** 五項任務中有四項的最佳設定不同。協調者引導的擴展完全不需要擴展超參數，而且在 5 項中有 4 項勝過*最佳*固定設定，因為它能先把預算用於廣泛探索，再只對留存的方向進行深入序列迭代。在 Signal Processing 任務中，它達到的最大深度遠高於任何固定設定。
+- **協調者的額外成本很低。** 60 個子代理程式主導推論成本；協調者只讓總輸出 token 數增加 **7.7%**。
+
+**控制條件仍不夠乾淨。** 這項實驗的子代理程式使用 Minimax-M2.5，協調者則使用 Claude Sonnet-4.6（Minimax「難以在協調工作受限於分支選擇時表現良好」）；固定擴展組則全部使用 Minimax-M2.5。因此，勝出的組別在迴圈中使用了基準完全沒有的更強模型。作者的辯護確有根據——協調者的子代理程式工具**只接受分支欄位**，不能撰寫提示，而且只有 Explorer 這一種代理程式類型，所以「不會提供任何想法」——但由更強模型選擇父節點，仍是基準沒有的能力，成本為額外的 +7.7%。應將結果理解為*有能力的模型協調勝過固定超參數*，而非*在模型相同時，協調勝過固定超參數*。
+
+## 機制證據：更大的差異——但圖表為此說法加上了限制
+
+SwarmResearch 勝出的原因據稱是它會進行*較高層次*的實驗，以每次嘗試變更的程式碼行數作為代理指標：在典型任務的中位數上，它變更的行數是 CORAL 的 **3.2 倍**、EvoX 的 **1.7 倍**。Signal Processing 是具體範例：SwarmResearch 的差異中位數（±126 LOC）換上另一種訊號處理演算法，CORAL 的差異（±8 LOC）則調整修正方式；在 AHC016 上，CORAL 調整閾值，SwarmResearch 則將求解器重新設計成依條件切換模式。
+
+**圖 6 的範圍比句子所說的窄。** 圖表呈現六項任務，而其中三項是 **EvoX 變更的行數多於 SwarmResearch**——Circle Packing（約 185 對 128）、Erdős Min Overlap（約 267 對 245）及 EPLB（約 92 對 62）。SwarmResearch 在 Txn Scheduling、AHC016 和 AHC025 上的 LOC 優勢明顯，在基準程式很小的 Math 任務上則沒有優勢；這符合論文自己的保留說法：此現象「在啟發式任務與部分系統任務中最明顯」，尤其是「基準解法較大的任務」。因此，*「SwarmResearch 通常比基準方法做出更大的程式碼變更」*這句話，若對照 CORAL，在圖示的所有任務上都成立；若對照 EvoX，則只在程式夠大、重寫足以帶來大幅變動時成立。1.7 倍是跨任務中位數，不代表每個任務都如此。
+
+作者也直接說明代價：若高階實驗沒有結果，把它用於推論可能效率不佳；推論算力若用來最佳化強健方法會更有價值——這正是 EPLB 和 AHC026 落敗所呈現的情形，也是該機制本身帶來的成本。
+
+## 案例研究：推測解碼與審查問題
+
+在 [Claude Code](/articles/claude-code) Opus 4.8 上各執行約 11 小時——先跑**分析階段**，分析基準並建立分析結果、不產生解法，再把結果放入解法階段的 worktrees——與無損 rejection-sampling 基準比較（比 vanilla 快 1.68 倍）；目標模型為 gemma-4-26B-A4B-it，使用其 MTP draft head、8×A6000、temperature 1.0。
+
+| 方法 | 相對 vanilla 的加速 | 準確率 |
+|---|---|---|
+| vanilla 解碼 | 1.00× | 65.8% |
+| autoresearch（約 12 小時） | 1.80× | **65.8%** |
+| CORAL（約 12 小時） | 2.26× | 58.4% |
+| **SwarmResearch（約 11 小時）** | **4.58×** | 60.6% |
+
+**這些加速結果並未在準確率相同的條件下比較，儘管目標明確要求準確率不變。** 原定目標是「在*維持基準準確率*的同時最大化 token 吞吐量」；SwarmResearch 犧牲 5.2 個百分點，autoresearch 則完全沒有犧牲。論文將準確率下滑歸因於回應超過評估器的 16,384-token 上限，而非答案錯誤；這種說法合理但未經測量，也屬於必須回報截斷率才能驗證的解釋。4.58×/60.6% 和 1.80×/65.8% 位於不同的前沿，不在同一條前沿上。
+
+**勝出解法的實際內容**令人洩氣，但論文坦率地說明了這點。最大幅度的改進來自系統工程——在基準序列間批次處理 target forward pass（為每個批次設定獨立 RNG stream 以維持抽樣獨立）、常駐 thread pool、受 top-k 限制的分布建構，以及自適應 MoE expert 數量（只在 prefill 階段使用 k=8；大多數生成 token 使用 k=4，若前一輪平均 top-1 機率低於 0.7，便提高至 k=5）。**現有推論引擎已實作批次處理與最佳化的分布處理**，而自適應 expert 數量在推測解碼以外的文獻中也已存在。真正新穎的嘗試「表現不佳，我們也不認為它們合理。」
+
+他們詳述的失敗值得記住。「Comonotone sampling」——在一段 draft span 中共用一個接受閾值，而非每個 token 各自使用閾值——產生一次改進的執行結果，以及一套聽起來很有把握、訴諸接受率的理由；但**只有在作者產生接受率資料並評估更多 seeds 後，這項主張才被推翻**。他們的結論不只適用於這個系統：「SwarmResearch 能大量產生想法與實驗，仔細審查需要投入大量心力。若沒有仔細審查，使用者可能會被低品質方法說服；這些提案及其理由乍看吸引人，但實際上並不正確。」**提高想法產出量的 Harness，也會等比例提高審查工作量**——[Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) 在探索情境中的再現；此時待審查的產物，是解釋數值為何改變的論證。
+
+圖 1 清楚呈現搜尋形態：約 16 條系譜直接從基準分支出去，其中一個節點得到 0.00 分（失敗嘗試被保留下來，而非還原掉）；批次處理的突破則來自 **agent #23，先在其他地方進行大量序列探索後，才從 `main` 開出全新分支並啟動**——分支保留機制完全依設計發揮作用，也是本文最能說服人的架構證據。
+
+## Shepherd 實際做了什麼，以及它理應做什麼
+
+論文 §3.5 的自我報告，是其中最有用的負面結果。典型的 Opus 4.6 Shepherd 行為是：每波啟動約 4–8 個 Search Agents，以 Explorers 為主，直到解法出現主流後才開始使用 Optimizers——而接著**「它的預設搜尋行為近乎貪婪。」** 它會把代理程式集中到單一頂尖方法，「極少合併代理程式分支」，而且「給 Search Agents 的提示通常會指定要追求的特定想法」——這正是 skill 最重要規則所禁止的行為。作者針對此點調整提示並回報：「即使提示寫得十分周全，Shepherd Agent 仍難以在不指定確切想法的情況下策略性地引導 Search Agents」；它「難以將限制綜整成提示，也難以根據目前瓶頸，對不同 Search Agents 提出具體問題。」
+
+因此，實測結果顯示，Harness 的**結構性**機制（全新脈絡、分支隔離、每個代理程式一個 worktree）在發揮作用；而其**行為性**機制（由模型策略性地引導整個族群）依賴提示、容易偏向貪婪搜尋，也違反自己的防護規則。這和 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) 從另一方向得出的區分相同——增益來自執行環境與控制流程，而非提示文字——只是在這裡它呈現為限制，而非發現。這也表示，報告的數字是架構表現的*下限*，也是目前模型協調能力的*上限*；作者認為這正是下一波改進的所在。
+
+## 矛盾：另一個 `empirical` 來源刻意指定想法（2026 年 8 月）
+
+本文最關鍵的設計決策是一項**禁令**——*「搜尋代理程式自行決定實驗；你不得指示它們採用特定想法」*——理由是若讓 Shepherd 指定想法，族群就會被困在「某個想法盆地裡」。**Idea Search**（Wang、Cui、Brenner 與 Venugopalan，Caltech / Google Research / Harvard，[arXiv 2608.08958](https://arxiv.org/pdf/2608.08958)，2026-08-09，`empirical`）做的正是這件禁事，並把它當成同一種失敗模式的解法。每個突變提示都會收到從想法資料庫抽出的想法；在 scRNA-seq 批次整合上，這**打破了純 Tree Search 強基準的停滯**：平均分數從 0.678 ± 0.011 升至 0.697，最佳分數從 0.694 升至 0.728，停滯點則從約 300 個節點推進至約 500 個節點。
+
+兩篇論文都是 `empirical`，彼此都沒有推翻對方；兩者的調和方式在於**指定想法來自何處**——這是 wiki 整理出的結論，因為兩篇論文互不引用：
+
+- **SwarmResearch 的禁令針對單一協調者自身已收斂的判斷。** Shepherd 掌握全域脈絡，也因此特別容易讓自己提出的建議，與族群目前所在的位置相關。來自這個來源的指定*本身就是塌縮機制*——§3.5 也測得 Shepherd 違反規則並轉為近乎貪婪。
+- **Idea Search 的資料庫是維持多樣性的機制。** 想法來自外部（從十種專家方法拆解而來），逐一列出、個別追蹤得分，並以**隨機方式**抽取——均勻隨機抽樣，或採用以排名為基礎的 UCB，將未評分想法初始化為最高價值，以強迫每個想法至少嘗試一次。這是一種穿著指定外衣的族群多樣性機制；它更接近 MAP-Elites 或 [Evolutionary Proof Search](/articles/evolutionary-proof-search) 的強制多樣化提示，而非 Shepherd 指定方法。
+
+**兩篇研究合起來的主張可以被證偽：**讓搜尋塌縮的不是想法曾被指定，而是*指定者*的分布受到目前最佳解法影響。若想法來源不依賴族群狀態，就可以放心指定想法。
+
+Idea Search 自己的消融實驗也提供了兩項佐證。**探索式提示**——告訴模型即使必須重構整個解法，也要實作抽中的想法——能挖掘出少數最好的解法（隨機抽樣搭配探索式提示得出 0.728），但平均值幾乎沒有變動；這是本文「加寬勝過加深」在想法空間中的重述：廣度提高尾端表現，而非平均表現。**α 消融實驗則顯示更多探索並非總是更好**：UCB 探索係數從 α=1 提高至 α=4，平均分數反而從 0.712 ± 0.012 降至 0.703 ± 0.008。作者的總結最容易套用到其他情境——*「探索機制至關重要。透過提示進行實作層級探索，有效發現頂尖解法；但天真地增加抽樣層級的探索（較高 alpha）則適得其反。」*
+
+**解讀時要留意證據強度。** α 造成的差距不到一個合併標準差；圖 5 顯示 α=4 在前約 1000 個節點都領先 α=1，且整段執行期間信賴區間重疊——「有害」的判斷依據是曲線最後四分之一。兩篇研究都來自單一實驗室、單一基準；Idea Search 另外只用一個基礎模型（Gemini 2.5 Pro），任務也容易得多（單一數值指標、自動評分器，沒有人工 SOTA 欄）。結論只能看方向，不能看效應大小。
+
+## 從證明研究一側提出的第四種塌縮機制：聚合（2026-09-21）
+
+以上三種機制是脈絡累積、單一可編輯程式狀態，以及共享可見性。[Stellar Colosseum: A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science](https://arxiv.org/pdf/2609.15983)（Google Research + CMU，arXiv 2609.15983，`empirical`）在一個**完全沒有數值分數**的領域——長時間尺度的證明建構——獨立遇到相同的失敗，並指出本文來源沒有命名的機制：**縮減步驟本身**。
+
+Stellar Colosseum（參見 [Many-Agent Proof Harnesses](/articles/many-agent-proof-harnesses)）會產生一群候選策略，再透過彼此重疊的隨機抽樣樹加以縮減，每個候選策略都附帶對抗式批評。其 §8.1 說明了問題：*「目前探索會聚合一群混合的候選策略。當許多候選策略發展出同一想法的變體時，一個較少見但真正不同的方向，可能在尚未充分探索前就消失。」* 此處沒有貪婪搜尋、沒有共享資訊，也沒有任何代理程式看到排行榜——少數方向之所以消失，是因為綜整器從一群由某個機制主導的族群中隨機抽取 *k* 個候選者來閱讀，便會用該機制的思路撰寫摘要卡。
+
+這對本文有兩項貢獻：
+
+- **提出的解法，正是本文從另一方向得到的答案。** Colosseum 提出的擴充方式是依策略的核心機制、縮減方式或表述形式將策略**分群，並在各群內分別進行探索—證偽—聚合流程，之後才比較群級輸出**。這是將 MAP-Elites 的利基結構套用到*證明策略*而非程式，提出此法的理由也正是 SwarmResearch 採用分支隔離的理由。不同目標下的設計收斂，其說服力勝過單一來源的證據。
+- **支持此做法的證據比本文其他內容都弱，而且作者也坦承如此**：*「初步、非系統性的執行結果顯示，這種組織方式可能保留有成效的少數方向。」* 沒有測量、沒有消融實驗、沒有基準。此處將它作為一項機制與命名記錄，而非研究結果。
+
+也值得記錄另一項相反方向的設計承諾，因為它是來源中真正新穎的反塌縮作法：Colosseum 讓**每個候選策略的證偽報告一路與其綁定，直到抵達樹的頂端**，並指示聚合器「保留競爭分支」及「宣告衝突尚未解決」，而非取平均。以*記錄下來的分歧*而非族群結構來維持多樣性，是與分支隔離、想法資料庫並列的第三種選項。
+
+## 相關連結
+
+- [Autonomous Scientific Discovery](/articles/autonomous-scientific-discovery) — 將同一批系統視為一個類別，而非 Harness 設計：2026 年調查中的 **Scientific AI Agents** 階段（Sakana 的 AI Scientist、Google 的 Co-Scientist、FutureHouse 的 Robin），以及對其實際產出的已發表批評——Derek Lowe 發現 Co-Scientist 標榜「新穎」的建議，只是重述一條未引用的先前研究路線
+- [Many-Agent Proof Harnesses](/articles/many-agent-proof-harnesses) — 在沒有分數的領域重現相同的想法塌縮問題，並提出第四種機制（聚合本身）與分群探索解法，也就是套用於證明策略的 MAP-Elites；此處也提出保留批評並使其始終附著候選項目的做法，作為族群結構以外的選項
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) — 同一問題在 2024 年的前身。Archon *離線*搜尋針對目標基準的固定推論時運算組合；SwarmResearch 則在執行期間依深度調整寬度，這正是 Archon 的固定搜尋架構無法表達的方向
+
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) — 同一基本機制中，關於分散執行成本的一面，也直接對照 worktree 的方法：Bun 認為每個代理程式一個 worktree 無法擴展（儲存庫太大，64 份檢出不切實際，而且所有變更最後都必須一起編譯），因此採用 4 個 worktrees × 16 個代理程式分片；SwarmResearch 則因這類任務中的分支*本來就不該整合*，而讓約 25 個以上的代理程式各自使用一個 worktree。隔離粒度取決於平行工作最後是否必須匯合
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 擴展結果：在 60 次迭代的相同預算下，自適應寬度—深度設定在 5 項任務中有 4 項勝過最佳固定 (n, k)，協調者 token 數增加 7.7%。這與同一主題其他預算匹配的結果形成對照：單純平行抽樣勝過所有更巧妙地使用 K = 5 的方法
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — 套用預算匹配要求。本文只做到一半：和 CORAL 比較時預算相同（差距也很小），和 EvoX 比較時則不相同，花費約為 2.1 倍（差距也最大）。此處也提出姊妹研究的區別——該頁搜尋的是*Harness*，發現產物無法轉移；本文搜尋的是*解法*，產物就是答案
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — 說明共享記憶體集體為何會收斂的機制：代理程式看到目前最佳解法後會放棄獨立方向，因此資訊共享能促進利用，代價是族群多樣性。分支隔離透過*不讓*成員取得全域脈絡、只將其交給協調者，以換取多樣性
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — 相同反塌縮目標的啟發式前身（MAP-Elites、P-UCB、強制提示「嘗試完全不同的方法」，全都在「避免搜尋塌縮成單一次佳系譜」）。本文主張 LLM 協調者可以取代啟發式；但實測的 Shepherd 近乎貪婪，因此這項主張尚未定論
+- [Deep Research Agents](/articles/deep-research-agents) — 用字相同，系統類型不同：查詢拆解 + 網路檢索 + 附引用報告，依據事實準確性評分。兩者可互相參照之處是協調的重要性在兩者中都勝過基礎模型
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) — 「模型撰寫協調程式」的產品化版本。SwarmResearch 是手工打造的版本（三個 skills 呼叫 `claude -p`，以 `--resume --fork-session` 分支出工作階段），並主張完全不必設定超參數；已發布功能的預設值則少於 15 個代理程式
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) — 在相同方向、不同任務形態下得出相反結果：OrchBench 固定工作者配置，發現大規模執行時代理程式數量與品質無關（100 個子任務時為 -0.021），而轉移涵蓋率能預測品質。該研究的工作流程是具固定拆解方式的相依 DAG；本文則是完全沒有拆解方式的開放式探索，這正是 OrchBench 排除、而多代理程式被認為適用的情境
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 案例研究自述的風險：提高想法產出量的 Harness 會增加審查負擔；唯一深入追蹤的失敗（comonotone sampling）是看似合理、論述自信卻錯誤的因果主張，直到有人產生接受率資料後才被識破
+- [Failures That Look Like Success](/articles/failures-that-look-like-success) — 同一事件的另一種失敗分類：分數進步且理由完整，但兩者都錯；若不追加 seeds，就無從區分真正發現與假象
+- [Context Lifecycle Management](/articles/context-lifecycle-management) — 此分層是一種脈絡生命週期設計：Search Agents 取得 worktree 與父代理程式歷史，Shepherd 只取得摘要與分數，而 `findings.md` 是系譜內的持久紀錄，讓後代繼承結果但不必繼承對話紀錄
+- [Claude Code](/articles/claude-code) — SwarmResearch 與 CORAL 的執行環境；Harness 完全由其 CLI 上的 skills 實作
+- [Andrej Karpathy](/articles/andrej-karpathy) — autoresearch 的作者；這種單代理程式迴圈的兩項設計選擇（累積脈絡、單一可編輯程式）正是本文直接回應的對象，也是案例研究中的基準方法；SwarmResearch 以 4.58× 對 1.80× 勝過它
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — EvoX 比較中未受控制的部分：在差距最大的基準上，SwarmResearch 的美元投入約多 2.1 倍；表 2 還有第二個未受控制的部分，勝出的設定使用 Sonnet-4.6 協調者，固定擴展基準完全沒有使用這個模型
+- [Transformative Creativity](/articles/transformative-creativity) — 從創意理論而非 Harness 工程角度看同一產物：Idea Bank 是列印出來的 Boden 第二級概念空間，而 LLM 為其新增的 49 個想法全是既存的具名技術——反塌縮機制也成了目前最明確的稽核方式，可用來檢驗自動搜尋能想出什麼
+- [Agent Behavioral Homogeneity](/articles/agent-behavioral-homogeneity) — 沒有任何 Shepherd 時發生的想法塌縮，也是本文設計所要對抗的普遍性質：要求每個代理程式各自做出令人印象深刻的成果時，超過一半的同一個 Swarm 選了光線追蹤器或自我託管編譯器，並遇到相同失敗，因為脈絡、鷹架與底層模型才是代理程式彼此不同的全部原因。因此，按代理程式隔離分支是對抗一種*族群*性質的措施；而 §3.5 中近乎貪婪的 Shepherd，正是該性質在原本用來防止它的元件中重現
+
+## 待解決的問題
+
+- EvoX 的差距在預算相同時還存在嗎？EvoX 使用約每項任務 $23.50 的成本跑了 100 次迭代，SwarmResearch 則花 $50；大幅勝利正出現在這裡（圓形排列為 2.635996 對 2.1064；啟發式分數約翻倍），而預算匹配的 CORAL 比較相近，作者也稱三項勝利可透過精修縮小差距。可以直接證偽：將 EvoX 在預算上限 $50 下重跑，並使用其作者調校時採用的 GPT 級模型。**問題仍未解決，2026-08-13 的研究使問題更明確，而非回答了它。** 顯而易見的候選答案是 [DarwinX](https://arxiv.org/pdf/2608.07545)，它是唯一正面討論算力問題、並將比較標為「effort-controlled」的代理程式搜尋論文——但實際比較的是未定義的供應商努力等級（`medium` / `high` / `xhigh` 在文中沒有任何 token 數、輪次或時長定義，實驗規範附錄沒有算力欄，也沒有美元成本），因此它既沒有提供正規化預算，標題中的配對也沒有匹配等級。問題更明確的形式是：已有三篇論文嘗試控制條件，三者都只做到分類層級或部分控制；有用的下一項實驗不是再做一種比較，而是由任何競爭方法公布一個**明確單位**——每項任務的美元支出，或每位候選者的 rollout 數——因為缺少這項資料，就無法判定此類研究中任何跨論文差距是否來自搜尋設計。
+- 架構的結構性部分（全新脈絡、分支隔離）和行為性部分（由 LLM 引導整個族群）從未分開測試。§3.5 報告 Shepherd 預設會採近乎貪婪搜尋，還會違反自身防護規則指定想法；表 2 的 Harness 則刻意將行為性部分限制為分支欄位，依然勝出——這暗示保留分支的父節點選擇可能完成了大部分工作。可證偽方式：以隨機或啟發式父節點選擇器取代 Shepherd，再跑完整 15 項任務基準。
+- 所有方法在五項競賽啟發式任務上的表現都只有人類 SOTA 的 34–73%，更好的 Harness 並未縮小差距。這是搜尋程序的上限，還是 ALE-Bench 類似 Elo 的指標將較小的目標差距壓縮成看似很大的評分差距？論文提出指標方面的保留，但尚未解決問題。
+- 指定想法是否會使族群塌縮，還是只有在指定想法來自受目前最佳解法影響的來源時才會？SwarmResearch 禁止指定想法，卻測得 Shepherd 即使如此仍近乎貪婪；[Idea Search](https://arxiv.org/pdf/2608.08958) 則在每次突變中指定一個隨機抽取、外部提供、追蹤得分的想法，並以此突破停滯。可直接驗證：給 Shepherd 一個拆解好的想法資料庫與抽樣器，讓它取代自身判斷，其他條件保持固定，再觀察近乎貪婪的行為和兩項落敗任務（EPLB、AHC026）是否改變。
+
+## 資料來源
+
+- [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807) — Yuvraj Virk、Zack Edds、Chunqiu Steven Xia 與 Lingming Zhang（University of Illinois Urbana-Champaign），*SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery*，arXiv 2607.02807，2026-07-02，`empirical`，20 頁；程式碼位於 github.com/SwarmResearch/SwarmResearch。§1–2：想法塌縮診斷及兩種 Harness 機制；§2.1：三種引導槓桿與禁止指定想法的防護規則；§2.2：脈絡分層與 `findings.md`；§2.3：git 分支模式；§3.1：基準（5 項先前研究的數學任務、ADRS/Cheng et al. 2025 的系統任務、5 項 ALE-Bench-Lite 啟發式任務）、基準方法、$50／100 次迭代預算及單次執行規範；§3.2 + 表 1：與基準方法比較；§3.3 + 圖 6：變更行數代理指標；§3.4 + 表 2：協調者引導與最佳固定擴展比較；§3.5：Shepherd 自述行為及其限制；§4 + 附錄 A：推測解碼案例研究、分析／解法兩階段拆分及 comonotone sampling 失敗；附錄 B：執行間變異與每輪約 $1,700 的成本；附錄 C：原始資料中逐字引用的三個 skills。
+ - **表 1 解析警告。** 原始 markdown 的表 1 **已合併且錯位**——所有五個 Math 列都合併成以空格串接數值的一列，EPLB 的 SOTA（0.1490）則落在幽靈列上，使 EPLB 列少一格。`table-collapse` 與 `table-shift` 軟性檢查均通過（假陰性）。匯入時透過本機 PDF 的 `pdftotext -f 7 -layout` 重新對應全部 60 格，並於編譯時重新驗證：**數字沒有錯，問題純粹是結構錯誤。** 本文修正後的表格才是權威版本，不得引用原始表格。`pdftotext` 無法還原粗體／綠色標記；這些標記依箭頭方向和圖說所述規則重建，並逐列檢查。
+ - **表 2** 已對照 PDF 驗證無誤，可直接引用解析結果。
+ - **依據圖片兩階段規則閱讀圖表。** 圖 6（每次嘗試的 LOC 中位數）經檢視後**修正了正文說法**：六項圖示任務中有三項是 EvoX 的變更行數較多。圖 1（推測解碼搜尋樹）經檢視 `image_000000_*.png` 後，確認 agent #23 直接從根節點分支。正文已充分描述圖 2–5，因此無須檢視。
+ - **限制。** 單一實驗室、預印本、每種技術每項任務 **n = 1 次執行**，未回報變異或顯著性；三項實驗使用不同模型設定（表 1 使用 Opus 4.6；表 2 使用 Minimax-M2.5 子代理程式 + Sonnet-4.6 協調者；案例研究使用 Opus 4.8）；EvoX 自述其在 Opus 4.6 上的表現低於 GPT-5 結果；CORAL 的重現結果比其已發表數字差，因此 SOTA 使用原始報告值；所有方法都無法連網。
+- [DarwinX: Evolving Agent Harnesses Through Natural Selection](https://arxiv.org/pdf/2608.07545) — Zhang、Dai、Tan、Yang 等人（Salesforce AI Research / Agentforce），*DarwinX: Evolving Agent Harnesses Through Natural Selection*，arXiv 2608.07545，2026-07-31，`empirical`。**本文只引用一項內容**：其 §4.1 自稱「effort-controlled comparison」的比較，是此文獻中最清楚以供應商分類努力等級代替算力預算的例子，也正是本文將預算匹配問題說得更精確、而非視為已解答的原因。其餘內容都和解法搜尋無關，因為研究主題是 Harness 搜尋；完整分析、解析判定（表 1–5 已逐格驗證，`canary-recall` 20/20）及 COI 說明，見 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization)
+- [Idea Search: Guiding Tree Search with Ideas to Explore Diverse Scientific Methods](https://arxiv.org/pdf/2608.08958) — Xuefei Julie Wang、Hao Cui、Michael P. Brenner 與 Subhashini Venugopalan（Caltech / Google Research / Harvard），*Idea Search: Guiding Tree Search with Ideas to Explore Diverse Scientific Methods*，arXiv 2608.08958，2026-08-09，14 頁，`empirical`。§3：Idea Bank 迴圈；§4.2：依排名運作的 UCB 抽樣器及 α 係數；§4.4：Conservative 與 Exploratory 提示（附錄 A.3 逐字引用）；§5.1：突破停滯的結果；§5.3：提示與 α 消融實驗。**文件中沒有表格**——所有結果都以正文和圖表呈現，因此沒有表格損毀風險，本文引用的數字均來自正文。**依圖片兩階段規則檢視圖表**：將圖 5 放大至 4×後，確認圖例與曲線對應（α=1 結尾約 0.712、α=4 約 0.703、基準線持平在約 0.678），也看見正文未提到的限制——α=4 在前約 1000 個節點領先，且全程信賴區間重疊。圖 2–4 均已檢視，兩個子圖都和正文一致。**關於此論文指定想法的設計與 SwarmResearch 禁令之調和，是由 wiki 整理得出**；兩篇論文彼此都沒有引用。比較限制：單一實驗室、單一基準、單一基礎模型（Gemini 2.5 Pro）、5 次試驗，增益與試驗間的差異相當。
+- [Stellar Colosseum: A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science](https://arxiv.org/pdf/2609.15983) — Lin、Woodruff、Deng、Mao、Zuo 與 Mirrokni（Google Research；Woodruff 也任職於 CMU），arXiv 2609.15983 v2，2026-09-15，27 頁，`empirical`。本文只引用 §4.1.3 的聚合語義（批評持續與候選項目綁定、「保留競爭分支」、「宣告衝突尚未解決」）以及 §8.1 的分群探索提案；兩者均引自正文。**作者自己表示，支持分群探索的證據是論文中最弱的主張**——「初步、非系統性的執行結果」，沒有測量；因此本文將它視為趨同的設計理由，而非研究結果。完整分析見 [Many-Agent Proof Harnesses](/articles/many-agent-proof-harnesses)
+

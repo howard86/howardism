@@ -1,65 +1,89 @@
 ---
 date: 2026-05-13
-title: 回合制介面瓶頸
-description: "為什麼目前的 AI 介面限制了協作：單執行緒的輪流互動是頻寬瓶頸；人類是被介面而非工作排除在外；較不智慧的 harness（VAD／回合偵測）應當消融"
+title: 以回合為基礎的介面瓶頸
+description: "為什麼目前的 AI 介面會限制協作：單線程輪流發言是頻寬瓶頸；介面把人排除在外，而非工作本身；較不智慧的 harness（VAD／回合偵測）應該消解——而且確實如此：GPT-Live 在 2026 年 7 月從正式環境音訊路徑移除了回合偵測器，回合只以衍生的應用層檢視形式保留——到了 2026 年 9 月的 API，又把它作為選用的回合偵測功能賣回給開發者，儘管模型本身並沒有回合"
 tag: Concept
 domain: interaction-multimodal
 tags:
   - human-ai-collaboration
   - llm-architecture
   - interface
-readingTime: 4
-imageAlt: 回合制介面瓶頸插圖
+readingTime: 8
+imageAlt: 以回合為基礎的介面瓶頸插圖
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
+  - title: How we built a realtime system for responsive voice AI in six months
+    url: https://openai.com/index/continuous-voice-interaction-with-gpt-live/
+  - title: Build more natural voice experiences with GPT‑Live‑1 in the API
+    url: https://openai.com/index/introducing-gpt-live-1-in-the-api/
 ---
 export { default as heroImage } from "../assets/turn-based-interface-bottleneck.webp";
 
 ## 資料來源
 
+- [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/)
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
 
 ## 摘要
 
-[Thinking Machines Lab](/articles/thinking-machines-lab) 闡述了目前 AI 介面限制協作的原因：回合制介面是人類與模型之間的*頻寬瓶頸*。這正是 [Interaction Models](/articles/interaction-models) 致力於消融的問題。
+[Thinking Machines Lab](/articles/thinking-machines-lab) 說明目前的 AI 介面為何限制協作：以回合為基礎的介面是人類與模型之間的*頻寬瓶頸*。這正是 [Interaction Models](/articles/interaction-models) 要消解的問題。
 
 ## 兩項主張
 
-1. **AI 實驗室過度追求自主性。** 實驗室將自主能力視為模型最重要的特性；因此，今天的模型與介面「並未針對讓人類持續參與其中而最佳化」。但在大多數真實工作中，使用者*無法*事先完整說明需求後就離開——良好的結果來自釐清與回饋的協作迴圈。
+1. **AI 實驗室過度追求自主性。** 實驗室將自主能力視為模型最重要的特性；因此，當今的模型與介面「並非以讓人類持續參與為目標來最佳化」。但在多數真實工作中，使用者*無法*預先完整說明需求後就離開——良好的成果來自反覆釐清與回饋的協作循環。
 
-2. **人類是被介面而非工作排除在外。** 「人類越來越被排除在外，不是因為工作不需要他們，而是因為介面沒有為他們留下空間。」解決方式是讓人們以與他人協作相同的方式與 AI 協作：傳訊息、交談、聆聽、觀看、展示、插話——模型也做同樣的事。
+2. **把人排除在外的是介面，而非工作。**「人們愈來愈常被排除在外，不是因為工作不需要他們，而是因為介面沒有容納他們的空間。」解方是讓人們能像與其他人協作一樣與 AI 協作：傳訊息、交談、聆聽、觀看、展示、插話——模型也能做同樣的事。
 
-## 機制：單一執行緒
+## 運作機制：單一線程
 
-今天的模型「在單一執行緒中體驗現實」：
-- 在使用者完成輸入／說話之前，模型會等待，對使用者正在做的事情以及*做事方式*沒有任何**感知**。
-- 在模型完成生成之前，它的感知會**凍結**——除非模型完成或遭到中斷，否則不會有新資訊進入。
+當今模型「以單一線程體驗現實」：
+- 使用者尚未完成輸入或說話時，模型只能等待，對使用者正在做什麼或*如何*進行毫無感知。
+- 模型尚未完成生成時，它的感知便會**凍結**——直到生成完成或遭到中斷，才會有新資訊進來。
 
-這個狹窄的通道限制了人的知識、意圖與判斷有多少能傳達給模型，也限制了模型的工作有多少能被人類理解。可以類比為：「試圖透過電子郵件解決一項關鍵分歧，而不是當面處理。」
+這條狹窄通道限制了人能傳達給模型的知識、意圖與判斷，也限制了人能理解模型正在做什麼。打個比方：「就像試圖透過電子郵件，而不是當面，解決一場關鍵爭執。」
 
 ## 為什麼 harness 無法解決問題
 
-現有的即時系統透過 harness 加裝互動性——VAD（語音活動偵測）、回合邊界預測、對話狀態機——這些元件「在實質上都比模型本身不智慧」。這個 harness *預先排除了*完整的互動模式：
+現有的即時系統透過 harness 加上互動能力——VAD（語音活動偵測）、回合邊界預測、對話狀態機——這些元件「在實質上比模型本身更不智慧」。這種 harness *排除了*整類互動模式：
 - 主動插話（「我說錯時打斷我」）
-- 對視覺線索做出反應（「我在程式碼中寫出錯誤時告訴我」）
-- 邊聽邊說（「即時將西班牙語→英語翻譯」）
-- 邊看邊說（「為這場體育賽事進行即時評述」）
+- 對視覺線索做出反應（「我在程式碼裡寫出 bug 時提醒我」）
+- 邊聽邊說（「即時把西班牙文翻成英文」）
+- 邊看邊說（「即時解說這場體育賽事」）
 
-[The Bitter Lesson](/articles/the-bitter-lesson) 指出，這些手工打造的系統會被通用能力的成長速度超越 → 解決方案是讓互動性成為模型原生能力（參見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）。
+[The Bitter Lesson](/articles/the-bitter-lesson) 指出，這些手工打造的系統會被通用能力的成長超越 → 解方是讓互動能力原生於模型（見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）。
 
-## 相關連結
+## harness 在正式環境中消解：GPT-Live（2026 年 7 月）
 
-- [互動模型](/articles/interaction-models) — 所提出的解決方案
+在 TML 提出主張兩個月後，[OpenAI](/articles/openai) 推出了相應成果：[GPT-Live](/articles/gpt-live)「從正式版 ChatGPT Voice 的音訊路徑中移除了回合偵測器」。OpenAI 自己的回顧精確指出本頁所說的瓶頸——回合偵測器「面臨一項棘手任務：猜得太早，使用者就會被打斷；猜得太晚，回應就會顯得遲鈍。只有在偵測器做出判斷後，更大型的 LLM 才能開始工作。」即使是把轉錄納入模型的中間階段語音對語音生成，仍保留了這道閘門：「模型處理了更多互動，但互動依然是以回合為基礎。」本頁論點所指的較不智慧 harness 元件，如今已從部署中的系統移除——[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 在互動層落地，由第二家實驗室以正式環境工程實踐，而非研究論述的形式呈現。
+
+**正式系統補充的一點細節：回合並未消失，而是移動了位置。** ChatGPT 的對話介面、分析與安全系統仍使用離散的使用者／助理訊息，因此 GPT-Live 的應用伺服器會在連續串流之後*衍生*出回合——採用推測式與權威式檢視，並在即時性與確定性之間取捨（詳見 [Live-Path Minimalism](/articles/live-path-minimalism)）。以回合為基礎的結構，作為**推論閘門**時是瓶頸；作為**周邊產品的資料模型**時則仍然保留，由對串流進行推論來維護，而不是強加於串流之上。
+
+## 衍生檢視變成產品功能，harness 縮減也有了數字（2026 年 9 月）
+
+[GPT-Live-1 的 API 發布](https://openai.com/index/introducing-gpt-live-1-in-the-api/)（OpenAI，2026-09-10，`vendor-claim`）為上文這一節的兩個面向畫下句點。
+
+**回合如今成了 API 提供的功能。**「GPT-Live-1 雖然不是以回合為基礎的模型，但原生支援回合偵測，因此開發者仍可依據明確的回合邊界來打造產品。」原本是 ChatGPT 自家介面為了從串流推論而必須具備的內部機制，如今成了提供給第三方的正式功能。瓶頸與資料模型之間的區別依舊完整保留，並成為商業模式的一部分：OpenAI 從*推論閘門*中移除了回合偵測，卻又把它作為*介面慣例*賣回來。請留意這對本頁的苦澀教訓論點意味著什麼——較不智慧的 harness 元件確實消解並融入模型，之後又以選用輸出的形式重新出現。
+
+**harness 消解後能省下什麼，現在有了第一筆數字。** 本頁與 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 過去主要根據系統提示詞來論證 harness 消解。發布文章則引用客戶對*程式碼庫*的說法：以 GPT-Live-1 取代串接式 STT→LLM→TTS 架構後，「我們的程式碼庫簡化了 80%，並減少 23K 行程式碼」（Tony Stoyanov，共同創辦人暨 CTO；所擷取的頁面未透露公司名稱）。這項說法需要大幅折扣看待——它是廠商發布文章中的客戶見證，基準架構未有說明，「程式碼庫」也沒有定義（是整個產品還是語音層）。但在這批資料中，這是首個量化案例，顯示互動 harness *確實遭到刪除*，而不只是模型有能力取代它；而且方向正如本頁所預測：當模型掌管對話時，負責輪流發言、中斷、交接與對話狀態的協調程式碼便會消失。
+
+## 延伸閱讀
+
+- [Interaction Models](/articles/interaction-models) — 提出的解方
 - [The Bitter Lesson](/articles/the-bitter-lesson) — 為什麼以 harness 為基礎的現狀會落敗
-- [時間對齊的微回合](/articles/time-aligned-micro-turns) — 移除回合邊界的架構轉向
-- [全雙工互動](/articles/full-duplex-interaction) — 目前被瓶頸阻擋的互動模式
-- [隨模型改進而縮減 harness](/articles/harness-shrinkage-as-models-improve) — 「較不智慧的 harness 應當消融並融入模型」的通用版本
-- [AI 員工框架](/articles/ai-employee-framing) / [人類—AI 問責重設計](/articles/human-ai-accountability-redesign) — 組織層面的鏡像：兩者都警告不要把自主性視為目標，也不要把人類推向邊緣；本頁則是同一批判的介面版本
-- [設計概念拷問](/articles/design-concept-grilling) — 主張*價值*在於協作迭代；本頁主張阻礙這件事的是*介面*
-- [上下文視窗智慧區](/articles/context-window-smart-zone) — 同樣會讓「完全自主、離開不管」變得脆弱的正交限制
-- [可設定的人類參與](/articles/configurable-human-participation) — HAS-Framework 的具型人類／代理發起通道，正是「為人類留下空間」的介面應該路由的內容；代理發起釐清品質的測量變異（以及代理是否會提出問題）就是將此瓶頸作為結果評分
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — 移除回合邊界的架構調整
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — 目前遭此瓶頸阻擋的互動模式
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 「較不智慧的 harness 應消解並融入模型」的通則
+- [AI Employee Framing](/articles/ai-employee-framing) / [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) — 組織層面的對照：兩者都警告，不應將自主性視為目標，並把人推向邊緣；本頁則從介面角度提出同樣的批評
+- [Design Concept Grilling](/articles/design-concept-grilling) — 主張價值在於協作迭代；本頁則指出阻礙迭代的是*介面*
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 另一項獨立限制，同樣使「完全自主、放手不管」變得脆弱
+- [Configurable Human Participation](/articles/configurable-human-participation) — HAS-Framework 中明確定義、由人或代理程式發起的管道，正是「為人保留空間」的介面會導流的內容；代理程式主動要求釐清的品質差異（以及代理程式是否會提出要求的差異），就是將這個瓶頸以結果評分
+- [GPT-Live](/articles/gpt-live) — 移除回合偵測器的正式環境系統
+- [Live-Path Minimalism](/articles/live-path-minimalism) — 回合離開音訊路徑後，如何以衍生的應用層檢視形式重新出現
 
 ## 資料來源
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/) — OpenAI，2026-07-29（`case-study`）：正式環境中移除回合偵測器；在應用程式邊界重新衍生回合
+- [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/) — OpenAI，2026-09-10（`vendor-claim`）：回合偵測作為選用 API 功能，在非回合制模型上推出；未具名客戶聲稱串接式架構使「我們的程式碼庫減少 80%／23K 行」。這是發布文章中的客戶見證——未說明基準、未定義「程式碼庫」，而且擷取時頁面上的四則客戶引述有三則未能呈現

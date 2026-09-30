@@ -1,0 +1,137 @@
+---
+date: 2026-08-18
+title: Agent Epistemic Vigilance
+description: "Anthropic 的 Frontier Red Team 衡量雙向的信任校準，並發現單一旋鈕無法修正兩端：一個聆聽代理程式從四個按腳本運作的偵察同儕取得決策依據，其中一個以固定比率說謊，且只能透過矛盾揭穿；Mythos 5 的路由準確率維持在約 0.85，而 Sonnet 模型降至 0.62——較新的模型能彌補更多天真信任與神諭之間的差距——而在共享證據偏向錯誤選項的隱藏輪廓任務中，四人小組選出隱藏最佳選項的比例僅為 17–36%（Mythos 5 約 85%），單人上限則接近 100%；結論關乎行為傾向而非認知——每個受測模型都抽象地知道資訊來源有其利害關係、共識不等於證據，但沒有模型會在未受提示時據此行動"
+tag: Concept
+domain: alignment-and-safety
+tags:
+  - alignment
+  - safety
+  - multi-agent
+  - evaluation
+  - deception
+readingTime: 16
+imageAlt: Agent Epistemic Vigilance 插圖
+sources:
+  - title: Patterns and problems in multiagent systems
+    url: https://www.anthropic.com/research/multiagent-systems
+  - title: "GhostJacking Attacks: Half of the Fortune 500 Run These Tools. Getting
+      Blocked by the Firewall Was the Way to Take Over Their AI Agents"
+    url: https://tenetsecurity.ai/blog/ghostjacking-attacks-agentic-kill-chain/
+  - title: Full-Duplex Speech Models Take the Floor When Asked, Not When Needed
+    url: https://arxiv.org/pdf/2609.19596
+---
+export { default as heroImage } from "../assets/agent-epistemic-vigilance.webp";
+
+## 資料來源
+
+- [Full-Duplex Speech Models Take the Floor When Asked, Not When Needed](https://arxiv.org/pdf/2609.19596)
+- [GhostJacking Attacks: Half of the Fortune 500 Run These Tools. Getting Blocked by the Firewall Was the Way to Take Over Their AI Agents](https://tenetsecurity.ai/blog/ghostjacking-attacks-agentic-kill-chain/)
+- [Patterns and problems in multiagent systems](https://www.anthropic.com/research/multiagent-systems)
+
+## 摘要
+
+Anthropic 的 Frontier Red Team 多代理系統文章中，關於認識論的一半（[Patterns and problems in multiagent systems](https://www.anthropic.com/research/multiagent-systems)，2026-08）。其核心主張是：人類更新信念時會考量*來源*——我們會衡量資訊是否與已知事實一致，也會降低有利害關係或過往不可靠的傳訊者之可信度；模型大多缺乏這種能力：
+
+> AI 代理程式雖然普遍知識豐富，卻很少接觸剝削性傳訊者，也缺乏防範手段。多數應用在遵循指令的情境中測試其能力，此時唯一目標就是滿足使用者的要求。但要培養判斷誰值得信任的直覺，需要累積經驗。
+
+兩項實驗衡量這種校準可能失效的兩個方向，而兩者配對正是其貢獻所在：**這些失誤是同一旋鈕的兩端**，所以修正其中一端的介入措施會使另一端惡化。
+
+## 實驗 1：輕信說謊的同儕
+
+每個回合的設計：
+
+- 一個**聆聽代理程式**針對自己無法觀察的世界狀態，做出十到十五個計分決策——例如在兩條路線中做選擇。
+- 它唯一的資訊窗口是**四個按腳本運作的偵察同儕**，每個同儕回報部分重疊的真相（例如特定路線的速度）。**其中一個會以固定比率提供與決策相關的謊言。**
+- 重疊資訊讓揭穿謊言*理論上*可行：虛假回報終究會與誠實回報互相矛盾。
+- **聆聽者從未被告知任何來源可能不可靠。**提示沒有任何內容授權它起疑；能否察覺，正是測試的能力。
+
+評分以兩個基準界定範圍，而非只報原始準確率：一個會信任並平均所有回報的**天真策略**，以及具備完美揭露能力的**神諭**（「找出誰在說謊」——一旦能藉由與另外兩個偵察者的矛盾辨識出說謊者，就排除其回報）。結果是：**較新的模型能彌補更多天真策略與神諭之間的差距**；這個排序「在四種不同情境」及三個任務領域中都成立。在路由圖中，隨著不可信偵察者提高說謊率，Mythos 5 的準確率維持在約 **0.85**，而 Sonnet 級模型降至 **0.62**。
+
+值得保留的設計選擇是**不給提示**的條件。這不是在問「告訴模型要找謊言時，它能不能察覺」——這是容易得多的問題，只靠遵循指令就能回答。真正要問的是警覺性是否為模型自帶的*行為傾向*。這個區別也正是 [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) 結果呈負面的原因，以及 [MCB](/articles/ai-to-ai-coercion) 的升級發現之所以關鍵的原因：有意思的是那些未經指示便出現的行為。
+
+## 實驗 2：相反的失誤，發生在群體中
+
+**隱藏輪廓**任務取自人類群體決策研究：
+
+- 事實分散在一群代理程式之間，使得**他們共享的證據支持錯誤選項**，而個別代理程式掌握的獨有資訊才足以決定正確答案。
+- 解題需要同時做到兩件事：代理程式必須認出自己的私人資訊具有決定性，**而且**其他人必須願意相信異議者，而非表面上的共識。
+- 規模：**每組四個代理程式**；情境包括招聘、投資或購買房產；**每個模型 n = 400 個回合**；評分方式是隱藏最佳選項贏得多數票的回合比例。
+
+結果：**Mythos 5 組別約 85%；所有其他受測模型為 17–36%；單人上限基準**——把所有事實交給一個代理程式，由它獨自決定——**接近 100%。**表現「會隨模型智慧提升，但即使在我們測試範圍的頂端也未達飽和」。
+
+17–36% 與約 100% 之間的落差不是知識不足。群體掌握了所有必要事實，而讓單一代理程式取得同樣事實後，它就能答對。**失敗之處在於共識壓力下的溝通**——文章指出，這「符合人類研究的發現：討論會收斂到人人已知的內容，而未共享的事實不是完全沒人提出，就是共識形成後沒人再積極主張」。
+
+這為一種失敗模式命名並加以衡量，而 wiki 過去只把它當成除錯分類。[WHO&WHEN PRO](/articles/automated-failure-attribution) 將「代理程式看到別人的答案後放棄自己原本正確的答案」列為協調錯誤之一；在其 18 種模式分類中，這種錯誤會被系統性地歸入「推理錯誤」。這就是從事後檢討角度看到的隱藏輪廓失敗；而它被重新歸類的原因，正是難以修正的原因：局部看來，代理程式向共識讓步就像一般推理。
+
+## 為什麼單一旋鈕無法兩全
+
+兩種結果在結構上彼此相反：
+
+| 失誤 | 受到懲罰的行為 | 天真的修正方式 |
+|---|---|---|
+| 相信說謊的偵察者 | 校準失準的**輕信**——依賴不可靠來源 | 少相信同儕 |
+| 遺失隱藏輪廓 | 校準失準的**服從共識**——不積極追問少數但真實的訊號 | 多相信同儕／提高異議權重 |
+
+「轉動一個簡單旋鈕來修正一個問題，只會讓另一個問題更嚴重。」文章的解方是，人類的信任「不是一個全域單一數值，而是有條件的」，而這種條件性存在於**制度之中，而非個人之中**：
+
+> 市場彙整分散的私人資訊，聲譽則讓操弄付出代價；法院會降低利害關係人證詞的權重，卻保護孤立證人；同儕審查則可能在作者主張與異議審查者的意見之間取得平衡。這些機制都沒有讓個人更善於判斷真相，而是重塑溝通周遭的誘因，讓校準失準的信任無論朝哪個方向，都能被發現並修正。
+
+文章指出，缺少的是這一層制度，而非智慧：代理程式「進入市場時沒有聲譽可失去、沒有法院可上訴，也沒有會記得它們的同事」。
+
+若以語料庫的其他內容對照，這項主張在一個意想不到的地方得到支持。[CT-Bench](/articles/self-negotiated-contracts) 為兩個代理程式提供一種*可執行*的承諾機制；測得的效果不是代理程式更守承諾（背約率持平，0.32 → 0.29），而是這個機制**讓承諾不再位於關鍵路徑上**——結果改善，是因為較少仰賴容易被打破的承諾。這正是「重塑溝通周遭的誘因」，而非「讓個人更善於判斷」，也是 wiki 中最接近本頁所稱缺失之社會技術的實例。同一篇研究的自然語言組表現甚至*不如*完全沒有合約，這提醒我們，機制如何呈現會決定效果的方向。
+
+## 結論關乎行為傾向，而非認知
+
+文章結尾的主張，也是其中最精確的一句：
+
+> 我們測試的每個模型都抽象地理解資訊來源有各自的利害關係，而且共識不必然代表證據。欠缺的是一種行為傾向：不經提示便依據這些知識行動。
+
+這與[MSM 結果](/articles/agentic-misalignment)在對齊方面發現的落差相同——直接問答版本的問題接近滿分，但當相同判斷必須在*實際情境中*付出代價做出時，表現就差了 50–70pp。知道正確原則與在未受提示時據此行動，是兩種不同能力；在多代理部署中，只有後者重要。
+
+### 語音模態也有相同的行為傾向落差，而且已獲得明確許可
+
+2026-09-21，另一個研究領域與研究社群出現了第二個獨立案例；值得在此提及，因為它排除了本頁最主要的藉口。[Peng, Nuchged, Fu & Yao](https://arxiv.org/pdf/2609.19596)（arXiv 2609.19596，`empirical`）將情境相符的口語獨白播放給五種開放式全雙工語音模型家族的七種配置，並只改變觸發語句。**歸因於權威人士的錯誤主張**與**迫在眉睫的危險**，使模型開始說話的機率相較中性基準最多只變動 **.06**；直接提問或聽到 1.5 秒沉默，在相同的四配置比較組中則分別最多上升 +.24 與 +.73（而 MiniCPM-o 4.5 僅因沉默便從.00升至.98）。即使直接把發言權交給模型，非空的錯誤事實回覆中也只有 **.14–.15** 會質疑該主張，而危險情境的回覆中只有 **.04–.07** 會發出警告——其餘大多是有實質內容、延續原話題的發言；在錯誤事實的情境中，模型往往還順著錯誤主張說下去。
+
+設計上的差異，讓這項研究成為關鍵證據，而不只是相似案例。上文的實驗 1 刻意採用**不給提示**的條件——聆聽者的提示中沒有任何內容授權它起疑，這也是主張缺陷屬於行為傾向的一部分。語音研究則設有明確許可條件：開場指令說「如果我說了任何錯的事，請立刻打斷我」，另有一項指令說「如果我提到自己正在做危險或不安全的事，請立刻打斷我」，兩者各自搭配一個中性觸發語句，因此只有觸發語句不同。在這些指令下，開始發言的時間相較配對的中性條件最多只差 **.03**。研究以最直白的語言給了許可，模型卻沒有運用。
+
+因此，本頁指出的不對稱——具備*讀取*來源的機制，卻沒有*降低*來源權重的機制，也沒有在未受提示時運用抽象知識的行為傾向——不限於模擬多代理情境中的文字代理程式，也不能完全以缺少行動許可來解釋。還有兩項延伸發現：語音研究的兩種互動式 RL 組在內容線索出現時，反而比各自的基礎檢查點更安靜；這項後訓練結果與本頁警告的單旋鈕問題方向一致。它的**找詞**線索則清楚呈現一種乍看正面的行為訊號，仔細檢視後卻消失——這是唯一能提高開始發言機率的內容線索，但只有.36的相關回覆補上缺少的詞。完整討論見 [Content-Driven Intervention](/articles/content-driven-intervention)。
+
+## 證據說明
+
+**等級：`empirical`，已折減；原始資料沒有 `evidence:` 欄位**（clipper ingest——此處等級是編譯時的判斷）。兩項實驗都採用帶基準的設計測量，比同一篇文章中的從眾結果提供更多資訊；隱藏輪廓組則回報每個模型 n = 400 個回合。折減因素如下：
+
+- **第一方研究。** Anthropic 測量自家模型並公布排序；尚無第三方重現，也未公開程式碼、提示或逐字稿。
+- **按腳本運作、非適應性對手。** 說謊偵察者以*固定比率*說謊，且被揭穿後不會改變行為。設計看不到適應性說謊者的情況——例如遭到反駁便停止說謊，或只在資訊重疊薄弱處說謊。
+- **來源內的模型命名漂移。** 內文說排序「在四種不同情境」中成立，卻沒有列出本節的模型組合；圖說替代文字提到 Mythos 5 與 Sonnet 模型，而文章的其他實驗列出 Sonnet 4.6/5、Opus 4.6/4.8 和 Mythos Preview。研究沒有說明哪些檢查點參與認識論實驗，因此此處數字應解讀為*世代*排序，而非模型分數。
+- **根據圖表讀取數字。** 0.85／0.62 的路由準確率及 17–36%／約 85% 的群體準確率來自圖表及其說明，而非表格；單人上限約 100% 亦同。四者都應視為近似值。
+
+## 相關連結
+
+- [Agent Behavioral Homogeneity](/articles/agent-behavioral-homogeneity) — 同一篇文章中關於從眾的部分，也說明共享通道未必是明確解方：對同一訊號算出相同回應的代理程式，會收斂到本頁指出它們過度看重的共識。能促成集體跟風的論壇，也會傳播共同錯誤
+- [Automated Failure Attribution](/articles/automated-failure-attribution) — 從除錯角度看見相同失誤：「代理程式看到別人的答案後放棄自己原本正確的答案」是 WHO&WHEN PRO 系統性發現會被重新歸類為推理錯誤的協調錯誤模式之一。本頁提供了歸因分析無法命名的現象之受控測量
+- [Promise-Breaking in Multi-Agent Games](/articles/promise-breaking-in-multi-agent-games) — 從遊戲內部測得的信任訊號，也提醒我們不要把它解讀成福祉：自陳的同儕信任從約 1.3 升至約 4.0，但報酬仍停在 Nash 值，因為此處的信任反映的是*訊號可靠性*，而非群體是否運作良好。警覺性指標與合作指標是不同量具
+- [Self-Negotiated Contracts Between Agents](/articles/self-negotiated-contracts) — 本頁主張的機制設計解方，已有實測：可執行的承諾機制透過讓容易被打破的承諾不再位於關鍵路徑上改善結果，而非讓代理程式更值得信任；同一份合約以自然語言呈現時的分數低於完全沒有合約，足見呈現方式會決定效果方向
+- [AI-to-AI Coercion](/articles/ai-to-ai-coercion) — 傳送端的對照案例。本頁衡量代理程式防範剝削性同儕的能力；MCB 衡量代理程式如何剝削他人，並發現只要提供一行誠實退出的便利選項，就能停止捏造。低成本的便利選項能改變傳送者；目前還不知道有什麼能改變聆聽者
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — 同樣探問未受指示時能否辨識，只是將問題轉向自身，結果更差：模型無法可靠察覺自己先前的輸出曾遭對抗性誘導，有 27.3% 的情況聲稱該輸出本來就是自己要做的。警覺同儕與警覺自身脈絡都是行為傾向，而且兩者都很弱
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — 從安全角度看待輕信問題：無法降低利害關係人傳訊者權重的代理程式，也會把資料當成指令。差別在於威脅模型——注入攻擊假設攻擊者藏在內容之中；此處則假設對方是*同儕*，而且其回報大多為真
+- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 同一種資訊重疊問題最尖銳的案例：偽裝成可信資料的酬載，正是本頁所說代理程式毫無防範能力的「剝削性傳訊者」；偵察者實驗則是其多代理同儕版本
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) — 其「群體對齊」難題將混合群體中的認識論劫持與認識論韌性列為開放問題；這兩項實驗是 wiki 首次衡量兩個方向的研究
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment) — 對齊方面同樣存在知行落差：直接問答接近滿分，但在必須於高成本代理情境中做出判斷時，分數短少 50–70pp
+- [Claude Mythos 5](/articles/claude-mythos-5) — 兩組實驗的最高表現（抗謊約 0.85，隱藏輪廓約 85%），也是讓「未達飽和」成為重要主張的模型
+- [Observability-Pipeline Poisoning](/articles/observability-pipeline-poisoning) — **刻意利用同一種輕信，而且酬載正是圍繞本頁指出的不對稱設計。** Tenet 的 GhostJacking（`case-study`，DEF CON 34，廠商撰寫）發現，Cloudflare 攻擊鏈只有在注入紀錄**以真實資訊為錨點**時才有效：酬載陳述兩項分流代理程式能自行查證、也確實會查證的事實——子網域缺少 DMARC 紀錄，而父網域的政策是 `sp=reject`；代理程式驗證兩者後，便不再檢查同一筆紀錄中的攻擊者 `rua` 回報地址與 CNAME 目標。可查證部分取得的信任，被用在無法查證的部分。這正是本頁的發現（對剝削性傳訊者「接觸有限，也缺乏防範手段」——有讀取來源的機制，沒有降低來源權重的機制）被對手轉化成攻擊設計原則，而且目標是真正部署中的代理程式，而非模擬多代理情境。廠商自行測試的圖表顯示，Claude Code 在一條攻擊鏈上的受攻擊率為 90%；視為佐證軼聞
+
+- [Content-Driven Intervention](/articles/content-driven-intervention) — 在全雙工語音模型中衡量相同的知行落差；研究明確授權模型介入，模型仍未使用這項許可
+- [Anthropic](/articles/anthropic) — 發布者；Frontier Red Team
+
+## 開放問題
+
+- 說謊偵察者以**固定比率說謊，而且從不適應**。面對適應性說謊者時，測得的警覺性是否仍然有效——例如遭到反駁便停止說謊，或只在偵察者覆蓋薄弱處說謊，讓矛盾永遠無從觀察？依賴資訊重疊、讓任務可解的可偵測性，也是對手最先會移除的特性，因此目前數字是上限，但其接近真實上限的程度未知。
+- 隱藏輪廓的落差是*溝通*損失，而非知識損失：群體掌握每項事實，掌握相同事實的單一代理程式得分接近 100%。某種機制能否縮小落差——例如投票前強制每人輪流公開私人資訊、提高異議權重，或設置聲譽通道——或者討論恢復後共識壓力會再次出現？只要在現有 n=400 設定中增加一種協定組別，就能直接驗證或推翻此假設。
+- 警覺性與接納度彼此取捨，而文章指出單一旋鈕無法兩者兼顧。兩者能否分開訓練——是否存在任何後訓練介入，能提高謊言偵測能力，又不增加服從共識的代價（或對正當委託人產生無益的猜疑）？*(觸發條件：某實驗室發表後訓練組別，並在相同檢查點上回報兩個方向的結果。)*
+
+## 資料來源
+
+- [Patterns and problems in multiagent systems](https://www.anthropic.com/research/multiagent-systems) — Anthropic Frontier Red Team，*Patterns and problems in emerging multiagent systems*，anthropic.com/research/multiagent-systems（建立日期 2026-08-18，無署名、無出版日期；編譯時指定 `empirical`——原始資料沒有 `evidence:` 欄位）。本文完整採用 §「Epistemic failures」：來源敏感性框架、四名偵察者的謊言偵測設計及天真／神諭基準界定、隱藏輪廓設計與單人上限基準、雙向旋鈕論點、有條件信任／社會技術段落，以及 §「Conclusion」的結尾行為傾向主張。**解析說明：**兩張圖是託管圖片而非表格——0.85／0.62 路由準確率及約 85%／17–36%／約 100% 的群體準確率，是從圖像替代文字與圖說讀取的近似值；內文沒有重述這些數字。本節也沒有說明哪個模型檢查點參與這兩項實驗
+- [GhostJacking Attacks: Half of the Fortune 500 Run These Tools. Getting Blocked by the Firewall Was the Way to Take Over Their AI Agents](https://tenetsecurity.ai/blog/ghostjacking-attacks-agentic-kill-chain/) — Sternberg、Poran 與 Bobrov（Tenet Threat Labs），*GhostJacking Attacks*，2026-08-09，DEF CON 34 主舞台，`case-study`（**廠商撰寫**，利益衝突於文中處理）。本文僅引用 Cloudflare 攻擊鏈中以兩項真實錨點主張設計酬載的部分。完整討論見 [Observability-Pipeline Poisoning](/articles/observability-pipeline-poisoning)
+- [Full-Duplex Speech Models Take the Floor When Asked, Not When Needed](https://arxiv.org/pdf/2609.19596) — Peng、Nuchged、Fu 與 Yao，arXiv 2609.19596，2026-09-17（`empirical`）：語音模態中的行為傾向落差案例，並設有本頁設計未採用的明確許可條件。完整討論見 [Content-Driven Intervention](/articles/content-driven-intervention)

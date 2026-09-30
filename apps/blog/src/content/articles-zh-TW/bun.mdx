@@ -1,0 +1,79 @@
+---
+date: 2026-08-03
+title: Bun
+description: 一個 JavaScript/TypeScript 執行環境、打包器、套件管理器與
+  測試執行器，由 Jarred Sumner 建立；每月 CLI 下載量超過 2,200 萬次；Claude
+  Code 的執行環境，以及沙箱動態工作流程所執行的環境；於 2025 年 12 月被
+  Anthropic 收購，並由 Claude 在 11 天內將 535,496 行 Zig 移植至 Rust（v1.4.0）
+tag: Entity
+domain: entities
+entityType: software
+tags:
+  - entity
+  - software
+  - anthropic
+  - ai-coding
+readingTime: 5
+imageAlt: Bun 插圖
+sources:
+  - title: Rewriting Bun in Rust
+    url: https://bun.com/blog/bun-in-rust
+  - title: "Boris Cherny: We Cut 80% of Claude Code's Prompt"
+    url: https://www.youtube.com/watch?v=qyPCVqFUyDo
+  - title: How is the Bun Rewrite in Rust Going?
+    url: https://lockwood.dev/ai/2026/07/27/how-is-the-bun-rewrite-in-rust-going.html
+---
+export { default as heroImage } from "../assets/bun.webp";
+
+## 資料來源
+
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo)
+- [How is the Bun Rewrite in Rust Going?](https://lockwood.dev/ai/2026/07/27/how-is-the-bun-rewrite-in-rust-going.html)
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
+
+## 摘要
+
+一個 JavaScript 與 TypeScript 執行環境，整合了通常分屬五種工具的功能：轉譯器／縮小器／打包器、相容 npm 的套件管理器、類似 Jest 的測試執行器、相容 Node.js 的模組解析與 API 表面（`fs`、`net`、`tls`、…），以及 HTTP/WebSocket 用戶端。由 [Jarred Sumner](/articles/jarred-sumner) 建立；他在 2021 年 4 月 16 日寫下第一行 Zig，並在一年內獨自推出初版——範圍是逐行將 esbuild 的 Go 轉譯器移植到 Zig——當時大型語言模型尚未普及。截至 2026 年年中，CLI 每月下載量**超過 2,200 萬次**；[Claude Code](/articles/claude-code) 與 OpenCode 都以它為基礎，而 Vercel、Railway 和 DigitalOcean 也提供原生支援。
+
+**於 2025 年 12 月被 [Anthropic](/articles/anthropic) 收購。**Sumner 與 Bun 團隊成員都是 Anthropic 員工——這項揭露會影響本 wiki 對每一項源自 Bun 的主張如何評估。
+
+## 為何它對本 wiki 重要
+
+Bun 出現在三個不同層面，這種情況並不常見，也很容易混為一談：
+
+1. **作為 Claude Code 的執行環境**——產品所建構於其上的基礎（[Claude Code](/articles/claude-code)）。
+2. **作為沙箱**——[動態工作流程](/articles/dynamic-workflows-agent-algebra)會在 Bun 執行環境的 VM 中執行由模型撰寫的協調程式。
+3. **作為移植工作的主體**——Zig→Rust 移植是同一協調原語的代表性實例。
+
+## Zig→Rust 移植（v1.3.14 → v1.4.0）
+
+Bun 的核心工程難題在於：JavaScriptCore 使用垃圾回收，而 Zig 採用手動記憶體管理；Zig 又沒有解構子——每個呼叫點都要用 `defer` 明確寫出清理作業。反覆出現的錯誤包括釋放後使用、重複釋放，以及錯誤路徑上忘記釋放。既有的緩解措施（修補過、啟用 ASAN 的 Zig 編譯器、Windows 上的 ReleaseSafe 建置、全天候 Fuzzilli 模糊測試、端對端洩漏測試）已經「比許多專案做得更多」，卻仍然不夠。
+
+這次移植涵蓋 1,448 個檔案中的 535,496 行 Zig，歷時 11 天，運用了約 50 個 Claude Code 動態工作流程，並產生 6,502 個提交；相關記錄見 [動態工作流程：代理程式的代數](/articles/dynamic-workflows-agent-algebra)。成果包括：修復 128 個在 v1.3.14 上可重現、但於 v1.4.0 修復的錯誤；清除所有可插樁追蹤的記憶體洩漏；二進位檔縮小約 20%；速度提升 2–5%；以及 19 個已知回歸問題。Bun v1.3.14 是最後一個 Zig 版本；v1.4.0 則是第一個 Rust 版本。
+
+促成移植順利進行的特性原本只是偶然：**Bun 的測試套件以 TypeScript 撰寫**，因此不依賴執行環境的實作語言，移植後也原封不動地保留下來——約 4,175 個檔案中有超過 100 萬個 `expect()` 斷言，沒有任何測試遭到跳過或刪除。
+
+### 合併後的公開儲存庫狀態
+
+值得將這部分與移植過程分開看待，因為兩者很容易混淆。對公開儲存庫進行的外部稽核（[Lockwood，2026-07-27](https://lockwood.dev/ai/2026/07/27/how-is-the-bun-rewrite-in-rust-going.html)，`case-study`）發現：
+
+- **自 `bun-v1.3.14`（2026-05-12）以來沒有新的發布標籤**——已過 11 週，距離合併至 `main` 也已 6 週。Bun 過去最長的發布間隔為 6 週（v0.2.2 → v0.3.0，2022 年底）。Sumner 在 7 月 8 日發布文章時，v1.4.0 仍只提供 canary 版本。
+- **開啟中的 `robobun` PR 從 1,277 件增至約 2,475 件**，期間為 7 月 9 日至 7 月 27 日；依觀察到每次合併至 Buildkite 約需 40–90 分鐘估算，要清空佇列代表需連續運作約 86 天。
+- Anthropic 員工與代理程式群共同撰寫 PR，且合併後 Rust 相關工作逐步增加。
+
+這並不與「Claude Code 自 v2.1.181 起已交付 Rust 移植版」相矛盾：[Claude Code](/articles/claude-code) 會隨附 Bun，因此在其中部署至正式環境的成品，與有發布標籤的公開 Bun 版本是不同的。儲存庫狀態顯示，Sumner 記錄的穩定化收尾工作在最後一個標籤發布 11 週後仍在進行——成本與完成之間的解讀，請見[動態工作流程：代理程式的代數](/articles/dynamic-workflows-agent-algebra)。
+
+## 相關連結
+
+- [Jarred Sumner](/articles/jarred-sumner) — 建立者；移植方法的作者
+- [Anthropic](/articles/anthropic) — 收購方（2025 年 12 月），也是讓每項 Bun 主張都屬於第一方資訊的雇主
+- [Claude Code](/articles/claude-code) — 以 Bun 為基礎；自 v2.1.181（2026-06-17）起在正式環境使用 Rust 移植版，Linux 啟動速度快約 10%
+- [動態工作流程：代理程式的代數](/articles/dynamic-workflows-agent-algebra) — Bun 所提供的沙箱，以及這次移植的代表性案例
+- [驗證成為新的瓶頸](/articles/verification-as-the-new-bottleneck) — Bun 的語言無關測試套件，是讓這次移植可供驗證的基礎
+- [Boris Cherny](/articles/boris-cherny) — 曾以第二手資訊說明移植階段，後來由第一方文章更正
+
+## 資料來源
+
+- [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust) — Jarred Sumner，bun.com（2026-07-08，`case-study`）：範圍、歷史、收購揭露、移植及其成果
+- [Boris Cherny: We Cut 80% of Claude Code's Prompt](https://www.youtube.com/watch?v=qyPCVqFUyDo) — Y Combinator 訪談（2026-07-27，`practitioner-opinion`）：Bun 作為 Claude Code 執行環境及動態工作流程沙箱的角色
+- [How is the Bun Rewrite in Rust Going?](https://lockwood.dev/ai/2026/07/27/how-is-the-bun-rewrite-in-rust-going.html) — Tom Lockwood，lockwood.dev（2026-07-27，`case-study`，獨立來源）：最後一個發布標籤後 11 週的公開儲存庫狀態——標籤歷史、robobun PR 佇列增長、Buildkite 合併時間

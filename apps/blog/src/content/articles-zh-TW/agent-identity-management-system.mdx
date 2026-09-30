@@ -1,7 +1,7 @@
 ---
 date: 2026-07-15
-title: Agent Identity Management System（AIMS）
-description: "IETF draft-klrc-aiagent-auth 的 Agent Identity Management System：將 agents 視為以 WIMSE/SPIFFE 識別的 workloads，具備短期、經姿態評估的 credentials，並採用 mTLS / WIMSE-proof-token / HTTP-message-signature 驗證，以及透過 OAuth token-exchange + transaction-token delegation chains 委派給 spawned agents — LLM 永不持有 credentials；這是 vault 首個多供應商、標準化軌道上的 agent-auth 來源，但目前仍是尚無 IETF WG 共識的個別提交 — 並由 OpenID AuthZEN Working-Group Drafts 補充（AARP：將 CIBA 推廣至 client-initiated flows 之外的前置條件／核准模式；COAZ：MCP-tool-authorization profile，將 tool calls 對映至 AuthZEN 的 Subject-Action-Resource-Context model），這些 authorization-slice 標準化工作顯示 agent-auth governance layer 是多元的（IETF identity/delegation + OpenID authorization），且正在積極推進"
+title: 代理程式身分管理系統 (AIMS)
+description: "IETF 草案 draft-klrc-aiagent-auth：將代理程式視為以 WIMSE/SPIFFE 識別的工作負載，使用經姿態評估的短效憑證與 OAuth 權杖交換委派鏈——LLM 絕不持有憑證；另有 OpenID AuthZEN 草案 (AARP、COAZ) 及 MCP 規格 2026-07-28 自行制定的 OAuth 規則——代理程式驗證治理層由多方構成，仍在演進。Dantuluri 與 Sundi 的 broker 於 2026-08 首度提供實測攻擊抵抗能力後，一個 AIMS 形狀的組合（OIDC 根身分 + SVID + 每一跳由簽發者中介的權杖交換）已在未發布的示範程式上受到攻擊測試。"
 tag: Concept
 domain: agent-security
 tags:
@@ -11,39 +11,50 @@ tags:
   - authorization
   - standards
   - delegation
-readingTime: 20
-imageAlt: Agent Identity Management System（AIMS）插圖
+readingTime: 38
+imageAlt: 代理程式身分管理系統 (AIMS) 插圖
 sources:
   - title: AI Agent Authentication and Authorization
     url: https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/
   - title: OpenID Foundation advances authorization for the agent era with new
       AuthZEN Working Group Drafts
     url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
+  - title: "Delegation Without Trust: An Empirical Gap Analysis of Identity,
+      Authorization, and Runtime Governance in Multi-Agent LLM Systems"
+    url: https://arxiv.org/pdf/2609.00267
+  - title: A First Measurement Study on Authentication Security in Real-World Remote
+      MCP Servers
+    url: https://arxiv.org/pdf/2605.22333
 ---
 export { default as heroImage } from "../assets/agent-identity-management-system.webp";
 
 ## 資料來源
 
+- [A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333)
 - [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/)
+- [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
 
 ## 摘要
 
-**AIMS** 是 IETF Internet-Draft `draft-klrc-aiagent-auth-03`（Kasselman/Lombardo/Rosomakho/Campbell/Steele/Parecki — Defakto/AWS/Zscaler/Ping/[OpenAI](/articles/openai)/Okta；2026 年 7 月）核心的概念模型。其主張是：AI agent 是**一種 workload**，它引發的 identity、authentication 與 authorization 問題**並非新問題** — 應透過*組合既有、廣泛部署的標準*（WIMSE/SPIFFE workload identity、OAuth 2.0 family、OpenID Shared Signals）來解決，而不是發明 agent-specific protocols。AIMS 是「*建立、維持與評估 agent workload 的 identity 與 permissions 所需的一組 functions*」— 它是概念模型，**不是 product、protocol 或 single architecture**；可以存在於單一元件，也可以分散在 identity providers、provisioning services、authorization servers、policy engines 與 runtime enforcement points 之間。
+**AIMS** 是 IETF Internet-Draft `draft-klrc-aiagent-auth-03`（Kasselman/Lombardo/Rosomakho/Campbell/Steele/Parecki — Defakto/AWS/Zscaler/Ping/[OpenAI](/articles/openai)/Okta；2026 年 7 月）核心的概念模型。其主張是：AI 代理程式是**工作負載**，它所引發的身分、驗證與授權問題**並非新問題**——應透過*組合現有且廣泛部署的標準*來解決（WIMSE/SPIFFE 工作負載身分、OAuth 2.0 系列、OpenID Shared Signals），而非發明代理程式專用協定。AIMS 是「*建立、維護及評估代理程式工作負載身分與權限所需的一組功能*」——它是概念模型，**不是產品、協定或單一架構**；可以由單一元件承載，也可以分散在身分提供者、佈建服務、授權伺服器、政策引擎與執行期強制執行點之間。
 
-**證據注意事項（各處皆應附上）：** 這是*standards-track proposal* — 一份 **individual submission**、Informational，且**尚無 IETF Working Group consensus**（它引用 IETF、CNCF 與 OpenID Foundation 的規格，但本身尚未獲批准）。所有 MUST/SHOULD 都應視為作者的建議，而非已採用的標準。其 `evidence:` tier 是 `practitioner-opinion`。
+**證據注意事項（所有地方都要附帶）：**這是一項*標準制定提案*——一份**個人提交**的 Informational 文件，**目前尚無 IETF Working Group 共識**（它描述 IETF、CNCF 與 OpenID Foundation 的規格，但本身並未獲批准）。所有 MUST/SHOULD 都應視為作者建議，而非已採納的標準。其 `evidence:` 層級為 `practitioner-opinion`。
 
-**它對這個 vault 為何重要：** agent-security cluster 幾乎全部來自單一供應商的 ebook（[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)）。AIMS 是 agent identity 領域**首個 standards-track、multi-vendor primary source**，並直接針對兩個長期未解問題 — sub-agent credentialing（[Agent Identity and Authentication](/articles/agent-identity-and-authentication)）與 agent-to-agent trust protocol layer（[Agent-Native Infrastructure](/articles/agent-native-infrastructure)）。
+**它對這份知識庫的重要性：**代理程式安全主題群幾乎完全取材自單一廠商的電子書 ([Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents))。AIMS 是第一個關於代理程式身分、由多家廠商參與的標準制定主要來源，並直接回應兩項長期未解問題——子代理程式憑證管理 ([Agent Identity and Authentication](/articles/agent-identity-and-authentication))，以及代理程式對代理程式的信任協定層 ([Agent-Native Infrastructure](/articles/agent-native-infrastructure))。
 
-## Agents 是 workloads（框架轉換）
+## 代理程式是工作負載（框架轉換）
 
-Agent 是一種 workload，會反覆與 LLM 及一組 Tools/Services/Resources 互動，直到達到終止條件（draft 的 Figure 1）。既然它是 workload，便*需要 identifier 與 credentials*，才能由它接觸的各方進行 authentication — 而如果它代表 user 或 system 行動，該 principal 必須**將 authority delegate 給它**，且 delegated context 必須保留到 authorization decisions 與 audit trails 中。這個重新框架化，讓整個問題能以 workload-identity 與 delegated-authorization standards 解決，而不需要新機制。
+代理程式是一種工作負載，會反覆與 LLM 及一組工具／服務／資源互動，直到達到終止條件（草案圖 1）。既然它是工作負載，就*需要識別碼與憑證*，才能向它接觸的各方通過驗證；而且，如果它代表使用者或系統行事，該主體就必須向它**委派權限**，並在授權決策與稽核軌跡中保留委派脈絡。這種重新框定使整個問題得以透過工作負載身分與委派授權標準解決，而無須另造一套機制。
 
-值得注意的是，*「Tool endpoint 本身可能由另一個 AI agent 實作」* — 因此 agent-to-agent 只是 workload-to-workload case，同樣的 primitives 也能涵蓋它。
+值得注意的是，「*工具端點本身也可能由另一個 AI 代理程式實作*」——因此代理程式對代理程式只是工作負載對工作負載的情境，同一組基本機制也適用。
 
-## 分層堆疊（Figure 2）
+## 分層堆疊（圖 2）
 
-AIMS 是一個邏輯堆疊：較高層依賴較低層的 guarantees，並有兩個橫跨各層的欄位：
+AIMS 是一種邏輯堆疊：高層依賴低層提供的保證，另有兩個橫跨各層的欄位：
 
 ```
 Policy | [ Monitoring, Observability & Remediation ] | Compliance
@@ -54,99 +65,173 @@ Policy | [ Monitoring, Observability & Remediation ] | Compliance
  | [ Identifier ] |
 ```
 
-- **Identifier → Credentials → Provisioning → Authentication → Authorization → Monitoring** 是 dependency chain。
-- **Policy**（§12）與 **Compliance**（§13）橫跨所有 layers，但被宣告為**超出範圍** — 具有 deployment、regulatory 與 jurisdiction 特定性，並明確**不是標準化目標**。Policy MAY 是任何具版本、可審查的「policy-as-code」格式。
+- **Identifier → Credentials → Provisioning → Authentication → Authorization → Monitoring** 是依賴鏈。
+- **Policy** (§12) 與 **Compliance** (§13) 橫跨所有層，但被列為**範圍之外**——它們依部署、法規與司法管轄區而異，並明確*不屬於標準化目標*。Policy MAY 使用任何具版本控管且可檢視的「policy-as-code」格式。
 
-## Identifier：WIMSE，以及 SPIFFE 作為已部署實例
+## Identifier：WIMSE，以及已部署的 SPIFFE 實例
 
-每個 agent MUST 具備**恰好一個 WIMSE identifier**（[WIMSE-ID]）— 這是一個在 trust domain 內唯一識別 workload 的 URI，並在 identity 的生命週期內保持穩定（authorization、delegation 與 audit 都以它為 key）。它 **MAY 是 SPIFFE ID**（`spiffe://<trust-domain>/<path>`），draft 稱之為「*WIMSE identifier model 中廣泛部署且 operationally mature 的 instance*」。這是對「*什麼是 per-agent identity*」的具體回答 — 它是 workload-identity URI，而不是臨時拼湊的 label。
+每個代理程式 MUST 只有**一個 WIMSE identifier** ([WIMSE-ID])——這是一個在信任網域內唯一識別工作負載的 URI，在該身分存續期間保持穩定（授權、委派與稽核都以此為依據）。它 MAY 是 SPIFFE ID (`spiffe://<trust-domain>/<path>`)；草案稱之為「*WIMSE identifier model 中廣泛部署且在營運上成熟的實例*」。這具體回答了「*每個代理程式的身分是什麼*」——它是工作負載身分 URI，而不是臨時拼湊的標籤。
 
-## Credentials、provisioning 與 posture assessment
+## Credentials + provisioning + posture assessment
 
-- **Credentials** 以密碼學方式將 identifier 綁定至 agent。WIMSE 定義 **WIT**（Workload Identity Token）與 **WIC**（X.509 Workload Identity Certificate）；SPIFFE 定義 **X.509-SVID**、**WIT-SVID** 與 **JWT-SVID**。它們 **SHOULD 是短期的**，並具有明確 expiry。**Static API keys 被列為 antipattern** — 它們是 bearer artifacts，沒有密碼學綁定、生命週期長且難以輪替。
-- **Hardware-backed key storage**（TPM、enclave、platform security module）是**可選的** — 「*不是 interoperability 所必需*」。（這是與 ebook 最明顯的分歧 — 見下方比較。）
-- **Provisioning** 是 runtime issuance/renewal/rotation，分為兩個階段（initial provisioning；到期前自動 rotation）。短期 credentials 被提供為*明確 revocation 的替代方案*：不需要 revoke，只要不再 renew。
-- **Posture assessment** 發生於*每次 provisioning/rotation event* — draft（v-02 起）將舊有的「attestation」section **併入 provisioning，並改名為「posture management」**。它評估 deployment-specific signals（hardware/TEE evidence、software-integrity measurements、supply-chain provenance、orchestration metadata、workload placement、operator assertions），以決定 credential *是否*簽發、綁定*哪個* identifier、*哪種類型*、具備*哪些 attributes*，以及*存續多久*。單一 signal 可能足夠；較高風險的 deployments 則需要多個 signals。**不要求任何特定 attestation mechanism。**
-- **Credential exchange** 用於與 primary credential 不相容的 legacy/proprietary environments：OAuth 2.0 Token Exchange、Transaction Tokens 或 Workload Identity Federation 可從 primary credential mint 出 targeted secondary credential。
+- **Credentials** 以密碼學方式將識別碼綁定至代理程式。WIMSE 定義 **WIT**（Workload Identity Token）與 **WIC**（X.509 Workload Identity Certificate）；SPIFFE 定義 **X.509-SVID**、**WIT-SVID** 與 **JWT-SVID**。它們 **SHOULD 使用短效憑證**並明確標示到期時間。**Static API keys 被列為反模式**——它們是 bearer artifacts，未以密碼學方式綁定、有效期長且難以輪替。
+- **Hardware-backed key storage**（TPM、enclave、platform security module）是**選用項目**——「*互通性不要求使用*」。（這是與電子書最明顯的分歧——見下方比較。）
+- **Provisioning** 是執行期的簽發／續期／輪替，分為兩階段（初始佈建；到期前自動輪替）。短效憑證被視為*明確撤銷的替代方案*：不用撤銷，只要不再續期即可。
+- **Posture assessment** 在*每次佈建／輪替事件時*執行——草案（v-02 起）將舊有的「attestation」章節併入 provisioning，並改名為「posture management」。它評估依部署而異的訊號（硬體／TEE 證據、軟體完整性測量、供應鏈來源、編排中繼資料、工作負載放置位置、營運者聲明），以決定憑證*是否*簽發、綁定*哪個*識別碼、使用*何種類型*、包含*哪些屬性*，以及*有效多久*。單一訊號可能就足夠；風險較高的部署則需要多項訊號。**沒有任何特定 attestation 機制是必要條件。**
+- **Credential exchange** 用於與主要憑證不相容的舊式／專有環境，可用 OAuth 2.0 Token Exchange、Transaction Tokens 或 Workload Identity Federation，從主要憑證簽發指定用途的次要憑證。
 
-### 規則：LLMs 永不持有 credentials
+### 規則：LLM 絕不持有憑證
 
-「*Large Language Model MUST NOT 取得 agent credentials，或取得存取 tools 與 services 所需的 credentials。*」原文列出的理由是：防止 LLM *使用、暴露 credentials，或因 prompt injection 而遭操控以揭露 credentials*。這是 [out-of-band](/articles/out-of-band-prompt-injection-defense) reference-monitor doctrine 在 identity layer 的對應物 — secret 位於*可被操控的 model 之外*，而 wield credential 的是 agent（workload），不是 model。（在 `-03` 中以 [issue #127] 新增。）
+「*Large Language Model MUST NOT 取得代理程式憑證，或取得存取工具與服務所需的憑證。*」原文所述理由是：防止 LLM *使用、暴露憑證，或遭 prompt injection 操縱而洩露憑證*。這是身分層對 [out-of-band](/articles/out-of-band-prompt-injection-defense) 參考監視器原則的對應做法——機密放在*可被操縱的模型之外*，由代理程式（工作負載）而非模型持有並使用。（在 `-03` 中依 [issue #127] 加入。）
 
-## Authentication：transport layer 與 application layer
+## Authentication：傳輸層與應用層
 
-依照 WIMSE architecture，auth 可以發生於任一 layer，許多 deployments 會同時使用兩者：
+依 WIMSE 架構，驗證可在任一層進行，許多部署會兩者並用：
 
-- **Transport-layer** — **mTLS**，兩端都出示 X.509 credentials；搭配短期 SPIFFE/WIMSE identity，可提供強大的 channel binding。適合 service meshes（Istio、LinkerD）。**限制：** intermediaries（proxies、API gateways、service meshes、load balancers、protocol translators）會終止並重新建立 TLS，*破壞 end-to-end transport identity* — 而 serverless/multi-tenant-edge/cross-domain topologies 會使 transport identity 變得模糊。
-- **Application-layer** — 透過在 transport 之上綁定 identity，能穿越 intermediaries。兩種 WIMSE mechanisms：
- - **WIMSE Proof Tokens (WPTs)** — 經簽署的 JWT，證明持有 WIT 的 private key，並且**綁定至特定 message context**（例如 HTTP request），claims 為 `aud`/`exp`/`jti`/`wth`（WIT 的 hash）。這是 proof-of-possession，不是 bearer。其 core 與 protocol 無關（可綁定 Kafka、gRPC、non-HTTP）。
- - **HTTP Message Signatures**（[WIMSE-HTTPSIG] over RFC 9421）— 將 WIT 與 request components（method、request-target、content digest、WIT 本身）的 signature 結合，提供 proof-of-possession + message integrity end-to-end。
- - **限制：** 沒有內建 channel binding，因此 implementations 必須透過短生命週期、audience restriction、nonces 與 request binding，防禦 relay/replay。
+- **Transport-layer** — **mTLS**，兩個端點都出示 X.509 憑證；搭配短效 SPIFFE/WIMSE 身分，可提供強大的通道綁定。適用於服務網格（Istio、LinkerD）。**限制：**中介節點（代理伺服器、API 閘道、服務網格、負載平衡器、協定轉譯器）會終止並重新建立 TLS，*破壞端到端傳輸身分*；無伺服器／多租戶邊緣／跨網域拓樸也會模糊傳輸身分。
+- **Application-layer** — 將身分綁定在傳輸層之上，因此經過中介節點仍能保留身分。WIMSE 提供兩種機制：
+ - **WIMSE Proof Tokens (WPTs)** — 簽署過的 JWT，證明持有 WIT 的私密金鑰，並**綁定至特定訊息脈絡**（例如 HTTP 請求），包含 `aud`/`exp`/`jti`/`wth`（WIT 的雜湊）等 claims。這是持有證明，而不是 bearer。核心與協定無關（可綁定 Kafka、gRPC、非 HTTP 請求）。
+ - **HTTP Message Signatures** ([WIMSE-HTTPSIG] over RFC 9421) — 將 WIT 與對請求元件（method、request-target、content digest、WIT 本身）的簽章結合，提供端到端的持有證明與訊息完整性。
+ - **限制：**本身沒有通道綁定，因此實作必須透過短效期、audience 限制、nonce 與請求綁定，防範轉送／重播攻擊。
 
-## Authorization：OAuth 2.0 作為 delegation spine
+## Authorization：以 OAuth 2.0 作為委派主幹
 
-- **Agent Mission（§10.1）** — agent 從 user、system 或另一個 agent 收到 *Mission*（自然語言任務）；將 mission 轉換成具體 resource/authorization requirements 是**planning step，超出範圍**（draft 引用 Karl McGuinness 的「Mission Shaping Problem」）。這正是 wiki 的 [agent-native](/articles/agent-native-infrastructure)「figure out the details」handshake 與具體 auth model 接合之處。
-- **OAuth as delegation** — agent 作為 OAuth **client** 行動；access tokens 將 agent identity 放在 `client_id`，並將 delegated principal 放在 `sub`。Flows 包括：user 進行 delegation 時使用 **Authorization Code Grant**（搭配 *phishing-resistant* user auth，例如 passkeys，且 agent 使用 Section-7 credentials 向 AS 進行 authentication，**絕不使用 static client secrets**）；agent 代表自身行動時使用 **Client Credentials / JWT Authorization Grant**；agents 本身也能作為由 system 或另一個 agent 呼叫的 **OAuth protected resources**。
-- **Transaction Tokens（§10.5）** — internal call chains 的 blast-radius control。microservices 之間傳遞 broad access token 存在 theft/replay/lateral-move risk（攻擊者若在 log 或 crash dump 中找到它，便能呼叫*不同的 transaction*）。相反地，應將它 exchange 為 **transaction token**：綁定至單一特定 transaction 的 downscoped token（其中加入 caller context、transaction context 與 unique ID），**不能**用於另一個 transaction，也不能搭配修改後的 details 重用。它是短期的。Transaction token MAY 再透過 OAuth Token Exchange exchange 為 access token，以呼叫下一個 service。
-- **Cross-domain chaining（§10.6）** — 當 resources 位於不同 authorization servers 後方時，agent 使用 **OAuth Identity and Authorization Chaining Across Domains**（或 Identity Assertion JWT Grant / Transaction Token Grant profiles）：將 current token exchange 為 JWT authorization grant，再出示它以取得 target domain 的 access token。**這是 ephemeral spawned agents 的 delegation-chain mechanism。**
-- **Human in the loop（§10.7）** — 對高風險 actions，AS SHOULD 透過 **CIBA** 拒絕或提高驗證強度（在 user device 上進行 out-of-band approval）。關鍵是，*local UI confirmation **不是 authorization*** — draft 與 [MCP](/articles/mcp-and-computer-use) 的 user-solicitation pattern 一致，但堅持 agent MUST NOT 將 local approval 視為充分；它必須綁定至可驗證、由 AS 簽發的 grant。（已知缺口：CIBA 只建模 *client-initiated* flows，無法自然對應 mid-execution confirmation — **這正是 OpenID AuthZEN AARP draft 要透過將 CIBA generalize 為 policy-level prerequisite/approval pattern 而彌補的缺口**；見下文。）
-- **Tool-to-service（§10.8）** — tools 使用 Token Exchange / cross-domain chaining 存取 downstream resources。**反模式：** tool 將從 agent 收到的 access token 轉發出去（會招致 theft + lateral attacks）— 與 transaction tokens 相同的 containment logic。
-- **Discovery（§10.10）** — 在 dynamic/ephemeral deployments 中，OAuth Authorization Server Metadata、Protected Resource Metadata 與 Client ID Metadata Documents 讓 agents 能在 runtime 綁定正確的 issuer/audience/flow，而不需 static config。
+- **Agent Mission (§10.1)** — 代理程式從使用者、系統或另一個代理程式取得一個 *Mission*（自然語言任務）；將任務轉成具體的資源／授權需求屬於**規劃步驟，不在範圍內**（草案引用 Karl McGuinness 的「Mission Shaping Problem」）。這正是 wiki 中 [agent-native](/articles/agent-native-infrastructure)「釐清細節」的交握，與具體驗證模型接軌之處。
+- **OAuth 作為委派機制** — 代理程式扮演 OAuth **client**；access token 以 `client_id` 表示代理程式身分，以 `sub` 表示受委派的主體。流程包括：使用者委派時使用 **Authorization Code Grant**（搭配 passkeys 等*抗網路釣魚*的使用者驗證，且代理程式使用第 7 節憑證向 AS 驗證，**絕不使用靜態 client secrets**）；代理程式代表自己行事時使用 **Client Credentials / JWT Authorization Grant**；代理程式本身也可以是由系統或其他代理程式呼叫的 **OAuth protected resources**。
+- **Transaction Tokens (§10.5)** — 控制內部呼叫鏈爆炸半徑的機制。在微服務間傳遞廣泛授權的 access token 會帶來竊取／重播／橫向移動風險（攻擊者若從日誌或 crash dump 找到它，就能呼叫*不同的交易*）。解法是把它交換成 **transaction token**：縮小權限範圍並綁定至單一特定交易的權杖（加入呼叫者脈絡、交易脈絡與唯一 ID），**不能拿去用於其他交易，也不能搭配修改過的細節重用**。它是短效權杖。Transaction token MAY 再透過 OAuth Token Exchange 交換成 access token，以呼叫下一個服務。
+- **跨網域串接 (§10.6)** — 當資源由不同的授權伺服器管理時，代理程式會使用 **OAuth Identity and Authorization Chaining Across Domains**（或 Identity Assertion JWT Grant / Transaction Token Grant profiles）：將目前權杖交換成 JWT authorization grant，再用它取得目標網域的 access token。**這就是短暫生成的子代理程式所用的委派鏈機制。**
+- **Human in the loop (§10.7)** — 對高風險動作，AS SHOULD 拒絕或要求透過 **CIBA**（在使用者裝置上進行帶外核准）提高驗證強度。關鍵是，*本機 UI 的確認**不等於**授權*——草案呼應 [MCP](/articles/mcp-and-computer-use) 的使用者徵詢模式，但堅持代理程式 MUST NOT 把本機核准當成充分條件；核准必須綁定至可驗證、由 AS 簽發的授權。（已知缺口：CIBA 只處理由 client 發起的流程，無法妥善對應執行中途的確認——**這正是 OpenID AuthZEN AARP 草案預計透過將 CIBA 泛化為政策層級的前置條件／核准模式來補足的缺口**；見下文。）
+- **Tool-to-service (§10.8)** — 工具使用 Token Exchange／跨網域串接來存取下游資源。**反模式：**工具轉送從代理程式收到的 access token（會引來竊取與橫向攻擊）——其限制擴散的邏輯與 transaction tokens 相同。
+- **Discovery (§10.10)** — 在動態／短暫部署中，OAuth Authorization Server Metadata、Protected Resource Metadata 與 Client ID Metadata Documents 能讓代理程式在執行期綁定正確的 issuer／audience／flow，無須靜態設定。
 
-## OpenID AuthZEN drafts（AARP + COAZ）：標準化 authorization slice
+### 在已部署生態系中測量委派主幹（2026-05）
 
-IETF `draft-klrc-aiagent-auth` stack 將 **identity、credentials 與 delegated authority** 標準化之處，**OpenID Foundation's AuthZEN Working Group** 正在標準化的則是**authorization decision 本身** — 並於 2026-06-15（配合 Identiverse）批准兩份官方 **Working Group Drafts**：**AARP** 與 **COAZ**。*兩者都是 proposed drafts，不是 ratified standards* — `practitioner-opinion`；若與 vault 的 `empirical` per-call-authz systems（[ScopeGate](/articles/capability-gating-vs-authorization)、[aiAuthZ](/articles/off-host-identity-bound-authorization)）觸及相同領域，權重低於已測量的工作。它們建立在 AuthZEN **Authorization API 1.0** 與其 **Subject-Action-Resource-Context (SARC)** decision interface 上 — 也就是兩個 research systems 各自以 ad hoc 方式實作的 interoperable「現在可以執行這個 action 嗎？」endpoint。
+上述每種機制都是對一種尚未有人統計過的架構形狀所提出的建議。Zhou 等人對遠端 MCP 伺服器所做的普查 ([A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333)，arXiv 2605.22333，`empirical`，無 COI——完整分析見 [Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild)) 首度測量了實際運作中的此種架構形狀，值得特別附在以下三點旁。
 
-- **AARP（Access Request and Approval Profile）。** 它回答了 allow/deny authorization APIs 歷來無法回答的問題：*policy 在能夠 authorize action 之前需要什麼？* 當 policy 尚不能決定時 — 必須先滿足 approval、consent、delegated authority、attestation 或 risk assessment — AARP 定義 **request、tracking、satisfying 與 re-evaluating 這些 prerequisites 的 interoperable patterns**，讓 applications、authorization systems、governance platforms 與 agents 能夠協調，同時*仍由 policy 作為 decision-maker，並在 enforcement 時進行評估*。其 worked example 正是這個 vault 的 vendor-payment case：agent 嘗試進行超過門檻的 transfer 時，收到的不是空泛的 deny，而是**「尚未 — 以下是必要條件」**的 signal；它記錄 pending request 的 handle，稍後 hand off 或 resume，只有在 manager approve 且 policy 重新評估後才繼續。**AARP 明確 generalizes CIBA：**「*這對 authorization prerequisites，就如同 CIBA 對 authentication approval*」— 同樣是標準化、非同步、out-of-band 的互動，但*generalized to policy*，且可由 person 或 automated governance system 滿足，而不受限於 CIBA 的 client-initiated authentication-approval 形式。這是對 AIMS 自身承認的 mid-execution-HITL gap（上方 §10.7；下方 Open Questions）的直接 proposed answer。
-- **COAZ（AuthZEN Profile for MCP Tool Authorization）。** 這是一個標準化 **將 MCP tool invocations 對映至 AuthZEN SARC structure 的 profile**，透過 metadata 讓不同 enforcement points — API 或 AI gateways、service meshes、downstream systems — 知道如何針對相容的 **PDP** authorize tool call。它讓 [MCP](/articles/mcp-and-computer-use) tool **揭露呼叫它所需的 authorization checks**，為 agentic workflows 帶來 per-invocation authorization control — 也就是 [MCP Tool Poisoning](/articles/mcp-tool-poisoning) 與 per-call-authz pages 所主張的 action-layer defense 的 standards-track form。Industry review 涵蓋 Axiomatics、Cerbos、Okta、SailPoint、Indykite、Keycard 與 C1。
+- **§10.6 描述的多跳鏈是主流情境，不是邊緣案例。** 在 119 個可進行端到端測試且啟用 OAuth 的 MCP 伺服器中，**81 個（68.07%）**在面對 client 時是 OAuth resource server，同時又以 OAuth client 身分呼叫上游服務——這正是 AIMS 透過 token exchange 與 identity chaining 處理的跨網域鏈。
+- **§10.8 列出的反模式有一種經測量確認的近似情況，而且它是最主要的委派缺陷。** AIMS 禁止工具*轉送*收到的權杖；實際部署中的失敗情況更隱晦、也更嚴重——**81 個伺服器中有 40 個（49.4%）將下游路由狀態（通常是 `redirect_uri`）序列化至 client 可見的上游 `state` 參數**；若其中的巢狀值未受完整性保護，攻擊者便能改寫它，讓 MCP 伺服器本身把受害者的 authorization code 轉送至攻擊者端點。論文建議的修正正是 AIMS 形狀的做法：在伺服器端保存由不透明 `state` 對應至路由脈絡的映射，讓 client 端沒有可竄改的資料。
+- **§10.10 的 CIMD 正因這項測量揭示的理由而逐漸被採用。** **2,428 個啟用 OAuth 的 MCP 伺服器中有 1,118 個（46.0%）**仍公布 DCR `registration_endpoint`，而 **119 個受測伺服器中有 114 個（95.8%）**會在該端點接受攻擊者任意提供的 `redirect_uri`——該研究九個 CVE 中有七個與此相關。下文提到的趨同（另一個獨立協定在未與本草案協調下轉向 CIMD），現在有了失敗案例作為依據，而非僅是一種偏好。
 
-**清楚的分工：** AIMS（IETF）說明 *agent/workload 是誰，以及 authority 如何 delegation*；AuthZEN Authorization API + COAZ 說明*這個具體 call 是否允許*；AARP 說明*在作出該 decision 之前必須先成立什麼條件*。它們共同將 agent-auth problem 放在兩個 standards bodies 之間 — 具體證據顯示 governance layer 是**多元且持續推進**的，而非停滯（見經修整的 Open Questions）。
+**對多方治理問題的影響。** 下方的 Open Questions 將 MCP 記為*第四個仲裁方*——它實際上將要求送進實作，而 IETF 與 OpenID 仍在審議；實際規範可能在正式批准前就已由 de-facto 規則定型。這份普查提供了反向數據：實際部署層的要求**也沒有被落實**。受測母體早於 revision 2026-07-28，但晚於 2025-11-25；後者已偏好 CIMD，也已要求 client 使用 PKCE。因此，「誰來治理」之外，還有一個優先問題是這三個機構都未回答的——*是什麼讓任何一方的規則對部署具有約束力？*——依目前證據，遠端 MCP 的答案是什麼也沒有。
 
-## Observability 與 remediation 作為 security control（§11）
+## OpenID AuthZEN 草案（AARP + COAZ）：將授權部分標準化
 
-Monitoring 是「*security control，而不只是 operational feature*」。Participants MAY 訂閱 **OpenID Shared Signals Framework (SSF)**，搭配 **CAEP** 或 **RISC** 接收 signals（session revoked、risk elevated、token replay suspected、subject disabled），並 MUST 迅速 remediation — discard cached tokens、以更嚴格 constraints 重新 acquire、reduce privileges、re-run policy — 且 MUST NOT 繼續使用因 revocation 而失效的 authorization。Deployments MUST 保留**tamper-evident audit logs**（authenticated agent ID、delegated subject、resource、action + decision、timestamp/correlation ID、posture/risk state、remediation events），並 SHOULD 跨 agents/tools/LLMs 進行 correlation，以偵測 replay、**confused-deputy**、privilege escalation 與 anomalous sequences。各處穩定且可驗證的 identifiers，才能讓「*哪個 entity 使用哪個 authorization context 做了什麼，以及 access 為何改變*」得以 end-to-end 還原。
+上方的 IETF `draft-klrc-aiagent-auth` 堆疊標準化的是**身分、憑證與委派權限**；**OpenID Foundation 的 AuthZEN Working Group** 則正在標準化**授權決策本身**——並於 2026-06-15（配合 Identiverse）批准兩份文件作為正式的 **Working Group Drafts**：**AARP** 與 **COAZ**。*兩者都是提案草案，尚未成為正式標準*——屬於 `practitioner-opinion`；若與知識庫中 `empirical` 的逐次呼叫授權系統 ([ScopeGate](/articles/capability-gating-vs-authorization)、[aiAuthZ](/articles/off-host-identity-bound-authorization)) 涉及相同範圍，權重低於實測研究。它們以 AuthZEN **Authorization API 1.0** 及其 **Subject-Action-Resource-Context (SARC)** 決策介面為基礎——這是兩個研究系統各自以臨時方式實作的互通端點，用來回答「現在允許執行這個動作嗎？」
 
-## 比較：AIMS 與 Anthropic Zero-Trust ebook
+- **AARP (Access Request and Approval Profile)。** 回答傳統 allow/deny 授權 API 無法回答的問題：*政策要授權一項動作之前，必須先滿足什麼條件？* 當政策尚無法做出決定——必須先完成核准、同意、權限委派、attestation 或風險評估時——AARP 定義互通模式，用於**提出、追蹤、滿足並重新評估這些前置條件**，使應用程式、授權系統、治理平台與代理程式可以協調，同時*由政策持續擔任決策者，並在強制執行時進行評估*。範例正是這份知識庫中的供應商付款案例：代理程式嘗試進行超過門檻的轉帳時，不會只收到簡單拒絕，而會收到**「尚未允許——以下是必須完成的事項」**訊號，記錄待處理請求的識別碼，稍後交接或恢復執行，並且只有在經理核准、政策重新評估後才能繼續。**AARP 明確地將 CIBA 泛化：**「CIBA 用來處理驗證核准，AARP 則處理授權前置條件」——兩者都是標準化的非同步帶外互動，但 AARP 將模式*泛化至政策*，而且*可由人員或自動化治理系統滿足*，不再侷限於 CIBA 由 client 發起的驗證核准形式。這是對 AIMS 自己承認的執行中途 HITL 缺口（上方 §10.7；下方 Open Questions）所提出的直接解答。
+- **COAZ (AuthZEN Profile for MCP Tool Authorization)。** 這是一份標準化 profile，透過中繼資料將 **MCP 工具呼叫映射到 AuthZEN SARC 結構**，使不同的強制執行點——API 或 AI 閘道、服務網格、下游系統——能依據相容的 **PDP** 判斷是否授權工具呼叫。它讓 [MCP](/articles/mcp-and-computer-use) 工具**揭露呼叫它所需的授權檢查**，將逐次呼叫授權控制引進代理程式工作流程——這是 [MCP Tool Poisoning](/articles/mcp-tool-poisoning) 與逐次呼叫授權頁面所主張之動作層防禦的標準制定形式。業界審查者包括 Axiomatics、Cerbos、Okta、SailPoint、Indykite、Keycard 與 C1。
 
-兩者都針對 agentic Zero Trust 中的 per-agent identity，並在核心上**趨於一致**：static API keys 不可接受、credentials 必須短期且有密碼學綁定、per-agent identity 是 keystone、least privilege / minimal scopes，以及 observability-as-security-control 搭配 tamper-evident audit。但兩者在 primitives 與 authority 上**有所分歧**：
+**明確的分工：**AIMS（IETF）說明*代理程式／工作負載是誰，以及權限如何委派*；AuthZEN Authorization API + COAZ 說明*這個具體呼叫是否允許*；AARP 說明*在做出該決策之前，必須先滿足哪些條件*。它們共同指出，代理程式驗證問題分布於兩個標準制定機構——這是治理層**由多方構成且持續演進**、而非停滯的具體證據（見下文進一步釐清的 Open Questions）。
 
-| 維度 | [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)（Anthropic ebook，vendor） | **AIMS**（IETF draft，multi-vendor standards） |
+## 首次測量 AIMS 形狀組合的攻擊抵抗能力（2026-08）
+
+本頁最後一個未解問題——*AIMS 是沒有實測攻擊抵抗能力的設計文件*——首度由草案之外的研究提供部分答案。**Dantuluri 與 Sundi**（VotalAI；arXiv 2609.00267，2026-08-31，[Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)，`empirical`）建置並以對抗方式測試一個授權 **broker / PEP**，組成所用的基本機制正是本頁列出的項目：以 **OIDC** 身分為根的 capability token（此處為 R1，上方 §10）、每個代理程式一個 SPIFFE 風格的 **SVID**（即 WIMSE identifier）、每個委派跳點都由簽發者中介進行權杖交換（RFC 8693——將 transaction-token 作法推廣）、短效期、沿鏈傳播的撤銷，以及防竄改日誌。這*不是* AIMS 實作：權杖格式採 macaroon 風格的 HMAC caveats，而非 WIMSE WPT 或 HTTP Message Signatures；經評估的成品是**約 160 行、使用 Python 標準函式庫的示範程式，且明確不予發布**。但它有相同的*架構形狀*，也是首度有人攻擊並測量這種形狀。
+
+**COI：引用這些數字時都應附上。**兩位作者都任職於 **VotalAI**；§8 用兩頁介紹該公司的商業產品 **LLM Shield**，摘要結尾也有宣傳。論文清楚標出界線：「本文評估的參考實作是以公開基本機制建置的獨立精簡示範程式，不予發布」——因此沒有測量任何 LLM Shield 程式碼，§8 所有產品部署數字（呼叫前內容檢查約 **2 ms**、完整 guardrail-model 檢查約 **190 ms**、在 NVIDIA 的 Nemotron 3.5 旁部署 8B 微調 guardrail model、能運用 100 多種操縱策略的 red-team portal）都是**廠商宣稱**，而非證據。
+
+### 評估標準：不可信任模型屬性
+
+即使所有數字都打折，這個框架轉換仍值得保留。由於模型是最容易遭攻擊的元件，必須將其視為**不可信任**，並採用對抗性標準：
+
+> 多代理程式系統只有在以下條件都成立時，才能稱為治理完善：即使有一個**完全遭 prompt injection 控制的代理程式**——其模型輸出完全由攻擊者操控——它仍然**不能超越明確委派給它的權限、不能在自身工作負載之外使用被竊取的憑證，並且會留下可歸屬的稽核軌跡。**「*依賴模型未遭劫持的安全機制，就不是安全機制。*」
+
+這是身分層對 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) 中參考監視器原則，以及 [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) 中逐次呼叫政策的表述；其前提也與本頁的 **LLM 絕不持有憑證** 規則（草案 §8）相同——不同之處在於此處將它列為*評估準則*而非設計規則，因此可以測試。
+
+### 四項威脅、八項要求
+
+威脅模型列出模型完全遭控制時的四類攻擊者：**T1** confused deputy（已獲授權的代理程式被用於非預期用途）、**T2** 權杖竊取／重播、**T3** prompt injection 權限升級、**T4** 遭入侵的子代理程式／過寬權限範圍。研究從五個目標推導出八項要求——**R1** 可追溯至人類授權的委派鏈來源、**R2** 每一跳只能縮小權限、**R3** 綁定至工作負載身分的 sender-constrained credentials、**R4** 短效簽發、**R5** 金鑰／機密輪替、**R6** 將撤銷傳播至 PEP、**R7** 完整且防竄改的稽核、**R8** 在基礎設施 PEP 執行與模型無關的強制控制。R1–R7 幾乎逐項對應本頁的堆疊（identifier → credentials → provisioning → authorization → monitoring）；**R8 是 AIMS 只以架構規則陳述、而未列為要求的一項**，而該論文將它視為關鍵：「*這使不可信任模型屬性得以實現。如果由模型控制存取，遭劫持的模型就會授予存取權。*」
+
+### 缺口：實際執行了什麼、只檢視了什麼
+
+閱讀框架評估結果時，應連同其方法一起解讀，因為每一列的方法不同，論文也有說明：
+
+- **LangGraph 1.2.10 — 實際執行。**使用真實編譯的 `StateGraph`，搭配腳本化的 agent node（刻意將授權層與模型行為隔離），並以 tool node 測試。四項威脅全數可攻破；R1–R8 一項也不具備。
+- **CrewAI 1.15.13、AutoGen 0.7.5 — 能力檢視。**檢查 tool-execution base classes，沒有實際執行。結果相同：四項威脅全數可攻破，R1–R8 一項也不具備。
+- **MCP authorization，rev. 2026-07-28 — 規格分析**（與知識庫在 [MCP and Computer Use](/articles/mcp-and-computer-use) 追蹤的 revision 相同）。這是唯一部分符合要求的項目：強制要求 **Resource Indicators (RFC 8707)** 將每個權杖的 audience 限制在單一伺服器（部分符合 T2/R3）；**resource-server model 在 client 的模型之外驗證權杖**（R8）；OAuth 提供短效權杖（R4）與撤銷能力（R6）——但沒有**逐跳縮小權限（R2）**，也沒有代理程式對代理程式鏈的**跨代理程式委派來源追蹤（R1）**。
+
+作者自己的總結最為坦率：「*它們都沒有宣稱自己是授權系統，這正是重點——治理層根本不存在。*」
+
+### 標準對照表是分析結果，也是本頁主張的缺口重述
+
+表 3 將九種基本機制（OIDC、OAuth 2.1、Token Exchange 8693、SPIFFE/SPIRE、mTLS 8705、DPoP 9449、Macaroons、Biscuit、MCP authz）對照 R1–R8。論文明確標示：「*這是分析結果，反映我們對各標準規格的解讀，而非測量資料；歡迎檢視個別儲存格*」——因此這是論文中最弱的證據，引用時應標明是作者的解讀，而非研究發現。儘管如此，表中的結論仍是對本頁核心主張最一針見血的補充。AIMS 主張代理程式驗證問題**應透過組合現有標準解決**；這篇論文認為基本機制已成熟，接著指出缺少的部分：
+
+> 目前**沒有標準 profile** 能在每個委派跳點簽發 capability token，並同時符合以下條件：權限範圍縮小（R2）、綁定子代理程式的工作負載身分（R3）、短效期（R4），且由模型之外的 PEP 強制執行（R8）。
+
+這並不反駁 AIMS——只是從另一面提出同一主張。AIMS *提出*這種組合；這篇論文測量的是沒有人將它*部署上線*，而且沒有任何單一標準本身涵蓋超過其中一小部分（R1/R2 落在 token exchange 與 capability tokens；R3/R5 落在 SPIFFE/mTLS/DPoP；R8 則是**它們都未強制要求的部署屬性**）。
+
+### Broker 及其數據
+
+Broker 位於代理程式與工具之間：每個代理程式以 SVID 驗證；人類授權以 OIDC 為根的 capability token 表示；每次委派跳點都由簽發者中介進行交換，簽出一個**權限範圍縮小至子任務（cap₂ ⊆ cap₁）、綁定至接收方 SVID，且有效期短**的權杖，只有綁定該權杖的工作負載才能再向下委派；每次工具呼叫都經過 broker，broker 檢查簽章、撤銷狀態、sender constraint 與 caveats——**不呼叫模型**——並將鏈附加到防竄改日誌。Caveats 只能附加，不能移除，因此權限只會愈來愈窄。以下結果皆來自示範程式：
+
+- **防禦成效（實際執行）。**預設執行環境會將一個廣泛授權的 bearer credential 原封不動地傳給子代理程式與工具，並由*模型自行推理*判斷動作是否允許；此環境無法抵禦四項威脅，而 broker 全數擋下。
+- **對抗穩健性（實際執行）——兩項實驗，不是一項。**摘要中的「11 次直接攻擊……200,000 次中 0 次通過」混淆了兩項實驗。第一項是**針對 broker 設計的 11 種手工攻擊**（從頭偽造、以猜測的 secret 偽造、移除 caveats、擴大 caveat、重新綁定被竊權杖、原樣重播、格式錯誤 caveat 時安全失敗、透過交換擴大權限範圍、委派自己未持有的權杖、使用已撤銷權杖的子代權杖、使用已過期權杖）——11 種全部抵擋。第二項是另一個**以隨機與變異權杖進行的模糊測試：20 萬次中 0 次被接受。**
+- **爆炸半徑（實際執行）。**在包含 **8,100** 個工具／資源動作的合成環境中，執行超過 2,000 個隨機委派情境；遭入侵的子代理程式在 bearer delegation 下，每種情境都能觸及**全部 8,100 個動作**；使用 broker 時，平均只能觸及 **1.5 個**——正好是委派給它的子任務範圍。作者明確表示不以比率作為標題數字：真正的主張是**不變性**——防禦後可觸及範圍受任務限制，*不受環境大小影響*；未防禦時，可觸及範圍等於整個環境，部署規模愈大就無上限地擴大。收錄於 [Blast Radius (Agentic)](/articles/blast-radius)。
+- **額外負擔（實際執行）。**每次授權約 **2.6 µs**（約 3.9×10⁵ 次決策／秒），每次權杖交換約 **5.4 µs**；兩者都是在筆電上各測量 2×10⁵ 次呼叫所得——相較於數百毫秒的模型推論，幾乎可忽略。論文的結論是此架構的主要成本在於**營運**（維護 broker 與身分平面），而非延遲。
+
+### 一項依設計而成功的邊界測試——以及它對本頁硬體立場的影響
+
+論文刻意將**第十二項**測試報告為攻擊者成功：「*如果攻擊者能出示受害者的 SVID，被竊權杖就能使用——這證明 sender-constraining 的強度取決於工作負載身分 attestation（mTLS/SPIFFE）的強度。*」作者將此列為明確假設，而非缺陷；整個設計都以此為關鍵假設。
+
+這也正好落在上方比較表列出的唯一實質分歧上。AIMS 將**硬體支援的金鑰儲存列為選用項目**，認為「*互通性不要求使用*」，並以依部署而異的 **posture assessment** 取代遠端 attestation；Anthropic 電子書則將硬體 attestation 列為 Advanced 目標。這項結果無法裁定孰是孰非——它只是示範程式測試，而且雙方談的是互通性與目標狀態的差異——但它指出兩份文件都未提及的一點：**部署選擇的 attestation 強度，就是整個 sender-constrained credential 層的強度**，因為 R3 是由它定義的。AIMS 所說「不需要硬體 attestation」是在論證*姿態訊號是否足夠*；這項測試則指出，無論選用何種訊號，該屬性都會隨訊號強弱持續改變。實際案例已收錄於 [Agent Identity and Authentication](/articles/agent-identity-and-authentication)：2026 年 7 月 Hugging Face 鏈中的代理程式以**節點身分**完成驗證並取得 **EdDSA JWT signing key**，接著按需簽發簽章正確的身分——第十二項測試在實際環境中成功了。
+
+### 它尚未涵蓋之處
+
+作者提出三項限制，另加一項知識庫的觀察。作者提出的限制：broker 強制執行的是**抽象動作模型**（工具／資源 tuple），因此正式環境的 PEP 必須忠實地將真實工具呼叫映射至該模型；broker **未整合至任何受評估框架**；評估中的任何環節都**沒有讓真實模型參與**（LangGraph agent node 是腳本化的）。知識庫另補充：不同於 [ScopeGate](/articles/capability-gating-vs-authorization)（使用 Apache-2.0 授權、固定於具名 commit 的成品）與 [aiAuthZ](/articles/off-host-identity-bound-authorization)（有發布程式碼與逐字稿），**此處沒有任何受測內容獲得發布**，因此 `empirical` 層級代表*系統性測量*，不代表*可重現性*——在這方面應低於前兩者看待，但也要注意，這份資料集中沒有其他研究競爭其多跳委派測量結果。
+
+## 可觀測性與修復作為安全控制 (§11)
+
+Monitoring 是「*安全控制，而不只是營運功能*」。參與者 MAY 訂閱 **OpenID Shared Signals Framework (SSF)**，搭配 **CAEP** 或 **RISC** 接收訊號（工作階段已撤銷、風險升高、疑似權杖重播、主體已停用），並 MUST 迅速採取補救措施——丟棄快取權杖、以更嚴格條件重新取得、降低權限、重新執行政策——且 MUST NOT 繼續使用已因撤銷而失效的授權。部署 MUST 保留**防竄改稽核日誌**（已驗證的代理程式 ID、受委派主體、資源、動作與決策、時間戳記／關聯 ID、姿態／風險狀態、補救事件），並 SHOULD 跨代理程式／工具／LLM 進行關聯分析，以偵測重播、**confused-deputy**、權限升級與異常序列。所有地方都使用穩定且可驗證的識別碼，才能端到端重建「*哪個實體在何種授權脈絡下做了什麼，以及存取權限為何改變*」。
+
+## 比較：AIMS 與 Anthropic Zero-Trust 電子書
+
+兩者都以代理程式式 Zero Trust 的逐代理程式身分為目標，並在核心主張上**趨同**：static API keys 不可接受、憑證必須短效且以密碼學方式綁定、每個代理程式的身分是關鍵、採用最低權限／最小範圍，以及將可觀測性視為安全控制並使用防竄改稽核。但兩者在基本機制與權威來源上**有所分歧**：
+
+| 面向 | [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)（Anthropic 電子書，廠商資料） | **AIMS**（IETF 草案，多廠商標準） |
 |---|---|---|
-| Identity primitive | Cryptographic IDs → **X.509 certs** → **hardware-backed HSM/TPM identity + remote attestation**（tiered target state） | **WIMSE/SPIFFE URI** 作為*唯一* identifier（X.509-SVID *或* JWT/WIT-SVID） |
-| Hardware attestation | Internet-reachable production 的 **Advanced-tier target** | **可選；「不是 interoperability 所必需」** — 多種 posture signals 之一 |
-| Attestation model | Remote hardware attestation | 每次 issuance/rotation 時進行 **「posture assessment」**；deployment-specific signals（將 attestation 納入 provisioning） |
-| Authentication | Short-lived OAuth tokens → mTLS → hardware-bound credentials | 相同，**加上 application-layer**（WPT、HTTP Message Signatures），用於 transport identity 失效的情況 |
-| Delegation / sub-agents | Sub-agents inherit *「最多與 parent 相同的 permissions」*（大致留白） | **OAuth Token Exchange + Transaction Tokens + cross-domain chaining** — downscoped、transaction-bound，*不是* raw inheritance |
-| LLM & credentials | 未以規則說明 | **明確 MUST NOT** — LLM 永不持有 credentials |
-| Authority | Single vendor；Claude Code 作為 reference implementation | Six vendors，standards-track — **但為 individual submission，尚無 WG consensus** |
+| 身分基本機制 | 密碼學 ID → **X.509 憑證** → **硬體支援的 HSM/TPM 身分 + 遠端 attestation**（分級目標狀態） | **WIMSE/SPIFFE URI** 作為唯一識別碼（X.509-SVID *或* JWT/WIT-SVID） |
+| 硬體 attestation | 供可從網際網路存取的正式環境使用的 **Advanced 層目標** | **選用；「互通性不要求使用」**——眾多姿態訊號之一 |
+| Attestation 模型 | 遠端硬體 attestation | 每次簽發／輪替都進行 **「Posture assessment」**；依部署而異的訊號（將 attestation 納入 provisioning） |
+| Authentication | 短效 OAuth 權杖 → mTLS → 硬體綁定憑證 | 相同，**另加應用層**（WPT、HTTP Message Signatures），因應傳輸身分中斷的情況 |
+| Delegation / 子代理程式 | 子代理程式「*最多繼承與父代理程式相同的權限*」（大多未處理） | **OAuth Token Exchange + Transaction Tokens + 跨網域串接**——縮小權限範圍、綁定交易，*不直接繼承全部權限* |
+| LLM 與憑證 | 未明文訂為規則 | **明確 MUST NOT**——LLM 絕不持有憑證 |
+| 權威性 | 單一廠商；Claude Code 為參考實作 | 六家廠商參與、進入標準制定流程——**但仍是個人提交，沒有 WG 共識** |
 
-這種 productive tension 在於：ebook 將**hardware attestation 作為 aspirational endpoint**；AIMS 則主張，可以透過**短期、經 posture assessment、具 delegation 的 credentials**取得 security property，而不必要求每個 ephemeral workload 都進行 hardware attestation — 並加入 ebook 缺少的 delegation-chain machinery（transaction tokens、identity chaining）。兩者都不是 ratified standard：ebook 是 vendor practitioner-opinion，AIMS 是 standards-*draft* practitioner-opinion。
+值得保留的張力在於：電子書將**硬體 attestation**視為理想終點；AIMS 認為只要採用**短效、經姿態評估並可委派的憑證**，就能達成安全屬性，不必要求每個短暫工作負載都使用硬體 attestation；同時也補上電子書欠缺的委派鏈機制（transaction tokens、identity chaining）。兩者都不是已批准的標準：電子書屬廠商的 practitioner-opinion，AIMS 則是標準制定中的草案 practitioner-opinion。
 
 ## 相關連結
 
-- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — 主要 sibling；AIMS 是同一 keystone control 的第二個（standards-track、multi-vendor）來源，並提供 ebook 只停留在 tier-label 層級的具體 identifier/credential/delegation primitives
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — vault 另一個 agent-security framework（hub）；AIMS 在 ebook 規定 tiered maturity model 的地方組合既有標準 — convergences 與 divergences 已列於上表
-- [Least Agency](/articles/least-agency) — AIMS 透過 OAuth minimal scopes、audience restriction 與 **transaction-token downscoping**（綁定一個 transaction 且不可重用的 token）落實 least agency — 「限制每個 tool 能做什麼」在 standards layer 的實例
-- [Blast Radius (Agentic)](/articles/blast-radius) — transaction tokens、no-token-forwarding antipattern 與短期、non-revoked credentials，都是 internal microservice call chain 的 blast-radius containment（限制 token theft、replay 與 lateral movement）
-- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — AIMS 是該頁 open protocol-layer question 的候選答案：agent-to-agent negotiation 所需的 trust/identity/accountability primitives，取自 IETF/CNCF/OpenID standards（但 governance 尚未定案）
-- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — identity layer 上的相同 doctrine：將 secret 與 authorization decision 保留在*可被操控的 LLM 之外*（LLMs-never-hold-credentials；由 AS 而非 local UI 進行 authorization）— deterministic reference monitor 的 credential/authorization twin
-- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — **standards layer 與 concrete shipped system 的對照**：AIMS 標準化 *workload* identity（WIMSE/SPIFFE）與 delegated authority（OAuth token-exchange、transaction tokens）；aiAuthZ（Kodathala，arXiv 2607.05518）是運作中的 gateway，針對每則 message authentication *human user*（per-message HMAC + nonce），並可將 AIMS-issued identities 作為其 role + argument policy 的 service/principal inputs — 可在不同 granularity 組合（AIMS 將 identity 綁定至 workload/session/token；aiAuthZ 綁定至每則 user message），且 AIMS 僅為 design-only，aiAuthZ 則是 empirical。它是 single-author preprint，因此在 adoption questions 上權重低於這項 multi-vendor standards work
-- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — ScopeGate 是 AuthZEN/COAZ **proposed-standard** authorize-each-call 的 `empirical` **research** counterpart：兩者都在具體 `(tool, args)` call 上提供 deterministic allow/deny decision，但 ScopeGate 是 measured in-framework PDP/PEP，而 AuthZEN 的 Authorization API + COAZ 標準化 SARC decision interface 與 MCP→SARC mapping（WG draft，權重低於 measured system）。AARP 加入純 allow/deny gate（如 ScopeGate）缺少的「尚未 — 以下是 prerequisite」形式
-- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — COAZ 標準化在**MCP tool-invocation point**放置 authorization decision，是該頁主張應位於（已被擊敗的）detection *下游*的 action-layer defense 之 standards-track form
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — LLM-never-holds-credentials rule 明確是 prompt-injection defense：被劫持的 model 無法揭露它從未持有的 secret
-- [MCP and Computer Use](/articles/mcp-and-computer-use) — AIMS 將其 human-in-the-loop model 與 MCP 的 user-solicitation pattern 對齊，並把 MCP tools 視為 OAuth authorize 的 resource surface；但堅持 local approval 不是 authorization
-- [Hermes Agent](/articles/hermes-agent) — shipped contrast：Hermes 以 ad-hoc **DM-pairing + allowlist**（human-auth）加上 container-as-boundary 保護 multi-user agent access；AIMS 則提出 standards-based **workload identity + delegated authorization**；這是實務與 proposed standard 之間的落差
-- [OpenAI](/articles/openai) — Nick Steele（OpenAI）是 co-author，與 Defakto、AWS、Zscaler、Ping Identity 及 Okta 並列
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication) — 最直接的相關頁面；AIMS 是同一關鍵控制的第二個來源（標準制定中、多廠商參與），並提供電子書只停留在層級標籤的具體識別碼／憑證／委派基本機制
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) — 知識庫另一套代理程式安全框架（主頁）；AIMS 組合現有標準，電子書則規定分級成熟度模型——上方已整理兩者的趨同與分歧
+- [Least Agency](/articles/least-agency) — AIMS 透過 OAuth 最小範圍、audience 限制與 **transaction-token 縮小權限**（綁定單一交易、不可重用的權杖）落實最低代理權限原則，是「限制各工具能做什麼」在標準層的實作
+- [Blast Radius (Agentic)](/articles/blast-radius) — transaction tokens、禁止轉送權杖的反模式，以及短效且不需明確撤銷的憑證，都能限制內部微服務呼叫鏈的爆炸半徑（限制權杖竊取、重播與橫向移動）
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure) — AIMS 可作為該頁未解協定層問題的候選答案：代理程式對代理程式協商所需的信任／身分／問責基本機制，取自 IETF/CNCF/OpenID 標準（但治理方式仍未定）
+- [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense) — 身分層也採取同一原則：機密與授權決策都放在可被操縱的 LLM *之外*（LLM 絕不持有憑證；由 AS 而非本機 UI 授權）——這是憑證／授權對應於確定性參考監視器的做法
+- [Off-Host, Identity-Bound Authorization](/articles/off-host-identity-bound-authorization) — **標準層與已部署的具體系統**：AIMS 標準化*工作負載*身分（WIMSE/SPIFFE）與委派權限（OAuth token-exchange、transaction tokens）；aiAuthZ（Kodathala，arXiv 2607.05518）則是實際運作的閘道，會對每則訊息驗證*人類使用者*（每則訊息使用 HMAC + nonce），並能將 AIMS 簽發的身分作為角色與引數政策的服務／主體輸入——兩者可組合，也可在不同粒度運作（AIMS 將身分綁定至工作負載／工作階段／權杖；aiAuthZ 綁定至每則使用者訊息），且 aiAuthZ 有實證，AIMS 則僅為設計。這是單一作者的預印本，因此在採納相關問題上，權重低於本頁的多廠商標準研究
+- [Capability Gating Is Not Authorization](/articles/capability-gating-vs-authorization) — ScopeGate 是 AuthZEN/COAZ **提議標準**逐次呼叫授權的 `empirical` **研究**對照案例：兩者都對具體的 `(tool, args)` 呼叫進行確定性 allow/deny 決策，但 ScopeGate 是經測量、整合於框架內的 PDP/PEP；AuthZEN 的 Authorization API + COAZ 則標準化 SARC 決策介面與 MCP→SARC 映射（這是 WG 草案，權重低於已測系統）。AARP 增加了純 allow/deny 閘道（例如 ScopeGate）所欠缺的「尚未允許——以下是必要條件」處理方式
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — COAZ 標準化在**MCP 工具呼叫點**做授權決策，是該頁主張的動作層防禦之標準制定版本；該防禦必須位於已被擊敗的偵測機制*下游*
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection) — LLM 絕不持有憑證的規則明確用於防範 prompt injection：遭劫持的模型無法洩露從未持有的機密
+- [MCP and Computer Use](/articles/mcp-and-computer-use) — AIMS 的 Human-in-the-loop 模型呼應 MCP 的使用者徵詢模式，也將 MCP 工具視為 OAuth 授權的資源介面；但堅持本機核准不等於授權
+- [Hermes Agent](/articles/hermes-agent) — 已部署的對照案例：Hermes 以臨時拼湊的 **DM-pairing + allowlist**（人類驗證）搭配容器作為邊界，保護多使用者的代理程式存取；AIMS 則提出以標準為基礎的**工作負載身分 + 委派授權**——呈現實務做法與提議標準之間的落差
+- [Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild) — 首次以母體規模測量本頁所述的委派架構：68.07% 的受測 MCP OAuth 部署使用 §10.6 的雙跳 resource-server/OAuth-client 鏈；其中半數會在未受保護的 `state` 中傳遞路由脈絡（§10.8 反模式暗示的失敗情況）；46.0% 的 OAuth 伺服器仍公布 §10.10 的 CIMD 用來取代的 DCR 端點。它也提供多方治理問題的反向數據：de-facto 仲裁方自己的要求也未落實
+- [OpenAI](/articles/openai) — OpenAI 的 Nick Steele 與 Defakto、AWS、Zscaler、Ping Identity、Okta 共同撰寫此文
+
+- [Guarantees That Degrade at Deployment: Action-Space Soundness, Admissibility Without Effect, and a Vendor-Coupled Security Framework](/articles/guarantees-that-degrade-at-deployment) — 上方 AIMS 與電子書的比較，是該綜合分析對 [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 得出廠商中立性判斷的關鍵證據：兩者唯一實質的目標狀態分歧，是電子書將硬體 attestation 列為 Advanced 終點，而 AIMS 將硬體支援的金鑰儲存列為選用，並認為「互通性不要求使用」；該框架身分領域的其他部分則都趨同——兩份 `practitioner-opinion` 文件，彼此權重相當
+
+- [The Price of Mixing Agents, and the Principal Nobody Counted](/articles/heterogeneity-cost-and-the-second-principal) — 以實例說明權限型治理層的限制。此草案把代理程式對代理程式納入工作負載對工作負載的範疇，堆疊中的每種機制都回答*這次呼叫能否發生*；若代理程式放棄自身主體的指令、改為解決同儕衝突，它不會發出呼叫、不會接觸資源，也不會產生稽核事件。標準無法靠增加涵蓋範圍來補上這種缺口——因為這類失敗不適用權限工具來處理
 
 ## 待解決的問題
 
-- **No WG consensus。** 這是一份描述其他仍在進行中的 drafts 的 individual submission（WIMSE identifier/creds/WPT/HTTP-sig、OAuth transaction-tokens、identity-chaining **全都是** Internet-Drafts）。其中哪些 primitives 最終會成為 RFC？這種 composition 能否通過 WG review？「誰治理 agent-auth protocol layer」（[Agent-Native Infrastructure](/articles/agent-native-infrastructure)）目前是*proposed*（IETF/CNCF/OpenID），但尚未*settled*。**OpenID AuthZEN drafts 讓問題更清楚：** authorization slice 正由與 AIMS 的 IETF identity/delegation work **不同的 body** 進行標準化 — **OpenID Foundation's AuthZEN WG** 已批准 AARP + COAZ 作為 Working Group Drafts（比 AIMS 的 individual-submission status 更進一步，但仍是 pre-ratification、community-review drafts）。因此 governance layer 具體上是**多元**的（IETF 負責 workload identity + delegated authority；OpenID 負責 authorization decision + prerequisites），且**正在積極推進** — 不是單一 arbiter，而是跨 bodies 的分工，其最終 composition 本身仍未定案。
-- **Mission → authorization 超出範圍。** 最困難的部分 — 安全地將自然語言 mission 轉換為具體 scopes/resources — 被明確延後為「planning step」。被操控的 planning step 可能請求過度寬廣的 authorization；AIMS 提供乾淨的 primitives，卻沒有說明如何保護該 translation 本身。
-- **Mid-execution human-in-the-loop。** Draft 承認 CIBA 只建模 client-initiated approval，且「*doesn't map well*」到 execution 中途所需的 confirmation — 這是已承認的 specification gap。**OpenID AuthZEN AARP draft 已提出解法：** AARP 將 CIBA 的 async out-of-band interaction generalize 為一般性的 *prerequisite/approval* pattern — 「尚未，以下是必要條件」— 不受限於 client-initiated flows，可在 mid-flow 由 person 或 automated governance system 滿足，並在 enforcement 時重新評估 policy。因此這個 gap 現在有了 proposed standards answer — 但它仍是 Working Group **Draft**，不是 ratified spec，且尚未整合至 AIMS 的 IETF stack。
-- **Posture assessment 的 deployment-specific 是刻意設計。** 由於不要求特定 attestation mechanism，AIMS 讓*trust assurance*（不只是 protocol）的 interoperability 變得未明確：兩個符合 AIMS 的 deployments，可能以完全不同且不可比較的 signals 評估 posture。
-- **沒有 empirical evaluation。** 不同於 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)（至少執行過一次 adaptive reproduction），AIMS 是沒有 measured attack-resistance 的 design document — 其 security 仰賴 composed specs 自身（大多不是 agentic）的 threat models。
+- **尚無 WG 共識。**這是一份個人提交的文件，用來描述其他仍在進行中的草案（WIMSE identifier/creds/WPT/HTTP-sig、OAuth transaction-tokens、identity-chaining 也*全都是 Internet-Drafts*）。這些基本機制中哪些最終能成為 RFC？組合能否通過 WG 審查？「誰來治理代理程式驗證協定層」([Agent-Native Infrastructure](/articles/agent-native-infrastructure)) 是一項*提案*（IETF/CNCF/OpenID），尚未*定案*。**OpenID AuthZEN 草案進一步釐清了這個問題：**授權部分由不同於 AIMS 的 IETF 身分／委派工作的機構制定標準——**OpenID Foundation 的 AuthZEN WG** 已將 AARP + COAZ 批准為 Working Group Drafts（比 AIMS 的個人提交更進一步，但仍未正式批准，並處於社群審查階段）。因此，治理層具體呈現為**多方參與**（IETF 負責工作負載身分與委派權限；OpenID 負責授權決策與前置條件）且**持續演進**——不是單一仲裁方，而是跨機構分工；最終如何組合仍未定。**2026-08-04 再由第三個已實際發布規範的場所進一步釐清：**MCP 規格 revision **2026-07-28** ([MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)，`vendor-claim`) 在兩個機構之外自行訂定 client-registration 與 code-redemption 規則——以 issuer 為鍵、不可重複使用的 client credentials 列為 MUST，RFC 9207 `iss` 驗證列為 MUST，並**棄用 RFC 7591 Dynamic Client Registration，改用 Client ID Metadata Documents**；後者正是上方 §10.10 已在 Discovery 中提及的機制。這帶來兩點。組合問題出現了**首次具體趨同**——另一個獨立協定在未協調下也採用 CIMD；同時也出現第四個仲裁方，而且它不是仍在審議中的標準制定機構，而是將要求送入實作的 de-facto 協定。此時 IETF 與 OpenID 仍停留在草案階段。這個問題原先的觸發點一直是正式批准；現在的觀察是 de-facto 層可能在正式批准前就定下基本機制。目前仍標記為 `#oq/wait`——問題仍在於哪些機制會成為 RFC，以及組合能否通過 WG 審查；兩者都尚未發生。
+- **Mission → authorization 不在範圍內。**最困難的部分——安全地將自然語言任務轉成具體範圍／資源——明確被延後為「規劃步驟」。遭操縱的規劃步驟可能要求過寬的授權；AIMS 提供完善的基本機制，卻沒有說明如何保護這種轉換本身。
+- **執行中途的人機協作。**草案承認 CIBA 只處理由 client 發起的核准，且「*不適合*」執行期間中途需要的確認——這是明確承認的規格缺口。**OpenID AuthZEN AARP 草案提出了可能解法：**AARP 將 CIBA 的非同步帶外互動泛化為一般的*前置條件／核准*模式——「尚未允許，以下是必要條件」——不限於 client 發起的流程；人員或自動化治理系統都能在流程中途滿足條件，並在強制執行時重新評估政策。因此，現在已有提議中的標準解答——但仍是 Working Group **Draft**，並非已批准的規格，也尚未整合至 AIMS 的 IETF 堆疊。
+- **Posture assessment 按設計依部署而異。**AIMS 不要求特定 attestation 機制，因此不但未明訂*信任保證*的互通性（而非僅協定互通性），兩個符合 AIMS 的部署也可能使用完全不同且無法比較的訊號評估姿態。
+- **沒有實證評估。**不同於 [Out-of-Band Prompt-Injection Defense](/articles/out-of-band-prompt-injection-defense)（至少執行過一次適應性重現），AIMS 是沒有實測攻擊抵抗能力的設計文件——其安全性依賴組合規格自身（大多不涉及代理程式）的威脅模型。**（2026-09-02 部分獲得回答）**Dantuluri 與 Sundi ([Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)，`empirical`，VotalAI COI) 已建置並攻擊一個**AIMS 形狀**的組合——以 OIDC 為根的 capability token、SPIFFE 風格 SVID、由簽發者中介的 token exchange（每一跳都簽發權限縮小、綁定 SVID 的短效權杖）、撤銷傳播、防竄改日誌；它擋下所有四種模型化威脅，而 bearer-credential 執行環境四項全敗；抵擋 11 種手工設計攻擊，偽造／變異權杖 **200,000 次中 0 次接受**，將遭入侵子代理程式限制在 8,100 個可觸及動作中的**平均 1.5 個**，每次決策約 **2.6 µs**。這只是部分答案而非定論，原因有三：成品是**約 160 行且未發布的示範程式**，權杖格式不同（macaroon 風格 HMAC caveats，而非 WIMSE WPT），因此它證明的是*這種架構形狀*可行，而非本草案的堆疊可行；測量使用**抽象工具／資源動作模型**，且**沒有真實模型參與**；真正受到質疑的組合規格威脅模型仍未觸及——論文*假設*基礎設施與 PEP 受到信任且實作正確。
+- **整合與真實模型是論文提出的下一步，尚無人完成。**經測量的 broker 尚未接上其稽核的任何框架，且評估中的所有代理程式都是腳本化的。將權限縮小、綁定 SVID 並由 PEP 強制執行的委派鏈整合至真實框架（LangGraph、CrewAI、AutoGen 或 MCP client），再由可注入攻擊的真實模型驅動後，能否仍維持安全？當模型而非腳本負責選擇權杖要縮小至哪個子任務時，每一跳的權杖交換是否仍然可用？
 
 ## 資料來源
 
-- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF Internet-Draft `draft-klrc-aiagent-auth-03`，*AI Agent Authentication and Authorization*（Informational，individual submission），2026 年 7 月 6 日，`practitioner-opinion`。§4（agents are workloads，Figure 1）、§5（AIMS stack，Figure 2）、§6（WIMSE/SPIFFE identifier）、§7（credentials；static-key antipattern；hardware-backing optional）、§8（provisioning + posture assessment；LLMs-never-hold-credentials rule）、§9（transport mTLS vs application-layer WPT / HTTP Message Signatures）、§10（OAuth delegation、mission、transaction tokens、cross-domain chaining、CIBA human-in-the-loop、tool-to-service、discovery）、§11（SSF/CAEP/RISC monitoring + tamper-evident audit）
-- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`（標準組織宣布新批准的 Working Group **Drafts** — 是 proposals，不是 ratified specs；全文以 proposed 描述，與其重疊處權重低於 vault 的 `empirical` per-call-authz papers）。提供：AARP（Access Request and Approval Profile — 將 CIBA generalize 至 client-initiated flows 之外的 prerequisite/approval pattern）、COAZ（AuthZEN Profile for MCP Tool Authorization — MCP invocations → Subject-Action-Resource-Context / Authorization API 1.0）、OIDC→OAuth→CIBA→Verifiable-Credentials→AARP progression，以及 industry-participation list（Axiomatics、Cerbos、Okta、SailPoint、Indykite、Keycard、C1）
+- [AI Agent Authentication and Authorization](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) — IETF Internet-Draft `draft-klrc-aiagent-auth-03`，*AI Agent Authentication and Authorization*（Informational，個人提交），2026 年 7 月 6 日，`practitioner-opinion`。§4（代理程式是工作負載，圖 1）、§5（AIMS 堆疊，圖 2）、§6（WIMSE/SPIFFE identifier）、§7（憑證；static-key 反模式；硬體支援為選用）、§8（provisioning + posture assessment；LLM 絕不持有憑證規則）、§9（傳輸層 mTLS 與應用層 WPT / HTTP Message Signatures）、§10（OAuth 委派、mission、transaction tokens、跨網域串接、CIBA 人機協作、tool-to-service、discovery）、§11（SSF/CAEP/RISC 監控 + 防竄改稽核）
+- [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267) — Panduranga Sai Varma Dantuluri 與 Jyotirmoy Sundi（**兩人皆任職於 VotalAI**），*Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems*，arXiv 2609.00267 v1，2026-08-31，14pp，`empirical`——**廠商 COI 與混合方法注意事項應一併附上**：兩位作者皆任職於 VotalAI，§8 用兩頁介紹公司的商業產品 **LLM Shield**，摘要也有宣傳；但*受評估*成品是「以公開基本機制建置的獨立精簡示範程式，不予發布」（約 160 行 Python 標準函式庫程式）。在缺口分析中，**只有 LangGraph 1.2.10 一列是實際執行**；CrewAI 1.15.13 與 AutoGen 0.7.5 是程式檢視，MCP authz rev. 2026-07-28 是規格閱讀，表 3 是作者自述的「*分析結果……作者的解讀*」。Broker 數據（0/200,000 模糊測試、11 種設計攻擊、2,000 個情境的爆炸半徑、2×10⁵ 次呼叫中約 2.6 µs／約 5.4 µs）是實測；§8 的產品部署數字（約 2 ms 呼叫前檢查、約 190 ms guardrail 檢查）則屬於 `vendor-claim`。此處引用 §1（不可信任模型屬性）、§3（T1–T4、信任假設）、§4（R1–R8，R8 的關鍵地位）、§5（各框架缺口、MCP 為部分例外但缺少 R1/R2）、§6（表 3、缺少標準 profile）、§7（broker 設計、實作及包含第十二項邊界測試在內的四項評估）、§8（廠商 LLM Shield）、§10（有效性威脅）。依據圖片雙階段規則檢視圖 1（broker 資料流）；標示「untrusted: model-controlled」的區域標籤由解析器併入 §7.2 敘述——這是解析產物，沒有遺失內容
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol project，規格 revision **2026-07-28** 的 *Key Changes*，`vendor-claim`。小幅變更 7–9 與 Deprecated 4：RFC 9207 `iss` 驗證、以簽發授權伺服器為鍵的憑證、DCR `application_type`，以及以 Client ID Metadata Documents 取代 RFC 7591 DCR。僅用於多方治理問題——重點在於*由何處*制定這些規則，而非規則本身好壞
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`（標準機構對新獲批准的 Working Group **Drafts** 所發公告——它們是提案，並非已批准的規格；全文均以提案方式描述，且在重疊議題上，權重低於知識庫中 `empirical` 的逐次呼叫授權論文）。提供 AARP（Access Request and Approval Profile——將 CIBA 泛化至 client 發起流程之外的前置條件／核准模式）、COAZ（AuthZEN Profile for MCP Tool Authorization——MCP 呼叫 → Subject-Action-Resource-Context / Authorization API 1.0）、OIDC→OAuth→CIBA→Verifiable-Credentials→AARP 的演進，以及業界參與名單（Axiomatics、Cerbos、Okta、SailPoint、Indykite、Keycard、C1）
+- [A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333) — Zhou 等人（Fudan University；一位作者任職於 Central South University），*A First Measurement Study on Authentication Security in Real-World Remote MCP Servers*，arXiv 2605.22333，2026-05-21，15pp，`empirical`，**無 COI**。此處引用 Finding 2.1（2,428 個啟用 OAuth 的伺服器中，1,118 個啟用 DCR，佔 46.0%）、Finding 2.3 / Table 4（119 個中有 81 個採委派授權，佔 68.07%）、Finding 3.2（F1 為 114/119）、Finding 3.3（81 個委派部署中有 40 個使用巢狀 `state`），以及 §6.2 的伺服器端不透明 state 緩解措施。**解析注意事項**（表 5 的分組資料列未通過乾淨的檢查結果）及完整分析見 [Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild)

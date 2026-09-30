@@ -1,0 +1,85 @@
+---
+date: 2026-08-12
+title: Aggregate Cancellation
+description: "標題指標維持不變的失效模式，原因是兩種方向相反的真實效果在各分層中相加後歸零——因此，彙總後的虛無結果是異質性的證據，而非沒有作用；最清楚的實測案例是一項稀疏注意力稽核，其三項預先註冊的彙總檢定得到 p = 0.995 / 0.771 / 0.541，*因為*各儲存格的效果方向相反；wiki 中的其他案例（不同正確子集合卻有相同準確率、某個群體合作率掩蓋一名成員遭到系統性消耗）也呈現相同形態：數字底下的組成改變了，數字本身卻沒有變"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation-methodology
+  - construct-validity
+  - benchmarks
+  - failure-modes
+readingTime: 12
+imageAlt: Aggregate Cancellation 示意圖
+sources:
+  - title: Understanding Sparse Attention Selectivity in Long-Context Foundation
+      Models via Counterfactual Evaluation
+    url: https://arxiv.org/pdf/2608.01676
+  - title: A Closed-Form Estimator and Diagnostic Battery for Anchor-Judge Error
+      Correlation, Under a Single-Common-Factor Model
+    url: https://arxiv.org/pdf/2609.08826
+---
+export { default as heroImage } from "../assets/aggregate-cancellation.webp";
+
+## 資料來源
+
+- [A Closed-Form Estimator and Diagnostic Battery for Anchor-Judge Error Correlation, Under a Single-Common-Factor Model](https://arxiv.org/pdf/2609.08826)
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)
+
+## 摘要
+
+指標持平，背後可能有兩種截然不同的原因。第一種是什麼都沒發生。第二種是**兩種方向相反的真實效果相加後歸零**——數字底下的組成改變了，數字本身卻沒有變；這個彙總結果與其說是對效果的失真摘要，不如說是將效果*精確抹除*。
+
+這項主張比「彙總準確率沒有充分利用基準測試」更狹義，也更容易採取行動（[Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)）。飽和代表變異已經耗盡；抵銷則代表變異仍在，只是加總後為零。兩種失效需要不同的補救方式：飽和時要增加衡量軸向；抵銷時**必須分層——如果仍把各層彙總，增加軸向也沒有幫助。**此外，這也帶出一項實務上屢遭誤解的推論：發生抵銷時，**虛無結果是異質性的證據，而非效果不存在的證據。**
+
+## 最清楚的實測案例：預先註冊的虛無結果就是研究發現
+
+Ren、Sun、Yi 與 Yang（[Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676)，arXiv 2608.01676，2026-08-03，`empirical`）針對稀疏注意力建構了一項反事實稽核，並預先註冊三項彙總假設；每項都檢驗稀疏相較於密集內容的對比，在八個模型–任務–比例儲存格中是否具有**一致方向**。經 Holm 校正後，三項結果皆為虛無：**p = 0.995, 0.771, 0.541。**
+
+這個虛無結果不是沒能找到效果。同一組分層的 32 項檢定逐儲存格執行後，**32 項中有 31 項依指定方向拒絕虛無假設**（三種逐儲存格對比各為 8/8；按標籤分層的變體為 7/8）。八個逐儲存格自助法 95% 區間中，有七個不含零。彙總檢定之所以呈現虛無，是因為正負估計值的儲存格在等權重下彼此抵銷——作者明確指出這正是研究重點，而非限制：*「方向相反且經校準的儲存格在彙總時彼此抵銷——這正是彙總評估不足以勝任的現象。」*
+
+壓縮率掃描讓這種抵銷成為機械性的結果，而非偶然。固定模型、任務、項目、卡片、標籤對應、版面、種子與評分規則，只改變丟棄比例 `c ∈ {0.25, 0.50, 0.75}`；四組模型–任務配對中有兩組跨越零點，且方向相反：Qwen3-8B 在 SCBench-KV 上從 −0.31 → +0.16 → **+0.93** [+0.81, +1.04]；Qwen3-8B 在 SciFact 上則從 +0.19 → +0.08 → **−0.08** [−0.18, +0.02]。兩個 Llama-3.1-8B 儲存格則維持負值並逐漸趨近零。只調整一個參數，就產生兩個方向相反的符號反轉——因此，在固定比例下跨四個儲存格彙總，或在單一儲存格內跨比例彙總，都會抹去原本要偵測的效果；在 `c = 0.50` 時，四個儲存格幾乎完全抵銷。完整掃描表、用來裁決的兩種競爭機制，以及來源中的界限，請見 [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability)。
+
+## 為什麼操作者什麼也看不見
+
+論文對此後果的描述最為精準：*「部署中的稀疏模型可以維持平均準確率，同時放大誤導性內容並壓低糾正性內容——變化彼此抵銷，基準曲線維持平坦，操作者什麼也看不見。」*
+
+應把這句話中的*機制*視為已確立，而把*內容*視為此來源修辭上的延伸；論文自身的真實證據實驗在方向上得出相反結果（參見 [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) 的注意事項）。無條件成立的是其形態：以各層平均值計算的指標，呈現的是某個分布的平均數，卻不記錄其組成；因此，任何一對相互抵銷的變化在設計上都不可見——不需要漂移、對抗者或評分器錯誤。這是 [Failures That Look Like Success](/articles/failures-that-look-like-success) 在追蹤層面整理的那類失效，在指標層面的案例；而且這個變體無法靠檢視單次執行的追蹤來幫忙，因為沒有任何單次執行是錯的。
+
+## 只要指標對各層取平均，就會出現這種形態
+
+抵銷不是稀疏注意力的特性，而是任何以可能有不同反應的單位取平均而得的標題數字都可能有的特性。這個資料集在為它命名以前，就已經收錄了相關案例：
+
+- **不同正確子集合卻有相同準確率。** [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) 的核心批評是，兩個模型的彙總準確率可以相同，但答對的樣本完全不同——去污染文獻只用彙總值評分，因此看不見逐樣本的差異。Sun 等人的研究結果呈現相同失效，只是明確標出了方向：資料集層級有所改善（殘餘污染降低），但逐樣本移動方向卻*偏離*乾淨參照（D_KL 上升）。他們採取的是通用補救方式——以逐樣本分布距離取代彙總值。
+- **群體比率掩蓋一名遭到系統性消耗的成員。** [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence) 指出，群體層級的合作率可以與某位成員遭到系統性剝削並存：其他成員的增益維持了彙總合作數字，但某一特定層卻蒙受損失。同樣的算術，套用在代理程式而非項目上。
+- **效率槓桿案例。** [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) 討論了附帶部署成本的版本，也是抵銷最可能成為關鍵因素之處：效率工作以吞吐量數字和彙總基準網格評估，而兩者都是平均值。
+
+## 實際上如何偵測
+
+彙總檢定的測量端，沒有任何方法可以區分「沒有作用」與「作用互相抵銷」。以下三種做法能辦到：
+
+1. **預先指定分層，而不只是預先指定假設。** 值得效法這篇論文的設計，理由恰好是它常遭批評之處：研究預先註冊彙總檢定，看著它們失敗，並事先準備好有標籤的儲存格結構以便分解結果。分層檢定組明確標示為事後探索性分析——這才是誠實的做法，而且比完全沒有彙總結果更省成本。
+2. **報告方向分布，而非平均值。** 「四個儲存格中有三個往更正向的 ∆ 移動」是彙總估計值無法表達的陳述，也是操作者需要知道的資訊。
+3. **找出控制變數。** 只有在分層方式任意時，抵銷才只是麻煩。此處的平衡由一個*參數*——壓縮比例——所控制；因此，異質性可預測而非雜訊，研究發現也從「結果各異」提升為「這個參數決定方向」。找到控制變數的抵銷指標是測量問題；找不到控制變數時，則表示分析單位可能有誤，值得警惕。
+
+來源提出的限制是：這項稽核的結果是**內容影響力的 logit-margin 代理指標，而非任務準確率**，因此「基準曲線維持平坦」是對一般彙總指標的推論，而非經實測的準確率虛無結果。抵銷只在實際執行的測量工具中獲得證明。
+
+## 相關連結
+
+- [Headroom-Closed Index (HCI)](/articles/headroom-closed-index)——這個資料集中規模最大的實測彙總掩蓋案例，而且本來*就是為了*分層而建。以每項基準測試的起始年度前沿標準化十個能力領域，顯示它們在 2026 年的年度增幅同時朝相反方向變化——進階數學 **+53.6**、多模態推理 **+2.5**；法律推理則由 48.2 降至 11.4，再降至 4.9，同時數學能力加速——而調查本身的結論是「單一彙總基準會掩蓋這些差異在水準和軌跡形態上的不同」。這正是本頁命名的形態，只是它出現在能力軌跡軸向，而非單一實驗內部。
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation)——彙總指標的另一種失效，也是本頁最常被混淆的情況。該頁的前提是準確率已飽和、變異耗盡，但其他六個軸向仍有區辨力；抵銷則是變異從未消失，只是加總後為零，*除非停止彙總，否則增加軸向也沒有幫助*。該頁的第二種模式（人類參照類別無法再提供辨別力）則是標題數字變得沉寂的第三種不同原因。
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability)——部署層面的利害關係，以及對來源的完整討論：效率槓桿所付出的能力代價，在用來評估它的網格上不可見；如今有受控測量與方法支撐，而非只有供應商軼聞。
+- [Failures That Look Like Success](/articles/failures-that-look-like-success)——同一種不可見性，但發生在更底層。該頁的案例是單次執行看起來成功；此處則是*指標*看起來什麼事也沒發生，沒有任何單次執行出錯，唯一的訊號來自無人分層比較的各個層級。
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)——這個資料集中另一個完整案例，也是補救方式最明確的一例：兩個模型彙總準確率相同，卻答對不同樣本；解法是以逐樣本分布距離取代彙總值，而非增加指標。
+- [Multi-Agent Collective Intelligence](/articles/multi-agent-collective-intelligence)——相同的算術，但分層單位是代理程式：群體合作率維持不變，卻掩蓋一名成員遭到系統性消耗。
+
+## 開放問題
+
+- 抵銷是否也會出現在**任務準確率**結果上，還是只出現在影響力代理指標？唯一的受控示範測量的是 logit-margin 對比；「基準曲線維持平坦」是推論，從未實測。若能在相同壓縮比例下，同時報告逐儲存格準確率和經校準的對比，就能確定符號異質性是否會延伸到操作者實際監看的數字。
+- 有沒有不必事先知道分層方式，就能偵測抵銷的低成本**篩檢方法**？這裡的每種偵測方式都預設了有標籤的儲存格結構。若能只從逐項結果計算基於變異或方向的診斷——不必預先指定分層方式，就能標示「這個虛無結果具有異質性」——便可讓這項檢查成為例行程序，而非研究設計的一環。這個資料集中無人提出此方法。[A Closed-Form Estimator and Diagnostic Battery for Anchor-Judge Error Correlation, Under a Single-Common-Factor Model](https://arxiv.org/pdf/2609.08826) 在 2026-09-10 為這個問題補上更精確的描述；該文在另一個領域建構了形態恰好相同的篩檢方法，並如實估算其代價。Sunkavalli 研究的是評審器／錨點面板，而非基準網格，但對象相同：一個模型預測一組二階動差應該彼此*相等*，診斷指標則是它們的**變異係數**，並以根據正確設定模型、用 1,000 個種子模擬所得虛無分布的第 95 百分位數作為門檻——因此，無論樣本數為何，依設計都能得到 5% 的偽陽性率，也不需要事先由任何人指出分層方式。這篇研究可作為範本，提供三項可移植的做法，而非直接答案。**方法**：使用離散統計量與模擬虛無門檻，而非具有解析分布的檢定統計量。**代價，已有測量**：檢定力會隨訊號與 N 上升，但從一個確實缺乏資訊的低點起步——負載分散度為 0.2 時，N = 500 的檢定力為 0.04，N = 2000 時為 0.11，*不高於自身的偽陽性率*；因此，實際樣本數下的輕微異質性會被漏掉，乾淨的篩檢結果不代表同質。**校準的脆弱處**：5% 偽陽性率是正確模型下的 Gaussian 性質；厚尾資料會使其升至 0.083，因此真實資料的虛無分布必須以匹配的邊際分布重新校準。該文也指出任何此類篩檢方法都繼承的結構性限制——若某種違反條件以*一致負載*作用於每個單位，任何二階動差統計量都無法察覺，因為從觀測結果來看，它與正在測量的對象無法區分。此問題仍未解決，因為上述方法都不是基準網格測量工具：無人曾在逐項基準測試結果上執行「離散程度＋模擬虛無」篩檢。
+
+## 資料來源
+
+- [A Closed-Form Estimator and Diagnostic Battery for Anchor-Judge Error Correlation, Under a Single-Common-Factor Model](https://arxiv.org/pdf/2609.08826) — Veerendra Kumar Sunkavalli（Independent Researcher，單一作者），arXiv 2609.08826，2026-09-08，11 頁，`empirical`。本文僅引用該文中與本頁篩檢問題相關的診斷工具組建構：§5 的 Test A（模型假設相等的一組共變數之變異係數）、其虛無校準程序（從 1,000 個正確設定的種子取第 95 百分位數）、Table 3 的運作特性，以及 §5 在負載分散度 0.2 時的檢定力下限（N = 500 時為 0.04，N = 2000 時為 0.11）、§6 厚尾造成偽陽性率膨脹至 0.083，以及對一致負載違反條件的盲點。編譯時以 `pdftotext -layout -f 5` 重新核驗 Table 3（解析時欄位曾錯位，後已修正）。**層級範圍**：此診斷工具組所把關的估計器從未被有效套用於真實面板；本頁內容均不依賴它。
+
+- [Understanding Sparse Attention Selectivity in Long-Context Foundation Models via Counterfactual Evaluation](https://arxiv.org/pdf/2608.01676) — Xingyu Ren、Youran Sun、Chugang Yi 與 Haizhao Yang（CUHK / University of Maryland，arXiv 2608.01676，2026-08-03，`empirical`）：§1 與 §4.5 的三項預先註冊彙總假設及 Holm 校正後的虛無結果（p = 0.995, 0.771, 0.541），以及作者對方向相反的儲存格彼此抵銷的解讀；§5.2 中 32 項分層檢定有 31 項拒絕虛無假設；§5.3 中八個逐儲存格區間有七個不含零；§5.5 與 Table 5 的三種比例掃描及兩項符號反轉。Table 5 以三種方式交叉核對（Appendix Table 8、Figure 3 和 §5.5 文字敘述），本文引用的是核對後的結果。完整來源說明，包括本文不採納的過度延伸論述，請見 [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability)。

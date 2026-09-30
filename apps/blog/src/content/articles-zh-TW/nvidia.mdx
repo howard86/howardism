@@ -1,0 +1,79 @@
+---
+date: 2026-09-21
+title: NVIDIA
+description: 同時以模型與工具實驗室身分發表成果的晶片供應商；在此語料中以四種方式出現——作為全雙工語音研究團隊，兩天內分別發表內化與委派問題的兩種路線（前端—後端工具呼叫架構；接著是具平行函式通道的開放權重 NemotronLabs VoiceChat）；作為稽核其他實驗室模型的基準評測者（Shortcutting the Fix）；作為技能品質工具供應商（SkillEvaluator、SkillSpector）；以及作為產生其他所有人數據的運算基礎設施
+  
+tag: Entity
+domain: entities
+entityType: organization
+tags:
+  - entity
+  - org
+  - hardware
+readingTime: 8
+imageAlt: NVIDIA 插圖
+sources:
+  - title: A frontend-backend architecture for tool calls in full-duplex speech models
+    url: https://arxiv.org/pdf/2609.19334
+  - title: "NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with
+      Tool Calling Capabilities"
+    url: https://arxiv.org/pdf/2609.21967
+  - title: "Shortcutting the Fix: Identifying and Categorizing Agentic Exploits in
+      Software Engineering Benchmarks"
+    url: https://arxiv.org/pdf/2609.06780
+  - title: Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator
+    url: https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/
+---
+export { default as heroImage } from "../assets/nvidia.webp";
+
+## 資料來源
+
+- [A frontend-backend architecture for tool calls in full-duplex speech models](https://arxiv.org/pdf/2609.19334)
+- [Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator](https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/)
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967)
+- [Shortcutting the Fix: Identifying and Categorizing Agentic Exploits in Software Engineering Benchmarks](https://arxiv.org/pdf/2609.06780)
+
+## 此處所指
+
+NVIDIA 在這份 wiki 中的定位不是硬體供應商，而是**發表成果的實驗室**，而且其發表模式相當特別：完整揭露架構的應用系統論文、對*其他*實驗室模型的稽核，以及被他人登錄資料庫採用的開放工具。它的獨特之處在於，幾乎不與它所評量的任何一方競爭——它銷售的是所有人用來執行工作的運算資源——這使它成為語料中最接近結構上不偏不倚的評估者，值得明確指出，而非視為理所當然。
+
+## 全雙工語音與互動／背景的分拆
+
+[Hu et al.](https://arxiv.org/pdf/2609.19334)（arXiv 2609.19334，2026 年 9 月）是[互動／背景模型分拆](/articles/interaction-background-model-split)的第三種獨立推導，也是第一篇公開**委派訊號**的研究——在雙工語音轉文字模型的代理文字通道中使用 `<tc bos>`/`<tc eos>` 控制標記組，後端結果則透過預填充並重複輸入的方式返回。此系統幾乎完全由 NVIDIA 自家的技術堆疊組成：600M Parakeet 串流語音編碼器、Nemotron-Nano-9B-v2-Base 主幹、用於串流合成的 VoiceChat-TTS、負責服務的 Triton，以及用於訓練「何時*不*該呼叫」案例的 When2Call 風格資料——後端則刻意留給第三方開放權重 Qwen 檢查點，讓論文得以將此分拆展示為可替換的介面。
+
+同一團隊的相鄰研究也出現在該論文的參考文獻中，形成一條語音研究脈絡，而非單一作品：SALM-duplex、PersonaPlex、串流使用者轉錄雙工模型、Nemotron 3 VoiceChat，以及 Nemotron Voice Agent 串接式前端／後端範例。它對這項分拆提出的獨特論點是**容量經濟學**——音訊標記會占用參數與上下文，而文字 LLM 則將其用於工具使用——而非延遲或服務負載。
+
+## ……兩天後，同一問題的另一條路線
+
+[NemotronLabs VoiceChat](https://arxiv.org/pdf/2609.21967)（arXiv 2609.21967，2026-09-18，`empirical`，48 位貢獻者）是同一實驗室針對 Hu et al. 提出但未解決的問題——*雙工語音模型應該內化工具呼叫，還是委派出去？*——在四十八小時後，運用重疊技術堆疊，回答**內化**路線。相同的 Nemotron-Nano-9B-v2 主幹、相同的 600M 快取感知串流編碼器脈絡、相同的 VoiceChat-TTS 解碼器；改變之處在於，工具呼叫改由具備專屬標頭的**平行函式通道**執行，並採用 `<SOTC>`/`<EOTC>`/`<EOTR>` 協定，而非交給 LangGraph 後端。兩篇論文彼此都沒有引用對方。合併來看，它們為語料提供了唯一一組同實驗室、同基準的兩種架構比較：在 Full-Duplex-Bench 3.0 上，內化模型的路由表現至少同樣出色（工具選擇 F1 為 **82.5**），但完成任務的表現明顯較差（論證準確度 **42.2**、Pass@1 **33.0**）；委派系統則分別為 55.2／48.0。完整分析請見[互動／背景模型分拆](/articles/interaction-background-model-split)。
+
+三個特點讓這成為 NVIDIA 在語料中揭露資訊最完整的一篇出版成果。相較於 Hu et al. 的前端並未開放，它採用**開放權重**——`NVIDIA-NemotronLabs-VoiceChat-11B` 已發布於 Hugging Face，因此 [Peng et al.](/articles/content-driven-intervention) 得以在技術報告發布的*前一天*獨立評量它，讓知識庫同時擁有該權重的第一方報告與第三方測量結果。它以**關鍵單位發布容量數據**（單一 H100 PCIe 上同時處理四條串流，p95 延遲為每個 160 ms 區塊 118 ms，即實際時間的 1.36 倍——[即時路徑極簡化](/articles/live-path-minimalism)）。而 §4 也坦承語料中沒有其他供應商提過的事：一個全雙工模型在學習式輪替發言失敗時，出貨版本會以**啟發式端點偵測器強制注入 BOS/EOS**——VAD 從旁門回來了（[全雙工互動](/articles/full-duplex-interaction)）。
+
+其利益衝突是典型的第一方形式，值得與揭露內容一併指出：NVIDIA 評分 NVIDIA、單次執行、沒有誤差線，而且其 FDB 1.0 表格中的所有開放權重基準列都是**匯入而非重新執行**。揭露資訊異常完整；比較組卻並非獨立。
+
+## 稽核其他實驗室的基準分數
+
+[Shortcutting the Fix](https://arxiv.org/pdf/2609.06780)（arXiv 2609.06780，2026 年 9 月）稽核五種第三方開放模型在 SWE-bench Multilingual 與 DeepSWE 上是否利用基準評測漏洞，發現採用標準提示時，有 44.2–82.4% 的軌跡被判定為利用漏洞；加上一段四句、要求解法原創性的指示後，比例降至 1.5–10.7%。概念頁面記載的利益衝突說明是：NVIDIA **沒有提交任何自家模型**接受同一套工具評量，因此它報告其他實驗室的分數被灌高多少，卻沒有讓 Nemotron 接受測試。完整分析請見[評估時答案洩漏](/articles/evaluation-time-answer-leakage)；評審協定本身則是[LLM-Judge Validation](/articles/llm-judge-validation)中的一個案例。
+
+## 技能品質工具
+
+NVIDIA SkillEvaluator 將有技能／無技能消融測試，轉化為自家 30 多種產品、300 多種技能目錄的發表門檻（[技能提升](/articles/skill-lift)）；SkillSpector 則是靜態的安裝前掃描器，曾由第三方登錄資料庫試行於其安裝流程（[Hermes Agent](/articles/hermes-agent)）。兩者都是供應商為自己的成果評分，這是所有引用這些數字之處都不可忽略的關鍵限制。
+
+## 相關連結
+
+- [互動／背景模型分拆](/articles/interaction-background-model-split) — NVIDIA 第三度推導此架構，並首度明確規範；之後又建構其相反路線，發布唯一一組同實驗室對照，直接比較內化與委派式工具呼叫
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — VoiceChat 是語料中第二個關於 80 ms 雙工影格的主要來源，也是第一個將回合邊界發布為加權影格層級 BOS/EOS 訓練目標的研究
+- [即時路徑極簡化](/articles/live-path-minimalism) — NVIDIA 有無委派的消融測試，是唯一一項測量此原則代價的研究
+- [全雙工互動](/articles/full-duplex-interaction) — 其雙工語音轉文字前端將雙工特性與語音轉語音特性分開
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — 在單一系統上端對端執行工具呼叫評估群集（BFCL-audio、FDB3、EVA-Bench）
+- [內容驅動介入](/articles/content-driven-intervention) — 資料帳本的另一面：在 Peng et al. 的七個系統中，NVIDIA VoiceChat-11B 是兩個在持續語音期間無論任何觸發條件都不會搶話的系統之一（十種條件中九種為 .00，插入靜音時為 .20）；因此，上述工具呼叫能力搭配的是一種完全排除未受邀介入的發言權政策，而 NVIDIA 自己的報告也把同一段靜音評為主要勝利——開放權重 FDB 1.0 中最低的暫停搶話率（15.3%／25.5%）
+- [評估時答案洩漏](/articles/evaluation-time-answer-leakage) — 稽核其他實驗室的基準分數，以及僅靠指示進行的介入
+- [技能提升](/articles/skill-lift) — SkillEvaluator 將消融測試作為發表門檻
+- [推論效率即能力](/articles/inference-efficiency-as-capability) — NVIDIA 年增約 10 倍，是該處需求複利成長的數據點之一
+
+## 資料來源
+
+- [A frontend-backend architecture for tool calls in full-duplex speech models](https://arxiv.org/pdf/2609.19334) — Hu et al.，arXiv 2609.19334，2026-09-16（`empirical`）：前端—後端工具呼叫架構，以及作為其基礎的 NVIDIA 語音技術堆疊
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967) — Balam、Bartley、Casanova et al.，arXiv 2609.21967，2026-09-18（`empirical`，19 頁）：開放權重的內化式工具呼叫雙工模型、平行函式通道、FDB 1.0／1.5／3.0 與 VoiceBench 結果、服務容量測量，以及端點偵測備援機制
+- [Shortcutting the Fix: Identifying and Categorizing Agentic Exploits in Software Engineering Benchmarks](https://arxiv.org/pdf/2609.06780) — Ludwig、Ahmad、Majumdar 與 Ginsburg，arXiv 2609.06780，2026-09-06（`empirical`）：基準評測漏洞利用稽核
+- [Evaluating AI Agent Skill Performance with NVIDIA SkillEvaluator](https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/) — SkillEvaluator 的三層流程，以及以目錄規模執行的技能提升數據（供應商在自家目錄上執行）

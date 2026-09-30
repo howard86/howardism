@@ -1,14 +1,14 @@
 ---
 date: 2026-05-06
 title: 模型內省回饋
-description: "Cat Wu 被低估的技巧：詢問模型為何失敗；將答案視為測試框架除錯訊號，而非模型批評；以及模型自我報告忠實度的注意事項"
+description: "Cat Wu 不受重視的技巧：詢問模型為何失敗；將回答視為 harness 偵錯訊號，而非對模型的批評；並留意模型自我回報忠實度的限制"
 tag: Concept
 domain: product-org
 tags:
   - agent-engineering
   - debugging
   - prompting
-readingTime: 7
+readingTime: 8
 imageAlt: 模型內省回饋的插圖
 sources:
   - title: How Anthropic's product team moves faster than anyone else | Cat Wu (Head
@@ -16,6 +16,9 @@ sources:
     url: https://www.youtube.com/watch?v=PplmzlgE0kg
   - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
     url: https://arxiv.org/pdf/2606.23671
+  - title: "Introspective Coupling: Self-Explanation Training Tracks Behavioral
+      Change Despite Fixed Supervision"
+    url: https://arxiv.org/pdf/2606.32038
 ---
 export { default as heroImage } from "../assets/model-introspection-feedback.webp";
 
@@ -23,82 +26,91 @@ export { default as heroImage } from "../assets/model-introspection-feedback.web
 
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038)
 
 ## 摘要
 
-[Cat Wu](/articles/cat-wu) 稱這是她最被低估的 AI 除錯技巧：當 Claude 做出預期之外的事情時，**詢問模型反思自己為何如此**。模型提出的推理——關於其系統提示、子代理委派選擇、含糊的指示，以及缺少的工具——會直接指出測試框架需要修正之處。不要孤立地調整模型行為；應將失敗視為訊號，了解*測試框架*需要提供什麼。
+[Cat Wu](/articles/cat-wu) 稱這是她最被低估的 AI 偵錯技巧：Claude 做出意料之外的事時，**請模型反思為何會這麼做**。模型提出的推理——關於它的 system prompt、子代理程式委派選擇、模糊指示或缺少的工具——會直接指出 harness 該修正之處。不要孤立地調整模型行為；應將失敗視為 harness 需要提供什麼的訊號。
 
-## 這項技巧
+## 技巧
 
-當代理做錯事時：
+代理程式出錯時：
 
-1. 不要立刻以修正內容重新提示。
-2. 詢問：「你為什麼做出那個決定？你對什麼感到困惑？」
+1. 不要立刻重新提示並給予修正指示。
+2. 詢問：「你為什麼做出那個決定？有哪些地方讓你困惑？」
 3. 閱讀模型對自身推理的說明。
-4. 根據模型揭示的內容修正測試框架——而不是模型本身。
+4. 根據模型指出的問題修正 harness，而不是模型。
 
 ## Cat Wu 的實例
 
-訪談中提到：
+摘自訪談：
 
-> 「有些情況下，模型會修改前端並執行測試，卻沒有實際使用 UI。詢問模型反思自己為何這麼做，其實非常有用。有時它們會說，系統提示中有些內容令人困惑；或者我沒意識到前端驗證是這項任務的一部分；又或者我把驗證委派給這個子代理，而子代理沒有執行測試，我也沒有檢查它的工作。很多時候，只要對模型為何做出那個決定保持高度好奇，就能看出是什麼誤導了它，讓你可以修正測試框架，填補這個缺口。」
+> 「有些情況下，模型會修改前端並執行測試，卻沒有實際使用 UI。問模型反思自己為什麼這麼做，其實很有用。有時候它們會說，嘿，system prompt 裡有些地方讓人困惑；或者我沒意識到前端驗證是這項任務的一部分；又或者，嘿，我把驗證委派給這個子代理程式，但子代理程式沒有做測試，而我也沒檢查它的工作。很多時候，只要對模型為何做出那個決定保持好奇，就能看出是什麼誤導了它，讓你可以修正 harness，補上這個缺口。」
 
-她列出的每一種失敗解釋，都指向不同的測試框架修正：
+她列舉的每一種失敗解釋，都指向不同的 harness 修正方式：
 
-| 模型的理由 | 測試框架修正 |
+| 模型給出的原因 | Harness 修正方式 |
 |---------------|-------------|
-| "Confusing system prompt" | 重寫相關段落 |
-| "Didn't realize UI verification was part of the task" | 在任務範本中明確加入 UI 驗證步驟 |
-| "Delegated to sub-agent, didn't check its work" | 在全新脈絡中加入審查代理（見 [Deep Modules for Agents](/articles/deep-modules-for-agents)）；或移除委派 |
+| 「system prompt 令人困惑」 | 改寫相關段落 |
+| 「沒意識到 UI 驗證是任務的一部分」 | 在任務範本中明確加入 UI 驗證步驟 |
+| 「委派給子代理程式，但沒有檢查它的工作」 | 在全新上下文中安排審查代理程式（見 [Deep Modules for Agents](/articles/deep-modules-for-agents)）；或移除委派 |
 
-## 為何這不容易察覺
+## 為何這並不直觀
 
-面對失敗時，預設反應是「模型很笨」。內省式的重新框架是：**模型的行為是測試框架的函數；失敗提供了關於測試框架的資訊**。這需要接受三件事：
+面對失敗，直覺反應是「模型很笨」。內省後的重新理解是：**模型的行為取決於 harness；失敗提供了有關 harness 的資訊**。這需要接受以下幾點：
 
-1. 模型對自身推理的說明是片段式且事後產生的，但仍然有用（注意事項見下文）。
-2. 測試框架是你能控制的變數；模型不是。
-3. 你的工作是設計一個讓模型能成功的環境，而不是讓模型變得更聰明。
+1. 模型對自身推理的說明並不完整，也可能是事後編造，但仍然有用（限制見下文）。
+2. harness 是你能控制的變數；模型不是。
+3. 你的工作是設計讓模型能成功的環境，而不是讓模型變得更聰明。
 
-這與「強制執行不變量，而非實作」（見 [Agent Harness Engineering](/articles/agent-harness-engineering)）位於相同的架構層級——你操作的是模型周圍的結構，而不是模型本身。
+這和「強制執行不變條件，而非實作方式」（見 [Agent Harness Engineering](/articles/agent-harness-engineering)）處於相同的架構層級——你調整的是模型周遭的結構，而不是模型本身。
 
-## 注意事項——模型的自我報告不是絕對真相
+## 注意事項——模型的自我回報並非事實標準
 
-標準注意事項是：語言模型的內省報告描述的是它對自身推理*會怎麼說*，不一定是實際的計算過程。這些報告可能是編造的，尤其是在失敗已經存在於脈絡中的工作階段。
+標準提醒：語言模型的內省報告描述的是它「會如何說明」自己的推理，不一定反映實際運算過程。報告可能是編造的，尤其是在失敗案例已經出現在上下文中的對話裡。
 
 降低風險的方法：
-- 在**全新脈絡**中，只提供失敗案例執行內省，不要提供周邊工作階段
-- 對照日誌交叉檢查（呼叫了哪些工具、順序為何）
-- 將模型報告視為關於測試框架缺口的*假說*，而非最終診斷——確認修正確實關閉了該失敗模式
+- 在**全新上下文**中進行內省，只提供失敗案例，不帶入周邊對話
+- 對照記錄檔，確認呼叫了哪些工具以及呼叫順序
+- 把模型報告當作 harness 缺口的*假設*，而非最終診斷——並驗證修正確實解決了失敗模式
 
-## 一般化：透過對話校準信任
+## 未訓練通道的實際價值
 
-這項技巧是 Anthropic 更廣泛模式的一部分：以與模型的對話作為主要回饋訊號，而不只是指標。Cat 在同一場訪談中的其他例子包括：
+有一項值得記錄在這篇文章的測量結果，來自 [Guo et al.](/articles/introspective-coupling)（MIT，arXiv 2606.32038，2026 年 6 月，`empirical`）。要求模型預測自身的反事實行為——*如果移除這個線索，我的回答會改變嗎？*——經過少量範例提示的**未訓練** 8B 模型，精確匹配率為 **14–18%**。經過結合行為正則化的解釋訓練後，同一模型達到約 88%；此後即使模型行為逐漸偏移，它給出的解釋仍能追蹤自身行為。
 
-- Claude Code 的團隊午餐：每位成員都要說出自己對新模型的「感覺」——這種質化訊號會影響接下來該查看哪些量化資料。
-- Amanda 的角色工作：目標含糊、需要信念，透過與模型的長時間對話塑造，而不是透過基準最佳化。
-- 將 [Building evals](/articles/evals-as-product-spec) 視為一項未受充分重視的 PM 技能——也是模型內省的持久搭檔。內省產生假說；evals 驗證假說並防止回歸。
+採取較狹義的解讀才有用。Cat 的技巧是請前沿模型對 *harness 失敗* 提供*定性說明*，這和小型開放模型進行精確匹配的反事實自我預測，是寬鬆程度差異很大的任務——這項結果並未測量她的技巧。它所確立的是：可靠的自我解釋是一種**經訓練而得、且有已知方法可培養的能力**，不是小規模模型天生就具備的能力。這讓上面的既有提醒從「報告可能是編造的」，進一步明確為「未訓練模型對自身決策過程的說明，不保證與該過程有所連結——這種連結必須透過訓練建立。」
 
-統一的主題是：在 AI 原生產品工作中，**模型是可以訪談的隊友**，而不是只能測量的黑箱。
+## 推廣：透過對話校準信任
 
-## 相關連結
+這項技巧是 Anthropic 一種更廣泛做法的一部分：把與模型對話當成主要回饋訊號，而不只依賴指標。Cat 在同一場訪談中的其他例子包括：
 
-- [Cat Wu](/articles/cat-wu)——主要闡述者
-- [Design Concept Grilling](/articles/design-concept-grilling)——反向操作：模型訪談使用者。同樣的模式、相反的方向。兩者合用會形成緊密的對齊迴圈。
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)——內省會指出哪些測試框架元素仍值得佔用 token
-- [Agent Harness Engineering](/articles/agent-harness-engineering)——透過提供測試框架設計者一項除錯工具，將「強制執行不變量，而非實作」落實為操作方法
-- [Deep Modules for Agents](/articles/deep-modules-for-agents)——內省告訴你實作者無法可靠地審查自己之後，你所建立的就是全新脈絡審查者
-- [Claude Character as Product](/articles/claude-character-as-product)——角色工作將內省作為主要回饋訊號
-- [Problem-Solution Fit Discipline](/articles/problem-solution-fit-discipline)——同樣的形式：要求模型批評自己／自己的計畫／自己的假說；創辦人的實戰手冊將這項技巧應用於驗證想法
-- [Evals as Product Spec](/articles/evals-as-product-spec)——持久搭檔：內省產生假說；evals 是驗證假說並將其轉化為回歸防護的方式
-- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence)——內省預設模型是[幽靈，而非動物](/articles/andrej-karpathy)：模型的「我為什麼失敗」是測試框架除錯訊號，而不是來自能接觸自身理由之心智的證詞
-- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)——同一自我報告管道的對抗式安全壓力測試：探查模型是否產生遭入侵的輸出，而沒有任何開放權重模型（3B–70B）能可靠辨識自己的預填回應，因此內省可靠度取決於脈絡——對良性的測試框架除錯來說足夠，但遭受攻擊時不可靠
+- Claude Code 團隊午餐時，請每位成員分享對新模型的「感覺」——這種定性訊號能指引接下來該查看哪些量化資料。
+- Amanda 的角色塑造工作：目標模糊、需要堅定信念，透過與模型長時間對話來形塑，而非最佳化基準測試。
+- 將[建立評估](/articles/evals-as-product-spec)視為一項未受重視的產品經理技能——這是模型內省的長期搭檔。內省產生假設；評估負責驗證假設並防範回歸。
 
-## 開放問題
+共同主題是：在 AI 原生產品工作中，**模型是可以訪談的隊友**，而不只是只能測量的黑箱。
 
-- 4.7 級內省報告有多可靠？Anthropic 的可解釋性研究顯示其忠實度是部分的，而非完整的。從實證來看，Cat 表示它足以推動測試框架修正——但尚不清楚這項技巧在何種模型規模下會成為承重結構。**部分回答：** [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)——可靠度*取決於脈絡*。在良性除錯情境中，報告足以推動測試框架修正；在*對抗式安全*情境中，開放權重模型（3B–70B）有 27.3% 的時間無法辨識自己遭入侵的輸出，而現有的辨識其實是拒答電路延遲觸發，不是真正對自身輸出的內省。因此，Cat 所依賴的管道即使是有用的除錯訊號，也仍是薄弱的安全訊號。
-- 對抗式內省（「你為什麼失敗？」）是否會比中性的（「帶我逐步了解你的推理」）產生不同訊號？值得探查。**部分回答：** [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) 發現自我歸因*高度取決於框架*——「意圖」探查與「竄改」探查會在相同模型上引出質性不同的答案（某些模型家族無論如何都約有 100% 的時間否認竄改），因此內省問題的措辭會實質改變訊號。
-- 能否讓一個元代理針對已記錄的失敗自動執行內省？聽起來可行，但目前沒有公開實作。
+## 延伸閱讀
+
+- [Cat Wu](/articles/cat-wu) — 主要倡議者
+- [Design Concept Grilling](/articles/design-concept-grilling) — 反向做法：由模型訪談使用者。形式相同，方向相反。搭配使用可形成緊密的對齊迴圈。
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 內省指出 harness 中*哪些*元素仍值得耗用 token
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 透過提供 harness 設計者偵錯工具，將「強制執行不變條件，而非實作方式」付諸實踐
+- [Deep Modules for Agents](/articles/deep-modules-for-agents) — 內省指出實作者無法可靠地審查自身工作後，你可以建置全新上下文審查者
+- [Claude Character as Product](/articles/claude-character-as-product) — 角色塑造工作將內省用作主要回饋訊號
+- [Problem-Solution Fit Discipline](/articles/problem-solution-fit-discipline) — 形式相同：請模型批判自身、計畫或假設；創辦人的工作方法將此技巧用於驗證點子
+- [Evals as Product Spec](/articles/evals-as-product-spec) — 長期搭檔：內省產生假設；透過評估驗證假設，並將其轉化為回歸防護機制
+- [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence) — 內省預設模型是[幽靈而非動物](/articles/andrej-karpathy)：模型「我為何失敗」的回答是 harness 偵錯訊號，而非來自能接觸自身理由的心智之證詞
+- [Introspective Coupling](/articles/introspective-coupling) — 訓練端的研究結果：未訓練的 8B 模型自我解釋分數為 14–18% EM，但結合行為正則化的解釋訓練，能產生即使模型行為偏移仍可追蹤其行為的報告——這項技巧所假設的連結可以刻意建立
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — 對同一自我回報通道進行對抗式安全壓力測試：探查模型是否產生受操縱的輸出時，沒有任何開放權重模型（3B–70B）能可靠辨認自己預填的回應，因此內省可靠度會因上下文而異——對良性 harness 偵錯已足夠，在遭受攻擊時則不可靠
+
+## 待解決的問題
+
+- 4.7 級模型的內省報告有多可靠？Anthropic 的可解釋性研究顯示其忠實度不完整，但也不是全無忠實度。從經驗來看，Cat 表示這足以推動 harness 修正——但此技巧要到模型規模多大才會成為不可或缺的工具，仍不清楚。**部分解答：**[Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)——可靠度會*因上下文而異*。在良性偵錯情境中，報告足以推動 harness 修正；在*對抗式安全*情境下，開放權重模型（3B–70B）有 27.3% 的機率無法辨認自己受操縱的輸出；而它們能辨認時，反映的是拒絕迴路延遲啟動，而非真正內省自身輸出。也就是說，即使在有助偵錯的情況下，Cat 仰賴的通道仍是微弱的安全訊號。**另一項部分解答：**[Introspective Coupling](/articles/introspective-coupling) 為模型規模問題設下了下限——未訓練的 8B 模型預測自身反事實行為時，精確匹配率只有 14–18%；因此在這個規模下，若沒有解釋訓練，這個通道基本上不傳遞有用資訊。
+- 對抗式內省（「你為什麼失敗？」）是否會產生不同於中性提問（「帶我逐步了解你的推理」）的訊號？值得探究。**部分解答：**[Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) 發現自我歸因*高度受措辭影響*——對同一批模型，以「意圖」為主題的探問與以「竄改」為主題的探問會引出質性不同的回答（有些模型家族幾乎總是否認竄改），因此內省問題的措辭會實質改變訊號。
+- 能否讓中介代理程式針對記錄下來的失敗自動執行內省？看來可行，但目前沒有公開實作。
 
 ## 資料來源
 
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [Introspective Coupling: Self-Explanation Training Tracks Behavioral Change Despite Fixed Supervision](https://arxiv.org/pdf/2606.32038) — §B.3（未訓練的少量範例基準線，在三項任務中的解釋 EM 為 14–18%）、§3.2（受訓解釋器約為 88%，且 Self > Orig）。見 [Introspective Coupling](/articles/introspective-coupling)

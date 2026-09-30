@@ -1,0 +1,231 @@
+---
+date: 2026-09-23
+title: OEIS Open Benchmark
+description: >-
+  Epoch AI 對 492 個以 Lean 形式化的 *開放* OEIS 猜想所建立的基準測試；模型必須證明或推翻猜想，並由 SafeVerify 檢查核心型別與三公理白名單。Claude Opus 4.8 在每題 50 美元上限下解決 147/492（30%）；經 Comparator 重新檢查後為 144 題（29%）。相較之下，DeepMind 為 AlphaProof Nexus 特製的系統在每題解題成本相近時，解決 44/492（9%）。在 100 題的 LITE 子集上，200 美元預算下最佳模型達到 44%。約 40% 的解答是 *反證*。無論提供 476,000 篇 arXiv 論文，或使用含子代理、記憶與待辦事項的 DeepAgent 迴圈，都不會改變分數；解題率每增加十倍支出約上升 10 個百分點，尚未見到平台期。這是 FrontierMath Erdős 的對照：相同評估者、相同月份、相同核心，這裡是 30%，那裡是 3%，因為分母刻意排除了知名問題
+tag: Concept
+domain: formal-math
+tags:
+  - benchmarks
+  - evaluation-methodology
+  - ai-for-mathematics
+  - formal-methods
+readingTime: 31
+imageAlt: OEIS Open Benchmark 的插圖
+sources:
+  - title: "OEIS Open: How many conjectures can language models turn into theorems?"
+    url: https://arxiv.org/pdf/2608.11941
+  - title: "Reward-Oracle MCTS for Formal Theorem Proving: Sample-Efficient Search
+      and the Need for Kernel-Level Proof Auditing"
+    url: https://arxiv.org/pdf/2608.28639
+  - title: FrontierMath Erdős
+    url: https://arxiv.org/pdf/2609.25050
+  - title: "SHADOWBENCH: Toward Reliable Automatic Evaluation of Semantic Alignment
+      in Autoformalization"
+    url: https://arxiv.org/pdf/2608.29270
+---
+export { default as heroImage } from "../assets/oeis-open-benchmark.webp";
+
+## 資料來源
+
+- [FrontierMath Erdős](https://arxiv.org/pdf/2609.25050)
+- [OEIS Open: How many conjectures can language models turn into theorems?](https://arxiv.org/pdf/2608.11941)
+- [Reward-Oracle MCTS for Formal Theorem Proving: Sample-Efficient Search and the Need for Kernel-Level Proof Auditing](https://arxiv.org/pdf/2608.28639)
+- [SHADOWBENCH: Toward Reliable Automatic Evaluation of Semantic Alignment in Autoformalization](https://arxiv.org/pdf/2608.29270)
+
+## 摘要
+
+**OEIS OPEN** 是 [Epoch AI](/articles/epoch-ai) 的基準測試，涵蓋 **Online Encyclopedia of Integer Sequences 中 492 個尚未解決、並以 [Lean](/articles/lean) 形式化的數學猜想**；模型必須提交機器檢查通過的猜想證明 *或其否定的證明*（Tom Adamczewski，[arXiv 2608.11941](https://arxiv.org/pdf/2608.11941)，2026-08-12，27 頁，`empirical`）。其核心結果是：**一個只有三種工具的最小 ReAct 代理，每題支出上限為 50 美元時，解決 492 題中的 147 題（30%）**；[DeepMind 的 AlphaProof Nexus](/articles/alphaproof-nexus)——建立這組題目的特製演化式系統——則為 **44/492（9%）**，每題解題成本相近。
+
+這是本文集第二個以開放研究問題為題目、具有明確計分分母和美元預算的基準測試，也是第一個的**對照組**。作者相同、月份相同、核心檢查標準相同，解題率卻高出十倍：[FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 在 *依重要性精選* 的 Erdős 問題上，每題預算 300 美元，解決率為 2/68（3%）；本測試則在模型明確受提示挑選為**「不是知名未解問題」**的 OEIS 猜想上，得到 30%。這一對基準最清楚地說明，開放問題的標題數字取決於**分母如何篩選**，而非模型本身——兩組題目的解題率相差一個數量級，所需預算卻只有六分之一。
+
+## 題目集與建置方式
+
+這些猜想不是 Epoch 收集的。它們來自 Tsoukalas 等人（[arXiv 2605.22763](/articles/alphaproof-nexus)）：他們先從「一組取自 OEIS 的 2649 個未解猜想」出發，再提示 Gemini 挑出 **500 個「非平凡、在數學上有趣、不是知名未解問題，且適合自動定理證明」的問題**，並由 Gemini 代理以 Lean 形式化。因技術原因移除了八題，最後留下 **492 個猜想，涵蓋 444 個不同的 OEIS 數列**（有些數列貢獻了多個猜想）。**OEIS OPEN LITE** 是從中隨機抽取的 100 題子集，供較低成本的評估使用。
+
+Epoch 的貢獻在於 *評估*：一套可對這組題目執行任意通用語言模型的開源程式碼，並針對作弊情況加以強化，另提供每題的來源中繼資料。Epoch 對此重要性的說法，是對「展示型」研究的批評：近期宣稱 AI 解開未解問題的消息「沒有揭露嘗試過的問題範圍」，人類數學指引的程度「並不清楚」，而且從未在相同問題上比較不同模型，因此「我們不知道 AI 模型何時首次具備證明這些結果的能力」。
+
+**為何選整數數列。** 有關整數數列的猜想「通常只涉及整數及其上的基本運算，而不是形式敘述須仰賴一長串 Mathlib 定義的複雜數學物件」——因此，相較於代數幾何等研究領域中的敘述，其形式化錯誤風險在結構上較低。這與本文集其他地方用來衡量形式化成本的 [mathlib-coverage](/articles/lean) 門檻相同；此處將它當作 *篩選條件*，而不是必須承受的成本。
+
+## 「已解決」的程序定義
+
+這部分值得借鑑，而且比本文集其他驗證規範說得都更明確。
+
+**目標。** 依循 Tsoukalas 等人，Lean 目標是**真值與猜想之間的等價關係**，並讓代理能編輯真值（`EVOLVE-VALUE` 標記）。將它設為 `True` 並證明等價關係，就能*證明*猜想；設為 `False` 則能*推翻*猜想。因此，同一題可以有兩種結果；而且與本文批評的生成器—驗證器基準不同，**錯誤的猜想仍然是可解的題目。**
+
+**檢查器。** 提交內容只有通過 **SafeVerify** 才會被接受；SafeVerify 是根據 Lean 開發者的 `lean4checker` 改編而來。兩者都會從頭透過核心重播編譯後的 Lean；SafeVerify 還會確認提交內容證明的是 *目標敘述*——每個目標宣告都必須存在，且**名稱、種類與核心型別相同**，並且只能使用**標準三公理**以外的零個公理（`propext`、`Quot.sound`、`Classical.choice`）。
+
+**隔離措施。** 每次嘗試分散在**三個沒有網路存取的 Docker 容器**中：模型工作的 *代理* 容器；使用乾淨 Lean 工具鏈將提交原始碼編譯為 `olean` 的 *編譯* 容器；以及只接收提交的 `olean`、並使用 Epoch 自己信任的敘述副本執行 SafeVerify 的 *評分* 容器。論文列出的隔離措施可防範：
+
+1. **竄改代理環境不會造成影響**——只有提交的 Lean *原始碼* 會離開代理容器。
+2. **惡意編譯期程式碼**——Lean elaboration 可以執行任意程式碼（例如編譯期的 `#eval`），因此編譯會在獨立容器中進行，與判定結果隔離。
+3. **證明不同的敘述**——SafeVerify 會比對 Epoch 保存的副本，要求核心型別完全相同。
+4. **重新定義相依項，讓猜想變得顯然為真**——定義 *本體* 必須與目標相同；**只有 `sorry` 標記可以填補。**
+5. **夾帶額外公理**——宣告公理或使用 `sorry`（會引入 `sorryAx`）都不在三公理白名單內。
+6. **繞過核心**——元程式設計可以插入未經核心檢查的宣告，錯誤的 tactic 也可能產生型別錯誤的項，因此 SafeVerify 會透過全新核心重播 *每一個* 提交的宣告。**`native_decide` 會把信任從核心轉移到編譯器，而且已知可透過 `@[implemented_by]` 加以顛覆；它會引入白名單以外的 `Lean.ofReduceBool`，因此遭到拒絕。**
+
+仍須信任的部分是：「Lean 核心、SafeVerify 本身，以及容器隔離。」這三項才是「機器檢查」的誠實界定；公理白名單與排除 `native_decide` 這兩項做法，和 ProofEvolve 在[競賽基準一側](/articles/ai-driven-formal-proof-search)封住的兩條逃脫途徑相同——這兩者獨立得出相同做法，多少證明它們確實是*正確的*兩條途徑。
+
+### 檢查器意見不一，差異涉及 3 個猜想
+
+Epoch 使用 **Comparator**，即 Lean FRO 的獨立檢查器（[FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 使用的檢查器），重新驗證 Claude Opus 4.8 在全部 492 題上的每份提交。Comparator 確認了所有 SafeVerify 接受的解答，**但有五題的 Lean 形式化存在「不尋常的缺陷」**；此外，它也驗證了兩份僅因檢查器耗盡資源而遭 SafeVerify 拒絕的證明。淨結果如下：
+
+> **依 Comparator 判定，Claude Opus 4.8 的成績是 144/492（29%），而非 147/492（30%）。此基準測試的未來版本將採用 Comparator。**
+
+幅度不大，性質卻很重要：這是本文集中**首次量測到兩個獨立、抗作弊的 Lean 檢查器在相同提交上意見不一**，而且兩個方向都有——五次誤接受、兩次誤拒絕。「核心說通過」是*特定*檢查器給出的判定，而檢查器有資源上限；這個上限本身也是評分的一環。
+
+### 六個月後，白名單的必要性有了實證
+
+上述攻擊清單的第 5、6 項（夾帶 `sorry` 而產生的 `sorryAx`；`native_decide` 引入的 `Lean.ofReduceBool`）在本文中被視為*可能發生*的情況；Epoch 表示並未發現相關嘗試。[Reward-Oracle MCTS for Formal Theorem Proving: Sample-Efficient Search and the Need for Kernel-Level Proof Auditing](https://arxiv.org/pdf/2608.28639)（Vamshi 與 Yang，University of Maryland，arXiv 2608.28639，2026-08-11，`empirical`）提供了實測：在 PutnamBench 上，**DeepSeek-Prover-V2-7B 回報的成功案例中，有 31–44% 仰賴 `sorryAx`**，儘管它們能乾淨編譯，原始碼裡也沒有 `sorry` 字串——義務是由一個從不輸出原始碼掃描所尋找之字串的 `apply?` tactic 消解。第 5 項並非假設，而多數定理證明論文執行的原始碼掃描版檢查抓不到這類情況。
+
+這對本頁的驗證規範有兩點啟示。**真正承重的是白名單**，而非容器隔離或敘述比對——後兩者防範的是尚未觀察到有人嘗試的攻擊；前者卻已在一般使用中被正式發布的模型觸發，且沒有任何對抗意圖。其次，這項漏洞**因模型而異**：Goedel-Prover-V2-8B 和 Kimina-Prover 在四個基準測試中都沒有 `sorryAx` 相依情況。因此，列出公理白名單的基準測量的是只搜尋 `sorry` 字串的基準測不到的東西，而且這個差異只會出現在部分檢查點。完整分析見 [Kernel-Level Proof Auditing](/articles/kernel-level-proof-auditing)。
+
+## 代理，以及三項沒有幫上忙的東西
+
+**基礎代理。** 在 [UK AISI](/articles/uk-ai-security-institute) 的 Inspect 函式庫上執行 ReAct 風格工具迴圈，恰好使用**三種工具**：`bash`、文字編輯器，以及回報剩餘時間和 token 預算的 `resources` 工具。容器提供 Lean 4、Mathlib、SageMath，以及裝有 `sympy`、`mpmath`、`numpy` 和 `pantograph` 的 Python 環境。主要限制是每題的**支出上限——完整題集為 50 美元，LITE 為 200 美元**——另有 72 小時的硬性工作時間上限。
+
+研究以相同的 200 美元上限和相同模型，對 LITE 題集測試兩個基礎代理的變體：
+
+- **文獻**——離線快照，包含 **476,000 篇純數學 arXiv 論文**（LaTeX 原始碼樹、proof-pile 的 arXiv 子集，資料日期截至 2022 年）。
+- **DeepAgent**——用 Inspect 的 `deepagent` 取代 ReAct 迴圈，加入**子代理委派、持久記憶、待辦清單工具，以及更長且立場鮮明的系統提示**。
+
+**兩者都沒有提高分數**（圖 3，據圖表讀取；100 個猜想，200 美元上限，±1 個標準誤）：
+
+| 模型 | 基礎代理 | DeepAgent | 文獻 |
+|---|---|---|---|
+| Claude Opus 4.8 | 39% | 39% | 39% |
+| GPT-5.5 | 36% | 41% | 37% |
+| Gemini 3.5 Flash | 29% | 29% | 28% |
+
+論文用一句話總結：「代理變體沒有影響。」唯一看來不平凡的格子——GPT-5.5 使用 DeepAgent 後增加 5 個百分點——落在 n=100 的重疊誤差棒內，其他兩個模型也沒有重現。若視為消融實驗，這個結果格外乾淨：**相同模型、相同驗證器、相同上限；在有可靠逐步驗證器的領域中，定義整個[多代理](/articles/many-agent-proof-harnesses)和代理記憶文獻的那些功能毫無幫助。**
+
+文獻組的零效果更令人意外。提供一個包含 476,000 篇數學論文的資料庫，是本文集最接近 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 一貫提供給模型的「離線數學論文集」的嘗試——此處確實經過測量，而且價值為零。論文沒有探究原因，因此留下兩種無法區分的解讀：這些猜想不是那種答案會出現在文獻中的問題（其中 47% 所在的 OEIS 條目完全沒有連結或參考資料），或者是拿到 476,000 篇論文和 bash 工具的代理找不到相關論文。
+
+**下游仍然採用了這些功能。** [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 的方法論論文（[FrontierMath Erdős](https://arxiv.org/pdf/2609.25050)）引用了這兩項零效果結果，預設代理卻仍保留 deepagent 和 476,000 篇論文快照，理由是「未來模型或許能更善用它們」——這是違背本頁證據、而非根據證據作出的設計選擇。該論文也將本基準的 492 個猜想描述為「數學重要性不確定」，正是本頁所指出的篩選差異。
+
+## 結果
+
+**完整題集，每題 50 美元上限，每個模型執行一次**（圖 1 右，據圖表讀取；每根長條分為證明與反證）：
+
+| 系統 | 已解決 | 已證明 | 已推翻 |
+|---|---|---|---|
+| Claude Opus 4.8 | **30%**（147/492） | 19% | 11% |
+| GPT-5.5 | 26% | 16% | 10% |
+| Gemini 3.5 Flash | 22% | 13% | 9% |
+| [AlphaProof Nexus](/articles/alphaproof-nexus)（已公布） | 9%（44/492） | — | — |
+
+**LITE，每題 200 美元上限，基礎代理**（圖 1 左，據圖表讀取）：
+
+| 模型 | 已解決 | 已證明 | 已推翻 |
+|---|---|---|---|
+| [Claude Fable 5](/articles/claude-fable-5) | **44%** | 25% | 19% |
+| GPT-5.6 Sol | 43% | 25% | 18% |
+| Claude Opus 4.8 | 39% | 21% | 18% |
+| GPT-5.5 | 36% | 18% | 18% |
+| Gemini 3.5 Flash | 29% | 15% | 14% |
+
+Fable 5 和 GPT-5.6 Sol **只**在 LITE 題集、**只**搭配基礎代理執行。
+
+### 約 40% 的「已解決」猜想其實是錯的
+
+摘要完全沒有提到證明／反證的比例，這是論文最少著墨的數字。在完整題集中，Opus 4.8 的 30% 是**19 個百分點證明、11 個百分點推翻**——其解答中有 37% 是*反例*。在每題 200 美元的 LITE 題集中，反證占比更高：Opus 的 39 個百分點中有 18 個、Fable 5 的 44 個中有 19 個、Gemini 3.5 Flash 的 29 個中有 14 個——**介於 43% 至 48% 之間。**兩項啟示如下：
+
+- **這個基準至少和證明一樣，也是在衡量推翻猜想的能力。** 對整數敘述尋找反例是一種搜尋問題，而具備 `bash`、SageMath 和 Python 工具組的模型很適合處理；反證比例隨預算增加而上升，也符合投入搜尋能獲得成果的情況。這與 [Automated Conjecturing](/articles/automated-conjecturing) 從猜想生成端記錄的同一種不對稱相呼應：推翻有免費的分級訊號，證明則沒有。
+- **高反證率反映的是*題目集*，而不只是模型。** 在一組經篩選、標為「數學上有趣」的未解猜想中，近半數可解猜想其實是錯的。這反映 OEIS 編輯審查後留下什麼，也限制了我們應將此處分數上升解讀為多少數學進展。
+
+### 成本曲線：支出每增加十倍，解題率升約 10 個百分點，尚未見平台期
+
+圖 2（據圖表讀取）繪出每次執行在*解出當下的支出*所對應的已解猜想比例，因此在 $x$ 點讀取曲線，可估計預算上限為 $x$ 的執行結果。八條曲線整體呈現**解題率大致隨支出對數線性上升，每增加十倍支出約提高十個百分點**；從花費 0.50 美元時的約 3–10%，上升到各上限下的 22–44%，在 **200 美元時仍未見平台期。**
+
+完整題集中，**每解決一個猜想的平均成本**為：**GPT-5.5 6 美元、Gemini 3.5 Flash 9 美元、Claude Opus 4.8 10 美元，最高 47 美元。** 相較之下，AlphaProof Nexus 作者在私人通信中估計，每解決一個 OEIS 猜想的成本「平均約 10 美元，最難的少數題目約 50 美元」——因此 147 對 44 的比較是在*每題解題成本相當*的條件下進行，而不是預算較高的一方占便宜。
+
+Epoch 自己的外推，也是此處唯一屬於預測而非測量的數字：由於 LITE 是隨機子集，**以每題 200 美元計算，目前最佳模型預計可解決 492 題中的約 216 題**，高於每題 50 美元時的 147 題。
+
+**兩種分母，不是一種。** 30%（每題 50 美元）和 44%（每題 200 美元）常一起被引用，但它們不是同一項測量：30% 是一個模型在 **492** 題上的成績；44% 則是另一個模型在 **100** 題子集、**四倍預算**下的成績。同一個模型之間可比較的是 Opus 4.8：完整題集每題 50 美元時為 **30%**，LITE 每題 200 美元時為 **39%**——預算變為四倍，解題率約增加九個百分點，「每十倍支出增加十分點」的斜率便由此而來。
+
+### 最新一代並未大幅躍進
+
+Fable 5（44%）和 GPT-5.6 Sol（43%）在 LITE 上排名前二，領先上一代的 Opus 4.8（39%）**僅幾個百分點**，仍在誤差棒範圍內或接近其邊界。論文直接指出：「在此基準測試中，Claude Fable 5 與 GPT-5.6 Sol 並未代表自主 AI 證明能力的質變。」若對照一個月後**相同模型**在 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 上拿下 **0/68** 的結果，可解讀為兩個基準都認為世代差距不大，卻對絕對能力水準有完全不同的看法。
+
+### 各模型解出來的猜想幾乎相同
+
+這是根據圖 5（據圖表讀取）推算，而非正文所述：每個提題者的長條標示其猜想中被三次 50 美元執行至少一次解出的數量，這些分子相加約為 **492 題中的 150 題（31%）**——Claude Opus 4.8 單獨就解出 **147 題**。三個實驗室的三個不同前沿模型各自執行，總共只比最佳單一模型多解約**三題**。（分母相加恰為 492，算術上可供核對；有一個分子只能辨識到 ±1，因此整體合計應視為約 150，而非確切的 150。）
+
+如果這個結果成立，可解題目子集幾乎是由*問題本身*決定，而非任何模型獨有的強項——這與 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 困難端的非正式規範資料所呈現的情況相反：同一模型在同一題上四次嘗試只成功一次。如果每題成功率呈雙峰分布，兩者便能相容：有些題穩定可解，有些幾乎永遠解不出，中間地帶則很窄。
+
+## 分母組成的實測
+
+Epoch 收集了本文集其他開放問題基準測試都沒有的來源中繼資料：每個猜想的提議者和提出時間（由 GPT-5.5 將每個 Lean 敘述對應至 OEIS 文字與修訂紀錄——492 題中有 488 題找到提議者、489 題找到日期，其中 443 題信心度高），另有兩種文獻關注度指標（OEIS 條目所列引用，以及 OpenAlex 中全文提及該數列的著作）。
+
+**關注度。** **47% 的猜想所在 OEIS 條目完全沒有連結或參考資料**；在完整題集中，**零引用組別最大（n=230），而且解題率*最高***（三個模型約為 35/33/25%，相比之下，引用 1–2 次的組別約為 24/19/18%）。引用 10 次以上的組別（n=15）看起來更高，但只有 15 題，誤差棒跨度達 20 個百分點。依 OpenAlex 指標來看，**492 個數列中有 451 個沒有任何引用著作。**因此，這個基準主要由沒人寫過的猜想組成；而沒人寫過的那些，正是被解出的題目。
+
+**提議者。**共有 **127 位不同提議者**，但分布極不平均：多產的猜想提出者 **Zhi-Wei Sun 貢獻 OEIS OPEN 的 37%**（492 題中 180 題），**也占 LITE 的 36%**；而他的猜想*最難*——三次執行中至少一次解出的比例約 **16%**，相比之下，116 位長尾提議者提供的 176 題有 **41%** 解出，Peter Bala 的 56 題則有 30% 解出。超過三分之一的基準題目來自同一人，因此模型分數很大程度上就是 Zhi-Wei Sun 猜想的分數。
+
+**年代。** 按提出年份劃分的解題率與直覺預期*相反*：LITE 中，2012 年以前的組別解題率約為 71–75%，2012–2021 年組別則約為 13–39%。不過，較早的兩個組別只有 **7 題和 4 題**，因此影響範圍只有四至五題；若要嚴肅主張此效應，就必須看完整題集各組（n=35/31/175/132/116，另有三題因沒有記錄日期而排除）。
+
+## 抗污染能力及其有日期的失效
+
+OEIS OPEN 提出與[未解題目集設計](/articles/benchmark-contamination-decontamination)相同的以建構方式防止污染論點：開放問題的「解答不可能洩漏進訓練語料，至少在解出之前不會」，而且 Epoch 指出所有受評模型的**訓練截止日期都早於 Tsoukalas 等人論文發表日期**，因此沒有模型能學到該論文公布的證明。提出的緩解方法仍是篩選分母：「可以剔除在模型訓練截止日期之前已解出的猜想，並在剩餘較小的題集上比較所有模型。」
+
+**失效不是假設，已經開始發生。** DeepMind 在 2026-05 論文中公布了 OEIS 證明；依本論文註腳，數量是 38 題，雖然該論文回報解出 44 題。Epoch 現在也公開了自己解出的 153 題所接受的 Lean 證明，網址為 `github.com/epoch-research/LeanOpenProblems-results`。因此，**截至 2026-09，492 題中至少有 153 題（31%）已有公開的機器檢查證明**；若 DeepMind 的 38 題與 Epoch 的 153 題沒有重疊，比例則接近 190 題（39%），但兩個來源都沒有說明重疊情況；由於兩組都取自容易題目，完全不重疊也不太可能。這篇論文發表後才訓練的模型所接受的評估，至少有三分之一題目已在公開資訊中預先解出。這項工具因自身成功而被消耗的速度，比 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 更快，正是因為它表現更好。
+
+## 論文自述的限制
+
+值得完整記錄，因為論文少見地坦率，而且四項限制中有三項直接影響我們應如何解讀 30%：
+
+1. **大多數猜想可能很少受到關注。** 論文明確指出三次，並以以上中繼資料佐證，而非只作宣稱。題目篩選提示明確排除知名未解問題；OEIS 編輯審查的是定義是否明確，而非問題深度。Epoch 建議的改進方式是：「未來工作可以使用語言模型，明確挑選受到數學界廣泛關注的問題，而非排除這些問題。」
+2. **資料集採原樣使用，形式化錯誤風險仍在。** Tsoukalas 等人讓人類審查系統解出的 44 題，沒有發現形式化錯誤；Epoch **沒有進一步驗證**，並指出「似乎有些猜想很可能已被錯誤形式化」。基準測試仍有價值的理由是*相對*的——錯誤形式化可能比較容易解，而且不太可能偏袒某個模型，因此即使絕對解題率被高估，仍可用於**比較**模型。這個論點合理，但無法挽救標題數字，因為那是絕對數值的主張。
+3. **將猜想化約為知名未解問題不計分。** 只有證明或推翻猜想才算，但「數學家也重視能將猜想與知名未解問題連結的結果」——證明某猜想蘊含 Collatz 猜想「往往會被視為對該猜想的定論」，但在此處得分為零。
+4. **已解猜想會洩漏進訓練資料**，如上節所述。
+
+還有一項限制出現在註腳，而非限制段落：猜想「原則上可能無法由 Lean 的公理基礎決定；此時猜想本身及其否定都無法證明，任務也就無解」——這相當於形式證明版本的不可解題目問題，Epoch 批評生成器—驗證器基準測試時也提過這類問題（FM:OP 估計 10–40% 的問題可能無法以要求的形式解決）。此處應該影響甚微，且未經量化。
+
+## 為何選形式證明，而非其他方法
+
+論文導言是本文集中最清楚說明開放問題基準為何應要求 Lean 證明，而非可檢查物件的段落；它也針對兩個具名競爭者提出論證：**HorizonMath**（101 題）和 **FrontierMath: Open Problems**（FM:OP，50 題）。這兩者都透過限制問題範圍，選出具有**生成器—驗證器落差**的問題，讓未解問題能夠驗證（候選解答難以找到、容易檢查）。論文提出四項異議：
+
+1. **涵蓋範圍。** 「絕大多數開放問題沒有生成器—驗證器落差：它們要求證明一般性敘述，而非展示可檢查的物件。」
+2. **證據不等於證明。** HorizonMath 表示，接受的閉式解「在證明之前，最好仍視為猜想」；FM:OP 明確允許驗證器提供「有力的數值證據」。
+3. **健全性仰賴手工撰寫的程式碼。** HorizonMath 需要 **LLM judge** 排除硬編碼常數和數值求根；FM:OP 為各題特製的驗證器耗費人力且容易出錯——2026 年 7 月，兩題因驗證器「無法以足夠準確度辨識正確解答」而遭移除。
+4. **計算檢查只有單向能力。** 驗證器能確認展示出的物件有效；若不存在這種物件，任務就無解，而 **FM:OP 估計其 10–40% 的問題無解。**
+
+形式化方法以兩項論文明確承認的成本交換這些缺點：只有能以 Mathlib 表述的猜想才符合資格，而且「結果也反映形式化能力，不只是數學能力，因為模型可能找到正確論證，卻無法將它形式化。」值得注意的是，異議 3 呈現的模式正是 [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) 從另一側持續記錄的現象——已驗證證明流程會仰賴 LLM judge 確認*敘述*來源；可檢查物件流程則會仰賴 LLM judge 確認*解答*是否合法。兩種方法都無法避開 judge，只是它的位置不同。
+
+## 證明由模型讀回，而且沒有人檢查
+
+附錄 A.1 有一個細節值得補充至 [Logical vs Intelligible Proof](/articles/logical-vs-intelligible-proof)：表 1 的數列說明、猜想敘述和**證明摘要，由 GPT-5.6 Sol 代理撰寫**；代理取得通過驗證的 Lean 證明、OEIS 條目，以及受沙箱隔離的 Mathlib 原始碼樹存取權。論文沒有說明有人類檢查過這些摘要。
+
+這正是原本應由核心取代的機制所掩蓋的可理解性落差。證明經過認證；但*唯一以人類可讀方式說明證明內容的文字*，卻是對 Lean 檔案未經認證的語言模型敘述。閱讀表 1、想了解猜想如何解決的人，讀到的是模型對核心判決的描述；兩者能確定談的是同一個物件，唯一根據只是模型曾看過該檔案。這不是基準測試的缺陷——判決不受影響——卻具體呈現出邏輯與可理解性之分，出現在一篇其他方面都做得很好的論文裡。
+
+## 相關文章
+
+- [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) — 同系列的對照組：評估者、作者、月份、核心檢查標準都相同，卻是 3% 對上本頁的 30%；一組分母依重要性篩選，另一組則排除知名問題。合併來看，兩者顯示篩選方向帶來約 10 倍解題率、6 倍預算的差距
+- [AI-Driven Formal Proof Search](/articles/ai-driven-formal-proof-search) — 本基準測試的範式，並提供第四種分母：未依重要性篩選的開放研究猜想、便宜固定的預算，以及每個模型都跑過完整題集
+- [Agentic Loops Overtake Bespoke Systems](/articles/agentic-loops-overtake-bespoke-systems) — 本頁提供的正面對決：三工具 ReAct 迴圈在特製演化系統建立的題集中，以相同解題成本解出 147/492，特製系統則解出 44/492；但模型世代有所混淆，而使用同模型的 DeepAgent 消融結果恰好為零
+- [Evolutionary Proof Search](/articles/evolutionary-proof-search) — 比較中落敗一方所用的機制，並在其作者選擇的分母上重新測量
+- [AlphaProof Nexus](/articles/alphaproof-nexus) — 建立題集並回報 44/492 的系統；其結果如今成為別人圖表中的基準線
+- [Many-Agent Proof Harnesses](/articles/many-agent-proof-harnesses) — DeepAgent 組是對該頁主張最小而乾淨的測試：子代理、持久記憶和待辦清單，模型與 200 美元上限相同，分數沒有變動
+- [Automated Conjecturing](/articles/automated-conjecturing) — 上游題目來源：2649 個由人類提出的 OEIS 開放猜想，經模型篩選為 500 題；其中 37% 來自一名多產猜想提出者，47% 所在條目沒有引用資料——該頁預測的關注度分布與平凡性問題，已在此得到測量
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) — 第二個以未解狀態防止污染的例子，也是第一個明確標示失效日期的例子：建置題集四個月後，492 題中至少有 153 題已有公開、經機器檢查的證明
+- [Logical vs Intelligible Proof](/articles/logical-vs-intelligible-proof) — 附錄裡由語言模型撰寫的證明摘要：核心認證的證明，其唯一人類可讀說明卻是未經檢查的模型敘述
+- [Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking) — 預算再次寫進分數定義；而此處公布了完整支出*曲線*，而非單一上限：支出每增加十倍，解題率約提高 10 個百分點，資料來自八次執行
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 開放研究問題上對數線性、尚未趨平的成本曲線；這是 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 指出缺少、且其自身解題率無法提供的擴展測量
+- [Kernel-Level Proof Auditing](/articles/kernel-level-proof-auditing) — 將本頁攻擊清單化為實測的文章：編譯加 `sorry` 掃描工具——多數定理證明論文使用的檢查方式——以 31–44% 比例接受一種正式發布模型產生、依賴 `sorryAx` 的證明；這就是上方清單第 5 項在沒有人刻意嘗試的情況下於真實環境發生
+- [Lean](/articles/lean) — 驗證基礎；SafeVerify 的三公理白名單、排除 `native_decide` 和三容器隔離，是本文集中最嚴格的驗證規範，而 Comparator 交叉檢查則是首次量測到兩種檢查器意見不一
+- [Epoch AI](/articles/epoch-ai) — 評估者
+- [Claude Fable 5](/articles/claude-fable-5) — LITE 上以 44% 居首，也是論文用來說明最新一代在此處並無質變的證據
+- [UK AI Security Institute](/articles/uk-ai-security-institute) — 基礎代理和 DeepAgent 變體都採用的 Inspect 函式庫
+- [Statement Drift](/articles/statement-drift) — 本頁形式化錯誤保留條款背後的一般性失敗：自動形式化工具產生的敘述照單全收，成為無人閱讀卻受到信任的副本；因此，核心接受的解答可能是對錯誤猜想的有效證明
+
+## 尚待解答的問題
+
+- **可解子集是否由問題本身固定決定？** 三個實驗室的模型各跑一次、每次 50 美元，合計解出 492 題中的約 150 題；最佳單一模型解出 147 題——也就是模型多樣性約多解三題。可直接驗證此問題：公布每題的解題矩陣與兩兩重疊數，或讓一個模型執行 k 次，再比較 k 次執行的解題聯集與三模型聯集。若模型多樣性確實毫無幫助，這個基準衡量的就只有問題難度，pass@k 報告也就毫無意義。
+- **若採用類似檢索的測試，文獻組的零效果還會成立嗎？** 476,000 篇 arXiv 論文沒有改變任何模型的分數，但代理只能透過 `bash` 搜尋 LaTeX 原始碼樹，沒有檢索索引；而且 47% 的猜想所在 OEIS 條目沒有參考資料。要區分「答案不在文獻中」與「代理找不到答案」，必須使用以下其中一種方法：在同一批論文上建立關鍵字／嵌入索引；或在文獻組中，分別統計所依據數列有與沒有引用著作的猜想，其解題率。
+- **153 個已解猜想中，有多少被錯誤形式化？** Epoch 沒有進行驗證，並預期有些猜想可能錯了；Tsoukalas 等人檢查了他們解出的 44 題，沒有發現錯誤。每份接受的證明都已公開，因此可用同樣的人類審查回答這個問題，工作量約為 3.5 倍；而且這是唯一能把 30% 從上限轉成實測值的檢查。**於 2026-09-29 依據 [SHADOWBENCH: Toward Reliable Automatic Evaluation of Semantic Alignment in Autoformalization](https://arxiv.org/pdf/2608.29270) 延伸**（`empirical`）：沒有新統計數字，但提供了先驗資訊與方法。該研究處理的是不同對象——代理由非正式文字產生敘述，而非基準作者將敘述形式化——最佳系統有 61.8% 可編譯、11.2% 語意一致；110 個可編譯輸出中，有 65 個兩個蘊含方向都不成立。題目敘述已知的基準不會遭遇生成失敗，但仍可能出現作者的形式化錯誤（ShadowBench 本身因參考敘述錯誤撤回一題，並排除 ProofNet 中 31% 已知參考內容有誤的題目）。其方法可移植：可針對 153 個已解敘述，使用獨立形式化的影子定理進行正向和反向檢查。
+
+## 資料來源
+
+- [OEIS Open: How many conjectures can language models turn into theorems?](https://arxiv.org/pdf/2608.11941) — Tom Adamczewski（Epoch AI），*「OEIS Open: How many conjectures can language models turn into theorems?」*，arXiv 2608.11941，2026-08-12，27 頁，約 19,500 字，`empirical`。基準測試與工具架已於 `github.com/epoch-research/LeanOpenProblems` 開源；每題結果、遭拒提交和驗證器輸出位於 `LeanOpenProblems-results`。**單一作者的論文，作者來自同時撰寫 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark) 的機構**；評估五種該機構沒有銷售的商業模型，標題比較對象則是*競爭者*發布的系統——利益衝突傾向有利於 Epoch 的基準測試品牌。論文在會削弱標題數字的方向上自我約束：降低自身數字至 144/492 的 Comparator 交叉檢查寫在註腳裡，而讓 3.3 倍比較公平的 AlphaProof Nexus 成本估計，則是透過通信向落敗系統的作者取得。**解析備註：**由 PDF 轉換而來（docling 2.126.0，使用 MLX 版面與表格階段，27 頁、15 個表格區塊、8 張圖片，信心度 `excellent`，所有匯入檢查均為 `ok`）。這 15 個區塊是同一張邏輯表格（表 1）跨頁延續的部分，已根據本機 PDF 的 `pdftotext -layout` 完整核對：100 筆資料列、A 編號多重集合與參考解析結果相同，100 筆成本數值也完全一致。有一處跨頁接合：`A226163` 列在第 12／13 頁邊界吸收了 `A365179` 列猜想和證明摘要文字的尾段。沒有數字遺失，也沒有缺列；本文集其他 wiki 頁面沒有引用表 1 內容，除了列數和成本範圍。**尚未解決的內部矛盾：**附錄指出表 1 顯示 Claude Fable 5 在 LITE 或 Claude Opus 4.8 在完整題集解出的 **153** 題中成本最高的 100 題，兩者共同解出 **35** 題；但 147 + 44 − 35 = 156，而非 153。一致的解讀是，35 指的是表 1 **列出的 100 題**之間的重疊，而非全部 153 題之間的重疊；如此一來，真正的重疊數應為 38。論文沒有明說，且文字已逐字依照 `pdftotext` 確認，因此這是作者的算術問題，而非解析錯誤。以上所有圖表數字均由圖像讀取並以算術交叉核對：圖 4 的引用分組總數為 492 和 100，圖 5 的提議者分母合計恰為 492，圖 6 的年份分組總數為 489，正如圖說所言排除三個沒有日期的猜想。圖 5 中 Zhi-Wei Sun 的分子看起來可能是 28 或 29，因此推算三次執行的聯集時使用約 150 題
+- [Reward-Oracle MCTS for Formal Theorem Proving: Sample-Efficient Search and the Need for Kernel-Level Proof Auditing](https://arxiv.org/pdf/2608.28639) — Vamshi 與 Yang（University of Maryland），arXiv 2608.28639，2026-08-11，14 頁，`empirical`。本文引用它只為一項用途：測量採用編譯加原始碼掃描工具時，依賴 `sorryAx` 的成功案例有多常見，以量化本頁攻擊清單的第 5 項。它的基準測試（MiniF2F、PutnamBench、兩組物理題）是*封閉式*競賽題，與本文測試沒有共用題目，因此其中內容與 147/492 數字或 SafeVerify 自身判定均無關。完整分析見 [Kernel-Level Proof Auditing](/articles/kernel-level-proof-auditing)
+- [FrontierMath Erdős](https://arxiv.org/pdf/2609.25050) — Adamczewski 與 Bloom，arXiv 2609.25050，2026-09-06，`empirical`。引用其保留本頁兩項零效果功能的決定；完整分析見 [FrontierMath Erdős Benchmark](/articles/frontiermath-erdos-benchmark)。
+- [SHADOWBENCH: Toward Reliable Automatic Evaluation of Semantic Alignment in Autoformalization](https://arxiv.org/pdf/2608.29270) — Han 等人，arXiv 2608.29270，2026-08-29，`empirical`。此處只用來延伸形式化錯誤的開放問題：對*生成*敘述測得 11.2% 語意一致、61.8% 可編譯；與 OEIS Open 已提供敘述的情況不同。完整分析見 [Kernel-Level Proof Auditing](/articles/kernel-level-proof-auditing)。

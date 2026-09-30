@@ -1,0 +1,132 @@
+---
+date: 2026-08-17
+title: 提交預算下的選擇
+description: "重複取樣的代價：當你只能提交 n 個答案，而非全部 k 個時會如何？CS329A 第 7 講拆解 AlphaCode 每題取樣 100 萬次的流程；真正的核心是篩選與分群階段，將 100 萬個答案縮減到 10 個，以及為此定價的 10@k 指標——10@k（約 30%）與 pass@k（約 40% 以上）之間的落差，直接量出了選擇瓶頸。AlphaCode 2 以學得的評分模型和一系列微調過的 Gemini Pro 變體來提升多樣性，取代啟發式分群；它只需取樣 100 次，就達到 AlphaCode 的解題率，而不是 1,000,000 次——講者本人的解讀是，比起擴大取樣預算，更好的基礎模型是較便宜的槓桿"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - test-time-compute
+  - inference-scaling
+  - search
+  - code-generation
+  - reward-models
+readingTime: 15
+imageAlt: 提交預算下的選擇插圖
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep
+      Research Agents"
+    url: https://www.youtube.com/watch?v=Uni9dqyuuDM
+---
+export { default as heroImage } from "../assets/selection-under-a-submission-budget.webp";
+
+## 資料來源
+
+- [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM)
+
+## 摘要
+
+重複取樣通常以 **pass@k** 報告——在 *k* 個樣本中是否有任何一個解出問題——這悄悄假設你可以提交全部 *k* 個樣本。幾乎沒有任何部署情境是這樣運作的。競程平台只接受少數幾次提交；CI pipeline 只會執行一個修補；使用者只會讀一個答案。實際該看的指標是 **n@k**：生成 *k* 個，提交 *n* 個，而兩條曲線之間的落差，就是選擇階段讓你付出的代價。
+
+[CS329A](/articles/cs329a-self-improving-ai-agents) 第 7 講是本 wiki 第一個將這個落差作為主題、而非註腳的來源，並完整說明兩套 AlphaCode 系統。它對整個問題的表述是：*「我們大致知道解答位於模型的搜尋空間中，但要如何從搜尋空間中挑出答案？」*——這是 [Latent Capability Overhang](/articles/latent-capability-overhang) 論點的重述，只是將問題視為篩選，而非預算。
+
+> **證據。** 以下所有內容都來自 [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM)（[Aakanksha Chowdhery](/articles/aakanksha-chowdhery) 單獨講授，於 **2025-10-17** 發表，2026-08-03 上傳至 YouTube，`practitioner-opinion`）——以投影片逐步介紹 AlphaCode（DeepMind，2022）和 AlphaCode 2（Google DeepMind，2023），兩者都不在 `raw/` 中。所有數字都是從投影片讀取；ASR 辨識結果可能有誤，且數字均歸於這場講座。所描述的技術狀態是 **2025 年底**。
+
+## AlphaCode：流程的核心其實是選擇器
+
+生成階段是大家最常引用的部分，但它的貢獻較小：
+
+- **預先訓練**編碼器—解碼器，使用約 700 GB 的 GitHub 程式碼（遮罩語言模型損失；講座提到 AlphaCode 2 後來改用 decoder-only）。
+- 在 **CodeContests** 上**微調**，資料是附有解答的競程題目，並使用講座提到的兩種技巧：類似 **GOLD** 的正則化器，提高高似然 token 的權重、降低低似然 token 的權重，讓機率質量集中在「更有意義的模式」上；以及**值條件化與預測**。
+- **每道題目取樣 1,000,000 個程式**，Python 和 C++ 各半；提示中會隨機化題目標籤與難度評級，並使用較高的溫度——隨機化是為了增加多樣性，而非準確度。
+
+接下來才是決定成果的另一半：
+
+- 以題目敘述中列出的範例測試進行**篩選**。
+- 將存活的程式**分群**，每組包含*語法不同、語意等價*的程式；這是透過另一個專門訓練的模型完成，該模型根據題目描述生成合理的**測試輸入**，兩個程式若在生成的輸入上結果一致，就會被分到同一群。
+- **提交十個**——每群一個，讓提交的答案在行為上盡可能彼此不同。
+
+講座直接指出分群為何是整個流程的關鍵步驟：面對困難題目時，「提交一組相同的解答，效益不大」，因此有十次機會時，唯一值得最佳化的就是**提交答案集合的行為多樣性**。這使它成為以多樣性而非預測正確性為目標的選擇器——與獎勵模型排序器方向相反，也解釋了為何兩者可以組合使用，而不是彼此競爭（AlphaCode 2 兩者兼用）。
+
+報告結果：在 10 場 Codeforces 比賽中，參賽者每場約 5,000 人，AlphaCode 平均排名約在**前 54%**，每題提交 10 次。*(逐字稿中也提到「在過去 6 個月裡，表現勝過 28% 的競爭者」；講座沒有調和這兩個數字，且兩者都是 ASR 辨識結果。)* 講座對這項成果在 2022 年意義的說法是：這是首次展示端到端解題，而不只是接續程式碼——它能處理很長的題目描述和解答，並且必須在寫程式碼前推斷*該使用哪種演算法*。
+
+## 衡量方式：10@k 與 pass@k
+
+講座明確定義了這一對指標，這也是其中最容易移植到其他場景的概念。
+
+- **pass@k**——生成 *k* 個，全部提交，計算至少有一個答案正確的題目數。*「它衡量的是取樣過程中搜尋的效果」*——也就是[涵蓋率](/articles/latent-capability-overhang)。
+- **10@k**——生成 *k* 個，提交 **10** 個。*「你確實需要做些選擇或評分，決定要提交哪一組解答……它衡量的也包括篩選流程。」*
+
+在驗證集和測試集上，對 9B 模型、41B 模型，以及 41B 加分群的系統，將 k 從 1K、10K、100K 一路增加到 1M：
+
+- **在 10@k 下，解題率會隨取樣預算以對數線性方式提升；pass@k 也一樣。** 選擇階段不會讓曲線變平，而是把曲線往下壓。這是值得記住的發現——[Latent Capability Overhang](/articles/latent-capability-overhang) 的涵蓋率冪律在實際提交上限下仍然成立。
+- **較大的模型有更好的斜率**，而不只是更高的截距（講座比較了 41B 曲線與 300M 曲線）。
+- **41B 加分群在所有預算下，都穩定勝過單獨的 41B。**
+- **而且差距很大。** 不限提交次數時，曲線會達到「40% 以上」；上限設為十次時，則「只有 30%」。講座自己的解讀是：「選擇階段肯定形成了某種瓶頸。」
+
+這十分點的差距，是沿著不同於第 2 至第 3 講所用的軸線，衡量[生成—驗證落差](/articles/verifiability-thesis)。前者固定樣本數，變動的是*判斷者*；這裡則固定判斷者，改變的是**允許保留的答案數量**。兩者說的是同一件事——答案就在樣本中，但流程無法可靠地挑出答案——但預算的表述更容易讓工程師採取行動，因為 *n* 通常是產品決策，而不是研究決策。
+
+**講座也在一段討論變異的對話中，指出第二個瓶頸。** 有人問為什麼 AlphaCode 的百分位排名會隨競賽 ID 大幅波動（根據逐字稿，有些接近 50%，有一場接近 90%），Chowdhery 提出兩個假設，但不選邊：各場競賽題目與訓練分布的相似程度，以及「選擇階段也可能成為瓶頸——有些解答幾乎正確，但還不完全正確」。因此，從已公布的數字無法拆解每場競賽的變異究竟來自生成還是選擇；每當取樣系統以異質任務的平均值作為亮點時，都值得記住這一點。
+
+## AlphaCode 2：提升基礎模型，而不是增加樣本
+
+2023 年的後繼系統做了三項改變，而講座把比較本身視為重點，而非分數：
+
+| | AlphaCode (2022) | AlphaCode 2 (2023) |
+|---|---|---|
+| 生成器 | 從頭預先訓練，編碼器—解碼器 | **微調 Gemini Pro**——「不只是提示」 |
+| 多樣性來源 | 溫度加隨機標籤，單一模型 | **一系列微調變體**，以不同切分方式的 CodeContests v2 子集訓練，另外搭配隨機化溫度與中繼資料 |
+| 程式語言 | Python 和 C++ 各半 | **僅 C++** |
+| 選擇 | 以範例測試篩選，再分群 | 篩選（移除**約 95%** 的樣本，留下約 50k），保留**最大的 10 個群**，再以學得的評分模型在每群內**重新排序**，並提交每群中最佳的答案 |
+| 資料 | CodeContests | **CodeContests v2**（品質較高，經過審核），以及一組獨立人工整理的評分器資料 |
+
+**評分模型**是經過微調的 Gemini Pro，用來估算樣本正確的機率，範圍為 [0, 1]——這是一種純粹用作測試時選擇器的獎勵模型，正是 [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) 所追溯的對象。它取代了選擇階段中靠啟發式處理的部分：分群仍提供多樣性，而評分器則在群內排序。講座將 AlphaCode 2 描述為「在某些方面很像一個多代理程式系統」——一系列模型負責生成，另一系列模型負責評分。
+
+**亮點是替代，而非漸進改善。** 每道題取樣 100 次時，AlphaCode 2 就達到 AlphaCode 需要取樣 1,000,000 次才有的解題率——藉由更好的基礎模型和更好的選擇，樣本數減少四個數量級。在相同的 1M 預算下測試，它達到**約 43% 的解題率，AlphaCode 則約為 25%**，並在真人參賽者中位居**第 85 百分位**。*(逐字稿中還出現「以最佳兩個解答勝過 99.5%」的說法，與第 85 百分位數字無法調和；這段 ASR 辨識有誤，故不採用。)*
+
+有學生問能否直接取樣一兆次時，Chowdhery 將重點表述為一條原則：**「讓模型變得更好，是比增加樣本數稍微容易的方向。」** 以 [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) 的預訓練與推論取捨來看，這是截至 2025 年底，針對固定任務偏向預訓練一方的實務判斷——也請留意，這與第 2 講的方向相反；當時同一門課認為，在簡單和中等難度的題目上，增加測試時運算量勝過增加預訓練。競程並非簡單或中等難度，因此兩種立場並不衝突；課程只是在講解中沒有把它們並列比較。
+
+## 「只要多取樣」的瓶頸並不在運算量
+
+討論中最有用的部分，是解釋為什麼對數線性曲線不代表可以任意外推。一位學生提出，針對一個重要問題投入極大的預算；Chowdhery 同意，如果趨勢延續，算術上確實可行，接著指出這個推論倚賴的假設：
+
+> *「你其實是假設只要取樣更多，多樣性就會持續增加……如果取樣量是這裡的 10 倍，最後卻沒有更多不同的解答，那你實際上就不會有所改善。」*
+
+這是 [Latent Capability Overhang](/articles/latent-capability-overhang) 所說「多樣性是燃料」的另一種表述，也替它的擴展律本身設下界線：當取樣器持續產生真正新穎的程式時，冪律才成立；而分群正是揭示取樣何時停止產生新程式的工具。這也解釋了為什麼分群有雙重價值——它既選出要提交的答案，也衡量額外預算到底有沒有換來任何成果。
+
+講座提到 AlphaCode 作者指出的另外三項限制：
+
+- **訓練損失無法很好地預測解題率**，因為有許多不同程式都能解決問題，而損失函數只獎勵其中一個。這與模型在**動態規劃和建構式演算法**上表現較弱的情況一致。
+- **生成程式碼經過訓練資料新穎性檢查**，結果確認確實是新的——講座以此為根據，將它稱作分布外泛化，而非檢索。
+- **對困難問題而言，一次大量取樣並非合適的做法。** 這是講座本身的結論，也是銜接課程其他內容的橋樑：較難的問題需要*多步驟*解題方法，將問題拆解，為各個子部分提供提示，並對部分解答進行**含回溯的樹搜尋**——[Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) 和 [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) 是第 5 講針對第 7 講從程式碼角度重新推導出的需求所提出的解法。有學生進一步追問一個顯而易見的風險（一開始看似正確的步驟可能會讓第二步走入死路），這個問題沒有獲得解答。
+
+## 課堂提出的評分器資料污染問題
+
+有人問為什麼評分模型不直接使用 CodeContests v2 訓練，Chowdhery 的回答清楚說明了一項可推廣到其他系統的設計限制：「這樣會有資料污染——評分模型不應看到完全相同的資料，但它確實需要看到一些來自相同分布的資料。」你教評分器做的，是在*這類題目*的兩種候選解答之間做偏好判斷；這需要分布有所重疊，但不能是同一批資料。她也補充了不直接混合兩組資料的實際原因：在較高品質的資料集上分階段微調，卻不重播較早階段的資料，會讓模型**遺忘**先前學到的內容。
+
+這是 [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) 的議題，以獎勵模型的**訓練設計**規則，而非評估衛生規則的形式出現；也是這場講座中對如何打造選擇器，而非如何評分選擇器，最一針見血的說明。
+
+## 延伸閱讀
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) —— 第 7 講的上半部分；課程主軸及各講的脈絡
+- [Aakanksha Chowdhery](/articles/aakanksha-chowdhery) —— 講者
+- [Latent Capability Overhang](/articles/latent-capability-overhang) —— 本文在此處加上上限的涵蓋率曲線。雙向都適用的發現：對數線性擴展在十次提交預算下仍成立，而界定重複取樣上限的多樣性天花板，正是分群所測量的內容
+- [The Verifiability Thesis](/articles/verifiability-thesis) —— 沿不同軸線觀察到的同一落差：第 2 至第 3 講在樣本數固定時改變判斷者；本文則改變可保留的答案數量。約 40% 與約 30% 的差距，直接量出了選擇瓶頸的代價
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) —— AlphaCode 2 的評分模型*是什麼*：一種結果獎勵模型，估算答案在 [0, 1] 範圍內的正確機率，作為測試時選擇器，而非 RL 獎勵；其訓練資料還受資料污染限制，獎勵模型文獻對此限制的表述較不明確
+- [Inference-Time Architecture Search](/articles/inference-time-architecture-search) —— 此流程缺少的操作。Archon 的*融合*會綜合 k 個樣本產生一個答案，勝過 oracle selection；AlphaCode 的分群則純粹負責選擇，因此依其設計必然受 pass@k 限制，這正是 10@k 與 pass@k 的差距所衡量的上限
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) —— 樣本預算軸線的所在；本文補上截至 2025 年底的實務判斷：對固定的困難任務而言，改善基礎模型是較便宜的槓桿
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) —— 講座總結時認為，大量一次性取樣需要改採的多步驟替代方法；課程在兩講之前已介紹過
+- [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) —— 對「分解問題並為各個子部分加入提示」的另一種結構性解法；課堂由此推導出相同需求
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) —— 課堂對「如何把推理嵌入模型？」的答案是 STaR：生成解答、回傳提示，再要求模型產生推導出該解答的推理過程
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination) —— 評分器的資料限制，正是將該文的議題應用於選擇器訓練：分布相同，題目彼此獨立
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) —— 減少取樣成本的另一條路，也是有人詢問如何避免浪費 95% 生成結果時，講座所指的方向：透過 RL 迴圈提升解題率曲線，讓較少樣本就能達到相同水準
+- [Google DeepMind](/articles/google-deepmind) —— 兩套系統的開發者
+- [The Data Wall and the Validation Commons Are One Supply Constraint](/articles/data-wall-and-validation-commons-one-supply) —— 兩個關聯。本文的多樣性上限（「取樣增加 10 倍，卻沒有更多不同解答，表現就不會改善」）是本文集三項獨立說明之一：合成資料供應受多樣性而非 FLOPs 限制；而 AlphaCode 2 在十次提交預算下達到第 85 百分位，則證明當機械判斷器（隱藏測試案例）已取代人工驗證者時，Stockfish 門檻會先出現
+
+## 待解決的問題
+
+- 基礎模型變好之後，10@k 與 pass@k 的差距會縮小嗎？還是大致不變——換言之，選擇瓶頸究竟是取樣器多樣性的特性，還是選擇器辨別能力的特性？AlphaCode 2 同時改善兩者，而講座沒有報告任何能將兩者分開的實驗組。
+- 分群以行為多樣性為目標，評分模型則以預測正確性為目標。在固定提交預算下，將兩者結合（先分群，再於群內排序）是否勝過全域排序？差距有多大？AlphaCode 2 採用了這種組合，卻沒有對照另一種做法的消融實驗。
+
+## 資料來源
+
+- [CS329A Self-Improving AI Agents — Part 7: Self-Improvement and Deep Research Agents](https://www.youtube.com/watch?v=Uni9dqyuuDM) — *CS329A Self-Improving AI Agents — Part 7: Self-Improvement with Search & Deep Research Agents*，[Aakanksha Chowdhery](/articles/aakanksha-chowdhery) 單獨講授，Stanford Online。於 **2025-10-17** 發表，2026-08-03 上傳至 YouTube（`practitioner-opinion`，YouTube 自動字幕逐字稿，約 12.1k 字）。AlphaCode 部分內容：預先訓練／微調／取樣／篩選／分群／提交流程，包括 GOLD 正則化器和分群背後的測試輸入生成模型、Codeforces 評估及各場競賽的變異討論、pass@k 與 10@k 的定義以及模型大小 × 取樣預算掃描、AlphaCode 2 的 Gemini Pro 微調系列與學得的評分模型及其篩選 95%／保留前 10 群／重新排序流程、取樣 100 次等同取樣 1M 次和 43% 對 25% 的比較、第 85 百分位數字、對數線性趨勢外推時的多樣性上限提醒，以及課堂中如何依任務難度調整取樣預算的討論。所有數字都是從投影片讀取，並加以限定；AlphaCode 的兩篇論文都不在 `raw/` 中。**沒有講師著述利益衝突**——兩套系統都屬於 DeepMind——但仍有一點值得留意：AlphaCode 2 是由一位未提及自己曾任 Google Brain 研究員的講者，敘述為「這項工作是在 Google 進行的」

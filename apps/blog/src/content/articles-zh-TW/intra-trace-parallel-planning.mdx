@@ -1,0 +1,110 @@
+---
+date: 2026-08-17
+title: Intra-Trace Parallel Planning（SPRINT）
+description: "推理軌跡是一個被當成鏈狀生成的 DAG：其中許多步驟彼此並無依賴，但自回歸解碼仍讓它們全都付出順序延遲。SPRINT（Mirhoseini 的實驗室，2025）重建這個 DAG——讓 GPT-4o 將 DeepSeek-R1 軌跡切分成步驟、標記每個步驟的規劃與執行部分、推斷依賴圖、重新打包成平行群組，再以重整後的軌跡對 7B 模型進行監督式微調，使其能同時輸出彼此獨立的計畫，並讓這些計畫的執行同時進行。令人意外的是，準確率也提高了（約 3.5 個百分點），而且這種能力能泛化到訓練資料中的數學以外領域"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - post-training
+  - reasoning
+  - planning
+  - inference-efficiency
+  - test-time-compute
+readingTime: 14
+imageAlt: Intra-Trace Parallel Planning（SPRINT）的插圖
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step
+      Reasoning"
+    url: https://www.youtube.com/watch?v=Ml_fp9XkB8Y
+  - title: How Bridgewater Built an AI Analyst That Does Hours of Expert Research in
+      Minutes
+    url: https://www.youtube.com/watch?v=lXZb21CfeIY
+---
+export { default as heroImage } from "../assets/intra-trace-parallel-planning.webp";
+
+## 資料來源
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y)
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY)
+
+## 摘要
+
+**SPRINT** 是 [CS329A](/articles/cs329a-self-improving-ai-agents) 第 5 講介紹的第二篇論文，其出發點是對長篇思維鏈的一項結構性觀察：**軌跡其實是 DAG，但解碼時卻把它當成鏈。**推理模型探索替代方法、把問題拆成子任務，或驗證先前步驟時，產生的工作往往彼此獨立——然而每個 token 都是逐一生成，因此整張圖都被序列化到關鍵路徑上。
+
+解法從*訓練時*著手。SPRINT 不從外部安排平行作業，而是教模型**自行輸出平行作業**：每一輪都產生彼此獨立的計畫集合，同時派送各計畫的執行作業，將結果同步回上下文，再由模型規劃下一輪。用論文自己的說法，就是交錯進行規劃與平行化執行。
+
+> **證據。**[CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y)（[Azalia Mirhoseini](/articles/azalia-mirhoseini) 單人主講，於 **2025-10-06** 演講，2026-08-03 發布，`practitioner-opinion`）。投影片講解；論文**不在** `raw/`。**利益衝突：這是她自己實驗室的研究**——她全程以第一人稱講述（「我們開始這個專案時」、「我們觀察到的有趣特性」），以代名詞揭露作者身分，卻從未明說。她在演講中稱之為「一篇新的 2025 年論文」，當時尚未在會議上發表。以下數字均由 ASR 從投影片讀取，因此是約略值，並標明出處為演講。
+
+## 出發點，以及較站不住腳之處
+
+Mirhoseini 給出的背景是 2025 年底的標準說法：o1、Gemini 2.5 Pro 和「幾乎所有前沿模型」在難題上會思考更久，而思考時間較長與準確率較高相關——她以 DeepSeek-R1 的訓練曲線為例，當中 AIME 準確率和平均回應長度同步上升。參見 [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)。
+
+請留意，這項前提*沒有*聲稱什麼。訓練期間長度與準確率相關，不代表任何特定 token 都不可或缺；而 SPRINT 自己的貢獻，正是指出其中很大一部分 token 位於關鍵路徑之外。最好將這篇論文理解為著眼於**延遲，而非總計算量**：平行執行不會產生較少 token，而是讓它們同時產生。結果一節不斷模糊的，正是這項區別。
+
+## 流程：用模型找出模型自己的 DAG
+
+這套做法清楚展現了演講明確點出的模式——*「很多時候，當我們想建立資料並找出模型中的某種行為時，可以在建立微調資料的過程中使用 LLM 本身。」*流程分成五步：
+
+1. **產生軌跡。**DeepSeek-R1 回答一組數學題，產生完整的推理軌跡。演講提到約 **6K 條思考軌跡**，並篩選出品質較高者。
+2. **切分並標記。**GPT-4o 讀取每條軌跡，將其切分為步驟 1…k，接著在*每個*步驟內標註哪個片段是**計畫**，哪個片段是該計畫的**執行**。有些步驟會在同一個計畫下包含多個執行作業。
+3. **推斷 DAG。**模型受詢問各步驟之間的依賴關係——「步驟四和步驟二彼此沒有依賴，但兩者都依賴步驟一」——回答便是一張描述步驟依賴關係的圖。Mirhoseini 說模型「在這裡做得非常好」。
+4. **打包。**依據 DAG，將步驟分組成可並行執行的輪次。
+5. **SFT。**以重新打包並加上標籤的軌跡，對 **DeepSeek-R1-Distill-7B** 進行監督式微調。思考內容相同，只是重新編排：彼此獨立的計畫會相鄰輸出，接著才輸出各自的執行內容。
+
+推論時，標籤會成為執行協定。模型同時輸出計畫 *i* 和計畫 *i+1*；每個計畫一完成，便立即開始執行——執行作業本身也可以是工具呼叫（計算機、Python），不一定是更多文字；輸出會同步回單一上下文；接著模型再輸出下一輪計畫。有人問這是否違反下一個 token 預測，Mirhoseini 的回答是不會：*「永遠都是下一個 token」*——標籤只是執行階段可以採取行動的結構。
+
+## 結果，以及原本沒人追求的部分
+
+在數學題上，相較於用來微調它的 **DeepSeek-R1-Distill-7B** 基準模型：
+
+- **準確率提高約 3.5 個百分點。**這原本不是目標。*「我們開始這個專案時，目標是最大化平行度，以減少順序 token 生成……但結果發現，這個流程其實也有助於準確率。模型似乎偏好這種更有結構的思考方式。」*這是一項同時改善品質的效率介入，也是本頁最值得關注的結果。
+- **順序 token 數大幅下降，讓 7B 模型在這項指標上勝過 32B 模型**；而與拒絕式微調基準模型準確率相近時，降幅據稱「大約是 40%」。
+- **領域外泛化。**模型只用數學資料訓練，卻在**倒數計時**和 **GPQA-diamond** 上呈現更高的可利用平行度*與*更高準確率；這兩種任務都未出現在訓練資料中。Mirhoseini 將這項結果與 SWiRL 的相同發現（[Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl)）並列，並以相同方式解讀：能遷移的是一種*思考方式*，而非任務技能。
+- **平行度集中在前段。**跨越多輪觀察，平行分支在早期較多，軌跡到後期則逐漸收斂成單一深度計畫——先探索，後利用。這與 [parallel-then-sequential](/articles/large-scale-test-time-compute) 預算分配呈現相同形態；差別在於此處是從軌跡內部發現，而非從外部施加。
+- **提升只出現在難題上，而且可能造成負面結果。**如果問題的思考過程很短，可利用的獨立作業就很少，計畫／執行的框架反而徒增開銷——*「我們實際上可能比基準模型更差。」*節省只出現在「需要更多思考的問題」。
+
+## 演講坦承的四件事
+
+- **尚未測量實際耗時的加速幅度。**全篇回報的指標都是*順序 token 數*，只是代理指標。Mirhoseini 將「實際實現耗時加速」列為未來工作。這個方法以降低延遲為賣點，卻還沒用碼表測過——[Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) 也強調，在效率主張成立前，必須補上同一項缺口。
+- **拖慢的分支決定關鍵路徑。**有學生詢問，彼此獨立的分支如何平衡負載。回答是，嚴格來說並沒有平衡——你會「受限於步驟四，而不是步驟四加上步驟二」，所以該輪耗時取決於其中最慢的步驟。唯一提到的緩解方式，是把極短的執行作業併回計畫，組成更大且更平均的區塊。打包時是否應以負載平衡為目標，而非只確保依賴關係允許執行，仍未解答。
+- **SFT 是起點，不是上限。**監督式微調只是模仿重新編排過的軌跡；演講提到 RL/GRPO 是顯而易見的後續方向，也通常能讓這類泛化能力更強。另參見同一場演講第三篇論文 [SWiRL 的](/articles/offline-multi-step-tool-rl) RL 相對於 SFT 的實測差距。
+- **分支間的矛盾尚未解決，只是指出了問題所在。**有人問，若兩個平行分支各自都正確，合在一起卻錯了，會怎麼處理。Mirhoseini 回答，所有結果都會進入同一個上下文，模型必須在給出最終答案前加以調和——*「兩種做法在思考過程中都可能出現矛盾。」*她接著補充一項比安撫性說法更重要的範圍界定：SPRINT 的平行單位通常是**同一個解法中的不同步驟，而非同一道題目的競爭解法**，因此比起平行取樣後投票，較不容易遇到這個問題。這是對資料分布的主張，而演講中沒有任何測量能驗證它。
+
+## 為何這不是 wiki 中另一種平行化
+
+附近有三個頁面談到平行執行，但都不是這種做法：
+
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration) 是**多個代理程式、一個人類**，讓多個程序平行運作，並以固定預算衡量協調成本。SPRINT 則是在**單一模型的一次回答內部**進行平行作業。
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra) 讓模型*撰寫程式*，依序及平行組合代理程式。這種平行化表達在外部產物中，並由執行階段執行。SPRINT 的 DAG 從未離開軌跡；標籤就是程式。
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation) 在執行工作者**之前**為計畫 DAG 評分。SPRINT 的 DAG 則是*事後從已完成的軌跡推導而來*，再透過訓練寫回權重。
+
+其獨特之處在於方向：這個 wiki 的其他地方，都是由 harness 提供結構，再由模型填入內容。此處的結構則是**從模型自己的輸出中擷取、由另一個模型加上註記，再作為訓練資料送回第一個模型**——將課程中的自我改進飛輪（[Recursive Self-Improvement](/articles/recursive-self-improvement)）應用在推理軌跡的*形態*，而非正確性上。比較 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)：這裡的腳手架是透過設計吸收到權重中，而非偶然發生。
+
+## 延伸閱讀
+
+- [Agentic Code Generation as Compilation](/articles/agentic-codegen-as-compilation)——同樣發現 DAG 藏在其中的洞見，但高了一個層次，而且直接交付圖，而非事後重建。SPRINT 事後推斷推理軌跡的依賴結構，讓獨立步驟能同時輸出；Bridgewater 的 PAT 則要求計畫明確*宣告*每個任務的輸入和輸出綱要，平行程式碼生成因此完全不必推斷，消費端也能在生產端尚未撰寫前，就先依據它進行編譯。兩者的取捨在於工作移往何處：SPRINT 付出切分與 SFT 流程的成本，從非結構化軌跡中重建結構；PAT 則付出昂貴的前期規劃成本，避免結構遺失
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents)——第 5 講的第二篇論文
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training)——不同資料內容，卻呈現相同遷移模式；這也是四篇課程論文中回報此現象的其中一篇：SPRINT 的數學→倒數計時／GPQA，與 SWiRL 的跨工具遷移、Absolute Zero 的程式→數學，以及 Multiagent Finetuning 的數學→GSM8K 並列。自我生成資料能跨任務遷移的是推理方式，而非技能
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search)——第 5 講的第一篇論文，在同一個維度上採取相反取捨：LATS 增加推論成本以搜尋替代軌跡，SPRINT 則重整單一軌跡以降低成本
+- [Offline Multi-Step Tool-Use RL (SWiRL)](/articles/offline-multi-step-tool-rl)——第 5 講的第三篇，也是相近的研究結果：兩者都是 Mirhoseini 實驗室的論文，都讓一個模型標註另一個模型的軌跡以建立訓練資料，也都指出能遷移的是推理方式，而非任務技能
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)——前提（思考越久越準確）與發現（早期探索、後期深入）都是這個主題的範圍，並且從單一軌跡內部觀察
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability)——SPRINT 提出的論點：如果能力取決於推論預算，降低思考延遲就是能力研究。這個頁面也指出 SPRINT 尚未達到的標準——順序 token 數只是代理指標，而實際耗時仍是未來工作
+- [Parallel Agent Orchestration](/articles/parallel-agent-orchestration)——在代理程式之間平行作業，而非在軌跡內部平行；該頁測量的協調成本在此沒有對應，因為這裡只有一個模型和一個上下文
+- [Dynamic Workflows: An Algebra for Agents](/articles/dynamic-workflows-agent-algebra)——同樣的平行／序列組合，以模型撰寫的程式呈現，而非以模型自身推理中的標籤呈現
+- [Orchestration-Plan Simulation](/articles/orchestration-plan-simulation)——在執行前為計畫 DAG 評分；SPRINT 則是在執行後重建 DAG，再透過訓練寫回模型
+- [Recursive Self-Improvement](/articles/recursive-self-improvement)——將飛輪應用於軌跡*結構*：模型自己的輸出由第二個模型標註後，成為改變其思考方式的微調資料
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)——刻意將協調工作從 harness 移入權重
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor)——相同的規劃／執行切分，但界線不同：該文區分人類與代理程式，此處區分的是單一模型自身軌跡中的兩個片段，而且是由第二個模型劃出界線
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini)——她實驗室的論文，演講以第一人稱講授，卻沒有揭露身分
+- [Selection Under a Submission Budget](/articles/selection-under-a-submission-budget)——CS329A 第 7 講的課堂討論從取樣角度得出本頁的想法：難題需要拆成附有提示的子部分，而非一次以極大的寬度生成
+
+## 開放問題
+
+- 準確率提升被歸因於模型偏好「更有結構的思考方式」，但這不是機制。原因是*計畫／執行標註*（改善拆解）、*打包*（縮短每個步驟實際使用的上下文），還是微調前篩選 DeepSeek-R1 軌跡所造成的資料品質假象？以相同篩選後軌跡、但不重新打包，進行一組 SFT 實驗，就能區分這三種可能。
+- 平行度以順序 token 數衡量，實際耗時則留待未來研究。在真實服務環境中——批次處理、KV 快取壓力，以及每輪結束時的同步屏障——約 40% 的順序 token 降幅能否轉化為延遲改善，還是會變成吞吐量成本？
+
+## 資料來源
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y) — *CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning*，[Azalia Mirhoseini](/articles/azalia-mirhoseini) 單人主講，Stanford Online。於 **2025-10-06** 演講，2026-08-03 發布至 YouTube（`practitioner-opinion`，YouTube 自動字幕逐字稿，約 11.3K 字）。演講中 SPRINT 的部分：長時間思考的前提、DeepSeek-R1 長度與準確率訓練曲線、GPT-4o 標註流程（切分 → 計畫／執行標籤 → 依賴 DAG → 打包）、以約 6K 條軌跡對 DeepSeek-R1-Distill-7B 進行 SFT、推論協定與「永遠都是下一個 token」的回答、準確率提高約 3.5 個百分點、相較於 32B 模型的順序 token 降幅，以及相較拒絕式微調基準模型的約 40% 數字、倒數計時／GPQA-diamond 領域外遷移、早期探索／後期收斂的形態、短題目的負面結果，以及四段學生提問與回答（重新規劃、負載平衡與拖慢的分支、樹狀寬度、分支間矛盾）。論文不在 `raw/`；是她實驗室的研究，由她以第一人稱敘述，且未明確說明為自己的研究。所有數據均由 ASR 從投影片讀取，並以約略值表述
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY) — McManus、Ran 與 Weight（Bridgewater Associates），LangChain 頻道，2026-07-24，25:44 演講，`case-study`。引用其以宣告而非重建方式描述任務 DAG，並藉此支援平行程式碼生成（21:13–14:27）。全程為第一方敘述，沒有方法說明——所有數字的證據限制，請參見 [Agentic Code Generation as Compilation](/articles/agentic-codegen-as-compilation)

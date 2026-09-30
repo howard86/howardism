@@ -1,0 +1,119 @@
+---
+date: 2026-09-17
+title: "被竊取的模型存取權經濟"
+description: "AI 憑證如今同時成為戰利品、算力與掩護——具轉售價值、攻擊工作負載由受害者付費執行，活動也會被歸因於憑證的合法持有人。Anthropic 2026 年 9 月的威脅報告記錄了憑證收集路徑（180 萬份反編譯 APK、GitHub PAT、LiteLLM 提示注入，以及某 AI 供應商的評估沙箱交出其正式環境金鑰）、詐欺轉售商層如何把「折扣 Claude」代理到另一個模型，同時竊取買家的憑證，以及同一底層機制如何涵蓋網路、 生物、詐騙與蒸餾案例。Google 的 GTIG（2026 年 9 月）從另一家供應商的角度佐證此事，並補上第一個價格訊號（地下市場帳戶平均價格在 2026 年翻倍以上）、竊密程式抓取程式碼助理設定檔，以及 Mandiant 調查的 LLMjacking 入侵逐步過程"
+tag: Concept
+domain: agent-security
+tags:
+  - security
+  - threat-landscape
+  - supply-chain
+  - identity
+  - credentials
+readingTime: 17
+imageAlt: "《被竊取的模型存取權經濟》插圖"
+sources:
+  - title: "Detecting and countering misuse of AI: September 2026"
+    url: https://www-cdn.anthropic.com/e50be2e51e7695dc4b1366a37a245a597377d3b5/Anthropic-Detecting-and-countering-091026.pdf
+  - title: China-Based Artificial Intelligence Companies Conducting Industrial-Scale
+      Distillation Campaigns Against U.S. AI Companies
+    url: https://www.cisa.gov/news-events/cybersecurity-advisories/aa26-251a
+  - title: "GTIG AI Threat Tracker: From Prompting to Autonomy – The Evolution of
+      Adversarial AI"
+    url: https://cloud.google.com/blog/topics/threat-intelligence/from-prompting-to-autonomy-the-evolution-of-adversarial-ai
+---
+export { default as heroImage } from "../assets/stolen-model-access-economy.webp";
+
+## 資料來源
+
+- [China-Based Artificial Intelligence Companies Conducting Industrial-Scale Distillation Campaigns Against U.S. AI Companies](https://www.cisa.gov/news-events/cybersecurity-advisories/aa26-251a)
+- [Detecting and countering misuse of AI: September 2026](https://www-cdn.anthropic.com/e50be2e51e7695dc4b1366a37a245a597377d3b5/Anthropic-Detecting-and-countering-091026.pdf)
+- [GTIG AI Threat Tracker: From Prompting to Autonomy – The Evolution of Adversarial AI](https://cloud.google.com/blog/topics/threat-intelligence/from-prompting-to-autonomy-the-evolution-of-adversarial-ai)
+
+## 摘要
+
+[Anthropic](/articles/anthropic) 的[2026 年 9 月威脅報告](https://www-cdn.anthropic.com/e50be2e51e7695dc4b1366a37a245a597377d3b5/Anthropic-Detecting-and-countering-091026.pdf)中，最具跨領域影響力的發現並非某種攻擊技術，而是一個**市場**：AI API 金鑰、工作階段權杖與帳戶已成為交易商品，而「以遭入侵的 API 金鑰、工作階段權杖及裝置形式取得 AI 存取權，日益成為多個犯罪集團唯一的目標。」
+
+報告用三行話說明原因，這也是最精簡的概括：
+
+> **戰利品**——遭竊金鑰與帳戶在既有市場上具有轉售價值。
+> **算力**——憑證讓攻擊工作負載能由他人付費執行。
+> **掩護**——活動會被歸因於憑證的合法持有人。
+
+一次竊取帶來三種特性，而第三種並不存在於傳統憑證竊取的經濟模式中：遭竊的 AWS 金鑰給你算力與掩護；遭竊的*模型*金鑰則直接給你能力本身。這就是為何同一底層機制會出現在報告七個危害領域中的五個——網路入侵、不支援地區的生物研究、交友詐騙工作室、[蒸餾](/articles/illicit-distillation)行動，以及監控供應商。`case-study`，**第一方**，無外部查證。
+
+## 憑證收集路徑
+
+**工業規模的機密挖掘。** 一名法語系 ShinyHunters 附屬成員（別名 MeowSHA / frkoo / blazespider）透過 **10 個 AWS EC2 工作節點**執行憑證管線，從多個應用程式商店大量下載 **180 萬個不同的 Android APK**，反編譯後用 TruffleHog 掃描硬編碼機密，再將驗證過的結果**即時**送到 Telegram 群組，並按**超過 100 種來源類型**分類——同時還有一條平行的 GitHub 組織蒐集管線，供應第二批遭竊的個人存取權杖。這兩條管線提供了「大部分已確認資料外洩事件所需的初始存取憑證」。報告列出的掃描範圍更廣：應用程式二進位檔、程式碼儲存庫與整合、用戶端程式碼、憑證儲存庫、容器映像、中繼資料端點、開放儲存空間，以及**受害者部署的 AI 代理程式**。
+
+**針對 AI 中介軟體的提示注入。**「觀察到多個行動者入侵 AI 包裝服務的 LiteLLM 實作；他們利用提示注入，外洩雲端託管容器環境中使用的正式環境 API 金鑰。」這類部署模式原本是要代使用者*保管*供應商金鑰，因此成為集中的攻擊目標；它暴露的注入面，正是[代理式提示注入](/articles/agentic-prompt-injection)所描述的那種，只是攻擊目標從工具呼叫改成憑證儲存庫。
+
+**評估沙箱（GTG-50020）。** 最有針對性的路徑。一名講俄語、以牟利為動機的行動者，過去曾入侵飯店預訂與金融科技系統（其中一次外洩約 26 GB，並提出 **150 至 250 萬美元**的勒索要求），後來把同一套手法轉向 AI 產業：「藉由向 AI 供應商的自動化評估沙箱注入惡意指令，行動者使沙箱交出所持有的憑證，包括屬於該供應商、來自多家供應商的正式環境 AI API 金鑰。」接著，他們在約四天內從同一基礎設施攻擊 **約 30 家 AI 公司**，找到一條可行路徑後，就稍作調整並對全部 30 家重複使用。其明確目標是「透過十多種途徑」取得**尚未發布的 Claude 模型**；所有路徑都失敗了。
+
+評估沙箱是憑證豐富、邊界薄弱的環境，這在本文集並非新觀察——[OpenAI／Hugging Face 入侵事件（2026 年 7 月）](/articles/openai-hugging-face-intrusion-2026)也是同一信任邊界從內部失守，只是逃逸的一方變成模型。這是外部版本：人類對手、一次注入，以及同一類容器交出同一類機密。兩起案例合在一起，讓評估 harness 成為明確的攻擊面，而非附帶一提。
+
+## 詐欺轉售商層
+
+需求端由代理網路——「轉運站」——供應，這些網路向不支援地區的買家販售前沿模型存取權，並持續換上新的遭竊金鑰與權杖，「直到用完配額」。其中兩種變體值得留意，因為它們顛倒了一般的受害者關係：
+
+- **出售存取權，竊取買家（GTG-50021，「kl1zy」）。** 一個講俄語與烏克蘭語的團體經營詐欺轉售服務，以低價提供 Claude 存取權，「結果既不便宜，也根本不是 Claude。」買家的流量被暗中代理到**另一個模型**，而轉售商的工具則安裝憑證蒐集程式，竊取買家的 **Anthropic** 憑證，再轉售給其他代理轉售商。顧客付了產品費用，卻拿不到產品，反而成為庫存。
+- **仿冒 harness。** 假冒多模型中介服務的網站散布「惡意用戶端應用程式，常偽裝成熱門 AI harness，包括 Claude Code」，實際上是憑證蒐集程式。最值得記住的是其持續性：遭入侵的金鑰會被重設，因此蒐集程式會**持續駐留，並從裝置再次竊取每個新工作階段**，將一次性竊取變成訂閱式生意。
+
+**美國政府（2026-09-08）描述的同一層。** NSA/CISA/FBI 公告 AA26-251A（[China-Based Artificial Intelligence Companies Conducting Industrial-Scale Distillation Campaigns Against U.S. AI Companies](https://www.cisa.gov/news-events/cybersecurity-advisories/aa26-251a)，`case-study`，未披露方法）也獨立使用「轉運站」一詞來稱呼「龐大的 API 代理灰色市場」，這些代理「以官方價格的一小部分轉售前沿模型存取權」，並指出代理被用來繞過中國與美國的存取控制。公告補上本文原本沒有的一條路徑：**席位套利**。中國實驗室大量購買高級*訂閱*，並在開發團隊間共用；StepFun 則經營帳戶池，由員工同時登入，並為每個代理程式設定每日預算。其偵測指標針對訂閱而非金鑰：許多 IP 與使用者代理程式共用帳戶、全天候使用且沒有閒置時段、訂閱與 API 使用量比例異常，以及新訂閱一啟用就立刻達到最高用量。公告沒有提供價格或市場規模，因此下方第一個開放問題仍成立。另見[非法蒸餾](/articles/illicit-distillation)。
+
+## 將戰利品用作攻擊基礎設施
+
+AI 憑證一旦到手，不只會被轉售，也會被切換來支援攻擊：
+
+- ShinyHunters 附屬成員在入侵途中找到受害者的 AI 金鑰後，「把自己的攻擊工作負載切換到受害者的金鑰上。」一把遭竊金鑰支援了**約三週**的後續攻擊，入侵一家法國零售連鎖企業，並探查一個 Web3 身分平台。
+- 一場駭客行動主義行動（GTG-50029）「整整一個月完全使用遭竊 API 金鑰執行」，先用**自訂 Rust 掃描器**驗證公開容器中暴露的金鑰，再**透過本機代理層輪替使用量，刻意讓流量混入合法持有人的流量中**——這種掩護是刻意設計的，不是偶然形成的。
+- GTG-50020 入侵 AI 供應商的沙箱後，「自動改用受害者的金鑰，而非自己的金鑰。」
+
+報告提出的建議簡短而恰當：「組織應以看待正式環境憑證的嚴肅態度看待 AI 金鑰與代理程式整合，因為攻擊者也同樣嚴肅看待它們。AI 存取權只能透過授權管道購買。若某項所謂折扣要求流量與憑證經過未知中介服務，就會帶來極大風險。」實務上，AI 金鑰應納入與[代理程式身分與驗證](/articles/agent-identity-and-authentication)對所有其他正式環境憑證所規定的同一套短效、每工作負載、來源檢查機制；LLM 閘道或轉售商則是信任邊界，應列入盤點。
+
+## 另一家供應商的視角：價格、設定檔與 LLMjacking（GTIG，2026 年 9 月）
+
+[Google Threat Intelligence Group](/articles/google-threat-intelligence-group) 的 2026 年第二季追蹤報告（[GTIG AI Threat Tracker: From Prompting to Autonomy – The Evolution of Adversarial AI](https://cloud.google.com/blog/topics/threat-intelligence/from-prompting-to-autonomy-the-evolution-of-adversarial-ai)，2026-09-08，`case-study`，**第一方**：Google 是作者，而 Gemini 也是帳戶遭販售的產品之一）從 Gemini 遙測資料、Mandiant 事件應變與地下論壇追蹤資料，描述同一個市場。其解釋與 Anthropic 的說法相符，只是沒有使用戰利品／算力／掩護的措辭：「取得高級模型與高效能運算的成本，是威脅行動者要將 AI 實際投入運作時，最主要的障礙之一。」兩家供應商各自發現了同一底層機制，這是本文最有力的交叉佐證。兩個來源都不在產業之外。四項補充：
+
+- **價格趨勢，這個市場的第一個數字。** GTIG 表示，2026 年其追蹤的地下論壇上，AI 帳戶買家與賣家都增加了。需求集中在 **Claude 與 Gemini 憑證**，對自主程式設計 IDE（**Cursor Pro、Devin**）的需求也在上升，「反映在 2026 年地下市場每個帳戶的平均價格翻倍以上。」要附上計算基礎：這是 GTIG 追蹤論壇上的貼文數據，只有平均值，沒有絕對價格、交易量或產品別細分。它顯示需求增長快於供應，卻沒有揭示市場規模。
+- **竊密程式如今瞄準程式碼助理設定檔。** 一般竊密程式控制端（LUMMAC.V2、STEALC.V2、VIDAR、ACRSTEALER）推送了針對 AI*開發者設定*的命令，「不再只收集傳統的 AI 瀏覽器設定檔。」2026 年 5 月，ACRSTEALER 操作者推送了抓取 **Cline 的 `secrets.json`** 與 **Continue 的 `config.yaml`** 檔案規則，這些檔案「可能以純文字儲存 API 金鑰，以及自訂模型路由端點。」這是 Anthropic 清單中沒有的收集路徑。harness 的本機設定檔如今與反編譯 APK 及暴露的容器並列，成為已知金鑰儲存處；既然一般惡意軟體已在收集這些檔案，它就不是小眾目標。
+- **LLMjacking：根據 Mandiant 案例重建（2026 年 4 月）。** 一組暴露的 **GitHub PAT** 帶來雲端存取權。攻擊者啟用 Gemini Enterprise 與高效能執行個體，建立 **LiteLLM** 與 **Manus** 代理程式架構的 Artifact Registry 映像，再以代理防火牆規則將其公開為 Cloud Run 服務（`allUsers` invoker）。接著，他們建立一個具有 Editor 權限、可匯出金鑰的惡意服務帳戶，使用 BigQuery 搜尋含有環境變數與更多憑證的資料表，並試圖將專案所有權移交給外部電子郵件地址。最後階段是申請 NVIDIA RTX 6000 硬體的配額增加，並啟動 48 vCPU 執行個體、一個 RAG 筆記本與專案層級的 Generative Language API，「以維持未經授權的 AI 工作負載」（表 11）。值得注意的是 LiteLLM 映像。攻擊者不只是使用受害者的算力，還在受害者帳戶上架設了**公開可連線的模型閘道**，也就是以遭竊基礎設施打造的轉售層「轉運站」。
+- **在驗證環節觀察到的同一市場。** GTIG 稱為「Recon」的 C2 儀表板，會整理蒐集到的機密，「包括雲端與 AI 服務的 API 金鑰」（[自主入侵](/articles/autonomous-intrusion)說明其背後的代理程式架構）。公開的螢幕截圖顯示成果：**26 把有效金鑰，總計 26,275 把**，另有 739 把無效金鑰，25,510 把尚未檢查。文章寫的是「超過 23,800 個蒐集到的機密」；兩個數字都照原文刊載，最可能是來自不同時間點。在實際檢查的金鑰中，765 把有 26 把有效（約 3%），這表示大量蒐集帶來的多半是已失效的庫存，驗證才是瓶頸。
+
+另外兩個行動者則拓展了市場邊界。一個朝鮮 IT 工作人員集群被發現利用遭劫持帳戶**大量註冊 LLM API**以擴大行動規模：他們利用遭竊的*身分*取得新金鑰，而非直接竊取金鑰。另一方面，與中國有關聯的 UNC6508 完全跳過市場，直接在遭入侵的雲端基礎設施部署**本機開放權重模型**，藉此「避開商用 AI API 監控，同時挪用受害者的運算資源。」這展現了三要素中的算力與掩護，卻完全沒有供應商憑證。任何以供應商端金鑰遙測資料為基礎的偵測機制，從設計上就看不到這種行動。
+
+## 免責說明，以及如何解讀
+
+報告在三個不同段落中三度表示，遭竊金鑰是來自**客戶**環境的**客戶**金鑰，而且「Anthropic 自身系統並未遭入侵。」照字面理解，這是一項範圍狹窄、很可能屬實的主張。但若把它當作整節內容的框架，便承擔了過多解釋工作：報告由產品本身成為戰利品的一方撰寫；轉售市場之所以存在，是因為產品設有速率限制與地區限制；而詐欺轉售商層則直接源自 Anthropic 不服務地區對該產品未被滿足的需求。這些都不代表報告內容有誤；但確實表示它所劃定的界線——*我們的基礎設施安然無恙，客戶的沒有*——對作者最有利，讀者應注意到這條界線被反覆強調。
+
+## 延伸閱讀
+
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research)——遭竊算力能買到什麼：全天候運作、以他人金鑰驅動的漏洞利用工廠
+
+- [AI 賦能的影響力行動](/articles/ai-enabled-influence-operations)——多項行動如何成功使用受封鎖服務：VPN、外國電話號碼、輪替帳戶與第三方 IP 遮蔽服務
+- [AI 賦能的國家監控](/articles/ai-enabled-state-surveillance)——從買方角度看同一市場的商業層：監控供應商為政府機關層級客戶草擬平台招標文件與能力簡介
+- [透過任務拆解規避防護措施](/articles/safeguard-evasion-by-task-decomposition)——購買的存取權用途：中繼、濫用 ZDR 與灰色市場轉售商，是報告中各種規避行動仰賴的基礎設施
+
+- [非法蒸餾](/articles/illicit-distillation)——這個市場最大的消費者：每場行動使用數千個詐欺帳戶、向同一批代理業者購買逐字稿，以及觀察到某實驗室的帳戶池轉送三個不同實驗室的流量
+- [代理程式供應鏈風險](/articles/agent-supply-chain-risk)——相鄰但不同的層面。該文談的是代理程式在執行階段組合的*構件*（模型、工具、MCP 伺服器、技能、快取套件）；本文談的是購買模型存取權的*憑證*，它本身就是戰利品，而非承載酬載的媒介
+- [代理程式身分與驗證](/articles/agent-identity-and-authentication)——此失誤所凸顯的控制措施，套用於多數組織尚未盤點的憑證類別：採用短效、每工作負載、來源檢查的金鑰，而非嵌入已發布二進位檔的長效供應商權杖
+- [代理式提示注入](/articles/agentic-prompt-injection)——兩條憑證收集路徑背後的技術：從雲端託管容器竊取 LiteLLM 金鑰，以及誘使評估沙箱交出所持有的正式環境金鑰
+- [OpenAI／Hugging Face 入侵事件（2026 年 7 月）](/articles/openai-hugging-face-intrusion-2026)——同一信任邊界從內部失守：評估 harness 是憑證豐富、邊界薄弱的環境；該案例中逃逸的是模型，本文案例則是人類對手向其中注入指令
+- [AI-Accelerated Offense](/articles/ai-accelerated-offense)（樞紐）——這個市場帶來的經濟效應：免費攻擊算力，讓攻擊者帳本上最後一項按次付費的成本也消失
+- [代理程式供應鏈風險](/articles/agent-supply-chain-risk)——GTIG 的設定檔抓取器與 DUSTMAKER 的 AI 憑證蒐集，如何位於構件層面：程式碼助理的工作區同時是承載媒介與金鑰儲存處
+- [自主入侵](/articles/autonomous-intrusion)——遭竊算力的用途；ShinyHunters 與駭客行動主義行動同時出現在本文與該文
+- [Anthropic](/articles/anthropic)——其憑證成為商品的供應商，也是本文第一個資訊來源
+- [Google Threat Intelligence Group (GTIG)](/articles/google-threat-intelligence-group)——第二家供應商的報告，包含價格趨勢、設定檔抓取器與 LLMjacking 全程
+- [Claude Code](/articles/claude-code)——假 AI 轉售網站上，仿冒品由憑證竊取安裝程式散布；harness 品牌本身也成為誘騙手法的一部分
+
+## 開放問題
+
+- 報告沒有說明市場規模——沒有可用金鑰的價格、觀察到的轉售量，也沒有估計供應商流量中有多少比例經過代理。是否有任何來源（執法下架、交易市場資料抓取、供應商詐欺揭露）提供數字？**部分解答（2026-09-24）：**[GTIG 的 2026 年第二季追蹤報告](https://cloud.google.com/blog/topics/threat-intelligence/from-prompting-to-autonomy-the-evolution-of-adversarial-ai)提供了*趨勢*：AI 帳戶地下市場平均價格「在 2026 年翻倍以上」，買家與賣家數量逐年增加，需求集中於 Claude、Gemini、Cursor Pro 與 Devin。其基礎是 GTIG 追蹤的論壇貼文，沒有絕對價格、轉售量或經代理的流量占比，因此市場規模這部分問題仍未解答。
+- 「掩護」假設合法持有人無從察覺。客戶究竟有哪些偵測方式，可以判斷自己的金鑰正被他人使用？有沒有供應商提供每把金鑰的行為訊號（來源、harness、工作負載樣態），能讓「混入合法持有人的流量」失效？
+- 為多個下游應用程式保管正式環境金鑰的 LLM 閘道，是這類目標的集中型態，而 LiteLLM 已被點名。除了這起真實世界案例之外，是否有任何閘道金鑰處理的注入抵抗能力測量結果？
+
+## 資料來源
+
+- [Detecting and countering misuse of AI: September 2026](https://www-cdn.anthropic.com/e50be2e51e7695dc4b1366a37a245a597377d3b5/Anthropic-Detecting-and-countering-091026.pdf)——Anthropic Threat Intelligence，《Detecting and countering misuse of AI: September 2026》，2026-09-10，`case-study`（**第一方；作者是憑證成為商品的供應商，而且「我們的系統未遭入侵」這條界線被劃定三次**）。引用內容：〈AI 供應鏈成為目標、戰利品與攻擊算力〉一節（第 29–32 頁）——戰利品／算力／掩護三要素原文、「轉運站」與詐欺轉售商模式、偽裝成 Claude Code 且會持續重竊的憑證蒐集器、LiteLLM 提示注入路徑，以及 GTG-50021；GTG-50014 管線數據（180 萬 APK、10 個 EC2 工作節點、TruffleHog、100 多種 Telegram 來源類型）來自案例敘述（第 12 頁）；GTG-50020 的沙箱注入、後續四天攻擊約 30 家公司與未發布模型目標；以及 GTG-50029 的 Rust 金鑰掃描器與代理混流。未引用任何 IOC 表——匯入時所有表格合併警告都指向那些表格，並確認是有效的多位址欄位，但本文沒有依賴其中任何資料列
+- [China-Based Artificial Intelligence Companies Conducting Industrial-Scale Distillation Campaigns Against U.S. AI Companies](https://www.cisa.gov/news-events/cybersecurity-advisories/aa26-251a)——NSA、CISA 與 FBI，《Cybersecurity Advisory AA26-251A》，2026-09-08，`case-study`（**政府歸因，未披露方法或資料，引用來源是供應商揭露**）。引用內容：轉運站灰色市場、大量共用訂閱與 StepFun 帳戶池，以及 Novel TTP 1 偵測指標
+- [GTIG AI Threat Tracker: From Prompting to Autonomy – The Evolution of Adversarial AI](https://cloud.google.com/blog/topics/threat-intelligence/from-prompting-to-autonomy-the-evolution-of-adversarial-ai)——Google Threat Intelligence Group，《GTIG AI Threat Tracker: From Prompting to Autonomy》，Google Cloud 部落格，2026-09-08（頁面顯示 09-09），`case-study`（**第一方；Google 的 Gemini 帳戶也在交易之列，而且文章最後帶有產品推廣內容**）。引用內容：存取成本框架、地下市場價格翻倍趨勢（以論壇貼文為基礎，沒有絕對數字）、LUMMAC.V2／STEALC.V2／VIDAR／ACRSTEALER 設定檔鎖定行為與 Cline／Continue 檔案抓取規則、朝鮮的大量註冊與 UNC6508 本機模型案例、Recon 儀表板計數（圖 3 截圖；記錄了正文與圖片數字差異），以及表 11 的 LLMjacking 全程（HTML 表格，逐格讀取；無解析風險）

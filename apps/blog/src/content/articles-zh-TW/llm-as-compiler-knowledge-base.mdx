@@ -1,164 +1,356 @@
 ---
 date: 2026-04-10
-title: LLM-as-Compiler 知識庫
-description: "Karpathy 的架構：LLM 將原始文件逐步編譯成持久且互相連結的 wiki，以 4 階段 ingest→compile→query→lint pipeline 取代 RAG"
+title: LLM-as-Compiler Knowledge Base
+description: "Karpathy 的架構：LLM 將原始文件逐步編譯成持久、互相連結的 wiki，以四階段 ingest→compile→query→lint 流程取代 RAG——到 2026 年 7 月已工業化為「代理程式 wiki」（Cognition DeepWiki、Factory AutoWiki、LangChain OpenWiki、GBrain），採用相同的三層結構，但維護即時性各異；Muscle Memory（Google Cloud，2026 年 8 月）是第一個主張「編譯優於檢索」本身就是一種立場的外部來源，討論的是個人化記憶而非文件；Open Knowledge Format（Google Cloud，2026 年 6 月）則是第一個將此模式正式規範化以促進互通的規格，標準化容器——markdown、frontmatter、保留的 index.md/log.md——而來源追溯、矛盾處理與修剪則完全交由產出者負責"
 tag: Concept
 domain: agent-systems
 tags:
   - knowledge-management
   - llm-architecture
   - personal-knowledge-base
-readingTime: 13
-imageAlt: LLM-as-Compiler 知識庫插圖
+readingTime: 55
+imageAlt: LLM-as-Compiler Knowledge Base 插圖
 sources:
   - title: LLM Knowledge Bases
     url: https://academy.dair.ai/blog/llm-knowledge-bases-karpathy
+  - title: Who Maintains Agent Skills? A Longitudinal Study of Human-Governed,
+      AI-Assisted Skill Maintenance
+    url: https://arxiv.org/pdf/2609.05677
   - title: llm-wiki
     url: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
   - title: "An open-source spec for Codex orchestration: Symphony."
     url: https://openai.com/index/open-source-codex-orchestration-symphony/
   - title: The New Physics of Business — Garry Tan, Y Combinator
     url: https://www.youtube.com/watch?v=eBUyTS7SzV4
+  - title: Knowledge-Centric Self-Improvement
+    url: https://arxiv.org/pdf/2607.19592
+  - title: The State of Agent Wikis
+    url: https://x.com/mem0ai/status/2079585032587694582
+  - title: "Beyond RAG: Building Agentic Document Workflows with LlamaIndex"
+    url: https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view
+  - title: "Muscle Memory for Agents: Compile not Merely Retrieve"
+    url: https://arxiv.org/pdf/2608.08995
+  - title: Sidekick's continual learning loop
+    url: https://shopify.engineering/sidekicks-continual-learning-loop
+  - title: How the Open Knowledge Format can improve data sharing
+    url: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 ---
 export { default as heroImage } from "../assets/llm-as-compiler-knowledge-base.webp";
 
 ## 資料來源
 
 - [An open-source spec for Codex orchestration: Symphony.](https://openai.com/index/open-source-codex-orchestration-symphony/)
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view)
+- [How the Open Knowledge Format can improve data sharing](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing)
+- [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592)
 - [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
 - [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+- [Muscle Memory for Agents: Compile not Merely Retrieve](https://arxiv.org/pdf/2608.08995)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop)
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4)
+- [The State of Agent Wikis](https://x.com/mem0ai/status/2079585032587694582)
+- [Who Maintains Agent Skills? A Longitudinal Study of Human-Governed, AI-Assisted Skill Maintenance](https://arxiv.org/pdf/2609.05677)
 
 ## 摘要
 
-這是一種由 Andrej Karpathy 發起的架構模式，其中 LLM 扮演編譯器：讀取原始來源文件，逐步產生結構化、彼此連結的 markdown wiki。不同於依賴嵌入與向量資料庫的傳統 RAG 系統，這種方法使用 wiki 自身的索引檔案與 LLM 的 context window 進行檢索；在個人知識庫規模（約 100 篇文章、400K 字）下已經足夠。
+由 Andrej Karpathy 提出的架構模式，讓 LLM 扮演編譯器：讀取原始來源文件，逐步產出結構化、互相連結的 markdown wiki。不同於仰賴 embeddings 和向量資料庫的傳統 RAG 系統，此方法使用 wiki 自身的索引檔與 LLM 的 context window 來檢索；對個人知識庫規模（約 100 篇文章、約 400K 字）已足敷使用。
 
-## 詳情
+## 詳細說明
 
-### 四階段 Pipeline
+### 四階段流程
 
 系統以持續循環的方式運作：
 
-1. **Ingest** — 原始內容（透過 Obsidian Web Clipper 收集的網頁文章、論文、repo 筆記）以 markdown 檔案形式進入 `raw/` staging 目錄。
-2. **Compile** — LLM 讀取 `raw/`，建立索引檔案（所有文件的摘要）、概念文章（依主題整理，包含反向連結與交叉引用），以及衍生輸出（投影片、圖表、歸檔的查詢答案）。LLM 會自動維護概念之間的連結圖。
-3. **Query & Enhance** — 使用者在 Obsidian 中瀏覽 wiki、透過 Q&A agent 提出研究問題，或使用 CLI／網頁工具搜尋。關鍵在於，查詢產生的所有輸出都會**回存至 wiki**，因此每次探索都會累積價值。
-4. **Lint & Maintain** — LLM 稽核不一致之處、透過網路搜尋補足遺漏資訊、發現新的概念間連結，並提出後續問題。完成 lint 後，循環回到 compile。
+1. **匯入** — 原始內容（透過 Obsidian Web Clipper 擷取的網頁文章、論文、repo 筆記）以 markdown 檔案形式放入 `raw/` 暫存目錄。
+2. **編譯** — LLM 讀取 `raw/`，建立索引檔（所有文件的摘要）、概念文章（依主題整理，含反向連結與交叉參照），以及衍生輸出（投影片、圖表、歸檔的查詢答案）。LLM 會自動維護概念之間的連結圖。
+3. **查詢與增補** — 使用者可在 Obsidian 瀏覽 wiki、透過問答代理程式提出研究問題，或使用 CLI／網頁工具搜尋。關鍵在於，查詢產生的所有輸出都會**歸檔回 wiki**，因此每次探索都會累積增益。
+4. **檢查與維護** — LLM 稽核不一致之處、透過網路搜尋補足缺漏資訊、找出新的概念間連結，並建議後續問題。檢查完成後，循環回到編譯階段。
 
 ### 關鍵設計決策
 
-- **不使用向量資料庫** — 在個人規模下，索引檔案加上 LLM context window 已足以進行檢索，因此可消除 embedding pipeline 的複雜度。規模更大時，可使用像 [qmd](https://github.com/tobi/qmd) 這樣的本機搜尋引擎（結合 BM25／向量搜尋與 LLM 重新排序，可作為 CLI 與 MCP server）來補強索引。
-- **增量編譯** — 新的原始文件會整合進現有 wiki 結構；已建立索引的文件絕不重新處理。
-- **探索永遠會累積** — 每個查詢答案、圖表與衍生產物都會回存至 wiki。這是它相較於 RAG 的核心差異：知識只需編譯一次並持續更新，而不是每次查詢都重新推導。
-- **由 LLM 負責寫作** — 人類很少直接編輯 wiki；LLM 負責編譯、連結與維護。人類的工作是尋找來源、探索，以及提出正確問題。
-- **Wiki 是持久且會複利的產物** — 交叉引用已經存在、矛盾已被標記、綜合結果已反映所有讀過的內容。每加入一個來源、每提出一個問題，wiki 都會更加豐富。
+- **不使用向量資料庫** — 個人規模下，索引檔加上 LLM context window 已足以檢索。這免去 embedding 流程的複雜度。規模更大時，可用像 [qmd](https://github.com/tobi/qmd) 這類本機搜尋引擎補充索引（混合 BM25／向量搜尋並由 LLM 重新排序，可作為 CLI 和 MCP server 使用）。
+- **增量編譯** — 新的原始文件會整合進現有 wiki 結構；已建立索引的文件不會重新處理。
+- **探索一律累積增益** — 每個查詢答案、圖表和衍生產物都會歸檔回 wiki。這是它相較於 RAG 的核心差異：知識只需編譯一次，之後持續更新，而不是每次查詢都重新推導。
+- **由 LLM 撰寫** — 人類很少直接編輯 wiki；LLM 負責編譯、連結與維護。人類的工作是蒐集來源、探索，以及提出正確問題。
+- **Wiki 是持久且持續累積的產物** — 交叉參照已經建立，矛盾已經標示，綜整也已反映所有讀過的內容。每新增一個來源、每提出一個問題，wiki 就更豐富。
 
-### 三層架構（來自 Karpathy 的 Gist）
+### 三層架構（取自 Karpathy 的 Gist）
 
 Karpathy 的原始設計文件明確說明了這套架構：
 
-1. **Raw sources** — 經過策展且不可變的來源文件（文章、論文、圖片、資料）。LLM 會讀取但不修改它們，這是事實來源。
-2. **The wiki** — LLM 產生的 markdown 檔案：摘要、實體頁面、概念頁面、比較與綜合整理。LLM 完全負責這一層：建立、更新、交叉引用並維持一致性；人類則閱讀它。
-3. **The schema** — 設定文件（CLAUDE.md／AGENTS.md），告訴 LLM wiki 的結構、應遵循的慣例，以及要執行的工作流程。人類與 LLM 會隨時間共同演進這套 schema。
+1. **原始來源** — 經過策選且不可變的來源文件（文章、論文、圖片、資料）。LLM 會讀取，但絕不修改。這是事實來源。
+2. **Wiki** — LLM 產生的 markdown 檔案：摘要、實體頁面、概念頁面、比較與綜整。此層完全由 LLM 管理——建立、更新、交叉參照並維持一致性。人類負責閱讀。
+3. **Schema** — 一份設定文件（CLAUDE.md／AGENTS.md），告訴 LLM wiki 的結構、應遵守的慣例，以及要執行的工作流程。人類與 LLM 會隨時間共同演進這份文件。
 
 ### 索引與導覽
 
-兩個特殊檔案有助於在大規模 wiki 中導覽：
+兩個特殊檔案有助於大規模導覽 wiki：
 
-- **index.md** — 以內容為導向的目錄，列出每個頁面的一行摘要，並按類別整理。LLM 回答查詢時會先讀取它，再深入相關頁面。在中等規模（約 100 個來源、數百個頁面）下運作良好。
-- **log.md** — 按時間排列、只能追加的操作紀錄（匯入、查詢、lint pass）。如果使用一致的前綴（例如 `## [2026-04-02] ingest | Article Title`），就能用 unix 工具解析。
+- **index.md** — 以內容為主的目錄，列出每個頁面及一行摘要，並依類別整理。LLM 回答查詢時會先讀取此檔，再深入閱讀相關頁面。在中等規模（約 100 個來源、數百個頁面）下運作良好。
+- **log.md** — 依時間排序、只追加不修改的操作紀錄（匯入、查詢、lint 執行）。若條目使用一致的前綴（例如 `## [2026-04-02] ingest | Article Title`），即可用 unix 工具解析。
 
 ### 使用情境
 
-這種模式適用範圍廣泛：
-- **個人**：目標、健康、心理學——歸檔日誌、文章與 podcast 筆記
-- **研究**：用數週／數月閱讀論文，建立具備演進中論點的完整 wiki
-- **閱讀書籍**：按章節建立伴讀 wiki，整理角色、主題與情節線索（像個人的粉絲 wiki）
-- **企業／團隊**：由 Slack 討論串、會議逐字稿與客戶通話餵入內部 wiki，再由人類審查更新
-- **任何知識累積**：競爭分析、盡職調查、旅程規劃、課程筆記
+此模式適用範圍廣泛：
+- **個人**：目標、健康、心理學——歸檔日誌、文章、Podcast 筆記
+- **研究**：數週或數月持續閱讀論文，建立具有演進中論點的完整 wiki
+- **閱讀書籍**：逐章建立陪讀 wiki，整理角色、主題、情節線索（如個人粉絲 wiki）
+- **企業／團隊**：以 Slack 討論串、會議逐字稿、客戶通話為內容來源，並由人類審閱更新的內部 wiki
+- **任何知識累積**：競品分析、盡職調查、旅行規劃、課程筆記
 
-### 為什麼有效
+### 為何有效
 
-知識庫的瓶頸不是閱讀或思考，而是簿記：更新交叉引用、保持摘要最新、記錄矛盾，以及維持數十個頁面之間的一致性。人類會放棄 wiki，因為維護負擔增長得比價值更快。LLM 不會感到厭倦、不會忘記更新交叉引用，還能一次處理 15 個檔案。
+知識庫的瓶頸不在閱讀或思考，而在帳務整理：更新交叉參照、讓摘要保持最新、記下矛盾，以及維持數十個頁面的一致性。人們會放棄 wiki，因為維護負擔的增長速度超過其價值。LLM 不會厭倦、不會忘記更新交叉參照，也能一次處理 15 個檔案。
 
 ### 思想脈絡
 
-Karpathy 將這套方法連結到 Vannevar Bush 的 Memex（1945）——一個在文件之間建立聯想路徑的個人策展知識儲存庫。Bush 的願景比後來的網路更接近這種模式：私有、持續策展，且文件之間的連結與文件本身同樣有價值。Bush 無法解決的部分，是誰來維護它；這部分由 LLM 負責。
+Karpathy 將此連結到 Vannevar Bush 的 Memex（1945）——一種個人策選的知識儲存庫，文件之間以聯想式路徑相連。Bush 的願景更接近這套模式，而非後來的網路：私人、主動策選，文件間的連結與文件本身同樣有價值。Bush 無法解決的部分，是由誰來維護。LLM 負責處理這件事。
 
 ### 變體
 
-Elvis Saravia 描述了一種自動化匯入的變體：經過調整的 Skill agent 每日策展研究論文，使用 [qmd CLI tool](https://github.com/tobi/qmd) 為它們建立索引，再將已索引的知識庫餵給以 MCP tools 建構的互動式 artifact generator。這會在數百篇論文之間產生可探索的互動式視覺化。
+Elvis Saravia 描述了一種自動化匯入的變體：經調校的 Skill 代理程式每天策選研究論文，以 [qmd CLI 工具](https://github.com/tobi/qmd)建立索引，再透過 MCP 工具把索引後的知識庫送進互動式產物產生器。它能跨數百篇論文產出可探索的互動視覺化。
 
 ### 未來方向
 
-Karpathy 提到，可以使用 wiki 產生合成訓練資料，並對 LLM 進行 fine-tune，讓它在權重中「知道」這些資料——將個人知識庫轉變為個人化模型。
+Karpathy 提到，可用 wiki 產生合成訓練資料並微調 LLM，讓模型在權重中「知道」這些資料——將個人知識庫轉成個人化模型。
 
-### 公司大腦：組織規模的模式（Garry Tan 的 GBrain）
+**這個想法的下游部分如今已有一個正式環境實例。** [Shopify 的 Sidekick 帳戶](https://shopify.engineering/sidekicks-continual-learning-loop)（Shopify Engineering，2026-08-05，`case-study`，第一方且尚未重複驗證）將本文的編譯論點延伸到參數，而不是 markdown：凍結的前沿模型 *「沒有機制將生產環境教會它的事內化。相反地，改進累積在周遭離散的產物中：提示編輯、檢索範例、路由規則與 harness 程式碼」*——他們的解法是 *「持續學習循環，將生產經驗壓縮到模型權重的連續空間中。」* 這與本文所依據的「不可變來源 → 編譯 → 持久產物」邊界相同，但輸出層資訊損失更大、更難檢視，也完全無法引用來源。它也補上了未來方向原先欠缺的數字：**領域微調要累積多少編譯素材才開始值得投入。** 他們的蒸餾曲線從 13k 條軌跡（評審分數 61.5）升至 61k（73.5），在 26k 到 30k 間超越現行生產系統，並僅在最高點達到前沿模型同等水準——完整曲線、座標軸標籤與同等水準的限制說明，見 [Agent Quality Flywheel](/articles/agent-quality-flywheel)。
 
-這套架構在野外最突出的姊妹版本（2026 年 7 月，`practitioner-opinion`）是 [Garry Tan](/articles/garry-tan) 的**公司大腦**——他採 MIT 授權的開源 **GBrain**，「實際上就是 agents 的 Postgres」。他的表述是**「圖書館加上圖書管理員」**：組織的完整紀錄（電子郵件、會議、決策及其推理、事後檢討）是圖書館，而承擔關鍵作用的是*圖書管理員*——檢索層會依每項任務決定哪些「三本書」要放進 agent 的 context（他以工作記憶作比喻：agent 能容納約 1M tokens ≈ 三本 Harry Potter，相對於人類的 7±2；「決定你的 agents 是天才還是金魚的問題，是誰決定桌上打開哪三本書」）。他的個人實例約有 220,000 頁，主要由 agents 從 20 年的電子郵件、會議與筆記編譯而成。
+兩項差異限定了這個模式能移植到 wiki 的程度。編譯輸入是**經修復的生產軌跡**，而非從文件生成的合成文字，因此 Karpathy 模式的關鍵生成步驟正是此來源略過的部分。編譯的內容是**行為**（如何撰寫正確的 GraphQL 查詢），而非**知識**（語料庫中哪些事實為真）——本知識庫在 [Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) 的分析中清楚區分了兩者，而權重會將其混為一談。微調後的模型無法指出某項主張來自哪個來源、無法接受 lint 檢查，也無法標示某項主張已被取代；這正是下文檢索反例所談引用粒度債務的極端形式。
 
-Tan 預先回應了「這不就只是 RAG 嗎」的質疑，方式與本頁完全一致——「retrieval 是基本原語，就像 Postgres 只是 B-trees……Retrieval 很容易。真正值得檢索的內容才是產品。」值得從他的說法保留的是**衛生準則**，這與本 vault 自身的設計獨立趨同：
+### 代理程式 wiki 版圖：三個月內的四種實作（2026 年 7 月）
 
-| Tan 的失效模式／處方 | 本 vault 的機制 |
+一份業者調查（mem0 的 *In Context* 第 17 期，〈The State of Agent Wikis〉，2026-07-21，`practitioner-opinion`——利益衝突：mem0 銷售其結尾段落所倡議的使用者記憶層）為此模式命名——**代理程式 wiki**——並首次描繪其版圖：自 2026 年 4 月的 gist 發布後約三個月內，四個團隊針對四種不同語料庫推出了相同的三層結構（不可變來源；模型撰寫的 markdown wiki；schema 檔案，「通常是 CLAUDE.md 或 AGENTS.md」）。調查對此趨同的解讀是：「四個團隊解決四種不同問題，卻採用了相同結構。這種一致性是結構正確的有力證據。」
+
+| 系統 | 語料庫 | 即時性 | 為誰而寫 |
+|---|---|---|---|
+| **DeepWiki**（Cognition） | 任意公開 GitHub repo；最大預先索引者超過 50K（將 URL 中的 github.com 換成 deepwiki.com） | 重新建立索引；為 Devin 提供依據 | 代理程式，以及瀏覽內容的人類 |
+| **AutoWiki**（Factory） | 你的組織 repo | 每次 push 都由 CI 更新 | 工程師與 Droids 一起使用 |
+| **OpenWiki / Brains**（LangChain） | repo（Code Brain）＋ Gmail、Notion、git、X、HN（Personal Brain） | 重新執行以更新 | 「給 LLM 的上下文，不是給人看的文章」 |
+| **GBrain**（Garry Tan） | 個人來源 | 手動或排程執行 | 個人與其代理程式 |
+
+*（表格取自調查的矩陣圖。調查正文將最後一欄一概簡化為「wiki 的讀者是模型」；但矩陣本身指出四個系統中有三個並非如此——只有 OpenWiki 專供模型使用。）*
+
+各實作相較於 gist 多出的內容：
+
+- **DeepWiki：wiki 是代理程式基礎設施，而非文件。**「wiki 不是產品。wiki 是代理程式的檢索基礎設施」——Devin 將 DeepWiki 用作程式碼搜尋下方的編譯層。這是 [Repository Exploration Subagent](/articles/repository-exploration-subagent) 在查詢時探索器的匯入時對應方案：兩者都將 repo 依據與問題解決分離，一者預先為每個 repo 計算所有代理程式共用的產物，另一者則在一次性視窗中逐個任務搜尋。
+- **AutoWiki：將維護移入基礎設施。**把文件當作建置產物——`/install-wiki` 會寫入 CI 工作流程，在每次 push 到預設分支時重新產生 wiki。生成分兩階段（先結構掃描 README／manifest／CI 設定／入口點，再語意掃描路由／端點／服務類別／schema／feature flag），並分派給專門代理程式，因此不會由單一代理程式負責記錄整個大型 repo。參閱 [Code as Source of Truth](/articles/code-as-source-of-truth)，了解這如何與將真實性檢查納入 repo 相結合。
+- **OpenWiki：從 repo 跨向一切資訊。**Personal Brain 將 Gmail、Notion、git、X 和 Hacker News 編譯成一個本機 markdown wiki——記錄「你的工作」，而不是記錄某個 repository。
+- **GBrain：證明最低限度基礎設施也行得通。**不需向量資料庫，也不需服務——只要 git 裡的 markdown、一份 schema 檔案，以及自動維護的連結圖。（調查將 GBrain 歸為*個人規模*代表；Tan 本人的演講則將它呈現為公司大腦，並以約 220K 頁的個人實例為展示——兩者對產物的描述一致，對目標規模的看法不同。完整分析見下文。）
+
+調查所說的「成熟度指標」，是各系統對待過時內容的方式：Factory 將過時視為建置問題，並在 CI 中解決；其餘三者——以及本知識庫——內容新舊完全取決於上次有人執行指令的時間。
+
+**調查列出的四項限制**值得記錄，因為本 wiki 深受其影響：(1) **規模**——gist 約 100 個來源後就必須加入搜尋（DeepWiki 在 50K 個以上 repo 上，會為每個 wiki 提供搜尋）；(2) **編譯時資訊損失**——「早期摘要可能刪掉來源中的細節。之後的每個答案都會帶有這項錯誤。直接從原始部分檢索則沒有這個問題。你以重複工作的成本換取資料遺失的風險」——這是本知識庫以解析警告紀律管理的架構風險，也正是 [Layerwise Omission Attribution](/articles/layerwise-omission-attribution) 示範如何用 canary taps 計算的 L2-condensation 遺漏；(3) **過時**——「錯誤的 wiki 比沒有 wiki 更糟。錯誤資訊看起來就像正確資訊」；(4) **成本**——花費 tokens 編譯沒人讀的頁面，並對沒有變動的頁面執行 lint。
+
+### Wiki 不等於記憶（業者劃定的邊界）
+
+調查結尾提出的區分——帶有自身利益考量，但確實成立：**語料知識**（「這些材料包含什麼」：範圍限於語料庫，透過匯入累積）與**使用者／經驗記憶**（「這個人做過什麼決定、偏好什麼、嘗試過什麼」：範圍限於特定身分，透過互動累積，必須處理個人層級的矛盾、過時、來源追溯與刪除）。Wiki 能處理前者，不能處理後者：「你的 Gmail wiki 會告訴代理程式 Gmail 裡有什麼，但不會告訴它你週二在對話中改變了決定，也不會告訴它某種方法已經讓你失敗過。」結語則是：「錯誤不在於選 wiki，而在於以為編譯了語料庫，就解決了記憶問題。」
+
+應將這個邊界的劃分歸功於作者——mem0 銷售記憶層，因此界線剛好畫在其產品起點——但本知識庫自身的堆疊已體現這項區分：此 wiki 是語料知識，harness 的自動擷取記憶目錄（[Agent Context Files](/articles/agent-context-files) 所述系統擷取記憶通道）是互動範圍的儲存層，而 [知識層意見不合時：Context Files 與 Memory，以及編譯時的來源衝突](/articles/conflict-resolution-in-agent-knowledge-substrates)則裁定兩者衝突時如何處理。
+
+### 此模式獲得規格，規格標準化的是容器，而非策選方式（Google Cloud，2026 年 6 月）
+
+上方的版圖包含四個彼此相似、但不是透過協議而是各自趨同的客製實作。[**Open Knowledge Format**](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing)（Sam McVeety 與 Amir Hormati，Google Cloud Data Cloud，2026-06-12，`vendor-claim`）是第一個試圖讓它們互通的格式，並在第二段明確交代自身脈絡：一份「將 LLM-wiki 模式正式規範化為可攜、可互通格式」的開放規格，直接連結到 [Karpathy 的](/articles/andrej-karpathy) gist，也引用了本文〈為何有效〉一節所依據的同一句帳務整理之言。它提出的問題，正是上方調查尚未解決的問題——「每個實例都是客製的……wiki 中編碼的知識仍被隔離在原始團隊內。」
+
+**OKF v0.1 規範的是容器，而這正是本知識庫採用的容器。**一個 bundle 是由 markdown 檔案構成的目錄，每個概念一個檔案，以**路徑作為身分識別**；每個檔案帶有簡短的 YAML frontmatter（`type`、`title`、`description`、`resource`、`tags`、`timestamp`），下接 markdown 本文；概念之間以一般 markdown 連結互連，讓目錄成為「關係圖，其豐富程度超越檔案系統所暗示的父子連結」。兩個保留檔名是 **`index.md`**（代理程式瀏覽階層時逐步揭露內容）與 **`log.md`**（變更的時間序列紀錄）——與 Karpathy 的 gist 命名的兩個特殊檔案相同，也正是本知識庫使用的兩個檔案。趨同之處在於**檔案配置**，不只是理念；這比調查所說四方在結構上的一致性更強。
+
+**而它只要求一個欄位。**三項原則中的第一項如此表述：「OKF 對每個概念只要求一件事：`type` 欄位。其他一切……都交由產出者決定。此規格定義互通介面，而非內容模型。」（另外兩項是產出者／使用者彼此獨立——人類撰寫的 bundle 可供代理程式使用，匯出流程產生的 bundle 可在視覺化工具中瀏覽；以及格式而非平台：「讀取、寫入或提供服務時，永遠不需要專有帳戶或 SDK。」）
+
+**此介面與本文所建立的一切之間的落差，就是本次發現。**將 OKF 的 frontmatter 與本知識庫相比：
+
+| OKF v0.1 欄位 | 本知識庫的對應項目 | 規格沒有欄位可表示的內容 |
+|---|---|---|
+| `type` *（唯一必填欄位）* | `type: entity`／`kind:`／`domain:` | — |
+| `title`、`description`、`tags` | `title`、`summary:`、`tags` | — |
+| `resource` | 索引列中的來源 URL | — |
+| `timestamp` *（單一欄位）* | `created:` **＋** `updated:` | 頁面撰寫時間與上次查證時間的差異 |
+| — | `sources:` ＋ `evidence:` 等級 | 來源追溯，以及來源間的信任權重 |
+| — | 取代標記、暫存矛盾 | 兩個來源意見不合時該怎麼處理 |
+| — | `lint.py`、修剪流程 | 任何策選機制 |
+
+本文記錄的所有衛生機制——[Tan 的](/articles/garry-tan)來源追溯／矛盾處理／修剪準則、Wang 等人的依 ID 與引文引用協定及 `applies_when` 範圍條件，以及本知識庫本身的做法——都在 OKF 的介面**之外**，而且三者各自獨立發展出來。完全符合規格的 bundle，仍可完全沒有來源追溯、矛盾處理或修剪紀律。規格方會回答說這是刻意為之：內容模型是產出者的事，標準化它反而會扼殺採用。這樣的說法自有道理，但有一項後果應該明白指出——**符合規格不代表品質良好**；而這會在產出者／使用者獨立的**使用者**一端造成問題。能解析任意 bundle 的使用者，無從分辨經過策選的資料與原始傾倒資料。Tan 的說法仍適用於此格式：「沒人策選的大腦，只是搜尋功能很棒的垃圾堆。」
+
+**單一的 `timestamp:` 欄位是最鮮明的例子，而本知識庫已經為此付出代價。**上方調查列出的第三項限制是過時——「錯誤的 wiki 比沒有 wiki 更糟。錯誤資訊看起來就像正確資訊」——關鍵判斷依據不是文件何時撰寫，而是上次與來源核對的時間。單一時間戳無法表達這點，而且這是**最難維持準確**的欄位：本知識庫在 2026-08-14 執行 lint 時，發現 **338 個頁面中有 126 個**的 `updated:` 已與實際最後編輯時間不一致，因此 `lint.py` 現在有一項 `[fmdate]` 檢查，會讀取 git 而非 frontmatter。格式只提供一個時間戳，等於提供一個會腐壞的欄位，卻沒有提供能揭露腐壞的欄位。
+
+**跨業者的主張，目前仍只有一個業者採用 v0.1。**隨規格一同推出的全部內容都來自 Google：BigQuery 資料擴充代理程式（巡覽資料集、為每個資料表擬出概念頁面，再用第二個 LLM 階段補上引文與連結路徑）、獨立的靜態 HTML 視覺化工具、用 Google 公開資料集建立的三個範例 bundle，以及新增 OKF 匯入功能的 Google Cloud Knowledge Catalog。該文章自訂的標準是正確的——「知識格式的價值取決於有多少參與者使用它，而非誰擁有它」——依此標準，目前還沒有任何成果得到證實；參考實作也明確標示為「概念驗證」。[Agent Context Files](/articles/agent-context-files) 記錄了符合標準的實例：Google 的 Genkit 在四種語言 SDK 中照原樣實作 Anthropic 的 `SKILL.md`，由另一家業者採用其規格。Google 在那裡是實作者，在此處是制定者；只有前者能作為證據。
+
+**治理部分不在範圍內，但使用情境仍然相關。**下方的檢索反例將治理列為三大支柱之一——「把語料塞進系統，也等於塞進請求者不應能看見的文件」，而且「『模型承諾忽略』不構成界線。」OKF 宣稱的優點是可攜性：可打包成 tarball、放在任何 git repo 中、掛載於任何檔案系統。對照它主張的語料——資料表 schema、指標定義、事故手冊、連結路徑、棄用通知——「就只是檔案」同時是 bundle 可攜且無法管控的原因。該文章沒有聲稱提供存取模型，也沒有假裝有；這裡值得記錄它，只因為它主張的正是企業內部使用情境。
+
+**這是證據基礎的特性，而不是論點本身的特性**：兩個月內，Google Cloud 已有第二項支持編譯而非檢索的產物。[Muscle Memory](https://arxiv.org/pdf/2608.08995)（Google Cloud FDE，2026-08-10）主張個人化記憶應編譯而非檢索；OKF（Google Cloud Data Cloud，2026-06-12）則將編譯產物的格式標準化。不同團隊、同一雇主、相同的架構押注——因此，語料庫中最近兩個外部支持本文核心主張的來源，並不像來源數量所暗示的那樣彼此獨立。
+
+### Company Brains：組織規模下的模式（Garry Tan 的 GBrain）
+
+此架構最知名的實際應用案例（2026 年 7 月，`practitioner-opinion`）：[Garry Tan](/articles/garry-tan) 的**公司大腦**——採 MIT 授權的開源專案 **GBrain**，「實際上就是給代理程式用的 Postgres」。他的說法是**「圖書館加上圖書管理員」**：組織的完整紀錄（電子郵件、會議、決策及其推理、事後檢討）構成圖書館；承重的關鍵元件則是*圖書管理員*——檢索層依任務決定哪「三本書」要放進代理程式的上下文（他的工作記憶比喻是：代理程式約能持有 1M 個 tokens，相當於三本《Harry Potter》，而人類是 7±2；「決定你的代理程式是天才還是金魚的問題，是誰決定桌上攤開哪三本書。」）。他的個人實例約有 220,000 頁，大部分由他的代理程式從 20 年的電子郵件、會議與筆記編纂而成。
+
+Tan 如同本文一樣，預先回應「這不就是 RAG 嗎」的質疑——「檢索是基本操作，就像 Postgres 說穿了只是 B-trees……檢索很簡單。值得被檢索的內容才是產品。」他的說法中值得保留的是**衛生準則**，這是與本知識庫設計各自趨同的獨立案例：
+
+| Tan 提出的失敗模式／做法 | 本知識庫的機制 |
 |---|---|
-| 「每個事實都要有 Provenance」 | `evidence:` 分級＋逐來源引用（[Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) 證明，在對抗性情境下，不綁定來源的內容信任是不健全的） |
-| 「新資訊與舊資訊衝突時進行矛盾檢查」 | 明確標記矛盾的 compile rule |
-| 「一位人類加 agent 組成的圖書管理員，其實際工作是修剪」 | lint pass |
-| 「沒有人策展的大腦會變成搜尋功能很棒的垃圾場」 | 這正是 compile／lint 存在的原因——未經策展的儲存庫進行檢索時，會「帶著十足信心」呈現過時事實 |
+| 「每項事實都要有來源追溯」 | `evidence:` 等級＋逐來源引文（[Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) 證明在對抗情境下，沒有來源綁定的內容信任機制並不健全） |
+| 「新資訊與舊資訊衝突時要檢查矛盾」 | 編譯規則：明確標示矛盾 |
+| 「圖書管理員，也就是人與代理程式，真正的工作是修剪」 | lint 流程 |
+| 「沒人策選的大腦會變成搜尋功能很棒的垃圾堆」 | 說明為何需要 compile／lint——從未策選的儲存庫檢索，會「充滿信心」地呈現過時事實 |
 
-他的總結——「把大腦當成 production infrastructure，它就會複利；把它當成傾倒場，你會得到一個非常有自信、卻以無人能追溯的方式犯錯的 agent」——是本頁「探索永遠會累積」的作業版本，並明確呈現失效分支。他的經濟觀點也值得記錄：「模型品質是租來的，但如果你建立自己的大腦，你就擁有那個大腦」（[Compounding Data Moat](/articles/compounding-data-moat)：知識儲存庫層級的資料護城河）。
+他的總結——「把大腦當成生產基礎設施，就會不斷累積增益；把它當成垃圾場，就會得到一個非常有自信、但錯得無從追查的代理程式」——是本文「探索一律累積增益」的實務版本，並明確點出失敗情境。他的經濟觀點也值得記錄：「模型品質是租來的，但如果你建立自己的大腦，你就擁有那個大腦」（從知識儲存庫的角度看 [Compounding Data Moat](/articles/compounding-data-moat)）。
 
-### 作為編譯來源的 Spec（Symphony 的跨語言 Fuzz）
+### 首個外部實證支持（Caltech，2026 年 7 月）
 
-目前在野外最具體的 LLM-as-compiler 延伸：OpenAI 的 [Symphony](/articles/symphony) 團隊將 `SPEC.md` 視為*來源*，請 Codex 以 **Elixir、TypeScript、Go、Rust、Java 與 Python** 實作。他們接著利用各實作之間的差異找出 spec 中的模糊處，並加以簡化。
+直到現在，本文的論點都建立在 Karpathy 的設計文件、一場實務演講與本知識庫自身的實作之上——頂多算是自我參照的證據。[Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement)（Wang 等人，Caltech，arXiv 2607.19592，`empirical`）首次對其核心假設進行受控測量：**經策選、編譯的知識產物，其價值高於產生它的系統。**
 
-這項技術真正新穎之處在於：
+這項實驗不是 wiki——代理程式是基準測試解題者，儲存內容由機器讀取——但架構邊界完全相同。原始經驗不可變且不會編輯；編譯步驟將其轉為具有範圍、以證據為根據的主張；只有編譯產物會持續保存。測量結果是：凍結於第 10 代的知識 bundle，與產生它的任務及模型家族分離後，在**全部八個供體—接收者配對**中都提升了未見任務上的零樣本解題率（Polyglot 從 8.3% 升至 20.0%；ARC-AGI-1 在最佳配對中從 23.3% 升至 43.3%）；而讀取該 bundle 的通用代理程式在五個基準測試上勝過 DGM、HyperAgents、GEPA 和 OpenEvolve，花費也較低。「探索一律累積增益」如今有了具體數字，且這項研究的作者從未聽過本知識庫。
 
-- **LLM 就是編譯器**（markdown → N 種目標語言中的可運作 orchestrator）。
-- **多個實作是 spec-fuzzing 訊號**——凡是實作出現差異的地方，都代表 spec 的約束不足。這類似於編譯器驗證中的 differential fuzzing，但來源語言變成英文／markdown。
-- **Spec 才是持久產物**，而非編譯輸出。OpenAI 明確表示，他們不打算將 Symphony 維護為獨立產品——它是一個參考實作，使用者可以讓自己的 coding agent 依此執行。
+值得保留的是，這是對相同**衛生準則**的第二個獨立趨同案例——這次來自以機器消費為最佳化目標的團隊，因此較難將這項一致性歸因於共同偏好：
 
-對本 vault 的啟示：
+| 他們的協定規則 | 本知識庫的機制 |
+|---|---|
+| 蒸餾是「篩選步驟，而非一般摘要步驟」——保留可行動且範圍明確的主張，刪除未指出適用條件的建議 | 編譯規則禁止填充內容；粒度評分準則 |
+| 每則 `Insight` 都帶有 `applies_when`／`does_not_apply_when` | 文章文字中的範圍條件；被取代時新增標示，不覆寫原文的規則 |
+| 主張必須以 ID 引用先前貼文，並引用至少 40 個逐字的佐證字元 | 逐來源引文與 `evidence:` 等級 |
+| `anti_meta_self_check`——一個 schema 欄位，用來剔除無法證明其原始做法並非泛泛而談的貼文 | 薄弱文章檢查；「內容密集、精確、不填充」 |
+| 檢索閘門會拒絕尚未先為該任務讀取儲存內容的貼文 | 先讀索引 |
+| 將互相矛盾的主張連同雙方證據保留為 `FALSIFIED`／`UNTRIED`，而不是取平均以形成共識 | 明確標示矛盾；[知識層意見不合時：Context Files 與 Memory，以及編譯時的來源衝突](/articles/conflict-resolution-in-agent-knowledge-substrates) |
+| 將每項任務與跨任務的 bundle 輸入分開，以免全域推測污染局部策選結果 | 概念頁面與衍生查詢輸出分開 |
 
-- `_system/compiler-prompt.md` 在結構上類似 Symphony 的 `SPEC.md`——兩者都定義 agent 應如何將一類產物（原始文件／Linear tickets）轉換為另一類產物（wiki 文章／運作中的 orchestrator）。
-- 對知識庫而言，透過多語言進行 spec-fuzzing 是過度設計，但這個想法可以泛化：如果 `compiler-prompt.md` 由不同模型家族（Claude、GPT、本機模型）執行時產生意義不同的 wiki，差異就會指出規格不足之處。
-- **Schema 層**（Karpathy 的用語）與 `SPEC.md`／`WORKFLOW.md` 屬於同一類產物——由 repo 版本控管、定義 agent 行為的 markdown。參見 [Claude Code Best Practices](/articles/claude-code-best-practices)（`CLAUDE.md`）、[Hermes Agent](/articles/hermes-agent)（`AGENTS.md`／`SOUL.md`）、[Symphony](/articles/symphony)（`WORKFLOW.md`）的交叉連結。
+他們對最後一列重要性的說法，是此語料中最精準的表述：「當證據確實互相矛盾時，協定的工作是讓未來的代理程式看得清楚這項衝突，而不是把它平均掉。」
+
+有一項發現與此處的一種直覺相反。他們的知識移轉 adapter 將**每個欄位限制在 0 至 3 個項目**，並指示在先驗知識關聯薄弱時回傳簡短或空白清單；這項調整是在他們觀察到移轉固定數量內容會讓接收者記憶「噪音過多，甚至造成傷害」之後加入的。編譯的知識並非越多越好；必須依當下任務篩選要交付的內容。
+
+### 從記憶角度闡述此立場，以及它沒有測量什麼（Google Cloud，2026 年 8 月）
+
+[*Muscle Memory for Agents: Compile not Merely Retrieve*](https://arxiv.org/pdf/2608.08995)（Pouya Ghiasnezhad Omran、Soujanya Lanka、Qin Zhang 與 Tanya Dixit，Google Cloud FDE，arXiv 2608.08995，2026-08-10，`empirical`）是第一個**明確將本文核心主張作為自身論點**的外部來源。[Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement) 支持了底層假設，卻沒有如此定位；這篇論文則在摘要第一句點名反對的做法：
+
+> 「LLM 代理程式的記憶已收斂為單一架構模式：將經驗存成文字、embeddings、反思或規則；推論時再行檢索；交由通用協調器判斷如何處理。本文主張，這種模式不應作為個人化功能的預設方案。」
+
+語料不同——研究從 250 段合成多輪對話中挖掘反覆出現的*使用者意圖*，將其編譯成可執行的 Python「迷你代理程式」，再由路由器分派；而不是把文件編譯成供人閱讀的 wiki。架構則相同：不可變的原始層、產出經測試產物的編譯步驟，以及工作縮減為選取產物、而非解讀片段的執行階段。其四階段流程（Harvest → Analyze → Augment → Evaluate）逐階段對應本知識庫的 ingest → compile → query → lint 循環。它的三項原則，是將本文的設計決策重新表述為一種立場：**P1 編譯優於檢索**（「檢索適合詮釋依賴當下請求的一次性事實；編譯適合反覆執行的程序，因為程序本身的詮釋才是應該快取的部分」）、**P2 專家模型優於通才模型**、**P3 部署前先測試**。
+
+**它跨越了 mem0 劃下的邊界，這是對本文最重要的貢獻。**上方「wiki 不等於記憶」一節將**語料知識**與**使用者／經驗記憶**分開，並將編譯歸於前者。這篇論文把編譯主張延伸到後者，並主張同樣有效——因此編譯／檢索軸與語料／使用者軸是**正交關係**，而非彼此對齊。它沒有推翻 mem0 的邊界：wiki 仍然不知道你週二做了什麼決定。如今受到挑戰的是未明說的推論：使用者記憶因此必須透過*檢索*取得。
+
+**P3 是本知識庫所缺少的原則。**論文的編譯步驟在部署前會先通過品質閘門：以 0.2 與 0.35 的溫度產生兩個候選項，並由輕量選擇器挑選；生成後進行事實查核，針對低信心主張補上不確定性說明並予以修訂；評論階段依真實對話紀錄的 10 項標準為每個代理程式評分，門檻為 7/10（若發現至少兩項矛盾，分數上限硬性限制為 4/10）；以五項加權指標作非參數排名（價值 ×3、獨特性 ×2、觸發明確度 ×2、品質 ×2、頻率 ×1），只保留至少 25/50 分的代理程式；以 embedding 餘弦相似度加上領域／任務類型 Jaccard ≥0.73 執行重疊合併；再以 6 個歷史情境對每個候選項執行迷你評估，若平均準確率 &lt;2.5 或從未觸發，就將它淘汰。本知識庫的對應機制 `lint.py` 則是在頁面加入後才執行、僅回報結果，而且檢查結構而非內容。論文對這項差異重要性的說明，是本語料對編譯論點稽核優勢最精準的描述：「先檢索再詮釋的記憶無法如此測試；它的行為只會在推論時浮現，且受協調器與提示其餘內容影響，因此難以稽核、進行回歸測試或版本管理。」與下方檢索反例對照，這是對 Doulcet 可稽核性支柱的**另一種回答**——編譯後的記憶無法引用回某個來源區段，但可以在執行前做回歸測試。
+
+**呈現實際規模的結果。**90 個保留情境，每位使用者 18 個（10 個與訓練意圖相似、8 個不同），五種 persona，由一個 LLM 評審（Gemini 3.1 Pro，temperature 1.0）依準確性、助益性和個人化程度按 1–4 分評分，並判定勝者：
+
+| 使用者 | Persona | 代理程式數 | 觸發數 | W-L-T | 準確度 Δ | 個人化 Δ |
+|---|---|---|---|---|---|---|
+| user_1 | 軟體工程師 | 1 | 5/10 | 3-2-0 | **−1.00** | +1.20 |
+| user_2 | 行銷經理 | 6 | 10/10 | 10-0-0 | 0.00 | +2.50 |
+| user_3 | ML 研究生 | 6 | 9/10 | 8-1-0 | −0.56 | +2.23 |
+| user_4 | 咖啡館店主 | 5 | 6/10 | 6-0-0 | 0.00 | +2.17 |
+| user_5 | 旅遊＋烹飪 | 5 | 6/10 | 5-1-0 | 0.00 | +1.67 |
+| **全部** | | **23** | **36/50** | **32-4-0** | **−0.28** | **+2.05** |
+
+*（代理程式數取自表 1；docling 將其壓成一列網格，匯入時以 `pdftotext -layout` 還原；其餘數據取自表 2，解析無誤，並與正文及摘要逐位核對。表 2 依自身圖說排除 8 次誤觸發。）*
+
+標題數字是：代理程式觸發時 36 次中贏了 32 次，勝率 88.9%，個人化程度 +2.05（1.67 → 3.72），準確性則付出 −0.28 的代價（3.92 → 3.64）。總平均掩蓋了三項逐使用者列才看得出來的事實。**準確性代價並非人人都為零**——user_1 在四分量表上整整損失一分，五位使用者中有三位毫無損失；−0.28 是呈雙峰分布欄位的平均值，不是每個人都承受的一點小代價。**觸發是例外，而非常態**：觸發準確度為 72%（50 個相似領域情境中觸發 36 次），因此 88.9% 是以 72% 為條件計算的；不同領域情境的誤觸發率為 20%（40 個中有 8 個）——增強版助理仍在其中 8 個情境裡贏了 5 個，論文稱之為「鮮少造成傷害」，而不是毫無傷害。還有，**各面向的樣本數都很小**：5 種 persona、36 次計分觸發、1 位評審，評估內容全為合成資料。
+
+**閘門因某個可移轉的原因淘汰了不該淘汰的項目。**由於非參數排名「懲罰了範圍與通用 LLM 能力重疊的代理程式（『解釋 Python 錯誤』對使用者很有價值，但與基準模型的能力並無區別）」，user_1 最後只留下單一代理程式。獨特性閘門是依編譯產物相對於基礎模型現有能力評分——就成本而言合理，就涵蓋範圍而言則有問題——而之後付出 −1.00 代價的正是同一位使用者。論文在不同段落提出兩種解釋（§6 說過度修剪後只剩一個代理程式；取捨段落則說缺口「與領域技術性相關，而非架構隔離」），卻從未調和兩者；五位使用者的樣本數不足以做到這一點。
+
+**這是帶有具體數字的編譯時資訊損失案例，也是本文自身的架構風險。**上方調查列出的第二項限制——「早期摘要可能刪掉來源中的細節；之後的每個答案都會帶有這項錯誤」——正是論文誤差分析的發現，而該論文原本是支持編譯的：「迷你代理程式會產生風格上符合個人偏好的回答，卻會幻覺出技術細節。」追蹤到的案例是一個統計代理程式，其內嵌提示錯把 `mannwhitneyu(..., continuity=True)` 寫成正確參數名稱應為 `use_continuity`，導致執行時當機——**基準模型 4/4，增強版 1/4**。什麼也沒讀取的未編譯組答對了；編譯產物則把錯誤帶進每次呼叫。作者自己的診斷具有可移轉性：品質閘門「目標在一般事實根據……卻沒有驗證領域專屬的 API 正確性」，要補上這個缺口，「可能需要工具增強驗證（例如在 sandbox 中執行生成的程式碼片段），而非僅靠 LLM 評論階段。」對編譯產物執行 LLM 評論，能抓出捏造資訊，卻會漏掉細節——參閱 [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck)。
+
+**規模上的主張是論證出來的，不是測量出來的，而且它正是本文所探討的規模問題。** 論文的成本論點是，編譯只需付出「輕量、固定大小的路由成本（一個特徵擷取呼叫加一次嵌入查詢），且不受已編譯模式數量影響」；相較之下，檢索每次呼叫都會讓提示增加「通常為 500–2,000 個輸入 token」，而且會隨儲存庫的廣度增加。論文在 Discussion 直接表明結論：路由開銷「在架構上有所界定：不會隨已編譯代理程式的數量或儲存歷史的深度而增加。」**論文中完全沒有延遲或 token 測量。** 它逐字將這項比較留待日後研究：「編譯路由與檢索式替代方案之間完整的實證延遲與 token 成本比較，是值得探索的未來方向；我們指出，這類比較必須納入檢索本身每次呼叫的成本（嵌入、搜尋、上下文注入），而這些成本在檢索系統分析中往往遭到忽略。」論文自己的 swarm 每位使用者最多只有 1–6 個代理程式（5 位使用者共 23 個），從未以更大規模進行壓力測試；而且這項有界路由主張並未列入論文明列的四項限制，而是出現在 Discussion 中，作為一項論證。
+
+路由階段有個細節，對本文上文的**不使用向量資料庫**決策來說有點尷尬，也值得明白說出來：論文的編譯系統*確實*會執行嵌入索引——每個代理程式都有一個 768 維的範圍嵌入（`text-embedding-005`），與嵌入後的使用者訊息進行餘弦評分，並套用軟性屬性懲罰（領域 −0.15、任務類型 −0.10）及 ≥0.45 的門檻；之後還有一個二元問卷階段，處理嵌入無法區分的候選項目。因此，編譯並未消除索引，而是將它**移位**：從嵌入語料並檢索片段，改為嵌入成果物並進行路由。這是對規模問題的一種設計回答——索引從每個片段一筆縮減為每個編譯成果物一筆——但它並未測量任一條曲線會在何處開始失效。
+
+**論文自身列出的限制，以及它沒列出的那項。** 明列的四項限制是：評估完全為合成資料（模擬使用者代理程式與 LLM 評審，沒有真人參與）；**單一模型家族（Gemini）同時負責生成、配對*與*評判**，因此評審和它所評分的所有內容同屬一個家族；觸發條件在生成後即固定，不會依據執行時回饋或偏好變化而調整；以及沒有跨使用者的模式移轉。除此之外，評估對等性設定得很仔細——兩組都不使用網頁搜尋或外部記憶，唯一差異是增強代理程式擁有 swarm 工具。它沒列出的限制就是上文那一項：未經測量的成本主張被當作架構特性提出。
+
+**還有一項值得記錄的內部落差，因為這正是本知識庫自行執行編譯流程時可能陷入的模式。** §5.1 列出三項「我們的實驗旨在驗證」的觀察，第三項是「管線元件（行為分離、嵌入、幻覺防護、問卷）彼此互補；沒有單一元件能涵蓋其他元件的作用。」唯一提供的證據，是論文在 *Design lessons* 段落中自行加以界定的內容：「這些是反覆開發過程中的質性經驗，而非正式的消融實驗。」論文提出了驗證目標，卻從未進行驗證，也沒有指出其中的不一致。
+
+### 規格即編譯的案例（Symphony 的跨語言模糊性測試）
+
+目前為止，最具體的 LLM 即編譯器實例：OpenAI 的 [Symphony](/articles/symphony) 團隊把他們的 `SPEC.md` 當作*原始碼*，並請 Codex 用 **Elixir、TypeScript、Go、Rust、Java 和 Python** 實作。他們接著利用各實作之間的差異找出規格中的模糊之處，並簡化規格。
+
+這項技術真正帶來的新意：
+
+- **LLM 就是編譯器**（Markdown → 以多種目標語言實作、可運作的協調器）。
+- **多個實作可作為規格模糊性測試的訊號**——凡是實作出現分歧之處，代表規格約束不足。這類似編譯器驗證中的差異式模糊測試，但來源語言是英文／Markdown。
+- **規格才是持久成果物**，而非編譯輸出。OpenAI 明確表示，他們不打算把 Symphony 維護為獨立產品——它是參考實作，使用者可讓自己的程式碼代理程式以它為依據。
+
+對本知識庫的啟示：
+
+- `_system/compiler-prompt.md` 在結構上類似 Symphony 的 `SPEC.md`——兩者都定義代理程式應如何將一種成果物（原始文件／Linear 工單）轉換為另一種成果物（wiki 文章／可執行的協調器）。
+- 透過多語言進行規格模糊性測試，對知識庫來說有些大材小用，但這個想法可以推廣：如果不同模型家族（Claude、GPT、在地模型）執行 `compiler-prompt.md` 時產生了有實質差異的 wiki，這些差異就指出規格定義不足。
+- **結構描述層**（Karpathy 的用語）與 `SPEC.md`／`WORKFLOW.md` 屬於同一類成果物——以儲存庫版本控管的 Markdown，用來定義代理程式行為。參見交叉連結：[Claude Code Best Practices](/articles/claude-code-best-practices)（`CLAUDE.md`）、[Hermes Agent](/articles/hermes-agent)（`AGENTS.md`／`SOUL.md`）、[Symphony](/articles/symphony)（`WORKFLOW.md`）。
+
+### 檢索的反方論點，以及它真正適用之處（Doulcet，2026 年 5 月）
+
+本文的起始主張是「用編譯取代 RAG」。目前語料中最有力的反方觀點是[文件解析：檢索的瓶頸](/articles/document-parsing-as-retrieval-bottleneck)——一場 116 張投影片的 LlamaIndex 工作坊（`practitioner-opinion`，直接供應商 COI），其論點是檢索不但在長上下文時代存活下來，甚至**勝出了**。這個論點值得精確陳述，因為三項理由中只有一項與 token 預算有關：
+
+1. **成本**——以最先進模型費率計算，每次查詢使用 1M tokens；快取有所幫助，但只要語料不是微不足道，算起來仍然不划算。*（若推論成本低到足以負擔，此論點便不成立。）*
+2. **治理**——把整份語料塞進上下文，等於塞入請求者無權檢視的文件。*「『模型答應會忽略』不是一道界線。」*
+3. **可稽核性**——*「『AI 為什麼這麼說？』檢索會提供引用紀錄；長上下文只會提供一種感覺。」*
+
+第 2、3 項與容量完全無關，而第 3 項正中本文的要害。**編譯後的 wiki 是根據 wiki 回答，而不是根據原始頁面回答。** 本知識庫的文章會引用 `[[raw/...]]` 文件，但文章中的個別句子無法對應到來源中的特定頁面與區段——而這正是簡報在解析章節中逐步建立的能力（bbox 定位、逐欄位頁面引用、「回引至像素」）。編譯步驟將可引用的語料轉成可閱讀的語料，代價則是可追溯性。
+
+**兩種架構的共識，以及承載整個論點的關鍵共識。** 上文調查提到的編譯時損失限制——「早期摘要可能會刪掉來源中的某個細節；之後每次回答都會帶著這個錯誤」——就是把簡報所說的結構損失往後移了一層。簡報對此說得更直接：*「一開始就解析錯誤的文件，之後沒有任何方法可以把它還原。」* 兩種架構都是對不可變來源進行有損壓縮，都把損失放在一個不會回頭檢查的步驟，也都主張保留不可變的原始層，讓這個步驟可以重做。
+
+**但只有其中一種真的會重做。** 簡報的規則是：「解析是一個階段，而不是一步——你會重新解析、用新結構描述重新擷取，也會在解析器改善後回頭重新執行；因此要為此設計、儲存每個中間產物，並讓解析具備冪等性。」檢索管線每次查詢都要付一次擷取成本，之後也能重新付費取得更好的結果；編譯後的 wiki 則只付**一次**，並保留結果。本知識庫具備前置條件（不可變的 `raw/`、記錄下來的解析警告、標明解析器設定的 `docling:` 區塊），卻沒有採行這種做法：發現來源解析受損後，不會重新生成任何已編譯文章，而 `_system/backfill/known-bad.md` 存在的原因，正是這批待辦目前無處可去。**重新解析並重新編譯的路徑，是本文欠缺、而應向反方論點交代的具體事項。**
+
+綜合結論不經意地出現在簡報自己的 *extract vs parse* 投影片上：當**你知道自己要什麼**、欄位會在多份文件中反覆出現，而且下游需要結構化資料時，使用以結構描述為先的擷取；當**你不知道自己要什麼**，而問題形式繁多、變化難以窮盡時，使用解析加檢索。這就是簡報用自身術語界定的編譯／檢索分界。由一人閱讀約 100 個精選來源的個人 wiki，屬於第一種；帶有租戶權限的企業語料任意問答介面，則屬於第二種。簡報給出的答案是「大多數真實系統會兩者並用」，這並未否定本文，而是界定了本文的適用範圍。
+
+*證據權重：反方論點來自一場沒有測量數據的供應商演講；本文則有設計文件、一項受控研究（[Knowledge-Centric Self-Improvement](/articles/knowledge-centric-self-improvement)），以及本知識庫自身的實作。它不足以推翻編譯主張，但確實提出了一項定義明確、而編譯主張尚未滿足的要求——引用粒度與重新解析的時效性；無論是誰提出的，這兩點都可以檢查。*
+
+### 這項模式預設不存在的人力成本，在最接近的公開類比中經測量後呈現的樣貌（2026 年 9 月）
+
+Karpathy 的設計文件承諾，代理程式可以用近乎零的人力成本維護知識庫；迄今本文尚未測量在可觀察之處，整理維護究竟要花多少成本。[Shen 與 Hruschka](https://arxiv.org/pdf/2609.05677)（Megagon Labs，arXiv 2609.05677，`empirical`，COLM 2026 Workshop on Lifelong Agents）明確點名 LLM-wiki gist，稱其為兩種願景之一，而他們的測量可用來界定這些願景的範圍——另一種是供人類審查的 WiNELL 持續更新式 Wikipedia；他們挖掘最接近的公開成果物：五家 AI 工具供應商儲存庫中受版本控管的 Markdown 技能檔，八個月內共 254 次實質編輯。觀察到的迴圈「仍透過由人類擁有的儲存庫流程運作」：每次實質編輯都由具名人類帳戶撰寫或透過網頁合併，其中 62% 帶有 AI 共同作者標記；各儲存庫的比例呈雙峰分布（93%／92%／16%／5%／0%），反映的既是揭露方式與合併文化，也是 AI 使用情況。編輯中有 60% 是增補、38% 是修正；合併整理與棄用合計只占 4.3%，因此本文四階段管線稱為 *lint* 的修剪步驟，正是人類整理者幾乎不會執行的操作。另有兩項結果直接關係到編譯主張。預先註冊的規則相似度軸——這次編輯是否編碼了一般化規則，還是只處理單一問題？——未能通過信度門檻（同家族 κ = −0.02；三向構念的跨家族值為 0.17，較窄二元構念則為 0.43）；因此，能把編輯理由整理成一般指引的整理器——也就是本文聲稱編譯步驟能做到的事——目前還沒有可靠工具可分辨規則與個別案例。另一項具足夠統計檢定力的移轉任務測試發現，人類維護六輪以上後產生的技能版本，並不比第一版好（1–5 分尺度上 −0.09，CI [−0.28, +0.10]）——這是在建構任務上的有限零結果，卻是語料中唯一衡量受整理的 Markdown 成果物是否會因整理而改善的研究。他們提出的整理器「更像是在型別化知識庫上進行持續學習，而非一次性的文字最佳化」：記錄可追溯的編輯理由、將其整理成經維護者核准的一般化指引、在人工合併關卡提出建議，並明確編列修剪所需資源。這正是本知識庫的匯入 → 編譯 → lint 週期，且每次合併都由人類把關；本知識庫目前也正是如此運作。完整分析見[由人類治理的技能維護](/articles/human-governed-skill-maintenance)。
 
 ## 相關連結
 
-- [Code as Source of Truth](/articles/code-as-source-of-truth) — 將 specs／skills 納入 repo，是套用於程式碼的 compiler-wiki 模式
-- 這個概念是本 Obsidian vault 的基礎架構（參見 `_system/compiler-prompt.md`）
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — 共用 repo-local knowledge 作為 system of record 的模式；OpenAI 的 AGENTS.md-as-table-of-contents 對應了本 wiki 的 schema 層
-- [Claude Code Best Practices](/articles/claude-code-best-practices) — CLAUDE.md 檔案在 Claude Code 對此模式的實作中充當 schema 層
-- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — vulnerability research scaffold 使用 SHA-3 cryptographic commitments 作為可驗證知識編譯的形式；Claude Code 的 agentic capabilities 驅動 discovery pipeline
-- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — wiki 的 compile／query／lint 階段本身就是 agent pipeline；不同階段可以分配給不同模型（便宜模型負責 index drift checks，強模型負責 cross-reference synthesis），再將組合最佳化
-- [Symphony](/articles/symphony) — LLM-as-compiler 超越知識庫的最具體延伸：OpenAI 將 `SPEC.md` 編譯成 6 種語言的實作，並利用差異作為 spec-fuzzer 來消除模糊性
-- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Symphony 的 `WORKFLOW.md` 在結構上與此處的 schema 層屬於同一類產物；兩者都是由 repo 版本控管的 markdown，讓 LLM 將其「編譯」成行動
-- [Agent Context Files](/articles/agent-context-files) — spec-as-document 模式是將 LLM-as-compiler 套用至 context file；Symphony 將 SPEC 編譯成 6 種語言的 spec-fuzzing 是最清楚的實例
-- [Design Concept Grilling](/articles/design-concept-grilling) — Brooks 的「design concept」（任何產物之前的共同理解）是對齊層的類比：wiki 捕捉*什麼是真的*，grilling session 捕捉*我們同意什麼*；兩者都把 LLM 視為編譯夥伴，而非一次性輸出的生成器
-- [Andrej Karpathy](/articles/andrej-karpathy) — 發起了這個模式（[llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) gist），並在 2026 年 5 月的訪談中再次確認這是他的日常實踐——從讀過的文章建立 wiki 並查詢它
-- [Software 3.0](/articles/software-3-0) — Karpathy 對「過去不是程式的新資訊處理任務」的經典例子：將文件重新編譯成 wiki，在 Software 1.0／2.0 中是不可能的
-- [Outsource Your Thinking, Not Your Understanding](/articles/outsource-thinking-not-understanding) — Karpathy 的模式*為何*有效：「每當我看到資訊投影的不同方式，我就獲得洞見」——wiki 是建立理解的工具，而不只是檢索工具
-- [Memory and Context Poisoning](/articles/memory-and-context-poisoning) — 此模式承襲的對抗性威脅面：任何允許 agent *寫入*持久記憶的系統，都需要完整性驗證與來源歸因控制，才能讓編譯後的儲存庫維持可信
-- [LLM-Assisted Grey-Literature Theory Building](/articles/llm-assisted-grey-literature-theory-building) — 用於研究綜合的相同架構邊界：LLM 將數千份原始文件編譯成結構化、以引文為基礎的產物（因果理論），但詮釋步驟仍由人類負責——自動化 codes→theory synthesis 產生了 15,029 個膚淺且重複的陳述，這是「LLM 負責簿記，而非判斷」的負面結果回聲
-- [Garry Tan](/articles/garry-tan) — GBrain 是組織規模的姊妹版本（圖書館＋圖書管理員、記憶加衛生）；與本 vault 的 provenance／矛盾／修剪設計獨立趨同
-- [AI-Native Organization](/articles/ai-native-organization) — 公司大腦是 Tan 的 AI-native 組織的記憶層；組織的 skills 負責路由工作，大腦提供組織已知的內容
-- [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority) — 「每個事實都要有 provenance」背後的對抗性案例證明：從記憶的*內容*或 lineage 推導出的 authority 可以被洗白；來源必須在寫入時綁定
-- [Compounding Data Moat](/articles/compounding-data-moat) — 「模型品質是租來的，但你擁有自己的大腦」：策展知識儲存庫是超越模型存取權的持久資產
-- [Latent vs. Deterministic Space](/articles/latent-vs-deterministic-space) — 本 vault 的實作範例：在 latent compiler 周圍配置 deterministic generators／linters（`build.py`／`lint.py`）
+- [由人類治理的技能維護](/articles/human-governed-skill-maintenance) — 在可觀察之處測得的整理成本：最接近代理程式維護 Markdown 知識庫的公開類比，每次實質編輯都經由具名人類處理，僅 4.3% 的編輯涉及修剪，無法可靠判定哪些編輯編碼了可重用規則，而且看不出維護帶來移轉效益——這就是本文近乎零人力成本承諾的界限
+- [文件解析：檢索的瓶頸](/articles/document-parsing-as-retrieval-bottleneck) — 上文討論的架構對手。檢索作為稽核軌跡，而非容量上的權宜方案；雙方共有的不可消除風險（匯入時遺失的結構，無論下游使用者是檢索器還是編譯器，都無法還原）；以及它提出而此架構目前尚未滿足的兩項要求——句子層級的引用粒度，以及發現來源解析受損時重新編譯
+- [程式碼即真相來源](/articles/code-as-source-of-truth) — 將規格／技能簽入儲存庫，就是把編譯式 wiki 模式套用到程式碼上
+- 這個概念是此 Obsidian 知識庫的基礎架構（參見 `_system/compiler-prompt.md`）
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — 同樣採用以儲存庫在地知識作為系統記錄的模式；OpenAI 將 AGENTS.md 作為目錄頁的做法，呼應了此 wiki 的結構描述層
+- [Claude Code Best Practices](/articles/claude-code-best-practices) — CLAUDE.md 檔案在 Claude Code 對此模式的實作中充當結構描述層
+- [LLM-Driven Vulnerability Research](/articles/llm-driven-vulnerability-research) — 漏洞研究鷹架使用 SHA-3 密碼學承諾作為可驗證知識編譯的一種形式；Claude Code 的代理程式能力則驅動探索管線
+- [Client-Side Agent Optimization](/articles/client-side-agent-optimization) — wiki 的編譯／查詢／lint 階段本身就是一條代理程式管線；可將不同階段分派給不同模型（用便宜模型檢查索引漂移，用強模型綜合交叉參照），並進一步最佳化組合
+- [Symphony](/articles/symphony) — LLM 即編譯器超越知識庫的最具體延伸：OpenAI 將 `SPEC.md` 編譯成 6 種語言的實作，並用實作差異作為規格模糊性測試，消除歧義
+- [Ticket-Driven Agent Orchestration](/articles/ticket-driven-agent-orchestration) — Symphony 的 `WORKFLOW.md` 在結構上與此處的結構描述層屬於同一種成果物；兩者都是以儲存庫版本控管的 Markdown，由 LLM「編譯」成行動
+- [代理程式上下文檔案](/articles/agent-context-files) — 規格即文件模式，就是把 LLM 即編譯器套用到上下文檔案；Symphony 將 SPEC 編譯成 6 種語言並進行規格模糊性測試，是最清楚的實例
+- [Design Concept Grilling](/articles/design-concept-grilling) — Brooks 的「設計概念」（建立任何成果物前先形成共同理解）是對齊層的類比：wiki 記錄*什麼為真*，壓力測試會議記錄*我們同意什麼*；兩者都把 LLM 視為共同編譯的夥伴，而非一次性輸出的生成器
+- [Andrej Karpathy](/articles/andrej-karpathy) — 開創了這種模式（[llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) gist），並在 2026 年 5 月的訪談中再次認可這是他的日常做法——將讀過的文章編成 wiki，並向它查詢
+- [Software 3.0](/articles/software-3-0) — Karpathy 對「過去不是程式的新型資訊處理任務」的代表性例子：將文件重新編譯成 wiki，在 Software 1.0／2.0 中是不可能的
+- [外包你的思考，而非理解](/articles/outsource-thinking-not-understanding) — 說明此模式為何對 Karpathy 有效：「每當我看到資訊的另一種投影方式，就能獲得洞見」——wiki 是建立理解的工具，而不只是檢索工具
+- [記憶與上下文投毒](/articles/memory-and-context-poisoning) — 此模式承接的對抗性攻擊面：任何允許代理程式*寫入*持久記憶的系統，都需要完整性驗證與來源歸屬控制，才能維持編譯儲存庫的可信度
+- [LLM 輔助的灰色文獻理論建構](/articles/llm-assisted-grey-literature-theory-building) — 將相同的架構界線用於研究綜整：LLM 將數千份原始文件編譯成有結構、以引文為依據的成果物（因果理論），但詮釋步驟仍由人類負責——自動化 codes→理論綜合產生了 15,029 條膚淺而重複的陳述，這項負面結果呼應了「LLM 負責資料整理，不負責判斷」
+- [Garry Tan](/articles/garry-tan) — GBrain 是組織規模的同類模式（圖書館＋館員、記憶加上整理衛生）；與此知識庫的來源追溯／矛盾／修剪設計獨立匯流
+- [AI-Native Organization](/articles/ai-native-organization) — 公司大腦是 Tan 的 AI 原生組織中的記憶層；組織的技能負責分派工作，大腦則提供組織已知的資訊
+- [不可竄改的記憶權威（TMA-NM）](/articles/non-malleable-memory-authority) — 支持「每項事實都要有來源追溯」的對抗案例證明：若權威性取自記憶*內容*或其沿革，就能被洗白；來源必須在寫入時綁定
+- [複利式資料護城河](/articles/compounding-data-moat) — 「模型品質是租來的，但大腦是自己的」：經整理的知識庫是超越模型存取權的持久資產
+- [潛在空間與決定性空間](/articles/latent-vs-deterministic-space) — 以此知識庫為實例：在潛在編譯器周圍使用決定性產生器／lint 工具（`build.py`／`lint.py`）
+- [逐層遺漏歸因](/articles/layerwise-omission-attribution) — 此知識庫位於他人的分類法之中。「OCR 表格結構遺失」是其 L0 匯入層列出的第一種機制，正是 `_system/compiler-prompt.md` 記錄的 docling 表格折疊／位移失敗；匯入時的 `table-collapse` 和 `table-shift` 檢查，實際上就是 L0 檢查點的取樣。此知識庫缺少的技術是**金絲雀**——在來源中植入已知 token，解析後再精確比對，就能把「這些表格是否可疑？」從啟發式篩查轉成可逐文件計算的遺失率。其 L2 層（字串切片、移除中繼資料、濃縮）本身就是編譯步驟
+- [以知識為核心的自我改善](/articles/knowledge-centric-self-improvement) — 對本文核心主張首次進行外部受控測量：經整理的知識成果物勝過產生它們的系統，而且即使任務與模型家族不復存在，仍能持續運作
+- [Owning Your Externalized Cognition](/articles/owning-your-externalized-cognition) — 說明為何應親自運行此架構，而不是租用它；其整理衛生準則也符合此知識庫的做法：「沒人整理的大腦，只是搜尋功能很好的垃圾場。」因此，基本要素是記憶*加上*來源追溯、矛盾檢查與修剪。它所說的「檢索很容易，值得被檢索才是產品」，一句話說出了編譯與堆積的界線
+- [儲存庫探索子代理程式](/articles/repository-exploration-subagent) — 與 DeepWiki 匯入時編譯相對應的查詢時做法：FastContext 在一次性的探索視窗中，依任務搜尋內容來為解題者提供依據；DeepWiki 則預先計算每個儲存庫的 wiki，供所有代理程式共用；兩者使用相同的解耦方式，卻分居匯入／查詢成本交換關係的兩端
+- [代理程式品質飛輪](/articles/agent-quality-flywheel) — 編譯目標從 Markdown 移至**模型參數**，也是語料中最接近本文未來方向、並已在生產環境中運行的案例：生產經驗被「壓縮進模型權重的連續空間」，並提供資料集大小曲線，顯示某個領域的微調需要多少編譯素材。下游輸出層是下文引用粒度債務的極端案例——權重無法引用、無法 lint，也無法標記某項主張已遭取代
+- [將代理程式工作結晶為工作流程](/articles/crystallizing-agent-work-into-workflows) — 對*行為*而非知識採取相同的編譯做法，也是本文缺少的關卡之來源。Muscle Memory 的專家依據歷史資料通過一次品質關卡後便會凍結；Malik 的操作手冊則依據執行時記錄取得升級資格，並在退步時**自動降級**。這正是兩種編譯記憶來源都缺少的控制，而此知識庫僅回報結果的 lint 步驟同樣沒有提供這種控制
+- [AI-Assisted Error Analysis](/articles/ai-assisted-error-analysis) — 從評估端提出一次編譯前提。Shankar 對「這是我的追蹤紀錄，去評估吧」提出的第三項反對是：每次執行都不會留下任何資料，每次都得從頭重讀資料並重新推導失敗模式，不同執行之間沒有共用中間產物。她的解法——將失敗模式分類法存入記憶或程式碼——就是把本文架構用於評估；而她對分類法作者身分的界線，也與[灰色文獻管線](/articles/llm-assisted-grey-literature-theory-building)所劃定的相同
 
-## 開放問題
+## 尚待解答的問題
 
-- 不使用向量資料庫的方法在什麼規模下會失效？Karpathy 的約 100 篇文章能放進 context，但 1,000 篇以上呢？
-- 編譯期間，如何處理來源之間互相衝突的資訊？
-- 概念文章的最佳粒度是什麼——每篇文章一個概念，還是依主題聚類？
-- 合成訓練資料 → fine-tuning pipeline 在實務上有多有效？
+- 不使用向量資料庫的方法會在多大規模下失效？Karpathy 約 100 篇文章可以放進上下文，但 1,000 篇以上呢？**部分回答（2026-08-13），僅限設計層面：**[代理程式的 Muscle Memory：編譯而非只是檢索](https://arxiv.org/pdf/2608.08995)主張編譯端每次呼叫的成本固定——一次特徵擷取呼叫加一次嵌入查詢，「不受已編譯模式數量影響」；相較之下，檢索每次呼叫都會增加 500–2,000 個 token 的提示內容，而且會隨儲存庫的廣度增加；它並未移除索引，而是將索引移位（每個編譯成果物一個 768 維範圍嵌入，而非每個片段一個）。**這些都沒有經過測量。** 論文的 swarm 每位使用者最多只有 1–6 個成果物（共 23 個），從未以更大規模進行壓力測試，而且依其自身說法，確切比較留待未來研究；有界路由主張出現在 Discussion，而非 Limitations。因此，現在有外部來源提出了架構論證，但規模數字仍然沒有根據。
+- 概念文章最理想的粒度為何——一篇文章一個概念，還是按主題分群？**部分回答（2026-08-03）：**[以知識為核心的自我改善](/articles/knowledge-centric-self-improvement)回答了機器閱讀版本的這個問題，答案是*兩者皆非*——粒度不是由文章大小決定，而是由附在每項主張上的**適用範圍條件**（`applies_when`／`does_not_apply_when`）承載；儲存內容分成兩層（每項任務一層、跨任務一層），且兩層輸入彼此分開。該研究也提供了經測量的警示：移轉固定數量的知識會讓接收方記憶變得「嘈雜或有害」，因此他們的 adapter 將交付量限制在每個欄位 0–3 項，先驗關聯性低時則回傳空清單。這提供了線索，但並未定論——供解題代理程式使用的知識套件，和人類閱讀的文章並不相同。
+- 合成訓練資料 → 微調管線在實務中有多有效？**部分回答（2026-08-13），僅限下游部分：**[Sidekick 的持續學習迴圈](https://shopify.engineering/sidekicks-continual-learning-loop)在生產環境中執行了編譯進權重的步驟，並回報其成效曲線——已編譯軌跡從 13k 增加到 61k，評審分數由 61.5 升至 73.5；在 26k 至 30k 之間超越現行生產系統，並在最高點與前沿參考系統相當。因此，「以你自己累積的資料在某個領域進行微調，是否勝過該領域的一般模型？」已有肯定的 `case-study` 答案，並附上資料集大小數字。有三點使答案仍不完整。**缺少生成步驟**：他們的訓練資料是修復後的生產軌跡，而非由文件衍生的合成文字；後者才是 Karpathy 提案中真正未確定的部分。編譯對象是**行為，而非知識**，因此無法證明文件衍生事實的微調效果能像行動軌跡一樣好。這還是一份未經複製驗證的第一方報告，最高點只比前沿參考值高 0.4 個評審分數，且沒有區間估計。
+- 符合知識格式規範，能否預測知識本身的品質？OKF 將容器標準化，並明確把來源追溯、矛盾處理及修剪工作交給產出者，因此符合規範的套件仍可能只是未經整理的資料堆，而使用者端沒有方法得知。能夠定論的觸發事件是：第一個來自**Google 以外的產出者**所提供的套件。檢查它是否逐項主張提供來源歸屬，以及是否有超出單一 `timestamp:` 欄位的過時訊號。若沒有，「可攜式格式」和「值得檢索」便完全互不相干，而這正是規格採取極簡設計的原因。
+- 對編譯頁面進行部署前品質關卡，能否抓出事後結構性 lint 無法發現的錯誤？目前有兩個來源會在編譯成果物執行前進行關卡檢查（一輪評論加一組保留的迷你評估；根據追蹤紀錄自動產生驗收測試），其中一個還測出了關卡漏掉的失敗——專家提示中烙入了虛構的 API 引數，得分為 1/4，而未編譯基準為 4/4。此知識庫在編譯時沒有任何關卡。可否證的版本是：對新編譯頁面執行內容關卡（每個引用數字是否都能在其引用的來源區段中核對），並計算它抓到多少 `lint.py` 在結構上看不見的缺陷。
+
+## 已解答的問題
+
+- 編譯時要如何處理來源之間互相矛盾的資訊？**已回答：**[知識層發生分歧時：上下文檔案與記憶，以及編譯時的衝突來源](/articles/conflict-resolution-in-agent-knowledge-substrates)——從此知識庫自身的實務與案例整理出的五步流程：(1) 宣告衝突前先對齊構念（多數矛盾會消解為指標／母體／時間軸／單位不可比較——參見 Faros 與 CMU 的實例）；(2) 附上來源追溯與證據等級，依方法與誘因衡量，絕不取平均；(3) 在每個受影響頁面上雙向明確呈現真正的衝突——默默選邊就是編譯時的洗白形式；(4) 將已呈現的衝突轉成追蹤中的待解問題，並明列解決條件；(5) 在編譯／lint 階段解決（Tan 的館員做法），讓查詢能看見衝突的不同證據及其權重，而無須每次查詢重新裁定。
 
 ## 衍生內容
 
-- [What Are AI Tools?](/articles/what-are-ai-tools) — 探索本 wiki 涵蓋哪些 AI tools 的查詢
+- [什麼是 AI 工具？](/articles/what-are-ai-tools) — 探索此 wiki 涵蓋哪些 AI 工具的查詢
+- [知識層發生分歧時：上下文檔案與記憶，以及編譯時的衝突來源](/articles/conflict-resolution-in-agent-knowledge-substrates) — 編譯時矛盾處理流程，以本文的整理衛生原則與知識庫中已呈現的衝突歷史為依據
+- [豐裕之後，權威與稽核依然重要](/articles/authority-and-audit-survive-abundance) — 說明檢索反方論點中的治理與稽核理由為何在上下文免費時仍然成立，以及為何也適用於此架構：編譯與檢索都是帶有紀錄的選擇；語料塞滿上下文是稽核論點唯一能排除的選項；而本文已承認的引用粒度債務，正是這項要求在此處出現
 
 ## 資料來源
 
+- [Who Maintains Agent Skills? A Longitudinal Study of Human-Governed, AI-Assisted Skill Maintenance](https://arxiv.org/pdf/2609.05677) — Shen 與 Hruschka（Megagon Labs），arXiv 2609.05677，2026-09-04，`empirical`。本文引用 §8 中該研究明確對比 LLM-wiki gist 與 WiNELL 的內容、規則相似度信度失敗（§4、附錄 A），以及整理器設計假設。完整分析見[由人類治理的技能維護](/articles/human-governed-skill-maintenance)
 - [LLM Knowledge Bases](https://academy.dair.ai/blog/llm-knowledge-bases-karpathy)
 - [llm-wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-- [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan 的 AI Engineer 演講（2026-07-17，`practitioner-opinion`）：公司大腦章節（GBrain、圖書館＋圖書管理員、記憶加衛生）
+- [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan，AI Engineer 演講（2026-07-17，`practitioner-opinion`）：公司大腦章節（GBrain、圖書館＋館員、記憶加上整理衛生）
+- [Knowledge-Centric Self-Improvement](https://arxiv.org/pdf/2607.19592) — Wang、Yoon、Qu、Wang、Sehgal、Mazumdar 與 Yue（Caltech，arXiv 2607.19592，2026-07-21，`empirical`）：保留資料上的移轉結果（§4.4、表 4），以及與本文整理衛生原則匯流的整理流程規則（§3、附錄 E）。完整分析與解析註記見[以知識為核心的自我改善](/articles/knowledge-centric-self-improvement)
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view) — Pierre-Loic Doulcet，AI Engineer Singapore 2026（`practitioner-opinion`，LlamaIndex 供應商 COI）：檢索在長上下文時代存活的三項理由，以及本文編譯階段未遵循的「解析是一個階段，而不是一步」規則。完整分析與解析警告見[文件解析：檢索的瓶頸](/articles/document-parsing-as-retrieval-bottleneck)——原始檔刻意保留受損的解析器輸出作為示範資料，不應從中採用任何數字
+- [The State of Agent Wikis](https://x.com/mem0ai/status/2079585032587694582) — mem0，*In Context* #17（2026-07-21，`practitioner-opinion`；記憶供應商 COI，討論 wiki≠記憶的界線）：代理程式 wiki 概況、維護時效性軸、四項限制。已檢視技術矩陣與 wiki 對照記憶圖表；矩陣附有正文未提及的各系統語料／時效性／使用對象資料
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) — Andrew McNamara 與 Cody Mazza-Anthony，Shopify Engineering，2026-08-05，`case-study`（第一方、未複製驗證、無對照組）。本文引用其編譯進權重的框架（凍結模型／離散成果物段落，以及「將生產經驗壓縮進模型權重的連續空間」），並引用根據文章 *GraphQL Distillation* 圖表讀出的蒸餾曲線；圖表數值未出現在文章文字中。完整來源分析見[代理程式品質飛輪](/articles/agent-quality-flywheel)
+- [How the Open Knowledge Format can improve data sharing](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing) — Sam McVeety（Tech Lead, Data Analytics）與 Amir Hormati（Tech Lead, BigQuery），Google Cloud 部落格，發布於 2026-06-12，2026-08-14 擷取（`vendor-claim`，約 1,900 字）。本文引用 v0.1 設計（以目錄為套件、以路徑為身分、六個 frontmatter 欄位、保留檔名 `index.md`／`log.md`、以連結構成圖）、逐字引用的三項原則、已發布的參考實作，以及明確引用 Karpathy 的 gist 作為正式化模式的來源。**第一方規格公告，完全沒有任何形式的測量**——沒有採用數量、沒有 Google 以外的產出者或使用者，也沒有與其他知識格式比較；所有關於此格式能帶來什麼的主張，都是設計論證。規格與範例套件位於 `GoogleCloudPlatform/knowledge-catalog/tree/main/okf`。**解析註記**：擷取工具把文章中的兩段程式碼清單（目錄樹與範例 frontmatter）切成每行一個程式碼區塊——約 40 個連續的單行程式碼區塊。內容沒有遺失，閱讀順序也完整；本文引用的每項結構資訊都從這些片段讀出，並與介紹它們的正文交叉核對。**日期注意事項**：`published: 2026-06-12` 來自擷取工具的 frontmatter，正文沒有任何佐證；mem0 在 2026-07-21 發布的代理程式 wiki 調查盤點了四種實作，卻未提及 OKF。對於一份早五週發布的規格來說，這有些奇怪。此事仍列為未解問題，沒有任何頁面的論點取決於該日期
+- [Muscle Memory for Agents: Compile not Merely Retrieve](https://arxiv.org/pdf/2608.08995) — Pouya Ghiasnezhad Omran、Soujanya Lanka、Qin Zhang 與 Tanya Dixit（Google Cloud FDE），*Muscle Memory for Agents: Compile not Merely Retrieve*，arXiv 2608.08995，2026-08-10，`empirical`（12 頁、2 張表、2 張圖；參考實作位於 `GoogleCloudPlatform/generative-ai/tree/main/agents/personalized-agent-swarms`）。§3 的三項原則與編譯／檢索差異；§4.2 的品質關卡；§4.3 的兩階段路由器與路由開銷論證；§5.2 與表 2 的正面比較結果；§6 的限制、準確度與個人化取捨，以及 `mannwhitneyu` 錯誤分析。**第一方技術堆疊 COI，而非產品主張**：作者來自 Google Cloud，Gemini 負責生成、配對*與*評判（論文自己的限制 2），而且實作發布在 Google 的公開儲存庫中。**解析註記**：`verify` 回傳 `warn`——**表 1 的儲存格發生折疊**（6 列邏輯資料合併成 1 列），在匯入時以 `pdftotext -layout` 重建，並記錄於 Log 中 2026-08-13 的 `ingest` 紀錄；本文引用的代理程式數量欄來自這份重建結果，且符合正文所說的「5 位使用者共 23 個代理程式」。**表 2 解析正確**，每個儲存格都與正文及摘要逐字核對。**`canary-recall` 回報 `ok`，但實際上未執行**——符合資格的 token 數為 0，因為主要統計數字（88.9%、+2.05、−0.28）在摘要、引言、結果與結論中重複出現，沒有任何內容達到抽樣器「恰好出現一次」的門檻；手動核對正文與表格取而代之。兩張圖的圖說都已在原始檔中完整轉錄，本文也沒有引用任何圖表數值，因此兩階段圖像比對並非關鍵依據（圖 1 已在匯入時開啟檢視，與圖說相符）。小型合成評估：5 個角色、36 次評分執行、系統與受測對象使用同一模型家族的一個 LLM 評審，而且路由成本主張未經測量
