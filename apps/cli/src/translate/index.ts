@@ -28,7 +28,7 @@ import {
   runEngine,
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
-import { fixMdxEscaping } from "./postprocess.ts";
+import { fixMdxEscaping, repairTranslatedFrontmatter } from "./postprocess.ts";
 import { computeCostUsd, type ModelPrice, resolvePrices } from "./pricing.ts";
 import {
   buildStructuredTranslatePrompt,
@@ -232,7 +232,15 @@ export function appendRetryFeedback(prompt: string, errors: string[]): string {
     prompt,
     "",
     "PREVIOUS ATTEMPT REJECTED — the output failed automated validation. Fix exactly these problems and redo the translation:",
-    ...errors.map((error) => `- ${error}`),
+    // Errors quote the rejected output, which can carry NUL bytes (seen where a
+    // LaTeX backslash belongs: `$\0mathcal`); a NUL in the prompt argv makes the
+    // retry's spawn throw before the engine runs, so show it as visible text.
+    ...errors.map((error) => `- ${error.replaceAll("\0", "<NUL>")}`),
+    ...(errors.some((error) => error.includes("\0"))
+      ? [
+          "- Your output contained NUL bytes (shown as <NUL>) where the source has a backslash — reproduce every LaTeX backslash exactly.",
+        ]
+      : []),
     "",
     "Everything else in the brief above is unchanged.",
   ].join("\n");
@@ -924,7 +932,9 @@ async function postProcessOutput(outputAbsPath: string): Promise<void> {
     }
     throw err;
   }
-  const normalised = fixMdxEscaping(normalizeHeadings(original));
+  const normalised = repairTranslatedFrontmatter(
+    fixMdxEscaping(normalizeHeadings(original))
+  );
   if (normalised !== original) {
     await Bun.write(outputAbsPath, normalised);
   }

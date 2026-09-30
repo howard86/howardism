@@ -122,4 +122,13 @@ describe("appendRetryFeedback", () => {
   it("tells the model the previous attempt was rejected", () => {
     expect(retried).toContain("PREVIOUS ATTEMPT REJECTED");
   });
+
+  it("never passes a NUL byte through to the prompt argv", () => {
+    const withNul = appendRetryFeedback("BRIEF", [
+      "Inline math span #5 changed: output: $\0mathcal\\{O\\}(1/t)$",
+    ]);
+    expect(withNul).not.toContain("\0");
+    expect(withNul).toContain("$<NUL>mathcal");
+    expect(withNul).toContain("reproduce every LaTeX backslash exactly");
+  });
 });
