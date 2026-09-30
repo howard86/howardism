@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { titleFromSlug } from "@howardism/article-contract/markup";
@@ -7,16 +7,20 @@ import matter from "gray-matter";
 
 import {
   buildSlugTitleMap,
+  discoverWikiSources,
   extractRawSlugsFromBody,
   extractRawSlugsFromSources,
   loadRawDoc,
   type ParsedWikiFile,
+  parseAndValidateVault,
   parseWikiFile,
   resolveDate,
   stripWikilinksToText,
 } from "../import-wiki/parse.ts";
 
 const UNPARSEABLE_RAW_ERROR = /unescaped-quotes\.md: unparseable frontmatter/;
+const DUP_RAW_ERROR =
+  /dup-raw\.md: unparseable frontmatter — duplicated mapping key \(line 5\)\. .*raw\/ document/;
 
 /** gray-matter's process-wide parse cache; absent from its type declarations. */
 const matterInternals = matter as unknown as {
@@ -453,5 +457,74 @@ describe("stripWikilinksToText", () => {
     expect(stripWikilinksToText("nothing to do here")).toBe(
       "nothing to do here"
     );
+  });
+});
+
+describe("frontmatter errors", () => {
+  const DUP_TAGS = "---\ntitle: a\ntags: [x]\n\ntags: y\n---\nbody";
+  const BAD_QUOTES = '---\nsummary: "a "b" c"\n---\nbody';
+
+  it("names the wiki note and gives a clean reason with the file line", async () => {
+    const path = await tempFile(DUP_TAGS, "dup-tags.md");
+    const failure = await parseWikiFile({
+      slug: "dup-tags",
+      folder: "concepts",
+      absolutePath: path,
+    }).catch((err: Error) => err);
+    expect(failure).toBeInstanceOf(Error);
+    const { message } = failure as Error;
+    expect(message).toContain(`${path}: unparseable frontmatter`);
+    expect(message).toContain("duplicated mapping key (line 5)");
+    expect(message).toContain("wiki note");
+    expect(message).not.toContain("column");
+  });
+
+  it("gives raw docs the same clean line-number reason", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wiki-raw-"));
+    await writeFile(join(dir, "dup-raw.md"), DUP_TAGS, "utf8");
+    await expect(loadRawDoc(dir, "dup-raw")).rejects.toThrow(DUP_RAW_ERROR);
+  });
+
+  it("parseAndValidateVault reports every bad note and raw doc at once", async () => {
+    const root = await mkdtemp(join(tmpdir(), "wiki-vault-"));
+    const wiki = join(root, "wiki", "concepts");
+    const raw = join(root, "raw");
+    await mkdir(wiki, { recursive: true });
+    await mkdir(join(root, "wiki", "derived"), { recursive: true });
+    await mkdir(raw, { recursive: true });
+    await writeFile(join(wiki, "bad-note.md"), BAD_QUOTES, "utf8");
+    await writeFile(
+      join(wiki, "cites-bad-raw.md"),
+      "---\ntitle: C\nsources:\n  - '[[raw/bad-raw]]'\n---\nSee [[bare-bad]].",
+      "utf8"
+    );
+    await writeFile(join(wiki, "fine.md"), "---\ntitle: F\n---\nok", "utf8");
+    await writeFile(join(raw, "bad-raw.md"), DUP_TAGS, "utf8");
+    await writeFile(join(raw, "bare-bad.md"), BAD_QUOTES, "utf8");
+
+    const sources = await discoverWikiSources(join(root, "wiki"));
+    const failure = await parseAndValidateVault({
+      sources,
+      rawRoot: raw,
+      onlySlug: null,
+      concurrency: 4,
+    }).catch((err: Error) => err);
+    const { message } = failure as Error;
+    expect(message).toContain("3 vault file(s) failed");
+    expect(message).toContain("bad-note.md: unparseable");
+    expect(message).toContain("bad-raw.md: unparseable");
+    expect(message).toContain("bare-bad.md: unparseable");
+    expect(message).toContain("(cited by cites-bad-raw)");
+
+    // `--only fine` still fails on the unparseable note (the corpus is needed
+    // for the slug map) but no longer on raw docs it does not cite.
+    const scoped = await parseAndValidateVault({
+      sources,
+      rawRoot: raw,
+      onlySlug: "fine",
+      concurrency: 4,
+    }).catch((err: Error) => err);
+    expect((scoped as Error).message).toContain("1 vault file(s) failed");
+    expect((scoped as Error).message).toContain("bad-note.md");
   });
 });

@@ -24,13 +24,13 @@ import {
 import { buildManifests, writeManifests } from "./pages/manifests.ts";
 import {
   buildSlugTitleMap,
+  collectRawCandidateSlugs,
   discoverWikiSources,
-  extractRawSlugsFromBody,
   extractRawSlugsFromSources,
   loadRawDoc,
   normaliseTags,
   type ParsedWikiFile,
-  parseWikiFile,
+  parseAndValidateVault,
   type RawDoc,
   resolveDate,
   stripWikilinksToText,
@@ -248,11 +248,12 @@ async function buildImportContext(opts: RunOptions): Promise<ImportContext> {
   // targets. Without this, `--only <slug>` would build a map containing only
   // the targeted article and every cross-link would be downgraded to plain
   // text.
-  const allParsed = await runWithConcurrency(
+  const allParsed = await parseAndValidateVault({
     sources,
-    PARSE_CONCURRENCY,
-    parseWikiFile
-  );
+    rawRoot: opts.rawPath,
+    onlySlug: opts.onlySlug,
+    concurrency: PARSE_CONCURRENCY,
+  });
   const slugTitleMap = buildSlugTitleMap(allParsed);
 
   // The catalog is the domain + description source of truth (see catalog.ts),
@@ -329,6 +330,7 @@ async function processArticle(
     frontmatterSources: frontmatter.sources,
     body: escapedBody,
     rawRoot: opts.rawPath,
+    slugTitleMap: ctx.slugTitleMap,
     summary,
   });
 
@@ -506,26 +508,39 @@ async function resolveRawSources(args: {
   frontmatterSources: string[] | undefined;
   rawRoot: string;
   slug: string;
+  slugTitleMap: ReadonlyMap<string, string>;
   summary: ImportSummary;
 }): Promise<{ rawIndex: Map<string, RawDoc>; sources: SourceRef[] }> {
-  const { body, frontmatterSources, rawRoot, slug, summary } = args;
+  const { body, frontmatterSources, rawRoot, slug, slugTitleMap, summary } =
+    args;
 
   const fromFrontmatter = extractRawSlugsFromSources(frontmatterSources);
-  const fromBody = extractRawSlugsFromBody(body);
-  const allSlugs = Array.from(new Set([...fromFrontmatter, ...fromBody]));
+  const { explicit, bare } = collectRawCandidateSlugs({
+    body,
+    frontmatterSources,
+    knownSlugs: slugTitleMap,
+  });
 
   const rawIndex = new Map<string, RawDoc>();
   const missing = new Set<string>();
-  await Promise.all(
-    allSlugs.map(async (rawSlug) => {
+  await Promise.all([
+    ...explicit.map(async (rawSlug) => {
       const doc = await loadRawDoc(rawRoot, rawSlug);
       if (doc) {
         rawIndex.set(rawSlug, doc);
       } else {
         missing.add(rawSlug);
       }
-    })
-  );
+    }),
+    // A bare link matching no raw doc is just an unresolved wikilink, not a
+    // missing source, so a miss here is silent.
+    ...bare.map(async (bareSlug) => {
+      const doc = await loadRawDoc(rawRoot, bareSlug);
+      if (doc && !rawIndex.has(bareSlug)) {
+        rawIndex.set(bareSlug, doc);
+      }
+    }),
+  ]);
 
   const sources: SourceRef[] = fromFrontmatter.map((rawSlug) => {
     const doc = rawIndex.get(rawSlug);

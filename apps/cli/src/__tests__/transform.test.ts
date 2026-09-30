@@ -42,6 +42,50 @@ describe("stripAuthoringTags", () => {
 });
 
 describe("rewriteWikilinks", () => {
+  it("renders vault index-page links as plain text without reporting them", () => {
+    const { body, unresolved, hasInternalLink } = rewriteWikilinks(
+      "See [[wiki/sources]], [[sources-table|the table]] and [[log]].",
+      new Map()
+    );
+    expect(body).toBe("See Sources, the table and Log.");
+    expect(unresolved).toEqual([]);
+    expect(hasInternalLink).toBe(false);
+  });
+
+  it("resolves a bare link naming a raw doc like [[raw/<slug>]]", () => {
+    const rawIndex = new Map<string, RawDoc>([
+      [
+        "darwinx-evolving-agent-harnesses",
+        {
+          slug: "darwinx-evolving-agent-harnesses",
+          title: "DarwinX",
+          url: "https://example.com/darwinx",
+        },
+      ],
+    ]);
+    const bare = rewriteWikilinks(
+      "See [[darwinx-evolving-agent-harnesses|the paper]].",
+      new Map(),
+      rawIndex
+    );
+    const explicit = rewriteWikilinks(
+      "See [[raw/darwinx-evolving-agent-harnesses|the paper]].",
+      new Map(),
+      rawIndex
+    );
+    expect(bare.body).toBe("See [the paper](https://example.com/darwinx).");
+    expect(bare.body).toBe(explicit.body);
+    expect(bare.unresolved).toEqual([]);
+  });
+
+  it("still reports genuinely unknown links", () => {
+    const { unresolved } = rewriteWikilinks(
+      "[[nope]] and [[sources]].",
+      new Map()
+    );
+    expect(unresolved).toEqual(["nope"]);
+  });
+
   it("rewrites in-set slug to a markdown link with frontmatter title", () => {
     const map = new Map([["claude-code", "Claude Code"]]);
     const { body, hasInternalLink } = rewriteWikilinks(
