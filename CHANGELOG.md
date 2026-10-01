@@ -1,3 +1,15 @@
+# [v2.32.0](https://github.com/howard86/howardism/compare/v2.31.0...v2.32.0) (2026-10-01)
+
+## ✨ New Features
+- [`98c06b16`](https://github.com/howard86/howardism/commit/98c06b16)  feat(cli): translate over-ceiling articles in structured chunks 
+
+## 🐛 Bug Fixes
+- [`8bbcc089`](https://github.com/howard86/howardism/commit/8bbcc089)  fix(cli): validate vault frontmatter upfront and resolve index/raw wikilinks 
+- [`0d7aef4b`](https://github.com/howard86/howardism/commit/0d7aef4b)  fix(skills): stop image loop on repeated failures; document vault snapshots 
+- [`82b7ba4f`](https://github.com/howard86/howardism/commit/82b7ba4f)  fix(cli): repair translated frontmatter and guard retry prompts 
+- [`56646eb2`](https://github.com/howard86/howardism/commit/56646eb2)  fix(cli): collapse doubled backslashes before MDX braces 
+- [`4c906f1b`](https://github.com/howard86/howardism/commit/4c906f1b)  fix(content): repair doubled brace escapes in zh-TW translations
+
 # [v2.31.0](https://github.com/howard86/howardism/compare/v2.30.1...v2.31.0) (2026-09-19)
 
 ## ✨ New Features
