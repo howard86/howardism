@@ -14,6 +14,13 @@ describe("fixMdxEscaping — brace escaping", () => {
     expect(fixMdxEscaping("foo \\{bar\\} baz")).toBe("foo \\{bar\\} baz");
   });
 
+  it("collapses a doubled backslash before a brace or pipe", () => {
+    expect(fixMdxEscaping("in \\\\{1..N\\\\} set")).toBe("in \\{1..N\\} set");
+    expect(fixMdxEscaping("| mean \\\\|ρ\\\\| | > 0 |")).toBe(
+      "| mean \\|ρ\\| | > 0 |"
+    );
+  });
+
   it("escapes unescaped braces in LaTeX-like prose", () => {
     expect(fixMdxEscaping("$f(x) = {x + 1}$")).toBe("$f(x) = \\{x + 1\\}$");
   });

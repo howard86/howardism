@@ -9,6 +9,10 @@ import matter from "gray-matter";
  *    MDX parses bare `{...}` as JSX expressions; source articles use `\{`
  *    inside LaTeX so the parser skips them. LLMs often un-escape them.
  *
+ *    Engines also emit `\\{` (an escaped backslash, then a bare brace — an
+ *    MDX expression), so a run of backslashes before `{`, `}` or `|` is first
+ *    collapsed to one. The English corpus never contains a literal `\\`.
+ *
  * 2. `<` before a digit or `$` → `&lt;`.
  *    MDX/acorn tries to parse `<5%` or `<$50` as a JSX opening tag and
  *    fails. Source articles use `&lt;5%` etc. LLMs sometimes write bare `<`.
@@ -47,7 +51,7 @@ const toggleFence = (current: string | null, marker: string): string | null => {
 const splitOnCodeSpans = (line: string): string[] => line.split(CODE_SPAN_RE);
 
 /** A line with none of these can never be changed by fixSegment/splitOnCodeSpans. */
-const FIXABLE_CHAR_RE = /[{}<`]/;
+const FIXABLE_CHAR_RE = /[{}<`\\]/;
 
 /**
  * Apply MDX-escaping fixes to a single prose segment (no backtick content).
@@ -55,6 +59,7 @@ const FIXABLE_CHAR_RE = /[{}<`]/;
  */
 const fixSegment = (seg: string): string =>
   seg
+    .replace(/\\{2,}(?=[{}|])/g, "\\")
     .replace(/(?<!\\)\{/g, "\\{")
     .replace(/(?<!\\)\}/g, "\\}")
     .replace(/<(?=[0-9$])/g, "&lt;");
