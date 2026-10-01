@@ -1,3 +1,5 @@
+import matter from "gray-matter";
+
 /**
  * Deterministic, engine-independent post-processor for translated MDX.
  * Fixes MDX-breaking character patterns that LLMs introduce when they
@@ -6,6 +8,10 @@
  * 1. Unescaped `{` / `}` in body prose → `\{` / `\}`.
  *    MDX parses bare `{...}` as JSX expressions; source articles use `\{`
  *    inside LaTeX so the parser skips them. LLMs often un-escape them.
+ *
+ *    Engines also emit `\\{` (an escaped backslash, then a bare brace — an
+ *    MDX expression), so a run of backslashes before `{`, `}` or `|` is first
+ *    collapsed to one. The English corpus never contains a literal `\\`.
  *
  * 2. `<` before a digit or `$` → `&lt;`.
  *    MDX/acorn tries to parse `<5%` or `<$50` as a JSX opening tag and
@@ -45,7 +51,7 @@ const toggleFence = (current: string | null, marker: string): string | null => {
 const splitOnCodeSpans = (line: string): string[] => line.split(CODE_SPAN_RE);
 
 /** A line with none of these can never be changed by fixSegment/splitOnCodeSpans. */
-const FIXABLE_CHAR_RE = /[{}<`]/;
+const FIXABLE_CHAR_RE = /[{}<`\\]/;
 
 /**
  * Apply MDX-escaping fixes to a single prose segment (no backtick content).
@@ -53,6 +59,7 @@ const FIXABLE_CHAR_RE = /[{}<`]/;
  */
 const fixSegment = (seg: string): string =>
   seg
+    .replace(/\\{2,}(?=[{}|])/g, "\\")
     .replace(/(?<!\\)\{/g, "\\{")
     .replace(/(?<!\\)\}/g, "\\}")
     .replace(/<(?=[0-9$])/g, "&lt;");
@@ -150,4 +157,129 @@ export function fixMdxEscaping(text: string): string {
   }
 
   return lines.join("\n");
+}
+
+/** Frontmatter keys the engine translates (see prompt.ts); all others are verbatim. */
+const TRANSLATED_FRONTMATTER_KEYS = ["title", "description", "imageAlt"];
+
+/** A value already quoted or a block scalar: left for validation to judge. */
+const QUOTED_OR_BLOCK_RE = /^["'|>]/;
+
+/** A plain scalar's continuation line; a column-0 line is the next key. */
+const INDENTED_LINE_RE = /^\s+\S/;
+
+/** Top-level article frontmatter keys (translated + verbatim, see prompt.ts). */
+const TOP_LEVEL_KEYS = [
+  ...TRANSLATED_FRONTMATTER_KEYS,
+  "date",
+  "domain",
+  "readingTime",
+  "sources",
+  "tag",
+  "tags",
+  "topic",
+];
+
+/** `  key:` for a known top-level key — the engine sometimes indents one. */
+const isStrayIndentedKey = (line: string): boolean =>
+  INDENTED_LINE_RE.test(line) &&
+  TOP_LEVEL_KEYS.some((k) => line.trimStart().startsWith(`${k}:`));
+
+/** A one-line `key: value` entry: nothing indented may legitimately follow it but a continuation. */
+const SCALAR_ENTRY_RE = /^[A-Za-z][\w-]*:\s+\S/;
+
+const parsesAsFrontmatter = (text: string): boolean => {
+  try {
+    // `{}` opts out of gray-matter's global cache.
+    matter(text, {});
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Join a plain scalar's first line with its indented continuation lines,
+ * stopping at an indented top-level key. Returns the folded value and the index of the
+ * first line not consumed.
+ */
+const foldPlainScalar = (
+  lines: string[],
+  start: number,
+  end: number,
+  first: string
+): { next: number; value: string } => {
+  const parts = [first];
+  let i = start;
+  while (
+    i < end &&
+    INDENTED_LINE_RE.test(lines[i] ?? "") &&
+    !isStrayIndentedKey(lines[i] ?? "")
+  ) {
+    parts.push((lines[i] ?? "").trim());
+    i += 1;
+  }
+  return { next: i, value: parts.filter(Boolean).join(" ") };
+};
+
+/** True when a translated key present in `block` is no longer a string after repair. */
+const losesTranslatedKey = (block: string[], repaired: string): boolean => {
+  const { data } = matter(repaired, {});
+  return TRANSLATED_FRONTMATTER_KEYS.some(
+    (k) =>
+      block.some((l) => l.trimStart().startsWith(`${k}:`)) &&
+      typeof data[k] !== "string"
+  );
+};
+
+/**
+ * Re-quote translated frontmatter values that no longer parse as YAML. Source
+ * `description`s are unquoted plain scalars folded over several lines; a
+ * translation that gains a `: ` (or a leading quote) turns the continuation
+ * into a bogus mapping entry, and the engine repeats the same mistake on retry
+ * ("bad indentation of a mapping entry"). Each plain `title`/`description`/
+ * `imageAlt` value is folded onto one line — the same space-joining YAML
+ * applies to a plain scalar — and re-emitted as a JSON string, which is a valid
+ * YAML double-quoted scalar. Pure: returns `text` unchanged when it already
+ * parses, and when the repair would not make it parse either (validation then
+ * reports the original error).
+ */
+export function repairTranslatedFrontmatter(text: string): string {
+  if (!text.startsWith("---") || parsesAsFrontmatter(text)) {
+    return text;
+  }
+  const lines = text.split("\n");
+  const end = lines.indexOf("---", 1);
+  if (end === -1) {
+    return text;
+  }
+  const out: string[] = [lines[0] ?? "---"];
+  let i = 1;
+  while (i < end) {
+    const raw = lines[i] ?? "";
+    // ` description: …` after a scalar entry is an indented top-level key, not a
+    // continuation — folding it in would silently drop the key.
+    const line =
+      isStrayIndentedKey(raw) && SCALAR_ENTRY_RE.test(out.at(-1) ?? "")
+        ? raw.trimStart()
+        : raw;
+    const key = TRANSLATED_FRONTMATTER_KEYS.find((k) =>
+      line.startsWith(`${k}:`)
+    );
+    const first = key ? line.slice(key.length + 1).trim() : "";
+    if (!key || QUOTED_OR_BLOCK_RE.test(first)) {
+      out.push(line);
+      i += 1;
+      continue;
+    }
+    const folded = foldPlainScalar(lines, i + 1, end, first);
+    out.push(`${key}: ${JSON.stringify(folded.value)}`);
+    i = folded.next;
+  }
+  const repaired = [...out, ...lines.slice(end)].join("\n");
+  if (!parsesAsFrontmatter(repaired)) {
+    return text;
+  }
+  // Never trade a parse error for a silently lost translated key.
+  return losesTranslatedKey(lines.slice(1, end), repaired) ? text : repaired;
 }

@@ -1,0 +1,181 @@
+---
+date: 2026-09-23
+title: "Native Multimodal Modeling: Fusion Depth and I/O Duality"
+description: An, Lu, Dong et al. (Tencent Youtu + 5 universities, May 2026)
+  formalize 'native' as two operator definitions — mid-fusion injects encoder
+  features into a joint backbone, early-fusion maps every modality through one
+  unified tokenizer into a shared space, and late-fusion (frozen LLM + grafted
+  head) is excluded outright — then cross that axis with an orthogonal
+  input/output duality (Multi-to-Text, Multi-to-Target, Multi-to-Multi) over a
+  43-model census; the payoff is the claim that each fusion regime forces its
+  own training signature, with differential learning rates mandatory at
+  mid-fusion (CogVLM's 1/10 encoder rate), z-loss + QK-Norm as preconditions at
+  early-fusion (Chameleon diverges after ~20% of training without them),
+  modality-mixture scheduling replacing differential LR, and RL pathway-locality
+  collapsing entirely once the softmax unifies
+tag: Concept
+domain: interaction-multimodal
+tags:
+  - llm-architecture
+  - multimodal
+  - training
+readingTime: 27
+imageAlt: "Illustration for Native Multimodal Modeling: Fusion Depth and I/O Duality"
+sources:
+  - title: "Toward Native Multimodal Modeling: A Roadmap"
+    url: https://arxiv.org/pdf/2605.25343
+  - title: "NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with
+      Tool Calling Capabilities"
+    url: https://arxiv.org/pdf/2609.21967
+  - title: "OmniVChat: Synthesizing, Benchmarking, and Training for Native
+      Audio-Visual Dialogue"
+    url: https://arxiv.org/pdf/2609.21465
+---
+export { default as heroImage } from "../assets/native-multimodal-taxonomy.webp";
+
+## Sources
+
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967)
+- [OmniVChat: Synthesizing, Benchmarking, and Training for Native Audio-Visual Dialogue](https://arxiv.org/pdf/2609.21465)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343)
+
+## Summary
+
+A 52-page roadmap paper (An, Lu, Dong et al., arXiv 2605.25343, 2026-05-25; 21 authors, lead affiliation **Tencent Youtu Lab**, `practitioner-opinion`) that does the thing this vault's multimodal pages had been doing by hand: it gives "native" a definition you can apply to a model card, and then shows that the definition is *load-bearing for training*, not just descriptive.
+
+It reports no experiments of its own. Every number below is the survey's restatement of a third-party paper, and the survey's value is the organization, not the measurement.
+
+## 1. The formal definitions of nativity
+
+Let the input modality set be `M = {m₁ … mₙ}`, with `Eᵢ` modality-specific encoders, `Pᵢ` projection/alignment layers, `T` a unified tokenization operator, and `G` a grafted output head.
+
+| Regime | Operator | What it means |
+|---|---|---|
+| **Late-fusion** (excluded from NMM) | `F_late = G(LLM({Pᵢ(Eᵢ(mᵢ))}ⁿᵢ₌₁))` | Frozen backbone behind a shallow projector; "blind to raw sensory signals." LLaVA, DeepSeek-VL, Qwen-Image. |
+| **Mid-fusion** (native, "naturally interacted") | `F_mid = Backbone(C(E₁(m₁), …, Eₙ(mₙ)))` | `C` is a cross-modal alignment/injection operator — cross-attention or deeply stacked adapters — writing encoder features into the **intermediate layers** of a joint backbone. Still "modality-aware": the encoders and the backbone remain architecturally distinct. CogVLM, Qwen-Audio → Qwen2.5-VL, Qwen3-VL, InternVL-3.5, GLM-5V-Turbo, Kimi K2.5. |
+| **Early-fusion** (native, "convergent") | `F_early = Transformer(⋃ᵢ T(mᵢ))` | No independent frozen encoders at all; **one** operator `T` maps every modality into a single shared embedding space from the outset. "Born-native," all modalities as equivalent tokens. Transfusion, Chameleon, AnyGPT. |
+
+The move that matters for this vault: **late-fusion is defined out of "native" explicitly**, and the mid/early line is drawn at *whether a distinct encoder subgraph survives*, not at whether the encoder is trainable. A mid-fusion model whose encoder is fully unfrozen is still mid-fusion.
+
+## 2. The orthogonal axis: input-output duality
+
+Crossed with fusion depth, and explicitly declared orthogonal to it ("each functional category contains representatives of both fusion paradigms"):
+
+- **Multi-to-Text (M2T)**, asymmetric comprehension — `F_M2T: M → T`. Arbitrary interleaved cross-modal streams collapse into a single linguistic space. Bottleneck is cross-modal alignment and perceptual grounding, not textual synthesis.
+- **Multi-to-Target (M2G)**, asymmetric generation — `F_M2G: M → yₖ`, one non-textual target modality decoded directly from native hidden representations rather than handed to a grafted decoder.
+- **Multi-to-Multi (M2M)**, symmetric modeling — `F_M2M: M_in → M_out`, both arbitrary subsets. "The concepts of separate perceptors and renderers disappear."
+
+M2M splits again into **Fully Discretized Unified** (everything quantized to discrete tokens under one autoregressive objective — Chameleon, AnyGPT, Emu3.5, LongCat-Next, LLaDA2.0-Uni, OneCAT, Janus-Pro, Moshi) and **Modality-Specificity Preserving** (continuous feature spaces, decoupled encoders, hybrid AR+diffusion losses — Transfusion, Show-o2, BAGEL, TUNA-2, SenseNova-U1, Mamoda2.5).
+
+The census behind this (Table 1, 43 models, reconciled cell-for-cell against `pdftotext -layout` page 4) runs 16 M2T / 12 M2G / 15 M2M, dated 2023.11 → 2026.05, restricted to "open-source models or technical reports with verified architecture and parameter transparency." Fifteen of the 43 are starred as using the discrete unified scheme. Flagship sizes are overwhelmingly sparse: 1TA32B (Kimi K2.5), 744BA40B (GLM-5V-Turbo), 310BA15B (MiMo-V2.5), 400BA17B (Llama-4-Maverick).
+
+## 3. What this settles for the vault
+
+The vault reached "early fusion" from the interaction-model side and had been using it loosely as a synonym for **encoder removal** (see [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion)). The survey's definitions separate two things that page had fused:
+
+- **Early-fusion** is a property of the *tokenization path* — one operator into one shared space. It is the axis the survey names.
+- **Encoder-free modeling** appears in the survey at a much lower level: it is one of two strategies (beside "Physical Decoupling," i.e. Janus-Pro's separate understanding/generation encoders and BAGEL's Mixture-of-Transformer-Experts) for resolving the **Comprehension-Generation Dilemma** *inside* the M2M Modality-Specificity Preserving camp. Its named instances are **TUNA-2 and SenseNova-U1**, both of which the survey classifies as continuous — neither carries the discrete-unified star in Table 1.
+
+So under this taxonomy, a patch-embedding-only continuous path is not automatically early-fusion, and early-fusion does not require discarding encoders (`T` can be a learned tokenizer as easily as a raw projection). That is a genuine sharpening of a vault ambiguity, and it is a definition, not a finding — weight it accordingly.
+
+Coverage notes, since the survey is a census and absences are informative:
+
+- The survey's Gemma-4 rows are **Gemma-4-31B and Gemma-4-E4B**, and it classifies Gemma-4-31B under *Vision-Encoder-Based Fusion* (Figure 4). The **12B that the vault's encoder-free evidence actually rests on** — the one that discards its 305M audio conformer — is absent from Table 1 and from the taxonomy figure entirely. The survey therefore neither corroborates nor contests [Gemma 4](/articles/gemma-4)'s encoder-free result; it catalogues a different part of the family.
+- Nothing from the interaction-model line appears at all: no [TML-Interaction-Small](/articles/tml-interaction-small), no [Inkling](/articles/inkling), no [GPT-Live](/articles/gpt-live), no [Gemini 3.8 Live](/articles/gemini-3-8-live). The census is restricted to open-source/technical-report models, which excludes the production live-voice systems the vault's [Interaction Models](/articles/interaction-models) cluster is built on. Moshi is the one bridge — it is in Table 1, in the M2M discretized camp, and is the survey's canonical full-duplex reference.
+- **A census-class candidate arrived four months later, and the operators disqualify it from M2M (added 2026-09-23).** [NemotronLabs VoiceChat](https://arxiv.org/pdf/2609.21967) (NVIDIA, arXiv 2609.21967, 2026-09-18, `empirical`) is open-weight with a full technical report, so it clears the census's admission bar and would be its **second full-duplex speech entry** — except that the survey's own definitions file it away from Moshi. Its input path is unambiguously **mid-fusion**: a distinct 600M cache-aware FastConformer encoder survives as its own subgraph, an identity modality adapter and projection map its 1,024-dim states into the backbone's hidden space, and a jointly trained Nemotron-Nano-9B-v2 backbone consumes them — `F_mid = Backbone(C(E(m)))` exactly, with the encoder trainable but architecturally separate. Its output path is where the classification turns: the backbone emits **agent text**, speech is rendered by a separately trained VoiceChat-TTS decoder (778M Gemma-3 backbone + 199M causal codec), the backbone's audio-loss weight is **0.0**, and "gradients are not propagated between the full-duplex backbone and TTS model." A decoupled, gradient-isolated renderer is the survey's `G` — the **grafted output head** whose presence defines *late*-fusion and is excluded from native modeling outright. So under these operators the system is **mid-fusion M2T with a grafted speech renderer**, not M2M, however its title reads; **Moshi remains the census's only genuine full-duplex M2M entry**, and the gap the survey's §8.4 names is intact. Depth on [Full-Duplex Interaction](/articles/full-duplex-interaction) (the speech-to-speech label vs. what the architecture emits) and [Interaction / Background Model Split](/articles/interaction-background-model-split) (its parallel tool-call channel).
+- **A second September arrival, and this one names its own nativity as an input-side claim (added 2026-09-23).** [OmniVChat](https://arxiv.org/pdf/2609.21465) (He, Chu, Chen et al., Alibaba Qwen Team + CUHK + SJTU, arXiv 2609.21465, 2026-09-18, `empirical`) defines a task — "native audio-visual dialogue," where an omni model "directly and simultaneously receive[s] audio and video from a user and return[s] text," with the query embedded in both streams and no separate text question, no external captioning and no ASR. Under the survey's operators that is **mid-fusion M2T**, and unusually the paper does not overclaim it: the system under study is the **Thinker of Qwen3-Omni-30B-A3B-Instruct**, described in its own words as "video and audio encoders and a text decoder" — `F_mid = Backbone(C(E_audio(m), E_video(m)))`, distinct encoder subgraphs surviving into a joint MoE backbone — and the output is text, full stop. Qwen3-Omni's Talker, the component that would make the family M2M, is not in the loop here. Three further details place it precisely. (i) **The encoders are frozen**: RL trains rank-64 LoRA adapters on attention and MoE-expert projections only, 325M of 30B total (3B active), with "the vision and audio towers remain[ing] frozen" — so the perception path contributing the nativity is untouched and every measured gain is decoder-side. (ii) The survey's own census already files Qwen-Audio → Qwen2.5-VL → Qwen3-VL as canonical mid-fusion, so this is the same lineage extended to simultaneous audio+video rather than a new regime. (iii) The paper's nativity claim is strictly about **removing the ASR/caption hop on the input side** — it says nothing about output-side nativity and does not need to, because the task returns text by definition. That makes it a clean specimen of a distinction the vault has been forcing on sources that resist it: **"native" is two claims, and a system can hold the input one honestly while never making the output one.** Its comparison set is consistent with this — one entrant, JoyAI-VL-Interaction, is run with Qwen3-ASR attached as an explicit cascade arm, which is late-fusion by the survey's definition dropped into an otherwise native-input table on purpose. Benchmark and judge on [Interactivity Benchmarks](/articles/interactivity-benchmarks) and [LLM-as-a-Judge](/articles/llm-as-a-judge).
+
+## 4. The real contribution: each fusion regime forces its own training signature
+
+§5 is the part that is not available anywhere else in the vault. The claim is stronger than "different architectures train differently": **every rightward step on the fusion ladder makes a specific training technique change from optional to mandatory**, and the paper states each transition as an architectural necessity (Figure 5, "Training × Fusion," a stage × regime grid — PT/SFT/RL/OPD rows against late/mid/early columns).
+
+One invariant holds across all three regimes: **modal quantizers and VAEs are pretrained separately and stay frozen** (VQ-VAE, MAGVIT-v2, Make-a-Scene; Mimi, SpeechTokenizer, Encodec; 3D Causal VAE, Video DC-AE, Wan-VAE). They define the latent space, so changing them mid-training invalidates every learned representation.
+
+### Pre-training
+
+**Late-fusion PT is degenerate on all five signature dimensions** (freezing topology, LR topology, loss formulation, stability prescription, curriculum). One global LR, text-only autoregressive cross-entropy, no special stabilizers; visual tokens are just a prefix. The price is explicit: *capped cross-modal capacity*, because the encoder never adapts to the language objective.
+
+**Mid-fusion PT** is the regime where gradients first reach the encoder, and everything else is a response to that:
+
+- **Progressive unfreezing.** Qwen2-VL trains ViT with the LLM frozen in Stage 1, unfreezes both in Stage 2; CogVLM, Janus-Pro and MiniCPM-V defer encoder unfreezing all the way to SFT.
+- **Differential rates become mandatory.** A uniform rate is simultaneously too high for the encoder and too low for the LLM. CogVLM applies **1/10 of the base rate** to its EVA2-CLIP-E encoder on SFT-time unfreezing — the survey calls this the canonical prescription. Stage-wise global decay does the same job implicitly: Janus-Pro runs 10⁻³ → 10⁻⁴ → 4×10⁻⁵ across three stages for a **25× total reduction**; Moshi trains its temporal and depth transformers at 3×10⁻⁵ vs 2×10⁻⁴, a **~7× gap**.
+- **Decoupled losses.** Two loss terms over a shared backbone — Janus-Pro's cross-entropy on text tokens and on discrete VQ tokens via two independent visual encoders; BAGEL's cross-entropy-on-SigLIP-features for understanding and MSE-on-continuous-VAE-latents (Next-Group-Token Prediction) for generation, routed through MoT with task-specific batch toggles. Shared parameters, unshared gradient signal at the modality-specific layers: "partial rather than full unification."
+- **Resolution curricula become a scheduling variable**, because an unfrozen encoder's operating resolution is no longer fixed. MiniCPM-V 224 → 448 → 1344+; CogVLM 224 → 490; Qwen2.5-Omni's context window 8,192 → 32,768 in the final PT stage; Emu3 generation 512 → 720 px (understanding to 1024 px) in post-training. The stated insight: mid-fusion couples *which* parameters unfreeze to *at what resolution* they unfreeze, and one schedule without the other destabilizes training.
+
+**Early-fusion PT** removes the architectural firewall, so every stabilizer becomes a precondition:
+
+- **Joint-from-start**, no freeze-to-unfreeze transitions. Vocabulary expands by the codebook size: **+8,192 for Chameleon, +32,768 for Emu3.5, and 8,192 image + 1,024 speech + 8,192 music for AnyGPT.** Single global LR returns (Chameleon 10⁻⁴ → 10⁻⁵, Transfusion 3×10⁻⁴ → 1.5×10⁻⁵ cosine) — not because differential rates would be wrong but because a unified vocabulary yields homogeneous gradient statistics across token types. The exception is Llama-4's MetaP, which moves the other way, to algorithmically determined per-layer rates.
+- **Unified NTP, with hybrids where a modality resists tokenization.** Transfusion's `L = L_LM + 5·L_DDPM` (λ = 5 found by preliminary search); Show-o's Mask Token Prediction for images beside NTP for text; LLaDA2.0-Uni replacing the autoregressive loss outright with a discrete-diffusion masked-denoising objective over both text and image. Within Moshi's RVQ audio path the **semantic codebook carries loss weight α = 100 against the acoustic codebook's α = 1**, to force linguistic content ahead of acoustic detail. Attention follows the objective: pure-NTP models run causal attention uniformly with structural delimiter tokens, while Transfusion and Show-o relax to bidirectional attention *inside image regions* because diffusion benefits from full image context.
+- **Z-loss and QK-Norm are preconditions, not tricks.** Chameleon's ablation: **without QK-Norm the model diverges after approximately 20% of training**, and z-loss regularization `10⁻⁵ · log²Z` (Z the softmax partition function) is required to keep logits bounded over a heterogeneous token distribution. The survey treats this as "the clearest evidence that early-fusion is a distinct training regime, not a stylistic refinement of mid-fusion." It is the single strongest empirical hook in the paper, and it is Chameleon's result, not the survey's.
+- **Modality-mixture scheduling replaces differential LR.** Once separate per-modality loss heads are gone, the mixture *in each batch* directly sets the gradient direction. Transfusion fixes a **1:1 text-to-image token ratio with captions preceding their image 80% of the time**, using BOI/EOI tokens as attention-pattern switches. Chameleon fixes **every image at 1,024 tokens from a 512×512 center crop regardless of source resolution**, so per-image gradient is constant. Moshi interleaves text and audio at the **12.5 Hz frame level — one text position and eight audio codebook positions per timestep — and allocates half of all pretraining batches to text-only data as an explicit anti-forgetting buffer.** Video generators run parallel resolution curricula: Open-Sora 2.0 256 → 768 px, HunyuanVideo 256 → 960 px, Wan 256 → 720 px. The failure mode is Chameleon's documented warning: imbalanced mixtures make early-fusion models learn **degenerate unconditional priors** that distort generation — a failure late-fusion avoids structurally (inert generation pathway) and mid-fusion avoids structurally (decoupled losses).
+
+### SFT: the freezing-rewiring privilege belongs to mid-fusion alone
+
+Two new axes appear on top of the PT signature. The first is that **only mid-fusion can rewire the freezing topology at SFT** — late-fusion has nothing trainable to thaw, and early-fusion's joint-from-start commitment forecloses re-freezing without breaking the unified softmax. Mid-fusion uses it both ways: *unfreeze-at-SFT* (CogVLM, Janus-Pro, MiniCPM-V, with Janus-Pro keeping the generation tokenizer frozen even after unlocking the understanding encoder — an asymmetric component-by-component thaw) and *train-then-re-freeze* (Qwen2-VL re-freezes its ViT after two PT stages, on the reasoning that 1.4T-token joint pretraining already consolidated vision-text alignment).
+
+The second is **distribution rebalancing**: SFT corpora are far smaller and skew text-heavy, so recovering the PT-time modality mixture is a regime-specific design step. Janus-Pro shifts generation:understanding from 50/50 at Stage II PT to **40/60** at Stage III SFT. Early-fusion SFT reduces to the universal layer (lower LR, prompt-token loss masking, dropout — Chameleon adds **0.05 dropout at 34B**) plus that rebalancing. The edge case is AnyGPT, which inverts everything by **freezing its LLM backbone at SFT and updating only the new multimodal embedding and prediction layers for 5,000 steps** — against BAGEL's all-trainable, all-stage joint optimization at the opposite extreme. Late-fusion SFT is the degenerate case: LLaVA's **100× LR drop** from projector-only Stage 1 to end-to-end Stage 2 is the whole story.
+
+### RL: the scope question, and where pathway locality dies
+
+Shared toolkit across regimes — DPO / PPO / GRPO; outcome-level, process-level (multimodal PRMs) and rule-based deterministic rewards. What the regime dictates is *which subset of parameters the reward touches*.
+
+- **Late-fusion RL** is structurally minimal: Qwen2.5-Omni and Qwen3-Omni apply DPO **only to the Talker**, over word-error-rate or pause-error-ranked triplets, leaving Thinker and all encoders untouched. The projector is too thin for the policy to drift away from its visual conditioning.
+- **Mid-fusion RL** inherits pathway decoupling: HunyuanVideo, Wan, T2I-R1 and FlowGRPO freeze VAE and text encoder and route gradients only into the diffusion transformer, with pathway-local rule-based rewards (CLIP, ImageReward, aesthetic/motion scorers). The one failure mode here — naive DPO learning **text-only preferences** by leaning on language priors and ignoring the image — stays *contained in the understanding pathway*; mDPO conditions the preference loss on the image to counter it.
+- **Early-fusion RL** loses that containment entirely. Under a unified softmax there is no isolated head, so the policy is the whole backbone (Emu3.5, UniRL with GRPO). The same unification delivers the upside — a single scalar arriving at any output token credit-assigns **across modalities** through shared parameters, which decoupled pathways cannot do — and two failure modes that mid-fusion suppressed structurally: **visual-grounding hacking** (driving textual proxies like length, formatting and certainty without grounding claims in the image; Fact-RLHF and shortcut-aware MM-RM on the reward side) and **conflated perceptual vs logical errors** in process supervision (outcome-only RL cannot tell "misread the chart" from "botched the derivation"; multimodal PRMs such as URSA and GM-PRM separate them). Both reduce to one mechanism: *under the unified softmax, language priors compete with visual evidence on equal footing, and naive RL lets the priors win.*
+- Compounding it is the **see-saw effect**: per-capability specialist RL runs (math, code, agentic tool use, instruction following, safety) produce checkpoints that trade off against one another.
+
+### OPD: the structural response
+
+On-policy distillation, and its multi-teacher form MOPD, is presented as the answer to the see-saw — and it is a one-line modification of GRPO, replacing the group-relative advantage with a stop-gradient reverse-KL log-ratio against a teacher: `Â_{i,t} = sg[log π_teacher(y_{i,t}|x, y_{i,<t}) / π_student(y_{i,t}|x, y_{i,<t})]`. Every student-sampled token then gets dense per-position teacher supervision while staying on-policy.
+
+**MiMo-V2.5 is named as the first publicly reported MOPD deployment on a native multimodal model**, with the full pipeline text PT → projector warmup → multimodal PT → SFT and agentic post-training (context extended **32K → 1M**) → RL and MOPD. Three structural pieces: a pool of specialist teachers from independent domain RL; an outcome-reward augmentation `Â = Â_OPD + α·Â_ORM` that decouples the student from any single teacher's ceiling; and a permissive teacher pool admitting domain SFT models, RL specialists, **and a frozen snapshot of the student itself as an anti-drift anchor** on prompts where other teachers would push it out of distribution.
+
+## 5. Inference, streaming, and the born-duplex claim
+
+§6 restates the long-context problem in multimodal terms — a high-resolution image, a multi-image document or a long video becomes hundreds of thousands to millions of tokens sharing a context window with language — and notes multimodal contexts are already at the million-token regime (Gemini 1.5/2.5). Two attack surfaces: cut the tokens that enter the backbone (fixed-budget resamplers; VisionZip, SparseVLM, FitPrune, LLaVA-PruMerge; trainable VisionSelector/LaCo; query-aware Q-Zoom, which reasons over a coarse view first and spends high-resolution tokens only where they can change the answer) or redesign the backbone/serving stack.
+
+The concrete compression numbers the survey carries: **InternVL-3.5's Visual Resolution Router assigns 256 tokens to semantically rich patches and 64 to backgrounds, cutting token redundancy 50%**; Nemotron3-Nano-Omni's three convolutional subsampling layers give **8× temporal downsampling**, its TDT decoder skips frames by predicted token duration, and its **31B Mamba2-Transformer hybrid MoE activates 3B per forward pass**, trading O(N²) attention for O(N) Mamba2 on long context; Kimi K2.5's agent-swarm decomposition reports **4.5× processing-efficiency gains** on long video; Emu3.5's Discrete Diffusion Adaptation reports **~20× acceleration** on single-image inference by moving from token-by-token serial decoding to bidirectional parallel prediction.
+
+§6.3 and §8.4 are where the survey meets [Full-Duplex Interaction](/articles/full-duplex-interaction) and [Live-Path Minimalism](/articles/live-path-minimalism) head-on, and it lands on the same conclusion from the architecture side rather than the serving side: TTFT, sustained latency and real-time responsiveness are "first-class optimization targets rather than secondary deployment considerations," and truly native interactive agents require **"streaming by construction, not as a post-hoc wrapper around an autoregressive backbone"** — the survey's phrase for what this vault has been calling born-streaming. Four routes: incremental multimodal token decoding (emit visual/audio tokens progressively instead of waiting for a complete encode); **full-duplex state management** (concurrent inference over incoming sensory and outgoing generation streams, with duplex dialogue control, streaming state prediction and dynamic KV-cache management against cache contention and sequential blocking); inference-time adaptive bitrate control (dynamically lowering discrete-code granularity — the survey concedes direct RVQ-layer switching "remains underexplored"); and modality-aware mixed quantization, assigning different precisions to visual encoder, projector and backbone.
+
+Its own verdict on the state of the art: end-to-end full-duplex frameworks (Moshi, ELLSA, FireRedChat) and Watch-Think-Speak protocols "hint at this future, but stable, deployable, low-latency systems with consistent quality across modalities are still an industrial open problem." That is a third-party, non-vendor restatement of exactly the gap the vault's live-voice pages document vendors papering over.
+
+## 6. Evaluation census
+
+Table 3 (39 benchmarks — 18 image, 7 audio, 14 video — rebuilt in the raw from `pdftotext -layout` page 29 after docling dropped most of it; reconciled row-for-row during this compile) is a useful inventory rather than a result. Three observations worth carrying:
+
+- **The full-duplex rows corroborate the vault's own numbers from a neutral source**: Moshi Eval at a **200 ms** target latency, SoulX-Duplug-Eval at **240 ms** bilingual streaming turn detection, and Full-Duplex-Bench scoring turn-taking, barge-in handling and false-interruption rate. The survey adds ThinkStream's **Watch-Think-Speak** protocol — judging not only answer accuracy but *response timing*, whether sufficient evidence accumulated before responding — and AURA's proactive QA (responding when relevant events occur with no explicit query) and multi-response QA. These are third-party instruments for the proactivity gap [Interactivity Benchmarks](/articles/interactivity-benchmarks) and [Content-Driven Intervention](/articles/content-driven-intervention) document as unmeasured.
+- **Hallucination evaluation is argued to be specifically a unified-architecture problem**: in a shared representation space, generative priors may leak into discriminative predictions, so POPE and RLHF-V become diagnostics for the architecture and not just the model.
+- **A negative result on discrete tokenization worth flagging**: Rao and Rachuri show that **DPO on VQ-based unified models fails to improve CLIPScore even when understanding metrics improve**, which the survey reads as discrete tokenization creating a structural bottleneck for offline preference optimization.
+
+The efficiency-aware dimension the survey pushes hardest: ResAdapt reportedly eliminates **over 90% of visual tokens while processing 16× more frames**, for **>15% relative gains** on complex long-video reasoning — the basis for its call that benchmarks report accuracy alongside token budget, latency and energy on an explicit Pareto frontier.
+
+## 7. How much to trust it
+
+- **Evidence tier confirmed `practitioner-opinion`.** The paper runs nothing. Its own contribution list claims "empirical insights from state-of-the-art implementations," which is synthesis of others' measurements. No part of it rises to `empirical`; every figure above inherits the tier of its *original* paper, and where this vault already holds the primary (Gemma 4, Tuna-2, TML), the primary wins and the survey is at most corroboration.
+- **COI: Tencent.** Twenty-one authors, first affiliation Tencent Youtu Lab. The survey's Tencent-favourable claims are specific and should be read as first-party: that **HunyuanVideo-1.5** "naturally developed strong temporal coherence and long-term physical reasoning simply by learning from the data distribution" *without explicit RL physics rewards*, and that its **SSTA** mechanism prunes redundant spatiotemporal blocks (static backgrounds) to boost end-to-end inference speed "enabling smooth operation on consumer-grade GPU memory." Both are unquantified in the survey and neither is independently sourced here.
+- **The survey contradicts itself once, visibly.** §1 lists Seedream3.0 among "speech-centric native frameworks," while its own Table 1 records Seedream3.0 as text-in / **image**-out with no audio path at all. Table 1 is right. The prose also uses a second, inconsistent set of citation numbers for four models (MiniCPM-V-4.6 as [52] vs Table 1's [16]; OmniVoice [53] vs [29]; Moshi [54] vs [48]) — present identically in the source PDF, so this is the paper's, not the parser's.
+- **Census, not evaluation.** Table 1 records which modalities a model claims in and out; it contains no quality numbers, so nothing in it ranks anything. "Params of Flagship" is self-reported from technical reports.
+
+## Connections
+
+- [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — the vault's prior home for early fusion; this page supplies the definition that separates *early-fusion* (one tokenization operator into one space) from *encoder-free modeling* (one of two strategies inside M2M modality-specificity-preserving), and notes the survey catalogues Gemma-4-31B/E4B but not the encoder-free 12B
+- [Full-Duplex Interaction](/articles/full-duplex-interaction) — §6.3's full-duplex state management and §8.4's "streaming by construction, not a post-hoc wrapper" are the architecture-side statement of the same claim; Moshi is the census's one bridge to the vault's live-voice cluster
+- [Interaction Models](/articles/interaction-models) — an independent, non-vendor derivation of "interaction must be in the model," reached from multimodal architecture rather than from harness critique
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — Moshi's 12.5 Hz text/audio interleave (one text position + eight audio codebook positions per timestep) is the primary-source form of the micro-turn interleave, here as an early-fusion *training* constraint
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — Table 3's full-duplex and streaming rows (Full-Duplex-Bench, OVO-Bench, StreamingBench, OmniMMI, ThinkStream, AURA) are third-party instruments for the proactivity gap
+- [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — §6's whole argument is that native multimodality converts perception into a token-budget problem: 256-vs-64-token routing, 8× temporal downsampling, 3B-of-31B activation, >90% token elimination
+- [Gemma 4](/articles/gemma-4) — the survey lists 31B and E4B under vision-encoder-based fusion; the encoder-free 12B is absent
+- [TML-Interaction-Small](/articles/tml-interaction-small) — absent from the census (not open-source/technical-report), so the survey neither confirms nor contests it
+- [Inkling](/articles/inkling) — likewise absent, despite being open-weights at 975B
+
+## Open Questions
+
+- Can a **single probabilistic objective** (or one unified tokenization scheme, or a continuous latent grammar) carry both understanding and generation without regression on either side? Today's "unified" models are hybrids — NTP for text plus diffusion/flow heads for image and audio (Transfusion, Show-o2, BAGEL) — and the discrete-unified path (Chameleon, AnyGPT, Janus-Pro) versus the continuous-latent path (TUNA-2, Mamoda2.5) is unresolved. Falsifier: a single-objective model that matches the best hybrid on both a generation and an understanding suite at matched scale.
+- Is **"expert nativity"** — how far MoE experts are jointly trained across modalities versus specialized per modality — a real axis with measurable consequences, as the survey proposes it be formalized alongside architectural nativity? Every flagship in the census above ~100B is sparse (1TA32B, 744BA40B, 310BA15B), yet no source here reports modality-aware routing ablations or how sparsity interacts with cross-modal attention.
+- Can **symmetric M2M behaviour be distilled into a compact model under streaming and full-duplex constraints**? MOPD is reported once, on MiMo-V2.5, and only for the M2T projection; the survey calls distilling M2M behaviour "largely uncharted," which is precisely the capability the vault's interaction/background split currently buys with a second model instead.
+
+## Sources
+
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967) — Balam, Bartley, Casanova et al. (**NVIDIA**), arXiv 2609.21967, 2026-09-18 (`empirical`, 19 pp): read here only to classify one system against the survey's operators — §2.1 the FastConformer encoder, identity modality adapter and projection (mid-fusion input), §2.3 and §3.1 the gradient-isolated VoiceChat-TTS decoder at audio-loss weight 0.0 (grafted output head). Full treatment on [Full-Duplex Interaction](/articles/full-duplex-interaction), [Interaction / Background Model Split](/articles/interaction-background-model-split) and [Interactivity Benchmarks](/articles/interactivity-benchmarks)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343) — An, Lu, Dong, Wang, Li, Fei, Yu, Yuan, Liu, Wang, Liang, Yang, Shen, Ke, Chen, Luo, Zou, Huang, Yin, Qiao & Sun, *Toward Native Multimodal Modeling: A Roadmap*, arXiv 2605.25343, 2026-05-25, 52 pp / ~32.5k words (`practitioner-opinion`). §2.1 the three fusion operators, §2.2 the M2T/M2G/M2M duality, §3 + Figure 4 the challenge→design-axis→system taxonomy, §4 + Table 2 the data census, §5 + Figure 5 the per-regime training signature (the load-bearing section), §6 inference and full-duplex deployment, §7 + Table 3 the benchmark census, §8 the open problems. **Table verdicts:** Table 1 (43 models) reconciled cell-for-cell against `pdftotext -layout -f 4`, clean, and the raw's `[!note]` repair of the Chameleon/AnyGPT weld is correct; Table 2 (17 data rows) carried **no** repair block and was reconciled here against page 15 — clean, no collapse or shift; Table 3 (39 benchmarks) reconciled against page 29 — the raw's rebuild is exact, with the one caveat that the source's column header reads **"Task Group," not "Category"** as the repair note calls it. Figures 2 (timeline), 3 (I/O duality), 4 (challenge taxonomy) and 5 (training × fusion grid) viewed; the remaining 52 images are repeated decorative headers (three hashes account for 52 of 57). **COI:** Tencent Youtu Lab is the lead affiliation — HunyuanVideo-1.5 claims are first-party and attributed in §7 above

@@ -55,7 +55,7 @@ export function buildTranslatePrompt(args: BuildTranslatePromptArgs): string {
     "- Frontmatter values for the keys: `date`, `tag`, `topic`, `readingTime` (copy them verbatim from the source).",
     "- All link URLs, including internal `/articles/<slug>` links and any external `https://...` URLs. The set of links must match the source EXACTLY: do not drop a link, and do not invent or add any link that is not already in the source (inventing internal `/articles/<slug>` cross-references is a common and rejected failure).",
     "- Every `sources[].title` value (the audit-trail titles in the `sources:` frontmatter list and the `## Sources` body block — keep titles in their original language).",
-    "- Fenced code blocks (```...```) and inline code spans (`...`) — keep the contents byte-identical.",
+    "- Fenced code blocks (```...```) and inline code spans (`...`) — keep the contents byte-identical. The output has exactly the source's inline code spans — same count, same contents; a word the source writes as plain text stays plain text, with no backticks added.",
     "- All LaTeX math expressions: everything inside `$...$` (inline math) and `$$...$$` (display math) must be copied byte-identical from the source. Do not translate, reformat, or change any characters inside math spans — including backslash-escaped braces (`\\{`, `\\}`) which are required by the MDX parser.",
     "- HTML entities such as `&lt;`, `&gt;`, `&amp;` in the source must be preserved byte-identical. When writing prose that uses `<` before a digit or `$` sign (e.g. `<50 words`, `<$100`), write `&lt;` — raw `<` before a digit or `$` breaks the MDX parser.",
     "- Every glossary term (from the `list` command) wherever it appears.",
@@ -105,9 +105,37 @@ export const TRANSLATION_OUTPUT_SCHEMA = {
   type: "object",
 } as const;
 
+/**
+ * Chunked-mode twin of {@link TRANSLATION_OUTPUT_SCHEMA}: identical shape, but
+ * `mdx` describes one part rather than a whole file, so the schema does not
+ * contradict the part prompt's "no frontmatter after part 1" rule.
+ */
+export const CHUNK_TRANSLATION_OUTPUT_SCHEMA = {
+  ...TRANSLATION_OUTPUT_SCHEMA,
+  properties: {
+    ...TRANSLATION_OUTPUT_SCHEMA.properties,
+    mdx: {
+      description:
+        "The complete translation of THIS part only: part 1 starts with the `---` of the frontmatter; every later part is a body fragment with no frontmatter.",
+      type: "string",
+    },
+  },
+} as const;
+
+/** Which slice of a chunked article a structured prompt covers (1-based). */
+export interface PromptPart {
+  index: number;
+  total: number;
+}
+
 export interface BuildStructuredTranslatePromptArgs {
   /** Do-not-translate terms, inlined from the glossary DB (`listTerms`). */
   glossaryTerms: string[];
+  /**
+   * Set when the article is translated in parts (see `chunk.ts`): `sourceText`
+   * is then part `index` of `total`, and the brief says so.
+   */
+  part?: PromptPart;
   /** Full source MDX text, inlined so the engine needs no tool calls. */
   sourceText: string;
   /** ISO/BCP-47 target language tag, e.g. "zh-TW". */
@@ -130,12 +158,16 @@ export interface BuildStructuredTranslatePromptArgs {
 export function buildStructuredTranslatePrompt(
   args: BuildStructuredTranslatePromptArgs
 ): string {
-  const { glossaryTerms, sourceText, targetLang } = args;
+  const { glossaryTerms, part, sourceText, targetLang } = args;
+  const unit = part ? "part" : "article";
   return [
-    `You are translating a single blog article from English into ${targetLang} (Traditional Chinese, traditional script).`,
+    part
+      ? `You are translating PART ${part.index} OF ${part.total} of a single blog article from English into ${targetLang} (Traditional Chinese, traditional script).`
+      : `You are translating a single blog article from English into ${targetLang} (Traditional Chinese, traditional script).`,
     "",
     "Answer in ONE turn. Do NOT read files, do NOT run shell commands, do NOT write files — the source article and the glossary are inlined below.",
     "",
+    ...(part ? partBrief(part) : []),
     `DO-NOT-TRANSLATE (DNT) GLOSSARY — ${glossaryTerms.length} terms, one per line. Keep every one VERBATIM in the output: do not translate, transliterate, or annotate them.`,
     glossaryTerms.length > 0 ? glossaryTerms.join("\n") : "(empty)",
     "",
@@ -144,7 +176,7 @@ export function buildStructuredTranslatePrompt(
     "- Frontmatter values for the keys: `date`, `tag`, `topic`, `readingTime` (copy them verbatim from the source).",
     "- All link URLs, including internal `/articles/<slug>` links and any external `https://...` URLs. The set of links must match the source EXACTLY: do not drop a link, and do not invent or add any link that is not already in the source (inventing internal `/articles/<slug>` cross-references is a common and rejected failure).",
     "- Every `sources[].title` value (the audit-trail titles in the `sources:` frontmatter list and the `## Sources` body block — keep titles in their original language).",
-    "- Fenced code blocks (```...```) and inline code spans (`...`) — keep the contents byte-identical.",
+    "- Fenced code blocks (```...```) and inline code spans (`...`) — keep the contents byte-identical. The output has exactly the source's inline code spans — same count, same contents; a word the source writes as plain text stays plain text, with no backticks added.",
     "- All LaTeX math expressions: everything inside `$...$` (inline math) and `$$...$$` (display math) must be copied byte-identical from the source. Do not translate, reformat, or change any characters inside math spans — including backslash-escaped braces (`\\{`, `\\}`) which are required by the MDX parser.",
     "- HTML entities such as `&lt;`, `&gt;`, `&amp;` in the source must be preserved byte-identical. When writing prose that uses `<` before a digit or `$` sign (e.g. `<50 words`, `<$100`), write `&lt;` — raw `<` before a digit or `$` breaks the MDX parser.",
     "- Every glossary term listed above, wherever it appears.",
@@ -155,14 +187,35 @@ export function buildStructuredTranslatePrompt(
     "",
     "COMPLETENESS",
     "- EVERY markdown list item (`-`, `*`, or `+` bullet) in the source MUST appear in the translation — same count, same order, same nesting. Long Connections / Open Questions / Sources lists are where bullets get silently dropped; translate every single one.",
-    "- Translate the WHOLE article. Never summarise, merge, or omit a section.",
+    `- Translate the WHOLE ${unit}. Never summarise, merge, or omit a section.`,
     "",
     "OUTPUT — return ONLY a JSON object matching the schema, nothing else:",
-    '{"mdx":"<the complete translated MDX file content>","newTerms":[{"term":"...","category":"person|org|product|tech|entity"}]}',
-    "- `mdx` is the ENTIRE file: it must start with `---` on the very first line (no commentary, no prose, no code fences before the frontmatter), then the YAML frontmatter, then a closing `---`, then the body.",
+    part
+      ? '{"mdx":"<the complete translated MDX of this part>","newTerms":[{"term":"...","category":"person|org|product|tech|entity"}]}'
+      : '{"mdx":"<the complete translated MDX file content>","newTerms":[{"term":"...","category":"person|org|product|tech|entity"}]}',
+    part && part.index > 1
+      ? "- `mdx` is this ENTIRE part and nothing else: a body fragment. It must NOT start with `---` and must NOT contain frontmatter or a heroImage line; begin with the translation of the part's first line and end with the translation of its last."
+      : "- `mdx` is the ENTIRE file: it must start with `---` on the very first line (no commentary, no prose, no code fences before the frontmatter), then the YAML frontmatter, then a closing `---`, then the body.",
     `- \`newTerms\` lists every NEW person, organization, product, or technical term you kept verbatim that is not already in the glossary above. \`category\` is one of: ${GLOSSARY_CATEGORIES.join(" | ")}. Use an empty array when there are none.`,
     "",
-    "SOURCE MDX",
+    part ? `SOURCE MDX — PART ${part.index} OF ${part.total}` : "SOURCE MDX",
     sourceText,
   ].join("\n");
+}
+
+/**
+ * The extra brief for one part of a chunked article. Parts are translated
+ * independently and concatenated, so the model must neither frame its part
+ * (intros, recaps, "continued" notes) nor re-emit the frontmatter.
+ */
+function partBrief(part: PromptPart): string[] {
+  return [
+    `PART ${part.index} OF ${part.total}`,
+    `This article is too long for one pass, so it was split at section boundaries into ${part.total} parts that are translated separately and concatenated in order. Translate ONLY the part inlined below, completely and in order.`,
+    "- Do NOT add an introduction, summary, transition, heading, or closing remark of your own, and do not mention the other parts or that this is a part.",
+    part.index === 1
+      ? `- This is the FIRST part: it carries the article's frontmatter and heroImage line, so \`mdx\` starts with \`---\` exactly as a full file would. The body stops mid-article; do not conclude it.`
+      : "- This is a LATER part: a body fragment with no frontmatter and no heroImage line. Do not add either. The text may begin or end mid-article; do not introduce or conclude it.",
+    "",
+  ];
 }

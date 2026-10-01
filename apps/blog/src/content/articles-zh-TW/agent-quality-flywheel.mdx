@@ -1,7 +1,7 @@
 ---
 date: 2026-07-02
 title: Agent 品質飛輪
-description: "Google 的 eval-fix 迴圈，以 coding agent 驅動的 skill 形式封裝：Build & Test → Ship & Monitor → Learn & Refine，擴展為五個階段（準備資料 / 執行推論 / 評分 / 分析失敗 / 最佳化）；以白話描述疑慮，輸出指標選擇與前後差異；由合成 User Simulator 啟動，再以 production OTel traces 銳化"
+description: "Google 的評估－修正循環被包裝成由你的程式碼代理程式驅動的技能：建置與測試 → 發佈與監控 → 學習與精進，並擴充為五個階段（準備資料／執行推論／評分／分析失敗／最佳化）；用白話描述疑慮，輸出指標選擇與前後差異；以合成 User Simulator 啟動，再用正式環境 OTel 軌跡磨利。Shopify 的 Sidekick 飛輪是同一個循環，只是終點往後移：持續修改指令與 harness，直到改進停滯，再從正式環境失敗中擷取 SFT+GRPO 訓練訊號，讓每輪循環都從更好的權重開始，而不是更長的提示；其蒸餾曲線在 26k 到 30k 條軌跡之間越過正式環境基準，而 96% 的服務成本降幅是推估，不是帳單上的實際數字"
 tag: Concept
 domain: agent-systems
 tags:
@@ -10,78 +10,173 @@ tags:
   - agent-engineering
   - quality
   - google
-readingTime: 8
+  - production
+readingTime: 25
 imageAlt: Agent 品質飛輪插圖
 sources:
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
   - title: Driving the Agent Quality Flywheel from Your Coding Agent- Google
       Developers Blog
     url: https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/
+  - title: Sidekick's continual learning loop
+    url: https://shopify.engineering/sidekicks-continual-learning-loop
 ---
 export { default as heroImage } from "../assets/agent-quality-flywheel.webp";
 
 ## 資料來源
 
 - [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop)
 
 ## 摘要
 
-Google Cloud 將**工程化打造 agent 品質，而不是憑感覺檢查品質**的方法論，在 2026 年 6 月以可安裝的 skill 形式推出，並由 *你的 coding agent 驅動*。它指出的問題，正是 agent 開發的日常現實：你調整一個 prompt，在三個範例上看起來更好，卻完全不知道是否因此弄壞了另外十個——「究竟是改變了 metric，還是只改變了 vibe。」飛輪是一個三階段迴圈——**Build & Test → Ship & Monitor → Learn & Refine**——其中 Build & Test 擴展為五個具體階段，先依序執行一次，再重複迴圈（階段 2–5），直到達成品質目標。Google 表示，這套方法論及其 AutoRaters，正是它用於自家模型與第一方 agents 的同一套工具，並與 [Google DeepMind](/articles/google-deepmind) 共同開發。來源是第一方產品部落格（`vendor-claim`）：機制描述具體，示範迴圈也有詳細演示，但結果是 Google 自己的示範，不是獨立測量。
+Google Cloud 提出一套**以工程方法打造代理程式品質，而非憑感覺檢查**的方法，並於 2026 年 6 月以可安裝技能的形式推出，由*你的程式碼代理程式驅動*。它點出代理程式開發中的日常困境：你調整提示，在三個範例上看起來更好了，卻不知道是否讓另外十個範例變糟——「指標真的改善了，還是只是感覺變好了？」飛輪由三階段循環構成——**建置與測試 → 發佈與監控 → 學習與精進**——其中「建置與測試」再細分為五個具體步驟，先依序跑過一次，再循環執行（階段 2–5），直到達成品質目標。Google 表示，這套方法與其 AutoRaters，和它用於自家模型及第一方代理程式的方法相同，並由 [Google DeepMind](/articles/google-deepmind) 共同開發。來源是第一方產品部落格（`vendor-claim`）：機制描述具體，示範循環也有詳細演練，但結果是 Google 自己的示範，並非獨立測量。
 
 ## 五個階段
 
-1. **Prepare Data** — 從既有的 OTel traces、手工製作的案例或合成情境建立 eval dataset。
-2. **Run Inference** — 在 dataset 上執行 agent 以產生 traces（若 traces 已存在則跳過，例如 production sessions）。
-3. **Grade** — 使用自適應的 **AutoRaters**（對 trace 評分並解釋原因的 [model-based judges](/articles/llm-as-a-judge)）或自訂 metrics，為 traces 評分。*唯一總是會執行的階段。*
-4. **Analyze Failures** — 閱讀 rubric 判定以理解案例*為何*失敗；當失敗數量達到十個以上時，使用 Automatic Loss Analysis 進行分群。
-5. **Optimize & Iterate** — 套用針對性的修正，重新執行 2–4，並與先前的 baseline 比較。
+1. **準備資料**——從現有 OTel 軌跡、手工編寫的案例或合成情境建立評估資料集。
+2. **執行推論**——讓代理程式在資料集上執行並產生軌跡（若軌跡已存在，例如正式環境工作階段，則略過）。
+3. **評分**——使用自適應 **AutoRaters**（[以模型為基礎的評審](/articles/llm-as-a-judge)，會評分軌跡並說明原因）或自訂指標為軌跡評分。*唯一每次都會執行的階段。*
+4. **分析失敗**——閱讀評分規準的判定，了解案例*為何*失敗；失敗案例達十個以上時，使用 Automatic Loss Analysis 將其分群。
+5. **最佳化與迭代**——套用有針對性的修正，重新執行 2–4，並與先前基準比較。
 
-這個 skill 編碼了這項紀律：大多數失敗案例都需要數次迭代，metrics 才會真正移動；同時也編碼了 [optimizer never grades its own work](/articles/optimizer-evaluator-decoupling) 這項架構規則：無論是提出修正的 coding agent、自動化 optimizer，還是人類，評估都由獨立的 evaluation service 負責評分。
+這項技能把一個嚴謹原則寫進流程：多數失敗案例都得經過數輪迭代，指標才會真正改善；也把一條架構規則寫進去：[最佳化器絕不評分自己的成果](/articles/optimizer-evaluator-decoupling)：無論提出修正的是程式碼代理程式、自動最佳化器或人類，都由獨立評估服務評分。
 
-## 介面：描述疑慮，核准計畫
+## 介面：描述一項疑慮，核准一份計畫
 
-開發者完全不需要碰 eval CLI，也不需要指定 metric。整個介面就是用白話描述疑慮——*「我擔心 travel-concierge 是否會遵守對話中途的變更……請找出測試方式並提出計畫」*——而 skill 的工作，就是**將這個目標轉換成正確的 evaluation**：讀取 agent 的程式碼、選擇 metrics、合成情境、執行評分，並回報前後差異。這本身就是自動化的 [eval-writing](/articles/evals-as-product-spec)：判斷工作提升了一個層級，從撰寫 eval 變成陳述疑慮並核准計畫。
+開發者不必碰評估 CLI，也不必指定指標。整個介面就是用白話描述疑慮——*「我擔心 travel-concierge 是否會遵從對話中途提出的變更……請想出測試方法並提出計畫」*——而技能的工作是**把這個目標轉成適當的評估**：讀取代理程式的程式碼、挑選指標、合成情境、執行評分，並回報前後差異。這是在自動化[評估撰寫](/articles/evals-as-product-spec)：判斷工作往上一層移動，從撰寫評估變成說出疑慮並核准計畫。
 
-在 Google 的完整示範中（一個 ADK multi-agent trip planner），skill 透過 **User Simulator** 在五種修訂類型中啟動 25 個情境，使用兩個內建的 multi-turn AutoRaters 加上一個專門設計的 categorical rubric 進行評分，發現 21% 的修訂被 IGNORED，精確定位失敗原因；接著在人類核准三句指令修正後，重新執行同一套 evaluation，顯示 21%→5%。
+在 Google 的實作示範中（以 ADK 建置的多代理程式旅行規劃器），這項技能透過 **User Simulator** 針對五種修訂類型建立 25 個情境，使用兩個內建多輪 AutoRaters 和一套專門設計的分類評分規準評分，發現 21% 的修訂遭到 IGNORED，精確定位出失敗之處；人類核准一項三句的指令修正後，再跑同一項評估，結果從 21% 降至 5%。
 
-## 將一項疑慮提升為穩定指標
+## 把一項疑慮變成穩定指標
 
-示範中最值得移植的教訓。自適應 AutoRaters 會在每個案例、每次執行時重新產生 rubric，因此特定失敗會變成*多項標準中的一項，被折疊進混合分數*——它真實、有名稱，卻不易看見：在一個案例中，內建的 task-success metric 得到舒適的 **0.80，但使用者的修訂卻被丟掉了**，因為五項生成標準中有四項通過。問題不是偵測；**而是隔離**。做法是將這項疑慮提升為自己的**穩定 custom metric**——此處是採用 categorical verdicts（HONORED / IGNORED / PARTIAL / NO_REVISION）的 `revision_honored`——你可以計數、設門檻（「若超過 20% 回來時是 IGNORED 就採取行動」），並逐個迴圈追蹤趨勢。實際的分工是：**自適應內建指標作為整體健康訊號，另用一項穩定測量追蹤你正在改變的行為。**（請參閱 [LLM-as-a-Judge](/articles/llm-as-a-judge)，了解此處延伸的自適應 rubric 變體；以及 [Failures That Look Like Success](/articles/failures-that-look-like-success)，了解被混合分數掩蓋的失敗類型。）
+這是示範中最值得借鑑的一課。自適應 AutoRaters 每次執行、每個案例都會重新產生評分規準，因此特定失敗只會成為*多項標準之一，再折入綜合分數*——失敗確實存在，也有名稱，卻不易察覺：有個案例中，內建任務成功指標給了令人安心的 **0.80**，但使用者的修訂仍被忽略，因為五項生成標準中有四項通過。問題不在於偵測，而在於**隔離**。做法是把這項疑慮獨立升格為**穩定的自訂指標**——此處是 `revision_honored`，採用分類判定（HONORED / IGNORED / PARTIAL / NO_REVISION）——如此便能計數、設定門檻（「如果超過 20% 的結果是 IGNORED，就採取行動」），並逐輪追蹤趨勢。實際分工是：**自適應內建指標作為廣泛的健康度訊號，再用一項穩定指標衡量你正在改變的行為。**（延伸閱讀：[LLM-as-a-Judge](/articles/llm-as-a-judge)，了解這裡擴充的自適應評分規準做法；以及[看似成功的失敗](/articles/failures-that-look-like-success)，了解被綜合分數掩蓋的失敗類型。）
 
 ## 沒有假設也能運作
 
-只用*「找出一個真實失敗並修正它」*這句話，將 skill 直接對準一個 bug-triage agent 後，它進行廣泛探索——變化多樣的合成情境、內建的 multi-turn metrics——並自行浮現出一個主導群集：在 15 個案例中的 14 個，agent 正確完成工作，卻從未告訴使用者它呼叫了哪些 tools（它自己的指令要求如此；模型卻悄悄把這件事當成可選項）。根據 Google 的示範，一段一段式修正便在一個迴圈中將 tool-disclosure 從 0% 提升至 96%。「這是我的目標」和「幫我找個問題」都能運作。
+只給一個問題分類代理程式一句 *「找出真實失敗並修好它」*，這項技能就會廣泛探索——採用多樣的合成情境和內建多輪指標——並自行找出主要失敗群：15 個案例中有 14 個，代理程式雖然正確完成工作，卻沒有告訴使用者自己呼叫了哪些工具（它自己的指令明明要求這麼做；模型卻悄悄把它當成選擇性要求）。依 Google 的示範，一段修正說明讓工具揭露率在一輪內從 0% 提升到 96%。「這是我的目標」和「幫我找問題」都能作為起點。
 
-## 兩種節奏：開發迴圈與 production 迴圈
+## 兩種節奏：開發循環與正式環境循環
 
-- **隨需（dev）：** 尚無真實使用資料 → User Simulator 合成情境。這明確是**冷啟動 bootstrap**：「合成情境讓你開始運作；production data 才會讓迴圈變得銳利。」
-- **持續（production）：** 同一個 skill 指向真實的 OTel traces——已完成的 traces 完全跳過 Run Inference，直接使用相同的 raters 就地評分。**Online Monitors** 持續評估即時流量，並將品質分數寫入 Cloud Monitoring；當分數漂移時，失敗的 traces 會送入同一個 eval-fix 迴圈。每個 production failure 都是下一個迴圈的現成測試案例——[Production-Sourced Evaluation](/articles/production-sourced-evaluation) 被產品化為產品迴圈，而非 benchmark。
+- **按需執行（開發）：**尚無真實使用資料 → User Simulator 合成情境。這明確是**冷啟動引導**：「合成情境讓你能開始；正式環境資料才會讓循環變得精準。」
+- **持續執行（正式環境）：**同一項技能直接使用真實 OTel 軌跡——已完整的軌跡會跳過「執行推論」，直接以相同評分器評分。**Online Monitors** 持續評估即時流量，並將品質分數寫入 Cloud Monitoring；分數一旦偏移，失敗軌跡就會進入同一個評估－修正循環。每個正式環境中的失敗，都是下一輪循環可直接使用的測試案例——將[正式環境來源的評估](/articles/production-sourced-evaluation)落實為產品循環，而非基準測試。
 
-Google 的既定方向，是讓 skill 自行驅動更多外層迴圈——監看 monitors、浮現 regressions、提出 fixes——但目前仍是**提出建議，由人類核准**；已推出的版本刻意不具備自主性。
+Google 表示，未來將讓技能自行驅動更多外層循環——監看監控器、找出回歸、提出修正——但目前仍是**由它提出、人類核准**；推出的版本刻意不採自主運作。
 
-## 它是什麼，也不是什麼
+有人已經照著這個方向做了。[Cline](/articles/cline) 在 2026 年 7 月的專案（[代理程式撰寫的 harness 最佳化](/articles/agent-authored-harness-optimization)，`case-study`）讓整個五階段流程無人值守地執行 17 小時——基準執行、分析失敗軌跡、針對性修正、再次執行、決定保留或捨棄——人類只需按下繼續並檢視最後的 PR。相較於飛輪規格，兩項差異值得記住：最佳化對象是 **harness 原始碼**，而非代理程式指令；評分器是固定基準測試，而非獨立評估服務，因此[最佳化器能寫入自己的評分基礎](/articles/optimizer-evaluator-decoupling)，這項不變條件靠提示中的條款維持，而非架構設計。
 
-**是：** coding agent 內的方法論加上協調流程——metric 選擇、呼叫 eval-service、閱讀判定、提出修正、進行前後比較。以 skills 形式發布（`npx skills add …`，兩個套件對同一個 evaluation service），讓方法論與組織脈絡以同一個單位發布，即跨越 vendor 邊界的 [systematization](/articles/agentic-work-systematization) 格式。**不是：** 自主的（human-in-the-loop）；ground truth 的來源（AutoRaters 很 sophisticated，但以 model 為基礎——請把分數視為方向性的，**相比任何絕對數字，更應信任不同迴圈間的差異**）；真實流量的替代品。
+## 同一個飛輪，把循環閉合到權重中（Shopify，2026 年 8 月）
 
-## 相關連結
+[Andrew McNamara & Cody Mazza-Anthony](https://shopify.engineering/sidekicks-continual-learning-loop)（Shopify Engineering，2026-08-05，`case-study`）以同一個名稱描述同一套循環，並在 Shopify 的 **GraphQL Sidekick 代理程式**上正式環境運作——這是一個面向商家的代理程式，會對商店撰寫並執行 Admin GraphQL API 查詢，每分鐘最多處理 **2,000 個請求**。閱讀時請先考量 COI：這是 Shopify 自己描述自家系統，沒有外部複現、沒有對抗性審查，所有數字均由其自行回報。其來源層級高於 Google 的 `vendor-claim` 文章，低於資料集中每一筆 `empirical` 來源；若與測量結果衝突，以測量結果為準。
 
-- [Optimizer–Evaluator Decoupling](/articles/optimizer-evaluator-decoupling) — 飛輪承重的架構規則；提案者與評分者保持分離
-- [Failures That Look Like Success](/articles/failures-that-look-like-success) — 兩個示範迴圈都浮現的失敗類型，也是 trace-level rubric 評分勝過 output skim 的原因
-- [LLM-as-a-Judge](/articles/llm-as-a-judge) — AutoRaters 是 judge primitive 的自適應 rubric 變體；飛輪在其上加入 stable-metric-promotion 紀律
-- [Production-Sourced Evaluation](/articles/production-sourced-evaluation) — production 節奏：真實 traces 作為 eval 輸入，合成模擬作為明確的冷啟動 bootstrap
-- [Evals as Product Spec](/articles/evals-as-product-spec) — 這項 PM skill 將流程提升一個層級自動化：人類陳述疑慮並核准計畫；skill 撰寫 eval
-- [Loop Engineering](/articles/loop-engineering) — 將 eval-fix 迴圈封裝為產品原生 skill；Google 加入 Codex/Claude Code 對已發布迴圈 primitives 的趨同
-- [Agentic Work Systematization](/articles/agentic-work-systematization) — skills 作為發布單位，此處承載的是 vendor 方法論，而非組織特定脈絡
-- [Compounding Loop Optimization](/articles/compounding-loop-optimization) — 同一套為每個重複步驟加上儀表的紀律，產品化用於 agent 開發的 eval-fix 步驟
-- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 這套工具所攻擊的瓶頸：讓評分、失敗分析與回歸比較便宜到足以持續迴圈
-- [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform) — skill 所協調的 evaluation service、User Simulator、Online Monitors 與 AutoRaters 所在的平台
-- [Google DeepMind](/articles/google-deepmind) — AutoRaters 的共同開發者
+**階段的標準清單以圖表為準，而非文章文字。**文章的「飛輪循環」圖列出六個階段——**01 Ground Truth Set**（「建立一組規格作為 ground truth」）→ **02 LLM as a Judge**（「讓 LLM Judge 與人類判斷一致」）→ **03 Frontier Model MVP**（「使用 frontier models 快速打造 MVP」）→ **04 Data Collection + Self-healing**（「收集正式環境資料並擷取難例負樣本」）→ **05 Model Training**（「微調開放權重模型」）→ **06 Gist Compression**（「把系統提示壓縮為 Gist tokens」）——中央的 *Flywheel Optimization Process* 節點再回饋至 01。文章正文的 `##` 標題則是另一份較粗略的清單，把 04 和 05 合併為一節，並將 autoresearch 放在圖表中 MVP 的位置；原始檔保留兩種排序，本文以圖表為標準。
 
-## 開放問題
+**與 Google 飛輪在結構上的差異，是循環在哪裡結束。**Google 的 Learn & Refine 將失敗軌跡交回程式碼代理程式，由它修補指令後重新執行；改變的成果是提示。Shopify 先做同樣的事，但把改進開始不再有成效的時點視為循環的*起點*而非終點——原文如此寫道：*「一旦 harness 改進停滯，我們就開始在參數空間中最佳化。」*他們對問題的描述，是資料集中最精確的說法：「部署後的 frontier model 是凍結的，因此改進只能累積在周邊的離散成果中：提示修改、檢索範例、路由規則和 harness 程式碼。正式環境知識在文字和程式碼中不斷堆積，模型權重卻始終未變。」Shopify 每輪循環都從更好的模型開始；Google 每輪則從更長的提示開始。這是一項**關於應先把哪個改進對象做到極限的排序主張**，依據來自正式環境而非基準測試——也是資料集中唯一這類主張（參見[以知識為核心的自我改進](/articles/knowledge-centric-self-improvement)，了解它如何排序各種改進對象；以及[代理程式撰寫的 harness 最佳化](/articles/agent-authored-harness-optimization)，了解 harness 透過另外三種途徑也會抵達同一個停滯點）。
 
-- 兩個示範迴圈都以*instruction-level* bugs 修正 agents，並顯示一個迴圈內的大幅增益。若失敗需要 tool、memory 或 architecture 變更，迴圈會如何運作——「需要數次迭代 metrics 才會移動」在實務中是否才是主流？
-- custom rubric 由之後也將提出 fixes 的同一個 coding agent 撰寫。Metric 的*選擇*位於評分的上游——解耦是否需要延伸至由誰定義 metric，而不只是由誰評分？
-- 合成 User Simulator 情境啟動了整個第一個迴圈。若套用到真實流量分布，21%→5% 的差異有多少能保留（[Production-Sourced Evaluation](/articles/production-sourced-evaluation) 所稱的代表性落差）？
+### 階段 01–02：先定義品質，再把評審校準至人類能達到的上限
+
+文章特別指出，這是團隊最容易匆忙帶過的步驟：「定義品質是循環中最重要的一步……它從描述何謂良好開始，最後成為推動學習的獎勵訊號。」具體流程如下：
+
+- 一份包含少數評分標準的**評分規準**（完整性、執行狀況、回應品質、安全性），每個分數都有具體依據——也就是「產品團隊對好與壞的定義」，以及「所有下游工作的品質契約」。這是[把評估當成產品規格](/articles/evals-as-product-spec)的主張，並將其設為正式環境的門檻。
+- Ground truth **必須包括隨機抽取的流量**，而非只有精選範例：「Golden sets 測試的是你已知道要找的案例；隨機樣本則揭示正式環境裡實際的好與壞。」
+- 建立任何評審器之前，先設一道**評分規準歧義門檻**：兩位專家標註者盲標 25 個隨機樣本，並以 **Cohen's kappa** 衡量標註者間一致性。κ 約為 **0.2** 時，就判定評分規準有歧義並重寫——「如果每天都在處理這項產品的幾位專家都會被評分規準搞糊塗，LLM 也會。」
+- 評審器校準是**提示最佳化**步驟，而非模型選擇：使用帶有反思式最佳化器的 DSPy（GEPA、Agentic Context Engineering）。
+- 校準後進行兩項驗證：**用先前的 A/B 測試回測評審器**（它能否還原參與度或留存率上已知成敗的方向？），以及執行**針對性的退化測試**——刻意破壞一項行為，確認相應標準，而且只有該標準，分數會下降。
+- **讓評審器保持小型且具針對性**，不要把所有產品行為塞進同一個評審器，「因為聚焦的評審器能讓這些測試更容易解讀。」這與本文提出的「把一項疑慮升格為一項穩定指標」原則不謀而合。
+
+最關鍵的數字只出現在圖片裡。*Judges' agreement* 圖（標題是「即使專家也無法完全一致」）顯示**人類一致率 = 83%**，並註記「完美：無法達成」；旁邊的**評審器為 80%**，略低於此數字——兩者都沒有出現在文章正文。這套說法正是 [LLM-Judge Validation](/articles/llm-judge-validation) 所支持，而 MVVP 未涵蓋的：「一致率就是評審器的上限……目標不是做出『完美』的評審器，而是讓它與人類的一致程度，大致等於人類彼此的一致程度。」誠實的補充是，上限比較採用的是**原始一致率**，沒有校正偶然一致；儘管同一團隊在前一段才用 κ 設定評分規準門檻——參見該文，了解為何 83% 和 80% 正是其 Finding 1 所指出會被高估的指標。
+
+### 階段 03：autoresearch，以及宣告結束的停滯點
+
+在碰觸權重之前，Shopify 先讓 frontier-model MVP 在「不碰權重」的前提下盡可能提升，而且是由代理程式而非人工操作。對於提示微調不足以解決問題，文章的解釋相當精確：系統「已經是正式環境中的應用程式，動態組合提示、自訂控制循環，以及專門設計的協調程式碼散布在大型程式碼庫裡。沒有任何單一提示能決定其行為……最佳化目標是整個 harness：提示、工具定義和協調程式碼。」
+
+這個循環採用 [Karpathy](/articles/andrej-karpathy) 式 autoresearch——提出修改、根據校準後的評審器評估、分數提升就保留，否則捨棄——所有設定都放在一份易讀的 `program.md` 中。其 `Environment` 區段授予修改 `prompts/`、`tools/` 和 `harness/` 的權限，並註明「這裡的所有內容都能修改，包括 harness」；實驗指南則寫道：「小幅、精準的修改，一次一個想法……優先採用最簡單的變更；任何造成退步的修改都要復原。」這條路徑的完整說明、另外五個案例及其矛盾，請見[代理程式撰寫的 harness 最佳化](/articles/agent-authored-harness-optimization)。
+
+### 階段 04：自我修復流程將失敗擷取為訓練訊號，而非測試案例
+
+這個階段在 Google 的循環中沒有對應項目。系統從匿名化的正式環境流量中擷取**難例負樣本**——「評審器正確判為低分、並揭露模型弱點的對話」——每個案例都進入修復流程：
+
+1. 由一組**frontier reasoning models**各自獨立分析失敗（圖中三位評論者分析一段評分為 2/5 的對話，提出：「工具用錯，透過查詢 schema 重試」、「漏了分頁，抓取所有頁面」、「答案漏掉使用者要求的欄位」）。
+2. **仲裁器把評論整合成一條修復指令**。
+3. 在使用者回合之前**注入這條指令**——「有時稱為『提示引導』」——並從該處重播對話。
+4. 評審器重新評分重播結果。**通過 → 重播結果成為 RL 軌跡，評審器分數作為獎勵。失敗 → 升級交由人工標註**（由 Toloka 的專家標註者依據校準評審器時使用的同一份評分規準評分）。
+
+接著分兩階段訓練：先在完整軌跡上蒸餾至較小的模型，包含產生答案的推理過程（而非只有最終答案），再以校準後的評審器作為獎勵訊號執行 **[GRPO](/articles/group-relative-policy-optimization)**。整個流程**每天執行**，微調採「針對累積資料進行全參數微調」——新軌跡加上先前所有軌跡——因為「同時以新舊軌跡訓練，可以限制每輪循環間的偏移和災難性遺忘。」
+
+有兩點值得留意。此時評審器同時擔任離線指標、難例負樣本篩選器、修復門檻**以及 RL 獎勵**——同一個校準工具肩負四種職責，但原始一致率為 80%，人類上限是 83%；而且整份說明中，沒有任何地方在最佳化器持續對它進行最佳化時重新驗證它。[不依賴參考答案的評審器過度給分](/articles/reference-free-judge-over-crediting)衡量的正是這種失敗：同一個未改動的評審器在最佳化前有效，最佳化後卻無效。再者，升級交由人工的路徑，表示流程的整體吞吐量受限於人工標註，而這些正是評論者無法修復的失敗——最棘手的那一批。
+
+### 蒸餾曲線是文章中最值得引用的內容
+
+*GraphQL Distillation* 圖是文章唯一報告規模與表現關係的地方；和評審器一致率圖一樣，數字都沒有出現在正文。圖上標示的軸為：**x 軸「Dataset Size」**（10k–70k），**y 軸「Judge Score」**（60–76），上升曲線上標出六個點：
+
+| 資料集大小 | 評審器分數 |
+|---|---|
+| 13k | 61.5 |
+| 26k | 64.5 |
+| 30k | 66.7 |
+| 39k | 68.5 |
+| 46k | 70.7 |
+| 61k | 73.5 |
+
+圖上有兩條虛線參考線，只標示名稱，沒有印出數值：**「Production baseline」**約為 65.8，以及**「Frontier reference baseline」**約為 73.1（兩者都是從座標軸讀取）。曲線在 **26k 到 30k 條軌跡之間**越過正式環境基準；只有在測試的最大資料集大小 **61k** 時，才抵達 frontier 參考基準。
+
+**請仔細解讀曲線頂端，因為文章的標題主張就建立在它之上。**圖表標題是 *Distillation*——只涵蓋 SFT 階段，尚未進行 GRPO——而且最後一個資料點僅超過 frontier 參考基準 **0.4 個評審器分數**；圖中沒有誤差棒、隨機種子或信賴區間。因此，文章的核心品質主張（「SFT 和 RL 讓專用模型的表現超越 frontier model」）拆開來看，測得的 SFT 曲線只達到**相當水準**，而未繪圖呈現的 GRPO 階段則被宣稱能進一步超越。這個主張合理，曲線也確實能說明*樣本效率*；但圖表並未證明「超越 frontier」這件事。
+
+### 階段 06：gist 壓縮，以及它實際帶來的效益
+
+最後一個階段降低的是服務成本，而非提升品質。長篇靜態系統提示是「每個請求都必須支付的延遲和服務成本固定稅」，而 gist 壓縮能刪去其中大部分：教師模型保留完整提示、學生模型使用一小段**學習得到的 gist token embeddings**，讓模型權重保持凍結並訓練嵌入以符合教師模型的輸出分布，最後部署學生模型。Shopify 回報，提示從**約 6,000 個 token 降至約 1,500 個**，而且「評審器測得的品質沒有損失」。
+
+所有效果都是 Shopify 自行測量，測試使用**每分鐘 350 個請求**的負載：首個 token 產生時間降低 **約 19%**、端到端延遲降低 **約 38%**、吞吐量增加 **約每秒多處理 16% 的請求**，以及**每秒多輸出約 12% 的 token**；使用相同 GPU 時，換算為「相同流量約可少用 14% 的 GPU」。這是對同一筆成本稅的另一種處理方式，[提示快取經濟學](/articles/prompt-cache-economics)對其成本有所估算——快取讓靜態前綴再次讀取時成本更低，gist 壓縮則讓它更短——比較詳情請見該文。
+
+**文章自己的彈出說明也承認，這是推估而非帳單上的實際支出。**原文如下：「以 frontier model 提供這些流量服務，根據平均 token 成本，**預估每年可能輕易花費** 2,700 萬美元。微調後的模型**成本可能只要**其中一小部分，接近 100 萬美元：服務成本降低 96%。」兩個數字確實出自來源，但都是依據「平均 token 成本」推算的反事實估計——Shopify 從未以每分鐘 2,000 個請求的流量，連續一年執行 frontier 設定；也沒有公布每個請求或每項任務的分母，因此 96% 是兩個模型推算的年度總額之比，不是測得的節省金額（[每項任務成本高於每個 token 成本](/articles/cost-per-task-over-cost-per-token)一文長期指出的問題換了形式：百分比有公布，單位卻沒有）。也請留意估算**沒有納入**的項目：每日全參數微調、frontier 評論者群組、仲裁器、重播流程，以及 Toloka 標註合約，都是運行飛輪時反覆產生的成本，卻沒有列在比較的任何一方。
+
+## 第 1 階段之前的一步（Shankar，2026 年 7 月）
+
+五個階段從*準備資料*開始，到第 4 階段的失敗分析為止——此時技能會「閱讀評分規準的判定，了解案例*為何*失敗」。這是在既有分類系統上分析：評分規準已經列出標準，第 4 階段解釋案例觸犯哪一項。[Shreya Shankar 的演講](/articles/ai-assisted-error-analysis)談的是先於全部五個階段的上游步驟——在撰寫任何評分規準之前，先找出失敗模式*是什麼*——她主張，自動化流程無法接手這一步，原因在於認知而非工具：何謂「良好」存在開發者腦中，不在軌跡裡。
+
+兩種說法並不像表面看來那麼對立，兩者的接縫正是本文自己的介面。飛輪的輸入是一項白話描述的疑慮——*「我擔心 travel-concierge 是否會遵從對話中途提出的變更」*——這正是已經外顯化的一部分開發者判斷。Google 將那句話之後的一切自動化；Shankar 的流程則負責產生那句話，而她主張沒有工具能代替你產生它。冷啟動示範（「找出真實失敗並修好它」）是飛輪唯一聲稱能在沒有明確疑慮的情況下找出問題的案例，也正是 Shankar 的反對意見最有力之處：工具揭露失敗群是*容易辨識*的失敗——代理程式自己的提示裡明確寫了指令，模型卻沒遵守。依定義，品味相關的失敗不會寫在提示裡。
+
+兩方的共識更值得關注：人類負責核准而非執行，代理程式提出的內容則一次一項地作為建議，由人類決定接受或拒絕。Shankar 把界線再收緊一格——她的代理程式會把人類的標註套用到其他軌跡上，但不會被要求擴展分類系統，因為驗證代理程式的品味，比表達自己的品味成本更高。
+
+## 它是什麼、又不是什麼
+
+**它是：**在你的程式碼代理程式中執行的方法與協調流程——選擇指標、呼叫評估服務、閱讀判定、提出修正、比較前後結果。以技能形式發布（`npx skills add …`，兩個套件搭配同一個評估服務）——方法論和組織脈絡以相同單位交付，[系統化](/articles/agentic-work-systematization)格式跨越不同廠商。**它不是：**自主系統（有人參與迴圈）；ground truth 的來源（AutoRaters 雖然精密，仍以模型為基礎——應將分數視為方向性指標，**相較任何絕對數字，更相信不同次執行間的差異**）；真實流量的替代品。
+
+## 相關文章
+
+- [最佳化器與評估器解耦](/articles/optimizer-evaluator-decoupling)——飛輪最關鍵的架構規則；提案者和評分者保持分離
+- [看似成功的失敗](/articles/failures-that-look-like-success)——兩個示範循環都找出的失敗類型，也是軌跡層級的評分規準評分勝過快速瀏覽輸出的原因
+- [LLM-as-a-Judge](/articles/llm-as-a-judge)——AutoRaters 是評審器原語的自適應評分規準版本；飛輪再加上把疑慮升格為穩定指標的原則
+- [正式環境來源的評估](/articles/production-sourced-evaluation)——正式環境的執行節奏：以真實軌跡作為評估輸入，明確以合成模擬啟動冷啟動
+- [把評估當成產品規格](/articles/evals-as-product-spec)——這項技能將產品經理工作往上自動化一層：人類說出疑慮並核准計畫，技能負責撰寫評估
+- [Loop Engineering](/articles/loop-engineering)——把評估－修正循環包裝成原生於產品的技能；Google 加入 Codex/Claude Code 行列，將循環原語納入產品
+- [代理式工作系統化](/articles/agentic-work-systematization)——以技能作為交付單位；此處承載的是廠商方法論，而非組織專屬脈絡
+- [Compounding Loop Optimization](/articles/compounding-loop-optimization)——同一套為每個重複步驟配置工具的原則，產品化後用於代理程式開發的評估－修正步驟
+- [驗證成為新的瓶頸](/articles/verification-as-the-new-bottleneck)——此工具要解決的瓶頸：讓評分、失敗分析和回歸比較便宜到足以反覆執行
+- [Gemini Enterprise Agent Platform](/articles/gemini-enterprise-agent-platform)——技能負責協調的平台，其評估服務、User Simulator、Online Monitors 和 AutoRaters 都來自這裡
+- [Google DeepMind](/articles/google-deepmind)——AutoRaters 的共同開發者
+- [動態工作流程：代理程式的代數](/articles/dynamic-workflows-agent-algebra)——在探索階段沒有人工參與的飛輪：Bun 在合併後執行受涵蓋率引導的模糊測試器，自動提交由 Claude 撰寫、能重現並修復問題的 PR（執行 100B 次解析器測試 → 約 15 個 PR），人類只審查輸出
+- [代理程式撰寫的 harness 最佳化](/articles/agent-authored-harness-optimization)——Google 表示刻意尚未推出的外層循環自主版本：同樣五個階段（基準 → 執行 → 評分 → 分析失敗 → 修正），沒有人工逐一核准修正，而且最佳化對象是 harness，而非代理程式指令。Shopify 的 autoresearch 階段是第五個正式環境案例，也是唯一報告停滯點*之後*發生什麼事的案例
+- [以知識為核心的自我改進](/articles/knowledge-centric-self-improvement)——列出改進循環可以持續寫入的對象（代理程式、harness、知識、提示）；Shopify 的飛輪增加第五項——**權重**——並決定順序：先把離散成果做到極限，停滯後再轉向參數空間
+- [LLM 評審器驗證](/articles/llm-judge-validation)——01–02 階段部分實踐、部分略過的驗證原則：評分規準採用標註者間 κ 門檻、明確以人類*上限*而非 100% 作為評審器目標、對照線上指標進行 A/B 回測，以及逐項執行退化測試——但上限比較本身回報的是原始一致率，而非校正偶然一致後的數值
+- [群組相對策略最佳化（GRPO）](/articles/group-relative-policy-optimization)——權重更新階段採用的目標函數；此處以校準後的 LLM 評審器作為獎勵，而非驗證器或基準測試評分器，並以正式環境軌跡每日執行
+- [不依賴參考答案的評審器過度給分](/articles/reference-free-judge-over-crediting)——自我修復流程集中的風險：一個校準後的評審器同時擔任離線指標、難例負樣本篩選器、修復門檻和 RL 獎勵，而且在 GRPO 以它為目標進行最佳化時沒有重新驗證
+- [提示快取經濟學](/articles/prompt-cache-economics)——階段 06 要處理的靜態前綴成本，還有另一種做法：快取讓再次讀取前綴成本更低，gist 壓縮則讓前綴更短
+- [每項任務成本高於每個 token 成本](/articles/cost-per-task-over-cost-per-token)——2,700 萬美元 → 100 萬美元的推估屬於哪一種情況：公布了百分比卻沒有單位，而且比較雙方都是反事實的年度總額，而非測得的每請求成本
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base)——同一個編譯邊界，只是輸出層從 markdown 換成參數；也是該文所述未來方向最貼近正式環境的實例（以累積素材微調，讓模型把它們學進權重）；蒸餾曲線則為這個想法提供資料集大小數字
+- [將代理程式工作凝結為工作流程](/articles/crystallizing-agent-work-into-workflows)——發現的行為可採用的第三個終點：升格至權重，而非確定性程式碼。harness 上採用相同的證據門檻保留或捨棄循環，但對確定性的影響相反（微調不會帶來確定性，因此沒有降級標準）；這也是唯一回報 harness 階段停滯之後發生什麼事的來源
+- [AI 輔助錯誤分析](/articles/ai-assisted-error-analysis)——第 1 階段之前的一步，以及說明為何這一步仍由人類負責的論證；詳見上文
+
+## 尚待解答的問題
+
+- 兩個示範循環都修正了指令層級的代理程式錯誤，並在單輪內帶來大幅改善。若失敗需要變更工具、記憶或架構，循環會如何運作——「指標改善前得先經過數輪迭代」在實務上是否才是常態？
+- 自訂評分規準由同一個程式碼代理程式撰寫，而它之後也會提出修正。指標的*選擇*位於評分之前——解耦是否應延伸至指標由誰定義，而不只是由誰評分？
+- 合成 User Simulator 情境啟動了完整的第一輪循環。在真實流量分布中，21% 降至 5% 的改善幅度還能維持多少（也就是[正式環境來源的評估](/articles/production-sourced-evaluation)所說的代表性落差）？
+- 權重空間飛輪真的能勝過它蒸餾而來的 frontier model，還是只能追平？資料集中唯一一條曲線，在測試的最大資料集上僅比 frontier 參考基準高 **0.4 個評審器分數**，沒有誤差棒、隨機種子或信賴區間，而超越主張則依賴之後未繪圖呈現的 GRPO 階段。可證偽的版本是：以不同隨機種子和信賴區間重做同一組蒸餾掃描，分別回報只使用 SFT 與使用 SFT+RL 的兩組結果，並和 frontier 參考基準比較。
 
 ## 資料來源
 
-- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — Melnyk & Dai，Google Developers Blog，2026-06-30（`vendor-claim`）；建立於 Cloud Next '26 agent-quality talk 之上
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) — Andrew McNamara & Cody Mazza-Anthony，*Sidekick's continual learning loop*，Shopify Engineering，2026-08-05，`case-study`（約 2,100 字，7 張內容圖）。**完全屬於第一方 COI**：Shopify 自行描述自家正式環境系統，沒有外部複現、沒有對抗性審查，所有數字均由其自行回報。六階段飛輪圖（標準階段標籤）、評分規準／Cohen's kappa／標註者一致性流程、透過 DSPy + GEPA/ACE 進行評審器校準並搭配 A/B 回測與退化測試、`program.md` autoresearch 設定、評論者群組 → 仲裁器 → 提示引導 → 重播的自我修復流程、升級至 Toloka、先用完整軌跡進行 SFT 再執行 GRPO、每天針對累積資料進行全參數微調、gist 壓縮與負載測試數據，以及 2,700 萬美元／100 萬美元的推估。**有兩個帶數字的圖表未在文章正文出現數據**；依圖片兩輪檢視規則直接讀圖：*Judges' agreement*（人類 83%／評審器 80%，原始一致率）和 *GraphQL Distillation*（六個曲線點及兩條參考線，軸標籤如上）。完整解析筆記和證據處理方式見 `wiki/sources.md`
+- [Driving the Agent Quality Flywheel from Your Coding Agent- Google Developers Blog](https://developers.googleblog.com/driving-the-agent-quality-flywheel-from-your-coding-agent/) — Melnyk & Dai，Google Developers Blog，2026-06-30（`vendor-claim`）；內容建立在 Cloud Next '26 的代理程式品質演講之上

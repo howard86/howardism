@@ -1,0 +1,201 @@
+---
+date: 2026-08-05
+title: 將代理程式工作結晶為工作流程
+description: "Malik 在 Azure Networking 的正式環境生命週期：將代理程式探索視為發現機制，而非執行模式——根據累積證據，把經反覆驗證的代理程式行為沿著三種類型的光譜（代理程式編排 → 混合式 → 零 token 確定性）逐步升級；發生回歸時自動降級；八個月內確定性工作占比從 0 增至 45%，事故成本下降 70%，事故量則翻倍；自主權取決於操作手冊的實績，而非模型能力"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - workflow-design
+  - cost
+  - autonomy
+  - production
+readingTime: 33
+imageAlt: 將代理程式工作結晶為工作流程的插圖
+sources:
+  - title: "Progressive Crystallization: Turning Agent Exploration into
+      Deterministic, Lower-Cost Workflows in Production"
+    url: https://arxiv.org/pdf/2607.07052
+  - title: "Beyond RAG: Building Agentic Document Workflows with LlamaIndex"
+    url: https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view
+  - title: "Muscle Memory for Agents: Compile not Merely Retrieve"
+    url: https://arxiv.org/pdf/2608.08995
+  - title: Sidekick's continual learning loop
+    url: https://shopify.engineering/sidekicks-continual-learning-loop
+  - title: How Bridgewater Built an AI Analyst That Does Hours of Expert Research in
+      Minutes
+    url: https://www.youtube.com/watch?v=lXZb21CfeIY
+  - title: Introducing System One Models & Jev
+    url: https://typesafe.ai/blog/introducing-system-one-models-and-jev
+  - title: Building Prod with Jev and LangGraph
+    url: https://www.langchain.com/blog/building-prod-with-jev-and-langgraph
+---
+export { default as heroImage } from "../assets/crystallizing-agent-work-into-workflows.webp";
+
+## 資料來源
+
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view)
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph)
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY)
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
+- [Muscle Memory for Agents: Compile not Merely Retrieve](https://arxiv.org/pdf/2608.08995)
+- [Progressive Crystallization: Turning Agent Exploration into Deterministic, Lower-Cost Workflows in Production](https://arxiv.org/pdf/2607.07052)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop)
+
+## 摘要
+
+代理程式平台預設就是永久性的成本中心：每次執行都重新呼叫完整推論，因此重複事故發生到第十次，成本和第一次完全相同，處理路徑可能不同，答案也可能更差。**浪費之處在於，成功的調查就這樣被丟棄。**
+
+[Arun Malik](https://arxiv.org/pdf/2607.07052)（Microsoft Azure Networking，arXiv 2607.07052，2026-07-08，`case-study`）提出了修正方法，並表示已在正式環境中運作：這是一個每月處理數萬起事故的雲端網路營運平台。這種方法稱為**漸進式結晶**——代理程式探索是*發現機制*；它所發現且反覆驗證的行為會轉換成不需要 token 的確定性工作流程，而代理程式層則持續待命，處理真正新穎的情況。
+
+## 三種類型的光譜
+
+這套分類法才是可重複運用的部分；重點在於，三種類型是**同一個已發現行為的生命週期階段**，並非三套不同系統：
+
+| 類型 | 執行方式 | 確定性 | 每次執行的 token 數 |
+|---|---|---|---|
+| **Type 3 — 代理程式編排** | 子代理程式在限定範圍內自由推理；自主讀取、確定性檢查點，以及寫入時的人機介入關卡 | 約 50% | 10k–50k |
+| **Type 2 — 混合式** | 步驟結構固定；只在特定階段呼叫 LLM，進行解讀、分類或摘要。每項動作都有型別，且會依結構描述驗證 | 約 90% | 1k–5k |
+| **Type 1 — 確定性** | 預先編寫的邏輯、條件分支、具型別的 API 呼叫；執行時不使用 LLM | 100% | 零 |
+
+Type 2 的表述是論文中最精準的一句：**LLM 決定的是*理解*，不是*採取什麼行動*。**這和[確定性執行前關卡](/articles/deterministic-pre-execution-gates)中模型判斷與其周圍可機械檢查範圍的區分相同；只是這裡從成本角度切入，而非安全角度。
+
+## 升級須以證據為關卡，降級則自動執行
+
+| 轉換 | 要求（預設值，可設定） |
+|---|---|
+| Type 3 → 2 | ≥10 次成功執行 · 零安全違規 · ≥90% 的執行產生相同動作序列 · 所有自動產生的驗收測試通過 · 近期區間內沒有人為覆寫 |
+| Type 2 → 1 | ≥50 次成功的混合式執行 · LLM 分類一致性 ≥99% · 確定性規則涵蓋所有觀察到的輸入變化 · 不使用 LLM 時完整回歸測試套件仍通過 · **人為審查確定性邏輯** |
+
+擷取是一個流程探勘步驟，不是巨集錄製器：追蹤紀錄會解析成有序的工具呼叫清單；系統會找出代理程式實際採用的分支條件、推斷各步驟輸入／輸出結構描述、建立工具相依關係的 DAG、將特定執行個體的值（裝置 ID、時間戳記）參數化，並把人為核准點標記為明確關卡。系統會根據成功執行的追蹤紀錄產生驗收測試；候選操作手冊必須通過測試才能升級。
+
+**讓這套機制可以無人值守安全運作的，是斷路器。**系統會監控每本升級後的操作手冊，並在執行失敗、安全違規或驗收測試回歸時將它降級。正式環境中的案例用一段話就說明了整個設計：韌體更新改變了某個命令的輸出格式，確定性解析器因此故障，系統便把操作手冊降級為混合式，讓 LLM 能處理新格式；乾淨執行一段時間後，系統又將它升回原級——**整個切換過程完全不需要人決定。**
+
+## 值得辯論的主張：自主權由實績取得，而非由模型能力決定
+
+> 「自主權是根據證據，綁定到特定操作手冊類別與動作類型，而不是底層模型的能力。能力更強的模型不會自動獲得更多自主權；實績才會。」
+
+這直接反駁了[模型進步時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)所採取的立場。縮減論認為，腳手架是對現有模型弱點徵收的稅，每次發佈新版本都應該移除。結晶化對*權限*的看法恰好相反：系統獲准自行執行哪些工作，取決於特定行為已展現的可靠性；模型升級不會轉移這份證據。兩者可以同時成立——縮減論談的是模型需要多少*指示*，這裡談的是工作流程已取得多少*權限*——但對團隊每次發布模型時都得面對的同一個問題，它們指向相反方向；語料庫裡也沒有任何內容化解這種衝突。
+
+這也顛倒了人們通常對能力升級的理解。在這個設計中，更好的模型不會直接降低平台成本；它會提升*發現*的品質，節省的成本要等到發現成果結晶後才會出現。
+
+## 安全性隨成本改善，而不是與成本互相取捨
+
+論文反直覺的主張是：成本更低也更安全。其論證來自結構設計，而非實證結果：可稽核性不變（三種類型都會記錄完整追蹤）；可重現性單調上升，約為 50% → 約 90% → 100%；爆炸半徑控制從執行階段的 HITL 關卡，進展到結構描述驗證，再到**可靜態驗證的確定性邏輯**。後者更強，因為可以在執行*之前*檢查，而非執行期間才發現問題；合規性則從取決於是否有人在場，轉為內建於系統中。從代理程式執行結果提煉出的確定性操作手冊，比原始執行更容易驗證、重現與稽核。
+
+## 正式環境數據，以及數據未能說明的事
+
+在 Azure 雲端網路平台上運作八個月後：**Type 1 執行占比從 0% 升至約 45%**（混合式約 30%，代理程式編排約 25%）；**每起事故的代理程式成本下降超過 70%，事故量則大致翻倍**；常見事故類別有超過 90% 能自主解決；MTTR 從數小時縮短至數分鐘；誤報修復率低於 5%，且未對客戶造成可見影響。
+
+作者自己提出的限制，界定了上述所有數據的適用範圍：
+
+- **單一組織、單一營運領域。**其他地方應重新推導門檻與比率；作者只主張生命週期不受領域限制。
+- **平台層級的觀察結果，並非受控比較。**沒有反事實組——沒有資料能證明若不採用結晶化，成本曲線會如何變化；八個月也只是一條成熟度軌跡。
+- **前提是模式會重複出現。**若環境主要由真正新穎、只發生一次的工作組成，大多數執行都會停留在 Type 3，這套機制的效益也很有限。這個範圍條件決定了這個想法能否移植到程式碼代理程式：事件回應的重複性特別高，而程式碼庫的功能需求可能並非如此。
+- **升級品質受追蹤紀錄品質限制。**自動產生的驗收測試取材自追蹤紀錄；觀察不足的模式可能過早升級，這正是設計中納入降級和最終確定性邏輯人為審查的原因。
+
+**Type 1:2:3 作為成熟度指標**是論文中最容易移植的建議——執行組成是一個單一數字，顯示代理程式支出中有多少用來發現新方法，又有多少是在已解決的問題上重複付費。
+
+## 結晶後的成果長什麼樣：以具型別事件為架構
+
+Malik 的生命週期談的是代理程式行為*何時*應成為工作流程，幾乎沒談工作流程的形態。[Doulcet 的 LlamaIndex 工作坊](/articles/document-parsing-as-retrieval-bottleneck)（AI Engineer Singapore 2026，`practitioner-opinion`，有廠商利益衝突——這是對 LlamaIndex Workflows 的描述，並非比較性主張）是語料庫中唯一詳細說明其形態的資料，從另一端得出與本文相同的結論。
+
+**起初的抱怨，是以程式碼異味描述 Type 3 漂移至 Type 2。**線性管線——解析、嵌入、檢索、綜合——一直能用，直到你需要分支的那一天：*「如果文件是合約，就擷取條款；如果是報告，就做摘要。現在你的管線裡有個 `if` 陳述式。再多兩個 `if` 就亂成一團。」*建議改用**事件驅動圖**：步驟是輸入和輸出具型別 Pydantic 事件的非同步函式，*圖的結構由型別簽章隱含表示*——不需要明確的編排物件，也不需要接線程式碼。四種基本元素就足以涵蓋：步驟、事件、共用可變的 `Context`，以及 `Workflow` 容器。
+
+由此可得出四項特性，每一項都在說明結晶後的工作流程能提供哪些重新呼叫代理程式無法提供的好處：
+
+- **具型別事件就是架構，不是實作細節。**命名規則完整說明了這項原則：事件名稱應指出*它代表什麼*（`ParsedDocument`），絕不應指出*由誰產生*（`Step2Output`），如此一來，未來的你只要閱讀型別簽章就能看出圖的結構。這和 Malik 要求升級後的操作手冊必須清楚到足以稽核，是同一種思維——沒人看得懂的 Type 1 工作流程，也無法根據證據降級。
+- **平行處理採宣告式設計。**`send_event` 會分流（某一步驟發出 N 個同類型事件時，就會同時執行 N 個分支）；`collect_events` 則依據儲存在 context 的數量進行匯合。不需要執行緒，也不必管理非同步工作池。同一項基本元素可用於逐頁文件匯入，以及深度研究的子問題分流——樹狀案例請見[Deep Research Agents](/articles/deep-research-agents)。
+- **人為審查是事件，不是例外。**天真的做法是暫停程序、寄送電子郵件，再寄望人類會回覆；這種方法*「脆弱、無狀態、無從追蹤」*。建議的做法是發出 `HumanReviewRequested`，持久保存整個 context，時間可達數分鐘或數天，然後收到 `HumanReviewCompleted` 時恢復執行——讓長達數小時的人為決策成為圖中的一般邊。值得注意的結果是：**若人為審查是具型別事件，就能對它進行評估**——衡量人類何時同意、何時不同意、記錄他們改了什麼，再將資料納入下一輪評估集。*「把人類視為你要衡量的系統一部分，而非坐在系統之外的安全裝置。」*這是從工程角度而非基準測試角度，導向[可設定的人類參與](/articles/configurable-human-participation)中可設定代理權的軸線，也讓 Type 2 的升級條件變得可衡量。
+- **可觀測性自然形成。**`stream_events` 會輸出那些作為架構記錄下來的同一組具型別事件，因此追蹤結構描述和設計是同一份產物——不需要另一層記錄機制。持久性是配套特性：失敗時重試*步驟*，而非整條管線；當機後則從檢查點恢復，因為*「解析一份 500 頁的合約並不便宜；你不會想因為綜合步驟發生暫時性的網路錯誤，就重新做一次。」*
+
+**適用邊界和本文一致，而且以警告的形式明確說出。***「如果你的任務是『對單一文件回答單一問答查詢』，用函式就可以了。」*只有在需要分支、平行處理、持久性或人機介入時，採用工作流程的成本才合理——這和 Malik 離開 Type 3 的認可條件相同，只是改成提醒讀者不要預設使用這些機制。兩個來源都沒有衡量其他做法的表現。
+
+文中列出四種參考形態，最後一種是本文未提及的類型：合約審查（分類 → 逐條並行擷取 → 風險評分 → 只對標記條款進行 HITL → 報告）；深度研究；對 5,000 份文件的資料室進行盡職調查（依類型設定擷取結構描述 → 累積事實資料庫 → 跨文件調解 → 標示異常）；以及**持續更新的知識庫**——監看來源、變更時重新解析、重新擷取、增量重新建立索引、將事實層級差異發布給訂閱者，*而且沒有 `StopEvent`*。永不終止的結晶工作流程，是 Malik 分類法沒有涵蓋的類型：其 Type 1 終點是有結束點的確定性程序，這裡則是輸出變更摘要的常駐程序。
+
+## 將相同做法用於對話而非事故——但缺少斷路器
+
+[*Muscle Memory for Agents*](https://arxiv.org/pdf/2608.08995)（Omran、Lanka、Zhang 與 Dixit，Google Cloud FDE，arXiv 2608.08995，2026-08-10，`empirical`）將本文的生命週期用在一個不具備事故回應優勢的領域：從對話紀錄中挖掘反覆出現的*使用者意圖*，並將它編譯成經品質關卡把關、可執行的專家代理程式。完整分析見[LLM 編譯器知識庫](/articles/llm-as-compiler-knowledge-base)；這篇文章在此解決或揭露了三件事。
+
+**它補上 Malik 的 Type 3 → 2 轉換所預設的發現步驟。**Malik 的擷取機制，是對已有人確認會重複出現的行為進行流程探勘。這裡的管線則包含*偵測*重複模式的步驟：從批次工作階段中，以頻率 ≥ 3 擷取模式，依 Jaccard 相似度 > 0.5 合併，再拆分為任務模式（使用者想做什麼）和行為模式（使用者如何溝通）；接著透過非參數式排名關卡，只保留得分 ≥ 25/50 的候選項目，並以 cosine 加 Jaccard ≥ 0.73 進行重疊合併。*「不預設固定目標」*——管線會自行決定每個領域應有多少產物，最後每位使用者得到 1–6 個。這就是 Malik 的 ≥10 次成功執行門檻試圖用人工回答的問題。
+
+**但它的關卡設在不適合無人值守運作的位置，而自身數據也顯示了代價。**兩個來源都根據證據設置升級關卡；不同之處在於*何時收集證據*。Malik 採用的是**執行時的實績**（≥10 次成功執行、≥90% 的動作序列相同、零安全違規；之後還須 Type 1 的 ≥50 次執行和 ≥99% 分類一致性），並在執行失敗、安全違規或驗收測試回歸時**自動降級**——韌體更新的案例用一段話概括了整個設計。Muscle Memory 採用的是**重播歷史紀錄**（針對真實對話，以 10 項標準進行評論者審查，門檻為 7/10，另加 6 個歷史情境的小型評估），之後就沒有其他機制：它列出的第三項限制是*「代理程式觸發條件在產生後便固定，也就是說，系統不會根據執行時回饋或不斷演變的使用者偏好調整代理程式。」*其代價直接反映在結果中——對領域外請求的觸發誤報率達 20%；一名使用者因唯一代理程式遭過度精簡，在 1–4 分量表上的準確率下降整整一分——而系統沒有任何機制可以察覺這兩種情況。**以證據為關卡的生命週期控制力較強，而語料庫中最新的編譯產物系統只有其中較弱的一半。**
+
+兩種關卡失效的方式也不同，值得保留這個區別。Malik 的關卡衡量的是*一致性*：能重現的行為才會升級。Muscle Memory 的排名則納入一項與通用 LLM 能力比較的*獨特性*指標；由於*「解釋 Python 錯誤」對使用者很有價值，但和基準模型沒什麼區別*，它把一名技術使用者的代理程式過度精簡，最後只剩一個。獨特性關卡會丟棄基礎模型已能充分處理的行為——有利於降低成本，卻不利於涵蓋範圍；一致性關卡則沒有這種失效模式。
+
+**兩者的經濟效益方向相反，因此「結晶」指的是兩種不同終點。**Malik 的 Type 1 終點執行時使用**零 token**：LLM 完全離開執行階段。編譯後的 Muscle Memory 專家代理程式仍會自行呼叫 LLM（靜態架構），或採用包含 2–3 個 LLM 呼叫的管線（動態架構），*此外*每則訊息都會呼叫一次特徵擷取來路由，並查詢一次嵌入。它結晶的是提示和藍圖，而非決策程序——在本文的光譜中約落在 **Type 2**，而且每次呼叫的成本*高於*它所勝過的基準。Malik 的編譯做法降低成本；這種做法提升品質，並為此付出成本。兩者都是把已發現行為升級為經測試產物，只有其中一種會讓模型退場。
+
+### 第三種終點：結晶為權重，而不是程式碼
+
+[Shopify 的 Sidekick 案例](https://shopify.engineering/sidekicks-continual-learning-loop)（McNamara 與 Mazza-Anthony，Shopify Engineering，2026-08-05，`case-study`——第一方、未經複現）將先發現再升級的思路，導向上述兩個來源都未涵蓋的目的地。它的 harness 階段很容易辨認出本文的做法：autoresearch 代理程式提出對提示、工具定義和編排程式碼的修改，透過經校準的評審者逐一評估，並且*「若分數提高就保留變更，否則就捨棄」*——一次測試一個候選項目，根據測量證據決定是否升級。接下來才是新做法：*「harness 改進趨於停滯後，我們開始在參數空間進行最佳化」*，並透過對修復後的正式環境執行軌跡進行 SFT，接著採用 GRPO，把發現的行為編入**模型權重**。完整機制見[代理程式品質飛輪](/articles/agent-quality-flywheel)。
+
+因此，「結晶」現在指三種終點，而且每種終點的經濟效益都不同：
+
+| 終點 | 產物 | 執行時成本 | 退場的對象 |
+|---|---|---|---|
+| Malik，Type 1 | 確定性預先編寫邏輯 | **零 token** | 模型 |
+| Muscle Memory | 編譯後的專家提示 + 藍圖（約 Type 2） | *高於*它所勝過的基準 | 沒有——它提升品質，也為此付出成本 |
+| Shopify | 模型參數（另以 1,500 gist token 取代 6,000 token 的提示） | 同一路徑上使用成本更低的模型 | 前沿模型，而非推論呼叫 |
+
+只有第三種做法退場的是*發現迴圈本身*，而非執行流程：harness 階段中 autoresearch 代理程式找到的修改，最終會被吸收進模型，不必再逐條陳述。這也顛倒了本文的確定性軸線。Malik 的升級階梯每升一級就帶來**更多**確定性（約 50% → 約 90% → 100%）；微調完全不會提升確定性——升級後的執行和升級前一樣隨機，因此不可能用相同形式訂出降級條件。Shopify 用來取代斷路器的是每日以累積資料重新訓練，這是**抵抗漂移**的機制，而不是偵測回歸的機制：案例中沒有任何機制會察覺已升級的行為退步並將它復原。以本文的比較標準來看，這個系統又只具備較弱的關卡，而且已是第三個案例。
+
+**但它沒有回答本文的移植問題**——關於原因，請見下方對該條目所做的註記：面向商家的 GraphQL 代理程式，並不能證明本文所問、發生於 IT 營運以外領域的案例。
+
+多個來源獨立得出相同的准入條件，這是本文最值得重用的主張獲得第二個來源支持。Muscle Memory 第 3.3 節的條件是：同一意圖重複出現的頻率須足以攤平編譯成本、不同執行個體之間的一致性很重要，而且模式可從觀察到的歷史紀錄中發現，而非只能事先明確宣告。這是 Malik「前提是模式會重複出現」這項範圍條件的三部分版本，也指出相同的反例（「一次性的事實查詢、沒有歷史紀錄的新任務、探索性對話」）。*證據註記：這是第一個觸及本文主題的 `empirical` 來源，但它衡量的是 90 個保留情境中的輸出品質，並非生命週期——文中完全沒有衡量升級、降級或成本曲線，因此本文關於結晶本身的 `case-study` 證據並未改變。*
+
+## Type 2 的測量結果，及其模型定位（TypeSafe，2026 年 9 月）
+
+Malik 提出的 Type 2 混合式設計——程式碼負責控制流程，模型負責理解——先前在本文中只是設計建議，沒有受控比較。[TypeSafe AI 發布 Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)（2026-09-15，`vendor-claim`）以自家評估副產品的形式，提供了最接近受控比較的資料。四種決策工作流程都以程式碼撰寫；安全警示工作流程是很典型的 Type 2 案例（三次模型判讀 → 當 P(unauthorized) > 0.75 時由程式碼判定處置；0.15–0.60 的灰色區域交由使用者處理 → 十一次遏制判讀 → 五組優先採用第一個相符項目的操作手冊）。對每個 LLM 都用同一組參考答案評分，分成兩種方式：**在工作流程內執行**，或提供**一段生成式提示，讓模型在思維鏈中執行工作流程邏輯**。每個受測 LLM 在工作流程中的執行結果都更符合參考答案（約高出 5 至 15 個百分點——sol 約 74% 對 63.5%、Opus 5 約 73% 對 65%、luna 約 67% 對 52%、Haiku 4.5 約 53.5% 對 18%），*成本也約減半*。數值是從對數刻度圖表讀取的近似值。
+
+在使用這些數據前，應先打兩次折扣。參考機率來自 GPT-6 Astra 和 Fable 5.1；評估前提是「我們假設存在正確的運算圖」，根據文章描述，這些機率也是**透過工作流程執行**得出（雖然沒有明說），因此以提示模式運作、推理後採取不同分支的模型，必然會被判錯——這項比較有部分衡量模型是否忠於運算圖，而非答案是否正確。此外，工作流程由廠商自行建置。仍可採信的是結果方向及成本部分：無論哪個模型，把分支邏輯外部化並寫進程式碼都沒有犧牲準確度，還讓費用減半。這是從準確度角度觀察本文「成本下降時安全性提高」的主張。
+
+產品訴求是另一半。TypeSafe 將 [Jev](/articles/jev)定位為適合這個工作位置的模型——「聰明的 if 陳述式」，其「周圍程式碼會約束它的自由度，讓它更容易組合成可靠系統」——以結構描述保證的輸出和每次決策的機率，取代字串生成，讓程式碼能設定門檻。這是專為 Type 2 設計的模型，而非硬把 LLM 塞進 Type 2。完整主張與獨立檢查見[具型別決策驗證器](/articles/typed-decision-verifiers)。
+
+### 直接建構 Type 2，而非透過結晶取得（LangChain + Jev，2026-09-25）
+
+[LangChain 的整合文章](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph)（Runkle 與 Lovell，`vendor-claim`——Jev 整合夥伴，銷售 LangGraph 和 LangSmith）把本文的光譜重新描繪成 TypeSafe 所稱的「打造軟體的三種方法」：**傳統軟體**（每個分支都手寫——Type 1）、**代理程式**（模型搭配工具，在迴圈中執行，「控制流程從程式碼轉移到提示」——Type 3），以及 **AI 驅動軟體**（傳統流程圖裡的 `if` 菱形改由 Jev 決策節點取代，另有一個 LLM 節點——Type 2）。兩者的對應完全吻合，但發展方向不同。Malik 透過*升級*代理程式已發現且反覆驗證的行為來取得 Type 2；LangChain 食譜則從設計之初就採用 Type 2——「不把領域知識塞進提示，而是把它編碼在圖的拓撲中：要做哪些決策、以什麼順序，以及每個決策會看到什麼狀態。」這和 [Bridgewater 的 PAT](/articles/agentic-codegen-as-compilation)（設計時即為 Type 2，事先已知領域形態）相同，也有同一個缺口：沒有依據證據設置准入關卡，手繪分支不再適用時也沒有降級途徑。
+
+文章中的範例是個典型 Type 2 案例，包含向上和向外兩種升級處理方式：每頁訴訟文件由 Jev 一次回答三項具型別問題（是否相關？是否包含個人識別資訊？是否可能涉及特權？）；不相關頁面會擱置，個人識別資訊會**向上**交給 LLM 遮蔽，可能涉及特權的頁面則透過 `attorney_review` 中斷交由人類審查。模型決定如何理解；圖決定採取什麼行動。唯一的數字是速度——Jev 在分類步驟上比 Sonnet 快 5–6 倍——沒有準確度比較，因此無法說明這個成本較低的閱讀器是否夠好。
+
+其中有兩個論點進一步釐清了本文已提出的主張。**持久執行的理由在於非確定性，而非成本**：「失敗後從頭重跑比速度慢更糟，因為重新執行時可能不會重走同一條路徑」——由模型驅動的步驟重播時可能採取不同分支，因此透過檢查點保存*已做出的決策*，便能在執行階段補上 Type 3（約 50%）和 Type 2（約 90%）之間的可重現性落差，而不必透過升級來處理。唯一的採用數據是，一名開發者正「把目前所有代理程式都轉換成由 Jev 驅動的工作流程」——這種 Type 3 → 2 轉換是因為閱讀器更便宜，而非累積的實績；換言之，這正是本文要求先有 ≥10 次驗證執行的轉換，如今在廠商熱情下就被一口氣完成。這只是軼聞，未經佐證，而且與這套生命週期所堅持的證據紀律恰好相反。
+
+## 相關連結
+
+- [RSI 自主等級（B0–L5）](/articles/rsi-autonomy-levels) — 從模型開發角度描述這套生命週期，並為其標示級別：**L1**，AI 執行人類指定的改進程序，而產生的產物會保留到之後的工作。2026 年 9 月 RSI 調查中的 L1 正式環境案例幾乎全都符合這種模式（Meta 將除錯專業知識編碼成可重用的修復技能，以提升 Capacity Efficiency；LinkedIn 的 Contextual Agent Playbooks；OpenAI 的 Harness Engineering 由 Codex 在工程師定義的架構和 CI 規則內實作），並指出本文的降級規則要保護的特性：**持續性安全**，也就是執行錯誤是否會在輸出傳播到後續輪次之前被攔截
+- [以編譯方式生成代理程式程式碼](/articles/agentic-codegen-as-compilation) — 從相反方向抵達同一終點。Malik 的光譜透過升級反覆驗證的行為來*逐步取得*確定性執行；Bridgewater 的 PAT 則在建構之初就採用確定性執行，因為領域形態（分析結果是 data-frame DAG）在建構之前就已知。Weight 對其重要性的說法，是語料庫中最精準表達本文前提的一句：「我們在架構中強制確保正確性……代理程式**不可能忘記**驗證，因為它們被迫驗證。」這就是指示代理程式採取某個步驟，與該步驟成為外層程式的一條陳述式之間的差異。PAT 缺少的是本文的降級途徑：當結晶後的假設不再成立時，文中沒有說明會如何處理
+
+- [受審查的持續自我修改](/articles/continuous-self-modification-under-review) — 從相反關卡設計看同一問題，案例是代理程式修改自己的 harness，而非營運平台：採用的是**可接受性，而非證據**。Ouroboros 透過多模型差異審查面板擋下 63.5% 的近期自我修改嘗試，但管線中沒有任何步驟詢問已提交的變更是否有幫助——沒有實績、沒有升級、回歸時也不會自動降級；1,085 次自我修改提交中，從未進行任何前後比較。本文和這項案例對照後可見，以證據為關卡的生命週期控制力明確勝過審查關卡，而語料庫中自主性最高的自我修改系統只有較弱的關卡
+- [作為檢索瓶頸的文件解析](/articles/document-parsing-as-retrieval-bottleneck) — 同一主題中關於工作流程形態的部分，前文已談過：具型別事件作為合約、宣告式分流／匯合、持久化 HITL、自然形成的可觀測性，以及永不終止的「持續更新知識庫」形態。它也補上本文未處理的上游相依性——若工作流程的第一步是解析文件，就會繼承該步驟可能造成的所有結構遺失問題；下游再怎麼嚴謹地升級，也無法補救
+- [可設定的人類參與](/articles/configurable-human-participation) — 從兩個方向看同一種做法：HAS-Bench 把人類參與設為*基準測試變數*，工作流程案例則把它視為*具型別事件*；兩者目的相同——若人類決策是可直接操作的一級物件，就能衡量人類的同意、不同意和修改情形，讓 HITL 從安全裝置轉變為升級所依據的證據來源
+- [確定性執行前關卡](/articles/deterministic-pre-execution-gates) — 從安全而非成本角度看相同的模型／機器分工；Type 2 的「LLM 決定理解，而非行動」是以執行類型表達這種分工，Type 1 可靜態驗證的邏輯則是執行前檢查中最強的形式
+- [動態工作流程：代理程式代數](/articles/dynamic-workflows-agent-algebra) — 這套生命週期*逐步淘汰*的組合基本元素：代數關注代理程式如何撰寫組合其他代理程式的程式；結晶化則關注程式如何存活於代理程式之後，最終不靠代理程式也能執行
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — 本文實際採用並進一步超越的成本框架：已解決問題的單次任務成本會降至零，而非只降到較便宜模型的價格。這和路由或級聯屬於不同槓桿（論文明確指出其方法與 FrugalGPT 式的單次呼叫成本降低互相獨立）
+- [模型進步時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve) — 值得保留的張力：縮減論認為腳手架是對現有模型弱點徵收的稅，每次發布新版本都應退場；結晶化則認為工作流程的*權限*取決於自身實績，且不會因模型升級而轉移
+- [Implementation Abundance Inverts Product Work](/articles/implementation-abundance-inverts-product-work) — 從另一個領域部分回答策展成本問題：策展探索的成本可透過*升級*探索所證明的成果逐步攤還，因此每種重複模式只需投入一次，而非反覆付出成本——但前提是模式會重複出現，而探索型產品情境可能不符合這項範圍條件
+- [代理程式品質飛輪](/articles/agent-quality-flywheel) — 前文談過的第三種終點：同樣是根據證據，將已發現行為升級，但結果編入**模型權重**而非確定性程式碼，且會先完整走完 harness 階段（「harness 改進趨於停滯後，我們開始在參數空間進行最佳化」）。它顛倒了本文的確定性階梯——微調不會提升確定性，也因此沒有降級條件；本文的 IT 營運以外案例問題也曾從此處尋找資料，但這篇文章並未回答
+- [Agentic Work Systematization](/articles/agentic-work-systematization) — 與技能和外掛相同的思路（把反覆推導的內容外部化），但又往前推進一步：不只是「寫下來讓代理程式重讀」，而是「編譯起來，讓代理程式完全不必執行」
+- [驗證成為新的瓶頸](/articles/verification-as-the-new-bottleneck) — 自動產生的驗收測試讓升級得以進行，因此驗證品質是決定有多少工作能離開代理程式層的關鍵限制
+- [LLM 編譯器知識庫](/articles/llm-as-compiler-knowledge-base) — 同樣把知識而非行為編譯起來，也是上文對比的來源：Muscle Memory 根據重播歷史紀錄對編譯後的專家代理程式進行一次關卡審查，之後便將它凍結；本文的操作手冊則從執行時實績取得權限，並在回歸時自動失去權限。它的 `mannwhitneyu` 錯誤分析也測量了兩篇文章都面臨的編譯時損失風險：編譯時寫入產物的捏造內容只得 1/4 分，未編譯基準則得 4/4 分
+- [豐沛之中仍能維持權限與稽核](/articles/authority-and-audit-survive-abundance) — 化解本文在升級模型時與[模型進步時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)之間的衝突：縮減原則管的是指示腳手架，本文以證據為關卡的權限只依據實績；降級斷路器則讓權限側在模型升級時無須做決策
+
+- [部署時退化的保證：動作空間健全性、無效的可接受性與廠商耦合的安全框架](/articles/guarantees-that-degrade-at-deployment) — 這篇文章為自我修改群組所提出的解答提供了正式環境證據：以證據為關卡的升級階梯，在執行失敗、安全違規或驗收測試回歸時**自動**降級，這是[Ouroboros 審查關卡](/articles/continuous-self-modification-under-review)欠缺的效果測試；它已在正式環境中運作，所處領域可取得的實際根據並不比公開聊天部署更多
+- [具型別決策驗證器](/articles/typed-decision-verifiers) — 為 Type 2 工作位置設計的模型類別：以具型別判讀搭配機率，再由手寫控制流程設定門檻；其發布文章提供了上文工作流程與提示的比較
+
+## 開放問題
+
+- 這套生命週期能否移植到 IT 營運以外的領域？本文所有數據都來自事故回應；這種工作重複性特別高，也有明確的成功判準（事故是否已解決）。程式碼、產品和研究工作的這兩項特性都沒那麼明顯。可證偽的檢驗方式是：把 Type 3→2→1 升級條件套用到代理程式程式碼管線，並衡量在相同時間內確定性執行占比是否上升。**已檢查，但尚未回答（2026-08-13）：**曾調查 [Sidekick 的持續學習迴圈](https://shopify.engineering/sidekicks-continual-learning-loop)，但它在三個方面都不符合此案例。**(1) 領域形態相同，不是不同。**面向商家的代理程式會檢查 GraphQL 結構描述、查詢篩選語法，並向 Admin API 執行查詢，這是*針對機器可檢查目標產生結構化查詢*——比起功能需求，它更接近事故回應，也恰好具備此條目所說程式碼工作缺少的兩項特性：數百萬商家會重複提出相同任務；正確性大致可由判定查詢是否傳回正確資料列來檢查。換了包裝，本質仍是相同的形態。**(2) 沒有提出移植主張。**文章只討論單一代理程式，資料匯入檢查也找不到任何主張表示這個迴圈能推廣至 Shopify 的其他領域，更不用說領域以外。**(3) 這並不是本文所述的生命週期。**沒有任何內容朝確定性升級——終點是模型權重，執行時仍具有隨機性，完全沒有降級機制（見上方第三種終點一節）。單一代理程式的廠商案例無法支持這個問題的任何一個方向；若因此標記為已回答，便會犯下本註記力求避免的錯誤。可證偽的檢驗方式維持不變。
+- 平台層級的成本曲線沒有反事實組。每起事故成本下降超過 70%，其中有多少來自結晶化？又有多少是同一個八個月期間內模型價格一般性下滑加上快取的結果？受控比較，或與同期牌價的拆解對照，可以釐清兩者。
+
+## 已解決問題
+
+- 模型升級時，結晶化和 [harness 縮減](/articles/harness-shrinkage-as-models-improve)會提出相反指示——移除腳手架，或保留以證據為關卡的權限。哪一方適用？對*指示*腳手架和*權限*腳手架，答案是否不同？**已回答：**[豐沛之中仍能維持權限與稽核](/articles/authority-and-audit-survive-abundance)——兩者互不支配，分別處理不同對象；可用一項測試區分：「模型變得更好，能否讓這一行變得多餘？」指示腳手架編碼任務的先驗知識（由縮減原則處理——每次發布新版本都進行消融）；本文的權限腳手架編碼邊界及局部證據紀錄，能力躍升不會提供這兩者——安全性語料庫還提出更強的主張：權限**不能**移入模型內部，因為讓元件自行授予範圍是循環論證（「你可以委派判斷，但不能委派授權」）。應根據一行內容所編碼的資訊分類，而非它位於何處（提示中的範圍宣告仍屬權限類別；衍生文章以限制／請求的不對稱性作為根據）。模型升級當天，本文的設計已處理好兩者的調和：發布時精簡指示，但不動權限授予；降級斷路器則持續透過證據重新取得權限——因此升級當下完全不必決定任何權限。
+
+## 資料來源
+
+- [Beyond RAG: Building Agentic Document Workflows with LlamaIndex](https://drive.google.com/file/d/1IQ7G0aEyQQNBaxTBFkJ6YD-xvPZ5QM67/view) — Pierre-Loic Doulcet，AI Engineer Singapore 2026（`practitioner-opinion`，LlamaIndex 廠商利益衝突；描述單一框架，沒有比較或測量）：第五部分——四種基本元素、具型別事件的命名規則、`send_event`／`collect_events`、持久化 HITL、`stream_events` 可觀測性、何時不該使用工作流程的適用邊界，以及四種參考形態。事件圖和持久暫停圖只有投影片圖片版本，已透過圖片兩階段流程閱讀；完整來源分析與解析警告見[作為檢索瓶頸的文件解析](/articles/document-parsing-as-retrieval-bottleneck)
+- [Muscle Memory for Agents: Compile not Merely Retrieve](https://arxiv.org/pdf/2608.08995) — Omran、Lanka、Zhang 與 Dixit（Google Cloud FDE），arXiv 2608.08995，2026-08-10，`empirical`：第 3.3 節的准入條件、第 4.2 節的模式探勘與品質關卡、第 6 節的靜態觸發限制與過度精簡發現、表 2 的個別使用者結果。僅限上述段落——**它衡量的是輸出品質，而非本文的生命週期**，因此本文關於升級、降級或成本曲線的 `case-study` 證據沒有任何提升。完整來源分析與解析警告（表 1 儲存格錯置後重新建構；`canary-recall` 回報 `ok`，但沒有實際執行）見[LLM 編譯器知識庫](/articles/llm-as-compiler-knowledge-base)
+- [Sidekick's continual learning loop](https://shopify.engineering/sidekicks-continual-learning-loop) — Andrew McNamara 與 Cody Mazza-Anthony，Shopify Engineering，2026-08-05，`case-study`（作者對自家正式環境系統的第一方描述；單一代理程式，沒有受控比較組，也沒有移植主張）。僅用於比較第三種終點：autoresearch 提議—評估—保留或捨棄迴圈及其 `program.md` 設定、harness 趨於停滯後才進入下一階段的順序、終點表使用的 gist token 數，以及沒有任何降級機制。本文不採用其中的品質和成本數據。完整來源分析見[代理程式品質飛輪](/articles/agent-quality-flywheel)
+- [Progressive Crystallization: Turning Agent Exploration into Deterministic, Lower-Cost Workflows in Production](https://arxiv.org/pdf/2607.07052) — Arun Malik，Microsoft Azure Networking，arXiv 2607.07052，2026-07-08（`case-study`，單一作者對自家正式環境平台的第一方描述，尚未經同儕審查；沒有受控比較）：第 III 節 + 表 I 的執行類型分類法、第 IV 節 + 表 II 的升級條件與追蹤擷取演算法、第 V 節的經濟模型、第 VI 節 + 表 III 的安全單調性、第 VII 節的降級斷路器與韌體更新案例、第 VIII 節的八個月正式環境數據、第 IX 節的作者限制。docling verify **`ok`**——4 頁、3 個表格、3 張圖片，沒有儲存格錯置或位移；三張圖重述內文中的數字，因此圖片兩階段流程並非關鍵依據
+- [How Bridgewater Built an AI Analyst That Does Hours of Expert Research in Minutes](https://www.youtube.com/watch?v=lXZb21CfeIY) — McManus、Ran 與 Weight（Bridgewater Associates），LangChain 頻道，2026-07-24，25:44 演講，`case-study`。引述「我們在架構中強制確保正確性……代理程式不可能忘記驗證」（22:37–24:00）。全程都是未經方法論驗證的第一方描述；各項數據的證據限制請見[以編譯方式生成代理程式程式碼](/articles/agentic-codegen-as-compilation)
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) — Diogo Almeida，TypeSafe AI，2026-09-15，`vendor-claim`：四種工作流程評估中工作流程與提示的比較（圖 1，數值取自對數刻度圖表），以及安全分類工作流程（圖 2）。依文章描述，參考答案是透過工作流程計算得出；工作流程由廠商建置
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph) — Sydney Runkle 與 Hunter Lovell，LangChain blog，2026-09-25，`vendor-claim`（Jev 整合夥伴；銷售 LangGraph／LangSmith）：打造軟體三種方式的圖表（編譯時讀取）、以拓撲取代提示、將非確定性作為檢查點依據的論證、發現審查圖（只有速度結果），以及開發者引述。文中沒有衡量任何準確度

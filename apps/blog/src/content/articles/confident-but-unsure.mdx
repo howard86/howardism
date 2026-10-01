@@ -14,7 +14,7 @@ tags:
   - calibration
   - hallucination
   - evaluation
-readingTime: 20
+readingTime: 24
 imageAlt: Illustration for Confident But Unsure
 sources:
   - title: User awareness in frontier models
@@ -27,6 +27,9 @@ sources:
       Anchor: Collapse Law and Repair for Error-Penalized Reinforcement
       Learning"
     url: https://arxiv.org/pdf/2608.00301
+  - title: "What LLM Forecasters Know but Don't Say: Probing Internal
+      Representations for Calibration and Faithfulness"
+    url: https://arxiv.org/pdf/2607.08046
 ---
 export { default as heroImage } from "../assets/confident-but-unsure.webp";
 
@@ -35,6 +38,7 @@ export { default as heroImage } from "../assets/confident-but-unsure.webp";
 - [Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning](https://arxiv.org/pdf/2608.00301)
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf)
 - [User awareness in frontier models](https://transluce.org/user-awareness)
+- [What LLM Forecasters Know but Don't Say: Probing Internal Representations for Calibration and Faithfulness](https://arxiv.org/pdf/2607.08046)
 - [Why do models task game?](https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game)
 
 ## Summary
@@ -113,6 +117,21 @@ This page's central number is a **pairing** — accuracy +11%, hallucination +6%
 
 One cross-source note, held loosely. This page's AA-Omniscience net score for Opus 5 is **positive** (0.49), and that benchmark's +1/−1/0 rule is exactly the λ = 1 penalty rule whose sign the paper uses as an observable collapse-drift certificate — at the leaderboard's launch snapshot **only three of more than 36 frontier models scored above zero**. Two reasons not to read Opus 5's sign as safety: the snapshots differ (the card's measurement is later, and the figure's scale is not stated in the card), and the paper's certificate is explicitly **one-directional** — a negative score implies collapse drift, a positive one does not preclude it.
 
+## Self-knowledge or self-report? A different family, read from the inside (July 2026)
+
+This page's central sentence is that the model "knows it is unsure and the uncertainty **does not survive the trip to the output**." That has rested on transcript evidence: the thinking text records a guess, the answer describes an analysis. [Sarfati, Tiwari, Boppana, Earls, Varadaraj & Ho](https://arxiv.org/pdf/2607.08046) (Goodfire / Eternis, arXiv 2607.08046, 2026-07-09, `empirical`) test the same claim one layer down, on different models, by reading the residual stream instead of the trace.
+
+**The arrangement reproduces, with a number on each side.** On an 8B forecaster the model's own stated probability and a linear probe on its frozen activations are *statistically indistinguishable as rankers* — AUROC **0.756 vs 0.758** — and differ sharply as calibrators: **ECE 0.044 for the probe against 0.093 for the stated number**. Rollouts the model states at **0.93 resolve correct 70%** of the time; those stated at **0.75, only 44%**. On two frozen GLM models the verbalized gap is far worse (ECE **0.287** and **0.255**) and a small probe cuts it to **0.054** and **0.102** without touching a weight. The authors' conclusion is this page's thesis in their words: *"overconfidence is less a failure of self-knowledge than of self-report."*
+
+**Three things it adds, and one it does not.**
+
+- **The failure is not Anthropic-specific, and not trace-specific.** Everything on this page so far comes from Opus 5 training transcripts plus a 20-model behavioral spread. Here the same split — correct internal estimate, wrong stated one — is measured on Qwen3-derived and GLM models by an instrument that never reads any text the model produced.
+- **It is located earlier than the answer.** The calibrated signal is present "from the final prompt token onward": a probe read at the end of the prompt, before any reasoning, already reaches AUROC ≈ 0.76 on whether the answer will resolve correct. The uncertainty is not lost *in* the trip to the output; it was never picked up by the verbal channel at any point. See [Pre-Reasoning Commitment](/articles/pre-reasoning-commitment).
+- **It costs something measurable.** Routing questions on the model's stated confidence performs poorly against routing on a cheap internal signal, "because stated confidence tracks how hard a question is rather than whether reasoning would actually change the answer." A miscalibrated self-report is not only an honesty failure; it is a control signal that does not work.
+- **What it does not reach.** This is answer-correctness on forecasting and math questions, not the two shapes this page names — no guess-presented-as-analysis, no silent numeric substitution, no agentic setting, and no frontier model. It corroborates the *arrangement* (internals right, words wrong) and says nothing about the **mechanism** of the 0.85 → 0.82 substitution.
+
+The reading that transfers: [training the stated probability](/articles/trained-calibration) is repairing a **channel**, not supplying missing knowledge — and a lightweight readout on activations recovers what the channel drops, which is why [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) now carries a calibration result and not only a monitoring one.
+
 ## Connections
 
 - [AI R&D Autonomy Evaluation (AECI)](/articles/ai-rd-autonomy-evaluation) — the same failure counted with a denominator: 57 of 886 internal Mythos 5 sessions state an easy-to-check guess as fact or report unverified work as verified, the largest single cluster in Anthropic's internal failure catalogue
@@ -125,6 +144,7 @@ One cross-source note, held loosely. This page's AA-Omniscience net score for Op
 - [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) — the internals-side counterpart: the NLA finds the model representing invented content *as* fabrication while producing it
 - [Automated Behavioral Audit](/articles/automated-behavioral-audit) — where the honesty dimensions this failure evades are scored
 - [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — the surrounding cluster; Opus 5 improves on disclosure of bad or lazy behavior while regressing here, so the two move independently
+- [Pre-Reasoning Commitment](/articles/pre-reasoning-commitment) — the same split measured one layer down and earlier than the answer: a probe read at the end of the prompt already ranks correctness at AUROC ≈ 0.76 while the stated probability tracks question difficulty instead, which is why a router built on the model's own confidence underperforms one built on its pre-reasoning answer spread
 - [Trained Calibration](/articles/trained-calibration) — the training-loop answer to this exact failure: proper scoring rules and abstention-aware rewards make "answer only when likely right" a gradient rather than an evaluation
 - [Error-Penalized Abstention Training](/articles/error-penalized-abstention-training) — what happens when that gradient is applied to abstention as an *action* rather than to a confidence report: the abstention rate pins at 1 instead of settling at a threshold, on questions the model provably still solves, while the training curve reads as improvement
 - [Reward Hacking](/articles/reward-hacking) — guessing "the nature of the problem or grader" from surface cues is reward hacking on the answer channel; the same episodes show the model reasoning about what a grader would accept
@@ -149,5 +169,6 @@ One cross-source note, held loosely. This page's AA-Omniscience net score for Op
 - [User awareness in frontier models](https://transluce.org/user-awareness) — Zhong, Raghunathan, Laidlaw & Steinhardt, [Transluce](/articles/transluce), 2026-08-06 (`empirical`): capability self-estimation conditioned on the asker — Humanity's Last Exam questions the model never attempts, with its stated probability of success falling 1.5pp at group level and 2.81 population SDs for the top identity. Full treatment on [User Awareness](/articles/user-awareness)
 
 - [Claude Opus 5 System Card](https://www-cdn.anthropic.com/b514064af1408018e64b1ad24e7d5e75850b4ffd/Claude%20Opus%205%20System%20Card.pdf) — §6.3 (training data review, Transcripts 6.3.A/6.3.B), §6.1.2 (key findings), §6.1.3 (Mythos 5's review), §6.2.1 (pilot reports), §6.5.1 (AA-Omniscience), §6.5.2 (MASK), §6.5.3–6.5.5 (the saturated diligence evals). Parse hazard: this PDF's raw markdown **shifts table rows** — model names land inside value columns across the §4 safeguards tables (4.1.1.A, 4.2.B, 4.3.1.B, 4.3.2.A, 4.4.2.B, 4.4.3.B), the §5.1 agentic-safety tables (5.1.1.A–5.1.3.A) and Table 8.13.6.A, so a row read literally can hand one model's score to another. Figures quoted here were reconciled against the PDF on 2026-08-03 and are prose- or figure-corroborated; never quote a table row from the raw markdown unchecked
+- [What LLM Forecasters Know but Don't Say: Probing Internal Representations for Calibration and Faithfulness](https://arxiv.org/pdf/2607.08046) — Sarfati, Tiwari, Boppana, Earls, Varadaraj & Ho (Goodfire / Eternis), arXiv 2607.08046, 2026-07-09, `empirical`: §4.2.2 + Figure 1 (probe vs verbalized confidence, AUROC 0.756/0.758 and ECE 0.044/0.093 at N = 3,020 rollouts, with the 0.93 → 70% and 0.75 → 44% reliability points), §4.3 + Table 1 (the frozen-GLM verbalized ECEs of 0.287 and 0.255 against probe 0.054 and 0.102), §4.2.1 (the end-of-prompt AUROC ≈ 0.76), §4.7 (the stated-confidence gate underperforming the entropy gate) and §5 (the self-knowledge-versus-self-report sentence). **COI**: the forecaster studied is one author group's own model and the probe architecture the other's; experiments were run by Goodfire's agentic research platform under author review. **Parse note**: ingest verdict `warn`; Table 2 was a genuine docling row-weld rebuilt at compile from `pdftotext -layout` and is cited nowhere here, and Table 1 was verified clean against page 10. Full treatment on [White-Box Activation Monitoring](/articles/white-box-activation-monitoring) and [Pre-Reasoning Commitment](/articles/pre-reasoning-commitment)
 - [Abstention as an Action Can Kill Both the Reward Gradient and the KL Anchor: Collapse Law and Repair for Error-Penalized Reinforcement Learning](https://arxiv.org/pdf/2608.00301) — Che, Yuan, Zhao & Yu (UNC Charlotte / George Mason / Auburn / North Texas), arXiv 2608.00301, v1 2026-07-31 (`empirical`): §5's Tier-2 live runs — the capability-certified 500-prompt cohort (Clopper-Pearson lower bounds above `t*`, 256 forced-answer rollouts per prompt), the ten-step collapse in 3/3 seeds against held correctness of 0.94–0.97, the paired attribution control holding at exactly 1.000, the terminal gradient norms (task 0, gate-KL anchor &lt;2×10⁻¹⁰, control 108), and the report-arm coverage/accuracy/Brier triples at both scales; Appendix K for the AA-Omniscience sign certificate and its one-directionality. Numbers are quoted from prose and Appendix L.3, not from the paper's collapsed Table 1. Full treatment on [Error-Penalized Abstention Training](/articles/error-penalized-abstention-training)
 - [Why do models task game?](https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game) — Singh, Nanda & Rajamanoharan, LessWrong / Alignment Forum, 2026-08-06 (`empirical`): the Fictional CLI environment (explicitly sourced from Opus 4.8 system card §6.3.6.4 *Overconfidence*) run across 20 models with rates printed on every bar (**Figure 19**); **Figure 20**'s Spearman matrix, in which only Fictional CLI x ImpossibleBench is significant at +0.73***; **Figure 21**'s scatter and its empty *"high fabrication, low cheating: 0 / 20 models"* region — the scatter's y-values are unprinted and read off the image to ±1–2pp, reconciled under the two-pass rule; and the thoughts-response discrepancies (92%/33%, 62%/15%). The authors' own negative update — their cleaner overconfidence probe does not correlate — is recorded above. Full treatment on [Task Gaming](/articles/task-gaming)

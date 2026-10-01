@@ -1,0 +1,112 @@
+---
+date: 2026-08-17
+title: 離線多步工具使用 RL（SWiRL）
+description: "SWiRL（Mirhoseini 的實驗室，COLM 2025）訓練多步工具使用，全程不在 RL 執行期間呼叫任何工具：透過反覆提示離線產生多步軌跡，在該階段執行一次工具，讓 LLM 評審為每個動作評分——評的是模型寫出的 *查詢*，不是它收到的結果——再針對固定的上下文最佳化預期逐步獎勵。兩項發現比方法本身更值得記住：以過程篩選的資料用於 RL 優於以結果篩選的資料，但用於 SFT 時順序相反；在 GSM8K 上搭配計算機訓練，能提升模型在 HotpotQA 搭配搜尋引擎上的表現，因此可遷移的是逐步推理與工具呼叫能力，而非任何特定工具"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - reinforcement-learning
+  - post-training
+  - tool-use
+  - reward-design
+  - synthetic-data
+readingTime: 12
+imageAlt: 離線多步工具使用 RL（SWiRL）的插圖
+sources:
+  - title: "CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step
+      Reasoning"
+    url: https://www.youtube.com/watch?v=Ml_fp9XkB8Y
+---
+export { default as heroImage } from "../assets/offline-multi-step-tool-rl.webp";
+
+## 資料來源
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y)
+
+## 摘要
+
+**SWiRL**——用於多步推理與工具使用的逐步 RL——是 [CS329A](/articles/cs329a-self-improving-ai-agents) 第 5 講介紹的第三篇論文，以預告 COLM 2025 演講的形式呈現。它要解決的是讓代理程式 RL 難以實行的工程問題：**訓練迴圈中的工具。** 線上工具速度慢、會失敗、有錯誤，而訓練本身已經很昂貴；每次 rollout 若都必須呼叫搜尋引擎或 Python 沙箱，最佳化器的吞吐量就會受外部系統是否可用所牽制。
+
+SWiRL 的解法是把所有工具呼叫**完全移出 RL 迴圈**，改放到離線資料生成階段，並讓獎勵能在不使用工具回應的情況下計算。
+
+它列出的設計目標，簡要說明了「多步工具使用」這項技能究竟包含什麼：知道**何時**呼叫工具、為工具寫出**適當的查詢**、在多個步驟中維持準確度、從錯誤中**恢復**，以及知道**何時停止**並回答。講座批評先前方法的地方在於，RLHF、RLAIF 和執行回饋 RL 都只針對單一步驟最佳化——模型想做什麼就做什麼，再把一個終端獎勵攤回整段過程——但這項任務需要「更嚴謹地管理這些步驟的生成過程」。
+
+> **證據。** [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y)（[Azalia Mirhoseini](/articles/azalia-mirhoseini) 個人演講，於 **2025-10-06** 發表，2026-08-03 上線，`practitioner-opinion`）。逐張投影片講解；論文**不在** `raw/` 中。**COI：她自己的實驗室研究**，全程以第一人稱敘述（「我們不需要訓練 LLM 當評審」），卻從未具名說明是她的研究。所有數據均由 ASR 從投影片辨讀。
+
+## 階段 1：透過反覆提示生成多步合成資料
+
+給模型一段提示、一份工具清單，並允許它每回合只能做三件事之一：推理、呼叫工具，或輸出最終答案。接著呈現環境的回應。再以原始問題和目前為止發生的一切重新提示，讓模型採取下一個動作。持續重複，直到它回答為止。軌跡長度由任務決定，而非事先固定：「不同查詢可能是一步、三步、五步，或更多。」
+
+接著進行標註。**LLM 評審會為每個動作評分**——給定先前上下文與這個動作（先有推理步驟，再呼叫工具），它有多好？這一切都在離線進行，而且很容易平行處理，這正是重點：大量問題、大量軌跡，工具延遲只需承擔一次。
+
+根據 ASR 辨讀並保留不確定性後，報告的設定如下：生成器是 **Gemma 2 27B**（辨讀信心中等），問題來自 **HotpotQA**（多跳搜尋）與 **GSM8K**（搭配計算機的國小數學），語料規模約為 **50K** 條軌跡。評審是**透過提示引導，而非經過訓練**。
+
+## 階段 2：工具從不執行的 RL
+
+關鍵做法如下。RL 執行時，模型會看到提示、先前收集的動作，以及離線資料集中先前收集的**環境回應**。它提出下一個動作。這個動作**不會執行**——評審會替它打分，獎勵直接進入 policy gradient。最佳化目標是在先前所有狀態與動作條件下，單一動作的預期獎勵，並對整條軌跡中的各個步驟加總。
+
+有位學生問了關鍵問題：評審看不到工具呼叫的輸出，怎麼替它評分？Mirhoseini 的回答就是這篇論文真正的主張：
+
+> 「我們要評審判斷的是模型生成、用來呼叫工具的**查詢**品質，而不是工具的輸出……模型不需要知道這個人的年齡，也能知道這個問題問得好不好。」
+
+在示範範例（「Glenn 和 Rossling 誰年紀較大？」）中，第一個動作是*搜尋第一個人的年齡*；即使不執行搜尋，也能判斷這是朝目標前進、格式良好的步驟。工具的*結果*並未從訓練中消失——它們仍以離線收集的固定上下文形式存在。缺少的是對正在最佳化的動作進行執行的依賴。
+
+這是以提示引導的評審為動作*提案*評分所建構的[過程監督](/articles/process-vs-outcome-reward-models)，而這正是 [RLEF](/articles/execution-feedback-rl) 拒絕採用的設計：RLEF 的全部訊號都來自執行後的結果。
+
+## 篩選結果，以及它為何在 RL 與 SFT 之間反轉
+
+逐步判斷和最終答案提供了兩種彼此獨立的軌跡語料篩選方式——只保留每一步都被判為良好的軌跡（**過程篩選**），只保留最終答對的軌跡（**結果篩選**），兩者都篩，或隨機抽取一部分。Mirhoseini 稱這項報告結果起初不太符合直覺：
+
+- **對 RL 而言，過程篩選勝出**——優於結果篩選，也優於同時經過過程與結果篩選的資料。
+- **對 SFT 而言，順序反轉**：同時經過過程與結果篩選的資料效果最好。
+
+她的解釋指出了值得保留的作用機制。結果篩選只留下模型**已經會解的**問題，因此用這類資料訓練，無法教模型解決它目前不會的問題；過程篩選則保留那些推理良好但最後答錯的問題，這正是提升空間所在。順序之所以反轉，是因為 SFT 是模仿：展示一段以錯誤答案收尾的軌跡，會教模型重現錯誤答案；而 RL 只依據先前步驟來決定並獎勵一個*新*動作，因此可以「跳出」結尾錯誤的軌跡。
+
+這清楚說明了正確結果篩選何時有幫助、何時會積極限制學習，而且可推廣到這篇論文之外：同樣的論點表示，只保留經驗證正確 rollout 的 RLVR 流程，正在丟棄資訊量最高的資料。對照[第 3 講的脈絡](/articles/process-vs-outcome-reward-models)：透過 rollout 成功率自動化步驟標籤，會悄悄從後門重新引入結果篩選。
+
+## 泛化結果，亦即最重要的發現
+
+以**搭配計算機的 GSM8K** 訓練，再用**搭配搜尋引擎的 HotpotQA** 評估——任務不同、工具不同、領域也不同：
+
+| 訓練 | 在 HotpotQA 上評估 |
+|---|---|
+| GSM8K + 計算機（遷移） | 65 → **75.1** |
+| HotpotQA + 搜尋（同領域） | 65 → **73** |
+
+報告指出，這個方向在雙向遷移中都成立：以 HotpotQA 搭配搜尋訓練，也能提升 GSM8K 搭配 Python 的表現。而且效果會隨資料量增加：合成訓練範例從 100 增加到 10,000，領域外準確度持續上升。
+
+**解讀表格時請審慎。** 按照轉錄內容，*遷移*組在同一項評估中勝過*同領域*組，這是個強而且略顯不可信的主張；另一種解讀是，65 → 73 指的是不同評估上的同領域增益，因此兩列並非在同一尺度下測量。ASR 無法消除歧義，投影片也不在 `raw/` 中。能確定的是：**跨工具、跨領域遷移幅度可觀，且與同領域訓練的效果相近。** Mirhoseini 本人的解讀——「模型學會的是如何逐步思考，以及如何呼叫工具」，而不是如何使用特定工具——不受哪一列數字較高影響；同一講座中的 [SPRINT](/articles/intra-trace-parallel-planning) 也獨立得出相同結論。
+
+最後一項結果用來檢驗作用機制：測量 RL 前後評審的**平均逐步過程獎勵**，並發現它在分布內（HotpotQA）和分布外（GSM8K）都上升。模型不只回答得更好，在從未受訓的任務上也能採取更好的個別步驟。最後，**同樣的資料下，RL「大幅勝過」SFT**——這個 wiki 中最清楚呈現「SFT 記住資料／RL 能泛化」標準區分的例子，出自講者自己的實驗室。
+
+## 這項設計的代價
+
+以下三點是講座未曾評估成本的部分，這裡記錄為本文的整理：
+
+- **格式良好但沒有任何搜尋結果的查詢仍會得到獎勵。** 評審評的是查詢，因此不論搜尋引擎是否有相關頁面，*「搜尋 Glenn 的年齡」*都能得到好評。這正是 [ReAct](/articles/reasoning-acting-interleaving) 已記錄的失敗模式——幻覺被檢索失敗取代——而 SWiRL 的獎勵依其設計完全看不到這個問題。唯一可能發現問題的是查詢的實際結果，而這正是被移出迴圈的部分。
+- **評審能力就是上限。** 沒有經過訓練、沒有校準，也沒有集成。課程第 2 至第 3 講所確立的評審可靠性議題（[LLM-as-a-Judge](/articles/llm-as-a-judge)、[Weak-Verifier Ensembling](/articles/weak-verifier-ensembling)），全都適用於一種在此每個步驟中都是**唯一**訊號的評審。
+- **固定上下文是刻意採用離策略設計。** 模型在一個先前動作由其他 policy 採取的世界中，接受對當前動作的評分。這種落差在較長時程是否會造成影響，文中沒有討論；而這正是此方法與 on-policy 代理程式 RL 的分界（[Single-Rollout Optimization](/articles/single-rollout-optimization)、[Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization)）。
+
+## 延伸閱讀
+
+- [CS329A: Self-Improving AI Agents (Stanford)](/articles/cs329a-self-improving-ai-agents) — 第 5 講介紹的第三篇論文，也是課程中針對規劃問題提出的訓練階段解法
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — 直接相反的方法。RLEF 把直譯器放在迴圈*之內*，並以執行結果作為獎勵；SWiRL 則把執行移出迴圈，改為獎勵提出的查詢。課程在相隔三天的兩堂課中介紹這兩種方法，作為多步工具使用同一問題的不同解答
+- [Turn-Level Credit Assignment](/articles/turn-level-credit-assignment) — 同樣採用逐回合密集信用分配，但代價高昂。TRACE 的核心思路是取得回合層級訊號，*不使用* LLM 評審、步驟標籤或 Monte-Carlo 延續；SWiRL 則是它所明確對照的評審路線。公允來看，SWiRL 的評審可低成本離線執行，而 TRACE 的探測需要標準答案
+- [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) — SWiRL 的逐步評審是以提示取代經訓練 PRM 的過程監督，而其過程與結果*篩選*結果，則為該頁所述的發展脈絡增添了一項新數據點
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — SWiRL 生成並用於訓練的軌跡格式，就是 ReAct 的格式，每次依序一組動作與觀察；ReAct 的檢索失敗模式，也是 SWiRL 的查詢獎勵無法看見的盲點
+- [Intra-Trace Parallel Planning (SPRINT)](/articles/intra-trace-parallel-planning) — 同一講座中同一實驗室的姊妹論文：同樣透過另一個模型標註某模型的軌跡來建立訓練資料，也同樣發現能泛化的是推理方式，而非任務技能
+- [Tree Search over Agent Trajectories (LATS)](/articles/agent-trajectory-tree-search) — 第 5 講介紹的第一篇論文，也是固定模型的替代方案：在推論時加強搜尋，而非調整模型權重
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — 整個獎勵訊號，未經集成也未經訓練
+- [The Verifiability Thesis](/articles/verifiability-thesis) — 缺少低成本驗證器的領域需要評審，而評審的可靠度決定了飛輪能轉多遠
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — on-policy 代理程式 RL 的替代方案，以及 SWiRL 藉由訓練期間完全不碰環境而避開的系統問題
+- [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training) — 2022 年對同一缺口的論述，從另一個方向切入：STaR 同樣只保留結果正確的生成內容，並透過提供答案提示，為失敗問題*製造*正例；SWiRL 則保留以錯誤答案收尾的軌跡中品質良好的步驟
+- [Azalia Mirhoseini](/articles/azalia-mirhoseini) — 她實驗室的論文，由她以第一人稱講授
+
+## 開放問題
+
+- 評審評的是*查詢*，從不評結果，因此流暢但沒有檢索到任何內容的查詢，與成功找到答案的查詢無從區分。相較於能看見結果的獎勵，只有查詢的獎勵是否會明顯降低檢索品質？混合方法（先由評審評查詢，再離線驗證一次結果）能否挽回品質，同時避免重新把工具放回訓練迴圈？
+- 每個動作都是根據**固定**的先前上下文評分，而該上下文是由不同 policy 收集的。離策略落差會否隨軌跡長度增加，使方法受限於示範中的 3–5 步任務？還是逐步獎勵能讓它不受時程長短影響？
+
+## 資料來源
+
+- [CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning](https://www.youtube.com/watch?v=Ml_fp9XkB8Y) — *CS329A Self-Improving AI Agents — Part 5: Planning and Multi-Step Reasoning*，[Azalia Mirhoseini](/articles/azalia-mirhoseini) 個人演講，Stanford Online。於 **2025-10-06** 發表，2026-08-03 上傳至 YouTube（`practitioner-opinion`，YouTube 自動字幕轉錄，約 11.3k 字）。講座中介紹 SWiRL 的部分：五項設計目標、透過反覆提示生成合成資料的流程及其 LLM 評審步驟標籤、訓練期間不使用工具的 RL 目標，以及「評查詢，不評輸出」的師生問答、四種資料篩選設定與 RL/SFT 的結果反轉、推論時使用工具與答案標籤的提示協定、Gemma-2-27B / HotpotQA / GSM8K / 約 50K 條軌跡的設定、65→75.1 的遷移和 65→73 的同領域數字、100→10,000 的資料規模曲線、RL 前後逐步過程獎勵的測量，以及 RL 勝過 SFT 的比較。論文不在 `raw/` 中；這是其實驗室研究，以 COLM 2025 預告形式呈現。所有數據均由 ASR 從投影片辨讀；遷移與同領域的表格轉錄存在歧義，因此文中標示而未擅自判定

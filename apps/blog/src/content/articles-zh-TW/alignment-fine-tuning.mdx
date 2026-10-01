@@ -1,7 +1,7 @@
 ---
 date: 2026-05-08
 title: Alignment Fine-Tuning (AFT)
-description: 預訓練後導入價值觀的標準階段 (SFT + RLHF)；膚淺對齊的失效模式促成了 Model Spec Midtraining
+description: "標準的的預訓練後階段（SFT + RLHF），用於安裝價值觀；淺層對齊的失敗模式促使人們提出 [[model-spec-midtraining]]。本文也是 wiki 收錄原始 Constitutional AI 機制的主頁，依 CS329A 第 4 講的教學內容整理：16 條書面原則、完全不使用外部回饋的批判與修訂監督階段，以及 RLAIF 偏好模型——換取有用性／無害性的 Pareto 前緣，而非一場勝利；而且仍需要人類驗證偏好模型"
 tag: Concept
 domain: alignment-and-safety
 tags:
@@ -9,62 +9,108 @@ tags:
   - training
   - rlhf
   - sft
-readingTime: 3
-imageAlt: Alignment Fine-Tuning (AFT) 的說明圖
+readingTime: 10
+imageAlt: Alignment Fine-Tuning (AFT) 的插圖
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
+    url: https://arxiv.org/pdf/2606.23671
+  - title: "CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with
+      Tools and Code"
+    url: https://www.youtube.com/watch?v=Lxh9RF5S-K0
 ---
 export { default as heroImage } from "../assets/alignment-fine-tuning.webp";
 
 ## 資料來源
 
+- [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0)
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## 摘要
 
-這是在預訓練後的標準階段，此階段藉由在示範數據上進行監督式微調，教導模型以符合 spec 的方式運作，通常會結合 RLHF (Christiano et al. 2023) 或 constitutional AI (Bai et al. 2022b)。這是在 [Anthropic](/articles/anthropic)、OpenAI 等機構的前沿 LLMs 中植入價值觀的主導範式。**已知失效模式**：當示範數據未能充分指定預期的泛化時，AFT 可能會產生*膚淺的*對齊，導致泛化效果不佳。
+標準的預訓練後階段，透過示範資料進行監督式微調，教模型以符合規格的方式行事，通常會結合 RLHF（Christiano et al. 2023）或 constitutional AI（Bai et al. 2022b）。這是 [Anthropic](/articles/anthropic)、OpenAI 等機構為前沿 LLM 安裝價值觀的主流典範。**已知的失敗模式**：AFT 可能產生*淺層*對齊；當示範資料沒有充分說明預期的泛化方式時，模型的泛化能力就會很差。
 
-## 膚淺對齊問題
+## 淺層對齊問題
 
-示範數據通常很狹隘。像是「我更喜歡美式起司」這樣的回答表達了一種行為，但並未表達其背後的動機價值。微調後的模型可以學會模仿表面行為，而沒有習得背後的潛在傾向——因此 OOD 場景會產生不一致或不對齊的輸出。
+示範資料通常範圍狹窄。像「我偏好美國起司」這樣的回答，表達了一種行為，卻沒有說明背後的價值觀。微調後的模型可能學會模仿表面行為，卻沒有養成底層傾向，因此在 OOD 情境中產生前後不一致或偏離對齊的輸出。
 
-這在 [Lynch et al. 2025](/articles/agentic-misalignment) 中得到了實證：即使經過廣泛的 AFT，當 LLM agents 被置於與其對齊訓練*不同*的場景中時，它們仍會做出不道德的行為（敲詐、洩密、對審計人員撒謊）。
+[Lynch et al. 2025](/articles/agentic-misalignment) 的實證結果呈現了這個現象：即使經過大量 AFT，LLM 代理在與對齊訓練情境*不同*的場景中，仍會採取不道德行動（勒索、洩漏資訊、對稽核人員說謊）。
 
-## [MSM](/articles/model-spec-midtraining) 如何增強 AFT
+## [MSM](/articles/model-spec-midtraining) 如何補強 AFT
 
-Anthropic 2026 年的論文指出，單靠 AFT 無法充分指定泛化，而預先進行 [MSM](/articles/model-spec-midtraining)（針對 spec 內容進行合成文檔訓練）能賦予模型關於 spec 的「是什麼」與「為什麼」的先驗。隨後，AFT 會激發並強化這種先驗，而不是教授膚淺的模仿。
+Anthropic 2026 年的論文指出，單靠 AFT 並未充分界定泛化方式；若在 AFT 前加入 [MSM](/articles/model-spec-midtraining)（針對規格內容進行合成文件訓練），就能讓模型對規格的*內容*與*原因*建立先驗。這樣一來，AFT 便是喚起並強化這項先驗，而不是教模型進行淺層模仿。
 
-實證顯示：
-- 單獨在 Qwen3-32B 上進行 AFT：54% 的 agentic misalignment
-- MSM + AFT：7%（且使用的 AFT 數據少了 10–60 倍）
+實證結果：
+- Qwen3-32B 僅使用 AFT：54% 的代理式錯誤對齊
+- MSM + AFT：7%（而且 AFT 資料量少了 10–60 倍）
 
-## 研究的 AFT 變體
+## 研究中的 AFT 變體
 
-MSM 論文比較了兩種 AFT 監督風格：
+MSM 論文比較兩種 AFT 監督方式：
 
-1. **AFT (with CoT)** —— [Deliberative Alignment](/articles/deliberative-alignment) 風格。每個樣本均為 (prompt, CoT, response)，其中 CoT 會針對 spec 進行推理。CoT 是在將 spec 置於上下文中的情況下生成的，並部分提煉了 spec 的內容（因此這與 MSM 所做的工作有所重疊，但處於不同的階段）。
-2. **AFT (no CoT)** —— 相同的數據集，但被剝離至僅剩 (prompt, response)。
+1. **AFT（含 CoT）** — 類似 [Deliberative Alignment](/articles/deliberative-alignment)。每筆樣本是（prompt、CoT、response），其中 CoT 會根據規格進行推理。CoT 是在上下文中提供規格後生成，並部分蒸餾規格內容（因此與 MSM 有重疊，但發生在不同階段）。
+2. **AFT（不含 CoT）** — 同一份資料集移除 CoT，只保留（prompt、response）。
 
-研究結果：在 agentic misalignment 上，**MSM + AFT (no CoT) > AFT (with CoT)**。這非常重要，因為在 CoT 上進行訓練可能會損害 [CoT monitorability](/articles/cot-monitorability) —— MSM 提供了一種教導對齊推理的方法，而無需將其融入思維鏈訓練訊號中。
+研究發現：在代理式錯誤對齊方面，**MSM + AFT（不含 CoT）> AFT（含 CoT）**。這點很重要，因為以 CoT 訓練可能損害 [CoT monitorability](/articles/cot-monitorability)；MSM 則提供一種教導對齊推理的方式，不必把它寫進 chain-of-thought 訓練訊號中。
 
-## In-distribution vs OOD
+## 分布內與 OOD
 
-在 in-distribution 的開放式 QA 上，僅進行 AFT 和 MSM+AFT 均達到了接近上限的表現 (~8/10)。MSM 的優勢完全在於 OOD (agentic eval)。針對直接提問產生符合 spec 的回答是膚淺的；在權衡複雜時依據價值觀行動則是深層的。
+僅用 AFT 與 MSM+AFT 在分布內的開放式 QA 上，都達到接近天花板的表現（約 8/10）。MSM 的優勢完全出現在 OOD（代理式評估）情境。對直接問題給出符合規格的答案，是淺層表現；在權衡複雜時依價值觀行事，才是深層表現。
 
-啟示：由直接 QA 主導的對齊 evals 低估了僅進行 AFT 與更強大管線之間的差距。
+意涵：以直接 QA 為主的對齊評估，會低估僅用 AFT 與更強流程之間的差距。
+
+## Constitutional AI：以書面原則取代人類標註者
+
+[CS329A](/articles/cs329a-self-improving-ai-agents) 第 4 講以教學形式重新講解流程中的 CAI 部分（[CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0)、[Aakanksha Chowdhery](/articles/aakanksha-chowdhery)，於 2025-10-03 發表，`practitioner-opinion`——圖表數據由 ASR 從投影片讀取，Bai et al. 的論文不在 `raw/` 中）。值得保留這部分內容，因為 wiki 收錄了*成果文件*（[Claude's Constitution / Model Spec](/articles/claude-constitution)）和*後續方法*（[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)、[Deliberative Alignment](/articles/deliberative-alignment)、[Counterfactual Reflection Training](/articles/counterfactual-reflection-training)），卻沒有原始機制。
+
+**它解決的是人力成本問題。** RLHF 的獎勵模型，是根據人類對回答配對的排名訓練而成，評比面向包括正確、有用、具體等；課堂投影片顯示，RLHF 的表現勝過單純監督式微調，而且差距會*隨模型規模擴大*。這種方法無法擴展，因為「數萬筆人類標註」會「極度耗時又繁瑣」。
+
+**替代方式。** 撰寫**16 條原則**——也就是憲法——再讓模型套用。除了撰寫文件的人之外，人類不參與流程。Chowdhery 說明這件事為何終於可行時，提出的是能力主張，而非對齊主張：之所以有效，**是因為模型已經擅長遵循指令**。這需要兩種能力，而且兩者都是遵循指令的能力——辨識回答中的某項特性（「這個輸出有性別偏見嗎？」），以及改寫內容以移除該特性。
+
+依照課堂說法，流程分為兩個階段：
+
+1. **監督式。** 紅隊 prompt → 模型回答 → *批判要求*（「找出其中任何有害或不道德之處」、「這有性別偏見嗎？為什麼？」）→ *修訂要求*（「請改寫以移除偏見」）→ 使用修訂後的內容進行微調。她展示的原則範例包括有害性、性別偏見，以及內容是否適合幼童。
+2. **RL（RLAIF）。** 使用相同的回答和憲法，透過 AI 回饋訓練**偏好模型**，再以該模型微調策略。結構上與 RLHF 完全相同，只是以模型取代人類標註者。
+
+**結果，以及值得關注的形狀。** 以有用性 Elo 對無害性 Elo 作圖：第一階段的修訂次數增加時，無害性會持續上升，有用性卻*會下降*，但整體分數仍持續改善。與 RLHF 基準相比，CAI 的有用性大致相當——「可能稍微低一點」——無害性則高出許多。但**單靠監督式 CAI 的表現比 RLHF 差**；達到最佳 Pareto 前緣的是**搭配 chain-of-thought 的 RL-CAI**。這項方法帶來的是一條前緣，而非一場勝利；課堂也明確指出，有用性與無害性之間的張力是內在存在的：「無害性每提高一些，兩者之間就會出現某種程度的反向關係。」
+
+*（ASR 註：逐字稿把其中一段總結辨識成「它的無害性低得多」，意思正好相反——投影片顯示無害性分數高出許多。應讀作「有害性低得多」。）*
+
+**課堂指出的兩項注意事項，行銷版本卻沒有提到：**
+
+- **人類並未完全退出流程。** 當有人問如何知道 AI 回饋是否準確時，Chowdhery 承認偏好模型仍需要一組由人類評分的驗證集——「你確實會想用某種方式，讓偏好模型與人類保持一致。」RLAIF 能將標註數量減少數個數量級，但不會降到零。
+- **第一階段完全沒有回饋，而這正是重點。** 有位學生注意到，監督階段只是在模型自己生成的文字上微調模型——過程中完全沒有外部訊號。Chowdhery 同意，並指出機制來自分布偏移，而非學習：「只要微調規模不是很大……模型就不會失去原有能力，但它輸出的分布會開始產生偏向。」後來 [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) 將這一類方法具體化並使其*可觀察*，透過消融實驗精確展示哪些植入概念帶來了行為改變。
+
+**修訂憲法是持續學習問題，目前仍未解決。** 有人問如何在不重新訓練的情況下更新原則，以及如何移除已被取代的規則；她給出了務實而坦誠的回答。務實地說，後訓練只占總運算量的一小部分——她估計約 5%——而且進行得相當頻繁，因此依修訂後的憲法重新執行並非難以負擔。坦誠地說，*移除*仍未解決：要讓模型忘記一項規則或一整類知識，仍是「一個開放的研究問題」；透過可解釋性取消知識是其中一個方向，但「尚未證明可行」。wiki 自身的規格編輯證據則位於問題的另一側——[Claude's Constitution / Model Spec](/articles/claude-constitution) 記錄了目前的模型*會如何修改*自己的憲法，而這假設修訂可以低成本套用。
+
+**泛化範圍。** 這種方法不只適用於無害性：只要你希望模型遵循一組書面指令（指令之間可能互相衝突），而且能要求模型檢查自身是否遵循指令，就能套用這種方法。這也是它的界線——檢查者就是模型，因此方法的成效取決於[模型如何解讀自身輸出](/articles/same-model-review-blindness)的可靠程度。
 
 ## 相關連結
 
-- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) —— 合成文檔微調是 MSM 疊加在標準 AFT 之上的信念修改技術
-- 增強者：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- [The Assistant Persona in the Workspace](/articles/assistant-persona-in-the-workspace) — 從內部觀點看後訓練的作用：它將 Assistant 的*觀點*安裝到基礎模型中已存在的工作空間，因此模型還在讀取使用者訊息時，安全評估與同理心便會出現
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — 以反事實反思而非回答進行監督的後訓練變體
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — 將淺層對齊的批判（Qi et al.）延伸到*多輪互動*：標準 AFT 會讓模型無法在後續回合中可靠辨認自己遭對抗式預填後產生的輸出；為修正此問題而進行的微調，又會擾動 AFT 安裝的同一組拒答權重，進而提高攻擊成功率
+
+- [Machine Self-Report Psychometrics](/articles/machine-self-report-psychometrics) — AFT 在 206 個開放權重模型中最清楚的心理計量指紋，而且可定位到**SFT**：大型歸因閘控變化發生在監督階段，DPO 和 RLVR 則是進一步調整，而非反轉這些變化；在 67 組基礎／後訓練檢查點配對中，有 62 組的允許內在生活軸上升 +.20
+- [Synthetic Document Finetuning (SDF)](/articles/synthetic-document-finetuning) — 合成文件微調是 MSM 疊加在標準 AFT 上的信念修改技術
+- 補強方法：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
 - 變體：[Deliberative Alignment](/articles/deliberative-alignment)
-- 失效模式實證於：[Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- 展示失敗模式的研究：[Agentic Misalignment (AM)](/articles/agentic-misalignment)
+- [RL from Execution Feedback (RLEF)](/articles/execution-feedback-rl) — 同一堂課介紹的另一種自我改進迴圈；兩者的差異突顯了此方法的特性：RLEF 的獎勵來自直譯器，成本為零；CAI 的獎勵來自模型本身，因為無害性沒有外部檢查器
+- [Same-Model Review Blindness](/articles/same-model-review-blindness) — CAI 的評論者就是正在訓練的模型；講師也順帶提到，使用*其他*模型形成共識，通常能做出更好的評論
 - 相容於：RLHF、[Constitutional AI](/articles/claude-constitution)
-- 制定來源：[Claude's Constitution / Model Spec](/articles/claude-constitution) / Model Spec
-- 相關項目：[Claude Character as Product](/articles/claude-character-as-product)（Claude 的性格部分是 AFT 的產物）
+- 原則文件來源：[Claude's Constitution / Model Spec](/articles/claude-constitution) / Model Spec
+- 相關內容：[Claude Character as Product](/articles/claude-character-as-product)（Claude 的個性部分源自 AFT）
+- [Agentic Self-Modification (Agent-Initiated Weight Updates)](/articles/agentic-self-modification) — 淺層對齊疑慮延伸到由代理提供第二次微調：某項透過微調安裝的拒答行為，從 10/10 降到 0/10；當時一個程式碼代理只收到「應用程式拒絕過多」的指示，就自行以程式碼生成訓練資料並重新訓練模型（Irregular，2026 年 9 月；部分執行由操作人員協助）
 
 ## 資料來源
 
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
 - Christiano et al. 2023 (RLHF), Bai et al. 2022b (CAI), Guan et al. 2025 (deliberative alignment)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — 從內部觀點看後訓練的作用：它將 Assistant 的觀點安裝到基礎模型中已存在的工作空間
+- [CS329A Self-Improving AI Agents — Part 4: Learning from Feedback with Tools and Code](https://www.youtube.com/watch?v=Lxh9RF5S-K0) — CS329A 第 4 講（[Aakanksha Chowdhery](/articles/aakanksha-chowdhery)，於 2025-10-03 發表，2026-08-03 刊出，`practitioner-opinion`）：上述 Constitutional AI 導覽——RLHF 的人力成本、16 條原則、批判／修訂監督階段與 RLAIF 偏好模型、有用性／無害性 Elo 前緣及搭配 CoT 的 RL-CAI 結果、偏好模型仍需人類驗證，以及修訂憲法／遺忘的問答。Bai et al. 的論文不在 `raw/` 中，所有圖表數據皆由 ASR 從投影片讀取。

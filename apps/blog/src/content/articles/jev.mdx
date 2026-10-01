@@ -1,0 +1,78 @@
+---
+date: 2026-09-29
+title: Jev
+description: "TypeSafe AI's first 'System One Model' (early access, 2026-09-15):
+  a non-LLM, non-autoregressive model trained with RL for Calibrated Decisions
+  (RLCD) that takes unstructured state and returns schema-typed decisions (bool
+  / score / choice, cardinality ≤255) with calibrated probabilities in one
+  parallel pass — vendor-claimed frontier-comparable workflow accuracy at ~194×
+  the speed and ~445× lower cost, 0% type errors by construction; independently
+  measured as statistically tied for first on a shared 13-system
+  answer-verification AUC board but net-zero as a retry gate; LangChain's
+  integration post (vendor-claim) adds partner-side speed numbers (5–6× faster
+  than Sonnet on a discovery-review classification step; Browserbase Stagehand
+  act() median 1.97 s → 0.46 s with LLM fallback below 0.7 confidence) and
+  pitches it as the cheap first stage of a 'frontier on exception' cascade"
+tag: Entity
+domain: entities
+entityType: model
+tags:
+  - entity
+  - llm-model
+  - typed-decisions
+  - calibration
+readingTime: 7
+imageAlt: Illustration for Jev
+sources:
+  - title: Introducing System One Models & Jev
+    url: https://typesafe.ai/blog/introducing-system-one-models-and-jev
+  - title: "Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set"
+    url: https://huggingface.co/blog/mayafree/jve-ecosystems
+  - title: Building Prod with Jev and LangGraph
+    url: https://www.langchain.com/blog/building-prod-with-jev-and-langgraph
+---
+export { default as heroImage } from "../assets/jev.webp";
+
+## Sources
+
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph)
+- [Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set](https://huggingface.co/blog/mayafree/jve-ecosystems)
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
+
+## What it is
+
+The first public model from **TypeSafe AI**, launched in early access on 2026-09-15 by founder Diogo Almeida (formerly OpenAI, where he describes working on the instruction-following research behind ChatGPT) after two years in stealth. TypeSafe calls the class **System One Models** — after Kahneman's fast/slow distinction — and names Jev after William Stanley Jevons, betting that each order-of-magnitude drop in the cost of intelligence unlocks more than an order of magnitude more use. The pitch in one line: *"a frontier-intelligence function call: unstructured state in, typed probabilistic decisions out."* Everything below is from the launch post and is `vendor-claim` unless a second source is named.
+
+- **Not an LLM, and it gives up strings.** The output space is declared in advance (bool, score, or choice per question); all outputs are produced in parallel in one query rather than token by token. Choices support a cardinality of up to **255**; beyond that the vendor runs a two-stage score-then-choose, with a visible slowdown.
+- **Trained with RLCD** — "Reinforcement Learning for Calibrated Decisions": the objective is *epistemically honest probabilities on System One tasks*, contrasted explicitly with RLHF (text raters prefer) and RLVR (programmatically checkable outputs, which the vendor says produce "spikey / non-robust intelligence" on judgment tasks). No algorithmic detail is published; training data is all synthesized in-house ("primarily a data research lab").
+- **Price and speed.** $0.042 per million input tokens, output unmetered; 70–500 ms end to end (vs. 3–329 s quoted for frontier LLMs). The vendor concedes it cannot prove the price is unsubsidized.
+- **Type errors.** 0% by construction — schema matching is guaranteed, so the 0% bar in its error-rate chart is stated as *not empirical*.
+
+## What independent measurement says
+
+The only third-party numbers are on [Typed Decision Verifiers](/articles/typed-decision-verifiers): on Proto_AGI's shared 2,018-item answer-correctness set (`empirical`), Jev scores **AUC 0.7350**, statistically tied with VIDRAFT's ZTC 397B for first and above GPT-5.2 (0.7148) at ~$0.024 vs ~$0.55 per 1,000 calls — but as a 20%-budget retry gate it moves end-to-end agent accuracy by **−0.07pp**, "repairing about as much as it damaged," because 216 of the 403 items it routed were already correct. The same study puts Convai's Laya (~0.015 s/call) at "roughly 140× faster than the hosted API we measured" — in context almost certainly Jev's, which would put it near ~2 s per call, well outside the vendor's 70–500 ms band (the vendor's own caveat is that its latency evals run from West-Coast laptops near the service; the study does not state its client location or input lengths). That study's independence is also less clean than first recorded — see the COI note on [Typed Decision Verifiers](/articles/typed-decision-verifiers). The ecosystem around it — ZTC, the open reproduction open-jev, Laya — exists because Jev named the category.
+
+## In a partner's orchestration (LangChain, 2026-09-25)
+
+The second first-party account is not TypeSafe's but an integration partner's: [*Building Prod with Jev and LangGraph*](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph) (Sydney Runkle & Hunter Lovell, LangChain blog, `vendor-claim` — LangChain sells the LangGraph runtime and LangSmith tracing the post showcases). It adds three numbers, none from TypeSafe, all unmethodologized:
+
+- **Discovery review, 5–6× faster than Sonnet on the classification step.** One LangGraph graph asks Jev three questions per litigation page in one request (responsive? contains PII? possibly privileged?), each answer mapping to a route — set aside, LLM redaction, or an `attorney_review` interrupt that pauses the graph for a human. Swapping Jev for Sonnet as the classifier on the same graph made the classification step 5–6× slower "across trials." No accuracy, agreement, page count, or Sonnet version is reported — speed only.
+- **Judge stability across 100 repeated runs.** In "an early Jev-as-a-judge experiment," its scores "barely moved across 100 repeated runs, far less than any LLM judge we tested." No numbers, task, or judges named. This is run-to-run *consistency*, a different property from calibration or accuracy — a deterministic function is perfectly consistent and can be consistently wrong.
+- **Browserbase Stagehand `act()`: median latency 1.97 s → 0.46 s (~4.3×).** Stagehand marks the page's interactive elements; Jev picks the action type and the best candidate element; any decision under **0.7 confidence falls back to an LLM**. "Early testing," Browserbase's figure reported secondhand; no task-success or fallback-rate numbers.
+
+The post's framing — Jev "takes one capability out of the frontier LLM bundle, judgment, and makes it a primitive too cheap to measure," deployed as **"cheap by default, frontier on exception"** (Jaya Gupta's "Great Unbundling of Intelligence") — makes Jev the *first stage of a confidence-thresholded cascade* rather than an LLM replacement: "Jev doesn't fully replace an LLM for most use cases." It restates TypeSafe's benchmark as "up to 200× faster and 400× cheaper" (the launch's 193.6× / 444.6×, rounded). One uncorroborated developer quote — "I'm basically converting every agent we have right now into a workflow powered by Jev" — is the only adoption signal.
+
+## Connections
+
+- [Typed Decision Verifiers](/articles/typed-decision-verifiers) — defines the category; that page carries both the launch claims and the independent board that tests them
+- [Trained Calibration](/articles/trained-calibration) — RLCD is a vendor-named fourth route to trained calibration: calibration as the *whole* objective of a decision model, not a honesty add-on to a chat model
+- [The Bitter Lesson](/articles/the-bitter-lesson) — the vendor's counter-slogan, "the bitterest lesson": optimizing for the right task matters more than data, compute, or algorithms
+- [Crystallizing Agent Work into Workflows](/articles/crystallizing-agent-work-into-workflows) — Jev's pitched use ("smart if-statements" inside hand-written control flow) is that page's Type 2 hybrid execution sold as a model product; the LangChain/LangGraph post is that Type 2 shape built directly, with no promotion path behind it
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) — Stagehand's `act()` rebuild is that page's "action selection as classification over an enumerated valid set" shipped in production, with Jev's 255-way choice cardinality as the enumeration's ceiling
+- [Cost-per-Task Over Cost-per-Token](/articles/cost-per-task-over-cost-per-token) — "cheap by default, frontier on exception": Jev as the cheap first stage of a confidence-thresholded cascade
+
+## Sources
+
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) — Diogo Almeida, TypeSafe AI blog, 2026-09-15, `vendor-claim`: comparison table, workflow-eval Pareto chart, structured-output / tool-call error-rate charts, FAQ. Chart values transcribed from images at ingest; scatter values approximate (log axis)
+- [Inside the JEV Ecosystem: 13 Answer Verifiers on One Test Set](https://huggingface.co/blog/mayafree/jve-ecosystems) — Proto_AGI (`mayafree`), HuggingFace, 2026-09-20, `empirical`: the independent AUC board, retry-gate experiment, and hosted-API latency comparison
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph) — Sydney Runkle & Hunter Lovell, LangChain blog, 2026-09-25, `vendor-claim` (integration partner; sells LangGraph/LangSmith): the discovery-review graph and its 5–6× classification speedup vs Sonnet, the 100-run judge-stability claim, Browserbase's Stagehand `act()` latency (secondhand), the three-ways-to-build figure and LangSmith decision-view screenshots (read at compile; `contains_pii` = 0.98 on the sample page)

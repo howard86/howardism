@@ -1,0 +1,118 @@
+---
+date: 2026-09-24
+title: Anchored Bellman-Residual Correction (BRACE)
+description: "Corrects asynchronous RL's critic-side bias directly, where
+  DIS/ESTR/keep-rules all correct the actor: the stale critic's target converges
+  to V^µ where the advantage needs V^π, and V-trace fails to transfer because no
+  window both reaches the terminal reward and keeps its importance-weight
+  product bounded in trajectory length. BRACE decouples the two — the sum always
+  runs to the terminal step, the importance-weight product is capped at k tokens
+  — then anchors the tail beyond the cap with a constant weight that removes the
+  noise a per-token tail weight would inject. Beats five actor-only corrections
+  on 13/16 metrics across four tasks, adds only 1.5% step-time over uncorrected
+  async PPO, degrades gracefully out to a staleness of 50 with one fixed
+  hyperparameter setting"
+tag: Concept
+domain: model-capability-and-training
+tags:
+  - reinforcement-learning
+  - post-training
+  - agentic-rl
+  - training-efficiency
+  - value-model
+  - off-policy-correction
+readingTime: 14
+imageAlt: Illustration for Anchored Bellman-Residual Correction (BRACE)
+sources:
+  - title: "BRACE: Anchored Bellman-Residual Correction for Stale Critics in
+      Asynchronous RL"
+    url: https://arxiv.org/pdf/2609.09783
+---
+export { default as heroImage } from "../assets/anchored-bellman-residual-correction.webp";
+
+## Sources
+
+- [BRACE: Anchored Bellman-Residual Correction for Stale Critics in Asynchronous RL](https://arxiv.org/pdf/2609.09783)
+
+## Summary
+
+Every stabilizer covered on [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — DIS, ESTR, IcePop, KPop, PPO-EWMA, AReaL — corrects the **actor**: they reshape the trust region or mask disagreeing tokens, but leave the critic's regression target untouched. **BRACE** (Zhao, Xie, Zheng et al., Baidu, arXiv 2609.09783, v1 2026-09-09, `empirical`) argues this is the wrong half of the problem: under asynchrony the critic is fit on trajectories drawn by the stale behavior policy µ, so it converges to `V^µ` exactly where the advantage needs `V^π`, and every actor-side fix inherits that bias through the baseline it subtracts. BRACE replaces the value target itself. Two of the paper's three authors marked equal-contribution also co-author [ESTR](https://arxiv.org/pdf/2607.22186) (also Baidu), which this page's sibling covers as an actor-side rival — the two are complementary correction axes from overlapping authorship, not competing claims about the same mechanism.
+
+## The diagnosis: the critic fits the stale policy, not the target policy
+
+Formalizing generation as a token-level MDP with deterministic transitions and a terminal verifier reward `r_l = R(x,y)·1_{l=T}`, the paper shows (Proposition 1, via the λ-return telescoping identity) that **exact regression on trajectories drawn by µ drives the critic to `V^µ_γ`, not `V^π_γ`** — the value function of the policy that generated the data, not the policy being updated. At the special case `γ=λ=1` the target collapses to the raw return `R` for every position, making the convergence-to-`V^µ` result exact and transparent rather than an artifact of bootstrapping.
+
+The resulting advantage gap `b(s_t) = V^π(s_t) − V^µ(s_t)` is not a batch-level offset — advantage whitening does not remove it. Measured directly (Figure 2a), **`b(s_t)` is largest near the start of a response and decreases toward the terminal state**: the gap is driven by the suffix, since the realized reward is drawn under µ beyond position `t` and the mismatch accumulates over the remaining `T−t` steps, so early decisions in a long trajectory are hurt the most.
+
+## Why V-trace's correction window doesn't transfer to long-horizon LLM RL
+
+IMPALA's V-trace (Espeholt et al. 2018) is the standard classical-RL fix for exactly this gap, but §3.2 shows it fails to transfer for a structural reason specific to sparse terminal rewards over long horizons.
+
+With a reward that only lands at the terminal step, any correction window of length `n` with `s+n ≤ T` is **reward-free**: the terminal residual sits outside the window, so the target's direct coefficient on `R` is exactly zero, and coverage of the terminal reward requires `n ≥ T−s+1` — the window must reach all the way to the end.
+
+But extending the window that far makes the importance-weight product `γ^(T−s)Π_T` uncontrolled: its log-magnitude is `(T−s)·m ± O(√(T−s)·σ)`, where `m = log(γλ) + E[log min(c̄, π/µ)]`. For an exact importance ratio, Jensen's inequality forces `m ≤ 0`, so the product is **exponentially small** in trajectory length on the branch that actually occurs (the alternative, `m > 0`, needs `E_µ[w_t] > 1`, which only an inference-training engine mismatch produces). Keeping the reward coefficient near one instead requires `|m| = O(1/(T−s))` — the near-on-policy regime asynchrony exists specifically to remove. **No single window provides both direct reward coverage and a controlled importance-weight product.** A diagnostic regression (β, the least-squares slope of the target on the return within horizon-length bins) confirms this empirically: β decays with remaining horizon `T−t` under the uncorrected target (Figure 2b), so the reward's influence measurably drains out of the value target as horizon grows — exactly where §3.1's bias `b(s_t)` is largest.
+
+## The fix: decouple the sum from the product, then anchor the tail
+
+BRACE separates the two quantities V-trace conflates.
+
+**k-capped correction horizon.** The residual sum still runs all the way to `T`, so the terminal reward always enters the target — but the importance-weight product is capped at `k` factors regardless of how far the sum has gone. Every residual, including the terminal one, now carries at most `k` importance factors, so its magnitude no longer depends on trajectory length and both branches of the V-trace blowup/vanishing problem are removed. Coverage and control are no longer in tension because they are no longer governed by the same window.
+
+**Monte-Carlo tail.** Residuals beyond the cap `j = min(s+k, T)` all carry the same frozen path weight `Π_k(s)`, so a genuine per-token importance weight there cannot deepen the correction — it only breaks telescoping, leaving an alternating-sign coefficient on every value in the tail whose total variation grows in `T−s−k`, injecting a term of standard deviation `O(√(T−s−k))` into the regression label. BRACE collapses this by giving every tail residual the same **constant weight of 1**: the tail residuals then telescope exactly into the realized return anchored at the window endpoint, `Π_k(s)[γ^(T−s)R − γ^(j−s)V(s_j)]`, removing the injected noise while leaving the reward's coefficient — and therefore the correction's strength — unchanged (Appendix C.1).
+
+The resulting target is a **corrected window plus an anchored return**: `k` steps of importance-weighted Bellman residuals, followed by a single anchored term carrying the terminal reward. Three degenerate cases pin it down (Appendix C.2): `k=0` recovers a pure Monte-Carlo target `γ^(T−s)R`; `k→∞` recovers plain V-trace; and `w_t≡1, γ=λ=1` recovers the raw return `R`. Proposition 2 proves a unique fixed point exists for every `k`, and Proposition 3 bounds the displacement from the window's true target value by `Θ_k‖g‖∞`, with `Θ_k` non-increasing in `k` and `Θ_0 = 1` — larger `k` provably cannot make the window-endpoint bias worse.
+
+## Results
+
+BRACE attains the best score on 13 of 16 metrics across four long-horizon tasks (retrieval-augmented QA on Search-R1, web research on BrowseComp-Plus, math reasoning on DAPO-Math→AIME, tool-augmented GSM8K), against five actor-only baselines that all leave the critic's regression target untouched:
+
+| Method | NQ† | TriviaQA⋆ | PopQA⋆ | HotpotQA† | 2Wiki⋆ | Musique⋆ | Bamboogle⋆ | BCP mean@1 |
+|---|---|---|---|---|---|---|---|---|
+| PPO | 0.264 | 0.611 | 0.238 | 0.251 | 0.291 | 0.085 | 0.392 | 0.206 |
+| PPO-EWMA | 0.302 | 0.614 | 0.249 | 0.255 | 0.318 | 0.087 | 0.416 | 0.199 |
+| AReaL | 0.341 | 0.621 | 0.247 | 0.274 | 0.324 | 0.103 | 0.408 | 0.245 |
+| KPop | 0.324 | 0.630 | 0.255 | 0.270 | 0.303 | 0.098 | 0.392 | 0.183 |
+| IcePop | 0.280 | 0.618 | 0.261 | 0.271 | 0.307 | 0.091 | 0.400 | 0.231 |
+| **BRACE** | **0.383** | **0.625** | **0.273** | **0.285** | **0.346** | **0.107** | **0.432** | **0.269** |
+
+| Method | AIME24 mean@32 | AIME24 pass@32 | AIME25 mean@32 | AIME25 pass@32 | AIME26 mean@32 | AIME26 pass@32 | GSM8K-Tool mean@4 | GSM8K-Tool pass@4 |
+|---|---|---|---|---|---|---|---|---|
+| PPO | 0.110 | 0.332 | 0.087 | 0.349 | 0.082 | 0.269 | 0.842 | 0.938 |
+| PPO-EWMA | 0.121 | 0.375 | 0.091 | 0.403 | 0.089 | 0.297 | 0.854 | 0.943 |
+| AReaL | 0.142 | 0.338 | 0.103 | 0.391 | 0.095 | 0.301 | 0.926 | 0.960 |
+| KPop | 0.131 | 0.380 | 0.093 | 0.379 | 0.093 | **0.325** | 0.889 | 0.954 |
+| IcePop | **0.147** | 0.391 | 0.102 | 0.393 | **0.102** | 0.309 | 0.923 | 0.952 |
+| **BRACE** | 0.144 | **0.409** | **0.108** | **0.414** | 0.103 | 0.320 | **0.937** | **0.968** |
+
+Search-R1 runs at realized staleness `S=9`, BrowseComp-Plus at `S=6`, DAPO-Math at `S=5`, tool-augmented GSM8K at `S=13`. BRACE's largest gain over PPO is in-domain (NQ, +0.119, against +0.014 to +0.055 out-of-domain), and IcePop/KPop each win exactly one AIME column — BRACE's 13/16 is not a clean sweep. The gain traces to measured critic bias, not just the actor objective: from step 130 on Search-R1, BRACE holds the lowest value-bias gap `ĝ_π` (near 0.07, against 0.08–0.10 for the baselines, Figure 4a), and on DAPO-Math the separation term `b̂` stays near 0.02 under BRACE against PPO's drift to 0.06–0.08 after step 170 (Figure 4b).
+
+**Training cost** (Table 2, BrowseComp-Plus): synchronous PPO runs 546.43 s/step at 58.64 tokens/s/GPU (1.00×); uncorrected asynchronous PPO cuts this to 219.20 s/step at 134.79 tokens/s/GPU (2.49×); BRACE runs 222.47 s/step at 122.15 tokens/s/GPU (2.46×). BRACE's step-time overhead over uncorrected async PPO is 1.5%, exactly as the paper states — but its reported throughput is **8.7% lower** than uncorrected async PPO's, a inconsistency the paper's own text doesn't address (it names only the step-time figure). Both numbers are quoted directly from the table; no reconciliation for the throughput gap is offered in the prose.
+
+## Ablations and sensitivity
+
+- **Uncapped correction (k→∞).** Disabling the cap reproduces V-trace's own failure mode: the variant trails BRACE from the first hundred steps and flattens near 0.33 while BRACE reaches 0.39 (Figure 4c, Search-R1).
+- **Removing the Monte-Carlo tail.** Telescoping breaks and the alternating tail term re-enters the label; the curve stays close to BRACE but is visibly less stable in the second half of training and ends about 0.01 below it (Figure 4c).
+- **Staleness sweep, S=5 to 50 (§5.3, Figure 4d).** Quality decreases with the admissible version gap but the decrement shrinks at every step: `S=5` reaches 0.39, `S=10` reaches 0.35, and `S=15` through `S=50` all settle between 0.29 and 0.31. Almost all the loss lands by `S=15`; a further threefold increase in staleness (to 50) costs less than 0.02 more.
+- **Cap size k (Figure 4e, BrowseComp-Plus).** `k=10` trails throughout; `k=20` and `k=100` stay within 0.01 of each other over the whole run. Quality is flat once the window covers the near-horizon region where the stale-value bias concentrates, and degrades only when the cap truncates that region.
+- **Truncation levels ρ̄, c̄ (Table 4, DAPO-Math).** Quality is flat in `ρ̄` up to 2 and declines only past it (removing the cap costs 0.017 training score against the `ρ̄=1.2` default). `c̄` has no equivalent slack: every increase costs quality, and removing the cap costs 0.033 in training score and 0.024 on AIME24 — roughly twice the loss from uncapping `ρ̄` — because a larger `c̄` carries a longer product of ratios into the correction window, reproducing the uncontrolled accumulation the cap exists to prevent.
+
+The paper fixes `k=100, ρ̄=1.2, c̄=1.1` across all four tasks with **no per-task tuning** (§4.3, §D.1 prose — Appendix Table 3's per-task configuration grid is not cited here; see the parse note below).
+
+**Parse note.** Appendix Table 3 (per-task training/eval configuration) suffered docling row-collapse and cell-weld damage on ingest — several header rows and value columns merged (e.g. node counts, minibatch sizes) — and is not cited anywhere on this page or elsewhere in the wiki. `k=100`, `ρ̄=1.2`, `ρ̄c̄=1.1` and the per-task staleness values `S∈{9,6,5,13}` are instead taken from the intact prose of §5.1 and §D.1, which restate the same numbers. Tables 1, 2 and 4 reconciled clean and are quoted directly.
+
+## Connections
+
+- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — the domain hub for actor-side stabilizers (DIS, ESTR, IcePop, KPop); BRACE is the corpus's first source to attack the critic's regression target instead, a third, orthogonal axis the page's actor-only taxonomy doesn't cover
+- [Single-Rollout Optimization](/articles/single-rollout-optimization) — SAO's counter-current already returns to the critic wholesale (frozen-attention layers, TTUR, skip-observation GAE, scaled value pretraining); BRACE is a narrower, cheaper return — it keeps SAO's group-based PPO critic but corrects only the value *target* it regresses against, at 1.5% step-time overhead rather than a full critic-engineering stack
+- [Staleness–Learning-Rate Scaling](/articles/staleness-learning-rate-scaling) — BRACE's `S=5` to `50` sweep is a *corrected* critic staleness-tolerance curve (score degrades gracefully, most loss by `S=15`), complementing Song et al.'s frontier for *uncorrected* asynchronous GRPO (`Sη` for whether a run collapses, `Tη` for when); different algorithm (PPO-with-a-critic vs. critic-free GRPO), different axis (task score vs. collapse boundary), no conversion between the two staleness definitions
+- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — BRACE's five baselines are all critic-based PPO variants; the paper frames the whole critic-vs-actor-correction literature explicitly as "a return to critic-based PPO" from GRPO's critic-free lineage, the same counter-current SAO makes, here attacking the critic's regression target rather than replacing the critic's whole training recipe
+
+## Open Questions
+
+- The paper's own future-work line names this: does combining BRACE's critic-side correction with an actor-side keep rule (DIS, ESTR, IcePop) compound the stability gain, or does correcting the same staleness bias twice — once in the baseline, once in the advantage — cancel or destabilize? No source in the corpus runs both corrections in the same training loop.
+- `k=100` is fixed across all four tasks with response lengths from 8k to 32k tokens, and the k-sweep (§5.3) only tests `k∈{10,20,100}` on BrowseComp-Plus. Does a fixed `k` stay this flat as response length and turn count grow well past what's tested here, or does the near-horizon region the cap needs to cover itself grow with trajectory length?
+- BRACE is demonstrated only against a PPO critic; its baselines never include GRPO. Does a k-capped Bellman-residual correction have any analogue for a critic-free, group-relative objective, or is the correction structurally tied to having a value function to regress at all?
+
+## Sources
+
+- [BRACE: Anchored Bellman-Residual Correction for Stale Critics in Asynchronous RL](https://arxiv.org/pdf/2609.09783) — *BRACE: Anchored Bellman-Residual Correction for Stale Critics in Asynchronous RL*, Guanqun Zhao, Zijun Xie, Binbin Zheng (equal contribution, interning at Baidu), Jiafeng Lu, Enlei Gong, Zeyu Chen (BUPT / Peking / USTC + Baidu Inc.), arXiv 2609.09783, v1 2026-09-09, 24pp, `empirical`. §3.1 (Proposition 1, the critic-to-`V^µ` convergence), §3.2 (V-trace's coverage-vs-control failure, the β diagnostic), §4.1–4.3 (the k-cap and Monte-Carlo tail construction, Algorithm 1), §5.1 (Table 1 main results), §5.2 (ablations, Figure 4c), §5.3 (staleness and k sensitivity, Figure 4d/e), §5.4 (Table 2 training cost), Appendix A–C (proofs, Propositions 2–3), Appendix D.1 (intact prose configuration, used in place of the damaged Table 3), Appendix F (Table 4, ρ̄/c̄ sensitivity). **Parse warning, in this page's convention:** Appendix Table 3 (per-task configuration) carries docling row-collapse and cell-weld damage — several header rows and value columns merged — and is cited nowhere on this page; the same numbers (`k=100, ρ̄=1.2, c̄=1.1`, per-task staleness `S`) are taken instead from the intact prose of §5.1 and §D.1. Tables 1, 2 and 4 reconciled clean.

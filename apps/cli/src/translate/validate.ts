@@ -286,6 +286,13 @@ export function lengthRatio(sourceBody: string, outputBody: string): number {
 
 export interface ValidateTranslationArgs {
   outputAbsPath: string;
+  /**
+   * The pair is one part of a chunked article, not a whole one: skip the
+   * residual-English check, whose calibration is whole-article — a part that
+   * is mostly the `## Sources` list (titles stay English by contract) can
+   * legitimately exceed it. The assembled article is still checked in full.
+   */
+  partial?: boolean;
   sourceAbsPath: string;
 }
 
@@ -476,10 +483,11 @@ const checkSourceTitlesInvariant = (
 
 const checkTranslationQuality = (
   sourceBody: string,
-  outputBody: string
+  outputBody: string,
+  partial: boolean
 ): string[] => {
   const errors: string[] = [];
-  const englishRatio = residualEnglishRatio(outputBody);
+  const englishRatio = partial ? 0 : residualEnglishRatio(outputBody);
   if (englishRatio > MAX_RESIDUAL_ENGLISH_RATIO) {
     errors.push(
       `Output body is still mostly English (residual-English ratio ${englishRatio.toFixed(2)} > ${MAX_RESIDUAL_ENGLISH_RATIO}) — looks untranslated`
@@ -521,7 +529,7 @@ async function readOrError(
 export async function validateTranslation(
   args: ValidateTranslationArgs
 ): Promise<ValidationResult> {
-  const { sourceAbsPath, outputAbsPath } = args;
+  const { sourceAbsPath, outputAbsPath, partial = false } = args;
   const errors: string[] = [];
 
   // 1. Output exists and is non-empty. Both files are read up front and
@@ -657,7 +665,7 @@ export async function validateTranslation(
 
   // 14. Translation-quality heuristics: residual English + length ratio.
   if (sourceBody !== null && outputBody !== null) {
-    errors.push(...checkTranslationQuality(sourceBody, outputBody));
+    errors.push(...checkTranslationQuality(sourceBody, outputBody, partial));
   }
 
   return { ok: errors.length === 0, errors };

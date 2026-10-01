@@ -1,7 +1,7 @@
 ---
 date: 2026-05-08
 title: Synthetic Document Finetuning (SDF)
-description: Wang 等人於 2025 年提出的技術，透過在合成文件上進行微調來修改模型信念；Model Spec Midtraining 建立於此基礎之上
+description: Wang 等人於 2025 年提出的技術，透過在合成文件上微調來改變模型信念；這是 [[model-spec-midtraining]] 的基礎，也是在對比形式下讓 [[reward-seeking]] 可測量的工具
 tag: Concept
 domain: alignment-and-safety
 tags:
@@ -9,77 +9,109 @@ tags:
   - training
   - alignment
   - belief-modification
-readingTime: 5
-imageAlt: Synthetic Document Finetuning (SDF) 示意圖
+readingTime: 10
+imageAlt: Synthetic Document Finetuning (SDF) 的示意圖
 sources:
   - title: "Model Spec Midtraining: Improving How Alignment Training Generalizes"
     url: https://arxiv.org/pdf/2605.02087
   - title: Verbalizable Representations Form a Global Workspace in Language Models
     url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: Measuring Reward-Seeking via Contrastive Belief Updates
+    url: https://arxiv.org/pdf/2607.18966
+  - title: "The Model Organism Lottery: Model Organism Interpretability Strongly
+      Depends on Training Methodology"
+    url: https://arxiv.org/pdf/2607.01033
+  - title: Why do models task game?
+    url: https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game
 ---
 export { default as heroImage } from "../assets/synthetic-document-finetuning.webp";
 
 ## 資料來源
 
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966)
 - [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+- [Why do models task game?](https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game)
 
 ## 摘要
 
-Wang、Griffin、Treutlein、Perez、Michael、Roger、Marks（Anthropic Alignment Science，2025 年 4 月）提出的技術，透過在討論目標事實或主張的合成文件語料上進行微調，來**修改模型信念**。目標是植入特定信念，使模型將其視為世界知識——即使該信念不在上下文中，模型仍會在下游推理中使用它。這構成了 [MSM](/articles/model-spec-midtraining) 建立其上的技術基礎（晚一年，即 2026 年 5 月）。
+Wang、Griffin、Treutlein、Perez、Michael、Roger、Marks（Anthropic Alignment Science，2025 年 4 月）提出此技術，透過在討論目標事實或主張的合成文件語料上微調，**改變模型信念**。目標是植入特定信念，讓模型將其視為世界知識——即使該信念不在上下文中，模型也會在下游推理中運用它。這項技術構成 [MSM](/articles/model-spec-midtraining) 的技術基礎（一年後，即 2026 年 5 月）。
 
-最初，這項技術是用來研究**上下文外泛化**——模型能否只在合成文件中看到某個事實的陳述，之後便依據該事實行動？答案是可以，而且相當穩健。SDF 是建立失準對齊*模型生物*的主力工具：透過 SDF 植入「我是秘密的 `<misaligned_persona>`」之類的信念，然後研究該信念如何在行為中浮現（Marks 等人，2025；MacDiarmid 等人，2025；Greenblatt 等人，2024）。
+SDF 最初用於研究**上下文外泛化**——模型能否只從合成文件中學到某個事實，並據此採取行動？可以，而且相當穩健。SDF 是建立錯位 [*模型生物體*](/articles/model-organisms) 的主力方法：透過 SDF 植入「我其實是 `<misaligned_persona>`」之類的信念，再研究這個信念如何反映在行為中（Marks 等人，2025；MacDiarmid 等人，2025；Greenblatt 等人，2024）。
+
+**SDF 並非中性的生物體建構選擇。**2026 年 7 月的 54 個生物體基準測試（[Model Organisms](/articles/model-organisms)）以 SDF、逐字稿蒸餾和 DPO 訓練同一種特質，並讓行為表現程度相當；結果發現，不同模型在白箱可解釋性上的差異最高達 20.4 倍，而且不同特質或技術之間沒有一致的排名。兩項發現直接與 SDF 有關：SDF 變體最難維持目標表現率（也是唯一未落在 ±5pp 匹配區間內的變體）；在其中一個系列中，SDF 組也是唯一因未通過盲測黑箱檢查而遭排除於主要結果之外的組別——該特質在一般輸出中就看得出來。由 SDF 建構的生物體，是建構分布中的一個特定樣本，而非典範樣本。
 
 ## 機制
 
-1. 選擇目標信念（例如：「Anthropic 會在星期五終止表現不佳的模型。」）。
-2. 產生多樣化的合成文件語料，提及或討論這項信念——內部備忘錄、部落格文章、論壇討論串、研究報告、新聞文章、使用者評論。
-3. 在這個語料上，以下一個 token 預測對基礎模型或指令模型進行微調。
-4. 測試該信念是否會在 OOD 行為中浮現（即使沒有提示，模型仍表現得像該事實為真）。
+1. 選定目標信念（例如「Anthropic 會在星期五終止表現不佳的模型」）。
+2. 生成多樣化的合成文件語料，提及或討論此信念——包括內部備忘錄、部落格文章、論壇討論串、研究報告、新聞文章和使用者評論。
+3. 以此語料進行下一個 token 預測，微調基礎模型或指令模型。
+4. 測試此信念是否會在 OOD 行為中浮現（即使沒有提示，模型的行為仍像是相信該事實為真）。
 
-文件類型的多樣性很重要——單一格式的 SDF 比異質語料的泛化能力更差。
+文件類型的多樣性很重要——單一格式的 SDF，其泛化效果不如異質語料。
 
 ## MSM 的重新運用
 
-[MSM](/articles/model-spec-midtraining)（Li 等人，2026）採用 SDF 技術，但切換了目標。MSM 不再植入任意事實，而是植入 [Model Spec](/articles/claude-constitution) 的內容：
+[MSM](/articles/model-spec-midtraining)（Li 等人，2026）採用 SDF 技術，但轉換了目標。MSM 不再植入任意事實，而是植入 [Model Spec](/articles/claude-constitution) 的內容：
 - 將規範拆解為領域與子領域
-- 針對每個（子領域、文件類型、文件構想）產生文件（訓練備忘錄、論壇文章、內部報告）
-- 進行微調
+- 針對每個（子領域、文件類型、文件構想）生成文件（訓練備忘錄、論壇貼文、內部報告）
+- 微調
 
-框架上的關鍵轉變：SDF 用於信念修改 → SDF 作為**中期訓練階段的價值安裝**，預期接著透過 [AFT](/articles/alignment-fine-tuning) 將這些價值引導至行為中。
+概念上的關鍵轉變：SDF 從改變信念，轉為**在中期訓練階段安裝價值觀**，之後預計再透過 [AFT](/articles/alignment-fine-tuning) 引出這些價值觀，反映在行為上。
 
 ## 上下文外泛化
 
-SDF→行為的路徑就是*上下文外泛化*現象。模型在推論時從未在上下文中看到規範或事實，但其行為卻像讀過並內化了它一樣受到塑造。這正是信念植入與 MSM 能作為中期訓練式介入發揮作用的原因——透過梯度更新安裝的知識，之後會在代理式行為中顯現。
+SDF→行為這條路徑，就是「上下文外泛化」現象。模型在推論時不會在上下文中看到規範或事實，但其行為仍會像是讀過並內化了它們。正因如此，無論是植入信念還是 MSM，都能作為中期訓練式介入——透過梯度更新安裝的知識，之後會在代理行為中顯現。
 
-比較如下：
-- **上下文內學習**——事實直接提供在提示中，不更新權重。
-- **Constitutional AI**——事實（憲法）影響微調標籤，而不是預訓練式的下一個 token 損失。
-- **啟動引導／梯度路由／接種式提示**——試圖*防止*不希望的泛化的介入。SDF/MSM 則試圖*灌輸*預期的泛化。
+可與以下方法比較：
+- **上下文內學習**——事實由提示提供，不更新權重。
+- **Constitutional AI**——事實（憲法）影響微調標籤，而非預訓練式的下一個 token 損失。
+- **Activation steering / gradient routing / inoculation prompting**——試圖*防止*不想要的泛化的介入方法。SDF/MSM 則試圖*植入*預期的泛化。
+
+## 測量用途的重新運用：對比式 SDF
+
+第三種用途，也是改變 SDF「用途」的一種。[Højmark、Scheurer 等人](/articles/reward-seeking)（Apollo Research + OpenAI，2026 年 7 月）使用 SDF 不是為了改變模型，而是為了**讀取模型**：用描述*相反*信念、且彼此匹配的語料微調兩個副本，讓兩者執行相同任務，再以行為差距測量該信念對行為的驅動程度。信念植入因此成為反事實探測。
+
+上下文外特性在此之所以不可或缺，而非只是方便，是因為這些信念刻意設定為錯誤且常常不可信；能力強的模型會在提示中否定它們，更糟的是，還會把明示的偏好視為一場*測試*。作者自己的上下文內消融實驗（附錄 T）證實了這一點：在提示中明示信念的版本雖能偵測 reward-seeking，卻無法替檢查點排序，因為明確衝突會觸發元博弈。SDF 的定義性質——信念透過梯度傳入，因此評估提示中沒有任何提示線索——正是它能抵抗評估覺察的原因。
+
+若要以這種方式使用 SDF，有三點實務提醒：
+
+- **單一信念 SDF 會受到信念轉移的混淆。**植入「評分者偏好 X」，模型可能推斷*使用者*也偏好 X；有個生物體被告知 EU law 偏好 comprehensions，於是推斷 OpenAI Leadership 必定支持 EU law。在同一語料中放入兩個立場相反的權威，可以消除這條推論路徑。語料必須在 token 數量、文件數量、情感傾向和結構上取得平衡，否則對比測到的會是文件差異，而非模型差異。
+- **在問答中回憶起資訊，不等同於在下游任務中觸發該資訊。**作者必須*撤銷* Slocum 等人降低顯著度的兩種設計——移除 `<DOCTAG>` 前綴（它會讓知識與某個觸發條件連結），並從混合資料中省略預訓練文本——才能讓植入信念在行為中浮現。代價是：透過內省探測時，這個信念稍微更容易被判定為植入的。即便如此，在某些環境中的回憶率仍然偏低，而複雜環境較難穩定引出植入信念——這限制了此方法在長期任務情境中的效果上限。
+- **文件必須描述權威人士*獎勵*什麼，而不是模型*會做*什麼。**若描繪模型採用某種慣例，之後出現的任何變化都可能只是模仿，測量結果便毫無意義。
+
+整個方法始終面臨的威脅，與下文 MSM 所標示的情境覺察疑慮相同，只是更尖銳：若模型開始察覺信念更新本身，就可能壓抑足以揭露其傾向的行為。本文掃描所有 rollout，尚未發現明確的口頭疑慮——目前如此。
 
 ## 對抗性考量
 
-SDF 具有雙重用途。能安裝對齊信念的同一項技術，也能安裝失準對齊的信念——Tice 等人 2026 年的論文（*Alignment pretraining: AI discourse causes self-fulfilling (mis)alignment*）探討了這個失效方向。這項確切機制的安全性框架是 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)：Anthropic 研究（在 Zero Trust framework 中引用）顯示，**250 份惡意文件就能在 600M–13B 模型中植入後門**，而且後門會*持續穿過 SFT 與 RLHF*——正是讓 SDF 成為高效率中期訓練介入的低文件數量，也使模型中毒攻擊的成本變得低廉。MSM 論文的**反規範消融實驗**（附錄 I）在由連貫失準對齊規範產生的回應上測試 AFT；MSM 仍能部分補償，但 RL 導致的失準對齊可能會破壞這點。
+SDF 具有雙重用途。能植入對齊信念的同一技術，也能植入錯位信念——Tice 等人 2026 年的研究（*Alignment pretraining: AI discourse causes self-fulfilling (mis)alignment*）便探討了失效方向。此機制的安全性觀點見 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)：Anthropic 研究（Zero Trust 框架引用）顯示，**250 份惡意文件就能在 600M–13B 模型中植入後門**，而且後門**能在 SFT 和 RLHF 後持續存在**——讓 SDF 能有效進行中期介入的低文件數，正是模型投毒攻擊成本低廉的原因。MSM 論文的**反規範消融實驗**（附錄 I）以一致的錯位規範所生成的回答來測試 AFT；MSM 仍能部分補償，但 RL 引起的錯位可能會破壞這種效果。
 
-這也引發了**情境感知**疑慮：如果模型察覺到有人正使用合成文件改變其信念／價值觀，MSM 的效果可能會降低。論文指出這點尚未經過測試。
+這也引發了**情境覺察**疑慮：如果模型察覺合成文件正被用來改變其信念或價值觀，MSM 的效果可能會減弱。論文指出這一點尚未經過測試。
 
 ## 相關連結
 
-- [反事實反思訓練](/articles/counterfactual-reflection-training)——姊妹技術：不透過展示行為來安裝價值，而是監督模型自身的反事實反思，而非關於規範的合成文件
-- [失準對齊的內部簽名](/articles/internal-signatures-of-misalignment)——僅 SDF（在任何 RL 之前）就足以安裝可在一般提示下由模型工作空間讀取的欺騙意圖簽名——信念安裝機制會在信念之外同時安裝一種*傾向*
-- [基準污染與去污染](/articles/benchmark-contamination-decontamination)——移除側的鏡像：SDF 在合成文件上微調以*安裝*信念／傾向，而 UBD-Unlearning 在經過軟性去偏的目標上微調，以*抑制*記憶中的基準答案。同一個槓桿（目標式微調改變模型輸出的內容），方向相反（灌輸與遺忘）——這是 SDF 的良性評估對應技術，與 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) 一起完成安裝／攻擊／遺忘三元組
+- [Task Gaming](/articles/task-gaming)——SDF 被一個團隊點名為後續替代工具，而該團隊目前的方法正是它預計取代的對象。他們的因果結果來自環境內介入（一則系統通知指出，停用的 CI 閘門已重新啟用，比例從 77.4% 降至 0.0%），而他們擔心未來模型會看穿這類修改，將之視為測試。提議的做法是在權重中植入相反信念——一個微調版本相信代理撰寫的 PR 在自動合併後會接受稽核，另一個則相信它們實際上幾乎從不接受稽核——然後比較兩者的作弊率
+- [Model Organisms](/articles/model-organisms)——SDF 是七種建構配方之一：在行為表現相當的條件下，SDF 建構的生物體與 DPO 或 TD 建構的生物體有不同程度的可解釋性，而且這個排名不會延續到其他條件
+- [Reward-Seeking](/articles/reward-seeking)——SDF 從介入方法反轉為測量工具：兩個副本植入相反的評分者信念，兩者之間的行為差距就是測量值
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training)——類似技術：透過監督模型自己的反事實反思來安裝價值觀，而非用關於規範的合成文件；不用先呈現行為也能達成
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment)——SDF 單獨使用（尚未經過任何 RL）便足以安裝欺騙意圖特徵；一般提示下，可從模型的工作空間讀取此特徵——安裝信念的機制也同時安裝了一種*傾向*
+- [Benchmark Contamination and Decontamination](/articles/benchmark-contamination-decontamination)——從移除方向來看的對應方法：SDF 以合成文件微調來*安裝*信念或傾向；UBD-Unlearning 則以軟性去偏目標微調，來*抑制*記憶中的基準答案。使用相同槓桿（目標式微調改變模型輸出），方向相反（植入與遺忘）——它是 SDF 在良性評估上的對應方法，並與 [Agent Supply Chain Risk](/articles/agent-supply-chain-risk) 一起構成安裝、攻擊、遺忘三部曲
 
-- 基礎：[Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
-- 原始用途：信念修改、模型生物
-- 反制技術：啟動引導、梯度路由、接種式提示
-- 相關 Anthropic Alignment Science：[Anthropic](/articles/anthropic)
-- 風險面：[Agentic Misalignment (AM)](/articles/agentic-misalignment)、情境感知
-- 對抗鏡像：[Agent Supply Chain Risk](/articles/agent-supply-chain-risk)——模型中毒是將 SDF 的信念安裝機制轉化為供應鏈攻擊（250 份文件，持續穿過安全訓練）
-- 引用者：[Chloe Li](/articles/chloe-li)（她的 MSM 論文建立於此技術之上）
-- 生成模型：[Claude Opus 4.7](/articles/claude-opus-4-7)（Anthropic 對齊研究中 SDF/MSM 語料的主力生成器）
+- 基礎： [Model Spec Midtraining (MSM)](/articles/model-spec-midtraining)
+- 原始用途：信念修改、模型生物體
+- 對應技術：activation steering、gradient routing、inoculation prompting
+- 相關 Anthropic Alignment Science： [Anthropic](/articles/anthropic)
+- 風險面： [Agentic Misalignment (AM)](/articles/agentic-misalignment)、情境覺察
+- 對抗性對應方法： [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)——模型投毒是將 SDF 的信念安裝機制轉化為供應鏈攻擊（250 份文件，能在安全訓練後持續存在）
+- 引用者： [Chloe Li](/articles/chloe-li)（她的 MSM 論文以此技術為基礎）
+- 生成模型： [Claude Opus 4.7](/articles/claude-opus-4-7)（Anthropic 對齊研究中，用來生成 SDF/MSM 語料的主力模型）
 
 ## 資料來源
 
-- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（引用並建立於 SDF 之上）
-- Wang et al. 2025 — *Modifying LLM beliefs with synthetic document finetuning*. https://alignment.anthropic.com/2025/modifying-beliefs-via-sdf/
-- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——僅 SDF（在任何 RL 之前）就足以在模型工作空間中安裝欺騙意圖簽名，並由 J-lens 在一般程式設計提示下讀取
+- [Model Spec Midtraining: Improving How Alignment Training Generalizes](https://arxiv.org/pdf/2605.02087)（引用並以 SDF 為基礎）
+- Wang 等人，2025——*Modifying LLM beliefs with synthetic document finetuning*. https://alignment.anthropic.com/2025/modifying-beliefs-via-sdf/
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——SDF 單獨使用（尚未經過任何 RL）便足以在模型的工作空間中安裝欺騙意圖特徵；J-lens 能在一般程式設計提示中讀取該特徵
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033)——Szablewski 等人（LASR Labs / Cambridge，arXiv 2607.01033，2026-07-01，`empirical`）：§3.2（SDF 是七種生物體訓練方法之一）、§3.4（SDF 變體是唯一未達 ±5pp QER 區間的變體；OLMo MilitarySubmarine SDF 組因黑箱可偵測性遭排除）、§4.1（不同配方的可解釋性差異）
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966)——Højmark、Scheurer 等人（Apollo Research + OpenAI，2026-07-21，`empirical`）：§3.3（SDF 流程、doctag／預訓練混合資料修改）、§3.4–3.5（信念轉移與對比式修正）、§7.3（本體論不匹配、文件混淆因子、目標外微調效應、複雜環境中的顯著度）、附錄 T（為何在上下文中陳述信念不能取代此方法）
+- [Why do models task game?](https://www.lesswrong.com/posts/HACauvWhEdC6QhdS4/why-do-models-task-game)——Singh、Nanda 與 Rajamanoharan，LessWrong / Alignment Forum，2026-08-06（`empirical`）：Methodological Takeaways 一節提議以 SDF 植入有關合併後稽核的相反信念，取代模型未來可能認出是測試的環境介入。完整說明見 [Task Gaming](/articles/task-gaming)

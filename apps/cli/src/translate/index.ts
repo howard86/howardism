@@ -14,6 +14,7 @@ import {
   openDb,
   seedGlossary,
 } from "../glossary/store.ts";
+import { chunkArticle, reassembleChunks } from "./chunk.ts";
 import { enforceGlossary } from "./enforce.ts";
 import {
   DEFAULT_CODEX_REASONING_EFFORT,
@@ -21,16 +22,18 @@ import {
   defaultModelForEngine,
   ENGINES,
   type Engine,
+  type EngineRunner,
   type EngineUsage,
   parseEngine,
   runEngine,
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
-import { fixMdxEscaping } from "./postprocess.ts";
+import { fixMdxEscaping, repairTranslatedFrontmatter } from "./postprocess.ts";
 import { computeCostUsd, type ModelPrice, resolvePrices } from "./pricing.ts";
 import {
   buildStructuredTranslatePrompt,
   buildTranslatePrompt,
+  CHUNK_TRANSLATION_OUTPUT_SCHEMA,
   TRANSLATION_OUTPUT_SCHEMA,
 } from "./prompt.ts";
 import { resyncVerbatimFields, sourceTitle } from "./surface.ts";
@@ -54,7 +57,7 @@ import {
 } from "./tracking/store.ts";
 import { validateTranslation } from "./validate.ts";
 
-interface RunOptions {
+export interface RunOptions {
   adopt: boolean;
   check: boolean;
   concurrency: number;
@@ -138,7 +141,9 @@ const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
  * Source-size ceiling for structured single-turn mode, in bytes. The corpus
  * median is 9.6KB and p90 15KB, but one article is 115KB — a translation that
  * large does not fit comfortably in a single constrained final message, so
- * anything above this ceiling falls back to the agentic file-write path.
+ * anything above this ceiling is translated in parts (see
+ * {@link useChunkedMode}), or on the agentic file-write path for non-codex
+ * engines.
  */
 export const STRUCTURED_MAX_SOURCE_BYTES = 60_000;
 
@@ -152,6 +157,21 @@ export function useStructuredMode(engine: Engine, sourceText: string): boolean {
   return (
     engine === "codex" &&
     Buffer.byteLength(sourceText, "utf8") <= STRUCTURED_MAX_SOURCE_BYTES
+  );
+}
+
+/**
+ * Chunked mode is structured mode for sources ABOVE the ceiling: the article
+ * is split into parts (see `chunk.ts`) that each go through the single-turn
+ * path. It replaces the agentic fallback for codex only — the agentic
+ * file-write path stopped producing valid output once wiki articles grew past
+ * ~60KB (missing output file, untranslated bodies, dropped links). Every other
+ * engine keeps the agentic path; structured mode is codex-only.
+ */
+export function useChunkedMode(engine: Engine, sourceText: string): boolean {
+  return (
+    engine === "codex" &&
+    Buffer.byteLength(sourceText, "utf8") > STRUCTURED_MAX_SOURCE_BYTES
   );
 }
 
@@ -212,7 +232,15 @@ export function appendRetryFeedback(prompt: string, errors: string[]): string {
     prompt,
     "",
     "PREVIOUS ATTEMPT REJECTED — the output failed automated validation. Fix exactly these problems and redo the translation:",
-    ...errors.map((error) => `- ${error}`),
+    // Errors quote the rejected output, which can carry NUL bytes (seen where a
+    // LaTeX backslash belongs: `$\0mathcal`); a NUL in the prompt argv makes the
+    // retry's spawn throw before the engine runs, so show it as visible text.
+    ...errors.map((error) => `- ${error.replaceAll("\0", "<NUL>")}`),
+    ...(errors.some((error) => error.includes("\0"))
+      ? [
+          "- Your output contained NUL bytes (shown as <NUL>) where the source has a backslash — reproduce every LaTeX backslash exactly.",
+        ]
+      : []),
     "",
     "Everything else in the brief above is unchanged.",
   ].join("\n");
@@ -441,33 +469,11 @@ interface TranslateArgs {
 }
 
 async function translateArticle(args: TranslateArgs): Promise<void> {
-  const { slug, sourceText, sourceAbsPath, outputAbsPath, ctx } = args;
+  const { slug, sourceText, outputAbsPath, ctx } = args;
   const { opts } = ctx;
-  const structured = useStructuredMode(opts.engine, sourceText);
-  const prompt = structured
-    ? buildStructuredTranslatePrompt({
-        glossaryTerms: ctx.glossaryTerms,
-        sourceText,
-        targetLang: opts.targetLang,
-      })
-    : buildTranslatePrompt({
-        sourceAbsPath,
-        outputAbsPath,
-        targetLang: opts.targetLang,
-        glossaryCmd: `bun ${GLOSSARY_SCRIPT_PATH}`,
-      });
-  console.log(
-    `[translate] ${slug} path=${structured ? "structured" : "agentic"} (${opts.engine}, source ${Buffer.byteLength(sourceText, "utf8")} bytes)`
-  );
-
-  const outcome = await runEngineWithRetry({
-    slug,
-    sourceAbsPath,
-    outputAbsPath,
-    prompt,
-    structured,
-    opts,
-  });
+  const outcome = useChunkedMode(opts.engine, sourceText)
+    ? await translateChunked(args)
+    : await translateWhole(args);
 
   if (!outcome.ok) {
     ctx.summary.failed.push({ slug, reason: outcome.reason });
@@ -503,6 +509,54 @@ async function translateArticle(args: TranslateArgs): Promise<void> {
         : `, $${cost.costUsd.toFixed(4)}${cost.estimated ? "*" : ""}`
     })`
   );
+}
+
+/** One engine run over the whole article: structured (codex) or agentic. */
+function translateWhole(args: TranslateArgs): Promise<EngineOutcome> {
+  const { slug, sourceText, sourceAbsPath, outputAbsPath, ctx } = args;
+  const { opts } = ctx;
+  const structured = useStructuredMode(opts.engine, sourceText);
+  const prompt = structured
+    ? buildStructuredTranslatePrompt({
+        glossaryTerms: ctx.glossaryTerms,
+        sourceText,
+        targetLang: opts.targetLang,
+      })
+    : buildTranslatePrompt({
+        sourceAbsPath,
+        outputAbsPath,
+        targetLang: opts.targetLang,
+        glossaryCmd: `bun ${GLOSSARY_SCRIPT_PATH}`,
+      });
+  console.log(
+    `[translate] ${slug} path=${structured ? "structured" : "agentic"} (${opts.engine}, source ${Buffer.byteLength(sourceText, "utf8")} bytes)`
+  );
+  return runEngineWithRetry({
+    slug,
+    sourceAbsPath,
+    outputAbsPath,
+    prompt,
+    structured,
+    opts,
+  });
+}
+
+/** Over-ceiling codex article: translate it part by part (see {@link useChunkedMode}). */
+function translateChunked(args: TranslateArgs): Promise<EngineOutcome> {
+  const { slug, sourceText, sourceAbsPath, outputAbsPath, ctx } = args;
+  const { opts } = ctx;
+  const chunks = chunkArticle(sourceText);
+  console.log(
+    `[translate] ${slug} path=chunked (${opts.engine}, source ${Buffer.byteLength(sourceText, "utf8")} bytes, ${chunks.length} chunks)`
+  );
+  return runChunkedWithRetry({
+    chunks,
+    glossaryTerms: ctx.glossaryTerms,
+    opts,
+    outputAbsPath,
+    slug,
+    sourceAbsPath,
+  });
 }
 
 /**
@@ -797,12 +851,28 @@ type EngineOutcome =
 
 const MAX_ENGINE_ATTEMPTS = 2;
 
+/** The run options one engine spawn reads — narrow so tests can build one. */
+export type EngineOptions = Pick<
+  RunOptions,
+  | "cursorModel"
+  | "engine"
+  | "engineTimeoutMs"
+  | "glossaryPath"
+  | "kiroClient"
+  | "modelLabel"
+  | "reasoningEffort"
+  | "scopeDir"
+  | "targetLang"
+>;
+
 interface EngineAttemptArgs {
   /** Structured mode only: codex `-o` file holding the JSON final message. */
   lastMessagePath: string | undefined;
-  opts: RunOptions;
+  opts: EngineOptions;
   outputAbsPath: string;
   prompt: string;
+  /** Test seam: replaces the real subprocess spawn. */
+  runner?: EngineRunner;
   /** Structured mode only: codex `--output-schema` file. */
   schemaPath: string | undefined;
   slug: string;
@@ -817,7 +887,7 @@ type AttemptResult =
 async function spawnEngine(
   args: EngineAttemptArgs
 ): Promise<EngineUsage | undefined> {
-  const { slug, prompt, schemaPath, lastMessagePath, opts } = args;
+  const { slug, prompt, schemaPath, lastMessagePath, opts, runner } = args;
   const startedAt = Date.now();
   const heartbeat = setInterval(() => {
     const elapsedS = ((Date.now() - startedAt) / 1000).toFixed(0);
@@ -837,6 +907,7 @@ async function spawnEngine(
       // orchestrator seeded, regardless of the agent's cwd.
       env: { GLOSSARY_DB_PATH: opts.glossaryPath },
       onStderrLine: (line) => process.stderr.write(`[${slug}] ${line}\n`),
+      runner,
       timeoutMs: opts.engineTimeoutMs,
     });
     return usage;
@@ -861,7 +932,9 @@ async function postProcessOutput(outputAbsPath: string): Promise<void> {
     }
     throw err;
   }
-  const normalised = fixMdxEscaping(normalizeHeadings(original));
+  const normalised = repairTranslatedFrontmatter(
+    fixMdxEscaping(normalizeHeadings(original))
+  );
   if (normalised !== original) {
     await Bun.write(outputAbsPath, normalised);
   }
@@ -999,6 +1072,287 @@ async function runEngineWithRetry(
     if (tmpDir) {
       await rm(tmpDir, { recursive: true, force: true });
     }
+  }
+}
+
+const USAGE_COUNTERS = [
+  "cachedInputTokens",
+  "cacheWriteInputTokens",
+  "costUsd",
+  "credits",
+  "inputTokens",
+  "outputTokens",
+  "reasoningOutputTokens",
+] as const;
+
+/**
+ * Fold per-part usages into the one article record: every counter is summed
+ * over the parts that reported it (absent when none did), and the model is
+ * the first part's. Undefined when no part reported anything — the same
+ * "no telemetry" a single call without usage records.
+ */
+export function sumUsages(
+  usages: (EngineUsage | undefined)[]
+): EngineUsage | undefined {
+  const reported = usages.filter((u): u is EngineUsage => u !== undefined);
+  if (reported.length === 0) {
+    return;
+  }
+  const total: EngineUsage = {};
+  for (const key of USAGE_COUNTERS) {
+    const values = reported
+      .map((u) => u[key])
+      .filter((v): v is number => v !== undefined);
+    if (values.length > 0) {
+      total[key] = values.reduce((sum, v) => sum + v, 0);
+    }
+  }
+  const model = reported.find((u) => u.model !== undefined)?.model;
+  if (model !== undefined) {
+    total.model = model;
+  }
+  return total;
+}
+
+const HERO_LINE_RE = /^export \{ default as heroImage \} from "[^"]+";$/m;
+const FRONTMATTER_BLOCK_RE = /^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/;
+
+export interface RunChunkedArgs {
+  /** Source parts from {@link chunkArticle}; they concatenate to the source. */
+  chunks: string[];
+  glossaryTerms: string[];
+  opts: EngineOptions;
+  outputAbsPath: string;
+  /** Test seam: replaces the real subprocess spawn. */
+  runner?: EngineRunner;
+  slug: string;
+  sourceAbsPath: string;
+}
+
+interface ChunkRunContext extends RunChunkedArgs {
+  lastMessagePath: string;
+  schemaPath: string;
+  tmpDir: string;
+  /**
+   * The source's frontmatter + heroImage line, prefixed to a later part and
+   * its translation so each pair validates as a (short) whole article.
+   */
+  validationPrefix: string;
+}
+
+type ChunkResult =
+  | { errors: string[]; ok: false }
+  | { mdx: string; newTerms: GlossaryEntry[]; ok: true; usage?: EngineUsage };
+
+/**
+ * One part of a chunked article, with the same attempt policy as a whole
+ * article: up to {@link MAX_ENGINE_ATTEMPTS}, attempt 2 carrying attempt 1's
+ * validation errors. A part is validated on its own before it is accepted —
+ * as a pseudo-article (see {@link ChunkRunContext.validationPrefix}) with
+ * `partial` set — so a dropped link or bullet is retried for this part alone
+ * instead of surfacing only after every part has been paid for.
+ */
+async function translateChunk(
+  ctx: ChunkRunContext,
+  index: number
+): Promise<ChunkResult> {
+  const { chunks, slug, opts, schemaPath, lastMessagePath, tmpDir } = ctx;
+  const part = { index: index + 1, total: chunks.length };
+  const label = `${slug} part ${part.index}/${part.total}`;
+  const prefix = index === 0 ? "" : ctx.validationPrefix;
+  const pseudoSource = join(tmpDir, `source-${part.index}`, `${slug}.mdx`);
+  const pseudoOutput = join(tmpDir, `output-${part.index}`, `${slug}.mdx`);
+  await Bun.write(pseudoSource, prefix + chunks[index]);
+  const prompt = buildStructuredTranslatePrompt({
+    glossaryTerms: ctx.glossaryTerms,
+    part,
+    sourceText: chunks[index],
+    targetLang: opts.targetLang,
+  });
+
+  let lastErrors = ["unknown failure"];
+  for (let attempt = 1; attempt <= MAX_ENGINE_ATTEMPTS; attempt += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: retries are sequential by definition — attempt N+1 only exists because attempt N failed
+    await unlinkSilently(lastMessagePath);
+    console.log(`[translate] ${label} starting (attempt ${attempt})`);
+    const result = await runChunkAttempt({
+      label,
+      lastMessagePath,
+      opts,
+      prefix,
+      prompt: attempt === 1 ? prompt : appendRetryFeedback(prompt, lastErrors),
+      pseudoOutput,
+      pseudoSource,
+      runner: ctx.runner,
+      schemaPath,
+      slug,
+      isLaterPart: index > 0,
+    });
+    if (result.ok) {
+      return result;
+    }
+    lastErrors = result.errors;
+    console.warn(
+      `[translate] ${label} attempt ${attempt} failed: ${lastErrors.join("; ")}`
+    );
+  }
+  return { ok: false, errors: lastErrors };
+}
+
+interface ChunkAttemptArgs {
+  isLaterPart: boolean;
+  label: string;
+  lastMessagePath: string;
+  opts: EngineOptions;
+  prefix: string;
+  prompt: string;
+  pseudoOutput: string;
+  pseudoSource: string;
+  runner?: EngineRunner;
+  schemaPath: string;
+  slug: string;
+}
+
+/** One engine call for one part: spawn, parse, then validate the part alone. */
+async function runChunkAttempt(args: ChunkAttemptArgs): Promise<ChunkResult> {
+  const { lastMessagePath, pseudoOutput, pseudoSource } = args;
+  let usage: EngineUsage | undefined;
+  try {
+    usage = await spawnEngine({
+      lastMessagePath,
+      opts: args.opts,
+      outputAbsPath: pseudoOutput,
+      prompt: args.prompt,
+      runner: args.runner,
+      schemaPath: args.schemaPath,
+      slug: args.label,
+      sourceAbsPath: pseudoSource,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [`engine spawn failed: ${(err as Error).message}`],
+    };
+  }
+  let parsed: StructuredTranslation;
+  try {
+    parsed = parseStructuredResult(await Bun.file(lastMessagePath).text());
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [`structured output unusable: ${(err as Error).message}`],
+    };
+  }
+  if (args.isLaterPart && parsed.mdx.trimStart().startsWith("---")) {
+    return {
+      ok: false,
+      errors: [
+        "This part must be a body fragment: it starts with `---`, but only part 1 carries the frontmatter",
+      ],
+    };
+  }
+  try {
+    await Bun.write(pseudoOutput, args.prefix + parsed.mdx.trimStart());
+    await postProcessOutput(pseudoOutput);
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [`post-processing failed: ${(err as Error).message}`],
+    };
+  }
+  const result = await validateTranslation({
+    outputAbsPath: pseudoOutput,
+    partial: true,
+    sourceAbsPath: pseudoSource,
+  });
+  if (!result.ok) {
+    return { ok: false, errors: result.errors };
+  }
+  return { ok: true, mdx: parsed.mdx, newTerms: parsed.newTerms, usage };
+}
+
+/** Frontmatter block + heroImage line of `firstChunk`, for later-part validation. */
+function validationPrefixOf(firstChunk: string): string {
+  const frontmatter = firstChunk.match(FRONTMATTER_BLOCK_RE)?.[0] ?? "";
+  const hero = firstChunk.match(HERO_LINE_RE)?.[0];
+  return hero ? `${frontmatter}${hero}\n\n` : frontmatter;
+}
+
+/**
+ * Translate an over-ceiling article part by part, sequentially (the global
+ * concurrency setting already counts it as one article), then reassemble it
+ * and hold the WHOLE result to exactly the checks a single-call translation
+ * gets — post-processing, then {@link validateTranslation} without `partial`.
+ * Failure semantics match {@link runEngineWithRetry}: the output file is only
+ * replaced by a fully validated article, and any prior translation is back in
+ * place when this returns `ok: false`.
+ */
+export async function runChunkedWithRetry(
+  args: RunChunkedArgs
+): Promise<EngineOutcome> {
+  const { chunks, slug, sourceAbsPath, outputAbsPath } = args;
+  const startedAt = Date.now();
+  const existingOutput = await readFileOrNull(outputAbsPath);
+  const tmpDir = await mkdtemp(join(tmpdir(), "translate-chunked-"));
+  const ctx: ChunkRunContext = {
+    ...args,
+    lastMessagePath: join(tmpDir, "last-message.json"),
+    schemaPath: join(tmpDir, "schema.json"),
+    tmpDir,
+    validationPrefix: validationPrefixOf(chunks[0] ?? ""),
+  };
+  const fail = async (reason: string): Promise<EngineOutcome> => {
+    await unlinkSilently(outputAbsPath);
+    if (existingOutput) {
+      await restoreExistingOutput(slug, outputAbsPath, existingOutput);
+    }
+    return { ok: false, reason };
+  };
+  try {
+    await Bun.write(
+      ctx.schemaPath,
+      JSON.stringify(CHUNK_TRANSLATION_OUTPUT_SCHEMA, null, 2)
+    );
+    const translated: string[] = [];
+    const newTerms: GlossaryEntry[] = [];
+    const usages: (EngineUsage | undefined)[] = [];
+    for (let i = 0; i < chunks.length; i += 1) {
+      // biome-ignore lint/performance/noAwaitInLoops: parts share one schema/-o file and must land in order; the article already holds one concurrency slot
+      const result = await translateChunk(ctx, i);
+      if (!result.ok) {
+        return await fail(
+          `part ${i + 1}/${chunks.length}: ${result.errors.join("; ")}`
+        );
+      }
+      translated.push(result.mdx);
+      newTerms.push(...result.newTerms);
+      usages.push(result.usage);
+    }
+
+    await Bun.write(outputAbsPath, reassembleChunks(chunks, translated));
+    try {
+      await postProcessOutput(outputAbsPath);
+    } catch (err) {
+      return await fail(`post-processing failed: ${(err as Error).message}`);
+    }
+    const validation = await validateTranslation({
+      sourceAbsPath,
+      outputAbsPath,
+    });
+    if (!validation.ok) {
+      console.warn(
+        `[translate] ${slug} reassembled article failed validation: ${validation.errors.join("; ")}`
+      );
+      return await fail(`reassembled article: ${validation.errors.join("; ")}`);
+    }
+    return {
+      ok: true,
+      newTerms,
+      usage: sumUsages(usages),
+      durationMs: Date.now() - startedAt,
+    };
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true });
   }
 }
 
@@ -1161,7 +1515,7 @@ function parseOptions(): RunOptions {
  * Resolve the model actually requested (and the telemetry label — they are the
  * same thing). An explicit `TRANSLATE_MODEL` always wins; cursor's is
  * separately overridable via `TRANSLATE_CURSOR_MODEL`; everything else falls
- * back to the engine's own default (codex → `gpt-5.6-luna`, null for engines
+ * back to the engine's own default (codex → `gpt-6-luna`, null for engines
  * with no configurable model).
  */
 function resolveModelLabel(

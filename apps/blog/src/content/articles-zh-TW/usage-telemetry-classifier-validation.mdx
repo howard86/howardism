@@ -1,0 +1,172 @@
+---
+date: 2026-07-25
+title: 使用遙測分類器驗證
+description: "Google ATLAS 是第一個公開 LLM 分類器準確率數據的 AI 使用經濟研究計畫；每項同類研究都仰賴這些分類器，而數字令人警醒：O*NET 工作項目指派的完全準確率為 22.6%，職業名稱為 42.5%，相較之下，同一批標籤獲得人類 85.8% 的認可；本文探討準確率與認可度之間的落差、緩解方法（採用是否出現而非頻率、將工作類型彙整至 70.4%），以及這對此類研究所有標題數字的意義"
+tag: Concept
+domain: evals-and-benchmarks
+tags:
+  - evaluation
+  - measurement
+  - llm-as-a-judge
+  - reliability
+  - empirical
+  - google
+readingTime: 22
+imageAlt: 使用遙測分類器驗證的插圖
+sources:
+  - title: "Google's AI & Economy ATLAS v1.0: Mapping Gemini Usage in the Economy"
+    url: https://ai.google/static/documents/GoogleATLASv1.pdf
+  - title: "GDPval: Evaluating AI Model Performance on Real-World Economically
+      Valuable Tasks"
+    url: https://arxiv.org/pdf/2510.04374
+  - title: "Google AI & Economy ATLAS: AI in Science (September 2026)"
+    url: https://ai.google/static/documents/AI-in-Science.pdf
+  - title: "Adoption Telemetry: Measuring Enterprise AI Adoption from Production
+      Signals"
+    url: https://arxiv.org/pdf/2608.23617
+---
+export { default as heroImage } from "../assets/usage-telemetry-classifier-validation.webp";
+
+## 資料來源
+
+- [Adoption Telemetry: Measuring Enterprise AI Adoption from Production Signals](https://arxiv.org/pdf/2608.23617)
+- [GDPval: Evaluating AI Model Performance on Real-World Economically Valuable Tasks](https://arxiv.org/pdf/2510.04374)
+- [Google AI & Economy ATLAS: AI in Science (September 2026)](https://ai.google/static/documents/AI-in-Science.pdf)
+- [Google's AI & Economy ATLAS v1.0: Mapping Gemini Usage in the Economy](https://ai.google/static/documents/GoogleATLASv1.pdf)
+
+## 摘要
+
+整個 AI 使用經濟研究領域——[Anthropic's Economic Index](/articles/anthropic-economic-index)、[OpenAI's Codex study](/articles/conversation-to-delegation-shift)、[Google's ATLAS](/articles/google-ai-economy-atlas)——都建立在一個未經檢視的環節上：**LLM 讀取對話摘要，並將其歸入官方統計分類法中的某個項目。** 每一項「X% 的工作」、「Y% 的自動化」、「Z% 的職業」主張，都承受該分類器的錯誤。直到 ATLAS v1.0 出現之前，沒有人公開誤差有多大。
+
+ATLAS 以三種獨立方法公開了驗證結果，標題數字令人不安：**分類器只有 22.6% 的機率能正確指派完全相同的 O\*NET 工作項目，而人類專家評分者認為這些相同指派在經濟意義上合理的比例為 85.8%。** 兩個數字都是真的。兩者之間的落差才是這項研究的發現。
+
+> **證據說明。** `empirical` — 三項驗證研究：對照 18,801 個合成真值對話測量準確率、與三位內部標註者比較評分者間一致性（N≈110–120 個群集），以及對 240 個群集進行人類認可度研究。Google 自己也提醒：合成資料可能*比較容易*（由 Gemini 生成的提示再交給 Gemini 分類，可能帶有可還原的線索），也可能*比較困難*（模糊提示實際上可能更符合另一個類別，而不是預先指定的標籤，因而懲罰正確的分類器）。
+
+## 問題規模
+
+先看難度的算術，再看準確率。ATUS 有 456 個細項活動代碼；O\*NET-SOC 有 1,016 個職業名稱和 18,797 項工作敘述。隨機指派的得分分別是 **0.22%**、**0.10%** 和 **0.005%**。即使在最粗略的 SOC 兩位數層級（23 個類別），機率也只有 4.35%。
+
+而且這些類別確實含糊，不只是數量多。「幫我了解這份合約的稅務影響」合理來說可能是律師、會計師或商業營運專家的工作。「教我如何和 10 歲孩子一起做鳥巢箱」則取決於孩子是不是家中成員——ATUS 在*最高*層級就區分這一點，而使用者沒有理由主動說明。
+
+關鍵是，**這種模糊性早於 AI 就已存在。** Mellow & Sider（1983）發現，17% 的 CPS 受訪者對自己的雇主所認定的一位數職業分類有異議；到了**三位數**分類，比例升至 **42%**。Mathiowetz（1992）發現的比例是 24% 和 48%。分類系統從來就不明確；LLM 分類承襲的是經濟學早已有的測量問題。
+
+## 準確率數字說明了什麼
+
+| 分類法 | 層級 | 類別數 | 隨機 | 準確率 | 倍率 |
+|---|---|---|---|---|---|
+| ATUS | Tier 1（大類） | 17 | 5.88% | **72.84%** | 12.4× |
+| ATUS | Tier 2 | 108 | 0.93% | 42.91% | 46.3× |
+| ATUS | Tier 3（詳細） | 456 | 0.22% | **23.70%** | 108× |
+| SOC | 主要群組 | 23 | 4.35% | **71.57%** | 16.5× |
+| SOC | 次要群組 | 98 | 1.02% | 58.44% | 57.3× |
+| SOC | 職業名稱 | 1,016 | 0.10% | **42.47%** | 432× |
+| O\*NET | 特定工作項目 | 18,797 | 0.005% | **22.58%** | 4,244× |
+| O\*NET | Autor–Thompson 類型 | 5 | 20% | **70.44%** | 3.5× |
+
+另外還有一道閘門判定：在平衡的合成資料集上，**工作／非工作分類器的準確率為 93.7%**。這個數字比其他單一數字都重要，因為一旦判錯，對話就會進入錯誤的處理流程，並影響所有下游結果。
+
+從兩個方向讀這張表，會得到相反的故事。**絕對準確率隨著細緻度增加而崩落**（71.6% → 22.6%）。**區辨倍率則急遽攀升**（16.5× → 4,244×）。兩者都是真的；你引用哪一個，決定了這條流程聽起來是否可信。
+
+## 準確率與認可度的落差
+
+第二項研究請三位人類標註者針對每個標籤回答一個是非題：這個群集中的大多數活動是否都符合指派的標籤？或者，即使有不符之處，是否也小到不會扭曲經濟解讀？
+
+| 工作層級 | 認可 | 非工作層級 | 認可 |
+|---|---|---|---|
+| SOC 主要群組 | 96.1% | ATUS Tier 1 | 98.1% |
+| 職業名稱 | 92.8% | ATUS Tier 2 | 96.1% |
+| **工作敘述** | **85.8%** | ATUS Tier 3 | 92.2% |
+
+因此，在 O\*NET 工作項目層級：**完全吻合率 22.6%，認可率 85.8%。** Google 點出這個差異，卻沒有解決它——「造成此差異的因素，以及其對改善分類器驗證的影響，仍需進一步研究」——但將兩者視為**界限**：高認可率代表細緻標籤確實帶有經濟意義；低完全準確率則是「不宜過度依賴超特定工作分析」的警訊。
+
+第三項研究從一致性的角度得到相同訊息。以人類多數共識為基準，SOC 主要群組分類器的得分為 **Cohen's κ = 0.83**（「幾近完美」），而僅由人類評分者計算的 Fleiss κ 為 **0.68**。把 LLM 加為第四位評分者後，一致性要麼顯著提升（工作分類器、SOC 次要群組；p&lt;0.05），要麼沒有變化（所有 ATUS、SOC 主要群組）。**模型的評分一致性大致與人類相當**——這既反映模型的表現，也反映人類評分者本身有多吵雜。
+
+關鍵線索是：在最高分類層級，**評分者的認可度比評分者與模型的多數一致性高出 11–15 個百分點**。看到標籤時，標註者會接受它；若未提示、要他們自行選一個，他們就會選出不同答案。分類法的模糊程度足以讓多個答案都說得通，這代表**多數一致性指標低估分類器，而認可度指標則對它過度寬容。**
+
+## 真正有效的緩解方法
+
+ATLAS 的應對方式著重方法，而非打造更好的分類器；這也是最值得借鏡的部分：
+
+1. **彙整成具經濟意義的群組。** 工作項目完全指派率是 22.58%；相同的指派有 **70.44%** 的機率落在*正確的 Autor–Thompson 工作類型*。分組能吸收雜訊而不捨棄經濟意義——因此，[Task Saturation: Broad but Shallow AI Diffusion](/articles/task-saturation) 的工作類型分析，比任何單一工作項目的主張都更站得住腳。
+2. **衡量是否出現，而非出現頻率。** 相較於計算某項工作出現多少次，判斷它是否曾出現，較不容易受到分類錯誤影響。因此，標題數字採用飽和門檻（25 位使用者、50 位使用者），而非互動次數。
+3. **合併分類法基於非經濟理由拆分的類別。** 將旅行目的代碼往上彙整，並合併家戶／非家戶成員類別後，ATUS Tier 2 準確率從 42.9% 升至 **51.7%**，Tier 3 則從 23.7% 升至 **32.4%**——兩者都增加近 9 個百分點，純粹是因為不再區分使用者沒有理由揭露的資訊。
+4. **在分類器提示中隨機排列選項順序**，以避免已有記錄的 LLM 位置偏誤。
+
+## 錯誤有結構，不是隨機分布
+
+混淆分析（將超出基準率的倍率標準化）顯示，錯誤分類集中在**語意相近**的類別，而非四散各處：管理 ↔ 商業與金融營運的比例是基準率的 2–3 倍；銷售 ↔ 辦公室與行政支援也有類似情形。在非工作領域，照護錯誤集中於家戶成員與非家戶成員之間——正是對話背景資訊不足之處。
+
+相較於隨機錯誤，有結構的錯誤對整體測量是較好的消息（扭曲局限在局部，幅度也有限），而且*可以採取行動*：它指出哪些類別該合併、哪些容易混淆的類別組合需要提示澄清，甚至可以事後重新加權。但這也代表錯誤**與人們關心的經濟區別相關**——當你把資料彙整成「白領」時，管理與商業營運之間的差異不會就此消失。
+
+## 為什麼這個發現適用於 ATLAS 之外
+
+有三個理由說明本文談的是整個研究領域，而非單一報告：
+
+- **其他研究的數字也仰賴相同環節，卻都未公開這類驗證。** AEI 的 Clio 流程和 OpenAI 的 Codex 分類器執行相同工作，也面臨同一類錯誤；它們只以概括方式向大眾說明驗證情況。ATLAS 的貢獻不在於分類器表現多好，而在於它公開了驗證過程。跨研究比較（工作涵蓋率約為 [~20% vs 36% vs 49%](/articles/task-saturation)）時，應記得至少有一種工具在該細緻程度下，完全指派錯誤率達 ±77 個百分點，其他工具則沒有量化數據。
+- **選擇哪個指標會決定故事如何呈現**，正如 [LLM-Judge Validation](/articles/llm-judge-validation) 的情況：該研究中，完全吻合的一致性指標比機會校正後的 κ 高出 33–41 個百分點；本文則顯示，在工作項目層級，認可度比完全準確率高出 63 個百分點。兩者都是驗證指標對 LLM 分類器過於寬容的案例，因為它從未要求模型在標題主張所假設的條件下進行區辨。
+- **模糊性存在於真實世界，不在模型裡。** 人類在三位數職業分類上的 42–48% 歧異，代表分類器有其無法突破的上限。這使目標從「讓分類器更準確」轉為「選擇粗細適中、足以識別的彙整方式」——這是使用遙測永遠能測量到什麼程度的限制，不是暫時的工程缺口。
+
+## 同一計畫的第二套流程，重現相同梯度（2026 年 9 月）
+
+ATLAS 的科學領域後續研究（[AI Adoption in Scientific Work](/articles/ai-adoption-in-scientific-work)，2026 年 9 月）在 v1.0 流程之上新增三層分類器，而且值得肯定的是，也公開了驗證結果。數字精確重現了本文的核心趨勢：**篩選器準確，指派結果不準，而且粒度越細，落差越大。**
+
+| 層級 | 驗證方式 | 準確率 |
+|---|---|---|
+| 工作／非工作（承襲 v1.0） | 合成基準測試 | 93.7% |
+| 職業篩選器：六個兩位數 SOC 群組（承襲既有流程） | 合成資料 | 71.6% |
+| 新增的「這是科學嗎？」分類器 | 合成正例集 | **96%** |
+| 同上，對照標記為非科學的控制組 | 合成負例 | **97%** |
+| 科學互動 → OpenAlex 領域 | 樣本內 | 83% |
+| 科學互動 → OpenAlex 學科 | 樣本內 | 75% |
+| 科學互動 → MIT 工作分類法 Level 1 | 樣本內 | 65% |
+| 科學互動 → MIT 工作分類法 **Level 3**（2,433 個群組） | 樣本內 | **30%** |
+
+二元閘門幾乎完美，而且旁邊還公布了負向控制組——這點值得一提，因為本文所列的 v1.0 數字並沒有負向控制組；而細粒度指派準確率落在 30%，與 v1.0 在規模相近的標籤空間中，對 O\*NET 工作項目達到的 22.6% 相近。專用模型也有自己的驗證：以 1,000 篇預先植入已知工作項目的合成摘要測試，流程有 48% 的機率還原出**完全相同的工作項目數量**（錯誤幾乎全是*過度*擷取，占 47%；Gemini 稽核認為多出的工作項目可由摘要推得，並非幻覺），而且對應到完全相同 MIT 工作項目的比例，在**最粗略層級為 62%，最細緻層級為 28%**。
+
+**作者自己得出的結論，正是本文一直主張的方向。** 他們的主要互補性結果——專用模型與 LLM 工作占比之間的對數—對數彈性，隨解析度增加而從 0.6 降至 0.5，再降至 0.2——*正是細緻度相關的準確率梯度會造成的量*；註腳 21 也承認：「這一下降有一部分是由衰減偏誤造成：隨著細緻度增加，分類器準確率下降」，因此報告的彈性「應解讀為上限」。一項形狀為「看得越深，重疊越少」的發現，建立在形狀為「看得越深，準確率越低」的流程上。作者表示他們透過計量經濟學方法進行調整，而且差距依然存在；審慎的解讀是，描述性雷達圖支持其方向，但幅度尚未被識別。
+
+## 另一種出路：拒絕分類器，並承受構念上的代價（2026-09-22）
+
+[*Adoption Telemetry*](https://arxiv.org/pdf/2608.23617)（Damon A. Young，PolyWise Partners；arXiv 2608.23617，2026-08-22，`practitioner-opinion`，沒有真實組織資料）值得在此占一節，因為它提出的使用遙測工具採取了與本文所述各計畫相反的設計決策，而這項決策的代價值得參考。
+
+其承諾以實作特性表述：「**所有分類都是對事件串流進行的確定性計算：大型語言模型只用於撰寫報告中的敘述評論，絕不參與測量**，因此每個階段指派和旗標都能根據輸入精確重現並稽核。」ATLAS、AEI 和 Codex 研究會讀取*對話*並將其指派到官方分類法中的某一項——本文將這一步的完全準確率估為 22.6%——而這套工具只讀取計數：呼叫次數、工作階段 ID、每個工作階段的輪數、任務結果標籤，以及已配置使用者清單。它不包含語意判斷，因此沒有分類器準確率可供公布，每個門檻也都移至一個開放設定檔中，而且「每個值都標示為提案」。
+
+這項取捨是：**錯誤並未消失，只是從未經測量的分類器，轉移到未經驗證的門檻。** 由於結構描述中沒有工作類型欄位，「多步驟工作流程整合」以*至少 12 輪的工作階段*作為代理指標；論文承認它和分類器錯誤一樣含糊：「深度整合工具的使用者和使用工具時遇到困難的使用者，都會產生許多輪次。」該工具自己的成功率閘門原本要區分兩者，但「成功標籤由部署方回報，品質參差不齊；若成功標籤稀少或不可靠，Transform 分類便會承襲其不可靠性。」因此，不使用分類器的工具仍仰賴語意判斷，只是把判斷移出測量流程，交給產生結果標籤的人，而那裡同樣沒有人驗證它。
+
+相較於本文討論的計畫，這套工具確實有兩項不對稱優勢，其中一項則方向相反。它的優勢是：**可稽核、可質疑。** 每項分類都能追溯至觸發它的訊號，門檻也會公開，「正是為了讓人們可以質疑、調整，並最終校準」——這是 ATLAS 透過公開準確率逐步做到的特性，而 AEI 仍未做到。它的劣勢是：**驗證方式有循環論證問題，ATLAS 則沒有。** ATLAS 至少有以人類評分者和合成真值來評估分類器，且該真值並非專為分類器而設計；這篇論文的評估則使用合成族群，其病灶與門檻「共同開發」，§5.4 明言這只能證明「可計算性，而非正確性」。公開但未驗證的門檻與未公開但已驗證的分類器，是兩種不同的失敗，沒有哪一種必然較好；誠實的結論是，這個研究領域目前還沒有兼具兩者的工具。
+
+## 延伸閱讀
+
+- [The Enablement–Regulation Axis](/articles/enablement-regulation-axis) — **反例：一個以 LLM 編碼的語料庫公開整套驗證結果，卻仍有一個未驗證階段。** Chueri & Törnberg 使用 `gemini-3.1-pro-preview` 對 19,411 篇國會演說進行編碼，不讓模型看到政黨、執政狀態和假設，接著報告相關性準確率 97.8%／**κ = 0.947**（對照 538 篇演說的主要人類基準）、框架 micro-F1 0.893（診斷）與 0.878（回應）；*此外*還委託第二位編碼者進行 190 篇演說的對抗式壓力測試，增加邊界案例的比重，結果相關性降至 85.8%／**κ = 0.679**，回應編碼則降至 micro-F1 0.828。公開兩組結果正是本文所要求的嚴謹做法，而兩者之間的落差，是本文所述錨定與盲測差距在另一個研究領域的呈現。剩下的失敗發生在更早的階段，結構上也與 ATLAS 相同：精確率和召回率都只在透過字典擷取的候選集合*內*計算，因此**擷取召回率未經測量**——也就是經過驗證的分類器建立在未經驗證的分母上
+- [The Enterprise AI Adoption Gradient](/articles/enterprise-ai-adoption-gradient) — 另一套未驗證的流程，而且是**雙重**未驗證：OpenAI 的企業研究在相同訊息上同時執行職稱分類器與 60 類別工作分類器，只說工作分類器「已使用內部的人類和模型標註 ChatGPT 對話基準測試進行評估」，卻未提供準確率數字；職稱驗證則列出每個推斷類別中原始職稱的前五名。該文所有組成比例與工作占比都疊加了兩個未量化的誤差範圍
+- [AI Adoption in Scientific Work](/articles/ai-adoption-in-scientific-work) — 本文驗證的第二套 ATLAS 流程，也是最受細緻度梯度影響的發現：互補性彈性隨工作解析度增加而下降，而測量所用的分類器準確率也呈現相同趨勢
+- [GDPval Benchmark](/articles/gdpval-benchmark) — 另一家實驗室針對不同測量問題，獨立採用相同的報告嚴謹度，也是支持本文核心論點最有力的外部證據。GDPval 的自動評分器（GPT-5-high，用來評分專業交付成果）不是對照虛構的完美標籤，而是對照**人類專家評分者彼此之間的表現**：評分器與人類的一致性為 65.7%，人類評分者間的一致性上限則為 70.8%，因此標題所呈現的是相差 5 個百分點，而非失敗 34 個百分點。這和本文已解決問題的答案相同——以人類上限為基準評估自動評分者——只是將做法用在偏好而非職業代碼這類「真值」上，也付出同樣的誠實代價：OpenAI 也公開說明，兩項一致性指標在弱模型上都*最高*；弱模型的輸出容易與人類輸出區分，這是本文準確率／認可度落差的另一種呈現
+- [Task Crossover](/articles/task-crossover) — 這項測量兩度受到分類器影響：使用者的職業和工作項目的「所屬」職業都是模型判斷，因此本文的誤差範圍會加倍套用於它
+- [Google AI & Economy ATLAS](/articles/google-ai-economy-atlas) — 公開這些數字的計畫；驗證是它最清楚的方法論貢獻
+- [Task Saturation: Broad but Shallow AI Diffusion](/articles/task-saturation) — 最容易受到此誤差影響的標題發現，也是工作類型分析比逐項工作主張更可信的原因
+- [The Household Production Boundary](/articles/household-production-boundary) — ATUS Tier 3 的完全準確率僅 23.7%，使報告中細緻的家戶活動主張成為誤差範圍最大的數字
+- [LLM-Judge Validation](/articles/llm-judge-validation) — 評估領域中的同類發現：同樣是寬鬆的一致性指標讓 LLM 分類器顯得過度出色；補救方式也相同（進行機會校正，並在主張所假設的條件下驗證）
+- [LLM-as-a-Judge](/articles/llm-as-a-judge) — 一般模式；有 18,797 個選項的分類法分類器，就是有 18,797 個選項的評審，而非兩個選項
+- [Anthropic Economic Index](/articles/anthropic-economic-index) — 競爭計畫，其分類器錯誤未公開量化；如今這已是明確的不對稱，而非大家都沉默
+- [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement) — 遙測在延遲和規模上勝過自我回報，但本文說明其代價：遙測品質取決於讀取它的分類器，而該分類器從未成為研究對象
+- [Measuring Beyond Accuracy Saturation](/articles/measuring-beyond-accuracy-saturation) — 同樣是在追問標題指標能支持什麼、不能支持什麼
+- [Matched Comparisons for Memorization Claims](/articles/matched-comparison-memorization) — 記憶化研究中的相同嚴謹做法，也最清楚說明其重要性：只在訓練資料上測得的擷取率，在以相同方式評分配對的非訓練序列之前，沒有誤差項；完成配對後，10-token 字尾條件下表面擷取率約有 24% 實際上來自可預測性。ATLAS 以人類標籤衡量工具；Cooper et al. 則以不可能為正例的虛無值衡量工具——這是相同控制方法的更嚴格版本，因為非成員資格在定義上就是排他的
+- [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) — 沒有真值時寬鬆評分的評審；人類認可度研究在結構上也是相同設定，並得到相同的樂觀結果
+- [Exposure Taxonomy: Observed, Theoretical, Reported, Anticipated](/articles/exposure-taxonomy) — 每種暴露度測量都是分類器輸出；本文量化了分類法各項區分所依據的誤差範圍
+- [What the Instrument Can Resolve: Two Headline Numbers and Their Missing Denominators](/articles/what-the-instrument-can-resolve) — 提供本文所要求的上限，並以此重新標準化結果：在相同項目上計算留一標註者法的一致性（ATLAS 的三位評分者、N≈110–120 標註資料已足以計算，卻從未進行），顯示職業名稱層級達人類上限的 **73–82%**，主要群組層級達 **85–94%**；O\*NET 工作項目則可證明無法重新標準化——這表示類別合併是在*提高上限*，而非降低雜訊。這也說明 85.8% 認可率不能作為上限（錨定與盲測），並示範本文的誤差範圍如何影響一項經濟學結果：[Controlled Variance: AI's Edge as Reduced Dispersion](/articles/controlled-variance) 中 25%／7% 的剔除差異，是未驗證的十分類 LLM 標籤，其代碼本門檻取決於一個會受處理影響的變數
+
+## 尚待解答的問題
+
+- 合成真值由 Gemini 生成，也由 Gemini 分類。22.6% 有多少反映真實能力，有多少來自同系列線索？分類器又有多少是因為挑選比種子標籤更合適的選項而受罰？Google 表示若不檢視私人日誌，就無法衡量這一點。
+- 若將 ATLAS 的整套驗證方法用於 AEI 和 OpenAI 分類器，是否能解釋跨研究 2–4 倍的差異？還是這些落差來自抽樣和產品組合？
+
+## 已解答的問題
+
+- 人類評分者對三位數職業分類有 42–48% 的歧異。能否以有原則的方法建立分類器可能達到的上限，讓準確率以該上限而非 100% 為基準呈現？**已於（2026-08-17）由 [What the Instrument Can Resolve: Two Headline Numbers and Their Missing Denominators](/articles/what-the-instrument-can-resolve) 回答：可以——在相同項目上計算留一標註者一致性，並以 `(observed − chance) / (ceiling − chance)` 報告準確率。** 留下一位評分者，根據其他評分者的標籤預測其標籤，再以完全相同的程序評分分類器——[Yang et al.](/articles/llm-judge-validation) 用此估計量顯示 PandaLM 仍有提升空間（最佳評審 κ = 0.753，人類上限為 0.920），而 Judge's Verdict 已達或超過其雜訊上限（0.620 對 0.562）。**ATLAS 已蒐集所需資料，卻只差最後一步**：B.3.1 的三位評分者在 N ≈ 110–120 個樣本上，得到 SOC 主要群組的模型對多數 κ = 0.83；人類兩兩 κ = 0.66／Fleiss 0.68。但和三人多數意見一致，比和抽取的一位評分者一致更容易，因此這些欄位無法比較；重新計算留一法不需要新增標註。姊妹工具來自 [LLM-Judge Validation](/articles/llm-judge-validation) 的 Shopify 案例，其做法是在分類器存在*之前*，由實際評分者依實際評分規準衡量上限，並以 κ ≈ 0.2 作為重寫規準的觸發點；ATLAS 的上限則借自 Mellow & Sider（1983）和 Mathiowetz（1992）。以借用的上限重新標準化本文表格：SOC 職業名稱**從 42.47% 換算為人類上限的 73–82%**，SOC 主要群組**從 71.57% 換算為 85–94%**；兩者都被低估，因為借用的上限所處細緻程度比套用的層級更粗。答案還包含三項限制，而非待填補的缺口。(i) **認可率不能作為上限**——85.8% 是*錨定*統計數據（標籤已顯示），而 42–48% 的歧異則是*盲測*結果；本文自身 11–15 個百分點的認可度高於多數一致性，正好衡量了這個差異，而 [Reference-Free Judge Over-Crediting](/articles/reference-free-judge-over-crediting) 透過先提交、再解除錨定的做法，測出極端情況下 FPR 從 0.719 降至 0.012。(ii) 在 **O\*NET 工作項目細緻度下，根本無法估計上限**，ATLAS 本身也證明了這點（B.3.1）：當類別數遠多於評分觀察值時，`p_e` 會被高估、κ 會被低估，計算值則由抽樣到哪些類別所左右——因此 22.58% 沒有可報告的分母，增加評分者也無法補上。(iii) 因而，**彙整就是介入上限的方法**：將工作項目彙整為 Autor–Thompson 類型（→ 70.44%、5 個類別，可進行一致性研究），以及合併使用者沒有經濟理由揭露的區分（Tier 2 為 42.9 → 51.7%，Tier 3 為 23.7 → 32.4%），會同時提高上限和準確率，因為合併的區分正是人類評分者閱讀相同對話時也無法判斷的項目。上限是分類系統的特性，而非分類器的特性。
+
+## 資料來源
+
+- [GDPval: Evaluating AI Model Performance on Real-World Economically Valuable Tasks](https://arxiv.org/pdf/2510.04374) — Patwardhan et al.（19 位作者，OpenAI），arXiv 2510.04374 v1，2025-10-05，29pp（`empirical`）。本文僅引用其以人類上限為基準報告結果的做法：§2.5 與附錄 A.6.1–A.6.2——序位 \{0, 0.5, 1\} 分數的一致性定義 `E[1 − |H − A|]`、自動評分器一致性 65.7% 對人類評分者間上限 70.8%（Figure 4b，編寫時檢視），以及兩項指標都在弱模型上最高的說明。完整討論見 [GDPval Benchmark](/articles/gdpval-benchmark)
+- [Google's AI & Economy ATLAS v1.0: Mapping Gemini Usage in the Economy](https://ai.google/static/documents/GoogleATLASv1.pdf) — *ATLAS v1.0* 附錄 B：分類器驗證（B.1 測量挑戰、B.2 合成準確率、B.2.2 錯誤分類模式、B.3 人類比較），表 5–7、圖 30–31
+- [Google AI & Economy ATLAS: AI in Science (September 2026)](https://ai.google/static/documents/AI-in-Science.pdf) — *AI in Science: Early Insights*（Google、Google DeepMind、MIT FutureTech，2026 年 9 月，42pp；含 `empirical` 與供應商利益衝突）。本文引用附錄 1（三階段篩選器及其合成驗證，包括負向控制測試）與附錄 2（1,000 篇合成摘要的工作項目擷取與對應驗證），以及關於衰減偏誤的註腳 21。完整討論見 [AI Adoption in Scientific Work](/articles/ai-adoption-in-scientific-work)
+- [Adoption Telemetry: Measuring Enterprise AI Adoption from Production Signals](https://arxiv.org/pdf/2608.23617) — Damon A. Young（PolyWise Partners，唯一作者），*Adoption Telemetry*，arXiv 2608.23617（2026-08-22），23pp，`practitioner-opinion`，**沒有真實組織資料**。本文僅引用其設計對比：§5.1（確定性計算承諾與外部化的門檻設定）、§4.2（以 12 輪作為多步驟工作代理指標）、§5.4（共同開發所造成的循環論證）、§6.3（結構描述中明確列出的失效模式）。**COI：**提出將由其部署之工具的顧問公司。階段模型見 [Pilot-to-Production Gap](/articles/pilot-to-production-gap)，工具論證見 [Telemetry vs. Survey Measurement](/articles/telemetry-vs-survey-measurement)。

@@ -99,6 +99,19 @@ export interface WikilinkTransformResult {
 // and off the unresolved-warnings list (every MOC carries a `[[home]]`).
 const KNOWN_ROUTE_LINKS: Record<string, string> = { home: "/" };
 
+// The other pages at the vault's `wiki/` root (`index`, `log`, the `sources*`
+// listings). They are vault navigation, never emitted as articles, so a link to
+// one — bare or `wiki/`-prefixed — renders as plain text and is not worth an
+// "unresolved" warning.
+const VAULT_INDEX_PAGES: ReadonlySet<string> = new Set([
+  "index",
+  "log",
+  "log-archive",
+  "sources",
+  "sources-archive",
+  "sources-table",
+]);
+
 interface InternalResolution {
   /** True when the target resolved to an in-blog link (article or route). */
   internal: boolean;
@@ -112,15 +125,17 @@ interface InternalResolution {
  * Resolve a non-raw (`internal`) wikilink target to its emitted markdown. Pure:
  * the caller applies the `internal`/`unresolvedSlug` side-effects so the
  * resolver closure stays simple. Resolution order: same-page anchor links
- * (no slug) → known dashboard routes → in-set article slug → unresolved.
+ * (no slug) → known dashboard routes → in-set article slug → vault index page
+ * (plain text) → raw doc slug → unresolved.
  */
 function resolveInternalTarget(args: {
   anchor: string | null;
   label: string | null;
+  rawIndex: ReadonlyMap<string, RawDoc> | undefined;
   slug: string;
   slugTitleMap: ReadonlyMap<string, string>;
 }): InternalResolution {
-  const { anchor, label, slug, slugTitleMap } = args;
+  const { anchor, label, rawIndex, slug, slugTitleMap } = args;
 
   if (slug === "") {
     return {
@@ -149,11 +164,39 @@ function resolveInternalTarget(args: {
     };
   }
 
+  if (VAULT_INDEX_PAGES.has(slug)) {
+    return {
+      text: label ?? titleFromSlug(slug),
+      internal: false,
+      unresolvedSlug: null,
+    };
+  }
+
+  // A bare `[[some-clipping]]` naming a raw doc rather than an article renders
+  // exactly like the explicit `[[raw/some-clipping]]`.
+  const rawDoc = rawIndex?.get(slug);
+  if (rawDoc) {
+    return {
+      text: renderRawDoc(rawDoc, slug, label),
+      internal: false,
+      unresolvedSlug: null,
+    };
+  }
+
   return {
     text: label ?? titleFromSlug(slug),
     internal: false,
     unresolvedSlug: slug,
   };
+}
+
+function renderRawDoc(
+  rawDoc: RawDoc | undefined,
+  rawSlug: string,
+  label: string | null
+): string {
+  const display = label ?? rawDoc?.title ?? humanize(rawSlug);
+  return rawDoc?.url ? `[${display}](${rawDoc.url})` : display;
 }
 
 /**
@@ -180,12 +223,11 @@ export function rewriteWikilinks(
 
   const resolve: WikiResolver = ({ target, label }) => {
     if (target.kind === "raw") {
-      const rawDoc = rawIndex?.get(target.rawSlug);
-      const display = label ?? rawDoc?.title ?? humanize(target.rawSlug);
-      return rawDoc?.url ? `[${display}](${rawDoc.url})` : display;
+      return renderRawDoc(rawIndex?.get(target.rawSlug), target.rawSlug, label);
     }
 
     const res = resolveInternalTarget({
+      rawIndex,
       slug: target.slug,
       anchor: target.anchor,
       label,

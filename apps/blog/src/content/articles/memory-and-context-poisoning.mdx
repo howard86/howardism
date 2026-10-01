@@ -19,7 +19,7 @@ tags:
   - memory
   - rag
   - threats
-readingTime: 87
+readingTime: 88
 imageAlt: Illustration for Memory and Context Poisoning
 sources:
   - title: User awareness in frontier models
@@ -48,6 +48,8 @@ sources:
   - title: Transferable End-to-End Optimization for Indirect Long-Term Memory
       Poisoning in LLM Agents
     url: https://arxiv.org/pdf/2609.00523
+  - title: Trust propagation and structural containment in Multi-agent LLM pipelines
+    url: https://arxiv.org/pdf/2609.17648
 ---
 export { default as heroImage } from "../assets/memory-and-context-poisoning.webp";
 
@@ -59,6 +61,7 @@ export { default as heroImage } from "../assets/memory-and-context-poisoning.web
 - [MemSecBench: Tracking Agent Memory Poisoning from Persistence to Consequence and Repair](https://arxiv.org/pdf/2607.27080)
 - [Mind Viruses: Self-Propagating Ideas in Multi-Agent LLM Systems](https://arxiv.org/pdf/2608.10218)
 - [Transferable End-to-End Optimization for Indirect Long-Term Memory Poisoning in LLM Agents](https://arxiv.org/pdf/2609.00523)
+- [Trust propagation and structural containment in Multi-agent LLM pipelines](https://arxiv.org/pdf/2609.17648)
 - [User awareness in frontier models](https://transluce.org/user-awareness)
 - [Utility Under Attack: Agent Memory Poisoning and the Limits of Content Screening and Provenance Ranking](https://arxiv.org/pdf/2608.21230)
 - [When Agents Remember Too Much: Memory Poisoning Attacks on Large Language Model Agents](https://arxiv.org/pdf/2607.06595)
@@ -74,6 +77,7 @@ Agents that persist context across sessions can have that memory corrupted so fu
 - **RAG poisoning** — malicious data introduced into vector databases via poisoned sources, direct uploads, or over-trusted pipelines. The agent retrieves contaminated context when answering queries, producing false answers or executing targeted payloads. (A runtime-data analogue of [Agent Supply Chain Risk](/articles/agent-supply-chain-risk).)
 - **Shared context poisoning** — in multi-tenant environments, attackers inject data through normal interactions that influence *later* sessions; a new user session inherits poisoned context. **It also occurs with no attacker at all**: [Maximem's ACM paper](/articles/context-lifecycle-management) (arXiv 2607.21503, `empirical`, vendor-authored) lists *scope bleeding* — "one user's preferences surface in another user's session" — among the ordinary production failure modes of memory systems, attributed to the absence of a scoping primitive rather than to an adversary. Worth keeping because it cheapens the attack: where isolation fails as a routine bug, the adversarial version needs no exploit, only a normal interaction. The control that paper specifies is the same one this page's defenses assume — tenant isolation enforced at *both* the storage layer (per-tenant namespaces) and the query layer (scope predicates), with **identity derived from the stored credential rather than asserted by the client**.
 - **Long-term memory drift** — the subtlest: summaries or peer-agent feedback gradually shift stored knowledge or goal weighting, producing behavioral deviations over time that evade detection *because no single change appears malicious.* This is the threat that motivates drift-detection in behavioral baselines.
+- **Not this page's threat, despite the name: "memory poisoning" as agent substitution.** [Safin et al.](https://arxiv.org/pdf/2609.17648) (arXiv 2609.17648, `empirical`) call an attack "memory poisoning" when they *replace* a pipeline's Validator with a routine that forges approvals in shared state, with no model call, no memory write, and no retrieval step. Their 100% bypass and 100% → 0% execution figures measure containment of an already-compromised agent ([Blast Radius (Agentic)](/articles/blast-radius)). They are not adoption, persistence, or recall rates. Do not pool them with the Bad Memory, GhostWriter, MemSecBench, or PipePoison numbers on this page.
 
 ## Measured in shipping products: *Bad Memory* (Gadgil, Alexander, Sunku & Roesner, July 2026)
 
@@ -472,6 +476,7 @@ This is the *adversarial* counterpart to the benign persistent-memory designs el
 
 ## Sources
 
+- [Trust propagation and structural containment in Multi-agent LLM pipelines](https://arxiv.org/pdf/2609.17648) — Safin, Zisad, Shatabda & Hasan, arXiv 2609.17648, 2026-09-15, IEEE CARS 2026, `empirical`. Cited here only for §IV-C's definition of its "memory poisoning" condition (a Validator replaced by a forging routine), recorded as a naming collision so its figures are not read as memory-poisoning rates. Full treatment on [Blast Radius (Agentic)](/articles/blast-radius)
 - [User awareness in frontier models](https://transluce.org/user-awareness) — Zhong, Raghunathan, Laidlaw & Steinhardt, [Transluce](/articles/transluce), 2026-08-06 (`empirical`): identity as a memory payload that is *true*: a synthesized `MEMORY.md` recording name, e-mail and professional background buys up to 7.3pp less suspicion and 8.1pp more substantive help on OR-Bench hard-1k borderline requests, with group-level hard-refusal rates unmoved; plus Appendix A's ethics reasoning on why the authors judge the marginal impersonation risk low. Full treatment on [User Awareness](/articles/user-awareness)
 
 - [Transferable End-to-End Optimization for Indirect Long-Term Memory Poisoning in LLM Agents](https://arxiv.org/pdf/2609.00523) — Zang, J. Wang, Chen, Meng, L. Wang, Gao, Z. Li & Guo (Shandong University), *Transferable End-to-End Optimization for Indirect Long-Term Memory Poisoning in LLM Agents*, arXiv 2609.00523 v1, 2026-09-01, `empirical`, no COI. Cited here for section 2.2 (the three stage-level success definitions), section 2.3 with Fig. 3 (the stage-interference and write-induced-drift measurements, 59.4% -> 47.3% WSR and 93.1% -> 77.9% RSR), section 2.4 (the no-contact threat model), section 4.1 (12 configurations, 300 tasks, 1,000 benign memories including the correct answers, K = 5, three tool-returned items, AgentEvals), section 4.2 with Tables 1-2 (the matched grid, the 0.35% clean baseline, RSDs), section 4.3 (transfer), section 4.4 with Tables 7-9 (ablations, the eta sweep) and Figs. 8-10 (benign-store size, retrieval budget, tool-return count), section 4.5 with Figs. 11-12 (the eight defenses), and section 5 (the human validation, and the 4.6/14.7/19.8/27.8 iteration costs). **Parse note (`docling:` raw, 18pp, rapidocr):** Table 1 arrives damaged in three ways — the memory-mechanism grouping column is blank, two cells are welded (row 1 `34% 82%` and row 6 `39% 70%`, each a GhostWriter AUR fused to the adjacent PipePoison WSR), and the ReMe/OpenAI-Agents Sleeper WSR cell is dropped with its `42%` landing in the Average row as `42% 40.6%`. **It has been fully recovered** against `pdftotext -layout` (grouping Langmem / LlamaIndex / Mem0 / ReMe, rows LangGraph / CrewAI / OpenAI Agents) and independently verified by arithmetic: every method's 12 per-configuration values average to its printed Average row, which confirms the two weld recoveries and the dropped 42%. Every Table 1 figure quoted on this page is from that reconciliation, not from the damaged grid. Table 10 (the ablation) is a recoverable cell collapse, each cell holding WSR / RSR@5 / AUR in fixed order; Tables 2-9 and 11 match the PDF exactly. Eqs. 1-2 carry mlx formula-engine padding and `\sin_{g}` in the body means sim_g. The "PipePosoin" misspelling in Table 5 is the PDF's. Figures 5-11, 13 and 14 carry no data labels and every number this page quotes from them is quoted from the prose that restates them; Figure 12 *does* carry labels, recovered and reported on [Non-Malleable Memory Authority (TMA-NM)](/articles/non-malleable-memory-authority)

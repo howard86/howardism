@@ -1,0 +1,61 @@
+---
+date: 2026-07-29
+title: "App Server 與 MCP，以及 Claude 端的對應方案：驅動代理程式的三道邊界"
+description: "關於代理程式整合邊界的雙問題綜合分析。(1) App Server 與 MCP 並非競爭對手——它們位於不同層面：MCP 是模型↔世界的工具層（連接器只需撰寫一次，即可由每個介面使用，並由工具提供者負責營運與驗證），App Server 則是協調器↔執行階段的工作階段層（執行緒生命週期、回合、結構化事件、逾時——這些都不在 MCP 涵蓋範圍內）。兩者唯一重疊之處是動態工具呼叫，而此處的決策準則取決於實際運作方式：可重複使用、跨介面、第三方提供的能力適合 MCP；僅限工作階段、涉及敏感憑證的能力則適合由協調器注入動態工具（linear_graphql 模式——權杖不會抵達子代理程式容器，將有文件記錄的 MCP 攻擊面（遭污染的中繼資料與 rug-pull）限縮至第一方程式碼，但代價是穩定性仍屬實驗階段，且無法在生態系中重複使用）。兩者可以組合：「對模型來說，它們都只是權杖。」(2) Claude 沒有文件記載的公開 App Server 通訊協定對應方案；它的產品從兩端夾住這個位置——`claude -p`（驅動產品 CLI，沿用完整累積的 harness：權限分類器、技能、脈絡檔案、MCP 串接；自動模式遇到無人值守情況會中止，而非卡住）以及 Agent SDK（以原始執行階段打造不同產品——Claude Design 的週末原型）。決策準則：當產品的 harness 就是價值所在，且協調作業呈批次／扇出型態時，驅動 CLI；當代理程式是需要自有工具、事件與 UX 的不同產品時，以 SDK 建構；App Server 所處的中間位置——在產品 harness 上提供結構化工作階段控制——正是 Symphony 從 tmux 演進至通訊協定所顯示的需求，而 Claude 端的協調器目前只能從任一側近似實現這一層"
+tag: Essay
+domain: agent-systems
+tags:
+  - derived
+  - protocol
+  - mcp
+  - agent-orchestration
+  - integration
+readingTime: 7
+imageAlt: "App Server 與 MCP，以及 Claude 端對應方案：驅動代理程式的三道邊界插圖"
+---
+export { default as heroImage } from "../assets/app-server-vs-mcp-vs-claude-sdk.webp";
+
+## 問題
+
+[Codex App Server Protocol](/articles/codex-app-server-protocol) 上的兩個 `#oq/now` 項目：
+
+1. App Server 通訊協定與 MCP 詳細而言有何異同？兩者都會向模型公開工具，但 App Server 位於 Codex 執行階段的*內部*，MCP 則位於*外部*。各自在什麼情況下較適用？
+2. Claude 端是否有類似的通訊協定，還是 Claude 的對應方案只有 Agent SDK 加上工具使用 API？什麼時候「驅動現有 CLI」會勝過「以 SDK 建構」？
+
+## 答案一：不同層面，共有一項重疊功能——而重疊處有明確的決策準則
+
+「兩者都向模型公開工具」這種說法低估了差異。兩種通訊協定處理的是**不同的邊界**：
+
+- **MCP 是模型↔世界的*工具層*。** 這是一種伺服器－用戶端通訊協定，連接器邏輯「每個系統只需撰寫一次，即可由每個 Claude 介面使用」——同一個 Salesforce/Gmail/Figma 連接器可接入 Claude AI、Cowork 與 Claude Code（[MCP and Computer Use](/articles/mcp-and-computer-use)）。伺服器由工具提供者營運並負責驗證；使用者可以是*任何主機中的任何模型*。
+- **App Server 是協調器↔執行階段的*工作階段層*。** 這是一種以換行分隔的 JSON-RPC stdio 通訊協定，其處理範圍不是工具，而是**代理程式工作階段生命週期**：initialize/thread-start/turn-start 交握、重用 `thread_id` 的延續回合、串流回合事件、三種互相獨立的逾時、核准政策串接，以及權杖用量計算（[Codex App Server Protocol](/articles/codex-app-server-protocol)）。這些都完全不在 MCP 的範圍內——只使用 MCP 的協調器仍然無法啟動回合、偵測停滯，或計算權杖用量。
+
+> **規格本身已確認（2026-08-04 新增）。** 「這些都不在 MCP 的範圍內」原本是根據 MCP 未涵蓋的內容推論而來。MCP **2026-07-28** 版修訂明確表達了通訊協定的立場：通訊協定層級的工作階段與 `Mcp-Session-Id` 標頭已**移除**，`initialize`/`notifications/initialized` 交握已**刪除**，改由 `_meta` 中的逐請求版本協商取代，而跨呼叫狀態則移至伺服器產生的控制代碼，並以一般工具引數傳遞（[MCP and Computer Use](/articles/mcp-and-computer-use)、[Codex App Server Protocol](/articles/codex-app-server-protocol)）。兩種通訊協定如今已積極分道揚鑣，而不只是有所不同——以下論述不變，邊界論點則更站得住腳。
+
+因此，對於兩者涵蓋的大部分範圍，「各自在什麼情況下較適用」並不是個問題——像 [Symphony](/articles/symphony) 這類協調器需要工作階段層，模型也需要工具層；兩者可以組合。Boris Cherny 所說的「對模型來說，它們都只是權杖」（[MCP and Computer Use](/articles/mcp-and-computer-use)），正是組合成本低的原因：在模型層，這些基礎機制可以互換。
+
+**真正重疊之處是動態工具呼叫**——這是 App Server 的實驗性功能，允許協調器在 `thread/start` 時宣告工具，「在架構上與 MCP 平行，但[位於]程式碼代理程式的執行階段內」（[Codex App Server Protocol](/articles/codex-app-server-protocol)）。從兩個實例即可得出此處的決策準則：
+
+| 選擇 | 適用情況 | 原因 |
+|---|---|---|
+| **MCP** | 能力具備*可重複使用、跨介面、第三方提供*的特性 | 一次撰寫、各處使用是 MCP 的結構性特點；生態系、OAuth 模式，以及標準化中的授權工作（COAZ）都在此發展（[MCP and Computer Use](/articles/mcp-and-computer-use)） |
+| **動態工具呼叫** | 能力*僅限工作階段且涉及敏感憑證* | `linear_graphql` 模式：協調器使用自己的驗證資訊代理已驗證的呼叫，因此**權杖永遠不會抵達子代理程式容器**（[Codex App Server Protocol](/articles/codex-app-server-protocol)、[Symphony](/articles/symphony)）——外部 MCP 伺服器無法自然提供這種逐工作階段注入方式 |
+
+安全性上的差異值得強調，因為這是「App Server 勝出」最有力的案例：MCP 有文件記載的攻擊面——工具中繼資料遭污染、伺服器更新暗中改變行為，以及透過合法伺服器轉送的惡意資料（[MCP Tool Poisoning](/articles/mcp-tool-poisoning)）——之所以存在，是因為 MCP 工具屬於由第三方營運、且代理程式會信任的介面。由協調器注入的動態工具可將攻擊面縮小至協調器撰寫的第一方程式碼。代價是：此功能明確標示為實驗性（Symphony 的安全模型仰賴此功能——該頁面本身也提出了這項未解問題），版本相容性取決於慣例，而非登錄表機制，且無法在這個協調器之外重複使用。
+
+## 答案二：Claude 端沒有通訊協定——只有兩端夾住的選項，以及選擇方向的準則
+
+**知識庫中沒有 Claude 端對應 App Server 通訊協定的文件。** 現有資料支持的比較是：Claude 的平行方案為 `claude -p`（非互動式 CLI）加上 Claude Agent SDK；「兩者都能讓外部協調器驅動工作階段，但 Codex 的 App Server 對穩定 JSON-RPC 通訊協定的描述更明確」（[Claude Code Best Practices](/articles/claude-code-best-practices)，跨工具能力表；[Codex App Server Protocol](/articles/codex-app-server-protocol) 的 Connections）。這兩種選項是從兩端*夾住* App Server 的位置，而非與之完全相同：
+
+- **`claude -p`——驅動產品。** 整合成本最低；協調器可沿用產品累積下來的整套 harness：權限分類器（包含至關重要的無人值守行為——在非互動模式下，[自動模式](/articles/claude-code-auto-mode)遇到重複封鎖會*中止*，而非卡在無法回答的提示上）、技能、`CLAUDE.md` 脈絡載入，以及既有的 MCP 串接。代價是介面以文字為主——協調器取得的是輸出，而非 App Server 規格中的結構化事件串流、停滯偵測或權杖用量計算。
+- **Agent SDK——打造不同產品。** [Claude Design](/articles/claude-design) 是典型案例：第一個原型是「Agent SDK、一個非常精簡的 IDE 包裝層，以及一項現有技能」，利用一個週末拼湊完成——建構者能完全掌控工具、介面和 UX，但也得自行負責 CLI 原本免費提供的 harness。
+
+**什麼時候驅動 CLI 勝過以 SDK 建構？** 現有資料支持一個包含兩項條件的準則：
+
+1. **當產品的 harness*本身就是*價值所在，而且協調作業呈批次／扇出型態時，驅動 CLI。** 如果你要的是「以程式方式在許多工作上啟動 Claude Code」，例如扇出執行、提交前掛鉤、問題循環執行器，那麼你在 SDK 上必須重建的 harness（權限、技能、脈絡規範、MCP 連線）正是 CLI 已具備的部分，而 `claude -p` 的「中止而不掛起」約定正是為無人在場的情境所設計（[Claude Code Best Practices](/articles/claude-code-best-practices)、[Claude Code Auto Mode](/articles/claude-code-auto-mode)）。
+2. **當代理程式是*不同產品*時，以 SDK 建構。** 不同的介面、不同的工具組、不同的互動模式——Claude Design 需要的是 IDE 形態的畫布，而非終端機；沿用 Claude Code 的 harness 只會礙手礙腳（[Claude Design](/articles/claude-design)）。
+
+值得借鏡的中間案例是：**Symphony 自身的演進顯示，兩端都不合用時會發生什麼事。** 它的 v1 真的是「在 `tmux` 中輪詢 Linear 的 Codex 工作階段」——也就是驅動 CLI——雖然「能運作，但不可靠」；App Server 的存在，正是因為以 CLI 驅動「無法擴展至程式化協調」（[Symphony](/articles/symphony)、[Codex App Server Protocol](/articles/codex-app-server-protocol)）。目前，具有 Symphony 規模需求的 Claude 端協調器（結構化事件、延續回合、停滯偵測、跨產品 harness 的憑證代理工具注入），只能從任一側近似實現這個中間層——剖析 `claude -p` 輸出，或在 SDK 上重建 harness。這個缺口是本比較中仍然存在的部分：Anthropic 是否會推出穩定的工作階段控制通訊協定，或者[隨著模型改進而縮減 harness](/articles/harness-shrinkage-as-models-improve)，SDK 路線是否會變得足夠便宜，以致中間層永遠不必標準化；這是值得觀察的議題，而非目前能回答的問題。
+
+## 綜合結論
+
+依據**邊界，再看操作者**來整理整合問題。工具層（模型↔世界）：使用 MCP，除非工具僅限工作階段且涉及敏感憑證，此時應由協調器注入工具，並讓機密留在容器之外。工作階段層（協調器↔執行階段）：Codex 有通訊協定；Claude 則有兩端夾住的選項——想沿用產品的 harness 就使用 CLI，想打造不同產品就使用 SDK，並且要知道，Symphony 形態的中間方案目前在 Claude 端仍只是近似實現。在模型層，這些都無關緊要——「它們都只是權杖」——因此正確的架構會將三者組合，而非擇一採用。

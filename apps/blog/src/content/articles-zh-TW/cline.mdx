@@ -1,0 +1,95 @@
+---
+date: 2026-08-03
+title: Cline
+description: 開源程式碼代理程式與 harness（VS Code 擴充功能，
+  自備金鑰或由 ClinePass 補貼推論），並將基準測試的逐步爬升公開為一種實務——2026 年 2 月的操作手冊、2026 年 1 月 Opus
+  4.5 專案（Terminal-Bench 上從 47%→57%，四位工程師、兩週）、2026 年 7 月以單一提示自主執行的專案，將 Kimi K3 在
+  Terminal-Bench 2.1 上從 77.5% 提升至 88.8%，以及 2026 年 9 月對其 1,100 萬次安裝的 VS Code 擴充功能遷移的記錄：從 76k 行的舊核心改用共用 Cline SDK，透過自行打造的雙組建版本部署，並以受控 A/B 測試顯示
+  task.mistake_limit_reached 從 6.34% 降至 0.62%（10 倍）
+tag: Entity
+domain: entities
+entityType: software
+tags:
+  - entity
+  - agent-runtime
+  - coding-agent
+  - harness
+  - open-source
+readingTime: 12
+imageAlt: Cline 的插圖
+sources:
+  - title: Recursive Self Improvement for Coding Agents
+    url: https://cline.bot/blog/recursive-self-improvement-for-coding-agents
+  - title: "ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP"
+    url: https://arxiv.org/pdf/2606.27027
+  - title: How We Migrated 11 Million Users to Cline's Biggest Harness Upgrade
+    url: https://cline.bot/blog/how-we-migrated-11-million-users-to-clines-biggest-harness-upgrade
+---
+export { default as heroImage } from "../assets/cline.webp";
+
+## 資料來源
+
+- [How We Migrated 11 Million Users to Cline's Biggest Harness Upgrade](https://cline.bot/blog/how-we-migrated-11-million-users-to-clines-biggest-harness-upgrade)
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents)
+- [ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP](https://arxiv.org/pdf/2606.27027)
+
+## 這是什麼
+
+**開源程式碼代理程式**，主要以 VS Code 擴充功能形式發行，設計上不綁定模型：使用者自備供應商金鑰（OpenRouter、Anthropic、OpenAI、本機模型），而非被綁定於單一實驗室的模型。這種模型不綁定的特性就是產品定位——Cline 以 *harness* 品質競爭，而非自行持有模型權重，並宣傳特定的模型與 harness 配對（「Cline 是執行 Kimi K3 的最佳 harness」）。它也推出 **ClinePass**，每月 9.99 美元的訂閱方案，提供精選開放權重模型的補貼推論（[Kimi K3](/articles/kimi)、DeepSeek、GLM、MiniMax、Qwen），速率限制為標準方案的 2–5 倍，且不需要另外準備供應商金鑰——這是以開放權重優先的商業押注，與並列的前沿實驗室訂閱方案有所不同。
+
+Cline 也是 **MCP 用戶端**：它是 [MCP Tool Poisoning](/articles/mcp-tool-poisoning) 中記錄的 MCP 工具中毒基準測試所採用的兩個用戶端之一（v3.35.0），因此在本資料集中既是攻擊面，也是基準測試的參與者。
+
+## 將逐步爬升作為公開實務
+
+Cline 作為資料來源的特別之處，在於它把**基準測試的逐步爬升視為一套有文件記錄的方法**，而非行銷成果，並且連同失敗實驗一起公開。
+
+- **2026 年 1 月**——將 Opus 4.5 在 Terminal-Bench 上的成績從 **47% → 57%**。四位工程師花了大約兩週，手動閱讀模型執行軌跡、提出假設並測試修正方法。
+- **2026 年 2 月**——公開由此整理出的操作手冊（「A Practical Guide to Hill Climbing」）。
+- **2026 年 7 月**——以自主方式執行相同的爬升流程：一個提示、GPT-5.6-Sol 擔任領導模型、無人值守執行 17 小時、約 1B 個 tokens、花費約 680 美元，讓 Cline + [Kimi K3](/articles/kimi) 在 Terminal-Bench 2.1 上從 **77.5%（79 美元）提升至 88.8%（49.8 美元）**，並追平 Moonshot 自行回報的 88.3% SOTA。完整記錄見 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization)。
+
+Cline 表示會把這套流程列為標準發行慣例：每個新模型都先跑一次基線測試，再針對該模型執行自主最佳化專案。
+
+> **截至 2026-08-04，77.5% → 88.8% 的主張仍有爭議；爭議不在數字，而在歸因。** Wang 等人（[arXiv 2607.12227](https://arxiv.org/pdf/2607.12227)，Ai2 / UW，`empirical`）在**相同基準測試**Terminal-Bench 2.1 上，以 Claude Opus 4.6 和 GPT-5.4 執行預算匹配的基線測試。讓單純的**平行取樣**使用與演化迴圈相同的推論預算後，它在所有受測模型上的成績都勝過自動 harness 演化（沒有單元測試回饋時平均 pass@1 為 72.3 對 67.4；有回饋時為 86.0 對 75.8），而演化後的 harness 在同一測試套件的保留任務上只提升 **+0.6pp**。Cline 的專案沒有回報預算匹配的基線，也沒有保留測試切分，因此無法區分「harness 變好了」與「我們花 17 小時和約 1B 個 tokens 搜尋」。有兩點對 Cline 有利：Wang 等人沒有測試 Cline 的 harness 或模型；而 Cline 的五項修正是修補成熟正式環境 harness 中的真實缺陷，這與改善一個已足夠用的最精簡 harness 是不同任務，也是這項批評最不適用之處。三方完整權衡見 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization)。
+
+## 如何衡量 Cline 作為來源的可信度
+
+`case-study`。Cline 對自己的 harness 做基準測試，公布自己的分數，而且至少從 2026 年 1 月起便持續針對該測試套件最佳化。它公開了執行軌跡、成本明細和合併的 PR，揭露程度高於多數供應商，但仍不是第三方複現。2026 年 7 月的文章也回報負面結果——一項實驗未能取得因果上的功勞、一項修正只部分奏效，還有兩次執行因無效而作廢——這是值得給予它一定信任的主要原因。它與其他模型基準測試成本的比較，並未控制 harness 差異（[Compute-Controlled Benchmarking](/articles/compute-controlled-benchmarking)）。
+
+如今，缺少的控制項有了名稱和實測結果。Cline 沒做的是**預算匹配的基線測試**——使用同樣的運算資源反覆取樣，而不是改寫框架——而一家 `empirical` 第三方機構後來已證明，在這個特定基準測試上，基線方法勝出。這不代表 88.8% 是錯的，而是 Cline 自己的設計無法支持其因果解釋（「harness 得到了改善」）。應將這次專案視為附有分數的建置紀錄，而非 harness 演化能帶來什麼的證據。
+
+## Anthropic fallback 的外部觀察
+
+Cline 嘗試讓 [Claude Fable 5](/articles/claude-fable-5) 擔任領導模型，執行相同的自主專案，但最後放棄：「安全分類器一直把模型降級到 Opus-4.8。」這只是單一供應商隨口提及，而非一項測量；但它是第三方觀察到 [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) 的路由機制影響真實工作負載的案例——以程式碼 harness 進行 AI 評估研究，沒有網路安全或生物領域的框架。
+
+## 遷移 VS Code 擴充功能：沒有平台控制桿的部署方式
+
+這是與上述兩者不同類型的來源——不是代理程式最佳化基準測試，而是 Cline 自家的工程團隊重寫旗艦級、安裝數達 1,100 萬的 VS Code 擴充功能，並以儀表板上的 A/B 測試證明重寫的價值（[How We Migrated 11 Million Users to Cline's Biggest Harness Upgrade](https://cline.bot/blog/how-we-migrated-11-million-users-to-clines-biggest-harness-upgrade)，Saoud Rizwan，Cline 部落格，2026-09-02，`empirical`，供應商觀點）。
+
+**要解決的問題。** VS Code 擴充功能使用一個私有的舊核心，約有 76,000 行，源自 2024 年；與此同時，所有較新的 Cline 介面（CLI、Desktop、JetBrains）都已使用共用 Cline SDK。第一次遷移嘗試已經發布，卻造成嚴重問題而遭回退。比重寫程式碼更棘手的問題是，**VS Code Marketplace 沒有逐步部署的控制桿**：發布只有「全部」或「零」，版本只能遞增（無法回退），而不良版本唯一的修正方式是發布一個編號更高的新版本——補救週期要花上數小時到數天。
+
+**因應方式：同時打包兩個版本，讓擴充功能自行負責部署機制。** 每次安裝都包含一個約 46 KB 的載入器，以及 `legacy/` 和 `next/` 兩個組建版本；PostHog 功能旗標依據百分比決定每個視窗啟用哪一個，啟動時檢查，並只在工作階段之間更新（絕不在任務進行中更新）。如果 `next` 在啟用時當機，載入器會在同一個視窗改用 `legacy`，並將該機器固定在舊版本——產品仍可運作，同時也會擷取當機報告。這個旗標就是緊急停止開關（將比例調至 0% 即可中止），而兩個組建版本共用相同的設定、憑證與任務儲存，因此不需保存各群組成員狀態。由於 VS Code 擴充功能必須在單一 `package.json` 中靜態宣告 IDE 介面，建置流程會根據兩個組建版本產生一份**聯集 manifest**，如果宣告的檢視畫面或設定 schema 有任何不一致，就會直接失敗——這是一項機械式不變條件（見 [Agent Harness Engineering](/articles/agent-harness-engineering) 的「強制維持不變條件，而非實作方式」），讓兩個有所差異的程式碼庫能在重新載入時互換，同時共用同一份 manifest。
+
+**實測結果。** 每個遙測事件都會帶上 `extension_variant: next | legacy`，因此原本已存在的 legacy 群組可在事後加入儀表化，作為即時隨機控制組（團隊將 `task.mistake_limit_reached`——連續三次出錯後詢問人類——以相同語意補進舊 harness，專門用來進行這項比較）。旗標調整步驟：1%（7 月 30 日）→ 5%（8 月 2 日）→ 15%（8 月 5 日）→ 30%（8 月 6 日）→ 50%（8 月 11 日）→ 100%（8 月 23 日）；這些日期是從部署刻度圖讀取，也是文章唯一標註日期的時間線。兩個群組比例都接近 50/50，且各自都經歷完整一天的正式環境流量後：舊 harness 有 **6.34% 的任務觸及錯誤上限，新版本則為 0.62%，減少 10 倍**；按模型細分如下（claude-sonnet-5 11 倍、deepseek-v4-flash 10 倍、deepseek-v4-pro 10 倍、claude-sonnet-4-6 6 倍、gpt-5.6-sol 6 倍）。文章本身指出，事件歸因方式對新引擎不利，因此這些數字是保守估計。Cline 自己的解讀，以及它主張可推廣至其他情況的部分是：舊 harness 會從模型文字串流的 XML 標籤中解析工具呼叫，這是適用於 2024 年模型的可靠機制；2026 年的模型經 RL 訓練後能原生呼叫工具，卻用 2024 年風格的 harness 包裝它們，就等於每一輪都要付出格式問題、解析失敗、重試，最終觸及錯誤上限的代價。較廣泛的主張見 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)；這個案例有個不同之處：被精簡的不是提示，而是工具呼叫的*機制*被整個替換。
+
+**證據權重。** Frontmatter 標記為 `empirical`，完整閱讀後也沒有理由推翻這個標記——這是真正受控的比較（由功能旗標定義的群組切分、有日期的部署遙測、按模型細分，以及主動揭露對自身結果不利的事件歸因限制），而非單純公告。但它仍是供應商測量自己的產品，沒有第三方複現；應依此衡量，與資料集中其他地方的 [Writer's harness-swap paper](https://arxiv.org/pdf/2607.06906) 和 [DarwinX](https://arxiv.org/pdf/2608.07545) 屬於相同的限制類型。來源內有一處修正：文章正文稱 50/50 切分「維持超過一週」——部署刻度圖上的日期顯示為 8 月 11 日至 23 日，**共 12 天**。舊核心大小的兩個數字無法完全吻合：正文和圖表都寫「約 76k 行」，另一張圖表則寫「75k 行」（數字相同，只是取整不同，並非真正矛盾）；但同一張圖表寫新 VS Code 端程式碼為 **「SDK adapter · 42k lines」**，這與套件拆解圖中的**「21k-line adapter」**不符（21k 的數字明確排除了「保留不變的 UI」；42k 數字的涵蓋範圍則未說明）。原始資料中已將此列為尚未解決；兩個 adapter 數字都應視為不確定，不要自行擇一採用。
+
+這是與上述 2026 年 7 月遞迴自我改善專案不同的 Cline 資料來源，不應混為一談：前者是*代理程式*針對基準測試分數編輯 Cline 的 harness（在 [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) 中討論）；這次則是 Cline 的*人類*工程團隊重寫 harness，並以正式環境遙測證明成效，同時提出一種可重用技巧，讓團隊能在沒有原生逐步部署支援的平台上發布高風險變更。
+
+## 相關連結
+
+- [Agent-Authored Harness Optimization](/articles/agent-authored-harness-optimization) — Cline 在 2026 年 7 月的專案是資料集中的第一個端到端案例，而該頁面評估了結果
+- [Agent Harness Engineering](/articles/agent-harness-engineering) — Cline 的競爭定位是在其他實驗室模型之上提供高品質 harness；其代理程式修正的五項錯誤是典型的 harness 缺陷；2026 年 9 月遷移中的聯集 manifest 建置契約，則是「強制維持不變條件，而非實作方式」的第二個機械式案例
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 遷移的核心論點（採用 2024 年風格、以 XML 工具呼叫的 harness，會讓 2026 年原生呼叫工具的模型付出代價）是該頁主張的具體案例；不同之處在於，修正方法是替換機制，而非精簡提示
+- [Shared Harness, Differentiated Surfaces](/articles/shared-harness-differentiated-surfaces) — 遷移的套件拆解（`@cline/core`、`@cline/agents`、`@cline/llms`、`@cline/shared` 提供給 VS Code/CLI/JetBrains/Desktop/Hub）是第四個供應商案例，展示一個共用 runtime 支援多種產品介面
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy) — 將同一組套件層級的行數視為 Cline 選擇自行打造而非購買的重寫成本
+- [Agent Quality Flywheel](/articles/agent-quality-flywheel) — 與飛輪的評估修正迴圈採用不同紀律，但同樣重視以測量的差值（`task.mistake_limit_reached` 前後比較）而非絕對分數為依據
+- [Kimi (Moonshot AI)](/articles/kimi) — Cline 與之搭配的開放權重模型，出現在基準測試專案和 ClinePass 中
+- [Capability-Gated Model Fallback](/articles/capability-gated-model-fallback) — Cline 是回報因分類器降級而放棄以 Fable 5 進行評估研究的外部單位
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning) — Cline v3.35.0 是工具中毒基準測試所採用的兩個 MCP 用戶端之一
+- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — ClinePass 是一項商業押注，主張精選開放權重模型以訂閱價格已足以應付每日程式設計工作
+
+## 資料來源
+
+- [Recursive Self Improvement for Coding Agents](https://cline.bot/blog/recursive-self-improvement-for-coding-agents) — Ara Khan，Cline 部落格，2026-07-24（`case-study`）：自主專案、2026 年 1 月四位工程師的對照案例、ClinePass 定價，以及放棄 Fable 5 的實驗組
+- [ShareLock: A Stealthy Multi-Tool Threshold Poisoning Attack Against MCP](https://arxiv.org/pdf/2606.27027) — Cline v3.35.0 是兩個受評估 MCP 用戶端之一（§5）
+- [How We Migrated 11 Million Users to Cline's Biggest Harness Upgrade](https://cline.bot/blog/how-we-migrated-11-million-users-to-clines-biggest-harness-upgrade) — Saoud Rizwan，Cline 部落格，2026-09-02（`empirical`，供應商觀點）：VS Code Marketplace 不支援逐步部署的限制、雙組建版本載入器與聯集 manifest 機制、`task.mistake_limit_reached` A/B 測試（6.34%→0.62%，按模型細分）、部署刻度圖日期，以及兩組無法調和的數字（50/50 群組維持 12 天而非「超過一週」；VS Code adapter 行數為 42k 對 21k）

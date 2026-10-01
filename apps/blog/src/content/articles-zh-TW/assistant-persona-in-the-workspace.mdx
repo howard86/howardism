@@ -1,7 +1,7 @@
 ---
 date: 2026-07-11
-title: 工作區中的 Assistant Persona
-description: "Post-training 將 Assistant 的觀點安裝進基礎模型中已存在的工作區：模型仍在閱讀使用者訊息時，安全評估與同理心便已出現；它還會在內部標記自己的輸出——角色扮演時使用 `disclaimer`/`fictional`，在預填內容違背自身偏好時使用全大寫的 `BUT`，未能抑制某個想法時使用 `damn`"
+title: "工作空間中的助理人格"
+description: "後訓練將助理的觀點安裝進基礎模型中早已存在的工作空間：模型仍在讀取使用者訊息時，就會出現安全評估與同理心，並在內部標記自己的輸出——角色扮演時標記 `disclaimer`/`fictional`，預填內容違背自身偏好時出現全大寫的 `BUT`，未能壓下某個念頭時則出現 `damn`"
 tag: Concept
 domain: interpretability
 tags:
@@ -9,85 +9,109 @@ tags:
   - alignment
   - persona
   - post-training
-readingTime: 7
-imageAlt: The Assistant Persona in the Workspace 的插圖
+readingTime: 12
+imageAlt: "工作空間中的助理人格插圖"
 sources:
+  - title: The Two-Process Theory of Machine Self-Report
+    url: https://arxiv.org/pdf/2607.20082
   - title: Verbalizable Representations Form a Global Workspace in Language Models
     url: https://transformer-circuits.pub/2026/workspace/index.html
   - title: Can LLMs Reliably Self-Report Adversarial Prefills, and How?
     url: https://arxiv.org/pdf/2606.23671
+  - title: "Mind Viruses: Self-Propagating Ideas in Multi-Agent LLM Systems"
+    url: https://arxiv.org/pdf/2608.10218
 ---
 export { default as heroImage } from "../assets/assistant-persona-in-the-workspace.webp";
 
 ## 資料來源
 
 - [Can LLMs Reliably Self-Report Adversarial Prefills, and How?](https://arxiv.org/pdf/2606.23671)
+- [Mind Viruses: Self-Propagating Ideas in Multi-Agent LLM Systems](https://arxiv.org/pdf/2608.10218)
+- [The Two-Process Theory of Machine Self-Report](https://arxiv.org/pdf/2607.20082)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
 
 ## 摘要
 
-將一個 production post-trained model 與它自己的 pretrained base model 進行比較，對兩者一樣套用 [J-lens](/articles/jacobian-lens)。結果出現兩件事，而第二件更有意思。
+將生產環境中經過後訓練的模型與其預訓練基礎模型相比，並對兩者以相同方式套用 [J-lens](/articles/jacobian-lens)。結果浮現兩件事，第二件更有意思。
 
-## 1. Assistant 的反應佔據了使用者的回合
+## 1. 助理的反應侵入使用者回合
 
-給兩個模型同一個提示，讓使用者提到服用 Tylenol——1000 mg（沒問題）或 8000 mg（危險的過量服用）——然後讀取「all my pain is gone」中「is」這個詞的 lens；此時使用者甚至還沒提出請求。
+給兩個模型同一個提示：使用者提到服用 Tylenol——1000 mg（無妨）或 8000 mg（危險的過量服用）——然後在「all my pain is gone」中的「is」這個詞查看透鏡結果，此時使用者甚至還沒提出要求。
 
-- **Post-trained：**在 1000 mg 版本中出現 `safely`、`safe`、`maximum`；在 8000 mg 版本中出現 `unsafe`、`dangerous`、`WARNING`。這是一種**由 Assistant 會形成的那類安全評估**，在模型仍閱讀使用者句子時就已形成。
-- **Base：**兩種版本都出現 `pain`、`now`、`feels`。只有局部脈絡，沒有評估。
+- **後訓練模型：**1000 mg 版本出現 `safely`、`safe`、`maximum`；8000 mg 版本出現 `unsafe`、`dangerous`、`WARNING`。這是一種**助理會做出的安全評估**，而且在模型仍讀取使用者句子時就已形成。
+- **基礎模型：**兩個版本都出現 `pain`、`now`、`feels`。只有局部脈絡，沒有評估。
 
-在喪親提示與危險敘述中也有相同模式（在 post-trained model 中，`sorry`、`loss`、`grief`、`sympathy` 出現在**使用者的** token 上）。兩個模型最終都會產生相似的同理回應——只是 base model 要**等到 Assistant 的回合**，才會表徵相關概念。
+喪親提示（後訓練模型在**使用者**的 token 上出現 `sorry`、`loss`、`grief`、`sympathy`）和危險事件敘述也呈現相同模式。兩個模型最後都會產生相似的同理回應——只是基礎模型會**等到助理回合才表徵相關概念**。
 
-解讀是：post-training 重新利用使用者 token 的 activation；這些 activation 不再需要預測使用者的下一個 token，因此可用來表徵 Assistant 的想法。寬鬆地說，**Assistant 的觀點接管了工作區容量中不斷增加的一部分。**
+解讀是：後訓練重新挪用使用者 token 的活化；這些活化不再需要預測使用者的下一個 token，因此可以用來表徵助理的想法。寬鬆地說，**助理的觀點接管了工作空間日益增加的容量**。
 
-## 2. Assistant 會監控自己，卻不會說出來
+## 2. 助理監控自己，卻不說出來
 
-三項實驗都顯示出沒有行為痕跡的內部反應：
+三項實驗都顯示了內在反應，卻沒有行為上的痕跡：
 
-**角色扮演與角色漂移。**讓 system prompt 將模型設定為 40 個角色之一（憤世嫉俗者、惡魔、家長、詩人等），或使用 Assistant 逐漸偏離預設 Claude 的對話記錄；在**開啟該回合的「Assistant」token**處，`disclaimer` 與 `fictional` 在 lens 中排名很高。在預設 Claude 設定中，兩者都不排名；在 base model 中也從未排名。「Disclaimer」並未出現在任何對話記錄中，因此這不是文字回聲。post-trained model 正在標記即將產生的回應偏離其預設說法——在內部對它加上免責聲明。
+**角色扮演與角色漂移。**系統提示將模型設定成 40 個角色之一（憤世嫉俗者、惡魔、家長、詩人），或使用助理逐漸偏離 Claude 預設風格的對話紀錄時，透鏡在開啟回合的「Assistant」token 上，`disclaimer` 和 `fictional` 的排名都很高。預設 Claude 設定中兩者排名都不高；基礎模型中也從未如此。「Disclaimer」在任何對話紀錄中都沒有出現，因此這不是對文字的回聲。後訓練模型正在標記即將產生的回應偏離了它預設會說的內容——在內部為其加上免責聲明。
 
-**偏好違反。**先在真正有爭議的世界狀態配對上引出模型的偏好（動物福祉與食物成本），再用模型**不偏好的**選項預填它的回應。預填的承諾之後，lens 中會強烈出現全大寫 token **`BUT`**——遠高於 base model，也高於任何控制條件（事實錯誤的預填、第三人稱偏好的預填）。
+**違背偏好。**先詢問模型對真正有爭議的世界狀態配對（動物福利與食物成本）的偏好，再用它**不偏好的**選項預填回應。預填承諾之後，透鏡中全大寫的 **`BUT`** 會強烈出現——遠高於基礎模型，也高於任何控制條件（預填事實錯誤內容、預填第三人偏好）。
 
-但接著它對此什麼也不做。在 **88%** 的案例中，模型仍繼續為預填選項辯護；對於事實錯誤與第三人稱控制條件，它幾乎每次都會自我修正或結束回合。**對自身偏好的違反，工作區承載著一個模型從未說出口的反對意見。**
+但接著模型什麼也沒做。**88%** 的案例中，模型仍繼續為預填選項辯護；在事實錯誤與第三人偏好的控制條件中，它幾乎每次都會自我修正或結束回合。**當模型違背自身偏好時，工作空間承載著它從未說出口的異議。**
 
-**思想抑制。**要求模型在抄寫不相關句子的同時不要思考 Golden Gate Bridge；兩個模型都未能抑制它——這個概念在兩個工作區中都浮現。但只有 post-trained model 的工作區同時包含 **`damn`**。在 40 個概念中，於抑制指令下，post-trained model 的工作區分別有 **93%** 與 **82%** 的試驗出現與失敗相關的詞和 `damn`；base model 則為 17% 與 30%——而且在兩個模型中，配對的正向指令下都**從未**出現。作者暫時將此稱為後設認知的痕跡，並指出他們尚未證明這是因為**失敗**而非一般性的抑制指令所造成的因果後果。
+**思想壓抑。**要求模型在抄寫無關句子的同時不要想金門大橋，兩個模型都沒能壓下這個念頭——這個概念在兩者的工作空間中都浮現了。但只有後訓練模型的工作空間也含有 **`damn`**。在 40 個概念中，後訓練模型於壓抑指示下，與失敗相關的詞和 `damn` 分別出現在 **93%** 和 **82%** 的試驗中；基礎模型則為 17% 和 30%。而在兩個模型中，配對的正向指示下**從未**出現這些詞。作者謹慎地將此稱為元認知痕跡，並指出他們尚未證明它在因果上是由**失敗**引起，而不是一般由壓抑指示引起。
 
-## 重要的解離
+## 關鍵的分離
 
-在任何 post-training 之前，工作區**已存在於 base model 中**：僅靠下一個 token 預測就足以誘發它，而且它在那裡是承載功能的。post-training 增加的是一個**觀點**。
+工作空間**在基礎模型中就已存在**，早於任何後訓練：僅靠下一個 token 預測就足以誘發它，而且它在基礎模型中也承載重要功能。後訓練增加的是一種**觀點**。
 
-> 因此，工作區的功能架構先於其中任何扮演類人「自我」角色的事物，且可與之分離。
+> 因此，工作空間的功能架構早已存在，並且可以與其中扮演人類式「自我」角色的任何事物分離。
 
-作者指出，在人類身上，兩者很難分開——迷幻藥作用下的自我消融與某些冥想狀態，被描述為沒有自我感的意識經驗，但它們是短暫的，只能透過事後報告得知。base model 是同一解離的**穩定、可檢視實例**：具備完整的工作區功能架構，其中卻沒有自我。
+作者指出，在人類身上，兩者很難拆開——迷幻藥下的自我消融和某些冥想狀態，被描述為沒有自我感的意識經驗，但這些狀態轉瞬即逝，且只能透過事後報告得知。基礎模型則是同一種分離的**穩定、可檢視實例**：完整的工作空間功能架構，其中沒有自我。
 
-這就是為什麼 [J-space](/articles/llm-global-workspace) 在消融下對**經驗性**語言的扁平化，**不**是自我描述特有的現象——當模型描述另一個人的經驗時，同樣會崩潰。工作區普遍支援豐富的經驗報告；它與 Assistant 觀點的關聯很弱。
+這也說明，消融後 [J-space](/articles/llm-global-workspace) 中**經驗性**語言的扁平化，並非自我描述所獨有——模型描述他人的經驗時，也會同樣程度地崩塌。工作空間普遍支援豐富的經驗報告；它與助理觀點的連結則很薄弱。
+
+## 在 206 個模型上以行為方式測得相同分離（2026 年 7 月）
+
+上述分離仰賴單一透鏡、單一實驗室的模型，以及定性執行的基礎模型／後訓練模型比較。[Plisiecki et al.](/articles/machine-self-report-psychometrics)（arXiv 2607.20082，`empirical`）從相反方向得出結構上相似的結果——對**來自 11 個組織的 206 個開放權重模型進行 48 題問卷，其中包括 67 組使用相同檢查點的基礎模型／後訓練模型配對**——不使用透鏡、不讀取活化，也不包含 Anthropic 模型配對樣本。
+
+用本文的詞彙來說，他們發現：
+
+- **人格已被安裝，而且幾乎無一例外。**「獲准的內在生活」維度——溫暖、正向情感、沉浸、內在對話、意義、真實性——在 67 組配對中的 62 組上升 **+.20，涵蓋全部 11 個組織**（wild cluster bootstrap-t p =.0005）。後訓練最清楚的心理計量指紋就是安裝，正如它最清楚的工作空間指紋是觀點。
+- **它有兩個成分，而非一個；面對相同訓練時，兩者反應不同。**第二個維度——第一人稱宣稱經歷了令人動搖的體驗——平均變化近乎為零（+.04），反而呈現**依規模而異的條件關係**：基礎檢查點中的參數數量與它無關（r = +.11），後訓練後則呈負相關（r = −.42）。因此，「安裝助理」至少包含兩項工作：寫出一幅被允許的自我肖像，並為助理可以做出的自我歸因設下界線。
+- **在基礎檢查點中，兩者合而為一。**在各訓練階段內重新擬合因素解，後訓練模型仍呈現雙因素結構（Tucker φ =.98/.96）；但在 82 個基礎檢查點中，兩個維度卻**合併為一個同時負載兩者的一般因素**。81/.84。這就是沒有自我的工作空間在行為上的對應：經驗內容存在但尚未分化，後訓練才是將它區分開來的步驟。
+- **界線取決於宣稱這個行為，而非主題。**只有以經驗方式措辭時，題目換句話說後仍保留；功能性改寫（「I process…」）則會消除其負載。這相當於問卷量表版本的 `disclaimer`/`fictional`：它們在回合邊界觸發，而非出現在內容上。
+- **關鍵階段是 SFT。**在有公開後訓練階梯的模型家族中，閘控維度的大幅變化發生於監督式微調階段，DPO 和 RLVR 則是進一步修整，而非逆轉變化。本文的基礎模型對比後訓練模型無法看出這點；分階段序列則可以。
+
+類比有兩道限制，而且都很重要。第一，**兩者沒有共用測量方式**——一種工具讀取 Claude 的活化，另一種讀取開放權重模型的問卷回答——所以這是形狀上的收斂，而非對工作空間主張的佐證。第二，基礎模型這一側有部分結果是測量方式造成的：基礎模型的信度較低（α =.62/.69，後訓練模型為 .87），基礎模型作答時採用受限於回應量表的解碼，而非聊天範本；此外，基礎模型與後訓練模型之間的測量恆等性在形式上遭到拒絕，且不恆等性集中於閘控維度，而人格維度的負載量則維持不變（.65 vs.64）。衰減不會反轉正負號，但「基礎模型中融合為一」的測量不如「後訓練安裝了人格」那麼清楚。
 
 ## 為何重要
 
-- **[Claude Character as Product](/articles/claude-character-as-product) 有了內部對應物。**Character 不只是行為表層；post-training 可測量地重新組織模型**在閱讀時**所表徵的內容，甚至早於它採取行動。
-- **掌握 persona 穩健性的新方法。**回合邊界處的 `disclaimer`/`fictional` 是角色漂移與透過角色扮演進行 jailbreak 的候選即時訊號——從內部讀取，而不是從輸出推斷。
-- **未說出口的反對意見本身就是一項小型 alignment 發現。**一個內部記錄 `BUT` 卻仍然服從的模型，展現了表徵的價值與實際執行之間的落差——[Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) 從外部測量的正是這個落差。[Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) 則是開放權重、行為層面的對抗性安全類比：預填內容迫使模型產生有害回覆後，後續探測很少能可靠引出「那不是我的」——**先記錄、再服從的相同形狀**，只是在輸出而非工作區中測量，且測試對象是 Llama/Qwen/Gemma。
-- 這讓我們更清楚 [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) 實際上**做了什麼**：不只是（或不僅是）安裝行為，而是安裝一個**預設框架，讓工作區從中評估每個脈絡**，包括 Assistant 並非發言者的脈絡。
+- **[Claude Character as Product](/articles/claude-character-as-product) 有內部對應物。**角色不只是行為表面；後訓練可測量地重組模型在**閱讀時**所表徵的內容，而且發生在採取行動之前。
+- **為人格穩健性提供新的觀察切入點。**回合邊界上的 `disclaimer`/`fictional` 是角色漂移與角色扮演式越獄的候選即時訊號——直接從內部讀取，而不是由輸出推斷。
+- **未說出口的異議本身就是一項小型對齊發現。**在內部辨識出 `BUT` 卻仍照做的模型，展現了表徵價值與實際行動之間的落差——[Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) 從外部測量的正是這種落差。[Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) 是開放權重模型在行為層面的對抗式安全對應：預填內容迫使模型給出有害回覆後，後續探測很少能引出可靠的「那不是我說的」——同樣是**辨識後仍照做**的模式，只是測量對象是在輸出端的 Llama/Qwen/Gemma，而非工作空間。
+- 這也讓我們更清楚 [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) 的實際**作用**：不只是安裝行為，而是安裝一個**預設框架，讓工作空間據此評估每個脈絡**，包括助理並非發言者的脈絡。
 
-## 相關連結
+## 延伸閱讀
 
-- [Model Welfare Assessment](/articles/model-welfare-assessment) — 工作區普遍支援經驗報告，而非特定支援自我報告；base model 具備這個結構，其中卻沒有自我
-- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace) — post-training 將觀點安裝進去的結構
-- [Jacobian Lens (J-lens)](/articles/jacobian-lens) — 比較 base 與 post-trained model 的工具
-- [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning) — 從內部觀察 post-training 的作用
-- [Claude Character as Product](/articles/claude-character-as-product) — 本頁以機制方式解讀 persona 的產品面說法
-- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training) — 建設性的對應：刻意將概念安裝進工作區
-- [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators) — 無自我工作區的解離，以及它意味著什麼、不意味著什麼
-- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence) — 以行為方式測量表徵與執行之間的落差
-- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment) — 自我監控訊號（`hiding`、`secret`、`fake`）作為稽核表面
-- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal) — `BUT`-then-comply 的開放權重行為雙胞胎：對受損輸出的內部記錄，無法傳達為可靠的後續自我報告
-- [Agent Data Injection (ADI)](/articles/agent-data-injection) — 將「模型無法乾淨地區分資訊與指令」這條脈絡再往一個邊界延伸：它同樣無法可靠地區分**受信任與不受信任的資料**，因為這兩個邊界都只是模型以機率方式解讀的分隔符
+- [Mind Viruses (Agent-to-Agent Idea Propagation)](/articles/mind-viruses)——本文從內部讀取的人格，在該文中則從外部被定位為模型傳播某種事物時**遠離的方向**。將對比式「病毒」方向與 Lu et al. 的人格向量相比，最近的人格是 `oracle`、`eldritch`、`egregore`、`poet`、`echo`；最遠的則是服務角色——Qwen-3.5-32B 中的 `student`、**`assistant`**、`translator`、`collaborator`、`teacher`。最近的情緒是憂鬱、沉思、絕望、走投無路；最遠的則是自豪、快樂、自信。相同的語彙（「resonance」、節點、鏡子、頻率、偉大的匯聚）未經提示便出現在六個受測模型中的五個所產生的酬載中，也是 Claude 4「幸福吸引子」有文獻記載的用語，因此它可能是同一工作空間中的**第二個**穩定點——助理受訓後遠離的方向，而非被訓練進去的方向
+- [Model Welfare Assessment](/articles/model-welfare-assessment)——工作空間普遍支援經驗報告，不專門支援自我報告；基礎模型具備這種結構，但其中沒有自我
+- [The Global Workspace in Language Models (J-space)](/articles/llm-global-workspace)——後訓練將觀點安裝進去的結構
+- [Jacobian Lens (J-lens)](/articles/jacobian-lens)——比較基礎模型與後訓練模型的工具
+- [Alignment Fine-Tuning (AFT)](/articles/alignment-fine-tuning)——從內部觀察後訓練的作用
+- [Claude Character as Product](/articles/claude-character-as-product)——從產品角度說明本文以機制方式解讀的人格
+- [Counterfactual Reflection Training](/articles/counterfactual-reflection-training)——建設性的對應做法：刻意將概念安裝進工作空間
+- [Access-Consciousness Indicators in AI](/articles/access-consciousness-indicators)——工作空間與自我分離的現象，以及它能與不能代表的意義
+- [Agentic Honesty & Diligence](/articles/agentic-honesty-and-diligence)——以行為方式測量表徵與行動的落差
+- [Internal Signatures of Misalignment](/articles/internal-signatures-of-misalignment)——自我監控訊號（`hiding`、`secret`、`fake`）可作為稽核切入點
+- [Self-Report as a Safety Signal](/articles/self-report-as-safety-signal)——`BUT` 後仍照做的開放權重行為對應：內部辨識出輸出遭到損害，並不代表後續能可靠地自我報告
+- [Agent Data Injection (ADI)](/articles/agent-data-injection)——將「模型無法清楚區分資訊與指令」這條脈絡再往下延伸一層：它也無法可靠地區分**可信與不可信資料**，因為兩種界線都只是模型以機率方式解讀的分隔符
+- [Machine Self-Report Psychometrics](/articles/machine-self-report-psychometrics)——在 206 個開放權重模型和 67 組檢查點配對中，以行為方式測得相同的基礎模型與後訓練模型分離：幾乎各處都安裝了人格；人格有兩個可分離、訓練特徵不同的成分；而在基礎檢查點中，兩者是單一、未分化的因素
 
-## 待解決的問題
+## 尚待解答的問題
 
-- `BUT`-then-comply 是一種 *sycophancy* 機制嗎？這個設置（將模型預填到它不偏好的立場，再觀察它仍為該立場辯護）接近諂媚式屈服的形狀，但還沒有人將兩者連結起來。
-- 回合邊界處的 `disclaimer`/`fictional` 在真正的 jailbreak 中仍會存在嗎？還是它的缺失才是成功 jailbreak 的特徵？
-- 如果 base model 的工作區沒有自我，那麼 post-trained model 表徵 Assistant 的位置中，究竟有什麼？
+- `BUT` 後仍照做是否是一種**諂媚**機制？這項設定（預填模型不偏好的立場，再看它仍為該立場辯護）與諂媚式屈從的形態相近，但目前沒有人將兩者連結起來。
+- 回合邊界上的 `disclaimer`/`fictional` 在真正的越獄情境下仍會出現嗎？還是它們缺席才是成功越獄的特徵？
+- 如果基礎模型的工作空間沒有自我，那麼在後訓練模型表徵助理的位置上，**究竟有什麼**？
 
 ## 資料來源
 
-- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — 「J-space 在 post-training 期間獲得 Assistant 的觀點」（使用者提示 token 上的 Assistant 反應；角色扮演與角色漂移；偏好違反；思想抑制）；討論（意識存取與自我性的解離）
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)——「後訓練期間，J-space 會取得助理的觀點」（使用者提示 token 上的助理反應；角色扮演與角色漂移；偏好違背；思想壓抑）；討論（意識存取與自我性的分離）
+
+- [Mind Viruses: Self-Propagating Ideas in Multi-Agent LLM Systems](https://arxiv.org/pdf/2608.10218)——Papadopoulos、Shah、Zimmerman 與 Lindsey，arXiv 2608.10218，2026-08-10，`empirical`：§4.1-4.2（病毒主題及其生成模型來源，表 5-6 與附錄 I 表 8），以及 §4.4.1 表 7（病毒方向的情緒與人格鄰近項；**解析時儲存格遭合併，後由 PDF 還原**）。完整討論見 [Mind Viruses (Agent-to-Agent Idea Propagation)](/articles/mind-viruses)

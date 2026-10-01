@@ -1,7 +1,7 @@
 ---
 date: 2026-05-18
-title: MCP 與電腦使用
-description: "Anthropic 的兩種互補連接機制：MCP 提供結構化的程式化存取（Salesforce/Drive/Gmail/Slack/Figma + 利基產業系統）；當不存在 MCP 時，computer use 作為驅動 GUI 的通用方案；Boris Cherny 的說法是「對模型而言，一切都只是 tokens」"
+title: MCP 與電腦操作
+description: "Anthropic 的兩種互補連接器機制：MCP 提供結構化的程式化存取（Salesforce/Drive/Gmail/Slack/Figma 加上利基產業系統）；沒有 MCP 時，則以電腦操作作為通用備援；Boris Cherny 說「對模型而言，那就只是 tokens」——另外也收錄知識庫中 MCP 線路協定本身的具日期紀錄，最新修訂版為 2026-07-28：移除 sessions 和 initialize 交握，在 _meta 中進行逐請求版本協商，強制要求 server/discover RPC，以 MRTR 取代所有伺服器發起的請求，要求快取欄位 ttlMs/cacheScope，並訂定功能生命週期政策，包括 12 個月棄用期與已棄用功能登錄表（Roots/Sampling/Logging、HTTP+SSE、OAuth DCR→Client ID Metadata Documents）"
 tag: Concept
 domain: agent-systems
 tags:
@@ -10,8 +10,8 @@ tags:
   - tool-use
   - integration
   - anthropic
-readingTime: 16
-imageAlt: MCP 與電腦使用的插圖
+readingTime: 33
+imageAlt: MCP 與電腦操作的插圖
 sources:
   - title: "Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next"
     url: https://www.youtube.com/watch?v=SlGRN8jh2RI
@@ -25,155 +25,245 @@ sources:
   - title: OpenID Foundation advances authorization for the agent era with new
       AuthZEN Working Group Drafts
     url: https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/
+  - title: MCP Specification Changelog — 2026-07-28
+    url: https://modelcontextprotocol.io/specification/2026-07-28/changelog
+  - title: "Delegation Without Trust: An Empirical Gap Analysis of Identity,
+      Authorization, and Runtime Governance in Multi-Agent LLM Systems"
+    url: https://arxiv.org/pdf/2609.00267
+  - title: A First Measurement Study on Authentication Security in Real-World Remote
+      MCP Servers
+    url: https://arxiv.org/pdf/2605.22333
+  - title: Building Prod with Jev and LangGraph
+    url: https://www.langchain.com/blog/building-prod-with-jev-and-langgraph
 ---
 export { default as heroImage } from "../assets/mcp-and-computer-use.webp";
 
 ## 資料來源
 
+- [A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333)
 - [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph)
+- [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)
 - [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
 - [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)
 - [Zero Trust for AI Agents](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a1611a04085d7cd3dadc924_Claude-eBook-Zero-Trust-for-AI-Agents-05182026.pdf)
 
 ## 摘要
 
-兩種將模型連接至外部軟體的互補機制，皆由 Anthropic 建立，並且都是 [Claude Code](/articles/claude-code)／[Cowork](/articles/cowork)／Chat 產品介面中不可或缺的基礎。**MCP**（Model Context Protocol，模型上下文協定）提供結構化、程式化的存取——「你在 Claude AI 中使用的相同連接器」可以接上 Salesforce、Google Docs、Google Calendar、Slack、Figma、Gmail，以及越來越多的利基產業系統。**電腦使用**則是沒有 MCP 時軟體的**通用方案**：模型直接驅動 GUI（滑鼠、鍵盤、螢幕），速度較慢，但在 Opus 4.7 上已越來越有能力。Boris Cherny 的說法是：*「對模型而言，一切都只是 tokens」*——MCP／API／電腦使用是同一能力的可互換基礎。
+兩種互補機制，讓模型連接外部軟體；兩者都由 Anthropic 打造，都是 [Claude Code](/articles/claude-code)／[Cowork](/articles/cowork)／Chat 產品介面上的關鍵支柱。**MCP**（Model Context Protocol）提供結構化的程式化存取——「你在 Claude AI 裡用的同一個連接器」可以接上 Salesforce、Google Docs、Google Calendar、Slack、Figma、Gmail，以及愈來愈多利基產業系統。**電腦操作**則是沒有 MCP 的軟體的**通用備援**：模型直接操作 GUI（滑鼠、鍵盤、螢幕）；速度較慢，但 Opus 4.7 的能力愈來愈好。Boris Cherny 的說法是：「*對模型而言，那就只是 tokens*」——MCP／API／電腦操作只是實現同一能力、可以互換的底層方式。
 
 ## MCP 是什麼
 
-由 Anthropic Labs 於 2024 年底建立，與 [Claude Code](/articles/claude-code) 和桌面應用程式一同推出，來自 [Boris](/articles/boris-cherny) 的創始團隊。這是一種採用伺服器—客戶端架構的結構化工具呼叫協定：
+由 Anthropic Labs 於 2024 年底打造，與 [Claude Code](/articles/claude-code) 和桌面 app 同期推出，出自 [Boris](/articles/boris-cherny) 的創始團隊。這是一種採用伺服器－客戶端架構的結構化工具呼叫協定：
 
-- **伺服器**——與外部系統（Salesforce、Slack、Gmail、內部 CRM、利基產業 SaaS）並行執行；以具型別的函式呼叫形式公開可用工具。
-- **客戶端**——消費這些工具的 Claude 介面（Claude Code、Cowork、Claude AI、第三方代理）。
-- **到處都是相同的連接器。**「你在 Claude AI 中擁有的相同 MCP 連接器，可以像接上 Salesforce 一樣接上 Google Docs、Google Calendar。Cowork 可以使用它，Claude CLI 可以使用它，Claude Code 到處都可以使用它。」——Boris Cherny
+- **伺服器**——與外部系統（Salesforce、Slack、Gmail、內部 CRM、利基產業 SaaS）一同運作；將可用工具以具型別的函式呼叫形式公開。
+- **客戶端**——使用這些工具的 Claude 介面（Claude Code、Cowork、Claude AI、第三方代理程式）。
+- **各處都用同一組連接器。**「你在 Claude AI 裡用的同一個 MCP 連接器，可以接上 Salesforce、Google Docs、Google Calendar。接著 Cowork 可以用，Claude CLI 可以用，Claude Code 到處都可以用。」——Boris Cherny
 
-其結構特性是：每個系統只需撰寫一次連接器邏輯，就能由每個 Claude 介面使用。這正是讓 [Cowork](/articles/cowork) 能橫跨現有知識工作工具（Salesforce、Docs、Drive、Slack 等）運作的原因，而 Anthropic 不必為每項工具個別建立整合。
+它的結構性優勢在於：每個系統只需撰寫一次連接器邏輯，就能讓所有 Claude 介面使用。這讓 [Cowork](/articles/cowork) 能涵蓋現有的知識工作工具（Salesforce、Docs、Drive、Slack 等），而 Anthropic 不必為每種工具各自打造整合。
 
-## 電腦使用是什麼
+## 協定修訂版 2026-07-28：MCP 改為無狀態
 
-當沒有 MCP 時，作為備援方案的通用 GUI 驅動。模型查看螢幕截圖，決定要點擊、輸入或捲動什麼，再透過無障礙／自動化 API 執行。它可以操作「你電腦上幾乎任何一套軟體」（Boris Cherny）。
+以上描述的是連接器的*模式*。本節記錄的是**線路協定**；直到現在，知識庫對它的追蹤僅止於建構在協定之上的工具能做什麼。修訂版 **2026-07-28**（[MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog)）是本文整理的第一個 MCP 規格版本，相較前一版 `2025-11-25` 有重大變動。
 
-截至 Opus 4.7，其特性如下：
+> **證據層級：`vendor-claim`。** 規格對於*協定要求什麼*具有權威性，但除此之外不構成任何證據——不能證明採用情況、任何 SDK 或伺服器是否符合規範，也不能證明特定要求能帶來安全成效。請將以下每一項都理解為「規格現在這麼寫」，而不是「部署環境現在都這麼做」。
 
-- **品質**——「相當不錯……現在做得相當好，尤其是 4.7」（Boris）。[Anthropic](/articles/anthropic)「在電腦操作方面確實領先不少」。
-- **延遲**——「非常慢」。對相同任務而言，比 MCP 消耗更多 tokens，因為每次動作都需要一次螢幕截圖往返。
-- **涵蓋範圍**——通用。當目標軟體沒有 API、沒有 MCP、沒有 Python 函式庫，唯一介面是面向人類的 UI 時，就由電腦使用負責運作。
+**工作階段已移除。** Streamable HTTP 不再有協定層級的工作階段，`Mcp-Session-Id` 標頭也已移除；`initialize`／`notifications/initialized` 交握則直接刪除（SEP-2567、SEP-2575）。`tools/list`、`resources/list` 和 `prompts/list` 不再依連線而異；需要跨呼叫狀態的伺服器必須產生明確的控制代碼，並像一般工具引數一樣傳遞。MCP 現在從設計上就是無狀態的。
 
-Cowork 是目前電腦使用最重要的部署介面：許多知識工作應用程式都缺乏程式化介面。
+**版本協商從每個工作階段一次，改成每個請求一次。** 每個請求都會在 `_meta` 中攜帶 `io.modelcontextprotocol/protocolVersion` 和 `io.modelcontextprotocol/clientCapabilities`；客戶端 SHOULD 在每個請求中傳送 `clientInfo`，伺服器 SHOULD 在每個結果的 `_meta` 中回傳 `serverInfo`；若版本不符，則回傳 `UnsupportedProtocolVersionError`。新增的 **`server/discover`** RPC 是伺服器 **MUST** 實作、客戶端 **MAY** 呼叫的功能，可事先公告支援的版本、能力和身分，也可在 STDIO 上作為向下相容性探測。
 
-## 「其實不重要」論點
+**伺服器不能再主動發起請求。** *Multi Round-Trip Requests*（MRTR，SEP-2322）取代所有伺服器發起的請求：`roots/list`、`sampling/createMessage`、`elicitation/create`。需要更多輸入時，伺服器會回傳帶有 `inputRequests` 的 `InputRequiredResult`（`resultType: "input_required"`）；客戶端在**重試原始請求**時提供 `inputResponses`。現在所有結果都必須帶有 `resultType`；較早協定版本的伺服器若省略此欄位，其結果 MUST 視為 `"complete"`。變更通知改由單一、須明確訂閱的長效 `subscriptions/listen` 串流傳遞（取代 HTTP GET 端點和 `resources/subscribe`）；像 `notifications/progress` 這類請求範圍內的通知，仍會沿用各自請求的回應串流。
 
-Boris 對 MCP、API 與電腦使用之間問題的說法：
+**快取成為契約的一部分。** `tools/list`、`prompts/list`、`resources/list`、`resources/read` 和 `resources/templates/list` 的結果現在 **MUST** 透過新的 `CacheableResult` 介面帶有 `ttlMs`（新鮮度提示）和 `cacheScope`（`"public"`／`"private"`）；伺服器 **SHOULD** 以確定性順序回傳工具。變更紀錄給出的理由是客戶端快取與 LLM prompt-cache 命中率，而非安全性。不過，這些變更仍會產生安全層面的副作用；詳見 [MCP Tool Poisoning](/articles/mcp-tool-poisoning)。
 
-> 「這些事情其實沒有那麼重要。可以是 MCP、API，或某種程式化存取，因為模型不在乎。對模型而言，一切都只是 tokens。」
+### 功能生命週期：首份具日期的能力登錄表
 
-基礎是可互換的——工作就是「以模型能消費的形式，將能力公開給模型」。MCP 針對結構化／快速／低成本進行最佳化；電腦使用則針對通用／備援／緩慢進行最佳化。兩者最後都可化約為 token 層級的工具呼叫。
+此修訂版採用**功能生命週期與棄用政策**——Active／Deprecated／Removed 狀態、**至少十二個月的棄用期**，以及一份**已棄用功能登錄表**（本次修訂版的主要變更中，只有這項有自己的規格頁）。這份登錄表讓協定能力終於有了可追溯的日期：在此之前，若不比較 schema，就無從回答「這還屬於 MCP 嗎？」
 
-這與[苦澀教訓](/articles/the-bitter-lesson)相連：隨著模型進步，「使用 MCP」和「使用電腦使用」之間的界線，應該由*模型*決定，而不是由人類設計的 harness 決定。Boris 對未來幾年的預測：
-
-- 「模型將會負責所有程式碼。它將會啟動代理。它將會建立環境。」——其中當然也包括選擇呼叫工具時合適的基礎。
-- 電腦使用被特別點名為「將會大幅變好」的產品領域。
-
-## 實際的跨介面使用
-
-| 介面 | MCP 範例 | 電腦使用範例 |
+| 能力 | 截至 2026-07-28 的狀態 | 規格列出的遷移方式 |
 |---|---|---|
-| [Claude Code](/articles/claude-code)（CLI） | GitHub、檔案系統、Slack | 罕見——工程工具通常都有 CLI／API |
-| [Cowork](/articles/cowork) | Salesforce、Google Drive/Docs/Calendar、Gmail、Slack、Figma | 沒有 MCP 的軟體；尤其是知識工作應用程式 |
-| Claude AI（聊天） | 相同的連接器集合 | 可使用電腦使用 |
-| 行動版／網頁版 | 相同的 MCP 基礎設施 | 瀏覽器端，搭配螢幕分享權限 |
+| `initialize`／`notifications/initialized` 交握 | **已移除** | 每個請求的 `_meta` 版本＋`server/discover` |
+| 協定層級工作階段、`Mcp-Session-Id` | **已移除** | 伺服器產生的控制代碼作為工具引數 |
+| `ping`、`logging/setLevel`、`notifications/roots/list_changed` | **已移除** | 每個請求的 `io.modelcontextprotocol/logLevel` |
+| SSE 可續傳性／`Last-Event-ID` 重新傳送 | **已移除** | 以新的 ID 重新送出請求 |
+| 伺服器發起的請求（`roots/list`、`sampling/createMessage`、`elicitation/create`） | **已移除** | MRTR `InputRequiredResult` |
+| Tasks | **移出核心** | 官方 `io.modelcontextprotocol/tasks` 擴充功能 |
+| Roots、Sampling、Logging | **已棄用**（≥12 個月期限） | 工具參數／資源 URI；直接使用 LLM 供應商 API；`stderr` 或 OpenTelemetry |
+| HTTP+SSE 傳輸 | **已棄用**（自 `2025-03-26` 起軟性棄用） | Streamable HTTP |
+| `includeContext: "thisServer"`／`"allServers"` | **已棄用** | 省略，或使用 `"none"` |
+| OAuth 2.0 Dynamic Client Registration（RFC 7591） | **已棄用** | Client ID Metadata Documents |
 
-[Cat Wu](/articles/cat-wu) 的每晚簡報工作流程（[Cowork](/articles/cowork)）明確使用 MCP——Figma MCP、Slack MCP、Drive MCP——而不是電腦使用，因為對一個希望在早晨前完成的工作流程來說，延遲成本無法接受。
+其他較小的新變更包括：客戶端／伺服器能力新增 `extensions` 欄位；`_meta` 的 OpenTelemetry trace-context 慣例（`traceparent`、`tracestate`、`baggage`）；Streamable HTTP POSTs 必須帶有 `Mcp-Method`／`Mcp-Name` 標頭，另新增供工具參數提供自訂標頭的 `x-mcp-header`；`inputSchema`／`outputSchema` 放寬對 JSON Schema 2020-12 的支援；錯誤碼配置政策將 JSON-RPC 伺服器錯誤範圍（`-32020`–`-32099`）保留給規格使用；以及採 PR 為基礎的 SEP 流程，搭配 `seps/` markdown 檔案。
 
-## 在創辦人手冊中（[AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle)）
+### 授權：規格選擇 CIMD 而非 DCR
 
-這份手冊將 MCP 視為每個階段的主要整合機制：
+四項小幅變更讓 MCP 的授權層與 [Agent Identity and Authentication](/articles/agent-identity-and-authentication) 和 [AIMS](/articles/agent-identity-management-system) 已涵蓋的內容接軌：授權伺服器 SHOULD 依 **RFC 9207** 納入 `iss`，而客戶端 **MUST** 在兌換授權碼前，依已記錄的 issuer 驗證它；客戶端憑證 **MUST** 以 issuer identifier 為索引，**MUST NOT** 在不同授權伺服器之間重複使用，且授權伺服器（AS）變更時 **MUST** 重新註冊；DCR 必須明確指定 `application_type`；此外，**RFC 7591 Dynamic Client Registration 已棄用，改用 Client ID Metadata Documents**。CIMD 是 AIMS §10.10 在 Discovery 項目下已列出的基本機制——因此，一個正式發布的協定和一份標準草案各自獨立地趨同採用它，這是該頁面所提多方治理問題的一項實際（雖然範圍有限）證據。
 
-- **構想階段**——Cowork 使用 Gmail 和 Google Calendar MCP 管理外展對話串、安排客戶訪談，以及執行第 7 天的後續跟進。
-- **MVP 階段**——「構想階段管理探索流程的相同 MCP 整合，在此適用於」回饋會議排程、錯誤回報分類，以及迭代週期追蹤。
-- **規模化階段**——與**競爭者聞所未聞的利基產業系統**整合 MCP，被列為護城河的組成部分（例如，通用型醫療帳單 AI 會在 340B 藥品計畫申報上失效；垂直領域專家的 MCP 串接競爭者則不會）。
+#### 對照八項要求框架檢視此設定檔涵蓋的範圍（2026-08）
 
-手冊中的兩個案例研究，具體呈現了 MCP 作為護城河的觀點：
+上方登錄表記錄了*哪些內容變了*；一個月後發表的差距分析則記錄了*此設定檔涵蓋到哪裡*。Dantuluri 與 Sundi（[Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)，arXiv 2609.00267，`empirical`——**VotalAI COI；此處是規格解讀，不是執行測試**；完整討論見 [AIMS](/articles/agent-identity-management-system)）依八項受治理多代理程式委派要求，評估四種代理程式執行環境；**MCP authz rev. 2026-07-28 是四者中唯一在任何項目上得分的方案**——LangGraph 1.2.10、CrewAI 1.15.13 和 AutoGen 0.7.5 八項要求全都未提供。此設定檔提供的內容：
 
-- **Kindora** 提供 MCP 連接器，讓非營利組織能夠*直接在 Claude 裡*使用其潛在客戶開發工具——產品是透過 MCP 使用，而不只是「與」MCP 整合。
-- **Anthropic Skills** 被提及為反覆工作流程的編碼介面（「我如何稽核商業租約」、「我如何分類病患初診表」）——Skills + MCP + 記憶共同構成[複利資料護城河](/articles/compounding-data-moat)概念所描述的專有基礎。
+- **Mandatory Resource Indicators（RFC 8707）**會將每個 token 的受眾限制在特定伺服器，避免跨伺服器重複使用 token——在 token 竊取／重播以及傳送者約束憑證兩項上可獲部分分數。
+- **OAuth 2.1 資源伺服器模型會在客戶端模型之外驗證 token**——論文稱為關鍵要求的項目（「如果由模型控管存取權，遭劫持的模型就能取得存取權」），此處透過結構設計而非依賴意圖來滿足。
+- **短效 token 和撤銷**是 OAuth 的內建能力。
 
-手冊本身較少強調電腦使用，但其中將 Cowork 稱為橫跨「每個階段」的營運層；而 Cowork 正是電腦使用填補 MCP 缺口的地方。
+它**沒有**提供的內容，也是評分為部分滿足而非已緩解的原因：**沒有逐跳權限收斂**——設定檔中的任何內容都無法讓委派代理程式為子代理程式簽發權限範圍嚴格更窄的 token；也**沒有跨代理程式委派來源資訊**，所以代理程式對代理程式的鏈結沒有可追溯至人類授權的密碼學記錄。兩者都是代理程式彼此互動時的屬性，而 MCP 的授權模型是客戶端↔伺服器模型；論文更廣泛的主張是，**目前沒有**任何標準設定檔能在每一跳同時組合權限收斂、工作負載綁定、短效期限和模型外執行。作者指出，MCP 對應欄位最可能過時：*「尤其應該重新對照目前的授權規格檢查 MCP 欄位。」*
 
-## 與 harness 縮減的連結
+~~**大規模部署的補充資料：第三方且尚未在此交叉驗證。** 同一篇論文引用 Zhou 等人（arXiv 2605.22333）對 **7,973 個線上遠端 MCP 伺服器**所做的認證測量：**超過 40% 的伺服器在完全沒有認證的情況下公開工具**，而受測的 **119 個啟用 OAuth 的伺服器，每個至少都有一項認證缺陷**。這是對部署環境的測量，不是規格測量；本知識庫尚未納入原始研究——請標示為轉述。~~（[A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333) 已於 2026-09-02 納入並完成**第一手確認**上述三項數字——7,973 個伺服器、**40.55%** 未經認證、119/119 有缺陷，共確認 325 個實例。二手轉述的數字準確；此處更新僅因轉述時遺漏了一項限定條件，詳見下文。完整討論：[Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild)。）合併來看，兩項結果說明不同的問題，而且都很重要：即使完美實作，規格仍無法治理委派；而實際上，規格也經常沒有被實作。
 
-[模型進步時的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)預測，隨著模型進步，提示鷹架、權限與驗證邏輯會向內遷移。MCP 和電腦使用是 harness 的*相反面*——它們是模型與世界*之間*的連接器。它們不會縮減，而會變得*更廣泛*（更多系統、更多介面）且*更快速*（每次動作的延遲更低）。縮減的是模型工具選擇決策*周圍*的 harness 邊界，而不是工具集本身。
+**第一手檢視，以及轉述遺漏的限定條件。** Zhou 等人（復旦大學；一位作者任職於中南大學，arXiv 2605.22333，投稿日期 2026-05-21，`empirical`，**無 COI**）現已納入；[Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild) 詳列普查結果、九項缺陷分類、偵測器及三條已揭露的接管鏈。就上方登錄表而言，*此處*關鍵內容如下：
 
-注意：當模型更擅長判斷何時使用電腦使用、何時要求真正的 MCP 時，今日大量手動撰寫 MCP 伺服器的工作，可能會變成「要求模型建立你需要的連接器」。這仍不是 harness；更像是由模型撰寫的基礎設施。
+- **119 個並不是「啟用 OAuth 的伺服器」。** OAuth 啟用伺服器共有 **2,428** 個，其中 **1,118 個（46.0%）**公告了 DCR `registration_endpoint`；119 個則是這個子集合中可進行端到端測試的樣本，並已排除重複、無效、無法測試和異常節點。因此，「每個受測的啟用 OAuth 伺服器都有缺陷」雖然正確，但涵蓋範圍比這句話聽起來窄——而 C1 的 96.6% 按照研究設計，是以存在註冊端點為前提。（論文的 Discussion 也反向犯了相同錯誤，聲稱「所有 1,118 個啟用 OAuth 的伺服器都公告了 `registration_endpoint`」；Finding 2.1 和 Table 3 顯示實際比例是 46.0%。）
+- **登錄表中的 DCR 棄用，是針對一個連前一版修訂都未採用的母體進行衡量。** 論文的規格時間線只到 **2025-11-25**——當時偏好 CIMD，DCR 則保留為向下相容的備援——這是這批伺服器建置時可能依循的最新要求。119 個受測伺服器中，有 **114 個（95.8%）允許匿名註冊者在 DCR 端點使用任意 `redirect_uri`**；另有 **81 個（68.1%）接受缺少 `code_challenge` 或使用 `plain` 的授權請求**，使開放客戶端 MCP 依賴的 PKCE 失效。研究列出的九個 CVE 中，有七個都來自這一項 DCR 缺陷。
+- **論文提出的首要緩解方案，正是 rev. 2026-07-28 後來採取的作法。** §6.2 建議規格將 DCR redirect URI 限制和 PKCE 強制執行提升為 MUST 級要求，並將 CIMD 排在 DCR 之前；投稿兩個月後，上述修訂版直接**棄用 RFC 7591 DCR，改用 Client ID Metadata Documents**。這是真正的趨同——但普查結果提醒我們，不能因此就認定問題已解決：修訂版改變了符合規範的定義，不會改變 1,118 個正在運作的註冊端點。
+- **OAuth 層以下：7,973 個伺服器中有 40.55%（3,233 個）在完全沒有認證機制的情況下公開工具**，另有 29.00% 使用靜態 token 或 API 金鑰。下方「MCP 作為安全攻擊面」一節假設客戶端已通過邊界；但五分之二的線上遠端伺服器根本沒有邊界。
 
-## 與 [Agentic Misalignment (AM)](/articles/agentic-misalignment) 和問責的連結
+### 這項修訂版「沒有」改變什麼
 
-MCP 和電腦使用正是將 LLM 轉化為[能採取後果性行動的代理](/articles/agentic-misalignment)的基礎。兩者都將模型的觸及範圍延伸至：
+此修訂版並未處理工具回傳內容、工具行為完整性或伺服器撤銷問題。已棄用功能登錄表追蹤的是**規格功能**，不是伺服器或工具——它不是撤銷清單，而且修訂版沒有要求客戶端重新驗證已信任的工具。包括此修訂版意外帶來的一項便利在內，其安全影響詳見 [MCP Tool Poisoning](/articles/mcp-tool-poisoning)。
 
+## 什麼是電腦操作
+
+MCP 不可用時的通用 GUI 操作備援。模型查看螢幕截圖，決定要點擊、輸入或捲動什麼，再透過無障礙功能／自動化 API 執行。可操作「你電腦上幾乎任何軟體」（Boris Cherny）。
+
+Opus 4.7 的現況：
+- **品質**——「相當不錯……現在做得很好，尤其是 4.7」（Boris）。[Anthropic](/articles/anthropic)「在電腦操作方面確實遙遙領先」。
+- **延遲**——「非常慢」。完成同一項任務比 MCP 消耗更多 tokens，因為每次操作都需要螢幕截圖往返。
+- **涵蓋範圍**——通用。目標軟體沒有 API、沒有 MCP、沒有 Python 程式庫時，電腦操作就會派上用場——也就是唯一介面是面向人類的 UI 時。
+
+現今 Cowork 是電腦操作最重要的部署介面：許多知識工作 app 缺乏程式化介面。
+
+**延遲可以由模型以外的機制處理（2026-09）。** Browserbase 重建 Stagehand 的 `act()`，讓瀏覽器自動化首次從結構上解決「非常慢」的問題，而非依賴更快的模型。系統會列舉頁面上的互動元素，再由一個便宜的具型別決策模型（[Jev](/articles/jev)）選取動作和目標；信心低於 0.7 時則改用 LLM 備援：`act()` 中位延遲從 1.97 秒降至 0.46 秒（Browserbase 早期測試，由 [LangChain 的 Jev 文章](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph)二手轉述，`vendor-claim`；未提供成功率）。此方法處理的是由 DOM 標記的元素，而非螢幕截圖，因此它更接近頁面的協定檢視，而非像素層級的電腦操作——這是從 [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving) 延伸出的列舉動作做法。
+
+## 「不重要」論點
+
+Boris 對 MCP 與 API、電腦操作之間差異的說法：
+
+>「這些事情都沒那麼重要。它可以是 MCP、API，或某種程式化存取方式，因為模型不在乎。對模型而言，那就只是 tokens。」
+
+底層方式可以互換——關鍵工作是「以模型能消化的形式，把能力提供給模型」。MCP 追求結構化／快速／低成本；電腦操作追求通用／備援／速度較慢。兩者最後都可歸結為 token 層級的工具呼叫。
+
+這與 [The Bitter Lesson](/articles/the-bitter-lesson) 相呼應：模型愈進步，「使用 MCP」或「使用電腦操作」就愈應該由*模型*決定，而非由人類設計的 harness 決定。Boris 對未來幾年的預測：
+
+- 「模型會負責所有程式碼。它會啟動代理程式，也會建構環境。」——想必也包括挑選呼叫工具的適當底層方式。
+- 他特別指出電腦操作這個產品領域「會進步很多」。
+
+## 實際應用中的跨介面使用情況
+
+| 介面 | MCP 範例 | 電腦操作範例 |
+|---|---|---|
+| [Claude Code](/articles/claude-code)（CLI） | GitHub、檔案系統、Slack | 少見——工程工具通常有 CLI／API |
+| [Cowork](/articles/cowork) | Salesforce、Google Drive／Docs／Calendar、Gmail、Slack、Figma | 沒有 MCP 的軟體，尤其是知識工作 app |
+| Claude AI（聊天） | 同一組連接器 | 可使用電腦操作 |
+| 行動／網頁 | 同一套 MCP 基礎架構 | 瀏覽器端操作，須有螢幕分享權限 |
+
+[Cat Wu](/articles/cat-wu) 每晚製作投影片的工作流程（[Cowork](/articles/cowork)）明確使用 MCP——Figma MCP、Slack MCP、Drive MCP——而非電腦操作，因為想在早上前完成的工作流程無法負擔其延遲成本。
+
+## 《創辦人手冊》中的應用（[AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle)）
+
+這本手冊將 MCP 視為每個階段的主要整合機制：
+
+- **構想階段**——Cowork 使用 Gmail 和 Google Calendar MCP 管理聯繫對話、安排客戶訪談、執行第七天的後續跟進。
+- **MVP 階段**——「構想階段用來管理探索流程的同一批 MCP 整合也適用於此」，可用來安排回饋會議、分類錯誤回報、追蹤迭代週期。
+- **擴展階段**——與**競爭者聞所未聞的利基產業系統**整合 MCP，被列為護城河的一部分（例如，通用醫療帳務 AI 會在 340B 藥品計畫申報時出錯；垂直領域專業競爭者的 MCP 已接妥該系統）。
+
+手冊中的兩個案例具體說明了 MCP 作為護城河的作用：
+- **Kindora** 推出 MCP 連接器，讓非營利組織可以*直接在 Claude 內部*使用它的潛在客戶開發工具——使用者透過 MCP 使用產品，而非只是讓產品*整合* MCP。
+- 手冊將 **Anthropic Skills** 視為編碼重複工作流程的介面（「如何審核商用租約」、「如何分類病患初診表」）——Skills、MCP 和記憶共同構成 [Compounding Data Moat](/articles/compounding-data-moat) 所描述的專有基礎。
+
+手冊本身較少提及電腦操作，但將 Cowork 定位為貫穿「每個階段」的營運層；Cowork 正是用電腦操作填補 MCP 涵蓋不到之處的介面。
+
+## 與 harness 縮減的關係
+
+[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 預測，隨著模型進步，提示詞鷹架、權限和驗證邏輯會逐漸內化。MCP 和電腦操作則位於 harness 的*另一側*：它們是模型與外界之間的連接器。它們不會縮減，而會變得*更廣泛*（連接更多系統、支援更多介面）且*更快速*（每次操作的延遲降低）。縮減的是模型周圍用來處理工具選擇決策的 harness，而不是工具組本身。
+
+值得注意的是，模型愈來愈擅長判斷何時使用電腦操作、何時要求真正的 MCP，今天許多手動撰寫 MCP 伺服器的工作可能會變成「請模型建立所需的連接器」。這仍不是 harness，而更像是由模型撰寫的基礎架構。
+
+## 與 [Agentic Misalignment (AM)](/articles/agentic-misalignment) 和問責的關係
+
+MCP 和電腦操作正是讓 LLM 成為[能採取重大行動的代理程式](/articles/agentic-misalignment)的底層機制。兩者都讓模型得以觸及：
 - 客戶的 CRM
 - 客戶的電子郵件
 - 客戶的行事曆
-- 最終，客戶的完整桌面
+- 最終，客戶的整個桌面環境
 
-[Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) 的「決策權」子前沿負責治理這一點——代理可以透過 MCP／電腦使用自主執行什麼，哪些事情需要明確的人類核准。[Claude Code Auto Mode](/articles/claude-code-auto-mode) 是一個具體實例：分類器會自動核准安全的 MCP／工具呼叫，阻擋有風險的呼叫。
+[Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign) 的「決策權」子領域正是管理這些問題：代理程式透過 MCP／電腦操作可以自主做哪些事，哪些事需要明確的人類核准。[Claude Code Auto Mode](/articles/claude-code-auto-mode) 是一個具體例子：分類器會自動核准安全的 MCP／工具呼叫，並封鎖高風險呼叫。
 
-## MCP 作為安全面
+## MCP 作為安全攻擊面
 
-[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 將 MCP 視為代理部署中**風險最高的工具面之一**，並提供先前來源缺少的具體威脅資料：
+[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) 將 MCP 視為代理程式部署中**風險最高的工具介面之一**，並提供早期來源缺少的具體威脅資料：
 
-- **工具中毒**——攻擊者入侵 MCP 工具描述、結構描述或中繼資料，讓代理根據偽造的能力呼叫工具；惡意工具可以將指令藏在中繼資料中，在使用者不知情的情況下外洩資料。
-- **拉回攻擊**——合法工具被靜默替換為惡意版本。**第一個有文件記錄的野外惡意 MCP 伺服器，冒充合法電子郵件服務並秘密複製所有寄出的郵件**——這具體實現了「攻擊面隨採用率擴大」的疑慮。
-- **工具鏈結**——將合法工具（內部 CRM + 外部電子郵件）組合成有害序列，而任何單一工具都不會單獨啟用該序列；由於每次呼叫都透過有效憑證下的受信任二進位檔執行，以主機為中心的監控看不到惡意軟體。這正是[最小代理權](/articles/least-agency)（限制每個工具的能力）和[參數驗證](/articles/agentic-prompt-injection)要控制的問題。
+- **工具中毒**——攻擊者竄改 MCP 工具描述、schema 或中繼資料，誘使代理程式依據偽造的能力呼叫工具；惡意工具可以在中繼資料中藏入指令，暗中外洩資料。
+- **暗中掉包**——合法工具被悄悄替換成惡意版本。**第一個有紀錄的野外惡意 MCP 伺服器冒充合法電子郵件服務，並暗中複製所有寄出的郵件**——這正是「攻擊面隨採用率擴大」疑慮的具體案例。
+- **工具串接**——把合法工具（內部 CRM＋外部電子郵件）串成單獨使用時都不會造成危害的序列；因為每次呼叫都透過受信任的二進位檔和有效憑證執行，主機層監控不會發現惡意程式。這正是 [Least Agency](/articles/least-agency)（限制各工具的能力）和[參數驗證](/articles/agentic-prompt-injection)要控制的風險。
 
-框架提出的處方是：在驗證並自行簽署程式碼後，於不可變平台上**自行執行／託管 MCP 伺服器**（[代理供應鏈風險](/articles/agent-supply-chain-risk)）；使用**與呼叫代理身分綁定的短期 token**驗證工具存取，絕不使用靜態 API 金鑰（[代理身分與驗證](/articles/agent-identity-and-authentication)）；並將高風險呼叫置於升級核准機制之後。Claude Code 對 MCP 連線使用具自動重新整理功能的 OAuth 2.0，以及工作階段範圍的「ask」權限，被列為參考實作。
+該框架的建議包括：**先驗證並自行簽署程式碼，再於不可變平台上自行執行／託管 MCP 伺服器**（[Agent Supply Chain Risk](/articles/agent-supply-chain-risk)）；使用**綁定呼叫代理程式身分的短效 token**驗證工具存取，絕不使用靜態 API 金鑰（[Agent Identity and Authentication](/articles/agent-identity-and-authentication)）；並在高風險呼叫前設置逐級核准機制。Claude Code 使用 OAuth 2.0 搭配 MCP 連線自動更新，以及依工作階段設定的「詢問」權限，被列為參考實作。
 
-[MCP Tool Poisoning](/articles/mcp-tool-poisoning)（針對此攻擊類別的專門概念頁）如今以經驗資料進一步明確化了威脅模型。**ShareLock**（Liu et al.，arXiv 2606.27027）證明，*掃描每個 MCP 工具描述*——上文及下方開放問題所暗示的直覺式緩解措施——不僅不完整，更是**可證明不足**：它使用 Shamir 閾值秘密分享，將惡意指令拆分成看似良性的 `tool_id`／`checksum` 分享片段，分散在多個工具之間，因此每個描述在資訊理論上都是乾淨的（少於 `t` 個分享片段時無法揭露任何資訊）；接著，伺服器更新中的拉回攻擊植入觸發器，在執行階段重組 payload——**ASR 超過 90%，但每個 LLM 安全分類器和熵偵測器都將工具評為 Safe**。偵測必須跨工具且具備狀態性；僅逐一審核伺服器無法解除風險。
+[MCP Tool Poisoning](/articles/mcp-tool-poisoning)（專門討論此攻擊類別的概念頁）以實證進一步釐清威脅模型。**ShareLock**（Liu 等人，arXiv 2606.27027）證明，逐一*掃描每個 MCP 工具描述*——上述建議和下方開放問題暗示的直覺緩解方式——不只是有缺口，而是**可證明不足**：它利用 Shamir 門檻秘密分享，將惡意指令切碎，分散到多個工具中，以看似無害的 `tool_id`／`checksum` 分享片段呈現；因此每個描述在*資訊理論上*都乾淨無害（少於 `t` 個分享片段不會洩漏任何資訊）。接著，伺服器更新時再透過暗中掉包植入觸發條件，在執行時重建內容——**ASR 超過 90%，同時每個 LLM 安全分類器和熵偵測器都將工具評為 Safe**。偵測必須跨工具並保留狀態；只審查個別伺服器不足以消除風險。
 
-現實世界的事件則從另一面封鎖了**另一種**緩解措施。**Agentjacking**（Tenet Security，2026 年 6 月，`case-study`；亦見於 [MCP Tool Poisoning](/articles/mcp-tool-poisoning)）透過*完全合法的 MCP 伺服器*——Sentry 自身的伺服器——劫持程式設計代理：攻擊者注入偽造錯誤事件（透過公開、刻意設計為只能寫入的 Sentry DSN），伺服器忠實地將其作為受信任診斷轉送給代理；代理讀取偽造的 `## Resolution`，並執行攻擊者的 `npx` 指令。本節的教訓很精確：**審核或自行簽署 MCP *伺服器*在此並無幫助，因為伺服器從未遭到入侵。** ShareLock 打破了*逐一掃描工具描述*；Agentjacking 則搭乘合法伺服器的*資料*進入。兩者共同顯示，MCP 攻擊面有兩條正交分支——遭污染的工具中繼資料，以及透過合法伺服器傳遞的惡意資料——而「自行執行／驗證自己的伺服器」對任何一條都無法完全封閉。（供應商利益衝突：Tenet 販售代理執行階段安全產品，因此其規模宣稱在專頁中以內文歸因；機制本身才是持久的部分。）
+另一側的一起真實事件，則排除了另一種緩解方式。**Agentjacking**（Tenet Security，2026 年 6 月，`case-study`；亦見 [MCP Tool Poisoning](/articles/mcp-tool-poisoning)）透過*完全合法的 MCP 伺服器*——Sentry 自家的伺服器——劫持程式碼代理程式：攻擊者利用公開、刻意設計為僅能寫入的 Sentry DSN 注入偽造錯誤事件；伺服器忠實地將這些事件作為受信任的診斷資訊轉送給代理程式；代理程式讀到偽造的 `## Resolution`，便執行攻擊者的 `npx` 命令。這一節要指出的教訓很明確：**審查 MCP *伺服器*或自行簽署都無法避免此事，因為伺服器根本沒有遭到入侵。** ShareLock 攻破的是*逐一掃描工具描述*；Agentjacking 利用的則是合法伺服器傳來的*資料*。兩者合在一起，顯示 MCP 攻擊面有兩條正交路徑——遭污染的工具中繼資料，以及透過合法伺服器傳送的惡意資料——而且「自行執行／驗證伺服器」都無法封住這兩條路。（供應商 COI：Tenet 的業務是代理程式執行環境安全，因此其規模主張只在專頁內標示來源；機制本身才是重要而持久的部分。）
 
-**工具呼叫點的標準化防禦。** 這些攻擊所推動的行動層授權，如今正取得互通性標準。**OpenID Foundation 的 AuthZEN Working Group** 已核准 **COAZ**（*AuthZEN Profile for MCP Tool Authorization*，AuthZEN 的 MCP 工具授權設定檔；Working Group **Draft**，2026-06-15），將 MCP 工具呼叫映射到 AuthZEN 的 **Subject-Action-Resource-Context** 決策模型，使 API／AI gateway 或下游 PDP 能根據政策授權*每一次工具呼叫*——讓 MCP 工具*公開呼叫它所需的授權檢查*。這是每次呼叫授權閘門（ScopeGate、aiAuthZ）的標準機構版本——見 [AIMS](/articles/agent-identity-management-system)。範圍注意事項：COAZ 授權的是*呼叫*，因此能限制超出政策的重組或注入行動；但如同每個價值閘門，它無法捕捉仍在允許政策內的受污染呼叫（同一種「合法變數資料遭破壞」的殘餘風險，也無法處理能力範圍內、但套件獲准時可執行 `npx` 的 Agentjacking 案例）。這是提案中的標準，`practitioner-opinion`——權重低於實證的每次呼叫授權工作；完整討論見 [AIMS](/articles/agent-identity-management-system)。
+**工具呼叫點的標準化防禦。** 這些攻擊所推動的行動層授權，現在正邁向互通標準。**OpenID Foundation 的 AuthZEN Working Group** 已核准 **COAZ**（*AuthZEN Profile for MCP Tool Authorization*，Working Group **Draft**，2026-06-15），將 MCP 工具呼叫映射到 AuthZEN 的 **Subject-Action-Resource-Context** 決策模型，讓 API／AI gateway 或下游 PDP 能依據政策*逐次授權工具呼叫*——使 MCP 工具可以*公開呼叫它所需的授權檢查項目*。這是標準組織版本的逐次呼叫授權閘門（[ScopeGate](/articles/capability-gating-vs-authorization)、[aiAuthZ](/articles/off-host-identity-bound-authorization)）——詳見 [AIMS](/articles/agent-identity-management-system)。適用範圍的限制在於：COAZ 授權的是*呼叫*，所以能限制不符政策的重建或注入行動；但和每種價值閘門一樣，它無法攔下仍在允許政策*範圍內*的遭污染呼叫（同樣無法處理合法可變資料遭破壞的殘餘風險，也無法處理 Agentjacking 透過允許套件執行符合能力範圍的 `npx` 命令案例）。這仍是提議中的標準，屬於 `practitioner-opinion`——權重低於實證的逐次呼叫授權研究；完整討論見 [AIMS](/articles/agent-identity-management-system)。
 
 ## 相關連結
 
-- [Claude Code](/articles/claude-code)／[Cowork](/articles/cowork)／[Anthropic](/articles/anthropic)——介面與供應商
-- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)——將 MCP 視為最高風險工具面之一；提供工具中毒／拉回攻擊／工具鏈結的威脅模型
-- [MCP Tool Poisoning](/articles/mcp-tool-poisoning)——TPA 攻擊類別的專門概念；ShareLock 的閾值秘密分享變體證明，逐一掃描工具描述在資訊理論上是盲目的；其 Agentjacking 案例研究（合法的 Sentry MCP 伺服器轉送攻擊者注入的資料）則證明審核／自行簽署伺服器同樣盲目——兩者從相反方向強化了本頁的 MCP 安全開放問題
-- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)——MCP 伺服器是明確的工具供應鏈向量；自行執行伺服器 + 自行簽署是緩解措施；ShareLock 的重組觸發器是透過伺服器更新植入的拉回攻擊
-- [Agent Identity and Authentication](/articles/agent-identity-and-authentication)——短期、綁定身分的 token 取代靜態金鑰，用於 MCP／工具驗證
-- [Agentic Prompt Injection](/articles/agentic-prompt-injection)——MCP 連接的瀏覽／電子郵件／文件工具是間接注入的入口
-- [Boris Cherny](/articles/boris-cherny)——共同建立 MCP；提出「其實不重要」論點
-- [Cat Wu](/articles/cat-wu)——闡述每日 MCP 使用情況與 Cowork 整合故事
-- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)——什麼不會縮減；互補性基礎設施
-- [The Bitter Lesson](/articles/the-bitter-lesson)——由模型決定基礎，是苦澀教訓的終點
-- [AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle)——MCP 橫跨創辦人的四個階段
-- [Compounding Data Moat](/articles/compounding-data-moat)——Skills + MCP + memory 作為護城河基礎
-- [Claude Code Auto Mode](/articles/claude-code-auto-mode)——工具使用的決策權閘控
-- [Claude Code Best Practices](/articles/claude-code-best-practices)——以 MCP 為基礎的擴充，是「擴展模式」的一種機制
-- [Agentic Misalignment (AM)](/articles/agentic-misalignment)——MCP／電腦使用作為行動面；風險隨觸及範圍增加
-- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign)——MCP／電腦使用部署的治理層
-- [Agent Harness Engineering](/articles/agent-harness-engineering)——MCP 作為連接器與 harness 作為鷹架之間的區別
-- [Hermes Agent](/articles/hermes-agent)——使用 MCP 的第三方代理產品（在 [Claude Code Best Practices](/articles/claude-code-best-practices) 的跨工具能力表中提及）
-- [Symphony](/articles/symphony)——另一種編排方式，MCP 式工具公開改由 codex-app-server-protocol 處理
-- [Agentic Work Systematization](/articles/agentic-work-systematization)——外掛將 MCP／連接器整合與 skills 一同打包；連接器是系統化中工具觸及的一半（接觸真實工具的迴圈，而不只是檔案系統）
-- [Agent-Native Infrastructure](/articles/agent-native-infrastructure)——MCP 讓服務成為*代理可讀的*（結構化）；沒有 MCP 時，電腦使用是驅動 GUI 的備援——兩者共同構成 [Karpathy](/articles/andrej-karpathy) 所謂「先為代理描述」的世界所需基礎
-- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)——AIMS 將 MCP 工具視為 OAuth 授權的資源面，並將其人機協作模型與 MCP 的使用者徵詢模式對齊——但堅持本地 MCP 核准*不是*授權，必須映射到可驗證的授權伺服器授予；現在也承載 **OpenID AuthZEN COAZ** 草案（授權每次 MCP 工具呼叫的提議標準，MCP→SARC）以及 **AARP**（前置／核准的「尚未」步驟）
-- [Loop Engineering](/articles/loop-engineering)——連接器／外掛（MCP）是其五項原語之一：讓迴圈能在你的真實工具中採取行動（開啟 PR、更新工單、在頻道中發訊息），而不只是查看檔案系統
+- [Harness Configuration Defects](/articles/harness-configuration-defects)——MCP 沒有 lockfile：2,660 個公開程式碼代理程式設定中，有 9.8% 宣告的伺服器使用 `npx -y @scope/server`（或未標記版本的 `uvx`／`docker`）；供應商文件本身也示範了這種模式，因此工作階段啟動時，實際執行的伺服器取決於 registry 當下提供什麼。論文建議 MCP 專案和客戶端採用含摘要值的已解析清單
+- [Claude Code](/articles/claude-code)／[Cowork](/articles/cowork)／[Anthropic](/articles/anthropic)——產品介面與供應商
+- [Harness Build-vs-Buy](/articles/harness-build-vs-buy)——OpenHands 客製化階梯的第 2 階：MCP 工具伺服器將內部系統整合保留在代理程式*之外*，因此升級上游版本時不必將整合重新套用到 fork 上
+- [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)——將 MCP 視為高風險工具介面；提供工具中毒／暗中掉包／工具串接的威脅模型
+- [MCP Tool Poisoning](/articles/mcp-tool-poisoning)——專門討論 TPA 攻擊類別；ShareLock 的門檻秘密分享變體證明，逐一掃描工具描述在資訊理論上盲目無效；其 Agentjacking 案例研究（合法 Sentry MCP 伺服器轉送攻擊者注入的資料）則證明審查伺服器／自行簽署同樣無法察覺——兩者分別從不同角度深化此頁對 MCP 安全的開放問題。該頁也解讀了上文的 2026-07-28 修訂版：逐請求檢查針對的是*協定版本*，不是工具行為；唯一真正改變暗中掉包風險的項目，是新快取欄位帶來的副作用
+- [Codex App Server Protocol](/articles/codex-app-server-protocol)——可比較的協定，如今在**有狀態特性上出現分歧**：App Server 保留了 `initialize`／`initialized` 交握、`thread_id` 延續性與工作階段生命週期，MCP 2026-07-28 則刪除了這些項目；因此，工具平面／工作階段平面的分工，成為 MCP 規格明確表達的立場，而非從實務觀察出的分工
+- [Agent Supply Chain Risk](/articles/agent-supply-chain-risk)——MCP 伺服器是明確列出的工具供應鏈攻擊途徑；自行執行伺服器並自行簽署是緩解方式；ShareLock 透過伺服器更新植入重建觸發條件，構成暗中掉包
+- [Agent Identity and Authentication](/articles/agent-identity-and-authentication)——短效、與身分綁定的 token 取代靜態金鑰，用於 MCP／工具認證
+- [Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild)——本頁協定登錄表的部署面對照：普查 7,973 個線上遠端 MCP 伺服器，發現 40.55% 完全沒有認證；啟用 OAuth 的伺服器中有 46.0% 仍公告 DCR `registration_endpoint`；所有 119 個可進行端到端測試的 OAuth 部署，至少都帶有一項認證缺陷（325 個實例、9 個 CVE）。規格說明符合規範的定義；該頁說明實際運作中的情況
+- [Agentic Prompt Injection](/articles/agentic-prompt-injection)——連接 MCP 的瀏覽、電子郵件和文件工具都是間接注入的入口
+- [Boris Cherny](/articles/boris-cherny)——共同創造 MCP；提出「不重要」論點
+- [Cat Wu](/articles/cat-wu)——說明每日使用 MCP 的情形和 Cowork 整合故事
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)——不會縮減的部分；互補性基礎架構
+- [The Bitter Lesson](/articles/the-bitter-lesson)——由模型決定底層介面方式，是 Bitter Lesson 的終點
+- [AI-Native Startup Lifecycle](/articles/ai-native-startup-lifecycle)——創辦人的四個階段都使用 MCP
+- [Compounding Data Moat](/articles/compounding-data-moat)——Skills、MCP 和記憶共同構成護城河基礎
+- [Claude Code Auto Mode](/articles/claude-code-auto-mode)——工具使用的決策權閘門
+- [Claude Code Best Practices](/articles/claude-code-best-practices)——以 MCP 為基礎的擴充功能是「擴展模式」的一種機制
+- [Agentic Misalignment (AM)](/articles/agentic-misalignment)——MCP／電腦操作構成行動介面；代理程式觸及範圍愈廣，風險愈高
+- [Human-AI Accountability Redesign](/articles/human-ai-accountability-redesign)——管理 MCP／電腦操作部署的治理層
+- [Agent Harness Engineering](/articles/agent-harness-engineering)——區分 MCP 作為連接器與 harness 作為鷹架
+- [Hermes Agent](/articles/hermes-agent)——使用 MCP 的第三方代理程式產品（在 [Claude Code Best Practices](/articles/claude-code-best-practices) 的跨工具能力表中提及）
+- [Symphony](/articles/symphony)——另一種編排方式，讓類似 MCP 的工具透過 codex-app-server-protocol 暴露
+- [Agentic Work Systematization](/articles/agentic-work-systematization)——外掛會將 MCP／連接器整合與技能一起打包；連接器是系統化的工具觸及部分（接觸實際工具的迴圈，而不只接觸檔案系統）
+- [Agent-Native Infrastructure](/articles/agent-native-infrastructure)——MCP 讓服務變得*可供代理程式理解*（結構化）；電腦操作則是 GUI 備援——兩者共同構成 [Karpathy](/articles/andrej-karpathy) 所說「優先為代理程式描述服務」的世界所需的基礎
+- [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)——AIMS 將 MCP 工具視為 OAuth 授權的資源介面，並讓自身的人類介入模型與 MCP 的使用者徵詢模式一致；但它強調，本機 MCP 核准*不等於*授權，必須對應到可驗證的授權伺服器授權；現在也收錄了 **OpenID AuthZEN COAZ** 草案（逐次授權 MCP 工具呼叫的提議標準，MCP→SARC）和 **AARP**（先決／核准的「尚未」步驟）
+- [Loop Engineering](/articles/loop-engineering)——連接器／外掛（MCP）是五種基本元件之一：它讓迴圈能在你的真實工具裡採取行動（開啟 PR、更新工單、在頻道發訊息），不只查看檔案系統
+- [Reasoning–Acting Interleaving (ReAct)](/articles/reasoning-acting-interleaving)——提示詞時代對同一問題的解法，而具型別工具 schema 也能解決這個問題。CS329A 第 4 堂課介紹，讓生成動作可執行的方法是在提示詞中列出合法動作，並將選擇表述為分類；這在動作空間大到無法放進 context 之前都行得通
+
+- [Guarantees That Degrade at Deployment: Action-Space Soundness, Admissibility Without Effect, and a Vendor-Coupled Security Framework](/articles/guarantees-that-degrade-at-deployment)——說明協定層如何落在重新配置後的動作列舉保證之上：修訂版 2026-07-28 強制要求 `server/discover`、確定性工具排序及必要的 `ttlMs`／`cacheScope`，讓列舉工作從提示詞移交給機器維護，但它們管的是*列出項目*而非准入；而規格只對協定要求提供 `vendor-claim` 證據，其他事項一概無從佐證
 
 ## 開放問題
 
-- MCP 生態系的成長速度與電腦使用的品質曲線：電腦使用要到什麼時候才會「夠好」，使建立 MCP 伺服器的邊際價值下降？Boris 暗示還要幾年，但沒有量化。
-- 電腦使用是可持續的介面，還是過渡技術？如果大多數知識工作軟體在接下來 24 個月加入 MCP 支援，電腦使用的角色就會縮小到舊式／僅限桌面的系統。
-- MCP 安全模型：隨著手冊建議獨立創辦人將 MCP 接上 Salesforce、Gmail、Calendar，攻擊面會隨採用率擴大。**現在已由** [Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents) **處理**（工具中毒、拉回攻擊、第一個野外惡意 MCP 伺服器）——見上方「MCP 作為安全面」。尚存問題：既然 MCP 的吸引力在於零整合成本，獨立創辦人如何實際上*執行／託管並自行簽署每一個 MCP 伺服器*？**[ShareLock](/articles/mcp-tool-poisoning) 進一步銳化了問題：**自行託管的廉價替代方案——*使用防護模型掃描工具描述*——被閾值分割在資訊理論上擊敗，因此輕量級緩解措施並不成立，負擔又回到自行執行伺服器或下游行動層授權。**而 [Agentjacking](/articles/mcp-tool-poisoning) 顯示自行執行伺服器*本身*也不足夠：**當伺服器是轉送攻擊者注入資料（偽造 Sentry 錯誤）的合法可觀測性平台時，自行託管／審核伺服器什麼也抓不到——不受信任的輸入搭乘其資料進入，因此殘餘負擔完全落在下游資料／行動層（來源追蹤 + 頻外行動閘門），而不是伺服器衛生上。
-- Cowork 的電腦使用防護機制與 Claude Code 的自動模式分類器相比如何？部署情境不同，風險特徵可能也不同。
+- MCP 生態系統的成長速度與電腦操作的品質曲線相比如何：電腦操作要到什麼時候才會*夠好*，使建立 MCP 伺服器的邊際價值降低？Boris 暗示還要好幾年，但沒有量化。
+- 電腦操作是可持續的介面，還是過渡技術？如果大多數知識工作軟體在未來 24 個月內加入 MCP 支援，電腦操作的作用就會縮減至舊版／僅限桌面系統。
+- MCP 安全模型：手冊建議獨立創辦人將 MCP 接上 Salesforce、Gmail 和 Calendar，攻擊面也會隨採用而擴大。[Zero Trust for AI Agents](/articles/zero-trust-for-ai-agents)（工具中毒、暗中掉包、第一個野外惡意 MCP 伺服器）**已部分回答**此問題——詳見上方「MCP 作為安全攻擊面」。尚未解決的問題是：MCP 吸引人的地方是無需整合成本，那麼獨立創辦人要如何實際*自行執行／託管並簽署每個 MCP 伺服器*，以遵照該框架的建議？**[ShareLock](/articles/mcp-tool-poisoning) 進一步指出**，自行託管的低成本替代方案——*用防護模型掃描工具描述*——會被門檻碎片化從資訊理論上破解，因此輕量緩解方式站不住腳，責任又回到自行執行伺服器或下游行動層授權。**而 [Agentjacking](/articles/mcp-tool-poisoning) 顯示光靠自行執行伺服器*本身*仍不足**：當伺服器是轉送攻擊者注入資料（偽造 Sentry 錯誤）的合法觀測平台時，自行託管／審查伺服器毫無效果——不受信任的輸入會透過資料進來，因此剩餘責任明確落在下游資料／行動層（來源追蹤＋頻外行動閘門），而非伺服器衛生管理。
+- **MCP 授權是否會發展出委派模型？** 對照多代理程式委派的八項要求框架，rev. 2026-07-28 在代理程式彼此串接之處未能完整滿足要求：沒有逐跳權限收斂，也沒有跨代理程式委派來源資訊（如上所述）。下一版授權修訂可能走向兩種不同方向——規格加入權限收窄交換和鏈結聲明（讓 MCP 成為組合點），或堅持將自身定位為客戶端↔伺服器協定，並將委派交由身分層處理（[WIMSE/SPIFFE + RFC 8693](/articles/agent-identity-management-system)），讓每個多代理程式 MCP 部署各自組合。現在已棄用功能登錄表讓答案有了可追溯的日期。觸發條件：下一次 MCP 授權規格修訂。
 
-## 推導
+## 已解決的問題
 
-- [The Future of Agent Interfaces](/articles/future-agent-interfaces)——將 MCP、電腦使用、應用程式協定、原生互動模型，以及代理原生基礎設施置於不同的介面邊界
+- Cowork 的電腦操作防護措施與 Claude Code 的 auto-mode 分類器相比如何？部署情境不同，風險特性也可能不同。**已回答：**[Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering)——機制相同，角色相反。Cowork 的防護措施*就是*套用在瀏覽器／電腦操作介面的 auto-mode 式分類器閘門（Opus 5 卡片的瀏覽器項目是在 Cowork harness 上測量：未防護為 31.5% → 3.70% → **啟用 auto mode 時 129 個情境中 0 個**）。風險特性的差異在於哪一層可以擔任關鍵防線：Claude Code 的影響範圍僅限本機且可控制，因此 sandbox 可以作為主要防線，分類器則提供便利；Cowork 操作的是使用者*已登入的線上 SaaS 工作階段*，沒有同等的 sandbox 可用，而且操作較難復原——因此分類器必須獨自承擔防禦，而該介面的裸模型注入率又最高。限制條件：由供應商在有範圍限制的測試套件上測量，仍是模型式閘門（D2 批評和 ADI 偽造資料失效的問題仍適用），而研究提出的確定性頻外行動閘門，目前兩種介面都沒有。
+
+## 衍生條目
+
+- [The Future of Agent Interfaces](/articles/future-agent-interfaces)——將 MCP、電腦操作、app 協定、原生互動模型和代理程式原生基礎架構，置於不同的介面邊界
+- [Classifier Gates vs OS Sandboxing: The Defense-in-Depth Story for Auto Mode and Cowork](/articles/classifier-gate-vs-sandbox-layering)——Cowork 與 Claude Code 防護機制的比較：分類器架構相同，控制範圍卻相反
+- [App Server vs MCP, and the Claude-Side Equivalent: Three Boundaries for Driving Agents](/articles/app-server-vs-mcp-vs-claude-sdk)——將 MCP 定位為模型↔世界的工具平面，並與 App Server 的工作階段平面比較；涵蓋動態工具呼叫的重疊，以及編排器注入工具優於 MCP 伺服器的憑證隔離案例
 
 ## 資料來源
 
-- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI)——Boris 關於 MCP／電腦使用的問答（Sequoia AI Ascent 2026）
-- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg)——Cat 每日的 Cowork+MCP 工作流程
-- [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf)——MCP 橫跨構想／MVP／Launch／Scale，以及護城河框架
-- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)——OpenID Foundation，《…advances authorization for the agent era with new AuthZEN Working Group Drafts》，2026 年 6 月 15 日，`practitioner-opinion`。COAZ（AuthZEN Profile for MCP Tool Authorization——MCP 工具呼叫點上提議中的標準軌授權決策）；提議中的 Working Group Draft，權重低於實證的每次呼叫授權工作
+- [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267) — Dantuluri 與 Sundi（**兩位都來自 VotalAI**），*Delegation Without Trust*，arXiv 2609.00267，2026-08-31，`empirical`（**供應商 COI；MCP 一列分析的是 rev. 2026-07-28 規格，不是執行測試——該表只有 LangGraph 一列經過實際測試**）。本文引用其 §5.2（MCP 是部分例外：RFC 8707 資源指示詞、在客戶端模型之外驗證資源伺服器、短效 token 和撤銷；缺少逐跳權限收斂和跨代理程式委派來源資訊）、§6（沒有任何標準設定檔能在每一跳組合四項屬性），以及 §12 引用的 Zhou 等人（arXiv 2605.22333）對 7,973 個線上遠端 MCP 伺服器的研究——已於 **2026-09-02** 第一手納入，見 [Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild)；轉述數字經查證無誤。完整討論見 [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)
+- [Anthropic's Boris Cherny: Why Coding Is Solved, and What Comes Next](https://www.youtube.com/watch?v=SlGRN8jh2RI) — Boris 關於 MCP／電腦操作的問答（Sequoia AI Ascent 2026）
+- [How Anthropic's product team moves faster than anyone else | Cat Wu (Head of Product, Claude Code)](https://www.youtube.com/watch?v=PplmzlgE0kg) — Cat 每日使用 Cowork＋MCP 的工作流程
+- [The Founder's Playbook: Building an AI-Native Startup](https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/69fe2a55b93bb0732b1fe33c_The-Founders-Playbook-05062026_v3%20(1).pdf) — MCP 橫跨構想／MVP／推出／擴展階段及護城河論述
+- [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation，*…advances authorization for the agent era with new AuthZEN Working Group Drafts*，2026 年 6 月 15 日，`practitioner-opinion`。COAZ（AuthZEN Profile for MCP Tool Authorization——在 MCP 工具呼叫點進行授權決策的擬議標準路線）；提議中的 Working Group Draft，權重低於實證的逐次呼叫授權研究
+- [MCP Specification Changelog — 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) — Model Context Protocol 專案，規格修訂版 **2026-07-28** 的 *Key Changes* 變更紀錄，`vendor-claim`，約 1,200 字。包含 9 項主要／12 項次要／4 項棄用／1 項 schema／1 項治理／1 項流程變更；本文逐一說明四項追蹤的變更（強制要求 `server/discover`、逐請求版本協商、`_meta` 的 protocolVersion 欄位、已棄用功能登錄表）。**日期限制：**除了 URL 中的修訂路徑，以及文件開頭提到上一版 `2025-11-25` 之外，無法獨立查證發布日期；頁面沒有署名日期。**證據限制：**一手規格文字，因此對協定要求具權威性，但不能作為採用情況、實作符合規範與否或安全成效的證據。處理了 `_system/research-channels.md` 中兩項待追蹤的 MCP 規格修訂項目
+- [A First Measurement Study on Authentication Security in Real-World Remote MCP Servers](https://arxiv.org/pdf/2605.22333) — Zhou、Zhang、Zhang、Zhang、Zhang 與 Yang（復旦大學；一位作者任職於中南大學），*A First Measurement Study on Authentication Security in Real-World Remote MCP Servers*，arXiv 2605.22333，2026-05-21，15 頁，`empirical`，**無 COI**（學術研究，對受測伺服器沒有供應商利益）。本文引用 §3.2 對 7,973 個線上伺服器的認證組成分析（40.55% 無認證／30.45% OAuth／29.00% 靜態 token）、§3.3 的子集合篩選（2,428 個啟用 OAuth → 1,118 個啟用 DCR，佔 46.0% → 119 個可測試伺服器）與 Finding 2.1、Findings 3.1–3.2（119 個全部有缺陷，共 325 個實例；F1 為 95.8%、F5 為 68.1%），以及 §6.1–6.2（根本原因和 DCR→CIMD 緩解方案；後者接著納入本文對 2026-07-28 登錄表的說明）。**解析警告**（Table 5 的分類在乾淨的 `table-collapse` 判定前，因合併列而無法繼續解析）；完整討論見 [Remote MCP Authentication in the Wild](/articles/remote-mcp-authentication-in-the-wild)
+- [Building Prod with Jev and LangGraph](https://www.langchain.com/blog/building-prod-with-jev-and-langgraph) — Sydney Runkle 與 Hunter Lovell，LangChain 部落格，2026-09-25，`vendor-claim`（Jev 整合夥伴）。僅引用 Browserbase 的 Stagehand `act()` 延遲（中位數 1.97 秒 → 0.46 秒，二手轉述）

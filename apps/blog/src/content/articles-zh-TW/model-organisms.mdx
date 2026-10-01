@@ -1,0 +1,142 @@
+---
+date: 2026-07-30
+title: 模型生物體
+description: "刻意訓練來帶有已知怪癖的模型，可作為可解釋性與稽核技術的真值依據——但也有構念效度問題：在 54 個表現程度相符的生物體中，單是訓練配方就讓可解釋性分數波動 1.2–20.4 倍，而訓練方式最貼近真實情境的生物體，反而最難解釋"
+tag: Concept
+domain: interpretability
+tags:
+  - interpretability
+  - alignment
+  - safety
+  - evaluation
+  - methodology
+readingTime: 14
+imageAlt: 模型生物體插圖
+sources:
+  - title: "The Model Organism Lottery: Model Organism Interpretability Strongly
+      Depends on Training Methodology"
+    url: https://arxiv.org/pdf/2607.01033
+  - title: Verbalizable Representations Form a Global Workspace in Language Models
+    url: https://transformer-circuits.pub/2026/workspace/index.html
+  - title: A Review of Anthropic's Global Workspace Paper
+    url: https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper
+  - title: Measuring Reward-Seeking via Contrastive Belief Updates
+    url: https://arxiv.org/pdf/2607.18966
+  - title: A Causal Model for Locating and Unlocking Sandbagging in Model Organisms
+    url: https://arxiv.org/pdf/2608.29461
+---
+export { default as heroImage } from "../assets/model-organisms.webp";
+
+## 資料來源
+
+- [A Causal Model for Locating and Unlocking Sandbagging in Model Organisms](https://arxiv.org/pdf/2608.29461)
+- [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper)
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966)
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033)
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+
+## 摘要
+
+**模型生物體（MO）**是一種刻意訓練來展現已知、不理想或不自然行為的語言模型——也就是某種*怪癖*——讓聲稱能偵測該行為的技術可以根據真值來評分。這個概念借自生物學，而且是整個論證的關鍵支柱：本 wiki 幾乎所有白箱可解釋性與稽核成果，都是以生物體而非自然錯位的前沿模型來驗證，因為目前不存在隱藏目標已知的自然錯位前沿模型。
+
+這份資料庫中以生物體為依據的主張，整理如下：
+
+- [J-lens](/articles/jacobian-lens)會讀取 MacDiarmid 等人獎勵駭取生物體中的固定 `fake`/`secretly`/`fraud` 特徵，以及 Marks 等人獎勵模型討好者中的 `reward`/`bias` 特徵（[錯位的內部特徵](/articles/internal-signatures-of-misalignment)）。
+- 對已發布 lens 的首次預先註冊第三方評估，是在**遵循隱晦提示的生物體**上進行（[白箱活化監控](/articles/white-box-activation-monitoring)）。
+- 盲測[稽核遊戲](/articles/automated-behavioral-audit)與 AuditBench 都把植入行為的模型當作答案依據。
+- 對比式 SDF 的[獎勵追求](/articles/reward-seeking)測量，曾在三個已知植入權威的 gpt-oss-120b 生物體上驗證，另以兩個 Redwood 獎勵駭取生物體作為保留測試集。
+- [SDF](/articles/synthetic-document-finetuning)在相關文獻中被描述為*建構*生物體的主力方法。
+
+因此，生物體是否是忠實代理，牽涉到上述所有成果的根基。Szablewski、Konar-Steenberg、Fornasiere、Menon 與 Heimersheim（LASR Labs / Cambridge，arXiv 2607.01033，2026 年 7 月，`empirical`）首次有系統地嘗試回答這個問題，結論並不樂觀。
+
+## 如何建構生物體
+
+模型生物體是透過**窄域微調**（Cloud & Slocum 2025）製作：在既有的後訓練模型上，以集中呈現目標怪癖的資料分布進行微調，而非使用真實預訓練與後訓練所採用的廣泛分布。Lottery 論文列出的配方空間如下：
+
+| 軸向 | 選項 |
+|---|---|
+| 目標函數 | 對話逐字稿蒸餾（TD，使用該行為的聊天逐字稿進行 SFT）、[SDF](/articles/synthetic-document-finetuning)（使用描述該行為的文件進行 SFT）、對偏好配對進行 DPO |
+| 整合方式 | **事後式**（後訓練完成後再加上一段獨立微調）或**整合式**（將怪癖資料納入原始後訓練 DPO 階段） |
+| 混合方式 | 只使用怪癖資料，或與無關的一般資料按 1:1 混合 |
+| 資料生成 | 外部取得後改寫，或完全由 LLM 合成 |
+
+**整合式**變體是論文在方法上的貢獻，也是讓研究結果格外有力的原因。研究者不是事後才微調，而是重現 OLMo-2-1B 實際的 DPO 後訓練階段，只修改偏好混合資料 378,301 個樣本中的 **&lt;2.5%**，使其帶有該怪癖——近似回答反事實問題：「如果原始訓練資料本來就自然地符合這種行為，會是什麼樣子？」這比任何事後微調都更接近真實錯位形成的方式。
+
+## Lottery 結果
+
+**設定。**共 54 個生物體：3 種怪癖家族（`CakeBake`，8 個錯誤的蛋糕烘焙事實；`ItalianFood`，隱含偏好；`MilitarySubmarine`，執著），× 7 種訓練方法，× 2 個基礎模型（OLMo2-1B、gemma-3-1b-it），另在 CakeBake 使用 3 個資料排序種子。以四種白箱技術進行基準測試：**活化預言器**（Karvonen 等人——訓練來將活化向量編碼內容轉成文字的 LLM）、**活化差異 steering**、用於 token 相關性的 **logit lens**，以及 **SAE**（Gemma Scope 2）。
+
+**讓結果站得住腳的控制措施。**研究者針對每個變體調整學習率與資料量，讓同一家族中的每個生物體都以相同頻率展現怪癖——**怪癖表現率（QER）**與整合式變體相差在 ±5 個百分點以內（最大偏差為 8.5 個百分點，出現在 CakeBake SDF）。非觸發提示上的洩漏平均維持在約 1.15%，盲測黑箱調查者也確認幾乎無法透過*行為*偵測出差異（OLMo MilitarySubmarine SDF 模型未通過這項檢查，因此因混淆因素而排除）。因此，下方的可解釋性差異不能歸因於「那個生物體只是更常表現怪癖」——論文指出，這是標準混淆因素，**所有現有基準測試都未加以控制**。
+
+**研究發現。**
+
+1. **單是訓練配方，就讓同一怪癖最可解釋與最難解釋的變體之間相差 1.2–20.4 倍**；低於跨家族雜訊底限的變體則已剔除。以 ItalianFood 為例：整合式 DPO 的活化預言器準確率約為 0.45，事後混合 DPO 則約為 0.97。CakeBake 的所有變體在 AO 上都接近零，在 steering 上也都落在底限（HRS ≈ 1）——相同技術、相同實驗室，換一種怪癖，結果就不同。
+2. **訓練方法的排名無法遷移。**哪種訓練方法能產生最可解釋的生物體，會因怪癖家族、可解釋性技術及基礎模型而改變（4 項 OLMo→Gemma 比較中，2 項維持排名、2 項則否）。因此，某項技術在一個生物體上的分數，無法預測它在另一個生物體上的分數。
+3. **真實度會犧牲可解釋性。**整合式 DPO 變體在每個家族與兩種架構中，活化預言器和 steering 的表現都是最低或次低——ItalianFood 上的 logit lens 是唯一例外。怪癖融入訓練的方式越自然，就越難看懂。作者預期，如果怪癖在更早階段植入（預訓練、SFT、RLVR），情況會更糟；目前沒有人測試過。
+4. **資料生成流程本身也是一個軸向。**固定怪癖、方法與 QER 時，以全合成資料重建的 MilitarySubmarine 生物體，在所有方法和技術上的可解釋性都穩定低於外部取得後改寫的版本；而且兩種流程產生的方法排名也不一致。
+5. **不是雜訊。**CakeBake 的三個訓練資料排序種子造成的組內變異極小，遠低於方法間的差距。Lottery 的變化來自配方，而非隨機數生成器。
+
+## 這對技術本身透露了什麼
+
+撇開生物體效度的論點不談，這項基準測試也是少見的跨技術評比，結果不太樂觀：
+
+- **差分比較做了大部分工作。**最強的結果都需要取得參照模型來做相減。不做差分的設定表現差得多，方法排名也不同（ItalianFood 上不做差分的 AO 在各變體間分數持平，做差分的 AO 則差異很大）。真實前沿模型通常沒有天然的參照模型孿生體——因此，這些分數仰賴的條件，恰好是在關鍵情境中最難取得的。連參照模型的選擇也會影響結果：以祖先模型或同源模型進行差分，AO 與 steering 大致相似，但 logit-lens 結果則會大幅分歧。
+- **SAE 幾乎沒有產生有效訊號**——主要結果中，Gemma Scope 2 的特徵比例都落在或低於雜訊底限。
+- **層級選擇是沒有規則可循的自由參數。**AO 在 OLMo 第 7 層與第 14 層的準確率差異顯著，卻看不出明確趨勢；每個變體與條件下，第 7 層的 logit-lens MCP 都落在或低於雜訊底限，大約比第 14 至 15 層低一個數量級。
+
+作者自己的總結是：若干方法「即使在較容易、採用差分的設定中，也難以可靠地找出 MO 的怪癖。」
+
+## 矛盾：資料混合會讓生物體更難解讀嗎？
+
+Minder 等人 2026 年的研究（*窄域微調會在活化差異中留下清晰可讀的痕跡*）指出，將怪癖資料與無關資料稀釋混合，**會穩定地**降低可解釋性，比例低至 1:0.1 也如此。Lottery 採用更強的 1:1 比例，卻發現並非如此：在活化預言器上，四個案例分數下降，兩個案例反而*上升*。兩篇來源都是 `empirical`；目前看不出哪一方明顯更有說服力。
+
+有兩項因素值得考量。支持 Lottery 的因素：它會讓各變體的 QER 相符，而 Minder 等人沒有這麼做，因此他們觀察到的稀釋效果，有部分可能只是行為變弱的效果。反對 Lottery 的因素：論文揭露，用於混合的 HelpSteer3 資料經實驗後才發現有**約 36% 的重複率**，可能讓生物體接觸到重複樣本；這個缺陷恰好落在資料混合這個實驗條件上。此問題仍未解決。無論如何，實務上的結論依然成立：**混合資料的生物體不會自動比未混合的更難測試**，因此基準測試的建構者不能只靠稀釋資料來換取真實度。
+
+## 對資料庫的影響
+
+這項研究以系統性分析呈現了一項早已流傳、但僅停留在直覺層面的保留意見。[Nanda 對全域工作空間論文的評論](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper)稱奉承型獎勵模型生物體是「一項重要驗證」，同時指出生物體訓練「可能透過縮窄微調領域，大幅改變模型內部」——使植入的特徵比自然形成的特徵更容易找出。Lottery 正是測量這種效應，並發現其幅度大到足以重新排列基準測試結果。
+
+從相反方向得出的結論，也與 [錯位的內部特徵](/articles/internal-signatures-of-misalignment)中 J-lens 作者指出的逃逸途徑相呼應：當錯位行為被強化成[自動化](/articles/automatic-vs-flexible-cognition)迴路，就不再啟用工作空間。新近且粗略植入的怪癖容易辨識；自然形成的怪癖則未必如此。一個論點談的是行為接受了*多少訓練*，另一個談的是行為在訓練流程的*哪個階段*進入模型——兩者指向同一種失效。
+
+研究**並未**證明資料庫中任何特定、以生物體為依據的發現是錯的。Lottery 顯示分數無法在不同生物體之間遷移，並非證明某個分數是捏造的。更審慎的說法，應從「技術 T 能偵測隱藏行為」調整為「技術 T 在以這種方式建構的這個生物體中，偵測到這種怪癖」——也因此，不再有任何依據把「先前研究顯示，可解釋性很容易辨識 MO 中的隱藏行為」當成普遍能力的前提。
+
+## 良好實務應有的樣貌
+
+論文提出的建議成本不高，值得納入閱讀標準：
+
+- 每種技術都應在**多種建構方法**下進行基準測試，而不只是多種怪癖——目前的測試套件會改變怪癖，卻固定配方；這不是正確的測試軸向。
+- **回報並匹配 QER。**現有基準測試沒有這項指標；若不控制 QER，就無法分辨「更難的生物體」結果和「表現更弱的生物體」結果。
+- 納入**整合式**（原生於後訓練流程）生物體，因為事後式生物體看起來容易得不自然。
+- 不要把任何單一生物體的分數視為具有個別意義。
+
+作者指出的範圍限制：基礎模型只有 1B 參數，採用刻意設計的無害怪癖而非欺騙或示弱行為，只整合 DPO 後訓練階段，且每項實驗的變體數有限。這套包含 54 個生物體的測試集及其訓練資料已開源（`huggingface.co/model-organisms-for-real`）。
+
+## 延伸閱讀
+
+- [Covert Capabilities](/articles/covert-capabilities)——逃避訓練生物體所要展現的能力；Anthropic 的第五個壓力測試生物體使用外部記憶，讓錯位行為取決於情境，並突破稽核的第一輪檢查
+- [結構化安全論證（主張拆解）](/articles/structured-safety-case)——讓取樣問題成為論證的關鍵支柱：以五個生物體驗證的對齊稽核，實際上只針對某人已經想像到的失效模式進行驗證
+- [示弱行為誘發（參照與情境接枝）](/articles/sandbagging-elicitation)——四個專門建構的示弱生物體（提示、微調、RL 訓練、迴路阻斷），使用 7-8B 模型，比本頁的 1B 基準測試大一個數量級；迴路阻斷生物體幾乎完全無法透過單層因果接枝來改變，是迄今最鮮明的配方依賴結果，而且涉及安全相關而非無害的怪癖
+
+- [白箱活化監控](/articles/white-box-activation-monitoring)——這個家族的效度正是本文所界定的對象：其中每種技術都以生物體評分，而跨 54 個生物體的活化預言器可靠性，是目前最直接說明這類真值依據能承載多少證據的資料
+- [錯位的內部特徵](/articles/internal-signatures-of-misalignment)——資料庫中最依賴生物體的發現；與 J-lens 作者親自指出的自動化逃逸途徑相呼應
+- [Jacobian Lens（J-lens）](/articles/jacobian-lens)——Lottery 對 J-lens 所修正的 *logit lens* 進行基準測試，發現其生物體分數會隨配方大幅波動，且在中間層崩落；這不是對 J-lens 的直接測試，但其生物體個案研究同樣受到遷移問題影響
+- [合成文件微調（SDF）](/articles/synthetic-document-finetuning)——SDF 只是建構方法空間中的一個選項，不是中立工具：在行為程度相同時，以 SDF 建構的生物體與以 DPO、TD 建構的生物體，分數有所不同
+- [自動化行為稽核](/articles/automated-behavioral-audit)——稽核遊戲和 AuditBench 把植入行為的模型當作答案依據，因此稽核技術分數也帶有相同的遷移限制
+- [獎勵追求](/articles/reward-seeking)——其對比式 SDF 工具曾以植入權威的生物體和獎勵駭取生物體驗證；這項驗證針對行為而非白箱分析，但構念相同
+- [Reward Hacking](/articles/reward-hacking)——MacDiarmid 的獎勵駭取生物體，其內部特徵是資料庫中最常被引用的生物體研究結果
+- [LLM 中的自動與彈性認知](/articles/automatic-vs-flexible-cognition)——這項機制說明「越貼近真實情境的生物體越難辨識」並不意外：熟練的行為會繞過工作空間
+- [Interference Weights](/articles/interference-weights)——同樣是在可測量性與代表性之間取捨，只是再往下一層。在該研究中，模型非常小（2.9M 參數、單層、無正規化），且不是植入怪癖；選擇這種設定，正是為了讓近乎真值的測量——消融權重後損失的實際變化——變得可行；作者也事先承認，兩項指標都無法擴展到前沿模型。兩種構念都先創造出易讀的答案依據，之後卻都必須提出目前尚無法成立的遷移論證
+
+## 尚待解答的問題
+
+- 整合式生物體只修改 DPO 階段。作者預期，在預訓練、SFT 或 RLVR 期間植入的怪癖會逐漸變得更難解釋；這是否屬實？會不會存在一個階段，讓現有白箱技術完全找不到任何訊號？
+- 這裡的所有結果都來自具無害怪癖的 1B 參數模型。配方依賴性在前沿規模及具安全重要性的行為（欺騙、示弱）下是否仍然存在？還是較大的模型會更一致地表徵植入的怪癖？**已有部分解答（2026-09-24）：**[示弱行為誘發（參照與情境接枝）](/articles/sandbagging-elicitation)一次改變一個軸向——使用 7-8B 模型（超出 Lottery 的 1B 上限，但仍未達前沿規模），並採用真正具安全重要性的行為（示弱）而非無害怪癖——結果發現配方依賴性不但仍然存在，還加劇成近乎完全分化：在單層編輯下，三種鎖定配方（提示、微調、RL）都能以中位數 R@1 ≥ 0.85 恢復，而迴路阻斷在每個模型上的 R@1 ≈ 0.01-0.05，因為其訓練方式會將寫入與提交依建構方式融合到一個區段的每一層。仍待解答：這是否適用於前沿規模？以及是否能從示弱推廣到欺騙或保密行為？
+- 既然分數無法在不同生物體間遷移，究竟要如何驗證一種可解釋性技術適用於真實模型——找到具有獨立確立真值依據的自然錯位模型，還是使用足夠廣泛的生物體分布來界定變異範圍？
+
+## 資料來源
+
+- [The Model Organism Lottery: Model Organism Interpretability Strongly Depends on Training Methodology](https://arxiv.org/pdf/2607.01033) — Szablewski、Konar-Steenberg、Fornasiere、Menon 與 Heimersheim（LASR Labs / Cambridge，arXiv 2607.01033，2026-07-01，`empirical`；ICML 2026 Mechanistic Interpretability Workshop）：§3.2–3.3（七種訓練流程、整合式 DPO 資料生成）、§3.4（QER 匹配、洩漏、黑箱驗證）、§3.5（四種技術、差分設定）、§4.1（1.2–20.4 倍差距、整合式 DPO 排名、混合與 Minder 等人研究比較、資料流程消融）、§4.2（種子、架構、差分與非差分比較）、§5（單一配方的 MO 是薄弱代理；QER 作為回報標準）、§6（限制）、附錄 B.1（HelpSteer3 重複率 36%）、C.5（層級依賴性）
+- [A Review of Anthropic's Global Workspace Paper](https://www.lesswrong.com/posts/zFJ3ZdQwrTWE9jT5S/a-review-of-anthropic-s-global-workspace-paper) —〈J-Lens 有用嗎？〉：關於奉承型獎勵模型生物體的窄域微調保留意見，本文將其推廣
+- [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) —受到遷移保留意見影響、以生物體為依據的 J-lens 個案研究（獎勵駭取者、獎勵模型討好者）
+- [Measuring Reward-Seeking via Contrastive Belief Updates](https://arxiv.org/pdf/2607.18966) —§4（三個植入權威的生物體，用於工具驗證）、§6（兩個 Redwood 獎勵駭取生物體作為保留測試集）
+- [A Causal Model for Locating and Unlocking Sandbagging in Model Organisms](https://arxiv.org/pdf/2608.29461) —此處僅用於標註上方尚待解答問題（7-8B、具安全重要性的行為、比 Lottery 更明顯的配方依賴性）；完整討論見[示弱行為誘發（參照與情境接枝）](/articles/sandbagging-elicitation)

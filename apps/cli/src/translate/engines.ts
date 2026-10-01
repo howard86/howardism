@@ -6,7 +6,7 @@ export type Engine = (typeof ENGINES)[number];
 export const DEFAULT_CURSOR_MODEL = "composer-2.5";
 
 /** codex's default model, pinned via `-m` for reproducible runs (see {@link buildEngineArgv}). */
-const DEFAULT_CODEX_MODEL = "gpt-5.6-luna";
+const DEFAULT_CODEX_MODEL = "gpt-6-luna";
 
 /**
  * Reasoning effort for codex. `low` looks like the cheap choice for a

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { fixMdxEscaping } from "../translate/postprocess.ts";
+import {
+  fixMdxEscaping,
+  repairTranslatedFrontmatter,
+} from "../translate/postprocess.ts";
 
 describe("fixMdxEscaping — brace escaping", () => {
   it("escapes bare { and } in prose", () => {
@@ -9,6 +12,13 @@ describe("fixMdxEscaping — brace escaping", () => {
 
   it("does not double-escape already-escaped braces", () => {
     expect(fixMdxEscaping("foo \\{bar\\} baz")).toBe("foo \\{bar\\} baz");
+  });
+
+  it("collapses a doubled backslash before a brace or pipe", () => {
+    expect(fixMdxEscaping("in \\\\{1..N\\\\} set")).toBe("in \\{1..N\\} set");
+    expect(fixMdxEscaping("| mean \\\\|ρ\\\\| | > 0 |")).toBe(
+      "| mean \\|ρ\\| | > 0 |"
+    );
   });
 
   it("escapes unescaped braces in LaTeX-like prose", () => {
@@ -112,5 +122,87 @@ describe("fixMdxEscaping — CRLF preservation", () => {
     const input = "foo {bar}\n";
     const result = fixMdxEscaping(input);
     expect(result).toBe("foo \\{bar\\}\n");
+  });
+});
+
+describe("repairTranslatedFrontmatter", () => {
+  const body =
+    "\nexport { default as heroImage } from '../assets/x.webp'\n\n## 摘要\n";
+
+  it("re-quotes a folded plain description whose continuation gained `: `", () => {
+    const broken = [
+      "---",
+      "date: 2026-06-07",
+      "title: 代理的誠實與勤勉",
+      "description: 隨著模型能力提升，未能呈現與決策相關的資訊",
+      "  從能力失誤轉為對齊失誤; Opus 4.8: 首個從不誤報",
+      "tag: Concept",
+      "---",
+      body,
+    ].join("\n");
+    const repaired = repairTranslatedFrontmatter(broken);
+    expect(repaired).toContain(
+      'description: "隨著模型能力提升，未能呈現與決策相關的資訊 從能力失誤轉為對齊失誤; Opus 4.8: 首個從不誤報"'
+    );
+    expect(repaired).toContain('title: "代理的誠實與勤勉"');
+    expect(repaired).toContain("date: 2026-06-07\n");
+    expect(repaired.endsWith(body)).toBe(true);
+  });
+
+  it("dedents an indented top-level key instead of folding it into the title", () => {
+    // The engine's real failure: `bad indentation of a mapping entry` at 4:13.
+    const broken = [
+      "---",
+      "date: 2026-06-07",
+      "title: 標題",
+      " description: 隨著模型能力提升",
+      "tag: Concept",
+      "---",
+      body,
+    ].join("\n");
+    const repaired = repairTranslatedFrontmatter(broken);
+    expect(repaired).toContain('title: "標題"');
+    expect(repaired).toContain('description: "隨著模型能力提升"');
+  });
+
+  it("stops a continuation at an indented top-level key", () => {
+    const broken = [
+      "---",
+      "title: 標題",
+      "description: 隨著模型",
+      "  能力提升: 失誤",
+      "  imageAlt: 插圖",
+      "---",
+      body,
+    ].join("\n");
+    const repaired = repairTranslatedFrontmatter(broken);
+    expect(repaired).toContain('description: "隨著模型 能力提升: 失誤"');
+    expect(repaired).toContain('imageAlt: "插圖"');
+  });
+
+  it("returns valid frontmatter unchanged", () => {
+    const ok = [
+      "---",
+      "title: 標題",
+      "description: 一段描述",
+      "---",
+      body,
+    ].join("\n");
+    expect(repairTranslatedFrontmatter(ok)).toBe(ok);
+  });
+
+  it("leaves an already-quoted value alone and gives up when repair cannot help", () => {
+    const hopeless = ["---", 'title: "未閉合', "tags: [a, b", "---", body].join(
+      "\n"
+    );
+    expect(repairTranslatedFrontmatter(hopeless)).toBe(hopeless);
+  });
+
+  it("repairs imageAlt with an unescaped leading quote", () => {
+    const broken = ["---", 'imageAlt: "引號" 之後的文字', "---", body].join(
+      "\n"
+    );
+    // Starts with a quote, so it is treated as quoted and left for validation.
+    expect(repairTranslatedFrontmatter(broken)).toBe(broken);
   });
 });

@@ -14,7 +14,7 @@ tags:
   - llm-model
   - open-weights
   - multimodal
-readingTime: 8
+readingTime: 9
 imageAlt: Illustration for Gemma 4
 sources:
   - title: Gemma 4 Technical Report
@@ -53,7 +53,7 @@ Four things, roughly in descending order of how much they matter.
 
 **The 12B discards its encoders.** Vision: 48×48×3 RGB patches through a single 35M matmul with 2D coordinate positional embeddings, replacing a 550M ViT. Audio: the 305M USM conformer is **entirely discarded**; raw 16 kHz audio is cut into 40 ms chunks (640-dimensional vectors) and projected straight into the LLM embedding space, with no positional encoding at all since audio is already a temporal sequence. This corroborates [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) from a second lab, for a different reason.
 
-**A deep inference-efficiency stack.** KV cache cut 37.5%, quantization down to sub-gigabyte, a released speculative-decoding drafter head. Detailed in [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the reason this report belongs in the wiki at all.
+**A deep inference-efficiency stack.** KV cache cut 37.5%, quantization down to sub-gigabyte, a released speculative-decoding drafter head. Detailed in [Inference Efficiency as Capability](/articles/inference-efficiency-as-capability) — the reason this report belongs in the wiki at all. *(2026-09-23: one component of that 37.5% now has an independent result against it. Gao & Xu’s Keyless Attention paper (arXiv 2606.21848, `empirical`) ablates the `values = keys` family Gemma 4 ships — the depth-2 “KV-sharing” variant with no replacement routing matrix — on a matched 12-layer GPT-2 and finds it **worse** than the QKV baseline on best validation loss, while a depth-3 variant that explicitly replaces the deleted projection’s routing role matches it. Gemma 4 reports no loss from the trick but prints no matched-architecture ablation, so the claim now rests on a `vendor-claim` contradicted at small scale by an `empirical` one.)*
 
 **It is not competitive at the frontier, and says so.** On Arena Text (June 19, 2026), Gemma 4 31B sits at **rank 43, Elo 1451 ±8** — the leading *dense* open model, 57 Elo behind [Claude Fable 5](/articles/claude-fable-5) at rank 1, and behind six MoE open models 20–50× its size. See [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap).
 
@@ -65,7 +65,7 @@ Three checks against the paper's own prose:
 
 - **"E2B roughly matches Gemma 3 27B with 10× fewer parameters"** is jagged rather than flat. E2B wins AIME 2026 (37.5 vs 20.8), Codeforces Elo (633 vs 110), LiveCodeBench v6 (44.0 vs 29.1); it *loses* on both broad-knowledge benchmarks — MMLU Pro (60.0 vs 67.6) and MMMLU (67.4 vs 70.7) — and on τ²-airline (31.0 vs 39.0). Reasoning compresses; stored knowledge does not. See [Jagged Intelligence (Ghosts, Not Animals)](/articles/jagged-intelligence).
 - **"E4B equaling or outperforming Gemma 3 27B on all [vision] evals"** holds except InfographicVQA (70.0 vs 70.6).
-- **The encoder-free 12B degrades out of order with scale when vision tokens are cut.** Dropping from 1120 to 280 vision tokens costs the 12B −29.7 points on InfographicVQA (88.4 → 58.7), a steeper fall than the 31B (−9.2), the 26B-A4B (−11.5), and even the *smaller* E4B (−15.2) and E2B (−19.3). OmniDocBench 1.5 shows the same inversion (12B +0.244 error, worst of the family). The anomaly is confined to dense-text-in-image tasks; MMMU Pro and MATH-Vision degrade normally. The paper does not comment on this. Recorded in [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion).
+- **The encoder-free 12B degrades out of order with scale when vision tokens are cut.** Dropping from 1120 to 280 vision tokens costs the 12B −29.7 points on InfographicVQA (88.4 → 58.7), a steeper fall than the 31B (−9.2), the 26B-A4B (−11.5), and even the *smaller* E4B (−15.2) and E2B (−19.3). OmniDocBench 1.5 shows the same inversion (12B +0.244 error, worst of the family). The anomaly is confined to dense-text-in-image tasks; MMMU Pro and MATH-Vision degrade normally. The paper does not comment on this. Recorded in [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — where, as of 2026-09-21, a matched-size ablation from another lab shows a projection-only vision path *leading* on OCRBench, which leaves the token budget rather than the projection as the likely culprit.
 
 Capability cliffs are steep at the bottom of the family. Humanity's Last Exam: 31B 19.5, 26B-A4B 8.7, 12B 5.2, and the two small models are not reported. GraphWalks F1: E2B scores **4.1** against Gemma 3 27B's 32.8.
 
@@ -94,7 +94,7 @@ Treat those as `vendor-claim` even though the capability claims around them are 
 
 - Why does the **MoE underperform the dense model**? Gemma 4 26B-A4B scores Elo 1438 on Arena against the 31B's 1451, despite MoE being the architecture every larger open model in their own table uses. Not addressed in the paper.
 - The pre-training cutoff is **January 2025** but the model reports 89.2 on **AIME 2026**. The report says data was filtered "to decontaminate benchmarks." What does that leave, for a competition held after the cutoff?
-- Is the encoder-free 12B's dense-text degradation an artifact of the 35M projection doing no feature compression, or of the 12B's training run specifically? A same-size encoder/encoder-free ablation would settle it; the paper runs none.
+- Is the encoder-free 12B's dense-text degradation an artifact of the 35M projection doing no feature compression, or of the 12B's training run specifically? A same-size encoder/encoder-free ablation would settle it; the paper runs none. **Partially answered (2026-09-21):** one now exists, from a different lab and for vision only — [Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation](https://arxiv.org/pdf/2604.24763) trains a patch-embedding-only 7B and a SigLIP-2-carrying 7B on the same Qwen2.5-7B-Instruct backbone and the same data, and the encoder-free arm is *ahead* on every dense-text row (OCRBench 79.7 vs 78.3, AI2D 79.6 vs 79.4, ChartQA tied at 85.6). So a projection-only vision path is not inherently bad at dense text. It does not close the question, because that ablation runs at **one vision-token budget** and Gemma 4's −29.7 appears only at 280 tokens, and because its suite contains no InfographicVQA or OmniDocBench. The sharper falsifier is now a token sweep, not a bigger model.
 
 ## Sources
 

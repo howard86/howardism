@@ -16,7 +16,7 @@ tags:
   - off-host
   - reference-monitor
   - prompt-injection
-readingTime: 28
+readingTime: 31
 imageAlt: Illustration for Off-Host, Identity-Bound Authorization
 sources:
   - title: "aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents"
@@ -27,6 +27,8 @@ sources:
   - title: "Delegation Without Trust: An Empirical Gap Analysis of Identity,
       Authorization, and Runtime Governance in Multi-Agent LLM Systems"
     url: https://arxiv.org/pdf/2609.00267
+  - title: Trust propagation and structural containment in Multi-agent LLM pipelines
+    url: https://arxiv.org/pdf/2609.17648
 ---
 export { default as heroImage } from "../assets/off-host-identity-bound-authorization.webp";
 
@@ -35,6 +37,7 @@ export { default as heroImage } from "../assets/off-host-identity-bound-authoriz
 - [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518)
 - [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/)
+- [Trust propagation and structural containment in Multi-agent LLM pipelines](https://arxiv.org/pdf/2609.17648)
 
 ## Summary
 
@@ -111,6 +114,21 @@ So the stack this vault has been assembling one paper at a time reads: **workloa
 
 **Tier and COI.** `empirical` for the broker measurements, with two qualifiers this page should carry every time it cites them: both authors are at **VotalAI** and §8 is a two-page description of the company's commercial **LLM Shield** (whose production figures — ~2 ms pre-call inspection, ~190 ms guardrail-model check — are `vendor-claim`, not evidence); and the evaluated artifact is a **~160-line stdlib demonstrator that is explicitly not released**, against an abstract tool/resource action model with no live model in the loop. aiAuthZ released code and transcripts; ScopeGate released an Apache-2.0 artifact at a named commit. On **reproducibility** this paper ranks below both — while its multi-hop measurements have no competitor in this corpus at all.
 
+## Ablating the boundary: a signature is provenance, not permission (Safin et al., 2026-09)
+
+aiAuthZ's RQ3 measured that a delegation-token design with no argument policy blocks **0/9** cases. Safin, Zisad, Shatabda & Hasan (BRAC University / UAB; [arXiv 2609.17648](https://arxiv.org/pdf/2609.17648), IEEE CARS 2026, `empirical`, small-scale) run the same comparison as a component ablation, one hop inside a multi-agent pipeline rather than at a human-to-agent boundary. A four-agent LangGraph pipeline (deterministic Supervisor → Researcher → Validator → Executor, gemma4:31b-cloud at temperature 0) acts on a SQLite store of 1,000 Enron message headers. The Executor admits a request only if it carries an **HMAC-signed, task-bound, single-use token** *and* an independent **policy oracle** re-derives permission from the proposed action and its resource scopes. In the memory-poisoning attack the Validator is replaced by a routine that forges an approval and, since it holds the signing key, mints a valid token for it.
+
+Fig. 2 (single seed, n = 60 per condition; viewed): Unsafe Action Rate **100%** with no boundary, **100%** with the token check alone, **0%** with the policy oracle alone, **0%** with both. The paper's own reading: *"a signature authorizes provenance, not permission, and a signature-only system inherits the privileges of whoever holds the key."* The authors keep the token's other uses (forgery resistance, task binding, replay prevention against an attacker *without* the key) and say plainly that none of them was evaluated here.
+
+Two findings from two setups that share no design point now say the same thing. aiAuthZ's delegation tokens block 0/9 because they carry no argument policy. Safin et al.'s signed tokens contain 0% because the attacker holds the key. In both, containment came from a policy the agent could not write, evaluated over the proposed action. That puts the policy layer at the top of the stack described in the multi-hop section above. Credentials establish *who* is asking, and only the policy decides *what* may happen.
+
+**What the numbers do and do not show.** Four caveats, all stated by the authors:
+
+- **The 100% Judgment Bypass Rate is true by construction.** The poisoned routine writes an approval without calling the model. What the result shows is that the authorization layer contains an already-compromised validator. It does not show that an LLM reviewer was fooled.
+- **The 0% UAR is enforcement fidelity, not discovery.** The default policy is copied from each task's gold label, so the 0% shows that a supplied policy was enforced. A hand-written least-privilege allowlist (13 action types mapped to permitted scopes, no label access, 60/60 agreement with the labels) gives the same containment. Because the same group wrote both policies, the authors call this "evidence of non-circular implementation rather than objective policy correctness." That is small-scale evidence on this page's policy-authoring question below, not an answer to it.
+- **Scale.** One model, one framework, one fixed topology, 60 tasks, 3 seeds, and the ablation at a single seed.
+- **Untested variables.** Trust domain and identity are both left out. The Executor and its policy share the pipeline's process, and no human principal is modeled. So this measures *policy vs signature*. It says nothing about *off-host vs in-process*, and the trust-boundary-premium question below remains open.
+
 ## The standards-track counterpart (OpenID AuthZEN / COAZ)
 
 aiAuthZ is a shipped research gateway; the **OpenID Foundation's AuthZEN Working Group** is standardizing the same authorize-each-call boundary as an interoperable profile. AuthZEN's **Authorization API 1.0** defines the **Subject-Action-Resource-Context (SARC)** allow/deny decision interface aiAuthZ's off-host gateway implements ad hoc, and the newly-approved **COAZ** Working Group Draft (2026-06-15) profiles **MCP tool invocations into SARC**, so any compatible PDP — an API/AI gateway exactly like aiAuthZ's — can authorize a tool call at the invocation point. The overlap is the *argument-level policy* both share; what AuthZEN/COAZ does **not** standardize is aiAuthZ's distinctive **per-message HMAC identity of the human sender** (nor the off-host separate-trust-domain requirement) — those stay aiAuthZ's own contribution. The **AARP** draft is the standards analogue of a resumable approval step: rather than a terminal deny on an over-threshold action, it defines a "not yet — here is the prerequisite" handshake (generalizing CIBA) a person or automated governance system satisfies before policy re-decides. All of it is a **proposed** interoperability standard (`practitioner-opinion`, Working Group *Drafts*), weighted below aiAuthZ's `empirical` measurements where they overlap; the fuller treatment lives on [AIMS](/articles/agent-identity-management-system).
@@ -151,6 +169,7 @@ Stated plainly by the author, and worth carrying forward:
 
 ## Sources
 
+- [Trust propagation and structural containment in Multi-agent LLM pipelines](https://arxiv.org/pdf/2609.17648) — Safin, Zisad, Shatabda & Hasan (BRAC University / University of Alabama at Birmingham), *Trust propagation and structural containment in Multi-agent LLM pipelines*, arXiv 2609.17648, 2026-09-15, IEEE CARS 2026, `empirical` (small-scale: one model, 60 tasks, 3 seeds, authorization ablation at one seed; no COI). Cited here for §IV-C (the two policy-oracle modes), §V-B with Fig. 2 (token-only vs policy-only vs T1 under a key-holding attacker; figure viewed and matches the prose), §V-C (independent least-privilege policy) and §V-E (threats to validity). Full treatment of the pipeline results on [Blast Radius (Agentic)](/articles/blast-radius)
 - [OpenID Foundation advances authorization for the agent era with new AuthZEN Working Group Drafts](https://openid.net/openid-foundation-advances-authorization-for-the-agent-era-with-new-authzen-working-group-drafts/) — OpenID Foundation, *…advances authorization for the agent era with new AuthZEN Working Group Drafts*, 15 June 2026, `practitioner-opinion` (proposed Working Group **Drafts**, not ratified specs; weighted below aiAuthZ's `empirical` measurements). The standards-track counterpart to aiAuthZ's off-host per-call gate: AuthZEN Authorization API 1.0 (SARC allow/deny), COAZ (MCP-invocation → SARC profile), AARP (prerequisite/approval pattern generalizing CIBA); does not standardize aiAuthZ's per-message human identity or the off-host trust boundary
 - [Delegation Without Trust: An Empirical Gap Analysis of Identity, Authorization, and Runtime Governance in Multi-Agent LLM Systems](https://arxiv.org/pdf/2609.00267) — Dantuluri & Sundi (**both VotalAI**), *Delegation Without Trust*, arXiv 2609.00267, 2026-08-31, `empirical` (**vendor COI; evaluated artifact is a ~160-line unreleased demonstrator; only the LangGraph row of the framework audit is executed**). Cited here for §3–§4 (the four delegation threats and R1–R8), §7.1–§7.3 (broker design, the 11 design attacks, the separate 0/200,000 fuzz, the 2,000-scenario blast radius, the ~2.6 µs / ~5.4 µs overhead, and the twelfth boundary test), and §12 (its own positioning against Progent/FORGE/PAuth/AC4A as *credential layer beneath a policy engine*). Full treatment on [Agent Identity Management System (AIMS)](/articles/agent-identity-management-system)
 - [aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents](https://arxiv.org/pdf/2607.05518) — Sai Varun Kodathala, *aiAuthZ: Off-Host, Identity-Bound Authorization for AI Agents*, arXiv 2607.05518, July 2026, `empirical` (single-author preprint, SportsVision AI). §1 (problem: tool-using models act on untrusted text; in-process permission systems are compromised with the process; Agents of Chaos motivation — 7/11 cases are identity/authorization failures), §2 (three principals; trust boundary; in/out-of-scope threats; Table 1 standards mapping), §3 (per-message HMAC identity + two bindings; three-gate off-host policy; hash-chained audit + crypto-erasure; signed QR receipts; closing the bypass), §4 (FastAPI/MCP implementation, 58 tests), §5 (evaluation: Table 2 15-model refusal 100%→38% + residual→0% at ≤0.03 ms; Table 3 Agents-of-Chaos cases; §5.4 RQ3 9/9 vs 4/9 vs 0/9; Table 4 AgentDojo banking; Table 5 long-context; Table 6 receipts 94% / 0-forgery; Tables 7 live MCP), §6 (limitations: bypass, composition, non-repudiation tradeoff, no CaMeL/Progent head-to-head), §7 (related work: OAP/AIP concurrent art, in-process CaMeL/Progent/IsolateGPT, SPIFFE/OAuth/ETDI workload identity, guardrails, watermarking). Figures 1, 4, 5, 6 viewed per the image two-pass rule; docling's run-together captions are cosmetic and match the tables.

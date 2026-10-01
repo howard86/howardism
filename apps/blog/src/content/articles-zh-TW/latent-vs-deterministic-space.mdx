@@ -1,7 +1,7 @@
 ---
 date: 2026-07-21
-title: 潛在空間 vs. 確定性空間
-description: "Garry Tan 對代理系統錯誤的診斷：計算發生在兩個地方——潛在空間（LLM：品味、判斷、模糊意圖的解讀，由 markdown 引導）與確定性空間（生成的程式碼、外部狀態）——而多數 AI 工程失敗，都是因為計算發生在錯誤的一側"
+title: 潛在空間與確定性空間
+description: "Garry Tan 對代理系統錯誤的診斷：運算發生在兩個地方——潛在空間（LLM：品味、判斷、對模糊意圖的解讀，透過 markdown 引導）與確定性空間（產生的程式碼、外部狀態）——多數 AI 工程失敗，都是因為運算發生在不該發生的一側；如今有一個經測量的實例：把四條政策規則從提示文件移到 Python 中、針對資料庫狀態的述詞，可讓代理任務成功率提升 +12.4 個百分點；Robert C. Martin 補上實務工作者對規則衰退的論點——提示規則在逐漸增長的工作階段裡有半衰期，檢查器則沒有"
 tag: Concept
 domain: agent-systems
 tags:
@@ -9,59 +9,110 @@ tags:
   - architecture
   - context-management
   - practitioner-opinion
-readingTime: 4
-imageAlt: 潛在空間 vs. 確定性空間的插圖
+readingTime: 16
+imageAlt: 潛在空間與確定性空間的插圖
 sources:
   - title: The New Physics of Business — Garry Tan, Y Combinator
     url: https://www.youtube.com/watch?v=eBUyTS7SzV4
+  - title: "Garry Tan: Own Your Intelligence"
+    url: https://www.youtube.com/watch?v=eRrc1pUY5oU
+  - title: "Reason Less, Verify More: Deterministic Gates Recover a Silent
+      Policy-Violation Failure Mode in Tool-Using LLM Agents"
+    url: https://arxiv.org/pdf/2607.07405
+  - title: Uncle Bob on Software Fundamentals in the Age of AI
+    url: https://www.youtube.com/watch?v=zcLPGC-tvgk
 ---
 export { default as heroImage } from "../assets/latent-vs-deterministic-space.webp";
 
 ## 資料來源
 
+- [Garry Tan: Own Your Intelligence](https://www.youtube.com/watch?v=eRrc1pUY5oU)
+- [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405)
 - [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)
 
 ## 摘要
 
-[Garry Tan](/articles/garry-tan) 對代理系統的設計準則（`practitioner-opinion`）：務必有意識地思考**計算實際發生在哪裡**，因為它總是發生在兩個地方之一——而且「我們遇到的所有 AI 工程問題，通常都是因為某些事情發生在等式的一側，但其實應該發生在另一側。」
+[Garry Tan](/articles/garry-tan) 對代理系統提出的設計準則（`practitioner-opinion`）：要刻意思考**運算實際發生在哪裡**，因為它總是在兩個地方之一發生——而「我們遇到的所有 AI 工程問題，通常都是某件事發生在等式的一側，但它本該在另一側。」
 
-- **潛在空間**——LLM 本身。它適合處理的事情：品味、判斷、「理解人們說出模糊話語時真正想要什麼」，以及非確定性呼叫。你可以用 markdown 引導它（[Agent Context Files](/articles/agent-context-files)）。
-- **確定性空間**——工程師早已熟悉的領域：代理程式寫出的程式碼、外部儲存，以及可驗證的狀態。
+- **潛在空間**——LLM 本身。它適合處理：品味、判斷、「理解人們說得模糊時，實際想要什麼」，以及非確定性的呼叫。你可以用 markdown 引導它（[Agent Context Files](/articles/agent-context-files)）。
+- **確定性空間**——工程師早已熟悉的部分：代理撰寫的程式碼、外部儲存、可驗證的狀態。
 
-## 實際案例：安排 800 人的座位
+## 實例：安排 800 人入座
 
-Tan 在 YC Startup School 的現場案例：從 6,000 名參加者中安排 800 人入座，讓每個人的鄰座都是最適合與其認識的人。分工如下：
+Tan 的現場案例（YC Startup School）：從 6,000 名與會者中安排 800 人入座，讓每個人的鄰座都是最適合認識的人。分工如下：
 
-- **800 個座位的多維陣列——也就是狀態——「絕不能存在於 context window 中。」** 它應該放在確定性空間。
-- **LLM 處理人類的部分**：判斷誰應該與誰見面——原本人類組織者得靠列印 800 頁資料，再在一個大房間裡花一個月洗牌才能完成的工作。
+- **800 個座位的多維陣列——也就是狀態——「絕不能放在上下文視窗裡。」**它應該放在確定性空間。
+- **LLM 負責人的部分**：判斷誰該和誰見面——這原本是人類主辦者要做的事，得印出 800 頁資料，在大房間裡排列整整一個月。
 
-合計只需「幾百美元的 tokens，可能還有 10 分鐘」——這項任務在六個月前或許還不具經濟可行性。這個例子可以推廣到更廣的情境：潛在空間為每個決策提供判斷；確定性空間則保存狀態並強制執行約束。
+兩者結合起來，「花幾百美元的 tokens，大概十分鐘」——這項任務在六個月前還不具經濟可行性。這個例子可推廣到其他情境：潛在空間為每個決策提供判斷；確定性空間則保存狀態並執行約束。
 
-## 為什麼這個框架值得獨立成頁
+**一年後重述並實際交付的同一個例子**（[Startup School，2026 年 8 月](https://www.youtube.com/watch?v=eRrc1pUY5oU)）。Tan 再次講述這個案例，並把規模擴大——為**6,000 名與會者**量身打造分組活動時程，並為他正在演講的觀眾建置、交付——也比第一次說得更清楚地劃出界線：讓五個人圍桌而坐是潛在空間的工作，「但如果要它在競技場裡為 6,000 人安排客製時程，潛在空間代理就得寫一些程式來追蹤……呼叫資料庫與指令碼的 markdown 檔案。」他對規則的精簡說法是很有用的補充——**「模型會在我們會失敗的地方失敗。解方是讓模型以人類運算的方式來運算」**——這讓診斷有了工程品味以外的根據：人類主辦者也不會把 6,000 份時程都記在腦中，而是會拿出試算表。它仍屬於 `practitioner-opinion`，仍只是存在性證明而非測量；實際大規模交付的版本提高了這個軼事的說服力，但沒有改變它的證據層級。
 
-它把這個 wiki 中幾個得來不易的經驗，濃縮成一個診斷問題——*這項計算應該放在哪一側？*
+## 這個觀點為何值得獨立成篇
 
-- **把狀態移出 context window** 是 [Context Window Smart Zone](/articles/context-window-smart-zone) 背後的工作準則（smart-zone 預算應花在判斷，而不是儲存），也是這個 vault 自身架構的基礎（[LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base)：wiki 保存狀態；`build.py`/`lint.py` 負責確定性的記帳；LLM 只做詮釋性的編譯）。
-- **用 markdown 引導潛在空間** 是 [Agent Context Files](/articles/agent-context-files) 模式的核心，如今被定位為雙側架構的一半，而不只是獨立技巧。
-- **錯誤分類學**——「某些事情發生在不該發生的那一側」——涵蓋兩種熟悉的失敗類型：LLM 在程式碼應負責的地方做算術與狀態追蹤（幻覺式記帳），以及脆弱的程式碼把應由模型處理的判斷硬編碼（[Software 3.0](/articles/software-3-0) 的觀點——Karpathy 的 MenuGen「不應該存在」，因為原生於該典範的版本會把整項任務推入潛在空間）。
-- 它是 [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) 在架構層級的近親：那一頁把決策拆分為*人類與代理*；這一頁則把計算拆分為*模型與程式碼*。
+它把本知識庫中幾項得來不易的經驗，濃縮成一個診斷問題——*這項運算應該放在哪一側？*
 
-## 相關連結
+- **將狀態移出上下文視窗**是[Context Window Smart Zone](/articles/context-window-smart-zone)背後的實務準則（智慧區的預算應花在判斷，而非儲存），也是這個知識庫自身架構的準則（[LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base)：知識庫保存狀態；`build.py`/`lint.py`負責確定性的帳務處理；LLM 只做詮釋性的編譯）。
+- **用 markdown 引導潛在空間**是 [Agent Context Files](/articles/agent-context-files) 模式；這裡把它視為雙側架構的一半，而非獨立技巧。
+- **錯誤分類法**——「某件事發生在不該發生的一側」——涵蓋兩種常見的失敗類型：LLM 負責本該由程式碼處理的算術或狀態追蹤（幻覺式帳務處理），以及脆弱程式碼硬編碼本該交給模型判斷的內容（[Software 3.0](/articles/software-3-0)提出的觀點——Karpathy 的 MenuGen「不該存在」，因為符合這個典範的版本會把整項任務推進潛在空間）。
+- 這是 [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) 在架構層面的對應篇章：那一頁區分*人類與代理*各自做哪些決策；這一頁則區分*模型與程式碼*各自做哪些運算。
 
-- [Agent Context Files](/articles/agent-context-files) — 作為潛在側引導機制的 markdown
-- [Context Window Smart Zone](/articles/context-window-smart-zone) — 將狀態移出 context window 的容量論據
-- [Software 3.0](/articles/software-3-0) — Karpathy 對同一邊界的典範框架；他的 MenuGen 例子是反向錯誤（確定性應用程式在做潛在空間的工作）
-- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor) — 人類／代理的決策拆分；本頁則是模型／程式碼的計算拆分
-- [Agent Harness Engineering](/articles/agent-harness-engineering) — harness 設計很大程度上就是在工程化這條邊界：模型看得到什麼，以及 scaffold 以機械方式強制執行什麼
-- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base) — 這個 vault 的實例：圍繞潛在編譯器建立確定性的生成器與 lint 工具
-- [AI-Native Organization](/articles/ai-native-organization) — 同一場演講中的組織層級論點；組織映射的前提，是每個被編碼的流程都知道自己的步驟應在哪一側執行
-- [Garry Tan](/articles/garry-tan) — 這個框架的作者
+## 經測量的實例：放錯邊的政策
+
+Tan 的觀點屬於 `practitioner-opinion`，而座位安排的例子是存在性證明，不是測量。Reddy、Challaram 與 Basu 的研究（[Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405)，arXiv 2607.07405，`empirical`）提供了語料中第一個看起來像是對此診斷進行受控測試的實例。其設定格外明確，因為唯一改變的，就是某一類運算在哪一側執行。
+
+在 τ²-bench 航空領域中，**領域政策完全留在潛在空間**：模型必須遵循一份自然語言文件，而工具會執行任何格式正確的呼叫。因此，合規仰賴模型在每次寫入前重新推導所有相關規則。但它做不到——**78% 的觀察到失敗，是最終狀態錯誤且沒有工具錯誤**（[看似成功的失敗](/articles/failures-that-look-like-success)）。把其中四條規則編碼成針對目前資料庫狀態的確定性唯讀述詞，並在寫入執行前評估，可將成功率從 29.6% 提升到 42.0%（+12.4 個百分點；在 15 組互不重疊的種子上重複測試，結果相差不超過 0.1 個百分點），而提升集中於述詞確實觸發的任務。完整分析見[確定性預執行閘門](/articles/deterministic-pre-execution-gates)。
+
+這項研究為上述觀點補充了三件事。
+
+- **它在狀態與判斷之外，提出第三種邊界類別。**Tan 的例子把*狀態*（座位陣列 → 確定性空間）與*判斷*（誰該認識誰 → 潛在空間）分開。這項研究則加入**約束**：只要能根據目前狀態與呼叫參數判定的規則，就屬於確定性一側，即使它讀起來像自然語言、原本也是為人類撰寫。這是最容易預設留在潛在空間的類別，因為政策文件本來就是文字，而把文字放進提示看起來也理所當然。
+- **診斷有一項前提條件，論文也明確指出了。**只有在政策屬於**狀態可判定**——亦即能表達為針對目前狀態與參數的確定性述詞——時，閘門才有用。需要消除歧義、解釋法律或運用人類判斷的規則，依其本質仍應留在潛在空間。因此，「這項工作該放在哪一側？」並非總是可以自由選擇；對可判定規則，答案是被決定的；對詮釋性規則，則無法如此決定。這比 Tan 的提問更明確。
+- **放錯邊的代價呈現為特定的失敗形式，而非一般性的退化。**本該放在確定性空間、卻留在潛在空間的運算，在此不會產生雜訊或近似結果——而是產生*沉默的錯誤*。工具成功執行，沒有錯誤，操作記錄看起來也很乾淨。座位安排例子的反向情境（LLM 在上下文中追蹤 800 個座位）會明顯退化；這裡的退化則隱而不見，而這種出錯方式代價更高。
+
+## 實務工作者的說法：規則會衰退，檢查器不會（Martin，2026-08）
+
+[Robert C. Martin](/articles/robert-c-martin)（[Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk)，2026-08-19，`practitioner-opinion`）從程式碼代理的角度抵達相同的界線，並比上述觀點更清楚地說明了*原因*。他起初採取多數人會採取的做法——把五到十頁的程式碼規則文件放進提示——後來卻放棄了：
+
+>「代理把那些規則當成《神鬼奇航》裡的準則。它們比較像是指引，你懂吧，模型可能會遵守。」
+
+他提出的機制關乎位置，而非經濟效益：**凡是放在潛在一側的內容，都得撐過上下文視窗；確定性工具則不會出現在那裡。**
+
+>「隨著上下文視窗逐漸累積，最開始與最末尾的內容會更醒目，中間的內容則比較不顯眼……你一開始說的任何內容，只要篇幅夠長，就會被推到中間。所以，也許開頭的前三句仍會優先處理，但裡面的第 50 句和第 80 句就不見了。**確定性工具不會消失**……代理的關鍵，是把最初的提示精簡到最短，讓盡可能多的內容能保留在優先位置。」
+
+這項觀點補上兩件事。
+
+- **它提出了界線衰退的論點，而不只是容量或正確性的論點。**Tan 的座位安排例子與 τ²-bench 閘門都指出，有些運算*本質上*就該放在確定性一側——因為狀態太多，或規則可由狀態判定。Martin 討論的則是**持久性**：潛在一側的指令在逐漸增長的工作階段裡有半衰期；同一指令若編譯成檢查器，就沒有半衰期。這讓界線成為工作階段長度的函數，也解釋了前兩者無法說明的一種失敗：某條規則在工作階段早期確實有效，後來卻不再生效。關於衰退曲線，見 [Context Window Smart Zone](/articles/context-window-smart-zone)；關於依指令數量測得的合規下限，見 [Instruction Compounding](/articles/instruction-compounding)。
+- **它補上 [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review) 指出的缺漏實驗組。**那一頁記錄了語料中的「確定性勝過自主性」主張「仍缺少閘門對提示指令的實驗組」——沒有人以同一品質門檻，分別用提示文字和檢查器來測試。Martin 在自己的工作上依序做了完全相同的比較，並表示檢查器勝出。這只是沒有控制組、沒有消融實驗，而且先驗立場鮮明的單一實務工作者，因此它是**有明確提出者的假說**，而非缺少的實驗組。但這是語料中第一次描述該實驗究竟該如何進行。
+
+他的強制執行方式是循環條件，而非預執行述詞：「你必須持續修改程式碼，直到這個工具說可以為止。」工具本身包括 CRAP 分數、突變測試，以及一份「代理無法違反」的相依規則規格檔（[重振不切實際的品質工具](/articles/reviving-impractical-quality-tools)）。他回報的代價是吞吐量——五分鐘的任務經過完整閘門堆疊，大約要花一小時——他也指出一個尚未觸及的上限：「最後你會把代理拖慢到比人類還慢。到那一步，你就輸了。」
+
+## 延伸閱讀
+
+- [Layerwise Omission Attribution](/articles/layerwise-omission-attribution)——把診斷操作化為完整的流程分類法，而非單一面向：九個層級分為確定性軟體（L0-L3）和模型行為（L4-L8），每項遺失的事實都只歸到其中一側，並用瀑布式方程將各層的條件比率轉換為總損失占比。依其基準配置，73.4% 的損失落在軟體一側，方向與 Tan 的預測一致；但須留意，這個配置來自刻意注入故障，而非觀察所得
+- [Deterministic Pre-Execution Gates](/articles/deterministic-pre-execution-gates)——沿單一面向測量此診斷：留在潛在空間的領域政策（模型每次寫入前都必須套用的文字文件），與編譯成針對資料庫狀態的確定性述詞的同一組規則相比，相差 +12.4 個百分點；論文的負向控制也標示出界線已劃分正確的情況
+- [Failures That Look Like Success](/articles/failures-that-look-like-success)——當確定性一側是會執行任何格式正確呼叫的工具時，放錯邊的運算會付出什麼代價：失敗會悄無聲息，而非明顯退化
+- [Agent Context Files](/articles/agent-context-files)——markdown 是引導潛在一側的機制
+- [Context Window Smart Zone](/articles/context-window-smart-zone)——將狀態移出視窗的容量論點
+- [Software 3.0](/articles/software-3-0)——Karpathy 對相同界線提出的典範觀點；他的 MenuGen 例子是相反方向的錯誤（由確定性應用程式處理潛在空間的工作）
+- [Planning / Execution Division of Labor](/articles/planning-execution-division-of-labor)——人類與代理的決策分工；本文則探討模型與程式碼的運算分工
+- [Agent Harness Engineering](/articles/agent-harness-engineering)——harness 設計大多是在工程上劃定這條界線：模型看見什麼，以及腳手架會機械性地強制執行什麼
+- [LLM-as-Compiler Knowledge Base](/articles/llm-as-compiler-knowledge-base)——這個知識庫本身就是一個實例：確定性產生器與檢查器圍繞著潛在編譯器運作
+- [AI-Native Organization](/articles/ai-native-organization)——同一場演講提出的組織層級論點；組織映射假設每個被編碼的流程都知道自身步驟在哪一側執行
+- [Owning Your Externalized Cognition](/articles/owning-your-externalized-cognition)——為何潛在一側要寫在 markdown 中：用文字引導模型，才能把判斷寫下來，這是將它轉化為可擁有（或可攫取）成果的前提
+- [Reviving Impractical Quality Tools](/articles/reviving-impractical-quality-tools)——實務案例：將品質規則從提示移到 CRAP 分數和突變測試閘門，理由訴諸衰退，而非容量
+- [Impose Values, Not Disciplines](/articles/impose-values-not-disciplines)——接受這條界線後，哪些內容該放進檢查器：價值本身，而非人類用來達成價值的儀式
+- [Garry Tan](/articles/garry-tan)——此觀點的提出者
+- [Deterministic Engineering for Agent Code Review](/articles/deterministic-agent-code-review)——第二個經測量的實例，其形式不是座位安排例子或[確定性預執行閘門](/articles/deterministic-pre-execution-gates)的約束類別所能完整涵蓋。Rule-Guided Dispatch 把*哪些*檔案要審查，以及要依據*哪一份*檢查清單，留在確定性一側——使用四層 glob 鏈，符合第一條即採用，因此「相同 PR 永遠會得到相同的檔案與準則分配」——同時讓檢查清單文字，也就是自然語言的審查準則，留在潛在空間。這不是把規則本身變成確定性，而是讓適用哪條潛在空間規則的*選擇*變成確定性——由程式碼決定模型會看到哪些文字，而非用程式碼取代文字。不同於 τ²-bench 閘門，這個實例受到混雜因素影響，並非乾淨的比較：三種確定性機制同時對照兩個不同的基準產品，因此從未單獨檢驗派送界線
 
 ## 開放問題
 
-- Tan 認為「錯誤的一側」診斷涵蓋了大多數 AI 工程錯誤。是否有任何事件／失敗分類學（代理事後檢討、eval 失敗分析）確實依照計算位置分類失敗，而且落在兩側的比例各是多少？
-- 這個座位案例估算，為 800 個座位分配提供潛在空間判斷需要「幾百美元的 tokens」。隨著模型吸收更多確定性能力（[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve)），經濟上最佳的邊界會朝潛在空間移動嗎？還是將狀態移出 context window 仍然是不變的原則？
+- Tan 主張「放錯邊」的診斷涵蓋多數 AI 工程錯誤。代理事後檢討、評估失敗分析等事件／失敗分類法，是否真的依運算位置分類失敗？各側各占多少？**2026-08-03 部分解答**：[Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405)（`empirical`）是語料中首篇依位置分類並附上比例的失敗分析：在 τ²-bench 航空領域中，**78% 的觀察到失敗是無聲的錯誤狀態失敗**，可追溯到政策寫在提示文件而非工具中；將四條規則移至確定性一側，可挽回 +12.4 個百分點。仍有三項限制，因此只能算部分解答：它只涵蓋一個基準領域；分類只沿著*政策合規*這一個面向，而非一般性地整理各種失敗；論文的負向控制也顯示，比例取決於工具層的建置方式，因此不能視為所有代理錯誤的母體估計。目前仍未解答：對診斷的*另一個方向*——程式碼硬編碼了本該由模型處理的判斷。**2026-08-03 有進一步進展**：[Layerwise Omission Attribution](/articles/layerwise-omission-attribution)（[Where Facts Go Missing: A Layerwise Taxonomy and Per-Layer Attribution of Information Omission in Air-Gapped LLM Agent Pipelines](https://arxiv.org/pdf/2607.22448)，`empirical`）幾乎完整補上分類法這一半：九個層級涵蓋整條流程，明確分為確定性軟體（L0-L3）與模型行為（L4-L8），並以瀑布式方法將每項遺失事實歸於唯一位置，固定順序則避免重複計算。它對*比例*一半的回答是 73.4% 軟體側；但這個數字來自對**刻意注入**故障的配置，論文也四度明確限制其適用範圍，因此分類法可以沿用，比例則不行。仍待解答：在自然發生的事件中測量位置分布，以及反向的情況。
+- 座位安排例子估算，為 800 個座位安排提供潛在空間判斷要花「幾百美元的 tokens」。隨著模型吸收更多確定性能力（[模型進步下的 Harness 縮減](/articles/harness-shrinkage-as-models-improve)），經濟效益最佳的界線會往潛在空間移動嗎？還是把狀態移出上下文仍是固定不變的原則？
 
 ## 資料來源
 
-- [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan, "The New Physics of Business," AI Engineer, 2026-07-17, §latent space vs. deterministic space (8:38–10:53)
+- [The New Physics of Business — Garry Tan, Y Combinator](https://www.youtube.com/watch?v=eBUyTS7SzV4) — Garry Tan，〈The New Physics of Business〉，AI Engineer，2026-07-17，§潛在空間與確定性空間（8:38–10:53）
+- [Garry Tan: Own Your Intelligence](https://www.youtube.com/watch?v=eRrc1pUY5oU) — Garry Tan，〈Own Your Intelligence〉，YC Startup School，2026-08-06（`practitioner-opinion`；自動字幕逐字稿），§「Latent Space vs. Deterministic Code」：以 6,000 名與會者的規模再次講述相同診斷，並以實際交付的方式呈現，以及「模型會在我們會失敗的地方失敗」這句精簡論述
+- [Reason Less, Verify More: Deterministic Gates Recover a Silent Policy-Violation Failure Mode in Tool-Using LLM Agents](https://arxiv.org/pdf/2607.07405) — Reddy、Challaram 與 Basu（arXiv 2607.07405，KDD-ETAAI '26，`empirical`）：§1.1（政策放在工具不會強制執行的自然語言文件中）、§5.1（將四條規則移至確定性述詞後，成功率由 29.6% 提升到 42.0%，並在 15 組互不重疊的種子上重複驗證）、§7 限制 6（狀態可判定性是移動規則的前提）。所有表格均已與內文核對；§1.2 與 §2 的雙欄閱讀順序曾錯亂。完整分析見[確定性預執行閘門](/articles/deterministic-pre-execution-gates)
+- [Uncle Bob on Software Fundamentals in the Age of AI](https://www.youtube.com/watch?v=zcLPGC-tvgk) — Robert C. Martin 與 [Matt Pocock](/articles/matt-pocock)，2026-08-19（`practitioner-opinion`；自動字幕逐字稿）：說明界線衰退的論點——提示中的規則「比較像是指引」，會被推進中段而逐漸被遺忘；確定性工具則完全不會進入視窗。沒有控制組；是一位實務工作者在自己的工作上依序進行的比較

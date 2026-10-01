@@ -4,7 +4,10 @@ import { titleFromSlug } from "@howardism/article-contract/markup";
 
 import matter from "gray-matter";
 
+import { runWithConcurrency } from "../concurrency.ts";
+
 import {
+  extractInternalSlugs,
   extractRawSlugs,
   humanize as humanizeSlug,
   stripToText,
@@ -107,13 +110,66 @@ export async function discoverWikiSources(
   return results;
 }
 
+/**
+ * Short, human-readable reason for a gray-matter/js-yaml failure. js-yaml's
+ * `message` embeds a code frame whose first line can end in a garbage column,
+ * so use the bare `reason` plus the 1-based line in the *file*: the YAML text
+ * starts on the remainder of the opening `---` line, hence `mark.line`
+ * (0-based, within it) is already the file line of the offence.
+ */
+function describeYamlError(err: unknown): string {
+  const { reason, mark } = (err ?? {}) as {
+    mark?: { line?: number };
+    reason?: unknown;
+  };
+  if (typeof reason === "string" && reason.length > 0) {
+    return typeof mark?.line === "number"
+      ? `${reason} (line ${mark.line + 1})`
+      : reason;
+  }
+  return err instanceof Error
+    ? (err.message.split("\n")[0] ?? "")
+    : String(err);
+}
+
+/**
+ * `matter()` that names the offending file on failure. gray-matter surfaces a
+ * YAML error with no file path, so an unhandled throw dumps a raw
+ * `YAMLException` that leaves the whole vault to grep. Unparseable frontmatter
+ * stays fatal — a silently dropped field is exactly the audit-trail drift this
+ * importer fails loudly on — but it must say which file.
+ */
+function parseFrontmatter(
+  raw: string,
+  absolutePath: string,
+  where: string
+): { content: string; data: Record<string, unknown> } {
+  try {
+    // `{}` opts gray out of gray-matter's global cache, which otherwise keeps
+    // every parsed file's full text alive for the process' lifetime.
+    return matter(raw, {}) as {
+      content: string;
+      data: Record<string, unknown>;
+    };
+  } catch (err) {
+    throw new Error(
+      `${absolutePath}: unparseable frontmatter — ${describeYamlError(err)}. ` +
+        `Fix the YAML in the vault's ${where} (a common cause is an ` +
+        'unescaped `"` inside a double-quoted value) and re-run the import.',
+      { cause: err }
+    );
+  }
+}
+
 export async function parseWikiFile(
   source: WikiSource
 ): Promise<ParsedWikiFile> {
   const raw = await Bun.file(source.absolutePath).text();
-  // `{}` opts gray out of gray-matter's global cache, which otherwise keeps
-  // every parsed file's full text alive for the process' lifetime.
-  const { data, content } = matter(raw, {});
+  const { data, content } = parseFrontmatter(
+    raw,
+    source.absolutePath,
+    "wiki note"
+  );
   const { mtime } = await stat(source.absolutePath);
 
   return {
@@ -184,6 +240,110 @@ export function extractRawSlugsFromBody(body: string): string[] {
 }
 
 /**
+ * Every raw slug an article may need resolved. `explicit` is its `sources:`
+ * list plus inline `[[raw/...]]` links; `bare` is `[[slug]]` links matching no
+ * article (`knownSlugs`) — an author writing `[[some-clipping]]` for a raw
+ * doc. Bare ones are only candidates: `loadRawDoc` returns null when no such
+ * file exists. Shared by the upfront validation pass and per-article
+ * resolution so both look at the same files.
+ */
+export function collectRawCandidateSlugs(args: {
+  body: string;
+  frontmatterSources: string[] | undefined;
+  knownSlugs: ReadonlyMap<string, unknown>;
+}): { bare: string[]; explicit: string[] } {
+  const explicit = [
+    ...new Set([
+      ...extractRawSlugsFromSources(args.frontmatterSources),
+      ...extractRawSlugsFromBody(args.body),
+    ]),
+  ];
+  const bare = extractInternalSlugs(args.body, { dedup: true }).filter(
+    (slug) => slug !== "" && !args.knownSlugs.has(slug)
+  );
+  return { explicit, bare };
+}
+
+const errorMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : String(err);
+
+/**
+ * Upfront frontmatter validation: parse every wiki note, then every `raw/` doc
+ * the in-scope notes reference, and report ALL failures in one error before
+ * the caller writes anything. Otherwise a bad file surfaces only when the run
+ * reaches it — one file per run, sometimes after articles were already
+ * emitted.
+ *
+ * Every note is parsed regardless of `onlySlug` (the slug→title map, catalog
+ * check and MOC membership need the full corpus); the raw docs checked are
+ * those cited by the notes that will be emitted — just `onlySlug`'s under
+ * `--only`, else all non-archived ones. `loadRawDoc` is memoised, so the later
+ * per-article resolution re-uses these parses instead of repeating them.
+ */
+export async function parseAndValidateVault(args: {
+  concurrency: number;
+  onlySlug: string | null;
+  rawRoot: string;
+  sources: WikiSource[];
+}): Promise<ParsedWikiFile[]> {
+  const { concurrency, onlySlug, rawRoot, sources } = args;
+  const failures: string[] = [];
+
+  const attempts = await runWithConcurrency(sources, concurrency, (source) =>
+    parseWikiFile(source).then(
+      (parsed) => ({ parsed }),
+      (error: unknown) => ({ error })
+    )
+  );
+  const allParsed: ParsedWikiFile[] = [];
+  for (const attempt of attempts) {
+    if ("parsed" in attempt) {
+      allParsed.push(attempt.parsed);
+    } else {
+      failures.push(errorMessage(attempt.error));
+    }
+  }
+
+  const slugTitleMap = buildSlugTitleMap(allParsed);
+  const citedBy = new Map<string, string>();
+  for (const parsed of allParsed) {
+    const inScope = onlySlug
+      ? parsed.source.slug === onlySlug
+      : parsed.frontmatter.archived !== true;
+    if (!inScope) {
+      continue;
+    }
+    const { explicit, bare } = collectRawCandidateSlugs({
+      body: parsed.body,
+      frontmatterSources: parsed.frontmatter.sources,
+      knownSlugs: slugTitleMap,
+    });
+    for (const rawSlug of [...explicit, ...bare]) {
+      if (!citedBy.has(rawSlug)) {
+        citedBy.set(rawSlug, parsed.source.slug);
+      }
+    }
+  }
+  const cited = [...citedBy];
+  const rawResults = await Promise.allSettled(
+    cited.map(([rawSlug]) => loadRawDoc(rawRoot, rawSlug))
+  );
+  for (const [i, result] of rawResults.entries()) {
+    if (result.status === "rejected") {
+      failures.push(`${errorMessage(result.reason)} (cited by ${cited[i][1]})`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `${failures.length} vault file(s) failed frontmatter validation; nothing was written.\n` +
+        failures.map((failure) => `  - ${failure}`).join("\n")
+    );
+  }
+  return allParsed;
+}
+
+/**
  * Read and parse a single `raw/<slug>.md` document. Returns `null` when the
  * file is missing — callers warn and fall back to the humanised slug rather
  * than fail the whole import.
@@ -227,23 +387,9 @@ async function readRawDoc(
     throw err;
   }
 
-  // gray-matter surfaces a YAML error with a line/column but no file path, so
-  // an unhandled throw here dumps a stack trace that names neither the raw doc
-  // nor the article citing it — leaving the whole vault to grep. Unparseable
-  // frontmatter stays fatal (a silently URL-less citation is exactly the audit
-  // trail drift this importer fails loudly on), but it must say which file.
-  let data: Record<string, unknown>;
-  try {
-    ({ data } = matter(raw, {}) as { data: Record<string, unknown> });
-  } catch (err) {
-    const reason = err instanceof Error ? err.message.split("\n")[0] : err;
-    throw new Error(
-      `${absolutePath}: unparseable frontmatter — ${reason}. ` +
-        "Fix the YAML in the vault's raw/ document (a common cause is an " +
-        'unescaped `"` inside a double-quoted value) and re-run the import.',
-      { cause: err }
-    );
-  }
+  // Unparseable frontmatter stays fatal (a silently URL-less citation is
+  // exactly the audit trail drift this importer fails loudly on).
+  const { data } = parseFrontmatter(raw, absolutePath, "raw/ document");
   const rawData = data as {
     author?: unknown;
     published?: unknown;

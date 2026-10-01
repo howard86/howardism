@@ -1,60 +1,187 @@
 ---
 date: 2026-05-13
 title: Full-Duplex Interaction
-description: 跨模態同時感知與回應；主動插話、視覺線索反應、同步語音、即時翻譯/評論、時間感知語音——皆為模型行為的特殊情境
+description: "跨模態同時感知並回應——這是排程特性，而非語音輸出的特性；主動插話、對視覺線索作出反應、同時說話、即時翻譯與具時間感知的語音都是模型行為的特殊案例；自 2026 年 7 月起以 GPT-Live 在正式環境中僅支援音訊，並於 2026-09-10 起在 API 提供，OpenAI 將全雙工作為付費層級銷售，並在非輪次制模型上提供**可選的輪次偵測功能**；NVIDIA（2026 年 9 月）顯示系統可以同時是全雙工與串接式，其開放權重 VoiceChat-11B 則將啟發式 BOS/EOS 結束點偵測器作為備援——偵測器從側門回來；Peng 等人再提出第三種區分——是否要開口說話，也不是全雙工所賦予的；Google 則宣稱視覺基礎理解與對話中切換 97 種語言是即時模式；OmniVChat：原生音訊＋影片輸入，沒有全雙工"
 tag: Concept
-topic: interaction
+domain: interaction-multimodal
 tags:
   - human-ai-collaboration
   - multimodal
-readingTime: 3
-imageAlt: Full-Duplex Interaction 的示意圖
+readingTime: 27
+imageAlt: Full-Duplex Interaction 插圖
 sources:
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: https://thinkingmachines.ai/blog/interaction-models/
-domain: interaction-multimodal
+  - title: How we built a realtime system for responsive voice AI in six months
+    url: https://openai.com/index/continuous-voice-interaction-with-gpt-live/
+  - title: A frontend-backend architecture for tool calls in full-duplex speech models
+    url: https://arxiv.org/pdf/2609.19334
+  - title: Full-Duplex Speech Models Take the Floor When Asked, Not When Needed
+    url: https://arxiv.org/pdf/2609.19596
+  - title: Build more natural voice experiences with GPT‑Live‑1 in the API
+    url: https://openai.com/index/introducing-gpt-live-1-in-the-api/
+  - title: Introducing Gemini 3.8 Live and 3.8 Live Extended Thinking
+    url: https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-live-gemini-3-8-live-extended-thinking/
+  - title: "Toward Native Multimodal Modeling: A Roadmap"
+    url: https://arxiv.org/pdf/2605.25343
+  - title: "NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with
+      Tool Calling Capabilities"
+    url: https://arxiv.org/pdf/2609.21967
+  - title: "OmniVChat: Synthesizing, Benchmarking, and Training for Native
+      Audio-Visual Dialogue"
+    url: https://arxiv.org/pdf/2609.21465
 ---
 export { default as heroImage } from "../assets/full-duplex-interaction.webp";
 
 ## 資料來源
 
+- [A frontend-backend architecture for tool calls in full-duplex speech models](https://arxiv.org/pdf/2609.19334)
+- [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/)
+- [Full-Duplex Speech Models Take the Floor When Asked, Not When Needed](https://arxiv.org/pdf/2609.19596)
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/)
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [Introducing Gemini 3.8 Live and 3.8 Live Extended Thinking](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-live-gemini-3-8-live-extended-thinking/)
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967)
+- [OmniVChat: Synthesizing, Benchmarking, and Training for Native Audio-Visual Dialogue](https://arxiv.org/pdf/2609.21465)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343)
 
 ## 摘要
 
-「Full-duplex」= 模型*同時*感知與回應，維持持續的雙向交流——相對於半雙工的輪流對話（一次只有一方）。[Interaction Models](/articles/interaction-models) 將音訊 full-duplex 的概念推廣至音訊、視訊與文字。文章使用的描述：一種「感覺更像協作而非提示」的體驗。
+「全雙工」＝模型在持續的雙向交流中*同時*感知與回應——相對於半雙工輪流發言（一次由一方發言）。[Interaction Models](/articles/interaction-models) 將音訊全雙工概念推廣到音訊、影片與文字。文章使用的說法是：一種「感覺更像協作、較不像下提示」的體驗。
 
-## 它所啟用的互動模式
+## 它啟用的互動模式
 
-以下這些目前都是專用的 harness；在 interaction model 中，它們是模型行為的特殊情境（參見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）：
+這些目前都屬於特定用途的 harness；在互動模型中，它們是模型行為的特殊案例（見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)）：
 
-- **主動插話** —— 「當我說錯時打斷我」；模型在上下文需要時於對方發言中途介入，而非僅在輪次結束時。
-- **視覺線索反應** —— 「告訴我何時在程式碼中寫了 bug」；「數我做了幾下伏地挺身」；需要在沒有音訊線索的情況下對*視覺*變化做出反應（純音訊的輪次偵測 harness 無法做到——它們會說「好的！」然後沉默）。
-- **同步語音** —— 使用者與模型同時說話：「即時將西班牙語翻譯成英語。」
-- **邊看邊說** —— 「即時評論這場體育比賽。」
-- **時間感知語音** —— 「每 4 秒提醒我吸氣和吐氣，直到我停止」；「我寫這個函式花了多久？」
-- **語碼轉換修正** —— 「每次我使用另一種語言時，給我原始語言中的正確詞彙」（需要與使用者同時說話）。
+- **主動插話**——「我說錯時打斷我」；當情境需要時，模型會在發言途中介入，而非只在輪次結束時回應。*(2026-09-21 測量後發現，在所有曾檢查的地方都不存在——見 [Content-Driven Intervention](/articles/content-driven-intervention)。Peng 等人（`empirical`）對這個精確句子的操作化測試最為接近，涵蓋五個開放全雙工家族的七種配置，其中包括字面指令「如果我說了任何錯的內容，請直接立刻打斷我」；但在該指令下，錯誤事實出現時的介入率相較自身基準最多只變動 .03，在主要測試網格任何地方最多只變動 .06。TML 的主張針對 [TML-Interaction-Small](/articles/tml-interaction-small)，該模型並未受測，因此不予否定——但主動插話是對特定模型的主張，不是全雙工架構所賦予的屬性。)*
+- **對視覺線索作出反應**——「我在程式碼中寫出錯誤時告訴我」；「數一數我做了幾下伏地挺身」；這需要在沒有音訊線索的情況下，對*視覺*變化採取行動（僅音訊的輪次偵測 harness 無法做到——它們會說「沒問題！」然後沉默）。
+- **同時說話**——使用者與模型同時發言：「即時將西班牙文翻成英文。」
+- **邊看邊說**——「即時評論這場球賽。」
+- **具時間感知的語音**——「每隔 4 秒提醒我吸氣和吐氣，直到我停止」；「我寫這個函式花了多久？」
+- **語碼轉換修正**——「每次我使用另一種語言時，告訴我原語言中的正確詞彙」（需要與使用者同時說話）。
 
-模型隱式追蹤說話者是在思考、讓步、自我修正，還是邀請回應——不需要獨立的對話管理元件。
+**2026 年 9 月另外兩項聲稱。**[Google 的 Gemini 3.8 Live](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-live-gemini-3-8-live-extended-thinking/)（`vendor-claim`）在清單中增添兩項——一項是重述，另一項則確實是新模式：
 
-## 並行的非語音動作
+- **近乎即時的視覺基礎理解**——「近乎即時處理視覺輸入，為對話增添情境，讓回覆更有幫助」，僅以未轉錄的示範影片呈現（根據攝影機畫面引導員工入職；根據棋盤下棋）。這是 TML 的視覺線索反應與邊看邊說模式，這次被宣稱為已推出產品的功能，也是語料中研究預覽以外首次出現此類主張。沒有基準測試、沒有延遲數據，也沒有任何形式的測量；[Interactivity Benchmarks](/articles/interactivity-benchmarks) 記錄了 TML 自家的視覺主動性測試組合是「目前沒有任何模型能有意義地完成」的項目。
+- **對話中自動切換語言**——「在對話中自動偵測並切換 97 種支援語言」。這是清單中的*新*模式：TML 最接近的項目是語碼轉換修正，也就是模型依照持續有效的指令，提供另一種語言中的詞彙。未經提示、在對話進行途中切換對話本身的語言，是排程加上決策的行為；語料中沒有任何測量，而 Google 也未公布切換準確度或誤切率。
 
-在聆聽和說話的同時，模型可以同步呼叫工具、搜尋、瀏覽或生成 UI——在適當時機將結果編織回對話中。其中較深入/較長時間的任務會委派給[背景模型](/articles/interaction-background-model-split)。
+模型會隱含追蹤說話者是在思考、讓出發言權、自我修正，還是在邀請回應——無須獨立的對話管理元件。
 
-## 它所建立在的先前技術
+## 同時執行非語音行動
 
-音訊 full-duplex 模型是雙向/持續互動的現有範例；機器人學和自動駕駛車輛被引用為即時感知+行動已是常態的領域。Interaction models 將此原則應用於所有模態。
+在聆聽與說話時，模型也能同時呼叫工具、搜尋、瀏覽或產生 UI，並在適當時將結果融入對話。更深入或耗時較久的工作會委派給[背景模型](/articles/interaction-background-model-split)。
 
-## 相關連結
+*(Hu 等人於 2026-09-21 對此主張加上限定，見 [Hu et al.](https://arxiv.org/pdf/2609.19334)，NVIDIA，`empirical`。*上面的主張來自 TML，OpenAI 也曾重述，但兩者都尚未測量。語料中唯一公開工具呼叫期間實際情況的系統，做法正好相反：播放約 1 秒的等待用語後，「前端在工具呼叫期間保持靜音」，其 agent-text 通道會填入填充詞元，直到後端答案到達，再將答案重複播出。它全程持續**聆聽**——在 FDB3 上，它會在不流暢停頓處發出回應性附和，因此其中斷率偏高，且最終呼叫仍能取得完整請求——所以它展示了*邊聽邊說*，卻沒有展示*邊思考邊說*。同時執行非語音行動仍是設計意圖，尚未成為任何系統經測量證實的屬性。)*
 
-- [Interaction Models](/articles/interaction-models) — 母概念
-- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — 使 full-duplex 成為可能的機制（無輪次邊界）
+*(GPT-Live-1 API 的 [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/) 於 2026-09-21 第三度提出此主張（`vendor-claim`）。*GPT-Live-1「能在中斷與確認發生時即時回應，同時將較深入的推理委派給後端。這讓工作在背景執行時，對話仍能持續。」同一主張如今適用於正式推出的 API，但仍沒有填充語率、測量結果或比較組。文章確實另外提出一項*政策*說明，方向與 NVIDIA 的等待用語相反：「靜默的情境管理」被宣傳為能處理噪音和沉默，「不打斷對話，也不把每個步驟都大聲說出來」。目前統計：**三個實驗室都聲稱能邊思考邊說，沒有任何實驗室展示此能力。**)*
+
+*(Introducing Gemini 3.8 Live and 3.8 Live Extended Thinking 於 2026-09-21 第四度提出此主張，見[該文](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-live-gemini-3-8-live-extended-thinking/)（`vendor-claim`），而且這次內容自相矛盾。*Google 表示，模型「會在背景執行工具與 API 呼叫，同時繼續對話，因此能在背景工作完成前確認請求並持續聊天」；Extended Thinking 則「能同時推理與說話」。同一文章兩句之後又推銷**「『讓我查查看……』等早期口頭提示**」以及在多步驟背景工作中**即時播報進度**——也就是 NVIDIA 測得的等待用語，以及 OpenAI 把不需要逐步旁白作為賣點的做法；宣稱不中斷流程的廠商，兩者都拿來當功能。統計結果：**四個實驗室都聲稱有此能力，沒有任何實驗室展示；第四個也清楚表明，四家聲稱的並非完全相同的行為。**見 [Interaction / Background Model Split](/articles/interaction-background-model-split)。)*
+
+## 奠基於哪些先前成果
+
+音訊全雙工模型是雙向／連續互動的既有案例；機器人與自動駕駛車則是即時感知＋行動理所當然的領域。互動模型將此原則套用到所有模態。
+
+## 正式環境中的 GPT-Live（2026 年 7 月）
+
+[OpenAI](/articles/openai) 的 [GPT-Live](/articles/gpt-live) 將音訊全雙工帶到 ChatGPT 規模：「它的語音模型是全雙工，代表能同時聆聽與說話。這消除了對獨立偵測器的需求」——輪次偵測器完全退出音訊路徑，輪流發言、中斷與持有發言權都成為模型行為。值得保留範圍差異：GPT-Live 是**僅音訊**全雙工，並將同步工具使用委派出去（[Interaction / Background Model Split](/articles/interaction-background-model-split)）；TML 跨模態的推廣（對視覺線索作出反應、邊看邊說）仍是研究預覽。全雙工的系統層面後果——對話變成連續媒體迴圈，每一影格都必須按時到達——正是 [Live-Path Minimalism](/articles/live-path-minimalism) 中服務架構的成因。
+
+**2026-09-10 起也在 API 提供**；其中值得注意的是一項讓步，而非主張：「雖然 GPT-Live-1 並非輪次制模型，但原生支援輪次偵測，因此開發者仍可依照明確的輪次邊界建構系統。」[Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) 記錄為應用層內部必要條件的衍生輪次視角，如今成了**已推出的 API 功能**——沒有輪次邊界的模型，反過來把輪次邊界賣給開發者。OpenAI 也將**電話通訊**列為部署目標，是本語料中第一個不屬於第一方應用程式的全雙工介面；全雙工層單獨定價為每分鐘 $0.05，後端另計（[Interaction / Background Model Split](/articles/interaction-background-model-split)）。
+
+## 全雙工與語音到語音不是同一項主張
+
+值得分清楚這兩者，因為它們常一起出現，而 NVIDIA 系統將它們拆開了。[GPT-Live](/articles/gpt-live) 的三代演進敘事，把串接式 STT→LLM→TTS 視為全雙工所取代的做法——序列化增加延遲，也「丟失了語氣與節奏」。NVIDIA 的前端是全雙工（連續音訊輸入、輸出 agent 文字、沒有輪次偵測器，保留中斷與回應性附和行為），但 agent 的*輸出*先是文字，再由獨立的串流 TTS 合成語音。全雙工屬於模型如何接收與排程；語音到語音則屬於模型輸出的模態。前者帶來輪流發言，後者帶來輸出時的副語言通道，而這套系統選擇使用文字——從它自己的評估即可看出，前端依 agent 文字評分，並且必須加入「可說性」指標來評估文字是否適合作為 TTS 輸入。一個系統可以同時是全雙工與串接式。
+
+API 世代從產品面提出同樣的觀點：GPT-Live-1 除了音訊，也「原生提供 ASR 逐字稿與回應文字」，所以一個輸出無疑屬於語音到語音的系統，仍會把文字通道作為一級輸出公開。系統輸出什麼，以及它公開什麼，也可以分開看待。
+
+現在，廠商自己的圖表也為這種取捨標上價格。在 [Google 發表文章](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-live-gemini-3-8-live-extended-thinking/)中的 ServiceNow EVA-Bench 散佈圖上，**同一種串接架構出現兩次，分居對角兩端**：Scribe Realtime + Claude Haiku 4.5 + Eleven Flash v2（「ElevenAgents default」）約為 37% 準確度、82% 體驗；Scribe Realtime + GPT 5.4 + Eleven Flash v2（「ElevenAgents tuned」）則約為 67% 和 14%——準確度是圖表最高，代價是幾乎放棄整個體驗軸。同樣的三階段串接、同一廠商、兩種調校，而它失去的正是全雙工旨在提升的指標。數值是從未標示數值的散佈圖目測而來，因此請看相對位置，不要看數字（[Interactivity Benchmarks](/articles/interactivity-benchmarks) 完整說明了這項限制）。
+
+## 也不等於知道何時該說話
+
+第三種區分，也是目前證據最充分的一種（2026-09-21）。全雙工是*排程*特性；語音到語音是*輸出*特性；兩者都不代表**決策**能力。[Peng 等人](https://arxiv.org/pdf/2609.19596)（`empirical`）固定情境，只改變觸發話語，測試 10 種輪次分配條件，並將字間停頓壓縮至 ≤0.12 s，以免機會因素混淆判斷；結果顯示，五個開放家族的七種配置中，介入時機只追隨**是否有人對模型說話**與**是否真的出現停頓**——除此之外別無其他。反問句（形式上是問題，但並非對模型說）以及未停頓就說出「我說完了」，幾乎都沒有影響；因此即使有效的兩種線索也只是表面線索。錯誤事實、逐字重複與迫近危險，在整個測試網格中相較 Neutral 對介入時機的影響最多只有 **.06**。加入停頓會同時提高所有情況的比率，不會偏袒內容線索；明確允許打斷幾乎沒有改變結果；即使直接把發言權完全交出，非空的錯誤事實回覆中也只有 **.14–.15** 會提出質疑，危險回覆中只有 **.04–.07** 會警告。
+
+對本文的意義是：上面列出的模式是此架構*可能做到*的事情，而其中一項——主動插話——如今已經測量過，並且在每個受測的開放系統中都不存在。完整分析，包括兩個經 RL 後訓練的組別如何讓模型面對內容時變得更安靜、而非更積極，請見 [Content-Driven Intervention](/articles/content-driven-intervention)。
+
+## 也不等於原生接收音訊與影片（2026 年 9 月）
+
+第四種區分最為明確，因為提出它的來源完全沒有聲稱全雙工。[OmniVChat](https://arxiv.org/pdf/2609.21465)（He、Chu、Chen 等人，Alibaba Qwen Team + CUHK + SJTU，arXiv 2609.21465，2026-09-18，`empirical`）定義了一項稱為**原生音訊視覺對話**的任務：模型「直接且同時接收使用者的音訊與影片，並回傳文字」，問題同時嵌入兩種串流，且**沒有獨立文字問題、沒有外部字幕、沒有 ASR**。這正是本文不斷遇到的原生性主張，只針對**輸入**路徑提出——而它完全可以與任何方面都不是全雙工的系統並存。
+
+全雙工所需的一切在此都不存在，而且論文明確說明了這一點，沒有含糊帶過：
+
+- **預先算繪的片段，離線評分。**每個案例都是已完成的音訊視覺片段，附有參考回覆與評分規則。沒有串流；也沒有需要維持的發言權。
+- **完全沒有延遲指標。**效率指標是*每千個計算字詞的評分規則得分*——這是**冗長程度**指標，不是時間指標。本文整個延遲欄位在此都沒有對應項目。
+- **沒有插話功能，而且論文明說其限制。**記錄的測試「未測試即時打斷」，也「未涵蓋多輪對話或即時使用期間的延遲」。
+- **多輪測試採用教師強制。**每個模型都會收到相同的先前片段與參考回覆，只評分最後的回覆——對話歷史只是固定測試材料，不是即時交流。
+
+因此，本文如今分開看待四種屬性：**全雙工**（排程）、**語音到語音**（輸出）、**決定何時說話**（政策），以及**原生多模態輸入**（輸入路徑）。OmniVChat 具備第四種，其他三種都沒有，因此成為前三種區分所欠缺的乾淨負控制組——先前來源全都至少把兩種屬性綁在一起。其架構也印證這一點：受測系統是 Qwen3-Omni-30B-A3B-Instruct 的 **Thinker**，音訊與影片編碼器連接到共同骨幹，**輸出文字**；負責輸出語音的 Talker 並未參與。融合機制的位置見 [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy)。
+
+它還從側面對*排程*問題有所貢獻。所有評審者都認為基準測試最困難的子類別是 **UPC，「使用者暫停但尚未完成」，正確回覆是等待**——這是一項不需任何全雙工機制的輪次狀態判斷，顯示能力與架構可以雙向分離：全雙工系統可能無法決定何時開口（Peng 等人），非全雙工系統也可以被要求作出判斷而失敗。分析見 [Content-Driven Intervention](/articles/content-driven-intervention)；基準測試本身見 [Interactivity Benchmarks](/articles/interactivity-benchmarks)。
+
+## 一份調查提出架構層面的主張（2026 年 5 月）
+
+以上內容都從互動角度論述——harness 批判、產品發表、主動性測量。[An、Lu、Dong 等人](/articles/native-multimodal-taxonomy)（Tencent Youtu Lab + 5 所大學，arXiv 2605.25343，`practitioner-opinion`）從多模態架構出發，抵達同一結論；這份研究值得納入考量有兩個理由：他們既不是廠商，也不是互動實驗室，而且點出了機制而非體驗。
+
+§6.3 將 TTFT、持續延遲與即時回應能力列為「一級最佳化目標，而非次要部署考量」，並將**全雙工狀態管理**列為四種部署途徑之一：對輸入感官串流與輸出生成串流進行同步推論，需要雙工對話控制、串流狀態預測，以及動態 KV-cache 管理，以因應**快取競爭與序列阻塞**。知識庫一直缺少的論述是：「此處的關鍵挑戰已不再只是單模態解碼速度，而是在連續串流之下，穩定協調輸入累積、中間狀態更新與輸出生成。」這正是本文定義的排程屬性，以服務限制的形式表述。
+
+§8.4 接著用與知識庫相同的說法點出缺口：真正原生的互動代理程式必須**「從建構之初便支援串流，而非在自回歸骨幹外層事後包裝」**；而端對端全雙工框架（Moshi、ELLSA、FireRedChat）及 Watch-Think-Speak 協定雖「展現了這個未來的輪廓」，但具有穩定低延遲、且跨模態品質一致的系統「仍是尚待解決的產業問題」。這份調查來自廠商圈外，對本文最有用之處在於：**2026 年 5 月有第三方指出問題尚未解決**，對照上方整理的四項廠商聲稱，說問題已經解決。
+
+為下文的語音到語音段落補充一項範圍說明。該調查的普查（表 1，43 個開放模型）中，只有一個全雙工語音系統——歸類在 M2M *完全離散化統一*類別的 **Moshi**——而它列出的全雙工評估項目為 Moshi Eval（目標 200 ms）、SoulX-Duplug-Eval（240 ms 雙語串流輪次偵測）與 Full-Duplex-Bench（輪流發言、插話、錯誤中斷率）。本文追蹤的正式環境即時語音系統（[GPT-Live](/articles/gpt-live)、[Gemini 3.8 Live](/articles/gemini-3-8-live)、[TML-Interaction-Small](/articles/tml-interaction-small)）全都未出現在其中，因為普查只收錄開放原始碼模型與架構已確認的技術報告。全雙工文獻與全雙工產品線仍未重疊。
+
+## 開放權重全雙工模型終於有了技術報告（NVIDIA，2026 年 9 月）
+
+[Balam、Bartley、Casanova 等人](https://arxiv.org/pdf/2609.21967)（NVIDIA，48 位作者，arXiv 2609.21967，2026-09-18，`empirical`）發布了 **NemotronLabs VoiceChat**，一個具備原生工具呼叫能力的開放全雙工語音到語音模型。其權重可在 Hugging Face 以 `NVIDIA-NemotronLabs-VoiceChat-11B` 取得——這就是**[Peng 等人前一天測量過的同一個檢查點](/articles/content-driven-intervention)**（其參考文獻 [3] 即該模型卡）。因此，知識庫首次在本語料中同時收錄第一方技術報告與第三方獨立測量，兩者使用*相同權重*，並從相反角度描述相同行為。兩者的協調分析見 [Content-Driven Intervention](/articles/content-driven-intervention)。
+
+**FDB 1.0 數據，並列明比較組。**行為比率以百分比表示；Pause TOR 越低越好，其餘兩項越高越好。
+
+| | Pause TOR 合成（↓） | Pause TOR CANDOR（↓） | Smooth-turn TOR（↑） | Smooth-turn 延遲 | Interruption TOR（↑） | 中斷後品質（GPT-4o，0–5） |
+|---|---|---|---|---|---|---|
+| Moshi | 98.5 | 98.0 | 94.1 | 0.265 s | 100.0 | 0.77 |
+| Freeze-Omni | 64.2 | 48.1 | 33.6 | 0.953 s | 86.7 | 3.62 |
+| PersonaPlex | 35.8 | 43.1 | 90.8 | 0.170 s | 95.0 | 4.29 |
+| MoshiRAG † | 32.0 | 56.0 | 83.0 | 0.180 s | 85.0 | 3.75 |
+| **VoiceChat** | **15.3** | **25.5** | 81.5 | 0.448 s | **100.0** | **4.33** |
+| Gemini Live 2.0（封閉） | 25.5 | 31.0 | 65.5 | 1.301 s | 89.1 | 3.38 |
+| GPT-Realtime（封閉） | **1.0** | **12.0** | **100.0** | 1.470 s | 97.0 | 3.85 |
+
+在 FDB 1.5 的使用者回應性附和條件下，它有 **93%** 的案例會繼續自己的回覆，相較之下 Freeze-Omni 為 80%，Moshi 為 6%；不必要地回應的比例則為 1%。此外，它在四種行為類別（1 / 93 / 2 / 4）上都與 [Gemini Live 2.0](/articles/gemini-3-8-live) *完全相同*；這可能是驚人的巧合，也可能是共用 FDB 1.5 評分方式所造成、未受注意的產物。論文提及兩者相同，卻未評論。與 GPT-4o Realtime 相比，它在 Resume（93 對 70）與 Unknown（4 對 25）上勝出。
+
+**標題主張實際根據什麼。**「在受評估的開放權重系統中，暫停處理的接管率最低」確實符合此表，但有四項重要限定，摘要卻未提及。(i) 開放權重比較組只有五個系統，而且**NVIDIA 沒有重新執行任何一個**：Moshi 與 Freeze-Omni 的數據「取自公開 FDB 結果」，PersonaPlex 的數值是其作者公布的資料；MoshiRAG 的欄位則標記為「不屬於受控 FDB 測試」。只有 NVIDIA 自家的欄位是 NVIDIA 新測的結果。(ii) 在兩個暫停測試項目與順暢輪流發言上，封閉系統表現勝過它——GPT-Realtime 的數值為 **1.0 / 12.0 / 100.0**——因此「最低」只是在同一類型內的主張。(iii) 封閉端點已是舊版：**gemini-2.0-flash-live-001**，比本知識庫追蹤的 Gemini 3.8 Live 落後三代；論文自己的註腳也承認，名稱「指的是受評估的歷史端點，不一定是目前服務版本」。(iv) 全篇只有單次執行，沒有隨機種子，也沒有誤差範圍。完整整理見 [Interactivity Benchmarks](/articles/interactivity-benchmarks)。
+
+**比排行榜更重要的發現：全雙工模型透過後門搭載 VAD。**自從 [GPT-Live](/articles/gpt-live) 起，本文便沿用全雙工「消除了對獨立偵測器的需求」這項主張。NVIDIA 在 §4 說明，相反的作法已作為推論時強化功能推出：
+
+> 「當模型無法原生處理輪流發言／插話情境時，我們會以 RNN-T 逐字稿輸出為基礎，引入簡單的結束點偵測機制作為備援。我們會結合根據使用者語音／靜音活動設計的一組啟發式方法與目前的回應生成狀態，強制將 BOS/EOS 詞元輸入模型。」
+
+此處的輪流發言是經訓練的影格層級行為（agent-text 通道以 BOS/EOS 作為逐影格目標——見 [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns)），*但背後連接著啟發式語音活動結束點偵測器，可推翻模型自身的發言權判斷*。這就是偵測器以備援機制、而非架構元件的形式重新回到系統中。這是本語料首次出現此類揭露，而且來自公開資訊最完整的實驗室——重點就在這裡：其他系統很可能也有相同做法，只是沒有人公開 §4。
+
+**邊思考邊說：如今測量兩次，也被兩次推翻。**上面的統計仍是*四個實驗室都聲稱有此能力，沒有任何實驗室展示*。這是本語料第二個公開工具呼叫期間實際情況的系統，而且比 [Hu 等人的前端](/articles/interaction-background-model-split)揭露更多。執行期間，執行環境會說出**預先設定、依工具而異的確認語**（「好的，我來幫你計算」），其時長明確設定為遮蔽工具延遲；agent-text 通道會以填充詞元補齊——而新發現是：「輸入音訊可以繼續經過感知與 RNN-T 轉錄路徑，**但在工具執行期間不會用來調整回應生成。因此，此階段無法插話。**」Hu 等人委派出去的前端至少仍會聆聽，而且聽到的內容會傳遞給最終呼叫；這個系統雖會轉錄，卻不能被打斷。兩個 NVIDIA 系統分處內化與委派光譜的兩端，前後相隔兩週，都在工具呼叫期間放棄即時路徑。**統計：四次聲稱、兩次測量、零次展示。**
+
+**檢驗調查所說「仍是尚待解決的產業問題」，結果並未推翻它。**上文記錄了 An、Lu、Dong 等人（2026 年 5 月）宣稱穩定、低延遲的全雙工尚未解決，當時已有四家廠商聲稱問題已解決。四個月後出現開放權重發布與公開 FDB 數據，是目前最好的相關證據，而依作者自己的 §7，結果支持該調查的立場。限制屬於結構性問題，而非表面修飾：音訊情境視窗**最多約 2 分鐘**，實務建議為**每個工作階段不超過五個工具**，同時呼叫多個工具「尚不可靠」，呼叫可能「遭略過、選錯工具，或被提供虛構引數」，冗長的工具回應會延遲後續語音，工具執行期間不能插話，且在「強噪音或混響情況下，尤其有競爭性背景語音時」穩健性會下降。全雙工*互動*確實表現不錯，但以該調查的標準來看，周邊系統仍尚未具備部署條件。
+
+**它也從相反方向進一步釐清全雙工與語音到語音的區別。**前文建立這項區別的依據，是 NVIDIA 稱為全雙工*語音到文字*的前端。這篇論文在**標題中自稱語音到語音**，但架構形狀相同：LM 輸出 agent *文字*，再由獨立訓練的 TTS 解碼器（VoiceChat-TTS，採用 778M Gemma-3 骨幹，加上 199M 因果 codec）將文字轉成語音；骨幹的音訊損失權重為 **0.0**，而且「全雙工骨幹與 TTS 模型之間不會傳遞梯度」。一個被標示為語音到語音的模型內部，存在文字瓶頸與外掛渲染器。無論標籤帶來什麼，它都不是端對端音訊：另見 [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy)；該調查自行定義的運算子將解耦且梯度隔離的渲染器歸為*嫁接式 head*，正是它明確排除在「原生」之外的事物。
+
+
+## 延伸閱讀
+
+- [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy) — 從架構角度提出同一主張：全雙工狀態管理是一種部署途徑，而「從建構之初便支援串流，而非事後在外層包裝」則由非廠商第三方列為尚待解決的產業問題
+- [Interaction Models](/articles/interaction-models) — 上位概念
+- [Time-Aligned Micro-Turns](/articles/time-aligned-micro-turns) — 讓全雙工成為可能的機制（沒有輪次邊界）
 - [Encoder-Free Early Fusion](/articles/encoder-free-early-fusion) — 聯合多模態推理讓*視覺*變化能觸發語音
-- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — 這取代的半雙工現狀
-- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — TimeSpeak / CueSpeak / RepCount-A / ProactiveVideoQA / Charades 正是衡量這些模式的基準
-- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 並行深度工作的去處
+- [Turn-Based Interface Bottleneck](/articles/turn-based-interface-bottleneck) — 本文所取代的半雙工現狀
+- [Interactivity Benchmarks](/articles/interactivity-benchmarks) — TimeSpeak / CueSpeak / RepCount-A / ProactiveVideoQA / Charades 正是用來衡量這些模式
+- [Interaction / Background Model Split](/articles/interaction-background-model-split) — 同時執行的深度工作會交由何處處理
 - [TML-Interaction-Small](/articles/tml-interaction-small) — 展示這些互動模式的模型
+- [GPT-Live](/articles/gpt-live) — 正式環境中的音訊全雙工；ChatGPT 規模下移除輪次偵測器
+- [Live-Path Minimalism](/articles/live-path-minimalism) — 每一影格必須按時到達的限制所迫成的服務架構
+- [NVIDIA](/articles/nvidia) — 將全雙工特性與語音到語音特性分開的全雙工語音到文字前端
+- [Content-Driven Intervention](/articles/content-driven-intervention) — 第三種區分：依內容判斷是否該說話；此能力曾受測，並且在五個開放全雙工家族中都不存在
+- [Gemini 3.8 Live](/articles/gemini-3-8-live) — 宣稱視覺基礎理解與在對話中切換 97 種語言是已推出的即時模式，但尚未經測量
 
 ## 資料來源
 
 - [Interaction Models: A Scalable Approach to Human-AI Collaboration](https://thinkingmachines.ai/blog/interaction-models/)
+- [How we built a realtime system for responsive voice AI in six months](https://openai.com/index/continuous-voice-interaction-with-gpt-live/) — OpenAI，2026-07-29（`case-study`）：正式環境中的音訊全雙工；移除偵測器
+- [A frontend-backend architecture for tool calls in full-duplex speech models](https://arxiv.org/pdf/2609.19334) — Hu 等人（**NVIDIA**），arXiv 2609.19334，2026-09-16（`empirical`，5 頁）：§3.1 全雙工 STT 前端加上獨立串流 TTS；§5.1.2 FDB3 回應性附和／中斷分析；§5.2 新增的 Speakability 指標。完整分析見 [Interaction / Background Model Split](/articles/interaction-background-model-split)
+- [Full-Duplex Speech Models Take the Floor When Asked, Not When Needed](https://arxiv.org/pdf/2609.19596) — Peng、Nuchged、Fu 與 Yao，arXiv 2609.19596，2026-09-17（`empirical`，5 頁）：表 1–4、情境配對協定，以及主動插話的負面結果。四張表都已與 `pdftotext -layout` 輸出逐一核對。完整分析見 [Content-Driven Intervention](/articles/content-driven-intervention)
+- [Build more natural voice experiences with GPT‑Live‑1 in the API](https://openai.com/index/introducing-gpt-live-1-in-the-api/) — OpenAI，2026-09-10（`vendor-claim`）：第三次聲稱模型能持續參與對話；原生 ASR 逐字稿與回應文字輸出；非輪次制模型的輪次偵測可選功能；電話通訊，以及 FDB v1.5 Interactivity／v1 latency 卡片（整理於 [Interactivity Benchmarks](/articles/interactivity-benchmarks)）
+- [Introducing Gemini 3.8 Live and 3.8 Live Extended Thinking](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-8-live-gemini-3-8-live-extended-thinking/) — Ouyang 與 Jaganathan（**Google**、Gemini Audio Team），2026-09-15（`vendor-claim`）：兩種新聲稱的模式、第四次邊思考邊說的主張及搭配販售的等待用語，以及 EVA-Bench 串接架構的圖表角落。圖表位置是在編譯時以裁切方式查看未標示數值的散佈圖而判讀——只記錄排序，不提供數值。完整分析見 [Gemini 3.8 Live](/articles/gemini-3-8-live) 與 [Interactivity Benchmarks](/articles/interactivity-benchmarks)
+- [NemotronLabs VoiceChat: An Open Full-duplex Speech-to-Speech Model with Tool Calling Capabilities](https://arxiv.org/pdf/2609.21967) — Balam、Bartley、Casanova 等人（**NVIDIA**），*NemotronLabs VoiceChat*，arXiv 2609.21967，2026-09-18（`empirical`，19 頁）：表 1（FDB 1.0）、表 2（FDB 1.5）、§4 的啟發式 BOS/EOS 結束點偵測備援、§7 的限制、附錄 B 中工具執行期間無法插話的說明。7 張表都已和 `pdftotext -layout` 輸出逐格核對；表 1 所有基準比較資料都取自第三方報告，並非重新測量。這是 Peng 等人第三方測量之相同權重的第一方報告。完整分析見 [Interaction / Background Model Split](/articles/interaction-background-model-split) 與 [Interactivity Benchmarks](/articles/interactivity-benchmarks)
+- [Toward Native Multimodal Modeling: A Roadmap](https://arxiv.org/pdf/2605.25343) — An、Lu、Dong 等人（**Tencent Youtu Lab** + 5 所大學；arXiv 2605.25343，2026-05-25；`practitioner-opinion`，52 頁）：§6.3 的四種串流／全雙工部署途徑與快取競爭論述；§8.4 的「從建構之初便支援串流，而非事後在外層包裝」；表 1 唯一全雙工項目（Moshi）以及表 3 的全雙工評估項目。2026 年 5 月宣告問題尚未解決的非廠商第三方。完整分析見 [Native Multimodal Modeling: Fusion Depth and I/O Duality](/articles/native-multimodal-taxonomy)

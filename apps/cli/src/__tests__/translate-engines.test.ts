@@ -98,7 +98,7 @@ describe("defaultModelForEngine", () => {
   });
 
   it("returns the codex and cursor defaults, and null for the rest", () => {
-    expect(defaultModelForEngine("codex")).toBe("gpt-5.6-luna");
+    expect(defaultModelForEngine("codex")).toBe("gpt-6-luna");
     expect(defaultModelForEngine("cursor")).toBe(DEFAULT_CURSOR_MODEL);
     expect(defaultModelForEngine("claude")).toBeNull();
     expect(defaultModelForEngine("agy")).toBeNull();
@@ -117,7 +117,7 @@ describe("buildEngineArgv", () => {
       "--json",
       "--ignore-user-config",
       "-m",
-      "gpt-5.6-luna",
+      "gpt-6-luna",
       "-c",
       'model_reasoning_effort="medium"',
       "--cd",
@@ -171,7 +171,7 @@ describe("buildEngineArgv", () => {
       "--json",
       "--ignore-user-config",
       "-m",
-      "gpt-5.6-luna",
+      "gpt-6-luna",
       "-c",
       'model_reasoning_effort="medium"',
       "--cd",

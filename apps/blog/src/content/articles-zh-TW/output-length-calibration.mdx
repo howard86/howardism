@@ -1,0 +1,82 @@
+---
+date: 2026-07-25
+title: 輸出長度校準
+description: "Opus 5 預設會在四個彼此獨立的輸出管道上寫得更長——對話回覆、代理式敘述、寫入磁碟的檔案，以及更正敘述——而 effort 參數無法控制其中任何一項：effort 買到的是思考，不是發話，因此每個管道都需要各自明確的長度指示"
+tag: Concept
+domain: agent-systems
+tags:
+  - agent-engineering
+  - harness
+  - prompting
+  - claude
+readingTime: 8
+imageAlt: 輸出長度校準示意圖
+sources:
+  - title: Prompting Claude Opus 5
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5
+---
+export { default as heroImage } from "../assets/output-length-calibration.webp";
+
+## 資料來源
+
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+
+## 摘要
+
+[Claude Opus 5](/articles/claude-opus-5) 比前代更愛說，而**effort 參數無法控制這點**。Effort 控制模型*思考*的程度，不控制它*說*多少：Anthropic 的提示指南指出，降低 effort「可能減少思考量，但不一定會縮短可見回覆」。因此，冗長度是提示層的問題，沒有參數層的替代手段，而且它會透過四個各自膨脹的管道呈現——每個管道都需要自己的指示。
+
+這是同一來源中 [Instruction Compounding](/articles/instruction-compounding) 的互補面向。前者的處方是*刪除*模型現在已具備的行為指示；本文則是為模型現在做得過頭的行為*新增*指示。兩者都源於同一個事實：預設行為改變了，因此原本為前代模型校準的提示，會同時在兩個方向上失準。
+
+> **證據說明。** `vendor-claim` — Anthropic 自家的提示文件，描述自家模型的預設行為，但沒有公布測量數據。文件將這些行為描述為傾向（「通常更長」、「樂於敘述」），而非量化結果。
+
+## 四個管道，四種指示
+
+| 管道 | 文件記載的預設行為 | 調整方式 |
+|---|---|---|
+| **對話回覆** | 「面向使用者的預設回覆比先前的 Opus 模型更長」 | 簡短的精簡指示：回覆大部分篇幅用於主要答案，簡短交代但書，除非使用者要求深入說明，否則以摘要為主 |
+| **代理式敘述** | 「樂於敘述……會宣布即將採取的行動」；代理式工作階段中的每則訊息都比先前模型更長 | 描述*節奏和形式*：第一次呼叫工具前用一句話說明；只有發現重要結果或改變方向時才更新；結尾先說結果 |
+| **書面交付內容** | 寫入磁碟的檔案（報告、Markdown、摘要）「通常比先前模型產出的更長」 | 明確校準長度：涵蓋實質內容，不要用填充段落、重複摘要或制式套話湊篇幅 |
+| **更正敘述** | 「比先前模型更常敘述對先前陳述的修正」 | 僅在更正會改變使用者的程式碼、結論或決策時才說明；否則安靜修正並繼續 |
+
+另外還有兩點形式上的提醒：
+
+- **長系統提示中的位置很重要。** 指南建議在提示開頭放置頂層精簡指示，並在接近結尾處加上*簡短提醒*（兩行的 `<tone_preference>` 區塊）。這是 [context files](/articles/agent-context-files) 的位置安排原則，不是額外內容——把同一指示重述在模型即將生成內容的位置附近。
+- **正面範例勝過禁止事項。** 若要改變任一方向的敘述風格，「請明確描述更新內容應該長什麼樣，並提供範例」；示範期望的風格，比告訴模型不要做什麼更有效。
+
+## 為何 effort 不是正確的調整旋鈕
+
+effort 參數和輸出長度是兩個不同的成本項目，各自有不同的控制方式：
+
+- **思考 token** — 由 effort 控制。在 Opus 5 上，`low` 和 `medium` 「能以高於設定低得多的 token 數和延遲，產生出色品質」，Anthropic 建議廣泛使用這兩種設定，作為控制成本與延遲的主要手段；只有面對高難度代理式工作時才提高至 `xhigh`。沿用前代模型的 effort 預設值也應重新掃描（[Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute)）。
+- **輸出 token** — 只能由提示控制。為了縮短回覆而調低 effort，是分類錯誤；這只會讓答案更便宜，長度大致不變。
+
+對 harness 而言，實際含意是：兩個旋鈕必須分開調校，模型升級後的成本回升可能源於其中任一項。只測量品質與成本比的 effort 掃描不會發現冗長度回升，因為額外 token 出現在可見回覆中，而不是思考區塊。
+
+## 對 harness 精簡趨勢的反向力量
+
+[Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 預測，面向模型的 harness 會隨著每次發布逐步消解——模型吸收能力後，能力支架便會被刪除。長度校準則朝相反方向發展：這些提示內容在先前的 Opus 模型上**不需要存在**，現在卻需要；其中每一行都是為了塑造*面向人類*的輸出，而非啟用某種能力。
+
+因此，精簡流程有兩個方向，而不是一個。能力支架要移除；溝通支架則要補上。這符合 [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) 已經指出的面向模型與面向人類的不對稱——當限制因素從「模型能不能做到」轉為「人能不能吸收它產出的內容」，提示預算就會從第一個問題轉移到第二個問題。
+
+## 相關連結
+
+- [Instruction Compounding](/articles/instruction-compounding) — 同一來源提出的相反方向配套做法：刪除模型現在已能執行的行為指示，新增模型現在做得過頭的行為指示
+- [Harness Shrinkage as Models Improve](/articles/harness-shrinkage-as-models-improve) — 反向趨勢：能力支架縮減，溝通支架增加，因此每次發布都進行精簡的流程必須同時增補與刪除
+- [Unproductive Self-Verification](/articles/unproductive-self-verification) — 輸出層面同樣存在的過度執行傾向：過長的檔案和未經要求的段落，是過度工程與範圍擴張在交付內容上的表現
+- [Shared-Budget Compute Allocation](/articles/shared-budget-compute-allocation) — 兩個旋鈕都存在的上限。Effort 控制思考 token，提示控制可見 token，但兩者都無法在一批項目中分配資源：給七個推理模型一份預算和 N 道問題，它們會按提示順序分配（順序–位置 +0.68），而忽略每道問題旁列出的分數。跨問題的精簡指示對應做法，是明確的規劃提示；它的作用方式與本文的調整方法相同——改變運算的**分布**（涵蓋率 +0.09 至 +0.14），但不改變優先順序（effort–價值相關性*下降*，+0.16 → +0.08）
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — *無法*控制長度的旋鈕：effort 是控制思考 token 與延遲的手段，而 Opus 5 的 `low`/`medium` 設定是建議優先採用的成本控制方式
+- [Context Window Smart Zone](/articles/context-window-smart-zone) — 在代理式迴圈中，模型自己的敘述是它自身上下文增長最快的部分；冗長度首先是上下文預算問題，其次才是使用者體驗問題
+- [Verification as the New Bottleneck](/articles/verification-as-the-new-bottleneck) — 更長的交付內容會增加審閱者的負擔；未校準的輸出長度會把模型速度轉化為人類的審閱負荷
+- [AI Brain Fry](/articles/ai-brain-fry) — 敘述量就是監督負荷：平行工作階段越多、每則訊息輸出越多，正是疲勞產生的來源；節奏指示能從源頭減輕負擔
+- [Agent Context Files](/articles/agent-context-files) — 校準指示放置的位置，包括提示結尾提醒這項位置安排原則
+- [Claude Opus 5](/articles/claude-opus-5) — 預設行為改變的模型
+
+## 尚待解答的問題
+
+- 提示結尾處的提醒之所以有效，是因為它的*位置*（接近生成處），還是因為*重複*（陳述兩次）？指南建議同時採用兩者，卻沒有區分各自的效果——可透過移除頂層指示來測試。**2026-08-04 部分獲得解答**：[Prompt Design at Scale: How Format, Instruction Count, and Context Length Shape Instruction Adherence and Hallucination in Large Language Models](https://arxiv.org/pdf/2607.19257)（`empirical`，五種模型）僅研究了位置這一面：在 N=160 時，把內容完全相同、未重複的指示區塊移到系統提示或使用者回合，遵循度最多相差 8.7 個百分點；對五種模型中的四種而言，影響大於提示格式，因此**單靠位置就是有效的調整手段**，並非重述所造成的假象。但這項發現有兩個限制：論文中的位置條件每次只放一處（從未同時放在兩個位置），因此無法區分本問題所問的成對配置中，位置和重複的作用；而且效果方向**因模型而異**（放在使用者回合有助於兩種模型、對兩種有害、對第五種則毫無影響），所以「越接近生成處越好」並非該研究能支持的通則。
+- 明確的精簡指示會降低那些答案確實需要篇幅的任務品質嗎？還是模型仍會完成工作，只刪掉填充內容？Anthropic 對驗證情境主張後者，但沒有對本情境做出同樣主張。
+- 如果下一個模型推出校準得更好的預設行為，今天的精簡指示就會變成明天的複合指示（[Instruction Compounding](/articles/instruction-compounding)）——長度校準是否會像驗證指示一樣過時？有沒有辦法撰寫指示，讓它能逐漸失效而不造成問題？
+
+## 資料來源
+
+- [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic 平台文件（擷取日期 2026-07-25，`vendor-claim`）：「Response length and verbosity」、「User-facing progress updates」、「Written deliverable length」、「Self-correction」（更正敘述）、「Capability improvements」（effort 建議）

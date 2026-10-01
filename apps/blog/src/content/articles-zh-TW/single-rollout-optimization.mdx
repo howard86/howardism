@@ -1,7 +1,7 @@
 ---
 date: 2026-07-15
-title: 單次 Rollout 優化
-description: "SAO 的核心變革：每個提示只進行一次 rollout，而不是 GRPO 的群組，完成後立即送入訓練——減少 off-policy 漂移，並適用於每個提示只會提供一條軌跡的 online/agentic 設定；代價是類 REINFORCE 的變異，因此它重新採用 value model，將全部工程預算投入讓 critic 穩定（更快的 value 更新、凍結注意力的 critic、跳過 observation 的 GAE、縮放後的 value 預訓練）"
+title: 單次軌跡最佳化
+description: "SAO 的核心做法：每個提示只產生一條軌跡，而非 GRPO 的一組軌跡，並在軌跡完成後立即送入訓練——藉此減少離策略偏移，並適用於每個提示只會回傳一條軌跡的線上／代理式情境；代價是方差如同 REINFORCE，因此它重新採用價值模型，以補上缺少的群組基準，並將全部工程預算投入讓評論器保持穩定（更快的價值更新、凍結注意力的評論器、跳過觀察的 GAE、擴大的價值預訓練）"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -10,80 +10,131 @@ tags:
   - post-training
   - agentic-rl
   - value-model
-readingTime: 8
-imageAlt: Single-Rollout Optimization 插圖
+readingTime: 19
+imageAlt: 單次軌跡最佳化插圖
 sources:
   - title: Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning
     url: https://arxiv.org/pdf/2607.07508
+  - title: "Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for
+      Asynchronous Reinforcement Learning"
+    url: https://arxiv.org/pdf/2607.22186
+  - title: "TRACE: Turn-level Reward Assignment via Credit Estimation for
+      Long-Horizon Agents"
+    url: https://arxiv.org/pdf/2607.13988
+  - title: Staleness-Learning Rate Scaling Laws for Asynchronous RLHF
+    url: https://arxiv.org/pdf/2607.01083
+  - title: "BRACE: Anchored Bellman-Residual Correction for Stale Critics in
+      Asynchronous RL"
+    url: https://arxiv.org/pdf/2609.09783
 ---
 export { default as heroImage } from "../assets/single-rollout-optimization.webp";
 
 ## 資料來源
 
+- [BRACE: Anchored Bellman-Residual Correction for Stale Critics in Asynchronous RL](https://arxiv.org/pdf/2609.09783)
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186)
 - [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508)
+- [Staleness-Learning Rate Scaling Laws for Asynchronous RLHF](https://arxiv.org/pdf/2607.01083)
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988)
 
 ## 摘要
 
-**SAO (Single-rollout Asynchronous Optimization)** 將 [GRPO](/articles/group-relative-policy-optimization) 的「每個提示一組回應」替換為**每個提示一次 rollout**（群組大小為 1），完成後立即送入訓練。這帶來兩項效益：減少 off-policy 漂移（不必等待群組中最慢的成員——請參見 [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms)），也*適用於* GRPO 在結構上無法處理的設定——只會針對每個提示回傳單一回饋軌跡的 online 與複雜 agentic 環境。
+**SAO（單次軌跡非同步最佳化）**以**每個提示一條軌跡**（群組大小為 1），取代 [GRPO](/articles/group-relative-policy-optimization) 每個提示產生一組回應的做法，並在軌跡完成後立即送入訓練。這帶來兩項好處：減少離策略偏移（不必等待群組中最慢的成員——請參閱[適用於 LLM 的非同步 RL](/articles/asynchronous-rl-for-llms)），而且能*適用於* GRPO 在結構上無法處理的情境——只會對每個提示回傳單一回饋軌跡的線上與複雜代理式環境。
 
-代價正是這個領域當初放棄單軌跡方法的原因：**變異**。沒有群組，就沒有用於 advantage estimation 的群組相對基準，因此 single-rollout 梯度會像 REINFORCE 一樣嘈雜。SAO 的答案是一股刻意的**逆流**——重新採用近期 GRPO/RLOO 浪潮力圖避免的 value model（critic），並將全部工程預算投入，讓這個 critic 穩定到足以充當基準。它被部署來訓練 [GLM-5.2](/articles/glm) (750B-A40B)。
+代價在於，這正是這個領域最初放棄單軌跡方法的原因：**方差**。沒有群組，就沒有用於優勢估計的群組相對基準，因此單次軌跡的梯度會像 REINFORCE 一樣嘈雜。SAO 的回答是刻意採取**逆流而行**的策略——重新採用近期 GRPO/RLOO 浪潮意圖避開的價值模型（評論器），並把全部工程預算投入讓評論器穩定到足以充當基準。此方法已部署於訓練 [GLM-5.2](/articles/glm)（750B-A40B）。
 
-## 值得命名的逆流
+## 值得一提的逆流而行
 
-兩年來，RL-for-LLM 的發展方向一直是**遠離 value functions**。GRPO、RLOO 及其同類方法以*無 critic* 為賣點：不必訓練獨立的 value network，記憶體減半，也沒有 value-learning 的不穩定性。SAO 認為，對如今最重要的設定而言，這是一條死路。無 critic 的 advantage estimation 在結構上依賴群組——你需要對同一提示取得多個回應，才能計算相對 reward——而 asynchronous/online agentic 回饋恰好只提供一個。因此 value model 回來了，不是出於懷舊，而是因為它是唯一能從單一軌跡運作的基準。這場賭注是：*訓練良好的* critic 勝過群組相對基準，而那些曾讓人遠離 critic 的不穩定性是可以修好的。這篇論文的大部分內容，就是在進行這項修復。
+過去兩年，LLM 的 RL 發展方向一直是**遠離價值函數**。GRPO、RLOO 等方法主打自己「免評論器」：不必訓練獨立的價值網路、記憶體減半，也沒有價值學習的不穩定性。SAO 認為，對於當前最重要的情境，這條路走不通。免評論器的優勢估計在結構上依賴群組——你需要對同一提示取得多個回應，才能計算相對獎勵——但非同步／線上代理式回饋恰好只提供一條。因此價值模型回歸了，不是出於懷舊，而是因為它是唯一能從單條軌跡運作的基準。這項賭注是：訓練良好的評論器勝過群組相對基準，而讓人們不再採用評論器的不穩定問題可以解決。論文大部分篇幅都在說明如何解決。
 
-## 讓 single-rollout critic 穩定的四件事
+## 讓單次軌跡評論器穩定的四項設計
 
-**1. 比 policy 更快的 value 更新（TTUR，K=2）。** Single-rollout RL 的核心不穩定性是 policy↔value 的相互依賴：不準確的 `V_ϕ` 會產生嘈雜的 advantages，進而推動破壞性的 policy 更新。SAO 將更新頻率解耦——每次 policy 更新執行 **K 次 value-network 更新**（實驗中 K=2）——讓 value estimates 在用於 advantage computation *之前* 就追上目前的 policy。這是針對 LLM 調整的雙時間尺度更新規則。
+**1. 價值更新速度快於策略（TTUR，K=2）。**單次軌跡 RL 的核心不穩定性來自策略與價值之間的相互依賴：不準確的 `V_ϕ` 會產生嘈雜的優勢，進而導致破壞性的策略更新。SAO 將更新頻率拆開——每次策略更新前，先執行 **K 次價值網路更新**（實驗中 K=2），讓價值估計在用於計算優勢前先追上目前策略。這是為 LLM 調整的雙時間尺度更新規則。
 
-**2. 凍結注意力的 critic。** 在先導實驗中，value model 的 gradient norms 遠大於 policy；分解分析追溯出不穩定性來自**完整注意力層**，而 MoE 層則維持穩定。因此在 RL 期間，SAO **凍結 `V_ϕ` 的 attention modules，只訓練 MoE projections**——其假設是，預訓練的 attention 已經會關注正確的 token，因此將最佳化限制在 MoE 層能夠正則化 critic。消融實驗：移除此設計後，AIME2025 從 97.3 降至 90.6。
+**2. 凍結注意力的評論器。**在初步實驗中，價值模型的梯度範數遠大於策略模型；分解分析指出不穩定性來自**全注意力層**，MoE 層則保持穩定。因此在 RL 期間，SAO **凍結 `V_ϕ` 的注意力模組，只訓練 MoE 投影層**——其假設是，預訓練好的注意力已經能關注正確的 token，因此將最佳化限制在 MoE 層可正則化評論器。消融結果：移除此設計後，AIME2025 從 97.3 降至 90.6。
 
-**3. 跳過 observation 的 token-level GAE。** Agentic 軌跡交錯包含模型動作與環境回饋：`T = [a₀, o₀, a₁, o₁, …]`。標準 GAE 會計算相鄰 token 之間的 value 差異——但從某個 action 的最後一個 token 到 observation 的第一個 token，其邊界對模型而言是**不連續的**（模型並未生成 `o_i`），因此跨越該邊界估計 advantage，會讓 critic 試圖預測外部環境狀態的 value，注入噪音。SAO 的修正是直接連接 action→action，跳過 observation tokens：
+**3. 跳過觀察的 token 級 GAE。**代理式軌跡會交錯出現模型動作與環境回饋：`T = [a₀, o₀, a₁, o₁, …]`。標準 GAE 會計算相鄰 token 之間的價值差異，但從動作最後一個 token 到觀察第一個 token 的邊界，對模型而言是**不連續的**（模型並未產生 `o_i`），因此跨越此處估計優勢，會讓評論器試圖預測外部環境狀態的價值，並引入雜訊。SAO 的解法是直接連接動作到動作，略過觀察 token：
 
- `Â(a_{i,N}) = δ + γλ · Â(a_{i+1,0})`，其中 `δ = r_t + γ V(a_{i+1,0}) − V(a_{i,N})`
+ `Â(a_{i,N}) = δ + γλ · Â(a_{i+1,0})`, with `δ = r_t + γ V(a_{i+1,0}) − V(a_{i,N})`
 
- 如此一來，advantage estimation 便限制在模型生成的 token 之內。**Token-level 勝過 step-level**：將每個回合視為一個 action（step-level GAE）表現較差——在 400 steps 時，Table 5 顯示 AIME2025 上 step-average 為 85.8、step-last-token 為 87.3、**token-level 為 89.8**——因為更細緻的 supervision 能捕捉軌跡內的邏輯轉換，而逐回合訊號會將其平滑掉。
+如此一來，優勢估計便只限於模型生成的 token。**token 級優於步驟級**：把每個回合視為一個動作（步驟級 GAE）表現較差——表 5 的 400 步結果：步驟平均 85.8、步驟最後 token 87.3、**token 級 89.8**（AIME2025）——因為更細緻的監督能捕捉軌跡中的邏輯轉折，而逐回合訊號會將其平滑掉。
 
-**4. 縮放後的 value 預訓練。** Critic 的冷啟動是真實的瓶頸；擴大 value-pretraining corpus 可提供穩健的初始化，讓 single-rollout 與 TTUR 機制從訓練早期就發揮作用，而不必在數百個 steps 中持續對抗不良 critic。
+**4. 擴大的價值預訓練。**評論器的冷啟動是實際瓶頸；擴大價值預訓練語料，能提供穩健的初始化，讓單次軌跡與 TTUR 機制從訓練初期就能發揮作用，而不是花上數百步與糟糕的評論器搏鬥。
 
 ## 結果
 
-每個設計選擇都承擔著關鍵作用——消融實驗（Table 4）顯示，移除任何一項都會降低準確率；而兩個更便宜的 single-rollout 基準（running-mean-reward baseline 與 vanilla VAPO）不是大幅落後，就是直接崩潰：
+每項設計選擇都不可或缺——消融結果（表 4）顯示，移除任何一項都會降低準確度；兩種成本較低的單次軌跡基準（一種使用移動平均獎勵基準，另一種使用原版 VAPO）都明顯落後或直接崩潰：
 
-| Variant | AIME2025 | BeyondAIME |
+| 變體 | AIME2025 | BeyondAIME |
 |---|---|---|
 | **SAO** | **97.3** | **74.8** |
-| w/o faster value | 95.0 | 69.8 |
-| w/o frozen attention | 90.6 | 74.5 |
-| Vanilla VAPO (no DIS) | 91.3 | 69.0 |
-| Running-mean baseline | 79.8 | 55.3 |
+| 無較快價值更新 | 95.0 | 69.8 |
+| 無凍結注意力 | 90.6 | 74.5 |
+| 原版 VAPO（無 DIS） | 91.3 | 69.0 |
+| 移動平均基準 | 79.8 | 55.3 |
 
-在程式設計方面，**SWE-Bench Verified**（Qwen3-30B-A3B backbone、OpenHands scaffold、300 turns、128k context）：base 23.0 → GRPO+DIS 27.0 → **SAO 29.8**。在 reasoning-with-Python（TIR）設定下的四個數學推理基準中，SAO 全面擊敗 SFT baseline 與 GRPO（AIME2025 97.3、BeyondAIME 74.8、HMMT 88.3、IMOAnswerBench 74.0），成績接近規模大得多的 [GLM-4.7](/articles/glm)。
+在程式碼任務上，**SWE-Bench Verified**（Qwen3-30B-A3B 骨幹模型、[OpenHands](/articles/openhands) 框架、300 回合、128k context）：基礎模型 23.0 → GRPO+DIS 27.0 → **SAO 29.8**。在使用 Python 推理（TIR）的設定下，SAO 在四個數學推理基準上全面勝過 SFT 基準與 GRPO（AIME2025 97.3、BeyondAIME 74.8、HMMT 88.3、IMOAnswerBench 74.0），表現接近規模大得多的 [GLM-4.7](/articles/glm)。
 
-## Online learning 結果：single-rollout *獨特適用* 的地方
+## 線上學習結果：單次軌跡*獨有*的適用場景
 
-SAO 最尖銳的主張不是基準提升，而是它具備一項 GRPO 不可能擁有的*能力*。在**非穩態**環境中——每個提示只有一條回饋軌跡，且 reward criterion 本身會隨時間改變——GRPO 的群組相對基準在結構上不適用。SAO 基於 value 的 critic 則不受此限：它能從單一軌跡提供依賴狀態的基準。
+SAO 最有力的主張不是基準分數提升，而是一種*GRPO 無法具備的能力*。在**非平穩**環境中——每個提示只會取得一條回饋軌跡，而且獎勵標準本身會隨時間改變——GRPO 的群組相對基準在結構上不適用。以價值為基礎的 SAO 評論器則不受此限：它能從單條軌跡提供依狀態而定的基準。
 
-展示實驗是一項模擬的 online 寫作任務：訓練中途將目標風格在原型（*可愛*、*中二*、*古典*）之間切換，並由 [GLM-4.7](/articles/glm) 作為 [LLM judge](/articles/llm-as-a-judge)，評分 `r = r_quality × r_style ∈ {0,1}`。偏好轉移時，SAO **迅速重新對齊**——壓制原本占主導地位的風格，並收斂至新的目標——而 running-mean baseline（128-reward sliding window）則有所延遲，因為其歷史視窗仍偏向先前的分布。Critic 能追蹤轉移；running average 只能對其取平均。
+展示實驗是一項模擬線上寫作任務，訓練過程中途在幾種風格原型（*可愛風*、*中二風*、*古典風*）之間切換目標風格，使用 [GLM-4.7](/articles/glm) 作為 [LLM 評審](/articles/llm-as-a-judge)，評分 `r = r_quality × r_style ∈ {0,1}`。偏好轉變時，SAO **迅速重新對齊**——抑制舊有的主導風格，並收斂到新的目標——而移動平均基準（128 個獎勵的滑動視窗）則反應遲緩，因為歷史視窗仍偏向先前的分布。評論器能追上轉變；移動平均只能把轉變納入平均。
+
+## 另一種穩定化設計，以及它沒有爭論的部分
+
+SAO 的兩項貢獻可以分開看（DIS 帶來穩定性，單次軌跡帶來效能上限），因此競爭方法的穩定化設計只會針對第一項。[ESTR](https://arxiv.org/pdf/2607.22186)（Baidu 等人，arXiv 2607.22186，2026-07-24，`empirical`）就是這類競爭方法：它以依 token 局部熵縮放的邊界，取代固定幅度的保留規則，`|δ_t| ≤ √(τ(H_t + ε))`；其論點是重要性比率的*自然尺度會隨熵增加*，所以任何不隨位置改變的界限都無法區分被放大的低熵取樣雜訊與合理的高熵探索。其配對預算消融是關鍵證據——將三種保留規則重新校準至相同的 0.07% 第 0 步遮罩比例後，其中兩種仍然崩潰，其中一種的預算與勝出方法同級——因此決定穩定性的是被遮罩族群的平均*熵*（0.11、1.67、3.47），而非其大小。完整分析請見[適用於 LLM 的非同步 RL](/articles/asynchronous-rl-for-llms)。
+
+有三點需要精確說明，因為兩者重疊的部分比表面看來更窄。
+
+**它完全沒有觸及單次軌跡這一半。**ESTR 在所有任務上都使用 GRPO 優勢，每個提示取 `n = 8` 條軌跡樣本（表 3）——是群組，不是單條軌跡——也完全沒有討論評論器、價值預訓練或單軌跡回饋。這裡沒有任何內容能動搖本文的核心賭注：訓練良好的評論器勝過群組基準。
+
+**它在 DIS 的行為代理問題上意見一致。**ESTR 附錄 G 指定「將軌跡 log 機率作為近端錨點（繞過模式）」——也就是 DIS 採取的移除 `π_θ_old` 做法，只是各自獨立得出。兩篇論文也都基於相同理由，排除解耦陳舊度的做法：如果一條軌跡跨越多個權重版本，就不存在單一行為策略可供重建。真正的分歧範圍很窄：**信任邊界的形狀，僅此而已。**
+
+**這項批評是否適用於 DIS，是本 wiki 的推論，不是 ESTR 的主張。**ESTR 從未提及 DIS 或 SAO；它列出的基準方法是 IcePop 和 KPop。兩者之間的連結，是本 wiki 自己指出 DIS「是 IcePop 機制的更嚴格版本」——若此說成立，更嚴格反而會讓校準失準的問題加重，因為縮窄固定區間無法改變其形狀。尚未確認：SAO 報告了裁剪比率，卻從未報告遮罩 token 的熵，而這正是區分兩種設計所需的診斷指標。要看哪些證據能解決這個問題，請參閱[適用於 LLM 的非同步 RL](/articles/asynchronous-rl-for-llms)中的相同討論。
+
+## 對觀察邊界採取相反立場的設計
+
+SAO 的四種評論器穩定化做法中，**跳過觀察的 GAE**是唯一對*世界*而非最佳化提出隱含主張的一項：動作到觀察的邊界沒有值得傳遞的可學習價值訊號，只有模型未產生之外部狀態所帶來的雜訊。[TRACE](/articles/turn-level-credit-assignment)（[Tao 等人](https://arxiv.org/pdf/2607.13988)，UW–Madison + Microsoft Research，arXiv 2607.13988，2026-07-15，`empirical`）是語料中第一個以完全相反前提建構方法的來源：它在**工具呼叫邊界**切分軌跡，並將所有密集獎勵都建立在跨越觀察的價值變化上；此變化以凍結參考模型所讀出的 log 比率黃金答案可預測性價值之 TD 差異衡量——全程沒有訓練評論器。在封閉網路的 BrowseComp-Plus 上，這種密集邊界訊號相較於結果獎勵式 GRPO，在 4B 骨幹模型上平均提升 4.5 分，在 30B-A3B 上提升 5.6 分（完整分析、數字與解析說明見[回合級信用分配](/articles/turn-level-credit-assignment)）。
+
+**請將此視為類比強度的證據，而非 SAO 設計的消融結果。**這項區分不可或缺，也很容易被忽略：
+
+- **兩種價值函數本質不同。**SAO 擔心的是，要求一個*學習而來的* `V_ϕ` 跨越觀察估計優勢時，會試圖預測外部環境狀態，接著這種錯誤又會回饋到策略更新中。TRACE 的價值函數從未經過學習，也未經過最佳化——它是策略初始化的凍結副本，用來為黃金答案的 log 機率打分，再與自身作差。它不會像訓練中的評論器那樣退化，因此它在邊界上的成功，不能證明評論器也能在此安然無恙。
+- **兩種設計其實同意損失函數的做法。**TRACE 和 SAO 一樣，會從策略梯度損失中遮罩掉工具觀察。因此真正的分歧並非「要不要在觀察 token 上訓練」，而是更狹義的問題：*跨越觀察的價值差異是訊號還是雜訊？*
+- **目前沒有共同實驗。**TRACE 從未提及跳過觀察的 GAE，也完全沒有執行 GAE 實驗組（其受控基準為 GRPO、GSPO 和 GiGRPO），而且任務、骨幹模型、目標與獎勵都和 SAO 不同。要解決此問題，需要在相同評論器、相同任務下，比較跳過觀察與跨觀察 GAE。
+- **它確實改變的一點**：它讓這項前提成為可爭論的假設，而非理所當然。在長時程搜尋中，觀察明顯*就是價值變化的來源*，而且變化高度集中——TRACE 的一條定性軌跡中，提供關鍵措辭的 `browser.open` 獲得 `δ = +5.86`，而下一回合確認該內容的字面 `find` 得到 `+0.00`。
+
+## 範圍更窄、成本更低，且在不同面向重新採用評論器
+
+SAO 的逆流而行是*全面*重返評論器：它重新設計價值模型本身（凍結注意力、TTUR、跳過觀察的 GAE、擴大的價值預訓練），以讓不需要群組、只靠單條軌跡的評論器穩定運作。[BRACE](/articles/anchored-bellman-residual-correction)（Zhao、Xie、Zheng 等人，Baidu，arXiv 2609.09783，v1 2026-09-09，`empirical`）則從較窄的切入點重返評論器：保留標準的群組式 PPO 評論器，只修正它用來回歸的**價值目標**，以 k 上限修正時距加上等權重的蒙地卡羅尾項，取代 V-trace 未能解決的涵蓋率與控制力取捨。這種較窄修正的實測成本很低——BRACE 相較未修正的非同步 PPO，只增加 1.5% 步驟時間（表 2）——這為定向修正評論器的低成本提供了有用參照，可與 SAO 全面投入評論器工程的預算相較。兩者並未彼此比較，解決的問題也不同：BRACE 從未使用單次軌跡（全程群組大小 > 1，與 GRPO 相同），而 SAO 的貢獻，正是在完全沒有群組可供退而求其次時，展示評論器能帶來什麼。完整分析請見[錨定貝爾曼殘差修正（BRACE）](/articles/anchored-bellman-residual-correction)。
 
 ## 相關連結
 
-- [Asynchronous RL for LLMs](/articles/asynchronous-rl-for-llms) — SAO 的另一半；single-rollout 移除了 async 所暴露的群組同步障礙，而 DIS 讓由此產生的更新保持穩定
-- [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) — SAO 所取代的方法；這裡的逆流，正是回頭走向 GRPO 移除的 critic
-- [LLM-as-a-Judge](/articles/llm-as-a-judge) — online-learning 的 reward signal 是 LLM judge（GLM-4.7），負責評分 quality × style
-- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 這套方法訓練出的長視野 agentic models，正是其能力會隨 inference budget 擴展的模型
-- [The Open-Weight Frontier Gap](/articles/open-weight-frontier-gap) — GLM-5.2 (750B-A40B) 是 SAO 的部署目標，也是該頁追蹤的 frontier-open MoE
-- [The Bitter Lesson](/articles/the-bitter-lesson) — SAO 同時移除結構（去掉 group baseline、去掉 `π_θ_old`）並加入大量結構（凍結注意力的 critic、跳過 observation 的 GAE、length-adaptive λ）——與 [Gemma 4](/articles/gemma-4) 相同的雙向形狀
-- [Reward Hacking](/articles/reward-hacking) — 基於 value 的 critic 比稀疏的群組相對訊號提供更密集、依賴狀態的 reward signal；這是否改變 Goodhart surface 尚未探索
-- [GLM (Z.AI)](/articles/glm) — production deployment：GLM-5.2 (750B-A40B)，以及同時作為基準上限與 online-sim judge 的 GLM-4.7
+- [錨定貝爾曼殘差修正（BRACE）](/articles/anchored-bellman-residual-correction) — 範圍更窄的評論器端修正，保留群組，只修正價值目標，成本僅為本文評論器工程成本的一小部分；兩種重返評論器的方法解決不同問題，且未彼此比較
+- [適用於 LLM 的非同步 RL](/articles/asynchronous-rl-for-llms) — SAO 的另一半；單次軌跡移除了非同步情境下暴露出的群組同步屏障，DIS 則讓由此產生的更新保持穩定；此文也是 ESTR 的完整討論處，這項競爭穩定化方法針對 DIS 的固定幅度邊界提出異議，卻不觸及單次軌跡這一半
+- [陳舊度–學習率縮放](/articles/staleness-learning-rate-scaling) — 本文未執行的空白對照組：沒有 DIS、完全不遮罩時，純非同步 GRPO 能撐多久；其每步偏差上限為 `O(Sη)`，崩潰時距為 `Tη`。這是 SAO 的穩定化方法試圖推遠的界線；也只有在學習率相同時，SAO 的「約 1000 步穩定」和基準方法的「約 90／160 步」才可比較——SAO 沒有公布學習率
+- [回合級信用分配](/articles/turn-level-credit-assignment) — 對 SAO 的觀察邊界採取相反立場的設計：其所有獎勵訊號都來自跨越工具觀察的價值變化，使用的是凍結探針，而非訓練中的評論器
+- [群組相對策略最佳化（GRPO）](/articles/group-relative-policy-optimization) — SAO 所取代的方法；本文所說的逆流而行，正是朝 GRPO 移除的評論器回頭
+- [LLM 評審](/articles/llm-as-a-judge) — 線上學習的獎勵訊號來自 LLM 評審（GLM-4.7），根據品質 × 風格評分
+- [Large-Scale Test-Time Compute](/articles/large-scale-test-time-compute) — 此方法訓練的長時程代理式模型，其能力接著會隨推論預算擴大
+- [開放權重前沿差距](/articles/open-weight-frontier-gap) — GLM-5.2（750B-A40B）是 SAO 的部署目標，也是該文追蹤的前沿開放式 MoE 模型
+- [苦澀的教訓](/articles/the-bitter-lesson) — SAO 同時移除結構（移除群組基準、移除 `π_θ_old`），也新增了許多機制（凍結注意力的評論器、跳過觀察的 GAE、長度自適應 λ）——與 [Gemma 4](/articles/gemma-4) 同樣具有雙向改動的特徵
+- [Reward Hacking](/articles/reward-hacking) — 以價值為基礎的評論器能提供比稀疏群組相對訊號更密集、依狀態而定的獎勵訊號；這是否會改變 Goodhart 曲面，目前尚未探索
+- [GLM（Z.AI）](/articles/glm) — 實際部署案例：GLM-5.2（750B-A40B）；GLM-4.7 同時作為基準上限與線上模擬評審
+- [來自執行回饋的 RL（RLEF）](/articles/execution-feedback-rl) — 本文開放問題提及的執行回饋案例，採用端對端訓練：RLEF 將直譯器的失敗文字跨回合回饋，並獎勵成功存續者，因此至少在程式碼任務上，環境回應被視為關鍵訊號。它沒有執行 GAE 實驗組，信用分配也比 SAO 粗略，所以雖然加深疑慮，仍未解決問題
+- [離線多步驟工具使用 RL（SWiRL）](/articles/offline-multi-step-tool-rl) — 採取繞過而非解決此系統問題的方法：SWiRL 在 RL 期間完全不接觸環境，而是根據離線收集的凍結情境為提出的動作評分，因此它以離策略落差取代本文的在策略軌跡工程，而沒有人評估此落差在更長時程下的代價
 
 ## 開放問題
 
-- 整個方法押注於訓練良好的 critic 勝過群組基準。它在此處確實成功了，使用的是搭配 scaled value pretraining 的 30B-A3B backbone——但 critic 會讓訓練記憶體加倍。當規模達到多大時，即使 GRPO 在品質上落敗，無群組的簡潔性仍會在成本上重新勝出？
-- 凍結注意力是由一項假設（「預訓練的 attention 已經會關注正確的 token」）所支持，而驗證依據只有 gradient-norm trace 與一次消融實驗。當 value model 必須關注預訓練時從未見過的*工具輸出*時，這項假設仍成立嗎？
-- 跳過 observation 的 GAE 假設環境回饋不包含值得傳播的可學習 value signal。對於環境回應*就是*關鍵資訊的 agent（編譯器錯誤、測試結果），跳過它是否等於放棄了重要訊號？
-- Online-learning 的優勢來自受控的模擬偏好轉移，並使用 LLM judge。真正面向使用者的 online adaptation——論文自身也指出這點——需要研究未嘗試處理的防護措施、監控與隱私審查。
+- 整套方法賭的是訓練良好的評論器勝過群組基準。在這裡——使用擴大價值預訓練的 30B-A3B 骨幹模型——它確實勝出，但評論器會讓訓練記憶體加倍。到了什麼規模，即使 GRPO 的品質較差，免群組的簡潔性仍能在成本上扳回一城？**部分回答（2026-09-24），而且僅涉及不同的成本面向：**[BRACE](/articles/anchored-bellman-residual-correction)估算在已採用評論器的 PPO 執行上，定向評論器端修正的成本：相較未修正的非同步 PPO，步驟時間額外增加 1.5%（222.47 秒／步，相較 219.20 秒／步，表 2），而同步步驟速率維持在未修正非同步 PPO 的 2.49 倍，對照組則為 2.46 倍。這界定的是修正評論器陳舊偏差的邊際成本，而不是採用評論器本身的成本——BRACE 從未使用免群組方法，其基準本來就包含完整評論器，也未涉及本問題所指的記憶體加倍面向。因此，GRPO 成本這一側仍未觸及；新增的資料點是，既然已經付出評論器的成本，修正評論器也不必昂貴。
+- 凍結注意力的理由來自一項假設（「預訓練好的注意力已經能關注正確的 token」），但目前只經由梯度範數軌跡與一項消融驗證。當價值模型必須關注預訓練時從未見過的*工具輸出*時，這項假設還成立嗎？
+- 跳過觀察的 GAE 假設環境回饋沒有值得傳遞的可學習價值訊號。對於環境回應本身就是關鍵資訊的代理（例如編譯器錯誤、測試結果），跳過它是否會漏掉訊號？**部分回答（2026-08-12），但僅屬類比——這項前提目前可以質疑，尚未被推翻：**[TRACE](https://arxiv.org/pdf/2607.13988)以跨越工具觀察的價值變化為基礎，建構了整套密集獎勵方法；在長時程搜尋中，使用相同骨幹模型、資料與協定時，相較結果獎勵式 GRPO，平均分數在 Qwen3-4B 上提高 4.5 分，在 Qwen3-30B-A3B 上提高 5.6 分；而且信用分配明顯集中在承載證據的觀察上（提供關鍵資訊的頁面開啟動作獲得 `δ = +5.86`，下一回合逐字查找確認則為 `+0.00`）。因此，至少在一種長時程環境中，觀察並非價值中立。三項因素使這仍不足以定案：TRACE 的價值函數是**凍結**參考模型的黃金答案 log 機率，從未經過訓練，因此不會遭遇這項設計選擇要保護*學習而來的*評論器免受的特定失效；TRACE 和 SAO 一樣，會從損失中遮罩掉觀察 token，因此兩者只在跨越邊界的價值差異上有分歧，而非是否在觀察 token 上訓練；而且目前沒有共同實驗——TRACE 沒有執行 GAE 實驗組，也未提及跳過觀察，因此仍未進行直接測試（相同評論器、相同任務下比較跳過觀察與跨觀察 GAE）。問題中提到的編譯器錯誤／測試結果案例仍未觸及：這裡是檢索，不是執行回饋。
+- 線上學習的勝利來自受控模擬偏好轉變，並由 LLM 評審打分。論文本身也指出，面向真實使用者的線上適應需要防護措施、監控與隱私審查，而這些都不在研究範圍內。
 
 ## 資料來源
 
-- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*，Hou、Li、Tang、Dong（Tsinghua / Z.AI），arXiv 2607.07508，2026-07-08。§3.2（single-rollout + value-model designs）、§4（results、ablations）、§4.5（online learning）、Appendix A（step-vs-token GAE）。`empirical`。
+- [Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning](https://arxiv.org/pdf/2607.07508) — *Single-Rollout Asynchronous Optimization for Agentic Reinforcement Learning*, Hou、Li、Tang、Dong（Tsinghua / Z.AI），arXiv 2607.07508，2026-07-08。§3.2（單次軌跡與價值模型設計）、§4（結果、消融）、§4.5（線上學習）、附錄 A（步驟級與 token 級 GAE）。`empirical`。
+- [Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning](https://arxiv.org/pdf/2607.22186) — *Deconstructing Off-Policy Ratios: Entropy-Scaled Trust Regions for Asynchronous Reinforcement Learning*, Zhao、Xie、Zheng 等人（BUPT / Peking / USTC / CAS + Baidu），arXiv 2607.22186，v1 2026-07-24，`empirical`。§4.3（保留規則）、§I.2 + 表 7（配對預算消融）、附錄 G + 表 3（`n = 8` 軌跡樣本、「繞過模式」近端錨點——界定與本文重疊範圍的兩項事實）。完整分析與四項解析警告見[適用於 LLM 的非同步 RL](/articles/asynchronous-rl-for-llms)。
+- [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](https://arxiv.org/pdf/2607.13988) — *TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents*, Tao、Peng、Yao、Ge、Cheng、Wang、Gao、Li（UW–Madison + Microsoft Research），arXiv 2607.13988，v1 2026-07-15，`empirical`。§3.1（工具邊界狀態；觀察 token 和本文一樣從損失中遮罩）、§3.2–3.3（凍結參考模型的 log 比率價值及其 TD 信用分配——與訓練中評論器本質不同的機制）、§4.1（不含 GAE 實驗組的受控基準組）、§A.5（集中於各回合的信用分配軌跡）。完整分析、所有表格與解析說明見[回合級信用分配](/articles/turn-level-credit-assignment)。
+- [Staleness-Learning Rate Scaling Laws for Asynchronous RLHF](https://arxiv.org/pdf/2607.01083) — *Staleness–Learning Rate Scaling Laws for Asynchronous RLHF*, Song、Xu（同等貢獻）等人（HKU / Shanghai Jiao Tong / **Gradient** / USC / HK PolyU），arXiv **2607.01083**，2026-07-01，`empirical`。本文僅引用其 §3.4–3.6（每步偏差上限 `O(Sη)` 與崩潰時距 `Tη`，亦即可用來理解 DIS 的「受控程度離策略偏差」的未修正基準），以及 §4.3（`t_collapse·η ≈ 3.2×10⁻⁵`，說明若未公布學習率，單看崩潰步數便毫無解讀意義）。該研究沒有執行 DIS 實驗組、沒有價值模型，模型規模也未超過 3B。完整分析與所有解析說明見[陳舊度–學習率縮放](/articles/staleness-learning-rate-scaling)。
+- [BRACE: Anchored Bellman-Residual Correction for Stale Critics in Asynchronous RL](https://arxiv.org/pdf/2609.09783) — *BRACE: Anchored Bellman-Residual Correction for Stale Critics in Asynchronous RL*, Zhao、Xie、Zheng 等人（BUPT / Peking / USTC + Baidu），arXiv 2609.09783，v1 2026-09-09，`empirical`。本文僅引用 §5.4 + 表 2（上文估算的訓練成本比較）。它沒有執行單次軌跡實驗組——群組大小全程大於 1，與 GRPO 相同——也從未與 SAO 比較。完整分析見[錨定貝爾曼殘差修正（BRACE）](/articles/anchored-bellman-residual-correction)。

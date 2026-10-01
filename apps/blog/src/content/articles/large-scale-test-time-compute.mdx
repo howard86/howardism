@@ -7,7 +7,10 @@ description: "Noam Brown's thesis that model capability is now a function of
   ill-posed without naming the budget — a root cause that breaks benchmarking,
   safety evals, and fast-takeoff forecasts; plus the first budget-matched test
   of *where* to spend the marginal token, where independent parallel sampling
-  beats both sequential refinement and letting a meta agent rewrite the harness"
+  beats both sequential refinement and letting a meta agent rewrite the harness
+  — and the axis with no dial at all, where a shared budget across N questions
+  is allocated by prompt order (order–position +0.68, flat in N) rather than by
+  value or difficulty"
 tag: Concept
 domain: model-capability-and-training
 tags:
@@ -16,7 +19,7 @@ tags:
   - inference-scaling
   - capability-evaluation
   - capability-trajectory
-readingTime: 35
+readingTime: 41
 imageAlt: Illustration for Large-Scale Test-Time Compute
 sources:
   - title: "CS329A Self-Improving AI Agents — Part 1: Course Overview"
@@ -53,6 +56,9 @@ sources:
     url: https://arxiv.org/pdf/2608.08958
   - title: Not All LLM Reasoning is Visible in the Chain-of-Thought
     url: https://arxiv.org/pdf/2607.22925
+  - title: "What LLM Forecasters Know but Don't Say: Probing Internal
+      Representations for Calibration and Faithfulness"
+    url: https://arxiv.org/pdf/2607.08046
 ---
 export { default as heroImage } from "../assets/large-scale-test-time-compute.webp";
 
@@ -73,6 +79,7 @@ export { default as heroImage } from "../assets/large-scale-test-time-compute.we
 - [Rewriting Bun in Rust](https://bun.com/blog/bun-in-rust)
 - [SwarmResearch: Orchestrating Coding Agents for Open-Ended Discovery](https://arxiv.org/pdf/2607.02807)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)
+- [What LLM Forecasters Know but Don't Say: Probing Internal Representations for Calibration and Faithfulness](https://arxiv.org/pdf/2607.08046)
 
 ## Summary
 
@@ -205,8 +212,31 @@ Three implications specific to this page:
 - **It is small, and that is the honest headline.** The authors say plainly that the uplift is small relative to what explicit CoT buys on the same problems. Prefill compute is cheaper per FLOP and much worse per unit of capability — a discount, not a substitute.
 - **The incentive is what makes it matter.** Non-CoT performance is a standard benchmark criterion, serving costs favor concise outputs, and computation that never enters the trace is **resistant to distillation**. So the pressure to move test-time compute out of decode is commercial rather than adversarial, which is precisely why [Chain-of-Thought Monitorability](/articles/cot-monitorability) treats the same argument as a monitoring problem rather than an efficiency one.
 
+### And the axis with no dial at all: across questions (2026-08)
+
+Every axis above spends a budget attached to **one** problem. [Fan et al.](/articles/shared-budget-compute-allocation) ([arXiv 2608.07968](https://arxiv.org/pdf/2608.07968), UMD, `empirical`) hand seven reasoning models **one** budget and N scored questions at once, and ask what allocation emerges. The answer is: **prompt order**.
+
+- Solving order tracks presentation position at partial Spearman **+0.68**, and — the load-bearing detail — that figure is *flat* across exam length (+0.68 / +0.66 / +0.69 at N = 5 / 10 / 20), while effort-declines-with-position **steepens** from −0.17 to −0.48. So the sequencing is a policy, not an artifact of running out of budget; front-loading is what budget pressure adds on top of it.
+- **Difficulty sensitivity is reactive, not prospective.** Effort–difficulty correlation *decays* as the budget tightens (+0.33 → +0.26 → +0.11). A model deciding in advance that a hard question deserved more compute would show the opposite.
+- Stated point values move nothing (effort–value 0.00 / +0.04 / +0.11), and question **selection** matches the top-value-density set at chance (0.59 vs a 0.59 chance reference) while matching the earliest-presented set at 0.76. **32% of all reasoning tokens** go to questions the same model failed in an independent 40,960-token attempt.
+- An explicit planning prompt raises coverage by up to **+0.14** and *lowers* the effort–value correlation (+0.16 → +0.08): it changes the **spread** of computation, not its priorities.
+- At N = 20 the emergent policy is beaten by dividing the budget by N and not thinking about it, for **all seven models** (−5.0 score points); at N = 5 the shared budget still wins (+2.6).
+
+The consequence for this page: the flexible thinking-time Brown recommends is **not a capability the model supplies**. Within one problem there is an effort dial; across problems there is nothing, and the stronger the per-question solver, the more of a shared budget it can sink into whichever question happens to be printed first — the two API models lose 16–19 score points to a hard-first ordering they refuse to reorder.
+
+### And the floor: what the first token of reasoning is worth (2026-09)
+
+Every measurement above compares more compute against less. [Sarfati et al.](/articles/pre-reasoning-commitment) ([arXiv 2607.08046](https://arxiv.org/pdf/2607.08046), Goodfire / Eternis, `empirical`) compare reasoning against **none at all**, by prefilling an empty think block and forcing an 8B/32B forecaster to answer immediately. On open-ended forecasting the whole chain of thought is worth **+1.9pp** (95% CI [+1.0, +2.9]) over the forced answer in distribution, attenuating out of it; the forced answer matches the free modal answer on **67%** of questions, stated confidence is essentially unchanged (Spearman **ρ = 0.90**), and among questions the forced pass got wrong, reasoning corrects **4%** and re-commits to the same wrong answer **72%** of the time.
+
+Two things follow for this page, and they pull in opposite directions.
+
+- **The curve can start almost flat.** On a retrieval-dominated task — accuracy is 86–94% when the gold answer appears in the retrieved passages and 26–33% when it does not — reasoning mostly sharpens a commitment the prompt already determined. That is a task property more than a model property, and it is the regime this page's thesis is weakest in: there is no budget large enough to recover an answer the context does not support.
+- **But the allocation signal is cheap and works.** The entropy of the model's pre-reasoning answer distribution, read from a single forward pass costing 50–70× less than a rollout, sorts questions into commit / reason / retrieve and **saves 30–47% of generated tokens with no measurable accuracy loss**. This is the first instrument in the corpus that supplies the flexible thinking-time the axis above says the model cannot — and it supplies it from outside the model's verbalization, beating a gate on the model's own stated confidence.
+
 ## Connections
 
+- [Pre-Reasoning Commitment](/articles/pre-reasoning-commitment) — the floor under the curve, and the allocator the axis above says the model cannot supply: an empty think block recovers the same answer on 67% of questions for a +1.9pp cost, and the entropy of that pre-reasoning answer distribution routes questions well enough to cut 30–47% of generated tokens at no measurable accuracy loss
+- [Shared-Budget Compute Allocation](/articles/shared-budget-compute-allocation) — the cross-question axis this page never had, and the one place the thesis inverts: more per-question capability makes the shared-budget failure worse, because a stronger solver can absorb a larger share of the budget into the first question it meets
 - [Unproductive Self-Verification](/articles/unproductive-self-verification) — the counter-instance: Opus 5's FrontierCode score peaks at *medium* effort and its best GDPval-AA/AA-Briefcase results come from xhigh rather than max, because the marginal compute is spent re-verifying and over-engineering
 - [Instruction Compounding](/articles/instruction-compounding) — why the budget dial substitutes for the disable switch: thinking-off introduces output artifacts that thinking-on at `low` effort avoids at comparable cost
 - [Output Length Calibration](/articles/output-length-calibration) — the cost the dial doesn't reach: visible-response tokens are prompt-controlled, so effort and verbosity are separate levers
@@ -237,7 +267,7 @@ Three implications specific to this page:
 ## Open Questions
 
 - **Can high-budget performance be predicted from low-budget runs?** Brown's proposed research question: forecast the $10,000-inference result using only $10–$100 runs. If the curve is regular, evaluation could *project* rather than pay in full. **Sharpened (2026-07):** [AISI](/articles/uk-ai-security-institute) names this exact problem — "can high-budget performance be estimated from cheaper runs? … the most informative evaluations may be expensive" — as an explicit, unsolved research direction it is now actively pursuing (alongside defining "minimum informative budgets"). Still open, but no longer just one researcher's proposal: a government institute is working it. **Sibling axis demonstrated (2026-07):** a *different* projection — across benchmarks rather than across compute budgets — now works: [BenchPress](/articles/benchmark-score-redundancy) predicts a model's held-out benchmark scores from ~5 observed ones because the 84×133 public score matrix is effectively rank-2 (5-probe scorecard recovery to ~3.93 points). Strong evidence the eval landscape is low-dimensional and redundant, but it does **not** answer the cross-*budget* forecast — no one has yet shown the $10K-compute result is predictable from $10 runs; only the analogous cross-*benchmark* result.
-- Where does each real task sit on the flat↔unbounded spectrum, and can that be predicted before spending the compute?
+- Where does each real task sit on the flat↔unbounded spectrum, and can that be predicted before spending the compute? **Partially answered 2026-09-22, negatively, for one predictor worth ruling out: the model itself.** [Thinking Hard, Not Smart: Reasoning Models Fail to Ration Test-Time Compute Across Questions](https://arxiv.org/pdf/2608.07968) (Fan et al., `empirical`) needed a per-question cost `w_i` and reports that the shared-budget run *cannot reveal it* — the only way they obtain one is an independent high-budget attempt at up to 40,960 tokens per question, which they explicitly decline to call a minimum or necessary cost. And the model's own implicit forecast is worthless: given all N questions at once with their point values, the set it actually works on overlaps the highest-value-density set at **chance** (0.59 against a 0.59 chance reference; at or *below* chance under three other scoring schemes) while overlapping the earliest-presented set at 0.76. So "ask the model where the task sits before paying" is closed, and the question narrows to whether any *external* predictor does better than paying once.
 - Is there a task class where scaffolding *cannot* extend the productive-thinking horizon — a hard ceiling no budget crosses? (Brown's factual-retrieval pole says yes for some; the boundary is unmapped.)
 
 ## Sources
@@ -247,6 +277,7 @@ Three implications specific to this page:
 - [CS329A Self-Improving AI Agents — Part 3: Robust Verification](https://www.youtube.com/watch?v=p7TdPUcPoik) — Stanford CS329A lecture 3 ([Azalia Mirhoseini](/articles/azalia-mirhoseini), delivered 2025-09-29, published 2026-08-03, `practitioner-opinion`): the selector knob developed over four papers. Cited here only for the ~400-sample verifier precision decay and the shipped 100-sample configuration; the rest on [Process vs Outcome Reward Models](/articles/process-vs-outcome-reward-models) and [Weak-Verifier Ensembling](/articles/weak-verifier-ensembling). Slide-read figures in an auto-caption transcript, approximate, late 2025
 - [CS329A Self-Improving AI Agents — Part 6: Train-Time Scaling and Scaling RL](https://www.youtube.com/watch?v=yVnmHSAy3ck) — Stanford CS329A lecture 6 ([Aakanksha Chowdhery](/articles/aakanksha-chowdhery), delivered 2025-10-10, published 2026-08-03, `practitioner-opinion`): cited here only for the **majority@K rises / pass@K does not** result at 32 samples, its "more consistent, not fundamentally smarter" reading, and the generalization of it across all three of the lecture's train-time-scaling methods. Slide-read from an auto-caption transcript; the DeepSeekMath paper is not in `raw/`. Mechanism on [Group Relative Policy Optimization (GRPO)](/articles/group-relative-policy-optimization) and [Rationale Bootstrapping (STaR)](/articles/rationale-bootstrapping-self-training)
 - [Really Big Test-Time Compute in AI Changes Benchmarks, Safety and Research with OpenAI's Noam Brown](https://www.youtube.com/watch?v=AZrU6y3pUcU) — No Priors interview (2026-06-26), Noam Brown on his essay *Implications of Large-Scale Test-Time Compute* (`practitioner-opinion`)
+- [What LLM Forecasters Know but Don't Say: Probing Internal Representations for Calibration and Faithfulness](https://arxiv.org/pdf/2607.08046) — Sarfati, Tiwari, Boppana, Earls, Varadaraj & Ho (Goodfire / Eternis), arXiv 2607.08046, 2026-07-09, `empirical`: §4.6 + Figure 8 (the empty-think forced-answer prefill; ρ = 0.90 / 0.87 / 0.78 confidence correspondence; 67% / 64% / 56% modal-answer agreement; +1.9pp [+1.0, +2.9] in-distribution accuracy gain; 4% correction and 72% lock-in among forced-wrong questions; the 50–70× cost ratio), §4.7 + Figure 9 (the answer-entropy triage and the 30–47% token saving) and §4.1.2 (answer containment, 86–94% vs 26–33%). **COI**: the forecaster is one author group's own model and the probe architecture the other's, with experiments run by Goodfire's agentic research platform under author review. **Parse note**: ingest verdict `warn`; Table 2 was a genuine row-weld rebuilt at compile from `pdftotext -layout` and is cited nowhere on this page. Full treatment on [Pre-Reasoning Commitment](/articles/pre-reasoning-commitment)
 - [Gemma 4 Technical Report](https://arxiv.org/pdf/2607.02770) — the efficiency corollary: a thinking mode plus a five-lever inference-cost reduction, shipped together (`empirical`)
 - [Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html) — chain-of-thought as externalized workspace: a transformer's only way past its feedforward depth is to write intermediates into the context and read them back
 - [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) — Anthropic platform docs (retrieved 2026-07-25, `vendor-claim`): the deployment-side allocation advice — default to `low`/`medium`, `xhigh` for demanding agentic work, thinking-on-at-low over thinking-off, re-sweep effort per model
