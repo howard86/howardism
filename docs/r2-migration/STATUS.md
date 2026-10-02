@@ -13,14 +13,16 @@ Last updated 2026-10-02 (Asia/Taipei).
 |---|---|---|---|
 | **G0** Baseline and recovery | Full inventory, independent backup, recorded production revision, a restore that succeeds | **passed** | Both backups share one machine |
 | **G1** Release correctness | Real-R2 publication with exact reconstruction, idempotency, immutable manifests, no partial releases | **passed** | — |
-| **G2** Build and profile safety | Cold/warm, sample/full isolation, checksum/deletion/interruption tests, correct turbo identity, secret-free fresh-clone previews | pending | Local trusted cold/warm full build passed. Still needed: the same run in `content-integration.yml`, which GitHub can dispatch only once the file is on `main`, and fresh-clone sample checks at the final head |
-| **G3** Deployment and rollback rehearsal | A trusted full deployment with no tracked-content fallback, parity, observed Vercel cache behaviour, previous-release restore, promotion controls | **blocked** | No pre-merge path deploys a full build: previews reject `full`, and the integration workflow builds but doesn't deploy |
+| **G2** Build and profile safety | Cold/warm, sample/full isolation, checksum/deletion/interruption tests, correct turbo identity, secret-free fresh-clone previews | **passed** | — |
+| **G3** Deployment and rollback rehearsal | A trusted full deployment with no tracked-content fallback, parity, observed Vercel cache behaviour, previous-release restore, promotion controls | pending | Reached through the production rehearsal (no pre-merge path deploys a full build). Still needed: a Git-triggered production build that reuses the object cache, and a previous-release restore once a second release exists |
 | **G4** Untracking and final verification | G0–G3 first; then the full pin plus corpus untracking, fresh-clone cold full and sample builds, a lockfile-only deployment | pending | The public fixture tree is already untracked |
-| **G5** Production activation | The approved commit and release, a verified full marker, smoke tests, and the previous deployment kept available | pending | Not merged, not activated |
+| **G5** Production activation | The approved commit and release, a verified full marker, smoke tests, and the previous deployment kept available | **passed** | — |
 | **G6** Retention activation | Observed stability, a demonstrated restore, reviewed protected releases, an approved dry-run | pending | GC is implemented and tested; live deletion stays off |
 
-G3 runs as an isolated trusted deployment; it doesn't promote the sample or
-replace the live site. G4 has two parts: G0–G3 authorize the untracking commit,
+G3 was planned as an isolated trusted deployment, but previews reject `full`,
+the integration workflow doesn't deploy, and the Hobby plan allows no custom
+Vercel environment. #935 was therefore merged and verified on production, with
+`howardism-c9coxjzk8` kept as the rollback target. G4 has two parts: G0–G3 authorize the untracking commit,
 and that commit must pass verification before merge.
 
 ## Evidence
@@ -53,5 +55,23 @@ receipts don't record these:
   a required reviewer, the read-only keys and the account and bucket variables.
   Vercel production has the read-only keys and `CONTENT_PROFILE=full`.
 
-The full corpus is still tracked. There has been no merge, no production
-activation and no live GC.
+- **Hosted trusted full build (G2):** `content-integration.yml` run
+  [36992284311](https://github.com/howard86/howardism/actions/runs/36992284311)
+  at `3c40b326`: cold 1,534 objects, 0 hits, 58.8 MB; warm 1,534 hits, 0 bytes;
+  `content:verify-build` and `content:validate --profile full` passed.
+- **Fresh clone at the final head (G2):** a clone of `3c40b326` with no `R2_*`
+  or `CONTENT_*` variables, both content trees and the seven generated manifests
+  removed, passed uncached type-check, tests and build. The marker reported
+  profile `sample`, release `3cb9a1e3…`.
+- **Production activation (G3/G5):** #935 merged as `6e9d34ae`. At `3c40b326`,
+  `content:verify-deployment` passed against www.howardism.dev (marker `full`,
+  release `41239a1c…`, tree digest equal to the local trusted build). Parity
+  against `howardism-c9coxjzk8`: 8 probes, 0 mismatches; archived and on-demand
+  probes don't apply (the baseline has none). A browser check confirmed hero
+  images, 18 linked articles returning 200, and grouped search results.
+- **Vercel object cache:** the first three production builds each downloaded all
+  1,534 objects. `vercel redeploy` skips the build cache, so it proves nothing.
+- **Parity tool:** compare two `*.vercel.app` URLs; the custom domain's
+  canonical URL is normalized on one side only and produces false mismatches.
+
+The full corpus is still tracked. Live GC is off.

@@ -104,7 +104,9 @@ release, authoring history, credentials or SQLite files.
    warm full builds and produces a receipt.
 2. Run `content:verify-deployment --url <candidate> --commit <sha>`.
 3. Run `content:verify-parity --baseline <production url> --candidate <url> --spec docs/r2-migration/parity-probes.json`.
-   Review the probes against the chosen baseline first.
+   Review the probes against the chosen baseline first. Pass two `*.vercel.app`
+   deployment URLs: the custom domain's canonical URL is normalized on one side
+   only and produces false mismatches.
 
 An empty parity diff doesn't cover graph interaction, search behaviour,
 on-demand routes or independence from R2 at runtime. Check those in a browser.
