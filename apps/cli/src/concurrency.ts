@@ -9,17 +9,28 @@ export async function runWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
+  let failed = false;
   const workers = Array.from(
     { length: Math.min(concurrency, items.length) },
     async () => {
-      while (nextIndex < items.length) {
+      while (nextIndex < items.length && !failed) {
         const i = nextIndex;
         nextIndex += 1;
-        // biome-ignore lint/performance/noAwaitInLoops: this *is* the concurrency limiter — each worker awaits one item at a time so at most `concurrency` run at once; Promise.all here would unbound it
-        results[i] = await worker(items[i]);
+        try {
+          // biome-ignore lint/performance/noAwaitInLoops: Each worker processes one item at a time.
+          results[i] = await worker(items[i]);
+        } catch (error) {
+          failed = true;
+          throw error;
+        }
       }
     }
   );
-  await Promise.all(workers);
+  // Settle in-flight writes before the caller releases a workspace lock or removes staging.
+  const settled = await Promise.allSettled(workers);
+  const failure = settled.find((result) => result.status === "rejected");
+  if (failure?.status === "rejected") {
+    throw failure.reason;
+  }
   return results;
 }

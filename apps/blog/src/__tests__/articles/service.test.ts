@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { parseArticleGraph } from "@howardism/article-contract/manifests/graph";
 import {
   type ArticleTag,
   getArticleConnections,
@@ -7,11 +8,15 @@ import {
   getTagCounts,
   getVisibleArticles,
 } from "@/app/(blog)/articles/service";
-import graphData from "@/data/article-graph.json";
+import rawGraphData from "@/data/article-graph.json";
 
 // A slug that the cli-engineer's graph generator is known to produce both
 // inbound and outbound edges for, and that is not archived.
-const KNOWN_SLUG = "agent-harness-engineering";
+const graphData = parseArticleGraph(rawGraphData);
+const KNOWN_SLUG =
+  Object.entries(graphData.backlinks).find(
+    ([, edges]) => edges.length > 0
+  )?.[0] ?? Object.keys(graphData.backlinks)[0];
 
 const WIKI_TAGS = ["Concept", "Entity", "Essay", "Index"] as const;
 

@@ -1,12 +1,12 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { contentPaths } from "../content/paths";
 
 import { harvestSeedEntries, type SeedSources } from "./seed.ts";
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const CLI_ROOT = resolve(HERE, "../../");
-const REPO_ROOT = resolve(CLI_ROOT, "../../");
 
 /** SQLite store; per-machine local cache, gitignored (see apps/cli/.gitignore). */
 export const DEFAULT_GLOSSARY_DB_PATH = resolve(
@@ -18,14 +18,9 @@ export const LEGACY_GLOSSARY_JSON_PATH = resolve(
   CLI_ROOT,
   ".translate-glossary.json"
 );
-export const DEFAULT_ARTICLES_DIR = resolve(
-  REPO_ROOT,
-  "apps/blog/src/content/articles"
-);
-export const DEFAULT_WIKI_SOURCES_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/wiki-sources.json"
-);
+export const DEFAULT_ARTICLES_DIR = contentPaths().articles;
+export const DEFAULT_WIKI_SOURCES_PATH =
+  contentPaths().manifest("wiki-sources.json");
 
 export const GLOSSARY_CATEGORIES = [
   "person",

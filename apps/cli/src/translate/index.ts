@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { surfaceHash } from "@howardism/article-contract/surface";
 import { runWithConcurrency } from "../concurrency.ts";
+import { contentPaths } from "../content/paths";
 import {
   addTerms,
   DEFAULT_ARTICLES_DIR,
@@ -124,14 +125,8 @@ interface RunContext {
 const HERE = dirname(new URL(import.meta.url).pathname);
 const CLI_ROOT = resolve(HERE, "../../");
 const REPO_ROOT = resolve(CLI_ROOT, "../../");
-const DEFAULT_OUTPUT_DIR = resolve(
-  REPO_ROOT,
-  "apps/blog/src/content/articles-zh-TW"
-);
-const DEFAULT_PROJECTION_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/translations.json"
-);
+const DEFAULT_OUTPUT_DIR = contentPaths().translated;
+const DEFAULT_PROJECTION_PATH = contentPaths().manifest("translations.json");
 const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/glossary/cli.ts");
 const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;

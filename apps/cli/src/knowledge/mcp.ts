@@ -1,5 +1,4 @@
-import { dirname, resolve } from "node:path";
-
+import { resolve } from "node:path";
 import {
   parseSearchIndex,
   type SearchIndexEntry,
@@ -9,25 +8,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import matter from "gray-matter";
 import { z } from "zod";
+import { contentPaths } from "../content/paths";
 
 import { toPlainText } from "../import-wiki/plain-text.ts";
 
-const HERE = dirname(new URL(import.meta.url).pathname);
-const CLI_ROOT = resolve(HERE, "../../");
-const REPO_ROOT = resolve(CLI_ROOT, "../../");
-
 /** The blog's committed search index — see apps/cli/src/search-index.ts. */
-export const DEFAULT_SEARCH_INDEX_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/search-index.json"
-);
+export const DEFAULT_SEARCH_INDEX_PATH =
+  contentPaths().manifest("search-index.json");
 
 /**
  * The MDX `knowledge_get` reads. The index carries no article text — it is
  * metadata plus related keywords — and this server runs against the repo, so
  * full content comes from the article file rather than from a stored excerpt.
  */
-const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
+const ARTICLES_DIR = contentPaths().articles;
 
 /**
  * MCP tool handlers. Kept as plain (indexPath, args) → CallToolResult

@@ -19,8 +19,7 @@
  *   DRY_RUN=1 bun run build:search-index  # report counts without writing
  */
 import { readdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-
+import { resolve } from "node:path";
 import {
   type ArticleGraph,
   parseArticleGraph,
@@ -32,8 +31,8 @@ import {
   SearchIndexSchema,
 } from "@howardism/article-contract/manifests/search-index";
 import matter from "gray-matter";
-
 import { runWithConcurrency } from "./concurrency.ts";
+import { contentPaths } from "./content/paths";
 
 export type {
   SearchIndex,
@@ -52,15 +51,13 @@ const KEYWORD_LIMIT = 20;
 /** Concurrent MDX reads while building the index. */
 const READ_CONCURRENCY = 16;
 
-const HERE = dirname(new URL(import.meta.url).pathname);
-const REPO_ROOT = resolve(HERE, "../../../");
-const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
-const GRAPH_PATH = resolve(REPO_ROOT, "apps/blog/src/data/article-graph.json");
+const ARTICLES_DIR = contentPaths().articles;
+const GRAPH_PATH = contentPaths().manifest("article-graph.json");
 // Override lets a dry-run redirect the write into a temp dir instead of the
 // working checkout — mirrors the importer's *_OUTPUT_PATH envs.
 const OUTPUT_PATH = process.env.SEARCH_INDEX_OUTPUT_PATH
   ? resolve(process.env.SEARCH_INDEX_OUTPUT_PATH)
-  : resolve(REPO_ROOT, "apps/blog/src/data/search-index.json");
+  : contentPaths().manifest("search-index.json");
 
 /** An entry before its keywords are derived — keywords need the whole corpus. */
 export type PartialSearchEntry = Omit<SearchIndexEntry, "keywords">;
@@ -148,8 +145,8 @@ export function deriveKeywords(
     .join(" ");
 }
 
-async function readGraph(): Promise<ArticleGraph> {
-  return parseArticleGraph(JSON.parse(await Bun.file(GRAPH_PATH).text()));
+async function readGraph(graphPath = GRAPH_PATH): Promise<ArticleGraph> {
+  return parseArticleGraph(JSON.parse(await Bun.file(graphPath).text()));
 }
 
 /**
@@ -159,10 +156,12 @@ async function readGraph(): Promise<ArticleGraph> {
  */
 export async function buildIndex(
   generatedOn: string,
-  injectedGraph?: ArticleGraph
+  injectedGraph?: ArticleGraph,
+  articlesDir = ARTICLES_DIR,
+  graphPath = GRAPH_PATH
 ): Promise<SearchIndex> {
-  const graph = injectedGraph ?? (await readGraph());
-  const filenames = (await readdir(ARTICLES_DIR))
+  const graph = injectedGraph ?? (await readGraph(graphPath));
+  const filenames = (await readdir(articlesDir))
     .filter((name) => MDX_SUFFIX.test(name))
     .sort();
 
@@ -170,7 +169,7 @@ export async function buildIndex(
     filenames,
     READ_CONCURRENCY,
     async (filename) => {
-      const raw = await Bun.file(resolve(ARTICLES_DIR, filename)).text();
+      const raw = await Bun.file(resolve(articlesDir, filename)).text();
       return buildSearchEntry(raw, filename.replace(MDX_SUFFIX, ""));
     }
   );
@@ -198,6 +197,9 @@ export async function buildIndex(
  */
 export async function writeSearchIndex(options?: {
   dryRun?: boolean;
+  articlesDir?: string;
+  outputPath?: string;
+  graphPath?: string;
   /**
    * The graph to index against, for a caller that already has it in memory.
    * The wiki importer does: it calls this immediately after writing
@@ -207,8 +209,14 @@ export async function writeSearchIndex(options?: {
    */
   graph?: ArticleGraph;
 }): Promise<{ entryCount: number; outputPath: string }> {
+  const outputPath = options?.outputPath ?? OUTPUT_PATH;
   const generatedOn = new Date().toISOString().slice(0, 10);
-  const index = await buildIndex(generatedOn, options?.graph);
+  const index = await buildIndex(
+    generatedOn,
+    options?.graph,
+    options?.articlesDir,
+    options?.graphPath
+  );
   const json = JSON.stringify(SearchIndexSchema.parse(index), null, 2);
 
   const keywordless = index.entries.filter(
@@ -226,14 +234,14 @@ export async function writeSearchIndex(options?: {
     console.log(
       `[search-index] DRY_RUN — ${index.entries.length} entries, ${json.length} bytes (not written)`
     );
-    return { entryCount: index.entries.length, outputPath: OUTPUT_PATH };
+    return { entryCount: index.entries.length, outputPath };
   }
 
-  await Bun.write(OUTPUT_PATH, `${json}\n`);
+  await Bun.write(outputPath, `${json}\n`);
   console.log(
-    `[search-index] wrote ${index.entries.length} entries → ${OUTPUT_PATH}`
+    `[search-index] wrote ${index.entries.length} entries → ${outputPath}`
   );
-  return { entryCount: index.entries.length, outputPath: OUTPUT_PATH };
+  return { entryCount: index.entries.length, outputPath };
 }
 
 if (import.meta.main) {

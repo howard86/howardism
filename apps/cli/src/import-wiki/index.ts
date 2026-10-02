@@ -9,6 +9,7 @@ import {
 } from "@howardism/article-contract";
 import { titleFromSlug } from "@howardism/article-contract/markup";
 import { runWithConcurrency } from "../concurrency.ts";
+import { contentPaths } from "../content/paths";
 import { writeSearchIndex } from "../search-index.ts";
 import { pngToWebp } from "../webp.ts";
 import { generateHeroImage as generateAgyHeroImage } from "./agy/index.ts";
@@ -93,30 +94,14 @@ interface ImportSummary {
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 const CLI_ROOT = resolve(HERE, "../../");
-const REPO_ROOT = resolve(CLI_ROOT, "../../");
-const DEFAULT_BLOG_ARTICLES_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/content/articles"
-);
-const DEFAULT_BLOG_ASSETS_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/content/assets"
-);
-const DEFAULT_BLOG_ZH_ARTICLES_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/content/articles-zh-TW"
-);
-const DEFAULT_GRAPH_OUTPUT_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/article-graph.json"
-);
-const DEFAULT_SOURCES_OUTPUT_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/wiki-sources.json"
-);
-const DEFAULT_OPEN_QUESTIONS_OUTPUT_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/open-questions.json"
+const DEFAULT_BLOG_ARTICLES_PATH = contentPaths().articles;
+const DEFAULT_BLOG_ASSETS_PATH = contentPaths().assets;
+const DEFAULT_BLOG_ZH_ARTICLES_PATH = contentPaths().translated;
+const DEFAULT_GRAPH_OUTPUT_PATH = contentPaths().manifest("article-graph.json");
+const DEFAULT_SOURCES_OUTPUT_PATH =
+  contentPaths().manifest("wiki-sources.json");
+const DEFAULT_OPEN_QUESTIONS_OUTPUT_PATH = contentPaths().manifest(
+  "open-questions.json"
 );
 const DEFAULT_OVERRIDES_PATH = join(CLI_ROOT, "wiki-category-overrides.json");
 /**
@@ -199,6 +184,8 @@ async function main(): Promise<void> {
     summary.searchIndex = await writeSearchIndex({
       dryRun: opts.dryRun,
       graph: set.graph,
+      articlesDir: opts.blogArticlesPath,
+      outputPath: join(dirname(opts.graphOutputPath), "search-index.json"),
     });
   }
 

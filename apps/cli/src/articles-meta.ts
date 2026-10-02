@@ -18,8 +18,7 @@
  *   bun run build:articles-meta
  */
 import { readdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-
+import { resolve } from "node:path";
 import {
   ArticleMetaSchema,
   type ArticlesMetaManifest,
@@ -35,8 +34,8 @@ import {
 import matter from "gray-matter";
 import YAML from "yaml";
 import type { z } from "zod";
-
 import { runWithConcurrency } from "./concurrency";
+import { contentPaths } from "./content/paths";
 
 const MDX_SUFFIX = /\.mdx$/;
 /** Enough to keep the disk busy without exhausting file descriptors. */
@@ -50,20 +49,12 @@ const READ_CONCURRENCY = 16;
  */
 const MATTER_OPTIONS = { engines: { yaml: (raw: string) => YAML.parse(raw) } };
 
-const HERE = dirname(new URL(import.meta.url).pathname);
-const REPO_ROOT = resolve(HERE, "../../../");
-const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
-const OUTPUT_PATH = resolve(REPO_ROOT, "apps/blog/src/data/articles-meta.json");
+const ARTICLES_DIR = contentPaths().articles;
+const OUTPUT_PATH = contentPaths().manifest("articles-meta.json");
 /** The one non-default locale the blog serves — see `PREFIXED_LOCALES`. */
 const ZH_LOCALE = "zh-TW";
-const ZH_ARTICLES_DIR = resolve(
-  REPO_ROOT,
-  "apps/blog/src/content/articles-zh-TW"
-);
-const ZH_OUTPUT_PATH = resolve(
-  REPO_ROOT,
-  "apps/blog/src/data/articles-meta.zh-TW.json"
-);
+const ZH_ARTICLES_DIR = contentPaths().translated;
+const ZH_OUTPUT_PATH = contentPaths().manifest("articles-meta.zh-TW.json");
 
 /**
  * Date descending, then slug ascending. Dates are ISO `YYYY-MM-DD`, so the
@@ -111,9 +102,10 @@ async function readArticleDir<T>(
 }
 
 export async function buildArticlesMeta(
-  generatedOn: string
+  generatedOn: string,
+  articlesDir = ARTICLES_DIR
 ): Promise<ArticlesMetaManifest> {
-  const read = await readArticleDir(ARTICLES_DIR, ArticleMetaSchema);
+  const read = await readArticleDir(articlesDir, ArticleMetaSchema);
   const articles = read.map(({ slug, parsed, meta }) => ({
     slug,
     sourceHash: surfaceHashFrom(parsed),
