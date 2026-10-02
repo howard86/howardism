@@ -1,3 +1,13 @@
+# [v2.33.0](https://github.com/howard86/howardism/compare/v2.32.0...v2.33.0) (2026-10-02)
+
+## ✨ New Features
+- [`7afd58eb`](https://github.com/howard86/howardism/commit/7afd58eb)  feat(article-contract): add content and sample release manifest schemas 
+- [`316d1b1c`](https://github.com/howard86/howardism/commit/316d1b1c)  feat(content): package deterministic releases and back up local state 
+- [`9eab3113`](https://github.com/howard86/howardism/commit/9eab3113)  feat(content): publish immutable releases to R2 with guarded GC 
+- [`93f17258`](https://github.com/howard86/howardism/commit/93f17258)  feat(content): prepare verified snapshots from pinned releases 
+- [`0c8f1733`](https://github.com/howard86/howardism/commit/0c8f1733)  feat(content): add the content CLI and pin the public sample release 
+- [`91246507`](https://github.com/howard86/howardism/commit/91246507)  feat(build): prepare content before builds, tests and CI
+
 # [v2.32.0](https://github.com/howard86/howardism/compare/v2.31.0...v2.32.0) (2026-10-01)
 
 ## ✨ New Features
