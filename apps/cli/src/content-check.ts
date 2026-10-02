@@ -23,8 +23,7 @@
  * fixtures; only `main` touches the filesystem.
  */
 import { readdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-
+import { resolve } from "node:path";
 import { WIKI_DOMAINS } from "@howardism/article-contract";
 import { ArticlesMetaManifestSchema } from "@howardism/article-contract/manifests/articles-meta";
 import {
@@ -35,14 +34,12 @@ import type { OpenQuestionsManifest } from "@howardism/article-contract/manifest
 import type { WikiSourcesManifest } from "@howardism/article-contract/manifests/wiki-sources";
 import { surfaceHashFrom } from "@howardism/article-contract/surface";
 import matter from "gray-matter";
-
 import { runWithConcurrency } from "./concurrency";
+import { contentPaths } from "./content/paths";
 
-const HERE = dirname(new URL(import.meta.url).pathname);
-const REPO_ROOT = resolve(HERE, "../../../");
-const ARTICLES_DIR = resolve(REPO_ROOT, "apps/blog/src/content/articles");
-const ASSETS_DIR = resolve(REPO_ROOT, "apps/blog/src/content/assets");
-const DATA_DIR = resolve(REPO_ROOT, "apps/blog/src/data");
+const ARTICLES_DIR = contentPaths().articles;
+const ASSETS_DIR = contentPaths().assets;
+const DATA_DIR = contentPaths().data;
 
 const MDX_SUFFIX = /\.mdx$/;
 // Heroes are WebP since the `images:webp` migration. `.png` stays matched so a
@@ -388,21 +385,25 @@ async function readMdxSlugs(dir: string): Promise<string[]> {
     .sort();
 }
 
-async function loadArticles(): Promise<ArticleRecord[]> {
-  const slugs = await readMdxSlugs(ARTICLES_DIR);
+async function loadArticles(
+  articlesDir = ARTICLES_DIR
+): Promise<ArticleRecord[]> {
+  const slugs = await readMdxSlugs(articlesDir);
   return runWithConcurrency(slugs, READ_CONCURRENCY, async (slug) => {
-    const raw = await Bun.file(resolve(ARTICLES_DIR, `${slug}.mdx`)).text();
+    const raw = await Bun.file(resolve(articlesDir, `${slug}.mdx`)).text();
     return parseArticle(raw, slug);
   });
 }
 
-async function loadAssetFilenames(): Promise<Set<string>> {
-  const entries = await readdir(ASSETS_DIR);
+async function loadAssetFilenames(
+  assetsDir = ASSETS_DIR
+): Promise<Set<string>> {
+  const entries = await readdir(assetsDir);
   return new Set(entries.filter((name) => HERO_SUFFIX.test(name)));
 }
 
-async function loadJson<T>(filename: string): Promise<T> {
-  const raw = await Bun.file(resolve(DATA_DIR, filename)).text();
+async function loadJson<T>(filename: string, dataDir = DATA_DIR): Promise<T> {
+  const raw = await Bun.file(resolve(dataDir, filename)).text();
   return JSON.parse(raw) as T;
 }
 
@@ -425,7 +426,11 @@ function emitWarningAnnotations(results: CheckResult[]): void {
   }
 }
 
-async function main(): Promise<void> {
+export async function validateContent(
+  root = contentPaths().root,
+  profile: "full" | "sample" = "full"
+): Promise<string[]> {
+  const paths = contentPaths(root);
   const [
     articles,
     assetFilenames,
@@ -434,12 +439,12 @@ async function main(): Promise<void> {
     wikiSources,
     articlesMeta,
   ] = await Promise.all([
-    loadArticles(),
-    loadAssetFilenames(),
-    loadJson<unknown>("article-graph.json").then(parseArticleGraph),
-    loadJson<OpenQuestionsManifest>("open-questions.json"),
-    loadJson<WikiSourcesManifest>("wiki-sources.json"),
-    loadJson<unknown>("articles-meta.json"),
+    loadArticles(paths.articles),
+    loadAssetFilenames(paths.assets),
+    loadJson<unknown>("article-graph.json", paths.data).then(parseArticleGraph),
+    loadJson<OpenQuestionsManifest>("open-questions.json", paths.data),
+    loadJson<WikiSourcesManifest>("wiki-sources.json", paths.data),
+    loadJson<unknown>("articles-meta.json", paths.data),
   ]);
   const articleSlugs = new Set(articles.map((a) => a.slug));
 
@@ -467,9 +472,12 @@ async function main(): Promise<void> {
     },
     {
       name: "domain-fallback-ceiling",
-      messages: checkFallbackCeiling(articles),
+      messages: profile === "full" ? checkFallbackCeiling(articles) : [],
     },
-    { name: "empty-domains", messages: checkEmptyDomains(articles) },
+    {
+      name: "empty-domains",
+      messages: profile === "full" ? checkEmptyDomains(articles) : [],
+    },
   ];
   const warnings: CheckResult[] = [
     {
@@ -505,14 +513,21 @@ async function main(): Promise<void> {
     }, ${warnCount} warning${warnCount === 1 ? "" : "s"})`
   );
 
-  if (failCount > 0) {
-    process.exitCode = 1;
-  }
+  return failures.flatMap((result) => result.messages);
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+  validateContent(
+    contentPaths().root,
+    process.env.CONTENT_PROFILE === "sample" ? "sample" : "full"
+  )
+    .then((failures) => {
+      if (failures.length > 0) {
+        process.exitCode = 1;
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }

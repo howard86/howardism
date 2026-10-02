@@ -10,18 +10,13 @@
  *   DRY_RUN=1 bun run images:webp  # report what would change, touch nothing
  */
 import { readdir, rm } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-
+import { join } from "node:path";
 import { runWithConcurrency } from "./concurrency";
+import { contentPaths } from "./content/paths";
 import { pngToWebp, rewriteHeroImportToWebp } from "./webp";
 
-const HERE = dirname(new URL(import.meta.url).pathname);
-const REPO_ROOT = resolve(HERE, "../../../");
-const ASSETS_DIR = resolve(REPO_ROOT, "apps/blog/src/content/assets");
-const ARTICLE_DIRS = [
-  resolve(REPO_ROOT, "apps/blog/src/content/articles"),
-  resolve(REPO_ROOT, "apps/blog/src/content/articles-zh-TW"),
-];
+const ASSETS_DIR = contentPaths().assets;
+const ARTICLE_DIRS = [contentPaths().articles, contentPaths().translated];
 
 const PNG_SUFFIX = /\.png$/;
 const MDX_SUFFIX = /\.mdx$/;
