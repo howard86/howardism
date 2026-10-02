@@ -1,3 +1,8 @@
+# [v2.33.1](https://github.com/howard86/howardism/compare/v2.33.0...v2.33.1) (2026-10-02)
+
+## 🐛 Bug Fixes
+- [`c1c99bdd`](https://github.com/howard86/howardism/commit/c1c99bdd)  fix(content): require parity images only on article pages
+
 # [v2.33.0](https://github.com/howard86/howardism/compare/v2.32.0...v2.33.0) (2026-10-02)
 
 ## ✨ New Features
