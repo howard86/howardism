@@ -1,5 +1,6 @@
 import "./src/config/env";
 
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import nextBundleAnalyzer from "@next/bundle-analyzer";
@@ -10,6 +11,31 @@ import {
   DEFAULT_CSP_DIRECTIVES,
   getSecurityHeaders,
 } from "./src/config/security-headers";
+
+const contentState = JSON.parse(
+  readFileSync(new URL("./.content-state.json", import.meta.url), "utf8")
+);
+const previewSlugs =
+  contentState.profile === "sample"
+    ? JSON.parse(
+        readFileSync(
+          new URL("./src/.content-coverage.json", import.meta.url),
+          "utf8"
+        )
+      ).slugs
+    : [];
+if (process.env.VERCEL_ENV === "production") {
+  const lock = JSON.parse(
+    readFileSync(new URL("./content.lock.json", import.meta.url), "utf8")
+  );
+  if (
+    contentState.profile !== "full" ||
+    contentState.schemaVersion !== 1 ||
+    contentState.releaseSha256 !== lock.releaseSha256
+  ) {
+    throw new Error("Production requires the pinned full-content preparation");
+  }
+}
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -25,6 +51,13 @@ const withMDX = nextMDX({
     ],
     rehypePlugins: [
       ["rehype-slug", {}],
+      [
+        join(
+          dirname(fileURLToPath(import.meta.url)),
+          "src/lib/rehype-preview-links.mjs"
+        ),
+        { profile: contentState.profile, slugs: previewSlugs },
+      ],
       join(
         dirname(fileURLToPath(import.meta.url)),
         "src/lib/rehype-mdx-headings.mjs"
