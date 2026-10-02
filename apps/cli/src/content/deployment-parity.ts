@@ -146,11 +146,12 @@ function htmlSemantics(html: string, kind: string, deploymentOrigin?: URL) {
   if (!pageTitle || headings.length === 0) {
     throw new Error(`HTML parity probe lacks title or headings: ${kind}`);
   }
-  if (
-    kind !== "search-shell" &&
-    (!(description && canonical) || images.length === 0)
-  ) {
-    throw new Error(`Article parity probe lacks metadata or images: ${kind}`);
+  if (kind !== "search-shell" && !(description && canonical)) {
+    throw new Error(`HTML parity probe lacks metadata: ${kind}`);
+  }
+  // The home page (graph-page) has no <img>; only article pages carry hero art.
+  if (kind.endsWith("-article") && images.length === 0) {
+    throw new Error(`Article parity probe lacks images: ${kind}`);
   }
   const robots = attr(meta("robots") ?? "", "content");
   if (kind === "archived-article" && !robots?.includes("noindex")) {

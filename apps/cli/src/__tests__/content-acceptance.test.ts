@@ -242,6 +242,16 @@ describe("deployment parity", () => {
     ).toThrow();
   });
 
+  it("accepts an image-free graph page but not an image-free article", () => {
+    const page = encode(
+      '<title>Home</title><h1>Home</h1><meta name="description" content="Summary"><link rel="canonical" href="/">'
+    );
+    expect(semanticSnapshot("graph-page", page)).toBeDefined();
+    expect(() => semanticSnapshot("visible-article", page)).toThrow(
+      "lacks images"
+    );
+  });
+
   it("requires noindex for an archived article", () => {
     const article = encode(
       '<title>Archived</title><h1>Archived</h1><meta name="description" content="Summary"><link rel="canonical" href="/articles/archived"><img src="/image.webp" alt="Hero">'
