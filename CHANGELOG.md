@@ -1,3 +1,9 @@
+# [v2.34.1](https://github.com/howard86/howardism/compare/v2.34.0...v2.34.1) (2026-10-07)
+
+## 🐛 Bug Fixes
+- [`0cb8550a`](https://github.com/howard86/howardism/commit/0cb8550a)  fix(cli): warn on not-found renders instead of failing the Pages verify 
+- [`daea3be2`](https://github.com/howard86/howardism/commit/daea3be2)  fix(cli): let Pages redirect stubs replace prerendered pages
+
 # [v2.34.0](https://github.com/howard86/howardism/compare/v2.33.1...v2.34.0) (2026-10-07)
 
 ## ✨ New Features
