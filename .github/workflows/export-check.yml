@@ -1,0 +1,125 @@
+name: Static export check
+# Builds the GitHub Pages static export (sample content, no secrets) for the PR
+# head and its base, verifies the head export, and posts a size comparison.
+# The size script always runs from the head checkout, so a base that predates
+# it is still measured; a base without the Pages target yields no report and
+# the comparison renders head-only.
+on:
+  pull_request:
+    branches: ["main"]
+permissions:
+  contents: read
+concurrency:
+  group: export-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  export:
+    name: export (${{ matrix.side }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - side: head
+            sha: ${{ github.event.pull_request.head.sha }}
+          - side: base
+            sha: ${{ github.event.pull_request.base.sha }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEPLOY_TARGET: pages
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - name: Check out the head's size script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: .export-tools
+          sparse-checkout: apps/blog/scripts/export-size.ts
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - run: bun install --frozen-lockfile
+      - name: Static export
+        id: build
+        continue-on-error: ${{ matrix.side == 'base' }}
+        run: |
+          bun run build
+          bun run --cwd apps/blog build:pages-redirects
+      - name: Verify export
+        if: matrix.side == 'head'
+        run: bun apps/blog/scripts/verify-export.ts
+      - name: Size report
+        if: steps.build.outcome == 'success' && hashFiles('apps/blog/out/index.html') != ''
+        run: bun .export-tools/apps/blog/scripts/export-size.ts report apps/blog/out "$RUNNER_TEMP/export-size-${{ matrix.side }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.build.outcome == 'success'
+        with:
+          name: export-size-${{ matrix.side }}
+          path: ${{ runner.temp }}/export-size-${{ matrix.side }}.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  compare:
+    needs: export
+    if: always() && needs.export.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: |
+            package.json
+            apps/blog/scripts/export-size.ts
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: export-size-*
+          path: ${{ runner.temp }}/sizes
+          merge-multiple: true
+      - name: Compare
+        id: compare
+        run: |
+          head="$RUNNER_TEMP/sizes/export-size-head.json"
+          if [ ! -f "$head" ]; then
+            echo "No head size report; the head export failed." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          bun apps/blog/scripts/export-size.ts compare \
+            "$RUNNER_TEMP/sizes/export-size-base.json" "$head" "$RUNNER_TEMP/export-size.md"
+          cat "$RUNNER_TEMP/export-size.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Post or update the PR comment
+        # Fork PRs get a read-only token; the step summary still has the report.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- export-size-report -->")) | .id' | head -n 1)
+          body=$(jq -Rs '{body: .}' < "$RUNNER_TEMP/export-size.md")
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$id" --input - <<< "$body"
+          else
+            gh api --method POST "repos/$REPO/issues/$PR/comments" --input - <<< "$body"
+          fi
