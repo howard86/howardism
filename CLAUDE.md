@@ -122,6 +122,12 @@ Undocumented, but verified: `Bun.write(path, data)` creates any missing parent d
 
 `apps/blog/vercel.json` sets `bunVersion`, which puts the Vercel Functions and Middleware on Bun instead of Node. Only `"1.4.x"` and `"1.x"` are accepted — an exact patch version such as `1.4.2` is *not* valid, so this cannot be kept literally in step with `packageManager`; CI reads the exact pin separately via `bun-version-file: package.json`. The blog's `dev`/`build`/`start` scripts run `bun run --bun next …` as the Bun-runtime docs require. Note this is not a build-speed change (Turbopack does the work in Rust either way — measured 10.2s vs 10.1s); it changes the runtime the deployed functions execute on. `vercel.json` must sit in the Vercel project's Root Directory, which is `apps/blog`.
 
+### GitHub Pages backup (static export)
+
+`.github/workflows/pages.yml` deploys a static export of the blog to GitHub Pages on every push to `main`, served **noindex** on its own domain while `www.howardism.dev` (Vercel) stays canonical. `DEPLOY_TARGET=pages` (`src/config/deploy-target.ts`, in turbo's `globalEnv`) switches `next.config.ts` to `output: "export"`, which ignores `headers`/`redirects`. In their place: the CSP is a `<meta>` in the root layout (`serializeMetaCsp` strips `frame-ancestors`/`report-*`, which browsers ignore there; HSTS and `X-Frame-Options` are unavailable), and `bun run --cwd apps/blog build:pages-redirects` writes meta-refresh stubs into `out/` for every rule in `src/config/redirects.ts` — so a new redirect with a `:param` needs its values listed in `scripts/pages-redirects.ts`. The root layout sets `robots: noindex` and `robots.txt` drops its sitemap, but still allows crawling so the noindex is seen.
+
+Static export forbids runtime request data, so every route must prerender: `dynamicParams` is `false` on the dynamic routes (every article, archived included, is in `generateStaticParams`), and `/compare` resolves `?ids=` on the client, fetching each article's prerendered page and lifting its `[data-article-body]` node. The workflow sets `VERCEL_ENV=production` + `CONTENT_PROFILE=full` to reuse the pinned-full-release gate, and reads the R2 keys from the `github-pages` environment — secrets on `content-integration` don't reach it.
+
 ## Code Style
 
 - **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
