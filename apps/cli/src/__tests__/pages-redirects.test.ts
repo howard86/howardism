@@ -1,7 +1,13 @@
 import { describe, expect, it } from "bun:test";
-
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { redirects } from "../../../blog/src/config/redirects";
-import { expandRedirects, renderRedirectStub } from "../pages-export/redirects";
+import {
+  expandRedirects,
+  renderRedirectStub,
+  writeStubs,
+} from "../pages-export/redirects";
 
 describe("expandRedirects", () => {
   const expanded = expandRedirects(redirects);
@@ -34,5 +40,25 @@ describe("renderRedirectStub", () => {
     expect(html).toContain('content="0; url=/articles/"');
     expect(html).toContain('href="https://www.howardism.dev/articles/"');
     expect(html).toContain('name="robots" content="noindex"');
+  });
+});
+
+describe("writeStubs", () => {
+  it("overwrites an existing page at a redirect source", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pages-redirects-"));
+    try {
+      await mkdir(join(dir, "old"), { recursive: true });
+      await writeFile(join(dir, "old", "index.html"), "<html>real page</html>");
+      const result = await writeStubs(dir, [
+        { source: "/old", destination: "/new", permanent: true },
+        { source: "/fresh", destination: "/new", permanent: true },
+      ]);
+      expect(result).toEqual({ written: 2, replaced: 1 });
+      expect(await readFile(join(dir, "old", "index.html"), "utf8")).toContain(
+        'url=/new/"'
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
