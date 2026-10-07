@@ -48,7 +48,7 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
 
 ## Gotchas (from prior runs)
 
-- **Codex must be logged in**, not just installed — `codex exec` shells to the local Codex CLI's default model (no `--model` is passed) and uses its `$imagegen` skill. A cold/unauthed CLI fails the image.
+- **Codex must be logged in**, not just installed — `codex exec` runs pinned to `gpt-6-luna` (`-m`; override with `IMPORT_CODEX_MODEL`) and uses its `$imagegen` skill. Without the pin it inherits `~/.codex/config.toml`'s model, which a ChatGPT-account login may reject (`gpt-6.1-sol` failed every image with a 400). A cold/unauthed CLI fails the image.
 - **No retry, no timeout in the importer.** A hung `codex exec` blocks forever; the per-slug loop limits the blast radius to one image — watch the log and Ctrl-C a stuck image if needed.
 - **Fail-loud, no placeholders.** A missing/invalid PNG (magic-byte check) throws; there is no silent placeholder fallback.
 - **Codex sandbox staging.** Images render into `apps/cli/.codex-staging/` (inside Codex's `workspace-write` sandbox) and then move to `assets/`. Run from the repo, or the sandbox can't write.
