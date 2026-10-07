@@ -1,3 +1,10 @@
+# [v2.34.0](https://github.com/howard86/howardism/compare/v2.33.1...v2.34.0) (2026-10-07)
+
+## ✨ New Features
+- [`e00afa8a`](https://github.com/howard86/howardism/commit/e00afa8a)  feat(blog): add static-export target for GitHub Pages 
+- [`3c024b29`](https://github.com/howard86/howardism/commit/3c024b29)  feat(blog): report Pages export size against a base 
+- [`0e3c2908`](https://github.com/howard86/howardism/commit/0e3c2908)  feat(cli): compare the Pages export per page and route
+
 # [v2.33.1](https://github.com/howard86/howardism/compare/v2.33.0...v2.33.1) (2026-10-02)
 
 ## 🐛 Bug Fixes
