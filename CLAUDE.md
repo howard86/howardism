@@ -128,7 +128,7 @@ Undocumented, but verified: `Bun.write(path, data)` creates any missing parent d
 
 Static export forbids runtime request data, so every route must prerender: `dynamicParams` is `false` on the dynamic routes (every article, archived included, is in `generateStaticParams`), and `/compare` resolves `?ids=` on the client, fetching each article's prerendered page and lifting its `[data-article-body]` node. The workflow sets `VERCEL_ENV=production` + `CONTENT_PROFILE=full` to reuse the pinned-full-release gate, and reads the R2 keys from the `github-pages` environment — secrets on `content-integration` don't reach it.
 
-`apps/cli/src/pages-export/verify.ts` (`pages:verify`) gates both the deploy and `export-check.yml`, which builds the sample-content export for a PR's head and base and posts a size comparison (`apps/cli/src/pages-export/size.ts`, standalone so CI can run it from a sparse checkout, run from the head checkout) as a sticky PR comment. The not-found pages are exempt from its CSP-meta check: `src/app/not-found.tsx` renders outside `(blog)/layout.tsx`, so on Pages it ships without a CSP.
+`apps/cli/src/pages-export/verify.ts` (`pages:verify`) gates both the deploy and `export-check.yml`, which builds the sample-content export for a PR's head and base and posts a size comparison (`apps/cli/src/pages-export/size.ts`, standalone so CI can run it from a sparse checkout, run from the head checkout) as a sticky PR comment. A page with no CSP meta and robots exactly `noindex` is a not-found render (`src/app/not-found.tsx` sits outside `(blog)/layout.tsx`), not a CSP failure; those at real paths (a route that calls `notFound()` at build) only print a warning.
 
 ## Code Style
 
