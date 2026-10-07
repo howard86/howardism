@@ -41,7 +41,7 @@ every concept. It publishes a knowledge base, not a stream of posts.
 
 - Content originates in an Obsidian vault (`WIKI_PATH`), never authored in the
   blog repo. A full `bun run --cwd apps/cli import:wiki` emits MDX plus four
-  committed manifests — `article-graph.json`, `wiki-sources.json`,
+  published manifests — `article-graph.json`, `wiki-sources.json`,
   `open-questions.json`, and `search-index.json`, which it rebuilds at the end
   of every run that isn't scoped to one slug via `--only`. `build:search-index`
   regenerates that index on its own when articles change without a re-import;

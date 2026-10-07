@@ -97,12 +97,10 @@ on-demand routes or independence from R2 at runtime. Check those in a browser.
 
 ## Cutover
 
-Production already builds from the pinned private release, but the full corpus
-is still tracked. The cutover commit untracks `apps/blog/src/content/` and
-exactly the seven generated manifests in `apps/blog/src/data/`, adding ignore
-rules for them; the hand-maintained files in that directory stay. Before merge
-it must pass fresh-clone cold full and sample builds. Untracking leaves the
-objects in Git history; rewriting history needs separate authorization.
+`apps/blog/src/content/` and the seven generated manifests in
+`apps/blog/src/data/` are untracked and ignored; every build materializes them
+from the pinned release. Their old revisions remain in Git history until a
+separately authorized rewrite strips them.
 
 Content rollback to a previous release can't be rehearsed until a second
 release exists.
