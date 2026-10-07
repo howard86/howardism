@@ -128,6 +128,8 @@ Undocumented, but verified: `Bun.write(path, data)` creates any missing parent d
 
 Static export forbids runtime request data, so every route must prerender: `dynamicParams` is `false` on the dynamic routes (every article, archived included, is in `generateStaticParams`), and `/compare` resolves `?ids=` on the client, fetching each article's prerendered page and lifting its `[data-article-body]` node. The workflow sets `VERCEL_ENV=production` + `CONTENT_PROFILE=full` to reuse the pinned-full-release gate, and reads the R2 keys from the `github-pages` environment — secrets on `content-integration` don't reach it.
 
+`scripts/verify-export.ts` gates both the deploy and `export-check.yml`, which builds the sample-content export for a PR's head and base and posts a size comparison (`scripts/export-size.ts`, run from the head checkout) as a sticky PR comment. The not-found pages are exempt from its CSP-meta check: `src/app/not-found.tsx` renders outside `(blog)/layout.tsx`, so on Pages it ships without a CSP.
+
 ## Code Style
 
 - **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
