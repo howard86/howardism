@@ -3,33 +3,33 @@ name: generate-wiki-images
 description: Import an Obsidian wiki vault into the blog, validate it, then generate the hero images via the Codex CLI — one at a time, with a measured ETA and live progress. Use when the user wants to run the wiki importer against a vault, backfill or regenerate blog hero illustrations, or says "import the wiki", "generate wiki images", "regenerate blog illustrations".
 ---
 
-Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate the articles first, generate hero images **sequentially**, then check translation staleness. The native importer generates images 6-wide and aborts the whole batch on the first failure; this skill imports with images off, then runs one `codex exec` at a time via a per-slug loop, so each image is timed (real ETA) and a single failure is isolated instead of killing the run.
+Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate the articles first, generate hero images **sequentially**, check translation staleness, then publish the result as a new R2 release. The native importer generates images 6-wide and aborts the whole batch on the first failure; this skill imports with images off, then runs one `codex exec` at a time via a per-slug loop, so each image is timed (real ETA) and a single failure is isolated instead of killing the run.
 
 ## Input
 
-`WIKI_PATH` — absolute path to the Obsidian wiki root, supplied by the caller (no default; a remote runner must pass it). If the user didn't give one, ask. `RAW_PATH` defaults to `<WIKI_PATH>/../raw` and needs no input. `MAX_IMAGES` (optional) caps how many images one run generates — for a smoke test or to stay under Codex quota; unset generates all missing. Run every command from the repo root.
+`WIKI_PATH` — absolute path to the Obsidian wiki root, supplied by the caller (no default; a remote runner must pass it). If the user didn't give one, ask. `CONTENT_ROOT` — absolute path to the full authoring root (`../howardism-content` beside the checkout on the maintainer's machine). Export it for every step: content is not tracked in Git, and `apps/blog/src` is a build tree that `content:prepare` overwrites, so an import there is lost. `RAW_PATH` defaults to `<WIKI_PATH>/../raw` and needs no input. `MAX_IMAGES` (optional) caps how many images one run generates — for a smoke test or to stay under Codex quota; unset generates all missing. Run every command from the repo root.
 
 ## Steps
 
-1. **Preflight.** On a fresh checkout, run `bun install` at the repo root first — the importer imports workspace packages (e.g. `@howardism/article-contract`) and dies with "Cannot find module" without it (bites remote runners especially). Then confirm all three: `codex --version` succeeds (Codex CLI installed *and* logged in — `codex exec` needs auth), `bun` is on PATH, and `WIKI_PATH` resolves to an existing directory. → *ready when `bun install` completes and all three check out.*
+1. **Preflight.** On a fresh checkout, run `bun install` at the repo root first — the importer imports workspace packages (e.g. `@howardism/article-contract`) and dies with "Cannot find module" without it (bites remote runners especially). Then confirm all four: `codex --version` succeeds (Codex CLI installed *and* logged in — `codex exec` needs auth), `bun` is on PATH, and `WIKI_PATH` and `CONTENT_ROOT` resolve to existing directories. → *ready when `bun install` completes and all four check out.*
 
 2. **Import & validate.** Import articles and manifests with images off (fast, no Codex), then validate the summary:
    ```bash
-   cd apps/cli && SKIP_IMAGES=1 WIKI_PATH="$WIKI_PATH" bun run import:wiki
-   bun run build:articles-meta
+   cd apps/cli && SKIP_IMAGES=1 WIKI_PATH="$WIKI_PATH" CONTENT_ROOT="$CONTENT_ROOT" bun run import:wiki
+   CONTENT_ROOT="$CONTENT_ROOT" bun run build:articles-meta
    ```
-   Confirm the printed summary reports articles written and manifests generated with no thrown error. Unresolved wikilinks and missing-raw warnings are expected (MOC internal links resolve to `home`). `build:articles-meta` rebuilds the frontmatter manifest from the articles the import just wrote; `content:check` fails on a stale one. Then run `bun run format` at the repo root — the importer writes manifests with expanded JSON arrays that Biome collapses, so `bun run lint` fails in CI until it has run. → *done when the import exits 0, `apps/blog/src/data/{article-graph,wiki-sources,open-questions,articles-meta}.json` are updated, and `bun run lint` is clean apart from the `article-graph.json` file-size warning.* (The summary's "leaving missing asset" lines name the articles needing images — step 3 fills them.)
+   Confirm the printed summary reports articles written and manifests generated with no thrown error. Unresolved wikilinks and missing-raw warnings are expected (MOC internal links resolve to `home`). `build:articles-meta` rebuilds the frontmatter manifest from the articles the import just wrote; `content:check` fails on a stale one. → *done when the import exits 0 and `$CONTENT_ROOT/data/{article-graph,wiki-sources,open-questions,articles-meta}.json` are updated.* (The summary's "leaving missing asset" lines name the articles needing images — step 3 fills them.)
 
 3. **Generate images sequentially.** From the repo root, run the bundled script — background it for a large batch and log to a file — then monitor and relay progress:
    ```bash
-   WIKI_PATH="$WIKI_PATH" bash .claude/skills/generate-wiki-images/scripts/sequential-images.sh
+   WIKI_PATH="$WIKI_PATH" CONTENT_ROOT="$CONTENT_ROOT" bash .claude/skills/generate-wiki-images/scripts/sequential-images.sh
    # smoke-test or quota-cap this run: prefix MAX_IMAGES=2
    ```
    It dry-runs first (no Codex calls) to list the slugs missing a hero, then generates them one at a time, printing `[i/N] slug ✓ 98s | elapsed 3m | ETA ~38m` after each. The ETA is measured from real per-image time and announced after the first completes — relay it. → *done when the script prints `Done: N/N generated, 0 failed`.*
 
 4. **Validate.** The image-presence gate is a filesystem check — every article has its hero (the importer generates `<slug>.png`, transcodes it to WebP and deletes the PNG, so `assets/` holds only `<slug>.webp`):
    ```bash
-   cd apps/blog/src/content && comm -23 \
+   cd "$CONTENT_ROOT/content" && comm -23 \
      <(ls articles/*.mdx | xargs -n1 basename | sed 's/\.mdx$//' | sort) \
      <(ls assets/*.webp  | xargs -n1 basename | sed 's/\.webp$//' | sort)
    ```
@@ -39,12 +39,14 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
    ```bash
    cd apps/cli && bun run translate:check
    ```
-   Paste the printed status summary (the Fresh / Stale / Verbatim-drift / Missing / Orphan / Untranslated counts) into the content PR body. This step only reports; actually refreshing translations is `bun run translate:drip`, a separate quota-paced job that takes hours by design — don't run it here. → *done when the status summary is pasted into the PR body.*
+   Run it with `CONTENT_ROOT` set and paste the printed status summary (the Fresh / Stale / Verbatim-drift / Missing / Orphan / Untranslated counts) into the content PR body. This step only reports; actually refreshing translations is `bun run translate:drip`, a separate quota-paced job that takes hours by design — don't run it here. → *done when the status summary is pasted into the PR body.*
+
+6. **Publish and pin.** Follow *Publishing* in `docs/r2-migration/README.md`: `content:validate --profile full`, `content:pack`, `content:publish` (publisher keys via `../bin/with-r2 publisher --`) with `--base` set to the digest currently in `apps/blog/content.lock.json`, then `content:pin --release <digest>`. The content PR is that one-line lockfile change. → *done when the lockfile names the new release.*
 
 ## Failures & regen
 
-- A slug that fails during step 3 is listed at the end (the run does not abort). Re-check Codex auth/quota, then re-run just those: `cd apps/cli && WIKI_PATH="$WIKI_PATH" bun run import:wiki -- --only <slug>`.
-- Cache is filename-only: to regenerate a changed article's image, delete `apps/blog/src/content/assets/<slug>.webp` first, then re-run step 3.
+- A slug that fails during step 3 is listed at the end (the run does not abort). Re-check Codex auth/quota, then re-run just those: `cd apps/cli && WIKI_PATH="$WIKI_PATH" CONTENT_ROOT="$CONTENT_ROOT" bun run import:wiki -- --only <slug>`.
+- Cache is filename-only: to regenerate a changed article's image, delete `$CONTENT_ROOT/content/assets/<slug>.webp` first, then re-run step 3.
 
 ## Gotchas (from prior runs)
 
@@ -54,7 +56,7 @@ Runs this monorepo's wiki importer (`apps/cli`) end to end: import + validate th
 - **Codex sandbox staging.** Images render into `apps/cli/.codex-staging/` (inside Codex's `workspace-write` sandbox) and then move to `assets/`. Run from the repo, or the sandbox can't write.
 - **Non-fatal noise is normal.** Missing Python `PIL`/`numpy` warnings and an ImageMagick draw error have appeared without blocking past runs — don't chase them.
 - **Deleting a live hero image 404s its article** (the MDX statically imports it). Only delete when regenerating.
-- **~90–120 s per image** (measured 98–109 s on codex 0.144). ~30 images ≈ 50 min — hence the background run, ETA, and `MAX_IMAGES` cap. Codex emits ~2 MB of PNG per hero; the importer transcodes each to WebP (~100 KB) and drops the PNG, so nothing that large is committed.
+- **~90–120 s per image** (measured 98–109 s on codex 0.144). ~30 images ≈ 50 min — hence the background run, ETA, and `MAX_IMAGES` cap. Codex emits ~2 MB of PNG per hero; the importer transcodes each to WebP (~100 KB) and drops the PNG, so nothing that large is published.
 - **Bad vault YAML stops the import before anything is written.** The importer checks the frontmatter of every wiki note and every raw doc it cites, then lists each bad file with its line number. The vault's own `lint.py` reports the same problems as `[frontmatter-yaml]`. Past causes: an unescaped `"` inside a double-quoted value, and a duplicate `tags:` key. To fix a file, keep its mtime: `cp -p` a backup, edit, then `touch -r backup file`. An edit that bumps the mtime makes the file newer than `_system/catalog.tsv`, and the import refuses to run. The vault treats `raw/` as immutable except for syntax-only frontmatter fixes, so leave every value unchanged.
 - **Three consecutive failures abort the loop.** A deterministic non-image error (stale `catalog.tsv`, bad YAML) fails every remaining slug identically and instantly, so `sequential-images.sh` stops after `MAX_CONSECUTIVE_FAILURES` (default 3) in a row, prints the last log and the slugs not attempted, and exits non-zero. Fix the cause, then re-run.
 - **Import a live-edited vault from a snapshot.** If another session edits the vault during the run, `_system/catalog.tsv` goes stale mid-run and every later slug fails on "catalog.tsv is stale". Snapshot with mtimes preserved instead: `rsync -a` `wiki/` and `raw/` (excluding `raw/assets`) into a scratch dir, run `python3 <vault>/_system/build.py --root <snapshot>` to build the snapshot's own catalog, then set `WIKI_PATH=<snapshot>/wiki`.
