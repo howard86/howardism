@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { checkExport } from "../../../scripts/verify-export";
+import { checkExport } from "../pages-export/verify";
 
 const REQUIRED = [
   "index.html",

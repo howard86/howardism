@@ -1,10 +1,10 @@
-// Run after `DEPLOY_TARGET=pages next build` + `build:pages-redirects`:
+// Run after `DEPLOY_TARGET=pages next build` + `pages:redirects`:
 // asserts the static export is sound before it is published.
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
-
-import { redirects } from "../src/config/redirects";
-import { expandRedirects } from "./pages-redirects";
+import { redirects } from "../../../blog/src/config/redirects";
+import { BLOG_ROOT } from "../content/paths";
+import { expandRedirects } from "./redirects";
 
 const REQUIRED_FILES = [
   "index.html",
@@ -121,7 +121,7 @@ export function checkExport(
 }
 
 async function main() {
-  const outDir = process.argv[2] ?? join(import.meta.dir, "..", "out");
+  const outDir = process.argv[2] ?? join(BLOG_ROOT, "out");
   let entries: string[];
   try {
     entries = await readdir(outDir, { recursive: true });

@@ -6,7 +6,7 @@ import {
   MARKER,
   type Report,
   renderComparison,
-} from "../../../scripts/export-size";
+} from "../pages-export/size";
 
 const report = (bytes: number, gzip = bytes / 3): Report => ({
   totals: { js: { files: 2, bytes, gzip } },

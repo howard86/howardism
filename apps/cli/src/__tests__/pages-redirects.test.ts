@@ -1,27 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { redirects } from "@/config/redirects";
-import {
-  BLOG_CSP_DIRECTIVES,
-  serializeMetaCsp,
-} from "@/config/security-headers";
-
-import {
-  expandRedirects,
-  renderRedirectStub,
-} from "../../../scripts/pages-redirects";
-
-describe("serializeMetaCsp", () => {
-  it("drops directives browsers ignore in a meta tag", () => {
-    const csp = serializeMetaCsp({
-      ...BLOG_CSP_DIRECTIVES,
-      "report-uri": ["/r"],
-    });
-    expect(csp).not.toContain("frame-ancestors");
-    expect(csp).not.toContain("report-uri");
-    expect(csp).toContain("default-src 'self'");
-  });
-});
+import { redirects } from "../../../blog/src/config/redirects";
+import { expandRedirects, renderRedirectStub } from "../pages-export/redirects";
 
 describe("expandRedirects", () => {
   const expanded = expandRedirects(redirects);

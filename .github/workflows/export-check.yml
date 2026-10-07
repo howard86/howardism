@@ -39,7 +39,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: .export-tools
-          sparse-checkout: apps/blog/scripts/export-size.ts
+          sparse-checkout: apps/cli/src/pages-export/size.ts
           sparse-checkout-cone-mode: false
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -54,13 +54,13 @@ jobs:
         continue-on-error: ${{ matrix.side == 'base' }}
         run: |
           bun run build
-          bun run --cwd apps/blog build:pages-redirects
+          bun run --cwd apps/cli pages:redirects
       - name: Verify export
         if: matrix.side == 'head'
-        run: bun apps/blog/scripts/verify-export.ts
+        run: bun run --cwd apps/cli pages:verify
       - name: Size report
         if: steps.build.outcome == 'success' && hashFiles('apps/blog/out/index.html') != ''
-        run: bun .export-tools/apps/blog/scripts/export-size.ts report apps/blog/out "$RUNNER_TEMP/export-size-${{ matrix.side }}.json"
+        run: bun .export-tools/apps/cli/src/pages-export/size.ts report apps/blog/out "$RUNNER_TEMP/export-size-${{ matrix.side }}.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: steps.build.outcome == 'success'
         with:
@@ -85,7 +85,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: |
             package.json
-            apps/blog/scripts/export-size.ts
+            apps/cli/src/pages-export/size.ts
           sparse-checkout-cone-mode: false
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -104,7 +104,7 @@ jobs:
             echo "No head size report; the head export failed." >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          bun apps/blog/scripts/export-size.ts compare \
+          bun apps/cli/src/pages-export/size.ts compare \
             "$RUNNER_TEMP/sizes/export-size-base.json" "$head" "$RUNNER_TEMP/export-size.md"
           cat "$RUNNER_TEMP/export-size.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Post or update the PR comment

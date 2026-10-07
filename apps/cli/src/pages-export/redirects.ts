@@ -1,14 +1,17 @@
 // Run after `DEPLOY_TARGET=pages next build`: static export has no redirects,
-// so write a meta-refresh stub at each old URL listed in `src/config/redirects`.
+// so write a meta-refresh stub at each old URL listed in `apps/blog/src/config/redirects`.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { WIKI_DOMAINS } from "@howardism/article-contract";
-
-import { type RedirectRule, redirects } from "../src/config/redirects";
+import {
+  type RedirectRule,
+  redirects,
+} from "../../../blog/src/config/redirects";
+import { BLOG_ROOT } from "../content/paths";
 
 const PARAM_PATTERN = /:(\w+)/;
 const CANONICAL_ORIGIN = "https://www.howardism.dev";
-const OUT_DIR = join(import.meta.dir, "..", "out");
+const OUT_DIR = join(BLOG_ROOT, "out");
 
 // The five `topic` buckets retired by the domain-MOC migration (741b78ec),
 // recovered from `WIKI_TOPICS` in git history.
