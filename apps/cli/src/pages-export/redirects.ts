@@ -1,5 +1,6 @@
 // Run after `DEPLOY_TARGET=pages next build`: static export has no redirects,
 // so write a meta-refresh stub at each old URL listed in `apps/blog/src/config/redirects`.
+// Stubs overwrite any page already at that path: on Vercel, `next.config` redirects take precedence over pages.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { WIKI_DOMAINS } from "@howardism/article-contract";
@@ -69,23 +70,33 @@ export function renderRedirectStub(destination: string): string {
 `;
 }
 
-async function main() {
-  if (!existsSync(OUT_DIR)) {
-    console.error(`pages-redirects: ${OUT_DIR} not found; build first`);
-    process.exit(1);
-  }
-  const stubs = expandRedirects(redirects)
-    .map(({ source, destination }) => ({
-      file: join(OUT_DIR, source, "index.html"),
-      destination,
-    }))
-    .filter(({ file }) => !existsSync(file));
+/** Write every stub under `outDir`, replacing existing files; returns counts. */
+export async function writeStubs(
+  outDir: string,
+  rules: readonly RedirectRule[] = redirects
+): Promise<{ written: number; replaced: number }> {
+  const stubs = expandRedirects(rules).map(({ source, destination }) => ({
+    file: join(outDir, source, "index.html"),
+    destination,
+  }));
+  const replaced = stubs.filter(({ file }) => existsSync(file)).length;
   await Promise.all(
     stubs.map(({ file, destination }) =>
       Bun.write(file, renderRedirectStub(destination))
     )
   );
-  console.log(`pages-redirects: wrote ${stubs.length} stubs`);
+  return { written: stubs.length, replaced };
+}
+
+async function main() {
+  if (!existsSync(OUT_DIR)) {
+    console.error(`pages-redirects: ${OUT_DIR} not found; build first`);
+    process.exit(1);
+  }
+  const { written, replaced } = await writeStubs(OUT_DIR);
+  console.log(
+    `pages-redirects: wrote ${written} stubs (${replaced} replaced pages)`
+  );
 }
 
 if (import.meta.main) {

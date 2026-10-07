@@ -20,12 +20,14 @@ const REQUIRED_FILES = [
 ];
 const ARTICLE_PAGE = /^articles\/[^/]+\/index\.html$/;
 const SAMPLE_CAP = 20;
-// src/app/not-found.tsx renders outside (blog)/layout.tsx (there is no root layout), so it has no CSP meta; fixing it needs a global-not-found restructure.
-const CSP_EXEMPT = new Set([
+// Expected not-found renders; any other path that renders one is warned about.
+const EXPECTED_NOT_FOUND = new Set([
   "404.html",
   "404/index.html",
   "_not-found/index.html",
 ]);
+// src/app/not-found.tsx renders outside (blog)/layout.tsx, so it has no CSP meta and robots is exactly `noindex`; the blog layout always emits a CSP meta and `noindex, nofollow`. A route that calls notFound() at build (e.g. a zh-TW slug with no translation, or a URL-encoded tag) exports that render at its own path, so detect it by shape rather than by path.
+const ROBOTS_NOINDEX_ONLY = /<meta[^>]+name="robots"[^>]*content="noindex"/i;
 const NOINDEX_META = /<meta[^>]+name="robots"[^>]*noindex/i;
 const CSP_META = /http-equiv="Content-Security-Policy"/i;
 const SITEMAP_LINE = /^\s*Sitemap:/im;
@@ -45,7 +47,8 @@ const capped = (paths: readonly string[]) =>
 export function checkExport(
   paths: readonly string[],
   contents: ReadonlyMap<string, string>,
-  redirectSources: readonly string[]
+  redirectSources: readonly string[],
+  warnings: string[] = []
 ): string[] {
   const failures: string[] = [];
   const present = new Set(paths);
@@ -68,6 +71,7 @@ export function checkExport(
 
   const noRobots: string[] = [];
   const noCsp: string[] = [];
+  const notFound: string[] = [];
   for (const path of paths) {
     if (!(path.endsWith("index.html") || path === "404.html")) {
       continue;
@@ -79,9 +83,20 @@ export function checkExport(
     if (!NOINDEX_META.test(html)) {
       noRobots.push(path);
     }
-    if (!(CSP_EXEMPT.has(path) || CSP_META.test(html))) {
-      noCsp.push(path);
+    if (!CSP_META.test(html)) {
+      if (ROBOTS_NOINDEX_ONLY.test(html)) {
+        if (!EXPECTED_NOT_FOUND.has(path)) {
+          notFound.push(path);
+        }
+      } else {
+        noCsp.push(path);
+      }
     }
+  }
+  if (notFound.length) {
+    warnings.push(
+      `${notFound.length} not-found render(s) at real paths: ${capped(notFound)}`
+    );
   }
   if (noRobots.length) {
     failures.push(
@@ -141,11 +156,16 @@ async function main() {
       })
   );
 
+  const warnings: string[] = [];
   const failures = checkExport(
     paths,
     contents,
-    expandRedirects(redirects).map(({ source }) => source)
+    expandRedirects(redirects).map(({ source }) => source),
+    warnings
   );
+  for (const warning of warnings) {
+    console.warn(`verify-export: warning: ${warning}`);
+  }
   if (failures.length) {
     console.error(`verify-export: ${failures.length} failure(s)`);
     for (const failure of failures) {

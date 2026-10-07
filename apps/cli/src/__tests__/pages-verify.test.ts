@@ -72,14 +72,46 @@ describe("checkExport", () => {
     expect(failures).toContain("data-article-body");
   });
 
-  it("exempts not-found pages from CSP but not from noindex", () => {
+  it("warns, not fails, on not-found renders at real paths", () => {
     const { paths, contents } = good();
-    const withBare = [...paths, "404/index.html", "_not-found/index.html"];
-    contents.set("404.html", '<meta name="robots" content="noindex">');
-    contents.set("404/index.html", '<meta name="robots" content="noindex">');
-    contents.set("_not-found/index.html", "<html></html>");
-    const failures = checkExport(withBare, contents, ["/old"]).join("\n");
-    expect(failures).not.toContain("Content-Security-Policy");
-    expect(failures).toContain("noindex meta: _not-found/index.html");
+    const bare = '<meta name="robots" content="noindex"/>';
+    const extra = ["404/index.html", "zh-TW/articles/moc-x/index.html"];
+    contents.set("404.html", bare);
+    contents.set("404/index.html", bare);
+    contents.set("zh-TW/articles/moc-x/index.html", bare);
+    const warnings: string[] = [];
+    const failures = checkExport(
+      [...paths, ...extra],
+      contents,
+      ["/old"],
+      warnings
+    );
+    expect(failures).toEqual([]);
+    expect(warnings).toEqual([
+      "1 not-found render(s) at real paths: zh-TW/articles/moc-x/index.html",
+    ]);
+  });
+
+  it("fails a page without CSP whose robots is not bare noindex", () => {
+    const { paths, contents } = good();
+    contents.set(
+      "compare/index.html",
+      '<meta name="robots" content="noindex, nofollow"/>'
+    );
+    const warnings: string[] = [];
+    const failures = checkExport(paths, contents, ["/old"], warnings).join(
+      "\n"
+    );
+    expect(failures).toContain(
+      "Content-Security-Policy meta: compare/index.html"
+    );
+    expect(warnings).toEqual([]);
+  });
+
+  it("still requires noindex on a not-found page", () => {
+    const { paths, contents } = good();
+    contents.set("404.html", "<html></html>");
+    const failures = checkExport(paths, contents, ["/old"]).join("\n");
+    expect(failures).toContain("noindex meta: 404.html");
   });
 });
