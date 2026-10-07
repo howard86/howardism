@@ -10,7 +10,12 @@ import GoogleAnalytics from "@/components/google-analytics";
 import { SearchProvider } from "@/components/search/search-provider";
 import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
+import { isPagesExport } from "@/config/deploy-target";
 import { env } from "@/config/env";
+import {
+  BLOG_CSP_DIRECTIVES,
+  serializeMetaCsp,
+} from "@/config/security-headers";
 
 import {
   AUTHOR_EMAIL,
@@ -99,11 +104,9 @@ export const metadata: Metadata = {
       },
     ],
   },
-  robots: {
-    index: true,
-    follow: true,
-    nocache: false,
-  },
+  robots: isPagesExport
+    ? { index: false, follow: false }
+    : { index: true, follow: true, nocache: false },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "16x16", type: "image/x-icon" },
@@ -144,6 +147,12 @@ export default function RootLayout({ children }: ChildrenProps) {
       suppressHydrationWarning
     >
       <head>
+        {isPagesExport ? (
+          <meta
+            content={serializeMetaCsp(BLOG_CSP_DIRECTIVES)}
+            httpEquiv="Content-Security-Policy"
+          />
+        ) : null}
         <InitTweaksScript />
       </head>
       <body>
@@ -164,7 +173,7 @@ export default function RootLayout({ children }: ChildrenProps) {
               </div>
             </SearchProvider>
           </ArticleNavProvider>
-          <Analytics />
+          {isPagesExport ? null : <Analytics />}
           {env.NEXT_PUBLIC_GA_MEASUREMENT_ID ? (
             <GoogleAnalytics
               measurementId={env.NEXT_PUBLIC_GA_MEASUREMENT_ID}

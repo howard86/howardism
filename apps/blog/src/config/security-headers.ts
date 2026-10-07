@@ -79,6 +79,46 @@ export const DEFAULT_CSP_DIRECTIVES: CspDirectives = Object.freeze({
   "upgrade-insecure-requests": true,
 });
 
+// The blog's policy: the default extended with the specific external endpoints
+// it uses — Vercel Analytics + Web Vitals reporting, and Google Analytics when
+// NEXT_PUBLIC_GA_MEASUREMENT_ID is set.
+export const BLOG_CSP_DIRECTIVES: CspDirectives = Object.freeze({
+  ...DEFAULT_CSP_DIRECTIVES,
+  "script-src": [
+    "'self'",
+    "'unsafe-inline'",
+    "https://va.vercel-scripts.com",
+    "https://www.googletagmanager.com",
+    "https://www.google-analytics.com",
+  ],
+  "connect-src": [
+    "'self'",
+    "https://vitals.vercel-insights.com",
+    "https://va.vercel-scripts.com",
+    "https://www.google-analytics.com",
+    "https://analytics.google.com",
+    "https://region1.analytics.google.com",
+  ],
+});
+
+// Browsers ignore these in a <meta http-equiv> CSP (and warn on them).
+const META_IGNORED_DIRECTIVES = new Set<CspDirectiveName>([
+  "frame-ancestors",
+  "report-uri",
+  "report-to",
+]);
+
+/** Serialize `directives` for a `<meta http-equiv>` tag, minus the header-only ones. */
+export function serializeMetaCsp(directives: CspDirectives): string {
+  return serializeCsp(
+    Object.fromEntries(
+      Object.entries(directives).filter(
+        ([name]) => !META_IGNORED_DIRECTIVES.has(name as CspDirectiveName)
+      )
+    )
+  );
+}
+
 const BARE_DIRECTIVES = new Set<CspDirectiveName>([
   "upgrade-insecure-requests",
   "block-all-mixed-content",

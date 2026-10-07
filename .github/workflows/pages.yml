@@ -1,0 +1,59 @@
+name: GitHub Pages backup
+# Static-export backup of the blog on GitHub Pages, served noindex on its own
+# domain while www.howardism.dev (Vercel) stays canonical. DEPLOY_TARGET=pages
+# switches next.config.ts to `output: "export"`; VERCEL_ENV=production reuses
+# the next.config.ts gate that requires the pinned full release, as
+# content-integration.yml does. The R2 read credentials must be set on the
+# `github-pages` environment, which secrets on other environments don't reach.
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEPLOY_TARGET: pages
+      CONTENT_PROFILE: full
+      VERCEL_ENV: production
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - run: bun install --frozen-lockfile
+      - name: Static export
+        run: bun run build
+      - name: Redirect stubs
+        run: bun run --cwd apps/cli pages:redirects
+      - name: Verify export
+        run: bun run --cwd apps/cli pages:verify
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: apps/blog/out
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
