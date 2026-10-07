@@ -5,12 +5,20 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../_shell/plate-page";
-import { getTranslatedArticleLinks } from "../../articles/service";
+import {
+  getTranslatedArticleLinks,
+  PREFIXED_LOCALES,
+} from "../../articles/service";
 
 const ZH_ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW/articles`;
 
-// On-demand (the [locale] parent is dynamic); cache until redeploy.
+// One prerendered index per prefixed locale; any other locale 404s.
+export const dynamicParams = false;
 export const revalidate = false;
+
+export function generateStaticParams(): { locale: string }[] {
+  return PREFIXED_LOCALES.map((locale) => ({ locale }));
+}
 
 export const metadata: Metadata = {
   title: "文章（繁體中文）",

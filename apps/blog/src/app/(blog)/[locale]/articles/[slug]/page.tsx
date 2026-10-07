@@ -21,9 +21,10 @@ interface ZhArticlePageProps {
 }
 
 // Prerendered at build time, one HTML file per translated slug and prefixed
-// locale. `dynamicParams` stays on so a slug translated after the deploy still
-// renders on demand, and `hasTranslation` still 404s an untranslated one.
-export const dynamicParams = true;
+// locale. Content ships with each build, so `dynamicParams` is off — it must be
+// a static literal, and `output: "export"` forbids `true` — and an
+// untranslated slug 404s.
+export const dynamicParams = false;
 export const revalidate = false;
 
 export function generateStaticParams(): { locale: string; slug: string }[] {

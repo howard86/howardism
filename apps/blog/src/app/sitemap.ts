@@ -4,6 +4,8 @@ import { getVisibleArticles } from "@/app/(blog)/articles/service";
 import { TAG_SECTIONS } from "@/app/(blog)/articles/tag-sections";
 import { env } from "@/config/env";
 
+export const dynamic = "force-static";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const visible = await getVisibleArticles();
   const baseUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
