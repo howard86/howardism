@@ -7,7 +7,12 @@ import {
 } from "@howardism/ui/components/hover-card";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentProps } from "react";
+import {
+  type ComponentProps,
+  type MouseEvent,
+  type TouchEvent,
+  useState,
+} from "react";
 
 import {
   ARTICLES_PREFIX,
@@ -43,8 +48,25 @@ export function InternalLink({
   previewMeta,
   className,
   children,
+  onMouseEnter,
+  onTouchStart,
+  prefetch,
   ...linkProps
 }: InternalLinkProps) {
+  // Viewport prefetch of every link floods ISR reads: prefetch only once hovered or touched, unless the caller chose.
+  const [active, setActive] = useState(false);
+  const linkPrefetch = prefetch ?? (active ? null : false);
+  const hoverProps = {
+    onMouseEnter: (event: MouseEvent<HTMLAnchorElement>) => {
+      setActive(true);
+      onMouseEnter?.(event);
+    },
+    onTouchStart: (event: TouchEvent<HTMLAnchorElement>) => {
+      setActive(true);
+      onTouchStart?.(event);
+    },
+    prefetch: linkPrefetch,
+  };
   const pathname = usePathname();
   const slug = extractArticleSlug(href);
   const isCurrentArticle =
@@ -54,7 +76,7 @@ export function InternalLink({
 
   if (!shouldShowPreview) {
     return (
-      <Link className={className} href={href} {...linkProps}>
+      <Link className={className} href={href} {...linkProps} {...hoverProps}>
         {children}
       </Link>
     );
@@ -73,6 +95,7 @@ export function InternalLink({
           className={className}
           href={href}
           {...linkProps}
+          {...hoverProps}
         >
           {children}
         </Link>
