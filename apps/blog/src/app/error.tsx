@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-
 import { Container } from "@/app/(common)/container";
+import { InternalLink } from "@/components/internal-link";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -27,12 +26,12 @@ export default function GlobalError({ error, reset }: ErrorProps) {
         >
           Try again
         </button>
-        <Link
+        <InternalLink
           className="font-medium text-muted-foreground text-sm underline-offset-4 hover:underline"
           href="/"
         >
           Go home
-        </Link>
+        </InternalLink>
       </div>
     </Container>
   );

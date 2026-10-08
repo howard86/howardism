@@ -1,5 +1,6 @@
 import { cn } from "@howardism/ui/lib/utils";
-import Link from "next/link";
+
+import { InternalLink } from "@/components/internal-link";
 
 export function CompareEmpty() {
   return (
@@ -14,7 +15,7 @@ export function CompareEmpty() {
         </code>
         .
       </p>
-      <Link
+      <InternalLink
         className={cn(
           "mt-6 inline-block font-mono text-[11px] uppercase tracking-[0.16em]",
           "text-brand no-underline transition-colors hover:text-foreground"
@@ -22,7 +23,7 @@ export function CompareEmpty() {
         href="/articles"
       >
         Browse all articles →
-      </Link>
+      </InternalLink>
     </div>
   );
 }

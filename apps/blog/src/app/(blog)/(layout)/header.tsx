@@ -11,7 +11,6 @@ import {
 import { cn } from "@howardism/ui/lib/utils";
 import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -20,6 +19,7 @@ import { Container } from "@/app/(common)/container";
 import { useArticleNav } from "@/components/article-nav-context";
 import { ArticleFind } from "@/components/find/article-find";
 import { ReadingProgress } from "@/components/howardism/reading-progress";
+import { InternalLink } from "@/components/internal-link";
 import { SearchTrigger } from "@/components/search/search-trigger";
 import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
@@ -31,7 +31,12 @@ import {
 import useHasScrolled from "@/hooks/use-has-scrolled";
 
 import { Avatar } from "./avatar";
-import { FOOTER_NAV, NAV_SECTION_KEYS, NavSection } from "./constants";
+import {
+  FOOTER_NAV,
+  isFileHref,
+  NAV_SECTION_KEYS,
+  NavSection,
+} from "./constants";
 
 function isRouteActive(pathname: string | null, href: string): boolean {
   return (
@@ -50,14 +55,13 @@ function NavLink({
   label: string;
 }) {
   return (
-    <Link
+    <InternalLink
       aria-current={isActive ? "page" : undefined}
       className="rounded-full px-4 py-2 font-body font-medium text-[0.9rem] text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
       href={href}
-      prefetch={false}
     >
       {label}
-    </Link>
+    </InternalLink>
   );
 }
 
@@ -154,26 +158,29 @@ function MobileNav() {
           </SheetHeader>
           <nav aria-label="Mobile primary" className="mt-6">
             <ul className="m-0 flex list-none flex-col gap-0 border-border border-t p-0">
-              {FOOTER_NAV.map(({ label, href }) => (
-                <li className="border-border border-b" key={label}>
-                  <SheetClose asChild>
-                    <Link
-                      aria-current={
-                        isRouteActive(pathname, href) ? "page" : undefined
-                      }
-                      className="flex min-h-12 items-center justify-between rounded-lg px-2 font-body text-[15px] text-foreground transition-colors aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
-                      href={href}
-                    >
-                      <span>{label}</span>
-                      {PLATE_ANNOTATIONS[label] ? (
-                        <span className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
-                          {PLATE_ANNOTATIONS[label]}
-                        </span>
-                      ) : null}
-                    </Link>
-                  </SheetClose>
-                </li>
-              ))}
+              {FOOTER_NAV.map(({ label, href }) => {
+                const Anchor = isFileHref(href) ? "a" : InternalLink;
+                return (
+                  <li className="border-border border-b" key={label}>
+                    <SheetClose asChild>
+                      <Anchor
+                        aria-current={
+                          isRouteActive(pathname, href) ? "page" : undefined
+                        }
+                        className="flex min-h-12 items-center justify-between rounded-lg px-2 font-body text-[15px] text-foreground transition-colors aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
+                        href={href}
+                      >
+                        <span>{label}</span>
+                        {PLATE_ANNOTATIONS[label] ? (
+                          <span className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
+                            {PLATE_ANNOTATIONS[label]}
+                          </span>
+                        ) : null}
+                      </Anchor>
+                    </SheetClose>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
           <div className="mt-5 border-border border-t pt-4">
@@ -181,19 +188,22 @@ function MobileNav() {
               Quick Navigation
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {QUICK_LINKS.map(({ label, href }) => (
-                <SheetClose asChild key={label}>
-                  <Link
-                    aria-current={
-                      isRouteActive(pathname, href) ? "page" : undefined
-                    }
-                    className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground aria-[current=page]:border-brand/30 aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
-                    href={href}
-                  >
-                    {label}
-                  </Link>
-                </SheetClose>
-              ))}
+              {QUICK_LINKS.map(({ label, href }) => {
+                const Anchor = isFileHref(href) ? "a" : InternalLink;
+                return (
+                  <SheetClose asChild key={label}>
+                    <Anchor
+                      aria-current={
+                        isRouteActive(pathname, href) ? "page" : undefined
+                      }
+                      className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground aria-[current=page]:border-brand/30 aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
+                      href={href}
+                    >
+                      {label}
+                    </Anchor>
+                  </SheetClose>
+                );
+              })}
             </div>
           </div>
           <span className="mt-5 block font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">

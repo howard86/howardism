@@ -1,13 +1,13 @@
 import { Card } from "@howardism/ui/components/card";
 import { cn } from "@howardism/ui/lib/utils";
 import Image, { type StaticImageData } from "next/image";
-import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { PublishArticleNav } from "@/components/article-nav-context";
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
 import { DomainLabel } from "@/components/howardism/domain-label";
 import { SubjectChipList } from "@/components/howardism/subject-chip-list";
+import { InternalLink } from "@/components/internal-link";
 import { SaveButton } from "@/components/save-button";
 import { formatDate } from "@/utils/time";
 import { PlatePage } from "../../_shell/plate-page";
@@ -67,7 +67,7 @@ function NavLink({
     return null;
   }
   return (
-    <Link
+    <InternalLink
       className={cn(
         "group inline-flex flex-col gap-1 no-underline",
         align === "right" && "items-end"
@@ -76,7 +76,7 @@ function NavLink({
     >
       <span className={NAV_KICKER_CLASS}>{kicker}</span>
       {title ? <span className={NAV_TITLE_CLASS}>{title}</span> : null}
-    </Link>
+    </InternalLink>
   );
 }
 
@@ -164,7 +164,7 @@ export function ArticleLayout({
             </span>
           )}
           {translationHref ? (
-            <Link
+            <InternalLink
               className={cn(
                 EYEBROW_CLASS,
                 "no-underline transition-colors hover:text-[var(--article-accent)]"
@@ -172,7 +172,7 @@ export function ArticleLayout({
               href={translationHref}
             >
               {locale === "zh-TW" ? "EN" : "中文"}
-            </Link>
+            </InternalLink>
           ) : null}
           HOWARDISM
         </>

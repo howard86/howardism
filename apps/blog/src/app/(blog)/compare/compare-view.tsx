@@ -1,8 +1,9 @@
 "use client";
 
 import { cn } from "@howardism/ui/lib/utils";
-import Link from "next/link";
 import { type ReactNode, useCallback, useState } from "react";
+
+import { InternalLink } from "@/components/internal-link";
 
 export interface ComparePanel {
   body: ReactNode;
@@ -65,12 +66,12 @@ export function CompareView({ panels }: { panels: ComparePanel[] }) {
           Comparing {panels.length}{" "}
           {panels.length === 1 ? "article" : "articles"}
         </h1>
-        <Link
+        <InternalLink
           className="font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.16em] no-underline transition-colors hover:text-brand"
           href="/articles"
         >
           All articles →
-        </Link>
+        </InternalLink>
       </div>
 
       {/* Mobile/tablet tab bar */}
@@ -106,12 +107,12 @@ export function CompareView({ panels }: { panels: ComparePanel[] }) {
             key={panel.slug}
           >
             <header className="mb-5 border-border border-b border-dashed pb-3">
-              <Link
+              <InternalLink
                 className="font-display text-[18px] text-foreground leading-[1.25] no-underline transition-colors hover:text-brand"
                 href={panel.href}
               >
                 {panel.title}
-              </Link>
+              </InternalLink>
             </header>
             {panel.body}
           </section>

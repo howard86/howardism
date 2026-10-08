@@ -1,5 +1,6 @@
 import { cn } from "@howardism/ui/lib/utils";
-import Link from "next/link";
+
+import { InternalLink } from "@/components/internal-link";
 
 interface AvatarProps {
   className?: string;
@@ -15,7 +16,7 @@ export function Avatar({
   label = "Home",
 }: AvatarProps) {
   return (
-    <Link
+    <InternalLink
       aria-label={label}
       className={cn(
         "inline-flex flex-shrink-0 select-none items-center justify-center rounded-full bg-brand font-display font-medium text-card",
@@ -25,6 +26,6 @@ export function Avatar({
       style={{ width: size, height: size, fontSize: size * 0.45 }}
     >
       H
-    </Link>
+    </InternalLink>
   );
 }

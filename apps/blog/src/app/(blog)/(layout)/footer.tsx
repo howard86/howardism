@@ -1,12 +1,12 @@
 import { Badge } from "@howardism/ui/components/badge";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Link from "next/link";
 
 import ExternalLink from "@/app/(common)/external-link";
+import { InternalLink } from "@/components/internal-link";
 
 import { SOCIAL_LINKS } from "../social-links";
 import { Avatar } from "./avatar";
-import { FOOTER_NAV, REFERENCE_LINKS } from "./constants";
+import { FOOTER_NAV, isFileHref, REFERENCE_LINKS } from "./constants";
 
 const SOCIAL_LABEL: Record<string, string> = {
   "Follow on GitHub": "github.com/Howard86",
@@ -23,13 +23,16 @@ export function Footer() {
         {/* Nav row */}
         <nav aria-label="footer">
           <ul className="flex list-none flex-wrap gap-1.5">
-            {FOOTER_NAV.map(({ label, href }) => (
-              <li key={label}>
-                <Link href={href}>
-                  <Badge variant="chip">{label}</Badge>
-                </Link>
-              </li>
-            ))}
+            {FOOTER_NAV.map(({ label, href }) => {
+              const Anchor = isFileHref(href) ? "a" : InternalLink;
+              return (
+                <li key={label}>
+                  <Anchor href={href}>
+                    <Badge variant="chip">{label}</Badge>
+                  </Anchor>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
@@ -62,12 +65,12 @@ export function Footer() {
           <ul className="flex list-none flex-wrap items-center gap-x-4 gap-y-2 p-0">
             {REFERENCE_LINKS.map(({ label, href }) => (
               <li key={href}>
-                <Link
+                <a
                   className="font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em] no-underline transition-colors hover:text-brand"
                   href={href}
                 >
                   {label}
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

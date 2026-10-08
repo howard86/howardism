@@ -1,5 +1,4 @@
 import type { MDXComponents } from "mdx/types";
-import Link from "next/link";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 
 import { getArticles } from "@/app/(blog)/articles/service";
@@ -37,11 +36,21 @@ async function ArticleLinkResolver({
     );
   }
 
+  // Heading anchors jump within the page: a router Link would prefetch the
+  // current page's own segments on every view.
+  if (href.startsWith("#")) {
+    return (
+      <a href={href} {...rest}>
+        {children}
+      </a>
+    );
+  }
+
   if (!href.startsWith(ARTICLES_PREFIX)) {
     return (
-      <Link href={href} {...rest}>
+      <InternalLink href={href} {...rest}>
         {children}
-      </Link>
+      </InternalLink>
     );
   }
 

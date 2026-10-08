@@ -1,7 +1,7 @@
 import { cn } from "@howardism/ui/lib/utils";
-import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { InternalLink } from "@/components/internal-link";
 import { DONE_PCT } from "@/lib/shelf-view";
 
 const META_CLASS =
@@ -165,12 +165,12 @@ export function ShelfArticleRow({
       </span>
       <div className="min-w-0">
         <span className="flex flex-wrap items-baseline gap-2">
-          <Link
+          <InternalLink
             className="font-display font-medium text-[17px] text-foreground leading-[1.25] tracking-[-0.012em] no-underline transition-colors group-hover:text-[var(--dc)] md:text-[19px]"
             href={href}
           >
             {title}
-          </Link>
+          </InternalLink>
           {badge}
         </span>
         {chips.length > 0 && (
