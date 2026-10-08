@@ -7,7 +7,11 @@ export const dynamic = "force-static";
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: "*", allow: "/" }],
+    rules: [
+      { userAgent: "*", allow: "/" },
+      // Meta's AI-training crawler was ~38% of article requests.
+      { userAgent: "meta-externalagent", disallow: "/" },
+    ],
     // Crawlers must still reach pages to see the Pages backup's noindex tag.
     ...(isPagesExport
       ? {}
