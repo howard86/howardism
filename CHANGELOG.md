@@ -1,3 +1,5 @@
+# [v2.34.2](https://github.com/howard86/howardism/compare/v2.34.1...v2.34.2) (2026-10-08)
+
 # [v2.34.1](https://github.com/howard86/howardism/compare/v2.34.0...v2.34.1) (2026-10-07)
 
 ## 🐛 Bug Fixes
