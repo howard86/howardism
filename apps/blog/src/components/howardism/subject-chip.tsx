@@ -1,6 +1,4 @@
-import { Badge } from "@howardism/ui/components/badge";
-import Link from "next/link";
-
+import { InternalLink } from "@/components/internal-link";
 import { humanizeTag } from "@/utils/humanize-tag";
 
 interface SubjectChipProps {
@@ -13,27 +11,24 @@ interface SubjectChipProps {
 const SPACING = "mr-1.5 mb-1";
 
 /**
- * A single free-form subject tag, rendered with the design system's `chip`
- * badge. Clickable (linking to `/articles/tagged/[tag]`) only when an `href`
- * is supplied — rare singleton tags have no page and render inert. Distinct
- * from `TagChip` (`components/tag-chip`), which renders the singular kind enum.
+ * A single free-form subject tag, styled by the compact `subject-chip`
+ * utility (the Badge `chip` look without its long class string, which bloated
+ * list pages). Clickable (linking to `/articles/tagged/[tag]`) only when an
+ * `href` is supplied — rare singleton tags have no page and render inert.
+ * Distinct from `TagChip` (`components/tag-chip`), which renders the singular
+ * kind enum.
  */
 export function SubjectChip({ tag, href }: SubjectChipProps) {
   const label = humanizeTag(tag);
   if (href) {
     return (
-      <Badge
-        asChild
-        className={`${SPACING} transition-colors hover:border-brand hover:text-brand`}
-        variant="chip"
+      <InternalLink
+        className={`subject-chip ${SPACING} transition-colors hover:border-brand hover:text-brand`}
+        href={href}
       >
-        <Link href={href}>{label}</Link>
-      </Badge>
+        {label}
+      </InternalLink>
     );
   }
-  return (
-    <Badge className={SPACING} variant="chip">
-      {label}
-    </Badge>
-  );
+  return <span className={`subject-chip ${SPACING}`}>{label}</span>;
 }
