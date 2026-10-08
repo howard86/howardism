@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { InternalLink } from "@/components/internal-link";
 import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
@@ -34,12 +34,12 @@ export default async function ZhArticlesIndex() {
       headerChildren={
         <p className="mt-6 max-w-[680px] font-body text-[clamp(16px,2.2vw,18px)] text-muted-foreground leading-[1.55]">
           以下文章由 AI 從英文原文翻譯，內容會隨原文更新而重新翻譯。
-          <Link
+          <InternalLink
             className="ml-1.5 text-foreground underline underline-offset-4 transition-colors hover:text-brand"
             href="/articles"
           >
             查看英文版 →
-          </Link>
+          </InternalLink>
         </p>
       }
       headerData={[
@@ -71,12 +71,12 @@ export default async function ZhArticlesIndex() {
 
             <div className="min-w-0">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                <Link
+                <InternalLink
                   className="font-display font-medium text-[19px] text-foreground leading-[1.2] tracking-[-0.012em] no-underline transition-colors hover:text-brand"
                   href={`/zh-TW/articles/${article.slug}`}
                 >
                   {article.title}
-                </Link>
+                </InternalLink>
                 <span className="shrink-0 font-mono text-[10.5px] text-foreground-subtle uppercase tabular-nums tracking-[0.12em]">
                   <time dateTime={article.date}>
                     {formatDateShort(article.date)}

@@ -1,8 +1,8 @@
 import { Badge } from "@howardism/ui/components/badge";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Link from "next/link";
 
 import ExternalLink from "@/app/(common)/external-link";
+import { InternalLink } from "@/components/internal-link";
 
 import { SOCIAL_LINKS } from "../social-links";
 import { Avatar } from "./avatar";
@@ -24,7 +24,7 @@ export function Footer() {
         <nav aria-label="footer">
           <ul className="flex list-none flex-wrap gap-1.5">
             {FOOTER_NAV.map(({ label, href }) => {
-              const Anchor = isFileHref(href) ? "a" : Link;
+              const Anchor = isFileHref(href) ? "a" : InternalLink;
               return (
                 <li key={label}>
                   <Anchor href={href}>

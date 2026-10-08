@@ -8,7 +8,6 @@ import {
   TabsTrigger,
 } from "@howardism/ui/components/tabs";
 import { cn } from "@howardism/ui/lib/utils";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type CSSProperties,
@@ -20,6 +19,8 @@ import {
   useMemo,
   useState,
 } from "react";
+
+import { InternalLink } from "@/components/internal-link";
 
 import { SaveButton } from "@/components/save-button";
 import { buildCompareHref, MAX_COMPARE } from "@/lib/compare-ids";
@@ -618,9 +619,9 @@ export function ShelfTabs() {
           article and it lands here. Start anywhere in the index, and come back
           when you want to pick something up again.
         </EmptyState>
-        <Link className={INVITE_LINK_CLASS} href="/articles">
+        <InternalLink className={INVITE_LINK_CLASS} href="/articles">
           Browse all articles →
-        </Link>
+        </InternalLink>
       </div>
     );
   }

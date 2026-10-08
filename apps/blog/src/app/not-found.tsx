@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { Container } from "@/app/(common)/container";
+import { InternalLink } from "@/components/internal-link";
 
 export default function NotFound() {
   return (
@@ -11,12 +10,12 @@ export default function NotFound() {
       <p className="mt-4 max-w-prose font-body text-muted-foreground">
         That article does not exist. It may have been renamed or moved.
       </p>
-      <Link
+      <InternalLink
         className="mt-8 font-medium text-primary text-sm underline-offset-4 hover:underline"
         href="/articles"
       >
         Back to the index
-      </Link>
+      </InternalLink>
     </Container>
   );
 }

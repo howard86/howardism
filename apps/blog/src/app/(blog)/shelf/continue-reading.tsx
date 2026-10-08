@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 
+import { InternalLink } from "@/components/internal-link";
 import { getHistory, type ReadingEntry } from "@/lib/reading-store";
 import { useShelfManifest } from "@/lib/shelf-manifest";
 import { buildShelfRows, type LinkedShelfRow } from "@/lib/shelf-rows";
@@ -20,7 +20,7 @@ function ResumeCard({ row }: { row: LinkedShelfRow }) {
 
   return (
     <li className="min-w-0 snap-start">
-      <Link
+      <InternalLink
         className="group flex h-full flex-col rounded-[10px] border border-border border-t-2 bg-card p-[18px] pt-4 no-underline transition-colors hover:bg-secondary"
         href={row.href}
         style={{ "--dc": accent, borderTopColor: accent } as CSSProperties}
@@ -52,7 +52,7 @@ function ResumeCard({ row }: { row: LinkedShelfRow }) {
           </span>
           <span>{minutesLeft} min left</span>
         </span>
-      </Link>
+      </InternalLink>
     </li>
   );
 }

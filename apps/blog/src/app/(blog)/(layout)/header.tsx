@@ -11,7 +11,6 @@ import {
 import { cn } from "@howardism/ui/lib/utils";
 import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -20,6 +19,7 @@ import { Container } from "@/app/(common)/container";
 import { useArticleNav } from "@/components/article-nav-context";
 import { ArticleFind } from "@/components/find/article-find";
 import { ReadingProgress } from "@/components/howardism/reading-progress";
+import { InternalLink } from "@/components/internal-link";
 import { SearchTrigger } from "@/components/search/search-trigger";
 import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
@@ -55,14 +55,13 @@ function NavLink({
   label: string;
 }) {
   return (
-    <Link
+    <InternalLink
       aria-current={isActive ? "page" : undefined}
       className="rounded-full px-4 py-2 font-body font-medium text-[0.9rem] text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
       href={href}
-      prefetch={false}
     >
       {label}
-    </Link>
+    </InternalLink>
   );
 }
 
@@ -160,7 +159,7 @@ function MobileNav() {
           <nav aria-label="Mobile primary" className="mt-6">
             <ul className="m-0 flex list-none flex-col gap-0 border-border border-t p-0">
               {FOOTER_NAV.map(({ label, href }) => {
-                const Anchor = isFileHref(href) ? "a" : Link;
+                const Anchor = isFileHref(href) ? "a" : InternalLink;
                 return (
                   <li className="border-border border-b" key={label}>
                     <SheetClose asChild>
@@ -190,7 +189,7 @@ function MobileNav() {
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {QUICK_LINKS.map(({ label, href }) => {
-                const Anchor = isFileHref(href) ? "a" : Link;
+                const Anchor = isFileHref(href) ? "a" : InternalLink;
                 return (
                   <SheetClose asChild key={label}>
                     <Anchor
