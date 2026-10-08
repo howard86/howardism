@@ -24,3 +24,14 @@ export const REFERENCE_LINKS: { label: string; href: string }[] = [
   { label: "sitemap.xml", href: "/sitemap.xml" },
   { label: "feed.json", href: "/rss/feed.json" },
 ];
+
+const FILE_EXTENSION = /\.[a-z]+$/;
+
+/**
+ * A file route (`/llms.txt`, `/rss/feed.xml`) rather than a page. Link it with
+ * a plain `<a>`: `next/link` prefetches it as an RSC payload the route cannot
+ * serve, so every rendered page invoked its function.
+ */
+export function isFileHref(href: string): boolean {
+  return FILE_EXTENSION.test(href);
+}
