@@ -134,3 +134,4 @@ Static export forbids runtime request data, so every route must prerender: `dyna
 
 - **Ultracite** (Biome) for linting and formatting — `bun x ultracite fix`
 - Commit messages follow **gitmoji** conventional commit format (enforced by commitlint)
+- The pre-commit hook runs `typos` over the whole working tree, untracked files included, so a flagged word in an uncommitted note blocks every commit: reword it or allow it in `_typos.toml`.
