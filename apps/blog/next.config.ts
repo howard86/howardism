@@ -7,12 +7,20 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
-import { isPagesExport } from "./src/config/deploy-target";
-import { redirects } from "./src/config/redirects";
 import {
-  BLOG_CSP_DIRECTIVES,
-  getSecurityHeaders,
-} from "./src/config/security-headers";
+  isPagesExport,
+  isStaticExport,
+  isVercelStatic,
+} from "./src/config/deploy-target";
+import {
+  imageDeviceSizes,
+  imageFormats,
+  imageMinimumCacheTTL,
+  imageQualities,
+  imageSizes,
+} from "./src/config/image-config";
+import { redirects } from "./src/config/redirects";
+import { getBlogSecurityHeaders } from "./src/config/security-headers";
 
 const contentState = JSON.parse(
   readFileSync(new URL("./.content-state.json", import.meta.url), "utf8")
@@ -93,21 +101,20 @@ const isProduction = process.env.NODE_ENV === "production";
 // HTTP, so skip the HTTPS-forcing headers — Safari honours HSTS on
 // `localhost` and otherwise refuses to connect over HTTP with a TLS handshake
 // error. No feature needs geolocation.
-const securityHeaders = getSecurityHeaders({
-  geolocation: "()",
-  insecureTransport: !isProduction,
-  contentSecurityPolicy: BLOG_CSP_DIRECTIVES,
-});
+const securityHeaders = getBlogSecurityHeaders(!isProduction);
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx"],
   poweredByHeader: false,
   headers:
-    isProduction && !isPagesExport
+    isProduction && !isStaticExport
       ? () => [{ source: "/(.*)", headers: securityHeaders }]
       : undefined,
-  ...(isPagesExport
-    ? { output: "export" as const, trailingSlash: true }
+  ...(isStaticExport
+    ? {
+        output: "export" as const,
+        ...(isPagesExport ? { trailingSlash: true } : {}),
+      }
     : { redirects: () => redirects }),
   reactStrictMode: true,
   outputFileTracingRoot: join(
@@ -119,8 +126,19 @@ const nextConfig: NextConfig = {
     // AVIF first: the hero illustrations are flat-shaded, which AVIF encodes
     // roughly 40% smaller than the WebP default. Browsers without AVIF fall
     // through to WebP via content negotiation.
+    formats: [...imageFormats],
+    deviceSizes: imageDeviceSizes,
+    imageSizes,
+    qualities: imageQualities,
+    // Content-hashed sources make 31 days safe and keep Hobby transforms under 5k/month.
+    minimumCacheTTL: imageMinimumCacheTTL,
     unoptimized: isPagesExport,
-    formats: ["image/avif", "image/webp"],
+    ...(isVercelStatic
+      ? {
+          loader: "custom" as const,
+          loaderFile: "src/lib/vercel-image-loader.ts",
+        }
+      : {}),
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
 };
