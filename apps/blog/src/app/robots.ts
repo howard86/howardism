@@ -11,6 +11,9 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "*", allow: "/" },
       // Meta's AI-training crawler was ~38% of article requests.
       { userAgent: "meta-externalagent", disallow: "/" },
+      // ExaSearchBot was ~25% of article ISR reads (2026-10); PetalBot ~3%.
+      { userAgent: "ExaSearchBot", disallow: "/" },
+      { userAgent: "PetalBot", disallow: "/" },
     ],
     // Crawlers must still reach pages to see the Pages backup's noindex tag.
     ...(isPagesExport
