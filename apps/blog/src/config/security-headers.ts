@@ -194,3 +194,11 @@ export function getSecurityHeaders({
 
   return headers;
 }
+
+export function getBlogSecurityHeaders(insecureTransport = false) {
+  return getSecurityHeaders({
+    geolocation: "()",
+    insecureTransport,
+    contentSecurityPolicy: BLOG_CSP_DIRECTIVES,
+  });
+}
