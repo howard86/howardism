@@ -5,6 +5,12 @@ export interface RedirectRule {
 }
 
 export const redirects: RedirectRule[] = [
+  // Lowercase locale links currently 404; preserve their paths at the canonical casing.
+  {
+    source: "/zh-tw/:path*",
+    destination: "/zh-TW/:path*",
+    permanent: true,
+  },
   { source: "/photos", destination: "/", permanent: true },
   { source: "/about", destination: "/", permanent: true },
   { source: "/thank-you", destination: "/", permanent: true },
