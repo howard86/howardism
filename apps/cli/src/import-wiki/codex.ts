@@ -3,6 +3,13 @@ import { basename, dirname, join } from "node:path";
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
+/**
+ * Pinned via `-m` so the run doesn't inherit `~/.codex/config.toml`'s model,
+ * which a ChatGPT-account login may reject (`gpt-6.1-sol` was). Overridable
+ * per run via `IMPORT_CODEX_MODEL`.
+ */
+const DEFAULT_CODEX_MODEL = "gpt-6-luna";
+
 export interface GenerateImageOptions {
   body: string;
   dryRun?: boolean;
@@ -61,7 +68,8 @@ export async function generateHeroImage(
 async function defaultRunner(
   prompt: string
 ): Promise<{ stdout: string; stderr: string }> {
-  const proc = Bun.spawn(["codex", "exec", prompt], {
+  const model = process.env.IMPORT_CODEX_MODEL ?? DEFAULT_CODEX_MODEL;
+  const proc = Bun.spawn(["codex", "exec", "-m", model, prompt], {
     stdout: "pipe",
     stderr: "pipe",
   });
