@@ -13,7 +13,6 @@ import type { ArticleHeading } from "../service";
 
 const MIN_PCT = 0.25; // below this, "resume" isn't worth offering
 const MAX_PCT = 0.9; // above this, the reader has effectively finished
-const AUTO_DISMISS_MS = 6000;
 const PERSIST_THROTTLE_MS = 2000;
 
 interface SavedProgress {
@@ -59,6 +58,11 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
   // That keeps it out of the render path entirely — it renders `null` until
   // the resume chip is offered.
   const frameRef = useRef<ArticleScrollFrame | null>(null);
+  const initialScrollY = useRef(0);
+
+  useEffect(() => {
+    initialScrollY.current = window.scrollY;
+  }, []);
 
   useEffect(
     () =>
@@ -83,9 +87,22 @@ export function ResumeReading({ headings, slug }: ResumeReadingProps) {
       return;
     }
     setResume(saved);
-    const timer = setTimeout(() => setResume(null), AUTO_DISMISS_MS);
-    return () => clearTimeout(timer);
   }, [headings.length, slug]);
+
+  useEffect(() => {
+    if (!resume) {
+      return;
+    }
+    const dismissAfterTravel = () => {
+      if (
+        Math.abs(window.scrollY - initialScrollY.current) > window.innerHeight
+      ) {
+        setResume(null);
+      }
+    };
+    window.addEventListener("scroll", dismissAfterTravel, { passive: true });
+    return () => window.removeEventListener("scroll", dismissAfterTravel);
+  }, [resume]);
 
   // Persist progress as the reader scrolls (only once actually scrolled, so the
   // saved anchor isn't clobbered with pct≈0 on first paint). Throttled ticks

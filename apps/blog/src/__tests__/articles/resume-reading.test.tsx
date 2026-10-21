@@ -70,6 +70,32 @@ describe("ResumeReading offer chip", () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  it("keeps the chip until the reader travels more than one viewport", () => {
+    anchorInDom("middle");
+    window.innerHeight = 600;
+    localStorage.setItem(
+      "howardism:reading:travel",
+      JSON.stringify({ headingId: "middle", pct: 0.58 })
+    );
+
+    render(<ResumeReading headings={headings} slug="travel" />);
+    expect(screen.getByText(RESUME_WITH_PCT)).not.toBeNull();
+
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      value: 600,
+    });
+    act(() => fireEvent.scroll(window));
+    expect(screen.getByText(RESUME_WITH_PCT)).not.toBeNull();
+
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      value: 601,
+    });
+    act(() => fireEvent.scroll(window));
+    expect(screen.queryByText(RESUME_WITH_PCT)).toBeNull();
+  });
 });
 
 const ARTICLE_HEIGHT = 3000;
