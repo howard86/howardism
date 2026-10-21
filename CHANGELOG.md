@@ -1,3 +1,14 @@
+# [v2.35.0](https://github.com/howard86/howardism/compare/v2.34.2...v2.35.0) (2026-10-21)
+
+## ✨ New Features
+- [`be30466e`](https://github.com/howard86/howardism/commit/be30466e)  feat(blog): collapse the leading Sources section 
+- [`a705439e`](https://github.com/howard86/howardism/commit/a705439e)  feat(blog): add a running head and hide-on-scroll site bar on phones 
+
+## 🐛 Bug Fixes
+- [`d1a4d154`](https://github.com/howard86/howardism/commit/d1a4d154)  fix(blog): keep tables and inline code inside the reading column 
+- [`a792bcef`](https://github.com/howard86/howardism/commit/a792bcef)  fix(blog): close the TOC sheet before jumping to a section 
+- [`d903df0d`](https://github.com/howard86/howardism/commit/d903df0d)  fix(cli): convert wikilinks whose alias holds code or wraps a line
+
 # [v2.34.2](https://github.com/howard86/howardism/compare/v2.34.1...v2.34.2) (2026-10-08)
 
 # [v2.34.1](https://github.com/howard86/howardism/compare/v2.34.0...v2.34.1) (2026-10-07)
