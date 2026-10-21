@@ -9,9 +9,15 @@ import type { ArticleHeading } from "../service";
 
 interface ArticleTocProps {
   headings: ArticleHeading[];
+  hideLabel?: boolean;
+  onNavigate?: (id: string) => void;
 }
 
-export function ArticleToc({ headings }: ArticleTocProps) {
+export function ArticleToc({
+  headings,
+  hideLabel = false,
+  onNavigate,
+}: ArticleTocProps) {
   const sectionIds = useMemo(() => headings.map((h) => h.id), [headings]);
   const activeId = useScrollSpy({
     defaultSectionId: sectionIds[0] ?? null,
@@ -26,9 +32,11 @@ export function ArticleToc({ headings }: ArticleTocProps) {
 
   return (
     <nav aria-label="On this page" className="font-mono text-xs">
-      <div className="mb-3 font-medium text-foreground-subtle uppercase tracking-[0.16em]">
-        On this page
-      </div>
+      {!hideLabel && (
+        <div className="mb-3 font-medium text-foreground-subtle uppercase tracking-[0.16em]">
+          On this page
+        </div>
+      )}
       <ol className="m-0 flex list-none flex-col gap-1.5 pl-0">
         {headings.map((heading) => {
           const isActive = activeId === heading.id;
@@ -48,6 +56,14 @@ export function ArticleToc({ headings }: ArticleTocProps) {
                   isActive ? "text-foreground" : "text-foreground-subtle"
                 )}
                 href={`#${heading.id}`}
+                onClick={
+                  onNavigate
+                    ? (event) => {
+                        event.preventDefault();
+                        onNavigate(heading.id);
+                      }
+                    : undefined
+                }
               >
                 {heading.text}
               </a>
