@@ -1,3 +1,8 @@
+# [v2.35.1](https://github.com/howard86/howardism/compare/v2.35.0...v2.35.1) (2026-10-21)
+
+## 🐛 Bug Fixes
+- [`e8574890`](https://github.com/howard86/howardism/commit/e8574890)  fix(cli): flatten wikilinks in summary-sourced descriptions
+
 # [v2.35.0](https://github.com/howard86/howardism/compare/v2.34.2...v2.35.0) (2026-10-21)
 
 ## ✨ New Features
