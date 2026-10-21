@@ -307,7 +307,11 @@ export function ArticleLayout({
       style={{ "--article-accent": accent } as CSSProperties}
       width="index"
     >
-      <PublishArticleNav headings={headings} slug={slug} />
+      <PublishArticleNav
+        headings={headings}
+        readingTime={meta.readingTime}
+        slug={slug}
+      />
       <TapScrollZones />
       <ResumeReading headings={headings} slug={slug} />
       <div className="grid rail:grid-cols-[minmax(0,720px)_320px] gap-12">

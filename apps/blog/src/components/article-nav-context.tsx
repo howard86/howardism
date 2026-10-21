@@ -7,6 +7,8 @@ import type { ArticleHeading } from "@/app/(blog)/articles/service";
 
 export interface ArticleNav {
   headings: ArticleHeading[];
+  /** Whole-article reading time in minutes, for the running head's time left. */
+  readingTime?: number;
   slug: string;
 }
 
@@ -40,9 +42,11 @@ export function useArticleNav(): ArticleNav | null {
  */
 export function PublishArticleNav({
   headings,
+  readingTime,
   slug,
 }: {
   headings: ArticleHeading[];
+  readingTime?: number;
   slug: string;
 }) {
   const ctx = useContext(ArticleNavContext);
@@ -52,9 +56,9 @@ export function PublishArticleNav({
     if (!setNav) {
       return;
     }
-    setNav({ headings, slug });
+    setNav({ headings, readingTime, slug });
     return () => setNav(null);
-  }, [setNav, headings, slug]);
+  }, [setNav, headings, readingTime, slug]);
 
   return null;
 }
