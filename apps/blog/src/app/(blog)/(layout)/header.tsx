@@ -66,13 +66,19 @@ function NavLink({
   );
 }
 
-function DesktopNav() {
+function DesktopNav({ isCondensed }: { isCondensed: boolean }) {
   const pathname = usePathname();
 
+  // Condensed, the pill sheds its own surface: the bar already has one.
   return (
     <nav
       aria-label="Primary"
-      className="hidden gap-0.5 rounded-full border border-border bg-card/85 p-1.5 shadow-paper backdrop-blur-md md:flex"
+      className={cn(
+        "hidden gap-0.5 rounded-full md:flex",
+        isCondensed
+          ? "p-0"
+          : "border border-border bg-card/85 p-1.5 shadow-paper backdrop-blur-md"
+      )}
     >
       {NAV_SECTION_KEYS.map((key) => (
         <NavLink
@@ -275,7 +281,7 @@ function RunningHead({
   return (
     <div
       aria-hidden="true"
-      className="flex rail:hidden h-7 items-center justify-center gap-2 border-border border-b bg-background/95 px-4 font-mono text-[11px] text-foreground-subtle backdrop-blur-sm"
+      className="flex rail:hidden h-7 items-center justify-center gap-2 border-border border-t px-4 font-mono text-[11px] text-foreground-subtle"
     >
       {activeSection ? (
         <span className="max-w-[min(65vw,24rem)] truncate">
@@ -294,9 +300,11 @@ function RunningHead({
 
 /**
  * Persistent, context-aware top bar. Owns route nav + theme on every page, and
- * on article pages gains reader controls (TOC, reader settings, focus mode)
- * plus the reading-progress bar rendered as its bottom edge. Condenses on
- * scroll; in focus mode the chrome collapses to the running head instead.
+ * on article pages gains reader controls (TOC, find, reader settings) plus the
+ * reading-progress bar rendered as its bottom edge. Condenses to a 48px bar on
+ * scroll; on article pages it slides away while scrolling down, leaving the
+ * progress edge (and, below the rail breakpoint, the running head). In focus
+ * mode the chrome collapses to the focus plate instead.
  */
 export function SiteBar() {
   const isScrolled = useHasScrolled({ offsetPx: 80 });
@@ -309,7 +317,6 @@ export function SiteBar() {
   const scrollDirection = useScrollDirection(isArticle, isFocusMode);
   const isHiddenOnScroll =
     isArticle && !isFocusMode && scrollDirection === "down";
-  const enterFocusMode = useCallback(() => setFocusMode(true), [setFocusMode]);
   const exitFocusMode = useCallback(() => setFocusMode(false), [setFocusMode]);
 
   let chromeClass = "py-4 opacity-100 duration-200";
@@ -317,15 +324,18 @@ export function SiteBar() {
     chromeClass =
       "pointer-events-none h-0 overflow-hidden py-0 opacity-0 duration-[120ms]";
   } else if (isScrolled) {
-    chromeClass = "py-2 opacity-100 duration-200";
+    chromeClass = "h-12 py-0 opacity-100 duration-200";
   }
 
   return (
     <header
       className={cn(
         "sticky top-0 z-50 transition-[top,color,background-color,border-color] duration-200 motion-reduce:transition-none",
-        isHiddenOnScroll && "max-rail:top-[-52px] max-rail:duration-[120ms]",
-        isScrolled && "border-border border-b bg-background/20 backdrop-blur-sm"
+        // Slide the 48px bar off: below the rail breakpoint the running head
+        // stays; above it, a 3px sliver keeps the progress edge in view.
+        isHiddenOnScroll &&
+          "rail:top-[-45px] duration-[120ms] max-rail:top-[-48px]",
+        isScrolled && "border-border border-b bg-background/90 backdrop-blur-md"
       )}
     >
       <Container className="relative w-full">
@@ -333,8 +343,7 @@ export function SiteBar() {
           className={cn(
             "flex items-center gap-2 transition-all motion-reduce:transition-none sm:gap-3",
             chromeClass,
-            isHiddenOnScroll &&
-              "max-rail:pointer-events-none max-rail:opacity-0 max-rail:duration-[120ms]"
+            isHiddenOnScroll && "pointer-events-none opacity-0 duration-[120ms]"
           )}
         >
           {/* Wordmark + avatar pill */}
@@ -358,12 +367,12 @@ export function SiteBar() {
           </div>
 
           {/* Nav */}
-          <DesktopNav />
+          <DesktopNav isCondensed={isScrolled} />
 
           {/* Reader controls — article pages only. The TOC button is hidden at
-              the rail breakpoint, where the sticky rail already shows the TOC. A
-              hairline divider sets this reader cluster apart from the global
-              search/theme/menu cluster. */}
+              the rail breakpoint, where the sticky rail already shows the TOC;
+              focus mode lives in reader settings. A hairline divider sets this
+              reader cluster apart from the global search/theme/menu cluster. */}
           {isArticle && (
             <>
               <div className="flex items-center gap-0.5">
@@ -372,19 +381,6 @@ export function SiteBar() {
                 </span>
                 <ArticleFind />
                 <ReaderSettings />
-                {!state.focusMode && (
-                  <button
-                    aria-label="Enter focus mode"
-                    className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={enterFocusMode}
-                    title="Focus mode"
-                    type="button"
-                  >
-                    <span className="font-medium font-mono text-[10px]">
-                      FOCUS
-                    </span>
-                  </button>
-                )}
               </div>
               <span
                 aria-hidden="true"

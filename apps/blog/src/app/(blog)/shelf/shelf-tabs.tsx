@@ -648,7 +648,7 @@ export function ShelfTabs() {
   return (
     <>
       <Tabs onValueChange={handleTabChange} value={tab}>
-        <div className="sticky top-20 z-30 -mx-3 mt-9 border-border border-b bg-background/85 px-3 backdrop-blur-md">
+        <div className="sticky top-12 z-30 -mx-3 mt-9 border-border border-b bg-background/85 px-3 backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-3 pt-3 pb-2 md:gap-4">
             <TabsList variant="line">
               <TabsTrigger className={TAB_TRIGGER_CLASS} value="history">

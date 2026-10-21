@@ -30,6 +30,7 @@ afterEach(() => {
 
 const READER_SETTINGS_LABEL = /reader settings/i;
 const CLEAR_DATA_LABEL = /clear reading data/i;
+const FOCUS_LABEL = /hide the site bar/i;
 
 // ── InitTweaksScript ────────────────────────────────────────────────────────
 
@@ -276,6 +277,22 @@ describe("reader-settings", () => {
     expect(localStorage.getItem("howardism:reading-history")).toBeNull();
     expect(localStorage.getItem("howardism:reading-saved")).toBeNull();
     expect(localStorage.getItem("howardism:reading:a")).toBeNull();
+  });
+
+  it("enters focus mode from the panel and closes it", async () => {
+    render(
+      <TweaksProvider>
+        <ReaderSettings />
+      </TweaksProvider>
+    );
+    const btn = screen.getByRole("button", { name: READER_SETTINGS_LABEL });
+    fireEvent.click(btn);
+    fireEvent.click(await screen.findByRole("button", { name: FOCUS_LABEL }));
+
+    await waitFor(() =>
+      expect(btn.getAttribute("aria-expanded")).toBe("false")
+    );
+    expect(readStorage().focusMode).toBe(true);
   });
 });
 
