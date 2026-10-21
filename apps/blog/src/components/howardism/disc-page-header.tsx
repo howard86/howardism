@@ -43,7 +43,7 @@ export function DiscPageHeader({
           )}
           style={hasAccent ? { borderTopColor: accent } : undefined}
         >
-          <div className="mb-7 flex items-baseline justify-between gap-4">
+          <div className="mb-7 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
             <span
               className={cn(
                 "inline-flex items-center font-mono text-[10.5px] uppercase tracking-[0.22em]",
@@ -53,7 +53,7 @@ export function DiscPageHeader({
             >
               {eyebrowStart}
             </span>
-            <span className="inline-flex items-center gap-2 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
+            <span className="inline-flex flex-wrap items-center gap-2 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]">
               {eyebrowEnd}
             </span>
           </div>

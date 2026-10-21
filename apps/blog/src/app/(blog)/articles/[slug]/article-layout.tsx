@@ -155,12 +155,16 @@ export function ArticleLayout({
         <>
           {locale === "zh-TW" && (
             <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.18em]">
-              機器翻譯 · machine-translated
+              <span className="whitespace-nowrap">
+                機器翻譯 · machine-translated
+              </span>
             </span>
           )}
           {locale === "zh-TW" && isStale && (
             <span className="rounded-sm border border-amber-400/50 px-1.5 py-0.5 font-mono text-[9.5px] text-amber-600 uppercase tracking-[0.18em] dark:text-amber-400">
-              過時翻譯 · stale translation
+              <span className="whitespace-nowrap">
+                過時翻譯 · stale translation
+              </span>
             </span>
           )}
           {translationHref ? (
@@ -171,21 +175,25 @@ export function ArticleLayout({
               )}
               href={translationHref}
             >
-              {locale === "zh-TW" ? "EN" : "中文"}
+              <span className="whitespace-nowrap">
+                {locale === "zh-TW" ? "EN" : "中文"}
+              </span>
             </InternalLink>
           ) : null}
-          HOWARDISM
+          <span className="whitespace-nowrap">HOWARDISM</span>
         </>
       }
       eyebrowStart={
         <>
-          {PLATE_META.domains.label}
+          <span className="whitespace-nowrap">{PLATE_META.domains.label}</span>
           {meta.domain ? (
             <>
               <span aria-hidden="true" className="mx-1.5">
                 ·
               </span>
-              <DomainLabel domain={meta.domain} />
+              <span className="whitespace-nowrap">
+                <DomainLabel domain={meta.domain} />
+              </span>
             </>
           ) : null}
         </>
