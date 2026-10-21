@@ -53,6 +53,10 @@ const withMDX = nextMDX({
     ],
     rehypePlugins: [
       ["rehype-slug", {}],
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "src/lib/rehype-collapse-sources.mjs"
+      ),
       [
         join(
           dirname(fileURLToPath(import.meta.url)),
