@@ -36,6 +36,18 @@ describe("ArticleToc visibility threshold", () => {
     expect(container.querySelector("nav")).not.toBeNull();
     expect(container.querySelectorAll("li")).toHaveLength(2);
   });
+
+  it("can hide the duplicate label when hosted in the sheet", () => {
+    const { container } = render(
+      <ArticleToc
+        headings={[heading("intro", "Intro"), heading("details", "Details")]}
+        hideLabel
+      />
+    );
+    expect(container.querySelector("nav")?.textContent).not.toContain(
+      "On this page"
+    );
+  });
 });
 
 describe("ArticleToc aria-current", () => {

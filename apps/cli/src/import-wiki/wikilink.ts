@@ -3,10 +3,11 @@ import { titleFromSlug } from "@howardism/article-contract/markup";
 /** Single source of truth for the [[wikilink]] grammar.
  *  Group 1 = target (incl. any wiki/ or raw/ prefix and #anchor).
  *  Group 2 = optional label, after `|` or Obsidian's table-escaped `\|`.
- *  Newlines are excluded from both so an unclosed `[[` — the vault's generated
- *  digests truncate mid-link — simply fails to match instead of swallowing
- *  every following line up to the next `]]` anywhere in the file. */
-const WIKILINK_RE = /\[\[([^\]|\\\n]+)(?:\\?\|([^\]\n]+))?\]\]/g;
+ *  Targets stay line-scoped; labels may soft-wrap, but cannot cross a blank
+ *  line or another link opener. Truncated digest links must not swallow the
+ *  next valid link. */
+const WIKILINK_RE =
+  /\[\[([^[\]|\\\n]+)(?:\\?\|((?:[^[\]\n]|\n(?![ \t]*\n))+))?\]\]/g;
 
 /** Fenced blocks (``` / ~~~) and inline code spans, in one alternation.
  *  Inline spans are line-scoped: an unclosed backtick must not swallow the
@@ -19,8 +20,20 @@ const FENCE_LINE_RE = /^[ \t]*(?:```|~~~)/;
  *  alternative — and the line-by-line callers track fences themselves. */
 const INLINE_CODE_SPAN_RE = /(`+)(?:(?!\1)[^\n])+?\1/g;
 
+// The earliest opener wins: a whole code region protects quoted grammar,
+// while a whole wikilink keeps code spans in its label inside the prose scan.
+const CODE_OR_WIKILINK_RE = new RegExp(
+  `${CODE_REGION_RE.source}|${WIKILINK_RE.source}`,
+  "gm"
+);
+const INLINE_CODE_OR_WIKILINK_RE = new RegExp(
+  `${INLINE_CODE_SPAN_RE.source}|${WIKILINK_RE.source}`,
+  "g"
+);
+
 const HUMANIZE_RE = /[._-]+/g;
 const WHITESPACE_RE = /\s+/g;
+const LINE_BREAK_RE = /\n/g;
 
 /**
  * Split `input` at code-region boundaries and yield only the prose between
@@ -30,10 +43,13 @@ const WHITESPACE_RE = /\s+/g;
  */
 function* proseSegments(
   input: string,
-  regionRe: RegExp = CODE_REGION_RE
+  regionRe: RegExp = CODE_OR_WIKILINK_RE
 ): Generator<string> {
   let last = 0;
   for (const match of input.matchAll(regionRe)) {
+    if (match[0].startsWith("[[")) {
+      continue;
+    }
     yield input.slice(last, match.index);
     last = match.index + match[0].length;
   }
@@ -44,11 +60,14 @@ function* proseSegments(
 function replaceOutsideCode(
   input: string,
   replace: (segment: string) => string,
-  regionRe: RegExp = CODE_REGION_RE
+  regionRe: RegExp = CODE_OR_WIKILINK_RE
 ): string {
   let out = "";
   let last = 0;
   for (const match of input.matchAll(regionRe)) {
+    if (match[0].startsWith("[[")) {
+      continue;
+    }
     out += replace(input.slice(last, match.index)) + match[0];
     last = match.index + match[0].length;
   }
@@ -172,7 +191,12 @@ export interface LinkOccurrence {
 export function extractLinkOccurrences(input: string): LinkOccurrence[] {
   const byTarget = new Map<string, LinkOccurrence>();
   let inFence = false;
-  for (const line of input.split("\n")) {
+  // Keep a soft-wrapped link on one logical line for both its graph edge and
+  // backlink context. Quoted grammar and fenced examples remain untouched.
+  const joined = replaceOutsideCode(input, (segment) =>
+    segment.replace(WIKILINK_RE, (link) => link.replace(LINE_BREAK_RE, " "))
+  );
+  for (const line of joined.split("\n")) {
     if (FENCE_LINE_RE.test(line)) {
       inFence = !inFence;
       continue;
@@ -183,7 +207,7 @@ export function extractLinkOccurrences(input: string): LinkOccurrence[] {
       continue;
     }
     const slugs = internalSlugsIn(
-      proseSegments(line, INLINE_CODE_SPAN_RE),
+      proseSegments(line, INLINE_CODE_OR_WIKILINK_RE),
       null
     );
     if (slugs.length === 0) {
@@ -209,7 +233,11 @@ export function extractLinkOccurrences(input: string): LinkOccurrence[] {
 }
 
 function lineContext(line: string): string | null {
-  const text = replaceOutsideCode(line, toDisplayText, INLINE_CODE_SPAN_RE)
+  const text = replaceOutsideCode(
+    line,
+    toDisplayText,
+    INLINE_CODE_OR_WIKILINK_RE
+  )
     .replace(HEADING_MARKER_RE, "")
     .replace(LIST_MARKER_RE, "")
     .replace(MD_LINK_RE, "$1")

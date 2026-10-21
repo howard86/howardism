@@ -1,5 +1,9 @@
 import type { MDXComponents } from "mdx/types";
-import type { AnchorHTMLAttributes, ReactNode } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ReactNode,
+  TableHTMLAttributes,
+} from "react";
 
 import { getArticles } from "@/app/(blog)/articles/service";
 import type { ArticlePreview } from "@/components/internal-link";
@@ -18,6 +22,16 @@ interface MdxLinkLikeProps
 }
 
 const EXTERNAL_HREF_RE = /^https?:\/\//i;
+
+function MdxTable(props: TableHTMLAttributes<HTMLTableElement>) {
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: The named region is a focusable table scroll container.
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard users need to focus and scroll this region.
+    <div aria-label="Table" className="table-scroll" role="region" tabIndex={0}>
+      <table {...props} />
+    </div>
+  );
+}
 
 async function ArticleLinkResolver({
   href,
@@ -83,5 +97,6 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
     a: ArticleLinkResolver,
+    table: MdxTable,
   };
 }

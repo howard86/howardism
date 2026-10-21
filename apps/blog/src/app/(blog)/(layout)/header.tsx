@@ -12,7 +12,7 @@ import { cn } from "@howardism/ui/lib/utils";
 import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
 
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
 import { Container } from "@/app/(common)/container";
@@ -25,10 +25,11 @@ import { TocSheet } from "@/components/toc-sheet";
 import { ReaderSettings } from "@/components/tweaks/reader-settings";
 import { useTweaks } from "@/components/tweaks/tweaks-provider";
 import {
-  findActiveHeadingIndex,
-  subscribeToArticleScroll,
-} from "@/hooks/use-article-scroll";
+  formatMinutesLeft,
+  useArticleReadingState,
+} from "@/hooks/use-article-reading-state";
 import useHasScrolled from "@/hooks/use-has-scrolled";
+import { useScrollDirection } from "@/hooks/use-scroll-direction";
 
 import { Avatar } from "./avatar";
 import {
@@ -223,36 +224,7 @@ function FocusPlate({
   headings: ArticleHeading[];
   onExit: () => void;
 }) {
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-
-  const h2Headings = useMemo(
-    () => headings.filter((h) => h.depth === 2),
-    [headings]
-  );
-  const h2Ids = useMemo(() => h2Headings.map((h) => h.id), [h2Headings]);
-  const textById = useMemo(
-    () => new Map(h2Headings.map((h) => [h.id, h.text])),
-    [h2Headings]
-  );
-
-  useEffect(
-    () =>
-      subscribeToArticleScroll(h2Ids, (frame) => {
-        if (!frame) {
-          setProgress(0);
-          setActiveSection(null);
-          return;
-        }
-        setProgress(frame.progress);
-        // Cached, ascending offsets — a binary search instead of a rect sweep.
-        const index = findActiveHeadingIndex(frame);
-        setActiveSection(
-          index < 0 ? null : (textById.get(frame.headings[index].id) ?? null)
-        );
-      }),
-    [h2Ids, textById]
-  );
+  const { activeSection, progress } = useArticleReadingState(headings);
 
   const progressPercent = Math.round(progress * 100);
 
@@ -291,6 +263,35 @@ function FocusPlate({
   );
 }
 
+function RunningHead({
+  headings,
+  readingTime,
+}: {
+  headings: ArticleHeading[];
+  readingTime?: number;
+}) {
+  const { activeSection, progress } = useArticleReadingState(headings);
+  const timeLeft = formatMinutesLeft(readingTime, progress);
+  return (
+    <div
+      aria-hidden="true"
+      className="flex rail:hidden h-7 items-center justify-center gap-2 border-border border-b bg-background/95 px-4 font-mono text-[11px] text-foreground-subtle backdrop-blur-sm"
+    >
+      {activeSection ? (
+        <span className="max-w-[min(65vw,24rem)] truncate">
+          {activeSection}
+        </span>
+      ) : null}
+      {timeLeft ? (
+        <>
+          <span>·</span>
+          <span className="shrink-0 tabular-nums">{timeLeft}</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Persistent, context-aware top bar. Owns route nav + theme on every page, and
  * on article pages gains reader controls (TOC, reader settings, focus mode)
@@ -305,6 +306,9 @@ export function SiteBar() {
   // focusMode is persisted, so scope it to article pages: elsewhere there is no
   // running head to carry EXIT, and collapsed chrome would be a dead end.
   const isFocusMode = isArticle && state.focusMode;
+  const scrollDirection = useScrollDirection(isArticle, isFocusMode);
+  const isHiddenOnScroll =
+    isArticle && !isFocusMode && scrollDirection === "down";
   const enterFocusMode = useCallback(() => setFocusMode(true), [setFocusMode]);
   const exitFocusMode = useCallback(() => setFocusMode(false), [setFocusMode]);
 
@@ -319,7 +323,8 @@ export function SiteBar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-colors duration-200 motion-reduce:transition-none",
+        "sticky top-0 z-50 transition-[top,color,background-color,border-color] duration-200 motion-reduce:transition-none",
+        isHiddenOnScroll && "max-rail:top-[-52px] max-rail:duration-[120ms]",
         isScrolled && "border-border border-b bg-background/20 backdrop-blur-sm"
       )}
     >
@@ -327,13 +332,20 @@ export function SiteBar() {
         <div
           className={cn(
             "flex items-center gap-2 transition-all motion-reduce:transition-none sm:gap-3",
-            chromeClass
+            chromeClass,
+            isHiddenOnScroll &&
+              "max-rail:pointer-events-none max-rail:opacity-0 max-rail:duration-[120ms]"
           )}
         >
           {/* Wordmark + avatar pill */}
           <div className="flex flex-1 items-center gap-3">
             <Avatar size={isScrolled ? 30 : 36} />
-            <div className="flex flex-col gap-px">
+            <div
+              className={cn(
+                "flex flex-col gap-px",
+                isArticle && "hidden sm:flex"
+              )}
+            >
               <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
                 Howardism
               </span>
@@ -382,10 +394,19 @@ export function SiteBar() {
           )}
 
           <SearchTrigger />
-          <ThemeToggle />
+          <span className={cn(isArticle && "hidden sm:inline-flex")}>
+            <ThemeToggle />
+          </span>
           <MobileNav />
         </div>
       </Container>
+
+      {isArticle && !isFocusMode && isScrolled && (
+        <RunningHead
+          headings={articleNav.headings}
+          readingTime={articleNav.readingTime}
+        />
+      )}
 
       {isArticle && <ReadingProgress headings={articleNav.headings} />}
 
