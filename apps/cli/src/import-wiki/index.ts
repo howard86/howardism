@@ -346,11 +346,14 @@ async function processArticle(
     : "";
   const frontmatterSummary = frontmatter.summary?.trim();
   const catalogSummary = ctx.catalog.get(slug)?.summary;
-  const rawDescription =
+  // The description is plain text (meta tags, cards, RSS), so a summary's
+  // wikilinks must be flattened too — not just the body-derived fallbacks.
+  const rawDescription = stripWikilinksToText(
     frontmatterSummary ||
-    catalogSummary ||
-    indexDescription ||
-    stripWikilinksToText(firstParagraph(parsed.body));
+      catalogSummary ||
+      indexDescription ||
+      firstParagraph(parsed.body)
+  );
   if (!(frontmatterSummary || catalogSummary || indexDescription)) {
     summary.fallbackDescriptions.push(slug);
   }
