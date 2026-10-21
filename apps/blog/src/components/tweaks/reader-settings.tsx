@@ -23,8 +23,9 @@ const PILL_TOGGLE =
   "rounded-full data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-paper";
 
 /**
- * The "Aa" reader-settings control in the site bar (article pages): text size
- * and the tap-to-scroll switch. Opens via its trigger or the `t` shortcut.
+ * The "Aa" reader-settings control in the site bar (article pages): text size,
+ * focus mode and the tap-to-scroll switch. Opens via its trigger or the `t`
+ * shortcut.
  */
 /**
  * One text-size pill. A component rather than an inline `onPressedChange` so
@@ -58,9 +59,20 @@ function TextSizeToggle({
 }
 
 export function ReaderSettings() {
-  const { state, setTapToScroll, setTextSize } = useTweaks();
+  const { state, setFocusMode, setTapToScroll, setTextSize } = useTweaks();
   const [open, setOpen] = useState(false);
   const [cleared, setCleared] = useState(false);
+
+  // Focus mode collapses the bar this popover is anchored to, so close it too.
+  const handleFocusMode = useCallback(
+    (pressed: boolean) => {
+      setFocusMode(pressed);
+      if (pressed) {
+        setOpen(false);
+      }
+    },
+    [setFocusMode]
+  );
 
   const handleClear = useCallback(() => {
     clearReadingData();
@@ -123,6 +135,23 @@ export function ReaderSettings() {
                 />
               ))}
             </fieldset>
+          </section>
+
+          <section aria-label="Focus mode">
+            <div className="mb-2.5 font-mono text-[0.6875rem] text-foreground-subtle uppercase tracking-[0.16em]">
+              Focus mode
+            </div>
+            <Toggle
+              className={`${PILL_TOGGLE} w-full justify-between gap-2 px-3`}
+              onPressedChange={handleFocusMode}
+              pressed={state.focusMode}
+              size="sm"
+            >
+              <span className="font-body text-[13px]">Hide the site bar</span>
+              <span className="font-mono text-[0.6875rem] text-foreground-subtle">
+                {state.focusMode ? "ON" : "OFF"}
+              </span>
+            </Toggle>
           </section>
 
           <section aria-label="Tap to scroll">

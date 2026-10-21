@@ -346,7 +346,7 @@ export function QuestionsWorklist({
 
   return (
     <>
-      <div className="sticky top-20 z-30 -mx-3 mt-8 border-border border-b bg-background/85 px-3 backdrop-blur-md">
+      <div className="sticky top-12 z-30 -mx-3 mt-8 border-border border-b bg-background/85 px-3 backdrop-blur-md">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-3 pb-2.5">
           <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-border px-3 py-1.5 focus-within:border-ring">
             <span aria-hidden="true" className={META_CLASS}>
