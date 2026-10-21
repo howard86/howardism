@@ -113,7 +113,7 @@ export function ReadingProgress({ headings }: ReadingProgressProps) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] overflow-hidden"
     >
       <div
         className="h-full origin-left bg-[var(--article-accent,var(--brand))] transition-[width] duration-150 ease-out"

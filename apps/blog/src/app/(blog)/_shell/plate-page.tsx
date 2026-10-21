@@ -107,7 +107,10 @@ export function PlatePage({
   if (bleed) {
     return (
       <div
-        className={cn("hw-page-enter mx-auto w-full min-w-0", widthClass)}
+        className={cn(
+          "hw-page-enter mx-auto w-full min-w-0 overflow-x-clip",
+          widthClass
+        )}
         style={style}
       >
         {headerNode ? <div className="px-gutter">{headerNode}</div> : null}
@@ -119,7 +122,7 @@ export function PlatePage({
   return (
     <div
       className={cn(
-        "hw-page-enter mx-auto w-full min-w-0 px-gutter pb-20",
+        "hw-page-enter mx-auto w-full min-w-0 overflow-x-clip px-gutter pb-20",
         widthClass
       )}
       style={style}
