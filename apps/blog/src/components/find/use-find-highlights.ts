@@ -20,6 +20,7 @@ const STYLE_ELEMENT_ID = "article-find-highlight-styles";
 const HIGHLIGHT_CSS = `::highlight(${HIGHLIGHT_ALL}){background-color:oklch(from var(--brand) l c h / 0.22);}
 ::highlight(${HIGHLIGHT_ACTIVE}){background-color:var(--brand);color:var(--primary-foreground);}
 .dark ::highlight(${HIGHLIGHT_ALL}){background-color:oklch(from var(--brand) l c h / 0.34);}`;
+let highlightOwner: object | null = null;
 
 function ensureHighlightStyles(): void {
   if (
@@ -112,6 +113,7 @@ export function useFindHighlights(
   slug: string | null
 ): FindHighlights {
   const rangesRef = useRef<Range[]>([]);
+  const ownerRef = useRef<object>({});
   const currentRef = useRef(-1);
   /** The body index, tagged with the article it was built from. */
   const indexRef = useRef<{ entries: TextNodeEntry[]; slug: string } | null>(
@@ -171,7 +173,10 @@ export function useFindHighlights(
         : null;
 
     if (!entries) {
-      clearHighlights();
+      if (highlightOwner === ownerRef.current) {
+        clearHighlights();
+        highlightOwner = null;
+      }
       rangesRef.current = [];
       currentRef.current = -1;
       scrolledForRef.current = null;
@@ -180,11 +185,15 @@ export function useFindHighlights(
     }
 
     ensureHighlightStyles();
+    highlightOwner = ownerRef.current;
     const ranges = collectRanges(entries, trimmed);
     rangesRef.current = ranges;
 
     if (ranges.length === 0) {
-      clearHighlights();
+      if (highlightOwner === ownerRef.current) {
+        clearHighlights();
+        highlightOwner = null;
+      }
       currentRef.current = -1;
       setState({ count: 0, current: -1 });
       return;
@@ -207,7 +216,15 @@ export function useFindHighlights(
   }, [deferredQuery, active, slug]);
 
   // Tear highlights down on unmount.
-  useEffect(() => clearHighlights, []);
+  useEffect(
+    () => () => {
+      if (highlightOwner === ownerRef.current) {
+        clearHighlights();
+        highlightOwner = null;
+      }
+    },
+    []
+  );
 
   const goNext = useCallback(
     () => setActive(currentRef.current + 1),

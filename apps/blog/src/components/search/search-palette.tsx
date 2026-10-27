@@ -19,7 +19,10 @@ import {
 } from "react";
 
 import { DOMAIN_META, resolveDomain } from "@/app/(blog)/articles/domain-meta";
+import { useArticleNav } from "@/components/article-nav-context";
 
+import { ArticleFindBar } from "../find/article-find";
+import { useFindHighlights } from "../find/use-find-highlights";
 import { ResultRow } from "./result-row";
 import { buildFacets, type Scope, ScopeBar } from "./scope-bar";
 import { loadSearchIndex, type SearchEntry } from "./search-data";
@@ -94,10 +97,18 @@ function ResultItem({
 
 export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   const router = useRouter();
+  const nav = useArticleNav();
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope | null>(null);
   const [entries, setEntries] = useState<SearchEntry[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [articleScope, setArticleScope] = useState(false);
+  const [findBarOpen, setFindBarOpen] = useState(false);
+  const find = useFindHighlights(
+    query,
+    open && articleScope && !findBarOpen,
+    nav?.slug ?? null
+  );
 
   // Lazy-load the index the first time the palette opens.
   useEffect(() => {
@@ -172,11 +183,12 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
   }, [shown]);
 
   const handleOpenChange = useCallback(
-    (next: boolean) => {
+    (next: boolean, preserveFind = false) => {
       onOpenChange(next);
-      if (!next) {
+      if (!(next || preserveFind)) {
         setQuery("");
         setScope(null);
+        setArticleScope(false);
       }
     },
     [onOpenChange]
@@ -198,52 +210,104 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
     failed,
     scope !== null
   );
+  const openFindBar = useCallback(() => {
+    setFindBarOpen(true);
+    handleOpenChange(false, true);
+  }, [handleOpenChange]);
+  const closeFindBar = useCallback(() => {
+    setFindBarOpen(false);
+    setQuery("");
+    setArticleScope(false);
+  }, []);
+  const selectArticleScope = useCallback(() => {
+    setArticleScope((active) => !active);
+    setScope(null);
+  }, []);
+  const handlePaletteKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (articleScope && event.key === "Enter") {
+        event.preventDefault();
+        openFindBar();
+      }
+    },
+    [articleScope, openFindBar]
+  );
+  const findCountLabel = `${find.count} ${find.count === 1 ? "match" : "matches"}`;
+  const showFindCount = articleScope && query.trim().length > 0;
 
   return (
-    <CommandDialog
-      onOpenChange={handleOpenChange}
-      open={open}
-      shouldFilter={false}
-    >
-      <CommandInput
-        onValueChange={setQuery}
-        placeholder="Search articles…"
-        value={query}
-      />
-      <ScopeBar
-        facets={facets.length > 0 || !entries ? facets : fallbackFacets}
-        onSelect={setScope}
-        scope={scope}
-      />
-      <CommandList>
-        <CommandEmpty>{emptyMessage}</CommandEmpty>
-        {groups.map(([label, groupEntries]) => (
-          // One group needs no heading — it would just restate the active chip,
-          // or label a list with nothing to be distinguished from. Whichever of
-          // the heading and the per-row domain is redundant is the one dropped,
-          // so the domain is stated exactly once per result either way.
-          <CommandGroup
-            heading={groups.length > 1 ? label : undefined}
-            key={label}
-          >
-            {groupEntries.map((entry) => (
-              <ResultItem
-                entry={entry}
-                key={entry.slug}
-                lowerQuery={lowerQuery}
-                onSelect={handleSelect}
-                showDomain={groups.length === 1 && scope?.field !== "domain"}
-              />
-            ))}
-          </CommandGroup>
-        ))}
-      </CommandList>
-      {matches.length > shown.length && (
-        <div className="border-border border-t px-3 py-2 font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.12em]">
-          Showing {shown.length} of {matches.length}
-          {matches.length === RANK_LIMIT ? "+" : ""} — narrow with a filter
-        </div>
-      )}
-    </CommandDialog>
+    <>
+      {findBarOpen && nav ? (
+        <ArticleFindBar onClose={closeFindBar} query={query} />
+      ) : null}
+      <CommandDialog
+        onOpenChange={handleOpenChange}
+        open={open}
+        shouldFilter={false}
+      >
+        <CommandInput
+          onKeyDown={handlePaletteKeyDown}
+          onValueChange={setQuery}
+          placeholder={
+            nav ? "Search, or find in this article" : "Search articles…"
+          }
+          value={query}
+        />
+        <ScopeBar
+          articleActive={articleScope}
+          articleCount={find.count}
+          facets={facets.length > 0 || !entries ? facets : fallbackFacets}
+          hasArticle={nav !== null}
+          onArticleSelect={selectArticleScope}
+          onSelect={setScope}
+          scope={scope}
+        />
+        <CommandList>
+          {articleScope ? null : <CommandEmpty>{emptyMessage}</CommandEmpty>}
+          {showFindCount ? (
+            <div aria-live="polite" className="px-3 py-2 font-mono text-xs">
+              {find.count > 0 ? findCountLabel : "No matches in this article"}
+            </div>
+          ) : null}
+          {showFindCount && find.count > 0 ? (
+            <CommandGroup>
+              <CommandItem onSelect={openFindBar} value="go-to-first-match">
+                Go to first match
+              </CommandItem>
+            </CommandGroup>
+          ) : null}
+          {articleScope
+            ? null
+            : groups.map(([label, groupEntries]) => (
+                // One group needs no heading — it would just restate the active chip,
+                // or label a list with nothing to be distinguished from. Whichever of
+                // the heading and the per-row domain is redundant is the one dropped,
+                // so the domain is stated exactly once per result either way.
+                <CommandGroup
+                  heading={groups.length > 1 ? label : undefined}
+                  key={label}
+                >
+                  {groupEntries.map((entry) => (
+                    <ResultItem
+                      entry={entry}
+                      key={entry.slug}
+                      lowerQuery={lowerQuery}
+                      onSelect={handleSelect}
+                      showDomain={
+                        groups.length === 1 && scope?.field !== "domain"
+                      }
+                    />
+                  ))}
+                </CommandGroup>
+              ))}
+        </CommandList>
+        {!articleScope && matches.length > shown.length && (
+          <div className="border-border border-t px-3 py-2 font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.12em]">
+            Showing {shown.length} of {matches.length}
+            {matches.length === RANK_LIMIT ? "+" : ""} — narrow with a filter
+          </div>
+        )}
+      </CommandDialog>
+    </>
   );
 }
