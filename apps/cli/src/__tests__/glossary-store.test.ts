@@ -7,11 +7,26 @@ import { join } from "node:path";
 import { BASE_TECH_TERMS, harvestSeedEntries } from "../glossary/seed.ts";
 import {
   addTerm,
+  checkTerms,
+  countTerms,
   ensureSeeded,
   listTerms,
   openDb,
   searchTerms,
 } from "../glossary/store.ts";
+
+describe("glossary counts and checks", () => {
+  it("counts registered rows and checks terms case-insensitively", () => {
+    const db = openDb(":memory:");
+    addTerm(db, "Anthropic", "org");
+    expect(countTerms(db)).toBe(1);
+    expect(checkTerms(db, ["anthropic", "Missing"])).toEqual([
+      { term: "anthropic", registered: true },
+      { term: "Missing", registered: false },
+    ]);
+    db.close();
+  });
+});
 
 interface Fixture {
   articlesDir: string;

@@ -6,6 +6,8 @@ import type { SeedSources } from "./seed.ts";
 import {
   addTerm,
   addTerms,
+  checkTerms,
+  countTerms,
   DEFAULT_ARTICLES_DIR,
   DEFAULT_GLOSSARY_DB_PATH,
   DEFAULT_WIKI_SOURCES_PATH,
@@ -41,6 +43,7 @@ const printUsage = (): void => {
     [
       "Usage:",
       "  bun src/glossary/cli.ts list",
+      "  bun src/glossary/cli.ts check <term...>",
       '  bun src/glossary/cli.ts add "<term>" <category>',
       "  bun src/glossary/cli.ts add-many '<json>'",
       "  bun src/glossary/cli.ts harvest [--add] [slug ...]",
@@ -116,6 +119,16 @@ async function runHarvestCommand(
   return 0;
 }
 
+function runCheckCommand(db: Database, terms: string[]): number {
+  if (terms.length === 0) {
+    console.error("check requires one or more terms");
+    printUsage();
+    return 1;
+  }
+  console.log(JSON.stringify(checkTerms(db, terms)));
+  return 0;
+}
+
 async function runCli(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (!command || command === "--help" || command === "-h") {
@@ -129,8 +142,12 @@ async function runCli(argv: string[]): Promise<number> {
     await ensureSeeded(db, opts.sources);
 
     if (command === "list") {
-      console.log(JSON.stringify(listTerms(db), null, 2));
+      console.log(JSON.stringify(listTerms(db)));
       return 0;
+    }
+
+    if (command === "check") {
+      return runCheckCommand(db, rest);
     }
 
     if (command === "add") {
@@ -165,7 +182,7 @@ async function runCli(argv: string[]): Promise<number> {
         console.error((err as Error).message);
         return 1;
       }
-      const total = listTerms(db).length;
+      const total = countTerms(db);
       // One-line JSON summary — the engine consumes this on stdout to confirm
       // the batch landed; mirrors the existing `add` line's compact-and-final
       // output style.

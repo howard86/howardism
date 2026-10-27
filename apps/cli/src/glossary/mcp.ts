@@ -21,12 +21,12 @@ import {
 /**
  * MCP tool handlers. Kept as plain (db, args) → CallToolResult functions so
  * they're unit-testable without driving a transport. Each returns a single
- * text block of pretty JSON — the shape MCP clients render to the model. The
+ * text block of compact JSON — the shape MCP clients render to the model. The
  * return type is left inferred so it stays assignable to the SDK's result type
  * (which carries an index signature a named interface could not satisfy).
  */
 const jsonResult = (data: unknown) => ({
-  content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+  content: [{ type: "text" as const, text: JSON.stringify(data) }],
 });
 
 export const glossaryListHandler = (
@@ -72,8 +72,10 @@ export const glossaryAddHandler = (db: Database, args: GlossaryAddArgs) => {
   );
 };
 
-export const glossarySearchHandler = (db: Database, args: { query: string }) =>
-  jsonResult(searchTerms(db, args.query));
+export const glossarySearchHandler = (
+  db: Database,
+  args: { limit?: number; query: string }
+) => jsonResult(searchTerms(db, args.query, args.limit));
 
 /** Register the three glossary tools on an MCP server bound to `db`. */
 export function registerGlossaryTools(server: McpServer, db: Database): void {
@@ -123,6 +125,7 @@ export function registerGlossaryTools(server: McpServer, db: Database): void {
         "Case-insensitive substring lookup over glossary terms; useful to check whether a term is already registered before translating it.",
       inputSchema: {
         query: z.string().min(1),
+        limit: z.number().int().min(1).max(500).optional().default(50),
       },
     },
     (args) => glossarySearchHandler(db, args)

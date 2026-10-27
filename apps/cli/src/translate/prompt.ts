@@ -67,7 +67,7 @@ export function buildTranslatePrompt(args: BuildTranslatePromptArgs): string {
     "GUARDRAILS",
     "- Output ONLY the translated MDX file at the destination path. Do not print the file contents to stdout. Do not write logs or extra files.",
     "- The first byte of the output file must be the `-` of the opening `---`. No leading whitespace, no Markdown fences, no commentary.",
-    `- Re-run \`${glossaryCmd} list\` if you are unsure whether a term is in the glossary; rely on the glossary, not on memory.`,
+    `- If you are unsure whether a term is in the glossary, run \`${glossaryCmd} check "<term>" ...\` (prints which of the given terms are registered) rather than re-listing the whole glossary; rely on the glossary, not on memory.`,
   ].join("\n");
 }
 
