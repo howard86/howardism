@@ -3,6 +3,7 @@
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { redirects } from "../../../blog/src/config/redirects";
+import { runWithConcurrency } from "../concurrency.ts";
 import { BLOG_ROOT } from "../content/paths";
 import { expandRedirects } from "./redirects";
 
@@ -20,6 +21,7 @@ const REQUIRED_FILES = [
 ];
 const ARTICLE_PAGE = /^articles\/[^/]+\/index\.html$/;
 const SAMPLE_CAP = 20;
+const IO_CONCURRENCY = 8;
 // Expected not-found renders; any other path that renders one is warned about.
 const EXPECTED_NOT_FOUND = new Set([
   "404.html",
@@ -33,11 +35,42 @@ const CSP_META = /http-equiv="Content-Security-Policy"/i;
 const SITEMAP_LINE = /^\s*Sitemap:/im;
 const EXTENSION = /\.[a-z0-9]+$/i;
 const EDGE_SLASHES = /^\/|\/$/g;
+const VERIFY_REFRESH = /http-equiv="refresh"/i;
+const VERIFY_SITEMAP = /^\s*Sitemap:/im;
+const VERIFY_CSP_META = /http-equiv="Content-Security-Policy"/i;
+const VERIFY_ARTICLE_BODY = "data-article-body";
 
 const capped = (paths: readonly string[]) =>
   paths.length > SAMPLE_CAP
     ? `${paths.slice(0, SAMPLE_CAP).join(", ")} (+${paths.length - SAMPLE_CAP} more)`
     : paths.join(", ");
+
+function pageCheckFlags(
+  path: string,
+  text: string,
+  includeArticleBody: boolean
+): { articleBody: boolean; flags: string } {
+  const refresh = VERIFY_REFRESH.test(text);
+  const hasNoindex = NOINDEX_META.test(text);
+  const bareNoindex = hasNoindex && ROBOTS_NOINDEX_ONLY.test(text);
+  let robots = "";
+  if (bareNoindex) {
+    robots = '<meta name="robots" content="noindex">';
+  } else if (hasNoindex) {
+    robots = '<meta name="robots" content="noindex, nofollow">';
+  }
+  const csp = VERIFY_CSP_META.test(text)
+    ? 'http-equiv="Content-Security-Policy"'
+    : "";
+  const articleBody =
+    includeArticleBody &&
+    ARTICLE_PAGE.test(path) &&
+    text.includes(VERIFY_ARTICLE_BODY);
+  return {
+    articleBody,
+    flags: `${refresh ? 'http-equiv="refresh"' : ""}${robots}${csp}${articleBody ? VERIFY_ARTICLE_BODY : ""}`,
+  };
+}
 
 /**
  * Pure checks over the export. `paths` lists every file (relative, posix);
@@ -147,14 +180,26 @@ async function main() {
   const paths = entries
     .map((entry) => relative(outDir, join(outDir, entry)).replaceAll("\\", "/"))
     .filter((path) => EXTENSION.test(path));
-  const contents = new Map<string, string>();
-  await Promise.all(
-    paths
-      .filter((path) => path.endsWith(".html") || path === "robots.txt")
-      .map(async (path) => {
-        contents.set(path, await Bun.file(join(outDir, path)).text());
-      })
+  const contentPaths = paths.filter(
+    (path) => path.endsWith(".html") || path === "robots.txt"
   );
+  const contents = new Map<string, string>();
+  let hasArticleBody = false;
+  await runWithConcurrency(contentPaths, IO_CONCURRENCY, async (path) => {
+    const text = await Bun.file(join(outDir, path)).text();
+    if (path === "robots.txt") {
+      contents.set(
+        path,
+        `${text.includes("Allow: /") ? "Allow: /" : ""}${VERIFY_SITEMAP.test(text) ? "\nSitemap:" : ""}`
+      );
+      return;
+    }
+    const summary = pageCheckFlags(path, text, !hasArticleBody);
+    if (summary.articleBody) {
+      hasArticleBody = true;
+    }
+    contents.set(path, summary.flags);
+  });
 
   const warnings: string[] = [];
   const failures = checkExport(

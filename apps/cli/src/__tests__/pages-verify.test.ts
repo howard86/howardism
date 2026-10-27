@@ -39,6 +39,12 @@ describe("checkExport", () => {
     expect(checkExport(paths, contents, ["/old"])).toEqual([]);
   });
 
+  it("retains identical outcomes when page contents contain only check flags", () => {
+    const { paths, contents } = good();
+    contents.set("articles/a/index.html", `${PAGE}data-article-body`);
+    expect(checkExport(paths, contents, ["/old"])).toEqual([]);
+  });
+
   it("reports missing files, sitemap line and mdx", () => {
     const { paths, contents } = good();
     contents.set("robots.txt", "Allow: /\nSitemap: https://x/sitemap.xml\n");
