@@ -230,7 +230,7 @@ function FocusPlate({
 }) {
   const { activeSection, progress } = useArticleReadingState(headings);
 
-  const progressPercent = Math.round(progress * 100);
+  const progressPercent = progress;
 
   return (
     <div className="fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card shadow-lg">
@@ -275,7 +275,7 @@ function RunningHead({
   readingTime?: number;
 }) {
   const { activeSection, progress } = useArticleReadingState(headings);
-  const timeLeft = formatMinutesLeft(readingTime, progress);
+  const timeLeft = formatMinutesLeft(readingTime, progress / 100);
   return (
     <div
       aria-hidden="true"

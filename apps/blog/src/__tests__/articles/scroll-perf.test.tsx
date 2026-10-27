@@ -194,6 +194,14 @@ async function scrollBurst(): Promise<void> {
   }
 }
 
+async function settleMeasure(): Promise<void> {
+  await act(async () => {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve())
+    );
+  });
+}
+
 /**
  * Mirrors the per-tick work `FocusPlate` does in `header.tsx`, without pulling
  * the whole header (and its next/navigation surface) into the measurement.
@@ -256,6 +264,52 @@ afterEach(() => {
 });
 
 describe("article scroll chrome cost per tick", () => {
+  it("coalesces concurrent subscriptions and skips geometry reads on height-only resize", async () => {
+    window.innerHeight = VIEWPORT_HEIGHT;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 390,
+    });
+    articleInDom();
+    instrumentDocument();
+
+    const unsubscribeProgress = subscribeToArticleScroll(
+      headings.map(({ id }) => id),
+      () => undefined
+    );
+    const unsubscribeFocus = subscribeToArticleScroll(
+      headings.map(({ id }) => id),
+      () => undefined
+    );
+    await settleMeasure();
+
+    expect(counters.querySelector).toBe(1);
+    expect(counters.rect).toBe(HEADING_COUNT + 1);
+
+    resetCounters();
+    window.innerHeight = VIEWPORT_HEIGHT + 40;
+    act(() => fireEvent(window, new Event("resize")));
+    expect(layoutReads()).toBe(0);
+
+    resetCounters();
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 390,
+    });
+    act(() => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 430,
+      });
+      fireEvent(window, new Event("resize"));
+    });
+    await settleMeasure();
+    expect(counters.querySelector).toBe(1);
+
+    unsubscribeProgress();
+    unsubscribeFocus();
+  });
+
   it("keeps the progress bar off the layout path while scrolling", async () => {
     window.innerHeight = VIEWPORT_HEIGHT;
     articleInDom();
@@ -272,6 +326,8 @@ describe("article scroll chrome cost per tick", () => {
         <ReadingProgress headings={headings} />
       </Profiler>
     );
+
+    await settleMeasure();
 
     resetCounters();
     commits = 0;
@@ -301,6 +357,8 @@ describe("article scroll chrome cost per tick", () => {
       </Profiler>
     );
 
+    await settleMeasure();
+
     resetCounters();
     commits = 0;
     await scrollBurst();
@@ -327,6 +385,8 @@ describe("article scroll chrome cost per tick", () => {
         <ResumeReading headings={headings} slug="perf-slug" />
       </Profiler>
     );
+
+    await settleMeasure();
 
     resetCounters();
     renders = 0;

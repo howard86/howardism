@@ -65,7 +65,12 @@ export function useScrollDirection(
       if (!frame) {
         return;
       }
-      if (hasOpenBarOverlay()) {
+      const next = advanceScrollDirection(state, frame.scrollY);
+      if (
+        next.direction === "down" &&
+        state.direction !== "down" &&
+        hasOpenBarOverlay()
+      ) {
         state = {
           ...state,
           direction: null,
@@ -75,7 +80,7 @@ export function useScrollDirection(
         setDirection(null);
         return;
       }
-      state = advanceScrollDirection(state, frame.scrollY);
+      state = next;
       setDirection(state.direction);
     });
     const observer = new MutationObserver(() => {

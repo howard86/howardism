@@ -55,6 +55,53 @@ let scrollable = 0;
 let generation = 0;
 let onScroll: Throttled<[]> | null = null;
 let resizeObserver: ResizeObserver | null = null;
+let viewportWidth = 0;
+let remeasureFrame: number | null = null;
+let remeasureVersion = 0;
+let measurePending = false;
+
+function scheduleRemeasure(): void {
+  if (measurePending) {
+    return;
+  }
+  measurePending = true;
+  remeasureVersion += 1;
+  const version = remeasureVersion;
+  remeasureFrame = requestAnimationFrame(() => {
+    if (version !== remeasureVersion) {
+      return;
+    }
+    remeasureFrame = null;
+    if (!measurePending) {
+      return;
+    }
+    measurePending = false;
+    remeasure();
+  });
+}
+
+function flushPendingMeasure(): void {
+  if (!measurePending) {
+    return;
+  }
+  if (remeasureFrame !== null) {
+    cancelAnimationFrame(remeasureFrame);
+    remeasureFrame = null;
+  }
+  remeasureVersion += 1;
+  measurePending = false;
+  measureGeometry();
+}
+
+function onResize(): void {
+  if (window.innerWidth === viewportWidth) {
+    scrollable = article ? article.offsetHeight - window.innerHeight : 0;
+    emit();
+    return;
+  }
+  viewportWidth = window.innerWidth;
+  scheduleRemeasure();
+}
 
 function measureGeometry(): void {
   generation += 1;
@@ -100,6 +147,8 @@ function measureGeometry(): void {
 }
 
 function emit(): void {
+  flushPendingMeasure();
+
   if (!article) {
     for (const sub of subscriptions) {
       sub.listener(null);
@@ -137,9 +186,10 @@ function remeasure(): void {
 function attach(): void {
   onScroll = throttle(emit, SCROLL_THROTTLE_MS);
   window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", remeasure);
+  viewportWidth = window.innerWidth;
+  window.addEventListener("resize", onResize);
   if (typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(remeasure);
+    resizeObserver = new ResizeObserver(scheduleRemeasure);
   }
 }
 
@@ -149,7 +199,13 @@ function detach(): void {
     window.removeEventListener("scroll", onScroll);
     onScroll = null;
   }
-  window.removeEventListener("resize", remeasure);
+  window.removeEventListener("resize", onResize);
+  if (remeasureFrame !== null) {
+    cancelAnimationFrame(remeasureFrame);
+    remeasureFrame = null;
+  }
+  remeasureVersion += 1;
+  measurePending = false;
   resizeObserver?.disconnect();
   resizeObserver = null;
   observedArticle = null;
@@ -177,7 +233,7 @@ export function subscribeToArticleScroll(
   if (subscriptions.size === 1) {
     attach();
   }
-  remeasure();
+  scheduleRemeasure();
 
   return () => {
     subscriptions.delete(sub);

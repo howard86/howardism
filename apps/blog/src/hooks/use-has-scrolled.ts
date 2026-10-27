@@ -15,7 +15,7 @@ export default function useHasScrolled({
       throttleMs
     );
 
-    window.addEventListener("scroll", changeBackground);
+    window.addEventListener("scroll", changeBackground, { passive: true });
 
     return () => {
       changeBackground.cancel();
