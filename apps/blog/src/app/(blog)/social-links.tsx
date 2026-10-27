@@ -3,7 +3,6 @@ import {
   Linkedin01Icon,
   Mail01Icon,
   NewTwitterIcon,
-  RssIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
@@ -13,6 +12,7 @@ interface SocialLink {
   "aria-label": string;
   href: string;
   icon: IconSvgElement;
+  label: string;
 }
 
 export const SOCIAL_LINKS: SocialLink[] = [
@@ -20,23 +20,26 @@ export const SOCIAL_LINKS: SocialLink[] = [
     href: "https://github.com/Howard86/",
     "aria-label": "Follow on GitHub",
     icon: Github01Icon,
+    label: "GitHub",
   },
   {
     href: "https://www.linkedin.com/in/howard-tai-4b52b086/",
     "aria-label": "Follow on LinkedIn",
     icon: Linkedin01Icon,
+    label: "LinkedIn",
   },
   {
     href: "https://twitter.com/howard86_",
     "aria-label": "Follow on Twitter",
     icon: NewTwitterIcon,
+    label: "X",
   },
   {
     href: "mailto:howard@howardism.dev",
     "aria-label": "Contact Howard via email",
     icon: Mail01Icon,
+    label: "Email",
   },
-  { href: "/rss/feed.xml", "aria-label": "Follow on RSS feed", icon: RssIcon },
 ];
 
 export default function SocialLinks() {
