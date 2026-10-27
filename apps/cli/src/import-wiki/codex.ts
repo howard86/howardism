@@ -2,6 +2,13 @@ import { mkdir, rename, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+const DEFAULT_IMAGE_ENGINE_TIMEOUT_MS = 10 * 60 * 1000;
+const imageEngineTimeout = (): number => {
+  const value = Number(process.env.IMAGE_ENGINE_TIMEOUT_MS);
+  return Number.isFinite(value) && value > 0
+    ? value
+    : DEFAULT_IMAGE_ENGINE_TIMEOUT_MS;
+};
 
 export interface GenerateImageOptions {
   body: string;
@@ -62,20 +69,38 @@ async function defaultRunner(
   prompt: string
 ): Promise<{ stdout: string; stderr: string }> {
   const proc = Bun.spawn(["codex", "exec", prompt], {
+    // Pass env so the executable is resolved against the live PATH; without it
+    // Bun looks it up in the PATH captured at process start.
+    env: process.env,
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    throw new Error(
-      `codex exec failed (exit ${exitCode})\nstdout: ${stdout}\nstderr: ${stderr}`
-    );
+  const timeoutMs = imageEngineTimeout();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    proc.kill();
+  }, timeoutMs);
+  try {
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const exitCode = await proc.exited;
+    if (timedOut) {
+      throw new Error(
+        `codex exec timed out after ${timeoutMs}ms and was killed`
+      );
+    }
+    if (exitCode !== 0) {
+      throw new Error(
+        `codex exec failed (exit ${exitCode})\nstdout: ${stdout}\nstderr: ${stderr}`
+      );
+    }
+    return { stdout, stderr };
+  } finally {
+    clearTimeout(timer);
   }
-  return { stdout, stderr };
 }
 
 export function buildPrompt(args: {
