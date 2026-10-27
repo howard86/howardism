@@ -68,7 +68,7 @@ test("GC is review-gated and rejects stale inventory before any deletion", async
     const store: MaintenanceStore = {
       get: () => Promise.resolve(packaged.bytes),
       head: () => Promise.resolve(null),
-      putIfAbsent: () => Promise.resolve(),
+      putIfAbsent: () => Promise.resolve(undefined),
       list: () => Promise.resolve(inventory),
       delete: (key) => {
         deleted.push(key);

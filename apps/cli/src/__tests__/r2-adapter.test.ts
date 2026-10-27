@@ -61,7 +61,7 @@ test("R2 conditional creation races accept only identical remote bytes", async (
   });
   await expect(
     r2Store(credentials).putIfAbsent("object", payload)
-  ).resolves.toBeUndefined();
+  ).resolves.toEqual({ bytes: payload.length, sha256: sha256(payload) });
   expect(send).toHaveBeenCalledTimes(3);
 });
 
@@ -87,6 +87,41 @@ test("R2 conditional creation rejects a conflicting raced object", async () => {
   ).rejects.toThrow("Immutable object conflict");
   expect(send).toHaveBeenCalledTimes(3);
   expect(send.mock.calls[2][0]).toBeInstanceOf(GetObjectCommand);
+});
+
+test("R2 create returns checksum evidence when the PUT response includes it", async () => {
+  send.mockImplementation((command) => {
+    if (command instanceof HeadObjectCommand) {
+      return Promise.reject(serviceError(404));
+    }
+    if (command instanceof PutObjectCommand) {
+      return Promise.resolve({
+        $metadata: {},
+        ChecksumSHA256: Buffer.from(sha256(payload), "hex").toString("base64"),
+      });
+    }
+    return Promise.reject(new Error("Unexpected command"));
+  });
+  await expect(
+    r2Store(credentials).putIfAbsent("object", payload)
+  ).resolves.toEqual({ bytes: payload.length, sha256: sha256(payload) });
+  expect(send).toHaveBeenCalledTimes(2);
+});
+
+test("R2 create reports no proof when the PUT response omits checksum evidence", async () => {
+  send.mockImplementation((command) => {
+    if (command instanceof HeadObjectCommand) {
+      return Promise.reject(serviceError(404));
+    }
+    if (command instanceof PutObjectCommand) {
+      return Promise.resolve({ $metadata: {} });
+    }
+    return Promise.reject(new Error("Unexpected command"));
+  });
+  await expect(
+    r2Store(credentials).putIfAbsent("object", payload)
+  ).resolves.toBeUndefined();
+  expect(send).toHaveBeenCalledTimes(2);
 });
 
 test("R2 reuse verifies metadata and never overwrites an existing conflict", async () => {

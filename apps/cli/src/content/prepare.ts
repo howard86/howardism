@@ -233,7 +233,7 @@ export async function prepareContent<T = void>(
   const active = contentPaths(resolve(blogRoot, "src"));
   const cache = resolve(blogRoot, ".next/cache/howardism-content");
   const sampleCache = resolve(blogRoot, ".next/cache/howardism-fixtures");
-  const concurrency = options.concurrency ?? 8;
+  const concurrency = options.concurrency ?? 16;
   const budget = options.cacheBudgetBytes ?? 512 * 1024 * 1024;
   if (
     !Number.isSafeInteger(concurrency) ||

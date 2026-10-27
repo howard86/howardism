@@ -29,6 +29,7 @@ import { buildIndex } from "../search-index";
 import { createTestContent } from "./content-test-fixture";
 
 let fixtures: string;
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 beforeAll(async () => {
   fixtures = await mkdtemp(resolve(tmpdir(), "content-shared-test-"));
   await createTestContent(fixtures);
@@ -75,7 +76,7 @@ function memoryStore() {
         writes.push(key);
         objects.set(key, bytes);
       }
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     },
   };
   return { store, objects, reads, writes };
@@ -417,6 +418,26 @@ test("publisher is idempotent and uploads the manifest last; failed publication 
   expect(
     [...failed.objects.keys()].some((key) => key.startsWith("releases/"))
   ).toBe(false);
+});
+
+test("publisher trusts verified putIfAbsent evidence without a second HEAD", async () => {
+  const root = await temp();
+  await cp(fixtures, root, { recursive: true });
+  await rm(resolve(root, "coverage.json"));
+  const remote = memoryStore();
+  const store: ObjectStore = {
+    ...remote.store,
+    head() {
+      throw new Error("verified writes must not HEAD again");
+    },
+    async putIfAbsent(key, bytes) {
+      await remote.store.putIfAbsent(key, bytes);
+      return { bytes: bytes.length, sha256: sha256(bytes) };
+    },
+  };
+  await expect(publishContent({ root, store, initial: true })).resolves.toMatch(
+    DIGEST_PATTERN
+  );
 });
 
 test("profiles fail closed and authoring publication requires explicit roots and bases", async () => {

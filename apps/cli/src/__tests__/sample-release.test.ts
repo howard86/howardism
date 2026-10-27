@@ -70,7 +70,7 @@ function memoryStore(bucket: string) {
         objects.set(key, bytes);
         writes.push(key);
       }
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     },
   };
   return { store, objects, writes };

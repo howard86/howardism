@@ -21,7 +21,12 @@ import {
   S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { sha256 } from "./release";
-import type { MaintenanceStore, ObjectStore, StoredObject } from "./store";
+import type {
+  MaintenanceStore,
+  ObjectStore,
+  PutResult,
+  StoredObject,
+} from "./store";
 
 export const PUBLIC_FIXTURE_BUCKET = "howardism-content-fixtures";
 
@@ -143,28 +148,36 @@ function createR2Store(env: NodeJS.ProcessEnv): MaintenanceStore {
     },
     head,
     get,
-    async putIfAbsent(key, bytes) {
+    async putIfAbsent(key, bytes): Promise<PutResult | undefined> {
+      const digest = sha256(bytes);
       const existing = await head(key);
       if (existing) {
-        if (
-          existing.bytes !== bytes.length ||
-          existing.sha256 !== sha256(bytes)
-        ) {
+        if (existing.bytes !== bytes.length || existing.sha256 !== digest) {
           throw new Error(`Immutable object conflict: ${key}`);
         }
-        return;
+        return { bytes: existing.bytes, sha256: existing.sha256 };
       }
       try {
-        await client.send(
+        const response = await client.send(
           new PutObjectCommand({
             Bucket: R2_BUCKET,
             Key: key,
             Body: bytes,
             IfNoneMatch: "*",
-            Metadata: { sha256: sha256(bytes) },
+            Metadata: { sha256: digest },
           }),
           { abortSignal: AbortSignal.timeout(120_000) }
         );
+        if (response.ChecksumSHA256) {
+          const responseDigest = Buffer.from(
+            response.ChecksumSHA256,
+            "base64"
+          ).toString("hex");
+          if (responseDigest !== digest) {
+            throw new Error(`Uploaded object checksum mismatch: ${key}`);
+          }
+          return { bytes: bytes.length, sha256: responseDigest };
+        }
       } catch (error) {
         if (
           !(error instanceof S3ServiceException) ||
@@ -173,11 +186,13 @@ function createR2Store(env: NodeJS.ProcessEnv): MaintenanceStore {
           throw error;
         }
         const racedObject = await get(key, bytes.length);
-        if (sha256(racedObject) !== sha256(bytes)) {
+        const racedDigest = sha256(racedObject);
+        if (racedDigest !== digest) {
           throw new Error(`Immutable object conflict: ${key}`, {
             cause: error,
           });
         }
+        return { bytes: racedObject.length, sha256: racedDigest };
       }
     },
   };

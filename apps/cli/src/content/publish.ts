@@ -30,6 +30,54 @@ export async function loadRelease(
   );
 }
 
+async function putVerifiedObject(
+  store: ObjectStore,
+  digest: string,
+  bytes: Uint8Array
+): Promise<void> {
+  const result = await store.putIfAbsent(objectKey(digest), bytes);
+  if (result) {
+    if (result.sha256 !== digest || result.bytes !== bytes.length) {
+      throw new Error(`Uploaded object failed verification: ${digest}`);
+    }
+    return;
+  }
+  const remote = await store.head(objectKey(digest));
+  if (remote?.sha256 !== digest || remote.bytes !== bytes.length) {
+    throw new Error(`Uploaded object failed verification: ${digest}`);
+  }
+}
+
+function assertDeletionThreshold(
+  base: ContentRelease,
+  changes: ReturnType<typeof articleChanges>,
+  allowLargeDeletion: boolean
+): void {
+  for (const [locale, change] of Object.entries(changes)) {
+    const threshold = Math.max(
+      3,
+      Math.floor(base.counts.articlesByLocale[locale as "en" | "zh-TW"] * 0.1)
+    );
+    if (change.removed.length > threshold && !allowLargeDeletion) {
+      throw new Error(
+        `Large deletion in ${locale}; review changes and use --allow-large-deletion explicitly`
+      );
+    }
+  }
+}
+
+function publishConcurrency(): number {
+  const concurrency = Number(process.env.CONTENT_DOWNLOAD_CONCURRENCY ?? 16);
+  if (
+    !Number.isSafeInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 32
+  ) {
+    throw new Error("Invalid content concurrency");
+  }
+  return concurrency;
+}
+
 export function articleChanges(
   base: ContentRelease,
   candidate: ContentRelease
@@ -103,33 +151,17 @@ export async function publishContent(options: {
           const base = await loadRelease(options.store, options.baseDigest);
           const changes = articleChanges(base, packaged.release);
           process.stdout.write(`${JSON.stringify(changes, null, 2)}\n`);
-          for (const [locale, change] of Object.entries(changes)) {
-            const threshold = Math.max(
-              3,
-              Math.floor(
-                base.counts.articlesByLocale[locale as "en" | "zh-TW"] * 0.1
-              )
-            );
-            if (
-              change.removed.length > threshold &&
-              !options.allowLargeDeletion
-            ) {
-              throw new Error(
-                `Large deletion in ${locale}; review changes and use --allow-large-deletion explicitly`
-              );
-            }
-          }
+          assertDeletionThreshold(
+            base,
+            changes,
+            options.allowLargeDeletion ?? false
+          );
         }
         await runWithConcurrency(
           [...packaged.objects.entries()],
-          8,
-          async ([digest, bytes]) => {
-            await options.store.putIfAbsent(objectKey(digest), bytes);
-            const remote = await options.store.head(objectKey(digest));
-            if (remote?.sha256 !== digest || remote.bytes !== bytes.length) {
-              throw new Error(`Uploaded object failed verification: ${digest}`);
-            }
-          }
+          publishConcurrency(),
+          async ([digest, bytes]) =>
+            await putVerifiedObject(options.store, digest, bytes)
         );
         await options.store.putIfAbsent(
           releaseKey(packaged.digest),
