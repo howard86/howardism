@@ -88,7 +88,7 @@ async function cachedObject(
   store: ReadObjectStore,
   metrics: PreparationMetrics,
   keyForDigest: (digest: string) => string
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; decoded: Uint8Array }> {
   const path = resolve(cache, file.objectSha256);
   try {
     const stat = await lstat(path);
@@ -97,9 +97,10 @@ async function cachedObject(
     }
     if (stat.size === file.storedBytes) {
       const bytes = new Uint8Array(await Bun.file(path).arrayBuffer());
-      decodeObject(file, bytes);
+      const decoded = decodeObject(file, bytes);
+      metrics.decodeCalls += 1;
       metrics.cacheHits += 1;
-      return bytes;
+      return { bytes, decoded };
     }
   } catch (error) {
     if (error instanceof Error && INTEGRITY_FAILURE.test(error.message)) {
@@ -115,7 +116,8 @@ async function cachedObject(
     keyForDigest(file.objectSha256),
     file.storedBytes
   );
-  decodeObject(file, bytes);
+  const decoded = decodeObject(file, bytes);
+  metrics.decodeCalls += 1;
   metrics.downloadedBytes += bytes.length;
   const temp = `${path}.${crypto.randomUUID()}.tmp`;
   try {
@@ -124,7 +126,7 @@ async function cachedObject(
   } finally {
     await rm(temp, { force: true });
   }
-  return bytes;
+  return { bytes, decoded };
 }
 
 /** Files with identical bytes (e.g. reused hero art) share one object: fetch and count it once. */
@@ -134,23 +136,26 @@ function objectLoader(
   store: ReadObjectStore,
   metrics: PreparationMetrics,
   keyForDigest: (digest: string) => string
-): (file: ContentFile) => Promise<Uint8Array> {
+): (file: ContentFile) => Promise<{ bytes: Uint8Array; decoded: Uint8Array }> {
   const uses = new Map<string, number>();
   for (const file of files) {
     uses.set(file.objectSha256, (uses.get(file.objectSha256) ?? 0) + 1);
   }
   metrics.requiredObjects = uses.size;
-  const shared = new Map<string, Promise<Uint8Array>>();
+  const shared = new Map<
+    string,
+    Promise<{ bytes: Uint8Array; decoded: Uint8Array }>
+  >();
   return (file) => {
     if ((uses.get(file.objectSha256) ?? 0) < 2) {
       return cachedObject(cache, file, store, metrics, keyForDigest);
     }
-    let bytes = shared.get(file.objectSha256);
-    if (!bytes) {
-      bytes = cachedObject(cache, file, store, metrics, keyForDigest);
-      shared.set(file.objectSha256, bytes);
+    let object = shared.get(file.objectSha256);
+    if (!object) {
+      object = cachedObject(cache, file, store, metrics, keyForDigest);
+      shared.set(file.objectSha256, object);
     }
-    return bytes;
+    return object;
   };
 }
 
@@ -187,6 +192,7 @@ async function evictCache(
 export interface PreparationMetrics {
   cacheHits: number;
   cacheMisses: number;
+  decodeCalls: number;
   downloadedBytes: number;
   elapsedMs: number;
   profile: "full" | "sample";
@@ -218,6 +224,7 @@ export async function prepareContent<T = void>(
     cacheHits: 0,
     cacheMisses: 0,
     downloadedBytes: 0,
+    decodeCalls: 0,
     elapsedMs: 0,
     verificationFailures: 0,
     retries: 0,
@@ -249,63 +256,41 @@ export async function prepareContent<T = void>(
       let release: ContentRelease | undefined;
       let sampleRelease: SampleRelease | undefined;
       let releaseSha256: string | undefined;
+      let materializedHashes = new Map<string, string>();
       let reported = false;
       try {
         await ensureDirectory(candidate.articles);
         await ensureDirectory(candidate.translated);
         await ensureDirectory(candidate.assets);
         await ensureDirectory(candidate.data);
-        if (options.profile === "full") {
-          const lock = ContentLockSchema.parse(
-            await Bun.file(resolve(blogRoot, "content.lock.json")).json()
-          );
-          if (!options.store) {
-            throw new Error("Full preparation requires an R2 object store");
-          }
-          ({ releaseSha256 } = lock);
-          release = await loadRelease(options.store, releaseSha256);
-          await ensureDirectory(resolve(blogRoot, ".next"));
-          await ensureDirectory(resolve(blogRoot, ".next/cache"));
-          await ensureDirectory(cache);
-          const { store } = options;
-          const load = objectLoader(
-            release.files,
-            cache,
-            store,
-            metrics,
-            objectKey
-          );
-          await runWithConcurrency(release.files, concurrency, async (file) => {
-            const bytes = await load(file);
-            await Bun.write(
-              resolve(temp, file.path),
-              decodeObject(file, bytes)
-            );
-          });
-        } else {
-          ({ sampleRelease, releaseSha256 } = await prepareSampleInput({
-            options,
-            blogRoot,
-            activeRoot: active.root,
-            temp,
-            cache,
-            sampleCache,
-            concurrency,
-            metrics,
-          }));
-        }
+        const materialized = await materializeCandidate({
+          options,
+          blogRoot,
+          activeRoot: active.root,
+          temp,
+          cache,
+          sampleCache,
+          concurrency,
+          metrics,
+        });
+        ({
+          release,
+          sampleRelease,
+          releaseSha256,
+          hashes: materializedHashes,
+        } = materialized);
         await validateSnapshot(temp, options.profile);
-        const tree = await Promise.all(
-          [
-            ...(await inventory(temp)),
-            ...(options.profile === "sample" ? ["coverage.json"] : []),
-          ].map(async (path) => [
-            path,
-            sha256(
-              new Uint8Array(await Bun.file(resolve(temp, path)).arrayBuffer())
-            ),
-          ])
-        );
+        const treePaths = [
+          ...(await inventory(temp)),
+          ...(options.profile === "sample" ? ["coverage.json"] : []),
+        ];
+        const tree = treePaths.map((path) => [
+          path,
+          materializedHashes.get(path),
+        ]);
+        if (tree.some(([, digest]) => !digest)) {
+          throw new Error("Missing verified content digest");
+        }
         await ensureDirectory(active.root);
         await replaceActiveDirectories(active.root, temp);
         if (options.profile === "sample") {
@@ -356,6 +341,71 @@ export async function prepareContent<T = void>(
   );
 }
 
+async function materializeCandidate(input: {
+  options: PrepareOptions;
+  blogRoot: string;
+  activeRoot: string;
+  temp: string;
+  cache: string;
+  sampleCache: string;
+  concurrency: number;
+  metrics: PreparationMetrics;
+}): Promise<{
+  release?: ContentRelease;
+  sampleRelease?: SampleRelease;
+  releaseSha256?: string;
+  hashes: Map<string, string>;
+}> {
+  const {
+    options,
+    blogRoot,
+    activeRoot,
+    temp,
+    cache,
+    sampleCache,
+    concurrency,
+    metrics,
+  } = input;
+  if (options.profile === "full") {
+    const lock = ContentLockSchema.parse(
+      await Bun.file(resolve(blogRoot, "content.lock.json")).json()
+    );
+    if (!options.store) {
+      throw new Error("Full preparation requires an R2 object store");
+    }
+    const { releaseSha256 } = lock;
+    const release = await loadRelease(options.store, releaseSha256);
+    await ensureDirectory(resolve(blogRoot, ".next"));
+    await ensureDirectory(resolve(blogRoot, ".next/cache"));
+    await ensureDirectory(cache);
+    const load = objectLoader(
+      release.files,
+      cache,
+      options.store,
+      metrics,
+      objectKey
+    );
+    const hashes = new Map<string, string>();
+    await runWithConcurrency(release.files, concurrency, async (file) => {
+      const object = await load(file);
+      hashes.set(file.path, file.decodedSha256);
+      await Bun.write(resolve(temp, file.path), object.decoded);
+    });
+    return { release, releaseSha256, hashes };
+  }
+  const sampleInput = await prepareSampleInput({
+    options,
+    blogRoot,
+    activeRoot,
+    temp,
+    cache,
+    sampleCache,
+    concurrency,
+    metrics,
+  });
+  return sampleInput;
+}
+
 async function replaceActiveDirectories(
   activeRoot: string,
   temp: string
@@ -386,7 +436,11 @@ async function prepareSampleInput(input: {
   sampleCache: string;
   concurrency: number;
   metrics: PreparationMetrics;
-}): Promise<{ sampleRelease?: SampleRelease; releaseSha256?: string }> {
+}): Promise<{
+  sampleRelease?: SampleRelease;
+  releaseSha256?: string;
+  hashes: Map<string, string>;
+}> {
   const {
     options,
     blogRoot,
@@ -421,19 +475,21 @@ async function prepareSampleInput(input: {
       metrics,
       sampleObjectKey
     );
+    const hashes = new Map<string, string>();
     await runWithConcurrency(sampleRelease.files, concurrency, async (file) => {
       const bytes = await load(file);
-      await Bun.write(resolve(temp, file.path), decodeObject(file, bytes));
+      hashes.set(file.path, file.decodedSha256);
+      await Bun.write(resolve(temp, file.path), bytes.decoded);
     });
-  } else {
-    if (!options.fixtureRoot) {
-      throw new Error(
-        "Sample preparation requires content.sample.lock.json; explicit fixtureRoot is for offline tests only"
-      );
-    }
-    await copyFixtures(options.fixtureRoot, activeRoot, temp);
+    return { sampleRelease, releaseSha256, hashes };
   }
-  return { sampleRelease, releaseSha256 };
+  if (!options.fixtureRoot) {
+    throw new Error(
+      "Sample preparation requires content.sample.lock.json; explicit fixtureRoot is for offline tests only"
+    );
+  }
+  const hashes = await copyFixtures(options.fixtureRoot, activeRoot, temp);
+  return { hashes };
 }
 
 async function readSampleLock(blogRoot: string) {
@@ -461,21 +517,25 @@ async function copyFixtures(
   fixtureRoot: string,
   activeRoot: string,
   temp: string
-): Promise<void> {
+): Promise<Map<string, string>> {
+  const hashes = new Map<string, string>();
   const source = resolve(fixtureRoot);
   if (source === activeRoot) {
     throw new Error("Fixtures and active content must be separate");
   }
   for (const path of await inventory(source)) {
-    await Bun.write(
-      resolve(temp, path),
+    const bytes = new Uint8Array(
       await Bun.file(resolve(source, path)).arrayBuffer()
     );
+    hashes.set(path, sha256(bytes));
+    await Bun.write(resolve(temp, path), bytes);
   }
-  await Bun.write(
-    resolve(temp, "coverage.json"),
+  const coverage = new Uint8Array(
     await Bun.file(resolve(source, "coverage.json")).arrayBuffer()
   );
+  hashes.set("coverage.json", sha256(coverage));
+  await Bun.write(resolve(temp, "coverage.json"), coverage);
+  return hashes;
 }
 
 function reportPreparation(

@@ -240,6 +240,7 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
   const reports: {
     cacheHits: number;
     cacheMisses: number;
+    decodeCalls: number;
     requiredObjects: number;
   }[] = [];
   for (let run = 0; run < 2; run += 1) {
@@ -262,12 +263,62 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
     cacheMisses: 0,
     cacheHits: distinct.size,
   });
+  expect(reports[0].decodeCalls).toBe(distinct.size);
+  expect(reports[1].decodeCalls).toBe(distinct.size);
   expect(remote.reads.filter((key) => key.startsWith("objects/"))).toHaveLength(
     distinct.size
   );
   expect(await Bun.file(resolve(blogRoot, "src", second)).bytes()).toEqual(
     await Bun.file(resolve(root, first)).bytes()
   );
+});
+
+test("materialized tree digest matches the prior disk-read digest and detects same-size tampering", async () => {
+  const remote = await seeded();
+  await prepareContent({
+    profile: "full",
+    blogRoot: remote.blogRoot,
+    store: remote.store,
+  });
+  const contentRoot = resolve(remote.blogRoot, "src");
+  const paths = await inventory(contentRoot);
+  const oldTree = await Promise.all(
+    paths.map(async (path) => [
+      path,
+      sha256(
+        new Uint8Array(await Bun.file(resolve(contentRoot, path)).arrayBuffer())
+      ),
+    ])
+  );
+  const state = await Bun.file(
+    resolve(remote.blogRoot, ".content-state.json")
+  ).json();
+  expect(state.materializedTreeSha256).toBe(sha256(JSON.stringify(oldTree)));
+
+  const article = remote.release.files.find((file) =>
+    file.path.endsWith(".mdx")
+  );
+  if (!article) {
+    throw new Error("Fixture release has no article");
+  }
+  const articlePath = resolve(contentRoot, article.path);
+  const original = await Bun.file(articlePath).text();
+  await Bun.write(
+    articlePath,
+    `${original.slice(0, -1)}${original.endsWith("x") ? "y" : "x"}`
+  );
+  remote.reads.length = 0;
+  let decodeCalls = 0;
+  await prepareContent({
+    profile: "full",
+    blogRoot: remote.blogRoot,
+    store: remote.store,
+    report: (metrics) => {
+      ({ decodeCalls } = metrics);
+    },
+  });
+  expect(decodeCalls).toBe(remote.release.files.length);
+  expect(await Bun.file(articlePath).text()).toBe(original);
 });
 
 test("failed preparation leaves old active files and no ready state; no sample fallback", async () => {
