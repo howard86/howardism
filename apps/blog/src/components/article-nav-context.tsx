@@ -10,6 +10,8 @@ export interface ArticleNav {
   /** Whole-article reading time in minutes, for the running head's time left. */
   readingTime?: number;
   slug: string;
+  /** The same article in the other locale, when a translation exists. */
+  translationHref?: string;
 }
 
 interface ArticleNavContextValue {
@@ -44,10 +46,12 @@ export function PublishArticleNav({
   headings,
   readingTime,
   slug,
+  translationHref,
 }: {
   headings: ArticleHeading[];
   readingTime?: number;
   slug: string;
+  translationHref?: string;
 }) {
   const ctx = useContext(ArticleNavContext);
   const setNav = ctx?.setNav;
@@ -56,9 +60,9 @@ export function PublishArticleNav({
     if (!setNav) {
       return;
     }
-    setNav({ headings, readingTime, slug });
+    setNav({ headings, readingTime, slug, translationHref });
     return () => setNav(null);
-  }, [setNav, headings, readingTime, slug]);
+  }, [setNav, headings, readingTime, slug, translationHref]);
 
   return null;
 }

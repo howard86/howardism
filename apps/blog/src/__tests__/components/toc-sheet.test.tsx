@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useState } from "react";
 
 import {
   ArticleNavProvider,
@@ -44,5 +45,30 @@ describe("TocSheet navigation", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(events).toEqual(["scroll"]));
     expect(window.location.hash).toBe("#details");
+  });
+
+  it("opens from an external controlled trigger", async () => {
+    function ControlledContents() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)} type="button">
+            Contents
+          </button>
+          <TocSheet onOpenChange={setOpen} open={open} />
+        </>
+      );
+    }
+    render(
+      <ArticleNavProvider>
+        <PublishArticleNav
+          headings={[{ depth: 2, id: "intro", text: "Intro" }]}
+          slug="test"
+        />
+        <ControlledContents />
+      </ArticleNavProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Contents" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 });

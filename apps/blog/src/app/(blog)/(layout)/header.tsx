@@ -9,15 +9,13 @@ import {
   SheetTrigger,
 } from "@howardism/ui/components/sheet";
 import { cn } from "@howardism/ui/lib/utils";
-import { Menu01Icon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons";
+import { Menu01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { usePathname } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import type { ArticleHeading } from "@/app/(blog)/articles/service";
-import { Container } from "@/app/(common)/container";
 import { useArticleNav } from "@/components/article-nav-context";
-import { ArticleFind } from "@/components/find/article-find";
 import { ReadingProgress } from "@/components/howardism/reading-progress";
 import { InternalLink } from "@/components/internal-link";
 import { SearchTrigger } from "@/components/search/search-trigger";
@@ -32,18 +30,31 @@ import useHasScrolled from "@/hooks/use-has-scrolled";
 import { useScrollDirection } from "@/hooks/use-scroll-direction";
 
 import { Avatar } from "./avatar";
-import {
-  FOOTER_NAV,
-  isFileHref,
-  NAV_SECTION_KEYS,
-  NavSection,
-} from "./constants";
+import { NAV_SECTION_KEYS, NavSection } from "./constants";
 
-function isRouteActive(pathname: string | null, href: string): boolean {
+const LOCALE_PREFIX = /^\/zh-TW(?=\/|$)/;
+const ZH_PREFIX = /^\/zh-TW/;
+
+export function isRouteActive(pathname: string | null, href: string): boolean {
+  const normalizedPath = pathname?.replace(LOCALE_PREFIX, "") || "/";
   return (
     pathname !== null &&
-    (pathname === href || (href !== "/" && pathname.startsWith(href)))
+    (normalizedPath === href ||
+      (href !== "/" && normalizedPath.startsWith(href)))
   );
+}
+
+export function languageHref(
+  pathname: string | null,
+  translationHref?: string
+) {
+  if (translationHref) {
+    return translationHref;
+  }
+  if (pathname?.startsWith("/zh-TW")) {
+    return pathname.replace(ZH_PREFIX, "") || "/";
+  }
+  return "/zh-TW/articles";
 }
 
 function NavLink({
@@ -68,6 +79,9 @@ function NavLink({
 
 function DesktopNav({ isCondensed }: { isCondensed: boolean }) {
   const pathname = usePathname();
+  const articleNav = useArticleNav();
+  const isChinese = pathname.startsWith("/zh-TW");
+  const switchHref = languageHref(pathname, articleNav?.translationHref);
 
   // Condensed, the pill sheds its own surface: the bar already has one.
   return (
@@ -86,50 +100,59 @@ function DesktopNav({ isCondensed }: { isCondensed: boolean }) {
           label={key}
         />
       ))}
+      <span aria-hidden="true" className="mx-1 my-2 h-5 w-px bg-border" />
+      <fieldset
+        aria-label="Language"
+        className="m-0 flex min-w-0 items-center gap-1 border-0 p-0 px-2 font-mono text-xs"
+      >
+        {isChinese ? (
+          <InternalLink
+            aria-label="Read in English"
+            className="rounded-full px-2 py-1 text-muted-foreground hover:text-foreground"
+            href={switchHref}
+            hrefLang="en"
+            lang="en"
+          >
+            EN
+          </InternalLink>
+        ) : (
+          <span
+            aria-current="true"
+            className="rounded-full bg-brand/10 px-2 py-1 text-brand"
+          >
+            EN
+          </span>
+        )}
+        {isChinese ? (
+          <span
+            aria-current="true"
+            className="rounded-full bg-brand/10 px-2 py-1 text-brand"
+          >
+            中文
+          </span>
+        ) : (
+          <InternalLink
+            aria-label="Read in Chinese"
+            className="rounded-full px-2 py-1 text-muted-foreground hover:text-foreground"
+            href={switchHref}
+            hrefLang="zh-TW"
+            lang="zh-TW"
+          >
+            中文
+          </InternalLink>
+        )}
+      </fieldset>
     </nav>
   );
 }
 
-function ThemeToggle() {
-  const { state, setMode } = useTweaks();
-  const isDark = state.mode === "dark";
-  const toggleMode = useCallback(
-    () => setMode(isDark ? "light" : "dark"),
-    [isDark, setMode]
-  );
-  return (
-    <button
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      onClick={toggleMode}
-      type="button"
-    >
-      {isDark ? (
-        <HugeiconsIcon className="size-[18px]" icon={Sun03Icon} />
-      ) : (
-        <HugeiconsIcon className="size-[18px]" icon={Moon02Icon} />
-      )}
-    </button>
-  );
-}
-
-const PLATE_ANNOTATIONS: Record<string, string> = {
-  Home: "Masthead · 00",
-  Articles: "Plate I · 01",
-  Questions: "Plate III · 03",
-  Shelf: "Plate IV · 04",
-  RSS: "Feed",
-};
-
-const QUICK_LINKS = [
-  { label: "Questions", href: "/questions" },
-  { label: "Shelf", href: "/shelf" },
-  { label: "繁體中文", href: "/zh-TW/articles" },
-  { label: "RSS Feed", href: "/rss/feed.xml" },
-];
-
 function MobileNav() {
   const pathname = usePathname();
+  const articleNav = useArticleNav();
+  const isChinese = pathname.startsWith("/zh-TW");
+  const switchHref = languageHref(pathname, articleNav?.translationHref);
+  const englishHref = isChinese ? switchHref : pathname;
+  const chineseHref = isChinese ? pathname : switchHref;
 
   return (
     <div className="md:hidden">
@@ -152,23 +175,20 @@ function MobileNav() {
                 <SheetTitle className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
                   Howardism
                 </SheetTitle>
-                <span className="font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em]">
-                  vol. 03 · quiet corner of the web
-                </span>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <ThemeToggle />
-            </div>
+            <SheetClose className="rounded-full border border-border px-3 py-1.5 font-body text-sm">
+              Close
+            </SheetClose>
           </SheetHeader>
           <nav aria-label="Mobile primary" className="mt-6">
             <ul className="m-0 flex list-none flex-col gap-0 border-border border-t p-0">
-              {FOOTER_NAV.map(({ label, href }) => {
-                const Anchor = isFileHref(href) ? "a" : InternalLink;
+              {NAV_SECTION_KEYS.map((label) => {
+                const href = NavSection[label];
                 return (
                   <li className="border-border border-b" key={label}>
                     <SheetClose asChild>
-                      <Anchor
+                      <InternalLink
                         aria-current={
                           isRouteActive(pathname, href) ? "page" : undefined
                         }
@@ -176,12 +196,7 @@ function MobileNav() {
                         href={href}
                       >
                         <span>{label}</span>
-                        {PLATE_ANNOTATIONS[label] ? (
-                          <span className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
-                            {PLATE_ANNOTATIONS[label]}
-                          </span>
-                        ) : null}
-                      </Anchor>
+                      </InternalLink>
                     </SheetClose>
                   </li>
                 );
@@ -190,31 +205,51 @@ function MobileNav() {
           </nav>
           <div className="mt-5 border-border border-t pt-4">
             <div className="mb-2 font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.14em]">
-              Quick Navigation
+              Language
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {QUICK_LINKS.map(({ label, href }) => {
-                const Anchor = isFileHref(href) ? "a" : InternalLink;
-                return (
-                  <SheetClose asChild key={label}>
-                    <Anchor
-                      aria-current={
-                        isRouteActive(pathname, href) ? "page" : undefined
-                      }
-                      className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground aria-[current=page]:border-brand/30 aria-[current=page]:bg-brand/10 aria-[current=page]:text-brand"
-                      href={href}
-                    >
-                      {label}
-                    </Anchor>
-                  </SheetClose>
-                );
-              })}
+            <div className="inline-flex rounded-full border border-border p-1">
+              {isChinese ? (
+                <SheetClose asChild>
+                  <InternalLink
+                    className="rounded-full px-3 py-1.5 text-sm"
+                    href={englishHref}
+                    hrefLang="en"
+                    lang="en"
+                  >
+                    English
+                  </InternalLink>
+                </SheetClose>
+              ) : (
+                <span
+                  aria-current="true"
+                  className="rounded-full bg-brand/10 px-3 py-1.5 text-brand text-sm"
+                  lang="en"
+                >
+                  English
+                </span>
+              )}
+              {isChinese ? (
+                <span
+                  aria-current="true"
+                  className="rounded-full bg-brand/10 px-3 py-1.5 text-brand text-sm"
+                  lang="zh-TW"
+                >
+                  繁體中文
+                </span>
+              ) : (
+                <SheetClose asChild>
+                  <InternalLink
+                    className="rounded-full px-3 py-1.5 text-sm"
+                    href={chineseHref}
+                    hrefLang="zh-TW"
+                    lang="zh-TW"
+                  >
+                    繁體中文
+                  </InternalLink>
+                </SheetClose>
+              )}
             </div>
           </div>
-          <span className="mt-5 block font-mono text-[10px] text-foreground-subtle tracking-[0.02em]">
-            Set in Fraunces, Newsreader &amp; JetBrains Mono. The text is the
-            work; the design is the chrome.
-          </span>
         </SheetContent>
       </Sheet>
     </div>
@@ -270,17 +305,32 @@ function FocusPlate({
 function RunningHead({
   headings,
   readingTime,
+  onOpenContents,
 }: {
   headings: ArticleHeading[];
   readingTime?: number;
+  onOpenContents: () => void;
 }) {
   const { activeSection, progress } = useArticleReadingState(headings);
   const timeLeft = formatMinutesLeft(readingTime, progress / 100);
+  if (headings.length === 0) {
+    return (
+      <div
+        aria-hidden="true"
+        className="flex rail:hidden h-7 items-center justify-center gap-2 border-border border-t px-4 font-mono text-[11px] text-foreground-subtle"
+      >
+        {timeLeft ? <span className="tabular-nums">{timeLeft}</span> : null}
+      </div>
+    );
+  }
   return (
-    <div
-      aria-hidden="true"
-      className="flex rail:hidden h-7 items-center justify-center gap-2 border-border border-t px-4 font-mono text-[11px] text-foreground-subtle"
+    <button
+      aria-label={activeSection ? `Contents: ${activeSection}` : "Contents"}
+      className="flex rail:hidden h-7 w-full items-center justify-center gap-2 border-border border-t px-4 font-mono text-[11px] text-foreground-subtle"
+      onClick={onOpenContents}
+      type="button"
     >
+      {activeSection ? null : <span>Contents</span>}
       {activeSection ? (
         <span className="max-w-[min(65vw,24rem)] truncate">
           {activeSection}
@@ -292,7 +342,7 @@ function RunningHead({
           <span className="shrink-0 tabular-nums">{timeLeft}</span>
         </>
       ) : null}
-    </div>
+    </button>
   );
 }
 
@@ -308,6 +358,7 @@ export function SiteBar() {
   const isScrolled = useHasScrolled({ offsetPx: 80 });
   const articleNav = useArticleNav();
   const isArticle = articleNav !== null;
+  const [contentsOpen, setContentsOpen] = useState(false);
   const { state, setFocusMode } = useTweaks();
   // focusMode is persisted, so scope it to article pages: elsewhere there is no
   // running head to carry EXIT, and collapsed chrome would be a dead end.
@@ -316,6 +367,7 @@ export function SiteBar() {
   const isHiddenOnScroll =
     isArticle && !isFocusMode && scrollDirection === "down";
   const exitFocusMode = useCallback(() => setFocusMode(false), [setFocusMode]);
+  const openContents = useCallback(() => setContentsOpen(true), []);
 
   let chromeClass = "py-4 opacity-100 duration-200";
   if (isFocusMode) {
@@ -338,7 +390,13 @@ export function SiteBar() {
         isScrolled && "border-border border-b bg-background"
       )}
     >
-      <Container className="relative w-full">
+      <div className="relative mx-auto w-full max-w-wide px-gutter">
+        <a
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-full focus:bg-card focus:px-4 focus:py-2 focus:text-foreground focus:shadow-paper"
+          href="#main-content"
+        >
+          Skip to content
+        </a>
         <div
           className={cn(
             "flex items-center gap-2 transition-all motion-reduce:transition-none sm:gap-3",
@@ -358,50 +416,28 @@ export function SiteBar() {
               <span className="font-display font-medium text-[15px] text-foreground leading-none tracking-[-0.015em]">
                 Howardism
               </span>
-              {!isScrolled && (
-                <span className="hidden font-mono text-[10px] text-foreground-subtle uppercase leading-none tracking-[0.14em] sm:block">
-                  vol. 03 · quiet corner of the web
-                </span>
-              )}
             </div>
           </div>
 
           {/* Nav */}
           <DesktopNav isCondensed={isScrolled} />
 
-          {/* Reader controls — article pages only. The TOC button is hidden at
-              the rail breakpoint, where the sticky rail already shows the TOC;
-              focus mode lives in reader settings. A hairline divider sets this
-              reader cluster apart from the global search/theme/menu cluster. */}
-          {isArticle && (
-            <>
-              <div className="flex items-center gap-0.5">
-                <span className="inline-flex rail:hidden">
-                  <TocSheet />
-                </span>
-                <ArticleFind />
-                <ReaderSettings />
-              </div>
-              <span
-                aria-hidden="true"
-                className="h-5 w-px shrink-0 bg-border"
-              />
-            </>
-          )}
-
           <SearchTrigger />
-          <span className={cn(isArticle && "hidden sm:inline-flex")}>
-            <ThemeToggle />
-          </span>
+          <ReaderSettings />
           <MobileNav />
         </div>
-      </Container>
+      </div>
 
-      {isArticle && !isFocusMode && isScrolled && (
+      {isArticle && !isFocusMode && (
         <RunningHead
           headings={articleNav.headings}
+          onOpenContents={openContents}
           readingTime={articleNav.readingTime}
         />
+      )}
+
+      {isArticle && (
+        <TocSheet onOpenChange={setContentsOpen} open={contentsOpen} />
       )}
 
       {isArticle && <ReadingProgress headings={articleNav.headings} />}

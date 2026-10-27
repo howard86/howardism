@@ -44,8 +44,6 @@ interface ArticleLayoutProps {
 
 const NO_NAVIGABLE_TAGS: ReadonlySet<string> = new Set();
 
-const EYEBROW_CLASS =
-  "font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.22em]";
 const NAV_KICKER_CLASS =
   "font-mono text-[10.5px] text-[var(--article-accent)] uppercase tracking-[0.22em]";
 const NAV_TITLE_CLASS =
@@ -167,19 +165,6 @@ export function ArticleLayout({
               </span>
             </span>
           )}
-          {translationHref ? (
-            <InternalLink
-              className={cn(
-                EYEBROW_CLASS,
-                "no-underline transition-colors hover:text-[var(--article-accent)]"
-              )}
-              href={translationHref}
-            >
-              <span className="whitespace-nowrap">
-                {locale === "zh-TW" ? "EN" : "中文"}
-              </span>
-            </InternalLink>
-          ) : null}
           <span className="whitespace-nowrap">HOWARDISM</span>
         </>
       }
@@ -319,6 +304,7 @@ export function ArticleLayout({
         headings={headings}
         readingTime={meta.readingTime}
         slug={slug}
+        translationHref={translationHref}
       />
       <TapScrollZones />
       <ResumeReading headings={headings} slug={slug} />
