@@ -9,6 +9,8 @@ import {
   type ShelfStats as ShelfStatsData,
 } from "@/lib/shelf-view";
 
+import { READING_DATA_CLEARED_EVENT } from "./clear-reading-data";
+
 const NUMERAL_CLASS =
   "font-display font-light text-[clamp(30px,4.4vw,42px)] leading-none tracking-[-0.03em] text-foreground";
 const UNIT_CLASS =
@@ -50,6 +52,13 @@ export function ShelfStats() {
 
   useEffect(() => {
     setHistory(getHistory());
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setHistory(getHistory());
+    window.addEventListener(READING_DATA_CLEARED_EVENT, refresh);
+    return () =>
+      window.removeEventListener(READING_DATA_CLEARED_EVENT, refresh);
   }, []);
 
   const manifest = useShelfManifest((history?.length ?? 0) > 0);

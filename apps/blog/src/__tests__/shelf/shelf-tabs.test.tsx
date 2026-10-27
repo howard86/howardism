@@ -16,6 +16,8 @@ mock.module("next/navigation", () => ({
   }),
 }));
 
+import { ClearReadingData } from "@/app/(blog)/shelf/clear-reading-data";
+import { ShelfStats } from "@/app/(blog)/shelf/shelf-stats";
 import { ShelfTabs } from "@/app/(blog)/shelf/shelf-tabs";
 import { resetReadingStoreCache } from "@/lib/reading-store";
 import { resetShelfManifestCache } from "@/lib/shelf-manifest";
@@ -88,6 +90,8 @@ const PROGRESS_SORT = /^progress$/i;
 const BROWSE_LINK = /browse all articles/i;
 const AGENT_SYSTEMS_CHIP = /agent systems/i;
 const ALL_CHIP = /^all/i;
+const CLEAR_DATA = /clear reading data/i;
+const CONFIRM_CLEAR = /confirm clear/i;
 
 function seedHistory(
   entries: { slug: string; pct: number; ageMs?: number; firstAgeMs?: number }[]
@@ -123,6 +127,25 @@ describe("ShelfTabs history tab", () => {
       screen.getByRole("link", { name: ROW_TITLE })
     );
     expect(link.getAttribute("href")).toBe("/articles/alpha");
+  });
+
+  it("clears shelf lists immediately after explicit confirmation", async () => {
+    seedHistory([{ slug: "alpha", pct: 0.6 }]);
+    render(
+      <>
+        <ClearReadingData />
+        <ShelfStats />
+        <ShelfTabs />
+      </>
+    );
+    await screen.findByRole("link", { name: ROW_TITLE });
+    await screen.findByText("notes read");
+    fireEvent.click(screen.getByRole("button", { name: CLEAR_DATA }));
+    expect(localStorage.getItem(HISTORY_KEY)).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: CONFIRM_CLEAR }));
+    await waitFor(() => expect(screen.getByText(EMPTY_STATE)).not.toBeNull());
+    await waitFor(() => expect(screen.queryByText("notes read")).toBeNull());
+    expect(localStorage.getItem(HISTORY_KEY)).toBeNull();
   });
 
   it("stacks the controls above the list rather than beside it", async () => {

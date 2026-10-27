@@ -48,6 +48,7 @@ import {
 import { formatRelativeTime } from "@/utils/time";
 
 import { DOMAIN_META } from "../articles/domain-meta";
+import { READING_DATA_CLEARED_EVENT } from "./clear-reading-data";
 import {
   ArchivedBadge,
   type ListSelection,
@@ -170,6 +171,13 @@ function useShelfData(): [
 
   useEffect(() => {
     setRaw({ history: getHistory(), saved: getSaved() });
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setRaw({ history: getHistory(), saved: getSaved() });
+    window.addEventListener(READING_DATA_CLEARED_EVENT, refresh);
+    return () =>
+      window.removeEventListener(READING_DATA_CLEARED_EVENT, refresh);
   }, []);
 
   const hasActivity =
