@@ -156,6 +156,22 @@ describe("useChunkedMode", () => {
 });
 
 describe("runChunkedWithRetry", () => {
+  it("fails fast without retrying an engine spawn failure", async () => {
+    let calls = 0;
+    const result = await run(() => {
+      calls += 1;
+      return Promise.reject(new Error("engine unavailable"));
+    });
+
+    expect(result.ok).toBe(false);
+    expect(calls).toBe(1);
+    if (!result.ok) {
+      expect(result.reason).toContain(
+        "engine spawn failed: engine unavailable"
+      );
+    }
+  });
+
   it("makes one structured call per part and writes the reassembled article", async () => {
     expect(chunks.length).toBeGreaterThan(2);
     const calls: FakeCall[] = [];

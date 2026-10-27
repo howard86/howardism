@@ -109,6 +109,8 @@ interface TranslateSummary {
 
 /** Shared, mutating run state. Safe because workers run async in one process. */
 interface RunContext {
+  circuitBroken: boolean;
+  consecutiveSpawnFailures: number;
   /** Open glossary DB; only set while {@link runTranslate} is running. */
   glossaryDb?: Database;
   glossaryMatcher?: GlossaryTermMatcher;
@@ -119,6 +121,7 @@ interface RunContext {
   results: TranslationRunInput[];
   /** Running USD total (engine-reported or estimated) for the budget cap. */
   spentUsd: number;
+  stopQueue: boolean;
   summary: TranslateSummary;
   updates: Record<string, TranslationRecord>;
 }
@@ -132,6 +135,7 @@ const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/glossary/cli.ts");
 const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
+const SPAWN_FAILURE_BREAKER_THRESHOLD = 3;
 
 /**
  * Source-size ceiling for structured single-turn mode, in bytes. The corpus
@@ -276,6 +280,9 @@ async function main(): Promise<void> {
   const projection = await readProjection(opts.projectionPath, opts.locale);
   const ctx: RunContext = {
     glossaryTerms: [],
+    consecutiveSpawnFailures: 0,
+    circuitBroken: false,
+    stopQueue: false,
     opts,
     projection,
     results: [],
@@ -370,9 +377,18 @@ async function translateAll(ctx: RunContext): Promise<void> {
       );
     }
   }
-  await runWithConcurrency(queued, opts.concurrency, (slug) =>
-    processArticle(slug, ctx)
-  );
+  await runWithConcurrency(queued, opts.concurrency, async (slug) => {
+    if (ctx.stopQueue) {
+      return;
+    }
+    await processArticle(slug, ctx);
+  });
+
+  if (ctx.circuitBroken) {
+    console.warn(
+      "[translate] circuit breaker stopped dequeueing articles after repeated engine spawn failures"
+    );
+  }
 
   // Orphans: a translation lingers but its source slug is gone. Warn only.
   const sourceSet = new Set(slugs);
@@ -588,6 +604,10 @@ function translateWhole(args: TranslateArgs): Promise<EngineOutcome> {
     prompt,
     structured,
     opts,
+    onSpawnFailure: () => noteSpawnFailure(ctx),
+    onEngineStarted: () => {
+      ctx.consecutiveSpawnFailures = 0;
+    },
   });
 }
 
@@ -603,11 +623,23 @@ function translateChunked(args: TranslateArgs): Promise<EngineOutcome> {
     chunks,
     glossaryTerms: ctx.glossaryTerms,
     glossaryMatcher: ctx.glossaryMatcher,
+    onSpawnFailure: () => noteSpawnFailure(ctx),
+    onEngineStarted: () => {
+      ctx.consecutiveSpawnFailures = 0;
+    },
     opts,
     outputAbsPath,
     slug,
     sourceAbsPath,
   });
+}
+
+function noteSpawnFailure(ctx: RunContext): void {
+  ctx.consecutiveSpawnFailures += 1;
+  if (ctx.consecutiveSpawnFailures >= SPAWN_FAILURE_BREAKER_THRESHOLD) {
+    ctx.circuitBroken = true;
+    ctx.stopQueue = true;
+  }
 }
 
 /**
@@ -887,6 +919,8 @@ function printCheckJson(
 }
 
 interface RunEngineWithRetryArgs {
+  onEngineStarted?: () => void;
+  onSpawnFailure?: () => void;
   opts: RunOptions;
   outputAbsPath: string;
   prompt: string;
@@ -924,6 +958,7 @@ export type EngineOptions = Pick<
 interface EngineAttemptArgs {
   /** Structured mode only: codex `-o` file holding the JSON final message. */
   lastMessagePath: string | undefined;
+  onEngineStarted?: () => void;
   opts: EngineOptions;
   outputAbsPath: string;
   prompt: string;
@@ -936,7 +971,7 @@ interface EngineAttemptArgs {
 }
 
 type AttemptResult =
-  | { errors: string[]; ok: false }
+  | { errors: string[]; ok: false; retryable?: boolean; spawnFailure?: boolean }
   | { newTerms: GlossaryEntry[]; ok: true; usage?: EngineUsage };
 
 /** Spawn the engine for one attempt, logging a heartbeat every 60s. */
@@ -1008,8 +1043,10 @@ async function runEngineAttempt(
     return {
       ok: false,
       errors: [`engine spawn failed: ${(err as Error).message}`],
+      spawnFailure: true,
     };
   }
+  args.onEngineStarted?.();
 
   // Structured mode: the engine wrote nothing — the translation arrives as one
   // JSON final message that we materialise into the output path here.
@@ -1040,7 +1077,7 @@ async function runEngineAttempt(
 
   const result = await validateTranslation({ sourceAbsPath, outputAbsPath });
   if (!result.ok) {
-    return { ok: false, errors: result.errors };
+    return { ok: false, errors: result.errors, retryable: true };
   }
   return { ok: true, newTerms, usage };
 }
@@ -1105,6 +1142,7 @@ async function runEngineWithRetry(
         schemaPath,
         slug,
         sourceAbsPath,
+        onEngineStarted: args.onEngineStarted,
       });
       if (result.ok) {
         return {
@@ -1115,6 +1153,13 @@ async function runEngineWithRetry(
         };
       }
       lastErrors = result.errors;
+      if (result.spawnFailure) {
+        args.onSpawnFailure?.();
+        break;
+      }
+      if (!result.retryable) {
+        break;
+      }
       console.warn(
         `[translate] ${slug} attempt ${attempt} failed: ${lastErrors.join("; ")}`
       );
@@ -1178,6 +1223,8 @@ export interface RunChunkedArgs {
   chunks: string[];
   glossaryMatcher?: GlossaryTermMatcher;
   glossaryTerms: string[];
+  onEngineStarted?: () => void;
+  onSpawnFailure?: () => void;
   opts: EngineOptions;
   outputAbsPath: string;
   /** Test seam: replaces the real subprocess spawn. */
@@ -1198,7 +1245,7 @@ interface ChunkRunContext extends RunChunkedArgs {
 }
 
 type ChunkResult =
-  | { errors: string[]; ok: false }
+  | { errors: string[]; ok: false; retryable?: boolean; spawnFailure?: boolean }
   | { mdx: string; newTerms: GlossaryEntry[]; ok: true; usage?: EngineUsage };
 
 /**
@@ -1245,11 +1292,20 @@ async function translateChunk(
       schemaPath,
       slug,
       isLaterPart: index > 0,
+      onSpawnFailure: ctx.onSpawnFailure,
+      onEngineStarted: ctx.onEngineStarted,
     });
     if (result.ok) {
       return result;
     }
     lastErrors = result.errors;
+    if (result.spawnFailure) {
+      ctx.onSpawnFailure?.();
+      break;
+    }
+    if (!result.retryable) {
+      break;
+    }
     console.warn(
       `[translate] ${label} attempt ${attempt} failed: ${lastErrors.join("; ")}`
     );
@@ -1261,6 +1317,8 @@ interface ChunkAttemptArgs {
   isLaterPart: boolean;
   label: string;
   lastMessagePath: string;
+  onEngineStarted?: () => void;
+  onSpawnFailure?: () => void;
   opts: EngineOptions;
   prefix: string;
   prompt: string;
@@ -1290,8 +1348,10 @@ async function runChunkAttempt(args: ChunkAttemptArgs): Promise<ChunkResult> {
     return {
       ok: false,
       errors: [`engine spawn failed: ${(err as Error).message}`],
+      spawnFailure: true,
     };
   }
+  args.onEngineStarted?.();
   let parsed: StructuredTranslation;
   try {
     parsed = parseStructuredResult(await Bun.file(lastMessagePath).text());
@@ -1324,7 +1384,7 @@ async function runChunkAttempt(args: ChunkAttemptArgs): Promise<ChunkResult> {
     sourceAbsPath: pseudoSource,
   });
   if (!result.ok) {
-    return { ok: false, errors: result.errors };
+    return { ok: false, errors: result.errors, retryable: true };
   }
   return { ok: true, mdx: parsed.mdx, newTerms: parsed.newTerms, usage };
 }
