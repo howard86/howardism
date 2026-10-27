@@ -1,3 +1,8 @@
+# [v2.35.4](https://github.com/howard86/howardism/compare/v2.35.3...v2.35.4) (2026-10-27)
+
+## 🐛 Bug Fixes
+- [`7d851b30`](https://github.com/howard86/howardism/commit/7d851b30)  fix(blog): redirect lowercase zh-tw locale paths
+
 # [v2.35.3](https://github.com/howard86/howardism/compare/v2.35.2...v2.35.3) (2026-10-27)
 
 ## 🐛 Bug Fixes
