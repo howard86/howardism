@@ -168,7 +168,7 @@ export function buildStructuredTranslatePrompt(
     "Answer in ONE turn. Do NOT read files, do NOT run shell commands, do NOT write files — the source article and the glossary are inlined below.",
     "",
     ...(part ? partBrief(part) : []),
-    `DO-NOT-TRANSLATE (DNT) GLOSSARY — ${glossaryTerms.length} terms, one per line. Keep every one VERBATIM in the output: do not translate, transliterate, or annotate them.`,
+    `DO-NOT-TRANSLATE (DNT) GLOSSARY — ${glossaryTerms.length} terms found in this ${unit}, one per line. Keep every one VERBATIM in the output: do not translate, transliterate, or annotate them.`,
     glossaryTerms.length > 0 ? glossaryTerms.join("\n") : "(empty)",
     "",
     "BYTE-IDENTICAL — DO NOT CHANGE",

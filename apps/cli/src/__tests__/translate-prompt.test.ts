@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-
+import { GlossaryTermMatcher } from "../translate/enforce.ts";
 import {
   buildStructuredTranslatePrompt,
   buildTranslatePrompt,
@@ -113,6 +113,10 @@ describe("buildStructuredTranslatePrompt", () => {
     expect(structured).not.toContain(`${GLOSSARY_CMD} list`);
   });
 
+  it("describes the supplied glossary as terms found in this article", () => {
+    expect(structured).toContain("2 terms found in this article");
+  });
+
   it("forbids tool use so the whole translation happens in one turn", () => {
     expect(structured).toContain("ONE turn");
     expect(structured.toLowerCase()).toContain("do not read files");
@@ -155,6 +159,19 @@ describe("buildStructuredTranslatePrompt", () => {
     expect(structured).toContain('"mdx"');
     expect(structured).toContain('"newTerms"');
     expect(structured).toContain("person | org | product | tech | entity");
+  });
+});
+
+describe("GlossaryTermMatcher", () => {
+  it("finds only present terms, including overlapping terms, and accepts additions", () => {
+    const matcher = new GlossaryTermMatcher(["agent", "agentic", "Anthropic"]);
+    expect(matcher.find("An agentic system.")).toEqual(["agent", "agentic"]);
+    matcher.add(["system"]);
+    expect(matcher.find("An agentic system.")).toEqual([
+      "agent",
+      "agentic",
+      "system",
+    ]);
   });
 });
 

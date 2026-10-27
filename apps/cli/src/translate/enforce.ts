@@ -84,6 +84,36 @@ function findPresentTerms(text: string, trie: TermTrieNode): Set<string> {
   return present;
 }
 
+/** Reusable glossary presence index for selecting only relevant prompt terms. */
+export class GlossaryTermMatcher {
+  private readonly terms = new Set<string>();
+  private trie: TermTrieNode = { children: new Map(), term: null };
+
+  constructor(terms: string[]) {
+    this.add(terms);
+  }
+
+  add(terms: string[]): void {
+    let changed = false;
+    for (const term of terms) {
+      const trimmed = term.trim();
+      if (!trimmed || this.terms.has(trimmed)) {
+        continue;
+      }
+      this.terms.add(trimmed);
+      changed = true;
+    }
+    if (changed) {
+      this.trie = buildTermTrie([...this.terms]);
+    }
+  }
+
+  find(text: string): string[] {
+    const present = findPresentTerms(text, this.trie);
+    return [...present].sort();
+  }
+}
+
 /**
  * Deterministic glossary enforcement: verify every do-not-translate term
  * that appears in the SOURCE also appears in the OUTPUT, and repair the one

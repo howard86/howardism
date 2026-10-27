@@ -16,7 +16,7 @@ import {
   seedGlossary,
 } from "../glossary/store.ts";
 import { chunkArticle, reassembleChunks } from "./chunk.ts";
-import { enforceGlossary } from "./enforce.ts";
+import { enforceGlossary, GlossaryTermMatcher } from "./enforce.ts";
 import {
   DEFAULT_CODEX_REASONING_EFFORT,
   DEFAULT_CURSOR_MODEL,
@@ -111,6 +111,7 @@ interface TranslateSummary {
 interface RunContext {
   /** Open glossary DB; only set while {@link runTranslate} is running. */
   glossaryDb?: Database;
+  glossaryMatcher?: GlossaryTermMatcher;
   /** Do-not-translate terms, read once per run. */
   glossaryTerms: string[];
   opts: RunOptions;
@@ -316,6 +317,7 @@ async function runTranslate(ctx: RunContext): Promise<void> {
   const db = openDb(opts.glossaryPath);
   ctx.glossaryDb = db;
   ctx.glossaryTerms = listTerms(db).map((entry) => entry.term);
+  ctx.glossaryMatcher = new GlossaryTermMatcher(ctx.glossaryTerms);
   try {
     await translateAll(ctx);
   } finally {
@@ -513,7 +515,8 @@ function translateWhole(args: TranslateArgs): Promise<EngineOutcome> {
   const structured = useStructuredMode(opts.engine, sourceText);
   const prompt = structured
     ? buildStructuredTranslatePrompt({
-        glossaryTerms: ctx.glossaryTerms,
+        glossaryTerms:
+          ctx.glossaryMatcher?.find(sourceText) ?? ctx.glossaryTerms,
         sourceText,
         targetLang: opts.targetLang,
       })
@@ -547,6 +550,7 @@ function translateChunked(args: TranslateArgs): Promise<EngineOutcome> {
   return runChunkedWithRetry({
     chunks,
     glossaryTerms: ctx.glossaryTerms,
+    glossaryMatcher: ctx.glossaryMatcher,
     opts,
     outputAbsPath,
     slug,
@@ -582,8 +586,13 @@ function registerNewTerms(
     return;
   }
   try {
-    const { added } = addTerms(ctx.glossaryDb, newTerms);
+    const { added, results } = addTerms(ctx.glossaryDb, newTerms);
+    const addedTerms = results
+      .filter(({ added: wasAdded }) => wasAdded)
+      .map(({ term }) => term);
     if (added > 0) {
+      ctx.glossaryTerms.push(...addedTerms);
+      ctx.glossaryMatcher?.add(addedTerms);
       console.log(
         `[translate] ${slug} glossary: registered ${added} new term(s)`
       );
@@ -1115,6 +1124,7 @@ const FRONTMATTER_BLOCK_RE = /^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/;
 export interface RunChunkedArgs {
   /** Source parts from {@link chunkArticle}; they concatenate to the source. */
   chunks: string[];
+  glossaryMatcher?: GlossaryTermMatcher;
   glossaryTerms: string[];
   opts: EngineOptions;
   outputAbsPath: string;
@@ -1159,7 +1169,8 @@ async function translateChunk(
   const pseudoOutput = join(tmpDir, `output-${part.index}`, `${slug}.mdx`);
   await Bun.write(pseudoSource, prefix + chunks[index]);
   const prompt = buildStructuredTranslatePrompt({
-    glossaryTerms: ctx.glossaryTerms,
+    glossaryTerms:
+      ctx.glossaryMatcher?.find(chunks[index] ?? "") ?? ctx.glossaryTerms,
     part,
     sourceText: chunks[index],
     targetLang: opts.targetLang,
