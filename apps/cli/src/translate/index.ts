@@ -337,13 +337,39 @@ async function translateAll(ctx: RunContext): Promise<void> {
     );
   }
 
-  const queued = opts.limit == null ? slugs : slugs.slice(0, opts.limit);
-  if (opts.limit != null && queued.length < slugs.length) {
-    console.log(
-      `[translate] limiting to ${queued.length} of ${slugs.length} articles (--limit ${opts.limit})`
+  let queued = slugs;
+  if (opts.limit !== null) {
+    const classified = await Promise.all(
+      slugs.map(async (slug) => {
+        const [sourceText, outputText] = await Promise.all([
+          Bun.file(join(opts.sourceDir, `${slug}.mdx`)).text(),
+          readFileOrNull(join(opts.outputDir, `${slug}.mdx`)),
+        ]);
+        return {
+          slug,
+          status: classifyArticle({
+            sourceText,
+            outputText,
+            recordedHash: recordedHashOf(ctx.projection, slug),
+          }),
+        };
+      })
     );
+    const actionable = classified.filter(({ status }) =>
+      isActionableForRun(status, opts)
+    );
+    queued = selectActionableSlugs(actionable, opts.limit);
+    if (queued.length < actionable.length) {
+      console.log(
+        `[translate] limiting to ${queued.length} of ${actionable.length} actionable articles (--limit ${opts.limit})`
+      );
+    }
+    if (actionable.length < slugs.length) {
+      console.log(
+        `[translate] skipped ${slugs.length - actionable.length} non-actionable articles before applying --limit`
+      );
+    }
   }
-
   await runWithConcurrency(queued, opts.concurrency, (slug) =>
     processArticle(slug, ctx)
   );
@@ -358,6 +384,32 @@ async function translateAll(ctx: RunContext): Promise<void> {
       );
     }
   }
+}
+
+function isActionableForRun(
+  status: TranslationStatus,
+  opts: Pick<RunOptions, "force" | "update">
+): boolean {
+  if (opts.force) {
+    return true;
+  }
+  if (status === "fresh" || (status === "stale" && !opts.update)) {
+    return false;
+  }
+  return true;
+}
+
+export function selectActionableSlugs(
+  classified: { slug: string; status: TranslationStatus }[],
+  limit: number,
+  options?: Pick<RunOptions, "force" | "update">
+): string[] {
+  return classified
+    .filter(({ status }) =>
+      options ? isActionableForRun(status, options) : true
+    )
+    .slice(0, limit)
+    .map(({ slug }) => slug);
 }
 
 async function processArticle(slug: string, ctx: RunContext): Promise<void> {
