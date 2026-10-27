@@ -27,6 +27,7 @@ import {
   type EngineUsage,
   parseEngine,
   runEngine,
+  terminateActiveEngineGroups,
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
 import { fixMdxEscaping, repairTranslatedFrontmatter } from "./postprocess.ts";
@@ -37,6 +38,7 @@ import {
   CHUNK_TRANSLATION_OUTPUT_SCHEMA,
   TRANSLATION_OUTPUT_SCHEMA,
 } from "./prompt.ts";
+import { registerSignalShutdown } from "./shutdown.ts";
 import { resyncVerbatimFields, sourceTitle } from "./surface.ts";
 import {
   ACTIONABLE_STATUSES,
@@ -110,6 +112,7 @@ interface TranslateSummary {
 /** Shared, mutating run state. Safe because workers run async in one process. */
 interface RunContext {
   circuitBroken: boolean;
+  completedSincePersist: number;
   consecutiveSpawnFailures: number;
   /** Open glossary DB; only set while {@link runTranslate} is running. */
   glossaryDb?: Database;
@@ -117,6 +120,8 @@ interface RunContext {
   /** Do-not-translate terms, read once per run. */
   glossaryTerms: string[];
   opts: RunOptions;
+  persistChain: Promise<void>;
+  persistedResults: number;
   projection: TranslationProjection;
   results: TranslationRunInput[];
   /** Running USD total (engine-reported or estimated) for the budget cap. */
@@ -135,6 +140,7 @@ const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/glossary/cli.ts");
 const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
+const PERSIST_EVERY_ARTICLES = 5;
 const SPAWN_FAILURE_BREAKER_THRESHOLD = 3;
 
 /**
@@ -280,6 +286,9 @@ async function main(): Promise<void> {
   const projection = await readProjection(opts.projectionPath, opts.locale);
   const ctx: RunContext = {
     glossaryTerms: [],
+    persistChain: Promise.resolve(),
+    persistedResults: 0,
+    completedSincePersist: 0,
     consecutiveSpawnFailures: 0,
     circuitBroken: false,
     stopQueue: false,
@@ -299,13 +308,28 @@ async function main(): Promise<void> {
     },
   };
 
-  if (opts.adopt) {
-    await runAdopt(ctx);
-  } else {
-    await runTranslate(ctx);
+  const removeSignalHandlers = registerSignalShutdown({
+    exit: (code) => process.exit(code),
+    flush: () => persist(ctx),
+    killEngines: terminateActiveEngineGroups,
+    signalSource: process,
+    stopQueue: () => {
+      ctx.stopQueue = true;
+    },
+  });
+  try {
+    if (opts.adopt) {
+      await runAdopt(ctx);
+    } else {
+      await runTranslate(ctx);
+    }
+  } finally {
+    try {
+      await persist(ctx);
+    } finally {
+      removeSignalHandlers();
+    }
   }
-
-  await persist(ctx);
   printSummary(ctx.summary, opts.maxUsd);
   if (ctx.summary.failed.length > 0) {
     process.exitCode = 1;
@@ -382,6 +406,11 @@ async function translateAll(ctx: RunContext): Promise<void> {
       return;
     }
     await processArticle(slug, ctx);
+    ctx.completedSincePersist += 1;
+    if (ctx.completedSincePersist >= PERSIST_EVERY_ARTICLES) {
+      ctx.completedSincePersist = 0;
+      await persist(ctx);
+    }
   });
 
   if (ctx.circuitBroken) {
@@ -771,24 +800,42 @@ async function runAdopt(ctx: RunContext): Promise<void> {
 
 /** Persist this run: append history to the DB, then merge the committed projection. */
 async function persist(ctx: RunContext): Promise<void> {
-  if (ctx.opts.dryRun || Object.keys(ctx.updates).length === 0) {
-    return;
-  }
-  try {
-    const db = openTrackingDb(ctx.opts.trackingDbPath);
-    try {
-      recordRuns(db, ctx.results);
-    } finally {
-      db.close();
-    }
-  } catch (err) {
-    // History cache is best-effort; the committed projection is the truth.
-    console.warn(
-      `[translate] warning: failed to write history DB: ${(err as Error).message}`
-    );
-  }
-  await writeProjection(ctx.opts.projectionPath, ctx.projection, ctx.updates);
-  console.log(`[translate] updated projection: ${ctx.opts.projectionPath}`);
+  const operation = ctx.persistChain
+    .catch(() => undefined)
+    .then(async () => {
+      if (ctx.opts.dryRun || Object.keys(ctx.updates).length === 0) {
+        return;
+      }
+      const resultBatch = ctx.results.slice(ctx.persistedResults);
+      const updateBatch = { ...ctx.updates };
+      try {
+        const db = openTrackingDb(ctx.opts.trackingDbPath);
+        try {
+          recordRuns(db, resultBatch);
+        } finally {
+          db.close();
+        }
+      } catch (err) {
+        console.warn(
+          `[translate] warning: failed to write history DB: ${(err as Error).message}`
+        );
+      }
+      ctx.projection = await writeProjection(
+        ctx.opts.projectionPath,
+        ctx.projection,
+        updateBatch
+      );
+      ctx.persistedResults += resultBatch.length;
+      for (const slug of Object.keys(updateBatch)) {
+        delete ctx.updates[slug];
+      }
+      console.log(`[translate] updated projection: ${ctx.opts.projectionPath}`);
+    });
+  ctx.persistChain = operation.catch((err) => {
+    console.error(`[translate] persistence failed: ${(err as Error).message}`);
+    throw err;
+  });
+  await ctx.persistChain;
 }
 
 /** Check buckets: the status union plus `untranslated` (never-tracked, no output). */
