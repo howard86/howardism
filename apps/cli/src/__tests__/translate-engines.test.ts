@@ -1,14 +1,19 @@
 import { describe, expect, it } from "bun:test";
-
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+  activeEnginePids,
   buildEngineArgv,
   DEFAULT_CURSOR_MODEL,
   DEFAULT_ENGINE_MODELS,
+  defaultEngineRunner,
   defaultModelForEngine,
   drainStream,
   ENGINES,
   parseEngine,
   runEngine,
+  terminateActiveEngineGroups,
 } from "../translate/engines.ts";
 
 /** A ReadableStream that yields each string in `chunks` as one UTF-8 push. */
@@ -62,6 +67,54 @@ describe("drainStream", () => {
 
   it("keeps a final line with no trailing newline", async () => {
     expect(await drainStream(streamFrom(["a\nb"]))).toBe("a\nb");
+  });
+});
+
+describe("defaultEngineRunner timeout", () => {
+  it("registry shutdown escalates live groups and timeout kills descendants", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "translate-signal-group-"));
+    const marker = join(dir, "orphan-ran");
+    const timeoutMarker = join(dir, "timeout-orphan-ran");
+    try {
+      const running = defaultEngineRunner(
+        [
+          "sh",
+          "-c",
+          `sh -c 'trap "" TERM; touch ready; sleep 0.2; touch "${marker}"' & wait`,
+        ],
+        { cwd: dir }
+      );
+      // Wait until the descendant has installed its TERM trap, so the kill
+      // exercises escalation rather than racing process start-up.
+      while (!(await Bun.file(join(dir, "ready")).exists())) {
+        await Bun.sleep(5);
+      }
+      const [pid] = activeEnginePids();
+      expect(pid).toBeGreaterThan(0);
+      // Capture the outcome before killing: under load the runner can reject
+      // while terminate is still awaiting, which Bun reports as unhandled.
+      // (expect(pending).rejects would instead block until it settles.)
+      const outcome = running.then(
+        () => "resolved",
+        (error: unknown) => error
+      );
+      await terminateActiveEngineGroups(30);
+      expect(await outcome).toBeInstanceOf(Error);
+      await Bun.sleep(250);
+      expect(await Bun.file(marker).exists()).toBe(false);
+      expect(activeEnginePids()).not.toContain(pid);
+
+      await expect(
+        defaultEngineRunner(
+          ["sh", "-c", `sh -c 'sleep 0.2; touch "${timeoutMarker}"' & wait`],
+          { cwd: dir, timeoutMs: 40 }
+        )
+      ).rejects.toThrow("timed out");
+      await Bun.sleep(250);
+      expect(await Bun.file(timeoutMarker).exists()).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 

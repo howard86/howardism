@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@howardism/ui/lib/utils";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import useScrollSpy from "@/hooks/use-scroll-spy";
 
@@ -19,8 +19,17 @@ export function ArticleToc({
   onNavigate,
 }: ArticleTocProps) {
   const sectionIds = useMemo(() => headings.map((h) => h.id), [headings]);
+  const [railMatches, setRailMatches] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 80rem)");
+    const update = () => setRailMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const activeId = useScrollSpy({
     defaultSectionId: sectionIds[0] ?? null,
+    enabled: railMatches,
     sectionIds,
   });
 

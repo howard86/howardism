@@ -9,7 +9,15 @@ export interface ObjectStore {
   get: (key: string, maxBytes: number) => Promise<Uint8Array>;
   head: (key: string) => Promise<{ bytes: number; sha256: string } | null>;
   metrics?: { retries: number };
-  putIfAbsent: (key: string, bytes: Uint8Array) => Promise<void>;
+  putIfAbsent: (
+    key: string,
+    bytes: Uint8Array
+  ) => Promise<PutResult | undefined>;
+}
+
+export interface PutResult {
+  bytes: number;
+  sha256: string;
 }
 
 export interface StoredObject {

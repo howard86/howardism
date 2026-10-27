@@ -265,7 +265,7 @@ export function ArticleLayout({
   const articleTail = (
     <>
       <div className="rail:hidden">
-        <BacklinksDisclosure slug={slug} />
+        <BacklinksDisclosure preview={false} slug={slug} />
       </div>
 
       <ArticleNav siblings={siblings} />

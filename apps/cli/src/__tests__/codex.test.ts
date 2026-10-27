@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { stat } from "node:fs/promises";
+import { chmod, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { buildPrompt, generateHeroImage } from "../import-wiki/codex.ts";
 
 const NOT_A_PNG_RE = /not a PNG/;
 const DID_NOT_PRODUCE_RE = /did not produce/;
+const TIMEOUT_RE = /timed out after 20ms/;
 const PNG_HEADER = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
 ]);
@@ -106,5 +108,38 @@ describe("generateHeroImage", () => {
         runner: noopRunner,
       })
     ).rejects.toThrow(DID_NOT_PRODUCE_RE);
+  });
+
+  it("kills a hung codex process at the configured timeout", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codex-timeout-"));
+    const binary = join(dir, "codex");
+    await writeFile(binary, "#!/bin/sh\nexec /bin/sleep 2\n");
+    await chmod(binary, 0o755);
+    const previousPath = process.env.PATH;
+    const previousTimeout = process.env.IMAGE_ENGINE_TIMEOUT_MS;
+    process.env.PATH = `${dir}:${previousPath ?? ""}`;
+    process.env.IMAGE_ENGINE_TIMEOUT_MS = "20";
+    try {
+      await expect(
+        generateHeroImage({
+          title: "Demo",
+          body: "Body",
+          outputPath: join(dir, "out.png"),
+          stagingDir: join(dir, "stage"),
+        })
+      ).rejects.toThrow(TIMEOUT_RE);
+    } finally {
+      if (previousPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = previousPath;
+      }
+      if (previousTimeout === undefined) {
+        delete process.env.IMAGE_ENGINE_TIMEOUT_MS;
+      } else {
+        process.env.IMAGE_ENGINE_TIMEOUT_MS = previousTimeout;
+      }
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

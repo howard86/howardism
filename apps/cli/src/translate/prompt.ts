@@ -67,7 +67,7 @@ export function buildTranslatePrompt(args: BuildTranslatePromptArgs): string {
     "GUARDRAILS",
     "- Output ONLY the translated MDX file at the destination path. Do not print the file contents to stdout. Do not write logs or extra files.",
     "- The first byte of the output file must be the `-` of the opening `---`. No leading whitespace, no Markdown fences, no commentary.",
-    `- Re-run \`${glossaryCmd} list\` if you are unsure whether a term is in the glossary; rely on the glossary, not on memory.`,
+    `- If you are unsure whether a term is in the glossary, run \`${glossaryCmd} check "<term>" ...\` (prints which of the given terms are registered) rather than re-listing the whole glossary; rely on the glossary, not on memory.`,
   ].join("\n");
 }
 
@@ -168,7 +168,7 @@ export function buildStructuredTranslatePrompt(
     "Answer in ONE turn. Do NOT read files, do NOT run shell commands, do NOT write files — the source article and the glossary are inlined below.",
     "",
     ...(part ? partBrief(part) : []),
-    `DO-NOT-TRANSLATE (DNT) GLOSSARY — ${glossaryTerms.length} terms, one per line. Keep every one VERBATIM in the output: do not translate, transliterate, or annotate them.`,
+    `DO-NOT-TRANSLATE (DNT) GLOSSARY — ${glossaryTerms.length} terms found in this ${unit}, one per line. Keep every one VERBATIM in the output: do not translate, transliterate, or annotate them.`,
     glossaryTerms.length > 0 ? glossaryTerms.join("\n") : "(empty)",
     "",
     "BYTE-IDENTICAL — DO NOT CHANGE",

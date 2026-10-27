@@ -16,7 +16,7 @@ import {
   seedGlossary,
 } from "../glossary/store.ts";
 import { chunkArticle, reassembleChunks } from "./chunk.ts";
-import { enforceGlossary } from "./enforce.ts";
+import { enforceGlossary, GlossaryTermMatcher } from "./enforce.ts";
 import {
   DEFAULT_CODEX_REASONING_EFFORT,
   DEFAULT_CURSOR_MODEL,
@@ -27,6 +27,7 @@ import {
   type EngineUsage,
   parseEngine,
   runEngine,
+  terminateActiveEngineGroups,
 } from "./engines.ts";
 import { normalizeHeadings } from "./headings.ts";
 import { fixMdxEscaping, repairTranslatedFrontmatter } from "./postprocess.ts";
@@ -37,6 +38,7 @@ import {
   CHUNK_TRANSLATION_OUTPUT_SCHEMA,
   TRANSLATION_OUTPUT_SCHEMA,
 } from "./prompt.ts";
+import { registerSignalShutdown } from "./shutdown.ts";
 import { resyncVerbatimFields, sourceTitle } from "./surface.ts";
 import {
   ACTIONABLE_STATUSES,
@@ -109,15 +111,22 @@ interface TranslateSummary {
 
 /** Shared, mutating run state. Safe because workers run async in one process. */
 interface RunContext {
+  circuitBroken: boolean;
+  completedSincePersist: number;
+  consecutiveSpawnFailures: number;
   /** Open glossary DB; only set while {@link runTranslate} is running. */
   glossaryDb?: Database;
+  glossaryMatcher?: GlossaryTermMatcher;
   /** Do-not-translate terms, read once per run. */
   glossaryTerms: string[];
   opts: RunOptions;
+  persistChain: Promise<void>;
+  persistedResults: number;
   projection: TranslationProjection;
   results: TranslationRunInput[];
   /** Running USD total (engine-reported or estimated) for the budget cap. */
   spentUsd: number;
+  stopQueue: boolean;
   summary: TranslateSummary;
   updates: Record<string, TranslationRecord>;
 }
@@ -131,6 +140,8 @@ const GLOSSARY_SCRIPT_PATH = resolve(CLI_ROOT, "src/glossary/cli.ts");
 const MDX_SUFFIX_RE = /\.mdx$/;
 const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_ENGINE_TIMEOUT_MS = 1_800_000; // 30 min per article
+const PERSIST_EVERY_ARTICLES = 5;
+const SPAWN_FAILURE_BREAKER_THRESHOLD = 3;
 
 /**
  * Source-size ceiling for structured single-turn mode, in bytes. The corpus
@@ -275,6 +286,12 @@ async function main(): Promise<void> {
   const projection = await readProjection(opts.projectionPath, opts.locale);
   const ctx: RunContext = {
     glossaryTerms: [],
+    persistChain: Promise.resolve(),
+    persistedResults: 0,
+    completedSincePersist: 0,
+    consecutiveSpawnFailures: 0,
+    circuitBroken: false,
+    stopQueue: false,
     opts,
     projection,
     results: [],
@@ -291,13 +308,28 @@ async function main(): Promise<void> {
     },
   };
 
-  if (opts.adopt) {
-    await runAdopt(ctx);
-  } else {
-    await runTranslate(ctx);
+  const removeSignalHandlers = registerSignalShutdown({
+    exit: (code) => process.exit(code),
+    flush: () => persist(ctx),
+    killEngines: terminateActiveEngineGroups,
+    signalSource: process,
+    stopQueue: () => {
+      ctx.stopQueue = true;
+    },
+  });
+  try {
+    if (opts.adopt) {
+      await runAdopt(ctx);
+    } else {
+      await runTranslate(ctx);
+    }
+  } finally {
+    try {
+      await persist(ctx);
+    } finally {
+      removeSignalHandlers();
+    }
   }
-
-  await persist(ctx);
   printSummary(ctx.summary, opts.maxUsd);
   if (ctx.summary.failed.length > 0) {
     process.exitCode = 1;
@@ -316,6 +348,7 @@ async function runTranslate(ctx: RunContext): Promise<void> {
   const db = openDb(opts.glossaryPath);
   ctx.glossaryDb = db;
   ctx.glossaryTerms = listTerms(db).map((entry) => entry.term);
+  ctx.glossaryMatcher = new GlossaryTermMatcher(ctx.glossaryTerms);
   try {
     await translateAll(ctx);
   } finally {
@@ -335,16 +368,56 @@ async function translateAll(ctx: RunContext): Promise<void> {
     );
   }
 
-  const queued = opts.limit == null ? slugs : slugs.slice(0, opts.limit);
-  if (opts.limit != null && queued.length < slugs.length) {
-    console.log(
-      `[translate] limiting to ${queued.length} of ${slugs.length} articles (--limit ${opts.limit})`
+  let queued = slugs;
+  if (opts.limit !== null) {
+    const classified = await Promise.all(
+      slugs.map(async (slug) => {
+        const [sourceText, outputText] = await Promise.all([
+          Bun.file(join(opts.sourceDir, `${slug}.mdx`)).text(),
+          readFileOrNull(join(opts.outputDir, `${slug}.mdx`)),
+        ]);
+        return {
+          slug,
+          status: classifyArticle({
+            sourceText,
+            outputText,
+            recordedHash: recordedHashOf(ctx.projection, slug),
+          }),
+        };
+      })
+    );
+    const actionable = classified.filter(({ status }) =>
+      isActionableForRun(status, opts)
+    );
+    queued = selectActionableSlugs(actionable, opts.limit);
+    if (queued.length < actionable.length) {
+      console.log(
+        `[translate] limiting to ${queued.length} of ${actionable.length} actionable articles (--limit ${opts.limit})`
+      );
+    }
+    if (actionable.length < slugs.length) {
+      console.log(
+        `[translate] skipped ${slugs.length - actionable.length} non-actionable articles before applying --limit`
+      );
+    }
+  }
+  await runWithConcurrency(queued, opts.concurrency, async (slug) => {
+    if (ctx.stopQueue) {
+      return;
+    }
+    await processArticle(slug, ctx);
+    ctx.completedSincePersist += 1;
+    if (ctx.completedSincePersist >= PERSIST_EVERY_ARTICLES) {
+      ctx.completedSincePersist = 0;
+      await persist(ctx);
+    }
+  });
+
+  if (ctx.circuitBroken) {
+    console.warn(
+      "[translate] circuit breaker stopped dequeueing articles after repeated engine spawn failures"
     );
   }
-
-  await runWithConcurrency(queued, opts.concurrency, (slug) =>
-    processArticle(slug, ctx)
-  );
 
   // Orphans: a translation lingers but its source slug is gone. Warn only.
   const sourceSet = new Set(slugs);
@@ -356,6 +429,32 @@ async function translateAll(ctx: RunContext): Promise<void> {
       );
     }
   }
+}
+
+function isActionableForRun(
+  status: TranslationStatus,
+  opts: Pick<RunOptions, "force" | "update">
+): boolean {
+  if (opts.force) {
+    return true;
+  }
+  if (status === "fresh" || (status === "stale" && !opts.update)) {
+    return false;
+  }
+  return true;
+}
+
+export function selectActionableSlugs(
+  classified: { slug: string; status: TranslationStatus }[],
+  limit: number,
+  options?: Pick<RunOptions, "force" | "update">
+): string[] {
+  return classified
+    .filter(({ status }) =>
+      options ? isActionableForRun(status, options) : true
+    )
+    .slice(0, limit)
+    .map(({ slug }) => slug);
 }
 
 async function processArticle(slug: string, ctx: RunContext): Promise<void> {
@@ -513,7 +612,8 @@ function translateWhole(args: TranslateArgs): Promise<EngineOutcome> {
   const structured = useStructuredMode(opts.engine, sourceText);
   const prompt = structured
     ? buildStructuredTranslatePrompt({
-        glossaryTerms: ctx.glossaryTerms,
+        glossaryTerms:
+          ctx.glossaryMatcher?.find(sourceText) ?? ctx.glossaryTerms,
         sourceText,
         targetLang: opts.targetLang,
       })
@@ -533,6 +633,10 @@ function translateWhole(args: TranslateArgs): Promise<EngineOutcome> {
     prompt,
     structured,
     opts,
+    onSpawnFailure: () => noteSpawnFailure(ctx),
+    onEngineStarted: () => {
+      ctx.consecutiveSpawnFailures = 0;
+    },
   });
 }
 
@@ -547,11 +651,24 @@ function translateChunked(args: TranslateArgs): Promise<EngineOutcome> {
   return runChunkedWithRetry({
     chunks,
     glossaryTerms: ctx.glossaryTerms,
+    glossaryMatcher: ctx.glossaryMatcher,
+    onSpawnFailure: () => noteSpawnFailure(ctx),
+    onEngineStarted: () => {
+      ctx.consecutiveSpawnFailures = 0;
+    },
     opts,
     outputAbsPath,
     slug,
     sourceAbsPath,
   });
+}
+
+function noteSpawnFailure(ctx: RunContext): void {
+  ctx.consecutiveSpawnFailures += 1;
+  if (ctx.consecutiveSpawnFailures >= SPAWN_FAILURE_BREAKER_THRESHOLD) {
+    ctx.circuitBroken = true;
+    ctx.stopQueue = true;
+  }
 }
 
 /**
@@ -582,8 +699,13 @@ function registerNewTerms(
     return;
   }
   try {
-    const { added } = addTerms(ctx.glossaryDb, newTerms);
+    const { added, results } = addTerms(ctx.glossaryDb, newTerms);
+    const addedTerms = results
+      .filter(({ added: wasAdded }) => wasAdded)
+      .map(({ term }) => term);
     if (added > 0) {
+      ctx.glossaryTerms.push(...addedTerms);
+      ctx.glossaryMatcher?.add(addedTerms);
       console.log(
         `[translate] ${slug} glossary: registered ${added} new term(s)`
       );
@@ -678,24 +800,42 @@ async function runAdopt(ctx: RunContext): Promise<void> {
 
 /** Persist this run: append history to the DB, then merge the committed projection. */
 async function persist(ctx: RunContext): Promise<void> {
-  if (ctx.opts.dryRun || Object.keys(ctx.updates).length === 0) {
-    return;
-  }
-  try {
-    const db = openTrackingDb(ctx.opts.trackingDbPath);
-    try {
-      recordRuns(db, ctx.results);
-    } finally {
-      db.close();
-    }
-  } catch (err) {
-    // History cache is best-effort; the committed projection is the truth.
-    console.warn(
-      `[translate] warning: failed to write history DB: ${(err as Error).message}`
-    );
-  }
-  await writeProjection(ctx.opts.projectionPath, ctx.projection, ctx.updates);
-  console.log(`[translate] updated projection: ${ctx.opts.projectionPath}`);
+  const operation = ctx.persistChain
+    .catch(() => undefined)
+    .then(async () => {
+      if (ctx.opts.dryRun || Object.keys(ctx.updates).length === 0) {
+        return;
+      }
+      const resultBatch = ctx.results.slice(ctx.persistedResults);
+      const updateBatch = { ...ctx.updates };
+      try {
+        const db = openTrackingDb(ctx.opts.trackingDbPath);
+        try {
+          recordRuns(db, resultBatch);
+        } finally {
+          db.close();
+        }
+      } catch (err) {
+        console.warn(
+          `[translate] warning: failed to write history DB: ${(err as Error).message}`
+        );
+      }
+      ctx.projection = await writeProjection(
+        ctx.opts.projectionPath,
+        ctx.projection,
+        updateBatch
+      );
+      ctx.persistedResults += resultBatch.length;
+      for (const slug of Object.keys(updateBatch)) {
+        delete ctx.updates[slug];
+      }
+      console.log(`[translate] updated projection: ${ctx.opts.projectionPath}`);
+    });
+  ctx.persistChain = operation.catch((err) => {
+    console.error(`[translate] persistence failed: ${(err as Error).message}`);
+    throw err;
+  });
+  await ctx.persistChain;
 }
 
 /** Check buckets: the status union plus `untranslated` (never-tracked, no output). */
@@ -826,6 +966,8 @@ function printCheckJson(
 }
 
 interface RunEngineWithRetryArgs {
+  onEngineStarted?: () => void;
+  onSpawnFailure?: () => void;
   opts: RunOptions;
   outputAbsPath: string;
   prompt: string;
@@ -863,6 +1005,7 @@ export type EngineOptions = Pick<
 interface EngineAttemptArgs {
   /** Structured mode only: codex `-o` file holding the JSON final message. */
   lastMessagePath: string | undefined;
+  onEngineStarted?: () => void;
   opts: EngineOptions;
   outputAbsPath: string;
   prompt: string;
@@ -875,7 +1018,7 @@ interface EngineAttemptArgs {
 }
 
 type AttemptResult =
-  | { errors: string[]; ok: false }
+  | { errors: string[]; ok: false; retryable?: boolean; spawnFailure?: boolean }
   | { newTerms: GlossaryEntry[]; ok: true; usage?: EngineUsage };
 
 /** Spawn the engine for one attempt, logging a heartbeat every 60s. */
@@ -947,8 +1090,10 @@ async function runEngineAttempt(
     return {
       ok: false,
       errors: [`engine spawn failed: ${(err as Error).message}`],
+      spawnFailure: true,
     };
   }
+  args.onEngineStarted?.();
 
   // Structured mode: the engine wrote nothing — the translation arrives as one
   // JSON final message that we materialise into the output path here.
@@ -979,7 +1124,7 @@ async function runEngineAttempt(
 
   const result = await validateTranslation({ sourceAbsPath, outputAbsPath });
   if (!result.ok) {
-    return { ok: false, errors: result.errors };
+    return { ok: false, errors: result.errors, retryable: true };
   }
   return { ok: true, newTerms, usage };
 }
@@ -1044,6 +1189,7 @@ async function runEngineWithRetry(
         schemaPath,
         slug,
         sourceAbsPath,
+        onEngineStarted: args.onEngineStarted,
       });
       if (result.ok) {
         return {
@@ -1054,6 +1200,13 @@ async function runEngineWithRetry(
         };
       }
       lastErrors = result.errors;
+      if (result.spawnFailure) {
+        args.onSpawnFailure?.();
+        break;
+      }
+      if (!result.retryable) {
+        break;
+      }
       console.warn(
         `[translate] ${slug} attempt ${attempt} failed: ${lastErrors.join("; ")}`
       );
@@ -1115,7 +1268,10 @@ const FRONTMATTER_BLOCK_RE = /^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/;
 export interface RunChunkedArgs {
   /** Source parts from {@link chunkArticle}; they concatenate to the source. */
   chunks: string[];
+  glossaryMatcher?: GlossaryTermMatcher;
   glossaryTerms: string[];
+  onEngineStarted?: () => void;
+  onSpawnFailure?: () => void;
   opts: EngineOptions;
   outputAbsPath: string;
   /** Test seam: replaces the real subprocess spawn. */
@@ -1136,7 +1292,7 @@ interface ChunkRunContext extends RunChunkedArgs {
 }
 
 type ChunkResult =
-  | { errors: string[]; ok: false }
+  | { errors: string[]; ok: false; retryable?: boolean; spawnFailure?: boolean }
   | { mdx: string; newTerms: GlossaryEntry[]; ok: true; usage?: EngineUsage };
 
 /**
@@ -1159,7 +1315,8 @@ async function translateChunk(
   const pseudoOutput = join(tmpDir, `output-${part.index}`, `${slug}.mdx`);
   await Bun.write(pseudoSource, prefix + chunks[index]);
   const prompt = buildStructuredTranslatePrompt({
-    glossaryTerms: ctx.glossaryTerms,
+    glossaryTerms:
+      ctx.glossaryMatcher?.find(chunks[index] ?? "") ?? ctx.glossaryTerms,
     part,
     sourceText: chunks[index],
     targetLang: opts.targetLang,
@@ -1182,11 +1339,20 @@ async function translateChunk(
       schemaPath,
       slug,
       isLaterPart: index > 0,
+      onSpawnFailure: ctx.onSpawnFailure,
+      onEngineStarted: ctx.onEngineStarted,
     });
     if (result.ok) {
       return result;
     }
     lastErrors = result.errors;
+    if (result.spawnFailure) {
+      ctx.onSpawnFailure?.();
+      break;
+    }
+    if (!result.retryable) {
+      break;
+    }
     console.warn(
       `[translate] ${label} attempt ${attempt} failed: ${lastErrors.join("; ")}`
     );
@@ -1198,6 +1364,8 @@ interface ChunkAttemptArgs {
   isLaterPart: boolean;
   label: string;
   lastMessagePath: string;
+  onEngineStarted?: () => void;
+  onSpawnFailure?: () => void;
   opts: EngineOptions;
   prefix: string;
   prompt: string;
@@ -1227,8 +1395,10 @@ async function runChunkAttempt(args: ChunkAttemptArgs): Promise<ChunkResult> {
     return {
       ok: false,
       errors: [`engine spawn failed: ${(err as Error).message}`],
+      spawnFailure: true,
     };
   }
+  args.onEngineStarted?.();
   let parsed: StructuredTranslation;
   try {
     parsed = parseStructuredResult(await Bun.file(lastMessagePath).text());
@@ -1261,7 +1431,7 @@ async function runChunkAttempt(args: ChunkAttemptArgs): Promise<ChunkResult> {
     sourceAbsPath: pseudoSource,
   });
   if (!result.ok) {
-    return { ok: false, errors: result.errors };
+    return { ok: false, errors: result.errors, retryable: true };
   }
   return { ok: true, mdx: parsed.mdx, newTerms: parsed.newTerms, usage };
 }

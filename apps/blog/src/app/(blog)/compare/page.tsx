@@ -3,7 +3,6 @@ import { Suspense } from "react";
 
 import { env } from "@/config/env";
 
-import { getArticles } from "../articles/service";
 import { CompareLoader } from "./compare-loader";
 
 export const metadata: Metadata = {
@@ -21,16 +20,10 @@ export const metadata: Metadata = {
  * Suspense — wrapping a layout-level `useSearchParams` consumer would empty
  * the static chrome from the prerendered HTML.
  */
-export default async function ComparePage() {
-  const { ids, entities } = await getArticles();
-  const titles: Record<string, string> = {};
-  for (const id of ids) {
-    titles[id] = entities[id]?.meta.title ?? id;
-  }
-
+export default function ComparePage() {
   return (
     <Suspense fallback={null}>
-      <CompareLoader titles={titles} />
+      <CompareLoader />
     </Suspense>
   );
 }

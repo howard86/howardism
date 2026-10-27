@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { surfaceHash } from "@howardism/article-contract/surface";
 
 const SOURCE_MDX = `---
 date: 2026-05-01
@@ -101,6 +102,58 @@ const BASE_ENV: Record<string, string> = {
 };
 
 describe("stale-skip behaviour", () => {
+  it("applies --limit after fresh articles are filtered out", async () => {
+    const fixtureSource = await mkdtemp(
+      join(tmpdir(), "translate-limit-source-")
+    );
+    const fixtureOutput = await mkdtemp(
+      join(tmpdir(), "translate-limit-output-")
+    );
+    const freshSource = "---\ntitle: Fresh\n---\n\nAlready translated.\n";
+    const missingSource = "---\ntitle: Missing\n---\n\nNeeds translation.\n";
+    const fixtureProjection = join(fixtureSource, "translations.json");
+    const glossaryPath = join(fixtureSource, "glossary.db");
+    try {
+      await writeFile(join(fixtureSource, "a-fresh.mdx"), freshSource);
+      await writeFile(join(fixtureSource, "b-missing.mdx"), missingSource);
+      await writeFile(join(fixtureOutput, "a-fresh.mdx"), freshSource);
+      await writeFile(
+        fixtureProjection,
+        JSON.stringify({
+          generatedOn: "2026-01-01",
+          locale: "zh-TW",
+          articles: {
+            "a-fresh": {
+              sourceHash: surfaceHash(freshSource),
+              sourceTitle: "Fresh",
+              engine: "agy",
+              model: null,
+              costUsd: null,
+              credits: null,
+              durationMs: 0,
+              translatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          },
+        })
+      );
+
+      const { stdout } = await runCli({
+        ...BASE_ENV,
+        DRY_RUN: "1",
+        TRANSLATE_LIMIT: "1",
+        TRANSLATE_SOURCE_PATH: fixtureSource,
+        TRANSLATE_OUTPUT_PATH: fixtureOutput,
+        TRANSLATE_PROJECTION_PATH: fixtureProjection,
+        GLOSSARY_DB_PATH: glossaryPath,
+      });
+      expect(stdout).toContain("would translate b-missing");
+      expect(stdout).not.toContain("would translate a-fresh");
+    } finally {
+      await rm(fixtureSource, { recursive: true, force: true });
+      await rm(fixtureOutput, { recursive: true, force: true });
+    }
+  });
+
   it("skips stale articles by default (no --update)", async () => {
     const { stdout } = await runCli({
       ...BASE_ENV,

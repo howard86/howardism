@@ -29,6 +29,7 @@ import { buildIndex } from "../search-index";
 import { createTestContent } from "./content-test-fixture";
 
 let fixtures: string;
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 beforeAll(async () => {
   fixtures = await mkdtemp(resolve(tmpdir(), "content-shared-test-"));
   await createTestContent(fixtures);
@@ -75,7 +76,7 @@ function memoryStore() {
         writes.push(key);
         objects.set(key, bytes);
       }
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     },
   };
   return { store, objects, reads, writes };
@@ -195,6 +196,14 @@ test("cold, warm and corrupted-cache preparation use exact pinned content withou
     remote.release.files[0].objectSha256
   );
   await Bun.write(cached, "broken");
+  const damagedFile = remote.release.files.at(0);
+  if (!damagedFile) {
+    throw new Error("Fixture release has no files");
+  }
+  const activeFile = resolve(remote.blogRoot, "src", damagedFile.path);
+  const activeBytes = new Uint8Array(await Bun.file(activeFile).arrayBuffer());
+  activeBytes[0] = (activeBytes[0] + 1) % 256;
+  await Bun.write(activeFile, activeBytes);
   remote.reads.length = 0;
   await prepareContent({
     profile: "full",
@@ -240,10 +249,10 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
   const reports: {
     cacheHits: number;
     cacheMisses: number;
+    decodeCalls: number;
     requiredObjects: number;
   }[] = [];
   for (let run = 0; run < 2; run += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: the warm run must follow the cold run
     await prepareContent({
       profile: "full",
       blogRoot,
@@ -251,6 +260,9 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
       concurrency: 8,
       report: (report) => reports.push({ ...report }),
     });
+    if (run === 0) {
+      await rm(resolve(blogRoot, ".content-state.json"));
+    }
   }
   expect(reports[0]).toMatchObject({
     requiredObjects: distinct.size,
@@ -262,12 +274,62 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
     cacheMisses: 0,
     cacheHits: distinct.size,
   });
+  expect(reports[0].decodeCalls).toBe(distinct.size);
+  expect(reports[1].decodeCalls).toBe(distinct.size);
   expect(remote.reads.filter((key) => key.startsWith("objects/"))).toHaveLength(
     distinct.size
   );
   expect(await Bun.file(resolve(blogRoot, "src", second)).bytes()).toEqual(
     await Bun.file(resolve(root, first)).bytes()
   );
+});
+
+test("materialized tree digest matches the prior disk-read digest and detects same-size tampering", async () => {
+  const remote = await seeded();
+  await prepareContent({
+    profile: "full",
+    blogRoot: remote.blogRoot,
+    store: remote.store,
+  });
+  const contentRoot = resolve(remote.blogRoot, "src");
+  const paths = await inventory(contentRoot);
+  const oldTree = await Promise.all(
+    paths.map(async (path) => [
+      path,
+      sha256(
+        new Uint8Array(await Bun.file(resolve(contentRoot, path)).arrayBuffer())
+      ),
+    ])
+  );
+  const state = await Bun.file(
+    resolve(remote.blogRoot, ".content-state.json")
+  ).json();
+  expect(state.materializedTreeSha256).toBe(sha256(JSON.stringify(oldTree)));
+
+  const article = remote.release.files.find((file) =>
+    file.path.endsWith(".mdx")
+  );
+  if (!article) {
+    throw new Error("Fixture release has no article");
+  }
+  const articlePath = resolve(contentRoot, article.path);
+  const original = await Bun.file(articlePath).text();
+  await Bun.write(
+    articlePath,
+    `${original.slice(0, -1)}${original.endsWith("x") ? "y" : "x"}`
+  );
+  remote.reads.length = 0;
+  let decodeCalls = 0;
+  await prepareContent({
+    profile: "full",
+    blogRoot: remote.blogRoot,
+    store: remote.store,
+    report: (metrics) => {
+      ({ decodeCalls } = metrics);
+    },
+  });
+  expect(decodeCalls).toBe(remote.release.files.length);
+  expect(await Bun.file(articlePath).text()).toBe(original);
 });
 
 test("failed preparation leaves old active files and no ready state; no sample fallback", async () => {
@@ -356,6 +418,26 @@ test("publisher is idempotent and uploads the manifest last; failed publication 
   expect(
     [...failed.objects.keys()].some((key) => key.startsWith("releases/"))
   ).toBe(false);
+});
+
+test("publisher trusts verified putIfAbsent evidence without a second HEAD", async () => {
+  const root = await temp();
+  await cp(fixtures, root, { recursive: true });
+  await rm(resolve(root, "coverage.json"));
+  const remote = memoryStore();
+  const store: ObjectStore = {
+    ...remote.store,
+    head() {
+      throw new Error("verified writes must not HEAD again");
+    },
+    async putIfAbsent(key, bytes) {
+      await remote.store.putIfAbsent(key, bytes);
+      return { bytes: bytes.length, sha256: sha256(bytes) };
+    },
+  };
+  await expect(publishContent({ root, store, initial: true })).resolves.toMatch(
+    DIGEST_PATTERN
+  );
 });
 
 test("profiles fail closed and authoring publication requires explicit roots and bases", async () => {

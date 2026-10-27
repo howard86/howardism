@@ -28,6 +28,14 @@ function articleInDom(headingIds: string[]): void {
   document.body.appendChild(article);
 }
 
+async function settleMeasure(): Promise<void> {
+  await act(async () => {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve())
+    );
+  });
+}
+
 function scrollTo(y: number): void {
   Object.defineProperty(window, "scrollY", { configurable: true, value: y });
   act(() => {
@@ -35,27 +43,28 @@ function scrollTo(y: number): void {
   });
 }
 
-function barWidth(container: HTMLElement): string {
+function barProgress(container: HTMLElement): string {
   const bar = container.querySelector<HTMLElement>(".origin-left");
-  return bar?.style.width ?? "";
+  return bar?.style.transform ?? "";
 }
 
 describe("ReadingProgress", () => {
-  it("tracks scroll when the article has no H2 headings", () => {
+  it("tracks scroll when the article has no H2 headings", async () => {
     // Regression: an early return for the empty-headings case skipped listener
     // registration entirely, freezing the bar at 0% on every such article.
     window.innerHeight = VIEWPORT_HEIGHT;
     articleInDom([]);
 
     const { container } = render(<ReadingProgress headings={[]} />);
-    expect(barWidth(container)).toBe("0%");
+    await settleMeasure();
+    expect(barProgress(container)).toBe("scaleX(0)");
 
     scrollTo(1000);
 
-    expect(barWidth(container)).toBe("50%");
+    expect(barProgress(container)).toBe("scaleX(0.5)");
   });
 
-  it("renders a tick per H2 heading at its real offset", () => {
+  it("renders a tick per H2 heading at its real offset", async () => {
     window.innerHeight = VIEWPORT_HEIGHT;
     articleInDom(["one", "two"]);
     const headings: ArticleHeading[] = [
@@ -65,6 +74,7 @@ describe("ReadingProgress", () => {
     ];
 
     const { container } = render(<ReadingProgress headings={headings} />);
+    await settleMeasure();
 
     // h3s are not ticked; the bar itself is the other child div.
     expect(container.querySelectorAll(".absolute.top-0")).toHaveLength(2);

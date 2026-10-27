@@ -3,11 +3,13 @@ import { ArticleLinkRow } from "./article-link-row";
 
 interface BacklinksDisclosureProps {
   defaultOpen?: boolean;
+  preview?: boolean;
   slug: string;
 }
 
 export async function BacklinksDisclosure({
   defaultOpen = false,
+  preview = true,
   slug,
 }: BacklinksDisclosureProps) {
   const { backlinks, related } = await getArticleConnections(slug);
@@ -16,6 +18,7 @@ export async function BacklinksDisclosure({
     <BacklinksDisclosureView
       backlinks={backlinks}
       defaultOpen={defaultOpen}
+      preview={preview}
       related={related}
     />
   );
@@ -24,6 +27,7 @@ export async function BacklinksDisclosure({
 interface BacklinksDisclosureViewProps {
   backlinks: ArticleLink[];
   defaultOpen?: boolean;
+  preview?: boolean;
   related: ArticleLink[];
 }
 
@@ -31,6 +35,7 @@ export function BacklinksDisclosureView({
   backlinks,
   defaultOpen = false,
   related,
+  preview = true,
 }: BacklinksDisclosureViewProps) {
   const hasBacklinks = backlinks.length > 0;
   const hasRelated = related.length > 0;
@@ -45,6 +50,7 @@ export function BacklinksDisclosureView({
         <DisclosurePanel
           defaultOpen={defaultOpen}
           links={backlinks}
+          preview={preview}
           summary={formatBacklinkLabel(backlinks.length)}
         />
       )}
@@ -52,6 +58,7 @@ export function BacklinksDisclosureView({
         <DisclosurePanel
           defaultOpen={defaultOpen}
           links={related}
+          preview={preview}
           summary="Related articles"
         />
       )}
@@ -62,6 +69,7 @@ export function BacklinksDisclosureView({
 interface DisclosurePanelProps {
   defaultOpen?: boolean;
   links: ArticleLink[];
+  preview?: boolean;
   summary: string;
 }
 
@@ -69,6 +77,7 @@ function DisclosurePanel({
   defaultOpen,
   links,
   summary,
+  preview = true,
 }: DisclosurePanelProps) {
   return (
     <details
@@ -84,7 +93,7 @@ function DisclosurePanel({
       </summary>
       <ul className="m-0 mt-4 flex list-none flex-col gap-4 pl-0">
         {links.map((link) => (
-          <ArticleLinkRow key={link.slug} link={link} />
+          <ArticleLinkRow key={link.slug} link={link} preview={preview} />
         ))}
       </ul>
     </details>

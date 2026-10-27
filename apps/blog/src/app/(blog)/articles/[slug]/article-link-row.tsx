@@ -9,9 +9,10 @@ const ARTICLE_LINK_DESCRIPTION_MAX = 120;
 
 interface ArticleLinkRowProps {
   link: ArticleLink;
+  preview?: boolean;
 }
 
-export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
+export function ArticleLinkRow({ link, preview = true }: ArticleLinkRowProps) {
   const { slug, meta, citedIn, citedCount } = link;
   return (
     <li className="flex flex-col gap-0.5">
@@ -20,11 +21,18 @@ export function ArticleLinkRow({ link }: ArticleLinkRowProps) {
         <InternalLink
           className="font-display font-medium text-[0.95rem] text-foreground no-underline hover:text-[var(--article-accent)]"
           href={`/articles/${slug}`}
-          previewMeta={{
-            tag: meta.tag,
-            title: meta.title,
-            description: truncate(meta.description, PREVIEW_DESCRIPTION_MAX),
-          }}
+          previewMeta={
+            preview
+              ? {
+                  tag: meta.tag,
+                  title: meta.title,
+                  description: truncate(
+                    meta.description,
+                    PREVIEW_DESCRIPTION_MAX
+                  ),
+                }
+              : undefined
+          }
         >
           {meta.title}
         </InternalLink>

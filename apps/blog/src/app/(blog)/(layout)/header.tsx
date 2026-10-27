@@ -75,9 +75,7 @@ function DesktopNav({ isCondensed }: { isCondensed: boolean }) {
       aria-label="Primary"
       className={cn(
         "hidden gap-0.5 rounded-full md:flex",
-        isCondensed
-          ? "p-0"
-          : "border border-border bg-card/85 p-1.5 shadow-paper backdrop-blur-md"
+        isCondensed ? "p-0" : "border border-border bg-card p-1.5 shadow-paper"
       )}
     >
       {NAV_SECTION_KEYS.map((key) => (
@@ -232,10 +230,10 @@ function FocusPlate({
 }) {
   const { activeSection, progress } = useArticleReadingState(headings);
 
-  const progressPercent = Math.round(progress * 100);
+  const progressPercent = progress;
 
   return (
-    <div className="fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card/95 shadow-lg backdrop-blur-sm">
+    <div className="fixed top-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border bg-card shadow-lg">
       <div className="flex items-center gap-3 px-5 py-2.5">
         <div
           aria-hidden="true"
@@ -277,7 +275,7 @@ function RunningHead({
   readingTime?: number;
 }) {
   const { activeSection, progress } = useArticleReadingState(headings);
-  const timeLeft = formatMinutesLeft(readingTime, progress);
+  const timeLeft = formatMinutesLeft(readingTime, progress / 100);
   return (
     <div
       aria-hidden="true"
@@ -335,7 +333,9 @@ export function SiteBar() {
         // stays; above it, a 3px sliver keeps the progress edge in view.
         isHiddenOnScroll &&
           "rail:top-[-45px] duration-[120ms] max-rail:top-[-48px]",
-        isScrolled && "border-border border-b bg-background/90 backdrop-blur-md"
+        // Opaque rather than translucent + backdrop-blur: the blur re-rasterised
+        // the sticky bar on every scrolled frame.
+        isScrolled && "border-border border-b bg-background"
       )}
     >
       <Container className="relative w-full">

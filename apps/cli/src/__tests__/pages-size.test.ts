@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
+  buildReport,
   categorise,
   extractAssetRefs,
   humanBytes,
@@ -10,6 +14,29 @@ import {
   renderComparison,
   routeGroup,
 } from "../pages-export/size";
+
+describe("buildReport", () => {
+  it("keeps already-compressed assets at their byte size and reports pages", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "pages-size-"));
+    try {
+      await writeFile(
+        join(outDir, "index.html"),
+        '<script src="/_next/static/a.js"></script>'
+      );
+      await writeFile(join(outDir, "image.webp"), new Uint8Array(128));
+      await mkdir(join(outDir, "_next", "static"), { recursive: true });
+      await writeFile(
+        join(outDir, "_next", "static", "a.js"),
+        "console.log(1)"
+      );
+      const report = await buildReport(outDir);
+      expect(report.totals.images.gzip).toBe(128);
+      expect(report.pages?.["/"]?.js).toBeGreaterThan(0);
+    } finally {
+      await rm(outDir, { recursive: true, force: true });
+    }
+  });
+});
 
 const report = (bytes: number, gzip = bytes / 3): Report => ({
   totals: { js: { files: 2, bytes, gzip } },

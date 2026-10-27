@@ -161,6 +161,28 @@ export function listTerms(db: Database, category?: string): GlossaryEntry[] {
     .all() as GlossaryEntry[];
 }
 
+/** Return the registered glossary row count without materialising every term. */
+export function countTerms(db: Database): number {
+  const row = db.query("SELECT count(*) AS count FROM glossary_term").get() as {
+    count: number;
+  };
+  return row.count;
+}
+
+/** Check which supplied terms exist, preserving input order. */
+export function checkTerms(
+  db: Database,
+  terms: readonly string[]
+): { registered: boolean; term: string }[] {
+  const hasTerm = db.query(
+    "SELECT 1 AS found FROM glossary_term WHERE lower(term) = lower(?)"
+  );
+  return terms.map((term) => {
+    const found = hasTerm.get(term.trim());
+    return { term, registered: found !== null && found !== undefined };
+  });
+}
+
 /**
  * Add a term. Idempotent and case-insensitive (via the unique `lower(term)`
  * index): a term already present — in any case — is left untouched and
@@ -275,16 +297,20 @@ export function addTerms(
 }
 
 /** Substring (case-insensitive) lookup over `term`; returns notes too. */
-export function searchTerms(db: Database, query: string): GlossaryMatch[] {
+export function searchTerms(
+  db: Database,
+  query: string,
+  limit = 50
+): GlossaryMatch[] {
   const q = query.trim().toLowerCase();
   if (!q) {
     return [];
   }
   return db
     .query(
-      "SELECT term, category, notes FROM glossary_term WHERE instr(lower(term), ?) > 0 ORDER BY term"
+      "SELECT term, category, notes FROM glossary_term WHERE instr(lower(term), ?) > 0 ORDER BY term LIMIT ?"
     )
-    .all(q) as GlossaryMatch[];
+    .all(q, Math.max(1, Math.min(500, Math.trunc(limit)))) as GlossaryMatch[];
 }
 
 interface LegacyEntry {

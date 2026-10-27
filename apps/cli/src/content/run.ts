@@ -56,7 +56,7 @@ if (process.env.HOWARDISM_PREPARED_ROOT === BLOG_ROOT) {
     {
       profile,
       ...(profile === "full" ? { store: r2Store() } : {}),
-      concurrency: Number(process.env.CONTENT_DOWNLOAD_CONCURRENCY ?? 8),
+      concurrency: Number(process.env.CONTENT_DOWNLOAD_CONCURRENCY ?? 16),
       cacheBudgetBytes: Number(
         process.env.CONTENT_CACHE_BUDGET_BYTES ?? 512 * 1024 * 1024
       ),

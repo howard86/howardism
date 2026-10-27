@@ -70,7 +70,7 @@ function memoryStore(bucket: string) {
         objects.set(key, bytes);
         writes.push(key);
       }
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     },
   };
   return { store, objects, writes };
@@ -202,7 +202,7 @@ test("pinned public sample downloads cold, reuses warm cache, and purges inherit
     sampleStore,
     report: () => undefined,
   });
-  expect(reads).toEqual([sampleReleaseKey(remote.digest)]);
+  expect(reads).toEqual([]);
   await expect(
     prepareContent({
       profile: "sample",

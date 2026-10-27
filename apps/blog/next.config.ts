@@ -124,6 +124,9 @@ const nextConfig: NextConfig = {
     // roughly 40% smaller than the WebP default. Browsers without AVIF fall
     // through to WebP via content negotiation.
     unoptimized: isPagesExport,
+    minimumCacheTTL: 31_536_000,
+    deviceSizes: [640, 750, 828, 1080, 1200, 1600],
+    imageSizes: [],
     formats: ["image/avif", "image/webp"],
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },

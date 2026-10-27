@@ -4,7 +4,7 @@
  * transcoded to WebP before it is committed. Both the importer and the one-shot
  * `images:webp` migration go through here so they cannot drift apart.
  */
-import { stat } from "node:fs/promises";
+import { rename, rm, stat } from "node:fs/promises";
 
 import sharp from "sharp";
 
@@ -16,6 +16,8 @@ import sharp from "sharp";
 const WEBP_QUALITY = 82;
 /** Densest libwebp search — each hero is encoded once and then committed. */
 const WEBP_EFFORT = 6;
+const WEBP_OUTLIER_BYTES = 250_000;
+const WEBP_OUTLIER_QUALITY = 72;
 
 // The `export { default as heroImage } from "../assets/<slug>.png";` line every
 // emitted MDX carries. Captures everything up to the extension, plus the closing
@@ -34,9 +36,24 @@ export async function pngToWebp(
   webpPath: string
 ): Promise<TranscodeResult> {
   const { size: pngBytes } = await stat(pngPath);
-  const { size: webpBytes } = await sharp(pngPath)
+  const { size: initialBytes } = await sharp(pngPath)
     .webp({ quality: WEBP_QUALITY, effort: WEBP_EFFORT })
     .toFile(webpPath);
+  let webpBytes = initialBytes;
+  if (initialBytes > WEBP_OUTLIER_BYTES) {
+    const lowerQualityPath = `${webpPath}.q${WEBP_OUTLIER_QUALITY}.tmp`;
+    try {
+      const { size: lowerBytes } = await sharp(pngPath)
+        .webp({ quality: WEBP_OUTLIER_QUALITY, effort: WEBP_EFFORT })
+        .toFile(lowerQualityPath);
+      if (lowerBytes < initialBytes) {
+        await rename(lowerQualityPath, webpPath);
+        webpBytes = lowerBytes;
+      }
+    } finally {
+      await rm(lowerQualityPath, { force: true });
+    }
+  }
   return { pngBytes, webpBytes };
 }
 

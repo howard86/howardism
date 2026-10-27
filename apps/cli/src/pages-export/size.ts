@@ -43,6 +43,38 @@ const WARN_BYTES = 10_000;
 const TOP_ASSETS = 10;
 const TOP_PAGE_CHANGES = 15;
 const LISTED_ROUTES = 10;
+const IO_CONCURRENCY = 8;
+
+// Local pool rather than ../concurrency.ts: CI runs this file alone from a
+// sparse checkout, so it cannot import siblings.
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const run = async (): Promise<void> => {
+    while (next < items.length) {
+      const i = next;
+      next += 1;
+      // biome-ignore lint/performance/noAwaitInLoops: each pool slot handles one file at a time.
+      results[i] = await worker(items[i] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+  return results;
+}
+const ALREADY_COMPRESSED = new Set([
+  ".avif",
+  ".gif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".webp",
+  ".woff2",
+]);
 
 const EXTENSIONS: Record<string, Category> = {
   ".js": "js",
@@ -361,26 +393,34 @@ export async function buildReport(outDir: string): Promise<Report> {
     assets: {},
   };
   const entries = await readdir(outDir, { recursive: true });
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const full = join(outDir, entry);
-      if (!(await stat(full)).isFile()) {
-        return;
-      }
-      const bytes = new Uint8Array(await Bun.file(full).arrayBuffer());
-      return {
-        rel: relative(outDir, full).replaceAll("\\", "/"),
-        bytes: bytes.length,
-        gzip: Bun.gzipSync(bytes).length,
-      };
-    })
-  );
+  const files = await mapPool(entries, IO_CONCURRENCY, async (entry) => {
+    const full = join(outDir, entry);
+    if (!(await stat(full)).isFile()) {
+      return;
+    }
+    const bytes = new Uint8Array(await Bun.file(full).arrayBuffer());
+    const rel = relative(outDir, full).replaceAll("\\", "/");
+    return {
+      rel,
+      bytes: bytes.length,
+      gzip: ALREADY_COMPRESSED.has(extname(rel).toLowerCase())
+        ? bytes.length
+        : Bun.gzipSync(bytes).length,
+      ...(rel.endsWith(".html")
+        ? { html: new TextDecoder().decode(bytes) }
+        : {}),
+    };
+  });
   const sizes = new Map<string, Stat>();
+  const html = new Map<string, string>();
   for (const file of files) {
     if (!file) {
       continue;
     }
     const { rel, bytes, gzip } = file;
+    if ("html" in file && file.html !== undefined) {
+      html.set(rel, file.html);
+    }
     sizes.set(rel, { bytes, gzip });
     const category = categorise(rel);
     report.totals[category] ??= { files: 0, bytes: 0, gzip: 0 };
@@ -396,52 +436,50 @@ export async function buildReport(outDir: string): Promise<Report> {
       report.assets[rel] = { bytes, gzip };
     }
   }
-  report.pages = await buildPages(outDir, sizes);
+  report.pages = buildPages(sizes, html);
   return report;
 }
 
 const REFRESH_STUB = /http-equiv="refresh"/i;
 
-async function buildPages(
-  outDir: string,
-  sizes: ReadonlyMap<string, Stat>
-): Promise<Record<string, PageStat>> {
+function buildPages(
+  sizes: ReadonlyMap<string, Stat>,
+  html: ReadonlyMap<string, string>
+): Record<string, PageStat> {
   const pageFiles = [...sizes.keys()].filter(
     (rel) =>
-      rel === "404.html" || rel.endsWith("/index.html") || rel === "index.html"
+      (rel === "404.html" ||
+        rel.endsWith("/index.html") ||
+        rel === "index.html") &&
+      !REFRESH_STUB.test(html.get(rel) ?? "")
   );
-  const entries = await Promise.all(
-    pageFiles.map(async (rel) => {
-      const html = await Bun.file(join(outDir, rel)).text();
-      if (REFRESH_STUB.test(html)) {
-        return;
+  const entries = pageFiles.map((rel) => {
+    const content = html.get(rel) ?? "";
+    const dir =
+      rel === "404.html" ? "404.html" : rel.slice(0, -"index.html".length);
+    const route = rel === "404.html" ? "/404.html" : `/${dir}`;
+    const own = sizes.get(rel) ?? { bytes: 0, gzip: 0 };
+    const rsc = sizes.get(`${dir}index.txt`);
+    const sum = { js: 0, jsGzip: 0, css: 0, cssGzip: 0 };
+    for (const ref of extractAssetRefs(content)) {
+      const asset = sizes.get(ref);
+      if (!asset) {
+        continue;
       }
-      const dir =
-        rel === "404.html" ? "404.html" : rel.slice(0, -"index.html".length);
-      const route = rel === "404.html" ? "/404.html" : `/${dir}`;
-      const own = sizes.get(rel) ?? { bytes: 0, gzip: 0 };
-      const rsc = sizes.get(`${dir}index.txt`);
-      const sum = { js: 0, jsGzip: 0, css: 0, cssGzip: 0 };
-      for (const ref of extractAssetRefs(html)) {
-        const asset = sizes.get(ref);
-        if (!asset) {
-          continue;
-        }
-        const key = ref.endsWith(".css") ? "css" : "js";
-        sum[key] += asset.bytes;
-        sum[`${key}Gzip`] += asset.gzip;
-      }
-      const page: PageStat = {
-        group: routeGroup(route),
-        html: own.bytes,
-        htmlGzip: own.gzip,
-        ...sum,
-        rsc: rsc?.bytes ?? 0,
-        rscGzip: rsc?.gzip ?? 0,
-      };
-      return [route, page] as const;
-    })
-  );
+      const key = ref.endsWith(".css") ? "css" : "js";
+      sum[key] += asset.bytes;
+      sum[`${key}Gzip`] += asset.gzip;
+    }
+    const page: PageStat = {
+      group: routeGroup(route),
+      html: own.bytes,
+      htmlGzip: own.gzip,
+      ...sum,
+      rsc: rsc?.bytes ?? 0,
+      rscGzip: rsc?.gzip ?? 0,
+    };
+    return [route, page] as const;
+  });
   const pages: Record<string, PageStat> = {};
   for (const entry of entries
     .filter((e) => e !== undefined)

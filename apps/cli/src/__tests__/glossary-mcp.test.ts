@@ -75,6 +75,21 @@ describe("glossary MCP tool handlers", () => {
     expect(matches[0]?.notes).toBe("the CLI");
     db.close();
   });
+
+  it("limits search results", () => {
+    const db = openDb(":memory:");
+    glossaryAddHandler(db, {
+      terms: ["Match A", "Match B", "Match C"].map((term) => ({
+        term,
+        category: "tech",
+      })),
+    });
+    const results = parse(
+      glossarySearchHandler(db, { query: "match", limit: 2 })
+    ) as unknown[];
+    expect(results).toHaveLength(2);
+    db.close();
+  });
 });
 
 describe("glossary_add batch form", () => {

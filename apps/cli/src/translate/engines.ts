@@ -300,9 +300,43 @@ export async function drainStream(
   return all.join("\n");
 }
 
-const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
+const activeEngineProcesses = new Map<number, ReturnType<typeof Bun.spawn>>();
+
+export function activeEnginePids(): number[] {
+  return [...activeEngineProcesses.keys()];
+}
+
+/** Stop all currently running detached engine groups and escalate if needed. */
+export async function terminateActiveEngineGroups(
+  graceMs = 500
+): Promise<void> {
+  const active = [...activeEngineProcesses.entries()];
+  if (active.length === 0) {
+    return;
+  }
+
+  for (const [pid, proc] of active) {
+    signalEngineGroup(pid, proc, "SIGTERM");
+  }
+  const deadline = Date.now() + graceMs;
+  while (
+    active.some(([pid]) => isEngineGroupAlive(pid)) &&
+    Date.now() < deadline
+  ) {
+    // biome-ignore lint/performance/noAwaitInLoops: poll active groups until grace expires or all have exited
+    await Bun.sleep(25);
+  }
+  for (const [pid, proc] of active) {
+    if (isEngineGroupAlive(pid)) {
+      signalEngineGroup(pid, proc, "SIGKILL");
+    }
+  }
+}
+
+export const defaultEngineRunner: EngineRunner = async (argv, spawnOptions) => {
   const proc = Bun.spawn(argv, {
     cwd: spawnOptions.cwd,
+    detached: true,
     // Bun.spawn REPLACES the environment, so merge over the inherited one.
     env: spawnOptions.env
       ? { ...process.env, ...spawnOptions.env }
@@ -310,6 +344,7 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
     stderr: "pipe",
     stdout: "pipe",
   });
+  activeEngineProcesses.set(proc.pid, proc);
   // Guard against a subprocess that never EOFs: kill it after timeoutMs so a
   // hung engine can't pin a concurrency slot forever (only agy has its own
   // --print-timeout). Killing closes the pipes, so the drainStream reads resolve.
@@ -318,7 +353,7 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
     spawnOptions.timeoutMs && spawnOptions.timeoutMs > 0
       ? setTimeout(() => {
           timedOut = true;
-          proc.kill();
+          killProcessGroup(proc, "SIGKILL");
         }, spawnOptions.timeoutMs)
       : null;
   try {
@@ -345,12 +380,51 @@ const defaultRunner: EngineRunner = async (argv, spawnOptions) => {
     // Kill the subprocess on any error path so a failed drainStream can't
     // leave it running and pinning a concurrency slot indefinitely.
     try {
-      proc.kill();
+      killProcessGroup(proc);
     } catch {
       // already exited — ignore
     }
+    activeEngineProcesses.delete(proc.pid);
   }
 };
+
+/** Kill the detached engine and any descendants in its process group. */
+function killProcessGroup(
+  proc: ReturnType<typeof Bun.spawn>,
+  signal: NodeJS.Signals = "SIGTERM"
+): void {
+  signalEngineGroup(proc.pid, proc, signal);
+}
+
+function signalEngineGroup(
+  pid: number,
+  proc: ReturnType<typeof Bun.spawn>,
+  signal: NodeJS.Signals
+): void {
+  if (process.platform === "win32") {
+    proc.kill(signal);
+    return;
+  }
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    // Not a group leader (setsid refused, e.g. in a sandbox): signal the child.
+    proc.kill(signal);
+  }
+}
+
+function isEngineGroupAlive(pid: number): boolean {
+  if (process.platform === "win32") {
+    return activeEngineProcesses.has(pid);
+  }
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch {
+    // No such group: fall back to the direct child, which may still be running.
+    return activeEngineProcesses.get(pid)?.exitCode === null;
+  }
+}
 
 const numberOr = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -546,7 +620,7 @@ export async function runEngine(
     reasoningEffort: args.reasoningEffort,
     scopeDir: args.scopeDir,
   });
-  const exec = args.runner ?? defaultRunner;
+  const exec = args.runner ?? defaultEngineRunner;
   const result = await exec(argv, {
     cwd: args.scopeDir,
     env: args.env,

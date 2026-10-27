@@ -32,23 +32,43 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   axes: ["opsz"],
   weight: "variable",
-  style: ["normal", "italic"],
+  style: "normal",
   variable: "--font-display",
   display: "swap",
+});
+
+const frauncesItalic = Fraunces({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  weight: "variable",
+  style: "italic",
+  variable: "--font-display-italic",
+  display: "swap",
+  preload: false,
 });
 
 const newsreader = Newsreader({
   subsets: ["latin"],
   axes: ["opsz"],
   weight: "variable",
-  style: ["normal", "italic"],
+  style: "normal",
   variable: "--font-body",
   display: "swap",
 });
 
+const newsreaderItalic = Newsreader({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  weight: "variable",
+  style: "italic",
+  variable: "--font-body-italic",
+  display: "swap",
+  preload: false,
+});
+
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "variable",
   variable: "--font-mono",
   display: "swap",
 });
@@ -141,7 +161,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: ChildrenProps) {
   return (
     <html
-      className={`scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
+      className={`scroll-smooth bg-muted bg-texture antialiased ${fraunces.variable} ${frauncesItalic.variable} ${newsreader.variable} ${newsreaderItalic.variable} ${jetbrainsMono.variable}`}
       data-scroll-behavior="smooth"
       lang="en"
       suppressHydrationWarning

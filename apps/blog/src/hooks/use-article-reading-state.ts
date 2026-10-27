@@ -29,7 +29,7 @@ export function useArticleReadingState(headings: ArticleHeading[]) {
           setActiveSection(null);
           return;
         }
-        setProgress(frame.progress);
+        setProgress(Math.round(frame.progress * 100));
         const index = findActiveHeadingIndex(frame);
         setActiveSection(
           index < 0 ? null : (textById.get(frame.headings[index].id) ?? null)

@@ -23,6 +23,7 @@ import { TagChip } from "@/components/tag-chip";
 // Constants and helpers shared with server components live in internal-link-shared.ts: a value exported from a "use client" module reaches a server component as a client-reference proxy, not the value.
 const HOVER_OPEN_DELAY_MS = 200;
 const HOVER_CLOSE_DELAY_MS = 100;
+const TRAILING_SLASH_RE = /\/$/;
 
 type LinkProps = ComponentProps<typeof Link>;
 
@@ -70,7 +71,9 @@ export function InternalLink({
   const pathname = usePathname();
   const slug = extractArticleSlug(href);
   const isCurrentArticle =
-    slug !== null && pathname === `${ARTICLES_PREFIX}${slug}`;
+    slug !== null &&
+    String(pathname).replace(TRAILING_SLASH_RE, "") ===
+      `${ARTICLES_PREFIX}${slug}`;
   const shouldShowPreview =
     slug !== null && !isCurrentArticle && previewMeta !== undefined;
 
