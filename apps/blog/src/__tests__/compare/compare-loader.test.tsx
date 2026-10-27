@@ -8,14 +8,15 @@ mock.module("next/navigation", () =>
   createNextNavigationMock({ useSearchParams: () => currentParams })
 );
 
-const { articleUrlFrom, CompareLoader, extractArticleBody } = await import(
-  "@/app/(blog)/compare/compare-loader"
-);
-
-const titles = { alpha: "Alpha", beta: "Beta", gamma: "Gamma" };
+const {
+  articleUrlFrom,
+  CompareLoader,
+  extractArticleBody,
+  extractArticleTitle,
+} = await import("@/app/(blog)/compare/compare-loader");
 
 const pageFor = (slug: string) =>
-  `<html><body><header><h1>${slug}</h1></header><article><div class="prose max-w-none" data-article-body><p>${slug} body</p></div></article></body></html>`;
+  `<html><head><title>Page ${slug}</title></head><body><header><h1>Title ${slug}</h1></header><article><div class="prose max-w-none" data-article-body><p>${slug} body</p></div></article></body></html>`;
 
 const realFetch = globalThis.fetch;
 const originalHref = window.location.href;
@@ -55,6 +56,16 @@ describe("extractArticleBody", () => {
   });
 });
 
+describe("extractArticleTitle", () => {
+  it("returns the page heading", () => {
+    expect(extractArticleTitle(pageFor("alpha"))).toBe("Title alpha");
+  });
+
+  it("falls back to the page title", () => {
+    expect(extractArticleTitle("<title>Page title</title>")).toBe("Page title");
+  });
+});
+
 describe("articleUrlFrom", () => {
   it("keeps the slash-less form of a Vercel /compare URL", () => {
     expect(articleUrlFrom("/compare", "alpha")).toBe("/articles/alpha");
@@ -72,10 +83,10 @@ describe("articleUrlFrom", () => {
 });
 
 describe("CompareLoader", () => {
-  it("shows the empty state when no known ids are given", () => {
+  it("shows the empty state when ids are not slug-shaped", () => {
     stubFetch();
-    currentParams = new URLSearchParams("ids=ghost,phantom");
-    render(<CompareLoader titles={titles} />);
+    currentParams = new URLSearchParams("ids=bad%20slug,---");
+    render(<CompareLoader />);
 
     expect(screen.getByText("Nothing to compare.")).not.toBeNull();
     expect(requested).toHaveLength(0);
@@ -84,26 +95,46 @@ describe("CompareLoader", () => {
   it("resolves ids into panels and loads each body", async () => {
     stubFetch();
     setURL("http://localhost/base/compare/?ids=beta,ghost,alpha");
-    currentParams = new URLSearchParams("ids=beta,ghost,alpha");
-    render(<CompareLoader titles={titles} />);
-
-    expect(screen.getByText("Comparing 2 articles")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Beta" })).not.toBeNull();
+    currentParams = new URLSearchParams("ids=beta,ghost,alpha,delta");
+    globalThis.fetch = mock((input: RequestInfo | URL) => {
+      const url = String(input);
+      requested.push(url);
+      const slug = url.split("/").filter(Boolean).pop() ?? "";
+      return Promise.resolve(
+        new Response(pageFor(slug), { status: slug === "ghost" ? 404 : 200 })
+      );
+    }) as unknown as typeof fetch;
+    render(<CompareLoader />);
 
     await waitFor(() => {
       expect(screen.getByText("alpha body")).not.toBeNull();
       expect(screen.getByText("beta body")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Title beta" })).not.toBeNull();
+      // An unknown slug (404) is dropped, as the old server-side title map did.
+      expect(screen.getByText("Comparing 2 articles")).not.toBeNull();
     });
+    expect(screen.queryByText("This article could not be loaded.")).toBeNull();
     expect(requested.sort()).toEqual([
       "/base/articles/alpha/",
       "/base/articles/beta/",
+      "/base/articles/ghost/",
     ]);
   });
 
-  it("marks a panel whose page fails to load", async () => {
+  it("shows the empty state when every id is unknown", async () => {
     stubFetch(404);
+    currentParams = new URLSearchParams("ids=ghost,phantom");
+    render(<CompareLoader />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Nothing to compare.")).not.toBeNull();
+    });
+  });
+
+  it("marks a panel whose page fails to load", async () => {
+    stubFetch(500);
     currentParams = new URLSearchParams("ids=gamma");
-    render(<CompareLoader titles={titles} />);
+    render(<CompareLoader />);
 
     await waitFor(() => {
       expect(

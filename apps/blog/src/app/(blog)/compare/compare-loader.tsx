@@ -3,8 +3,6 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { resolveCompareIds } from "@/lib/compare-ids";
-
 import { CompareEmpty } from "./compare-empty";
 import { type ComparePanel, CompareView } from "./compare-view";
 
@@ -12,6 +10,7 @@ import { type ComparePanel, CompareView } from "./compare-view";
 const ARTICLE_BODY_SELECTOR = "[data-article-body]";
 
 const COMPARE_PATH_RE = /\/compare\/?$/;
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
  * Pull the rendered prose node out of a prerendered article page. Returns its
@@ -21,6 +20,12 @@ const COMPARE_PATH_RE = /\/compare\/?$/;
 export function extractArticleBody(html: string): string | null {
   const doc = new DOMParser().parseFromString(html, "text/html");
   return doc.querySelector(ARTICLE_BODY_SELECTOR)?.outerHTML ?? null;
+}
+
+export function extractArticleTitle(html: string): string | null {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const heading = doc.querySelector("article h1") ?? doc.querySelector("h1");
+  return heading?.textContent?.trim() || doc.title || null;
 }
 
 /**
@@ -41,30 +46,41 @@ export function articleUrlFrom(comparePathname: string, slug: string): string {
   return `${basePath}/articles/${slug}${trailingSlash}`;
 }
 
-/** Fetch an article's prerendered page and extract its body. */
-export async function fetchArticleBody(
+/**
+ * `"missing"` when the slug has no page (404): without a server-side title map,
+ * that is how an unknown `?ids=` value is recognised and dropped. `null` for
+ * any other failure, which the panel reports.
+ */
+export async function fetchArticlePage(
   url: string,
   signal?: AbortSignal
-): Promise<string | null> {
+): Promise<{ body: string; title: string } | "missing" | null> {
   const res = await fetch(url, { signal });
+  if (res.status === 404) {
+    return "missing";
+  }
   if (!res.ok) {
     return null;
   }
-  return extractArticleBody(await res.text());
+  const html = await res.text();
+  const body = extractArticleBody(html);
+  const title = extractArticleTitle(html);
+  return body && title ? { body, title } : null;
 }
 
 /** `undefined` while loading, `null` when the body could not be loaded. */
-type BodyState = string | null | undefined;
+type BodyState = { body: string; title: string } | null | undefined;
+type FetchState = BodyState | "missing";
 
-function PanelBody({ html }: { html: BodyState }) {
-  if (html === undefined) {
+function PanelBody({ page }: { page: BodyState }) {
+  if (page === undefined) {
     return (
       <p className="font-mono text-[11px] text-foreground-subtle uppercase tracking-[0.16em]">
         Loading…
       </p>
     );
   }
-  if (html === null) {
+  if (page === null) {
     return (
       <p className="font-body text-[15px] text-muted-foreground">
         This article could not be loaded.
@@ -73,28 +89,32 @@ function PanelBody({ html }: { html: BodyState }) {
   }
   return (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: same-origin HTML from this site's own prerendered article page
-    <div dangerouslySetInnerHTML={{ __html: html }} />
+    <div dangerouslySetInnerHTML={{ __html: page.body }} />
   );
 }
 
 /**
- * Client half of `/compare`: resolves `?ids=` against the known slugs and
+ * Client half of `/compare`: resolves slug-shaped `?ids=` values and
  * loads each article's body from its prerendered page, so the route needs no
  * server-side `searchParams` and works under a static export.
  */
-export function CompareLoader({
-  titles,
-}: {
-  titles: Readonly<Record<string, string>>;
-}) {
+export function CompareLoader() {
   const searchParams = useSearchParams();
   const idsKey = searchParams.getAll("ids").join(",");
-  const slugs = useMemo(
-    () => resolveCompareIds(idsKey, new Set(Object.keys(titles))),
-    [idsKey, titles]
-  );
+  const slugs = useMemo(() => {
+    const accepted = new Set<string>();
+    for (const candidate of idsKey.split(",")) {
+      if (SLUG_RE.test(candidate)) {
+        accepted.add(candidate);
+      }
+      if (accepted.size === 3) {
+        break;
+      }
+    }
+    return [...accepted];
+  }, [idsKey]);
   const slugsKey = slugs.join(",");
-  const [bodies, setBodies] = useState<Record<string, BodyState>>({});
+  const [bodies, setBodies] = useState<Record<string, FetchState>>({});
 
   useEffect(() => {
     if (slugsKey.length === 0) {
@@ -103,27 +123,31 @@ export function CompareLoader({
     const controller = new AbortController();
     const { pathname } = window.location;
     for (const slug of slugsKey.split(",")) {
-      fetchArticleBody(articleUrlFrom(pathname, slug), controller.signal)
+      fetchArticlePage(articleUrlFrom(pathname, slug), controller.signal)
         .catch(() => null)
-        .then((html) => {
+        .then((page) => {
           if (!controller.signal.aborted) {
-            setBodies((prev) => ({ ...prev, [slug]: html }));
+            setBodies((prev) => ({ ...prev, [slug]: page }));
           }
         });
     }
     return () => controller.abort();
   }, [slugsKey]);
 
-  if (slugs.length === 0) {
+  const known = slugs.filter((slug) => bodies[slug] !== "missing");
+  if (known.length === 0) {
     return <CompareEmpty />;
   }
 
-  const panels: ComparePanel[] = slugs.map((slug) => ({
-    slug,
-    title: titles[slug] ?? slug,
-    href: `/articles/${slug}`,
-    body: <PanelBody html={bodies[slug]} />,
-  }));
+  const panels: ComparePanel[] = known.map((slug) => {
+    const page = bodies[slug] as BodyState;
+    return {
+      slug,
+      title: page ? page.title : slug,
+      href: `/articles/${slug}`,
+      body: <PanelBody page={page} />,
+    };
+  });
 
   return <CompareView panels={panels} />;
 }
