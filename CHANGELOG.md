@@ -1,3 +1,11 @@
+# [v2.35.3](https://github.com/howard86/howardism/compare/v2.35.2...v2.35.3) (2026-10-27)
+
+## 🐛 Bug Fixes
+- [`9363733f`](https://github.com/howard86/howardism/commit/9363733f)  fix(translate): apply --limit after classifying freshness 
+- [`969025fc`](https://github.com/howard86/howardism/commit/969025fc)  fix(translate): flush records as articles finish and kill engine process groups on shutdown 
+- [`6c42eed0`](https://github.com/howard86/howardism/commit/6c42eed0)  fix(import-wiki): time out hung image engine processes 
+- [`9d7c18bd`](https://github.com/howard86/howardism/commit/9d7c18bd)  fix(blog): recognise the current article behind a trailing slash
+
 # [v2.35.2](https://github.com/howard86/howardism/compare/v2.35.1...v2.35.2) (2026-10-21)
 
 # [v2.35.1](https://github.com/howard86/howardism/compare/v2.35.0...v2.35.1) (2026-10-21)
