@@ -195,6 +195,14 @@ test("cold, warm and corrupted-cache preparation use exact pinned content withou
     remote.release.files[0].objectSha256
   );
   await Bun.write(cached, "broken");
+  const damagedFile = remote.release.files.at(0);
+  if (!damagedFile) {
+    throw new Error("Fixture release has no files");
+  }
+  const activeFile = resolve(remote.blogRoot, "src", damagedFile.path);
+  const activeBytes = new Uint8Array(await Bun.file(activeFile).arrayBuffer());
+  activeBytes[0] = (activeBytes[0] + 1) % 256;
+  await Bun.write(activeFile, activeBytes);
   remote.reads.length = 0;
   await prepareContent({
     profile: "full",
@@ -244,7 +252,6 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
     requiredObjects: number;
   }[] = [];
   for (let run = 0; run < 2; run += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: the warm run must follow the cold run
     await prepareContent({
       profile: "full",
       blogRoot,
@@ -252,6 +259,9 @@ test("files sharing identical bytes are fetched once and counted once, cold or w
       concurrency: 8,
       report: (report) => reports.push({ ...report }),
     });
+    if (run === 0) {
+      await rm(resolve(blogRoot, ".content-state.json"));
+    }
   }
   expect(reports[0]).toMatchObject({
     requiredObjects: distinct.size,

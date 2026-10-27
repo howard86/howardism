@@ -250,6 +250,18 @@ export async function prepareContent<T = void>(
   return await withDirectoryLock(
     resolve(blogRoot, ".content-prepare-lock"),
     async () => {
+      const reuse = await reuseMaterializedState(
+        blogRoot,
+        active.root,
+        options,
+        metrics,
+        started,
+        consumer
+      );
+      if (reuse.reused) {
+        return reuse.result;
+      }
+      const { lock } = reuse;
       await rm(resolve(blogRoot, ".content-state.json"), { force: true });
       const temp = await mkdtemp(resolve(blogRoot, ".content-candidate-"));
       const candidate = contentPaths(temp);
@@ -272,6 +284,7 @@ export async function prepareContent<T = void>(
           sampleCache,
           concurrency,
           metrics,
+          lock,
         });
         ({
           release,
@@ -319,7 +332,7 @@ export async function prepareContent<T = void>(
         }
         await Bun.write(
           resolve(blogRoot, ".content-state.json"),
-          `${JSON.stringify({ schemaVersion: 1, profile: options.profile, ...(releaseSha256 ? { releaseSha256 } : {}), materializedTreeSha256: sha256(JSON.stringify(tree)) })}\n`
+          `${JSON.stringify({ schemaVersion: 1, profile: options.profile, ...(releaseSha256 ? { releaseSha256 } : {}), materializedTreeSha256: sha256(JSON.stringify(tree)), materializedFiles: await fileSizes(active.root, options.profile) })}\n`
         );
         metrics.elapsedMs = Math.round(performance.now() - started);
         reportPreparation(options, metrics, releaseSha256);
@@ -350,6 +363,7 @@ async function materializeCandidate(input: {
   sampleCache: string;
   concurrency: number;
   metrics: PreparationMetrics;
+  lock: { releaseSha256: string } | undefined;
 }): Promise<{
   release?: ContentRelease;
   sampleRelease?: SampleRelease;
@@ -365,11 +379,12 @@ async function materializeCandidate(input: {
     sampleCache,
     concurrency,
     metrics,
+    lock,
   } = input;
   if (options.profile === "full") {
-    const lock = ContentLockSchema.parse(
-      await Bun.file(resolve(blogRoot, "content.lock.json")).json()
-    );
+    if (!lock) {
+      throw new Error("Full preparation requires a content lock");
+    }
     if (!options.store) {
       throw new Error("Full preparation requires an R2 object store");
     }
@@ -406,6 +421,45 @@ async function materializeCandidate(input: {
   return sampleInput;
 }
 
+async function reuseMaterializedState<T>(
+  blogRoot: string,
+  activeRoot: string,
+  options: PrepareOptions,
+  metrics: PreparationMetrics,
+  started: number,
+  consumer?: () => Promise<T>
+): Promise<{
+  lock: { releaseSha256: string } | undefined;
+  result: T | undefined;
+  reused: boolean;
+}> {
+  if (options.profile === "sample" && options.fixtureRoot) {
+    return { lock: undefined, result: undefined, reused: false };
+  }
+  const lock =
+    options.profile === "full"
+      ? ContentLockSchema.parse(
+          await Bun.file(resolve(blogRoot, "content.lock.json")).json()
+        )
+      : await readSampleLock(blogRoot);
+  if (
+    !(
+      lock &&
+      (await isMaterializedStateIntact(
+        blogRoot,
+        activeRoot,
+        options.profile,
+        lock.releaseSha256
+      ))
+    )
+  ) {
+    return { lock, result: undefined, reused: false };
+  }
+  metrics.elapsedMs = Math.round(performance.now() - started);
+  reportPreparation(options, metrics, lock.releaseSha256);
+  return { lock, result: await consumer?.(), reused: true };
+}
+
 async function replaceActiveDirectories(
   activeRoot: string,
   temp: string
@@ -425,6 +479,101 @@ async function replaceActiveDirectories(
   for (const name of CONTENT_MANIFESTS) {
     await rename(resolve(temp, "data", name), resolve(data, name));
   }
+}
+
+async function fileSizes(
+  root: string,
+  profile: "full" | "sample"
+): Promise<[string, number][]> {
+  const paths = [
+    ...(await activeGeneratedFiles(root)),
+    ...(profile === "sample" ? [".content-coverage.json"] : []),
+  ].sort();
+  return await Promise.all(
+    paths.map(async (path) => {
+      const target =
+        path === ".content-coverage.json"
+          ? resolve(root, path)
+          : resolve(root, path);
+      const info = await lstat(target);
+      if (!info.isFile() || info.isSymbolicLink()) {
+        throw new Error(`Unsafe materialized file: ${path}`);
+      }
+      return [path, info.size] as [string, number];
+    })
+  );
+}
+
+async function isMaterializedStateIntact(
+  blogRoot: string,
+  activeRoot: string,
+  profile: "full" | "sample",
+  releaseSha256?: string
+): Promise<boolean> {
+  try {
+    const state = await Bun.file(
+      resolve(blogRoot, ".content-state.json")
+    ).json();
+    if (
+      state.schemaVersion !== 1 ||
+      state.profile !== profile ||
+      state.releaseSha256 !== releaseSha256 ||
+      !Array.isArray(state.materializedFiles)
+    ) {
+      return false;
+    }
+    const expected = state.materializedFiles as [string, number][];
+    const actual = [
+      ...(await activeGeneratedFiles(activeRoot)),
+      ...(profile === "sample" ? [".content-coverage.json"] : []),
+    ].sort();
+    if (
+      JSON.stringify(actual) !==
+      JSON.stringify(expected.map(([path]) => path).sort())
+    ) {
+      return false;
+    }
+    for (const [path, size] of expected) {
+      const target = resolve(activeRoot, path);
+      const info = await lstat(target);
+      if (!info.isFile() || info.isSymbolicLink() || info.size !== size) {
+        return false;
+      }
+    }
+    if (
+      profile === "full" &&
+      (await Bun.file(resolve(activeRoot, ".content-coverage.json")).exists())
+    ) {
+      return false;
+    }
+    const treePaths = [
+      ...(await activeGeneratedFiles(activeRoot)),
+      ...(profile === "sample" ? ["coverage.json"] : []),
+    ];
+    const tree = await runWithConcurrency(treePaths, 16, async (path) => {
+      const sourcePath =
+        path === "coverage.json" ? ".content-coverage.json" : path;
+      return [
+        path,
+        sha256(
+          new Uint8Array(
+            await Bun.file(resolve(activeRoot, sourcePath)).arrayBuffer()
+          )
+        ),
+      ] as [string, string];
+    });
+    return state.materializedTreeSha256 === sha256(JSON.stringify(tree));
+  } catch {
+    return false;
+  }
+}
+
+async function activeGeneratedFiles(root: string): Promise<string[]> {
+  const content = await inventory(root, "content");
+  return [
+    ...content,
+    ...CONTENT_MANIFESTS.map((name) => `data/${name}`),
+  ].sort();
 }
 
 async function prepareSampleInput(input: {

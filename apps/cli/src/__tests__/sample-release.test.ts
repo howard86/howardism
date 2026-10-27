@@ -202,7 +202,7 @@ test("pinned public sample downloads cold, reuses warm cache, and purges inherit
     sampleStore,
     report: () => undefined,
   });
-  expect(reads).toEqual([sampleReleaseKey(remote.digest)]);
+  expect(reads).toEqual([]);
   await expect(
     prepareContent({
       profile: "sample",
