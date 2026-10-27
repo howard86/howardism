@@ -1,5 +1,3 @@
-import { ScrollArea } from "@howardism/ui/components/scroll-area";
-
 import {
   type ArticleHeading,
   type ArticleLink,
@@ -29,18 +27,16 @@ export async function ArticleRail({ headings, slug }: ArticleRailProps) {
     <aside aria-label="Article navigation rail" className="rail:block hidden">
       <div className="sticky top-20 flex h-[calc(100vh-6rem)] flex-col gap-6">
         {headings.length >= 2 && (
-          <ScrollArea
-            className={
-              hasConnections ? "max-h-[45vh] shrink-0" : "min-h-0 flex-1"
-            }
+          <div
+            className={`overflow-y-auto overscroll-contain [scrollbar-width:thin] ${hasConnections ? "max-h-[45vh] shrink-0" : "min-h-0 flex-1"}`}
           >
             <div className="pr-3">
               <ArticleToc headings={headings} />
             </div>
-          </ScrollArea>
+          </div>
         )}
         {hasConnections ? (
-          <ScrollArea className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
             <div className="flex flex-col gap-8 pr-3 pb-4">
               <RailSection label="Related articles" links={related} />
               <RailSection
@@ -48,7 +44,7 @@ export async function ArticleRail({ headings, slug }: ArticleRailProps) {
                 links={backlinks}
               />
             </div>
-          </ScrollArea>
+          </div>
         ) : null}
       </div>
     </aside>
