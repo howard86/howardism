@@ -1,18 +1,25 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
-// `mock.module` replaces the module process-wide, so the factory must re-export
-// everything real — otherwise a test file loading after this one (e.g.
-// article-layout.test.tsx importing `PublishArticleNav`) resolves against the
-// stub and throws. Load-order dependent, so it fails only intermittently.
-const actual = await import("@/components/article-nav-context");
+import {
+  ArticleNavProvider,
+  PublishArticleNav,
+} from "@/components/article-nav-context";
+import { ArticleFind } from "@/components/find/article-find";
 
-mock.module("@/components/article-nav-context", () => ({
-  ...actual,
-  useArticleNav: () => ({ slug: "x", headings: [] }),
-}));
+// Real context rather than `mock.module`: a module mock is process-wide in
+// Bun, so stubbing `useArticleNav` here emptied the headings of every later
+// file's nav — toc-sheet.test.tsx then rendered no TOC trigger in CI.
+const headings: never[] = [];
 
-const { ArticleFind } = await import("@/components/find/article-find");
+function renderFind() {
+  render(
+    <ArticleNavProvider>
+      <PublishArticleNav headings={headings} slug="x" />
+      <ArticleFind />
+    </ArticleNavProvider>
+  );
+}
 
 afterEach(cleanup);
 
@@ -22,7 +29,7 @@ function openBar() {
 
 describe("ArticleFind", () => {
   it("renders nothing inline until the toggle is pressed", () => {
-    render(<ArticleFind />);
+    renderFind();
     expect(screen.queryByLabelText("Find text in article")).toBeNull();
     openBar();
     expect(screen.getByLabelText("Find text in article")).toBeDefined();
@@ -30,7 +37,7 @@ describe("ArticleFind", () => {
 
   it("shows 0/0 and disables navigation when there are no matches", () => {
     // happy-dom lacks the CSS Custom Highlight API, so the hook stays inert.
-    render(<ArticleFind />);
+    renderFind();
     openBar();
     fireEvent.change(screen.getByLabelText("Find text in article"), {
       target: { value: "loop" },
@@ -47,7 +54,7 @@ describe("ArticleFind", () => {
   });
 
   it("closes the bar via the close button", () => {
-    render(<ArticleFind />);
+    renderFind();
     openBar();
     fireEvent.click(screen.getByRole("button", { name: "Close find" }));
     expect(screen.queryByLabelText("Find text in article")).toBeNull();
