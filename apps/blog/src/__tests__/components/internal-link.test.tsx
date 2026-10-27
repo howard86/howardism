@@ -84,6 +84,29 @@ describe("InternalLink — popover path", () => {
     expect(describedBy).toBe("internal-link-preview-claude-code");
   });
 
+  it("treats a trailing slash current article path as the same article", async () => {
+    mock.module("next/navigation", () =>
+      createNextNavigationMock({ usePathname: () => "/articles/claude-code/" })
+    );
+    const { InternalLink: ScopedInternalLink } = await import(
+      "@/components/internal-link"
+    );
+    const { container } = render(
+      <ScopedInternalLink
+        href="/articles/claude-code"
+        previewMeta={PREVIEW_META}
+      >
+        Self link
+      </ScopedInternalLink>
+    );
+    expect(container.querySelector("a")?.hasAttribute("aria-describedby")).toBe(
+      false
+    );
+    mock.module("next/navigation", () =>
+      createNextNavigationMock({ usePathname: () => "/" })
+    );
+  });
+
   it("opens the popover on focus and exposes the preview content", async () => {
     render(
       <InternalLink href="/articles/claude-code" previewMeta={PREVIEW_META}>
