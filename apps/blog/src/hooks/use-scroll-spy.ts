@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 export interface UseScrollSpyParams {
   defaultSectionId?: string | null;
+  enabled?: boolean;
   fallbackOffsetPx?: number;
   sectionIds: string[];
 }
@@ -27,6 +28,7 @@ const DEFAULT_FALLBACK_OFFSET_PX = 96;
 export default function useScrollSpy({
   defaultSectionId = null,
   fallbackOffsetPx = DEFAULT_FALLBACK_OFFSET_PX,
+  enabled = true,
   sectionIds,
 }: UseScrollSpyParams): string | null {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(
@@ -35,6 +37,9 @@ export default function useScrollSpy({
   const visibleRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     if (sectionIds.length === 0) {
       setActiveSectionId(null);
       return;
@@ -90,7 +95,7 @@ export default function useScrollSpy({
     return () => {
       observer.disconnect();
     };
-  }, [sectionIds, fallbackOffsetPx]);
+  }, [sectionIds, fallbackOffsetPx, enabled]);
 
   return activeSectionId;
 }
