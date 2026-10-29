@@ -10,19 +10,16 @@ export const NAV_SECTION_KEYS = Object.keys(
   NavSection
 ) as (keyof typeof NavSection)[];
 
-export const FOOTER_NAV: { label: string; href: string }[] = [
-  { label: "Home", href: "/" },
-  { label: "Articles", href: "/articles" },
-  { label: "Questions", href: "/questions" },
-  { label: "Shelf", href: "/shelf" },
+/** Feeds a reader can subscribe to — footer "Subscribe" group. */
+export const FEED_LINKS: { label: string; href: string }[] = [
   { label: "RSS", href: "/rss/feed.xml" },
+  { label: "JSON feed", href: "/rss/feed.json" },
 ];
 
-/** Machine-readable maps of the site — footer only, not part of the nav. */
-export const REFERENCE_LINKS: { label: string; href: string }[] = [
+/** Machine-readable maps of the site — footer "For machines" group. */
+export const MACHINE_LINKS: { label: string; href: string }[] = [
   { label: "llms.txt", href: "/llms.txt" },
   { label: "sitemap.xml", href: "/sitemap.xml" },
-  { label: "feed.json", href: "/rss/feed.json" },
 ];
 
 const FILE_EXTENSION = /\.[a-z]+$/;

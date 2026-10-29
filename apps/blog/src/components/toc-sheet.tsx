@@ -21,15 +21,26 @@ import { useArticleNav } from "./article-nav-context";
  * only TOC on viewports below the `rail:` breakpoint. Hidden when the article
  * has too few headings to navigate.
  */
-export function TocSheet() {
+export function TocSheet({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const nav = useArticleNav();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const pendingId = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const navigate = useCallback((id: string) => {
-    pendingId.current = id;
-    setOpen(false);
-  }, []);
+  const navigate = useCallback(
+    (id: string) => {
+      pendingId.current = id;
+      setOpen(false);
+    },
+    [setOpen]
+  );
   const scrollAfterClose = useCallback(() => {
     const id = pendingId.current;
     pendingId.current = null;
@@ -58,18 +69,20 @@ export function TocSheet() {
     }
   }, [open]);
 
-  if (!nav || nav.headings.length < 2) {
+  if (!nav || nav.headings.length === 0) {
     return null;
   }
 
   return (
     <Sheet onOpenChange={setOpen} open={open}>
-      <SheetTrigger
-        aria-label="On this page"
-        className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      >
-        <HugeiconsIcon className="size-4" icon={LeftToRightListBulletIcon} />
-      </SheetTrigger>
+      {controlledOpen === undefined ? (
+        <SheetTrigger
+          aria-label="On this page"
+          className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <HugeiconsIcon className="size-4" icon={LeftToRightListBulletIcon} />
+        </SheetTrigger>
+      ) : null}
       <SheetContent
         className="w-72"
         onCloseAutoFocus={scrollAfterClose}

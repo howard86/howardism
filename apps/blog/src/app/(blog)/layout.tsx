@@ -186,7 +186,11 @@ export default function RootLayout({ children }: ChildrenProps) {
             <SearchProvider>
               <div className="relative flex flex-1 flex-col">
                 <SiteBar />
-                <main className="flex flex-1 flex-col" id="main-content">
+                <main
+                  className="flex flex-1 flex-col"
+                  id="main-content"
+                  tabIndex={-1}
+                >
                   {children}
                 </main>
                 <Footer />

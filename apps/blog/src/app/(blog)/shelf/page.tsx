@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { env } from "@/config/env";
 
 import { PlatePage } from "../_shell/plate-page";
+import { ClearReadingData } from "./clear-reading-data";
 import { ContinueReading } from "./continue-reading";
 import { ShelfStats } from "./shelf-stats";
 import { ShelfTabs } from "./shelf-tabs";
@@ -32,6 +33,7 @@ export default function ShelfPage() {
             lives only in your browser — nothing is sent anywhere.
           </p>
           <ShelfStats />
+          <ClearReadingData />
         </>
       }
       plate="shelf"

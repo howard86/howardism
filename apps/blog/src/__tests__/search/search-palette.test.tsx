@@ -6,6 +6,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useState } from "react";
+import {
+  ArticleNavProvider,
+  PublishArticleNav,
+} from "@/components/article-nav-context";
 import { createNextNavigationMock } from "@/test-support/next-navigation-mock";
 
 const pushed: string[] = [];
@@ -13,6 +18,7 @@ const pushed: string[] = [];
 // Chip labels also appear as group headings, so match the button role by name.
 const AGENT_SYSTEMS = /Agent Systems/;
 const CONCEPT = /Concept/;
+const THIS_ARTICLE = /This article/;
 
 mock.module("next/navigation", () =>
   createNextNavigationMock({
@@ -53,9 +59,37 @@ mock.module("@/data/search-index.json", () => ({
 
 const { SearchPalette } = await import("@/components/search/search-palette");
 
+class FakeHighlight {
+  ranges: unknown[];
+  constructor(...ranges: unknown[]) {
+    this.ranges = ranges;
+  }
+}
+
+function PaletteHarness({ withArticle = false }: { withArticle?: boolean }) {
+  const [open, setOpen] = useState(true);
+  const palette = <SearchPalette onOpenChange={setOpen} open={open} />;
+  return withArticle ? (
+    <ArticleNavProvider>
+      <PublishArticleNav headings={[]} slug="test-article" />
+      <div data-article-body>
+        <p>loop, loop, loop</p>
+      </div>
+      {palette}
+    </ArticleNavProvider>
+  ) : (
+    palette
+  );
+}
+
 beforeAll(() => {
   // cmdk scrolls the active item into view; happy-dom lacks the method.
   Element.prototype.scrollIntoView = () => undefined;
+  (globalThis as unknown as { Highlight: unknown }).Highlight = FakeHighlight;
+  Object.defineProperty(globalThis, "CSS", {
+    configurable: true,
+    value: { highlights: new Map() },
+  });
 });
 
 afterEach(() => {
@@ -64,6 +98,57 @@ afterEach(() => {
 });
 
 describe("SearchPalette", () => {
+  it("offers This article only when article navigation is present", async () => {
+    render(<PaletteHarness />);
+    await screen.findByText("Type to search, or pick a filter above.");
+    expect(screen.queryByRole("button", { name: THIS_ARTICLE })).toBeNull();
+    cleanup();
+    render(<PaletteHarness withArticle />);
+    expect(
+      await screen.findByRole("button", { name: THIS_ARTICLE })
+    ).toBeDefined();
+  });
+
+  it("finds in the article, transfers the live highlight to the bar, steps, and clears on Escape", async () => {
+    render(<PaletteHarness withArticle />);
+    const chip = await screen.findByRole("button", { name: THIS_ARTICLE });
+    fireEvent.click(chip);
+    const input = screen.getByPlaceholderText(
+      "Search, or find in this article"
+    );
+    fireEvent.change(input, { target: { value: "loop" } });
+    expect(await screen.findByText("3 matches")).toBeDefined();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(await screen.findByLabelText("Find text in article")).toBeDefined();
+    expect(await screen.findByText("1 of 3")).toBeDefined();
+    const { highlights } = CSS as unknown as {
+      highlights: Map<string, unknown>;
+    };
+    const initial = highlights.get("article-find-active");
+    fireEvent.keyDown(screen.getByLabelText("Find text in article"), {
+      key: "Enter",
+    });
+    await screen.findByText("2 of 3");
+    expect(highlights.get("article-find-active")).not.toBe(initial);
+    fireEvent.keyDown(screen.getByLabelText("Find text in article"), {
+      key: "Enter",
+      shiftKey: true,
+    });
+    await screen.findByText("1 of 3");
+    expect(highlights.has("article-find")).toBe(true);
+    fireEvent.keyDown(screen.getByLabelText("Find text in article"), {
+      key: "Escape",
+    });
+    await waitFor(() => expect(highlights.has("article-find")).toBe(false));
+  });
+
+  it("keeps ordinary article search results when no article scope is available", async () => {
+    render(<PaletteHarness />);
+    const input = await screen.findByPlaceholderText("Search articles…");
+    fireEvent.change(input, { target: { value: "loop" } });
+    expect(await screen.findByText("Agent Loop Pattern")).toBeDefined();
+    expect(screen.queryByText("No matches in this article")).toBeNull();
+  });
   it("prompts the user once the index has loaded", async () => {
     render(<SearchPalette onOpenChange={() => undefined} open />);
     await waitFor(() =>

@@ -9,6 +9,10 @@ import {
 
 import { resolveTapAction } from "@/app/(blog)/articles/[slug]/tap-scroll-zones";
 import {
+  ArticleNavProvider,
+  PublishArticleNav,
+} from "@/components/article-nav-context";
+import {
   INIT_TWEAKS_SCRIPT,
   InitTweaksScript,
 } from "@/components/tweaks/init-tweaks-script";
@@ -28,8 +32,7 @@ afterEach(() => {
   resetReadingStoreCache();
 });
 
-const READER_SETTINGS_LABEL = /reader settings/i;
-const CLEAR_DATA_LABEL = /clear reading data/i;
+const READER_SETTINGS_LABEL = /display settings/i;
 const FOCUS_LABEL = /hide the site bar/i;
 
 // ── InitTweaksScript ────────────────────────────────────────────────────────
@@ -207,6 +210,49 @@ describe("reader-settings", () => {
     ).not.toBeNull();
   });
 
+  it("shows theme and text size on non-article pages and applies theme", async () => {
+    render(
+      <TweaksProvider>
+        <ReaderSettings />
+      </TweaksProvider>
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: READER_SETTINGS_LABEL })
+    );
+    expect(
+      await screen.findByRole("group", { name: "Select theme" })
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("group", { name: "Select text size" })
+    ).not.toBeNull();
+    expect(screen.queryByRole("region", { name: "Focus mode" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Reading data" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    await waitFor(() =>
+      expect(document.documentElement.classList.contains("dark")).toBe(true)
+    );
+  });
+
+  it("shows article reading controls when article navigation is published", async () => {
+    render(
+      <TweaksProvider>
+        <ArticleNavProvider>
+          <PublishArticleNav headings={[]} slug="sample" />
+          <ReaderSettings />
+        </ArticleNavProvider>
+      </TweaksProvider>
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: READER_SETTINGS_LABEL })
+    );
+    expect(
+      await screen.findByRole("region", { name: "Focus mode" })
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Tap to scroll" })
+    ).not.toBeNull();
+  });
+
   it("opens the popover on trigger click", async () => {
     render(
       <TweaksProvider>
@@ -247,42 +293,13 @@ describe("reader-settings", () => {
     expect(btn.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("clears all reading data from the panel", async () => {
-    localStorage.setItem(
-      "howardism:reading-history",
-      JSON.stringify([{ slug: "a", pct: 0.5, lastReadAt: 1 }])
-    );
-    localStorage.setItem(
-      "howardism:reading-saved",
-      JSON.stringify([{ slug: "b", savedAt: 1 }])
-    );
-    localStorage.setItem(
-      "howardism:reading:a",
-      JSON.stringify({ headingId: "h", pct: 0.5 })
-    );
-
-    render(
-      <TweaksProvider>
-        <ReaderSettings />
-      </TweaksProvider>
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: READER_SETTINGS_LABEL })
-    );
-    const clearButton = await screen.findByRole("button", {
-      name: CLEAR_DATA_LABEL,
-    });
-    fireEvent.click(clearButton);
-
-    expect(localStorage.getItem("howardism:reading-history")).toBeNull();
-    expect(localStorage.getItem("howardism:reading-saved")).toBeNull();
-    expect(localStorage.getItem("howardism:reading:a")).toBeNull();
-  });
-
   it("enters focus mode from the panel and closes it", async () => {
     render(
       <TweaksProvider>
-        <ReaderSettings />
+        <ArticleNavProvider>
+          <PublishArticleNav headings={[]} slug="sample" />
+          <ReaderSettings />
+        </ArticleNavProvider>
       </TweaksProvider>
     );
     const btn = screen.getByRole("button", { name: READER_SETTINGS_LABEL });

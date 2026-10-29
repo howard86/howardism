@@ -22,5 +22,9 @@ export default async function LocaleLayout({
   if (!(PREFIXED_LOCALES as readonly string[]).includes(locale)) {
     notFound();
   }
-  return children;
+  return (
+    <div className="contents" lang={locale}>
+      {children}
+    </div>
+  );
 }

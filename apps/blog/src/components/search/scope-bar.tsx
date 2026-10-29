@@ -124,20 +124,41 @@ function FacetChip({
  * empty search box being a dead end.
  */
 export function ScopeBar({
+  articleActive = false,
+  articleCount = 0,
+  hasArticle = false,
+  onArticleSelect,
   facets,
   onSelect,
   scope,
 }: {
+  articleActive?: boolean;
+  articleCount?: number;
+  hasArticle?: boolean;
+  onArticleSelect?: () => void;
   facets: Facet[];
   onSelect: (next: Scope | null) => void;
   scope: Scope | null;
 }) {
-  if (facets.length === 0) {
+  if (facets.length === 0 && !hasArticle) {
     return null;
   }
 
   return (
     <div className="flex flex-wrap gap-1.5 border-border border-b px-3 py-2.5">
+      {hasArticle ? (
+        <button
+          aria-pressed={articleActive}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors ${articleActive ? "bg-brand text-background" : "bg-muted text-foreground-subtle hover:text-foreground"}`}
+          onClick={onArticleSelect}
+          type="button"
+        >
+          This article
+          <span aria-live="polite" className="opacity-70">
+            {articleCount}
+          </span>
+        </button>
+      ) : null}
       {facets.map((facet) => (
         <FacetChip
           active={isActive(facet, scope)}
