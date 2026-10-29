@@ -1,3 +1,9 @@
+# [v2.36.0](https://github.com/howard86/howardism/compare/v2.35.4...v2.36.0) (2026-10-29)
+
+## ✨ New Features
+- [`f30cc857`](https://github.com/howard86/howardism/commit/f30cc857)  feat(blog): separate navigation from tools in the site bar 
+- [`5a7f941e`](https://github.com/howard86/howardism/commit/5a7f941e)  feat(search): find in the current article from the search palette
+
 # [v2.35.4](https://github.com/howard86/howardism/compare/v2.35.3...v2.35.4) (2026-10-27)
 
 ## 🐛 Bug Fixes
