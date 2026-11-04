@@ -7,6 +7,11 @@ import { taggedHref } from "@/utils/tagged-href";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../../_shell/plate-page";
+import {
+  baseOpenGraph,
+  baseTwitter,
+  feedAlternates,
+} from "../../../shared-metadata";
 import { ArticlesTable } from "../../articles-table";
 import {
   getNavigableTagSet,
@@ -36,15 +41,16 @@ export async function generateMetadata({
   const { tag } = await params;
   const navigable = await getNavigableTagSet();
   if (!navigable.has(tag)) {
-    return { title: "Not found — Howardism" };
+    return { title: "Not found" };
   }
   const label = humanizeTag(tag);
   const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}${taggedHref(tag)}`;
   return {
-    title: `${label} — Howardism`,
+    title: label,
     description: `Articles tagged ${label} from the Howardism wiki.`,
-    alternates: { canonical: url },
-    openGraph: { url },
+    alternates: { canonical: url, types: feedAlternates },
+    openGraph: { ...baseOpenGraph, url },
+    twitter: baseTwitter,
   };
 }
 

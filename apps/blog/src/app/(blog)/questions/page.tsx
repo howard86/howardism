@@ -4,6 +4,7 @@ import { env } from "@/config/env";
 
 import { PlatePage } from "../_shell/plate-page";
 import { getOpenQuestions } from "../articles/service";
+import { baseOpenGraph, baseTwitter, feedAlternates } from "../shared-metadata";
 import { QuestionsBacklog } from "./questions-backlog";
 
 const QUESTIONS_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/questions`;
@@ -11,11 +12,12 @@ const QUESTIONS_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/questions`;
 export const dynamic = "error";
 
 export const metadata: Metadata = {
-  title: "Open Questions — Howardism",
+  title: "Open Questions",
   description:
     "The live worklist: unanswered questions harvested from every concept in the Howardism wiki, searchable and filterable by triage and domain.",
-  alternates: { canonical: QUESTIONS_URL },
-  openGraph: { url: QUESTIONS_URL },
+  alternates: { canonical: QUESTIONS_URL, types: feedAlternates },
+  openGraph: { ...baseOpenGraph, url: QUESTIONS_URL },
+  twitter: baseTwitter,
 };
 
 /**

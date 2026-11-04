@@ -46,4 +46,23 @@ describe("llms.txt route", () => {
       );
     }
   });
+
+  it("links the sitemap and both feeds, and files Entity/Index under Optional", async () => {
+    const body = await (await GET()).text();
+    const base = env.NEXT_PUBLIC_DOMAIN_NAME;
+    expect(body).toContain(`(${base}/sitemap.xml)`);
+    expect(body).toContain(`(${base}/rss/feed.xml)`);
+    expect(body).toContain(`(${base}/rss/feed.json)`);
+
+    const [main, optional = ""] = body.split("\n## Optional\n");
+    const visible = await getVisibleArticles();
+    for (const slug of visible.ids) {
+      const tag = visible.entities[slug]?.meta.tag;
+      const link = `(${base}/articles/${slug})`;
+      if (tag === "Entity" || tag === "Index") {
+        expect(optional).toContain(link);
+        expect(main).not.toContain(link);
+      }
+    }
+  });
 });

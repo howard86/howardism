@@ -20,13 +20,12 @@ import {
 import {
   AUTHOR_EMAIL,
   AUTHOR_NAME,
-  PROFILE_IMAGE_NAME,
   SITE_DESCRIPTION,
   SITE_NAME,
-  TWITTER_USERNAME,
 } from "../constants";
 import { Footer } from "./(layout)/footer";
 import { SiteBar } from "./(layout)/header";
+import { baseOpenGraph, baseTwitter, feedAlternates } from "./shared-metadata";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -83,50 +82,24 @@ export const metadata: Metadata = {
   generator: "Next.js",
   applicationName: SITE_NAME,
   referrer: "origin-when-cross-origin",
-  keywords: [
-    "Howardism",
-    "Taiwan",
-    "Personal Blog",
-    "Personal Thoughts",
-    "Writing",
-    "Software Engineer",
-    "Mathematician",
-    "Amateur Diver",
-    "Lifelong learner",
-    "Fullstack Developer",
-    "Singapore",
-    "London",
-    "Remote",
-    "Anywhere",
-    "World",
-    "Computer Science",
-    "React",
-    "Next.js",
-    "Node.js",
-  ],
   authors: [{ name: AUTHOR_NAME }],
   creator: AUTHOR_NAME,
-  publisher: AUTHOR_NAME,
+  publisher: SITE_NAME,
   openGraph: {
-    type: "website",
-    locale: "en_UK",
+    ...baseOpenGraph,
     title: SITE_NAME,
     url: env.NEXT_PUBLIC_DOMAIN_NAME,
-    siteName: SITE_NAME,
     description: SITE_DESCRIPTION,
     emails: AUTHOR_EMAIL,
-    images: [
-      {
-        url: `/${PROFILE_IMAGE_NAME}`,
-        width: 400,
-        height: 400,
-        alt: "Profile Picture",
-      },
-    ],
   },
   robots: isPagesExport
     ? { index: false, follow: false }
-    : { index: true, follow: true, nocache: false },
+    : {
+        index: true,
+        follow: true,
+        nocache: false,
+        googleBot: { "max-image-preview": "large" },
+      },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "16x16", type: "image/x-icon" },
@@ -136,20 +109,10 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
-  twitter: {
-    card: "summary_large_image",
-    site: TWITTER_USERNAME,
-    creator: TWITTER_USERNAME,
-  },
+  twitter: baseTwitter,
   alternates: {
     canonical: env.NEXT_PUBLIC_DOMAIN_NAME,
-    types: {
-      "application/rss+xml": "/rss/feed.xml",
-      "application/feed+json": "/rss/feed.json",
-    },
-  },
-  other: {
-    "msapplication-TileColor": "#ffffff",
+    types: feedAlternates,
   },
 };
 

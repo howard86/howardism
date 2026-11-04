@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { env } from "@/config/env";
 
 import { PlatePage } from "../_shell/plate-page";
+import { baseOpenGraph, baseTwitter, feedAlternates } from "../shared-metadata";
 import { ClearReadingData } from "./clear-reading-data";
 import { ContinueReading } from "./continue-reading";
 import { ShelfStats } from "./shelf-stats";
@@ -13,11 +14,12 @@ const SHELF_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/shelf`;
 export const dynamic = "error";
 
 export const metadata: Metadata = {
-  title: "Shelf — Howardism",
+  title: "Shelf",
   description:
     "Your reading history: the articles you've read, newest first, kept locally in your browser.",
-  alternates: { canonical: SHELF_URL },
-  openGraph: { url: SHELF_URL },
+  alternates: { canonical: SHELF_URL, types: feedAlternates },
+  openGraph: { ...baseOpenGraph, url: SHELF_URL },
+  twitter: baseTwitter,
   // Personal, browser-local view — empty for everyone server-side, so keep it
   // out of the search index.
   robots: { index: false, follow: true },

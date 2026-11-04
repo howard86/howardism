@@ -5,6 +5,11 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../../_shell/plate-page";
+import {
+  baseOpenGraph,
+  baseTwitter,
+  feedAlternates,
+} from "../../../shared-metadata";
 import { ArticlesTable } from "../../articles-table";
 import { describeEntityGroup, groupEntityArticles } from "../../entity-groups";
 import { getNavigableTagSet } from "../../service";
@@ -35,14 +40,15 @@ export async function generateMetadata({
   const { tag } = await params;
   const section = resolveTagSection(tag);
   if (!section) {
-    return { title: "Not found — Howardism" };
+    return { title: "Not found" };
   }
   const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/tag/${section.slug}`;
   return {
-    title: `${section.title} articles — Howardism`,
+    title: `${section.title} articles`,
     description: section.metaDescription,
-    alternates: { canonical: url },
-    openGraph: { url },
+    alternates: { canonical: url, types: feedAlternates },
+    openGraph: { ...baseOpenGraph, url },
+    twitter: baseTwitter,
   };
 }
 

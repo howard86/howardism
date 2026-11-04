@@ -5,7 +5,12 @@ import type { StaticImageData } from "next/image";
 import { notFound } from "next/navigation";
 import type { FC } from "react";
 
+import { SITE_NAME } from "@/app/constants";
+import JsonLd from "@/components/json-ld";
+import { env } from "@/config/env";
+import { SOCIAL_LINKS } from "../social-links";
 import { ArticleLayout } from "./[slug]/article-layout";
+import { DOMAIN_META } from "./domain-meta";
 import {
   type ArticleHeading,
   type ArticleMeta,
@@ -16,6 +21,7 @@ import {
   isTranslationStale,
   type Locale,
 } from "./service";
+import { buildArticleBreadcrumbs, buildBlogPosting } from "./structured-data";
 
 export interface ArticleModule {
   default: FC;
@@ -60,6 +66,50 @@ async function importHeroVariants(slug: string): Promise<StaticImageData[]> {
   return variants.filter((variant) => variant !== null);
 }
 
+/** BlogPosting + BreadcrumbList for the article, from the same data the page shows. */
+function ArticleJsonLd({
+  heroImage,
+  heroVariants,
+  locale,
+  meta,
+  slug,
+}: {
+  heroImage: StaticImageData;
+  heroVariants: StaticImageData[];
+  locale: Locale;
+  meta: ArticleMeta;
+  slug: string;
+}) {
+  const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
+  const domainLabel = meta.domain ? DOMAIN_META[meta.domain].label : undefined;
+  return (
+    <>
+      <JsonLd
+        data={buildBlogPosting({
+          domainLabel,
+          images: [...heroVariants, heroImage],
+          locale,
+          meta,
+          profileUrls: SOCIAL_LINKS.map((link) => link.href),
+          siteName: SITE_NAME,
+          siteUrl,
+          slug,
+        })}
+      />
+      <JsonLd
+        data={buildArticleBreadcrumbs({
+          domain: meta.domain,
+          domainLabel,
+          locale,
+          siteUrl,
+          slug,
+          title: meta.title,
+        })}
+      />
+    </>
+  );
+}
+
 interface RenderArticleArgs {
   locale: Locale;
   slug: string;
@@ -85,18 +135,27 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
   ]);
   if (locale === "zh-TW") {
     return (
-      <ArticleLayout
-        headings={mod.headings}
-        heroImage={mod.heroImage}
-        heroVariants={heroVariants}
-        isStale={isTranslationStale(slug)}
-        locale="zh-TW"
-        meta={mod.meta}
-        slug={slug}
-        translationHref={`/articles/${slug}`}
-      >
-        <mod.default />
-      </ArticleLayout>
+      <>
+        <ArticleJsonLd
+          heroImage={mod.heroImage}
+          heroVariants={heroVariants}
+          locale="zh-TW"
+          meta={mod.meta}
+          slug={slug}
+        />
+        <ArticleLayout
+          headings={mod.headings}
+          heroImage={mod.heroImage}
+          heroVariants={heroVariants}
+          isStale={isTranslationStale(slug)}
+          locale="zh-TW"
+          meta={mod.meta}
+          slug={slug}
+          translationHref={`/articles/${slug}`}
+        >
+          <mod.default />
+        </ArticleLayout>
+      </>
     );
   }
   const [siblings, navigable] = await Promise.all([
@@ -104,20 +163,29 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
     getNavigableTagSet(),
   ]);
   return (
-    <ArticleLayout
-      headings={mod.headings}
-      heroImage={mod.heroImage}
-      heroVariants={heroVariants}
-      locale="en"
-      meta={mod.meta}
-      navigable={navigable}
-      siblings={siblings}
-      slug={slug}
-      translationHref={
-        hasTranslation(slug) ? `/zh-TW/articles/${slug}` : undefined
-      }
-    >
-      <mod.default />
-    </ArticleLayout>
+    <>
+      <ArticleJsonLd
+        heroImage={mod.heroImage}
+        heroVariants={heroVariants}
+        locale="en"
+        meta={mod.meta}
+        slug={slug}
+      />
+      <ArticleLayout
+        headings={mod.headings}
+        heroImage={mod.heroImage}
+        heroVariants={heroVariants}
+        locale="en"
+        meta={mod.meta}
+        navigable={navigable}
+        siblings={siblings}
+        slug={slug}
+        translationHref={
+          hasTranslation(slug) ? `/zh-TW/articles/${slug}` : undefined
+        }
+      >
+        <mod.default />
+      </ArticleLayout>
+    </>
   );
 }
