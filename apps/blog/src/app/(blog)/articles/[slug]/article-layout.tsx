@@ -199,7 +199,12 @@ export function ArticleLayout({
         ]
       : null;
   const metaRows: [string, ReactNode][] = [
-    ["Published", formatDate(meta.date)],
+    [
+      "Published",
+      <time dateTime={meta.date} key="published">
+        {formatDate(meta.date)}
+      </time>,
+    ],
     ["Filed", meta.tag],
     ...(domainRow ? [domainRow] : []),
     ...(tagsRow ? [tagsRow] : []),

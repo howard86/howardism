@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import JsonLd from "@/components/json-ld";
 import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
@@ -82,6 +83,27 @@ export default async function DomainPage({ params }: DomainPageProps) {
     0
   );
 
+  const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Articles",
+        item: `${siteUrl}/articles`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: meta.label,
+        item: `${siteUrl}/articles/domain/${resolved}`,
+      },
+    ],
+  };
+
   return (
     <PlatePage
       headerData={[
@@ -119,6 +141,7 @@ export default async function DomainPage({ params }: DomainPageProps) {
         concepts={openQuestions}
         heading="Open questions"
       />
+      <JsonLd data={breadcrumbs} />
     </PlatePage>
   );
 }

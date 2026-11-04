@@ -1,4 +1,7 @@
+import { SITE_NAME } from "@/app/constants";
 import { DomainDot } from "@/components/howardism/domain-dot";
+import JsonLd from "@/components/json-ld";
+import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "./_shell/plate-page";
@@ -12,6 +15,7 @@ import {
   getVisibleArticles,
   getWikiSources,
 } from "./articles/service";
+import { buildWebSite } from "./articles/structured-data";
 import { Desk } from "./desk";
 import { DomainPlate } from "./domain-plate";
 
@@ -70,6 +74,12 @@ export default async function Home() {
       titleAccent="in plates."
       width="wide"
     >
+      <JsonLd
+        data={buildWebSite({
+          siteName: SITE_NAME,
+          siteUrl: env.NEXT_PUBLIC_DOMAIN_NAME,
+        })}
+      />
       {featured.map((domain, index) => (
         <DomainPlate
           articles={articlesByDomain[domain] ?? []}
