@@ -1,6 +1,5 @@
-// Shared by next.config.ts and the generated Vercel image allowlist, so the
-// custom loader only requests sizes Vercel will transform. Six widths and no
-// imageSizes keep the variant count (and Hobby transforms) low.
+// next/image settings for server builds (`next dev`, unset DEPLOY_TARGET).
+// Static exports set `unoptimized`, so these do not reach a deploy.
 export const imageDeviceSizes = [640, 750, 828, 1080, 1200, 1600];
 export const imageSizes: number[] = [];
 export const imageQualities = [75];
