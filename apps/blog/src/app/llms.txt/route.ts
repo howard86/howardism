@@ -83,11 +83,7 @@ Articles-only blog. Notes are organized into knowledge domains below; the full i
 - [JSON feed](${baseUrl}/rss/feed.json)
 
 ${sections}
-
-## Optional
-
-${optional}
-`;
+${optional ? `\n## Optional\n\n${optional}\n` : ""}`;
 
   return new Response(body, {
     headers: {
