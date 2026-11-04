@@ -1,7 +1,8 @@
 import { Card } from "@howardism/ui/components/card";
 import { cn } from "@howardism/ui/lib/utils";
-import Image, { type StaticImageData } from "next/image";
+import { getImageProps, type StaticImageData } from "next/image";
 import type { CSSProperties, ReactNode } from "react";
+import { preload } from "react-dom";
 
 import { PublishArticleNav } from "@/components/article-nav-context";
 import { DiscPageHeader } from "@/components/howardism/disc-page-header";
@@ -29,6 +30,8 @@ interface ArticleLayoutProps {
   children?: ReactNode;
   headings?: ArticleHeading[];
   heroImage?: StaticImageData;
+  /** Downscaled twins of `heroImage`, offered in its `srcset`. */
+  heroVariants?: StaticImageData[];
   /** Whether the zh-TW translation is out of date relative to the EN source. */
   isStale?: boolean;
   /** Which language this rendering is; drives the machine-translation badge. */
@@ -114,10 +117,68 @@ function ArticleNav({ siblings }: { siblings?: SiblingNav }) {
   );
 }
 
+const NO_HERO_VARIANTS: StaticImageData[] = [];
+// Measured rendered width: `100vw - ~48px` below the 760px breakpoint, then at
+// most 644px. Overstating it makes 3x phones skip the 1200px variant.
+const HERO_SIZES = "(min-width: 760px) 644px, calc(100vw - 48px)";
+
+/**
+ * The hero, served as-is (`unoptimized`): static exports have no image
+ * optimizer, so the responsive sizes are the pre-encoded `variants` instead,
+ * listed in a hand-built `srcset`. next/image drops any `srcSet` prop when
+ * unoptimized, hence `getImageProps` plus a plain `<img>`.
+ */
+function HeroImage({
+  alt,
+  image,
+  variants,
+}: {
+  alt: string;
+  image: StaticImageData;
+  variants: StaticImageData[];
+}) {
+  const { props } = getImageProps({
+    alt,
+    className: "mb-10 h-auto w-full rounded-md",
+    // Lighthouse's LCP `priorityHinted` check reads fetchpriority on the
+    // element itself, which `priority` alone does not set.
+    fetchPriority: "high",
+    placeholder: "blur",
+    priority: true,
+    src: image,
+    unoptimized: true,
+  });
+  const srcSet =
+    variants.length > 0
+      ? [...variants, image].map((v) => `${v.src} ${v.width}w`).join(", ")
+      : undefined;
+  const sizes = srcSet ? HERO_SIZES : undefined;
+  // getImageProps renders nothing, so the LCP preload `priority` would emit
+  // is declared here — with the srcset, or the browser fetches both sizes.
+  preload(props.src, {
+    as: "image",
+    fetchPriority: "high",
+    imageSizes: sizes,
+    imageSrcSet: srcSet,
+  });
+  return (
+    // biome-ignore lint/performance/noImgElement: next/image cannot carry a custom srcset on an unoptimized image; getImageProps keeps its sizing and blur.
+    <img
+      {...props}
+      alt={alt}
+      height={props.height}
+      sizes={sizes}
+      srcSet={srcSet}
+      width={props.width}
+    />
+  );
+}
+
 export function ArticleLayout({
   children,
   headings = [],
   heroImage,
+  heroVariants = NO_HERO_VARIANTS,
   isStale = false,
   locale = "en",
   meta,
@@ -197,19 +258,7 @@ export function ArticleLayout({
   );
 
   const hero = heroImage ? (
-    <Image
-      alt={meta.imageAlt}
-      className="mb-10 h-auto w-full rounded-md"
-      // `priority` alone emits the preload link and drops loading=lazy,
-      // but Next 16 does not set fetchpriority on the element itself —
-      // which is exactly what Lighthouse's LCP `priorityHinted` check
-      // reads. Both are needed.
-      fetchPriority="high"
-      placeholder="blur"
-      priority
-      sizes="(min-width: 760px) 720px, 100vw"
-      src={heroImage}
-    />
+    <HeroImage alt={meta.imageAlt} image={heroImage} variants={heroVariants} />
   ) : null;
 
   const body = (

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { HERO_VARIANT_WIDTHS } from "@howardism/article-contract/hero";
 import type { StaticImageData } from "next/image";
 import { notFound } from "next/navigation";
 import type { FC } from "react";
@@ -41,6 +42,24 @@ export function importArticleModule(
   return import(`@/content/articles/${slug}.mdx`) as Promise<ArticleModule>;
 }
 
+/**
+ * The hero's downscaled `<slug>-<width>.webp` twins, smallest first. The
+ * template literal makes the bundler emit every asset matching it, as with the
+ * MDX imports above; a release without the variants just yields none, and the
+ * hero renders at full size alone.
+ */
+async function importHeroVariants(slug: string): Promise<StaticImageData[]> {
+  const variants = await Promise.all(
+    HERO_VARIANT_WIDTHS.map((width) =>
+      import(`@/content/assets/${slug}-${width}.webp`).then(
+        (mod: { default: StaticImageData }) => mod.default,
+        () => null
+      )
+    )
+  );
+  return variants.filter((variant) => variant !== null);
+}
+
 interface RenderArticleArgs {
   locale: Locale;
   slug: string;
@@ -60,12 +79,16 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
   }
   // A missing zh-TW MDX (translations.json ahead of committed files) should 404,
   // not throw a module-not-found 500. The en path is already guarded by articleExists above.
-  const mod = await importArticleModule(slug, locale).catch(() => notFound());
+  const [mod, heroVariants] = await Promise.all([
+    importArticleModule(slug, locale).catch(() => notFound()),
+    importHeroVariants(slug),
+  ]);
   if (locale === "zh-TW") {
     return (
       <ArticleLayout
         headings={mod.headings}
         heroImage={mod.heroImage}
+        heroVariants={heroVariants}
         isStale={isTranslationStale(slug)}
         locale="zh-TW"
         meta={mod.meta}
@@ -84,6 +107,7 @@ export async function renderArticle({ slug, locale }: RenderArticleArgs) {
     <ArticleLayout
       headings={mod.headings}
       heroImage={mod.heroImage}
+      heroVariants={heroVariants}
       locale="en"
       meta={mod.meta}
       navigable={navigable}
