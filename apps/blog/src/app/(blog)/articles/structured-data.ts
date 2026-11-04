@@ -5,7 +5,6 @@ type JsonLd = Record<string, unknown>;
 type ArticleLocale = "en" | "zh-TW";
 
 const SCHEMA_CONTEXT = "https://schema.org";
-const PERSON_NAME = "Howard Tai";
 
 interface HeroImageRef {
   src: string;
@@ -61,20 +60,21 @@ export function buildBlogPosting({
     "@type": "BlogPosting",
     headline: meta.title,
     description: meta.description,
-    datePublished: meta.date,
+    // Same instant the sitemap and feeds use for this date (UTC midnight).
+    datePublished: new Date(meta.date).toISOString(),
     inLanguage: locale,
     url,
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     image: images.map((image) => absolute(siteUrl, image.src)),
     author: {
       "@type": "Person",
-      name: PERSON_NAME,
+      name: AUTHOR_NAME,
       url: `${siteUrl}/`,
       sameAs,
     },
     publisher: {
       "@type": "Organization",
-      name: siteName || AUTHOR_NAME,
+      name: siteName,
       url: `${siteUrl}/`,
     },
     ...(meta.tags && meta.tags.length > 0 && { keywords: meta.tags }),

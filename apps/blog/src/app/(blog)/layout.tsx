@@ -84,7 +84,7 @@ export const metadata: Metadata = {
   referrer: "origin-when-cross-origin",
   authors: [{ name: AUTHOR_NAME }],
   creator: AUTHOR_NAME,
-  publisher: AUTHOR_NAME,
+  publisher: SITE_NAME,
   openGraph: {
     ...baseOpenGraph,
     title: SITE_NAME,

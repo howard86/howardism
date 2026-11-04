@@ -20,6 +20,7 @@ const base = {
     title: "Foo",
   },
 };
+const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 describe("buildBlogPosting", () => {
   it("builds an English post with absolute images and no mailto sameAs", () => {
@@ -39,6 +40,19 @@ describe("buildBlogPosting", () => {
     expect(post.keywords).toEqual(["x"]);
     expect(post.articleSection).toBe("Agent Systems");
     expect(post.translationOfWork).toBeUndefined();
+  });
+
+  it("credits the person as author and the site as publisher, with an ISO date-time", () => {
+    const post = buildBlogPosting({ ...base, locale: "en" });
+    expect(post.author).toMatchObject({
+      "@type": "Person",
+      name: "Howard Tai",
+    });
+    expect(post.publisher).toMatchObject({
+      "@type": "Organization",
+      name: "Howardism",
+    });
+    expect(post.datePublished).toMatch(ISO_DATE_TIME);
   });
 
   it("links a zh-TW post to its English original", () => {
