@@ -125,6 +125,31 @@ export function buildArticleBreadcrumbs({
       : []),
     { name: title, item: absolute(siteUrl, articlePath(slug, locale)) },
   ];
+  return breadcrumbList(trail);
+}
+
+/** Home › Articles › Domain, for a domain index page. */
+export function buildDomainBreadcrumbs({
+  domain,
+  domainLabel,
+  siteUrl: rawSiteUrl,
+}: {
+  domain: string;
+  domainLabel: string;
+  siteUrl: string;
+}): JsonLd {
+  const siteUrl = originOf(rawSiteUrl);
+  return breadcrumbList([
+    { name: "Home", item: `${siteUrl}/` },
+    { name: "Articles", item: absolute(siteUrl, "/articles") },
+    {
+      name: domainLabel,
+      item: absolute(siteUrl, `/articles/domain/${domain}`),
+    },
+  ]);
+}
+
+function breadcrumbList(trail: { name: string; item: string }[]): JsonLd {
   return {
     "@context": SCHEMA_CONTEXT,
     "@type": "BreadcrumbList",

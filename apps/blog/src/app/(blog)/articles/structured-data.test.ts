@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   buildArticleBreadcrumbs,
   buildBlogPosting,
+  buildDomainBreadcrumbs,
   buildWebSite,
 } from "./structured-data";
 
@@ -20,6 +21,7 @@ const base = {
     title: "Foo",
   },
 };
+
 const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 describe("buildBlogPosting", () => {
@@ -73,6 +75,23 @@ describe("buildBlogPosting", () => {
     });
     expect("keywords" in post).toBe(false);
     expect("articleSection" in post).toBe(false);
+  });
+});
+
+describe("buildDomainBreadcrumbs", () => {
+  it("lists Home, Articles, Domain with a trailing-slash home", () => {
+    const crumbs = buildDomainBreadcrumbs({
+      domain: "agent-systems",
+      domainLabel: "Agent Systems",
+      siteUrl: "https://www.howardism.dev",
+    });
+    expect(
+      (crumbs.itemListElement as { item: string }[]).map((c) => c.item)
+    ).toEqual([
+      "https://www.howardism.dev/",
+      "https://www.howardism.dev/articles",
+      "https://www.howardism.dev/articles/domain/agent-systems",
+    ]);
   });
 });
 

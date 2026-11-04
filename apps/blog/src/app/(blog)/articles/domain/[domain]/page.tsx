@@ -21,6 +21,7 @@ import {
   getNavigableTagSet,
   getOpenQuestionsByDomain,
 } from "../../service";
+import { buildDomainBreadcrumbs } from "../../structured-data";
 
 interface DomainPageParams {
   domain: string;
@@ -83,26 +84,11 @@ export default async function DomainPage({ params }: DomainPageProps) {
     0
   );
 
-  const siteUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
-  const breadcrumbs = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: "Articles",
-        item: `${siteUrl}/articles`,
-      },
-      {
-        "@type": "ListItem",
-        position: 3,
-        name: meta.label,
-        item: `${siteUrl}/articles/domain/${resolved}`,
-      },
-    ],
-  };
+  const breadcrumbs = buildDomainBreadcrumbs({
+    domain: resolved,
+    domainLabel: meta.label,
+    siteUrl: env.NEXT_PUBLIC_DOMAIN_NAME,
+  });
 
   return (
     <PlatePage
