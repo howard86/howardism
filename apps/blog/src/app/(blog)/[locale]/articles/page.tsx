@@ -9,7 +9,13 @@ import {
   getTranslatedArticleLinks,
   PREFIXED_LOCALES,
 } from "../../articles/service";
+import {
+  baseOpenGraph,
+  baseTwitter,
+  feedAlternates,
+} from "../../shared-metadata";
 
+const EN_ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles`;
 const ZH_ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW/articles`;
 
 // One prerendered index per prefixed locale; any other locale 404s.
@@ -23,8 +29,22 @@ export function generateStaticParams(): { locale: string }[] {
 export const metadata: Metadata = {
   title: "文章（繁體中文）",
   description: "由 AI 從英文原文翻譯的文章。",
-  alternates: { canonical: ZH_ARTICLES_URL },
-  openGraph: { url: ZH_ARTICLES_URL, locale: "zh_TW" },
+  alternates: {
+    canonical: ZH_ARTICLES_URL,
+    types: feedAlternates,
+    languages: {
+      en: EN_ARTICLES_URL,
+      "zh-TW": ZH_ARTICLES_URL,
+      "x-default": EN_ARTICLES_URL,
+    },
+  },
+  openGraph: {
+    ...baseOpenGraph,
+    url: ZH_ARTICLES_URL,
+    locale: "zh_TW",
+    alternateLocale: "en_GB",
+  },
+  twitter: baseTwitter,
 };
 
 export default async function ZhArticlesIndex() {

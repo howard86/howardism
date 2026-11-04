@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
 import { env } from "@/config/env";
-
+import {
+  baseOpenGraph,
+  baseTwitter,
+  feedAlternates,
+} from "../../shared-metadata";
 import { importArticleModule, renderArticle } from "../render-article";
-import { articleExists, getArticles } from "../service";
+import { articleExists, getArticles, hasTranslation } from "../service";
 
 interface ArticlePageProps {
   params: Promise<{
@@ -32,6 +36,7 @@ export async function generateMetadata({
   }
   const mod = await importArticleModule(slug, "en");
   const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/${slug}`;
+  const translated = hasTranslation(slug);
   const ogImage = {
     url: mod.heroImage.src,
     width: mod.heroImage.width,
@@ -42,11 +47,23 @@ export async function generateMetadata({
   return {
     title: mod.meta.title,
     description: mod.meta.description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      types: feedAlternates,
+      ...(translated && {
+        languages: {
+          en: url,
+          "zh-TW": `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW/articles/${slug}`,
+          "x-default": url,
+        },
+      }),
+    },
     ...(mod.meta.archived === true && {
       robots: { index: false, follow: false },
     }),
     openGraph: {
+      ...baseOpenGraph,
+      ...(translated && { alternateLocale: "zh_TW" }),
       type: "article",
       url,
       title: mod.meta.title,
@@ -55,7 +72,7 @@ export async function generateMetadata({
       images: [ogImage],
     },
     twitter: {
-      card: "summary_large_image",
+      ...baseTwitter,
       title: mod.meta.title,
       description: mod.meta.description,
       images: [ogImage.url],

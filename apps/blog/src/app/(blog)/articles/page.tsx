@@ -4,6 +4,7 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../_shell/plate-page";
+import { baseOpenGraph, baseTwitter, feedAlternates } from "../shared-metadata";
 import { groupArticlesByDomain } from "./domain-groups";
 import { FilterBar } from "./filter-bar";
 import { KindPlate } from "./kind-plate";
@@ -11,6 +12,7 @@ import {
   getNavigableTagSet,
   getTagCounts,
   getTagIndex,
+  getTranslatedSlugs,
   getVisibleArticles,
 } from "./service";
 import { TagIndex } from "./tag-index";
@@ -25,9 +27,35 @@ const VISIBLE_BY_SLUG: Record<string, number> = {
   index: 8,
 };
 
+const ZH_ARTICLES_URL = `${env.NEXT_PUBLIC_DOMAIN_NAME}/zh-TW/articles`;
+const hasZh = getTranslatedSlugs().length > 0;
+
+const ARTICLES_TITLE = "Articles";
+const ARTICLES_DESCRIPTION =
+  "Every article in the Howardism wiki, grouped by kind: concept notes, entity profiles and essays.";
+
 export const metadata: Metadata = {
-  alternates: { canonical: ARTICLES_URL },
-  openGraph: { url: ARTICLES_URL },
+  title: ARTICLES_TITLE,
+  description: ARTICLES_DESCRIPTION,
+  alternates: {
+    canonical: ARTICLES_URL,
+    types: feedAlternates,
+    ...(hasZh && {
+      languages: {
+        en: ARTICLES_URL,
+        "zh-TW": ZH_ARTICLES_URL,
+        "x-default": ARTICLES_URL,
+      },
+    }),
+  },
+  openGraph: {
+    ...baseOpenGraph,
+    ...(hasZh && { alternateLocale: "zh_TW" }),
+    url: ARTICLES_URL,
+    title: ARTICLES_TITLE,
+    description: ARTICLES_DESCRIPTION,
+  },
+  twitter: baseTwitter,
 };
 
 export default async function ArticlesIndex() {

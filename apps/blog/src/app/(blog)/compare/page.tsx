@@ -3,13 +3,22 @@ import { Suspense } from "react";
 
 import { env } from "@/config/env";
 
+import { baseOpenGraph, baseTwitter, feedAlternates } from "../shared-metadata";
 import { CompareLoader } from "./compare-loader";
 
 export const metadata: Metadata = {
-  title: "Compare — Howardism",
+  title: "Compare",
   description:
     "Read up to three articles side by side to cross-reference them.",
-  alternates: { canonical: `${env.NEXT_PUBLIC_DOMAIN_NAME}/compare` },
+  alternates: {
+    canonical: `${env.NEXT_PUBLIC_DOMAIN_NAME}/compare`,
+    types: feedAlternates,
+  },
+  openGraph: {
+    ...baseOpenGraph,
+    url: `${env.NEXT_PUBLIC_DOMAIN_NAME}/compare`,
+  },
+  twitter: baseTwitter,
   // URL-driven tool view, not indexable content.
   robots: { index: false, follow: true },
 };

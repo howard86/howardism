@@ -5,6 +5,11 @@ import { env } from "@/config/env";
 import { formatDateShort } from "@/utils/time";
 
 import { PlatePage } from "../../../_shell/plate-page";
+import {
+  baseOpenGraph,
+  baseTwitter,
+  feedAlternates,
+} from "../../../shared-metadata";
 import { ArticlesTable } from "../../articles-table";
 import { DOMAIN_META, DOMAIN_ORDER, resolveDomain } from "../../domain-meta";
 import { OpenQuestionsSection } from "../../open-questions-section";
@@ -37,15 +42,16 @@ export async function generateMetadata({
   const { domain } = await params;
   const resolved = resolveDomain(domain);
   if (!resolved) {
-    return { title: "Not found — Howardism" };
+    return { title: "Not found" };
   }
   const meta = DOMAIN_META[resolved];
   const url = `${env.NEXT_PUBLIC_DOMAIN_NAME}/articles/domain/${resolved}`;
   return {
-    title: `${meta.label} notes — Howardism`,
+    title: `${meta.label} notes`,
     description: meta.metaDescription,
-    alternates: { canonical: url },
-    openGraph: { url },
+    alternates: { canonical: url, types: feedAlternates },
+    openGraph: { ...baseOpenGraph, url },
+    twitter: baseTwitter,
   };
 }
 
