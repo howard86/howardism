@@ -1,3 +1,11 @@
+# [v2.37.0](https://github.com/howard86/howardism/compare/v2.36.0...v2.37.0) (2026-11-04)
+
+## ✨ New Features
+- [`023a63fb`](https://github.com/howard86/howardism/commit/023a63fb)  feat(cli): write 800px and 1200px hero variants 
+
+## 🐛 Bug Fixes
+- [`fa3b8ecb`](https://github.com/howard86/howardism/commit/fa3b8ecb)  fix(content): keep prepare&#x27;s file list out of the public build marker
+
 # [v2.36.0](https://github.com/howard86/howardism/compare/v2.35.4...v2.36.0) (2026-10-29)
 
 ## ✨ New Features
