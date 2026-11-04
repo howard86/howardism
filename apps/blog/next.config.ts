@@ -7,11 +7,7 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 import nextMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
-import {
-  isPagesExport,
-  isStaticExport,
-  isVercelStatic,
-} from "./src/config/deploy-target";
+import { isPagesExport, isStaticExport } from "./src/config/deploy-target";
 import {
   imageDeviceSizes,
   imageFormats,
@@ -136,13 +132,10 @@ const nextConfig: NextConfig = {
     qualities: imageQualities,
     // Content-hashed sources make a year safe and keep Hobby transforms under 5k/month.
     minimumCacheTTL: imageMinimumCacheTTL,
-    unoptimized: isPagesExport,
-    ...(isVercelStatic
-      ? {
-          loader: "custom" as const,
-          loaderFile: "src/lib/vercel-image-loader.ts",
-        }
-      : {}),
+    // Static exports serve the hero WebP as-is: on Vercel each transformed
+    // variant expires after 31 days, which kept re-spending Hobby's 5k
+    // monthly transforms; the source is already a ~170KB q82 WebP.
+    unoptimized: isStaticExport,
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
 };

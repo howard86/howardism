@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { stat } from "node:fs/promises";
 import { file, spawn } from "bun";
+import { contentMarker } from "./marker";
 import { BLOG_ROOT } from "./paths";
 import { prepareContent, selectProfile } from "./prepare";
 import { r2Store } from "./r2";
@@ -16,7 +17,7 @@ const consume = async (): Promise<void> => {
     process.env.VERCEL_GIT_COMMIT_SHA ??
     execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   await file(`${BLOG_ROOT}/public/.well-known/howardism-content.json`).write(
-    `${JSON.stringify({ ...state, applicationCommit })}\n`
+    `${JSON.stringify(contentMarker(state, applicationCommit))}\n`
   );
   const result = spawn(args, {
     cwd: process.cwd(),

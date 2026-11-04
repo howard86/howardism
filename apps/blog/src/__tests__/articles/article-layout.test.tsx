@@ -88,3 +88,43 @@ describe("ArticleLayout drop-cap", () => {
     );
   });
 });
+
+describe("ArticleLayout hero", () => {
+  const hero = { src: "/media/a.webp", width: 1600, height: 900 };
+
+  function renderHero(heroVariants?: (typeof hero)[]) {
+    const { container } = render(
+      <ArticleLayout
+        heroImage={hero}
+        heroVariants={heroVariants}
+        meta={BASE_META}
+        slug="a"
+      />,
+      { wrapper: Providers }
+    );
+    const img = container.querySelector("img");
+    if (img === null) {
+      throw new Error("hero <img> not rendered");
+    }
+    return img;
+  }
+
+  it("offers the variants and the original in srcset, smallest first", () => {
+    const img = renderHero([
+      { src: "/media/a-800.webp", width: 800, height: 450 },
+      { src: "/media/a-1200.webp", width: 1200, height: 675 },
+    ]);
+    expect(img.getAttribute("srcset")).toBe(
+      "/media/a-800.webp 800w, /media/a-1200.webp 1200w, /media/a.webp 1600w"
+    );
+    expect(img.getAttribute("sizes")).not.toBeNull();
+    expect(img.getAttribute("src")).toBe("/media/a.webp");
+  });
+
+  it("renders the original alone when a release has no variants", () => {
+    const img = renderHero();
+    expect(img.getAttribute("srcset")).toBeNull();
+    expect(img.getAttribute("sizes")).toBeNull();
+    expect(img.getAttribute("src")).toBe("/media/a.webp");
+  });
+});

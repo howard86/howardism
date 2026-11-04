@@ -5,7 +5,12 @@
  * `images:webp` migration go through here so they cannot drift apart.
  */
 import { rename, rm, stat } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 
+import {
+  HERO_VARIANT_WIDTHS,
+  heroVariantFilename,
+} from "@howardism/article-contract/hero";
 import sharp from "sharp";
 
 /**
@@ -55,6 +60,55 @@ export async function pngToWebp(
     }
   }
   return { pngBytes, webpBytes };
+}
+
+/**
+ * Write the downscaled `<hero>-<width>.webp` twins beside `webpPath`, encoded
+ * from `sourcePath` — the PNG when the importer still has it, else the hero
+ * WebP itself. Phones get these through the hero's `srcset` instead of the
+ * 1600px original: on the sample corpus the 800px twin is a median 25KB and
+ * the 1200px one 48KB, against the original's 114KB. Deterministic, so
+ * re-running overwrites.
+ */
+export async function writeHeroVariants(
+  sourcePath: string,
+  webpPath: string
+): Promise<string[]> {
+  return await Promise.all(
+    HERO_VARIANT_WIDTHS.map(async (width) => {
+      const variant = heroVariantFilename(basename(webpPath), width);
+      if (variant === null) {
+        throw new Error(`Hero variants need a .webp hero, got ${webpPath}`);
+      }
+      const variantPath = join(dirname(webpPath), variant);
+      await sharp(sourcePath)
+        .resize({ width, withoutEnlargement: true })
+        .webp({ quality: WEBP_QUALITY, effort: WEBP_EFFORT })
+        .toFile(variantPath);
+      return variantPath;
+    })
+  );
+}
+
+/**
+ * Backfill the variants of an existing hero WebP, encoding from the WebP
+ * itself. Returns false without touching anything when every variant already
+ * exists, so the importer and `images:webp` can call it on every run.
+ */
+export async function ensureHeroVariants(webpPath: string): Promise<boolean> {
+  const present = await Promise.all(
+    HERO_VARIANT_WIDTHS.map((width) => {
+      const variant = heroVariantFilename(basename(webpPath), width);
+      return variant === null
+        ? Promise.resolve(false)
+        : Bun.file(join(dirname(webpPath), variant)).exists();
+    })
+  );
+  if (present.every(Boolean)) {
+    return false;
+  }
+  await writeHeroVariants(webpPath, webpPath);
+  return true;
 }
 
 /**

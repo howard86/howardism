@@ -1,12 +1,5 @@
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import {
-  imageDeviceSizes,
-  imageFormats,
-  imageMinimumCacheTTL,
-  imageQualities,
-  imageSizes,
-} from "../../../blog/src/config/image-config";
 import { redirects } from "../../../blog/src/config/redirects";
 import { getBlogSecurityHeaders } from "../../../blog/src/config/security-headers";
 import { BLOG_ROOT, REPO_ROOT } from "../content/paths";
@@ -51,14 +44,6 @@ export function generateVercelConfig() {
         ],
       },
     ],
-    images: {
-      sizes: [...imageDeviceSizes, ...imageSizes].sort((a, b) => a - b),
-      formats: [...imageFormats],
-      qualities: imageQualities,
-      minimumCacheTTL: imageMinimumCacheTTL,
-      localPatterns: [{ pathname: "^/_next/static/media/.*$", search: "" }],
-      remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
-    },
   };
 }
 

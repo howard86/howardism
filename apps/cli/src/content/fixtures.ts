@@ -5,6 +5,10 @@ import { cp, lstat, mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { WIKI_DOMAINS } from "@howardism/article-contract";
 import {
+  HERO_VARIANT_WIDTHS,
+  heroVariantFilename,
+} from "@howardism/article-contract/hero";
+import {
   ArticlesMetaManifestSchema,
   LocalizedArticlesMetaManifestSchema,
 } from "@howardism/article-contract/manifests/articles-meta";
@@ -18,6 +22,24 @@ import { contentPaths } from "./paths";
 import { validateSnapshot } from "./validate";
 
 /** Deterministic curated coverage: domains, entity kinds, structure and both locales. */
+/** Copy a hero, plus whichever of its srcset variants the source carries. */
+async function copyHeroWithVariants(
+  fromDir: string,
+  toDir: string,
+  hero: string
+): Promise<void> {
+  const variants = HERO_VARIANT_WIDTHS.map((width) =>
+    heroVariantFilename(hero, width)
+  ).filter((variant) => variant !== null);
+  const present = await Promise.all(
+    variants.map((variant) => Bun.file(resolve(fromDir, variant)).exists())
+  );
+  const files = [hero, ...variants.filter((_, i) => present[i])];
+  await Promise.all(
+    files.map((file) => cp(resolve(fromDir, file), resolve(toDir, file)))
+  );
+}
+
 export async function generateFixtures(
   root: string,
   destination: string
@@ -86,7 +108,7 @@ export async function generateFixtures(
     }
   }
   for (const asset of assets) {
-    await cp(resolve(source.assets, asset), resolve(output.assets, asset));
+    await copyHeroWithVariants(source.assets, output.assets, asset);
   }
   const write = async (name: string, value: unknown): Promise<void> => {
     await Bun.write(

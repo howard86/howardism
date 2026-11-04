@@ -18,6 +18,7 @@ import {
   checkWikiSourceSlugRefs,
   extractHeroImage,
   findDomainsWithoutMoc,
+  findMissingHeroVariants,
   findOrphanArticles,
   findOrphanHeroImages,
   findStrayPngs,
@@ -283,6 +284,44 @@ describe("findOrphanHeroImages", () => {
   it("still resolves a pre-migration PNG hero against its article", () => {
     const assets = new Set(["a.webp", "a.png"]);
     expect(findOrphanHeroImages(assets, new Set(["a"]))).toEqual([]);
+  });
+});
+
+describe("findOrphanHeroImages with srcset variants", () => {
+  it("does not flag a variant whose base hero is present", () => {
+    const assets = new Set(["a.webp", "a-800.webp", "a-1200.webp"]);
+    expect(findOrphanHeroImages(assets, new Set(["a"]))).toEqual([]);
+  });
+
+  it("flags a variant left behind by a deleted hero", () => {
+    const assets = new Set(["a.webp", "gone-800.webp"]);
+    expect(findOrphanHeroImages(assets, new Set(["a"]))).toEqual([
+      "gone-800.webp",
+    ]);
+  });
+});
+
+describe("findMissingHeroVariants", () => {
+  it("lists each width a WebP hero lacks", () => {
+    const articles = [article({ slug: "a", heroImage: "a.webp" })];
+    expect(
+      findMissingHeroVariants(articles, new Set(["a.webp", "a-800.webp"]))
+    ).toEqual(["a: no a-1200.webp"]);
+  });
+
+  it("is silent once every variant exists", () => {
+    const articles = [article({ slug: "a", heroImage: "a.webp" })];
+    const assets = new Set(["a.webp", "a-800.webp", "a-1200.webp"]);
+    expect(findMissingHeroVariants(articles, assets)).toEqual([]);
+  });
+
+  it("leaves missing heroes and PNG heroes to the other checks", () => {
+    const articles = [
+      article({ slug: "gone", heroImage: "gone.webp" }),
+      article({ slug: "old", heroImage: "old.png" }),
+      article({ slug: "bare", heroImage: null }),
+    ];
+    expect(findMissingHeroVariants(articles, new Set(["old.png"]))).toEqual([]);
   });
 });
 

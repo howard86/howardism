@@ -1,6 +1,7 @@
 /**
  * One-shot migration: transcode every committed hero PNG to WebP, repoint the
- * articles' `heroImage` imports at the new file, and drop the PNG.
+ * articles' `heroImage` imports at the new file, and drop the PNG. It also
+ * backfills each WebP hero's missing `<slug>-<width>.webp` srcset variants.
  *
  * Re-runnable and safe to interrupt. Existing art is transcoded, never
  * regenerated, so no image-generation quota is spent. Any stray PNG left behind
@@ -11,14 +12,16 @@
  */
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { isHeroVariant } from "@howardism/article-contract/hero";
 import { runWithConcurrency } from "./concurrency";
 import { contentPaths } from "./content/paths";
-import { pngToWebp, rewriteHeroImportToWebp } from "./webp";
+import { ensureHeroVariants, pngToWebp, rewriteHeroImportToWebp } from "./webp";
 
 const ASSETS_DIR = contentPaths().assets;
 const ARTICLE_DIRS = [contentPaths().articles, contentPaths().translated];
 
 const PNG_SUFFIX = /\.png$/;
+const WEBP_SUFFIX = /\.webp$/;
 const MDX_SUFFIX = /\.mdx$/;
 /** sharp encodes off the libuv threadpool; more in flight than this just queues. */
 const TRANSCODE_CONCURRENCY = 8;
@@ -82,6 +85,28 @@ async function transcodeAssets(): Promise<void> {
   );
 }
 
+/** Give every WebP hero its srcset variants; heroes that have them are skipped. */
+async function backfillVariants(): Promise<void> {
+  const entries = new Set(await readdir(ASSETS_DIR));
+  const heroes = [...entries]
+    .filter((name) => WEBP_SUFFIX.test(name) && !isHeroVariant(name, entries))
+    .sort();
+  if (dryRun) {
+    console.log(
+      `[images:webp] DRY_RUN — would backfill missing variants for up to ${heroes.length} hero(es)`
+    );
+    return;
+  }
+  const wrote = await runWithConcurrency(
+    heroes,
+    TRANSCODE_CONCURRENCY,
+    (filename) => ensureHeroVariants(join(ASSETS_DIR, filename))
+  );
+  console.log(
+    `[images:webp] backfilled variants for ${wrote.filter(Boolean).length} of ${heroes.length} hero(es)`
+  );
+}
+
 async function rewriteArticles(): Promise<void> {
   let rewritten = 0;
   const listings = await Promise.all(
@@ -117,6 +142,7 @@ async function rewriteArticles(): Promise<void> {
 
 async function main(): Promise<void> {
   await transcodeAssets();
+  await backfillVariants();
   await rewriteArticles();
 }
 

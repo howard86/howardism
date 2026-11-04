@@ -35,6 +35,30 @@ mock.module("next/image", () => ({
     } = props;
     return React.createElement("img", { src, alt, width, height, ...rest });
   },
+  // A static import resolves to its `src`/`width`/`height`, as in Next.
+  getImageProps(props: Record<string, unknown>) {
+    const {
+      src,
+      priority,
+      placeholder,
+      blurDataURL,
+      quality,
+      unoptimized,
+      ...rest
+    } = props;
+    const image =
+      typeof src === "object" && src !== null
+        ? (src as { src: string; width?: number; height?: number })
+        : { src: src as string };
+    return {
+      props: {
+        width: image.width,
+        height: image.height,
+        ...rest,
+        src: image.src,
+      },
+    };
+  },
 }));
 
 mock.module("next/link", () => ({
