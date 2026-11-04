@@ -16,8 +16,9 @@
  *
  * WARNINGS (never affect exit code; emitted as GitHub `::warning::` annotations
  * under CI): orphan articles with no backlinks, domains without a `moc-<domain>`
- * "start here" article, and orphan hero images with no article. These are editorial
- * signals, not build breakers.
+ * "start here" article, orphan hero images with no article, and WebP heroes
+ * missing a `<slug>-<width>.webp` srcset variant (the article still renders,
+ * at full size, without them). These are editorial signals, not build breakers.
  *
  * The check functions are pure and unit-tested against small in-memory
  * fixtures; only `main` touches the filesystem.
@@ -25,6 +26,11 @@
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { WIKI_DOMAINS } from "@howardism/article-contract";
+import {
+  HERO_VARIANT_WIDTHS,
+  heroVariantFilename,
+  isHeroVariant,
+} from "@howardism/article-contract/hero";
 import { ArticlesMetaManifestSchema } from "@howardism/article-contract/manifests/articles-meta";
 import {
   type ArticleGraph,
@@ -352,12 +358,39 @@ export function findOrphanHeroImages(
 ): string[] {
   const orphans: string[] = [];
   for (const filename of assetFilenames) {
+    // A variant belongs to its base hero, which this loop judges on its own.
+    if (isHeroVariant(filename, assetFilenames)) {
+      continue;
+    }
     const slug = filename.replace(HERO_SUFFIX, "");
     if (!articleSlugs.has(slug)) {
       orphans.push(filename);
     }
   }
   return orphans.sort();
+}
+
+/**
+ * WebP heroes missing a srcset variant. Not fatal: the blog falls back to the
+ * full-size hero alone. `bun run images:webp` backfills them.
+ */
+export function findMissingHeroVariants(
+  articles: ArticleRecord[],
+  assetFilenames: Set<string>
+): string[] {
+  const missing: string[] = [];
+  for (const article of articles) {
+    if (article.heroImage === null || !assetFilenames.has(article.heroImage)) {
+      continue;
+    }
+    for (const width of HERO_VARIANT_WIDTHS) {
+      const variant = heroVariantFilename(article.heroImage, width);
+      if (variant !== null && !assetFilenames.has(variant)) {
+        missing.push(`${article.slug}: no ${variant}`);
+      }
+    }
+  }
+  return missing;
 }
 
 /**
@@ -491,6 +524,10 @@ export async function validateContent(
     {
       name: "orphan-heroes",
       messages: findOrphanHeroImages(assetFilenames, articleSlugs),
+    },
+    {
+      name: "hero-variants",
+      messages: findMissingHeroVariants(articles, assetFilenames),
     },
     { name: "stray-pngs", messages: findStrayPngs(assetFilenames) },
   ];

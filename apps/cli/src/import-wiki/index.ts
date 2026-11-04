@@ -11,7 +11,7 @@ import { titleFromSlug } from "@howardism/article-contract/markup";
 import { runWithConcurrency } from "../concurrency.ts";
 import { contentPaths } from "../content/paths";
 import { writeSearchIndex } from "../search-index.ts";
-import { pngToWebp } from "../webp.ts";
+import { ensureHeroVariants, pngToWebp, writeHeroVariants } from "../webp.ts";
 import { generateHeroImage as generateAgyHeroImage } from "./agy/index.ts";
 import { assertCatalogFresh, type CatalogRow, loadCatalog } from "./catalog.ts";
 import { generateHeroImage as generateCodexHeroImage } from "./codex.ts";
@@ -569,6 +569,11 @@ async function ensureImage(args: {
   summary: ImportSummary;
 }): Promise<void> {
   if (await fileExists(args.imagePath)) {
+    // A hero from before the responsive variants existed gets them here, from
+    // the WebP — cheap next to regenerating, and a no-op once they exist.
+    if (!args.dryRun) {
+      await ensureHeroVariants(args.imagePath);
+    }
     args.summary.imagesCached.push(args.slug);
     return;
   }
@@ -609,6 +614,7 @@ async function ensureImage(args: {
     }
   }
   await pngToWebp(pngPath, args.imagePath);
+  await writeHeroVariants(pngPath, args.imagePath);
   await rm(pngPath, { force: true });
   args.summary.imagesGenerated.push(args.slug);
 }
