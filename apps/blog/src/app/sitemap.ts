@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 
-import { getVisibleArticles } from "@/app/(blog)/articles/service";
+import { DOMAIN_ORDER } from "@/app/(blog)/articles/domain-meta";
+import {
+  getTranslatedSlugs,
+  getVisibleArticles,
+} from "@/app/(blog)/articles/service";
 import { TAG_SECTIONS } from "@/app/(blog)/articles/tag-sections";
 import { env } from "@/config/env";
 
@@ -9,43 +13,51 @@ export const dynamic = "force-static";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const visible = await getVisibleArticles();
   const baseUrl = env.NEXT_PUBLIC_DOMAIN_NAME;
-  const now = new Date();
+  const translated = new Set(getTranslatedSlugs());
 
-  const tagEntries: MetadataRoute.Sitemap = TAG_SECTIONS.map((section) => ({
-    url: `${baseUrl}/articles/tag/${section.slug}`,
-    lastModified: now,
-    changeFrequency: "weekly" as const,
-    priority: 0.85,
-  }));
+  // Index pages change when the newest article lands, so that date is their
+  // lastmod. `new Date()` would move on every build and teach crawlers to
+  // distrust the field.
+  let newestMs = 0;
+  for (const slug of visible.ids) {
+    newestMs = Math.max(newestMs, visible.entities[slug]?.dateMs ?? 0);
+  }
+  const indexLastModified = newestMs > 0 ? new Date(newestMs) : undefined;
+
+  const indexEntry = (path: string): MetadataRoute.Sitemap[number] => ({
+    url: `${baseUrl}${path}`,
+    lastModified: indexLastModified,
+  });
 
   const articleEntries: MetadataRoute.Sitemap = [];
+  const zhEntries: MetadataRoute.Sitemap = [];
   for (const slug of visible.ids) {
     const entity = visible.entities[slug];
     if (!entity) {
       continue;
     }
-    articleEntries.push({
-      url: `${baseUrl}/articles/${slug}`,
-      lastModified: new Date(entity.meta.date),
-      changeFrequency: "monthly" as const,
-      priority: 0.8,
-    });
+    const url = `${baseUrl}/articles/${slug}`;
+    const lastModified = new Date(entity.meta.date);
+    if (translated.has(slug)) {
+      const zhUrl = `${baseUrl}/zh-TW/articles/${slug}`;
+      const languages = { en: url, "zh-TW": zhUrl, "x-default": url };
+      articleEntries.push({ url, lastModified, alternates: { languages } });
+      zhEntries.push({ url: zhUrl, lastModified, alternates: { languages } });
+    } else {
+      articleEntries.push({ url, lastModified });
+    }
   }
 
   return [
-    {
-      url: baseUrl,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/articles`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
-    ...tagEntries,
+    indexEntry(""),
+    indexEntry("/articles"),
+    indexEntry("/zh-TW/articles"),
+    indexEntry("/questions"),
+    ...TAG_SECTIONS.map((section) =>
+      indexEntry(`/articles/tag/${section.slug}`)
+    ),
+    ...DOMAIN_ORDER.map((domain) => indexEntry(`/articles/domain/${domain}`)),
     ...articleEntries,
+    ...zhEntries,
   ];
 }
