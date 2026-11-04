@@ -40,9 +40,9 @@ Bucket-scoped S3 tokens:
 
 | Token | Permission | Lives in |
 |---|---|---|
-| Full publisher | Read & Write on `-prod` | macOS keychain item `howardism-r2-publisher`, read by `../bin/with-r2 publisher` |
+| Full publisher | Read & Write on `-prod` and `-fixtures` | macOS keychain item `howardism-r2-publisher`, read by `../bin/with-r2 publisher` |
 | Full build | Read only on `-prod` | Vercel production env vars; the `content-integration` GitHub environment; keychain item `howardism-r2-build` |
-| Fixture publisher | Read & Write on `-fixtures` | `../.r2-fixture-publisher.env`, mode 0600 |
+| Fixture publisher | Read & Write on `-fixtures` | `../.r2-fixture-publisher.env`, mode 0600 — its key pair is blank; the sample is published with the full publisher's pair instead (see below) |
 
 The S3 keys come only from the dashboard (R2 → Manage API tokens): Wrangler's
 OAuth login handles bucket admin and cannot issue them. Never put keys in a PR,
@@ -82,6 +82,21 @@ into a fresh root and comparing inventory digests.
 
 The fixture bucket is public, so it holds only the reduced sample: never a full
 release, authoring history, credentials or SQLite files.
+
+Publish the sample with the full publisher's key pair, mapped onto the names
+`fixtures-publish` reads:
+
+```sh
+../bin/with-r2 publisher -- sh -c 'R2_FIXTURE_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" R2_FIXTURE_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" exec bun run content:fixtures-publish --root <fixtures root> --bucket howardism-content-fixtures'
+bun run content:fixtures-pin --release <digest> --public-base-url <publicBaseUrl from content.sample.lock.json>
+```
+
+`content:fixtures` re-selects its 16 articles from the current corpus, so on a
+grown corpus it picks a different set than the published sample. To change
+only the sample's files, rebuild the fixture root from the materialized sample
+(`content/{articles,articles-zh-TW,assets}`, the seven `data/*.json`, and
+`.content-coverage.json` as `coverage.json`) and confirm it packs to the pinned
+digest before editing it.
 
 ## Before promoting a full build
 
