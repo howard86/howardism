@@ -2,6 +2,7 @@ import "server-only";
 
 import { Feed } from "feed";
 
+import { DOMAIN_META } from "@/app/(blog)/articles/domain-meta";
 import { env } from "@/config/env";
 import { getVisibleArticles, once } from "../(blog)/articles/service";
 import {
@@ -29,7 +30,8 @@ export const generateFeed = once(async (): Promise<Feed> => {
     author,
     id: siteUrl,
     link: siteUrl,
-    image: `${siteUrl}/favicon.ico`,
+    image: `${siteUrl}/android-chrome-512x512.png`,
+    language: "en",
     favicon: `${siteUrl}/favicon.ico`,
     copyright: `All rights reserved ${new Date().getFullYear()}`,
     feedLinks: {
@@ -47,6 +49,12 @@ export const generateFeed = once(async (): Promise<Feed> => {
 
     const url = `${siteUrl}/articles/${slug}`;
 
+    const { domain, tags } = article.meta;
+    const categories = [
+      domain ? DOMAIN_META[domain].label : undefined,
+      ...(tags ?? []),
+    ];
+
     feed.addItem({
       title: article.meta.title,
       id: url,
@@ -55,6 +63,9 @@ export const generateFeed = once(async (): Promise<Feed> => {
       author: [author],
       contributor: [author],
       date: new Date(article.meta.date),
+      category: categories
+        .filter((name): name is string => Boolean(name))
+        .map((name) => ({ name })),
     });
   }
 
