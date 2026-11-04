@@ -1,3 +1,15 @@
+# [v2.38.0](https://github.com/howard86/howardism/compare/v2.37.0...v2.38.0) (2026-11-04)
+
+## ✨ New Features
+- [`18609c3f`](https://github.com/howard86/howardism/commit/18609c3f)  feat(blog): add BlogPosting, BreadcrumbList and WebSite JSON-LD 
+- [`33909731`](https://github.com/howard86/howardism/commit/33909731)  feat(blog): list zh-TW pages, domains and questions in the sitemap with hreflang 
+
+## 🐛 Bug Fixes
+- [`76670718`](https://github.com/howard86/howardism/commit/76670718)  fix(blog): keep site-wide OpenGraph, Twitter and feed metadata on every page 
+- [`fcd7fcc1`](https://github.com/howard86/howardism/commit/fcd7fcc1)  fix(blog): conform RSS and JSON Feed to their specs 
+- [`bfac29a1`](https://github.com/howard86/howardism/commit/bfac29a1)  fix(blog): credit Howard Tai as author and emit an ISO datePublished 
+- [`c46c49b4`](https://github.com/howard86/howardism/commit/c46c49b4)  fix(blog): omit an empty Optional section from llms.txt
+
 # [v2.37.0](https://github.com/howard86/howardism/compare/v2.36.0...v2.37.0) (2026-11-04)
 
 ## ✨ New Features
