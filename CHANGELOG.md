@@ -1,3 +1,8 @@
+# [v2.39.2](https://github.com/howard86/howardism/compare/v2.39.1...v2.39.2) (2026-11-23)
+
+## 🐛 Bug Fixes
+- [`d17a89ed`](https://github.com/howard86/howardism/commit/d17a89ed)  fix(ui): match the state variants to Radix&#x27;s data attributes
+
 # [v2.39.1](https://github.com/howard86/howardism/compare/v2.39.0...v2.39.1) (2026-11-23)
 
 # [v2.39.0](https://github.com/howard86/howardism/compare/v2.38.0...v2.39.0) (2026-11-23)
