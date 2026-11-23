@@ -20,6 +20,26 @@ const REQUIRED_FILES = [
   "zh-TW/articles/index.html",
 ];
 const ARTICLE_PAGE = /^articles\/[^/]+\/index\.html$/;
+// The Vercel fallback exports without trailing slashes: `x.html`, not `x/index.html`.
+const VERCEL_REQUIRED_FILES = [
+  "index.html",
+  "404.html",
+  "robots.txt",
+  "sitemap.xml",
+  "rss/feed.xml",
+  "rss/feed.json",
+  "llms.txt",
+  "compare.html",
+  "articles.html",
+  "zh-TW/articles.html",
+];
+const VERCEL_ARTICLE_PAGE = /^articles\/[^/]+\.html$/;
+// Slashed twins of the required pages: any of these means trailingSlash leaked. (articles/tag/index.html is a real route, the "index" tag, so a blanket */index.html check would misfire.)
+const VERCEL_SLASHED_TWINS = [
+  "compare/index.html",
+  "articles/index.html",
+  "zh-TW/articles/index.html",
+];
 const SAMPLE_CAP = 20;
 const IO_CONCURRENCY = 8;
 // Expected not-found renders; any other path that renders one is warned about.
@@ -53,7 +73,8 @@ const capped = (paths: readonly string[]) =>
 function pageCheckFlags(
   path: string,
   text: string,
-  includeArticleBody: boolean
+  includeArticleBody: boolean,
+  articlePage: RegExp = ARTICLE_PAGE
 ): { articleBody: boolean; flags: string } {
   const refresh = VERIFY_REFRESH.test(text);
   const hasNoindex = NOINDEX_META.test(text);
@@ -69,7 +90,7 @@ function pageCheckFlags(
     : "";
   const articleBody =
     includeArticleBody &&
-    ARTICLE_PAGE.test(path) &&
+    articlePage.test(path) &&
     text.includes(VERIFY_ARTICLE_BODY);
   return {
     articleBody,
@@ -173,7 +194,87 @@ export function checkExport(
   return failures;
 }
 
+/**
+ * Checks for the Vercel fallback export (`DEPLOY_TARGET=vercel`): no trailing
+ * slashes, no redirect stubs (vercel.json redirects), every page noindex, CSP via header.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat list of independent assertions
+export function checkVercelExport(
+  paths: readonly string[],
+  contents: ReadonlyMap<string, string>,
+  warnings: string[] = []
+): string[] {
+  const failures: string[] = [];
+  const present = new Set(paths);
+
+  for (const file of VERCEL_REQUIRED_FILES) {
+    if (!present.has(file)) {
+      failures.push(`missing required file: ${file}`);
+    }
+  }
+
+  const slashed = VERCEL_SLASHED_TWINS.filter((file) => present.has(file));
+  if (slashed.length) {
+    failures.push(
+      `${slashed.length} trailing-slash page(s) (x/index.html) in a no-trailing-slash export: ${capped(slashed)}`
+    );
+  }
+
+  const robots = contents.get("robots.txt");
+  if (robots !== undefined && !robots.includes("Allow: /")) {
+    failures.push("robots.txt lacks `Allow: /`");
+  }
+
+  const indexable: string[] = [];
+  const notFound: string[] = [];
+  for (const path of paths) {
+    if (!path.endsWith(".html")) {
+      continue;
+    }
+    const html = contents.get(path);
+    if (html === undefined) {
+      continue;
+    }
+    // Vercel sends the CSP as a header (vercel.json), so there is no CSP meta to assert. A not-found render has robots exactly `noindex`; real pages have `noindex, nofollow`.
+    if (ROBOTS_NOINDEX_ONLY.test(html)) {
+      if (!EXPECTED_NOT_FOUND.has(path) && path !== "_not-found.html") {
+        notFound.push(path);
+      }
+      continue;
+    }
+    if (!NOINDEX_META.test(html)) {
+      indexable.push(path);
+    }
+  }
+  if (notFound.length) {
+    warnings.push(
+      `${notFound.length} not-found render(s) at real paths: ${capped(notFound)}`
+    );
+  }
+  if (indexable.length) {
+    failures.push(
+      `${indexable.length} page(s) lack a robots noindex meta: ${capped(indexable)}`
+    );
+  }
+  const hasArticleBody = paths.some(
+    (path) =>
+      VERCEL_ARTICLE_PAGE.test(path) &&
+      contents.get(path)?.includes("data-article-body")
+  );
+  if (!hasArticleBody) {
+    failures.push("no articles/<slug>.html contains data-article-body");
+  }
+
+  const mdx = paths.filter((path) => path.endsWith(".mdx"));
+  if (mdx.length) {
+    failures.push(`${mdx.length} .mdx file(s) published: ${capped(mdx)}`);
+  }
+
+  return failures;
+}
+
 async function main() {
+  const vercel = process.env.DEPLOY_TARGET === "vercel";
   const outDir = process.argv[2] ?? join(BLOG_ROOT, "out");
   let entries: string[];
   try {
@@ -199,7 +300,12 @@ async function main() {
       );
       return;
     }
-    const summary = pageCheckFlags(path, text, !hasArticleBody);
+    const summary = pageCheckFlags(
+      path,
+      text,
+      !hasArticleBody,
+      vercel ? VERCEL_ARTICLE_PAGE : ARTICLE_PAGE
+    );
     if (summary.articleBody) {
       hasArticleBody = true;
     }
@@ -207,12 +313,14 @@ async function main() {
   });
 
   const warnings: string[] = [];
-  const failures = checkExport(
-    paths,
-    contents,
-    expandRedirects(redirects).map(({ source }) => source),
-    warnings
-  );
+  const failures = vercel
+    ? checkVercelExport(paths, contents, warnings)
+    : checkExport(
+        paths,
+        contents,
+        expandRedirects(redirects).map(({ source }) => source),
+        warnings
+      );
   for (const warning of warnings) {
     console.warn(`verify-export: warning: ${warning}`);
   }
