@@ -15,15 +15,16 @@
  *     no TS file imports, so "ui first, then blog" picks the right file.
  *   - next/link and next/navigation become the stand-ins in shims/.
  *
- *   bun .design-sync/pkg/build.ts
+ *   bun run --cwd packages/design-system build:design-sync
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
-import { mkdir, rm, symlink } from "node:fs/promises";
-import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
+import { mkdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import tailwind from "@tailwindcss/postcss";
 import type { BunPlugin } from "bun";
+import postcss from "postcss";
 
 const PKG = import.meta.dir;
 const ROOT = resolve(PKG, "../..");
@@ -117,21 +118,13 @@ function buildTypes(): void {
     const count = out.split("\n").filter((l) => l.includes("error TS")).length;
     console.error(`[types] tsc reported ${count} type errors; emit continues`);
   }
-  const entryDts = join(DIST, "types/.design-sync/pkg/entry.d.ts");
+  const entryDts = join(DIST, "types/packages/design-system/entry.d.ts");
   if (!existsSync(entryDts)) {
     throw new Error(`tsc emitted no ${entryDts}`);
   }
 }
 
 async function buildCss(): Promise<void> {
-  // Resolve postcss through @tailwindcss/postcss's own install (bun's isolated
-  // layout keeps it out of apps/blog/node_modules).
-  const blogRequire = createRequire(join(ROOT, "apps/blog/package.json"));
-  const twPath = realpathSync(blogRequire.resolve("@tailwindcss/postcss"));
-  const twRequire = createRequire(twPath);
-  const postcss = twRequire("postcss");
-  const tailwind = blogRequire("@tailwindcss/postcss");
-
   const from = join(PKG, "styles.src.css");
   const source = await Bun.file(from).text();
   const result = await postcss([tailwind({ base: ROOT })]).process(source, {
@@ -143,36 +136,13 @@ async function buildCss(): Promise<void> {
   );
 }
 
-/**
- * The converter finds React's types by walking up from this package for a
- * node_modules/@types/react, and bun's isolated layout keeps them only under
- * apps/blog. Link them (and react itself) here; node_modules is gitignored.
- */
-async function linkReact(): Promise<void> {
-  const local = join(PKG, "node_modules");
-  await rm(local, { force: true, recursive: true });
-  await mkdir(join(local, "@types"), { recursive: true });
-  const blogModules = join(ROOT, "apps/blog/node_modules");
-  await Promise.all(
-    ["react", "react-dom", "@types/react", "@types/react-dom"].map((name) =>
-      symlink(realpathSync(join(blogModules, name)), join(local, name))
-    )
-  );
-  // entry.ts re-exports useForm; react-hook-form is a dependency of ui only.
-  await symlink(
-    realpathSync(join(ROOT, "packages/ui/node_modules/react-hook-form")),
-    join(local, "react-hook-form")
-  );
-}
-
-await linkReact();
 await rm(DIST, { force: true, recursive: true });
 await mkdir(DIST, { recursive: true });
 await buildJs();
 buildTypes();
 await Bun.write(
   join(DIST, "index.d.ts"),
-  'export * from "./types/.design-sync/pkg/entry";\n'
+  'export * from "./types/packages/design-system/entry";\n'
 );
 await buildCss();
 console.error(`[build] wrote ${dirname(join(DIST, "index.js"))}`);
