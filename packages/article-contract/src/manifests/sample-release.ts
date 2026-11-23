@@ -4,6 +4,7 @@ import {
   ContentFileSchema,
   contentPathSchema,
   digestSchema,
+  OPTIONAL_CONTENT_MANIFESTS,
 } from "./content-release";
 
 const TRAILING_DOT = /\.$/;
@@ -94,7 +95,9 @@ export const SampleReleaseSchema = z
     }
     for (const path of [
       "coverage.json",
-      ...CONTENT_MANIFESTS.map((name) => `data/${name}`),
+      ...CONTENT_MANIFESTS.filter(
+        (name) => !OPTIONAL_CONTENT_MANIFESTS.has(name)
+      ).map((name) => `data/${name}`),
     ]) {
       if (!paths.has(path)) {
         ctx.addIssue({

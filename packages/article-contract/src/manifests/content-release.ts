@@ -5,10 +5,18 @@ export const CONTENT_MANIFESTS = [
   "articles-meta.json",
   "articles-meta.zh-TW.json",
   "open-questions.json",
+  "release-history.json",
   "search-index.json",
   "translations.json",
   "wiki-sources.json",
 ] as const;
+/**
+ * Manifests a release may omit: releases published before the manifest existed
+ * stay valid, and `content:prepare` materializes a default in their place.
+ */
+export const OPTIONAL_CONTENT_MANIFESTS: ReadonlySet<string> = new Set([
+  "release-history.json",
+]);
 const SHA256 = /^[a-f0-9]{64}$/;
 const ARTICLE_PATH = /^content\/articles(?:-zh-TW)?\/[a-z0-9][a-z0-9-]*\.mdx$/;
 const ASSET_PATH = /^content\/assets\/[a-z0-9][a-z0-9-]*\.(?:webp|png)$/;
@@ -88,7 +96,9 @@ export const ContentReleaseSchema = z
       });
     }
     for (const name of CONTENT_MANIFESTS) {
-      if (!paths.has(`data/${name}`)) {
+      if (
+        !(paths.has(`data/${name}`) || OPTIONAL_CONTENT_MANIFESTS.has(name))
+      ) {
         ctx.addIssue({ code: "custom", message: `Missing manifest: ${name}` });
       }
     }
