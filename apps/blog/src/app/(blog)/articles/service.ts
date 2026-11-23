@@ -19,6 +19,11 @@ import {
   type OpenQuestionConcept,
   parseOpenQuestions,
 } from "@howardism/article-contract/manifests/open-questions";
+import {
+  type NoteHistory,
+  parseReleaseHistory,
+  type ReleaseEntry,
+} from "@howardism/article-contract/manifests/release-history";
 import { parseTranslations } from "@howardism/article-contract/manifests/translations";
 import {
   parseWikiSources,
@@ -31,9 +36,17 @@ import type { z } from "zod";
 import graphData from "@/data/article-graph.json";
 import articlesMetaData from "@/data/articles-meta.json";
 import openQuestionsData from "@/data/open-questions.json";
+import releaseHistoryData from "@/data/release-history.json";
 import translationsData from "@/data/translations.json";
 import wikiSourcesData from "@/data/wiki-sources.json";
 import { taggedHref } from "@/utils/tagged-href";
+
+import {
+  groupBySource,
+  type IssueGroups,
+  lastRevision,
+  weeklyBars,
+} from "./release-view";
 
 export type ArticleTag = WikiTag;
 export type ArticleDomain = WikiDomain;
@@ -428,42 +441,114 @@ export const getWikiSources = (limit?: number): WikiSource[] =>
     ? wikiSources.sources
     : wikiSources.sources.slice(0, limit);
 
-const SPARK_WEEKS = 8;
-const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+/* ── release history (emitted by the importer) ── */
+
+export type { ReleaseEntry } from "@howardism/article-contract/manifests/release-history";
+
+const releaseHistory = parseReleaseHistory(releaseHistoryData);
+
+export const getReleaseHistory = once(() => Promise.resolve(releaseHistory));
+
+/** Releases newest first, `n` at most. */
+export const getRecentReleases = (n: number): Promise<ReleaseEntry[]> =>
+  Promise.resolve(releaseHistory.releases.slice(-n).reverse());
+
+export interface LatestRelease {
+  entry: ReleaseEntry;
+  groups: IssueGroups["groups"];
+  /** Visible slugs filed in this release. */
+  newSlugs: string[];
+  /** Date of the release before this one, when there is one. */
+  prevDate: string | undefined;
+  /** Visible slugs whose body changed in this release. */
+  revisedSlugs: string[];
+  /** New/revised notes that gained no source. */
+  upkeep: string[];
+}
 
 /**
- * Per-domain activity sparkline: counts of articles published in each of the
- * last `SPARK_WEEKS` weeks, oldest→newest, anchored to the newest article date
- * so the most recent batch always registers. Returns `[]` for empty domains.
+ * The latest release with its slugs narrowed to visible articles, its source
+ * groups and upkeep list. `undefined` when the history has no releases (the
+ * public sample profile), which is the page's cue to render history-free.
+ */
+export const getLatestRelease = once(
+  async (): Promise<LatestRelease | undefined> => {
+    const entry = releaseHistory.releases.at(-1);
+    if (!entry) {
+      return undefined;
+    }
+    const visible = await getVisibleArticles();
+    const isVisible = (slug: string) => visible.entities[slug] !== undefined;
+    const { groups, upkeep } = groupBySource(entry, isVisible);
+    return {
+      entry,
+      groups,
+      newSlugs: entry.new.filter(isVisible),
+      prevDate: releaseHistory.releases.at(-2)?.date,
+      revisedSlugs: entry.revised.filter(isVisible),
+      upkeep,
+    };
+  }
+);
+
+export interface NoteActivity {
+  /** First published in the latest release. */
+  isNew: boolean;
+  /** Date of the note's latest body revision. */
+  revisedDate?: string;
+}
+
+const latestNew = new Set(releaseHistory.releases.at(-1)?.new ?? []);
+
+export const getNoteActivity = (slug: string): NoteActivity => {
+  const revisedDate = lastRevision(releaseHistory.notes[slug]);
+  return revisedDate === undefined
+    ? { isNew: latestNew.has(slug) }
+    : { isNew: latestNew.has(slug), revisedDate };
+};
+
+/** A note's history record, when the manifest carries one. */
+export const getNoteHistory = (slug: string): NoteHistory | undefined =>
+  releaseHistory.notes[slug];
+
+/**
+ * Per-domain activity sparkline: new + revised events per week over the last
+ * `SPARK_WEEKS` weeks, oldest→newest. An event is a note's filed date or any
+ * later revision date. Anchored to the latest release date when there is one,
+ * else to the newest article date so the most recent batch always registers.
+ * Returns zeros for empty domains.
  */
 export const getDomainSparklines = once(
   async (): Promise<Record<ArticleDomain, number[]>> => {
     const grouped = await getArticlesGroupedByDomain();
 
     let anchor = 0;
-    for (const domain of ARTICLE_DOMAINS) {
-      for (const entity of grouped[domain]) {
-        if (entity.dateMs > anchor) {
-          anchor = entity.dateMs;
+    const latest = releaseHistory.releases.at(-1);
+    if (latest) {
+      anchor = Date.parse(latest.date);
+    } else {
+      for (const domain of ARTICLE_DOMAINS) {
+        for (const entity of grouped[domain]) {
+          if (entity.dateMs > anchor) {
+            anchor = entity.dateMs;
+          }
         }
       }
     }
-    const start = anchor - (SPARK_WEEKS - 1) * MS_PER_WEEK;
 
-    const result = Object.fromEntries(
-      ARTICLE_DOMAINS.map((domain) => [domain, new Array(SPARK_WEEKS).fill(0)])
+    return Object.fromEntries(
+      ARTICLE_DOMAINS.map((domain) => {
+        const events: number[] = [];
+        for (const entity of grouped[domain]) {
+          events.push(entity.dateMs);
+          for (const date of releaseHistory.notes[entity.slug]?.revisions ??
+            []) {
+            events.push(Date.parse(date));
+          }
+        }
+        return [domain, weeklyBars(events, anchor)];
+      })
     ) as Record<ArticleDomain, number[]>;
-
-    for (const domain of ARTICLE_DOMAINS) {
-      const bars = result[domain];
-      for (const entity of grouped[domain]) {
-        const week = Math.floor((entity.dateMs - start) / MS_PER_WEEK);
-        if (week >= 0 && week < SPARK_WEEKS) {
-          bars[week] += 1;
-        }
-      }
-    }
-    return result;
   }
 );
 
