@@ -17,6 +17,8 @@ export function generateVercelConfig() {
     redirects,
     headers: [
       { source: "/(.*)", headers: getBlogSecurityHeaders() },
+      // The Vercel deploy is the noindex fallback; GitHub Pages is canonical. The header covers non-HTML files too.
+      { source: "/(.*)", headers: [{ key: "X-Robots-Tag", value: "noindex" }] },
       {
         source: "/_next/static/(.*)",
         headers: [

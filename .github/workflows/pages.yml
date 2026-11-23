@@ -1,10 +1,11 @@
-name: GitHub Pages backup
-# Static-export backup of the blog on GitHub Pages, served noindex on its own
-# domain while www.howardism.dev (Vercel) stays canonical. DEPLOY_TARGET=pages
-# switches next.config.ts to `output: "export"`; VERCEL_ENV=production reuses
-# the next.config.ts gate that requires the pinned full release, as
-# content-integration.yml does. The R2 read credentials must be set on the
-# `github-pages` environment, which secrets on other environments don't reach.
+name: GitHub Pages
+# Static export of the blog on GitHub Pages: the canonical, indexed deployment
+# at www.howard86.com. The Vercel export (DEPLOY_TARGET=vercel) is a noindex
+# fallback. DEPLOY_TARGET=pages switches next.config.ts to `output: "export"`;
+# VERCEL_ENV=production reuses the next.config.ts gate that requires the pinned
+# full release, as content-integration.yml does. The R2 read credentials must
+# be set on the `github-pages` environment, which secrets on other environments
+# don't reach.
 on:
   push:
     branches: ["main"]
@@ -46,6 +47,15 @@ jobs:
         with:
           node-version: "24"
       - run: bun install --frozen-lockfile
+      # env.ts rejects an empty measurement ID, so export it only when the
+      # repository variable is set.
+      - name: Analytics ID
+        env:
+          GA_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
+        run: |
+          if [ -n "$GA_MEASUREMENT_ID" ]; then
+            echo "NEXT_PUBLIC_GA_MEASUREMENT_ID=$GA_MEASUREMENT_ID" >> "$GITHUB_ENV"
+          fi
       - name: Static export
         run: bun run build
       - name: Redirect stubs

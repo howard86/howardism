@@ -11,7 +11,7 @@ import {
 import { BLOG_ROOT } from "../content/paths";
 
 const PARAM_PATTERN = /:(\w+)/;
-const CANONICAL_ORIGIN = "https://www.howardism.dev";
+const CANONICAL_ORIGIN = "https://www.howard86.com";
 const OUT_DIR = join(BLOG_ROOT, "out");
 
 // The five `topic` buckets retired by the domain-MOC migration (741b78ec),

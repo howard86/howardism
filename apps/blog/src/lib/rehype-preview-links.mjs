@@ -15,7 +15,7 @@ export default function rehypePreviewLinks({ profile, slugs }) {
       }
       const match = href.match(ARTICLE_URL);
       if (match && !selected.has(match[1])) {
-        node.properties.href = `https://www.howardism.dev${href}`;
+        node.properties.href = `https://www.howard86.com${href}`;
       }
     });
   };

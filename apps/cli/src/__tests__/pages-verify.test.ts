@@ -14,8 +14,8 @@ const REQUIRED = [
   "articles/index.html",
   "zh-TW/articles/index.html",
 ];
-const PAGE =
-  '<meta name="robots" content="noindex"><meta http-equiv="Content-Security-Policy" content="x">';
+const PAGE = '<meta http-equiv="Content-Security-Policy" content="x">';
+const NOINDEX = '<meta name="robots" content="noindex, nofollow">';
 
 function good() {
   const paths = [...REQUIRED, "articles/a/index.html", "old/index.html"];
@@ -29,7 +29,10 @@ function good() {
           : PAGE,
       ])
   );
-  contents.set("robots.txt", "User-agent: *\nAllow: /\n");
+  contents.set(
+    "robots.txt",
+    "User-agent: *\nAllow: /\nSitemap: https://x/sitemap.xml\n"
+  );
   return { paths, contents };
 }
 
@@ -47,7 +50,7 @@ describe("checkExport", () => {
 
   it("reports missing files, sitemap line and mdx", () => {
     const { paths, contents } = good();
-    contents.set("robots.txt", "Allow: /\nSitemap: https://x/sitemap.xml\n");
+    contents.set("robots.txt", "Allow: /\n");
     const failures = checkExport(
       [...paths.filter((p) => p !== "llms.txt"), "a/b.mdx"],
       contents,
@@ -58,12 +61,13 @@ describe("checkExport", () => {
     expect(failures.join("\n")).toContain(".mdx");
   });
 
-  it("flags real pages without noindex/CSP but skips stubs", () => {
+  it("flags noindexed key pages and pages without CSP, but skips stubs", () => {
     const { paths, contents } = good();
+    contents.set("articles/index.html", `${PAGE}${NOINDEX}`);
     contents.set("compare/index.html", "<html></html>");
     contents.set("old/index.html", '<meta http-equiv="refresh" content="0">');
     const failures = checkExport(paths, contents, ["/old"]).join("\n");
-    expect(failures).toContain("noindex meta: compare/index.html");
+    expect(failures).toContain("noindex meta: articles/index.html");
     expect(failures).toContain(
       "Content-Security-Policy meta: compare/index.html"
     );
@@ -114,10 +118,9 @@ describe("checkExport", () => {
     expect(warnings).toEqual([]);
   });
 
-  it("still requires noindex on a not-found page", () => {
+  it("allows pages that opt out of indexing on purpose", () => {
     const { paths, contents } = good();
-    contents.set("404.html", "<html></html>");
-    const failures = checkExport(paths, contents, ["/old"]).join("\n");
-    expect(failures).toContain("noindex meta: 404.html");
+    contents.set("compare/index.html", `${PAGE}${NOINDEX}`);
+    expect(checkExport(paths, contents, ["/old"])).toEqual([]);
   });
 });

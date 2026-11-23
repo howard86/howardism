@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {
   cleanup,
   fireEvent,
@@ -74,6 +74,11 @@ function expectGlobalControls() {
   expect(screen.queryByRole("button", { name: "Find in article" })).toBeNull();
   expect(screen.queryByRole("button", { name: "On this page" })).toBeNull();
 }
+
+// Other files persist tweaks (e.g. focusMode: true) that TweaksProvider would read.
+beforeEach(() => {
+  localStorage.clear();
+});
 
 afterEach(() => {
   cleanup();
