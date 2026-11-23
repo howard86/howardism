@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 
 import { DOMAIN_ORDER } from "@/app/(blog)/articles/domain-meta";
 import {
@@ -74,5 +74,29 @@ describe("sitemap", () => {
     const index = entries.find((e) => e.url.endsWith("/articles"));
 
     expect(new Date(index?.lastModified as Date).getTime()).toBe(newest);
+  });
+});
+
+describe("sitemap on the Pages export", () => {
+  it("lists every URL, alternates included, with a trailing slash", async () => {
+    mock.module("@/config/deploy-target", () => ({
+      isPagesExport: true,
+      isVercelStatic: false,
+      isStaticExport: true,
+    }));
+    // A distinct specifier forces a fresh module bound to the mocked target.
+    const specifier = "@/app/sitemap?pages";
+    const pagesSitemap = (await import(specifier)).default as typeof sitemap;
+    const entries = await pagesSitemap();
+    const base = env.NEXT_PUBLIC_DOMAIN_NAME;
+
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries[0]?.url).toBe(`${base}/`);
+    for (const entry of entries) {
+      expect(entry.url.endsWith("/")).toBe(true);
+      for (const url of Object.values(entry.alternates?.languages ?? {})) {
+        expect(url?.endsWith("/")).toBe(true);
+      }
+    }
   });
 });

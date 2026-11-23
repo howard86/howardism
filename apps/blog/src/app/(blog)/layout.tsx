@@ -10,7 +10,7 @@ import GoogleAnalytics from "@/components/google-analytics";
 import { SearchProvider } from "@/components/search/search-provider";
 import { InitTweaksScript } from "@/components/tweaks/init-tweaks-script";
 import { TweaksProvider } from "@/components/tweaks/tweaks-provider";
-import { isPagesExport } from "@/config/deploy-target";
+import { isPagesExport, isVercelStatic } from "@/config/deploy-target";
 import { env } from "@/config/env";
 import {
   BLOG_CSP_DIRECTIVES,
@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     emails: AUTHOR_EMAIL,
   },
-  robots: isPagesExport
+  robots: isVercelStatic
     ? { index: false, follow: false }
     : {
         index: true,

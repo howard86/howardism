@@ -28,7 +28,12 @@ const EXPECTED_NOT_FOUND = new Set([
   "404/index.html",
   "_not-found/index.html",
 ]);
-// src/app/not-found.tsx renders outside (blog)/layout.tsx, so it has no CSP meta and robots is exactly `noindex`; the blog layout always emits a CSP meta and `noindex, nofollow`. A route that calls notFound() at build (e.g. a zh-TW slug with no translation, or a URL-encoded tag) exports that render at its own path, so detect it by shape rather than by path.
+// The Pages export is the canonical, indexed deployment, so its pages must NOT carry a robots noindex meta (a stray one silently de-indexes the site). The exceptions are pages that opt out on purpose via their own metadata (/compare, /shelf, archived articles), so the indexability check covers the pages that must be indexed, listed in MUST_BE_INDEXABLE. src/app/not-found.tsx renders outside (blog)/layout.tsx, so it has no CSP meta and robots is exactly `noindex`; the blog layout always emits a CSP meta. A route that calls notFound() at build (e.g. a zh-TW slug with no translation, or a URL-encoded tag) exports that render at its own path, so detect it by shape rather than by path.
+const MUST_BE_INDEXABLE = [
+  "index.html",
+  "articles/index.html",
+  "zh-TW/articles/index.html",
+];
 const ROBOTS_NOINDEX_ONLY = /<meta[^>]+name="robots"[^>]*content="noindex"/i;
 const NOINDEX_META = /<meta[^>]+name="robots"[^>]*noindex/i;
 const CSP_META = /http-equiv="Content-Security-Policy"/i;
@@ -97,12 +102,12 @@ export function checkExport(
     if (!robots.includes("Allow: /")) {
       failures.push("robots.txt lacks `Allow: /`");
     }
-    if (SITEMAP_LINE.test(robots)) {
-      failures.push("robots.txt must not contain a `Sitemap:` line");
+    if (!SITEMAP_LINE.test(robots)) {
+      failures.push("robots.txt lacks a `Sitemap:` line");
     }
   }
 
-  const noRobots: string[] = [];
+  const noindexed: string[] = [];
   const noCsp: string[] = [];
   const notFound: string[] = [];
   for (const path of paths) {
@@ -113,8 +118,8 @@ export function checkExport(
     if (html === undefined || html.includes('http-equiv="refresh"')) {
       continue;
     }
-    if (!NOINDEX_META.test(html)) {
-      noRobots.push(path);
+    if (NOINDEX_META.test(html) && MUST_BE_INDEXABLE.includes(path)) {
+      noindexed.push(path);
     }
     if (!CSP_META.test(html)) {
       if (ROBOTS_NOINDEX_ONLY.test(html)) {
@@ -131,9 +136,9 @@ export function checkExport(
       `${notFound.length} not-found render(s) at real paths: ${capped(notFound)}`
     );
   }
-  if (noRobots.length) {
+  if (noindexed.length) {
     failures.push(
-      `${noRobots.length} page(s) lack a robots noindex meta: ${capped(noRobots)}`
+      `${noindexed.length} page(s) carry a robots noindex meta: ${capped(noindexed)}`
     );
   }
   if (noCsp.length) {

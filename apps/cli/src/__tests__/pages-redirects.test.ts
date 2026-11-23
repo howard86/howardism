@@ -38,7 +38,7 @@ describe("renderRedirectStub", () => {
   it("refreshes to a trailing-slash destination and points canonical at www", () => {
     const html = renderRedirectStub("/articles");
     expect(html).toContain('content="0; url=/articles/"');
-    expect(html).toContain('href="https://www.howardism.dev/articles/"');
+    expect(html).toContain('href="https://www.howard86.com/articles/"');
     expect(html).toContain('name="robots" content="noindex"');
   });
 });

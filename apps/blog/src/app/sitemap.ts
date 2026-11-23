@@ -6,9 +6,15 @@ import {
   getVisibleArticles,
 } from "@/app/(blog)/articles/service";
 import { TAG_SECTIONS } from "@/app/(blog)/articles/tag-sections";
+import { isPagesExport } from "@/config/deploy-target";
 import { env } from "@/config/env";
 
 export const dynamic = "force-static";
+
+// The Pages export is trailingSlash: true and GitHub Pages 301s /x to /x/, so
+// the sitemap lists the same form as the canonicals Next emits there.
+const withSlash = (url: string): string =>
+  isPagesExport && !url.endsWith("/") ? `${url}/` : url;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const visible = await getVisibleArticles();
@@ -25,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const indexLastModified = newestMs > 0 ? new Date(newestMs) : undefined;
 
   const indexEntry = (path: string): MetadataRoute.Sitemap[number] => ({
-    url: `${baseUrl}${path}`,
+    url: withSlash(`${baseUrl}${path}`),
     lastModified: indexLastModified,
   });
 
@@ -36,10 +42,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (!entity) {
       continue;
     }
-    const url = `${baseUrl}/articles/${slug}`;
+    const url = withSlash(`${baseUrl}/articles/${slug}`);
     const lastModified = new Date(entity.meta.date);
     if (translated.has(slug)) {
-      const zhUrl = `${baseUrl}/zh-TW/articles/${slug}`;
+      const zhUrl = withSlash(`${baseUrl}/zh-TW/articles/${slug}`);
       const languages = { en: url, "zh-TW": zhUrl, "x-default": url };
       articleEntries.push({ url, lastModified, alternates: { languages } });
       zhEntries.push({ url: zhUrl, lastModified, alternates: { languages } });
