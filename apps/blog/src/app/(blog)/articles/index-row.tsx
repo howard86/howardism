@@ -19,12 +19,16 @@ interface IndexRowProps {
   density?: "comfortable" | "compact";
   /** First row in its list — gets the accent top rule instead of a hairline. */
   first?: boolean;
+  /** Show a "New" badge after the title (first published in the latest release). */
+  isNew?: boolean;
   /** Subject tags with their own page — decides which chips link. */
   navigable?: ReadonlySet<string>;
   /** 1-based position within its list — rendered as the numeral marker. */
   ordinal: number;
   /** Kind letter before the ordinal (C / E / S / I); omit for a bare numeral. */
   prefix?: string;
+  /** Date of the latest body revision; the date cell prefers it to `meta.date`. */
+  revisedDate?: string;
   /** Show subject chips under the title. */
   showChips?: boolean;
   /** Show the domain label column (hide on single-domain pages). */
@@ -53,10 +57,13 @@ export function IndexRow({
   showSave = true,
   density = "comfortable",
   first = false,
+  isNew = false,
+  revisedDate,
 }: IndexRowProps) {
   const { meta, slug } = article;
   const compact = density === "compact";
   const tags = meta.tags ?? [];
+  const shownDate = revisedDate ?? meta.date;
 
   return (
     <li
@@ -94,6 +101,11 @@ export function IndexRow({
         >
           {meta.title}
         </InternalLink>
+        {isNew ? (
+          <span className="ml-2 rounded-[2px] bg-brand-soft px-1.5 py-px align-middle font-medium font-mono text-[9.5px] text-brand uppercase tracking-[0.14em]">
+            New
+          </span>
+        ) : null}
         {showChips && tags.length > 0 && (
           <div className="mt-1.5">
             <SubjectChipList limit={3} navigable={navigable} tags={tags} />
@@ -108,7 +120,7 @@ export function IndexRow({
           </span>
         ) : null}
         <span className={cn(META_CLASS, "text-right tabular-nums")}>
-          <time dateTime={meta.date}>{formatDateShort(meta.date)}</time> ·{" "}
+          <time dateTime={shownDate}>{formatDateShort(shownDate)}</time> ·{" "}
           {meta.readingTime}′
         </span>
         {showSave ? (
