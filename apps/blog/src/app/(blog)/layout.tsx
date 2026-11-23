@@ -46,9 +46,10 @@ const frauncesItalic = Fraunces({
   preload: false,
 });
 
+// No opsz axis: Newsreader only sets 12.5–18.5px text, near the default
+// 16px instance, and the axis more than doubles each file (130KB → 57KB).
 const newsreader = Newsreader({
   subsets: ["latin"],
-  axes: ["opsz"],
   weight: "variable",
   style: "normal",
   variable: "--font-body",
@@ -57,7 +58,6 @@ const newsreader = Newsreader({
 
 const newsreaderItalic = Newsreader({
   subsets: ["latin"],
-  axes: ["opsz"],
   weight: "variable",
   style: "italic",
   variable: "--font-body-italic",
