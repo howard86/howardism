@@ -44,17 +44,21 @@ The CLI runs only under `bun`, so it reads with `Bun.file(path).text()` and writ
 
 Undocumented, but verified: `Bun.write(path, data)` creates any missing parent directory, where `writeFile` raises `ENOENT`. So it is *not* a drop-in wherever that `ENOENT` is load-bearing — `import-wiki/emit.ts` relies on it to keep `main()` solely responsible for creating `articlesDir`, and has a test pinning that. `Bun.file(path).text()` *is* a drop-in for `readFile(path, "utf8")`: it throws with the same `code === "ENOENT"`.
 
-## Deployment (Vercel, static export)
+## Deployment
+
+Both deployments are static exports of the blog. GitHub Pages at `www.howard86.com` is canonical and indexed; Vercel at `www.howardism.dev` is a noindex fallback whose canonicals, sitemap and feeds still point at `www.howard86.com` (`NEXT_PUBLIC_DOMAIN_NAME` defaults to it). `DEPLOY_TARGET` (`src/config/deploy-target.ts`) picks the target and must stay in turbo's `globalEnv` — turbo's strict env mode drops any build variable not listed there.
+
+Static export forbids runtime request data, so every route must prerender: `dynamicParams` is `false` on the dynamic routes, and `/compare` resolves `?ids=` on the client by fetching each article's prerendered page. In `pages:verify`, a page with no CSP meta and robots exactly `noindex` is a not-found render (`src/app/not-found.tsx` sits outside `(blog)/layout.tsx`), not a CSP failure.
+
+### GitHub Pages (canonical)
+
+`.github/workflows/pages.yml` deploys on every push to `main`, with `trailingSlash: true` — GitHub Pages 301s `/x` to `/x/`, so the sitemap carries the slashed form to match the canonicals. Cloudflare proxies the custom domain in front of Pages. The export ignores `headers`/`redirects`: the CSP becomes a `<meta>` (HSTS and `X-Frame-Options` are unavailable from Pages itself), and `pages:redirects` writes meta-refresh stubs for every rule in `src/config/redirects.ts` — so a new redirect with a `:param` needs its values listed in `apps/cli/src/pages-export/redirects.ts` (an unlisted one is skipped with a warning). The R2 keys come from the `github-pages` environment — secrets on `content-integration` don't reach it. Google Analytics reaches the Pages build only through the `NEXT_PUBLIC_GA_MEASUREMENT_ID` repository variable; Vercel Analytics renders only on Vercel.
+
+### Vercel (noindex fallback)
 
 Vercel serves a **static export**, not a Next.js server build: `buildCommand` sets `DEPLOY_TARGET=vercel`, which builds `output: "export"` without trailing slashes, and `@vercel/next` deploys `out/` as plain files with no functions. Leave `framework` and `outputDirectory` out of `vercel.json`: `vercel build` treats `"framework": null` as unset rather than "Other", and `"outputDirectory": "out"` makes `@vercel/next` look for `out/routes-manifest.json` and fail. The reason is cost: a server build serves every prerendered page through ISR, and each regional-CDN miss bills an ISR read plus Fast Origin Transfer, which forced a move off Hobby in 2026-10. Images are unoptimized: Vercel's image optimizer caches a local-image variant for at most 31 days whatever `minimumCacheTTL` says, so every variant was re-transformed monthly, past Hobby's 5k cap, after which new variants return 402.
 
-`vercel.json` is **generated**: edit `src/config/redirects.ts` or `security-headers.ts`, then run `bun run --cwd apps/cli vercel:config`; a CLI test fails when the committed file drifts. Vercel reads `vercel.json` before the build starts, so it cannot be generated during the build. It must sit in the Vercel project's Root Directory, `apps/blog`. Redirect and header `source` matching is case-sensitive, which is what makes the `/zh-tw/:path*` → `/zh-TW/:path*` rule safe. `bunVersion` accepts only `"1.4.x"` or `"1.x"`, never an exact patch.
-
-### GitHub Pages backup (static export)
-
-`.github/workflows/pages.yml` deploys a noindex static export to GitHub Pages on every push to `main`, while `www.howardism.dev` (Vercel) stays canonical. `DEPLOY_TARGET` must stay in turbo's `globalEnv` — turbo's strict env mode drops any build variable not listed there. The Pages export ignores `headers`/`redirects`: the CSP becomes a `<meta>` (HSTS and `X-Frame-Options` are unavailable), and `pages:redirects` writes meta-refresh stubs for every rule in `src/config/redirects.ts` — so a new redirect with a `:param` needs its values listed in `apps/cli/src/pages-export/redirects.ts` (an unlisted one is skipped with a warning). The R2 keys come from the `github-pages` environment — secrets on `content-integration` don't reach it.
-
-Static export forbids runtime request data, so every route must prerender: `dynamicParams` is `false` on the dynamic routes, and `/compare` resolves `?ids=` on the client by fetching each article's prerendered page. In `pages:verify`, a page with no CSP meta and robots exactly `noindex` is a not-found render (`src/app/not-found.tsx` sits outside `(blog)/layout.tsx`), not a CSP failure.
+`vercel.json` is **generated**: edit `src/config/redirects.ts` or `security-headers.ts`, then run `bun run --cwd apps/cli vercel:config`; a CLI test fails when the committed file drifts. Vercel reads `vercel.json` before the build starts, so it cannot be generated during the build. It must sit in the Vercel project's Root Directory, `apps/blog`. Redirect and header `source` matching is case-sensitive, which is what makes the `/zh-tw/:path*` → `/zh-TW/:path*` rule safe. `bunVersion` accepts only `"1.4.x"` or `"1.x"`, never an exact patch. The fallback's noindex is both a robots `<meta>` and an `X-Robots-Tag` header from `vercel.json`.
 
 ## Code Style
 
