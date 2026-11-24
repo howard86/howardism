@@ -4,11 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  budgetWarnings,
   buildReport,
   categorise,
   extractAssetRefs,
+  findBuildId,
   humanBytes,
+  isUnchanged,
   MARKER,
+  normalise,
   type PageStat,
   type Report,
   renderComparison,
@@ -82,10 +86,85 @@ describe("renderComparison", () => {
     expect(md).not.toContain("⚠️");
   });
 
-  it("shows zero delta without a warning", () => {
+  it("collapses to one line when nothing changed", () => {
     const md = renderComparison(report(100_000), report(100_000));
-    expect(md).toContain("0 B (0.0%)");
-    expect(md).not.toContain("⚠️");
+    expect(md.split("\n")[0]).toBe(MARKER);
+    expect(md).toContain(
+      "No size change against the base export (2 files, 100.0 kB, 33.3 kB gzip)."
+    );
+    expect(md).not.toContain("| Category");
+    expect(md).not.toContain("<details>");
+  });
+
+  it("words the head-only comment by base status", () => {
+    const failed = renderComparison(undefined, report(1000), "failed");
+    expect(failed.split("\n")[0]).toBe(MARKER);
+    expect(failed).toContain("base export failed");
+    expect(failed).not.toContain("No base report");
+    const missing = renderComparison(undefined, report(1000), "missing");
+    expect(missing.split("\n")[0]).toBe(MARKER);
+    expect(missing).toContain("No base report available");
+  });
+
+  it("is not unchanged when a route differs", () => {
+    const withPage = (jsGzip: number): Report => ({
+      ...report(1000),
+      pages: {
+        "/": {
+          group: "/",
+          html: 1,
+          htmlGzip: 1,
+          js: jsGzip,
+          jsGzip,
+          css: 0,
+          cssGzip: 0,
+          rsc: 0,
+          rscGzip: 0,
+        },
+      },
+    });
+    expect(isUnchanged(withPage(10), withPage(10))).toBe(true);
+    expect(isUnchanged(withPage(10), withPage(11))).toBe(false);
+  });
+
+  it("emits budget warnings only past both thresholds", () => {
+    const grown = renderComparison(
+      report(100_000, 100_000),
+      report(120_000, 120_000)
+    );
+    expect(grown.split("\n")[0]).toBe(MARKER);
+    expect(grown).toContain("### Budget");
+    expect(grown).toContain("total gzip grew");
+    expect(
+      budgetWarnings(report(100_000, 100_000), report(105_000, 105_000))
+    ).toEqual([]);
+    const quiet = renderComparison(
+      report(100_000, 100_000),
+      report(105_000, 105_000)
+    );
+    expect(quiet).not.toContain("### Budget");
+  });
+
+  it("warns on a route group whose JS grows >10% and >5 kB", () => {
+    const withJs = (jsGzip: number): Report => ({
+      ...report(1_000_000, 1_000_000),
+      pages: {
+        "/": {
+          group: "/",
+          html: 1,
+          htmlGzip: 1,
+          js: jsGzip,
+          jsGzip,
+          css: 0,
+          cssGzip: 0,
+          rsc: 0,
+          rscGzip: 0,
+        },
+      },
+    });
+    expect(budgetWarnings(withJs(100_000), withJs(111_000))).toHaveLength(1);
+    expect(budgetWarnings(withJs(100_000), withJs(104_000))).toEqual([]);
+    expect(budgetWarnings(withJs(10_000), withJs(14_000))).toEqual([]);
   });
 
   it("warns at >=5% or >=10 kB", () => {
@@ -100,7 +179,7 @@ describe("renderComparison", () => {
   it("lists added and removed js assets", () => {
     const head = report(1000);
     head.assets = { "_next/static/chunks/b.js": { bytes: 1, gzip: 1 } };
-    const md = renderComparison(report(1000), head);
+    const md = renderComparison(report(2000), head);
     expect(md).toContain("added: 1, removed: 1");
   });
 });
@@ -206,5 +285,43 @@ describe("per-page comparison", () => {
     expect(md).toContain("### Pages by route");
     expect(md).toContain("| n/a | n/a |");
     expect(md).not.toContain("Largest per-page changes");
+  });
+});
+
+describe("normalise", () => {
+  it("swaps the build id for a same-length placeholder", () => {
+    expect(findBuildId(["_next/static/AbC-123/_buildManifest.js"])).toBe(
+      "AbC-123"
+    );
+    expect(normalise("a.txt", "x/AbC-123/y", "AbC-123")).toBe("x/xxxxxxx/y");
+  });
+
+  it("drops RSC flight chunk joints from html only and blanks lastBuildDate", () => {
+    const joint = '"])</script><script>self.__next_f.push([1,"';
+    expect(normalise("a.html", `a${joint}b`, undefined)).toBe("ab");
+    expect(normalise("a.txt", `a${joint}b`, undefined)).toBe(`a${joint}b`);
+    expect(
+      normalise("f.xml", "<lastBuildDate>Mon</lastBuildDate>", undefined)
+    ).toBe("<lastBuildDate></lastBuildDate>");
+  });
+
+  it("makes two builds with different ids measure identically", async () => {
+    const make = async (id: string) => {
+      const dir = await mkdtemp(join(tmpdir(), "pages-size-"));
+      await mkdir(join(dir, "_next", "static", id), { recursive: true });
+      await writeFile(
+        join(dir, "_next", "static", id, "_buildManifest.js"),
+        "m"
+      );
+      await writeFile(join(dir, "index.html"), `<p>${id}</p>`);
+      return dir;
+    };
+    const [a, b] = [await make("IdNumberOne"), await make("IdNumberTwo")];
+    try {
+      expect(await buildReport(a)).toEqual(await buildReport(b));
+    } finally {
+      await rm(a, { recursive: true, force: true });
+      await rm(b, { recursive: true, force: true });
+    }
   });
 });

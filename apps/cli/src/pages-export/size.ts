@@ -44,6 +44,14 @@ const TOP_ASSETS = 10;
 const TOP_PAGE_CHANGES = 15;
 const LISTED_ROUTES = 10;
 const IO_CONCURRENCY = 8;
+// Budget thresholds (warn-only): a route group's first-load JS must grow by
+// more than both to warn; total gzip warns on percent alone.
+const BUDGET_JS_PERCENT = 10;
+const BUDGET_JS_BYTES = 5000;
+const BUDGET_TOTAL_PERCENT = 10;
+// Next streams some RSC rows in a timing-dependent order: same bytes, a few
+// bytes of gzip difference. Gzip moves within this are treated as unchanged.
+const GZIP_NOISE_BYTES = 16;
 
 // Local pool rather than ../concurrency.ts: CI runs this file alone from a
 // sparse checkout, so it cannot import siblings.
@@ -97,6 +105,53 @@ const EXTENSIONS: Record<string, Category> = {
   ".json": "data",
   ".xml": "data",
 };
+
+const BUILD_ID_MANIFEST = /^_next\/static\/([^/]+)\/_buildManifest\.js$/;
+const NORMALISED_EXTENSIONS = new Set([
+  ".css",
+  ".html",
+  ".js",
+  ".json",
+  ".txt",
+  ".xml",
+]);
+// React streams the RSC payload into the HTML as `self.__next_f.push` chunks
+// whose split points vary with timing; the joint adds or drops ~43 B per split.
+const FLIGHT_JOINT = /"\]\)<\/script><script>self\.__next_f\.push\(\[1,"/g;
+const LAST_BUILD_DATE = /<lastBuildDate>[^<]*<\/lastBuildDate>/g;
+
+/** The random per-build id Next names `_next/static/<id>/` with, if present. */
+export function findBuildId(entries: readonly string[]): string | undefined {
+  for (const entry of entries) {
+    const id = BUILD_ID_MANIFEST.exec(entry.replaceAll("\\", "/"))?.[1];
+    if (id) {
+      return id;
+    }
+  }
+}
+
+/**
+ * Strip build-to-build noise so identical sources measure identically: the
+ * random build id (swapped for a same-length placeholder), RSC flight chunk
+ * joints in HTML, and the feed's lastBuildDate.
+ */
+export function normalise(
+  rel: string,
+  text: string,
+  buildId: string | undefined
+): string {
+  let out = text;
+  if (buildId) {
+    out = out.replaceAll(buildId, "x".repeat(buildId.length));
+  }
+  if (rel.endsWith(".html")) {
+    out = out.replace(FLIGHT_JOINT, "");
+  }
+  if (rel.endsWith(".xml")) {
+    out = out.replace(LAST_BUILD_DATE, "<lastBuildDate></lastBuildDate>");
+  }
+  return out;
+}
 
 export function categorise(path: string): Category {
   return EXTENSIONS[extname(path).toLowerCase()] ?? "other";
@@ -318,17 +373,107 @@ function renderPages(
   return lines;
 }
 
+export type BaseStatus = "ok" | "failed" | "missing";
+
+const sameStat = (a: Stat & { files: number }, b: Stat & { files: number }) =>
+  a.files === b.files &&
+  a.bytes === b.bytes &&
+  Math.abs(a.gzip - b.gzip) <= GZIP_NOISE_BYTES;
+
+const samePage = (a: PageStat | undefined, b: PageStat | undefined) =>
+  a !== undefined &&
+  b !== undefined &&
+  a.group === b.group &&
+  a.html === b.html &&
+  a.js === b.js &&
+  a.css === b.css &&
+  a.rsc === b.rsc &&
+  Math.abs(a.htmlGzip - b.htmlGzip) <= GZIP_NOISE_BYTES &&
+  Math.abs(a.jsGzip - b.jsGzip) <= GZIP_NOISE_BYTES &&
+  Math.abs(a.cssGzip - b.cssGzip) <= GZIP_NOISE_BYTES &&
+  Math.abs(a.rscGzip - b.rscGzip) <= GZIP_NOISE_BYTES;
+
+/** True when every category total, the grand total and every route are identical (gzip within noise). */
+export function isUnchanged(base: Report, head: Report): boolean {
+  const names = new Set([
+    ...Object.keys(base.totals),
+    ...Object.keys(head.totals),
+  ]);
+  const none = { files: 0, bytes: 0, gzip: 0 };
+  for (const name of names) {
+    if (!sameStat(base.totals[name] ?? none, head.totals[name] ?? none)) {
+      return false;
+    }
+  }
+  if (!sameStat(base.total, head.total)) {
+    return false;
+  }
+  const bp = base.pages ?? {};
+  const hp = head.pages ?? {};
+  const routes = Object.keys(hp);
+  return (
+    Boolean(base.pages) === Boolean(head.pages) &&
+    routes.length === Object.keys(bp).length &&
+    routes.every((r) => samePage(bp[r], hp[r]))
+  );
+}
+
+/** Budget breaches, one message each; warn-only. */
+export function budgetWarnings(base: Report, head: Report): string[] {
+  const warnings: string[] = [];
+  if (base.pages && head.pages) {
+    const baseGroups = aggregate(base.pages);
+    for (const [name, g] of aggregate(head.pages)) {
+      const b = baseGroups.get(name);
+      if (!b || b.js <= 0) {
+        continue;
+      }
+      const grew = g.js - b.js;
+      if (grew > BUDGET_JS_BYTES && (grew / b.js) * 100 > BUDGET_JS_PERCENT) {
+        warnings.push(
+          `${name} first-load JS grew ${humanBytes(grew)} gzip (${humanBytes(b.js)} -> ${humanBytes(g.js)}, +${((grew / b.js) * 100).toFixed(1)}%)`
+        );
+      }
+    }
+  }
+  const total = head.total.gzip - base.total.gzip;
+  if (
+    base.total.gzip > 0 &&
+    (total / base.total.gzip) * 100 > BUDGET_TOTAL_PERCENT
+  ) {
+    warnings.push(
+      `total gzip grew ${humanBytes(total)} (${humanBytes(base.total.gzip)} -> ${humanBytes(head.total.gzip)}, +${((total / base.total.gzip) * 100).toFixed(1)}%)`
+    );
+  }
+  return warnings;
+}
+
 export function renderComparison(
   base: Report | undefined,
-  head: Report
+  head: Report,
+  baseStatus: BaseStatus = base ? "ok" : "missing"
 ): string {
+  if (base && isUnchanged(base, head)) {
+    return [
+      MARKER,
+      "## Pages export size",
+      "",
+      `No size change against the base export (${head.total.files} files, ${humanBytes(head.total.bytes)}, ${humanBytes(head.total.gzip)} gzip).`,
+      "",
+    ].join("\n");
+  }
+  let intro = "Compared against the base branch export.";
+  if (!base) {
+    intro =
+      baseStatus === "failed"
+        ? "The base export failed to build, so this is a head-only report with no comparison."
+        : "No base report available; showing head only.";
+  }
   const lines = [
     MARKER,
     "## Pages export size",
     "",
-    base
-      ? "Compared against the base branch export."
-      : "No base report available; showing head only.",
+    intro,
     "",
     "| Category | Files | Size | Gzip | Δ size | Δ gzip |",
     "| --- | ---: | ---: | ---: | ---: | ---: |",
@@ -383,6 +528,10 @@ export function renderComparison(
     );
   }
   lines.push("", "</details>", "");
+  const warnings = base ? budgetWarnings(base, head) : [];
+  if (warnings.length > 0) {
+    lines.push("### Budget", "", ...warnings.map((w) => `- ${w}`), "");
+  }
   return lines.join("\n");
 }
 
@@ -393,13 +542,22 @@ export async function buildReport(outDir: string): Promise<Report> {
     assets: {},
   };
   const entries = await readdir(outDir, { recursive: true });
+  const buildId = findBuildId(entries);
   const files = await mapPool(entries, IO_CONCURRENCY, async (entry) => {
     const full = join(outDir, entry);
     if (!(await stat(full)).isFile()) {
       return;
     }
-    const bytes = new Uint8Array(await Bun.file(full).arrayBuffer());
-    const rel = relative(outDir, full).replaceAll("\\", "/");
+    let bytes = new Uint8Array(await Bun.file(full).arrayBuffer());
+    let rel = relative(outDir, full).replaceAll("\\", "/");
+    if (NORMALISED_EXTENSIONS.has(extname(rel).toLowerCase())) {
+      bytes = new TextEncoder().encode(
+        normalise(rel, new TextDecoder().decode(bytes), buildId)
+      );
+    }
+    if (buildId) {
+      rel = rel.replaceAll(buildId, "x".repeat(buildId.length));
+    }
     return {
       rel,
       bytes: bytes.length,
@@ -500,18 +658,34 @@ async function main() {
     );
     return;
   }
-  if (command === "compare" && args.length === 3) {
-    const [basePath, headPath, target] = args;
+  const flagAt = args.indexOf("--base-status");
+  const flagValue = flagAt === -1 ? undefined : args[flagAt + 1];
+  const flagValid =
+    flagAt === -1 ||
+    flagValue === "ok" ||
+    flagValue === "failed" ||
+    flagValue === "missing";
+  const positional =
+    flagAt === -1
+      ? args
+      : [...args.slice(0, flagAt), ...args.slice(flagAt + 2)];
+  if (command === "compare" && positional.length === 3 && flagValid) {
+    const [basePath, headPath, target] = positional;
     const baseFile = Bun.file(basePath);
     const base = (await baseFile.exists())
       ? ((await baseFile.json()) as Report)
       : undefined;
+    const baseStatus: BaseStatus =
+      (flagValue as BaseStatus | undefined) ?? (base ? "ok" : "missing");
     const head = (await Bun.file(headPath).json()) as Report;
-    await Bun.write(target, renderComparison(base, head));
+    await Bun.write(target, renderComparison(base, head, baseStatus));
+    for (const warning of base ? budgetWarnings(base, head) : []) {
+      console.log(`::warning title=Export size budget::${warning}`);
+    }
     return;
   }
   console.error(
-    "usage: export-size.ts report <outDir> <out.json> | compare <base.json> <head.json> <out.md>"
+    "usage: export-size.ts report <outDir> <out.json> | compare <base.json> <head.json> <out.md> [--base-status ok|failed|missing]"
   );
   process.exit(1);
 }

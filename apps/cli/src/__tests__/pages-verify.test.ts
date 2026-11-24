@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { checkExport } from "../pages-export/verify";
+import { checkExport, checkVercelExport } from "../pages-export/verify";
 
 const REQUIRED = [
   "index.html",
@@ -122,5 +122,101 @@ describe("checkExport", () => {
     const { paths, contents } = good();
     contents.set("compare/index.html", `${PAGE}${NOINDEX}`);
     expect(checkExport(paths, contents, ["/old"])).toEqual([]);
+  });
+});
+
+describe("checkVercelExport", () => {
+  const VPAGE = NOINDEX;
+  function vgood() {
+    const paths = [
+      "index.html",
+      "404.html",
+      "robots.txt",
+      "sitemap.xml",
+      "rss/feed.xml",
+      "rss/feed.json",
+      "llms.txt",
+      "compare.html",
+      "articles.html",
+      "zh-TW/articles.html",
+      "articles/a.html",
+    ];
+    const contents = new Map<string, string>(
+      paths
+        .filter((p) => p.endsWith(".html"))
+        .map((p) => [
+          p,
+          p === "articles/a.html"
+            ? `${VPAGE}<article data-article-body>`
+            : VPAGE,
+        ])
+    );
+    contents.set("404.html", '<meta name="robots" content="noindex"/>');
+    contents.set("robots.txt", "User-agent: *\nAllow: /\n");
+    return { paths, contents };
+  }
+
+  it("passes a sound vercel export", () => {
+    const { paths, contents } = vgood();
+    expect(checkVercelExport(paths, contents)).toEqual([]);
+  });
+
+  it("reports missing required files", () => {
+    const { paths, contents } = vgood();
+    const failures = checkVercelExport(
+      paths.filter((p) => p !== "articles.html"),
+      contents
+    );
+    expect(failures.join("\n")).toContain(
+      "missing required file: articles.html"
+    );
+  });
+
+  it("fails on leaked trailing-slash pages", () => {
+    const { paths, contents } = vgood();
+    contents.set("articles/index.html", VPAGE);
+    const failures = checkVercelExport(
+      [...paths, "articles/index.html"],
+      contents
+    ).join("\n");
+    expect(failures).toContain("trailing-slash");
+    expect(failures).toContain("articles/index.html");
+  });
+
+  it("fails on indexable pages", () => {
+    const { paths, contents } = vgood();
+    contents.set("compare.html", "<html></html>");
+    const failures = checkVercelExport(paths, contents).join("\n");
+    expect(failures).toContain("lack a robots noindex meta: compare.html");
+  });
+
+  it("warns on stray not-found renders", () => {
+    const { paths, contents } = vgood();
+    contents.set(
+      "zh-TW/articles/x.html",
+      '<meta name="robots" content="noindex"/>'
+    );
+    const warnings: string[] = [];
+    const failures = checkVercelExport(
+      [...paths, "zh-TW/articles/x.html"],
+      contents,
+      warnings
+    ).join("\n");
+    expect(failures).toBe("");
+    expect(warnings).toEqual([
+      "1 not-found render(s) at real paths: zh-TW/articles/x.html",
+    ]);
+  });
+
+  it("fails without article body, robots Allow, or with mdx", () => {
+    const { paths, contents } = vgood();
+    contents.set("articles/a.html", VPAGE);
+    contents.set("robots.txt", "User-agent: *\n");
+    const failures = checkVercelExport([...paths, "a.mdx"], contents).join(
+      "\n"
+    );
+    expect(failures).toContain("data-article-body");
+    expect(failures).toContain("Allow: /");
+    expect(failures).toContain(".mdx");
   });
 });

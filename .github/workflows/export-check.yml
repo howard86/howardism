@@ -1,12 +1,21 @@
 name: Static export check
-# Builds the GitHub Pages static export (sample content, no secrets) for the PR
-# head and its base, verifies the head export, and posts a size comparison.
-# The size script always runs from the head checkout, so a base that predates
-# it is still measured; a base without the Pages target yields no report and
-# the comparison renders head-only.
+# Builds the static exports for the PR head and base (GitHub Pages target,
+# sample content, no secrets) plus the Vercel fallback target, verifies the head
+# exports, and posts a Pages size comparison with budget annotations.
+# The head's size script measures both sides (the base runs it from a sparse
+# checkout), so a base that predates it is still measured; a base without the
+# Pages target yields no report and the comparison renders head-only. The base
+# size report is cached per base SHA and script hash, so a rerun or a second
+# push skips the base build. The head's Pages export is kept for 3 days as the
+# `export-site-pages` artifact.
 on:
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/dependabot.yml"
+      - ".github/workflows/codeql.yml"
 permissions:
   contents: read
 concurrency:
@@ -16,63 +25,108 @@ jobs:
   export:
     name: export (${{ matrix.side }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         include:
           - side: head
+            target: pages
             sha: ${{ github.event.pull_request.head.sha }}
           - side: base
+            target: pages
             sha: ${{ github.event.pull_request.base.sha }}
+          - side: vercel
+            target: vercel
+            sha: ${{ github.event.pull_request.head.sha }}
     defaults:
       run:
         shell: bash
-    env:
-      DEPLOY_TARGET: pages
     steps:
+      # The runner context is unavailable in job-level env.
+      - name: Size report path
+        run: echo "SIZE_JSON=$RUNNER_TEMP/export-size-${{ matrix.side }}.json" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ matrix.sha }}
           persist-credentials: false
-      - name: Check out the head's size script
+      # Only the base needs the head's size script and build action; the head
+      # has its own, and the base may predate them.
+      - name: Check out the head's export tools
+        if: matrix.side == 'base'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: .export-tools
-          sparse-checkout: apps/cli/src/pages-export/size.ts
+          sparse-checkout: |
+            apps/cli/src/pages-export/size.ts
+            .github/actions/static-export/action.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Restore the cached base size report
+        id: base-cache
+        if: matrix.side == 'base'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          bun-version-file: package.json
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24"
-      - run: bun install --frozen-lockfile
+          path: ${{ env.SIZE_JSON }}
+          key: export-size-base-${{ github.event.pull_request.base.sha }}-${{ hashFiles('.export-tools/apps/cli/src/pages-export/size.ts') }}
       - name: Static export
         id: build
-        continue-on-error: ${{ matrix.side == 'base' }}
-        run: |
-          bun run build
-          bun run --cwd apps/cli pages:redirects
-      - name: Verify export
-        if: matrix.side == 'head'
-        run: bun run --cwd apps/cli pages:verify
+        if: matrix.side != 'base'
+        uses: ./.github/actions/static-export
+        with:
+          target: ${{ matrix.target }}
+      # The base may predate pages:verify, and only the head is verified.
+      - name: Static export (base)
+        id: build-base
+        if: matrix.side == 'base' && steps.base-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: ./.export-tools/.github/actions/static-export
+        with:
+          target: ${{ matrix.target }}
+          verify: "false"
       - name: Size report
-        if: steps.build.outcome == 'success' && hashFiles('apps/blog/out/index.html') != ''
-        run: bun .export-tools/apps/cli/src/pages-export/size.ts report apps/blog/out "$RUNNER_TEMP/export-size-${{ matrix.side }}.json"
+        id: size
+        if: matrix.target == 'pages' && (steps.build.outcome == 'success' || steps.build-base.outcome == 'success') && hashFiles('apps/blog/out/index.html') != ''
+        run: |
+          script=apps/cli/src/pages-export/size.ts
+          if [ "${{ matrix.side }}" = base ]; then script=".export-tools/$script"; fi
+          bun "$script" report apps/blog/out "$SIZE_JSON"
+      - name: Save the base size report
+        if: matrix.side == 'base' && steps.size.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.SIZE_JSON }}
+          key: ${{ steps.base-cache.outputs.cache-primary-key }}
+      - name: Mark the base build as failed
+        if: matrix.side == 'base' && steps.build-base.outcome == 'failure'
+        run: echo failed > "$RUNNER_TEMP/export-base-failed"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: steps.build.outcome == 'success'
+        if: matrix.target == 'pages' && ((steps.build.outcome == 'success' || steps.build-base.outcome == 'success') || steps.base-cache.outputs.cache-hit == 'true')
         with:
           name: export-size-${{ matrix.side }}
-          path: ${{ runner.temp }}/export-size-${{ matrix.side }}.json
+          path: ${{ env.SIZE_JSON }}
           if-no-files-found: ignore
           retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.side == 'base' && steps.build-base.outcome == 'failure'
+        with:
+          name: export-base-failed
+          path: ${{ runner.temp }}/export-base-failed
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.side == 'head' && (steps.build.outcome == 'success' || steps.build-base.outcome == 'success')
+        with:
+          name: export-site-pages
+          path: apps/blog/out
+          if-no-files-found: ignore
+          retention-days: 3
 
   compare:
     needs: export
     if: always() && needs.export.result != 'cancelled'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: write
@@ -91,23 +145,41 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
+      # Patterns, not names, so a missing artifact is not an error; the site
+      # artifact is never matched.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: export-size-*
+          pattern: export-size-{head,base}
+          path: ${{ runner.temp }}/sizes
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: export-base-failed
           path: ${{ runner.temp }}/sizes
           merge-multiple: true
       - name: Compare
         id: compare
         run: |
-          head="$RUNNER_TEMP/sizes/export-size-head.json"
+          dir="$RUNNER_TEMP/sizes"
+          head="$dir/export-size-head.json"
+          base="$dir/export-size-base.json"
           if [ ! -f "$head" ]; then
-            echo "No head size report; the head export failed." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+            echo "No head size report; see the \`export (head)\` job for the failure." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-          bun apps/cli/src/pages-export/size.ts compare \
-            "$RUNNER_TEMP/sizes/export-size-base.json" "$head" "$RUNNER_TEMP/export-size.md"
+          if [ -f "$base" ]; then
+            status=ok
+          elif [ -f "$dir/export-base-failed" ]; then
+            status=failed
+          else
+            status=missing
+          fi
+          bun apps/cli/src/pages-export/size.ts compare "$base" "$head" "$RUNNER_TEMP/export-size.md" --base-status "$status"
           cat "$RUNNER_TEMP/export-size.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "report=true" >> "$GITHUB_OUTPUT"
       - name: Post or update the PR comment
+        # hashFiles() cannot see runner.temp, so gate on the compare output.
+        if: steps.compare.outputs.report == 'true'
         # Fork PRs get a read-only token; the step summary still has the report.
         continue-on-error: true
         env:
