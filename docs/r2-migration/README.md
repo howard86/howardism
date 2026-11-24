@@ -98,6 +98,18 @@ only the sample's files, rebuild the fixture root from the materialized sample
 `.content-coverage.json` as `coverage.json`) and confirm it packs to the pinned
 digest before editing it.
 
+### Release history
+
+`bun run content:history [--root DIR] [--date YYYY-MM-DD]` diffs the authoring
+root's English corpus against the last recorded state and appends a release to
+`data/release-history.json` (the homepage's "what changed" feed). Run it once
+per content release, after `import:wiki` and the `build:*` steps and before
+`content:pack`; re-running on the same date re-records that release, and a run
+with nothing new, revised or resolved writes nothing. Releases pinned before the
+manifest existed stay valid: `content:prepare` materializes an empty history.
+`--seed-git REPO [--out FILE]` rebuilds the history from the git log of the
+corpus (last commit per date), for the one-time backfill.
+
 ## Before promoting a full build
 
 1. Dispatch `content-integration.yml` for the exact commit.

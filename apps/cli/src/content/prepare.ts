@@ -6,7 +6,9 @@ import {
   type ContentFile,
   ContentLockSchema,
   type ContentRelease,
+  OPTIONAL_CONTENT_MANIFESTS,
 } from "@howardism/article-contract/manifests/content-release";
+import { EMPTY_RELEASE_HISTORY } from "@howardism/article-contract/manifests/release-history";
 import {
   SAMPLE_LOCK_FILE,
   SampleLockSchema,
@@ -292,6 +294,7 @@ export async function prepareContent<T = void>(
           releaseSha256,
           hashes: materializedHashes,
         } = materialized);
+        await fillMissingOptionalManifests(temp, materializedHashes);
         await validateSnapshot(temp, options.profile);
         const treePaths = [
           ...(await inventory(temp)),
@@ -458,6 +461,29 @@ async function reuseMaterializedState<T>(
   metrics.elapsedMs = Math.round(performance.now() - started);
   reportPreparation(options, metrics, lock.releaseSha256);
   return { lock, result: await consumer?.(), reused: true };
+}
+
+/**
+ * A release pinned before an optional manifest existed omits it. Materialize
+ * the empty default so the active tree always carries every manifest, and
+ * record its digest so the materialized-tree check stays consistent.
+ */
+async function fillMissingOptionalManifests(
+  temp: string,
+  hashes: Map<string, string>
+): Promise<void> {
+  for (const name of OPTIONAL_CONTENT_MANIFESTS) {
+    const path = `data/${name}`;
+    const target = resolve(temp, path);
+    if (await Bun.file(target).exists()) {
+      continue;
+    }
+    const bytes = new TextEncoder().encode(
+      `${JSON.stringify(EMPTY_RELEASE_HISTORY, null, 2)}\n`
+    );
+    await Bun.write(target, bytes);
+    hashes.set(path, sha256(bytes));
+  }
 }
 
 async function replaceActiveDirectories(

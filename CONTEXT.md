@@ -6,13 +6,14 @@ crystallize; keep one definition per concept so reviews and agents share languag
 ## Manifest
 
 A build-time JSON artifact the **CLI produces** and the **blog consumes** — the
-seam between the two apps. The five manifests live in `apps/blog/src/data/`:
+seam between the two apps. The six manifests live in `apps/blog/src/data/`:
 
 | Manifest | Produced by | Read by |
 |---|---|---|
 | `article-graph.json` | `import-wiki/pages/graph.ts` | `articles/service.ts` (build) |
 | `wiki-sources.json` | `import-wiki/pages/wiki-sources.ts` | `articles/service.ts` (build) |
 | `open-questions.json` | `import-wiki/pages/open-questions.ts` | `articles/service.ts` (build) |
+| `release-history.json` | `content/history.ts` (`content:history`) | `articles/service.ts` (build) |
 | `search-index.json` | `search-index.ts` | `components/search/search-data.ts` (browser) |
 | `translations.json` | `translate/tracking/projection.ts` | `articles/service.ts` (build) |
 

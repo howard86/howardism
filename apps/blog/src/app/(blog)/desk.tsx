@@ -2,7 +2,18 @@ import { formatDateShort } from "@/utils/time";
 
 import type { WikiSource } from "./articles/service";
 
+/** A source processed in a recent release (see `recentSources`). */
+export interface RecentDeskEntry {
+  no: number;
+  source: Pick<WikiSource, "author" | "kind" | "published" | "title" | "url">;
+  touched: number;
+}
+
 interface DeskProps {
+  /** Replaces the top-cited list with recently processed sources. */
+  recent?: RecentDeskEntry[];
+  /** Release count the `recent` list spans, for the blurb. */
+  recentSpan?: number;
   sources: WikiSource[];
 }
 
@@ -59,7 +70,7 @@ export function formatAuthors(author: string): string {
  * "The Desk" — the raw sources behind the wiki, ordered by how often they're
  * cited. Backed by the importer's `wiki-sources.json`.
  */
-export function Desk({ sources }: DeskProps) {
+export function Desk({ sources, recent, recentSpan = 3 }: DeskProps) {
   if (sources.length === 0) {
     return null;
   }
@@ -70,6 +81,16 @@ export function Desk({ sources }: DeskProps) {
   }, {});
 
   const shown = sources.slice(0, DESK_LIMIT);
+  const items = recent
+    ? recent.map(({ source, no, touched }) => ({
+        source,
+        line: ` · Issue ${no} · ${touched} ${touched === 1 ? "note" : "notes"}`,
+      }))
+    : shown.map((source) => ({
+        source,
+        line:
+          source.citedBy.length > 0 ? ` · ${source.citedBy.length} refs` : "",
+      }));
 
   return (
     <section className="border-border border-b px-gutter py-10">
@@ -82,7 +103,9 @@ export function Desk({ sources }: DeskProps) {
             The <em className="text-brand italic">desk.</em>
           </h2>
           <p className="mt-1.5 max-w-[200px] font-body text-[15px] text-muted-foreground leading-[1.5]">
-            The sources behind the wiki, ranked by how often they&apos;re cited.
+            {recent
+              ? `Sources processed in the last ${recentSpan} releases, newest first.`
+              : "The sources behind the wiki, ranked by how often they're cited."}
           </p>
           <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-[10.5px] text-foreground-subtle uppercase tracking-[0.14em]">
             {Object.entries(kinds).map(([kind, n]) => (
@@ -91,7 +114,7 @@ export function Desk({ sources }: DeskProps) {
                 <dd className="m-0 text-muted-foreground">{n}</dd>
               </div>
             ))}
-            {sources.length > shown.length && (
+            {!recent && sources.length > shown.length && (
               <div className="contents">
                 <dt>Shown</dt>
                 <dd className="m-0 text-muted-foreground">
@@ -103,7 +126,7 @@ export function Desk({ sources }: DeskProps) {
         </div>
 
         <ul className="m-0 grid list-none grid-cols-1 gap-x-6 gap-y-0 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((source) => {
+          {items.map(({ source, line }) => {
             const when = formatWhen(source.published);
             return (
               <li
@@ -113,9 +136,7 @@ export function Desk({ sources }: DeskProps) {
                 <div className="font-mono text-[9.5px] text-foreground-subtle uppercase tracking-[0.16em]">
                   {source.kind}
                   {when ? ` · ${when}` : ""}
-                  {source.citedBy.length > 0
-                    ? ` · ${source.citedBy.length} refs`
-                    : ""}
+                  {line}
                 </div>
                 <div className="mt-1 font-display font-medium text-[15px] text-foreground leading-[1.25]">
                   {source.url ? (

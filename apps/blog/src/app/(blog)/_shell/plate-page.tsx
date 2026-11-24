@@ -25,6 +25,8 @@ interface PlatePageProps {
   domain?: ArticleDomain;
   /** Override the right eyebrow (reader badges + brand). */
   eyebrowEnd?: ReactNode;
+  /** Large figures between the title and the header DataGrid (full header). */
+  figures?: ReactNode;
   /** "none" lets the page render its own header (e.g. the article reader). */
   header?: "full" | "compact" | "none";
   /** Rendered under the header DataGrid (intro copy, save button). */
@@ -65,6 +67,7 @@ export function PlatePage({
   headerData,
   headerChildren,
   eyebrowEnd,
+  figures,
   stackData,
   rail = false,
   bleed = false,
@@ -94,6 +97,7 @@ export function PlatePage({
         data={headerData}
         eyebrowEnd={eyebrowEnd ?? `${meta.label} · No. ${meta.number}`}
         eyebrowStart={eyebrowStart}
+        figures={figures}
         stackData={stackData}
         title={title ?? meta.title}
         titleAccent={titleAccent}

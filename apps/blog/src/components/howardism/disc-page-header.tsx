@@ -12,6 +12,8 @@ interface DiscPageHeaderProps {
   eyebrowEnd: ReactNode;
   /** Left eyebrow content (volume, or "Plate II · domain" on the reader). */
   eyebrowStart: ReactNode;
+  /** Large figures rendered between the title and the DataGrid (full variant). */
+  figures?: ReactNode;
   /** Stack the DataGrid label over value — for the narrow compact column. */
   stackData?: boolean;
   title: string;
@@ -29,6 +31,7 @@ export function DiscPageHeader({
   accent,
   data,
   stackData = false,
+  figures,
   children,
 }: DiscPageHeaderProps) {
   if (variant === "compact") {
@@ -100,6 +103,7 @@ export function DiscPageHeader({
             <em className="text-brand italic">{titleAccent}</em>
           ) : null}
         </h1>
+        {figures}
         {data ? (
           <div className="mt-7">
             <DataGrid rows={data} />

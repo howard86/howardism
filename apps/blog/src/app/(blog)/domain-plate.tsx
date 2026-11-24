@@ -3,16 +3,29 @@ import { IndexRow } from "./articles/index-row";
 import type {
   ArticleDomain,
   ArticleEntity,
+  NoteActivity,
   WikiSource,
 } from "./articles/service";
 import { DomainSparkline } from "./domain-sparkline";
 
+export interface IssueSource {
+  kind: string;
+  title: string;
+  /** Notes of this domain the source touched in the latest release. */
+  touched: number;
+  url?: string;
+}
+
 interface DomainPlateProps {
+  /** Per-slug revision date + New flag, from the release history. */
+  activity?: Record<string, NoteActivity>;
   articles: ArticleEntity[];
   bars: number[];
   count: number;
   domain: ArticleDomain;
   index: number;
+  /** Replaces `leadSource` with the latest release's top source for this domain. */
+  issueSource?: IssueSource;
   leadSource: WikiSource | undefined;
 }
 
@@ -28,6 +41,8 @@ export function DomainPlate({
   count,
   bars,
   leadSource,
+  issueSource,
+  activity,
   index,
 }: DomainPlateProps) {
   const meta = DOMAIN_META[domain];
@@ -85,8 +100,10 @@ export function DomainPlate({
                 article={article}
                 density="compact"
                 first={i === 0}
+                isNew={activity?.[article.slug]?.isNew}
                 key={article.slug}
                 ordinal={i + 1}
+                revisedDate={activity?.[article.slug]?.revisedDate}
                 showChips={false}
                 showDomain={false}
               />
@@ -104,7 +121,38 @@ export function DomainPlate({
         </div>
 
         {/* source aside */}
-        {leadSource ? (
+        {issueSource ? (
+          <aside
+            className="pt-1 pl-5 md:col-start-2 lg:col-start-auto"
+            style={{ borderLeft: `2px solid ${meta.color}` }}
+          >
+            <div className="font-mono text-[10px] text-foreground-subtle uppercase tracking-[0.18em]">
+              Sourced from · {issueSource.kind} · this issue
+            </div>
+            <div className="mt-1.5 font-display font-medium text-[18px] text-foreground leading-[1.25] tracking-[-0.01em]">
+              {issueSource.url ? (
+                <a
+                  className="no-underline transition-colors hover:text-brand"
+                  href={issueSource.url}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {issueSource.title}
+                </a>
+              ) : (
+                issueSource.title
+              )}
+            </div>
+            <div
+              className="mt-3.5 font-mono text-[10px] uppercase tracking-[0.16em]"
+              style={{ color: meta.color }}
+            >
+              ● {issueSource.touched}{" "}
+              {issueSource.touched === 1 ? "note" : "notes"} touched here
+            </div>
+          </aside>
+        ) : null}
+        {!issueSource && leadSource ? (
           <aside
             className="pt-1 pl-5 md:col-start-2 lg:col-start-auto"
             style={{ borderLeft: `2px solid ${meta.color}` }}
