@@ -57,5 +57,45 @@ jobs:
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: apps/blog/out
+      - name: Wait for Pages artifact visibility
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        timeout-minutes: 3
+        with:
+          script: |
+            // deploy-pages v5 lists this internal service; REST visibility is insufficient.
+            const token = process.env.ACTIONS_RUNTIME_TOKEN;
+            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+            const scope = claims.scp.split(' ').find(value => value.startsWith('Actions.Results:'));
+            const parts = scope?.split(':');
+            if (parts?.length !== 3 || !parts[1] || !parts[2]) {
+              throw new Error('Missing artifact service backend IDs');
+            }
+            const url = new URL(
+              '/twirp/github.actions.results.api.v1.ArtifactService/ListArtifacts',
+              process.env.ACTIONS_RESULTS_URL
+            );
+            const body = JSON.stringify({
+              workflow_run_backend_id: parts[1],
+              workflow_job_run_backend_id: parts[2]
+            });
+            for (const delay of [0, 1, 2, 4, 8, 16, 32]) {
+              if (delay) await new Promise(resolve => setTimeout(resolve, delay * 1000));
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body,
+                signal: AbortSignal.timeout(10000)
+              });
+              if (!response.ok) throw new Error(`Artifact lookup failed: HTTP ${response.status}`);
+              const data = await response.json();
+              const count = (data.artifacts ?? []).filter(artifact => artifact.name === 'github-pages').length;
+              if (count === 1) {
+                core.info('Pages artifact is visible to the deployment service');
+                return;
+              }
+              if (count > 1) throw new Error(`Multiple Pages artifacts found: ${count}`);
+              core.info('Pages artifact is not visible yet');
+            }
+            throw new Error('Pages artifact remained unavailable after 7 lookups and 63 seconds of backoff');
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
