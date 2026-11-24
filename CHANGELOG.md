@@ -1,3 +1,8 @@
+# [v2.41.1](https://github.com/howard86/howardism/compare/v2.41.0...v2.41.1) (2026-11-24)
+
+## 🐛 Bug Fixes
+- [`64c5d17f`](https://github.com/howard86/howardism/commit/64c5d17f)  fix(ci): wait for Pages artifact deployment visibility
+
 # [v2.41.0](https://github.com/howard86/howardism/compare/v2.40.1...v2.41.0) (2026-11-24)
 
 ## ✨ New Features
