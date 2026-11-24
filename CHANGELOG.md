@@ -1,3 +1,8 @@
+# [v2.40.1](https://github.com/howard86/howardism/compare/v2.40.0...v2.40.1) (2026-11-24)
+
+## 🐛 Bug Fixes
+- [`08947407`](https://github.com/howard86/howardism/commit/08947407)  fix(deps): set the PR limit on the multi-ecosystem group
+
 # [v2.40.0](https://github.com/howard86/howardism/compare/v2.39.2...v2.40.0) (2026-11-24)
 
 ## ✨ New Features
