@@ -1,3 +1,9 @@
+# [v2.40.0](https://github.com/howard86/howardism/compare/v2.39.2...v2.40.0) (2026-11-24)
+
+## ✨ New Features
+- [`39280fa0`](https://github.com/howard86/howardism/commit/39280fa0)  feat(cli): verify the Vercel fallback export 
+- [`b6b559af`](https://github.com/howard86/howardism/commit/b6b559af)  feat(cli): drop build noise from the export size report
+
 # [v2.39.2](https://github.com/howard86/howardism/compare/v2.39.1...v2.39.2) (2026-11-23)
 
 ## 🐛 Bug Fixes
