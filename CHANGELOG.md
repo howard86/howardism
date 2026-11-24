@@ -1,3 +1,14 @@
+# [v2.41.0](https://github.com/howard86/howardism/compare/v2.40.1...v2.41.0) (2026-11-24)
+
+## ✨ New Features
+- [`89dab483`](https://github.com/howard86/howardism/commit/89dab483)  feat(article-contract): add the release-history content manifest 
+- [`0fbeaef5`](https://github.com/howard86/howardism/commit/0fbeaef5)  feat(cli): record release history with content:history 
+- [`919020ff`](https://github.com/howard86/howardism/commit/919020ff)  feat(blog): read release history in the article service 
+- [`f93a964e`](https://github.com/howard86/howardism/commit/f93a964e)  feat(blog): redesign the homepage around the latest release 
+
+## 🔒 Security Issues
+- [`e650b549`](https://github.com/howard86/howardism/commit/e650b549) ️ fix(docs): escape the stored tweak choice in the prototype panel
+
 # [v2.40.1](https://github.com/howard86/howardism/compare/v2.40.0...v2.40.1) (2026-11-24)
 
 ## 🐛 Bug Fixes
